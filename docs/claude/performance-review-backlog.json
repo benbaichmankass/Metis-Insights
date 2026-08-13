@@ -1344,12 +1344,21 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only."
+        },
+        {
+          "disposition": "kept_open",
+          "evidence_based": true,
+          "note": "MEASURED — and the read changes HOW this row must be resolved, which is worth more than the partial numbers.\n\nQueried trades @ strategy_name=eth_pullback_2h (diag #8986; truncated at 13,750 of 182,427 bytes — newest rows only, so NO expectancy is computed here: that needs the full population and this page has an unstated denominator).\n\nTHE BLOCKER THIS EXPOSES: the closed bybit_1 rows this row wants to compare against the k-fold expectation carry MANUFACTURED exit prices. Row 4571 (bybit_1, 33.06 ETH, pnl -680.04) closed `netting_attributed` with notes `exit_price_source: candle_at_close`, `netting_anchor_basis: divergence_first_observed`, `pnl_source: local_compute`. Under src/runtime/provenance.py that is ESTIMATED, not MEASURED. Row 4572 (bybit_2 real money, -2.31) is the same shape.\n\nSo 'compare realised expectancy against the k-fold expectation' cannot be done on raw `pnl` without reporting the provenance split — an expectancy summed over anchored-estimate exits, compared against a backtest expectation, is the fabricated-number trap this repo has a canonical rule about, and the answer would be quoted as if measured. The comparison must state pnlCoverage / totalPnlMeasured beside the raw figure, or abstain.\n\nAlso seen: `reentry_suppressed_netting_guard:increase` (id 4573) and an `intent_reduce` row (4133) consuming five parents — the leg is active and its rows are being attributed, not stranded.",
+          "next_check": "Use /api/bot/performance perStrategy for eth_pullback_2h and read totalPnlMeasured + pnlCoverage + pnlEstimatedCount TOGETHER, not raw totalPnl. If coverage is near zero the honest disposition is that the soak cannot grade this leg yet — which is itself a decidable outcome.",
+          "at": "2026-08-13T10:05:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
         }
       ],
       "tier": 1,
       "severity": "low",
       "disposition": "do_now",
-      "next_action": "NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only."
+      "next_action": "NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only.",
+      "updated_at": "2026-08-13T10:05:00+00:00"
     },
     {
       "id": "PB-20260611-M15-3",
@@ -1430,12 +1439,21 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. The flap mechanism is fixed; the residual FACTUAL question is answerable in one call. Read /api/diag/exchange_positions?account_id=ib_paper (broker truth, opens no order path): if the stray 3-contract MHG position from trade #2539's Error-10349 desync is gone, close with the evidence; if still there, reconcile open journal row #2575 against it."
+        },
+        {
+          "disposition": "kept_open",
+          "evidence_based": true,
+          "note": "MEASURED, and it REFRAMES the row rather than closing it. /api/diag/exchange_positions?account_id=ib_paper at 2026-08-13T10:00:22Z returned a COMPLETE, untruncated read with error:null — so this is 'we looked', not 'we could not look':\n  MGC long size=105.0 entry=4276.236 unrealised_pnl=null\n  MES long size=15.0  entry=7630.872 unrealised_pnl=null\n\nThe row asked whether the stray THREE-contract MGC position from trade #2539's Error-10349 desync is gone. MGC is emphatically NOT flat — but the question AS POSED is no longer answerable, and that is the finding. The broker reports ONE netted MGC position of 105 contracts; a 3-contract stray cannot be identified inside a netted total, so neither 'it is gone' nor 'it is still there' can be asserted from this read. Closing on 'MGC is non-flat' would be asserting more than was measured.\n\nREFRAMED to a question that CAN end: does the ib_paper journal's open rows sum to the broker's 105 MGC / 15 MES? That is the same divergence shape as the netting work (journal 2075.2 vs exchange 4.6 on bybit_1 SOLUSDT), it has an observable answer, and it subsumes the original question — if the sums reconcile, no stray is unaccounted for.\n\nNOTE unrealised_pnl is null on BOTH legs. That is the documented readonly-IB path (reqPositions() carries no unrealizedPNL — BL-20260706-IBACCTUPDATES-COLLISION), i.e. the honest 'not measured', NOT a zero. Do not read it as flat P&L.",
+          "next_check": "Compare SUM(position_size) of open ib_paper journal rows per symbol against broker 105 MGC / 15 MES. Reconciles ⇒ close; diverges ⇒ that divergence is the real row.",
+          "at": "2026-08-13T10:05:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
         }
       ],
       "tier": 1,
       "severity": "low",
       "disposition": "do_now",
-      "next_action": "The flap mechanism is fixed; the residual FACTUAL question is answerable in one call. Read /api/diag/exchange_positions?account_id=ib_paper (broker truth, opens no order path): if the stray 3-contract MHG position from trade #2539's Error-10349 desync is gone, close with the evidence; if still there, reconcile open journal row #2575 against it."
+      "next_action": "The flap mechanism is fixed; the residual FACTUAL question is answerable in one call. Read /api/diag/exchange_positions?account_id=ib_paper (broker truth, opens no order path): if the stray 3-contract MHG position from trade #2539's Error-10349 desync is gone, close with the evidence; if still there, reconcile open journal row #2575 against it.",
+      "updated_at": "2026-08-13T10:05:00+00:00"
     },
     {
       "id": "PB-20260616-001",
@@ -1888,11 +1906,20 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. NOT blocked — all six cells still routed (accounts.yaml alpaca_paper carries gld/slv/spy/qqq/tlt/uso _1h) and the account is live paper, so ~54 days of US RTH sessions have passed. Query /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true for the six _1h cells: confirm a clean closed-1h-bar entry + bracket fill, or escalate the specific defect. Either they filled (close it) or they did not, which is itself the defect being watched for."
+        },
+        {
+          "disposition": "kept_open",
+          "evidence_based": true,
+          "note": "MEASURED, close but NOT closed on the criteria as written.\n\nQueried trades @ account_id=alpaca_paper (diag #8986; page truncated at 13,750 of 174,237 bytes, so this is the NEWEST rows only — an unstated denominator, hence no rate claim below).\n\nTHE POSITIVE: `slv_trend_1h` id 4549, 2026-08-10T18:36Z — status OPEN, position_size 310.0, entry 59.15, stop_loss 58.109, take_profit_1 65.006. So an intraday ETF `_1h` cell DID produce a live paper entry with bracket LEVELS on alpaca_paper. That is most of what this row was watching for.\n\nWHY IT DOES NOT CLOSE: the criteria say entry + BRACKET FILL, and `sl_order_id` / `tp_order_id` are both NULL on that row — so broker-side bracket placement is not CONFIRMED by this evidence, only the levels the bot chose. Closing on the levels would be reading the bot's intent as the broker's state, which is the exact substitution the broker-side naked sweeps exist to catch.\n\nCO-FINDINGS in the same page, both already owned elsewhere — not re-filed:\n  * uso_trend_1h + tlt_pullback_1h rejected `risk_refused: sized_qty=0 with balance=85,949-86,382 available_usd=0.00` (2026-08-07). Already BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL.\n  * tlt_pullback_1h rejected x4 (08-11/08-12) `intent_noop:hold_to_bracket_reduce_non_derivative` — a DIFFERENT cause from the zero-buying-power one, and correctly journalled with a visible reason (so not the silent-stranding shape).",
+          "next_check": "Confirm broker-side bracket for a filled alpaca_paper ETF row via AlpacaClient.has_protective_orders / diag exchange_positions, OR find a row carrying non-null sl_order_id/tp_order_id. Either closes it.",
+          "at": "2026-08-13T10:05:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
         }
       ],
       "severity": "low",
       "disposition": "do_now",
-      "next_action": "NOT blocked — all six cells still routed (accounts.yaml alpaca_paper carries gld/slv/spy/qqq/tlt/uso _1h) and the account is live paper, so ~54 days of US RTH sessions have passed. Query /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true for the six _1h cells: confirm a clean closed-1h-bar entry + bracket fill, or escalate the specific defect. Either they filled (close it) or they did not, which is itself the defect being watched for."
+      "next_action": "NOT blocked — all six cells still routed (accounts.yaml alpaca_paper carries gld/slv/spy/qqq/tlt/uso _1h) and the account is live paper, so ~54 days of US RTH sessions have passed. Query /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true for the six _1h cells: confirm a clean closed-1h-bar entry + bracket fill, or escalate the specific defect. Either they filled (close it) or they did not, which is itself the defect being watched for.",
+      "updated_at": "2026-08-13T10:05:00+00:00"
     },
     {
       "id": "PB-20260620-002",

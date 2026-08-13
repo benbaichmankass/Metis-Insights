@@ -11675,9 +11675,17 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-13T10:05:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986",
+          "disposition": "kept_open",
+          "evidence_based": true,
+          "note": "STILL OCCURRING, and the id OVERSTATES it — 'REFUSES-ALL' is not true.\n\nFresh rows from trades @ account_id=alpaca_paper (diag #8986) confirm the condition is live: uso_trend_1h and tlt_pullback_1h both rejected 2026-08-07 with `risk_refused: sized_qty=0 with balance=85,949-86,382 available_usd=0.00 total_account_usd=n/a ... market_type=spot`. An $86k balance reporting $0.00 available is the defect, unchanged since filing.\n\nBUT the same page contains slv_trend_1h id 4549 (2026-08-10T18:36Z) FILLED at position_size 310.0 on the same account — so the account does NOT refuse everything, and a reader who trusts the id would conclude alpaca_paper is fully stranded when it is not. That matters for triage: a total refusal is a dead account, an intermittent one is a condition that comes and goes and needs its TRIGGER identified (buying-power recomputation timing, market_type=spot vs the SLV path, or a settlement window).\n\nKeeping the id (it is referenced elsewhere and renaming breaks the tracking-ref guard), but the resolution must explain the INTERMITTENCY, not just the zero. Population honesty: the page was truncated to the newest rows, so this is 'both states occur', NOT a rate.",
+          "next_check": "Establish the trigger: pull alpaca_paper rows with a single-path request (full budget) and split rejected-vs-filled by timestamp, symbol and market_type. A cell that fills on SLV but not USO/TLT points at the instrument path, not the account."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-13T10:05:00+00:00"
     },
     {
       "id": "BL-20260807-INSIGHTS-TABLES-92K-ROWS-IMPLAUSIBLE",

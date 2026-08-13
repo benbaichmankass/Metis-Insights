@@ -1267,11 +1267,20 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Build half already shipped and the whole chain verified (regime_alignment.py exists; strategy_signal_builders.py:379-387 calls load_regime_alignment_cached and passes regime_alignment; conviction_inputs.py:99-104 populates c_reg, weighted 0.15 in conviction.py:31). Only verification is outstanding: read /api/diag/log_file?name=conviction_sizing and confirm c_reg is populated (not None) and sane on cross-asset-covered symbols."
+        },
+        {
+          "disposition": "kept_open",
+          "evidence_based": false,
+          "note": "ATTEMPTED AND NOT SETTLED — recording the attempt rather than a conclusion.\n\nRead /api/diag/log_file?name=conviction_sizing&lines=150 (diag #8986). The log is present (376,700 bytes) and accruing. In the records I could actually see, the `decision` block carries action / conviction / risk_budget / risk_qty / desired / throttle / margin_cap / would_be_qty / risk_based_qty / no_trade_floor / market_type — and NO `c_reg` key, nor any per-lens breakdown.\n\nI am NOT concluding c_reg is unpopulated. The path was one of four in a batched request and was TRUNCATED by the even split of the comment budget: 77,488 of 91,238 bytes not shown. I saw roughly 8 of 150 requested lines, all dated 2026-07-27/28. Declaring absence from that is precisely the 'a search returning nothing is not proof of absence' error — the probe was never shown able to find a positive, and it had no denominator.\n\nWhat IS established: the log exists and is non-empty, so the verification is a read away and this row is not blocked on anything being built. It needs ONE single-path request (full comment budget) so the tail is not truncated.",
+          "next_check": "Single-path diag: log_file?name=conviction_sizing&lines=60 ALONE (not batched). Confirm whether c_reg appears and is sane on a cross-asset-covered symbol. Check conviction_arbitration too — c_reg may live there rather than in the sizing row.",
+          "at": "2026-08-13T10:05:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
         }
       ],
       "severity": "low",
       "disposition": "do_now",
-      "next_action": "Build half already shipped and the whole chain verified (regime_alignment.py exists; strategy_signal_builders.py:379-387 calls load_regime_alignment_cached and passes regime_alignment; conviction_inputs.py:99-104 populates c_reg, weighted 0.15 in conviction.py:31). Only verification is outstanding: read /api/diag/log_file?name=conviction_sizing and confirm c_reg is populated (not None) and sane on cross-asset-covered symbols."
+      "next_action": "Build half already shipped and the whole chain verified (regime_alignment.py exists; strategy_signal_builders.py:379-387 calls load_regime_alignment_cached and passes regime_alignment; conviction_inputs.py:99-104 populates c_reg, weighted 0.15 in conviction.py:31). Only verification is outstanding: read /api/diag/log_file?name=conviction_sizing and confirm c_reg is populated (not None) and sane on cross-asset-covered symbols.",
+      "updated_at": "2026-08-13T10:05:00+00:00"
     },
     {
       "id": "MB-20260618-XA-DAILYBUILD",
