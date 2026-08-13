@@ -4293,6 +4293,13 @@
           "disposition": "resolved",
           "evidence_based": true,
           "note": "FIXED (ict-trader-android#117). Verified still broken AND WORSE than filed before touching it: CandleChartWidget.kt:95 rendered `availableSymbols.forEach` into a single non-wrapping Glance Row, the refresh worker wrote the full uncapped union, and the state store applied no cap on read — ~20 instruments across 51 strategies against the 8-chip threshold this row names.\n\nFix is `visibleSymbolWindow()`: a window of 6 CENTRED on the selection and clamped at both ends, plus a `+N` chip stating the remainder. The centring is the actual fix — a naive take(6) would drop the SELECTED chip once it moved past index 6, leaving the widget charting a symbol with no visible way back, which is worse than clipping. The `+N` chip exists so the row cannot read as 'the roster IS this short' (an unasserted denominator in UI form).\n\nAlgorithm verified out-of-band across all seven cases (short roster, exactly-max, selection first / mid / near-end / last, and a stale selection absent from the roster): the selected symbol is visible in every case and the row is always full. NOT verified by a Kotlin unit test — the app module has no test source set (only core/data does), which is filed separately as BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET."
+        },
+        {
+          "at": "2026-08-13T11:50:00+00:00",
+          "by": "claude (system-audit-review-oy5kon)",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "CLOSURE IS NOW TRUE, NOT PENDING. ict-trader-android#117 MERGED as 8032c0c. The build ran on the exact commit carrying the widget change (7dd7ff5, pushed 09:14:35Z; build 09:14:45 -> 09:26:33Z) and passed, so the Kotlin compiles — this was the one thing the sandbox could not verify locally (no Android toolchain).\n\nWorth stating because the sequencing nearly went wrong: this row was marked resolved on the strength of a PR that was still open, and the operator then put the Android app ON ICE. Had the PR not been merged first, the row would have read `resolved` against a fix that never landed — a false record created by a scope decision rather than by an error."
         }
       ],
       "severity": "low",
@@ -13643,7 +13650,7 @@
     {
       "id": "BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT",
       "severity": "high",
-      "status": "open",
+      "status": "partially-resolved",
       "tier": 2,
       "area": "security/vm",
       "opened_at": "2026-08-13T09:40:00+00:00",
@@ -13659,6 +13666,15 @@
         "scripts/vm_bootstrap.sh:124-141",
         "docs/claude/vm-operator-mode.md:3-5",
         "PR #1933"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T11:40:00+00:00",
+          "by": "claude (system-audit-review-oy5kon)",
+          "disposition": "partially-resolved",
+          "evidence_based": true,
+          "note": "REPO SIDE DONE, VM SIDE PENDING A DISPATCH. Operator approved the split in chat 2026-08-13.\n\nShipped: deploy/ict-ufw.sudoers (the surviving ufw grant, on its own with its own justification); scripts/ops/purge_vm_runner.sh; the `purge-vm-runner` system-action registered in all three places in system-actions.yml + documented; the 5 dead deploy artifacts deleted; vm_bootstrap.sh repointed so a FRESH VM is never bootstrapped back into this state; the claude-vm-runner@.service exemption dropped from check_diag_unit_allowlist.py.\n\nSTILL OWED — the actual grant is still on the live VM. The purge script runs from the VM's clone of `main`, so the ORDER IS: merge the PR -> ict-git-sync lands it on the VM -> dispatch `purge-vm-runner` -> read its post-state block (it asserts all three artifacts absent, the new file present, and `sudo -n -l /usr/sbin/ufw` still resolving). Dispatching before the sync would fail on a missing script, which is safe but wastes a run.\n\nDO NOT close this row on the merge — the grant is removed when the action has RUN and its post-state check passed, not when the code that removes it lands."
+        }
       ]
     },
     {
@@ -13746,6 +13762,25 @@
         "core/data/src/test/kotlin/.../NotificationKindsTest.kt",
         "app/src/main/kotlin/.../widget/CandleChartWidget.kt::visibleSymbolWindow",
         "BL-20260611-SYM-2"
+      ]
+    },
+    {
+      "id": "BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",
+      "severity": "low",
+      "status": "open",
+      "tier": 1,
+      "area": "tooling/ops",
+      "opened_at": "2026-08-13T11:40:00+00:00",
+      "opened_by": "claude (system-audit-review-oy5kon)",
+      "title": "Eight operator-action scripts still guard against a claude-vm-runner that no longer exists",
+      "source": "Split out of BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT when the sudoers grant, wrapper and template unit were removed. Each script carries a defensive `if systemctl list-units 'claude-vm-runner@*.service' --state=active | grep -q .; then abort; fi` block: scripts/ops/restart_bot.sh:48, scripts/ops/pull_and_deploy.sh:63, scripts/ops/enable_m5_consumer.sh:55, scripts/ops/disable_m5_consumer.sh:42, scripts/ops/disable_closed_flat_invariant.sh:45, scripts/ops/disable_signal_dual_write.sh:37, scripts/ops/fix_data_dir.sh:94, scripts/deploy_pull_restart.sh:358.",
+      "why_it_matters": "Harmless in behaviour — with the unit gone the predicate can only ever be false, so no action can be wrongly deferred. It matters for READABILITY: eight scripts referencing a subsystem that does not exist is exactly the evidence that made the zombie read as alive to three months of consistency passes. The next audit will re-derive the same question from these greps.",
+      "action": "Remove the eight blocks and their surrounding comments. Deliberately NOT bundled with the sudoers split: editing eight operator-action scripts in the same PR as a live sudoers change trades a real risk (a typo in a script that restarts the trader) for a cosmetic gain. Do it as its own small PR where a mistake is obvious.",
+      "resolution_criteria": "`grep -rn 'claude-vm-runner' scripts/` returns zero hits outside purge_vm_runner.sh and its historical references, and every touched operator action still runs clean in a dry-run dispatch.",
+      "refs": [
+        "BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT",
+        "scripts/ops/purge_vm_runner.sh",
+        "PR #1933"
       ]
     }
   ],
