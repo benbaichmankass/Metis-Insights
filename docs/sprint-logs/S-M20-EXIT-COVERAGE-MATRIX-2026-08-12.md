@@ -1242,3 +1242,144 @@ Second time today a false alarm was caught before filing (the first: a claim the
 live exit head has no observability, retracted in PR #8942 once rotation
 explained it). Both were caught by re-reading the primary source instead of
 trusting my own note about it.
+
+---
+
+## §20 — a test fixture pinned to a literal date took the whole repo red
+
+Not M20 work. Recorded here because it blocked M20 (and everything else), and
+because the *shape* of it belongs beside §19's lesson about trusting a probe.
+
+### What happened
+
+At **2026-08-13T11:00:00Z** `main` went red on every branch: 7 of 11 cases in
+`tests/test_sweep_no_mark_fabrication.py`. Nothing had regressed. The fixture
+inserted its trade at a **literal** `created_at='2026-07-30T11:00:00Z'`, and
+`_sweep_local_pnl_for_unpriced` scans a **rolling** window:
+
+```sql
+AND datetime(created_at) >= datetime('now', '-14 days')
+```
+
+Fourteen days later **to the minute**, the row aged out. Measured at the time of
+diagnosis, cutoff `2026-07-30 11:07:32`:
+
+```
+sqlite3: datetime('2026-07-30T11:00:00Z') >= datetime('now','-14 days')  ->  False
+```
+
+### Probe error #11 — I nearly filed this against the wrong session's PR
+
+My first hypothesis was the newest merge on `main` (#8964, `87af13f5`, the
+concurrent audit session), on **adjacency alone**: it was the most recent thing
+that landed and the failure was in a module I had not touched. I had the board
+comment half-composed.
+
+The bisect took two minutes and killed it:
+
+| commit | result |
+|---|---|
+| `87af13f5` (#8964) | 7 failed, 4 passed |
+| `f1e815aa` (#8978) | 7 failed, 4 passed |
+| `af9be482` (#8968) | 7 failed, 4 passed |
+| `80820f4e` (#8683) — **introduced the file** | 7 failed, 4 passed |
+
+plus the control: clean `origin/main` with local changes stashed → 7 failed, 4
+passed. **#8964 touches neither the test, the module, nor the source file.**
+
+This is the same error as §18's near-miss and probe error #10, in a third
+costume: *the most recent change is the cause* is as unreliable a heuristic as
+*the surrounding prose describes the number* or *my note says n=98*. In this
+costume it would also have cost someone else's time and credibility, not just
+mine.
+
+### The expensive half is the shape, not the outage
+
+An aged-out row makes the sweep scan **zero rows** and report
+`still_pending=0`, `declared_unmeasured=0`, `filled=0` — **byte-identical to a
+correct sweep over a clean book.**
+
+Three of the eleven cases assert only that something did *not* happen
+(`pnl is None`; `pnl_source != UNMEASURED_MARKER`). Those pass **vacuously** on
+an empty scan. They went red only because sibling cases happened to assert
+`== 1`. That is diagnostic-provenance **sub-class C** — an unasserted
+denominator reading as a clean negative — and the counterfactual is the point:
+**a file containing only absence-assertions would have gone quietly
+green-while-testing-nothing today, and stayed that way indefinitely.** The
+fabrication guard would have been decorative and CI would have said it was fine.
+
+### Fix (`43539b3f`) — both halves
+
+- Fixture timestamps are **relative** (`_stamp(hours_ago)`), 24h back:
+  deliberately inside the 14-day window **and** outside the 6h
+  `_LOCAL_PNL_BROKER_DEFER_MS` grace, so the row is eligible on both axes
+  regardless of how `ib_paper` resolves its broker reader.
+- `test_the_fixture_row_is_actually_inside_the_sweeps_scan_window` pins
+  `scanned == 1` as an explicit denominator and **names itself in its failure
+  message**, so a future expiry points at the fixture instead of sending someone
+  hunting a fabrication regression.
+- `test_the_denominator_check_can_fail` ages the row out on purpose — proving
+  the denominator guard has teeth (§19's rule: a guard that cannot fail proves
+  nothing) and reproducing this outage on demand.
+
+**13 passed** (was 7 failed / 4 passed).
+
+### What is NOT fixed — one instance, not the class
+
+`BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS` (medium, Tier 1).
+Its resolution criterion requires any future CI guard to be **demonstrated
+against this known instance** — revert the fixture to the literal, watch the
+guard fail — before it is trusted on unknown ones. A guard validated only on
+hypotheticals is the `new-table-wiring-guard` mistake.
+
+Scope of what *was* checked, stated so the gap is legible:
+
+- Source rolling-window predicates in SQL: exactly **two**, both in
+  `order_monitor.py` (`-7 days`, `-14 days`).
+- The `-7 day` sweep's four test modules are **green** as of 2026-08-13
+  (85 passed).
+- **NOT checked: Python-side rolling windows** (`timedelta(days=N)`), which are
+  far more numerous and have the identical failure mode. ~70 test files carry
+  literal `2026-xx` timestamps on `created_at`/`closed_at` rows.
+
+Reported to coordination board #6927 with the corrected attribution.
+
+---
+
+## §21 — the two blocked squeeze cells now carry a forward assessment
+
+`squeeze_breakout_4h` `exit_ladder` and `vol_trail` sat at
+`blocked:no_harness_levers` with AST-verified causes but no answer to the
+question a reader actually has next: **is building the missing lever worth it?**
+Now recorded on both cells, and labelled a **projection, not a verdict**.
+
+Low expected value, on three grounds — only the first two measured:
+
+1. **The fleet prior is weak.** The 2026-08-13 `vol_trail` sweep returned
+   exactly one candidate in six legs (`qqq_pullback_1h`, wf 6/6); banking is the
+   milestone-wide honest negative of memo §7.2 (45 rows). Neither is evidence
+   about *this* leg — the matrix `_doc` forbids an inherited verdict and the note
+   claims none — but a prior that weak is a poor reason to spend harness work.
+2. **The sample may not support a verdict even with the lever.** Deepest
+   recorded depth is **n=135 at 2900d** (`RESEARCH-RIGOR-STANDARD.md:94`; n=28 at
+   730d). A derived split lands the OOS base near the **25-trade floor** — the
+   same regime that returned `blocked:insufficient_oos_base_at_derived_split` for
+   iwm/splg. The plausible return on the work is *another blocked cell*.
+3. BTC 4h is the slowest cadence in the fleet, so accrual will not relieve (2).
+
+**A correction against myself:** I carried **n=98** for this leg from memory.
+The recorded figure is **n=135 / n=28**. Checked before writing rather than
+restated — the same failure mode as probe errors #8 and #10, caught this time
+*before* it reached an artifact.
+
+The OOS estimate is deliberately stated as a **range**, and explicitly as
+arithmetic on a recorded `n` rather than a run: `resolve_split` computes the
+real split, and probe error #8 was precisely this (I screened eligibility off
+matrix lifetime refs; the harness measured materially lower).
+
+Exit condition written down: a **measured** lifetime above ~2× the OOS floor at
+the split the harness actually derives — measured, not projected — or a fleet
+result that stops being a coin flip.
+
+Status values unchanged, so the roll-up is unmoved: **362/376 = 96.3%**
+headline, **36 open** on the done-condition. 48 matrix join/capital tests pass.
