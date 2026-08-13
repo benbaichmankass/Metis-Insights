@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-13T11:25:22+00:00",
+  "updated_at": "2026-08-13T11:33:08+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -13956,6 +13956,21 @@
       "evidence": "src/units/accounts/qty_legalize.py - clamp sets LegalizedQty.clamped=True.\nsrc/units/accounts/execute.py:1097 - the ONLY consumer of .clamped; emits logger.warning and writes back order['qty'] (the journal does record the sent qty - that part is fine).\ngrep: no outcomes import in execute.py; no counter, no soak row, no other .clamped reader.",
       "not_measured": "HOW OFTEN THE CLAMP ACTUALLY FIRES IN PRODUCTION IS UNKNOWN - not pulled this session. It may be rare enough not to matter. But the reason that question is hard to answer IS the gap: there is no counter and no soak row, so frequency cannot be read off any surface. Do not close this row on an assumption of rarity; measure it.",
       "resolution_criteria": "A venue-max clamp on a live order is observable WITHOUT reading journalctl: the clamp branch routes through outcomes.report(..., Level.WARNING) so it persists to outcomes.jsonl and appears as an operator_warning banner on /api/bot/notifications - verified by forcing one clamp (a test or a staged qty above a known cap) and observing the banner, not by inspecting the code. Additionally, the clamp RATE is readable over a window from some surface (a counter or soak row), so 'is this leg systematically under-sizing?' has an answer with a stated denominator."
+    },
+    {
+      "id": "BL-20260813-M20-VERDICTS-ON-DELETED-EVIDENCE",
+      "opened_at": "2026-08-13T11:55:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-13)",
+      "area": "research-integrity",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "title": "Two CLOSED M20 verdicts rest on an input file that no longer exists, and neither cell said so",
+      "source": "ict_scalp_mgc_15m carries honest_negative on BOTH stale_stop and giveback_stop, each citing the M27 config-exact sweep of 2026-07-28 over data/XAUUSD_15m_deep.csv (Dukascopy XAU 15m proxy, 178,953 bars, split 2025-07-01).\n\nThat file is GONE. The leg's OWN exit_ladder cell records a trainer probe (issue #8696, 2026-08-09) finding no MGC_* or XAUUSD_* file remaining - only GC_F_1d/GC_F_1h - and states outright that 'this leg's existing stale_stop/giveback_stop verdicts are also not currently reproducible'. So the fact was MEASURED and WRITTEN DOWN four days ago, in a DIFFERENT CELL of the same row, and neither affected cell carried any hint of it. A reader of the stale_stop cell had no path to the caveat.\n\nWHY IT MATTERS TO THE MILESTONE: honest_negative counts as CLOSED in BOTH the headline and the done-condition. M20 was therefore counting this leg as resolved on evidence nobody can reproduce, and would never revisit it - closed cells are not re-examined.\n\nNOT COVERED BY THE EXISTING EVIDENCE-VINTAGE WARNING. That warning concerns the un-modelled capped TP and explicitly EXCLUDES these legs ('the other 8 legs (scalp, fvg) place a real target their harness models'). It is also about STALE evidence; this is ABSENT evidence, a strictly stronger condition - a stale number can at least be re-derived.",
+      "action_taken": "Both cells annotated in place with the reproducibility caveat and a pointer to the probe. VERDICTS DELIBERATELY UNCHANGED: the sweep genuinely ran, on real data, and its numbers are recorded in full. Downgrading to pending because the input was later deleted would destroy real work AND would be a fabrication in the opposite direction - 'we never looked' is false. The honest state is a verdict that stands with its caveat attached.",
+      "not_measured": "WHETHER THE VERDICTS WOULD REPRODUCE is unknown - the sweep was not re-run this session. The caveat records irreproducibility, NOT that the numbers are wrong. Do not read it as doubt about the result.",
+      "remaining_work": "CLASS NOT SWEPT. Only this leg was checked, because its sibling cell happened to name the deletion. NOTHING systematically verifies that a closed M20 verdict's cited input still EXISTS, so other cells may rest on deleted files with no cell anywhere recording it. A matrix-wide audit (parse cited data/ paths out of every closed cell's ref, probe the trainer for each) is the actual fix and was not attempted.\n\nRestoring THIS one is cheap: the input is regenerable on a FREE GitHub runner via research-symbol-p0-build.yml (Dukascopy XAU) - no GPU, no Tier-3. Re-running the M27 sweep against a regenerated file either reproduces the numbers (drop the caveat) or does not (a finding in itself).",
+      "resolution_criteria": "EITHER (a) data/XAUUSD_15m_deep.csv is regenerated and the M27 sweep re-run for both levers, with the outcome recorded on each cell - reproduced (caveat removed) or not (verdict revised) - verified by the run artifact, not by asserting the file exists; OR (b) the matrix-wide audit above is run, its results recorded, and a guard added so a closed cell citing a data path that cannot be located is FLAGGED rather than counted silently as closed. (b) is the one that closes the class; (a) alone closes one instance and this row should then be narrowed to the class rather than closed."
     }
   ]
 }
