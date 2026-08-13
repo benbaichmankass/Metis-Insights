@@ -504,6 +504,29 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--family-dir", required=True,
                     help="E0 family dir containing rows.jsonl")
     ap.add_argument("--tf", required=True, choices=sorted(TF_S))
+    # 50 IS DERIVED, not a convention — basis:
+    # docs/research/M20-E1-block-size-derivation-2026-08-13.md (operator
+    # decision 2026-08-13: derive it and accept the answer, including stricter).
+    # Measured over 21 e1_report.json / 262 folds / 15 (family,tf) groups: the
+    # per-trade paired difference d_i = R_best_tau,i - R_actual,i has
+    # sigma_d ~ 0.747R (median) and a standardized effect delta ~ 0.105
+    # (median; FIVE of fifteen groups negative). A fold votes "beats" on
+    # sum(d_i) > 0, so P(correct vote) = Phi(sqrt(b) * delta) and
+    # b = (z_p/delta)^2 puts the 0.75-0.80 reliability band at 41-64 trades.
+    # 50 gives 0.771 and sits inside it.
+    #
+    # DO NOT TUNE THIS TO UNBLOCK LEGS. Modelling the whole gate (which needs
+    # >=2/3 of u folds, and u = floor(N/b)-1 shrinks as b grows) shows P_detect
+    # is NOT monotonic in b, and every apparent optimum lands on a u where 2/3
+    # is cheap to hit by luck -- N=98/b=20, N=200/b=50 and N=300/b=75 all carry
+    # a 50% single-condition false-positive rate. Maximising power over b
+    # therefore selects the settings easiest to pass BY CHANCE. The derivation
+    # also establishes that no b rescues a short leg: at N=98 the only
+    # gradeable options give either 0.49 power or that 50% FP rate.
+    #
+    # The measurement is biased in the model's favour (_best_tau is a max over
+    # ~7 arms), so 41-64 is a LOWER bound and the honest reading is
+    # "delta <= 0.105 typical".
     ap.add_argument("--min-fold-trades", type=int, default=50)
     ap.add_argument("--fold-mode", choices=["trades", "years"], default="trades",
                     help="How walk-forward TEST folds are cut. `trades` "
