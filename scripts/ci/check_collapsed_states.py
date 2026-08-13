@@ -104,6 +104,27 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "bybit_available.read_state",
+        "producer": "src/units/accounts/execute.py",
+        "consumer_token": r"\bread_linear_available_balance\b|\bavailable_margin\b|\bAVAILABLE_STATE_",
+        "states": ["venue_available", "deprecated_withdrawable", "unavailable"],
+        "why": (
+            "venue_available = the account-level totalAvailableBalance, the "
+            "only measured one; deprecated_withdrawable = a SUBSTITUTE (a "
+            "withdrawal-eligibility figure Bybit deprecated for UNIFIED "
+            "accounts in 2025-01) standing in for new-order margin; "
+            "unavailable = we COULD NOT LOOK, which is not 'the account has "
+            "no margin'. All three used to arrive at the sizer as one bare "
+            "Optional[float] with no log on either non-venue branch, so a "
+            "cap sized from total equity was indistinguishable from one sized "
+            "from broker truth — establishing which had happened on bybit_2 "
+            "took four diag pulls and a proof by contradiction, and still "
+            "could not separate the two non-venue branches. See "
+            "BL-20260701-BYBIT-AVAILABLE-FIELD and "
+            "BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",
