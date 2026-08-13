@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW.",
-  "updated_at": "2026-08-13",
+  "updated_at": "2026-08-13T06:35:00+00:00",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -332,7 +332,7 @@
       "strategy": "avax_pullback_2h",
       "symbol": "AVAXUSDT",
       "tf": "2h",
-      "execution": "live",
+      "execution": "shadow",
       "exploded_from": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
       "trail_geometry": {
         "status": "honest_negative",
@@ -365,7 +365,8 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
-      }
+      },
+      "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT."
     },
     {
       "strategy": "eth_pullback_prop_2h",
@@ -642,7 +643,7 @@
       "strategy": "fvg_range_15m",
       "symbol": "BTCUSDT",
       "tf": "15m",
-      "execution": "live",
+      "execution": "shadow",
       "trail_geometry": {
         "status": "blocked",
         "ref": "lever not applicable — fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary"
@@ -673,7 +674,8 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Column was ABSENT from this row entirely until 2026-08-09 (see the squeeze_breakout_4h note — the roll-up's denominator counted cells that did not exist). Verified by AST over the harness CLI: scripts/backtest_fvg_range.py has NO --trail-mult at all — this leg exits on exit_style/tp_r, not a trailing stop, so a vol-conditional TRAIL is structurally inapplicable, not merely un-built."
-      }
+      },
+      "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT."
     },
     {
       "strategy": "mes_trend_long_1d",

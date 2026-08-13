@@ -13283,8 +13283,28 @@
         "scripts/ml/train_exit_head.py:471 (--min-fold-trades 50)",
         "scripts/research/m20_fleet_exit_sweep.py (MIN_OOS_TRADES 25, the vol_trail/giveback half)"
       ]
+    },
+    {
+      "id": "BL-20260813-COVERAGE-MATRIX-EXECUTION-FIELD-DISAGREES-WITH-CONFIG",
+      "opened_at": "2026-08-13T06:35:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "m20-exit-refinement",
+      "title": "The coverage matrix's `execution` field -- which alone decides M20's done-condition denominator -- disagreed with config/strategies.yaml on 3 of 50 rows, and it conflates the strategy gate with whether the leg is routed to any account at all",
+      "source": "MEASURED 2026-08-13, matrix `execution` vs config/strategies.yaml (49 rows resolvable; the bundled row is not a leg):\n    avax_pullback_2h   matrix=live      config=shadow   -> inflated the denominator\n    fvg_range_15m      matrix=live      config=shadow   -> inflated the denominator\n    xauusd_trend_1h    matrix=disabled  config=live     -> excluded a declared-live leg\n\nThe first two are unambiguous and are FIXED here. The strategy-level gate is one of the two canonical execution gates (CLAUDE.md § 'The two execution gates'): `execution: shadow` logs order packages and NEVER sends a live order, whatever the account's `mode:`. `fvg_range_15m` is routed to real-money `bybit_2` and the shadow gate is precisely what stops it. The matrix's own `_doc` puts shadow rows outside the live-leg done-condition, so counting them was applying the matrix's rule to the wrong field.\n\nHEADLINE IMPACT -- and it is a PRECISION defect, not a large error. Measured three ways over the same file:\n    matrix `execution` (what was quoted)     47 legs  354/376 = 94.1%  22 pending\n    config strategy-gate                     46 legs  348/368 = 94.6%  20 pending\n    config gate AND routed to an account     45 legs  340/360 = 94.4%  20 pending\nThe percentage is stable at 94.1-94.6% under every definition, so no conclusion drawn from it was wrong. What WAS wrong is that two legs the milestone's own definition excludes were inside its done-condition. After the fix: 340/360 = 94.4%, done-condition 39 open (20 pending + 19 blocked), down from 42.\n\nTHE UNRESOLVED HALF -- `xauusd_trend_1h` is the interesting one. Config says `execution: live`, so a mechanical matrix<-config sync would ADD it to the done-condition. But it is routed to NO ACCOUNT (checked every entry in config/accounts.yaml, including the all-strategies wildcard), so nothing dispatches it and it cannot trade. The matrix's `disabled` is therefore MORE accurate than the config field alone -- while not being a value the two-gate vocabulary has. A blind sync would make this row worse, which is why this row is filed rather than the whole thing automated.",
+      "why_it_matters": "This single field decides which legs the milestone must close, so an error in it is an error in the milestone's definition of done -- not in a metric derived from it. And the failure mode is silent: every downstream tool reads the matrix's own field, so nothing cross-checks it against the config that actually governs execution.",
+      "proposed_fix": "DONE: `avax_pullback_2h` and `fvg_range_15m` set to `shadow` with a `_execution_note` recording why (field beats comment).\n\nOPEN: decide what `execution` in the matrix MEANS when a leg is declared live but routed nowhere, then enforce it. Tradeability is the conjunction of THREE facts -- account `mode`, strategy `execution`, and whether any account routes the leg -- and the matrix records one. Recommended: define the field as actual tradeability (gate AND routed), which yields 45 legs / 360 cells, and add a validator that recomputes it from config on every run rather than trusting the stored value. Note that a validator asserting matrix==config naively would FAIL on xauusd_trend_1h and be wrong to.",
+      "resolution_criteria": "CLOSE when the matrix's `execution` is DERIVED from config (strategy gate + routing) rather than stored independently, or a guard recomputes and compares it on every run with the unrouted-leg case explicitly handled. Correcting the two rows by hand -- which this row does -- does not close it: the next config change re-opens the same gap silently.",
+      "refs": [
+        "docs/research/exit-refinement-coverage.json (`_execution_note` on the two corrected rows)",
+        "config/strategies.yaml (execution: shadow on both) + config/accounts.yaml (xauusd routed nowhere)",
+        "CLAUDE.md § 'The two execution gates'",
+        "scripts/research/m20_coverage_rollup.py (reads the stored field)"
+      ]
     }
   ],
-  "updated_at": "2026-08-13T06:25:00+00:00",
+  "updated_at": "2026-08-13T06:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
