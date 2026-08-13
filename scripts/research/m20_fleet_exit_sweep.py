@@ -9,8 +9,15 @@ YAML params (donchian/atr/trail/min_conf/long_only/adx_min/pullback_frac...),
 then A/Bs the exit-lever cells (stale-stop, giveback-stop, trail +/-1) against
 the config-exact base:
 
-  1. IS/OOS split (--split, default 2025-07-01): a cell is a CANDIDATE only if
-     it beats base on net_R AND maxDD in BOTH windows.
+  1. IS/OOS split — PER-LEG and DERIVED by default (`--split-mode oos-trades`,
+     targeting `--split-target-oos` trades in OOS). `--split` is the fixed
+     calendar date used when `--split-mode=date`, and the FALLBACK when the
+     derivation cannot be satisfied; it is NOT the boundary by default. (This
+     line read "IS/OOS split (--split, default 2025-07-01)" until 2026-08-13,
+     which was accurate before `resolve_split` and then described an input that
+     had stopped governing — the same drift that left the workflow's own `split`
+     description naming a quantity it no longer controlled.) A cell is a
+     CANDIDATE only if it beats base on net_R AND maxDD in BOTH windows.
   2. Candidates go to a yearly walk-forward (2021..2026); PASS needs
      beats-or-ties base on net_R AND maxDD in >= 2/3 of usable folds.
 

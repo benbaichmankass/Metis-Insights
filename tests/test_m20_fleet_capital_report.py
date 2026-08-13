@@ -1086,3 +1086,83 @@ def test_a_multi_lever_drop_states_which_other_levers_the_base_was_missing():
     del doc["verdicts"]["trend_donchian_eth"]["declared_levers_dropped"]
     rows = [r for r in ce.rows_from_verdicts(doc, "run1") if r["kind"] == "cell"]
     assert rows[0]["base_missing_other_levers"] is None
+
+
+def _corpus_extract_module():
+    import importlib.util
+    from pathlib import Path as _P
+    p = _P(__file__).resolve().parents[1] / "scripts/research/m20_corpus_extract.py"
+    spec = importlib.util.spec_from_file_location("m20ce_split", p)
+    ce = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ce)
+    return ce
+
+
+def test_row_records_the_PER_LEG_split_not_the_absent_doc_level_one():
+    """A post-#8965 verdict carries its boundary per-leg; the row must say so.
+
+    `resolve_split` made the IS/OOS boundary per-leg, and the sweep stopped
+    writing a doc-level `split` — it writes `split_fallback_date`/`split_mode`/
+    `split_target_oos` at the top and the ACTUAL date inside each leg. The
+    extractor kept reading `doc["split"]`, so every row from such a run recorded
+    `split: null`.
+
+    That is not cosmetic. `trend_donchian_sol_prop` at the SAME tp_cap=0.099:
+    2026-08-10 (split 2025-07-01) gave IS 245 / OOS 65 and graded; 2026-08-13
+    (split null) gave IS 285 / OOS 24 and every cell came back
+    `insufficient_base`. The split alone crossed the 25-trade floor.
+    """
+    ce = _corpus_extract_module()
+    doc = {
+        "generated_at": "2026-08-13T12:47:00+00:00",
+        # No doc-level "split" — exactly what the sweep writes post-#8965.
+        "split_fallback_date": "2025-07-01", "split_mode": "oos-trades",
+        "split_target_oos": 25, "tp_cap_pct": 0.099,
+        "verdicts": {"trend_donchian_sol_prop": {
+            "proxy": False, "family": "donchian",
+            "split": "2024-11-02", "split_mode": "oos-trades",
+            "split_target_oos": 25, "split_lifetime_trades": 309,
+            "levers": {"vol_trail": [{"cell": "vt_hot80_t1.8", "verdict": "FAIL"}]}}}}
+    rows = [r for r in ce.rows_from_verdicts(doc, "run-x") if r["kind"] == "cell"]
+    assert len(rows) == 1
+    assert rows[0]["split"] == "2024-11-02", (
+        "the row recorded the doc-level split (absent -> None) instead of the "
+        "leg's own derived boundary — this is the null-split regression")
+    # The DERIVATION travels with it, so a thin OOS is attributable.
+    assert rows[0]["split_mode"] == "oos-trades"
+    assert rows[0]["split_target_oos"] == 25
+    assert rows[0]["split_lifetime_trades"] == 309
+
+
+def test_a_legacy_run_still_uses_the_doc_level_split():
+    """The negative control: pre-#8965 verdicts carry no per-leg split.
+
+    Without this, "read the per-leg value" could be implemented as "read ONLY
+    the per-leg value" and silently null every one of the 880+ legacy rows —
+    fragmenting them away from every future row on the merge key.
+    """
+    ce = _corpus_extract_module()
+    doc = {
+        "generated_at": "2026-08-10T22:38:10+00:00", "split": "2025-07-01",
+        "tp_cap_pct": 0.099,
+        "verdicts": {"trend_donchian_sol_prop": {
+            "proxy": False, "family": "donchian",
+            "levers": {"vol_trail": [{"cell": "vt_hot80_t1.8", "verdict": "FAIL"}]}}}}
+    rows = [r for r in ce.rows_from_verdicts(doc, "run-legacy") if r["kind"] == "cell"]
+    assert rows[0]["split"] == "2025-07-01"
+    assert rows[0]["split_lifetime_trades"] is None
+
+
+def test_the_split_is_part_of_the_merge_identity():
+    """Two runs of one cell at different boundaries are different measurements.
+
+    Pins why the null-split bug mattered beyond legibility: `measurement_key`
+    includes `split`, so a null one keys distinctly and the corpus keeps BOTH
+    rows for a single cell rather than superseding.
+    """
+    ce = _corpus_extract_module()
+    base = {"kind": "cell", "leg": "L", "cell": "c", "tp_cap_pct": 0.099}
+    assert ce.measurement_key({**base, "split": "2025-07-01"}) \
+        != ce.measurement_key({**base, "split": None})
+    assert ce.measurement_key({**base, "split": "2025-07-01"}) \
+        == ce.measurement_key({**base, "split": "2025-07-01"})

@@ -153,7 +153,37 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     """One row per (leg, cell), plus one per leg that produced no cells."""
     out: list[dict] = []
     gen = doc.get("generated_at")
+    # THE RUN-LEVEL split, which is now only the LEGACY location.
+    #
+    # PR #8965 made the IS/OOS boundary PER-LEG (`resolve_split`, so a leg's
+    # trade FREQUENCY stops deciding whether it can be graded), and the sweep
+    # stopped writing a doc-level `split` — it writes `split_fallback_date` /
+    # `split_mode` / `split_target_oos` here and the ACTUAL boundary inside each
+    # leg's verdict. This read was never updated, so every row produced by a
+    # post-#8965 run recorded `split: null`.
+    #
+    # MEASURED 2026-08-13, and it is not cosmetic. `trend_donchian_sol_prop` at
+    # the SAME tp_cap=0.099 across two runs:
+    #     2026-08-10  split=2025-07-01  IS 245 / OOS 65  -> is_oos_fail (graded)
+    #     2026-08-13  split=null        IS 285 / OOS 24  -> insufficient_base
+    # The split alone moved OOS from 65 to 24, under the 25 floor, turning every
+    # gradeable cell ungradeable. A reader comparing those rows would attribute
+    # the difference to the geometry, which is identical in both.
+    #
+    # Two consequences, both fixed by resolving per-leg below:
+    #   1. `measurement_key` includes `split`, so post-#8965 rows key on None and
+    #      never supersede their pre-#8965 counterparts — the corpus accumulates
+    #      duplicate measurements of one cell under two identities.
+    #   2. A row could not state its own boundary, so no verdict here was
+    #      reproducible. That is the same discipline `tp_cap_pct` /
+    #      `regime_router` / `fee_bps_roundtrip` are held to three lines down —
+    #      except those degrade because a field did not EXIST yet, whereas this
+    #      one degraded because the field MOVED.
     split = doc.get("split")
+    # HOW the boundary was chosen, carried so a verdict states its own
+    # derivation rather than leaving `split` to look like a free choice.
+    split_mode = doc.get("split_mode")
+    split_target_oos = doc.get("split_target_oos")
     # A run predating the field records None — NOT a default of the current
     # geometry, which would silently relabel a legacy no-TP measurement as
     # live-parity and merge two different books under one key.
@@ -247,8 +277,21 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
         # look like an ungradeable book — an OLD CORPUS and an UNPROFITABLE BOOK
         # would otherwise be indistinguishable, and only one of them is evidence.
         base_present = bool(base)
+        # PER-LEG boundary first, run-level only as the legacy fallback. A
+        # pre-#8965 verdict carries no per-leg `split` and correctly keeps the
+        # doc-level one; a post-#8965 verdict carries the real derived date.
+        leg_split = v.get("split") or split
         leg_common = {
-            "run_id": run_id, "sweep_generated_at": gen, "split": split,
+            "run_id": run_id, "sweep_generated_at": gen, "split": leg_split,
+            "split_mode": v.get("split_mode") or split_mode,
+            "split_target_oos": v.get("split_target_oos") or split_target_oos,
+            # WHY this leg's boundary is what it is. `resolve_split` falls back
+            # to the fixed date when a leg cannot support the target (a 33-trade
+            # leg giving 25 to OOS leaves 8 for IS), and it never does so
+            # silently — carrying the reason means a thin OOS is attributable to
+            # the leg's lifetime rather than read as a property of the cell.
+            "split_fallback": v.get("split_fallback"),
+            "split_lifetime_trades": v.get("split_lifetime_trades"),
             "tp_cap_pct": tp_cap, "leg": leg, "proxy": v.get("proxy"),
             # WHICH REGIME BOOK the base figures below describe. `narrower_live`
             # means the live gate refuses trades this base includes, so

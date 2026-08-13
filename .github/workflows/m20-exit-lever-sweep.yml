@@ -47,9 +47,15 @@ on:
         required: false
         default: ''
       split:
-        description: "IS/OOS split date. A cell is a candidate only if it beats base on BOTH sides."
+        description: "IS/OOS boundary DATE — but read split_mode first: under the default oos-trades mode this is only the FALLBACK, not the boundary. Set split_mode=date to make this the actual split."
         required: false
         default: '2025-07-01'
+      split_mode:
+        description: "How the boundary is placed. oos-trades (default) DERIVES a per-leg date targeting ~25 OOS trades, so a low-frequency leg is gradeable — the `split` input above is then only a fallback. date = the legacy fixed calendar split, and the ONLY way to reproduce or compare against a pre-2026-08-13 row."
+        required: false
+        type: choice
+        options: ['oos-trades', 'date']
+        default: 'oos-trades'
       fee_bps_roundtrip:
         description: "Roundtrip fee in bps. Empty = the harness default (7.5). Set 15 for the fee-SURVIVAL arm — SRQ-20260618-003 rejected the 5m scalp alts because they were +50R at 7.5bps and -38R at 15bps, and the entire corpus is 7.5bps, so that arm was unrunnable until now."
         required: false
@@ -256,6 +262,17 @@ jobs:
           MIN_CONF: ${{ inputs.min_confidence_override }}
           LEVERS: ${{ inputs.levers }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
+          # WHY this is plumbed (2026-08-13): the sweep's --split-mode
+          # defaults to `oos-trades`, so it DERIVES a per-leg boundary and
+          # `--split` is only the fallback. This workflow passed --split and
+          # never --split-mode, so a caller asking for 2025-07-01 silently got
+          # a derived date instead, and the corpus row could not say which
+          # (it recorded `split: null` until the extractor fix). Measured on
+          # trend_donchian_sol_prop at one tp_cap: derived OOS 24 vs fixed OOS
+          # 65, which crossed the 25-trade floor and turned every gradeable
+          # cell `insufficient_base`. Exposing the mode is what makes a
+          # pre-2026-08-13 row reproducible at all.
+          SPLIT_MODE: ${{ inputs.split_mode || 'oos-trades' }}
           WITHOUT: ${{ inputs.without_declared_levers }}
         run: |
           set -o pipefail
@@ -278,6 +295,7 @@ jobs:
             --data-dir sweep_data \
             --only "${LEG}" \
             --split "${SPLIT}" \
+            --split-mode "${SPLIT_MODE}" \
             --tp-cap-pct "${TP_CAP_PCT}" \
             ${FEE_BPS:+--fee-bps-roundtrip "${FEE_BPS}"} \
             ${MIN_CONF:+--min-confidence-override "${MIN_CONF}"} \
