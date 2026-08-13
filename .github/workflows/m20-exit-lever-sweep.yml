@@ -402,6 +402,8 @@ jobs:
             --in sweep_out \
             --corpus docs/research/m20-sweep-corpus.jsonl | tee extract.out
       - name: Commit the corpus
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -e
           git config user.name "github-actions[bot]"
@@ -431,6 +433,45 @@ jobs:
             echo "superseded rows that matched what was already recorded."
             exit 0
           fi
+          # WHERE the corpus lands. A sweep dispatched on the default branch
+          # cannot push its rows there: branch protection declines the write
+          # with `GH006 ... 3 of 3 required status checks are expected`, and a
+          # bare commit has no way to satisfy a required check. That is
+          # STRUCTURAL, not a race — so retargeting is the fix and retrying is
+          # not (see the push loop below).
+          #
+          # Measured 2026-08-12: four dispatches (runs 31647462929, 31648068353,
+          # 31648088122, 31648666524), 11 of 12 jobs green each, all ten legs
+          # swept, every artifact uploaded — and every row discarded at this one
+          # step. The sweep looked like it failed; it had actually succeeded and
+          # then thrown the evidence away, which is the more expensive shape
+          # because the compute is spent before the loss.
+          # Tracked as BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN
+          # (kept on ONE line: check_backlog_refs stops at the first
+          # non-alphanumeric, so a wrapped id resolves to nothing).
+          #
+          # So: a PR-branch dispatch pushes to its own branch as before; a
+          # default-branch dispatch is retargeted onto a corpus branch and opts
+          # into `claude-pr-automerge.yml` by touching its request file, which
+          # opens the PR and merges it on green. The corpus reaches `main` the
+          # way every other change does — through CI — rather than by weakening
+          # the protection that refused it.
+          TARGET="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          RETARGETED=0
+          if [ "$TARGET" = "${DEFAULT_BRANCH:-main}" ]; then
+            TARGET="claude/m20-sweep-corpus"
+            RETARGETED=1
+            echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — "
+            echo "routing the corpus to '$TARGET' for a CI-gated PR instead."
+            mkdir -p .github
+            {
+              echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
+              echo "Touching this file is the opt-in signal for claude-pr-automerge.yml;"
+              echo "its contents are ignored."
+            } > .github/pr-automerge-request
+            git add .github/pr-automerge-request
+          fi
+          echo "corpus target branch: $TARGET (retargeted=$RETARGETED)"
           # Message via a FILE, not an inline -m: the extractor's summary is
           # multi-line, and embedding it inline here breaks out of this block
           # scalar (which is a YAML parse error, not a runtime one — it fails
@@ -443,14 +484,77 @@ jobs:
             echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
           } > .commitmsg
           git commit -F .commitmsg
-          rm -f .commitmsg
+          # .commitmsg is deliberately NOT removed here — the re-derive path
+          # below reuses it after a hard reset. It is cleaned on the success
+          # exit, and it is untracked either way so it cannot reach a commit.
           # The branch may have moved while the sweep ran (hours, in the scalp
           # case). Rebase-and-retry rather than force: another session's commits
           # on this branch are not ours to discard.
+          #
+          # A rebase CONFLICT here is not a failure to recover from by hand —
+          # the corpus is append-only JSONL, so "both sides added rows" is the
+          # NORMAL concurrent outcome and the union of the two is the right
+          # answer. Re-running the extractor on top of their copy produces
+          # exactly that union, and `sweep_out/` is still in the workspace, so
+          # it costs nothing. Aborting instead would discard this run's rows for
+          # the same reason the push did.
+          rebase_onto_target() {
+            git ls-remote --exit-code --heads origin "$TARGET" >/dev/null 2>&1 || return 0
+            git pull --rebase origin "$TARGET" && return 0
+            echo "::notice::rebase conflicted on the corpus — re-deriving the "
+            echo "union from their copy rather than dropping this run's rows."
+            git rebase --abort || true
+            git fetch origin "$TARGET"
+            git reset --hard "origin/$TARGET"
+            python3 scripts/research/m20_corpus_extract.py \
+              --in sweep_out \
+              --corpus docs/research/m20-sweep-corpus.jsonl | tee extract.out
+            git add docs/research/m20-sweep-corpus.jsonl
+            # RE-CREATE, don't re-add. The `reset --hard` above drops a file
+            # that was staged-but-new from both the index and the worktree, so
+            # a bare `git add` here would fail on a path that no longer exists
+            # and the retargeted push would land WITHOUT its automerge opt-in —
+            # a corpus branch nobody opens a PR for, which looks like success.
+            #
+            # `if`, not `A && B`: under `set -e` a false test or a clean
+            # `--quiet` diff returns 1 and would abort the whole step.
+            if [ "$RETARGETED" = "1" ]; then
+              mkdir -p .github
+              {
+                echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
+                echo "Touching this file is the opt-in signal for claude-pr-automerge.yml;"
+                echo "its contents are ignored."
+              } > .github/pr-automerge-request
+              git add .github/pr-automerge-request
+            fi
+            if git diff --cached --quiet; then
+              echo "their copy already contains this run's rows"
+              return 0
+            fi
+            git commit -F .commitmsg
+          }
+          # `git commit` consumed .commitmsg above; keep it for the re-derive path.
           for i in 1 2 3 4; do
-            git pull --rebase origin "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" && \
-              git push origin HEAD:"${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" && exit 0
+            rebase_onto_target || true
+            if git push origin HEAD:"$TARGET" 2>push.err; then
+              rm -f .commitmsg push.err
+              echo "corpus pushed to $TARGET"
+              exit 0
+            fi
+            cat push.err
+            # A protected-branch decline is not a race. Retrying it four times
+            # with backoff burns two minutes to arrive at the same answer and,
+            # worse, reports the outcome as a flaky push — which is how this
+            # step's real cause stayed hidden across four runs. Fail loudly and
+            # immediately, naming the fix.
+            if grep -qiE 'GH006|protected branch' push.err; then
+              echo "::error::'$TARGET' is protected — a commit cannot satisfy "
+              echo "its required checks, so this push can never succeed. Rows "
+              echo "are NOT lost: re-dispatch from a claude/** branch, or let "
+              echo "the retarget path above route them through a PR."
+              exit 1
+            fi
             sleep $((2 ** i))
           done
-          echo "::error::could not push the corpus after 4 attempts"
+          echo "::error::could not push the corpus to '$TARGET' after 4 attempts"
           exit 1
