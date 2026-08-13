@@ -13686,7 +13686,7 @@
     {
       "id": "BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT",
       "severity": "high",
-      "status": "partially-resolved",
+      "status": "resolved",
       "tier": 2,
       "area": "security/vm",
       "opened_at": "2026-08-13T09:40:00+00:00",
@@ -13710,8 +13710,17 @@
           "disposition": "partially-resolved",
           "evidence_based": true,
           "note": "REPO SIDE DONE, VM SIDE PENDING A DISPATCH. Operator approved the split in chat 2026-08-13.\n\nShipped: deploy/ict-ufw.sudoers (the surviving ufw grant, on its own with its own justification); scripts/ops/purge_vm_runner.sh; the `purge-vm-runner` system-action registered in all three places in system-actions.yml + documented; the 5 dead deploy artifacts deleted; vm_bootstrap.sh repointed so a FRESH VM is never bootstrapped back into this state; the claude-vm-runner@.service exemption dropped from check_diag_unit_allowlist.py.\n\nSTILL OWED — the actual grant is still on the live VM. The purge script runs from the VM's clone of `main`, so the ORDER IS: merge the PR -> ict-git-sync lands it on the VM -> dispatch `purge-vm-runner` -> read its post-state block (it asserts all three artifacts absent, the new file present, and `sudo -n -l /usr/sbin/ufw` still resolving). Dispatching before the sync would fail on a missing script, which is safe but wastes a run.\n\nDO NOT close this row on the merge — the grant is removed when the action has RUN and its post-state check passed, not when the code that removes it lands."
+        },
+        {
+          "at": "2026-08-13T11:52:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), action #9003",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "RESOLVED ON A ROOT-VERIFIED POST-STATE (action #9003, exit 0). Every line checked as root:\n    [ok] absent  (verified as root): /etc/sudoers.d/claude-vm-runner\n    [ok] absent  (verified as root): /usr/local/bin/claude-vm-dispatch\n    [ok] absent  (verified as root): /etc/systemd/system/claude-vm-runner@.service\n    [ok] present (verified as root): /etc/sudoers.d/ict-ufw\n    [ok] ufw grant resolves — the #537/#542/#545 recovery path is intact\n\nTHE ANSWER TO THE OPEN QUESTION: the dead sudoers grant was GENUINELY ABSENT. It had already been removed (or was never installed on this box) before any of the three runs. So the split is complete and the ufw grant is preserved and confirmed working.\n\nWORTH RECORDING PRECISELY, because it is the uncomfortable part: run #8993's '[ok] absent' reached the RIGHT ANSWER BY AN INVALID METHOD. It could not read /etc/sudoers.d at all, so it would have printed exactly the same line had the grant been present. Being accidentally correct is not the same as being verified, and treating that run as evidence would have been wrong even though its conclusion happened to match. The row stayed open across two failed attempts for that reason, and that was the right call.\n\nTHREE ATTEMPTS, AND BOTH FAILURES WERE IN THE VERIFICATION RATHER THAN THE WORK — the install-first, verify-ufw, remove-last ordering meant nothing was ever removed on a failed run and the recovery path was never at risk:\n  #8993 unprivileged [ -f ] on a root-only dir -> false 'absent' for an unreadable path\n  #8997 `priv_exists \"$p\"; v=$?` aborted under set -e on the first non-zero (= genuinely-absent) return, before any post-state printed\n  #9003 root-privileged three-state check, set -e-exempt call form -> clean pass\n\nHardening that outlives this row: tests/ops/test_purge_vm_runner_reaches_post_state.py stubs sudo to force each of the three states and asserts the script reaches a TRUTHFUL post-state in every one, including that an UNDETERMINED path is never reported as a verified absence; and the exact set -e-aborting call form is pinned so it cannot be quietly restored.",
+          "next_check": "None — verified as root on the live VM, exit 0."
         }
-      ]
+      ],
+      "updated_at": "2026-08-13T11:52:00+00:00"
     },
     {
       "id": "BL-20260813-CRON-WORKFLOWS-FAIL-SILENTLY-ON-SCHEDULE-PATH",
