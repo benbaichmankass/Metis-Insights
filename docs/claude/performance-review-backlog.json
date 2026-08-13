@@ -401,7 +401,8 @@
           "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
           "disposition": "snoozed",
           "evidence_based": true,
-          "note": "SNOOZED until 2026-10-01. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: /api/bot/prop/fills shows >=10 closed ETH trades on breakout_1; compare realised vs the +$603/12mo EV projection and record keep/tune/drop per leg. breakout_1 is a manual-bridge account with no broker feed, so accrual is intrinsically slow and cannot be accelerated from a session."
+          "note": "SNOOZED until 2026-10-01. checked: src/prop/prop_reconcile.py\nWHY IT IS BLOCKED (substantiated, not asserted): The read path EXISTS (checked: src/prop/prop_reconcile.py, plus GET /api/bot/prop/fills) and can be queried today — the count is simply below the criterion's >=10-20 closed ETH trades. Accrual is intrinsically slow because breakout_1 is a MANUAL BRIDGE with no broker feed: fills enter only via operator report-back, so nothing in a session can speed it up.\nTRIGGER: /api/bot/prop/fills shows >=10 closed ETH trades on breakout_1; compare realised vs the +$603/12mo EV projection and record keep/tune/drop per leg. breakout_1 is a manual-bridge account with no broker feed, so accrual is intrinsically slow and cannot be accelerated from a session.",
+          "checked": "src/prop/prop_reconcile.py"
         }
       ],
       "severity": "medium",
@@ -446,7 +447,8 @@
           "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
           "disposition": "snoozed",
           "evidence_based": true,
-          "note": "SNOOZED until 2026-10-15. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: alpaca_live re-armed to mode:live (itself gated on the /performance-review portfolio-vs-bybit benchmark named in the account's own comment), plus >=30 TLT closed trades. Criterion is 'once live data accrues' and live TLT data stopped accruing when alpaca_live was shelved 2026-07-15."
+          "note": "SNOOZED until 2026-10-15. checked: config/accounts.yaml\nWHY IT IS BLOCKED (substantiated, not asserted): Not a tooling gap — an account-state one, and it is declared in config (checked: config/accounts.yaml, alpaca_live mode: dry_run, 'SHELVED to dry_run 2026-07-15, Tier-3 operator-directed'). tlt_pullback_1d therefore places no real-money order, so the in-sample TLT-only edge (17.60R -> 25.87R) has no live tape to be confirmed or refuted against.\nTRIGGER: alpaca_live re-armed to mode:live (itself gated on the /performance-review portfolio-vs-bybit benchmark named in the account's own comment), plus >=30 TLT closed trades. Criterion is 'once live data accrues' and live TLT data stopped accruing when alpaca_live was shelved 2026-07-15.",
+          "checked": "config/accounts.yaml"
         }
       ],
       "severity": "low",
@@ -1929,7 +1931,8 @@
           "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
           "disposition": "snoozed",
           "evidence_based": true,
-          "note": "SNOOZED until 2026-11-13. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: Perp funding z-score sustains an elevated regime (the M28 crypto-funding feature already computes funding z/extremes), then re-run scripts/backtest_funding_carry.py. Regime-dependent by nature — the 2023-24 edge decayed by 2025-26 and no work makes it actionable while funding is compressed."
+          "note": "SNOOZED until 2026-11-13. checked: scripts/backtest_funding_carry.py\nWHY IT IS BLOCKED (substantiated, not asserted): The harness EXISTS and has been run (checked: scripts/backtest_funding_carry.py; the funding feed is scripts/ml/fetch_funding_oi.py + scripts/pull_exchange_funding.py) — so the earlier phrasing 'cannot be produced from a session' was WRONG and is corrected here. Re-running it today is entirely possible and would simply re-measure a decayed edge. What cannot be produced from a session is the elevated-funding MARKET REGIME the edge needs; that is a property of the market, not of our tooling.\nTRIGGER: Perp funding z-score sustains an elevated regime (the M28 crypto-funding feature already computes funding z/extremes), then re-run scripts/backtest_funding_carry.py. Regime-dependent by nature — the 2023-24 edge decayed by 2025-26 and no work makes it actionable while funding is compressed.",
+          "checked": "scripts/backtest_funding_carry.py"
         }
       ],
       "severity": "low",

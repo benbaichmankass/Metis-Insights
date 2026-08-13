@@ -1525,7 +1525,8 @@
           "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
           "disposition": "snoozed",
           "evidence_based": true,
-          "note": "SNOOZED until 2026-09-15. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: The operator supplies the exchange history export (then a Tier-2 gated ingest with provenance), or explicitly declines. The 15 orphans (ids 990-1000, 1046-1048, 1454) are past Bybit's ~7-day closed-pnl retention and are PERMANENTLY unrecoverable via any API we control. AWAITING OPERATOR ANSWER — see the audit's ambiguous list."
+          "note": "SNOOZED until 2026-09-15. checked: scripts/ops/backfill_orphan_pnl.py\nWHY IT IS BLOCKED (substantiated, not asserted): The recovery tool EXISTS and is the right one (checked: scripts/ops/backfill_orphan_pnl.py, which already carries the sign-sanity guard). It cannot help here for a reason outside our code: the 15 rows (ids 990-1000, 1046-1048, 1454) are past Bybit's ~7-day closed-pnl retention, so the exchange no longer serves the records the tool would read. The missing input is a manual UI export only the operator can produce.\nTRIGGER: The operator supplies the exchange history export (then a Tier-2 gated ingest with provenance), or explicitly declines. The 15 orphans (ids 990-1000, 1046-1048, 1454) are past Bybit's ~7-day closed-pnl retention and are PERMANENTLY unrecoverable via any API we control. AWAITING OPERATOR ANSWER — see the audit's ambiguous list.",
+          "checked": "scripts/ops/backfill_orphan_pnl.py"
         }
       ],
       "severity": "medium",

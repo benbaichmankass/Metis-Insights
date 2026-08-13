@@ -1027,7 +1027,8 @@
           "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
           "disposition": "snoozed",
           "evidence_based": true,
-          "note": "SNOOZED until 2026-11-01. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: MB-20260604-002's capture decision lands under M30/M36-D and the microstructure feed has >=90 days accrued — then re-run the purged-CV f1_volatile check. Genuinely data-blocked; the head sits at research_only (pre-shadow) so it influences nothing meanwhile."
+          "note": "SNOOZED until 2026-11-01. checked: scripts/micro/microstructure_probe.py\nWHY IT IS BLOCKED (substantiated, not asserted): The probe tool EXISTS (checked: scripts/micro/microstructure_probe.py, alongside src/research/microstructure.py) — so this is NOT a tooling gap. What is absent is the live L2/microstructure FEED itself: the capture path is MB-20260604-002, now promoted to M30/M36-D, and no forward rows exist to re-fit on. The head sits at research_only (pre-shadow) so it influences nothing meanwhile.\nTRIGGER: MB-20260604-002's capture decision lands under M30/M36-D and the microstructure feed has >=90 days accrued — then re-run the purged-CV f1_volatile check. Genuinely data-blocked; the head sits at research_only (pre-shadow) so it influences nothing meanwhile.",
+          "checked": "scripts/micro/microstructure_probe.py"
         }
       ],
       "severity": "low",
@@ -1569,7 +1570,8 @@
           "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
           "disposition": "snoozed",
           "evidence_based": true,
-          "note": "SNOOZED until 2026-09-30. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: The retrained ETH regime head clears RG4 >=0.55 across thresholds (not knife-edge) on a matured soak; then the gated ETH A/B and the Tier-3 advisory proposal. Root-cause + replacement-head halves are DONE 2026-06-28; what is left is soak accrual."
+          "note": "SNOOZED until 2026-09-30. checked: scripts/ml/replay_pregate.py\nWHY IT IS BLOCKED (substantiated, not asserted): The gate tooling EXISTS and is runnable (checked: scripts/ml/replay_pregate.py, with scripts/ml/gate_check_candidates.sh) — running it today is possible and would score a thin soak, which is the failure mode RG4 exists to avoid. What is missing is live shadow ROWS for the retrained ETH head, and CLAUDE.md records ETH's 15m head as still shadow awaiting promotion.\nTRIGGER: The retrained ETH regime head clears RG4 >=0.55 across thresholds (not knife-edge) on a matured soak; then the gated ETH A/B and the Tier-3 advisory proposal. Root-cause + replacement-head halves are DONE 2026-06-28; what is left is soak accrual.",
+          "checked": "scripts/ml/replay_pregate.py"
         }
       ],
       "severity": "medium",
