@@ -431,3 +431,37 @@ by MERGING both versions, not picking one — theirs is richer on `offloop_hooks
 - `fetchby.*` needs a post-deploy read before the consumer-scoped TTL is decidable.
 - The fidelity trust-map re-run: excluded by construction, but no committed
   artifact exists so the recorded verdict could not be dated.
+
+### Day-3 addendum: the fetchby cut answered it, and removed the safe option
+
+`#8815` merged and deployed (trader restarted **06:21:38Z**). The consumer
+split, at `ticks_measured` **19** on that new process:
+
+| on-loop consumer | % of tick | % of fetch |
+|---|---|---|
+| `fetchby.signal_build` | 27.3 | **78.9** |
+| `fetchby.regime_bar_scoring` | 6.4 | 18.5 |
+| `fetchby.unattributed` | 0.9 | 2.6 |
+
+**The instrument validated itself:** `fetch.*` and `fetchby.*` are recorded
+independently and both sum to **34.6%** of tick — delta **0.0pp**.
+
+The cut existed to test one hypothesis: is there a consumer-scoped TTL that
+never touches an order's price? `regime_bar_scoring` is observe-only and dedups
+to closed bars, so a long TTL there is free. **The answer is no, not at a useful
+size.** The families cannot be multiplied (two cuts, not a joint distribution)
+but they bound: at least **63.3%** of fetch time is both `signal_build` and
+≥15m, and regime explains at most **21.9%** of the ≥15m cost. So the frames
+worth caching are largely the ones feeding `close.iloc[-1]` into entry geometry,
+and the cap trades cache hits against the price behind live orders with no side
+door. Prize if that trade is accepted: **19.8% of the tick** (1d+1h+4h+2h).
+
+Two things left explicit rather than glossed: `fetchby.strategy_monitor_loop`
+(off-loop, n=1120) is the largest fetch consumer by COUNT anywhere, so a TTL
+change reaches EXITS too; and nothing measures WHICH timeframes `signal_build`
+asks for — that needs a consumer×timeframe cross costing names against
+`_MAX_HOOK_NAMES`. Docs + backlog in **#8930**.
+
+**A tooling note for the next overnight session:** `send_later` clamped a
+requested 62-minute delay to **07:00Z** (~8h). It cannot carry an hourly
+cadence; background `sleep` timers can, and did.
