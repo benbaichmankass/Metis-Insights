@@ -87,9 +87,20 @@ touched, no Tier-3 change enacted.**
 - Whether a longer history actually yields the projected trades — the earlier
   regime need not signal at the recent rate. Every projection here applies a
   *recent* measured rate to *older* history and is labelled as such.
-- CI on PR #9048's current head: four checks read green on an **older** SHA
-  while `get_status` reports `total_count: 0` for `74fdbdde`. Re-dispatched;
-  not treated as green.
+- **CI attachment on PR #9048 is intermittent, and I mischaracterised it
+  twice before measuring.** What the run list actually shows: `pull_request`
+  runs fired and passed for the first four commits after the PR opened
+  (`f8f274ba`, `4c84c01c`, `9eee230e`, `74fdbdde`), then stopped from
+  `599885cd` (~19:00Z) onward — five consecutive commits with no
+  `pull_request` run while `get_status` reported `total_count: 0`. So it is a
+  real recurrence of `BL-20260730-PR-CI-NOT-ATTACHING`, but **not** the
+  "never attaches" I reported in two hourly pings, and my earlier reading of
+  "four green checks on a stale SHA" was a *correct* observation given a
+  *wrong* inference — I treated a lag as an absence, dispatched, and the
+  dispatch then looked like the fix. Green evidence on this branch comes from
+  the `workflow_dispatch` runs (`044afec3`, `74fdbdde`, `e43423cc` — all
+  success) plus a full local guard run before every push. The current head is
+  dispatched and not assumed green.
 
 ## Documentation Updated
 
