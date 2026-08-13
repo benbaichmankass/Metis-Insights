@@ -1367,6 +1367,12 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                     "refusing pre-flight."
                 )
             if float(_legal.qty) != float(order["qty"]):
+                # Captured BEFORE the write-back below, which overwrites
+                # order["qty"] with the legalized value — after that point the
+                # requested size is unrecoverable, and a clamp report that
+                # echoed the placed qty as the request would state that nothing
+                # was clamped.
+                _requested_qty = float(order["qty"])
                 # Same branching discipline: a CLAMP to the venue ceiling is not
                 # step alignment, and logging it as "(qtyStep=...)" would explain
                 # the change by a mechanism that did not cause it.
@@ -1377,6 +1383,54 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                         "cap rather than bounced by the venue)",
                         order["symbol"], order["qty"], _legal.venue_max, _legal.qty,
                     )
+                    # BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE.
+                    # The clamp turns a LOUD failure into a SILENT success: before
+                    # BL-20260810 an oversized order was bounced by the venue and
+                    # left an exchange_rejected row (which is how that bug was
+                    # found at all); now it succeeds at a smaller size than the
+                    # risk model asked for. The logger.warning above reaches
+                    # journalctl and nothing else — outcomes.jsonl is fed ONLY by
+                    # explicit report() calls, never by the logging framework — so
+                    # a leg that clamps routinely would be systematically
+                    # under-sizing with no signal on any operator surface, and the
+                    # R-metrics would be computed over risk the bot never took.
+                    #
+                    # WARN (not ERROR): the clamp is risk-REDUCING and the order
+                    # does go through, so this must not page. WARN persists to
+                    # outcomes.jsonl via _PERSIST_LEVELS and surfaces as an
+                    # `operator_warning` banner on /api/bot/notifications without
+                    # firing Telegram (_TELEGRAM_LEVELS is ERROR/CRITICAL only).
+                    # outcomes.report is per-fingerprint rate-limited, so a leg
+                    # clamping every tick collapses rather than spamming.
+                    #
+                    # Import locally + swallow: this sits in the live order path
+                    # and observability must never be able to break a placement.
+                    try:
+                        from src.runtime.outcomes import Level, report
+                        report(
+                            "submit_order",
+                            "venue_max_qty_clamped",
+                            level=Level.WARN,
+                            reason=(
+                                f"{order['symbol']} qty {_requested_qty} exceeds venue "
+                                f"maxOrderQty {_legal.venue_max} — order PLACED at the "
+                                f"cap {_legal.qty}, i.e. smaller than the risk model sized"
+                            ),
+                            symbol=order["symbol"],
+                            account_id=(
+                                account_cfg.get("account_id")
+                                or account_cfg.get("id")
+                                or "unknown"
+                            ),
+                            strategy=order.get("strategy"),
+                            requested_qty=_requested_qty,
+                            placed_qty=float(_legal.qty),
+                            venue_max=_legal.venue_max,
+                        )
+                    except Exception:  # noqa: BLE001
+                        logger.debug(
+                            "_submit_order: clamp outcome report failed", exc_info=True
+                        )
                 else:
                     logger.warning(
                         "_submit_order: aligning %s qty %s -> %s (qtyStep=%s)",

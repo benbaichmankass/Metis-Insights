@@ -260,7 +260,23 @@ def _warning_window_min() -> int:
 
 
 _WARN_MAX_BANNERS = 3
-_WARN_LEVELS = {"WARNING", "ERROR", "CRITICAL"}
+# BL-20260813-OPERATOR-WARNING-BANNER-CANNOT-MATCH-WARN. "WARN" is the string
+# the producer ACTUALLY writes: src/runtime/outcomes.py persists
+# ``record["level"] = level.value`` and ``Level.WARN.value == "warn"``. The
+# enum has exactly four members — info / warn / error / critical — and NO
+# "WARNING" member, so the original set could never match a single WARN row:
+# "warn".upper() == "WARN", which was absent here. Every Level.WARN outcome
+# (20 call sites in src/) was persisted to outcomes.jsonl by _PERSIST_LEVELS
+# and then silently dropped by this filter — the whole middle tier of the
+# banner contract, gone, while ERROR/CRITICAL kept working and made the
+# feature look healthy.
+#
+# "WARNING" is KEPT, not replaced: it costs nothing, and a set that accepts
+# only the spelling one particular producer happens to use is how this broke.
+# Match on the VALUE the producer writes, and do not re-derive that value from
+# the docs — CLAUDE.md's banner row says "WARNING" too, and it is describing a
+# level string that does not exist.
+_WARN_LEVELS = {"WARN", "WARNING", "ERROR", "CRITICAL"}
 
 
 def _tail_lines(path: Any, max_bytes: int = 65536) -> List[str]:
