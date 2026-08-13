@@ -831,3 +831,163 @@ def test_the_uncapped_entitlement_is_still_reported():
     assert out["allowed_d_max_dd_uncapped"] == 17.0
     assert out["allowed_d_max_dd"] == 10.0
     assert out["grant_ratio"] == 1.7
+
+
+# ---------------------------------------------------------------------------
+# THE LEVER-OFF ARM.
+#
+# The normal sweep is STRUCTURALLY unable to grade a SHIPPED lever: the shipped
+# lever is inside the config-exact base, so a cell reproducing it measures the
+# base against itself. Measured 2026-08-13 over the 860-row corpus, 31 rows are
+# exactly that — all-zero deltas, `gate_reason: tie_no_improvement`, wearing the
+# verdict labels `is_oos_fail` (27) and `insufficient_base` (4). Neither label
+# is true; no comparison happened. The arm inverts the base so the delta the
+# sweep already computes becomes a verdict on the shipped cell.
+# ---------------------------------------------------------------------------
+
+
+def test_dropping_a_declared_lever_removes_exactly_its_flags():
+    """OMITTED, never passed as a falsy value.
+
+    The harness reads an absent flag as "lever not armed"; an armed lever at a
+    degenerate threshold is a different book, so a 0/None would measure the
+    wrong thing while looking like the right one.
+    """
+    cfg = {"timeframe": "1h", "symbols": ["ETHUSDT"], "trail_mult": 3.0,
+           "atr_period": 14, "stale_exit_bars": 8, "stale_exit_below_r": 0.0,
+           "trail_vol_below_pctl": 0.1, "trail_vol_tight_mult": 2.5}
+    on = _mod.base_args("x", cfg, "donchian", "/tmp/x.csv", None)
+    off = _mod.base_args("x", cfg, "donchian", "/tmp/x.csv", None,
+                         without_declared_levers=frozenset({"stale_stop"}))
+    assert "--stale-exit-bars" in on and "--stale-exit-below-r" in on
+    assert "--stale-exit-bars" not in off and "--stale-exit-below-r" not in off
+    # No substituted value took its place.
+    assert "0" not in off and "None" not in off
+    # And the UNRELATED declared lever is untouched — dropping one lever must
+    # not quietly re-baseline the leg on every axis.
+    assert "--trail-vol-below-pctl" in off and "--trail-vol-tight-mult" in off
+    # Nothing else moved: the two arms differ by exactly those four tokens.
+    assert [t for t in on if t not in off] == [
+        "--stale-exit-bars", "8", "--stale-exit-below-r", "0.0"]
+    assert len(on) - len(off) == 4
+
+
+def test_lever_off_base_plus_the_shipped_cell_reproduces_the_lever_on_base():
+    """THE INVARIANT THE WHOLE ARM RESTS ON.
+
+    If base-OFF + the `shipped_*` cell is not byte-equivalent to base-ON, the
+    A/B is measuring the lever PLUS whatever else drifted, and the verdict would
+    be attributed to the lever. Asserted over every real leg that declares one,
+    not a fixture — a synthetic config cannot catch a threading gap in a family
+    branch nobody wrote a fixture for.
+    """
+    import yaml as _yaml
+    from pathlib import Path as _P
+    strategies = (_yaml.safe_load(
+        (_P(__file__).resolve().parents[1] / "config" / "strategies.yaml")
+        .read_text()) or {}).get("strategies") or {}
+    checked, bad = 0, []
+    for leg, cfg in strategies.items():
+        if not isinstance(cfg, dict):
+            continue
+        fam = _mod.classify(leg)
+        if fam is None:
+            continue
+        present = _mod.declared_levers_present(cfg)
+        if not present:
+            continue
+        checked += 1
+        drop = frozenset(present)
+        on = _mod.base_args(leg, cfg, fam, "/tmp/x.csv", None)
+        off = _mod.base_args(leg, cfg, fam, "/tmp/x.csv", None,
+                             without_declared_levers=drop)
+        extras = [t for _tag, _lev, e in
+                  _mod.cells_for(cfg, fam, without_declared_levers=drop) for t in e]
+        if sorted(off + extras) != sorted(on):
+            bad.append(leg)
+    # A probe that finds nothing proves nothing.
+    assert checked >= 10, f"only {checked} legs declare a lever — fixture is thin"
+    assert not bad, f"lever-OFF base + shipped cell != lever-ON base for: {bad}"
+
+
+def test_a_leg_that_declares_nothing_records_that_it_had_nothing_to_drop():
+    """"We removed it" and "there was nothing to remove" are different states.
+
+    A fleet run dropping `stale_stop` leaves a non-declaring leg's base
+    byte-identical to config-exact. Recording only the run-level request would
+    let that row read as a lever-OFF measurement of a lever that was never on.
+    """
+    cfg = {"timeframe": "1h", "symbols": ["BTCUSDT"], "trail_mult": 3.0}
+    assert _mod.declared_levers_present(cfg) == []
+    skipped = []
+    cells = _mod.cells_for(cfg, "donchian", skipped=skipped,
+                           without_declared_levers=frozenset({"stale_stop"}))
+    assert cells == []
+    assert skipped and "no_declared_lever_to_drop" in skipped[0]["reason"]
+    # The base is unchanged, so the row it produces IS a config-exact row.
+    assert (_mod.base_args("x", cfg, "donchian", "/tmp/x.csv", None)
+            == _mod.base_args("x", cfg, "donchian", "/tmp/x.csv", None,
+                              without_declared_levers=frozenset({"stale_stop"})))
+
+
+def test_the_arm_emits_only_shipped_cells_never_the_alternatives():
+    """An alternative cell measured against a mutated base answers a DIFFERENT
+    question than the same tag does in a normal run.
+
+    Two rows carrying one tag while measuring two books is the provenance
+    failure the run-level identity fields exist to prevent, so the arm withholds
+    the alternatives rather than relabelling them.
+    """
+    cfg = {"timeframe": "1h", "symbols": ["ETHUSDT"], "trail_mult": 3.0,
+           "stale_exit_bars": 8, "stale_exit_below_r": 0.0}
+    normal = [t for t, _l, _e in _mod.cells_for(cfg, "donchian")]
+    arm = [t for t, _l, _e in
+           _mod.cells_for(cfg, "donchian",
+                          without_declared_levers=frozenset({"stale_stop"}))]
+    assert "stale8_lt0R" in normal and "stale8_lt0R" not in arm
+    assert arm == ["shipped_stale_stop_8_0"]
+    assert all(t.startswith("shipped_") for t in arm)
+
+
+def test_trail_geometry_is_not_droppable():
+    """`trail_mult` is a continuous family parameter with no OFF state.
+
+    A trail-less donchian leg is a different strategy, not the same leg with a
+    lever off, so offering the drop would produce a base whose stop geometry is
+    undefined while looking like an ordinary arm.
+    """
+    assert "trail_geometry" not in _mod.LEVER_DECLARED_KEYS
+    cfg = {"timeframe": "1h", "symbols": ["BTCUSDT"], "trail_mult": 3.0}
+    off = _mod.base_args("x", cfg, "donchian", "/tmp/x.csv", None,
+                         without_declared_levers=frozenset({"trail_geometry"}))
+    assert "--trail-mult" in off
+
+
+def test_the_measurement_key_splits_on_what_was_dropped_not_what_was_asked():
+    """A run asking to drop `stale_stop` removes NOTHING from a leg that never
+    declared one — that leg measured the config-exact base and must MERGE with
+    config-exact rows, not fragment away from them.
+
+    And a missing field normalises to "nothing dropped": the flag did not exist
+    before the field did, so a legacy run provably carried every declared lever.
+    Known by construction, not assumed from a default.
+    """
+    import importlib.util
+    from pathlib import Path as _P
+    p = _P(__file__).resolve().parents[1] / "scripts/research/m20_corpus_extract.py"
+    spec = importlib.util.spec_from_file_location("m20ce", p)
+    ce = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ce)
+    base = {"kind": "cell", "leg": "L", "cell": "c", "split": "2025-07-01"}
+    legacy = ce.measurement_key(base)
+    asked_but_nothing_dropped = ce.measurement_key(
+        {**base, "without_declared_levers": ["stale_stop"],
+         "declared_levers_dropped": []})
+    really_dropped = ce.measurement_key(
+        {**base, "without_declared_levers": ["stale_stop"],
+         "declared_levers_dropped": ["stale_stop"]})
+    assert legacy == asked_but_nothing_dropped
+    assert really_dropped != legacy
+    # Argument order must not split a key.
+    assert ce.measurement_key({**base, "declared_levers_dropped": ["b", "a"]}) == \
+        ce.measurement_key({**base, "declared_levers_dropped": ["a", "b"]})
