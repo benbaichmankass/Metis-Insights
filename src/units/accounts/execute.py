@@ -875,7 +875,24 @@ def read_linear_margin_fields(client: Any) -> Tuple[Optional[dict], Optional[str
         # Every declared field appears, so a MISSING one is visibly null rather
         # than silently dropped — an absent key and a null value must not look
         # the same to the reader.
-        return {f: account.get(f) for f in _MARGIN_FIELDS}, None
+        out: dict = {f: account.get(f) for f in _MARGIN_FIELDS}
+        # The per-coin USDT block, VERBATIM and un-cherry-picked. Reported whole
+        # on purpose: the 2026-08-13 error that made this necessary was reading a
+        # KEY LIST and inferring that a present key carried a value — every
+        # account-level margin aggregate on bybit_2 turned out to be the empty
+        # string. Selecting fields here would reproduce that mistake one level
+        # down. Bounded so a venue that grows the schema cannot flood the payload.
+        coins = account.get("coin") or []
+        usdt = next(
+            (c for c in coins if isinstance(c, dict)
+             and (c.get("coin") or "").upper() == "USDT"),
+            None,
+        )
+        out["coin_usdt"] = (
+            {k: usdt[k] for k in sorted(usdt)[:24]} if isinstance(usdt, dict) else None
+        )
+        out["coin_count"] = len(coins)
+        return out, None
     except Exception as exc:  # noqa: BLE001
         return None, f"call raised: {type(exc).__name__}: {exc}"
 
