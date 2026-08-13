@@ -394,6 +394,155 @@ the previous ref names as its gate — that gap is real, unclosed, and not
 money-at-risk). `resolved-only` 324 → 325; headline unchanged at 346/376, both
 statuses being closed.
 
+### 11. The `symbol` fix was one of FOUR missing keys — and I reported it closed
+
+**This is the session's main methodological failure and it is worth the detail.**
+
+§10d closed with the trend/pullback attribution fix. The follow-up finding —
+three harnesses never emitted `symbol`, so `build_exit_head_dataset.py` dropped
+their rows — shipped as #8889, and I recorded it as resolved on the strength of
+the code landing.
+
+**It did not work.** The re-run at the merged sha returned *byte-identical*
+numbers: `trades_in 1332`, `skipped {no_candles: 697, unresolvable: 63}`, only a
+`pullback` family. The builder refuses a row missing **any of four** keys —
+`entry_time`, `exit_time`, `entry`, `sl` (`build_exit_head_dataset.py:193`) —
+and those three harnesses emitted only `entry_time`.
+
+Measured per emit file (1d round):
+
+| | rows | usable |
+|---|--:|--:|
+| 7 trend legs | 371 | **0** (`exit_time`/`entry`/`sl` missing on every row) |
+| 6 pullback legs | 578 | 578 |
+
+and `trades_in 1332 == 578 harness-usable + 754 live-usable`, which is the
+arithmetic proof the 371 **never entered the population**. So the causal story I
+had shipped — "every one landed in `no_candles`" — was also false: `no_candles`
+is a later stage they never reached. That claim came from a subtraction that
+happened to reconcile (`1332 − 697 − 63 = 572 =` the pullback count), and I put
+it in three source files as a comment. Corrected in all three (#8901).
+
+**Two diagnoses in a row were wrong the same way: reasoning from the NAME of the
+counter the survivors landed in.** What resolved it in one step was diffing the
+emitted key set against the family that *works*:
+
+```
+in PULLBACK but NOT in TREND : ['entry', 'exit_reason', 'exit_time', 'sl']
+in TREND but NOT in PULLBACK : []
+```
+
+`tests/test_harness_emit_schema.py` makes that permanent and **imports the
+requirement from the builder's own guard** rather than restating it — a
+hand-copied list would be a second definition free to drift, and the test would
+then pass while the builder rejected the rows. Verified non-vacuous: it fails on
+exactly the three broken harnesses at the pre-fix sha and passes on the two
+working ones.
+
+**Verified end-to-end after merge** (relay #8910): load went 578/949 → **949/949**
+(1d) and 1482/1992 → **1992/1992** (1h); `trades_in` +371 and +510, matching the
+trend counts exactly; and a donchian-side family exists for the first time in the
+harness's existence.
+
+### 12. Why a 100% drop of one family stayed invisible
+
+The load-stage `missing:*` counters that name the real cause were printed **only
+inside the `if not trades:` total-failure branch**. A *partial* drop — one family
+at 100%, another at 0% — is exactly what they exist to catch and exactly what
+they could not report. `build_report.json` therefore showed only the candle-stage
+counters, `trades_in` counted the survivors, and even the denominator gave
+nothing away.
+
+The instrumentation was added after the 2026-08-12 `ict_scalp` incident: it
+covered the failure that had already happened and not the one that had not.
+
+Now surfaced unconditionally as `skipped_at_load` + `rows_seen_at_load` +
+`rows_loaded_at_load`, kept **separate** from the candle-stage `skipped` —
+"rejected on shape" and "had no candles" are different failures with different
+fixes. Post-fix both reports read `skipped_at_load: {}`, and that empty dict is
+trustworthy **only** because the seen/loaded pair ships beside it and is equal.
+
+### 13. The 1d fleet cannot clear the E1 fold gate — and that is most of M20
+
+The 1d round loaded 568 healthy pullback trades and produced **zero** verdicts.
+`train_exit_head.py:471` skips a fold under `--min-fold-trades` (default **50**);
+the 19 per-calendar-year folds ran **12–42**. Zero could pass. (Folds sum to 548,
++20 in the never-tested first year = the 568 reported.)
+
+Pooling does not rescue it: `donchian` 1d ~23.2/yr, `pullback` 1d ~28.4/yr, every
+1d leg pooled ~47.5/yr — still short. 1h pullback is ~145/yr and grades without
+difficulty, which is why the scheme has looked healthy.
+
+**The reframing this forces.** Over the live-leg done-condition population:
+
+| lever | open 1d cells | why |
+|---|--:|---|
+| `exit_head_ml` | 16 | folds 12–42 vs 50 |
+| `vol_trail` | 7 | OOS n = 3,4,4,4,5,5,6 vs `MIN_OOS_TRADES` 25 |
+| `giveback_stop` | 2 | `insufficient_base` |
+
+**25 of the 42 open cells (59.5%) are the 1d fleet**, across three levers and
+three code paths, with one cause: a daily-bar leg produces 31–72 trades *total*
+over ~16–20 years against standards calibrated on intraday volume. Each cell is
+filed accurately, so the matrix presents 42 items of roughly equal weight when it
+is one item of weight 25 and seventeen others — and neither plumbing fix this
+session moves any of the 25.
+
+Left as an operator/research-design decision, not chosen in-session: picking a
+fold threshold ad hoc so cells go green is the cosmetic anti-pattern, and it
+changes the OOS reliability of every verdict the harness produces.
+
+Sibling fix shipped: the skip message named one condition for two predicates and
+quoted neither bound. Now `skipped — test 35 < 50 (--min-fold-trades)`. It earned
+its keep within the hour — the post-merge round output diagnoses itself.
+
+### 14. Pooling is the binding constraint on the 1h trend cells — measured, then demonstrated
+
+`family_of()` (dataset dir) and `classify()` (harness picker) are two independent
+string-matchers answering the same question; they **disagree on 24 of 55 legs
+(43.6%)**. Filed at 05:45 as deliberately-not-fixed, because changing the pooling
+unit changes every future verdict.
+
+Then measured what it costs:
+
+```
+slv_trend_1h  292 trades  -> folds clearing 50 ALONE: 0
+uso_trend_1h  218 trades  -> folds clearing 50 ALONE: 0
+POOLED        510 trades  -> 8 of 9 test folds clear
+```
+
+and the post-merge round **demonstrated** it rather than predicting it: each
+trend leg trained alone in its own dir, folds 11–38, all under 50, every family
+`folds=0`.
+
+**A correction I owe the record.** I told the board pooling the donchian side was
+"strictly additive — it cannot invalidate a recorded result". That is wrong:
+eight `trend_donchian*` legs already pool and carry verdicts, **three of them
+shipped and live since 2026-07-12**. Additive only for a round scoped to the
+currently-ungraded legs. Corrected on the board the same hour.
+
+### 15. A bundled matrix row survived the per-leg explosion
+
+`shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m,
+trend_donchian_1h, mgc_trend_1h, *_prop)` carried **one** set of 8 lever statuses
+for six named legs plus a wildcard — exactly
+`BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS`, which the 2026-08-09
+explosion was performed to eliminate.
+
+Two of the six also had their own rows and **disagreed** with it: `ict_scalp_5m`
+on **8 of 8** cells, `mgc_trend_1h` on 6 of 8. The matrix asserted two different
+things about one leg depending on which row you read.
+
+Removed those two from the label — both have per-leg evidence of their own, so
+the contradiction goes without inventing a status. The rest stays bundled
+deliberately: those statuses are fleet-level, and splitting them per-leg would be
+fabricating a verdict per cell.
+
+**No guard caught it** because `m20_coverage_rollup.py:306` scopes the
+leg-name-resolves check to `execution == "live"` rows — so it skips exactly the
+row whose identity is least resolvable. Proposed the all-rows invariant; did not
+ship a check that would go red on a known-unfixable row.
+
 ## Validation Performed
 
 **Tests** — 14 new tests in `tests/test_exit_head_per_leg.py`. **Each was
@@ -522,6 +671,33 @@ review:**
    design**, so this is a candidate to *judge*, not a pass to apply.
 
 Neither was applied. Both change live exit behaviour on real-money legs.
+
+3. **Five shipped exit levers measured net-negative out-of-sample** (all
+   paper/prop; `BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE`), largest
+   `trend_donchian_eth` `stale_stop` at −10.55R OOS on a 599/117 base.
+
+**Research-design decisions — ALSO QUEUED, and these two gate the milestone**
+
+These are not Tier-3 in the live-lever sense — nothing they touch is on the order
+path — but each changes the evidence standard behind every future verdict, so
+neither was chosen at 06:00 with the operator asleep.
+
+4. **The 1d fleet's evidence standard (§13).** 25 of the 42 open cells. The
+   options are not equivalent: (a) a different standard for daily bars
+   (multi-year folds / lower OOS floor / pooled OOS) — cost: 1d verdicts stop
+   being comparable to intraday ones, so the standard must be recorded on every
+   cell it grades; (b) an explicit terminal *"not gradeable at this standard"*
+   status, which makes the done-condition reachable honestly at the cost of
+   admitting 25 cells will never carry a verdict; (c) leave them open — the
+   current default, which quietly makes M20 unreachable while reading as "in
+   progress". **(c) is the only one nobody has chosen deliberately.**
+5. **The exit-head pooling unit (§14).** Pooling is the difference between a
+   verdict and no verdict for the 1h trend legs (0 folds alone, 8/9 pooled), and
+   per-leg attribution survives it because `per_leg_summary` already cuts inside
+   a pooled family. But it is **not** free: eight `trend_donchian*` legs already
+   pool and three carry shipped live heads, so a mixed round would change what
+   those train on. Needs to be per-round-scoped or an explicit per-family table,
+   not "make `family_of` match `classify`".
 
 **Blockers** — the 5m round is blocked on PR #8825 reaching the trainer.
 
