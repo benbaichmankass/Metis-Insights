@@ -3,6 +3,36 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE",
+      "opened_at": "2026-08-13T08:05:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "resolved",
+      "resolved_at": "2026-08-13T08:05:00+00:00",
+      "severity": "medium",
+      "tier": 1,
+      "title": "Four live env vars had no read surface — a new var can ship without being added to get_env.py's ALLOWED_KEYS, and nothing catches it",
+      "source": "FOUND BY HITTING IT. The Tier-3 write of CANDLE_CACHE_TTL_MAX_S (60 -> 300, #8949) was followed by the standard post-state verification via get-env (#8950), which FAILED: \"key 'CANDLE_CACHE_TTL_MAX_S' is not allowlisted\". The key had shipped in PR #8815 the same night without being added to ALLOWED_KEYS, so its first live write could not be read back.\n\nA sweep of the same class found 4 of 4 checked vars missing (measured against src/, not inferred):\n  CANDLE_CACHE_TTL_MAX_S       src/runtime/market_data.py   (mine, #8815)\n  EXIT_LOOP_DECOUPLE_DISABLED  src/main.py                  (M20 decouple, #8778)\n  EXIT_LOOP_INTERVAL_SECONDS   src/main.py                  (same)\n  EXIT_LOOP_STALE_SECONDS      src/runtime/exit_loop_health.py (same)\n\nSo this is not a one-off slip by one author — two separate PRs on two different nights each added live env vars and neither added the reader.",
+      "why_it_matters": "get-env exists precisely to close write-without-a-reader on order-path settings (BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC). The gap reopens silently every time a new var ships, and the failure only surfaces when someone tries to verify a write — i.e. AFTER the write is already live.\n\nEXIT_LOOP_DECOUPLE_DISABLED is the sharpest instance. It is a kill-switch whose set state makes exit_loop_health report `never_ran`, which that contract calls \"emphatically NOT healthy\" — and the decoupled exit loop is the one condition the liveness watchdog explicitly no longer covers. A set switch would have produced an unhealthy grade with no way to read back the cause.\n\nCANDLE_CACHE_TTL_MAX_S bounds how stale the price behind a live order may be, so it belongs in the \"reason this exists\" tier, not the cadence tier.",
+      "resolution_criteria": "All four keys present in ALLOWED_KEYS and returned by `get_env.py --list-keys`, with `--self-test` still PASS. Verified: 43 keys listed, all four confirmed present, self-test PASS (5 states incl. pending_restart and the two undetermined paths).",
+      "resolution": "RESOLVED same session. All four added with comments naming why each belongs. NOT resolved by this row and left open deliberately: nothing PREVENTS the next var from shipping without a reader — a guard would need to diff env-var reads in src/ against ALLOWED_KEYS, which is the provenance-consumer-guard shape applied to the ops read surface. Filed as its own item rather than folded in here, because 'we fixed the four we found' is not the same claim as 'this cannot recur'.",
+      "next_action": "See BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE for the recurrence half.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE",
+      "opened_at": "2026-08-13T08:05:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "Nothing prevents the next env var shipping without a get-env read surface — the recurrence half of the four found on 2026-08-13",
+      "source": "Split from BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE, which fixed the four instances found (CANDLE_CACHE_TTL_MAX_S, EXIT_LOOP_DECOUPLE_DISABLED, EXIT_LOOP_INTERVAL_SECONDS, EXIT_LOOP_STALE_SECONDS). Those came from TWO separate PRs on two different nights (#8815 and #8778), which is the evidence that it is a recurring class and not one author's slip.\n\nThe detection today was accidental: it surfaced only because a Tier-3 write happened to be followed by a post-state verification. A var that is never written from a session would sit unreadable indefinitely and nothing would say so.",
+      "why_it_matters": "This is provenance-consumer-guard's own shape applied one level up at the ops surface: a setting that can be WRITTEN but not READ is exactly the asymmetry that guard exists to catch in code, and the ops read surface has no equivalent. The cost is not hypothetical — CONVICTION_SIZING_ACCOUNTS is the recorded case where an EMPTY value meant EVERY account including real money and no surface could establish the live value (BL-20260810).",
+      "resolution_criteria": "A CI guard fails when a file under src/ reads an env var (os.environ.get / os.getenv) that is absent from get_env.py's ALLOWED_KEYS, with a declared exemption list for vars genuinely not worth a read surface (each exemption carrying a one-line reason, verified-not-presence-only in the style of collapsed-state-guard). The guard must ship with a self-test proving it FAILS on a planted unlisted var, and must state its denominator (vars scanned / listed / exempted) so a clean run is a measured clean rather than an empty scan.",
+      "next_action": "Model it on scripts/check_provenance_consumers.py, which already does writer-vs-consumer matching. Tier-1.",
+      "updates": []
+    },
+    {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
       "opened_at": "2026-08-12T22:55:00+00:00",
       "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",

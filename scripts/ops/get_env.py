@@ -114,12 +114,26 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED",
     "CROSS_ASSET_LIVE_DISABLED",
     "SIGNAL_DUAL_WRITE_DISABLED",
+    # Added 2026-08-13. `exit_loop_health` grades a set kill-switch as
+    # `never_ran`, which its own contract calls "emphatically NOT healthy" —
+    # but nothing could read the switch back to say WHY, and the decoupled exit
+    # loop is the one condition the liveness watchdog no longer covers.
+    "EXIT_LOOP_DECOUPLE_DISABLED",
     # --- Cadence / budget knobs (an unparseable one changes behaviour) ---
     "TICK_INTERVAL_SECONDS",
     "HEARTBEAT_INTERVAL_SECONDS",
     "TICK_COST_WRITE_SECONDS",
     "EXPOSURE_SOAK_SECONDS",
     "CANDLE_CACHE_TTL_FRACTION",
+    # Added 2026-08-13, and the reason is a miss worth naming: the MAX_S key
+    # shipped in #8815 WITHOUT being added here, so the very first Tier-3 write
+    # of it (#8949, 60 -> 300) could not be read back — a write-without-a-reader
+    # on an order-path value, which is the exact asymmetry this action exists to
+    # close. It bounds how stale the price behind a live order may be, so it is
+    # squarely in the "reason this exists" category, not a cadence nicety.
+    "CANDLE_CACHE_TTL_MAX_S",
+    "EXIT_LOOP_INTERVAL_SECONDS",
+    "EXIT_LOOP_STALE_SECONDS",
     "REGIME_BAR_SCORING_BUDGET_S",
     "ACCOUNT_REACHABILITY_CHECK_SECONDS",
     "TRAINER_HEARTBEAT_CHECK_SECONDS",
