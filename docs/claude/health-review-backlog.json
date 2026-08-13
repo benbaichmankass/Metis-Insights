@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-13T21:45:00+00:00",
+  "updated_at": "2026-08-13T22:10:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14143,8 +14143,14 @@
         "src/runtime/account_reachability_alert.py",
         "docs/claude/health-review-backlog.json#BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS"
       ],
-      "updates": [],
-      "updated_at": "2026-08-13T18:05:00+00:00"
+      "updates": [
+        {
+          "at": "2026-08-13T22:10:00+00:00",
+          "by": "claude (bybit-verification continuation session), diag #9082",
+          "note": "THE TITLE IS NOW TOO NARROW — a THIRD account outside Alpaca shows the identical symptom, which changes the diagnosis. Adding the observation rather than renaming the row; the owner of the fix should decide the final scope.\n\nGET /api/bot/notifications, live, 2026-08-13T22:04:27Z (diag #9082) carries an all_accounts_failed banner from 22:00:33Z:\n  Strategy mgc_trend_1h | Symbol MGC | Side sell | Accounts attempted 1 | Trades placed 0\n  ib_paper: sizing_failed: RuntimeError: balance() returned None for ib_paper (exchange=interactive_brokers): API error or credentia[...]\n\nThat is the SAME failure shape this row documents for alpaca_paper and alpaca_portfolio — balance() returning None, surfaced through a message blaming credentials — but on INTERACTIVE_BROKERS, a different client, different transport, different credential path. So the defect is very likely NOT inside AlpacaClient.balance(): either the shared coordinator balance path (coordinator.py::_default_balance_fetcher) is converting a per-client failure into a None, or the 'credentials missing - account unreachable' string is a generic wrapper applied regardless of the real cause. Action item (1) on this row — 'diff AlpacaClient.balance() against AlpacaClient.account_status()' — is still worth doing, but on this evidence it will not be the whole answer, and a fix scoped to the Alpaca client would leave the IB case live.\n\nRELATED, SAME READ: a monitor_blindness banner for ict_scalp_mgc_15m (pkg-dbcc140fd43c4a79) cites 'candles_unavailable for 3 consecutive ticks', and three operator_warning rows report transient_market_data_unavailable on MGC/MHG. All of it is IBKR-side and concurrent, so the balance() None on ib_paper may be one symptom of a broader IBKR data/connection problem in this window rather than an independent bug. Worth establishing which before attributing it — I did not, and am not asserting it.\n\nNOT INVESTIGATED FURTHER HERE: I own neither this row nor the IBKR window; recording the observation so the owner is not misled by the Alpaca-only framing. Separately noted against myself: rows 4629/4630 carrying this same balance()-None appeared in my own earlier read of this backlog and I classified them as off-path and moved on, which is how the wider pattern was nearly missed twice."
+        }
+      ],
+      "updated_at": "2026-08-13T22:10:00+00:00"
     },
     {
       "id": "BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE",
@@ -14176,7 +14182,7 @@
       "area": "observability/alerting",
       "severity": "high",
       "tier": "1",
-      "status": "resolved_pending_live_verification",
+      "status": "resolved",
       "title": "The operator_warning banner filtered on a level string the producer never writes — every Level.WARN outcome was persisted to outcomes.jsonl and then silently dropped, for ~5 weeks",
       "source": "MEASURED 2026-08-13 by executing the real producer enum against the real consumer set, while implementing BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE.\n\nPRODUCER — src/runtime/outcomes.py: `class Level(str, Enum)` has exactly FOUR members, info/warn/error/critical. There is no WARNING member. `_Reporter.emit` writes `record['level'] = level.value`, so a Level.WARN row lands in outcomes.jsonl as level='warn'. _PERSIST_LEVELS = {WARN, ERROR, CRITICAL}, so WARN rows ARE written.\n\nCONSUMER — src/web/api/routers/notifications.py:_recent_warning_banners: `lvl = str(r.get('level') or '').upper()` then `if lvl not in _WARN_LEVELS: continue`, with _WARN_LEVELS = {'WARNING','ERROR','CRITICAL'}.\n\n'warn'.upper() == 'WARN', which was NOT in that set. Executed proof:\n  warn      old_match=False  new_match=True\n  error     old_match=True   new_match=True\n  critical  old_match=True   new_match=True\n  info      old_match=False  new_match=False   (correctly still excluded)\n\n20 Level.WARN call sites exist under src/. All of them were invisible to the banner. The single grep hit for level='warning' is coordinator.py:2665 push_alert, which feeds the in-memory alerts queue, NOT outcomes.jsonl — so nothing anywhere produced the string the filter required.",
       "why_it_matters": "The WARN tier is the entire middle of the alerting contract: ERROR/CRITICAL also go to Telegram, so WARN is precisely the band whose ONLY operator surface is this banner. Losing it is silent by construction — ERROR/CRITICAL banners kept rendering, so the feature looked alive on every inspection.\n\nIt is also a textbook instance of two rules this repo already canonicalised, committed inside the alerting path itself: 'field beats comment' (CLAUDE.md's banner row ALSO said WARNING, so doc and code agreed with each other and both disagreed with the enum — agreement between two claims is not verification), and the unasserted-negative class (no test asserted a WARN row produces a banner; a test that fed 'WARNING' would have passed against a string production never emits).\n\nDirectly consequential: the venue-max-clamp fix filed as BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE specifies routing the clamp through outcomes.report(Level.WARN) so it reaches the banner. Shipped against the old filter that fix would have persisted correctly, rendered nothing, and closed on a code inspection.",
@@ -14189,7 +14195,15 @@
         "src/core/coordinator.py:2665 (the only level='warning' — push_alert, a different sink)",
         "docs/claude/health-review-backlog.json#BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE",
         "CLAUDE.md § Dashboard REST API, GET /api/bot/notifications row"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T22:10:00+00:00",
+          "by": "claude (bybit-verification continuation session), diag #9082",
+          "note": "LIVE-VERIFIED — status moves resolved_pending_live_verification -> resolved. This is an OBSERVATION on the live endpoint, not a code inspection, which is what the resolution_criteria demanded.\n\nGET /api/bot/notifications on the live VM at 2026-08-13T22:04:27Z (diag #9082), deployed git_sha da0d0728 (the merge of PR #9060), returned THREE banners with kind='operator_warning' and severity='warning':\n  transient_market_data_unavailable: mhg_pullback_1d  (21:07:53Z)\n  transient_market_data_unavailable: mgc_trend_1h     (21:04:36Z)\n  transient_market_data_unavailable: mgc_pullback_1d  (21:04:36Z)\neach with detail 'strategy_builder - exception'.\n\nWHY severity='warning' IS THE PROOF, and not merely consistent with it: _recent_warning_banners sets sev = 'alert' if lvl in (ERROR, CRITICAL) else 'warning'. So a row can only reach severity='warning' if its level passed the _WARN_LEVELS filter WITHOUT being ERROR or CRITICAL. Under the OLD set {'WARNING','ERROR','CRITICAL'} the only level that could do that was the literal 'WARNING' — a string the Level enum cannot produce. Therefore these three banners were UNREACHABLE before this fix. has_alerts:false confirms none of them is ERROR/CRITICAL.\n\nPRODUCER CONFIRMED AT THE CALL SITE: src/runtime/intent_multiplexer.py:507-514 emits exactly these rows with level=Level.WARN, and its own comment says they will be 'visible on the diag surface (outcomes.jsonl) + the operator_warning banner feed, just not an ERROR page'. That comment described an intent the code did not deliver for roughly five weeks. It does now.\n\nSCOPE, STATED HONESTLY: this verifies the CONSUMER (a WARN outcome now renders as a banner). It does not measure how many WARN rows were lost while the filter was wrong — that remains unmeasurable per not_measured, and no count should be quoted."
+        }
+      ],
+      "updated_at": "2026-08-13T22:10:00+00:00"
     }
   ]
 }
