@@ -620,6 +620,34 @@ review:**
   recording because the failure mode is a guard reporting on a population nobody
   asked about while naming the same flag as the one that scoped it correctly.
 
+### 16. Audited every data-availability claim in the matrix — the record holds
+
+Having found one false data claim (§15/§10d, `squeeze_breakout_4h`), I tested
+**all** of them rather than assuming that was the only one: every open cell whose
+ref makes a data claim, run through `resolve_data` itself.
+
+**Result: clean.** The four "needs native IBKR history" claims are correct —
+`mes_trend_long_1d` (MES→`ES_F_1d`), `mgc_pullback_1d` (MGC→`GC_F_1d`),
+`mhg_pullback_1d` (MHG→`HG_F_1d`) and `ict_scalp_mgc_15m` all return
+`proxy=True`, and the round driver refuses proxy data for head training by
+design. The scalp and equity legs return `proxy=False` and ARE runnable — and
+their refs say so, blocking on the E1→E2 **live arm** rather than on data. They
+surfaced here only because my keyword filter matched "native"/"history" in the
+prose.
+
+So the only false data claim was the one already corrected. Recording the
+negative result because *"we checked"* and *"nobody checked"* are different
+states, and this file is where the next session looks.
+
+**One error of mine, caught before it became a finding.** The probe reported
+`ict_scalp_5m` as *"genuinely no data"*. That is wrong: I passed `data/` as the
+data dir for every leg, and the scalp legs resolve from a different one — that
+leg produced 14,787 rows in the 5m round. **Implicit input selection**
+(CLAUDE.md § "Diagnostic provenance", sub-class B) — a default substituted for
+the declared input, in a probe written to audit exactly that class. The audit's
+other 17 answers are unaffected; those legs resolve from `data/`, which is what
+the sweep and the 1d/1h rounds pass.
+
 ### Gaps not yet verified
 
 - **The `ict_scalp` E1 round has NOT been re-run against the correct journal.**
