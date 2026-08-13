@@ -44,7 +44,17 @@
 #   - /etc/sudoers.d/ict-system-actions (the tiered-action grant, separate file)
 #   - Strategy params, accounts, risk caps, or any order-path file
 #
-set -uo pipefail
+# `set -e` is required by the operator-action wrapper conformance guard
+# (tests/ops/test_system_actions_workflow.py). The removal steps below are
+# each wrapped in an `if` so a failure is RECORDED and still reaches the
+# post-state assertion at the end, rather than aborting the script silently
+# before it can report what state the VM was actually left in.
+set -euo pipefail
+
+SCRIPT_NAME="purge_vm_runner"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ops/_lib.sh
+source "${SCRIPT_DIR}/_lib.sh"
 
 REPO_DIR="${REPO_DIR:-/home/ubuntu/ict-trading-bot}"
 OLD_SUDOERS="/etc/sudoers.d/claude-vm-runner"
@@ -53,7 +63,6 @@ NEW_SRC="${REPO_DIR}/deploy/ict-ufw.sudoers"
 DISPATCH="/usr/local/bin/claude-vm-dispatch"
 RUNNER_UNIT="/etc/systemd/system/claude-vm-runner@.service"
 
-log() { printf '%s\n' "$*"; }
 changed=0
 
 log "==> purge-vm-runner (BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT)"
@@ -106,20 +115,32 @@ log "  [ok] verified: ufw still resolves passwordless via the new file"
 
 # ── Step 3: now, and only now, remove the dead grant + its artifacts ─────────
 if [ -f "${OLD_SUDOERS}" ]; then
-    sudo rm -f "${OLD_SUDOERS}" && log "  [ok] removed ${OLD_SUDOERS} (dispatch root grant GONE)" && changed=1
+    if sudo rm -f "${OLD_SUDOERS}"; then
+        log "  [ok] removed ${OLD_SUDOERS} (dispatch root grant GONE)"; changed=1
+    else
+        log "  [WARN] could NOT remove ${OLD_SUDOERS} — the post-state check will FAIL"
+    fi
 else
     log "  [--] ${OLD_SUDOERS} already absent"
 fi
 
 if [ -e "${DISPATCH}" ]; then
-    sudo rm -f "${DISPATCH}" && log "  [ok] removed ${DISPATCH}" && changed=1
+    if sudo rm -f "${DISPATCH}"; then
+        log "  [ok] removed ${DISPATCH}"; changed=1
+    else
+        log "  [WARN] could NOT remove ${DISPATCH} — the post-state check will FAIL"
+    fi
 else
     log "  [--] ${DISPATCH} already absent"
 fi
 
 if [ -e "${RUNNER_UNIT}" ]; then
     sudo systemctl disable --now 'claude-vm-runner@*.service' >/dev/null 2>&1 || true
-    sudo rm -f "${RUNNER_UNIT}" && log "  [ok] removed ${RUNNER_UNIT}" && changed=1
+    if sudo rm -f "${RUNNER_UNIT}"; then
+        log "  [ok] removed ${RUNNER_UNIT}"; changed=1
+    else
+        log "  [WARN] could NOT remove ${RUNNER_UNIT} — the post-state check will FAIL"
+    fi
     sudo systemctl daemon-reload || true
     sudo systemctl reset-failed 2>/dev/null || true
 else

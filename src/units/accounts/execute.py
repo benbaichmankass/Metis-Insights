@@ -1070,6 +1070,20 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 # quiet ``below_venue_min_qty`` skip instead of the ERROR-level
                 # ``bybit_place_order_failed`` alert-banner path. Never floor
                 # UP to the minimum — that would silently exceed the sized risk.
+                #
+                # The message BRANCHES ON THE REASON rather than describing the
+                # sub-minimum case for both: ``venue_max_below_min_qty`` is a
+                # contradictory venue rule (max < min), not a too-small order,
+                # and reporting it as "below the lot minimum" would name a cause
+                # no code path tested (UNPROVENANCED DIAGNOSTIC OUTPUT, A).
+                if _legal.reason == "venue_max_below_min_qty":
+                    raise BelowVenueMinQtyRefusal(
+                        f"venue lot rule for {order['symbol']} is self-"
+                        f"contradictory: maxOrderQty={_legal.venue_max} is below "
+                        f"minOrderQty={_legal.venue_min} (qtyStep={_legal.step}) — "
+                        "refusing pre-flight rather than sending a knowingly-"
+                        "illegal qty."
+                    )
                 raise BelowVenueMinQtyRefusal(
                     f"qty {order['qty']} for {order['symbol']} is below "
                     f"the exchange lot minimum after step-alignment "
@@ -1077,10 +1091,21 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                     "refusing pre-flight."
                 )
             if float(_legal.qty) != float(order["qty"]):
-                logger.warning(
-                    "_submit_order: aligning %s qty %s -> %s (qtyStep=%s)",
-                    order["symbol"], order["qty"], _legal.qty, _legal.step,
-                )
+                # Same branching discipline: a CLAMP to the venue ceiling is not
+                # step alignment, and logging it as "(qtyStep=...)" would explain
+                # the change by a mechanism that did not cause it.
+                if _legal.clamped:
+                    logger.warning(
+                        "_submit_order: %s qty %s EXCEEDS venue maxOrderQty %s — "
+                        "clamped to %s (BL-20260810; the order is placed at the "
+                        "cap rather than bounced by the venue)",
+                        order["symbol"], order["qty"], _legal.venue_max, _legal.qty,
+                    )
+                else:
+                    logger.warning(
+                        "_submit_order: aligning %s qty %s -> %s (qtyStep=%s)",
+                        order["symbol"], order["qty"], _legal.qty, _legal.step,
+                    )
                 # Write back so the journal row records what was sent.
                 order["qty"] = float(_legal.qty)
             qty_str = _legal.qty_str
