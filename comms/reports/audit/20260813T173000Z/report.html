@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Full-system audit report</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>Full-system audit report</h1>
+<p class="meta">Generated 2026-08-13T17:30:00+00:00 · window 2026-08-13T00:00:00+00:00 → 2026-08-13T17:30:00+00:00</p>
+<p><span class="grade">Roll-up:  attention</span></p>
+<p>Combined /full-system-audit + /system-review. THE FINDING: on bybit_2 (REAL MONEY) Bybit returns every ACCOUNT-level margin aggregate as the empty string, so totalAvailableBalance was unusable and the margin pre-flight cap silently fell back to TOTAL EQUITY — counting initial margin already pledged to open positions as free. NINE venue refusals (ErrCode 110007) across 3 strategies and 2 symbols = 30% of that account&#x27;s orders in the window, and LATENT not cleared. Found only by widening a filter from one strategy to the whole account; every prior read was structurally incapable of seeing it. FIXED Tier-3/Tier-2 with explicit operator approval (#9039): available margin now derives from the USDT COIN block (equity - totalPositionIM - totalOrderIM, all broker-reported), the equity fallback subtracts ESTIMATED pledged margin, and every rejection row is stamped with its basis. Validated four ways before shipping (0.05% against an independent journal reconstruction; 0.22% against the venue&#x27;s own posIM; inside a contradiction bound off Bybit&#x27;s own refusal; replays the rejection window to 0.008 BTC, the size the account was already filling at). STATUS: DEPLOYED (5bbb3416) BUT LIVE-UNVERIFIED — bybit_2&#x27;s newest journal row predates the deploy by two days, so nothing carries a margin_basis stamp yet. ALSO SHIPPED: the AVAX venue-max clamp (filed headline DISPROVED), the VM-runner sudoers purge on a root-verified post-state, a 14-day test time bomb reddening main, and a pytest-run short-circuit that let a PR merge having executed ZERO tests. HONESTY: CI caught 8 failures the session missed, two serious — an UnboundLocalError on the exact failure path the new stamp exists to record, and a RE-CREATED halt vector that would refuse every trade on an account whose journal over-reports open notional (451x measured under netting). Root cause of the misses: a pytest -k filter that excluded every failing test. NOT DONE: the doc-stale backfills.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>bybit_2 margin fix is DEPLOYED but LIVE-UNVERIFIED — one read closes it</b> <span class="pill">— · T1 (read only)</span><br><span class='muted'>No bybit_2 dispatch since 2026-08-11, so no row carries a margin_basis stamp. Query trades for bybit_2 for a row created after 2026-08-13T17:00Z and read notes.margin_basis: kind=coin_derived (basis ~226) CONFIRMS; equity_unadjusted/equity_minus_pledged/equity_pledged_implausible means the coin-block rung is INERT and the row REOPENS at high. Do NOT substitute a journalctl tail — a 400-line tail covers 43 SECONDS.</span></li>
+<li><b>BL-20260701-BYBIT-AVAILABLE-FIELD item 3: the deprecated rung is dead code wearing a trap</b> <span class="pill">— · T2/3 — operator decision</span><br><span class='muted'>availableToWithdraw is still the third rung of the ladder. Measured today it fires on NONE of the three Bybit books. Removing it is correct but is its own order-path change and was deliberately not smuggled in behind Part A&#x27;s approval.</span></li>
+<li><b>BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED needs a pooling decision</b> <span class="pill">— · Toperator decision</span><br><span class='muted'>Blocked on an operator call, not on capability.</span></li>
+<li><b>Doc-stale backfills from the audit half remain unwritten</b> <span class="pill">— · T1</span><br><span class='muted'>Velotrade doc, binance_connector.py, 54-&gt;55 strategy cells, ten undocumented API routes, Caddy docs + _CANONICAL_UNITS. Identified, not written.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">— open</div></div>
+</div>
+<h2>System &amp; technical health <span class="grade"> Attention. One real-money defect fixed but unverified live; the supporting observability is materially better than at session start (four-state margin read, a Bybit diag arm that did not exist, margin_basis on rejection rows).</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-git-sync.timer</td><td>active/waiting</td><td>—</td></tr>
+</table></div>
+<p class="section-empty">No health findings in this report.</p>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>bybit2-margin-basis-live-verification</code></td><td>health</td><td>• awaiting-evidence</td><td>Part A/B deployed (5bbb3416) but bybit_2 has not dispatched since 2026-08-11, so no row carries a margin_basis stamp. ONE READ closes it: a bybit_2 trades row created after 2026-08-13T17:00Z, then notes.margin_basis.kind. coin_derived (~226) confirms; equity_unadjusted/equity_minus_pledged/equity_pledged_implausible REOPENS at high. Do NOT substitute a journalctl tail — 400 lines covers 43 seconds.</td><td>next session / on the next bybit_2 dispatch</td></tr>
+<tr><td><code>deprecated-availableToWithdraw-rung</code></td><td>health</td><td>• awaiting-operator</td><td>Third rung of the available-margin ladder. Fires on NONE of the three Bybit books today — dead code wearing a trap. Removal is its own order-path change.</td><td>operator decision</td></tr>
+<tr><td><code>venue-max-clamp-operator-invisibility</code></td><td>health</td><td>• awaiting-work</td><td>BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE — filed by a CONCURRENT session against the clamp this session shipped. This session&#x27;s own loose end.</td><td>next health-review</td></tr>
+<tr><td><code>audit-half-doc-backfills</code></td><td>docs</td><td>• awaiting-work</td><td>Velotrade doc, binance_connector.py, 54-&gt;55 strategy cells, ten undocumented API routes, Caddy docs + _CANONICAL_UNITS. Identified in the audit half, not written.</td><td>next audit/doc session</td></tr>
+</table></div>
+<footer>report_id AUDIT-20260813 · reviewer claude (full-system-audit + system-review, session 2026-08-13) · prior AUDIT-20260804 · ICT Trading Bot full-system-audit</footer></div></body></html>

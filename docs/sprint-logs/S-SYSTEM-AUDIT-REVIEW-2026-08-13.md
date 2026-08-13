@@ -15,8 +15,16 @@ research sessions.
 
 ## Tier
 
-Tier-1 throughout. No `src/` order-path file, no `config/`, no live-VM mutation,
-no account-mode flip. Two Tier-2/3 findings are **raised, not enacted**.
+**Tier-1 for the audit half; Tier-3 + Tier-2 ENACTED in the second half** with
+explicit operator approval in-conversation ("approved - implement part A and
+B"). The first half was Tier-1 throughout — no `src/` order-path file, no
+`config/`, no live-VM mutation, no account-mode flip — and this section
+originally said so for the whole session. That became false when the operator
+approved the bybit_2 margin-basis fix, which changes real-money position
+sizing (`risk.py::position_size`, `coordinator.py`, `execute.py`). Corrected
+here rather than left standing.
+
+No `config/` change and no account-mode flip at any point.
 
 ## Starting Context
 
@@ -76,6 +84,132 @@ population.
 partially-resolved (`…CRON-WORKFLOWS-FAIL-SILENTLY…`), 4 filed. **Net +3 open,
 deliberately** — the audit surfaced more than the drain closed, and inflating
 the close count by filing thin resolutions would defeat the point.
+
+### The bybit_2 real-money rejection thread (the session's main work)
+
+**Found by widening a filter.** A read of `exchange_rejected` rows across ALL
+strategies — rather than the AVAX-scoped reads that preceded it — surfaced a
+second, unrelated cause: `ErrCode 110007 "ab not enough for new order"` on
+**bybit_2, REAL MONEY**. Every prior read was structurally incapable of seeing
+it.
+
+**Root cause (measured, not inferred).** Bybit leaves *every* ACCOUNT-level
+margin aggregate as the empty string on that account, so
+`totalAvailableBalance` was unusable and the margin pre-flight cap silently
+fell back to **total equity** — counting initial margin already pledged to open
+positions as though it were free.
+
+Established by contradiction from measured quantities before any code was
+touched: inverting `qty == 0.011` across the seven entry prices at 3x/0.9 pins
+the cap's basis to a non-empty `$264.71-$278.69`, while the smallest refused
+order needed `$229.92` initial margin and Bybit refused it — so the basis was
+**not** the venue's available figure. 92 hourly `balance_snapshots` then put
+equity at `$271.64-$278.97` with `open_positions == 2` at every row, which is
+what the implied band straddles.
+
+**Scope was worse than first filed, and my own first two notes were wrong about
+it.** Reading by ACCOUNT rather than by strategy: **9 refusals across 3
+strategies and 2 symbols** (`ict_scalp_5m` BTC x7, `trend_donchian` BTC x1,
+`xrp_pullback_2h` XRP x1) = **30% of that real-money account's orders** in the
+window. The "7 rejections by one strategy" framing was an artifact of filtering
+by strategy — the same scoping error that had hidden the whole family.
+
+**The journal proves the mechanism without arithmetic.** Same `0.011` BTC, same
+account: trade 3909 (07-23) FILLED with `$0.00` pledged margin; trade 4013
+(07-25) REFUSED with `$101.34` pledged. Same size, opposite outcomes, separated
+only by whether other positions held margin.
+
+**Three hypotheses raised and REFUTED, recorded so they are not re-run:**
+1. *Venue leverage is not the configured 3x* — refuted by the boot log
+   (`set_leverage pre-flight: account=bybit_2 symbol=BTCUSDT x3 already set,
+   retCode=110043`).
+2. *Scope is account-wide, symptom balance-gated* — refuted by the new diag
+   arm: `bybit_1` and `bybit_portfolio` BOTH return `venue_available` with sane
+   position-aware figures. Only the real-money book is blind.
+3. *Available margin can be derived as `totalEquity - totalInitialMargin`* —
+   refuted by reading the VALUES: `totalInitialMargin` is `''`. I had inferred
+   it was populated from a KEY LIST, which is the present-vs-populated
+   confusion I had fixed in code one level up an hour earlier.
+
+**Where the number actually lives.** The per-coin USDT block:
+`equity - totalPositionIM - totalOrderIM = $226.90`, all three broker-reported.
+Validated against two independent methods — it reproduces a journal
+reconstruction from open legs to **0.05%** (`$226.69` vs `$226.80`), and the
+venue's own `totalPositionIM` sits **0.22%** from the modelled
+`notional/leverage`, confirming the leverage model rather than assuming it. Two
+reads 20 min apart gave an internal-consistency proof: `totalPositionIM`
+identical, equity moved by **exactly** the uPnL delta (0.20930 both sides).
+
+**Shipped (11 PRs).** #9011 #9016 (diagnosis + scope correction) - #9013 #9022
+#9027 #9030 #9032 #9033 (the observability ladder, four states, the Bybit diag
+arm, coin block, `coins_other`) - #9035 (decision-ready spec) - **#9039 (Part A
++ B, Tier-3/Tier-2)** - #9046 (honest live status).
+
+**Part A** derives available margin from the USDT coin block, ranked ABOVE the
+deprecated `availableToWithdraw`; a missing input REFUSES the derivation rather
+than defaulting to zero. When even that is unreadable the equity basis
+subtracts ESTIMATED pledged margin, reusing `_open_gross_notional_from_db` —
+the same measurement `observe_exposure` uses — scoped to `linear` accounts and
+excluding the order's OWN symbol (resizing a position releases its margin
+rather than consuming more). **Part B** stamps `margin_basis` onto every
+post-sizing rejection row and moves the coordinator's balance line DEBUG -> INFO.
+
+**CI caught eight failures I missed, two of them serious.** Recorded because
+the misses are the instructive part:
+- `UnboundLocalError` on the failure path — I declared `margin_basis` inside a
+  `try` whose first line can raise, and the matching `except` reads it. My AST
+  "scope check" verified *assignment line < use line*, which is necessary and
+  NOT sufficient: it does not model exception control flow. I reported it as a
+  scope check and it was not one.
+- **A re-created halt vector.** Subtracting pledged margin unconditionally
+  drives the basis to 0 whenever journal open notional >= equity, refusing
+  EVERY trade — and the journal is known to over-report open notional under
+  netting (451x measured on bybit_1 SOLUSDT). Caught by
+  `tests/test_risk_gross_exposure.py`, whose docstring says that half must
+  never be edited to accommodate a feature. It is right; the code was fixed.
+  An estimate >= equity now leaves the basis unadjusted and warns.
+- Plus: over-applying the haircut to spot accounts, a `NameError` because
+  `risk.py` had no module logger, a `PropRiskManager` signature mismatch, and a
+  stale test double.
+
+Root cause of the misses: I ran `pytest -k "risk or margin or coordinator..."`
+locally instead of the full suite, and the keyword filter excluded every test
+that failed.
+
+**A null result I nearly misread against my own fix.** Verifying deployment, I
+grepped a 400-line `journalctl` tail for the new INFO line and found zero. That
+looks like falsification and is not — 400 lines covered **43 SECONDS** on a log
+running ~9 lines/sec, and the line only fires on an actual dispatch. Zero hits
+over 43s of a two-day-quiet account has no denominator. Sub-class C of the
+diagnostic-provenance rule, aimed at my own work.
+
+**Live status: DEPLOYED, UNVERIFIED.** `git_sha 5bbb3416` confirmed to contain
+the new code by reading the deployed tree. But bybit_2's newest journal row of
+any status is **id 4572, 2026-08-11T12:24:46Z** — two days before the deploy —
+so no row carries a `margin_basis` stamp yet. Neither confirmed nor falsified.
+The backlog row carries a one-read finishing procedure with all three outcomes,
+including the one that REOPENS it.
+
+### Other work
+
+- **Venue-max clamp** (`BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX`) —
+  disproved the filed headline (the leg fills below 22,000 and fails only
+  above), derived the cap from Bybit's own error text separating 22 of 22
+  outcomes with zero overlap, and clamped in the existing qty-legalization seam.
+- **VM-runner purge** — resolved on a root-verified post-state after two failed
+  attempts, both of which failed in the VERIFICATION, never the work. Recorded
+  that attempt 1 reached the right answer by an invalid method.
+- **A 14-day time bomb** reddening `main` — a test fixture with hardcoded dates
+  aged out of a rolling SQL window at exactly 2026-08-13T11:00:00Z. Second time
+  bomb in six days.
+- **A CI short-circuit** — `pytest-run` reported green in 9 seconds for
+  `scripts/`-only diffs; #8994 merged having executed no tests. Third
+  recurrence of the class.
+- **Prop trade logged** — operator-supplied Breakout screenshot, ETHUSDT short
+  3.0 @ 1874.34. `pnl` deliberately left NULL (the screenshot's +6.18 is
+  labelled OPEN P/L; recording an unrealized figure in the realized field is
+  the exact provenance failure this session spent the day on). Read back to
+  confirm, not trusted from the 200.
 
 ## Validation Performed
 
