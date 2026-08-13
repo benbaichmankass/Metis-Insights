@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 from src.core.coordinator import OrderPackage, is_paused
 from src.units.accounts.precision import (
@@ -816,29 +816,50 @@ def _fetch_balance(
     return 0.0
 
 
-def _fetch_linear_available_balance(client: Any) -> Optional[float]:
-    """Return the trading-available margin (USD) for a Bybit UNIFIED account.
+#: The three states ``read_linear_available_balance`` can be in. Registered
+#: with ``collapsed-state-guard`` as ``bybit_available.read_state``.
+AVAILABLE_STATE_VENUE = "venue_available"
+AVAILABLE_STATE_DEPRECATED = "deprecated_withdrawable"
+AVAILABLE_STATE_UNAVAILABLE = "unavailable"
 
-    Reads the **account-level ``totalAvailableBalance``** — Bybit V5's
-    "available balance for new positions" figure
-    (``totalMarginBalance − haircut − totalInitialMargin``). It already nets
-    out the initial margin consumed by existing positions AND open orders, so
-    it is exactly the collateral the exchange will allow toward a NEW order's
-    initial margin (the sizer multiplies it by leverage to get max notional).
 
-    History (BL-20260701-BYBIT-AVAILABLE-FIELD): this previously read the
-    per-coin USDT ``availableToWithdraw``. That was wrong on two counts —
-    (1) ``availableToWithdraw`` is a WITHDRAWAL-eligibility figure (funds free
-    to move OFF the exchange), governed by different rules than new-order
-    margin; (2) Bybit **deprecated** per-coin ``availableToWithdraw`` for
-    UNIFIED accounts on 2025-01-09, so it can return a stale/misleading value
-    (on the demo endpoint it reports ≈ the full wallet balance). Sizing against
-    it let the margin pre-flight cap over-permit, and Bybit then rejected the
-    order at submit with ``110007 "ab not enough for new order"``.
+def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Optional[str]]:
+    """Read Bybit UNIFIED trading-available margin AND say where it came from.
 
-    Falls back to the deprecated per-coin ``availableToWithdraw`` ONLY if
-    ``totalAvailableBalance`` is absent (older API shape), then None on any
-    error so the caller degrades to the buffer fallback gracefully.
+    Returns ``(value, read_state, detail)``. **Three states, never collapsed**
+    — the same contract shape as ``exit_anchor.bar_close_at``:
+
+      * ``venue_available`` — the account-level ``totalAvailableBalance`` was
+        present. This is broker truth: Bybit V5's "available balance for new
+        positions" (``totalMarginBalance − haircut − totalInitialMargin``),
+        already net of the initial margin existing positions and open orders
+        consume. ``value`` is the only one of the three a caller may treat as
+        measured.
+      * ``deprecated_withdrawable`` — the account-level field was absent, so
+        the per-coin USDT ``availableToWithdraw`` was used instead. **This is a
+        SUBSTITUTE, not broker truth**: it is a WITHDRAWAL-eligibility figure
+        governed by different rules than new-order margin, and Bybit deprecated
+        it for UNIFIED accounts on 2025-01-09 — on the demo endpoint it reports
+        roughly the full wallet balance. A caller that treats this as
+        ``venue_available`` re-creates BL-20260701-BYBIT-AVAILABLE-FIELD.
+      * ``unavailable`` — **we could not look.** The call raised, or neither
+        field was present. ``value`` is None. This is emphatically NOT "the
+        account has no available margin"; those are opposite statements.
+
+    Why the split exists (BL-20260701-BYBIT-AVAILABLE-FIELD, filed 2026-08-13):
+    the previous shape returned a bare ``Optional[float]`` and logged nothing on
+    either the deprecated branch or the None, so all three states arrived at the
+    sizer as one value. When the bybit_2 rejections were investigated on
+    2026-08-13 it took four diag pulls and a proof by contradiction to establish
+    only that the margin pre-flight cap had NOT been fed broker truth — and even
+    then, which of the two non-venue branches produced it remained undecidable
+    from outside. A signal that cannot distinguish "we substituted" from "we
+    could not look" cannot be acted on.
+
+    Deliberately does NOT change what the sizer receives — see
+    ``_fetch_linear_available_balance`` below, which is unchanged in behaviour.
+    Making the sizer act on ``read_state`` is an order-path change and is gated
+    separately.
     """
     try:
         resp = client.get_wallet_balance(accountType="UNIFIED") or {}
@@ -847,7 +868,7 @@ def _fetch_linear_available_balance(client: Any) -> Optional[float]:
         # Preferred: account-level available-for-trading margin.
         raw = account.get("totalAvailableBalance")
         if raw not in (None, "", "null"):
-            return max(0.0, float(raw))
+            return max(0.0, float(raw)), AVAILABLE_STATE_VENUE, None
         # Legacy fallback: per-coin availableToWithdraw (deprecated for UTA
         # 2025-01-09, but honoured for an old response shape that omits the
         # account-level field).
@@ -855,11 +876,52 @@ def _fetch_linear_available_balance(client: Any) -> Optional[float]:
             if (coin.get("coin") or "").upper() == "USDT":
                 raw = coin.get("availableToWithdraw")
                 if raw not in (None, "", "null"):
-                    return max(0.0, float(raw))
-        return None
+                    return (
+                        max(0.0, float(raw)),
+                        AVAILABLE_STATE_DEPRECATED,
+                        "totalAvailableBalance absent; used deprecated per-coin "
+                        "availableToWithdraw",
+                    )
+        return (
+            None,
+            AVAILABLE_STATE_UNAVAILABLE,
+            "neither totalAvailableBalance nor per-coin availableToWithdraw present",
+        )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("_fetch_linear_available_balance: %s", exc)
-        return None
+        return None, AVAILABLE_STATE_UNAVAILABLE, f"{type(exc).__name__}: {exc}"
+
+
+def _fetch_linear_available_balance(client: Any) -> Optional[float]:
+    """Return the trading-available margin (USD) for a Bybit UNIFIED account.
+
+    Thin delegate over :func:`read_linear_available_balance` — **the return
+    value is byte-for-byte what it always was** (the venue figure, else the
+    deprecated per-coin figure, else None), so the sizer's behaviour is
+    unchanged. What is new is that the branch taken is now LOGGED rather than
+    silent: the deprecated substitution warns, and a could-not-look warns with
+    the reason, instead of both arriving as an indistinguishable None.
+
+    Callers that need to make a decision on WHICH branch produced the number
+    must call ``read_linear_available_balance`` directly — this signature
+    cannot express it, which is the whole point of the split.
+    """
+    value, state, detail = read_linear_available_balance(client)
+    if state == AVAILABLE_STATE_DEPRECATED:
+        logger.warning(
+            "_fetch_linear_available_balance: SUBSTITUTED a deprecated figure "
+            "(%s) — this is withdrawal-eligibility, not new-order margin; "
+            "sizing against it over-permits (BL-20260701-BYBIT-AVAILABLE-FIELD)",
+            detail,
+        )
+    elif state == AVAILABLE_STATE_UNAVAILABLE:
+        logger.warning(
+            "_fetch_linear_available_balance: could NOT read available margin "
+            "(%s) — the sizer falls back to its equity basis, which counts "
+            "already-pledged initial margin as free "
+            "(BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS)",
+            detail,
+        )
+    return value
 
 
 def _fetch_linear_total_equity(client: Any) -> Optional[float]:

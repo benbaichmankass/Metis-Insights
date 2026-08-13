@@ -1316,18 +1316,38 @@ def get_broker_account_status(
     This surfaces the account object's authorization flags so a "reads OK,
     orders blocked" split is one diag call instead of a code trace.
 
-    Currently populated for **Alpaca** accounts (the broker whose account object
-    carries these flags): ``status`` (ACTIVE / restricted), ``trading_blocked``,
-    ``account_blocked``, ``trade_suspended_by_user``, ``transfers_blocked``,
-    ``shorting_enabled``, ``crypto_status``. Other exchanges return
-    ``supported:false`` (no analogous per-account flag set). Per account:
+    ``status_flags`` is populated for **Alpaca** accounts (the broker whose
+    account object carries these flags): ``status`` (ACTIVE / restricted),
+    ``trading_blocked``, ``account_blocked``, ``trade_suspended_by_user``,
+    ``transfers_blocked``, ``shorting_enabled``, ``crypto_status``. Other
+    exchanges return ``supported:false`` (no analogous per-account flag set).
+    Per account:
 
       * ``status_flags`` ``null`` + ``error`` — could-not-read (creds/host/SDK).
       * ``status_flags`` populated — the broker's live authorization state.
 
-    Opens a brief read-only client per Alpaca account via ``alpaca_client_for``
-    (same factory the executor uses, so it resolves the account's OWN live
-    key+secret pair); places NO order. Tier 1 — read-only, token-gated.
+    **Bybit arm (added 2026-08-13, BL-20260701-BYBIT-AVAILABLE-FIELD).** Bybit
+    has no analogous flag set, so ``status_flags`` stays null and ``supported``
+    stays false — but a bybit row carries ``available_margin``, the answer to a
+    question that previously had **no read surface anywhere**: which branch the
+    available-margin read took. That value is the input to the sizer's margin
+    pre-flight cap, and when it is not the venue's own figure the cap silently
+    sizes from total equity — counting the initial margin already pledged to
+    open positions as though it were free. Three states, never collapsed:
+
+      * ``read_state: "venue_available"`` (``is_broker_truth``) — the
+        account-level ``totalAvailableBalance``. The only measured one.
+      * ``read_state: "deprecated_withdrawable"`` (``is_substitute``) — the
+        account-level field was absent and the per-coin ``availableToWithdraw``
+        was used: a withdrawal-eligibility figure Bybit deprecated for UNIFIED
+        accounts on 2025-01-09, standing in for new-order margin.
+      * ``read_state: "unavailable"`` (``could_not_look``) — the call raised or
+        neither field was present. **Not** "the account has no margin".
+
+    Opens a brief read-only client per account via ``alpaca_client_for`` /
+    ``bybit_client_for`` (the same factories the executor uses, so each
+    resolves the account's OWN live key+secret pair); places NO order —
+    ``get_wallet_balance`` is a read. Tier 1 — read-only, token-gated.
     """
     _require_diag_token(request)
     try:
@@ -1357,8 +1377,17 @@ def get_broker_account_status(
             "exchange": exchange,
             "mode": (acc or {}).get("mode"),
             "account_class": (acc or {}).get("account_class"),
+            # NOTE: `supported` means "this exchange exposes an account-
+            # authorization FLAG SET", i.e. it qualifies `status_flags` and
+            # nothing else. It is deliberately NOT widened to cover the Bybit
+            # arm below — a bybit row carries `available_margin` while
+            # `status_flags` genuinely stays null, so flipping `supported` true
+            # for bybit would make the field describe a payload it is not
+            # about (sub-class A of the diagnostic-provenance rule). Read
+            # `available_margin is not None` for the bybit half.
             "supported": exchange == "alpaca",
             "status_flags": None,
+            "available_margin": None,
             "error": None,
         }
         if exchange == "alpaca":
@@ -1370,6 +1399,55 @@ def get_broker_account_status(
                     row["status_flags"] = client.account_status()
                     if row["status_flags"] is None:
                         row["error"] = "read_failed"
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row; one account must not fail the call
+                row["error"] = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_broker_account_status: %s raised %s", aid, exc)
+        elif exchange == "bybit":
+            # Bybit has no account-authorization flag set like Alpaca's, so
+            # `status_flags` stays null here. What it DOES have — and what had
+            # no read surface at all until 2026-08-13 — is which branch the
+            # available-margin read took. That is the input to the sizer's
+            # margin pre-flight cap, and when it is not the venue figure the
+            # cap silently sizes from total equity, counting initial margin
+            # already pledged to open positions as if it were free.
+            #
+            # Three states, never collapsed (see execute.read_linear_available_
+            # balance): venue_available = broker truth; deprecated_withdrawable
+            # = a SUBSTITUTE wearing the label; unavailable = we could not look.
+            # A caller reading only `available_usd` cannot tell them apart,
+            # which is exactly why establishing what had happened on bybit_2
+            # took a proof by contradiction across four diag pulls — see
+            # BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS (whole id on one
+            # line: artifact-validity-guard reads a wrapped id as a DIFFERENT,
+            # unfiled id, and it is right to).
+            #
+            # Read-only: get_wallet_balance places no order.
+            try:
+                from src.units.accounts.clients import bybit_client_for
+                from src.units.accounts.execute import (
+                    AVAILABLE_STATE_DEPRECATED,
+                    AVAILABLE_STATE_UNAVAILABLE,
+                    AVAILABLE_STATE_VENUE,
+                    read_linear_available_balance,
+                )
+
+                client = bybit_client_for(acc)
+                if client is None:
+                    row["error"] = "not_configured"  # creds env unset
+                else:
+                    value, read_state, detail = read_linear_available_balance(client)
+                    row["available_margin"] = {
+                        "read_state": read_state,
+                        "available_usd": value,
+                        "detail": detail,
+                        # Spelled out per state so a reader never has to infer
+                        # the semantics from the enum name alone.
+                        "is_broker_truth": read_state == AVAILABLE_STATE_VENUE,
+                        "is_substitute": read_state == AVAILABLE_STATE_DEPRECATED,
+                        "could_not_look": read_state == AVAILABLE_STATE_UNAVAILABLE,
+                    }
+                    if read_state == AVAILABLE_STATE_UNAVAILABLE:
+                        row["error"] = "available_margin_unreadable"
             except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row; one account must not fail the call
                 row["error"] = f"{type(exc).__name__}: {exc}"
                 logger.warning("get_broker_account_status: %s raised %s", aid, exc)
