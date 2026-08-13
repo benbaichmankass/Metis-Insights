@@ -13167,6 +13167,11 @@
           "at": "2026-08-13T06:00:00+00:00",
           "by": "claude (m20-exit-coverage-matrix-8d3he7)",
           "note": "CORRECTION -- the original diagnosis was INCOMPLETE and the first fix did not work. #8889 added `symbol` alone; the re-run at the merged sha produced BYTE-IDENTICAL numbers (trades_in 1332, skipped {no_candles:697, unresolvable:63}, only a `pullback` family). The builder refuses a row missing ANY of FOUR keys (build_exit_head_dataset.py:193): entry_time, exit_time, entry, sl. Those three harnesses emitted only entry_time.\n\nMEASURED per emit file, 1d round: 7 trend legs 371 rows / 0 usable (exit_time+entry+sl missing on all 371); 6 pullback legs 578 rows / 578 usable. And trades_in 1332 == 578 harness-usable + 754 live-usable, which PROVES the 371 never entered the population -- so the original claim that they 'landed in no_candles' is FALSE. no_candles is a later stage they never reached; that claim came from a subtraction that happened to reconcile (1332-697-63=572=the pullback count) and was shipped as a comment into three source files. Corrected in PR #8901.\n\nMETHOD NOTE, since this is the reusable part: reasoning from the NAME of the counter the survivors landed in produced a confident wrong cause twice. What found it in one step was diffing the emitted key set against the family that WORKS (`in PULLBACK but NOT in TREND: [entry, exit_reason, exit_time, sl]`). tests/test_harness_emit_schema.py makes that permanent, importing the requirement from the builder's own guard rather than restating it, and is verified to FAIL on exactly the three broken harnesses at the pre-fix sha."
+        },
+        {
+          "at": "2026-08-13T06:25:00+00:00",
+          "by": "claude (m20-exit-coverage-matrix-8d3he7)",
+          "note": "HALF DEMONSTRATED, STAYS OPEN. #8901 merged (ec3073b7); the watcher re-ran both rounds at that sha (relay #8910).\n\nTHE ROWS NOW ARRIVE -- the finding's actual subject, measured:\n  1d  rows_seen/loaded at load  949/949   (was 578/949)\n  1h  rows_seen/loaded at load 1992/1992  (was 1482/1992)\n  1d  trades_in 1332 -> 1703  (+371, exactly the trend count)\n  1h  trades_in 2236 -> 2746  (+510, exactly)\nand for the first time a donchian-side family EXISTS: eh_1d has spy/qqq/tqqq/qld/iwm/splg/scha_trend_long_1d (48/60/32/31/65/72/63 harness trades), eh_1h has slv_trend_1h 289 + uso_trend_1h 215.\n\nNOT CLOSING, because this row's criteria require rows AND a per-leg verdict, and every one of those families returned `folds=0, per_leg_entries=0`. Loosening the criteria to match what shipped would be fitting the contract to the outcome, which is the thing the criteria exist to stop.\n\nThe remaining half is owned by two OTHER rows, and the round output now proves both rather than predicting them:\n  * each trend leg trained ALONE (its own dir), and the new skip message names the bound -- `slv_trend_1h fold 2019: skipped — test 35 < 50 (--min-fold-trades)`, folds 33-38; `uso_trend_1h` folds 12-27, one showing BOTH conditions (`test 20 < 50; train 395 rows < 500`). Measured earlier: these two clear 0 folds alone and 8 of 9 POOLED. -> BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED\n  * the 1d legs cannot clear the gate even pooled -> BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS\n\nSo the emit-schema defect is FIXED and demonstrated; this row closes when one of those two decisions lands and a trend leg finally carries a verdict."
         }
       ]
     },
@@ -13210,6 +13215,13 @@
         "PR #8901",
         "scripts/ml/build_exit_head_dataset.py:566 (the total-failure-only branch)",
         "BL-20260813-TREND-SQUEEZE-FVG-HARNESSES-EMIT-NO-SYMBOL (the row it hid)"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T06:25:00+00:00",
+          "by": "claude (m20-exit-coverage-matrix-8d3he7)",
+          "note": "SURFACING VERIFIED LIVE (relay #8910). Both re-run reports now carry the load-stage block: `rows_seen_at_load: 949` / `rows_loaded_at_load: 949` (1d) and 1992/1992 (1h), with `skipped_at_load: {}`.\n\nREAD THE EMPTY DICT CORRECTLY: `{}` here means 'nothing was rejected on shape', and it is trustworthy ONLY because the seen/loaded pair is published beside it and they are equal. An empty `skipped_at_load` with no denominator would be exactly the unasserted-negative this row is about -- which is why the counts ship with it rather than the skip dict alone.\n\nRow STAYS OPEN on its stated criteria: nothing yet ALERTS when one family loads 0 of N while a sibling is healthy. Surfacing the number was necessary and is not sufficient; the number was computable all along."
+        }
       ]
     },
     {
@@ -13231,8 +13243,48 @@
         "docs/research/exit-refinement-coverage.json (the 16 `1d` exit_head_ml cells)",
         "BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED (independent; pooling does not fix this)"
       ]
+    },
+    {
+      "id": "BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW-SURVIVES-AND-CONTRADICTS",
+      "opened_at": "2026-08-13T06:25:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "m20-exit-refinement",
+      "title": "A bundled coverage-matrix row survived the 2026-08-09 per-leg explosion -- one row carrying 8 lever statuses for 4 named legs plus a `*_prop` WILDCARD -- and it CONTRADICTED two legs' own rows on 8/8 and 6/8 cells; the leg-name validator cannot see it because it skips non-live rows",
+      "source": "MEASURED 2026-08-13 against docs/research/exit-refinement-coverage.json.\n\nRow `shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)` carries ONE set of 8 lever statuses for six named legs and a wildcard. That is exactly BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS, which the per-leg explosion was performed to eliminate -- the bundle survived it.\n\nTWO of the six ALSO have their own rows, and the two representations DISAGREE:\n  ict_scalp_5m  8 of 8 cells differ (e.g. stale_stop own=honest_negative vs bundled=passed_unshipped; trail_geometry own=n/a vs bundled=pending)\n  mgc_trend_1h  6 of 8 cells differ\nSo the matrix asserted two different things about the same leg, and which answer a reader got depended on which row they happened to read.\n\nWHY NO GUARD CAUGHT IT: `m20_coverage_rollup.py:306` scopes the leg-name-resolves-in-strategies.yaml check to `execution == 'live'` rows. The bundled row is `execution: shadow`, so the one validator that would flag an unresolvable row identity skips exactly the row that is most unresolvable. The live-only scope is defensible for the DENOMINATOR (a non-live leg cannot be swept and is not counted), but it means a non-live row may carry any string as its identity indefinitely.\n\nNOT A HEADLINE DEFECT: the row is excluded from the 47-leg done-condition denominator, so 354/376 and the 42 open cells are unaffected -- verified by re-running the roll-up after the edit below (42 before, 42 after). The cost is to a READER, not to the count.",
+      "why_it_matters": "The matrix's declared unit is the LEG -- that is the whole reason for the 2026-08-09 explosion, and train_exit_head.py's own docstring repeats it ('the family is the wrong unit for a VERDICT'). A surviving bundle reintroduces the retired failure inside the artifact that was supposed to have retired it, and a contradiction between two rows is worse than a gap: a gap reads as unknown, a contradiction reads as known.",
+      "proposed_fix": "DONE 2026-08-13 (safe half): removed `ict_scalp_5m` and `mgc_trend_1h` from the bundle's label, since both have dedicated rows carrying per-leg evidence. That removes the contradiction WITHOUT inventing any status. A `_bundled_row_note` on the row records what it still is.\n\nNOT DONE, deliberately: exploding the remaining four legs + the wildcard. Their 8 statuses are fleet-level (e.g. stale_stop `passed_unshipped` cites a sweep whose ref names specific OTHER legs); assigning them per-leg would be fabricating a verdict per cell, which is worse than the bundle it replaces. Explode when a per-leg sweep actually covers these legs.\n\nGUARD GAP, proposed not shipped: add an invariant that EVERY row's `strategy` names exactly one leg -- applied to ALL rows, not just live ones -- with this bundled row as a single DECLARED, dated exception so it stays visible and countable rather than silently exempt. Not added tonight: a new check that fails on a known-unfixable row would put a red guard on main, and the exception list has to be right the first time.",
+      "resolution_criteria": "CLOSE when no matrix row's `strategy` names more than one leg (the `*_prop` wildcard included -- a wildcard row has no countable denominator), AND a guard enforces that over ALL rows rather than live-only, so the next bundle cannot be added silently. Removing the contradiction alone does NOT close this -- the bundle is still there.",
+      "refs": [
+        "docs/research/exit-refinement-coverage.json (the `shadow fleet (...)` row)",
+        "scripts/research/m20_coverage_rollup.py:306 (the live-only scope)",
+        "scripts/ci/run_guards.py:236 (exit-coverage-matrix-guard — statuses + refs only)",
+        "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS (the defect this is an instance of)"
+      ]
+    },
+    {
+      "id": "BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN",
+      "opened_at": "2026-08-13T06:30:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "M20's remaining done-condition is not 42 independent tasks -- 25 of the 42 open cells (59.5%) are the 1d fleet, and all three lever families block there for ONE reason: daily bars do not produce enough trades for the OOS standards in use",
+      "source": "MEASURED 2026-08-13 over docs/research/exit-refinement-coverage.json (live legs only -- the done-condition population, 42 open cells).\n\nBy timeframe: 1d=25, 15m=8, 5m=4, 4h=3, 1h=2.\n\nThe 25 are spread across three levers and every one of them is the same underlying fact:\n  exit_head_ml   16  E1 folds by CALENDAR YEAR, skipped under\n                     --min-fold-trades 50; the 1d folds run 12-42, so ZERO\n                     clear. Pooling every 1d leg reaches ~47.5/yr, still\n                     short. (BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS)\n  vol_trail       7  'insufficient OOS base' at the corpus-standard split,\n                     with the ref recording OOS n=3,4,4,4,5,5,6 against\n                     MIN_OOS_TRADES=25\n  giveback_stop   2  blocked:insufficient_base (mes_trend_long_1d,\n                     mhg_pullback_1d)\n\nThree different levers, three different code paths, one cause: a daily-bar strategy over ~16-20 years produces 31-72 trades TOTAL, and every evidence standard in the programme is calibrated on intraday volume (1h pullback is ~145 trades/yr and grades without difficulty).\n\nWHY THIS IS WORTH ITS OWN ROW: the individual cells are filed accurately and each reads as its own small blocker, so the matrix presents 42 items of roughly equal weight. It is one item of weight 25 and seventeen others. A reader planning the milestone off the cell list -- which is what the matrix is FOR -- would mis-estimate the remaining work badly, and would expect plumbing fixes to move it. Tonight's two plumbing fixes (#8889, #8901) move none of these 25.",
+      "why_it_matters": "M20's done-condition is 'no pending AND no blocked on live legs'. As things stand it cannot be reached without an explicit decision about daily bars, because no amount of correct work closes a cell whose evidence standard its population cannot satisfy. That decision is the milestone's critical path and it is currently invisible, distributed across 25 individually-reasonable cell notes.",
+      "proposed_fix": "OPERATOR / RESEARCH-DESIGN DECISION, not a bug fix. The options are not equivalent and the choice should be made once for the whole 1d fleet rather than per lever:\n  (a) A DIFFERENT EVIDENCE STANDARD for daily bars -- multi-year folds, a       lower OOS floor, or pooled-across-legs OOS. Cost: 1d verdicts are then       not comparable to intraday ones, so the standard must be recorded on       every cell it grades.\n  (b) ACCEPT 'not gradeable at this standard' as a terminal disposition for       the 1d fleet, and say so in the matrix legend. The done-condition then       becomes reachable honestly, at the cost of admitting 25 cells will       never carry a verdict.\n  (c) Leave them open indefinitely -- the status quo, which quietly makes       M20 unreachable while reading as 'in progress'.\n(c) is the current default and is the one option nobody has chosen deliberately. Flagging that is the point of this row.",
+      "resolution_criteria": "CLOSE when the 1d fleet has ONE recorded disposition covering all three lever families -- either a stated alternative evidence standard (with the standard named on the cells it grades) or an explicit terminal 'not gradeable at this standard' status in the matrix legend. Closing the individual cells one at a time under the CURRENT standard does not resolve this, because it cannot happen.",
+      "refs": [
+        "docs/research/exit-refinement-coverage.json (the 42 open cells; 25 are tf=1d)",
+        "BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS (the exit_head_ml half)",
+        "scripts/ml/train_exit_head.py:471 (--min-fold-trades 50)",
+        "scripts/research/m20_fleet_exit_sweep.py (MIN_OOS_TRADES 25, the vol_trail/giveback half)"
+      ]
     }
   ],
-  "updated_at": "2026-08-13T06:10:00+00:00",
+  "updated_at": "2026-08-13T06:25:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
