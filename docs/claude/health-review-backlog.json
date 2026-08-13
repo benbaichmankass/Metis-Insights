@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260813-1D-FRAME-DID-NOT-CACHE-AFTER-CAP-RAISE",
+      "opened_at": "2026-08-13T08:15:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "title": "After the TTL cap went 60 -> 300 every capped frame's fetch rate fell except 1d, which ROSE 6.5% — the frame with the largest expected win",
+      "source": "MEASURED 2026-08-13 comparing two tick_cost reads: pre-flip n=19 ticks (process 06:21:38Z) vs post-flip n=4 ticks (process 08:04:17Z, diag #8954). Denominators stated because every figure below is a per-tick RATE over those two samples, not a raw count. Per-tick fetch counts:\n\n  1h   8.84 -> 5.25  (-40.6%)\n  2h   4.32 -> 2.00  (-53.7%)\n  4h   5.26 -> 2.50  (-52.5%)\n  1d   3.05 -> 3.25  (+6.5%)   <-- the outlier\n  control 15m+5m+1m 19.00 -> 16.25 (-14.5%)\n\nHeadline cache hit rate 21.5% -> 41.5%, so the cap IS working overall; this row is about the one frame that did not follow.\n\nSTATE THE POPULATION: post-flip n=4 ticks, over which 1d was fetched 13 times (13 of 117 total post-flip misses). That is small enough that +6.5% on 1d could be noise on its own — but it is the only capped frame that failed to move in the same direction as its three siblings, all of which fell 40-54%, and 1d is the frame where the cap should bite HARDEST (8640s wanted vs 60s granted before, now 300s).",
+      "why_it_matters": "1d was the single largest line in the original finding — 762 fetches in 2h at 2.4-3.6s each, 13.9% of tick on-loop. It is the frame the whole cap argument was strongest for, so a non-response is exactly the result worth chasing rather than averaging into a favourable headline. Plausible causes NOT yet distinguished: the off-loop exit loop dominates 1d (its offloop n=22 vs on-loop 13, and the exit loop runs on its own cadence so its inter-fetch gap may exceed 300s); more distinct 1d symbols than other frames, so each (symbol,tf,limit) key is hit less often; or a `since=` parameter on some 1d reads, which is never cached by design.",
+      "resolution_criteria": "A tick_cost read at ticks_measured >= 30 on a single post-flip process either (a) shows fetch.1d per-tick falling in line with its siblings, closing this as small-sample noise, or (b) confirms it stays flat/up, in which case the cause is identified among the three candidates above — distinguished by comparing on-loop vs off-loop 1d counts and checking whether the 1d callers pass `since=`. Either way the outcome is recorded on the CANDLE_CACHE_TTL row in CLAUDE.md so the headline hit-rate is never read as covering 1d.",
+      "next_action": "One warm tick_cost read once the current process has 30+ ticks (~1h). Tier-1, read-only.",
+      "updates": []
+    },
+    {
       "id": "BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE",
       "opened_at": "2026-08-13T08:05:00+00:00",
       "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
