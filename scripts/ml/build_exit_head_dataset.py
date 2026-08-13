@@ -239,12 +239,29 @@ def _load_multipliers(path: Path) -> Dict[str, float]:
     return out
 
 
-def load_live_trades(db: Path, instruments: Path) -> List[dict]:
+def load_live_trades(db: Path, instruments: Path,
+                     report: Optional[dict] = None) -> List[dict]:
     """Closed, non-backtest, strategy-attributed journal trades with
     resolvable entry/sl geometry (same exclusions as m20_exit_analysis:
     intent_reduce legs, adopted orphans, superseded flap rows). final_R
     prefers journal pnl / (|entry-sl| * qty * contract multiplier); rows
-    where that isn't derivable fall back to the last bar mark (tagged)."""
+    where that isn't derivable fall back to the last bar mark (tagged).
+
+    ⚠️ REPORTS THE TABLE COUNT, not just what survived the filters — because
+    "this DB has no trades at all" and "this DB has trades, none of which
+    qualify" are opposite problems and the caller could not tell them apart.
+
+    Measured 2026-08-12: an E1 round reported `live_trades: 0` and the
+    live-sign-agreement arm of the E1->E2 gate was silently skipped. The cause
+    was not data accrual — the trainer holds TWO journal copies, an 8.2 MB stub
+    at `<repo>/trade_journal.db` (mtime Aug 2, `trades` EMPTY) beside the real
+    767 MB synced copy at `<repo>/data/trade_journal.db` (4585 trades, 1087
+    closed, live scalp legs present). The round was pointed at the stub, and
+    nothing in the output distinguished that from a genuine absence of live
+    trades. `trades_in_table` makes the wrong-DB case self-evident: 0 there
+    means the DB is empty, while a large count with 0 loaded means the filters
+    excluded everything.
+    """
     mult = _load_multipliers(instruments)
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
@@ -257,7 +274,12 @@ def load_live_trades(db: Path, instruments: Path) -> List[dict]:
         "AND COALESCE(notes,'') NOT LIKE '%\"intent_reduce\": true%' "
         "AND COALESCE(reconcile_status,'') != 'superseded'"
     ).fetchall()
+    total_in_table = con.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
     con.close()
+    if report is not None:
+        report["db"] = str(db)
+        report["trades_in_table"] = total_in_table
+        report["rows_matching_filters"] = len(rows)
     out = []
     for r in rows:
         t0 = _epoch(r["timestamp"])
@@ -526,8 +548,21 @@ def main(argv: List[str]) -> int:
 
     harness_report: dict = {}
     trades = load_harness_trades([Path(t) for t in a.trades], harness_report)
+    live_report: dict = {}
     if a.db:
-        trades += load_live_trades(Path(a.db), Path(a.instruments))
+        live = load_live_trades(Path(a.db), Path(a.instruments), live_report)
+        trades += live
+        # ALWAYS state the live-source population. The E1->E2 gate needs the
+        # live set to agree in sign, so a silent 0 disables a gate arm.
+        print(f"live source {live_report.get('db')}: "
+              f"{live_report.get('trades_in_table')} rows in `trades`, "
+              f"{live_report.get('rows_matching_filters')} matched filters, "
+              f"{len(live)} usable", file=sys.stderr)
+        if not live_report.get("trades_in_table"):
+            print("    ^ that DB's `trades` table is EMPTY — this is a "
+                  "WRONG-DB symptom, not evidence that no live trades exist. "
+                  "Check for a second journal copy (e.g. <repo>/data/).",
+                  file=sys.stderr)
     if not trades:
         # State the population and the reason. "no trades loaded" over a
         # 1170-row input is a different failure from the same message over an
