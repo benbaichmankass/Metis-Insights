@@ -734,13 +734,53 @@ neither was chosen at 06:00 with the operator asleep.
    those train on. Needs to be per-round-scoped or an explicit per-family table,
    not "make `family_of` match `classify`".
 
+**⚠️ UPDATE 2026-08-13 07:30Z — items 4 and 5 above are OVERTAKEN BY MEASUREMENT. Read this before acting on either.**
+
+**Item 5 (the pooling unit) is RESOLVED for the 1d fleet, and the answer is that
+pooling does not help.** Item 5 as written would send you toward a pooling design
+for the 1d cells; **do not spend time there.** Measured (#8923/#8924): both
+same-family 1d pools — exactly the scoping the design permits, `family_of()`
+already calling each one family — give **ZERO usable folds**. Donchian 371 trades,
+largest fold 33; pullback 568 trades, largest fold 42; bound 50. No change to
+`family_of()` is needed or would help for these legs.
+**The 1h half of item 5 STANDS unchanged** (`slv_trend_1h` / `uso_trend_1h`: 0
+folds alone, 8/9 pooled), and so does its caution — eight `trend_donchian*` legs
+already pool and three carry shipped live heads.
+
+**Item 4 (the 1d evidence standard) is sharper and its counts have moved.** It is
+now **14 of 37** open cells (fold standard) plus **9** more on the OOS floor,
+not "25 of 39". Two things the original framing did not have:
+
+- **A measured floor.** The bound sits **51% above the best year donchian has**,
+  so this was never a near miss and no pooling arrangement reaches it.
+- **No single threshold treats both families honestly.** Pullback reaches 42 and
+  donchian 33: a bound chosen to unblock pullback (≤42) leaves all 7 donchian
+  legs blocked, and one low enough for donchian (≤33) hands pullback 7 folds at
+  sizes where `beats()` — **no minimum-n** — is near a coin flip.
+
+**I did NOT pre-empt option (b).** Moving those cells `pending → blocked:insufficient_folds`
+records a *measured cause*; it does **not** declare them terminally ungradeable,
+and the done-condition still counts every one of them as **open** (37, unchanged).
+Option (b) — the status that would make the done-condition reachable by treating
+them as closed — remains entirely yours to choose or refuse.
+
+**A sixth item joins the queue.** `BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N`: the
+E1→E2 gate's live arm has no minimum-n, so sub-floor live evidence counted as
+confirmation at **n=15** for the donchian promotion and is (rightly) discounted at
+**n=24** where it contradicts. Measured this session: those three live heads have
+fired **twice in a month**, and **`trend_donchian_sol` has never closed a trade** —
+so *"wait for more live trades"* is not a viable answer.
+
 **Blockers** — the 5m round is blocked on PR #8825 reaching the trainer.
 
 ## Deferred Items
 
-- ROADMAP.md M20 status row (pending the wave-2 cells landing, so the figure
-  written there is the settled one).
-- `doc-freshness` skill pass at session close.
+- ~~ROADMAP.md M20 status row~~ — **DONE 2026-08-13** (PR #8944): the settled
+  figure is `360/360` headline / `37` done-condition, and the new entry marks the
+  two below it as superseded.
+- ~~`doc-freshness` skill pass at session close~~ — **DONE**: the ROADMAP drift
+  above was the finding (it carried `354/376` and `39` open); sprint-log §17's
+  stale "live arm is unevaluated" line was corrected in-file.
 - The `vol_trail` wave-2 re-dispatch (blocked on the corpus fix merging).
 - Re-run of `ict_scalp_xrp_15m` and the full 5m round.
 
@@ -774,3 +814,217 @@ is **non-zero** before reading any live-agreement verdict; and re-run
       headline figure this session produced rests on cells whose geometry vintage
       the roll-up now prints beside it.
 - [x] **Tier-3 items proposed, not enacted** — two, § Risks.
+
+---
+
+## §17 — 2026-08-13 continuation: M20 has no runnable work left
+
+**Supersedes two entries in "Gaps not yet verified" above.** That section was
+written before the 03:16Z E1 5m round landed and is now stale in two places;
+both are corrected here rather than edited in place, so the sequence stays
+legible.
+
+### The pooling escape does not exist (measured, not argued)
+
+`m20-1d-fleet-pooling-2026-08-13.md` has the full account. Both same-family 1d
+pools were run through the unmodified trainer at `--min-fold-trades 50`:
+
+| pool | trades | rows | usable folds | largest fold |
+|---|--:|--:|--:|--:|
+| `donchian`-1d (7 legs) | 371 | 13,606 | **0** | 33 |
+| `pullback`-1d (6 legs) | 568 | 15,066 | **0** | 42 |
+
+The bound sits 51% above the best year donchian has, so no threshold ≥34 can
+produce a fold there however the legs are combined. Folds appear only under a
+cross-family mixture nobody would ship, and even that leaves per-leg OOS samples
+at 23–89 against the `MIN_OOS_TRADES` floor of 25.
+
+**This closes the pooling design question I opened at 05:45 and corrected at
+06:12 — for the 1d fleet only.** Not because pooling is unsafe, but because
+pooling *within family, correctly scoped, exactly as the design permits* yields
+nothing. No change to `family_of()` is needed or would help. The scalp-side
+caution in that thread is untouched.
+
+### Every remaining cell is now `blocked`; none is `pending`
+
+Closing the last 4 by measurement took the matrix to **HEADLINE 360/360 =
+100.0%** with the **DONE-CONDITION unchanged at 37**. The two have separated as
+far as they arithmetically can. **M20 is not done**, and there is no measurement
+left that moves it — all 37 need a decision, a code change, or elapsed time.
+Categorised by owner in `m20-what-remains-2026-08-13.md` (14 fold-standard, 9
+OOS-floor, 7 live-arm accrual, 5 data, 2 harness; reconciles to 37, zero
+unclassified).
+
+### CORRECTION to "Gaps not yet verified": the live arm HAS been evaluated
+
+That section says the E1→E2 live arm is *"**unevaluated**, not passed"*. True
+when written; **false since 2026-08-13T03:16Z**. On `ict_scalp_5m` it was
+evaluated for the first time in the entire E1 program — and it **contradicts**
+the harness arm. Ranking transfers (live AUC 0.6333 > harness 0.5929); policy
+does not (every τ worse than doing nothing, best τ +1.32 vs actual +14.58; both
+hard rules beat every τ). Mechanism is visible: live mean hold **83.7 bars** vs
+~18.7 on the harness, so the model exits at 11.5 bars and cuts the long holds the
+live edge comes from.
+
+### The structural finding, which is the part worth carrying forward
+
+Measured on the trainer's synced journal (trainer-diag #8933, `trades_in_table`
+4609, `max(closed_at)` 2026-08-13T00:34Z — freshness stated, and the ~8 MB
+repo-root stub deliberately avoided):
+
+- The three **live, shipped** donchian heads have driven **exactly 2 exits in a
+  month** (`exit_reason='exit_head'`, sum_pnl +1.24, win 1/2).
+- Those legs closed **13 trades total** since the 2026-07-12 go-live, against the
+  **n=15** the promotion cited. So the live evidence base has roughly *doubled*
+  — to ~28, still at the `MIN_OOS_TRADES` floor of 25.
+
+**So "re-evaluate the live arm at accrued n" is not yet answerable for donchian,
+and will not be for months** at ~13 trades/month across three symbols.
+
+That is the structural point: **the heads were shipped on the legs where the live
+arm is slowest to evaluate, and the first contradicting evidence arrived from the
+legs where it is fastest.** A 5m scalp leg accrues live trades an order of
+magnitude quicker than a 1h donchian leg, which is precisely why `ict_scalp_5m`
+was the first place the live arm became evaluable at all. The gate has no
+minimum-n, so sub-floor evidence counted as confirmation at n=15 for a promotion
+and is (rightly) discounted at n=24 for a contradiction.
+
+`BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N`.
+
+### Gaps not yet verified (this continuation)
+
+- **The `future_r_delta` accrual PR #6211 promised for `/ml-review` was not
+  found.** #8933 located the string only in `runtime_logs/m21_entry_head_r2/…`
+  datasets dated 2026-07-14 — not in any live soak log. Whether the promised
+  observability was ever wired is **unconfirmed**, not disproven; a follow-up
+  probe (#8934) asked directly, but its `future_r_delta` block was in the same
+  truncated heredoc and **did not run either** — so this remains genuinely
+  unconfirmed, and the follow-up is still owed.
+- **RESOLVED (#8934): the −$2,115.49 is 100% PAPER. Not one dollar of it is real
+  money.** All four `reconciler_filled` rows are `is_demo=1` / `account_class=paper`
+  (`bybit_portfolio` ×2, `bybit_1` ×2). Splitting the 13 closed-since-go-live rows
+  by funding class:
+
+  | | n (pnl non-null) | sum_pnl |
+  |---|--:|--:|
+  | **real money** (`bybit_2`) | 4 | **+$0.71** (2 wins) |
+  | paper | 7 | −$2,161.00 |
+
+  **Both head-driven exits are real-money** (`bybit_2`): id 3344 +$1.4956 and id
+  3770 −$0.2512, netting **+$1.24** — which reconciles exactly with #8933's
+  `exit_head` sum. Real-money size is 0.003–0.01 BTC, so the live head's entire
+  realised footprint in a month is about one dollar on four-thousandths of a BTC.
+
+  **This is why the check was mandatory rather than optional.** Quoting −$2,115 as
+  a loss on legs carrying a live exit head would have been a confident, alarming,
+  and completely wrong real-money claim — the exact failure CLAUDE.md § "Number
+  provenance" and the *"always state the population"* rule exist to prevent. It
+  was also not safe to *assume* it was fabricated and move on: two of the four
+  rows are genuinely graded (id 3771 `exchange_fill` = MEASURED at −$1,298.88; id
+  4334 `candle_at_close` = ESTIMATED), and only two carry the fabricated
+  `local_markprice` signature (−$405.77, −$151.03). The population, not the
+  provenance, is what made the number harmless.
+
+  ⚠️ **Honesty note on method:** `pnl_source` / `exit_price_source` are **not
+  columns** on `trades` — they live inside the `notes` JSON, and the probe
+  confirmed both are absent from `PRAGMA table_info`. The per-row grades above are
+  **hand-read from those strings, not produced by
+  `src/runtime/provenance.py::classify_pnl`** — the probe's `classify_pnl` block
+  was truncated by a heredoc parse warning and never executed. CLAUDE.md says to
+  import that module rather than re-derive the vocabulary, so treat the per-row
+  buckets as indicative and re-run through `classify_pnl` before quoting them. The
+  **real-vs-paper split is not affected** — it comes from the `is_demo` /
+  `account_class` columns directly.
+
+- Whether IBKR could serve native MES/MGC/MHG daily history **was not tested** —
+  only that no such file exists on the trainer.
+
+### §17.1 — I nearly filed a false high-severity finding about a live money-path lever
+
+**The draft claim was: "the exit head has no live observability; PR #6211's promised
+accrual was never wired." It is WRONG, and it was one commit from being filed at
+`severity: high`.** Recording the whole chain, because the near-miss is more
+useful than the conclusion.
+
+**What made it look true** (#8937, against the trainer): `future_r_delta` appears
+in the source only in the offline E0 builder, zero occurrences in `src/`; and a
+`grep -rl exit_head runtime_logs/` returned a single artifact JSON.
+
+**Three errors, all mine, in one probe.**
+
+1. **Wrong host.** `maybe_score_exit_head` is called from `trend_donchian`'s
+   monitor, which runs on the **live VM**. I asked the **trainer**, whose
+   `runtime_logs/` is its own and could never hold those records. Sub-class **B**,
+   implicit input selection.
+2. **A content grep used to enumerate files.** `grep -rl` matches *contents*, so
+   it returned only the artifact that happens to contain the string. The mirror
+   actually holds **two** artifacts. I read "one file matched" as "one file
+   exists" — sub-class **C**, an unasserted denominator, again.
+3. **Reading absence in a rotated log as absence in fact** — see below.
+
+**What the live VM actually says** (#8939/#8940/#8941):
+
+- `shadow_predictions.jsonl`: **29,131 records, 30 model_ids**, window
+  2026-08-05T23:35 → 2026-08-13T07:21. No exit head. **But the log is ROTATED**
+  (`ict-shadow-log-rotate.timer`), and the head's only two real fires closed
+  **2026-07-12T14:46** and **2026-07-21T23:03** — both *before* `oldest_retained`.
+  **Rotation explains the absence completely.**
+- `exit_lever_soak.jsonl`: present, 369 KB, actively written (`trail_decay`,
+  `stale_stop`) — and **none of the three head-carrying legs currently holds an
+  open position** (`trend_donchian` 0 open of 96 rows; `_eth` 0 of 8; `_sol` 0 of
+  7). The scorer has nothing to score, so silence is correct.
+- Both artifacts exist with the right identities: `exit-head-donchian-1h-v1`
+  (**stage `advisory`** — the shipped head, exactly as #6211 requires) and
+  `exit-head-donchian-peak-1h-v1` (stage `shadow`, target `peak_is_in`). **No id
+  mismatch.**
+
+**So: no bug.** The one narrow thing that survives is a documentation
+imprecision, not a missing feature — #6211 says *"the realized `future_r_delta`
+record accrues in the standard soak logs"*, and what actually accrues is the
+**scores**; the realized delta is computed offline at dataset-build time from
+those scores. The data needed does accrue. **Not worth a backlog item, and the
+high-severity one I drafted was deleted rather than filed.**
+
+**What caught it: writing the limit down honestly.** The draft carried
+*"`exit_head_shadow.py` was NOT read — a mis-keyed writer is not ruled out"*. I
+had written that as a caveat to ship. Deciding to resolve my own stated caveat
+instead is what surfaced errors 1–3. **A stated limit is a checklist item; a
+vague one is cover.** That is the transferable lesson, not the exit-head result.
+
+### One real observation that does survive
+
+**The head's live track record is effectively frozen.** Two fires ever, both in
+July, +$1.24 combined on `bybit_2`. And the legs are barely trading:
+
+| leg | closed | rejected + exchange_rejected | open |
+|---|--:|--:|--:|
+| `trend_donchian` | 47 | **45** | 0 |
+| `trend_donchian_eth` | 3 | 5 | 0 |
+| `trend_donchian_sol` | **0** | 7 | 0 |
+
+`trend_donchian_sol` **has never closed a trade**. So two of the three "live
+shipped" heads have essentially no live history at all, and the E1→E2 live arm
+cannot accrue on them at any rate worth waiting for. That is a fact for
+`/ml-review` to weigh against `BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N` — it makes
+"wait for more live trades" not a plan.
+
+**Not over-read:** a high rejection count is not per se a fault — per-trade
+`RiskManager` refusals are the designed behaviour under the Prime Directive, and
+nothing here establishes these are wrong. It is flagged as worth a look, not as a
+defect.
+
+### Probe errors this session, tallied
+
+Five, all caught before publication, one of each diagnostic-provenance sub-class
+plus a repeat:
+
+| # | probe | class | caught by |
+|---|---|---|---|
+| 1 | #8923 arm (b) labelled "ALL 1d", was 13 of 16 + 14 stray 1h rows | **C** | reconciling the pool against the open-cell set |
+| 2 | #8924 `trades` column keyed on a field the rows lack → counted legs | **A** | absurd on its face (`trades=1` beside `rows=1606`) |
+| 3 | #8937 asked the trainer about a live-VM log | **B** | resolving my own stated caveat |
+| 4 | #8937 content-grep used to enumerate files | **C** | the follow-up listing showed 2 files, not 1 |
+| 5 | #8938 diag request with prose where the path parser reads paths | — | the relay's own rejection message |
+
+Every one is in a probe written **to audit evidence quality**. Writing the check
+does not exempt the check.
