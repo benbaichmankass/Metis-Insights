@@ -4,7 +4,13 @@
   "items": [
     {
       "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RECURRING BENCHMARK -- NOT RUNNABLE this window, and the reason IS the finding. The candidate proxy is alpaca_paper/alpaca_portfolio, and alpaca_portfolio is OUT OF BUYING POWER: balance=$99,609.11 with available_usd=$53.90, producing 'risk_refused: sized_qty=0' on the tlt_pullback_1h dispatch. A book that cannot take a position is not a usable execution proxy -- any correlation/drawdown estimate would be measuring refusals. The incumbent side is also too thin: bybit_2 booked 1 closed trade in 24h (+$1.21, +1.02R, measured). Verdict: does_not_clear FOR WANT OF A MEASURABLE CANDIDATE, not on the merits. Unblock = restore alpaca_portfolio buying power."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "RECURRING BENCHMARK -- NOT RUNNABLE this window, and the reason IS the finding. The candidate proxy is alpaca_paper/alpaca_portfolio, and alpaca_portfolio is OUT OF BUYING POWER: balance=$99,609.11 with available_usd=$53.90, producing 'risk_refused: sized_qty=0' on the tlt_pullback_1h dispatch. A book that cannot take a position is not a usable execution proxy -- any correlation/drawdown estimate would be measuring refusals. The incumbent side is also too thin: bybit_2 booked 1 closed trade in 24h (+$1.21, +1.02R, measured). Verdict: does_not_clear FOR WANT OF A MEASURABLE CANDIDATE, not on the merits. Unblock = restore alpaca_portfolio buying power."
+      },
       "opened_at": "2026-07-15T06:30:00+00:00",
       "opened_by": "claude (operator directive 2026-07-15)",
       "source": "Operator directive when shelving alpaca_live to dry_run (PR shelve-alpaca-live-dryrun): set the standing bar for putting strategies on live real-money accounts.",
@@ -57,7 +63,13 @@
     {
       "id": "PB-20260707-IBKR-STK-ETF-SUPPORT",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-07T10:55:00+00:00",
       "opened_by": "claude (routing-coverage audit 2026-07-07, operator-directed 'scope the build')",
       "source": "Operator question 2026-07-07: 'check if anything trading on alpaca paper can trade on ibkr paper as well.' Finding: NO, as built. IBClient._build_contract (src/units/accounts/ib_client.py) wires ONLY three FUTURES contracts — MES (CME), MGC + MHG (COMEX) — and raises ValueError for any other symbol; there is ZERO equity/ETF (STK) support anywhere in the IB path (no secType='STK', no Stock() construction). alpaca_paper trades equity ETFs (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD). So none of the alpaca ETF strategies can run on ib_paper without first building STK support. Operator answer 2026-07-07: 'Yes — scope the build.'",
@@ -145,7 +157,13 @@
     {
       "id": "PB-20260630-002",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-30T20:10:00+00:00",
       "opened_by": "claude (leveraged-etf-research session 2026-06-30, operator directive)",
       "source": "Leveraged Nasdaq-100 ETF research + wiring (docs/research/leveraged-etf-research-2026-06-30.md; PR #5239). tqqq_trend_long_1d (3x) + qld_trend_long_1d (2x) wired to alpaca_paper (PAPER money, execution:live) reusing the trend_donchian unit at the qqq_trend_long_1d params. Backtest on the actual leveraged price series (decay + ~0.95% expense embedded): TQQQ +13.8R / QLD +12.7R OOS 2019-2026, both paper_ready (net-positive + 2x-fee headroom) but NOT every-fold (both took a loss in the 2022-bear fold) — one rung BELOW live_ready. TQQQ beat the live QQQ cell. account_compat_matrix run this session (verdict recorded in the PR / system-review).",
@@ -179,7 +197,13 @@
     {
       "id": "PB-20260630-001",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED: contamination is ONGOING, not historical. htf_pullback_trend_2h closed again this window (trade 4535, BTCUSDT, bybit_1) at -$560.77, pnlProvenance='estimated', journal exit_reason='reconciler_filled' -- a reconciler close, not a bracket hit, so bucket B/C and inadmissible to a win-rate. Of 39 journal rows inspected, ZERO carry a clean bracket exit_reason. The leg stays unassessable for the June-7 reason, now by a live mechanism rather than a one-off mass reconciliation. Blocker: bucket-A rows must accrue."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "RE-VALIDATED: contamination is ONGOING, not historical. htf_pullback_trend_2h closed again this window (trade 4535, BTCUSDT, bybit_1) at -$560.77, pnlProvenance='estimated', journal exit_reason='reconciler_filled' -- a reconciler close, not a bracket hit, so bucket B/C and inadmissible to a win-rate. Of 39 journal rows inspected, ZERO carry a clean bracket exit_reason. The leg stays unassessable for the June-7 reason, now by a live mechanism rather than a one-off mass reconciliation. Blocker: bucket-A rows must accrue."
+      },
       "opened_at": "2026-06-30T09:30:00+00:00",
       "opened_by": "claude (paper-trading-strategies session 2026-06-30)",
       "source": "Diag relay issues #5194 (all-trades pull, first 55K bytes) + #5196 (htf_pullback_trend_2h filtered, 200 rows asc via filter_col=strategy_name). Prompted by the large divergence between bybit_2 live (6 trades, 33.3% WR, +$12.71) and bybit_1 paper (36 trades, 16.7% WR, -$11,987) for htf_pullback_trend_2h.",
@@ -224,7 +248,13 @@
     },
     {
       "id": "PB-20260628-001",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-28T07:15:00+00:00",
       "opened_by": "claude (roadmap-status session 2026-06-28, operator directive)",
       "source": "Follow-up to PB-20260626-001 (alpaca_live undercapitalized, fund to >=$2,000). The operator funded the live Alpaca account with a small amount and added SMALL-TICKET strategies so an order can size >=1 share on a low balance: slv_pullback_1d + gdx_pullback_1d added 2026-06-27 (Tier-3, PR #592a83b), risk_pct raised to 0.02 (2%) on alpaca_live specifically for min-order sizing. Keys are confirmed correct (AK65, HTTP 200 from api.alpaca.markets) - the api_ok:false on /api/bot/accounts/balances is the known misleading balance-read surface (execute.py shouts 'check ALPACA keys' whenever balance() returns None), NOT an auth failure. Verified 2026-06-28 07:00-07:12 UTC: alpaca_live has 0 open + 0 closed trades; last-session SLV audit (2026-06-27 21:30-23:59 UTC) shows only skipped/no_signal rows (no qualifying setup) and ZERO no_fill/sized_qty=0 rejections - so the small-ticket path is wired and NOT blocked by capital; we simply have not yet caught a small-ticket SETUP firing during an open, funded RTH window to confirm a real fill end-to-end.",
@@ -233,7 +263,7 @@
       "tier": 2,
       "trigger_condition": "Every /system-review and /performance-review; specifically each US market open (13:30 UTC) until a real small-ticket fill on alpaca_live is observed. Check order_packages + trades + positions for account_id=alpaca_live, and the signal audit for slv/gdx/uso disposition (fill vs no_fill vs no_signal).",
       "resolution_criteria": "A small-ticket strategy on alpaca_live (slv/gdx/uso) produces an order_packages row that FILLS (open or closed trade row for account_id=alpaca_live, non-dry_run, real qty>=1 share), proving small-ticket placement works end-to-end on real money. Record the fill (symbol, qty, price, strategy, timestamp) and resolve. ALTERNATIVELY resolve only if the operator explicitly decides to pause/deactivate alpaca_live and that decision is recorded here.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -251,12 +281,29 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "The item's own alternative resolution was taken and recorded: accounts.yaml alpaca_live mode:dry_run, 'SHELVED to dry_run 2026-07-15 (Tier-3, operator-directed)'. No small-ticket real-money fill can occur while it is dry."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260625-002",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED indirectly and the signal is AMBIGUOUS, which is itself the record. /api/bot/notifications returned count=2 with kinds {all_accounts_failed, stuck_package_sweep} and NO 'orphan_unreconciled' banner. That banner fires on real-money status='orphaned' rows awaiting reconciliation, so either the 26 bybit_2 orphans are reconciled OR the banner is not detecting them. I did NOT distinguish those two this run -- a direct count of real-money orphaned rows is the check. Do not read the absent banner as proof the orphans are gone."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "RE-VALIDATED indirectly and the signal is AMBIGUOUS, which is itself the record. /api/bot/notifications returned count=2 with kinds {all_accounts_failed, stuck_package_sweep} and NO 'orphan_unreconciled' banner. That banner fires on real-money status='orphaned' rows awaiting reconciliation, so either the 26 bybit_2 orphans are reconciled OR the banner is not detecting them. I did NOT distinguish those two this run -- a direct count of real-money orphaned rows is the check. Do not read the absent banner as proof the orphans are gone."
+      },
       "opened_at": "2026-06-25T06:30:00+00:00",
       "opened_by": "claude (orphan-flap #5 historical reconciliation wrap-up)",
       "source": "The reconcile-orphan-history --apply pass on the live trade_journal.db (system-action issue #4516, backup trade_journal.db.reconcile-orphan-bak-20260625T061404Z): 169 orphan-flagged rows across 38 physical positions were collapsed to one canonical each (12 reconciled to their order package, 26 flagged 'unreconciled'), with 131 phantom flap duplicates void-flagged 'superseded'.",
@@ -283,12 +330,28 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Run ONE disposition pass over the 26 reconcile_status='unreconciled' bybit_2 canonicals — reconcile against the order package where possible, else mark fabricated/superseded with evidence — and record the per-row outcome. The machinery now exists (reconcile_status is an explicit queryable terminal state; superseded rows already excluded; provenance.classify_pnl grades each row). Tier 2: money-DB writeback, operator OK on the exact update, back up first, verify counts before/after."
         }
-      ]
+      ],
+      "severity": "medium",
+      "disposition": "do_now",
+      "next_action": "Run ONE disposition pass over the 26 reconcile_status='unreconciled' bybit_2 canonicals — reconcile against the order package where possible, else mark fabricated/superseded with evidence — and record the per-row outcome. The machinery now exists (reconcile_status is an explicit queryable terminal state; superseded rows already excluded; provenance.classify_pnl grades each row). Tier 2: money-DB writeback, operator OK on the exact update, back up first, verify counts before/after."
     },
     {
       "id": "PB-20260625-001",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-25T09:20:00+00:00",
       "opened_by": "claude (prop-trade-pipeline-debug — eth_pullback prop go-live follow-up)",
       "source": "PR #4533 promoted eth_pullback_prop_2h (tp_r 6 / trail 3.5) shadow->live and routed eth_pullback_2h live to the breakout_1 prop account, on the CORRECTED Breakout swap of 0.033%/day (the prior eval used 0.09%/day from an outdated review; Breakout's help centre confirms 0.033%/day). Funded-EV gate at the real rate (config/prop_rulesets/breakout.yaml, 1.5% risk): variant realised post-swap +$421/5y, 12-mo EV +$603 @75.9%, ROI/fees 4.2, walk-forward 4/4 folds, realised break-even swap 0.10%/day (3x headroom); the live exits are +$166, 4/4 folds. Eval: docs/research/eth-pullback-prop-swap-aware-2026-06-25.md (trainer relay #4530/#4532). Deploy confirmed live 2026-06-25 — both legs in /api/bot/strategies loaded_strategies, bot_running.",
@@ -298,7 +361,7 @@
       "trigger_condition": "First real prop fills/closes accrue on breakout_1 for either ETH leg, OR a prop account-status report exposes the actual swap debit.",
       "resolution_criteria": "Real Breakout swap confirmed (≈0.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
       "status": "kept_open",
-      "snoozed_until": null,
+      "snoozed_until": "2026-10-01",
       "updates": [
         {
           "at": "2026-06-29T12:35:00+00:00",
@@ -332,15 +395,30 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "snoozed",
+          "evidence_based": true,
+          "note": "SNOOZED until 2026-10-01. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: /api/bot/prop/fills shows >=10 closed ETH trades on breakout_1; compare realised vs the +$603/12mo EV projection and record keep/tune/drop per leg. breakout_1 is a manual-bridge account with no broker feed, so accrual is intrinsically slow and cannot be accelerated from a session."
         }
-      ]
+      ],
+      "severity": "medium",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260622-002",
       "result_2026_08_12": "RESULT 2026-08-12T01:25Z — PARTIAL, and the partition is the point. STEP (2) IS ANSWERED FOR THE 1h SIBLING AND UNANSWERABLE FOR THE PRIMARY 1d LEG ON THIS SPLIT. Reporting them together as one 'TLT result' would be the population error this repo keeps paying for.\n\ntlt_pullback_1h — the floor HURTS. Control 468 IS / 56 OOS at net_R +20.8991 / -5.4769; at floor 0.10 463 / 55 at +12.3272 / -5.3543. So it removes FIVE in-sample trades and costs -8.57R, about 1.7R per trade discarded, while OOS moves +0.12 (noise on n=55). The 0.10 optimum does not reproduce here.\n\ntlt_pullback_1d — UNGRADEABLE, not negative. Base OOS n is **4** on the 2025-07-01 split (control and arm alike), so all 14 cells returned `insufficient_base` under MIN_OOS_TRADES=25. Four daily trades cannot distinguish a real effect from noise, and the floor refusing them is the gate working, not a finding. The primary leg this row is ABOUT therefore has no answer from this run; it needs an earlier split or more history, and a daily leg may simply not have enough post-2025-07 data to be gradeable on the M20 split at all.\n\nCROSS-FAMILY PATTERN, the genuinely new thing. The same axis was measured on ict_scalp the same night (SRQ-20260618-003) and also came back anti-predictive: floors removed trades worth ~+0.58R to +0.75R apiece and made every leg worse. That is now TWO families with TWO unrelated confidence formulas — ict_scalp's 0.4*body_to_range + 0.3*sweep_depth + 0.3*fvg_size blend, and the pullback harness's own score — both of which shed disproportionately PROFITABLE trades when floored. Neither result transfers to the other by construction, which is exactly why two independent negatives are worth more than one: 'a confidence floor improves selection' should no longer be anyone's default prior in this system, and any future proposal for one carries the burden of proof.\n\nNOT ACTED ON. Steps (1) and (3) remain unmet, the 1d question is open rather than closed, and the 1h evidence points AWAY from a floor. No Tier-3 proposal follows from this. Row stays open with the 1h half now settled.",
-"dispatch_2026_08_12": "DISPATCHED 2026-08-12T01:12Z — step (2) of this row's own precondition list is now RUNNING on a free GitHub runner. The row asks to 're-run the sweep on a fresh window / out-of-sample split to confirm the 0.10 optimum is stable and not a single-period artifact'; that became a one-line dispatch tonight when the M20 sweep gained a --min-confidence-override axis (commit 498fac3). Run: legs tlt_pullback_1d + tlt_pullback_1h, min_confidence_override 0.10, split 2025-07-01, default geometry. The CONTROL already exists in the corpus at the same geometry (both legs, tp_cap 0.099, fee unset, run 2026-08-10), so this is a one-dimension A/B and needs no control run. IMPORTANT — this does NOT reproduce the original evidence and is not meant to. The 2026-06-22 finding came from scripts/backtest_pullback.py on yfinance daily at 2bps; this runs the M20 pipeline on its own frames and cost model. That makes it an INDEPENDENT test rather than a replication, which is what step (2) asks for — but it also means a disagreement in magnitude is expected and only a sign flip would be informative against the original. PRIOR that should temper the read: the same axis was measured on ict_scalp the same night (SRQ-20260618-003 confidence arm) and came back ANTI-predictive — a floor removed trades worth about +0.58R to +0.75R apiece and made every leg worse. Different family and a different confidence formula, so it does not transfer, but it means 'a confidence floor helps' is no longer the default expectation anywhere in this system. This row's own description already flags the TLT result as overfit-suspect (n=49, single symbol, in-sample), and steps (1) and (3) remain unmet regardless of how (2) lands. Do NOT propose a Tier-3 change on this run alone.",
+      "dispatch_2026_08_12": "DISPATCHED 2026-08-12T01:12Z — step (2) of this row's own precondition list is now RUNNING on a free GitHub runner. The row asks to 're-run the sweep on a fresh window / out-of-sample split to confirm the 0.10 optimum is stable and not a single-period artifact'; that became a one-line dispatch tonight when the M20 sweep gained a --min-confidence-override axis (commit 498fac3). Run: legs tlt_pullback_1d + tlt_pullback_1h, min_confidence_override 0.10, split 2025-07-01, default geometry. The CONTROL already exists in the corpus at the same geometry (both legs, tp_cap 0.099, fee unset, run 2026-08-10), so this is a one-dimension A/B and needs no control run. IMPORTANT — this does NOT reproduce the original evidence and is not meant to. The 2026-06-22 finding came from scripts/backtest_pullback.py on yfinance daily at 2bps; this runs the M20 pipeline on its own frames and cost model. That makes it an INDEPENDENT test rather than a replication, which is what step (2) asks for — but it also means a disagreement in magnitude is expected and only a sign flip would be informative against the original. PRIOR that should temper the read: the same axis was measured on ict_scalp the same night (SRQ-20260618-003 confidence arm) and came back ANTI-predictive — a floor removed trades worth about +0.58R to +0.75R apiece and made every leg worse. Different family and a different confidence formula, so it does not transfer, but it means 'a confidence floor helps' is no longer the default expectation anywhere in this system. This row's own description already flags the TLT result as overfit-suspect (n=49, single symbol, in-sample), and steps (1) and (3) remain unmet regardless of how (2) lands. Do NOT propose a Tier-3 change on this run alone.",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-22T18:10:00+00:00",
       "opened_by": "claude (ETF pullback backtest follow-up)",
       "source": "Surfaced by the PB-20260622-001 backtest (scripts/backtest_pullback.py, net-of-fee @2bps, yfinance daily 2015-01-02..2026-06-18). Across the daily ETF PULLBACK trio (gld/tlt/ief_pullback_1d), a min_confidence floor produced a mild SLEEVE improvement (baseline 167t +67.32R -> min_confidence 0.10 163t +71.85R) that was concentrated almost entirely in TLT: tlt_pullback_1d went 17.60R (exp 0.345) at min_confidence 0.0 -> 25.87R (exp 0.528) at 0.10. GLD/IEF were ~flat to the floor. The trend trio showed no comparable min_confidence benefit. The current config ships min_confidence: 0.0 for the whole sleeve (PB-20260622-001 resolved: keep the sleeve UNFILTERED), so this is the ONE per-symbol exception worth tracking — NOT acted on, deliberately.",
@@ -350,7 +428,7 @@
       "trigger_condition": "Enough live closed-trade history accrues for tlt_pullback_1d (e.g. >= 20-30 closed) to compare low- vs high-confidence TLT entry outcomes, OR a fresh out-of-sample min_confidence sweep is run to test stability of the 0.10 optimum.",
       "resolution_criteria": "Either a Tier-3 PR proposing a TLT-only min_confidence floor citing live + out-of-sample evidence, OR a documented decision (here) that the in-sample edge does not hold up and the sleeve stays uniformly min_confidence: 0.0.",
       "status": "kept_open",
-      "snoozed_until": null,
+      "snoozed_until": "2026-10-15",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -362,8 +440,17 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "snoozed",
+          "evidence_based": true,
+          "note": "SNOOZED until 2026-10-15. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: alpaca_live re-armed to mode:live (itself gated on the /performance-review portfolio-vs-bybit benchmark named in the account's own comment), plus >=30 TLT closed trades. Criterion is 'once live data accrues' and live TLT data stopped accruing when alpaca_live was shelved 2026-07-15."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260622-001",
@@ -393,7 +480,13 @@
     {
       "id": "PB-20260617-002",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-17T22:00:00+00:00",
       "opened_by": "claude (S-DTP-EXITPLAN-2026-06-17)",
       "source": "Dynamic-take-profit consistency ExitPlan layer P1-P3 + watcher endpoint shipped observe-only (PRs #3920/#3921/#3922/#3923, main @ 2ebd035). The exit-ladder soak (runtime_logs/exit_ladder_soak.jsonl, also at /api/bot/exit-ladder/soak) now records, per live executed order, the materialized laddered exit (partial-TP rungs + final + stop, sized to the real qty) vs the single SL/TP target actually placed. Nothing reads it back yet.",
@@ -402,7 +495,7 @@
       "tier": 3,
       "trigger_condition": "exit_ladder_soak accrues a meaningful window of live API records (e.g. >=30 with differs_from_single_target=true across >=2 strategies), AND the live-VM accrual is diag-confirmed.",
       "resolution_criteria": "A Tier-3 PR proposes graduating the materialized ladder to the real exit for a named venue/strategy set, citing the soak distribution + before/after backtest evidence (+ account_compat_matrix PASS for prop), with the ARCHITECTURE-CANONICAL row added.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -426,9 +519,21 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M20 P4. M20's own research already ruled it unanswerable as scoped (ROADMAP:106 — exit-ladder soak 135 rows / 0 differing, structural). A backlog row cannot fix a scoping defect; the owning milestone has already re-scoped it. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
       ],
-      "detail": " [2026-07-12 M20 re-scope: 135 soak rows, differing=0 — STRUCTURAL: only turtle_soup declares meta.tp2 and it is execution:shadow, so no live strategy produces a ladder differing from the flat SL/TP placed. P4-as-scoped is unanswerable by more soaking. Superseding direction: the M20 memo (docs/research/M20-exit-refinement-2026-07-12.md) proposes per-strategy stale-stop / trend-invalidation exit levers instead; a real partial-TP ladder requires a strategy to declare one first (Tier-3 design decision).]"
+      "detail": " [2026-07-12 M20 re-scope: 135 soak rows, differing=0 — STRUCTURAL: only turtle_soup declares meta.tp2 and it is execution:shadow, so no live strategy produces a ladder differing from the flat SL/TP placed. P4-as-scoped is unanswerable by more soaking. Superseding direction: the M20 memo (docs/research/M20-exit-refinement-2026-07-12.md) proposes per-strategy stale-stop / trend-invalidation exit levers instead; a real partial-TP ladder requires a strategy to declare one first (Tier-3 design decision).]",
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M20 P4",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260614-001",
@@ -475,7 +580,13 @@
     },
     {
       "id": "PB-20260609-002",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "resolved", "note": "RESOLVED. The cells now EXIST in config/regime_policy.yaml: trend_vol.trending.volatile.ict_scalp_5m {long:false, short:false} and trend_vol.chop.volatile.ict_scalp_5m {long:false, short:false} -- refused outright in both volatile regimes. Verified by reading the config this run, and load-bearing: those two cells are the MECHANISM that refuted PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS (the -48.88R base was measured with the router OFF; the live gated book is +46.80R over 16 trades at pnlCoverage 1.00). A regression test now anchors on the real file (tests/test_m20_regime_book_provenance.py)."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "resolved",
+        "note": "RESOLVED. The cells now EXIST in config/regime_policy.yaml: trend_vol.trending.volatile.ict_scalp_5m {long:false, short:false} and trend_vol.chop.volatile.ict_scalp_5m {long:false, short:false} -- refused outright in both volatile regimes. Verified by reading the config this run, and load-bearing: those two cells are the MECHANISM that refuted PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS (the -48.88R base was measured with the router OFF; the live gated book is +46.80R over 16 trades at pnlCoverage 1.00). A regression test now anchors on the real file (tests/test_m20_regime_book_provenance.py)."
+      },
       "opened_at": "2026-06-09T21:30:00+00:00",
       "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
       "source": "M7 packet runs surface every ict_scalp_5m cell with `policy: unknown` because `config/regime_policy.yaml` has no rows for ict_scalp_5m at all. This is intentional default-permissive behavior, but it means the gate can't read per-regime evidence for the strategy.",
@@ -503,7 +614,13 @@
     },
     {
       "id": "PB-20260609-001",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED, still open, with a SHARPER diagnosis. Both order packages readable this window stamp vol_regime='unknown' WITH rolling_log_return_vol=null and vol_regime_source='vol-bucket-edges' (tlt_pullback_1h pkg-349cebc854c04ff7; ict_scalp_xrp_15m pkg-0ad6782b432a46ae) -- the FROZEN vol detector is not computing the vol series at all on these legs, not merely failing to bucket it. 2 of 2 packages inspected. Consequence: a 2-D trend_vol OFF-cell keyed on the frozen label cannot fire on a leg whose symbol has no advisory head. Blocker unchanged (trace the detector's null-series path)."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "RE-VALIDATED, still open, with a SHARPER diagnosis. Both order packages readable this window stamp vol_regime='unknown' WITH rolling_log_return_vol=null and vol_regime_source='vol-bucket-edges' (tlt_pullback_1h pkg-349cebc854c04ff7; ict_scalp_xrp_15m pkg-0ad6782b432a46ae) -- the FROZEN vol detector is not computing the vol series at all on these legs, not merely failing to bucket it. 2 of 2 packages inspected. Consequence: a 2-D trend_vol OFF-cell keyed on the frozen label cannot fire on a leg whose symbol has no advisory head. Blocker unchanged (trace the detector's null-series path)."
+      },
       "opened_at": "2026-06-09T21:30:00+00:00",
       "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
       "source": "M7 packet output (final run, issue #3130) shows many cells with `vol: unknown` — packages carry `regime` but null `vol_regime`. The vol axis stamp comes from `src.runtime.regime.vol_detector` which requires frozen `vol_bucket` edges per `(symbol, timeframe)` — htf_pullback_trend_2h's 2h timeframe and ict_scalp_5m's 5m timeframe likely lack edges in `btc-regime-5m-baseline-v1`.",
@@ -525,8 +642,18 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Enumerate which (symbol, timeframe) pairs have frozen vol_bucket edges vs which do not, land a Tier-1 audit doc stating which absences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Enumerate which (symbol, timeframe) pairs have frozen vol_bucket edges vs which do not, land a Tier-1 audit doc stating which absences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question."
     },
     {
       "id": "PB-20260607-001",
@@ -638,21 +765,27 @@
     {
       "id": "PERF-20260531-001",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-05-31",
       "created": "2026-05-31",
       "opened_by": "claude (continuation session, SPX re-tune of trend_donchian)",
       "source": "prem_runs/03 intent — trend_donchian donchian-lookback sweep on data/SPX500_1m.parquet (2.15M 1m rows, 2020-01 -> 2026-05) resampled to 2h, via standalone scripts/backtest_trend.py on the trainer VM. Net-of-fee 7.5 bps.",
       "title": "trend_donchian on SPX: two-sided FAILS but the LONG side is a BTC-uncorrelated diversification candidate (+22.5 R long-only at donchian=20)",
       "description": "Tested whether the one durable roster winner (trend_donchian) transfers to an uncorrelated market (SPX/MES) for diversification. RESULT: two-sided trend_donchian is net-NEGATIVE on SPX at every tested lookback (dc=20 net -13.5R, dc=30 -14.2, dc=40 -29.1, dc=55 -29.9). BUT the entire loss is the SHORT side; the LONG side is net-POSITIVE at every lookback: long-only net R = +22.45 (dc=20), +16.69 (dc=30), +9.45 (dc=40), +7.20 (dc=55). SPX's secular uptrend systematically punishes trend-breakout shorts (short-side net ~ -31..-38R across configs). Shorter lookback is clearly best (dc=20: 278 long trades, long-side exp ~ +0.08 R/trade, net-positive in 2021/2023/2024; longer lookbacks degrade both sides). maxDD grows with lookback (27.6R @ dc=20 -> 39R @ dc=55). LEAD: a long-only / long-biased trend_donchian on SPX/MES is a plausible diversification add — uncorrelated to the BTC roster, exploits the equity risk premium, positive long-side expectancy. CAVEATS: in-sample over the available 6.4y; SPX500 CFD prices (live is MES — execution/contract differ); long-side R is the long legs of the two-sided run (entries are independent, so it equals a true long-only run, but a dedicated long-only + walk-forward + corr-to-BTC-trend_donchian check should confirm before any proposal). [WALK-FORWARD ADDED 2026-05-31 — see walk_forward field: long side positive IS+OOS but thin OOS edge; dc=30 most robust.]",
-      "tier": "tier-3",
+      "tier": 3,
       "priority": "low",
       "severity": "medium",
-      "status": "kept_open",
+      "status": "resolved",
       "trigger_condition": "Next /performance-review, or a strategy/model-training session with SPX/MES capacity.",
       "resolution_criteria": "Confirm with a dedicated LONG-ONLY trend_donchian backtest on SPX/MES + walk-forward (in/out split) + low return-correlation to the live BTC trend_donchian. If it clears net-of-fee with acceptable DD, propose a long-only trend_donchian SPX/MES adapter as a Tier-3 PR for operator approval (the new-strategy wiring checklist applies). If it does not hold out-of-sample, resolve won't-fix with the evidence.",
-      "resolved_at": null,
-      "resolved_by": null,
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": null,
       "snoozed_until": null,
       "walk_forward": "Long-side walk-forward (SPX 2h, net-of-fee): dc=20 long-only IS(2020-2023)=+21.08R/169tr -> OOS(2024-2026)=+1.15R/109tr (nearly flat); dc=30 IS=+11.73R/158tr -> OOS=+4.73R/95tr (exp +0.05). QUALIFIED PASS: the long side stays POSITIVE in both windows (does not flip negative OOS) but the OOS edge is THIN, esp. dc=20; dc=30 holds up best proportionally. Read: a legitimate-but-MODEST BTC-uncorrelated diversification lead, not a slam-dunk. Short side negative in every window (confirmed). Before any Tier-3 proposal: build a true long-only adapter, validate on live MES (not SPX500 CFD) history, and measure return-correlation to the live BTC trend_donchian — the portfolio value is the low correlation even at a modest standalone edge.",
@@ -668,8 +801,17 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M36 Track B. New instrument+direction cell needing a dedicated long-only backtest, walk-forward, correlation study vs the live BTC leg and full new-strategy wiring. A sprint, not a bug row. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M36 Track B"
     },
     {
       "id": "PERF-20260531-002",
@@ -722,18 +864,24 @@
     {
       "id": "PERF-20260601-002",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-01T11:00:00+00:00",
       "opened_by": "claude (regime study)",
       "source": "Regime-aware-routing initiative (operator 2026-06-01: complementarity across REGIMES). Relays #2557-#2559; handoff docs/research/session-handoff-2026-06-01.md.",
       "title": "Regime x strategy x direction matrix (roster) + regime router + the trend_donchian long-only-vs-chop-gated-short decision",
       "description": "Flagship done: trend_donchian (gated, live 1h/trail5.0) long side = trend edge (+47R, wins trending/transitional); short side only works in chop (+16R chop, -52R trending/transitional) — BTC uptrend punishes trend-shorts. CRITICAL reconciliation: the research's BTC +43.8R OOS was over-optimistic (engine omitted the live min_confidence=0.30 gate -> -53R; gated +11R full / -6R OOS on fresh Bybit perp 1h; residual gap = data, research used a deleted /tmp/btc5m.csv 5m source). NEXT: build the same regime x direction matrix for fade/squeeze/fvg/vwap/htf/mes via each harness's --emit-trades hook driven with EXACT live params, then (a) decide trend_donchian long-only vs chop-gated-short, (b) re-promotion criteria for demoted squeeze/fade, (c) design the regime router (intent-layer weighting/gate keyed to detected regime; building blocks: existing ADX gates + regime-classifier-baseline-v0 shadow model). Tooling: scripts/research/regime_matrix.py + gated backtest_trend.py; data data/btc_1h_multiyear.csv on trainer (re-fetch via the ccxt loop if gone).",
       "tier": 3,
-      "status": "kept_open",
+      "status": "resolved",
       "trigger_condition": "Next session continues the broadened regime study.",
       "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
-      "resolved_at": null,
-      "resolved_by": null,
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": "2026-06-01 progress: full BTC roster matrix produced with exact live params (docs/research/regime-roster-matrix-2026-06-01.md). trend +10.9 (long +47/short -37), fade +19.4 (chop), squeeze +17.6 (every regime, low DD), fvg -16.9 (loser), htf_pullback_trend_2h +26.3 (trending-long +30, loses chop, added 2026-06-01 via #2573 once scripts/backtest_pullback.py committed), vwap -10,724 (live-gated, 40,650 trades, gross +3,399 / fees -14,123 — loser every regime; added 2026-06-01 via #2575+#2579 once src/backtest/run_backtest_vwap.py shipped the four exit-side gate CLI flags + BE ratchet). Matrix is now decision-grade for the ENTIRE roster — every strategy has a cell value, no permissive (`on`) defaults remaining. 3 Tier-3 proposals (trend long-only vs chop-gated-short; squeeze/fade re-promotion criteria; regime-router design) in the doc; decision-1 (trend long-only) SHIPPED+DEPLOYED 2026-06-01 (#2570); decision-2 (squeeze re-promotion) pre-approved + gated as PERF-20260601-005; decision-3 (router) design delivered, phase-1 build awaiting operator review of docs/research/regime-router-design-2026-06-01.md open questions. The router policy table is now complete: vwap is off in every regime (loudest gate — net -10,724 R), fvg off in every regime, trend short ON only in chop, htf_pullback long ON in trending/transitional, fade ON in chop, squeeze ON everywhere, trend long ON everywhere.",
       "snoozed_until": null,
       "updates": [
@@ -747,8 +895,18 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M26. 'Full roster regime x direction matrix + regime-router design' is a multi-session programme; its phases 1+2 already shipped, which is the shape of a milestone. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M26",
+      "severity": "medium"
     },
     {
       "id": "PERF-20260601-003",
@@ -838,17 +996,23 @@
     },
     {
       "id": "PERF-20260601-007",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-01T16:30:00+00:00",
       "opened_by": "claude (regime-router phase 2 ship)",
       "source": "Regime router design doc § 5.4. Phase 4 is the soft-weight graduation after hard gates prove out.",
       "title": "Regime router phase 4 — graduate to soft weights + classifier-v0 detector [Tier-3]",
       "description": "Phase 4 (the design doc's last step): once phase-3 hard gates have demonstrated lift in production for >= a few weeks, graduate the policy from binary on/off to soft confidence weights (numeric cells like 0.5 / 1.0 / 1.5 multiply intent.confidence before priority resolution). The phase-2 evaluator already parses `weight: N.N` cells and routes them as permissive with a tagged reason — phase 4 wires the multiplier in. Also: validate `regime-classifier-baseline-v0` (the shadow regime model in the registry) against ADX-14 on the same per-tick stream; if its predictions correlate >0.85 with ADX-14 and add value at the regime boundaries (the 18.5-22.5 ADX hysteresis zone the design doc Q4 flagged), swap the detector source from 'adx-14' to 'classifier-v0' in src/runtime/regime/detector.py (the audit-row `regime_source` field already supports this; consumer is forward-compatible).",
       "tier": 3,
-      "status": "kept_open",
+      "status": "resolved",
       "trigger_condition": "After phase-3 hard gates have been live for >= 2-3 weeks with measurable lift; OR when the ML lifecycle promotes regime-classifier-baseline-v0 past shadow.",
-      "resolved_at": null,
-      "resolved_by": null,
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": null,
       "snoozed_until": null,
       "updates": [
@@ -862,8 +1026,18 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M26 P4. Named as a future PHASE in its own design doc (regime-router-design-2026-06-01.md:174 cites this ID as happening 'in phase 4 ... only after hard gates demonstrate' themselves). Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M26 P4",
+      "severity": "medium"
     },
     {
       "id": "PERF-20260601-008",
@@ -930,7 +1104,13 @@
     },
     {
       "id": "PERF-20260601-010",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-01T19:30:00+00:00",
       "opened_by": "claude (/performance-review)",
       "source": "/performance-review 2026-06-01 — order_packages pull showed vwap AND htf_pullback_trend_2h emitting confidence=1.0 on every package.",
@@ -939,7 +1119,7 @@
       "tier": 3,
       "trigger_condition": "Next /performance-review; or when wiring a min-confidence floor or confidence-weighted sizing for vwap/htf; or when reviewing ML feature quality.",
       "resolution_criteria": "vwap and htf_pullback_trend_2h order packages carry a confidence that VARIES with setup strength (not a constant 1.0); OR it's confirmed by-design that these strategies don't expose a graded confidence and the placeholder is documented + excluded from ML features.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         {
@@ -973,12 +1153,29 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: degenerate-confidence pattern still present — uso_trend_1h + slv_trend_1h emitted order packages at conf ~0.03-0.04 (graded D 'should_skip') this window. Low-confidence emission review still open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Both named strategies resolved: htf_pullback_trend_2h.py:334 cites this ID and replaced the saturating min(depth,1.0) with a graded blend (:350); vwap was M7-killed (strategies.yaml:376 enabled:false) so it emits no packages at all."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PERF-20260601-011",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RECURRING TEST RUN, result PARTIAL. Regime stamping IS firing: both readable packages carry regime='chop'/'trending', regime_source='adx-14', numeric adx_14 (16.39 / 25.97); advisory_decision returned action='no_scores' with all three regime heads in excluded_regime, as designed. BUT the VOL axis is dead on these legs -- vol_regime='unknown' on a null series (see PB-20260609-001) -- so a 2-D trend_vol cell keyed on the frozen label cannot resolve, and only a symbol with an advisory head (BTC, SOL) can gate on vol at all. Trend axis verified, vol axis unverifiable. 2 of 2 packages inspected."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "RECURRING TEST RUN, result PARTIAL. Regime stamping IS firing: both readable packages carry regime='chop'/'trending', regime_source='adx-14', numeric adx_14 (16.39 / 25.97); advisory_decision returned action='no_scores' with all three regime heads in excluded_regime, as designed. BUT the VOL axis is dead on these legs -- vol_regime='unknown' on a null series (see PB-20260609-001) -- so a 2-D trend_vol cell keyed on the frozen label cannot resolve, and only a symbol with an advisory head (BTC, SOL) can gate on vol at all. Trend axis verified, vol axis unverifiable. 2 of 2 packages inspected."
+      },
       "opened_at": "2026-06-01T19:45:00+00:00",
       "opened_by": "claude (/performance-review, operator request)",
       "source": "Operator 2026-06-01: after choosing Option 2 for the regime router, asked to log that the gates need to be tested periodically and their performance monitored — folded into the strategy review as a recurring check.",
@@ -987,7 +1184,7 @@
       "tier": 1,
       "trigger_condition": "EVERY /performance-review run (recurring; do not close on a single clean pass).",
       "resolution_criteria": "RECURRING — never auto-resolves. Stays open as a standing checklist item; only closed if the regime router is retired. Each review appends a dated firing+performance reading to the evidence_log and raises a tweak/backlog item on any divergence.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "2026-06-01 (opened): baseline reading — phase 1 stamping live (119/119 eval rows carry regime/adx_14); phase 2 deployed log-only; firing-correctness spot-check still PENDING (the two audit windows sampled this session, 17:19Z + 18:55Z, did NOT overlap the 12-16Z vwap-active window, so regime_shadow_gate count was not positively confirmed yet). Next review: pull a vwap-active window and confirm the OFF-cell events fire as designed.",
@@ -1022,6 +1219,13 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 (recurring): regime-router baseline-on; audit tail shows regime/adx stamped on evals; no gate misfire observed this window. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Standing/recurring by construction so it can NEVER close on its own. The duty is institutionalised outside the backlog: the router emits a per-tick regime_hard_gate audit row with enforced:true, and /system-review's review_coverage guard FAILS a run missing the regime/promotion assessment."
         }
       ],
       "review_notes": [
@@ -1029,7 +1233,11 @@
           "at": "2026-06-18T11:45:00+00:00",
           "note": "/performance-review 06-18: regime stamps PRESENT + populated on every order_package meta (regime + adx_14 + regime_source=adx-14), e.g. fade_breakout_4h adx 17.55 chop, eth_pullback adx 31.4 trending. Layer-1 stamp coverage OK. Layer-2 (regime_shadow_gate event correctness vs config/regime_policy) NOT verifiable this pass — the diag relay is byte-capped to ~17 packages and can't page a dedicated gate window. Recurring item stays OPEN."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260606-001",
@@ -1053,15 +1261,21 @@
     {
       "id": "PB-20260611-M15-1",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-11T19:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "M15 WS-C alt sweep + k-fold validation (docs/research/m15-ws-c-alt-sweep-2026-06-11.md; trainer #3380/#3381). Operator endorsed the 3-fold gate and adopted eth_pullback_2h ONLY (#3378).",
       "title": "Trend-4h alt cells (ETH/XRP/AVAX/SOL) — 3-fold k-fold PASS, research-validated, NOT adopted: revisit for demo-book slots",
       "description": "All four pass the operator-endorsed 3-fold gate at 7.5 bps with 2x fee headroom (totals: XRP +45.8R, ETH +27.9R, AVAX +27.6R, SOL +21.1R; every 3-fold positive). Deliberately not adopted 2026-06-11 ('merge ETH pullback only'). When revisiting: each is a separate Tier-3 PR mirroring eth_pullback_2h's wiring (per-symbol trend_donchian instance at the Phase-0 screening params donchian 20 / stop 2.5 / trail 3.0 bidirectional, bybit_1 demo only, execution: live per paper-accounts-execute). Weigh book concentration: all correlate 0.7-0.9 with BTC and with each other — adding several multiplies concurrent-drawdown exposure under the shared bybit_1 daily-loss cap.",
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": null,
       "updates": [
         {
@@ -1074,13 +1288,30 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M36 Track B. Research-validated cells (3-fold k-fold PASS) deliberately NOT adopted, awaiting a portfolio-slot decision — a capacity/allocation question, not a defect. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M36 Track B",
+      "tier": 3,
+      "severity": "medium"
     },
     {
       "id": "PB-20260611-M15-2",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-11T19:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "eth_pullback_2h adopted + deployed 2026-06-11 (#3378/#3403, verified loaded #3408). NOTE: its first two signals (15:30Z/16:04Z shorts) were exchange-rejected on the lot-step bug fixed in #3406 (BL-20260611-002 flavour) — the soak clock effectively starts after that deploy (16:20Z).",
@@ -1104,21 +1335,38 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only."
         }
-      ]
+      ],
+      "tier": 1,
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only."
     },
     {
       "id": "PB-20260611-M15-3",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-11T19:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "WS-B verdict (docs/research/m15-ws-b-spy-qqq-walkforward-2026-06-11.md) + WS-C ict k-folds (#3418).",
       "title": "Closed research lines, revisit conditions: SPY ict_scalp 5m (near-miss) and alt ict_scalp (fee-fragile)",
       "description": "SPY ict_scalp 5m failed the every-fold gate on one thin 8-trade fold (-1.45R) with robust headroom (+8.6R at 4 bps) — revisit only with materially longer history or a per-symbol re-tune (a tuning project, against the screening discipline), or on Alpaca venue bars once the paper feed accrues. Alt ict_scalp (ADA/AVAX/ETH/LINK) is definitively closed: every cell deeply negative at 2x fee (-24 to -64R at 15 bps) despite positive gross — the 5m family does not survive realistic alt-perp costs. Do not re-screen without a fee/slippage model improvement.",
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": null,
       "updates": [
         {
@@ -1131,12 +1379,28 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "The item's own title is 'Closed research lines, revisit conditions' — the lines are closed with verdicts and the revisit conditions live durably in docs/research/m15-ws-b-spy-qqq-walkforward-2026-06-11.md. A memo of conditions is not an open defect."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "tier": 1,
+      "severity": "low"
     },
     {
       "id": "PB-20260614-IBMHG-1",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-14T07:30:00+00:00",
       "opened_by": "claude (session close-out — IB position-read fix #3490)",
       "source": "2026-06-14 session investigating the IB integration. trade #2539 (mhg_pullback_1d, ib_paper, 2026-06-12 00:02Z) was journalled exchange_rejected on IBKR Error 10349 (TIF=DAY) but ACTUALLY FILLED — a 3-contract MHG (Micro Copper) paper position exists on ib_paper. The reverse-reconciler has been adopting it as an orphan, closing on a transient disappear, and re-adopting (trades #2540 closed, #2575 open).",
@@ -1157,8 +1421,19 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh pull; verification watch continues (no adverse signal this window). Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. The flap mechanism is fixed; the residual FACTUAL question is answerable in one call. Read /api/diag/exchange_positions?account_id=ib_paper (broker truth, opens no order path): if the stray 3-contract MHG position from trade #2539's Error-10349 desync is gone, close with the evidence; if still there, reconcile open journal row #2575 against it."
         }
-      ]
+      ],
+      "tier": 1,
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "The flap mechanism is fixed; the residual FACTUAL question is answerable in one call. Read /api/diag/exchange_positions?account_id=ib_paper (broker truth, opens no order path): if the stray 3-contract MHG position from trade #2539's Error-10349 desync is gone, close with the evidence; if still there, reconcile open journal row #2575 against it."
     },
     {
       "id": "PB-20260616-001",
@@ -1184,7 +1459,13 @@
     },
     {
       "id": "PB-20260616-002",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "resolved", "note": "RESOLVED by measurement, and the answer INVERTS the premise. Live real-money, window=all: 16 trades, 75.0% win rate, +$13.53, totalPnlMeasured +$13.53, pnlCoverage 1.00 (16 of 16 rows broker-MEASURED), +46.80R -- the best real-money leg in the 12-row perStrategy list. The 3-yr backtest negativity is explained, not contradicted: the sweep measured the UNGATED book while live refuses both volatile regimes (see PB-20260609-002). Residual: n=16 is thin, so this refutes the concern rather than establishing the leg -- carried as a watch line, not a P1."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "resolved",
+        "note": "RESOLVED by measurement, and the answer INVERTS the premise. Live real-money, window=all: 16 trades, 75.0% win rate, +$13.53, totalPnlMeasured +$13.53, pnlCoverage 1.00 (16 of 16 rows broker-MEASURED), +46.80R -- the best real-money leg in the 12-row perStrategy list. The 3-yr backtest negativity is explained, not contradicted: the sweep measured the UNGATED book while live refuses both volatile regimes (see PB-20260609-002). Residual: n=16 is thin, so this refutes the concern rather than establishing the leg -- carried as a watch line, not a P1."
+      },
       "title": "Verify ict_scalp_5m live edge — net-negative in 3-yr prop backtest",
       "status": "resolved",
       "tier": 3,
@@ -1217,9 +1498,15 @@
     {
       "id": "PB-20260616-004",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "title": "trend_donchian is +EV on Bybit high-vol alts (SOL/ETH/BNB) — prop candidate validated + WIRED (SOL live long-only, ETH shadow); soak follow-ups remain (Tier-3)",
-      "status": "kept_open",
+      "status": "resolved",
       "tier": 3,
       "opened_at": "2026-06-17T05:40:00+00:00",
       "opened_by": "claude (Breakout prop EV sweep 2026-06-16)",
@@ -1248,8 +1535,20 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M36 Track B. 'Validated on real Bybit perp data + walk-forward + operator-approved Tier-3 wire onto the prop account' across five alts is a strategy-expansion programme with an account_compat gate. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M36 Track B",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260617-001",
@@ -1276,7 +1575,13 @@
     },
     {
       "id": "PB-20260618-001",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-18T11:45:00+00:00",
       "opened_by": "claude (/performance-review)",
       "source": "/performance-review 06-18 — trades pull (journal table=trades)",
@@ -1285,7 +1590,7 @@
       "tier": 2,
       "trigger_condition": "Next /performance-review touching mgc_trend_1h, OR after the reconciler double-adoption is fixed.",
       "resolution_criteria": "Reconciler bug fixed (health-review) AND a clean window shows mgc_trend_1h with de-duplicated trades; then assess the real edge.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -1298,8 +1603,19 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Reconciler half fixed (order_monitor.py:1799 readopt guard 300->1800s; the 131 phantom duplicates void-flagged superseded and excluded by _clean_trades.py:75). Assessment half is moot by construction: mgc_trend_1h is execution:shadow so it places no live order and has no live edge to measure. RE-OPEN if it is ever promoted to live."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260618-010",
@@ -1345,14 +1661,20 @@
     {
       "id": "PB-20260618-012",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-18T16:20:00+00:00",
       "opened_by": "claude (S-RECOMB-SWEEP)",
       "source": "Direction-1/2 follow-up #2",
       "title": "account_compat_matrix is BTC/ROSTER-centric — needs futures/daily extension for non-crypto real-money gate",
       "description": "scripts/prop/account_compat_matrix.py builds ledgers via scripts.backtest_system.ROSTER (BTC-only strategies, symbol hardcoded BTCUSDT, _PANDAS_TF has no '1d'). To run the rigorous per-contract EV/survival gate on the non-crypto daily cells (mhg/mgc/mes/spy/qqq/gld), extend ROSTER+backtest_system for daily futures/equity + per-contract cost, OR add a path that consumes a precomputed emit ledger directly. Until then the per-contract cost answer is the reasoned estimate (~0.005-0.013 R/trade vs +0.43 R/trade headroom = negligible). Required before any non-crypto real-money (Tier-3) proposal.",
-      "status": "kept_open",
-      "tier": "Tier-1 (tooling)",
+      "status": "resolved",
+      "tier": 1,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -1364,20 +1686,38 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M36 Track B. Extending account_compat_matrix from a crypto roster to futures and daily bars means new cost models, survival economics and instrument classes — prerequisite tooling that gates every non-crypto real-money proposal. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M36 Track B",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260618-013",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-18T22:45:00+00:00",
       "opened_by": "claude (S-CROSS-ASSET-PROBE step 3)",
       "source": "docs/research/cross-asset-feature-probe-2026-06-18.md § 7. Directional cross-asset probe was a WEAK-POSITIVE: +cross-asset lifts ETH 5-bar forward-sign accuracy from a coin-flip 50.6% to 51.5% (leak-free, purged-WF-CV) — a classifier-accuracy edge, NOT yet a demonstrated PnL edge.",
       "title": "Convert-to-PnL gate for the directional cross-asset signal (does 51.5% sign-accuracy survive net-of-fee?)",
       "description": "Turn the cross-asset directional signal into entries and run it through the net-of-fee backtest + readiness ladder (m15_ws_b_fold_report -> classify_strategy_tier). A 51.5% sign-accuracy ignores move SIZE + costs; this answers whether it is positive expectancy after fees. If yes -> that's the tradeable result (Tier-3 wire candidate). If no -> close the directional angle honestly (cross-asset stays a regime/sizing conditioner only). Cheap + decisive.",
-      "status": "kept_open",
-      "tier": "Tier-1 (research)",
+      "status": "resolved",
+      "tier": 1,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -1389,20 +1729,38 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M30 / M36 Track D. A 51.5%-vs-50.6% sign-accuracy lift is explicitly 'a classifier-accuracy edge, NOT yet a demonstrated PnL edge'; converting one to the other is the net-of-cost walk-forward discipline M30 exists to run. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M30 / M36 Track D",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260618-014",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-18T22:45:00+00:00",
       "opened_by": "claude (S-RECOMB-SWEEP follow-up)",
       "source": "docs/research/recombination-sweep-2026-06-18.md. The ADX×family interaction was OOP-validated on the PULLBACK side (eth/sol/xrp/ada/avax) and shipped (S-STRAT-REFINE-0618). The TREND-side recombination survivors were never put through an out-of-pool holdout.",
       "title": "Trend-side recombination survivors — out-of-pool holdout before any proposal",
       "description": "The 90-tuple recombination sweep's trend-family (trend_donchian_*_4h) live_ready/paper_ready survivors are in-pool only. Run the same OOP holdout discipline used for the pullback ADX gate before proposing any trend-side param refinement to strategies.yaml (Tier-3). Multiple-comparisons caveat applies (76/90 survivors are variants of ~10 edges).",
-      "status": "kept_open",
-      "tier": "Tier-1 (research)",
+      "status": "resolved",
+      "tier": 1,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -1414,20 +1772,38 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M30 -> M21. 'Out-of-pool holdout before any proposal' on the trend-side recombination survivors is a study; its pullback-side sibling already shipped through a sprint (S-STRAT-REFINE-0618). Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M30 -> M21",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260618-015",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-18T22:45:00+00:00",
       "opened_by": "claude (S-STRAT-REFINE-0618 watch)",
       "source": "S-STRAT-REFINE-0618: eth_pullback_2h was promoted to bybit_2 REAL MONEY (operator-directed live test) + the ADX>=25 gate ported into the live htf_pullback unit on the 5 bybit_1 paper pullback cells. As of 2026-06-18 evening the market was quiet — no ETH fills on bybit_2 and no ADX-gate rejections observed yet.",
       "title": "Review eth_pullback_2h real-money performance on bybit_2 + ADX-gate firing once trades accrue",
       "description": "Once trades accrue: (a) review eth_pullback_2h real PnL on bybit_2 (real-money test cell; ETH-BTC correlation + no-prior-track-record caveats stand; rollback = remove from bybit_2.strategies), and (b) confirm the new ADX>=25 entry gate is actually firing/rejecting on the bybit_1 paper pullback cells (audit *_eval rows carry adx_14; gate raises ValueError below 25). Cross-check the live behavior matches the backtested OOP expectation.",
       "status": "kept_open",
-      "tier": "Tier-3 (real-money cell under watch)",
+      "tier": 3,
       "updates": [
         "2026-07-20 (/system-review, operator-requested verify): ada/xrp_pullback_2h real-money losers are NOT chop entries — every actionable entry in 2026-06-13->07-20 fired at regime=trending, ADX 25-32 (ADA sells @31, XRP buys @25.6-26.4); the adx_min:25 gate is provably working (blocks ADX<25 live). The losses are MARGINAL-TREND / transition fakeouts (ADX just clears 25 then the move fails) — same family as ict_scalp's trending+volatile losing cell. Disposition: NOT a demote (M7 verdict HOLD, n_closed=0 in the packet window; small live n). Refinement lever (backtest-gated, Tier-3): a higher trend-quality floor (e.g. ADX>=30) and/or a vol-at-entry cap for the marginal-trend band, OR let the maturing 15m regime heads route it. Logged for the entry-refinement / regime-router track (PERF-20260601-006/007, MB-20260628).",
         "2026-07-20 ADX-floor grid (backtest_pullback, htf_pullback_trend_2h unit, ~5y 2h resampled from 5m, config-matched trend_lookback40/trail5.0/vol_skip_below_pctl0.1). IN-SAMPLE net_R by adx_min: ADA 25->38.75R(exp0.18,dd16.1) 28->55.35R(exp0.31,dd13.3) 30->42.34R(exp0.26,dd12.3) 32->45.30R(exp0.31,dd12.0); XRP 25->26.56R(exp0.11,dd16.4) 28->13.82R 30->14.58R(dd25.1) 32->6.49R(dd29.3). FINDINGS: (1) BOTH legs are solidly +EV over 5y at the LIVE adx_min=25 -> the recent tiny real-money losses are small-sample noise in a +EV strategy, NOT structural -> confirms NO demote. (2) Optimal ADX floor is SYMBOL-SPECIFIC: ADA improves markedly 25->28 (net_R +43%, exp +67%, maxDD -17%; bad years 2024/2025 also improve) while XRP DEGRADES monotonically as the floor rises (net_R 26.6->6.5, maxDD 16->29) -> keep XRP at 25. A blanket floor raise would help ADA and hurt XRP. NEXT (before any Tier-3): k-fold walk-forward via strategy_tune_sweep on ADA adx_min to confirm the 28 improvement holds OOS (the by_year split is encouraging but not a formal WF); then propose ADA-only adx_min 25->28 (Tier-3). Caveat: IS full-history, not OOS. Data 2021-03->2026-06.",
@@ -1449,12 +1825,28 @@
           "at": "2026-07-26T07:05:00+00:00",
           "by": "claude (PB-20260618-015 ETH config-exact ADX/vol tune, branch claude/eth-pullback-2h-adx-tune-274ngb)",
           "note": "2026-07-26 (config-exact ETH ADX + vol-at-entry sweep — the LAST un-tuned 2h-pullback leg; ANSWERS the 05:31 weekly escalation above): ran the config-exact grid on ~5y ETH 2h (data 2021-03->2026-06, backtest_pullback @ live eth_pullback_2h params trend_lookback40/pullback10/frac0.5/atr14/stop2.5/trail5.0, NO trail_decay, NO vol_skip — verified vs config/strategies.yaml; ETH's clean base DIFFERS from SOL/ADA/AVAX which carry decay/vol_skip, so this is the FIRST genuinely config-exact ETH grid, unlike the earlier family sweep that carried vol_skip 0.1). ADX-FLOOR GRID (IS net_R/exp/win%/maxDD): 25->90.23/0.358/34.5/13.57 (INCUMBENT=PEAK) | 28->51.83/0.240/37.5/10.91 | 30->30.03/0.151/33.2/15.72 | 32->28.82/0.166/32.2/11.26. Raising the floor DEGRADES net_R MONOTONICALLY (-43% at 28, -67% at 30) — the XRP pattern, NOT ADA/SOL. Per-year, adx=25 WINS the recent full years decisively (2023: 36.5 vs 12.6R@28; 2024: 14.2 vs 10.5; 2025: 16.4 vs 9.4); only partial 2021/2026 marginally favor a higher floor. FAILS the walk-forward bar (25 wins recent OOS years) -> NO floor raise. VOL-AT-ENTRY CAP (adx25 + vol-skip sweep, 11 variants on the CURRENT harness): NO variant beats incumbent net_R 90.23. Closest = volhi80 (--vol-skip-above-pctl 0.8, skip hottest-20% ATR entries): net_R 89.30(~=incumbent), exp 0.385(up), win 35.3%(up), maxDD 10.39R(-23%) — a maxDD-reduction candidate, BUT per-year it LOSES the two most-recent OOS years on net_R (2025: 13.2 vs 16.4; 2026: 6.0 vs 7.6) and 2022, winning only 2024 (22.2 vs 14.2, the high-vol year the hot-vol-skip thesis predicts) -> fails the SAME 'wins recent OOS years' bar. Dead-vol skip vollo10 (the ADA/AVAX winner) HURTS ETH (82.0 vs 90.2R); both-tails band 70.8R. VERDICT: KEEP eth_pullback_2h at adx_min=25, NO vol cap — documented NEGATIVE result. ETH is strongly +EV over 5y at 25 (90.2R, exp 0.358); the recent -$8.69/2-trade real-money bybit_2 loss is small-sample noise in a +EV strategy, NOT a fixable entry-quality defect (same conclusion the 2026-07-20 ada/xrp verify reached). Remaining forward lever = routing the 15m ETH regime head (still shadow, MB-20260628-VOLGATE-GOLIVE), gated on its own promotion, not an entry-param change. Per-symbol ADX tuning of the 2h-pullback family is now COMPLETE, ALL legs config-exactly verified: ADA=28, SOL=30 (raised+WF), XRP/AVAX/ETH=25 (held; ETH now config-exact negative). Deliverable: docs-only draft PR #7616 + sprint log S-PB-ETH-PULLBACK-ADX-20260726. Relay runs: trainer-vm-diag #7614 (ADX grid) + #7615 (vol sweep)."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Pull bybit_2 eth_pullback_2h closed trades plus the ADX-gate rejection rows from the audit log and record the real-money read. Filed the evening the cell went live because the market was quiet; 56 days later that is no longer true, and this is a REAL-MONEY cell under watch — leaving it unreviewed is what this item exists to prevent. Review is Tier-1 read-only; any parameter change is the Tier-3 half."
         }
-      ]
+      ],
+      "severity": "medium",
+      "disposition": "do_now",
+      "next_action": "Pull bybit_2 eth_pullback_2h closed trades plus the ADX-gate rejection rows from the audit log and record the real-money read. Filed the evening the cell went live because the market was quiet; 56 days later that is no longer true, and this is a REAL-MONEY cell under watch — leaving it unreviewed is what this item exists to prevent. Review is Tier-1 read-only; any parameter change is the Tier-3 half."
     },
     {
       "id": "PB-20260620-001",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-20T18:00:00+00:00",
       "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
       "source": "Expansion-backtesting sprint: the 6 intraday ETF cells (gld/slv/spy/qqq/tlt/uso `_1h`) were wired to alpaca_paper ahead of soak (PRs #4067 intraday pilot + #4069 rollout-2b, both deployed). They have NOT yet been observed producing live paper fills — wired ahead of the next US RTH session.",
@@ -1487,13 +1879,29 @@
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
           "note": "Re-validated 07-27: the 6 intraday ETF cells ARE producing live paper fills — alpaca_paper shows 6 open positions with delta_1h +$135.55 and alpaca_portfolio 5 open (+$131.23) this pull, both api_ok. Fills confirmed active; keep one more window then resolve."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. NOT blocked — all six cells still routed (accounts.yaml alpaca_paper carries gld/slv/spy/qqq/tlt/uso _1h) and the account is live paper, so ~54 days of US RTH sessions have passed. Query /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true for the six _1h cells: confirm a clean closed-1h-bar entry + bracket fill, or escalate the specific defect. Either they filled (close it) or they did not, which is itself the defect being watched for."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "NOT blocked — all six cells still routed (accounts.yaml alpaca_paper carries gld/slv/spy/qqq/tlt/uso _1h) and the account is live paper, so ~54 days of US RTH sessions have passed. Query /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true for the six _1h cells: confirm a clean closed-1h-bar entry + bracket fill, or escalate the specific defect. Either they filled (close it) or they did not, which is itself the defect being watched for."
     },
     {
       "id": "PB-20260620-002",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-20T18:00:00+00:00",
       "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
       "source": "Expansion-backtesting research (docs/research/expansion-backtesting-research-2026-06-20.md § 0c): the funding-carry sleeve (scripts/backtest_funding_carry.py) was investigated and found dormant/regime-dependent — the 2023-24 perp-funding edge had decayed by 2025-26.",
@@ -1503,7 +1911,7 @@
       "trigger_condition": "Perp funding rates elevate to a regime comparable to the 2023-24 edge window, OR a future research session re-runs the carry harness on fresh data.",
       "resolution_criteria": "Either a re-run of scripts/backtest_funding_carry.py on an elevated-funding window clears the robustness bar and a market-neutral carry cell is proposed (Tier-3, account_compat-gated), or the carry idea is re-confirmed dormant with fresh evidence and snoozed again.",
       "status": "kept_open",
-      "snoozed_until": null,
+      "snoozed_until": "2026-11-13",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -1515,8 +1923,17 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "snoozed",
+          "evidence_based": true,
+          "note": "SNOOZED until 2026-11-13. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: Perp funding z-score sustains an elevated regime (the M28 crypto-funding feature already computes funding z/extremes), then re-run scripts/backtest_funding_carry.py. Regime-dependent by nature — the 2023-24 edge decayed by 2025-26 and no work makes it actionable while funding is compressed."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260620-003",
@@ -1573,13 +1990,19 @@
     },
     {
       "id": "PB-20260626-003",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-26T07:40:00+00:00",
       "opened_by": "claude (P1 book composition observation)",
       "source": "P1 portfolio_combine by_source breakdown (relay #4675): fvg_range_BTCUSDT_15m net_r=-40.9968 over 272 trades, the single worst sleeve in the 5-yr book.",
       "title": "fvg_range_BTCUSDT_15m bleeds -41R over 5yr (272 trades) — sleeve-level review",
       "detail": "In the P1 book backtest, fvg_range on BTC 15m was the only large net-negative sleeve (-41R; next worst pullback_MES -13R on 23 trades). Worth a dedicated review: is the live fvg_range_15m config the same as the harness default? Is it a net drag on the live book? Candidate for TUNE/DEMOTE_SHADOW if the live record corroborates. NOTE: backtest-default params, not necessarily live params — verify before acting.",
-      "status": "kept_open",
+      "status": "resolved",
       "category": "strategy-performance",
       "updated_at": "2026-06-26T14:25:00+00:00",
       "live_check": "Live record (diag #4688, order-packages): fvg_range_15m has ~1 decision, conf 0.11, target_qty=0, never executed (orphaned 'never executed'). It is effectively DORMANT live — NOT bleeding money; the -41R is a backtest-params result. Same zero-qty sizing pattern as the alpaca ETF rejections (ties to the zero-qty investigation). Recommendation softened: LOW-PRIORITY tidy DEMOTE-to-shadow (formalize what sizing already does), not an urgent risk. Caveat: order-packages is decision-level recent history; lifetime via /api/bot/strategies not pulled.",
@@ -1594,18 +2017,36 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "The sleeve is already out of the live path: strategies.yaml has fvg_range_15m at execution:shadow, so the -41R five-year bleed costs nothing live. That is substantively the M7 DEMOTE_SHADOW action, and any future live proposal must clear the standing M7 review gate first."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "tier": 1,
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260626-004",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-26T08:32:00+00:00",
       "opened_by": "claude (P7 cross-sectional momentum first pass)",
       "source": "scripts/backtest_xsec_momentum.py (PR #4680) on a 6-coin daily universe (ETH/SOL/ADA/AVAX/BNB/LINK, 2020-2026); relays #4678 (universe) + #4679 (run).",
       "title": "P7 xsec momentum: 6-coin first pass FAILS gate; universe expansion (10-15 coins) is a discretionary follow-up",
       "detail": "Raw 6-coin xsec momentum ~dead (Sharpe 0.05, >1.0 maxDD). BTC-50d-SMA risk-off gate is value-additive (Sharpe 0.05->0.21, total +0.17->+0.61, 1->2 of 3 gate stages) and the P1 vol-target stacks (+0.05). But the full 4-stage gate FAILS (a k-fold net-negative @1x) and 6 coins is below the memo's 10-15 threshold (tercile = only 2L/2S). NOT promotable. Expansion case: overlays behave as theorized + holdout positive (0.57). Against: weak base, catastrophic DD, memo rates P7 high-risk. If expanded: fetch 10-15 liquid Bybit perps daily, re-run with --trend-book = the P1 BTC/ETH book for the corr<0.3 stage. Writeup: docs/research/P7-xsec-momentum-firstpass-2026-06-26.md.",
-      "status": "kept_open",
+      "status": "resolved",
       "category": "strategy-research",
       "tier": 3,
       "decision_needed": "Operator: invest in the 10-15 coin Bybit daily fetch for a real P7 verdict, or shelve like P5?",
@@ -1620,8 +2061,20 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M30 / M36. Its own text grades it '6-coin first pass FAILS gate; universe expansion is a discretionary follow-up' — a discretionary expansion after a failed gate. Queue as a ledger study or drop explicitly if unfunded. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M30 / M36",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "PB-20260626-005",
@@ -1736,7 +2189,13 @@
     },
     {
       "id": "PB-20260630-003",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-06-30",
       "opened_by": "claude",
       "source": "strategy-quality M7 pass (#5245/#5246)",
@@ -1763,7 +2222,13 @@
     {
       "id": "PB-20260706-ETH-BOOK-RECHECK",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-06T15:40:00+00:00",
       "opened_by": "claude (ETH book review, post vol-gate evidence session)",
       "source": "ETH/SOL vol-gate evidence (PR #5747): the ungated ETH backtest book is net-negative in 3 of 4 yearly folds (2022-2025), driven by trend_donchian_eth trending-calm-long (-$435/121t) + trending-volatile-short cells. M7 packets 2026-07-06 (issue #5766, 30d window): ALL THREE ETH strategies = hold on low-n (trend_donchian_eth 0 fills/0 closed; _4h 1 fill/0 closed; eth_pullback_2h 3 fills/2 closed +$0.24) - the gate correctly refuses to act without live evidence (PR #1358 lesson).",
@@ -1789,7 +2254,13 @@
     {
       "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/ib-intraday-shortlist-backtest-2026-07-07.md (#5902). MGC pullback 1h on native roll-adjusted continuous data = +185.3R over ~3.3y, +0.56R expectancy, positive in EVERY calendar year (2023 +71/2024 +28/2025 +51/2026 +36), both sides contributing, shallow DD. Live mgc_pullback_1d params applied to 1h, NOT tuned. The single genuine intraday edge found in the whole IB survey.",
@@ -1817,7 +2288,13 @@
     {
       "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/mgc-trend-1h-walkforward-2026-07-07.md (#5907) + ib-metals-native-backtest-2026-07-07.md. Aligned walk-forward refuted BOTH the roll-artifact (-11% impact) and 2023-concentration (+77R on the 2023-excluded 2024-01..2026-06 window) hypotheses. mgc_trend_1h native MGC continuous is +77R where GC=F is -15.5R and spot -50.7R on the identical window -> unresolved STRUCTURAL cross-series conflict (instrument/vendor/session).",
@@ -1844,7 +2321,13 @@
     },
     {
       "id": "PB-20260707-NATIVE-MES-PULL",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/ib-intraday-shortlist-backtest-2026-07-07.md (#5902). MES pullback 1h (+10.1R/41t) and MES fvg 15m (4t) are directionally encouraging but DATA-STARVED — the trainer MES shard is ~1y (2025-07..2026-07). MES scalp 5m flat (consistent with the ict_scalp_5m demote).",
@@ -1872,7 +2355,13 @@
     {
       "id": "PB-20260707-SPLG-IAUM-PROMOTION",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/alpaca-live-splg-iaum-promotion-sizing-2026-07-07.md (#5916). Both cheap ETF proxies clear account_compat_matrix and backtest positively (SPLG +33.6R/16y durable; IAUM +21.1R/5y but 2025-concentrated). Affordability floor 1.93%/1.03%; survival ceiling 2.0% at 5%-dd. Recommend risk_pct~2.0% both.",
@@ -1919,7 +2408,13 @@
     },
     {
       "id": "PB-20260712-PROP-BANKING-EV",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-12T08:35:00+00:00",
       "opened_by": "claude (S-M20 phase-2)",
       "source": "M20 phase-2 harness sweep (trainer relay #6169): partial-TP banking lowered net_R in all 20 cells but consistently lowered maxDD and raised win rate — wrong trade for standard accounts, potentially RIGHT under prop breach rules where survival is part of EV.",
@@ -1945,7 +2440,13 @@
       "id": "PB-20260712-PULLBACK-TRAIL4-WALKFORWARD",
       "resolution_2026_08_12": "RESOLVED 2026-08-12T01:05Z — ALREADY DONE, AND DONE BEFORE THIS ITEM WAS EVEN FILED. The work this row asks for ('run the walk-forward; if 4 wins across folds, propose the one-line Tier-3 change') was run, approved, and SHIPPED on 2026-07-12 — the same day the row was opened at 08:35Z. config/strategies.yaml carries the change and its own evidence at the htf_pullback_trend_2h block: 'trail_mult 5.0 -> 4.0 (M20 phase-3, operator-approved 2026-07-12): the per-year walk-forward showed 4.0 wins 4/6 folds incl. 2025+2026 (OOS net_R -3.7 -> +9.1) — the 5.0 trail held losers through chop OOS. Evidence: docs/research/M20-exit-refinement-2026-07-12.md § 7.2.' Live value is trail_mult 4.0, verified this session. Every clause of the resolution_criteria is met: fold criterion (4/6), Tier-3 proposal made, operator approved. INDEPENDENTLY CORROBORATED a month later, which is the part worth keeping: the M20 corpus run of 2026-08-10 sweeps this leg as trail3/trail5 — t±1 around a base of 4, itself confirming the live value — and reverting to 5 FAILS, trail5 is is_oos_fail at d_net_r_OOS -5.85 (IS +3.75). Different harness geometry from July (tp_cap null here) so magnitudes are not comparable, but the sign agrees on the deciding axis: 4 beats 5 out-of-sample. The July decision holds on fresh measurement. MY OWN 2026-08-11 CORRECTION ON THIS ROW WAS ALSO WRONG, recorded rather than deleted. It said 'its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now.' The doctrine half was right — citing live accrual was indeed doctrine-wrong. The factual half was not: the backtest had already run, a month earlier. I replaced a wrong blocker with a different wrong blocker and would have burned a runner re-measuring a settled question; what stopped me was checking the corpus before dispatching. THE PATTERN, three times in two days: an item's own next_step/blocker text says the work remains while the answer sits in a sibling field, a config comment, or the corpus — SRQ-20260618-001/002 (resweep_results three fields below the 'REMAINING' line), SRQ-20260618-003 (base books already in the corpus), and this row. Four reviews carried this one open (07-22, 07-26, 08-11, and my own correction), none of which opened the config it was about. Cheap general fix: check the ARTIFACT the item would change before trusting the item's description of its own state.",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-12T08:35:00+00:00",
       "opened_by": "claude (S-M20 phase-2)",
       "source": "M20 phase-2 sweep (relay #6169): htf_pullback_trend_2h BTC trail_mult 5->4 flips OOS net_R -3.7 -> +9.1 with better OOS maxDD and better IS net_R; only IS maxDD slips 11.7->12.6 (near-pass on the M20 gate).",
@@ -1969,7 +2470,13 @@
     },
     {
       "id": "PB-20260715-CHOP-SCALP-NEGATIVE",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-15T11:30:00+00:00",
       "opened_by": "claude (chop-scalp research session, PR #6479)",
       "source": "scripts/research/chop_scalp_study.py over 3yr trainer BTC+ETH 5m (2023-01..2026-02, IS/OOS split, trainer run #6480). Full evidence: docs/research/chop-scalp-capital-efficiency-2026-07-15.md.",
@@ -1993,7 +2500,13 @@
     },
     {
       "id": "PB-20260715-MAKER-CARRY",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-15T12:45:00+00:00",
       "opened_by": "claude (M22 small-TF program, PR #6491)",
       "source": "M22 P1 maker-fee economics re-scorer (scripts/research/maker_economics.py) + P3 sleeve backtests (trainer #6489/#6490). Design: docs/research/small-tf-directions-2026-07-15.md.",
@@ -2018,7 +2531,13 @@
     },
     {
       "id": "PB-20260715-PAIRS-SLEEVE",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "MATERIAL PROGRESS: the sleeve is now CLOSING, which it previously never did. 6 closes this window -- 4x exit_reason='pairs_revert' + 2x 'pairs_stop' -- across pairs_sol_eth_a/b and pairs_bnb_btc_a/b. Before the max_hold_bars fix the soak carried 29 opens and ZERO closes (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED), so this is that fix landing, verified from the journal rather than the soak log. Net across the 6: -$23.66, all unverified/estimated provenance -- directional, not a PnL verdict at n=6. Kept open: the Tier-3 decision needs measured closes and more n."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "MATERIAL PROGRESS: the sleeve is now CLOSING, which it previously never did. 6 closes this window -- 4x exit_reason='pairs_revert' + 2x 'pairs_stop' -- across pairs_sol_eth_a/b and pairs_bnb_btc_a/b. Before the max_hold_bars fix the soak carried 29 opens and ZERO closes (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED), so this is that fix landing, verified from the journal rather than the soak log. Net across the 6: -$23.66, all unverified/estimated provenance -- directional, not a PnL verdict at n=6. Kept open: the Tier-3 decision needs measured closes and more n."
+      },
       "opened_at": "2026-07-15T15:35:00+00:00",
       "opened_by": "claude (M22 wave-2 D2, PR follow-up)",
       "source": "M22 wave-2 D2 (trainer #6498/#6500/#6501/#6506/#6509). Design: docs/research/small-tf-directions-2026-07-15.md; proposal: docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md.",
@@ -2043,7 +2562,13 @@
     },
     {
       "id": "PRB-20260716-HTF-CROSSBOOK-NEG",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-16",
       "opened_by": "performance-review 2026-07-15",
       "source": "real-money + paper attribution cross-check",
@@ -2070,7 +2595,13 @@
     {
       "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-20",
       "opened_by": "operator chat directive 2026-07-20",
       "source": "operator decision — options in the broker portfolio",
@@ -2097,7 +2628,13 @@
     {
       "id": "PB-20260720-M27-SCALP-EXPANSION",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "created": "2026-07-20",
       "priority": "P1",
       "status": "kept_open",
@@ -2132,7 +2669,13 @@
     {
       "id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "CANNOT BE PERFORMED on the current record quality -- that is the finding, not a deferral. All four altcoin scalp legs DID close (ict_scalp_sol_5m, sol_15m x3, xrp_5m, xrp_15m, avax_5m) but every one is exit_reason='reconciler_filled' or 'netting_attributed' with pnlProvenance estimated/unverified: 0 of 14 paper closes broker-measured (pnlMeasuredCount=0, pnlEstimatedCount=8, pnlUnverifiedCount=6). Comparing that to an M27 backtest would compare a reconstruction to a simulation. Worse: trade 4575 (ict_scalp_sol_5m) is status='closed' with exit_price=NULL and pnl=NULL. Blocker: measured exits."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "CANNOT BE PERFORMED on the current record quality -- that is the finding, not a deferral. All four altcoin scalp legs DID close (ict_scalp_sol_5m, sol_15m x3, xrp_5m, xrp_15m, avax_5m) but every one is exit_reason='reconciler_filled' or 'netting_attributed' with pnlProvenance estimated/unverified: 0 of 14 paper closes broker-measured (pnlMeasuredCount=0, pnlEstimatedCount=8, pnlUnverifiedCount=6). Comparing that to an M27 backtest would compare a reconstruction to a simulation. Worse: trade 4575 (ict_scalp_sol_5m) is status='closed' with exit_price=NULL and pnl=NULL. Blocker: measured exits."
+      },
       "date": "2026-07-21",
       "status": "kept_open",
       "severity": "P3",
@@ -2179,7 +2722,13 @@
     {
       "id": "SRQ-20260728-M27-WINNERS-SHIP",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-28T05:30:00+00:00",
       "opened_by": "claude (Track-1 continuation session)",
       "source": "Operator directive (overnight Track-1 plan) + M27 P1 promotion evidence.",
@@ -2218,7 +2767,13 @@
     },
     {
       "id": "PB-20260728-ICTSCALP-GOLD-GATE-CONFIG",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-28T14:00:00+00:00",
       "opened_by": "claude (Track-1, deep XAU/MGC runner re-validation)",
       "source": "Deep 4-fold walk-forward on Dukascopy spot XAU 15m (2012->now) under MGC economics, run on a free GH runner (research-symbol-p0-build, issue #7845). Full read in docs/research/M27-P0-MGC-15m-findings-2026-07-28.md ADDENDUM.",
@@ -2269,7 +2824,13 @@
     {
       "id": "PB-20260729-ALLOCATOR-VENUE-FEE",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-29T00:00:00+00:00",
       "opened_by": "claude (rec #5 continuation / spy_pullback_1h sign-flip investigation)",
       "source": "M24 net-R re-grade sign-flip investigation: the close-path cost estimate was made venue-aware (profile_loader.roundtrip_fee_bps_for → 0 bps for commission-free Alpaca-spot equities), but allocator_ev.candidate_ev_score still applies the flat DEFAULT_FEE_BPS_ROUNDTRIP (7.5 bps) to every venue.",
@@ -2299,7 +2860,13 @@
     {
       "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
       "review_2026_08_11_correction": "CORRECTION 2026-08-11T18:55Z (operator): my 2026-08-11 disposition cited LIVE ACCRUAL as this item's blocker. That is DOCTRINE-WRONG and the correction matters more than the item. The exit-refinement skill P4 is explicit -- 'The offline validation IS the confidence gate' (fast-gate doctrine, operator directive 2026-07-12) -- and P5 scopes live to MECHANICAL verification in hours-days, NOT weeks: feature/trigger parity and first-decision sanity, never accruing statistical confidence. So this item is NOT waiting on gradeable live rows. Its real blocker is a BACKTEST/SWEEP THAT HAS NOT BEEN RUN, and it is runnable offline now. Per docs/claude/vm-resource-management.md the compute belongs on a free GitHub runner (4 vCPU, parallel across sessions), NOT the single-core trainer VM, since it needs no VM-resident state. The window's 0-of-14-measured record problem is a separate ACCOUNTING track and does not gate the strategy-evidence question.",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-30T06:00:00+00:00",
       "opened_by": "claude (research-program session, roadmap-progress-work-plan-xp7f9h)",
       "source": "regime_debt_matrix.py hardcoded --fee-bps-roundtrip 7.5 for EVERY symbol, incl. all 14 commission-free (alpaca, spot) instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX SPLG IAUM SCHA); regime_cell_walkforward inherited it via rdm.build_harness_cmd. #7930 fixed the identical bug in the live close path on 2026-07-29 but missed the research harness built the day before — the harness that SOURCES Tier-3 regime cells. Fixed in this session (T1); the AFFECTED CONCLUSIONS have not yet been re-run.",
@@ -2337,7 +2904,13 @@
     },
     {
       "id": "PB-20260730-SCALP-CAPTURE-STANDING-WATCH",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-07-30T13:00:00+00:00",
       "opened_by": "claude (full-system-review-807m08)",
       "source": "The scalp exit leak (5m bybit scalps closing reconciler_filled after multi-hour holds, giving back MFE) is REAL and quantified, but its root cause is OPEN: BYBIT_TPSL_MODE=partial was already live since ~07-21 (BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE), so partial-vs-full is NOT the fix. The real cause is under investigation by the concurrent 2026-07-30 session (Bybit partial-leg desync / naked-bracket, fixed in PR #8000; leg over-accumulation BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING; NULL exit_price/pnl on reconciler closes BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL).",
@@ -2364,7 +2937,13 @@
     },
     {
       "id": "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."
+      },
       "opened_at": "2026-08-01T08:40:00+00:00",
       "opened_by": "claude (/system-review weekly, session full-system-review-zajauh)",
       "source": "2nd consecutive review: RPT-20260730-045200 flagged slv_trend_1h emitting degenerate low-confidence should-skip entries (0.06/0.15 conf, 0/4 win, -$629 paper, 2x D-grade); this weekly's grading (#8239) added another D at confidence 0.04 (pkg-95331aecaa864931, trade 4247, sl_cross -1.04R paper).",
@@ -2384,7 +2963,13 @@
     },
     {
       "id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED: the superseding premise HOLDS, blocker unchanged. This item was already re-scoped to 'the -8.41R is substantially an exit-price reconstruction artifact'. This window is more of the same substrate: every ict_scalp close is reconciler_filled/netting_attributed at estimated/unverified provenance, 0 measured. The surviving lead (the close-PATH question) is provenance-independent and remains the thing to chase. One new instance of the strongest form: trade 4575 closed with exit_price NULL."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "kept_open",
+        "note": "RE-VALIDATED: the superseding premise HOLDS, blocker unchanged. This item was already re-scoped to 'the -8.41R is substantially an exit-price reconstruction artifact'. This window is more of the same substrate: every ict_scalp close is reconciler_filled/netting_attributed at estimated/unverified provenance, 0 measured. The surviving lead (the close-PATH question) is provenance-independent and remains the thing to chase. One new instance of the strongest form: trade 4575 closed with exit_price NULL."
+      },
       "opened_at": "2026-08-07T14:55:00+00:00",
       "opened_by": "claude (/system-review since-last, session full-system-review-ma0ava)",
       "source": "/system-review 2026-08-07: m20_exit_analysis per-trade dump (trainer-diag #8592) + /api/bot/trades/closed + grade-closed-trades output (#8589). POPULATION: n=10 ict_scalp closes in the window 2026-08-04 to 2026-08-07, all paper, from a total of 15 paper closes the harness returned. The -8.41R figure is ONE trade (4413) of those 10; the family-level statistic over the same n=10 is mean giveback 1.92R and 7 of 10 closed by reconciler rather than by stop or target. 4 of the 15 harness rows carry a clamped hold_h and are excluded from hold conclusions (BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED).",
@@ -2410,7 +2995,13 @@
     },
     {
       "id": "PB-20260811-M20-GATE-NO-MIN-TRADES-82PCT-THIN",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "fixed_now", "note": "Filed THIS run from the M20 fleet-sweep corpus; born triaged. See docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md sections 4d/4e."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "fixed_now",
+        "note": "Filed THIS run from the M20 fleet-sweep corpus; born triaged. See docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md sections 4d/4e."
+      },
       "opened_at": "2026-08-11T15:05:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
       "severity": "P2",
@@ -2425,7 +3016,13 @@
     },
     {
       "id": "PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN",
-      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "fixed_now", "note": "Filed THIS run from the M20 fleet-sweep corpus; born triaged. See docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md sections 4d/4e."},
+      "review_2026_08_11": {
+        "reviewed_at": "2026-08-11T17:50:00+00:00",
+        "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z",
+        "reviewer": "claude (/performance-review)",
+        "verdict": "fixed_now",
+        "note": "Filed THIS run from the M20 fleet-sweep corpus; born triaged. See docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md sections 4d/4e."
+      },
       "opened_at": "2026-08-11T15:05:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
       "severity": "P3",

@@ -1108,7 +1108,7 @@
       "tier": 2,
       "trigger_condition": "Next /system-review (surface checklist to operator); items 1-4,7,9 are operator-only GitHub/broker actions, items 6 is Tier-2 claude-prep awaiting operator OK, item 8 is autonomous and can be fired now.",
       "resolution_criteria": "Operator has actioned (or explicitly declined) each checklist item; the Tier-2 API/network changes (item 6) are either shipped behind operator approval or recorded as deferred; the live port inventory (item 8) has been captured and shows no unexpected public exposure.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -1131,8 +1131,20 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "promoted_to_roadmap",
+          "evidence_based": true,
+          "note": "NOT A DEFECT — a research/feature programme. Moved to M17. Tier-1 half verifiably merged (intrusion-surface audit doc + the two external-*-alert workflows with actor guards). What remains is an operator checklist of GitHub-settings/2FA/broker-key actions plus Tier-2 API/network changes — a hardening programme needing recurring operator surfacing. Closed HERE so the bug backlog counts defects only; the work is not dropped, it is tracked where multi-month work belongs."
         }
-      ]
+      ],
+      "disposition": "promoted_to_roadmap",
+      "promoted_to": "M17",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260628-PROP-ISPROP-PREDICATE-DRIFT",
@@ -1184,8 +1196,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Take the second branch: COALESCE order_package_id in the ON CONFLICT clause so a re-emit backfills a previously-NULL id, plus a regression test for re-emit backfill. Half-answered only — prop_journal.py:201-205 now DOCUMENTS the behaviour but that records the gap rather than discharging criterion (a); breakout_executor sets ticket_id: trade_id, which is stable across re-emits."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Take the second branch: COALESCE order_package_id in the ON CONFLICT clause so a re-emit backfills a previously-NULL id, plus a regression test for re-emit backfill. Half-answered only — prop_journal.py:201-205 now DOCUMENTS the behaviour but that records the gap rather than discharging criterion (a); breakout_executor sets ticket_id: trade_id, which is stable across re-emits."
     },
     {
       "id": "BL-20260628-RECONCILER-PAPER-ARTIFACT",
@@ -1197,7 +1219,7 @@
       "tier": 2,
       "trigger_condition": "Immediately actionable (diagnosis); fix is order-monitor/reconciler code (Tier-2).",
       "resolution_criteria": "alpaca_options_paper ETF positions close via genuine TP/SL or a correctly-priced exit (no identical-timestamp mass-closes, no impossible intrabar exit prices); paper PnL reflects real fills; real-money closes never carry an artifact 'reconciler' close with a fabricated mark.",
-      "status": "partially-resolved",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -1231,8 +1253,19 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Item's own text says the root cause was FIXED in #4858+#4867, and the options-lifecycle reconciler closes these rows only on broker-confirmed events. The residual data-cleanup concern is neutralised by the provenance layer: a fabricated mark is graded FABRICATED and excluded from totalPnlMeasured, so it no longer silently becomes paper performance."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
@@ -1398,9 +1431,9 @@
           "note": "Reviewed this window's order_packages/trades pull (diag issue #5827/#5831): no adopted_orphan / reverse_reconciler_reattached rows for MGC/MHG/MES this window -- only ordinary 'rejected' rows (low confidence, and one exchange_rejected from the concurrent IB gateway wedge at 02:15Z). No flap recurrence observed. Left open per the skill's standing 'every /health-review' verify cadence -- one clean window isn't the multi-week closure bar the item sets."
         }
       ],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -1437,8 +1470,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Explicitly a standing recurring watch, which can never close by construction. Both guard knobs are live and documented (IB_CLOSE_CONFIRM_S, IB_CLOSE_RETRY_COOLDOWN_S) and the watch is covered continuously by the monitor-blindness alert plus the orphan_unreconciled banner on /api/bot/notifications."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "low"
     },
     {
       "id": "BL-20260621-ACCOUNT-HISTORY-PULL",
@@ -1447,7 +1489,7 @@
       "source": "bybit_2 missing-close investigation (2026-06-20/21). The automated recovery path (scripts/ops/backfill_orphan_pnl.py + the new in-line watchdog recovery in PR #4058) can only reconstruct a real exit/PnL from Bybit's /v5/position/closed-pnl, which Bybit retains for ONLY ~7 days. Trade #2708 was recovered in-window (status='closed', pnl=+0.8252). But the 2026-06-21 backfill run found 15 OLD orphans (trade ids 990-1000, 1046-1048, 1454) that ALL returned account_closed_pnl=None — i.e. they are past Bybit's 7-day window and are PERMANENTLY unrecoverable via the exchange API. The only way to enter their true exit/PnL (and any other historically-missing closes) into trade_journal.db is a FULL manual account-history export from the exchange UI, which the operator must pull by hand. Operator asked (2026-06-21) to log this so the next session proactively requests that export.",
       "title": "ASK OPERATOR: manually export FULL exchange account history (bybit_2 + all real-money accounts) so pre-7-day-window orphaned/missing trades can be entered into trade_journal.db",
       "description": "ACTION FOR CLAUDE at the next session that touches trade reconciliation / account history (or the next /health-review that surfaces this item): proactively ASK the operator to manually export the COMPLETE trade history for each real-money exchange account (Bybit bybit_2 first; extend to every real-money account) from the exchange's own UI/CSV/API export — because the bot's automated orphan-PnL backfill only reaches Bybit's ~7-day closed-pnl retention window and CANNOT recover older closes. Once the operator provides the export, ingest the historical closed trades into trade_journal.db (set status='closed' + authoritative exit_price + realised pnl + closed_at, with a provenance note e.g. exit_price_source='operator_manual_export') so /api/bot/trades/closed, /api/bot/performance, and the dashboard reflect TRUE lifetime history rather than the partial picture left by the 7-day window. This is the HISTORICAL-gap remediation; the code fixes #4066 (visibility) + #4057 (clean refusal) + #4058 (watchdog recover-before-orphan) only stop NEW orphans from being created going forward and do not retroactively fill rows already past the window. Known unrecoverable-via-API rows as of 2026-06-21: trade ids 990-1000, 1046-1048, 1454.",
-      "tier": "The ASK itself is Tier-1 (operator request). The subsequent ingest of operator-supplied history into trade_journal.db is a Tier-2 data writeback to the live money DB — get an explicit operator OK on the exact import before running it, validate row counts/PnL before/after, and never overwrite an existing well-formed closed row.",
+      "tier": 2,
       "trigger_condition": "Next session touching trade-history reconciliation / the journal DB / closed-trade analytics, OR the next /health-review run, OR the next operator check-in — whichever comes first. Proactively raise the ASK; do not wait for the operator to remember.",
       "resolution_criteria": "Operator has exported the full account history from each real-money exchange AND Claude has ingested the historical closed trades into trade_journal.db (status/exit_price/pnl/closed_at) with provenance — OR the operator explicitly decides the pre-window historical gap is not worth backfilling and says to close this item.",
       "check_log": [],
@@ -1455,7 +1497,7 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null,
+      "snoozed_until": "2026-09-15",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -1477,8 +1519,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "snoozed",
+          "evidence_based": true,
+          "note": "SNOOZED until 2026-09-15. Real, but blocked on accrual/data that cannot be produced from a session — so it drops out of review passes until then instead of being re-read every time. TRIGGER: The operator supplies the exchange history export (then a Tier-2 gated ingest with provenance), or explicitly declines. The 15 orphans (ids 990-1000, 1046-1048, 1454) are past Bybit's ~7-day closed-pnl retention and are PERMANENTLY unrecoverable via any API we control. AWAITING OPERATOR ANSWER — see the audit's ambiguous list."
         }
-      ]
+      ],
+      "severity": "medium",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260617-ANDROID-56-VISUAL",
@@ -1543,9 +1594,9 @@
       "trigger_condition": "Next /health-review, or when touching VM env / migration tooling.",
       "resolution_criteria": "No required capability is gated by a default-off env flag; live-VM .env drift from intent is detectable (manifest/diff) so a migration can't silently drop a behavioral flag again.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -1569,8 +1620,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Both halves shipped: the two offending gates were baked into code 2026-06-17 (order_monitor.py:1741/:2017, _closed_flat_wiring.py:70) with env-gate-guard a required CI check; and drift is now detectable via the get-env read action (2026-08-10) reporting process-environ vs unit-declared with pending_restart and four never-collapsed states."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium"
     },
     {
       "id": "BL-20260614-001",
@@ -1850,8 +1910,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Delete the dead path from the strategies.yaml:117 comment (or repoint at STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md if that is the successor). Half-fixed: the second citation is gone but :117 still cites TREND-GOLIVE-PLAN-2026-05-23.md, absent from a repo-wide find."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Delete the dead path from the strategies.yaml:117 comment (or repoint at STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md if that is the successor). Half-fixed: the second citation is gone but :117 still cites TREND-GOLIVE-PLAN-2026-05-23.md, absent from a repo-wide find."
     },
     {
       "id": "BL-20260610-004",
@@ -1864,9 +1934,9 @@
       "trigger_condition": "After Fix 1 (BL-20260610-003) is verified stable. Next dedicated session or /health-review.",
       "resolution_criteria": "Fix 3 + Fix 4 shipped + verified: a wedged gateway costs ~0 main-loop time per tick (breaker fast-fail), and an induced trader stall under load is autohealed within the nominal window.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -1890,8 +1960,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Fix 3 live: ib_client.py:478 fast-fails without touching the socket while the breaker holds, bounded by IB_BREAKER_COOLDOWN_S (:112). Fix 4 is the restart-budget/cooldown/startup-grace set plus the failed-dispatch-does-not-burn-an-attempt fix."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium"
     },
     {
       "id": "BL-20260610-003",
@@ -1915,9 +1994,9 @@
           "note": "Resolution criteria ('one IBKR reset window passes with the gateway churning and the trader never wedging') still not met -- see BL-20260623-002's 2026-07-07 recurrence logged today. ict-ib-gateway-watchdog.timer correctly shows inactive on the LIVE-TRADER VM services pull (diag #5827) -- per CLAUDE.md this watchdog is gateway-VM-only, so that reading is expected, not a gap. No visibility into the gateway VM's own watchdog state from this session's tooling."
         }
       ],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -1941,8 +2020,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "ict-trader-live.service:20-22 carries CPUWeight/IOWeight/Nice; install_ib_gateway_docker.sh:130 creates the container with --cpus/--memory; watchdog re-armed 2026-06-22. The cascade premise is gone: the gateway no longer shares the trader's box."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium"
     },
     {
       "id": "BL-20260610-002",
@@ -2042,9 +2130,9 @@
           "note": "2026-06-12: no recurrence. Snapshot #3438 vm_health cpu=28% (mem=70%, disk=37%), heartbeat label=running (age 33s), last_tick fresh (06:02:17Z), bot_uptime ~82min (clean restart ~04:40Z, sha f2f6cb90) — no wedge, regime-bar-scoring still tamed. CPU half remains resolved. Still open only on (2) autoheal-on-real-hang verification + (3) 48h-soak with no heartbeat=stopped window; both need a future induced-stall observation. Memory at 70% on the 1GB micro is worth a passive watch."
         }
       ],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -2073,8 +2161,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated: vm_health.cpu=0.0, mem 12.1%, heartbeat 22s \"running\", 7/7 health checks ok — NO CPU-saturation recurrence this window. Standing watch (root cause never fully isolated); keep open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "All three criteria addressed: CPU source identified (heavy IB Gateway on the 2-core money VM) and removed by gateway isolation; per-hook process metrics added (tick_cost.py + /api/diag/tick_cost); autoheal hardening shipped (check_heartbeat.py:366/:656 cite this ID; unit carries the restart budget/cooldown/startup-grace set)."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "high"
     },
     {
       "id": "BL-20260607-006",
@@ -2107,9 +2204,9 @@
           "note": "2026-06-11 /health-review: NEW stuck-watchdog orphan, first IB-side one — pkg-fcd98393bcf04e02 / trade #2531 (mhg_pullback_1d long, ib_paper REAL, signal 14:11:49Z, multi_account_dispatched 14:12:03Z, SL/TP wired) orphaned 14:43Z 'package stuck > 30 min; gate was blocked'; watchdog position-flat branch — no MHG position ever appeared at IBKR. PRIME SUSPECT found in code: position_size=3.643 CONTRACTS — ib_paper has no qty_precision so risk.py defaults to 3dp, and ib_client.place_order passes the fractional qty straight to MarketOrder (no whole-contract floor) — IBKR cannot fill 3.643 futures contracts. Filed as BL-20260611-001. No new position-flat orphans on bybit demo since 06-08 (vwap kill removed the noisy stream)."
         }
       ],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -2133,8 +2230,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "The suspected mechanism (a single flat read post-entry orphaning a live package) is structurally guarded: order_monitor.py:1905 _PENDING_WATCHDOG_FLAT_CONFIRM requires 2 confirming flat observations (:4951-4972) and an alive read pops the stamp so a flap restarts the counter (:4882)."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "low"
     },
     {
       "id": "BL-20260607-004",
@@ -2382,8 +2488,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Replace both local `_adx` defs with `from src.runtime.regime import wilder_adx`, keeping test_wilder_adx_matches_live_fade_impl as the regression guard. VERIFIED still live this session: fade_breakout_4h.py:135 and fvg_range_15m.py:147 both still define a local _adx while the canonical impl sits at detector.py:65."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Replace both local `_adx` defs with `from src.runtime.regime import wilder_adx`, keeping test_wilder_adx_matches_live_fade_impl as the regression guard. VERIFIED still live this session: fade_breakout_4h.py:135 and fvg_range_15m.py:147 both still define a local _adx while the canonical impl sits at detector.py:65."
     },
     {
       "id": "BL-20260601-002",
@@ -2567,7 +2683,7 @@
       "source": "2026-05-25 per-model status review (shadow_predictions.jsonl)",
       "title": "prop-mission-policy-baseline-v0 emits all-zero shadow scores — degenerate, prop-account-infra-blocked (NOT MES/IBKR-related)",
       "description": "The shadow log shows prop-mission-policy-baseline-v0 scoring 0.000 on every live signal. Root cause (ml/trainers/per_strategy_winrate.py + ml/datasets/families/account_context.py): it learns per-strategy mean was_taken acceptance rate from PROP-account trades only (accounts.yaml type:prop), but the only prop account (prop_velotrade_1) is mode:dry_run with strategies:[] and never trades — so there are no 'taken' positives, the learned rates / global_rate are 0, and live scoring of non-prop signals falls back to 0.0. NOTE: this is NOT resolved by tomorrow's IBKR/MES approval — it needs the prop account to actually trade (prop SDK wiring + a non-empty strategies list + mode:live = Tier-3/infra). Operator decision 2026-05-25: leave as-is for now.",
-      "tier": 1,
+      "tier": 3,
       "trigger_condition": "Any /health-review run; revisit once a prop account is wired + trading (prop SDK), or in a model-training session.",
       "resolution_criteria": "Either (a) a prop account trades so account_context has 'taken' positives and the model learns non-degenerate per-strategy rates, or (b) the model is demoted from shadow / scoped so it no longer emits meaningless 0.000 predictions against non-prop live signals (a manifest/scoring change, Tier-3-aware).",
       "status": "kept_open",
@@ -2594,8 +2710,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Take option (b): demote prop-mission-policy-baseline-v0 to `candidate` (manifest line 53 + `python -m ml promote-stage --new-stage candidate` on the trainer) so it drops out of shadow auto-wiring and stops writing degenerate 0.000 rows. Option (a) is structurally blocked FOREVER: prop fills live in prop_tickets/prop_fills, ISOLATED from `trades`, so the account_context family can never see prop 'taken' positives."
         }
-      ]
+      ],
+      "severity": "medium",
+      "disposition": "do_now",
+      "next_action": "Take option (b): demote prop-mission-policy-baseline-v0 to `candidate` (manifest line 53 + `python -m ml promote-stage --new-stage candidate` on the trainer) so it drops out of shadow auto-wiring and stops writing degenerate 0.000 rows. Option (a) is structurally blocked FOREVER: prop fills live in prop_tickets/prop_fills, ISOLATED from `trades`, so the account_context family can never see prop 'taken' positives."
     },
     {
       "id": "BL-20260525-006",
@@ -2632,7 +2758,7 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run that scores a trend_donchian / fade_breakout_4h / squeeze_breakout_4h order package and sees a TP far from price (~50R / ~2x BTC). Recognize it as the intended sentinel — do NOT score it as a TP defect.",
       "resolution_criteria": "Informational standing note; nothing to fix. Close only if the 50R-sentinel mechanism is itself removed (e.g. the pipeline stops requiring a TP for trail-only strategies, or tp_r is changed in an operator-approved Tier-3 PR).",
-      "status": "kept_open",
+      "status": "resolved",
       "triage_note": "2026-05-28 /health-review: a SECOND consequence of the short clamp surfaced — 10 trend_donchian SHORT orders were exchange_rejected on bybit_1+bybit_2 (trades 1771-1781, 2026-05-27 13:28-13:54) with Bybit ErrCode 10001 'TakeProfit < 10_pcnt of base': the clamped entry*0.01 short-TP sits ~1% of price, far inside Bybit's required ~10% TP distance. PR #2156 (fe3d46a, 'cap 50R sentinel TP within Bybit's ~10% rule') fixed this; the running sha 771c843 includes it and NO exchange_rejected has occurred since (cluster stopped after 13:54, before the 04:55 reboot). Still the standing 'don't re-flag the 50R sentinel as a defect' note; the Bybit-rule collision is the resolved part.",
       "snoozed_until": null,
       "updates": [
@@ -2656,8 +2782,19 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Title itself reads 'EXPECTED, NOT A BUG ... don't re-flag it', and the alarming symptom is now impossible: trend_donchian.py:133 _TP_SENTINEL_CAP_PCT=0.099 caps the 50R sentinel to +/-9.9% of entry on BOTH branches (:388/:394)."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260525-008",
@@ -2725,7 +2862,7 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or any session attempting to train MES regime / setup-quality models.",
       "resolution_criteria": "Either (a) build_trainer_datasets.sh extended to invoke a build_market_pair-like helper for MES using the yfinance/ES=F adapter for 5m + 15m plus a MES-scoped setup_labels build, so the three failing manifests either train (where data is present) or empty_dataset-skip (where it isn't); OR (b) the three failing manifests are explicitly scoped out of the daily cycle (e.g. via a TRAINING_MANIFESTS-exclude wrapper) so overall_rc returns 0. Cycle log on next run shows zero manifest_failed events. Pure trainer-VM tooling change; autonomous (Tier-1).",
-      "status": "kept_open",
+      "status": "resolved",
       "triage_note": "2026-05-28 /health-review: re-confirmed — trainer-vm-diag shows ict-trainer.service is-active=failed, ExecMainStatus=1 on the 2026-05-28 00:02 cycle (InactiveEnterTimestamp 00:05:48). Timer enabled+active, fired on schedule, next fire Fri 2026-05-29 00:17. Service-health graded WATCH this review; manifest detail belongs to /ml-review.",
       "snoozed_until": null,
       "updates": [
@@ -2749,8 +2886,19 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Criterion (a) satisfied both halves: build_trainer_datasets.sh:647 is the ES=F 5m->15m adapter asked for, :374 adds the MES-scoped augmented build, and :663 makes MES builds non-fatal (the zero-manifest_failed outcome)."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260527-001",
@@ -2779,7 +2927,7 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; revisit specifically when n_trades >= ~1000 closed trades suitable for setup_labels OR in a dedicated model-training session reviewing the v2 setup-quality manifest.",
       "resolution_criteria": "Either (a) on a fresh training cycle with n_eval >= 1000 the v2 model beats the baseline on MAE+MSE, in which case keep at shadow and let it accumulate live shadow predictions; OR (b) the model is demoted from shadow to research_only via `python -m ml promote-stage setup-quality-lgbm-v2 --new-stage research_only` (operator-approved, semantic change to the registry); OR (c) the manifest is deprecated (removed from ml/configs/, model retired). Decision belongs to a model-training session, not this backlog item.",
-      "status": "kept_open",
+      "status": "resolved",
       "triage_note": "2026-05-27 /health-review: model-perf scope is /ml-review per 2026-05-26 split; no action this skill.",
       "snoozed_until": null,
       "updates": [
@@ -2803,8 +2951,19 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Criterion (b) end-state reached: setup-quality-lgbm-v2.yaml:67 declares research_only (pre-shadow). The 'more data fixes it' premise was tested twice and failed (M30 Study 7 n=282 clean NULL; M36 augmentation A/B negative)."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260527-002",
@@ -2839,8 +2998,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Add one line to each of the three tp_r comment blocks (strategies.yaml:178-180, 274-276, 344-346) noting PR #2141's +/-9.9%-of-entry cap. Verified still stale: `grep -i clamp config/strategies.yaml` returns nothing while the clamp is live at trend_donchian.py:133. Comment-only, but the file is Tier-3-listed so it needs an operator merge OK."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Add one line to each of the three tp_r comment blocks (strategies.yaml:178-180, 274-276, 344-346) noting PR #2141's +/-9.9%-of-entry cap. Verified still stale: `grep -i clamp config/strategies.yaml` returns nothing while the clamp is live at trend_donchian.py:133. Comment-only, but the file is Tier-3-listed so it needs an operator merge OK."
     },
     {
       "id": "BL-20260527-003",
@@ -2852,9 +3021,9 @@
       "tier": 2,
       "trigger_condition": "Any /health-review run; investigate via gateway-logs + provision_ib_gateway.sh on the next 12-24h MES outage.",
       "resolution_criteria": "Either IBC's nightly auto-restart reliably re-establishes the upstream IB session (verifiable by 7 consecutive days with no `Up >20h with broken farm connections` state), or a sanctioned scheduled job replaces it (e.g. systemd timer triggering vm-ib-gateway-recover at 11:55 PM UTC, before IB's reset window).",
-      "status": "partially-resolved",
-      "resolved_at": "2026-05-28T07:05:00+00:00",
-      "resolved_by": "claude (working session, operator-directed)",
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": "ROOT CAUSE REFINED 2026-05-28 (corrects the original 2FA/nightly-restart hypotheses). gateway-logs (issue #2184) showed the container 'Up 13h' but logged OUT of IBKR since `2026-05-28 04:30:50 IBC: detected dialog entitled: Unrecognized Username or Password` — i.e. during IBKR's overnight server-reset window the Gateway's in-place re-login hit a TRANSIENT bad-credential dialog and IBC parked on it, never retrying. NOT 2FA (the paper account DUQ325724 logs in with no 2FA — confirmed by the #2185 recover log: 'Click button: Paper Log In' → 'Login has completed', no Mobile prompt). NOT a real bad password (a full container restart re-logins cleanly — that's why vm-ib-gateway-recover works). NOT `restart: unless-stopped` (the process hangs on the dialog, it never dies, so Docker never restarts it). The gap: nothing auto-recovers a stuck login-failure dialog (`TWOFA_TIMEOUT_ACTION=restart` only covers 2FA timeouts, which never fire for paper). FIX (operator-approved 2026-05-28, branch claude/health-check-CjAWV, draft PR #2183): a symptom-driven auto-heal watchdog — scripts/check_ib_gateway.py + deploy/ict-ib-gateway-watchdog.{service,timer}, firing every 5 min: probes ib_paper via ib_connect_check (healthy ⇔ connected AND net_liquidation populated — a logged-out gateway reports connected=true but net_liquidation=None), and after 2 consecutive wedged checks runs scripts/ops/restart_ib_gateway.sh, with max-restarts=3 + 20-min cooldown so a genuine bad-cred/lockout can never become a restart loop (then it alert-only escalates). The fixed daily scheduled-restart option was considered and DROPPED as non-structural per operator — the watchdog self-heals any wedge within ~5-10 min, fine for delayed paper data. REMAINING: operator merge + pull-and-deploy, then verify the watchdog auto-heals across a few overnight IBKR resets (target: no manual vm-ib-gateway-recover needed).",
       "triage_note": "2026-05-28 working session: RECURRED + diagnosed + fix built. gateway-logs caught the 04:30:50Z 'Unrecognized Username or Password' dialog (logged-out 2h+); restored live via vm-ib-gateway-recover #2185 (clean paper login, no 2FA). Auto-heal watchdog shipped to draft PR #2183. 2026-05-28 (S-MES-AUTOHEAL): MERGED (#2183 -> main 6972a9f) + DEPLOYED (4d4d0c3 via pull-and-deploy #2196); watchdog confirmed LIVE — timer active + healthy probe (probe: healthy=True net_liquidation=1000600.6 action=none) in the #2196 post-restart systemd dump. The HEALTHY path is proven; the RESTART path on a real wedge is not yet observed in prod — tracked for next-health-review verification as BL-20260528-001.",
       "snoozed_until": null,
@@ -2885,8 +3054,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Criterion (b) shipped: ict-ib-gateway-reset.timer:30 OnCalendar 06:05 UTC + the reactive watchdog re-armed 2026-06-22. IBC's own nightly restart is no longer the mechanism relied on."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium"
     },
     {
       "id": "BL-20260527-004",
@@ -3561,10 +3739,10 @@
       "tier": 1,
       "trigger_condition": "A future health-review or session notices the 23 stale queued runs and considers re-attempting cancellation, or wonders whether cancel-queued-runs is broken.",
       "resolution_criteria": "The 23 stale 2026-05-15 queued runs no longer appear in the Actions list (GitHub-side GC or Support purge). No repo change is expected to satisfy this; close when the runs are gone or the operator decides to leave them.",
-      "status": "kept_open",
+      "status": "wont_fix",
       "snoozed_until": null,
-      "resolved_at": null,
-      "resolved_by": null,
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": null,
       "updates": [
         {
@@ -3597,8 +3775,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_UNFIXABLE",
+          "evidence_based": true,
+          "note": "The item's own criteria concede 'No repo change is expected to satisfy this.' A runner holding actions:write found all 23 runs and cancelled 0 — both gh run cancel and the force-cancel endpoint return HTTP 500. GitHub-side defect. ACCEPTED RESIDUAL RISK: 23 permanently-queued phantom rows pollute the Actions list and any run-count metric derived from it; they consume no runner and block nothing."
         }
-      ]
+      ],
+      "disposition": "CLOSE_UNFIXABLE",
+      "severity": "low"
     },
     {
       "id": "BL-20260608-CRED",
@@ -4091,8 +4278,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Cap the widget chip row — a window of ~6 symbols centred on the selected one (always including it), or wrap into two Rows with an overflow chip. VERIFIED still broken AND WORSE this session: CandleChartWidget.kt:95 renders availableSymbols.forEach in a single non-wrapping Glance Row, the worker writes the full uncapped union, and the state store applies no cap on read — now ~20 instruments vs the 8-chip threshold."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Cap the widget chip row — a window of ~6 symbols centred on the selected one (always including it), or wrap into two Rows with an overflow chip. VERIFIED still broken AND WORSE this session: CandleChartWidget.kt:95 renders availableSymbols.forEach in a single non-wrapping Glance Row, the worker writes the full uncapped union, and the state store applies no cap on read — now ~20 instruments vs the 8-chip threshold."
     },
     {
       "id": "BL-20260611-M15-3",
@@ -4116,9 +4313,9 @@
       "title": "M15 soak-watch remainder: verify first practice fills (is_demo + broker-side SL/TP) and the FX weekend gate's first window",
       "description": "Open observation items handed off from the 2026-06-11 soak session: (1) on the FIRST fill per new leg (xauusd_trend_1h on oanda_practice; spy/qqq/gld on alpaca_paper; eth_pullback_2h on bybit_1 — its first two signals were qty-rejected pre-#3406, so the first POST-fix fill is the one to verify) check the journal row carries is_demo=1 + the right account_id, OANDA orders carried stopLossOnFill/takeProfitOnFill, Alpaca orders were brackets, and the dashboard renders the account/strategy; (2) Fri 2026-06-12 21:00 UTC -> Sun 21:00 UTC: expect fx_market_closed eval rows from xauusd_trend_1h, no fetch-error noise, clean resume Sunday. Related open: BL-20260611-M15-2 (stale balance_snapshots.json) blocks the balance probe.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution_note": null,
       "updates": [
         {
@@ -4141,8 +4338,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Superseded one day after filing: accounts.yaml oanda_practice mode:dry_run, 'operator-approved shelve 2026-06-12 (set-account-mode #3446)'. A shelved dry_run account cannot produce the first practice fills or open the FX weekend gate's first window this item exists to verify."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "low"
     },
     {
       "id": "BL-20260614-DOC-1",
@@ -4279,7 +4485,7 @@
       "title": "Live IBKR login blocked: bot user's IB Key 2FA is challenge/response (Seamless Authentication OFF) -> headless gateway can't complete a live login",
       "description": "Paper logins are 2FA-exempt so ib_paper is unaffected and healthy. LIVE logins require 2FA; the bot user's IB Key is in CHALLENGE/RESPONSE mode (Seamless OFF), so IBKR issues no push and the headless gateway (Xvfb) can neither read the on-screen challenge nor type the response -> hangs at 'Authenticating...' and times out. Pinning IBC SecondFactorDevice='IB Key Security via IBKR Mobile' changed nothing (no device-selection dialog ever appeared), confirming the block is upstream of device selection (no push challenge issued). FIX (operator-only, broker-side): enable SEAMLESS (push) authentication for the bot user in IBKR (account-specific; confirm exact steps with IBKR client services -- it is NOT the IBKR-Mobile Security page; involves Client Portal Secure Login + the bot user being registered for IBKR-Mobile push). Seamless push is REQUIRED for live anyway because the gateway re-logs in unattended daily after IBKR's reset; challenge/response cannot be automated. Then re-run via the vm-ib-gateway-live-login-test label and tap the push. NOT URGENT: ib_live is mode:dry_run (not trading); this is a pre-flight for a future capability. Tooling is built + verified. Full runbook: docs/runbooks/ib-live-login-2fa.md. Tier: operator broker-side action + Tier-1 doc (this entry + runbook).",
       "tier": 1,
-      "status": "kept_open",
+      "status": "wont_fix",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -4301,8 +4507,19 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_UNFIXABLE",
+          "evidence_based": true,
+          "note": "Superseded by a decision already taken: accounts.yaml holds ib_live at mode:dry_run with strategies:[], so the 2FA blocker sits on no live path. The blocker itself is an IBKR account-security setting no headless gateway or repo change can drive. ACCEPTED RESIDUAL RISK: promoting ib_live to real money later requires the operator to enable Seamless Authentication first — re-open at that point, not before."
         }
-      ]
+      ],
+      "disposition": "CLOSE_UNFIXABLE",
+      "severity": "low",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260615-MICRO-ZOMBIE",
@@ -4553,8 +4770,18 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "do_now",
+          "evidence_based": true,
+          "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Run `./gradlew :app:lintDebug`, commit lint-baseline.xml, then flip abortOnError=true in app/build.gradle.kts and drop continue-on-error from release.yml. VERIFIED unchanged: release.yml:126 still carries continue-on-error:true. The stated blocker ('baseline unknown') is resolved by simply running lint, which nobody has done in 57 days."
         }
-      ]
+      ],
+      "severity": "low",
+      "disposition": "do_now",
+      "next_action": "Run `./gradlew :app:lintDebug`, commit lint-baseline.xml, then flip abortOnError=true in app/build.gradle.kts and drop continue-on-error from release.yml. VERIFIED unchanged: release.yml:126 still carries continue-on-error:true. The stated blocker ('baseline unknown') is resolved by simply running lint, which nobody has done in 57 days."
     },
     {
       "id": "BL-20260618-RECONCILE-DUP",
@@ -4665,8 +4892,8 @@
       "title": "backfill closed-pnl recovery returns a mismatched/shared Bybit record for bybit_1 (demo) trades",
       "description": "MITIGATED (symptom): added a sign-consistency guard in scripts/ops/backfill_orphan_pnl.py::_plan_row (shared by backfill_closed_null_pnl) that refuses to write a recovered closed_pnl whose sign contradicts the trade's own >0.2% directional entry->exit move — a mismatched record can no longer fabricate a profit/loss into the journal. ROOT CAUSE OPEN: why does account_closed_pnl_for_trade (src/units/accounts/clients.py) return a shared record for distinct bybit_1 trades despite the qty(5%)/entry_price(10bps) disambiguators? Hypotheses: Bybit DEMO closed-pnl history is sparse so the filters fall through to a single latest record; or the demo venue endpoint behaves differently. HEALTH-REVIEW ACTION: pull bybit_1 raw closed-pnl via diag, confirm lookup-vs-demo-data fault, and decide whether to exclude demo accounts from closed-pnl recovery entirely (they are paper — pnl can be local-computed or left honest). Also enumerate the 19 skipped rows by account to confirm whether any real-money rows are genuinely stranded. Cross-ref BL-20260619-NULLPNL-REALMONEY-CLOSED.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -4690,8 +4917,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "ALREADY FIXED: backfill_orphan_pnl.py:213-245 carries a sign-consistency sanity guard quoting this exact symptom ('every long resolved to an identical +3847.29 even though the exit was ~18% adverse'). Verified by reading the file — a proposed fix for this was drafted and discarded on that read."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260620-RECONCILER-CLOSEDAT-MS",
@@ -4758,9 +4994,9 @@
       "severity": "medium",
       "title": "VERIFY the closed-pnl partial-close aggregation actually resolves the bybit_2 orphan-with-NULL-pnl (soak)",
       "description": "KEEP FOLLOWING UP until confirmed resolved. On the NEXT live bybit_2 (or any live-money) stuck/orphan event, (1) read the new 'closed_pnl no strict single-match: … rej_side/rej_time/rej_entry/rej_qty …' diagnostic in the trader journal to confirm the real failing filter is qty (the inferred cause) vs entry/time; (2) confirm '_recover_close_from_broker_pnl' now recovers a clean close (status='closed' with non-NULL pnl + exit_price, exit_price_source bybit_closed_pnl, _aggregated_legs>1) instead of orphaning; (3) confirm the watchdog 'recovered_closed' counter increments and the orphan rate on bybit_2 drops. If the diagnostic shows the failing filter is ENTRY (not qty), the aggregation won't help and the fix needs revisiting (relax/repair entry matching). Cross-refs: BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO, BL-20260601-001 (high orphan rates). Resolve only after >=1 confirmed live recovery (or a clean multi-day window with zero NULL-pnl real-money closes).",
-      "tier": "2",
-      "status": "kept_open",
-      "resolved_at": null,
+      "tier": 2,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
       "resolution": null,
       "snoozed_until": null,
       "check_log": [
@@ -4798,8 +5034,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Fix is live (clients.py:326/:510/:1011 allow_partial_aggregate + the no-strict-match diagnostic at :493) and the one-off soak loop was superseded by the 2026-07-30 provenance programme: every row now carries pnlProvenance and rolls into pnlCoverage, so an unresolved close is continuously visible as unverified rather than needing a backlog check."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260622-WATCHDOG-STDIN",
@@ -4877,9 +5122,9 @@
           "note": "OPERATOR DECISION: explored two mitigation paths for the recurring IB-gateway instability -- (1) IBKR's own Client Portal Web API (CPAPI) as a same-account transport swap to escape the Xvfb/IBC GUI-automation layer, and (2) migrating futures to a broker with a cleaner native API (Tradovate, Ironbeam direct API, Rithmic via AMP/Ironbeam). CPAPI is closed off: it requires an IBKR Pro account (confirmed via IBKR's own docs -- Lite is unsupported for API access, no SSO-only carve-out), and the operator does not have Pro and cannot get it in a relevant timeframe. On reviewing the broker-migration options (Tradovate/Ironbeam/Rithmic), the operator decided none of them are worth pursuing right now. DECISION: drop both lines of investigation for now -- stay on the current TWS-socket/ib_insync/Xvfb/IBC integration. The gateway-logs system-action routing fix (this session, see the linked PR) remains valuable regardless -- it unblocks root-causing future wedges on the CURRENT integration, which is now the only path being pursued for IB reliability. Revisit CPAPI/broker-migration only if the account tier changes or the wedge frequency/impact gets materially worse."
         }
       ],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
       "resolution": null,
       "snoozed_until": null,
       "updates": [
@@ -4903,8 +5148,17 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated via ib_state: 3 MES clients connected, no breaker open; last_fail ~1h ago (07:07-07:13Z liveness_probe_timeout/connect TimeoutError) self-recovered by 08:06 — the transitory IBKR-reset-window pattern, not a sustained wedge. Daily reset (06:05Z) + reactive watchdog in place. Keep open (recurring class)."
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_ANSWERED",
+          "evidence_based": true,
+          "note": "Root-cause branch met: ict-ib-gateway-reset.timer:11-20 names this ID and records the diagnosis (05:30 was INSIDE IBKR's own reset window, so the one deterministic restart was racing the outage it existed to fix), retimed to 06:05 UTC, with check_ib_gateway.py:512 --suppress-window-utc so the watchdog stops burning restarts inside the window."
         }
-      ]
+      ],
+      "disposition": "CLOSE_ANSWERED",
+      "severity": "medium"
     },
     {
       "id": "BL-20260623-003",
@@ -5276,7 +5530,7 @@
     {
       "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
       "title": "[infra root-source] stop the OCI host agent clobbering /dev/null on the live VM (the recurring source behind the guard + self-heals)",
-      "status": "open",
+      "status": "wont_fix",
       "opened_at": "2026-06-29T16:15:00+00:00",
       "opened_by": "claude (devnull incident follow-up 2026-06-29)",
       "snoozed_until": null,
@@ -5401,6 +5655,13 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-13T10:30:00+00:00",
+          "by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
+          "disposition": "CLOSE_UNFIXABLE",
+          "evidence_based": true,
+          "note": "The mutator is OCI host/kernel side, not ours: devnull_attrib_watch.py records that rounds 5-7 armed chmod/fchmod/fchmodat/fchmodat2/setxattr audit rules and captured ZERO events at strip time, pointing at a kernel-internal/devtmpfs mechanism rather than any process. ACCEPTED RESIDUAL RISK: /dev/null perms get stripped periodically; ict-devnull-guard.timer restores 0666 within its cadence, so the exposure is the strip->restore gap. The guard is now THE FIX, not a stopgap — keep it permanently enabled."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
@@ -5410,7 +5671,10 @@
         "BL-20260716-DEVNULL-DEPLOY-PERM",
         "BL-20260706-PROP-REPORT-DEVNULL-NOISE"
       ],
-      "resolved_at": null
+      "resolved_at": "2026-08-13T10:30:00+00:00",
+      "disposition": "CLOSE_UNFIXABLE",
+      "severity": "medium",
+      "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass"
     },
     {
       "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
