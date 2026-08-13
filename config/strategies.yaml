@@ -1082,9 +1082,17 @@ strategies:
     # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
     # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
     # 5y IS/OOS PASS on net_R AND maxDD). Close a position >= 8 native
-    # bars old still below 0R at bar close. Rollback = delete these 2 lines.
-    stale_exit_bars: 12
-    stale_exit_below_r: 0.0
+    # bars old still below 0R at bar close.
+    #
+    # REMOVED 2026-08-13 (Tier-3, operator-approved). The lever-off arm graded it
+    # `is_oos_fail` on base n IS=231 OOS=60: d_net_r IS +6.3678 / OOS -1.2067,
+    # d_max_dd IS -5.01 / OOS -1.583. It helps in-sample and COSTS net_R out of
+    # sample. Note the honest tradeoff: drawdown still improves OOS (-1.583), so
+    # this is a net_R decision, not a strictly-worse lever.
+    # METHOD, because it is what makes this gradeable at all: the config-exact
+    # base with this SHIPPED lever REMOVED, vs one cell restoring it at the leg's
+    # own live values — the only construction that can grade a lever already live.
+    # Restore = re-add `stale_exit_bars: 12` + `stale_exit_below_r: 0.0`.
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # SOLUSDT signals auto-wire the symbol-agnostic decision/meta models (no
     # SOL-specific head exists; the symbol filter keeps BTC/MES heads off).
@@ -1124,9 +1132,15 @@ strategies:
     # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
     # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
     # 5y IS/OOS PASS on net_R AND maxDD). Close a position >= 8 native
-    # bars old still below 0R at bar close. Rollback = delete these 2 lines.
-    stale_exit_bars: 8
-    stale_exit_below_r: 0.0
+    # bars old still below 0R at bar close.
+    #
+    # REMOVED 2026-08-13 (Tier-3, operator-approved). The WORST of the five
+    # removed in that pass: lever-off arm graded it `is_oos_fail` on base n
+    # IS=599 OOS=117 (both far over floor) with d_net_r IS +24.1924 / OOS
+    # -10.5462 and d_max_dd IS -15.7528 / OOS +4.6676 — WORSE ON BOTH OOS AXES.
+    # A +24R in-sample gain inverting to -10.5R out of sample on a 117-trade OOS
+    # window is the clearest overfit signature in the fleet.
+    # Restore = re-add `stale_exit_bars: 8` + `stale_exit_below_r: 0.0`.
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R -46.5 -> -31.1 (dd 66.9 -> 48.3), OOS +20.7 -> +24.1; measured config-exact on top of the stale8 declare. Rollback = delete this line.
     # M20-X vol-conditional trail — PAPER TEST (operator-approved 2026-07-15).
     # Tighten the chandelier trail 5.0 -> 2.5 on any managed bar whose
@@ -1140,10 +1154,16 @@ strategies:
     # bridge is operator-gated per placement). Evidence:
     # runtime_logs/m20x_vol_trail_don/2026-07-15 (issue #6507). Every real
     # fire logs an observe-only row to exit_lever_soak.jsonl (lever=vol_trail).
-    # Rollback = delete these 3 lines.
-    trail_vol_below_pctl: 0.10
-    trail_vol_tight_mult: 2.5
-    vol_pctl_window: 200
+    #
+    # REMOVED 2026-08-13 (Tier-3, operator-approved). Lever-off arm graded it
+    # `is_oos_fail` on base n IS=704 OOS=145: d_net_r IS +5.8333 / OOS -6.0653,
+    # d_max_dd IS -10.687 / OOS -0.9623. Costs net_R out of sample; drawdown
+    # still improves slightly OOS, so this is a net_R decision, not a strictly
+    # worse lever. SUPERSEDES the M20-X sweep #6507 verdict this leg shipped on
+    # (IS -31.1 -> -27.4 dd 48.3 -> 40.7, OOS +24.1 -> +28.0, wf 4/6): that run
+    # measured a base that did not match live.
+    # Restore = re-add `trail_vol_below_pctl: 0.10`, `trail_vol_tight_mult: 2.5`,
+    # `vol_pctl_window: 200`.
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
@@ -1155,13 +1175,14 @@ strategies:
     # SWAP-ROBUST prop exit variant of trend_donchian_sol (SOLUSDT, 1h, LONG-ONLY).
     # Same entries as trend_donchian_sol; ONLY the exits are tightened to the
     # eth_pullback_prop_2h recipe (trail_mult 3.5, tp_r 6.0 vs the live 5.0/50.0).
-    # ROLLBACK: it is already execution: shadow (observe-only); to fully retract,
-    # remove this block + the breakout_1 routing + the builder/registry/intents
-    # entries. To graduate (post-gate, operator-approved): set execution: live.
+    # GRADUATED to live 2026-08-13 (the prop EV/survival gate passed — see the
+    # execution line). ROLLBACK: set execution: shadow (observe-only) — one field,
+    # no redeploy. To fully retract, also remove this block + the breakout_1
+    # routing + the builder/registry/intents entries.
     model: null
     signal_prefixes: [trend_donchian_sol_prop, donchian_sol_prop]
     enabled: true
-    execution: shadow        # shadow-guard: allow — Unit C Phase 0 DRAFT (Tier-3): observe-only prop soak until the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml) passes; promotion shadow->live is operator-gated. Design: prop-dynamic-exits-faster-banking-DESIGN.md § 5.
+    execution: live          # Tier-3, OPERATOR-APPROVED 2026-08-13. The prop EV/survival gate PASSED (account_compat_matrix -> run_ev_montecarlo under breakout.yaml; trainer relay #8975): ev_net_usd +$483, P(net>0)=0.7427 over 602 trades spanning 2021-10..2026-06. STATE THE POPULATION: that EV is computed at size$5000 — a FRESH account with its full $300 static-DD budget — and it is positive BECAUSE the prop ruleset is cost-aware with BANK-ASAP re-buy, i.e. it prices in the account breaching and being repurchased at $45. The SAME ledger is a hard `skip` on every standard account (end_return_mean -3.4%, P(breach) 0.85, survival 0.22). So this is "+EV to buy accounts and run this", NOT "this is safe". An earlier gate run (#8969) returned skip at -$69,945 and was VOID — it graded a BTC 1-minute fixture under a SOLUSDT label (BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC); do not cite it. Design: prop-dynamic-exits-faster-banking-DESIGN.md § 5.
     timeframe: "1h"          # == trend_donchian_sol (the validated trend cadence).
     long_only: true          # == trend_donchian_sol (SOL's edge holds long-only A/B).
     symbols:
@@ -1179,14 +1200,14 @@ strategies:
     # Same entries as trend_donchian_eth (intentionally two-sided — ETH's edge is
     # short-side-dependent, the long-only A/B flipped it negative); ONLY the exits
     # are tightened to the eth_pullback_prop_2h recipe (trail_mult 3.5, tp_r 6.0
-    # vs the live 5.0/50.0). ROLLBACK: it is already execution: shadow (observe-only);
-    # to fully retract, remove this block + the breakout_1 routing + the
-    # builder/registry/intents entries. To graduate (post-gate, operator-approved):
-    # set execution: live.
+    # vs the live 5.0/50.0). GRADUATED to live 2026-08-13 (the prop EV/survival
+    # gate passed — see the execution line). ROLLBACK: set execution: shadow
+    # (observe-only) — one field, no redeploy. To fully retract, also remove this
+    # block + the breakout_1 routing + the builder/registry/intents entries.
     model: null
     signal_prefixes: [trend_donchian_eth_prop, donchian_eth_prop]
     enabled: true
-    execution: shadow        # shadow-guard: allow — Unit C Phase 0 DRAFT (Tier-3): observe-only prop soak until the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml) passes; promotion shadow->live is operator-gated. Design: prop-dynamic-exits-faster-banking-DESIGN.md § 5.
+    execution: live          # Tier-3, OPERATOR-APPROVED 2026-08-13. The prop EV/survival gate PASSED (account_compat_matrix -> run_ev_montecarlo under breakout.yaml; trainer relay #8975): ev_net_usd +$883, P(net>0)=0.8477 over 1110 trades spanning 2021-03..2026-06. STATE THE POPULATION: computed at size$5000 — a FRESH account with its full $300 static-DD budget — and positive BECAUSE the prop ruleset is cost-aware with BANK-ASAP re-buy (it prices in breaching and repurchasing at $45). The SAME ledger is a hard `skip` on every standard account (end_return_mean -2.5%, P(breach) 0.859, survival 0.1997). "+EV to buy accounts and run this", NOT "this is safe". An earlier gate run (#8969) returned skip at -$138,467 and was VOID — it graded a BTC 1-minute fixture under an ETHUSDT label (BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC); do not cite it. Design: prop-dynamic-exits-faster-banking-DESIGN.md § 5.
     timeframe: "1h"
     symbols:
       - ETHUSDT
@@ -1199,9 +1220,18 @@ strategies:
     stale_exit_bars: 12          # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
     stale_exit_below_r: 0.0      # stale12_lt0R (IS +1.26R / OOS +5.43R, maxDD -4.18 / -4.88)
     trail_decay_stall_bars: 10   # + decay_stall10_t1.8 (IS +1.37R / OOS +7.28R, maxDD -3.89 / -7.15).
-    trail_decay_tight_mult: 1.8  # Both cleared Path A on both windows + the yearly folds. This leg is
-                                 # `execution: shadow`, so these change NO money today — they are the
-                                 # validated geometry the leg carries INTO its own promotion review.
+    trail_decay_tight_mult: 1.8  # Both cleared Path A on both windows + the yearly folds. UPDATED
+                                 # 2026-08-13: this comment previously read "this leg is
+                                 # `execution: shadow`, so these change NO money today — the validated
+                                 # geometry it carries INTO its own promotion review." That promotion
+                                 # HAPPENED (execution: live, same day), so these levers are now LIVE
+                                 # on breakout_1 and the old text was false the moment the flip landed.
+                                 # NOTE THE APPARENT INCONSISTENCY, which is real and intended: the
+                                 # same-day pass REMOVED stale_stop from trend_donchian_eth/_sol for
+                                 # failing OOS, while this leg KEEPS stale12. Different book, different
+                                 # measurement — this leg runs the swap-robust exits (trail_mult 3.5,
+                                 # tp_r 6.0 vs the live 5.0/50.0) and stale12 was validated on THAT
+                                 # base (IS +1.26R / OOS +5.43R), not on the 1h majors' base.
                                  # The tight mult is 1.8 not 2.5 because this leg's base trail is 3.5
                                  # (swap-robust), not 5.0 — the cell is leg-scaled, not copied.
                                  # ROLLBACK: delete these four lines.
@@ -1324,6 +1354,28 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    # M20 trail_decay — Tier-3, OPERATOR-APPROVED 2026-08-13. Cell
+    # `decay_stall6_t2.5` from the live-parity re-sweep (m20-exit-lever-sweep run
+    # 31647462929, tp_cap_pct=0.099 APPLIED, split 2025-07-01, config-exact):
+    # Path A PASS, beating base on net_R AND maxDD in BOTH windows, dMaxDD
+    # IS -1.40 / OOS -3.25. base n IS=141 OOS=34, above the MIN_OOS_TRADES=25
+    # floor — NOT the thin-denominator shape that made 33 of 40 earlier passes
+    # unusable. That re-sweep SUPERSEDES the 2026-07-12 fleet sweep for this cell,
+    # which modelled no take-profit and so graded a book production does not run
+    # (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP).
+    #
+    # WHY THIS CELL of the three that passed (stall6 / stall10 / arm1.5R+stall6):
+    # it is the SIMPLEST — one condition, no arm threshold, so the least overfit
+    # surface — and it has the strongest OOS drawdown improvement of the three.
+    # CAVEAT, stated not buried: its IS->OOS swing (-1.40 -> -3.25) is the largest
+    # of the three and moves in the FAVOURABLE direction, which can be noise;
+    # `decay_arm1.5R_stall6_t2.5` (-1.52 / -1.66) is the most IS/OOS-consistent
+    # alternative if this underperforms live.
+    # tight_mult 2.5 is not free-chosen: the sweep derives it as
+    # max(1.5, trail_mult/2) = max(1.5, 5.0/2) = 2.5, so it stays config-relative.
+    # Rollback = delete these 2 lines.
+    trail_decay_stall_bars: 6
+    trail_decay_tight_mult: 2.5
     tp_r: 50.0
     min_confidence: 0.70
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
@@ -1898,9 +1950,14 @@ strategies:
     # dry_run (2026-07-15). Sibling of the ETH cold-cell declare (#6517, on
     # bybit_1 paper). ROLLBACK: delete these 3 lines. Every live fire logs an
     # exit_lever_soak lever=vol_trail row (the learning trail).
-    trail_vol_above_pctl: 0.80
-    trail_vol_tight_mult: 2.5
-    vol_pctl_window: 200
+    #
+    # REMOVED 2026-08-13 (Tier-3, operator-approved). Lever-off arm graded it
+    # `is_oos_fail` on base n IS=250 OOS=26: d_net_r IS +8.5923 / OOS -1.9643,
+    # d_max_dd IS +0.8678 / OOS +4.4918 — DRAWDOWN WORSE IN BOTH WINDOWS, and
+    # net_R negative out of sample. One of only two of the five removed that is
+    # worse on both OOS axes; the other is trend_donchian_eth stale_stop.
+    # Restore = re-add `trail_vol_above_pctl: 0.80`, `trail_vol_tight_mult: 2.5`,
+    # `vol_pctl_window: 200`.
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2267,8 +2324,14 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
-    trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2.5 wf 5/6; sweep 2026-07-12, PR #6251)
-    trail_decay_tight_mult: 2.5
+    # trail_decay REMOVED 2026-08-13 (Tier-3, operator-approved). Was
+    # `decay_stall10_t2.5` (M20 P4.1, wf 5/6; sweep 2026-07-12, PR #6251). The
+    # lever-off arm graded it `is_oos_fail` on base n IS=184 OOS=42 (both over
+    # floor): d_net_r IS +14.8202 / OOS -0.5238, d_max_dd IS -6.7341 / OOS
+    # -1.154. Helps in-sample, costs net_R out. The smallest OOS cost of the five
+    # removed (-0.52R) and drawdown still improves OOS, so this is the most
+    # marginal of the five — re-visit first if the fleet wants decay back.
+    # Restore = re-add `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5`.
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
     adx_min: 30             # ADX>=30 regime gate (Tier-3, operator-approved 2026-07-20; raised from 25). CONFIG-EXACT walk-forward (matches this block: trail_mult 5.0 + decay stall10/tight2.5, NO vol_skip): grid IS-R 25->47.4 / 28->39.8 / 30->61.8 (win 45%, dd 15.0) / 32->36.8 — 30 is the peak. Per-year OOS 25 vs 30: 30 net 55.8R vs 43.4R, lower maxDD in 4/5 years. Filters SOL marginal-trend fakeouts. ROLLBACK: set back to 25.

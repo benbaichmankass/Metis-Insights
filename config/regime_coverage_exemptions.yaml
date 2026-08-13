@@ -88,6 +88,46 @@ exempt:
       (Tier-3, operator-approved 2026-07-28); revisit once an MGC 15m regime head
       is registered. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md.
 
+  trend_donchian_sol_prop:
+    tracking_id: M20-PROP-GRADUATION-2026-08-13
+    added: '2026-08-13'
+    reason: >-
+      Prop exit-variant of trend_donchian_sol, promoted shadow->live 2026-08-13
+      (Tier-3, operator-approved; prop EV/survival gate PASSED, trainer relay
+      #8975). IDENTICAL ENTRIES to its parent — it differs ONLY in exits
+      (trail_mult 3.5, tp_r 6.0 vs the parent's 5.0/50.0). Regime gating acts on
+      the ENTRY decision, so this leg's regime question is exactly its parent's,
+      and the parent's answer is measured: trend_donchian_sol sits in
+      coverage_debt with rec #5 (2026-07-29) showing the chop-long drag collapses
+      -9.26R -> -2.32R@39 once the stale-exit lever is modeled — the omitted
+      lever, not a cell. Authoring a cell here on no fresh evidence would be the
+      cosmetic-cell anti-pattern (BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS).
+      Reinforcing that: the 2026-07-06 vol-split walk-forward found SOL a CLEAN
+      NEGATIVE for gating — the gate loses net (-$198 full-history) and buys only
+      drawdown, and its negative cells fail the walk-forward (fixed-cell 2/4,
+      cell-selection 1/3). NOT parked in coverage_debt deliberately: that register
+      is for legs grandfathered before the guard, may not exceed debt_ceiling, and
+      must never absorb a NEWLY live strategy. Revisit if a retrained SOL head
+      plus a fresh walk-forward proves a money-losing cell that GENERALIZES.
+      Evidence: docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md,
+      docs/research/regime-cell-walkforward-2026-07-29.md.
+  trend_donchian_eth_prop:
+    tracking_id: M20-PROP-GRADUATION-2026-08-13
+    added: '2026-08-13'
+    reason: >-
+      Prop exit-variant of trend_donchian_eth, promoted shadow->live 2026-08-13
+      (Tier-3, operator-approved; gate PASSED, relay #8975). Same structure as the
+      SOL sibling above: IDENTICAL ENTRIES to its parent, differing only in exits,
+      so its regime question is the parent's — and trend_donchian_eth is itself in
+      coverage_debt, owed a Phase-2 direction-aware cell. Additionally, and this is
+      the mechanical half: ETHUSDT's 15m regime head is still at SHADOW stage, not
+      advisory (MB-20260628-VOLGATE-GOLIVE), so ml_vol_regime_for_symbol resolves
+      "unknown" and a regime_policy.yaml cell would be a permissive no-op that
+      never fires — cosmetic, not enforcement. This is the same reasoning the
+      ict_scalp_{sol,xrp,avax}_5m exemptions above already carry. Migrate to a real
+      cell once the ETH head is promoted to advisory AND a walk-forward shows a
+      cell that generalizes.
+
 # Live strategies with NO description entry are tracked here so the guard's
 # description check passes while the copy is written. Empty = all have descriptions.
 description_exempt: {}
