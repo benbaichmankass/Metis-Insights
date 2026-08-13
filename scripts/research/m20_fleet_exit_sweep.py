@@ -1268,7 +1268,12 @@ def main(argv: list[str]) -> int:
         print(f"  SKIP {s['leg']}: {s['reason']}")
     for p in plan:
         for c in p["inert_cells"]:
-            print(f"  INERT {p['leg']}: {c['cell']} — {c['reason']}")
+            # A leg-level note carries no cell name. Printing a bare `None`
+            # where a cell tag goes invites reading it as a cell called None —
+            # so the two entry shapes are rendered differently rather than
+            # formatted by one template that fits only the common case.
+            print(f"  INERT {p['leg']}: {c['cell']} — {c['reason']}" if c["cell"]
+                  else f"  NO-OP {p['leg']}: {c['reason']}")
     if a.list:
         for p in plan:
             print(f"  RUN  {p['leg']:28s} {p['harness'].split('/')[-1]:22s} "
