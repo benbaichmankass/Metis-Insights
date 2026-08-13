@@ -13392,7 +13392,7 @@
     {
       "id": "BL-20260813-CRON-WORKFLOWS-FAIL-SILENTLY-ON-SCHEDULE-PATH",
       "severity": "high",
-      "status": "open",
+      "status": "partially-resolved",
       "tier": 1,
       "area": "ci/observability",
       "opened_at": "2026-08-13T09:40:00+00:00",
@@ -13406,6 +13406,15 @@
         ".github/workflows/replay-pregate-nightly.yml:37,62,203,222",
         ".github/workflows/claude-run-failure-alert.yml:35-44",
         "runs 31460751157 / 31567167485 / 31671108501"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T09:55:00+00:00",
+          "by": "claude (system-audit-review-oy5kon)",
+          "disposition": "partially-resolved",
+          "evidence_based": true,
+          "note": "HALF ONE SHIPPED (the silence). All 9 unwatched cron'd workflows added to claude-run-failure-alert.yml's workflow_run listener, which already existed for exactly this class ('stop waiting, it's dead'). Chose the ONE registration over patching 6-9 workflows' own notify gates: the per-workflow gate is what drifted in the first place, and a listener on the default branch cannot be forgotten by the next workflow author... though note it CAN be, which is why a guard asserting 'every cron'd workflow is watched' is the honest follow-up and is NOT yet built.\n\nMY OWN FIRST COUNT WAS WRONG AND IS CORRECTED HERE. I probed for a literal 'api.telegram.org' in each workflow and concluded 10 of 10 were silent. `Health Snapshot` notifies through scripts/notify_session.py, which that probe cannot see — the sub-class-C unasserted-negative this repo names. The honest population: 10 cron'd; 1 (Health Snapshot) self-notifies and is DELIBERATELY excluded to avoid a double-ping; 9 added.\n\nmacro-valuation-snapshot + econ-calendar-produce are included even though macro-producer-liveness watches them: that check asserts their OUTPUT is fresh, which cannot distinguish 'the run errored' from 'the producer is late'. Output-freshness is not run-status coverage. macro-producer-liveness itself is listed too — a silent watchdog is worse than none.\n\nVERIFIED: all 17 watched names resolve to a real workflow `name:` (workflow_run matches on name, not filename — a typo here would fail silently, which is the failure mode of an alerting fix); no duplicates; the only cron'd workflow absent from the listener is the documented Health Snapshot.\n\nHALF TWO STILL OPEN, and it is the one that costs: replay-pregate-nightly is STILL FAILING every night on a trainer-VM SSH timeout at head 9/22 ('Timeout, server 158.178.209.121 not responding'). This change means the next failure is LOUD; it does not make the pre-gate run. That is a separate Tier-1 investigation (trainer SSH under the 22-head scoring load) and this row stays open for it — closing on the alerting alone would be fixing the smoke detector and calling the fire out."
+        }
       ]
     },
     {
