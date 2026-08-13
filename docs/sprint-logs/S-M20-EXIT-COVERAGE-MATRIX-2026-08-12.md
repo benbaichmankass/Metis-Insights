@@ -1028,3 +1028,358 @@ plus a repeat:
 
 Every one is in a probe written **to audit evidence quality**. Writing the check
 does not exempt the check.
+
+## §18 — 2026-08-13 continuation: the code-change branch §17 named, executed
+
+**§17 is not superseded — it is discharged.** It said the remaining 37 cells
+"need a decision, a code change, or elapsed time," and categorised 14 as
+fold-standard and 9 as OOS-floor. This section is the code-change branch being
+taken, and it resolves 15 cells drawn from exactly those two categories.
+
+Timeline, checked rather than recalled: §17 merged 07:17:24Z; `resolve_split`
+(#8965) merged 08:40:20Z, 83 minutes later. So §17's "no measurement left"
+was accurate for the tools that existed when it was written. It was not wrong,
+and this section should not be read as correcting it.
+
+**DONE-CONDITION 37 → 22.** Headline unchanged at 360/360.
+
+### The finding: more folds moved verdicts one direction only
+
+`train_exit_head.fold_blocks` was re-run across every family in BOTH fold modes
+(relay #8963) so the change is a comparison, not merely a newer number.
+
+| unit | calendar-year folds | trade-block folds |
+|---|---|---|
+| `ict_scalp_xrp_15m` | candidate (2/3 hard) | **honest_negative** (2/6) |
+| `ict_scalp_avax_5m` | candidate (3/3 hard) | **honest_negative** (13/20) |
+| `slv_trend_1h` | ungradeable | **honest_negative** (0/4) |
+| `uso_trend_1h` | ungradeable | honest_negative (2/3) |
+| `eh_1d/pullback` ×6 | ungradeable (19 folds, 0 usable) | honest_negative ×6 |
+
+**2 downgrades, 0 upgrades, 8 newly graded and all negative.** A leg going 3/3
+on three folds is a coin landing heads three times. The exit head is *less*
+promising after this than before it, and the five surviving candidates are **all
+`ict_scalp`** — every non-scalp family in the re-run is `honest_negative`.
+
+### CORRECTION: the 1d ungradeability was only half a slicing artefact
+
+§17 and the surrounding thread treated the 1d fleet as blocked by fold
+construction. That held for the **pooled** family — `eh_1d/pullback` holds 568
+trades and trade-blocks recover 10 folds where calendar-years recovered zero
+usable ones — and did **not** hold for the seven single-leg trend ETFs. With the
+fix in they still yield 0 folds, because a 31–72-trade lifetime cannot fill two
+50-trade blocks. That is a sample-size limit, not a slicing one.
+
+`blocked:insufficient_folds` had been conflating "the slicing threw the folds
+away" (fixable, now fixed) with "there are not enough trades" (a real limit).
+Different states, different remedies, so those rows now carry
+`blocked:insufficient_lifetime_trades`. `squeeze_breakout_4h` misses by **two
+trades** (98 of the 100 one block needs) and is the closest leg in the fleet.
+
+### vol_trail re-sweep: one genuine PASS, and the refs were carrying stale n
+
+Relay #8980, 18/18 cells measured on the per-leg boundary.
+**`qqq_trend_long_1d vt_hot90_t2` → PASS, walk-forward 6/6** on a derived
+boundary of 2019-10-25 — the first cell the per-leg boundary has turned into a
+positive. Its two sibling cells fail OOS, so the PASS is that cell and not the
+lever family. `scha_trend_long_1d` measured and negative across all three.
+
+**A matrix data defect surfaced by running it.** Eligibility was screened off the
+lifetimes stated in the vol_trail refs (60/79/57/73/77/68), and I told the
+operator those differed from the E1 counts because they were different
+populations. That was wrong. The harness measures **48/60/31/65/72/63** — it
+agrees with the E1 counts and the ref figures do not reproduce. `spy` (48) and
+`qld` (31) fell below the 2×25 a derived boundary needs and fell back, exactly as
+`resolve_split` is built to do, announcing `leg_too_thin` rather than pretending.
+Corrected figures are now on each row.
+
+`iwm` and `splg` take a **new state, not a relabel**:
+`blocked:insufficient_oos_base_at_derived_split`. Their boundary was placed
+successfully and the OOS base is *still* under the floor, because the harness
+windows candles rather than trades — which is precisely why
+`tests/test_fleet_sweep_split.py` declines to assert the target is achieved.
+Folding that into `leg_too_thin` would claim the split is still binding. It is
+not, and moving it again will not help.
+
+### The prop gate: a verdict that inverted
+
+The `breakout_1` EV/survival gate on both `*_prop` legs first returned a
+confident **skip** at −$69,945 / −$138,467 (#8969). Void: `backtest_trend.py
+--symbol` is a display label while `--data` silently defaults to
+`data/backtest_candles.csv` — BTC **1-minute**, 2022-07-23→27 — so it graded BTC
+over one long weekend under a "SOLUSDT 1h" heading and extrapolated 3.5 days to a
+"(12-mo)" horizon. Two different symbols returning byte-identical spans is what
+gave it away; 74 trades in 84 hourly bars is impossible.
+
+On real per-symbol data (#8975) both legs return **ROUTE**: SOL +$483 @ P(net>0)
+0.7427 over 602 trades, ETH +$883 @ 0.8477 over 1110. **The verdict inverted.**
+
+**State the population before quoting it.** The EV is computed at `size$ 5000` —
+a fresh account with its full $300 drawdown budget — while the live account has
+**$101.96** left, ≈1.36 losing trades at the configured 1.5%. And the same ledger
+is a hard `skip` on *every* standard account (end-return −2.5%/−3.4%, P(breach)
+0.85–0.90, survival **0.20**): the prop verdict is positive because that ruleset
+is cost-aware with BANK-ASAP re-buy, i.e. it prices in the account breaching and
+being repurchased at $45. "+EV to buy accounts and run this" is not "this is
+safe." Flip remains **held** pending the operator.
+
+### Probe errors, continuing §17's tally
+
+| # | probe | class | caught by |
+|---|---|---|---|
+| 6 | #8969 graded the BTC fixture under a SOLUSDT label | **B→A** | two symbols, byte-identical spans |
+| 7 | #8973 guard grepped for the *absence* of the fixture span; a crashed run printed none, and a stale un-truncated emit file supplied the previous run's counts | **C** | only an unrelated missing dependency |
+| 8 | vol_trail eligibility screened off stale lifetimes in the matrix refs | **B** | `resolve_split` announcing `leg_too_thin` |
+
+Filed as `BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC` (high — the
+same footgun exists in `account_compat_matrix.py`, defaulting to
+`btc_5m.parquet`), `BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER`,
+and `BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION`.
+
+**#7 is the one to carry forward.** A guard that tests for the absence of the
+wrong answer passes on a crash. Assert the evidence is *present and correct*,
+truncate artifacts before writing, check exit codes, and give every refusal its
+own named state so "we could not look" never reads as a verdict.
+
+### What the remaining 22 are
+
+All on live legs; zero `pending`.
+
+| state | n | tractable by |
+|---|--:|---|
+| `insufficient_lifetime_trades` | 10 | more trades, or a justified lower fold floor — **under test in #8983** |
+| `data_missing` | 4 | native IBKR history (MES/MGC/MHG) |
+| `insufficient_base` | 2 | more trades |
+| `insufficient_oos_base_at_derived_split` | 2 | not the split; needs trades |
+| `no_harness_levers` | 2 | a harness change (squeeze family) |
+| `native-history-thin` | 1 | MGC-15m history |
+| `blocked` (mes vol_trail) | 1 | more trades |
+
+Relay **#8983** tests whether `--min-fold-trades 50` is load-bearing or merely a
+round number, since it alone blocks 10 of the 22. Prediction recorded before the
+run: given the 2-downgrades/0-upgrades asymmetry above, smaller blocks should be
+noisier and *more* optimistic, so 50 survives and those 10 are an honest
+structural limit. Recorded so the outcome cannot be quietly matched to it.
+
+### Tier-3 queued, nothing enacted
+
+1. `trend_donchian_{sol,eth}_prop` shadow→live — gate now PASSED, weighed against
+   a $101.96 cushion (see the population caveat above).
+2. Apply `trend_donchian_avax_4h trail_decay` — Path A PASS, OOS n=34, real-money.
+3. Remove 5 OOS-negative shipped levers — all paper/prop; largest is
+   `trend_donchian_eth stale_stop` at −10.55R OOS.
+
+### Shipped this section
+
+#8965 (per-leg IS/OOS boundary), #8968 (`af9be48` — prop accounts size off the
+operator-reported balance; deployed, trader restarted 09:05Z), #8978 (`f1e815a` —
+this matrix update + three backlog rows).
+
+## §19 — `--min-fold-trades 50` is LOAD-BEARING, measured (relay #8983)
+
+§18 left 10 of the remaining 22 cells at `blocked:insufficient_lifetime_trades` —
+blocked by the 50-trade fold floor, **a chosen number with no measurement behind
+it**. Before calling those cells permanently blocked, the floor itself had to be
+tested. Prediction was written into §18 BEFORE the run: given the
+2-downgrades/0-upgrades asymmetry, smaller blocks should be noisier and *more*
+optimistic, so 50 survives.
+
+**It does.** Two families, four block sizes, E0 datasets unchanged.
+
+`eh_1d/pullback` (6 legs), candidates produced per block size:
+
+| block | folds | candidates | the legs |
+|--:|--:|--:|---|
+| 50 | 10 | **0** | — |
+| 35 | 15 | **0** | — |
+| 25 | 21 | **2** | gdx (9/13), slv (14/21) |
+| 15 | 36 | **2** | gdx (15/22), ief (26/34) |
+
+`4h/donchian` stays `honest_negative` at every size, but its hard-rule beat-rate
+climbs as the blocks shrink — **50.0% → 57.7% → 56.8% → 65.6%** — and its OOS AUC
+rises monotonically **0.5775 → 0.5779 → 0.6080 → 0.6259** on an essentially fixed
+sample (n_oos 900–925). Same shape per-leg: gdx's AUC goes 0.5919 → 0.6967 as the
+test fold shrinks from 50 trades to 15.
+
+**So lowering the floor MANUFACTURES candidates rather than revealing signal.**
+The two legs that turn `candidate` at block 25 are legs that are
+`honest_negative` at 50 on the same data. Dropping to 25 would unblock several of
+the 10 cells — by grading them on 25-trade test folds whose AUC is visibly
+inflated by the small sample. That is the opposite of what unblocking should
+mean.
+
+**The 10 cells stay blocked, and that is now MEASURED rather than assumed.**
+Unblocking needs more trades, not a smaller bar.
+
+### The positive control failed, and the failure was MINE
+
+The run declared `!! CONTROL FAILED -- block-50 does not reproduce #8963`, naming
+`tlt_pullback_1d` (expected `beats_hard=6/10`, got `4/10`).
+
+**E1 reproduces perfectly.** All six legs at block 50 are byte-identical to #8963
+across two runs at DIFFERENT HEADs (`32719418` → `f1e815aa`): same n_oos, same
+AUC to 4dp, same beats_actual, same beats_hard. `random_state=7` is pinned
+(`train_exit_head.py:133`). The expected value in my control table was wrong — I
+transcribed **slv's** `6/10` onto tlt's row, whose real value is `4/10`, and
+which §18's own matrix commit records correctly.
+
+This is probe error **#10**, and it is worth recording for a reason beyond the
+tally: **I was one step from filing a high-severity finding that the entire E1
+program is nondeterministic** — which would have cast doubt on all five
+`passed_unshipped` scalp candidates shipped hours earlier, and on every verdict
+in the coverage matrix. The control fired correctly (it stopped me trusting the
+comparison) but its *diagnosis was inverted*: it said the DATA disagreed when the
+EXPECTATION was wrong.
+
+The lesson is narrower than "check your work": **a positive control's expected
+values are themselves an input that needs provenance.** Mine were hand-copied
+from a relay comment into a shell array, which is exactly the substitution the
+diagnostic-provenance rule names — I had the right mechanism and fed it an
+unverified constant. A control worth having should derive its expectations from
+the artifact (`e1_report.json`) rather than from a human reading a log.
+
+Second time today a false alarm was caught before filing (the first: a claim the
+live exit head has no observability, retracted in PR #8942 once rotation
+explained it). Both were caught by re-reading the primary source instead of
+trusting my own note about it.
+
+---
+
+## §20 — a test fixture pinned to a literal date took the whole repo red
+
+Not M20 work. Recorded here because it blocked M20 (and everything else), and
+because the *shape* of it belongs beside §19's lesson about trusting a probe.
+
+### What happened
+
+At **2026-08-13T11:00:00Z** `main` went red on every branch: 7 of 11 cases in
+`tests/test_sweep_no_mark_fabrication.py`. Nothing had regressed. The fixture
+inserted its trade at a **literal** `created_at='2026-07-30T11:00:00Z'`, and
+`_sweep_local_pnl_for_unpriced` scans a **rolling** window:
+
+```sql
+AND datetime(created_at) >= datetime('now', '-14 days')
+```
+
+Fourteen days later **to the minute**, the row aged out. Measured at the time of
+diagnosis, cutoff `2026-07-30 11:07:32`:
+
+```
+sqlite3: datetime('2026-07-30T11:00:00Z') >= datetime('now','-14 days')  ->  False
+```
+
+### Probe error #11 — I nearly filed this against the wrong session's PR
+
+My first hypothesis was the newest merge on `main` (#8964, `87af13f5`, the
+concurrent audit session), on **adjacency alone**: it was the most recent thing
+that landed and the failure was in a module I had not touched. I had the board
+comment half-composed.
+
+The bisect took two minutes and killed it:
+
+| commit | result |
+|---|---|
+| `87af13f5` (#8964) | 7 failed, 4 passed |
+| `f1e815aa` (#8978) | 7 failed, 4 passed |
+| `af9be482` (#8968) | 7 failed, 4 passed |
+| `80820f4e` (#8683) — **introduced the file** | 7 failed, 4 passed |
+
+plus the control: clean `origin/main` with local changes stashed → 7 failed, 4
+passed. **#8964 touches neither the test, the module, nor the source file.**
+
+This is the same error as §18's near-miss and probe error #10, in a third
+costume: *the most recent change is the cause* is as unreliable a heuristic as
+*the surrounding prose describes the number* or *my note says n=98*. In this
+costume it would also have cost someone else's time and credibility, not just
+mine.
+
+### The expensive half is the shape, not the outage
+
+An aged-out row makes the sweep scan **zero rows** and report
+`still_pending=0`, `declared_unmeasured=0`, `filled=0` — **byte-identical to a
+correct sweep over a clean book.**
+
+Three of the eleven cases assert only that something did *not* happen
+(`pnl is None`; `pnl_source != UNMEASURED_MARKER`). Those pass **vacuously** on
+an empty scan. They went red only because sibling cases happened to assert
+`== 1`. That is diagnostic-provenance **sub-class C** — an unasserted
+denominator reading as a clean negative — and the counterfactual is the point:
+**a file containing only absence-assertions would have gone quietly
+green-while-testing-nothing today, and stayed that way indefinitely.** The
+fabrication guard would have been decorative and CI would have said it was fine.
+
+### Fix (`43539b3f`) — both halves
+
+- Fixture timestamps are **relative** (`_stamp(hours_ago)`), 24h back:
+  deliberately inside the 14-day window **and** outside the 6h
+  `_LOCAL_PNL_BROKER_DEFER_MS` grace, so the row is eligible on both axes
+  regardless of how `ib_paper` resolves its broker reader.
+- `test_the_fixture_row_is_actually_inside_the_sweeps_scan_window` pins
+  `scanned == 1` as an explicit denominator and **names itself in its failure
+  message**, so a future expiry points at the fixture instead of sending someone
+  hunting a fabrication regression.
+- `test_the_denominator_check_can_fail` ages the row out on purpose — proving
+  the denominator guard has teeth (§19's rule: a guard that cannot fail proves
+  nothing) and reproducing this outage on demand.
+
+**13 passed** (was 7 failed / 4 passed).
+
+### What is NOT fixed — one instance, not the class
+
+`BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS` (medium, Tier 1).
+Its resolution criterion requires any future CI guard to be **demonstrated
+against this known instance** — revert the fixture to the literal, watch the
+guard fail — before it is trusted on unknown ones. A guard validated only on
+hypotheticals is the `new-table-wiring-guard` mistake.
+
+Scope of what *was* checked, stated so the gap is legible:
+
+- Source rolling-window predicates in SQL: exactly **two**, both in
+  `order_monitor.py` (`-7 days`, `-14 days`).
+- The `-7 day` sweep's four test modules are **green** as of 2026-08-13
+  (85 passed).
+- **NOT checked: Python-side rolling windows** (`timedelta(days=N)`), which are
+  far more numerous and have the identical failure mode. ~70 test files carry
+  literal `2026-xx` timestamps on `created_at`/`closed_at` rows.
+
+Reported to coordination board #6927 with the corrected attribution.
+
+---
+
+## §21 — the two blocked squeeze cells now carry a forward assessment
+
+`squeeze_breakout_4h` `exit_ladder` and `vol_trail` sat at
+`blocked:no_harness_levers` with AST-verified causes but no answer to the
+question a reader actually has next: **is building the missing lever worth it?**
+Now recorded on both cells, and labelled a **projection, not a verdict**.
+
+Low expected value, on three grounds — only the first two measured:
+
+1. **The fleet prior is weak.** The 2026-08-13 `vol_trail` sweep returned
+   exactly one candidate in six legs (`qqq_pullback_1h`, wf 6/6); banking is the
+   milestone-wide honest negative of memo §7.2 (45 rows). Neither is evidence
+   about *this* leg — the matrix `_doc` forbids an inherited verdict and the note
+   claims none — but a prior that weak is a poor reason to spend harness work.
+2. **The sample may not support a verdict even with the lever.** Deepest
+   recorded depth is **n=135 at 2900d** (`RESEARCH-RIGOR-STANDARD.md:94`; n=28 at
+   730d). A derived split lands the OOS base near the **25-trade floor** — the
+   same regime that returned `blocked:insufficient_oos_base_at_derived_split` for
+   iwm/splg. The plausible return on the work is *another blocked cell*.
+3. BTC 4h is the slowest cadence in the fleet, so accrual will not relieve (2).
+
+**A correction against myself:** I carried **n=98** for this leg from memory.
+The recorded figure is **n=135 / n=28**. Checked before writing rather than
+restated — the same failure mode as probe errors #8 and #10, caught this time
+*before* it reached an artifact.
+
+The OOS estimate is deliberately stated as a **range**, and explicitly as
+arithmetic on a recorded `n` rather than a run: `resolve_split` computes the
+real split, and probe error #8 was precisely this (I screened eligibility off
+matrix lifetime refs; the harness measured materially lower).
+
+Exit condition written down: a **measured** lifetime above ~2× the OOS floor at
+the split the harness actually derives — measured, not projected — or a fleet
+result that stops being a coin flip.
+
+Status values unchanged, so the roll-up is unmoved: **362/376 = 96.3%**
+headline, **36 open** on the done-condition. 48 matrix join/capital tests pass.

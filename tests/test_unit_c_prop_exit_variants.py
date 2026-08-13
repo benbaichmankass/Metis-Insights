@@ -5,9 +5,21 @@ trend_donchian_sol / trend_donchian_eth, mirroring the validated
 eth_pullback_prop_2h recipe, and their builder/registry/multiplexer/priority
 wiring. Design: docs/research/prop-dynamic-exits-faster-banking-DESIGN.md § 5.
 
-These are DRAFT Tier-3 (execution: shadow, observe-only) until the prop
-EV/survival gate passes; the tests assert the wiring + the tightened params +
-that the change is Prime-Directive-clean (no per-strategy risk_pct).
+**GRADUATED to execution: live on 2026-08-13** (Tier-3, operator-approved) after
+the prop EV/survival gate PASSED on real per-symbol data — trainer relay #8975,
+`account_compat_matrix` -> `run_ev_montecarlo` under `breakout.yaml`: SOL
+ev_net_usd +$483 @ P(net>0)=0.7427 over 602 trades, ETH +$883 @ 0.8477 over
+1110. These tests assert the wiring + the tightened params + that the change is
+Prime-Directive-clean (no per-strategy risk_pct).
+
+They previously PINNED `execution == "shadow"` and the presence of the inline
+`shadow-guard: allow` marker. Both were correct for the draft state and both
+failed the moment the operator approved graduation. Rather than flip the
+literals — which would assert strictly LESS than before and fail again on the
+next state change — the execution assertion is now an INVARIANT: whatever the
+gate says, the line must JUSTIFY itself. `shadow` needs the shadow-guard marker;
+`live` needs the Tier-3 approval and the gate evidence. A silent flip in either
+direction fails, and so does a flip whose YAML gives no reason.
 
 NOTE: the exit-ladder backtest scaffold was DROPPED from Unit C (operator
 decision — the ladder degraded EV and does not graduate), so this file carries
@@ -38,8 +50,10 @@ def test_variants_present_with_tightened_exits():
     for name in _VARIANTS:
         b = s[name]
         assert b["enabled"] is True
-        # DRAFT: observe-only prop soak until the prop EV gate passes.
-        assert b["execution"] == "shadow"
+        # GRADUATED 2026-08-13: the prop EV/survival gate passed (relay #8975),
+        # operator-approved Tier-3. Pinned so a silent revert to shadow — or an
+        # accidental omission, which DEFAULTS to live — is caught.
+        assert b["execution"] == "live"
         assert b["timeframe"] == "1h"
         # The eth_pullback_prop_2h SWAP-ROBUST recipe: tighter trail + a real
         # 6R cap (vs the live 50.0 sentinel / 5.0 trail the un-tightened cells use).
@@ -93,15 +107,51 @@ def test_no_per_strategy_risk_pct():
         assert "risk_pct" not in s[name]
 
 
-def test_shadow_guard_marker_present():
-    # A new execution: shadow line needs the inline shadow-guard marker (CI guard).
+def test_execution_line_justifies_itself():
+    """THE INVARIANT, not a snapshot: the execution line must state WHY it holds
+    its value, whichever value that is.
+
+    `shadow` needs the inline `shadow-guard: allow` marker (the CI guard's
+    contract). `live` on a PROP leg needs the Tier-3 approval AND the gate that
+    authorised it — a prop leg going live off a passing EV gate is a real-money
+    decision, and a bare `execution: live` with no cited evidence is exactly the
+    state that would let a future session assume it was always meant to be on.
+
+    This replaces a test that asserted `"shadow-guard: allow" in exec_line`
+    unconditionally. That version could only ever describe the draft, so the
+    operator's approval broke it — a test that fails when the system does the
+    RIGHT thing is a test pinned to a moment rather than to a property.
+    """
     raw = (_ROOT / "config" / "strategies.yaml").read_text().splitlines()
+    s = _strategies()
     for name in _VARIANTS:
-        # find the block, then its execution line carries the marker
         idx = next(i for i, ln in enumerate(raw) if ln.strip().startswith(f"{name}:"))
         exec_line = next(ln for ln in raw[idx:idx + 25]
                          if ln.strip().startswith("execution:"))
-        assert "shadow-guard: allow" in exec_line
+        mode = s[name]["execution"]
+        if mode == "shadow":
+            assert "shadow-guard: allow" in exec_line, name
+        else:
+            assert mode == "live", f"{name}: unexpected execution {mode!r}"
+            low = exec_line.lower()
+            assert "operator-approved" in low, f"{name}: live with no cited approval"
+            assert "gate passed" in low, f"{name}: live with no cited gate result"
+            # The gate is only meaningful with its population attached — an EV
+            # figure without "how many trades / what account size" is the exact
+            # shape the ALWAYS-STATE-THE-POPULATION rule exists to stop.
+            assert "trades" in low, f"{name}: gate cited with no sample size"
+
+
+def test_the_execution_check_can_fail():
+    """A guard that cannot fail proves nothing.
+
+    Feed the assertion a live line carrying no justification and confirm it is
+    rejected — otherwise `test_execution_line_justifies_itself` could be passing
+    because the substring checks are trivially satisfiable.
+    """
+    bare = "    execution: live"
+    low = bare.lower()
+    assert not ("operator-approved" in low and "gate passed" in low)
 
 
 def test_routed_to_breakout_1():
