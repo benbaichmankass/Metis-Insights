@@ -13167,6 +13167,11 @@
           "at": "2026-08-13T06:00:00+00:00",
           "by": "claude (m20-exit-coverage-matrix-8d3he7)",
           "note": "CORRECTION -- the original diagnosis was INCOMPLETE and the first fix did not work. #8889 added `symbol` alone; the re-run at the merged sha produced BYTE-IDENTICAL numbers (trades_in 1332, skipped {no_candles:697, unresolvable:63}, only a `pullback` family). The builder refuses a row missing ANY of FOUR keys (build_exit_head_dataset.py:193): entry_time, exit_time, entry, sl. Those three harnesses emitted only entry_time.\n\nMEASURED per emit file, 1d round: 7 trend legs 371 rows / 0 usable (exit_time+entry+sl missing on all 371); 6 pullback legs 578 rows / 578 usable. And trades_in 1332 == 578 harness-usable + 754 live-usable, which PROVES the 371 never entered the population -- so the original claim that they 'landed in no_candles' is FALSE. no_candles is a later stage they never reached; that claim came from a subtraction that happened to reconcile (1332-697-63=572=the pullback count) and was shipped as a comment into three source files. Corrected in PR #8901.\n\nMETHOD NOTE, since this is the reusable part: reasoning from the NAME of the counter the survivors landed in produced a confident wrong cause twice. What found it in one step was diffing the emitted key set against the family that WORKS (`in PULLBACK but NOT in TREND: [entry, exit_reason, exit_time, sl]`). tests/test_harness_emit_schema.py makes that permanent, importing the requirement from the builder's own guard rather than restating it, and is verified to FAIL on exactly the three broken harnesses at the pre-fix sha."
+        },
+        {
+          "at": "2026-08-13T06:25:00+00:00",
+          "by": "claude (m20-exit-coverage-matrix-8d3he7)",
+          "note": "HALF DEMONSTRATED, STAYS OPEN. #8901 merged (ec3073b7); the watcher re-ran both rounds at that sha (relay #8910).\n\nTHE ROWS NOW ARRIVE -- the finding's actual subject, measured:\n  1d  rows_seen/loaded at load  949/949   (was 578/949)\n  1h  rows_seen/loaded at load 1992/1992  (was 1482/1992)\n  1d  trades_in 1332 -> 1703  (+371, exactly the trend count)\n  1h  trades_in 2236 -> 2746  (+510, exactly)\nand for the first time a donchian-side family EXISTS: eh_1d has spy/qqq/tqqq/qld/iwm/splg/scha_trend_long_1d (48/60/32/31/65/72/63 harness trades), eh_1h has slv_trend_1h 289 + uso_trend_1h 215.\n\nNOT CLOSING, because this row's criteria require rows AND a per-leg verdict, and every one of those families returned `folds=0, per_leg_entries=0`. Loosening the criteria to match what shipped would be fitting the contract to the outcome, which is the thing the criteria exist to stop.\n\nThe remaining half is owned by two OTHER rows, and the round output now proves both rather than predicting them:\n  * each trend leg trained ALONE (its own dir), and the new skip message names the bound -- `slv_trend_1h fold 2019: skipped — test 35 < 50 (--min-fold-trades)`, folds 33-38; `uso_trend_1h` folds 12-27, one showing BOTH conditions (`test 20 < 50; train 395 rows < 500`). Measured earlier: these two clear 0 folds alone and 8 of 9 POOLED. -> BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED\n  * the 1d legs cannot clear the gate even pooled -> BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS\n\nSo the emit-schema defect is FIXED and demonstrated; this row closes when one of those two decisions lands and a trend leg finally carries a verdict."
         }
       ]
     },
@@ -13210,6 +13215,13 @@
         "PR #8901",
         "scripts/ml/build_exit_head_dataset.py:566 (the total-failure-only branch)",
         "BL-20260813-TREND-SQUEEZE-FVG-HARNESSES-EMIT-NO-SYMBOL (the row it hid)"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T06:25:00+00:00",
+          "by": "claude (m20-exit-coverage-matrix-8d3he7)",
+          "note": "SURFACING VERIFIED LIVE (relay #8910). Both re-run reports now carry the load-stage block: `rows_seen_at_load: 949` / `rows_loaded_at_load: 949` (1d) and 1992/1992 (1h), with `skipped_at_load: {}`.\n\nREAD THE EMPTY DICT CORRECTLY: `{}` here means 'nothing was rejected on shape', and it is trustworthy ONLY because the seen/loaded pair is published beside it and they are equal. An empty `skipped_at_load` with no denominator would be exactly the unasserted-negative this row is about -- which is why the counts ship with it rather than the skip dict alone.\n\nRow STAYS OPEN on its stated criteria: nothing yet ALERTS when one family loads 0 of N while a sibling is healthy. Surfacing the number was necessary and is not sufficient; the number was computable all along."
+        }
       ]
     },
     {
@@ -13273,6 +13285,6 @@
       ]
     }
   ],
-  "updated_at": "2026-08-13T06:30:00+00:00",
+  "updated_at": "2026-08-13T06:25:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
