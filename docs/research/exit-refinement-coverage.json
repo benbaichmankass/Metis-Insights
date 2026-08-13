@@ -1534,7 +1534,7 @@
       }
     },
     {
-      "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)",
+      "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, trend_donchian_1h, *_prop)",
       "symbol": "various",
       "tf": "various",
       "execution": "shadow",
@@ -1567,7 +1567,8 @@
       "vol_trail": {
         "status": "pending",
         "ref": "M20-X vol_trail: #6510 covered the pullback+mixed fleet only; the shadow families (turtle/fade/vwap/scalp/1h/prop) each need their own harness-lever round before a vol_trail verdict — not yet run"
-      }
+      },
+      "_bundled_row_note": "STILL A BUNDLED ROW -- BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS. One row carries 8 lever statuses for 4 named legs plus a `*_prop` WILDCARD, so its own denominator is uncountable. It is excluded from the 47-leg done-condition denominator (execution != live), which is why it does not corrupt the headline -- but a reader looking up any of these legs gets a fleet-level status, not that leg's. Exploding it needs per-leg evidence that does not exist yet; inventing one would be worse than the bundle. 2026-08-13: removed `ict_scalp_5m` and `mgc_trend_1h` from the label -- both have their own rows, and the two disagreed on 8/8 and 6/8 cells respectively (e.g. ict_scalp_5m stale_stop own=honest_negative vs bundled=passed_unshipped), so the matrix asserted two different things about the same leg depending on which row you read."
     },
     {
       "strategy": "xauusd_trend_1h",
