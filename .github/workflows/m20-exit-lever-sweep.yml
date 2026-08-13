@@ -58,6 +58,10 @@ on:
         description: "Entry-selectivity floor imposed on EVERY leg, replacing its config-declared min_confidence. Empty = config-exact (each leg keeps its own). The surviving arm of SRQ-20260618-003: the 15bps run showed halving the trade COUNT does not clear the fee band, leaving 'raise the edge per trade' untested. Note an explicit 0 is NOT empty — it imposes a zero floor on legs that declare one."
         required: false
         default: ''
+      without_declared_levers:
+        description: "LEVER-OFF ARM. CSV of declared levers (stale_stop,giveback_stop,trail_decay,vol_trail) to REMOVE from each leg's config-exact base, measuring ONE cell that puts each back at the leg's own live values. Empty = the ordinary arm. This is the only way to grade a SHIPPED lever: the shipped lever IS the base, so a normal cell reproducing it measures the base against itself — 31 of 860 corpus rows are exactly that, all-zero deltas labelled `is_oos_fail`/`insufficient_base` (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES). trail_geometry is not offerable: trail_mult has no OFF state."
+        required: false
+        default: ''
   # A workflow_dispatch-ONLY workflow is not resolvable by filename until it
   # exists on the DEFAULT branch — the dispatch API 404s on a feature branch.
   # This sentinel path is the same escape hatch m20-capture-census.yml uses:
@@ -252,8 +256,24 @@ jobs:
           MIN_CONF: ${{ inputs.min_confidence_override }}
           LEVERS: ${{ inputs.levers }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
+          WITHOUT: ${{ inputs.without_declared_levers }}
         run: |
           set -o pipefail
+          # The CLI takes --without-declared-lever REPEATABLY (argparse append),
+          # so the CSV input is expanded into one flag per lever. It cannot ride
+          # the `${VAR:+--flag "$VAR"}` idiom the other inputs use: that would
+          # pass "stale_stop,vol_trail" as a single value, which argparse would
+          # refuse against its choices list — a loud failure, but only after the
+          # data fetch, and only for multi-lever runs.
+          WDL_ARGS=()
+          if [ -n "${WITHOUT}" ]; then
+            IFS=',' read -ra _levs <<< "${WITHOUT}"
+            for _l in "${_levs[@]}"; do
+              _l="$(echo "${_l}" | tr -d '[:space:]')"
+              [ -n "${_l}" ] && WDL_ARGS+=(--without-declared-lever "${_l}")
+            done
+            echo "LEVER-OFF ARM: ${WDL_ARGS[*]}"
+          fi
           python3 scripts/research/m20_fleet_exit_sweep.py \
             --data-dir sweep_data \
             --only "${LEG}" \
@@ -262,6 +282,7 @@ jobs:
             ${FEE_BPS:+--fee-bps-roundtrip "${FEE_BPS}"} \
             ${MIN_CONF:+--min-confidence-override "${MIN_CONF}"} \
             ${LEVERS:+--levers "${LEVERS}"} \
+            "${WDL_ARGS[@]}" \
             --out "out/${LEG}" 2>&1 | tee sweep.out
 
       - uses: actions/upload-artifact@v4

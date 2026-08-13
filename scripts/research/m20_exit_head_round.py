@@ -43,6 +43,56 @@ def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
                           text=True, timeout=timeout)
 
 
+_ACCEPTS_STRATEGY_NAME: dict[str, bool | None] = {}
+
+
+def accepts_strategy_name(harness: str) -> bool | None:
+    """Does this harness take `--strategy-name`? ASKED, not declared.
+
+    THREE STATES, never collapsed to a boolean:
+
+      ``True``   the flag is there — pass the real leg name.
+      ``False``  --help ran and the flag is genuinely absent (fvg, squeeze).
+                 A real answer: proceed, and say what attribution is lost.
+      ``None``   WE COULD NOT LOOK. Not the same as "no", and the caller must
+                 SKIP the leg rather than guess.
+
+    The `None` case is why this is not a boolean. Folding it into ``False``
+    would mean a probe failure silently produces rows stamped with the family
+    literal — unattributable rows, which is the exact defect this function
+    exists to prevent. `silent-empty-guard` caught precisely that in the first
+    version, which returned False on any exception and merely printed about it:
+    a print does not stop the round from emitting the bad rows.
+
+    This replaced the literal `fam == "scalp"`, correct on the day it was
+    written and silently wrong the moment the trend and pullback harnesses
+    gained the flag (2026-08-13) — a hardcoded capability list drifts exactly
+    when someone adds the capability, which is the moment it matters. Probing
+    `--help` costs one subprocess per harness per round and cannot go stale.
+    """
+    if harness in _ACCEPTS_STRATEGY_NAME:
+        return _ACCEPTS_STRATEGY_NAME[harness]
+    verdict: bool | None
+    try:
+        p = subprocess.run([sys.executable, str(REPO / harness), "--help"],
+                           capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        # Narrow: the only failures a `--help` invocation can legitimately
+        # produce. Anything else is a bug in this function and propagates.
+        print(f"    !! {harness} --help probe FAILED ({type(exc).__name__}: "
+              f"{exc}) — cannot determine attribution support.", flush=True)
+        verdict = None
+    else:
+        verdict = ("--strategy-name" in (p.stdout or "")
+                   if p.returncode == 0 else None)
+        if verdict is None:
+            print(f"    !! {harness} --help exited {p.returncode} — cannot "
+                  f"determine attribution support. stderr: "
+                  f"{(p.stderr or '')[-200:]}", flush=True)
+    _ACCEPTS_STRATEGY_NAME[harness] = verdict
+    return verdict
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--legs", required=True, help="CSV of strategy leg names")
@@ -93,14 +143,38 @@ def main(argv: list[str]) -> int:
             continue
         emit = out / "emit" / f"{leg}.jsonl"
         args = base_args(leg, cfg, fam, data, resample)
-        # The scalp harness stamped a HARDCODED `strategy: "ict_scalp_5m"` on
-        # every emitted row, so a 15m ETH trade and a 5m XRP trade were
-        # indistinguishable in the E0 dataset and every per-leg verdict would
-        # have been attributed to one arbitrary leg name. Pass the real leg.
-        # Scalp-only: the other harnesses do not accept the flag, and adding it
-        # blindly would turn a working round into an argparse usage error.
-        if fam == "scalp":
+        # Every harness stamped a HARDCODED family literal on each emitted row
+        # -- `ict_scalp_5m`, `trend_donchian`, `htf_pullback_trend_2h` -- so the
+        # E0 dataset, which buckets by that field, could not tell a 15m ETH
+        # trade from a 5m XRP one, or `gld_pullback_1d` from `tlt_pullback_1h`.
+        # Every per-leg verdict would have been attributed to one arbitrary leg.
+        # The scalp harness was fixed first; trend and pullback followed
+        # (2026-08-13), which is what makes the 26 non-scalp `exit_head_ml`
+        # cells runnable at all.
+        #
+        # ASKED, not assumed -- see `accepts_strategy_name`. The old `fam ==
+        # "scalp"` test was correct when written and would have silently kept
+        # excluding trend/pullback after they gained the flag.
+        supports = accepts_strategy_name(FAMILY_HARNESS[fam])
+        if supports is None:
+            # WE COULD NOT LOOK -> skip, never guess. Running the leg anyway
+            # would emit rows stamped with the family literal, which is the
+            # unattributable-row defect this whole change exists to fix; a leg
+            # missing from the round is visible, a leg silently mis-attributed
+            # is not.
+            print(f"SKIP {leg}: could not determine whether "
+                  f"{FAMILY_HARNESS[fam]} supports --strategy-name, so its rows "
+                  f"might not be attributable to this leg. Fix the harness probe "
+                  f"and re-run rather than accepting family-level rows.",
+                  flush=True)
+            continue
+        if supports:
             args = [*args, "--strategy-name", leg]
+        else:
+            print(f"    NOTE {leg}: {FAMILY_HARNESS[fam]} has no "
+                  f"--strategy-name; its rows will carry the family literal and "
+                  f"this leg's verdict will NOT be separately attributable.",
+                  flush=True)
         p = sh([sys.executable, REPO / FAMILY_HARNESS[fam], *args,
                 "--emit-trades", emit, "--json", "/tmp/eh_round_cell.json"])
         if p.returncode != 0:

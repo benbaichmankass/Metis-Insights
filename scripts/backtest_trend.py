@@ -210,6 +210,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
                  emit_path: Optional[str] = None,
+                 strategy_name: str = "trend_donchian",
                  min_confidence: float = 0.0,
                  long_only: bool = False,
                  side_filter: str = "both",
@@ -584,7 +585,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             for t in trades:
                 cb = _cost_breakdown(t)
                 fh.write(json.dumps({
-                    "strategy": "trend_donchian", "entry_time": str(t.entry_time),
+                    # PER-LEG ATTRIBUTION. This literal used to be hardcoded, so
+                    # every leg sharing this harness emitted rows labelled with
+                    # ONE name: `gld_pullback_1d`, `tlt_pullback_1h` and
+                    # `slv_pullback_1d` were indistinguishable in the E0 dataset,
+                    # which buckets by this field. The matrix's unit is the LEG,
+                    # so a family-level verdict cannot be attributed to any of
+                    # them -- the multileg conflation
+                    # BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS exists
+                    # to prevent one layer up. Same fix already applied to the
+                    # scalp harness (2026-08-13).
+                    #
+                    # `strategy_name` DEFAULTS to the old literal, so a caller
+                    # that does not pass it emits byte-identically.
+                    "strategy": strategy_name, "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - cb["total_cost_r"], 4),
                     # MFE is the denominator of the capture ratio; the Trade has
@@ -955,6 +969,14 @@ def main(argv: List[str]) -> int:
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
     p.add_argument("--json", dest="json_out", default=None)
+    p.add_argument("--strategy-name", default="trend_donchian", metavar="NAME",
+                   help="Leg name stamped on every emitted row's `strategy` "
+                        "field. Defaults to the historical literal so an "
+                        "existing caller emits byte-identically; the exit-head "
+                        "round passes the real leg so per-leg verdicts are "
+                        "attributable. Only the EMITTED TRADE ROWS carry it -- "
+                        "the --json summary keeps the family name, because that "
+                        "describes the run, not a per-leg trade.")
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
     args = p.parse_args(argv[1:])
@@ -1005,7 +1027,7 @@ def main(argv: List[str]) -> int:
         out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))
     else:
-        out = run_backtest(df, emit_path=args.emit_trades,
+        out = run_backtest(df, emit_path=args.emit_trades, strategy_name=args.strategy_name,
                            min_confidence=args.min_confidence, **bt_kwargs)
         print(_fmt(out))
     if args.json_out:

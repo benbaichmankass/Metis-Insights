@@ -164,6 +164,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_mult: float, timeout_bars: int, cooldown_bars: int,
                  timeframe: str, symbol: str,
                  emit_path: Optional[str] = None,
+                 strategy_name: str = "htf_pullback_trend_2h",
                  min_confidence: float = 0.0,
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
@@ -623,7 +624,20 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 cb = _cost_breakdown(t)
                 fr = cb["total_cost_r"]
                 fh.write(json.dumps({
-                    "strategy": "htf_pullback_trend_2h", "symbol": symbol,
+                    # PER-LEG ATTRIBUTION. This literal used to be hardcoded, so
+                    # every leg sharing this harness emitted rows labelled with
+                    # ONE name: `gld_pullback_1d`, `tlt_pullback_1h` and
+                    # `slv_pullback_1d` were indistinguishable in the E0 dataset,
+                    # which buckets by this field. The matrix's unit is the LEG,
+                    # so a family-level verdict cannot be attributed to any of
+                    # them -- the multileg conflation
+                    # BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS exists
+                    # to prevent one layer up. Same fix already applied to the
+                    # scalp harness (2026-08-13).
+                    #
+                    # `strategy_name` DEFAULTS to the old literal, so a caller
+                    # that does not pass it emits byte-identically.
+                    "strategy": strategy_name, "symbol": symbol,
                     "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
@@ -964,6 +978,14 @@ def main(argv: List[str]) -> int:
                         "side_filter: skip shorts (long) / skip longs (short) / no gate "
                         "(both, default). Used for the crypto short-only fine-tunes.")
     p.add_argument("--json", dest="json_out", default=None)
+    p.add_argument("--strategy-name", default="htf_pullback_trend_2h", metavar="NAME",
+                   help="Leg name stamped on every emitted row's `strategy` "
+                        "field. Defaults to the historical literal so an "
+                        "existing caller emits byte-identically; the exit-head "
+                        "round passes the real leg so per-leg verdicts are "
+                        "attributable. Only the EMITTED TRADE ROWS carry it -- "
+                        "the --json summary keeps the family name, because that "
+                        "describes the run, not a per-leg trade.")
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
     args = p.parse_args(argv[1:])
@@ -1017,7 +1039,7 @@ def main(argv: List[str]) -> int:
                        cooldown_bars=args.cooldown_bars,
                        timeframe=args.timeframe,
                        symbol=args.symbol,
-                       emit_path=args.emit_trades,
+                       emit_path=args.emit_trades, strategy_name=args.strategy_name,
                        min_confidence=args.min_confidence,
                        adx_min=args.adx_min,
                        adx_max=args.adx_max,

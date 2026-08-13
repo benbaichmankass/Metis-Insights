@@ -123,11 +123,30 @@ def measurement_key(row: dict) -> tuple:
     at an imposed one measured two different populations, and the arm exists
     precisely because they are expected to score differently. `None` = no
     override was applied, which is NOT "floor 0" — a leg may declare its own.
+
+    THE LEVER-OFF ARM KEYS ON `declared_levers_dropped`, NOT on the run-level
+    `without_declared_levers`, and the difference is not cosmetic: a run asking
+    to drop `stale_stop` across the fleet removes NOTHING from a leg that never
+    declared one, so that leg measured the ordinary config-exact base and must
+    merge with config-exact rows rather than fragment away from them. The
+    request is what was asked; the drop is what was measured, and the key
+    describes the measurement.
+
+    A MISSING `declared_levers_dropped` IS NORMALISED TO "nothing dropped",
+    which is the one deliberate exception to the "unknown keys distinctly" rule
+    applied to every field above — and it is legitimate for a reason those
+    fields cannot claim: the flag DID NOT EXIST before this field did, so a
+    legacy run provably carried every declared lever in its base. That is known
+    by construction, not assumed from a default. Keying it as unknown instead
+    would fragment all 808 pre-existing rows away from every future
+    config-exact row for no informational gain.
     """
+    _dropped = row.get("declared_levers_dropped")
     return (row.get("kind"), row.get("leg"), row.get("cell"),
             row.get("split"), row.get("tp_cap_pct"), row.get("regime_router"),
             row.get("min_oos_trades_floor"), row.get("fee_bps_roundtrip"),
-            row.get("min_confidence_override"))
+            row.get("min_confidence_override"),
+            tuple(sorted(_dropped)) if isinstance(_dropped, list) else ())
 
 
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
@@ -164,6 +183,14 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     # Repeating that on a second axis would be a choice, not an oversight.
     # None = no override, i.e. each leg ran its own declared floor.
     min_conf_override = doc.get("min_confidence_override")
+    # THE LEVER-OFF ARM this run measured. Threaded in the SAME commit that adds
+    # the flag, for the reason recorded two fields up: the fee was shipped into
+    # verdicts.json and then not propagated to this hop, and the whole 15bps arm
+    # landed as 12 rows reading `fee: None`. `[]` = no lever removed (the
+    # ordinary config-exact base); `None` = a run predating the field, which is
+    # NOT the same claim and keys distinctly.
+    _wdl = doc.get("without_declared_levers")
+    without_levers = (tuple(sorted(_wdl)) if isinstance(_wdl, list) else None)
     # Per-leg gate delta. The sweep stamps it onto each verdict, but SKIPPED legs
     # never reach `verdicts`, so it is also derivable here from the doc-level
     # off-leg list. Three states preserved end-to-end: None on a legacy run (the
@@ -232,6 +259,16 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
             "min_oos_trades_floor": min_oos_floor,
             "fee_bps_roundtrip": fee_bps,
             "min_confidence_override": min_conf_override,
+            # RUN-LEVEL request vs WHAT THIS LEG ACTUALLY HAD REMOVED. Both are
+            # carried because they disagree routinely: a run asking to drop
+            # `stale_stop` across the fleet removes nothing from a leg that never
+            # declared one, and that leg's rows measured the ordinary
+            # config-exact base. Keying on the request alone would label them a
+            # lever-OFF measurement of a lever that was never on.
+            "without_declared_levers": (list(without_levers)
+                                        if without_levers is not None else None),
+            "declared_levers_present": v.get("declared_levers_present"),
+            "declared_levers_dropped": v.get("declared_levers_dropped"),
             "regime_gate_delta": _gate_delta(leg, v.get("regime_gate_delta")),
             "base_book_present": base_present,
             "cells_tried": sel.get("cells_tried"),
@@ -268,7 +305,19 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                         wins, usable = int(a), int(b_)
                     except ValueError:
                         wins = usable = None
+                # WHICH OTHER LEVERS WERE ABSENT from the base this cell was
+                # measured against. A leg declaring two levers and dropping both
+                # yields a cell restoring ONE — a clean A/B for that lever, but
+                # in a book still missing the other, which is not the live
+                # configuration. Derivable from `declared_levers_dropped` minus
+                # this row's own `lever`; STATED anyway, because "the reader can
+                # compute it" is how a caveat gets lost. `[]` = the base differed
+                # from live in this row's lever only. None = pre-arm run.
+                _dl = leg_common.get("declared_levers_dropped")
+                _other = (sorted(set(_dl) - {lever}) if isinstance(_dl, list)
+                          else None)
                 row = {**leg_common, "kind": "cell", "lever": lever,
+                       "base_missing_other_levers": _other,
                        "cell": e.get("cell"), "verdict": e.get("verdict"),
                        "is_oos_pass": e.get("is_oos_pass"),
                        "path_b_candidate": bool(e.get("path_b_candidate")),

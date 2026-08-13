@@ -172,24 +172,81 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
     return None, proxy, None
 
 
+# WHICH CONFIG KEYS CONSTITUTE EACH DECLARED EXIT LEVER.
+#
+# The map exists so the lever-OFF arm can REMOVE a shipped lever from the
+# config-exact base. `trail_geometry` is deliberately ABSENT: `trail_mult` is a
+# continuous parameter of the family block with no OFF state (a trail-less
+# donchian leg is a different strategy, not the same leg with a lever off), and
+# it is emitted by the family branch rather than by `declared_levers()`. Listing
+# it here would let `--without-declared-lever trail_geometry` silently produce a
+# base whose stop geometry is undefined.
+#
+# `exit_ladder`, `exit_head_ml` and `regime_flip_exit` are absent for a simpler
+# reason: no leg DECLARES them in YAML, so there is nothing in the base to drop.
+LEVER_DECLARED_KEYS: dict[str, tuple[str, ...]] = {
+    "stale_stop": ("stale_exit_bars", "stale_exit_below_r"),
+    "giveback_stop": ("giveback_min_mfe_r", "giveback_r"),
+    "trail_decay": ("trail_decay_arm_r", "trail_decay_stall_bars",
+                    "trail_decay_tight_mult"),
+    "vol_trail": ("trail_vol_above_pctl", "trail_vol_below_pctl",
+                  "trail_vol_tight_mult"),
+}
+
+
+def declared_levers_present(cfg: dict) -> list[str]:
+    """Which of `LEVER_DECLARED_KEYS` this leg's config actually arms.
+
+    THE DENOMINATOR FOR THE LEVER-OFF ARM. A run asked to drop `stale_stop`
+    against a leg that never declared one produces a base byte-identical to the
+    config-exact base — a row that MUST NOT read as "we measured the lever off",
+    because nothing was off. Comparing this against the requested set is what
+    keeps "we removed it" and "there was nothing to remove" tellable apart.
+    """
+    return [lev for lev, keys in sorted(LEVER_DECLARED_KEYS.items())
+            if any(cfg.get(k) is not None for k in keys)]
+
+
 def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  # inert: `name` — the leg id, kept because FIVE external callers pass it positionally (m20_flip_replay_sweep, m21_entry_head_round, m20_exit_head_round, m21_entry_sweep, and this module); every arg is built from `cfg`, so dropping it would be a cross-script signature break for no behavioural gain. It affects NOTHING here — do not add a doc claiming otherwise.
               tp_cap_pct: float = 0.0,
               fee_bps_roundtrip: float | None = None,
-              min_confidence_override: float | None = None) -> list[str]:
+              min_confidence_override: float | None = None,
+              *,
+              without_declared_levers: frozenset[str] | None = None) -> list[str]:
     tf = str(cfg.get("timeframe") or "1h")
     sym = (cfg.get("symbols") or ["?"])[0]
     a = ["--data", data, "--symbol", sym, "--timeframe", tf]
     if resample:
         a += ["--resample", resample]
+    _drop_keys = frozenset(
+        k for lev in (without_declared_levers or ())
+        for k in LEVER_DECLARED_KEYS.get(lev, ()))
+
     def opt(flag, key):
+        # The drop is enforced HERE rather than inside `declared_levers()` so a
+        # family branch that also emits a lever key cannot route around it. A
+        # dropped key is OMITTED, never passed as 0/None: the harness treats an
+        # absent flag as "lever not armed", and passing a falsy value would be a
+        # different book (an armed lever at a degenerate threshold).
+        if key in _drop_keys:
+            return
         v = cfg.get(key)
         if v is not None:
             a.extend([flag, str(v)])
+
     def declared_levers():
         # Config-exact means DECLARED EXIT LEVERS too — a shipped stale/giveback
         # cell is part of the leg's baseline, so a new lever cell is measured
         # ON TOP of it (the structural combo A/B the one-lever-per-leg rule
         # wants). Donchian + pullback harnesses carry these flags.
+        #
+        # UNLESS the lever-OFF arm asked for one to be removed. That arm exists
+        # because the sweep is STRUCTURALLY UNABLE to grade a SHIPPED lever
+        # otherwise: a shipped lever is inside this base, so every cell measured
+        # against it answers "does this alternative beat the shipped one?" and
+        # none answers "is the shipped one worth anything?". 21 live decisions on
+        # the coverage matrix rest on pre-TP-parity evidence and are unanswerable
+        # without it (BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE).
         opt("--stale-exit-bars", "stale_exit_bars")
         opt("--stale-exit-below-r", "stale_exit_below_r")
         opt("--giveback-min-mfe-r", "giveback_min_mfe_r")
@@ -453,14 +510,70 @@ def inert_giveback_reason(cfg: dict, min_mfe_r: float) -> str | None:
     return None
 
 
+CLI_FLAG_FOR_CFG_KEY = {k: "--" + k.replace("_", "-")
+                        for keys in LEVER_DECLARED_KEYS.values() for k in keys}
+
+
+def shipped_lever_cells(cfg: dict,
+                        dropped: list[str]) -> list[tuple[str, str, list[str]]]:
+    """The lever-OFF arm's cells: re-apply each DROPPED lever at the leg's OWN
+    declared values, on top of a base that no longer carries it.
+
+    This inverts what a normal cell asks. Normally the base HAS the shipped
+    lever and a cell asks "does this alternative beat it?" — a question that
+    cannot grade the shipped lever itself. Here the base has it OFF and the cell
+    puts it back at exactly the live values, so the delta the sweep already
+    computes (`d_net_r`, `d_max_dd`, Path A `beats()`, the walk-forward) becomes
+    a direct verdict on the SHIPPED cell.
+
+    The tag is prefixed `shipped_` so a corpus reader can never mistake one of
+    these for an alternative-lever cell; the values are appended to the tag so
+    two legs' rows are not conflated by a bare lever name.
+    """
+    out: list[tuple[str, str, list[str]]] = []
+    for lever in dropped:
+        extra: list[str] = []
+        parts: list[str] = []
+        for key in LEVER_DECLARED_KEYS[lever]:
+            v = cfg.get(key)
+            if v is None:
+                continue
+            extra += [CLI_FLAG_FOR_CFG_KEY[key], str(v)]
+            parts.append(f"{v:g}" if isinstance(v, (int, float)) else str(v))
+        if extra:
+            out.append((f"shipped_{lever}_" + "_".join(parts), lever, extra))
+    return out
+
+
 def cells_for(cfg: dict, fam: str | None = None,
-              skipped: list | None = None) -> list[tuple[str, str, list[str]]]:
+              skipped: list | None = None,
+              *,
+              without_declared_levers: frozenset[str] | None = None,
+              ) -> list[tuple[str, str, list[str]]]:
     """(cell_tag, matrix_lever, extra_args). Config-exact base is implied.
 
     ``skipped``, when given, collects ``{cell, lever, reason}`` for every cell
     withheld as structurally inert, so the run reports what it did NOT ask as
     well as what it did.
+
+    ``without_declared_levers`` switches the function into the LEVER-OFF ARM and
+    emits ONLY the `shipped_*` revalidation cells. The alternative cells are
+    withheld deliberately: measured against a base whose shipped lever has been
+    removed, they answer a different question than the same tag does in a normal
+    run, and two rows carrying one tag while measuring two books is the exact
+    provenance failure the run-level identity fields exist to prevent. Sweep the
+    alternatives in a normal run; use this arm to grade what is already live.
     """
+    if without_declared_levers:
+        dropped = [lev for lev in declared_levers_present(cfg)
+                   if lev in without_declared_levers]
+        cells = shipped_lever_cells(cfg, dropped)
+        if skipped is not None and not cells:
+            skipped.append({
+                "cell": None, "lever": None,
+                "reason": "no_declared_lever_to_drop:"
+                          + ",".join(sorted(without_declared_levers))})
+        return cells
     out = [
         ("stale8_lt0R", "stale_stop", ["--stale-exit-bars", "8"]),
         ("stale12_lt0R", "stale_stop", ["--stale-exit-bars", "12"]),
@@ -1039,6 +1152,33 @@ def main(argv: list[str]) -> int:
                          "leaving 'higher edge per trade' untested. A row swept "
                          "with an override is NOT comparable to a config-exact "
                          "row, so the value joins the corpus measurement key.")
+    ap.add_argument("--without-declared-lever", action="append", default=[],
+                    choices=sorted(LEVER_DECLARED_KEYS),
+                    metavar="LEVER",
+                    help="LEVER-OFF ARM. Remove this declared exit lever from "
+                         "every leg's config-exact base, then measure ONE cell "
+                         "that puts it back at the leg's own live values. "
+                         "Repeatable. Exists because the normal sweep is "
+                         "STRUCTURALLY unable to grade a SHIPPED lever -- the "
+                         "shipped lever IS the base, so every cell asks 'does "
+                         "this alternative beat it?' and none asks 'is it worth "
+                         "anything?'. 21 live decisions on the coverage matrix "
+                         "rest on pre-TP-parity evidence and are unanswerable "
+                         "without this arm. Choices are the levers a leg can "
+                         "DECLARE in YAML; trail_geometry is absent on purpose "
+                         "(trail_mult is a continuous parameter with no OFF "
+                         "state). A row swept with this set is NOT comparable "
+                         "to a config-exact row, so the value joins the corpus "
+                         "measurement key.\n"
+                         "DROP ONE LEVER PER RUN when a leg declares several. "
+                         "Dropping two removes BOTH from the base, so the cell "
+                         "restoring one measures its contribution in a book that "
+                         "still lacks the other -- a clean one-lever A/B, but "
+                         "against a counterfactual base, not the live "
+                         "configuration. 2 legs are affected "
+                         "(trend_donchian_eth, trend_donchian_eth_prop); the run "
+                         "warns and every row records which other levers were "
+                         "absent, so this is never silent.")
     ap.add_argument("--tp-cap-pct", type=float, default=0.0,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
@@ -1073,6 +1213,15 @@ def main(argv: list[str]) -> int:
     only = set(a.only.split(",")) if a.only else None
     fams = set(a.family.split(",")) if a.family else None
     levers = set(a.levers.split(",")) if a.levers else None
+    without_levers = frozenset(a.without_declared_lever or ())
+    if without_levers and a.census:
+        # The census measures ONE base per leg and grades nothing. Running it
+        # against a mutated base would print a capture distribution for a book
+        # that is not the live book, under the same column headings — a labelled
+        # number computed from a substituted input.
+        print("ERROR: --census measures the config-exact base and cannot be "
+              "combined with --without-declared-lever.")
+        return 2
     data_dir = Path(a.data_dir)
     run_dir = Path(a.out) / datetime.now(timezone.utc).strftime("%Y-%m-%d")
     plan, skipped = [], []
@@ -1097,26 +1246,58 @@ def main(argv: list[str]) -> int:
             continue
         harness = FAMILY_HARNESS[fam]
         inert: list = []
-        cells = cells_for(cfg, fam, skipped=inert)
+        cells = cells_for(cfg, fam, skipped=inert,
+                          without_declared_levers=without_levers)
+        # WHAT THIS LEG ACTUALLY HAD REMOVED, against what the run asked for.
+        # A leg that never declared the requested lever produces a base
+        # byte-identical to the config-exact base; recording only the run-level
+        # request would let that row read as a lever-OFF measurement when
+        # nothing was off. Empty list = "we looked, this leg declares none" --
+        # not the same statement as the run not asking.
+        present = declared_levers_present(cfg)
+        dropped = sorted(set(present) & without_levers)
         plan.append({"leg": name, "family": fam, "symbol": sym, "tf": tf,
                      "harness": harness, "data": data, "proxy": proxy,
                      "resample": resample,
+                     "declared_levers_present": present,
+                     "declared_levers_dropped": dropped,
                      # Cells withheld as structurally inert ride WITH the leg
                      # rather than vanishing: a cell that is absent from the
                      # table and a cell that ran flat must stay tellable apart.
                      "inert_cells": inert,
                      "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct,
                                        a.fee_bps_roundtrip,
-                                       a.min_confidence_override),
+                                       a.min_confidence_override,
+                                       without_declared_levers=without_levers),
                      "cells": [c for c in cells
                                if not levers or c[1] in levers]})
 
     print(f"plan: {len(plan)} legs runnable, {len(skipped)} skipped")
+    # A LEG WITH TWO LEVERS DROPPED IS MEASURING AGAINST A COUNTERFACTUAL BASE.
+    # Each shipped cell restores exactly one, so the A/B is still clean for that
+    # lever — but the book it is clean IN lacks the other one, which is not the
+    # live configuration. That distinction is invisible in a results table, so it
+    # gets its own line rather than being left for a reader to derive from
+    # `declared_levers_dropped`. Every affected row also carries
+    # `base_missing_other_levers`.
+    for p in plan:
+        _d = p.get("declared_levers_dropped") or []
+        if len(_d) > 1:
+            print(f"  !! MULTI-LEVER BASE {p['leg']}: dropped {_d} together. Each "
+                  f"shipped cell restores ONE, so its delta is that lever's "
+                  f"contribution in a book still missing the rest — NOT its "
+                  f"contribution to the live config. Re-run one lever at a time "
+                  f"for a live-configuration answer.", flush=True)
     for s in skipped:
         print(f"  SKIP {s['leg']}: {s['reason']}")
     for p in plan:
         for c in p["inert_cells"]:
-            print(f"  INERT {p['leg']}: {c['cell']} — {c['reason']}")
+            # A leg-level note carries no cell name. Printing a bare `None`
+            # where a cell tag goes invites reading it as a cell called None —
+            # so the two entry shapes are rendered differently rather than
+            # formatted by one template that fits only the common case.
+            print(f"  INERT {p['leg']}: {c['cell']} — {c['reason']}" if c["cell"]
+                  else f"  NO-OP {p['leg']}: {c['reason']}")
     if a.list:
         for p in plan:
             print(f"  RUN  {p['leg']:28s} {p['harness'].split('/')[-1]:22s} "
@@ -1290,7 +1471,14 @@ def main(argv: list[str]) -> int:
                  # Cells the grid deliberately did not ask, and why. Without
                  # this the verdict file cannot distinguish a cell that was
                  # never run from one that ran and moved nothing.
-                 "inert_cells": p.get("inert_cells") or []}
+                 "inert_cells": p.get("inert_cells") or [],
+                 # PER-LEG lever-OFF state. The run-level `without_declared_levers`
+                 # says what was ASKED; these say what this leg actually HAD.
+                 # A leg with `dropped: []` under a non-empty run-level request
+                 # measured the ordinary config-exact base — a fact the run-level
+                 # field alone would misreport.
+                 "declared_levers_present": p.get("declared_levers_present") or [],
+                 "declared_levers_dropped": p.get("declared_levers_dropped") or []}
         # HOW FAR AWAY IS THE LIVE TP, IN R? Measured from THIS leg's own frame,
         # not assumed. `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`
         # was reported to the operator with an ILLUSTRATIVE "1.3-2.0R" derived
@@ -1359,7 +1547,17 @@ def main(argv: list[str]) -> int:
         decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
         if a.p80_only:
             p["cells"] = []  # fixed cells already verdicted; p80 cell only
-        if (p["family"] in ("donchian", "pullback") and decay_in_scope):
+        # THE LEVER-OFF ARM SUPPRESSES IT. `cells_for` returns only the
+        # `shipped_*` cells under the arm, but this injection happens AFTER that
+        # early return and so bypassed it — the first live run emitted a
+        # `decay_p80arm*` cell on 5 of 7 legs, measured against a base whose
+        # shipped lever had been removed. Those rows are labelled correctly (the
+        # identity fields ride on every row) but they answer a different question
+        # than the same tag does in a normal run, which is exactly what the arm
+        # was documented NOT to do. Found by reading the arm's own first results,
+        # not by the tests — which covered `cells_for` and never this hop.
+        if (p["family"] in ("donchian", "pullback") and decay_in_scope
+                and not without_levers):
             tm_val = next((float(x[1]) for x in
                            zip(p["base"], p["base"][1:])
                            if x[0] == "--trail-mult"), None)
@@ -1612,6 +1810,13 @@ def main(argv: list[str]) -> int:
          # i.e. every leg ran at its own config-exact declared value -- which is
          # NOT the same statement as "floor 0", since a leg may declare one.
          "min_confidence_override": a.min_confidence_override,
+         # THE LEVER-OFF ARM THIS RUN MEASURED. Identity, not metadata: a leg
+         # swept with its shipped stale-stop removed and the same leg swept
+         # config-exact are two different books, and the arm exists precisely
+         # because the difference between them IS the answer. `[]` = no lever
+         # removed, i.e. the ordinary config-exact base. Recorded as a sorted
+         # list so the corpus key is stable across argument order.
+         "without_declared_levers": sorted(without_levers),
          "regime_policy_readable": off_legs is not None,
          "regime_policy_off_legs": sorted(off_legs) if off_legs is not None else None,
          "skipped": skipped, "verdicts": verdicts}, indent=1))

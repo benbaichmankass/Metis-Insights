@@ -215,6 +215,185 @@ invoked from the same loop seconds later, died on `unrecognized arguments:
 --strategy-name`. Recorded as `docs/claude/trainer-vm-mode.md` § 9.a.1 with the
 reflog evidence, so the next session merges rather than checks out.
 
+### 10. The sweep cannot grade a lever it already contains — 31 corpus rows are a self-comparison
+
+The prescription I wrote in §8's follow-up — *"re-sweep the shipped cells"* —
+turned out to be unrunnable, and finding out why produced the session's largest
+structural finding.
+
+`base_args → declared_levers()` puts every YAML-declared exit lever **into** the
+config-exact base. That is correct: a shipped lever is part of the leg's
+baseline, and a new lever cell must be measured on top of it. The consequence is
+not: a swept cell reproducing the leg's own declared values measures the base
+**against itself**, so every cell asks *"does this alternative beat the shipped
+one?"* and none asks *"is the shipped one worth anything?"*.
+
+Measured over `docs/research/m20-sweep-corpus.jsonl`, population stated:
+
+| | |
+|---|---:|
+| corpus cell rows | 860 |
+| all-zero delta (`d_net_r` + `d_max_dd` = 0 in **both** windows) | 37 (4.3%) |
+| …of those, on a leg whose YAML **declares** that lever | **31** |
+
+Those 31 carry `gate_reason: tie_no_improvement`, `net_r_retained_frac: 1.0` —
+and wear the verdict labels `is_oos_fail` (27) and `insufficient_base` (4).
+Neither is true; **no comparison happened**. 20 distinct (leg, lever) pairs,
+including 9 of the 13 gradeable stale decisions from §6.
+
+The worked example is the one that makes it a finding rather than a curiosity.
+`qqq_pullback_1h` `vt_hot80_t2.5` is the exact cell the matrix called a *LONE
+PASS*; its YAML has carried `trail_vol_above_pctl: 0.80` / `trail_vol_tight_mult:
+2.5` since 2026-08-09 (#8683); its corpus row reads `verdict=is_oos_fail`, both
+deltas `0.0`, `wf_ran=false`. A reader takes that as *"the live cell failed
+out-of-sample"*. Nothing did — diagnostic-provenance **sub-class A**, sitting in
+the corpus rather than in a probe. I had nearly recorded its mirror image
+earlier the same session, reading one such cell as *"the shipped lever is
+INERT"*.
+
+**The lever-OFF arm** (PR #8868) is the instrument that answers it.
+`--without-declared-lever <lever>` removes a declared lever from the
+config-exact base and emits one `shipped_<lever>_<values>` cell putting it back
+at the leg's own live values, so the delta the sweep already computes becomes a
+verdict on the **shipped** cell. The invariant it rests on is asserted over all
+22 real declaring legs rather than a fixture — `base-OFF + shipped cell ==
+base-ON`, **22/22**, 0 mismatch. If that did not hold the A/B would measure the
+lever plus whatever else drifted, and the verdict would still be attributed to
+the lever.
+
+Four properties are deliberate, not incidental: the drop is enforced in `opt()`
+so a family branch cannot route around it; a dropped key is **omitted, never
+passed as `0`** (an armed lever at a degenerate threshold is a different book
+that looks like the right one); `trail_geometry` is **not offerable** because
+`trail_mult` is a continuous parameter with no OFF state; and `--census` is
+refused in combination, since it would print a capture distribution for a book
+that is not the live book under the same column headings.
+
+**Reach, stated rather than implied: 13 of the 21 stale live decisions.** The
+other 8 need a different instrument — `trail_geometry` (4) by design,
+`exit_head_ml` (3) and `mhg_pullback_1d stale_stop` (1, correctly
+`passed_unshipped`) because no leg declares them, so there is nothing in the
+base to remove.
+
+Designing the actual run then surfaced a gap in the arm itself. Dropping two
+levers from one leg removes **both**, so the cell restoring one measures its
+contribution in a book still lacking the other — a clean one-lever A/B, but
+against a counterfactual base rather than the live configuration. Two legs are
+affected (`trend_donchian_eth`, `trend_donchian_eth_prop`). Every row now
+carries `base_missing_other_levers`, the plan prints a `!! MULTI-LEVER BASE`
+line, and the flag help says drop one lever per run. Note my own round-trip test
+dropped all levers at once — that verifies the cells **collectively
+reconstruct** the live base, which is a weaker statement than any single cell
+having been measured against it.
+
+`BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES` stays **open**. Its
+`resolution_criteria` explicitly refuse any run of the sweep *without* the new
+flag as evidence.
+
+### 10b. The arm ran — 13 shipped levers graded, none inert, five negative out-of-sample
+
+Four dispatches, live parity (`tp_cap_pct 0.099`), split `2025-07-01`, **one
+lever dropped per run** so every cell's base differed from live in that lever
+only. `base_missing_other_levers: []` on all 18 corpus rows is the field that
+asserts it rather than leaving a reader to derive it.
+
+| leg | shipped lever | Path A | ΔnetR IS | ΔnetR OOS | ΔmaxDD IS | ΔmaxDD OOS |
+|---|---|---|--:|--:|--:|--:|
+| trend_donchian | trail_decay | **PASS** | +7.46 | +2.03 | -0.28 | 0.0 |
+| trend_donchian_xrp_4h | stale_stop | **PASS** | +4.69 | +2.63 | -4.90 | -0.66 |
+| tlt_pullback_1h | trail_decay | wf_fail | +6.92 | +3.21 | -3.25 | -2.18 |
+| uso_trend_1h | giveback_stop | wf_fail | +0.62 | +4.66 | -1.18 | -1.45 |
+| gld_pullback_1d | trail_decay | insufficient_base | +19.18 | +1.00 | -0.55 | -1.00 |
+| iaum_pullback_1d | trail_decay | insufficient_base | +0.43 | +1.00 | -0.98 | -1.00 |
+| mhg_pullback_1d | trail_decay | insufficient_base | +0.15 | +0.74 | -0.75 | -0.74 |
+| slv_pullback_1d | trail_decay | insufficient_base | +14.15 | 0.0 | -4.72 | 0.0 |
+| sol_pullback_2h | trail_decay | is_oos_fail | +14.82 | **-0.52** | -6.73 | -1.15 |
+| trend_donchian_sol | stale_stop | is_oos_fail | +6.37 | **-1.21** | -5.01 | -1.58 |
+| qqq_pullback_1h | vol_trail | is_oos_fail | +8.59 | **-1.96** | +0.87 | **+4.49** |
+| trend_donchian_eth | stale_stop | is_oos_fail | +24.19 | **-10.55** | -15.75 | **+4.67** |
+| trend_donchian_eth | vol_trail | is_oos_fail | +5.83 | **-6.07** | -10.69 | -0.96 |
+
+**Not one is inert.** Every shipped lever adds in-sample net_R — the outcome I
+was least expecting, having nearly filed the opposite off the artifact two hours
+earlier.
+
+**Five hurt out-of-sample**, two on drawdown as well. Checked against
+`accounts.yaml` rather than assumed: all five are on **paper** (`bybit_1`,
+`alpaca_paper`) or **prop** (`breakout_1`), so no real-money leg carries an
+OOS-negative lever and nothing is urgent — though `trend_donchian_eth` and
+`trend_donchian_sol` run on `breakout_1`, where prop payout is real. The
+converse is the reassuring half: **both passing levers run on `bybit_2` real
+money.** The two carrying real money are the two that validated. Removal is
+Tier-3 and queued (`BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE`,
+ordered by measured cost); nothing was flipped.
+
+`slv_pullback_1d`'s OOS `0.0` reads as **not armed**, not neutral — the lever
+never fired in that window. `trend_donchian_eth`'s two rows carry different base
+n (599/117 vs 704/145) **by design**: separate runs dropping one lever each, so
+the two bases are genuinely different books. The refs say so, because a reader
+comparing them otherwise sees an inconsistency.
+
+**A prior status of mine is taken back.** `trend_donchian` `trail_decay` was
+`shipped_gate_failed`, recorded 2026-08-12 when the re-sweep "did not reproduce"
+it. That cell measured the base against itself — an all-zero tie labelled a
+failure. It was never re-measured; it had never been measured at all. It
+**passes**. Stale live decisions **21 → 8**, and the 8 remaining are exactly the
+set the reach analysis predicted the arm cannot touch.
+
+### 10c. The obvious remedy for the four ungradeable legs was tested and does not work
+
+Four results came back `insufficient_base` (OOS n = 4–7 against the 25 floor).
+The obvious move is an earlier split, so it was **run** rather than reasoned
+about — same four legs, same arm, split `2024-01-01`:
+
+| leg | OOS n | what moved |
+|---|---|---|
+| gld_pullback_1d | 4 → 10 | ΔmaxDD OOS -0.9994 → **+0.5526** — sign flip |
+| mhg_pullback_1d | 7 → 18 | ΔnetR IS +0.1479 → **-0.1305** — sign flip |
+| slv_pullback_1d | 6 → 19 | ΔnetR OOS 0.0 → **-0.3761**, ΔmaxDD 0.0 → **+1.1343** |
+| iaum_pullback_1d | 4 → 10 | ΔmaxDD OOS -0.9994 → **+0.5313** — sign flip |
+
+**Not one reaches the floor**, so all four stay `insufficient_base` and the
+matrix keeps the statuses recorded at the standard split. But the second finding
+is the more useful one: **four of four change sign on at least one axis when
+only the split moves.** A verdict that inverts under a split change is not one a
+longer window would merely sharpen — that is stronger evidence of ungradeability
+than thin-n by itself. `slv_pullback_1d` is the clearest: its `0.0` meant the
+lever never fired, and given a window where it does, it is negative on both axes.
+
+`iaum_pullback_1d` turns an arithmetic prediction into a measurement — from its
+30-trade total I argued no split could yield both a 25-trade OOS and a usable
+IS; at 2024-01-01 it returned IS=19 / OOS=10, exactly as the count implied.
+
+### 10d. What now blocks the largest remaining block, measured
+
+`exit_head_ml` is 30 of the 37 pending cells. Two independent blockers, both now
+resolved or quantified:
+
+1. **Attribution** — `backtest_trend.py` and `backtest_pullback.py` stamped one
+   hardcoded family literal on every emitted row, and the E0 dataset buckets by
+   that field, so 14 distinct 1d legs would have collapsed into one
+   unattributable verdict. Both now take `--strategy-name`, defaulting to their
+   historical literal; the round asks `--help` rather than hardcoding which
+   harnesses support it.
+2. **Frames** — the round had been pointed at `/home/ubuntu/m27_data`, which
+   holds **only 5m and 15m**. The 1d/1h frames live in
+   `/home/ubuntu/ict-trading-bot/data` (20 × 1d, 10 × 1h), which is where the
+   sweep already reads them. With that dir, **19 of the 30** pending cells are
+   runnable: 13 at 1d, 6 at 1h. The rest lack a native frame — `MES`, `MGC`,
+   `MHG` (proxies, which the round refuses for head training) and
+   `squeeze_breakout_4h` (no 4h frame anywhere).
+
+### 10a. One matrix cell was stale, found by the arm's own denominator check
+
+`qqq_pullback_1h` `vol_trail` read `passed_unshipped` while the YAML has it
+armed. **Field beats comment** — now `shipped`, with the paper-book context (the
+leg runs on `alpaca_paper`; its `alpaca_live` leg is shelved `dry_run` since
+2026-07-15, which is why the declare was made without the yearly walk-forward
+the previous ref names as its gate — that gap is real, unclosed, and not
+money-at-risk). `resolved-only` 324 → 325; headline unchanged at 346/376, both
+statuses being closed.
+
 ## Validation Performed
 
 **Tests** — 14 new tests in `tests/test_exit_head_per_leg.py`. **Each was
