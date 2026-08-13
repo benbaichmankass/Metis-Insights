@@ -1501,8 +1501,8 @@
       "execution": "live",
       "exploded_from": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
       "trail_geometry": {
-        "status": "pending",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS — Tier-3 PR #6229; gld/spy/qqq/slv fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml — cell flipped passed_unshipped -> shipped. || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
+        "status": "passed_unshipped",
+        "ref": "PATH A **PASS** on `trail3` — M20 trail_geometry sweep 2026-08-13 (PR #8849, run 31655901999), LIVE-PARITY geometry tp_cap_pct=0.099, split 2025-07-01, base n IS=197 OOS=27 (clears MIN_OOS_TRADES=25, so graded not thin). trail3 improves BOTH terms in BOTH windows: net_R +5.2853 IS / +3.0358 OOS, maxDD -3.0103 IS / -1.5484 OOS (negative = shallower drawdown). Sibling cell trail5 is is_oos_fail, so the pass is specific to trail3, not a direction-of-travel artifact. CONSISTENT WITH THE FLEET: trail3 already passed and shipped for TLT-1h (Tier-3 PR #6229, 2026-07-12) — same lever, same 1h equities/commodities family. AWAITING OPERATOR APPROVAL: this changes a live exit on a real-money leg (Tier-3); queued 2026-08-13, NOT enacted."
       },
       "stale_stop": {
         "status": "honest_negative",
