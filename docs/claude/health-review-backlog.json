@@ -13927,6 +13927,29 @@
       ],
       "updates": [],
       "updated_at": "2026-08-13T10:30:00+00:00"
+    },
+    {
+      "id": "BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED",
+      "opened_at": "2026-08-13T11:15:00+00:00",
+      "opened_by": "claude (full-system-audit + system-review 2026-08-13), PR #8998",
+      "area": "ci",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "title": "pytest-run reports success in 9 seconds when a PR touches no Python — so main merged twice without a real suite run, and 7 money-path provenance tests are now failing",
+      "source": "MEASURED 2026-08-13. PR #8998 (a .sh change + one new test file) turned pytest-run RED with 7 failures, all in tests/test_sweep_no_mark_fabrication.py:\n  test_no_anchor_declares_unmeasured_instead_of_pricing   KeyError: 'pnl_source'\n  test_declaring_is_idempotent                            assert 0 == 1\n  test_deferred_neither_prices_nor_declares               assert 0 == 1\n  test_anchored_prices_and_stamps_estimated               assert 0 == 1\n  test_a_recorded_fill_is_still_preferred                 'bybit_closed_pnl' != 'recorded_exit_price'\n  test_anchoring_a_previously_declared_row_clears_marker  KeyError: 'pnl_source'\n  test_sweep_never_raises_on_a_broken_anchor              assert 0 >= 1\n\nNOT CAUSED BY THAT PR. Its diff is exactly two files — scripts/ops/purge_vm_runner.sh and a new tests/ops/ file — neither of which the failing tests import. Verified by bisect: the same 7 fail on PLAIN origin/main with the branch's changes fully removed, at SIX shas (b3ef9df, 87af13f, f1e815a, 3271941, fdce380, a318303).\n\nTHE CI GAP THAT LET IT LAND. pytest-run 'succeeded' on #8994 in 9 SECONDS (10:47:43->10:47:54) and on #8995 in 9 SECONDS (10:54:25->10:54:34). A real run of this suite takes 7-9 MINUTES (443-543s, ~10,600 tests). Those two were path-filtered short-circuits because neither PR touched Python. Both MERGED TO MAIN on a green tick that executed no tests. So the last genuine full-suite verification of main was ead678f, and main's true health has been unverified since.\n\nThat is the load-bearing defect and it is worth more than the 7 failures: a required check that reports SUCCESS without running is the 'green is not evidence' shape — indistinguishable, at the merge button, from a real pass.",
+      "what_to_check": "HONEST LIMIT ON THIS REPORT: I could NOT reproduce CI's green locally — the 7 fail on every sha I tried, including ones whose CI was green, so my local environment cannot arbitrate and I did not establish WHEN they started failing in CI. Two hypotheses remain untested and they differ in severity:\n  (a) the failures are long-standing on main and were simply never run because recent merges short-circuited — then the subject code may be genuinely wrong;\n  (b) they are order-dependent and adding a test file perturbed collection order — then the TESTS are fragile rather than the code. (No pytest-randomly / random-order / xdist is installed locally, which weakens but does not eliminate (b).)\nDo not act on either until one is established. The distinguishing experiment is cheap: force a real full-suite run on a branch that does NOT contain the new tests/ops file.\n\nWHY THE SUBJECT MATTERS. tests/test_sweep_no_mark_fabrication.py guards _sweep_local_pnl_for_unpriced against pricing a CONFIRMED CLOSE from a live mark — the exact fabrication behind the phantom -$6,358 leak and the matched pair 4180 (-$4.00) vs 4181 (-$2,589.78). If (a) holds, the money-path provenance guarantee is unprotected right now.",
+      "action": "(1) Make pytest-run's short-circuit VISIBLE and non-equivalent to a pass — a skipped run must not present the same green tick as an executed one, or report as a distinct neutral state. A 9-second 'success' on a required check is the thing to fix first; it is what allowed two unverified merges. (2) Force one real full-suite run on current main to establish which hypothesis holds. (3) Fix whichever it turns out to be — the sweep code, or the tests' order-dependence.",
+      "resolution_criteria": "pytest-run cannot report a green tick without having executed the suite (or reports a visibly distinct state when it skips), AND tests/test_sweep_no_mark_fabrication.py passes on a real full-suite run of main, AND the reason for the 7 failures is stated — code defect or test order-dependence — rather than having quietly stopped reproducing.",
+      "snoozed_until": null,
+      "refs": [
+        "tests/test_sweep_no_mark_fabrication.py",
+        "src/runtime/order_monitor.py",
+        "src/runtime/exit_anchor.py",
+        ".github/workflows/pytest-run.yml"
+      ],
+      "updates": [],
+      "updated_at": "2026-08-13T11:15:00+00:00"
     }
   ]
 }
