@@ -275,10 +275,15 @@ review:**
   code. Caught on the next CI wake and fixed in the following commit — but the
   push should not have happened.
 - `run_guards --base main` reported PASS while `check_backlog_criteria --base
-  main` exited 1. Rather than take the friendly reading, I checked: my local
-  `main` ref shares **no merge base** with HEAD, so `--base main` degenerates and
-  scans everything. `--base origin/main` is the real scope. Every guard figure in
-  this log is the `origin/main` one.
+  main` exited 1 — the same flag, the same word, opposite answers. Rather than
+  take the friendly reading, I traced it: `run_guards` **prepends `origin/`** to
+  its base, so `--base main` there resolves to `origin/main`; the standalone
+  script does not, so it used my **local** `main`, which had drifted to a commit
+  sharing **no merge base** with HEAD, degenerating the diff to "everything" and
+  tripping on a pre-existing row outside my change. Fixed by repointing the local
+  ref (`git branch -f main origin/main`), after which both agree at exit 0. Worth
+  recording because the failure mode is a guard reporting on a population nobody
+  asked about while naming the same flag as the one that scoped it correctly.
 
 ### Gaps not yet verified
 
