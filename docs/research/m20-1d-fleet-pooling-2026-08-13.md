@@ -66,24 +66,40 @@ from a mixed-family head is not the experiment those cells name; adopting it
 would be sub-class **B**, implicit input selection (CLAUDE.md § "Diagnostic
 provenance").
 
+### The symmetric arm (#8924): pullback-1d gives the same verdict
+
+`family_of()` resolves all six `*_pullback_1d` legs to one family, `pullback`, so
+this pool is exactly as principled as arm (a). **568 harness trades over 15,066
+rows — zero usable folds.** All 19 year-folds fail the bound; the largest is 42
+trades (2023 and 2024).
+
+So the pullback pool is *closer* to the bound than donchian's (42 vs 33 against
+50) and still short. **Both same-family 1d pools fail, independently.** Every 1d
+leg that has an E0 dataset — 13 of the 16 — is blocked on one cause.
+
+The run's `live: AUC=0.864` line is computed over **n=1**. It is not a number
+anyone may quote, and it is recorded here only so nobody later finds it in the
+report JSON and mistakes it for evidence.
+
 ## The price of lowering the bound
 
 Since "lower `--min-fold-trades`" is the obvious response, here is what each
 value actually buys on arm (a)'s pool — and it is a cost table, not a menu:
 
-| bound | folds surviving | share of the 371-trade pool inside a usable fold |
+| bound | donchian folds (of 19) | pullback folds (of 19) |
 |---|---|---|
-| **50** (current) | **0** | 0.0% |
-| 40 | 0 | 0.0% |
-| 33 | 1 | 8.9% |
-| 30 | 2 | 17.0% |
-| 25 | 5 | 38.0% |
-| 20 | 11 | 73.6% |
-| 15 | 14 | 87.9% |
-| 10 | 17 | 98.1% |
+| **50** (current) | **0** | **0** |
+| 45 | 0 | 0 |
+| 42 | 0 | 2 |
+| 40 | 0 | 2 |
+| 35 | 0 | 5 |
+| 33 | 1 | 7 |
+| 30 | 2 | 7 |
+| 25 | 5 | 15 |
+| 20 | 11 | 16 |
 
-*(The 19 fold sizes sum to 369 of the pool's 371 trades; 2 fall outside the fold
-years. Stated rather than rounded away.)*
+*(Fold sizes sum to 369 of donchian's 371 trades and 548 of pullback's 568; the
+remainder falls outside the fold years. Stated rather than rounded away.)*
 
 **Lowering the bound does not make the 1d fleet gradeable — it makes it *appear*
 gradeable while the verdicts become noise.** The E1→E2 gate asks for OOS
@@ -112,7 +128,24 @@ before and after.
 The 6 `*_pullback_1d` cells are deliberately **left `pending`** until #8924 — the
 own-family pullback arm — reports. Arm (b) is not evidence about them.
 
-## One error in #8923, recorded
+## What changed in the matrix (final)
+
+All **13** 1d `exit_head_ml` cells with an E0 dataset move `pending` →
+`blocked:insufficient_folds` — 7 trend (#8923) and 6 pullback (#8924).
+
+| | before tonight | after |
+|---|---|---|
+| HEADLINE | 343/360 = 95.3% | **356/360 = 98.9%** |
+| DONE-CONDITION | **37 cells** | **37 cells** |
+| pending / blocked split | 17 / 20 | **4 / 33** |
+
+**The headline moved 13 cells and the done-condition moved zero.** 98.9% reads
+like "nearly finished"; the actual state is that the same 37 cells are open and
+we have converted *"we have not looked"* into *"we looked and cannot grade it"*.
+That is real progress in knowledge and no progress toward done, and the two must
+not be reported as one thing.
+
+## Two errors in my own probes, recorded
 
 Arm (b) was labelled **"ALL 1d pooled"** and was not all 1d. It covered the 13 1d
 legs that *have* an E0 dataset — the 3 IBKR futures legs (`mes_trend_long_1d`,
@@ -121,15 +154,52 @@ dataset to pool — and it additionally swept in 14 stray **1h** rows
 (`gld_pullback_1h`, `spy_pullback_1h`) that the pullback family dir carries.
 
 14 rows in 28,699 changes no verdict, but the label claimed a denominator it did
-not have — sub-class **C**, in a probe I wrote to answer a question about
-evidence quality. #8924 excludes the strays by name and prints the exclusion
-count, so its population is stated rather than assumed.
+not have — sub-class **C**. #8924 excludes the strays by name and prints the
+exclusion count, so its population is stated rather than assumed.
+
+**#8924 then printed a `trades` column that counted something else.** Having
+asked for "trade count, not just row count" *because* rows are bars, I keyed the
+counter on `(strategy, entry_time)` — and E0 **dataset** rows do not carry
+`entry_time`; that is a key of the harness *emit* rows. Every row hashed to
+`(strategy, None)`, so the counter reported the number of **legs**:
+
+```
+legs pooled: 6   total rows: 15079   total TRADES: 6
+  gdx_pullback_1d   rows=1606  trades=1
+```
+
+Sub-class **A**, semantic substitution: a column labelled `trades` holding
+"distinct legs". The authoritative count was in the trainer's own next line the
+whole time — `pullback: 568 harness trades` — and that is the figure used
+throughout this note.
+
+`trades=1` beside `rows=1606` is absurd on its face, which is the *lucky* version
+of the bug — it announced itself, the way `attributed_pct: 136.8` did. Had it
+printed a plausible 95, I would have quoted it.
+
+**The pattern is worth naming, not just the two instances:** both errors are in
+probes I wrote *while auditing evidence quality*, one relay apart. Writing a
+check does not exempt the check. The cheap defence in both cases was the same and
+was available: assert the probe's own output against a known positive
+(a stated denominator; a count the trainer already prints) before believing it.
 
 ## Open question this hands to the operator
 
 The queued fold-standard decision now has a measured floor under it: **at the
-current standard the 1d fleet cannot be graded at all, by pooling or otherwise,**
-and the only lever that changes that is one which degrades every verdict it
-produces. The genuine options are to accept the 1d `exit_head_ml` cells as
-permanently blocked at this data volume, or to change what "gradeable" means for
-daily-bar legs — which is a standards decision, not a threshold tweak.
+current standard the 1d fleet cannot be graded at all — by pooling within either
+family, or otherwise** — and the only lever that changes that is one which
+degrades every verdict it produces. The genuine options are to accept the 1d
+`exit_head_ml` cells as permanently blocked at this data volume, or to change
+what "gradeable" means for daily-bar legs — which is a standards decision, not a
+threshold tweak.
+
+One asymmetry the decision should not average away: the two families are not
+equally far from the bound. Pullback reaches 42 and donchian 33, so any bound
+chosen to unblock pullback (≤42) still leaves all 7 donchian legs blocked, and a
+bound low enough to unblock donchian (≤33) hands pullback 7 folds at sample sizes
+where `beats()` — which has **no minimum-n** — is near-coinflip. There is no
+single value that treats both honestly.
+
+**Nothing here is actionable without you.** No lever was flipped, no threshold
+changed, no standard rewritten; the 13 cells were moved from "un-run" to "measured
+and blocked", which is a bookkeeping correction, not a decision.
