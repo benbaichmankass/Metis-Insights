@@ -295,6 +295,78 @@ from one absent import, burying the only fact that mattered. **Red while measuri
 nothing is the same sin as green while measuring nothing**, and it is worse for trust:
 an alarm that fires on its own plumbing teaches every later session to skim past it.
 
+## Backlog governance — a row must be workable, and it must be able to END (2026-08-13, binding)
+
+**The counterpart to "if you see something, say something."** That rule makes
+filing cheap and correct. This one makes DISPOSAL mandatory, because a list that
+can only grow stops being read — and a genuine finding filed into an unread list
+is indistinguishable from the rot around it. Operator-directed after the backlog
+was measured rather than described.
+
+### What the measurement showed (2026-08-13, 269 open rows across the three backlogs)
+
+| | |
+|---|---|
+| net growth | **+105 / 7d · +129 / 30d · +221 / 60d** — filing outran closing ~1.6× for two months |
+| no `resolution_criteria` | **38%** — the row *cannot be closed*, only re-read |
+| no `severity` | **44%** — it cannot be sorted, so reviews pick by recency |
+| no `tier` | **24%** — nothing says who may act, so nobody does |
+| `snoozed_until` in use | **2 of 269** — the defer path existed and was unused |
+| review touches recording *"no new evidence, carried forward"* | **75** |
+| **Tier-1 high/critical rows older than 14 days** | **ZERO** |
+
+That last row is the diagnosis. Throughput was never the problem: when a row
+says **it matters** and says **a session may act**, it gets fixed, reliably. The
+rot is entirely rows that say neither. So the fix is not "work harder" — it is
+to stop admitting un-workable rows and to give every row an exit.
+
+### The rules
+
+1. **A new row MUST carry `severity` + `tier` + `resolution_criteria`.** Enforced
+   by `check_backlog_criteria.py` (diff-scoped: the past is grandfathered, the
+   future is not). `severity` ∈ `critical|high|medium|low` — the historical
+   spellings (`P1`/`P2`/`P3`, `low-medium`, `medium-high`) are refused, because
+   five spellings of "medium" is *why* 44% could not be sorted. `tier` must begin
+   `1`, `2` or `3`; a trailing annotation is fine, an unreadable tier is not.
+
+2. **The backlogs hold DEFECTS.** They are not a project planner. Two things do
+   not belong and must be moved, not left:
+   - **A research programme or feature** (a milestone's worth of work) → **ROADMAP**.
+     19 such rows were competing weekly with real bugs, and two had already
+     silently *executed* under their milestones while still reading `open` here.
+   - **A standing/recurring task** ("check X every review") → it can never close
+     by construction, so it is either a **skill/guard obligation** or it is not
+     tracked at all. Never an open row.
+
+3. **Every row ends. Five terminal dispositions, and "open indefinitely" is not
+   one of them:** `fixed` · `closed_answered` (the row's own text or the repo
+   already answers it) · `closed_unfixable` (outside our control — **state the
+   accepted residual risk**) · `promoted_to_roadmap` (closed here, tracked there)
+   · `snoozed` (see 4).
+
+4. **`snoozed_until` is the defer path and it is REQUIRED for accrual-blocked
+   rows.** A row genuinely waiting on soak, live outcomes, or data that does not
+   exist yet gets an ISO date **and a named trigger event**, and drops out of
+   review passes until then. Re-reading it every week produces nothing and
+   crowds out what can move. ⚠️ **A snooze is an impossibility claim and
+   `impossibility-claim-guard` will hold you to it:** name the tool you checked
+   (`checked: <path>`, verified to exist). Six snoozes were written in one pass
+   asserting *"cannot be produced from a session"* and one was simply **false** —
+   the harness existed and was runnable; the blocker was the market regime, not
+   our tooling.
+
+5. **A review DISPOSITIONS; it does not merely touch.** Carrying a row forward
+   unchanged with *"no new evidence"* is honest but it is not work, and it must
+   not satisfy the `/system-review` coverage guard's `backlog_drive`. Each review
+   run closes, snoozes, promotes or advances a real count of rows.
+
+6. **Age is why a row is in front of you — never why you close it.** A closure
+   needs substance: the sentence in the row that answers it, or the `file:line`
+   you read. Check before assuming still-broken *and* before assuming fixed. In
+   the 2026-08-13 pass both directions bit: one row was about to receive an
+   invented fix that **already existed** in the repo, and another was verified
+   *still broken and worse than filed*.
+
 ## Honesty
 
 Give only true, verifiable answers.

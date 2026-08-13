@@ -65,6 +65,16 @@ class LegalizedQty:
     venue_min: Optional[float]
     step: Optional[float]
     source: str  # "instrument_profile" | "live_lot_rule" | "unknown"
+    # The venue's per-order CEILING, and whether this qty was cut down to it
+    # (2026-08-13, BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX).
+    #
+    # ``venue_max=None`` means the venue published no maximum — NOT that the
+    # maximum is zero, and not that the qty is under it. ``clamped`` is a
+    # separate field rather than something a caller infers by comparing qty to
+    # venue_max, because an input that happened to equal the cap exactly is
+    # NOT a clamp and must not be logged or journalled as one.
+    venue_max: Optional[float] = None
+    clamped: bool = False
     # The exact string to put on the wire — the step-precise Decimal
     # representation (preserves trailing zeros, e.g. "0.100" for step 0.001),
     # so a caller that submits a string (the Bybit pre-flight) sends byte-for-
@@ -111,8 +121,8 @@ def _resolve_venue_lot_rule(
     profiles: Optional[Dict[str, Any]] = None,
     instruments_path: Optional[str] = None,
     prefer_live: bool = False,
-) -> Optional[Tuple[float, float, str]]:
-    """Resolve ``(qty_step, min_qty, source)`` for *symbol*, or ``None``.
+) -> Optional[Tuple[float, float, Optional[float], str]]:
+    """Resolve ``(qty_step, min_qty, max_qty|None, source)`` for *symbol*, or ``None``.
 
     ``None`` means "rule unknown" — the caller must NOT refuse on a venue-min
     basis (passthrough). ``source`` is ``"instrument_profile"`` or
@@ -132,7 +142,7 @@ def _resolve_venue_lot_rule(
     """
     acct_exchange = str(account_cfg.get("exchange") or "").strip().lower()
 
-    def _from_profile() -> Optional[Tuple[float, float, str]]:
+    def _from_profile() -> Optional[Tuple[float, float, Optional[float], str]]:
         prof_map = profiles if profiles is not None else _load_profiles(instruments_path)
         prof = prof_map.get(symbol) if prof_map else None
         if prof is None:
@@ -151,10 +161,13 @@ def _resolve_venue_lot_rule(
         step = float(getattr(prof, "qty_step", 0.0) or 0.0)
         vmin = float(getattr(prof, "min_qty", 0.0) or 0.0)
         if venue_matches and step > 0 and vmin > 0:
-            return (step, vmin, "instrument_profile")
+            # InstrumentProfile carries no max_qty field, so the offline path
+            # asserts NO ceiling (None). It does not assert the absence of one
+            # at the venue — only that this source cannot speak to it.
+            return (step, vmin, None, "instrument_profile")
         return None
 
-    def _from_live() -> Optional[Tuple[float, float, str]]:
+    def _from_live() -> Optional[Tuple[float, float, Optional[float], str]]:
         # Live venue lot rule (Bybit-only). Non-Bybit venues carry their own
         # whole-unit handling in risk.py, so they resolve None here.
         exchange = acct_exchange or "bybit"
@@ -162,9 +175,9 @@ def _resolve_venue_lot_rule(
             return None
         try:
             from src.units.accounts.execute import _bybit_category
-            from src.units.accounts.precision import get_lot_rule
+            from src.units.accounts.precision import get_lot_bounds
             category = _bybit_category(account_cfg)
-            lot = get_lot_rule(client, symbol, category)
+            lot = get_lot_bounds(client, symbol, category)
         except Exception as exc:  # noqa: BLE001 — never block on a lookup
             logger.debug(
                 "qty_legalize: live lot-rule lookup failed for %s: %s", symbol, exc,
@@ -172,9 +185,11 @@ def _resolve_venue_lot_rule(
             return None
         if lot is None:
             return None
-        step_d, min_d = lot
+        step_d, min_d, max_d = lot
         try:
-            return (float(step_d), float(min_d), "live_lot_rule")
+            return (float(step_d), float(min_d),
+                    float(max_d) if max_d is not None else None,
+                    "live_lot_rule")
         except (TypeError, ValueError):
             return None
 
@@ -224,7 +239,7 @@ def legalize_qty(
             qty_str=str(float(qty)),
         )
 
-    step, venue_min, source = rule
+    step, venue_min, venue_max, source = rule
     step_d = Decimal(str(step))
     # Floor DOWN to the step (never round up — realised risk must not exceed
     # the sized cap). Mirrors precision.quantize_qty exactly.
@@ -246,10 +261,72 @@ def legalize_qty(
         return LegalizedQty(
             qty=aligned, ok=False, reason="below_venue_min_qty",
             venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
+            venue_max=venue_max,
         )
+
+    # --- venue per-order CEILING (2026-08-13) -----------------------------
+    # BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX
+    # (id kept on ONE line: wrapping it mid-token hides it from every grep AND
+    # from the tracking-ref guard, which then reads it as a reference to a row
+    # that was never filed.)
+    #
+    # Symmetric with the floor above and deliberately in the SAME seam: a
+    # second bespoke max-check elsewhere is how the four scattered minimum
+    # checks this module exists to replace came about.
+    #
+    # CLAMP, not refuse. Three reasons, in order of weight:
+    #   1. It CANNOT change an order the venue would have accepted. The branch
+    #      is entered only when aligned > max, and any such order is bounced by
+    #      the venue today. So the blast radius is exactly the set of currently
+    #      FAILING orders — the safety argument is structural, not empirical.
+    #   2. It matches the established local idiom: risk.py already CLAMPS for
+    #      its two ceilings (max_qty_by_margin, max_qty_by_exposure) rather
+    #      than refusing. A ceiling clamps here.
+    #   3. It is strictly risk-REDUCING — the resulting position is smaller
+    #      than the risk model asked for, never larger.
+    # Splitting across several orders was rejected: under one-way netting the
+    # legs merge into one position anyway, so it buys nothing and adds a
+    # multi-order failure mode to the last gate before the exchange.
+    clamped = False
+    if venue_max is not None:
+        max_d = Decimal(str(venue_max))
+        if max_d > 0 and aligned_d > max_d:
+            # Floor the CAP to the step — the cap itself need not be a
+            # multiple of it, and an unaligned qty is its own rejection.
+            try:
+                from src.units.accounts.precision import quantize_qty
+                capped_d = Decimal(str(quantize_qty(float(max_d), step_d)))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "qty_legalize: cap quantize failed for %s: %s — submitting unclamped",
+                    symbol, exc,
+                )
+                capped_d = None
+            if capped_d is not None:
+                if capped_d < min_d:
+                    # max < min is a contradictory venue rule. Refuse rather
+                    # than emit a knowingly-illegal qty; do not "fix" it by
+                    # picking one of the two bounds.
+                    return LegalizedQty(
+                        qty=float(capped_d), ok=False,
+                        reason="venue_max_below_min_qty",
+                        venue_min=venue_min, step=step, source=source,
+                        qty_str=str(capped_d), venue_max=venue_max,
+                    )
+                logger.warning(
+                    "qty_legalize: %s qty %s exceeds venue maxOrderQty %s — "
+                    "clamping to %s (source=%s)",
+                    symbol, aligned_str, venue_max, capped_d, source,
+                )
+                aligned_d = capped_d
+                aligned = float(aligned_d)
+                aligned_str = str(aligned_d)
+                clamped = True
+
     return LegalizedQty(
         qty=aligned, ok=True, reason="",
         venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
+        venue_max=venue_max, clamped=clamped,
     )
 
 
@@ -282,5 +359,5 @@ def instrument_lot(
         return None
     if rule is None:
         return None
-    step, vmin, _source = rule
+    step, vmin, _vmax, _source = rule
     return (step, vmin)

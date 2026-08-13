@@ -1,0 +1,130 @@
+"""Self-tests for the config<->matrix JOIN half of `m20_coverage_rollup.validate`.
+
+WHY THIS FILE EXISTS
+--------------------
+The join check ships GREEN: measured 2026-08-13, config declares 45 live
+harness-classified legs and the matrix carries 45 live rows, with the
+set-difference empty in both directions. A guard that has never been observed
+to fail is not evidence that the property holds — it is equally consistent with
+a probe that cannot fire. So each check below is exercised against a PLANTED
+positive, and the real, unmutated matrix is asserted clean at the end so the
+two readings are taken by the same instrument.
+
+The direction under test is the one that was missing until 2026-08-13
+(`BL-20260810-COVERAGE-MATRIX-LEG-IDS-DO-NOT-JOIN-TO-CONFIG`): matrix -> config
+was enforced, config -> matrix was not. Only the second can catch a live leg
+that is absent from the M20 denominator entirely — the error that makes a
+coverage headline read 100% over an under-counted population.
+"""
+from __future__ import annotations
+
+import copy
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parents[1]
+_spec = importlib.util.spec_from_file_location(
+    "m20_coverage_rollup", REPO / "scripts" / "research" / "m20_coverage_rollup.py")
+m20 = importlib.util.module_from_spec(_spec)
+sys.modules["m20_coverage_rollup"] = m20
+_spec.loader.exec_module(m20)
+
+
+@pytest.fixture
+def matrix():
+    return m20.load(m20.MATRIX)
+
+
+def _join_problems(problems):
+    """Only the problems this file is about — the join half, not cell hygiene."""
+    markers = (
+        "NO matrix row", "matrix rows for ONE leg", "denominator and the runtime disagree",
+        "was NOT checked",
+    )
+    return [p for p in problems if any(mk in p for mk in markers)]
+
+
+def test_real_matrix_join_is_clean(matrix):
+    """The convergence actually holds today — the baseline the plants move off."""
+    assert _join_problems(m20.validate(matrix)) == []
+
+
+def test_live_leg_with_no_matrix_row_is_flagged(matrix, monkeypatch):
+    """The error the missing direction could not see: an under-counted denominator."""
+    monkeypatch.setattr(m20, "_declared_legs", lambda: {
+        **{r["strategy"]: {"execution": r.get("execution", "live")} for r in matrix["rows"]},
+        "planted_ghost_leg_1h": {"execution": "live"},
+    })
+    monkeypatch.setattr(m20, "_family_of", lambda name: "donchian")
+    problems = _join_problems(m20.validate(matrix))
+    assert any("planted_ghost_leg_1h" in p and "NO matrix row" in p for p in problems), problems
+
+
+def test_shadow_leg_with_no_matrix_row_is_NOT_flagged(matrix, monkeypatch):
+    """A non-live leg is correctly outside the denominator — no false positive.
+
+    This is the companion to the test above: a check that fires on everything is
+    as useless as one that fires on nothing.
+    """
+    monkeypatch.setattr(m20, "_declared_legs", lambda: {
+        **{r["strategy"]: {"execution": r.get("execution", "live")} for r in matrix["rows"]},
+        "planted_shadow_leg_1h": {"execution": "shadow"},
+    })
+    monkeypatch.setattr(m20, "_family_of", lambda name: "donchian")
+    assert not any("planted_shadow_leg_1h" in p for p in _join_problems(m20.validate(matrix)))
+
+
+def test_omitted_execution_counts_as_live(matrix, monkeypatch):
+    """Default-permissive: a leg that never says `execution` IS live.
+
+    Reading an omitted `execution` as anything else would exempt exactly the
+    legs the guard exists to police (the two-gates rule).
+    """
+    monkeypatch.setattr(m20, "_declared_legs", lambda: {
+        **{r["strategy"]: {"execution": r.get("execution", "live")} for r in matrix["rows"]},
+        "planted_implicit_live_leg": {},  # no `execution` key at all
+    })
+    monkeypatch.setattr(m20, "_family_of", lambda name: "donchian")
+    problems = _join_problems(m20.validate(matrix))
+    assert any("planted_implicit_live_leg" in p and "NO matrix row" in p for p in problems), problems
+
+
+def test_duplicate_rows_for_one_leg_are_flagged(matrix):
+    """Two rows for one leg = two statuses for one leg, reader gets whichever."""
+    mutated = copy.deepcopy(matrix)
+    live = next(r for r in mutated["rows"] if r.get("execution") == "live")
+    mutated["rows"].append(copy.deepcopy(live))
+    problems = _join_problems(m20.validate(mutated))
+    assert any("matrix rows for ONE leg" in p and live["strategy"] in p for p in problems), problems
+
+
+def test_execution_disagreement_is_flagged(matrix, monkeypatch):
+    """A row marked shadow for a live leg drops it out of the denominator too."""
+    live = next(r for r in matrix["rows"] if r.get("execution") == "live")
+    monkeypatch.setattr(m20, "_declared_legs", lambda: {
+        r["strategy"]: {"execution": ("shadow" if r is live else r.get("execution", "live"))}
+        for r in matrix["rows"]
+    })
+    monkeypatch.setattr(m20, "_family_of", lambda name: "donchian")
+    problems = _join_problems(m20.validate(matrix))
+    assert any("disagree about this leg" in p and live["strategy"] in p for p in problems), problems
+
+
+def test_unreadable_config_reports_unchecked_not_clean(matrix, monkeypatch):
+    """An unreadable config must never read as a clean pass."""
+    monkeypatch.setattr(m20, "_declared_legs", lambda: None)
+    problems = _join_problems(m20.validate(matrix))
+    assert any("was NOT checked" in p for p in problems), problems
+
+
+def test_absent_classifier_reports_unchecked_not_clean(matrix, monkeypatch):
+    """Same third state for the family classifier: absent != nothing to find."""
+    monkeypatch.setattr(m20, "_declared_legs", lambda: {
+        r["strategy"]: {"execution": r.get("execution", "live")} for r in matrix["rows"]})
+    monkeypatch.setattr(m20, "_family_of", lambda name: None)
+    problems = _join_problems(m20.validate(matrix))
+    assert any("NO leg was family-classified" in p.replace("\n", " ") or "was NOT checked" in p
+               for p in problems), problems

@@ -46,7 +46,6 @@ EXPECTED_SERVICES = {
     # One-shot smoke check run on deploy.
     "ict-smoke-once.service",
     # Claude VM runner template unit.
-    "claude-vm-runner@.service",
     # M13 S1/S2 (2026-05-26): AI Analyst generator (fast tier:
     # globals every 15 min) + per-strategy slow tier (every 60 min).
     "ict-insights-generator.service",

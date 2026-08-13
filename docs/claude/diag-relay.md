@@ -150,8 +150,18 @@ Two ways to cut this, both live now:
 > `api/bot/db/table/order_packages?filter_col=status&filter_op=eq&filter_val=orphaned&limit=1`
 > (the `db/table/<t>?filter_col=…&limit=1` form returns the filtered
 > `total`, i.e. a status count). A bare `stats` / `db/table/...` resolves
-> under `/api/diag/` → **404 → `{"error":"fetch_failed"}`** (the silent
-> footgun logged + corrected in `BL-20260726-RELAY-APIBOT-FETCHFAILED`).
+> under `/api/diag/` → **404**, which a batched request now reports as
+> `{"error":"fetch_failed","stage":"http_error","http_code":"404",…}`.
+>
+> **This warning did not prevent the mistake, which is why the MESSAGE was
+> fixed (2026-08-13).** `BL-20260726-RELAY-APIBOT-FETCHFAILED` "corrected"
+> the footgun by writing this very paragraph, and a session made the same
+> error on 2026-08-13 anyway — because the old bare `{"error":"fetch_failed"}`
+> named no stage, so at the moment of failure there was nothing to connect
+> the result back to this note. It read as a VM-side outage and cost a full
+> relay round-trip. A doc a reader must already suspect is not a remedy for a
+> diagnostic that says nothing; see the `stage` field in the table under
+> **Failure modes**.
 
 **`trainer-vm-diag`'s `cmd:` block already supports chaining multiple
 bash commands in one issue** — no workflow change was needed there. The
@@ -337,6 +347,29 @@ directly, so it picks up the new value on its next run automatically.
 
 The workflow posts a structured failure comment back to the issue
 when any step errors. Common causes:
+
+**Read `stage` first on a batched request** (2026-08-13). A per-path failure
+comes back as `{"error":"fetch_failed","stage":…,"http_code":…,"curl_exit":…}`
+instead of the old bare `{"error":"fetch_failed"}`, which collapsed *every*
+cause — service down, bad bearer, unknown table, malformed path, timeout —
+into one string that named none of them. The two integers separate the stages
+that matter, so **"the VM is broken" and "your request was wrong" are no
+longer the same message**:
+
+| `stage` | `http_code` / `curl_exit` | what actually happened |
+|---|---|---|
+| `no_http_response` | `000` / `7` | never reached the service — connection refused (`ict-web-api` down → see self-heal below) |
+| `no_http_response` | `000` / `28` | no response before the per-path `--max-time` bound |
+| `http_error` | `404` / `0` | **reached the VM and it answered** — the path is wrong. Nearly always a `/api/bot/*` path missing its `api/bot/` leader (see ⚠️ Common mistakes) |
+| `http_error` | `401` / `0` | reached it; bearer rejected — GitHub secret ≠ VM env |
+| `http_error` | `503` / `0` | reached it; `DIAG_READ_TOKEN` unset on the VM |
+| `http_error` | `5xx` / `0` | reached it; the endpoint itself raised |
+
+A non-zero `curl_exit` with a `2xx`/`4xx` code is not a thing — `--fail` was
+removed from this branch, so curl exits 0 whenever the transport succeeded and
+`http_code` alone carries the refusal. The single-path `workflow_dispatch`
+branch deliberately still uses `--fail`: it has no fallback, so a failure turns
+the run red and curl's stderr names the code in the run log.
 
 | symptom | likely cause | fix |
 |---|---|---|

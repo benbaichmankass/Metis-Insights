@@ -15,8 +15,10 @@ solely by ``ict-hourly-snapshot.timer`` → ``scripts/send_hourly_now.py``.
 To force a send now, run that script (or start the unit) — it always
 dispatches and is flock-guarded against double-fires.
 
-The halt flag (/tmp/trader_halt.flag) predates this module. It lives in
-/tmp so it survives a fresh repo clone and is NOT managed here.
+The halt flag predates this module, and the sentence that used to sit here
+("it lives in /tmp … NOT managed here") was BOTH stale and the reason for a
+real defect, so it is replaced by ``halt_flag_path()`` below rather than
+reworded. See that function for the full account.
 
 Operator quick-reference:
   Pause a strategy:   touch runtime_flags/pause_vwap
@@ -30,6 +32,49 @@ import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+HALT_FLAG_DEFAULT = "/data/bot-data/trader_halt.flag"
+
+
+def halt_flag_path() -> str:
+    """THE path of the trader halt flag. One definition, for every reader.
+
+    The halt flag is a KILL SWITCH: while it exists, ``pipeline.py`` refuses to
+    trade. So "is the trader halted?" is a question every reporting surface must
+    answer about the SAME file the pipeline actually checks.
+
+    Until 2026-08-13 it had three definitions and two different paths:
+
+      * ``pipeline.py`` — ``HALT_FLAG_PATH`` env, default
+        ``/data/bot-data/trader_halt.flag``. **The only consumer that halts
+        anything.**
+      * ``bot_config.py`` (serves ``GET /api/bot/config``) — hardcoded
+        ``/tmp/trader_halt.flag``, never read the env var.
+      * ``telegram_query_bot.py::is_halted`` — hardcoded ``/tmp/…`` likewise.
+
+    So both operator-facing readouts could report **RUNNING while the pipeline
+    was halted** (flag written to the real path, readers looking at ``/tmp``),
+    or **HALTED while it traded** (a stale ``/tmp`` file), and setting
+    ``HALT_FLAG_PATH`` could not reconcile them because two of the three never
+    read it. That is CLAUDE.md § "Diagnostic provenance" sub-class A — a
+    confident label describing something other than what was measured — on the
+    one control whose whole job is to be believed.
+
+    The near-miss worth recording: the comment block directly above the
+    hardcoded constant in ``bot_config.py`` warns that hardcoding a path
+    "masked the runtime-status drift on 2026-05-11" and routes the NEIGHBOURING
+    constant through ``runtime_logs_dir()``. The lesson was written down, applied
+    to the sibling line, and missed on this one.
+
+    Read at call time, so an env change takes effect without a redeploy.
+    """
+    return os.environ.get("HALT_FLAG_PATH") or HALT_FLAG_DEFAULT
+
+
+def is_halted() -> bool:
+    """True while the halt flag exists — the trader is refusing to trade."""
+    return os.path.exists(halt_flag_path())
 
 
 def flags_dir() -> Path:
