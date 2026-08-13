@@ -128,8 +128,7 @@ CI if any live leg cannot be resolved against config.
 ### 6. Evidence-vintage caveat, scoped rather than blanket
 
 239 of 254 closed cells on the 38 legs whose harness modelled **no take-profit**
-predate the 2026-08-10 TP-parity cutover (`BL-20260810-BACKTEST-DOES-NOT-MODEL-
-THE-LIVE-CAPPED-TP`); **0 of 396** matrix refs mentioned it. Rather than
+predate the 2026-08-10 TP-parity cutover (`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`); **0 of 396** matrix refs mentioned it. Rather than
 flagging the whole fleet, each live unit was read against its harness — `scalp`
 and `fvg` place a real target their harness models and are **clean**. The
 roll-up now prints the caveat with its own denominator.
@@ -227,8 +226,8 @@ review:**
 - `docs/research/RESEARCH-CAPABILITY-INDEX.md` — routing row for the roll-up.
 - `docs/research/exit-refinement-coverage.json` — 13 sweep cells, 7 leg re-keys,
   1 null fixed, 2 `exit_head_ml` cells + a `CORRECTED 2026-08-12` note.
-- `docs/claude/health-review-backlog.json` — `BL-20260812-SWEEP-CORPUS-CANNOT-
-  PUSH-TO-MAIN` filed with a fix suggestion.
+- `docs/claude/health-review-backlog.json` — `BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN`
+  filed with a fix suggestion.
 - **This log.**
 - ROADMAP.md — **not yet updated** (§ Deferred).
 

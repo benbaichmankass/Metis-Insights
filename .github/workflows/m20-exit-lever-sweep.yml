@@ -445,8 +445,10 @@ jobs:
           # swept, every artifact uploaded — and every row discarded at this one
           # step. The sweep looked like it failed; it had actually succeeded and
           # then thrown the evidence away, which is the more expensive shape
-          # because the compute is spent before the loss (BL-20260812-SWEEP-
-          # CORPUS-CANNOT-PUSH-TO-MAIN).
+          # because the compute is spent before the loss.
+          # Tracked as BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN
+          # (kept on ONE line: check_backlog_refs stops at the first
+          # non-alphanumeric, so a wrapped id resolves to nothing).
           #
           # So: a PR-branch dispatch pushes to its own branch as before; a
           # default-branch dispatch is retargeted onto a corpus branch and opts
