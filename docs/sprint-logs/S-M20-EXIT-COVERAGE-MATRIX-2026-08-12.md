@@ -1028,3 +1028,149 @@ plus a repeat:
 
 Every one is in a probe written **to audit evidence quality**. Writing the check
 does not exempt the check.
+
+## §18 — 2026-08-13 continuation: the code-change branch §17 named, executed
+
+**§17 is not superseded — it is discharged.** It said the remaining 37 cells
+"need a decision, a code change, or elapsed time," and categorised 14 as
+fold-standard and 9 as OOS-floor. This section is the code-change branch being
+taken, and it resolves 15 cells drawn from exactly those two categories.
+
+Timeline, checked rather than recalled: §17 merged 07:17:24Z; `resolve_split`
+(#8965) merged 08:40:20Z, 83 minutes later. So §17's "no measurement left"
+was accurate for the tools that existed when it was written. It was not wrong,
+and this section should not be read as correcting it.
+
+**DONE-CONDITION 37 → 22.** Headline unchanged at 360/360.
+
+### The finding: more folds moved verdicts one direction only
+
+`train_exit_head.fold_blocks` was re-run across every family in BOTH fold modes
+(relay #8963) so the change is a comparison, not merely a newer number.
+
+| unit | calendar-year folds | trade-block folds |
+|---|---|---|
+| `ict_scalp_xrp_15m` | candidate (2/3 hard) | **honest_negative** (2/6) |
+| `ict_scalp_avax_5m` | candidate (3/3 hard) | **honest_negative** (13/20) |
+| `slv_trend_1h` | ungradeable | **honest_negative** (0/4) |
+| `uso_trend_1h` | ungradeable | honest_negative (2/3) |
+| `eh_1d/pullback` ×6 | ungradeable (19 folds, 0 usable) | honest_negative ×6 |
+
+**2 downgrades, 0 upgrades, 8 newly graded and all negative.** A leg going 3/3
+on three folds is a coin landing heads three times. The exit head is *less*
+promising after this than before it, and the five surviving candidates are **all
+`ict_scalp`** — every non-scalp family in the re-run is `honest_negative`.
+
+### CORRECTION: the 1d ungradeability was only half a slicing artefact
+
+§17 and the surrounding thread treated the 1d fleet as blocked by fold
+construction. That held for the **pooled** family — `eh_1d/pullback` holds 568
+trades and trade-blocks recover 10 folds where calendar-years recovered zero
+usable ones — and did **not** hold for the seven single-leg trend ETFs. With the
+fix in they still yield 0 folds, because a 31–72-trade lifetime cannot fill two
+50-trade blocks. That is a sample-size limit, not a slicing one.
+
+`blocked:insufficient_folds` had been conflating "the slicing threw the folds
+away" (fixable, now fixed) with "there are not enough trades" (a real limit).
+Different states, different remedies, so those rows now carry
+`blocked:insufficient_lifetime_trades`. `squeeze_breakout_4h` misses by **two
+trades** (98 of the 100 one block needs) and is the closest leg in the fleet.
+
+### vol_trail re-sweep: one genuine PASS, and the refs were carrying stale n
+
+Relay #8980, 18/18 cells measured on the per-leg boundary.
+**`qqq_trend_long_1d vt_hot90_t2` → PASS, walk-forward 6/6** on a derived
+boundary of 2019-10-25 — the first cell the per-leg boundary has turned into a
+positive. Its two sibling cells fail OOS, so the PASS is that cell and not the
+lever family. `scha_trend_long_1d` measured and negative across all three.
+
+**A matrix data defect surfaced by running it.** Eligibility was screened off the
+lifetimes stated in the vol_trail refs (60/79/57/73/77/68), and I told the
+operator those differed from the E1 counts because they were different
+populations. That was wrong. The harness measures **48/60/31/65/72/63** — it
+agrees with the E1 counts and the ref figures do not reproduce. `spy` (48) and
+`qld` (31) fell below the 2×25 a derived boundary needs and fell back, exactly as
+`resolve_split` is built to do, announcing `leg_too_thin` rather than pretending.
+Corrected figures are now on each row.
+
+`iwm` and `splg` take a **new state, not a relabel**:
+`blocked:insufficient_oos_base_at_derived_split`. Their boundary was placed
+successfully and the OOS base is *still* under the floor, because the harness
+windows candles rather than trades — which is precisely why
+`tests/test_fleet_sweep_split.py` declines to assert the target is achieved.
+Folding that into `leg_too_thin` would claim the split is still binding. It is
+not, and moving it again will not help.
+
+### The prop gate: a verdict that inverted
+
+The `breakout_1` EV/survival gate on both `*_prop` legs first returned a
+confident **skip** at −$69,945 / −$138,467 (#8969). Void: `backtest_trend.py
+--symbol` is a display label while `--data` silently defaults to
+`data/backtest_candles.csv` — BTC **1-minute**, 2022-07-23→27 — so it graded BTC
+over one long weekend under a "SOLUSDT 1h" heading and extrapolated 3.5 days to a
+"(12-mo)" horizon. Two different symbols returning byte-identical spans is what
+gave it away; 74 trades in 84 hourly bars is impossible.
+
+On real per-symbol data (#8975) both legs return **ROUTE**: SOL +$483 @ P(net>0)
+0.7427 over 602 trades, ETH +$883 @ 0.8477 over 1110. **The verdict inverted.**
+
+**State the population before quoting it.** The EV is computed at `size$ 5000` —
+a fresh account with its full $300 drawdown budget — while the live account has
+**$101.96** left, ≈1.36 losing trades at the configured 1.5%. And the same ledger
+is a hard `skip` on *every* standard account (end-return −2.5%/−3.4%, P(breach)
+0.85–0.90, survival **0.20**): the prop verdict is positive because that ruleset
+is cost-aware with BANK-ASAP re-buy, i.e. it prices in the account breaching and
+being repurchased at $45. "+EV to buy accounts and run this" is not "this is
+safe." Flip remains **held** pending the operator.
+
+### Probe errors, continuing §17's tally
+
+| # | probe | class | caught by |
+|---|---|---|---|
+| 6 | #8969 graded the BTC fixture under a SOLUSDT label | **B→A** | two symbols, byte-identical spans |
+| 7 | #8973 guard grepped for the *absence* of the fixture span; a crashed run printed none, and a stale un-truncated emit file supplied the previous run's counts | **C** | only an unrelated missing dependency |
+| 8 | vol_trail eligibility screened off stale lifetimes in the matrix refs | **B** | `resolve_split` announcing `leg_too_thin` |
+
+Filed as `BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC` (high — the
+same footgun exists in `account_compat_matrix.py`, defaulting to
+`btc_5m.parquet`), `BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER`,
+and `BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION`.
+
+**#7 is the one to carry forward.** A guard that tests for the absence of the
+wrong answer passes on a crash. Assert the evidence is *present and correct*,
+truncate artifacts before writing, check exit codes, and give every refusal its
+own named state so "we could not look" never reads as a verdict.
+
+### What the remaining 22 are
+
+All on live legs; zero `pending`.
+
+| state | n | tractable by |
+|---|--:|---|
+| `insufficient_lifetime_trades` | 10 | more trades, or a justified lower fold floor — **under test in #8983** |
+| `data_missing` | 4 | native IBKR history (MES/MGC/MHG) |
+| `insufficient_base` | 2 | more trades |
+| `insufficient_oos_base_at_derived_split` | 2 | not the split; needs trades |
+| `no_harness_levers` | 2 | a harness change (squeeze family) |
+| `native-history-thin` | 1 | MGC-15m history |
+| `blocked` (mes vol_trail) | 1 | more trades |
+
+Relay **#8983** tests whether `--min-fold-trades 50` is load-bearing or merely a
+round number, since it alone blocks 10 of the 22. Prediction recorded before the
+run: given the 2-downgrades/0-upgrades asymmetry above, smaller blocks should be
+noisier and *more* optimistic, so 50 survives and those 10 are an honest
+structural limit. Recorded so the outcome cannot be quietly matched to it.
+
+### Tier-3 queued, nothing enacted
+
+1. `trend_donchian_{sol,eth}_prop` shadow→live — gate now PASSED, weighed against
+   a $101.96 cushion (see the population caveat above).
+2. Apply `trend_donchian_avax_4h trail_decay` — Path A PASS, OOS n=34, real-money.
+3. Remove 5 OOS-negative shipped levers — all paper/prop; largest is
+   `trend_donchian_eth stale_stop` at −10.55R OOS.
+
+### Shipped this section
+
+#8965 (per-leg IS/OOS boundary), #8968 (`af9be48` — prop accounts size off the
+operator-reported balance; deployed, trader restarted 09:05Z), #8978 (`f1e815a` —
+this matrix update + three backlog rows).
