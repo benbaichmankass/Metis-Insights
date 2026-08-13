@@ -180,6 +180,8 @@ def test_equity_fallback_now_subtracts_pledged_margin(monkeypatch):
     equity and emit 0.011 BTC, which the venue refused nine times."""
     rm = _rm()
     monkeypatch.setattr(rm, "_open_gross_notional_from_db", lambda: 161.55 + 76.61)
+    # The BTC order's own symbol holds nothing — XRP and ETH are the open legs.
+    monkeypatch.setattr(rm, "_open_notional_for_symbol", lambda sym: 0.0)
     out: dict = {}
     qty = rm.position_size(
         _Pkg(63704.8, 63497.59), 274.91, market_type="linear",
@@ -344,3 +346,96 @@ def test_every_read_state_is_reachable_from_a_real_response_shape():
         read_linear_available_balance(_Client(acct))[1] for acct in shapes.values()
     }
     assert reached == set(shapes), f"unreachable state(s): {set(shapes) - reached}"
+
+
+# ══ the halt vectors this fix must NOT create ═════════════════════════════
+#
+# Caught by CI, not by me: the first cut subtracted pledged margin
+# unconditionally, which drove the basis to 0 whenever the journal's open
+# notional met or exceeded equity — refusing EVERY trade. That is the second
+# halt vector docs/design/gross-exposure-governance-DESIGN.md records as having
+# been missed once already and caught only by a pre-existing test
+# (tests/test_risk_gross_exposure.py, whose docstring says outright that it
+# "must never be edited to accommodate a feature"). These pin it directly.
+
+def test_pledged_estimate_at_or_above_equity_does_NOT_zero_the_basis(monkeypatch):
+    """An estimate >= equity is either TRUE (maxed) or the journal is
+    over-reporting — measured at 451x on bybit_1 SOLUSDT under netting. From
+    here those are indistinguishable, and 'we cannot tell' must not become a
+    silent fleet-wide refusal."""
+    rm = _rm()
+    monkeypatch.setattr(rm, "_open_gross_notional_from_db", lambda: 10_000_000.0)
+    monkeypatch.setattr(rm, "_open_notional_for_symbol", lambda s: 0.0)
+    out: dict = {}
+    qty = rm.position_size(
+        _Pkg(63704.8, 63497.59), 274.91, market_type="linear",
+        available_usd=None, total_account_usd=274.91, margin_basis_out=out,
+    )
+    assert qty > 0, "an implausible estimate must not refuse every trade"
+    assert out["kind"] == "equity_pledged_implausible"
+    assert out["basis_usd"] == pytest.approx(274.91), "basis must be left UNADJUSTED"
+
+
+def test_non_linear_accounts_are_not_haircut(monkeypatch):
+    """'Pledged initial margin' is a margin-account concept. On cash spot there
+    is nothing pledged and subtracting open notional would shrink the basis for
+    no reason — which is what broke the spot intent-delta tests."""
+    rm = _rm()
+    monkeypatch.setattr(rm, "_open_gross_notional_from_db", lambda: 5_000.0)
+    out: dict = {}
+    rm.position_size(
+        _Pkg(100.0, 95.0), 10_000.0, market_type="spot",
+        available_usd=None, total_account_usd=10_000.0, margin_basis_out=out,
+    )
+    assert out["kind"] == "equity_unadjusted"
+    assert out["basis_usd"] == pytest.approx(10_000.0)
+    assert "not a leveraged account" in out["detail"]
+
+
+def test_the_symbol_being_sized_is_excluded_from_its_own_haircut(monkeypatch):
+    """Resizing a position RELEASES its margin rather than consuming more.
+    Counting a symbol's own position against the budget for that same symbol
+    double-counts it and shrinks every reduce."""
+    rm = _rm()
+    monkeypatch.setattr(rm, "_open_gross_notional_from_db", lambda: 300.0)
+    monkeypatch.setattr(rm, "_open_notional_for_symbol",
+                        lambda sym: 300.0 if sym == "BTCUSDT" else 0.0)
+    out: dict = {}
+    rm.position_size(
+        _Pkg(63704.8, 63497.59), 274.91, market_type="linear",
+        available_usd=None, total_account_usd=274.91, margin_basis_out=out,
+    )
+    # All 300 belongs to BTCUSDT, so nothing is pledged by OTHERS -> no haircut.
+    assert out["basis_usd"] == pytest.approx(274.91)
+
+
+def test_unknown_own_symbol_share_leaves_the_basis_unadjusted(monkeypatch):
+    """Knowing the total but not this symbol's share means we cannot say what
+    the OTHERS hold. Over-subtracting is the unsafe direction."""
+    rm = _rm()
+    monkeypatch.setattr(rm, "_open_gross_notional_from_db", lambda: 300.0)
+    monkeypatch.setattr(rm, "_open_notional_for_symbol", lambda sym: None)
+    out: dict = {}
+    rm.position_size(
+        _Pkg(63704.8, 63497.59), 274.91, market_type="linear",
+        available_usd=None, total_account_usd=274.91, margin_basis_out=out,
+    )
+    assert out["kind"] == "equity_unadjusted"
+    assert out["basis_usd"] == pytest.approx(274.91)
+
+
+def test_the_validated_bybit2_case_still_haircuts(monkeypatch):
+    """The regression guard for the actual incident: XRP + ETH open, sizing a
+    BTC order the account does NOT hold. This must still subtract."""
+    rm = _rm()
+    monkeypatch.setattr(rm, "_open_gross_notional_from_db", lambda: 161.55 + 76.61)
+    monkeypatch.setattr(rm, "_open_notional_for_symbol",
+                        lambda sym: 0.0 if sym == "BTCUSDT" else 161.55)
+    out: dict = {}
+    qty = rm.position_size(
+        _Pkg(63704.8, 63497.59), 274.91, market_type="linear",
+        available_usd=None, total_account_usd=274.91, margin_basis_out=out,
+    )
+    assert out["kind"] == "equity_minus_pledged"
+    assert out["basis_usd"] == pytest.approx(274.91 - 79.386666, abs=0.01)
+    assert 0 < qty <= 0.008 + 1e-9

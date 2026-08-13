@@ -1324,6 +1324,14 @@ class Coordinator:
             # + sizing; a positive sentinel qty carries the decision through
             # dispatch to the breakout branch, where the real qty is computed.
             _is_prop_bridge = (account.exchange or "").lower() == "breakout"
+            # Declared OUTSIDE the try on purpose. The balance fetch on the very
+            # next line can raise, and this block's `except` writes a rejection
+            # row that reads `margin_basis` — so a declaration inside the try is
+            # an UnboundLocalError on exactly the failure path the row exists to
+            # record. Line-order alone does not establish this; the assignment
+            # has to be unconditionally REACHED.
+            available_basis_kind = None
+            margin_basis: dict = {}
             try:
                 balance = 0.0 if _is_prop_bridge else float(fetcher(account))
                 # Direction-aware balance override for cash spot.
@@ -1353,8 +1361,6 @@ class Coordinator:
                     _market_type = ib_order_market_type(pkg.symbol, default=_market_type)
                 available_usd = None
                 total_account_usd = None
-                available_basis_kind = None
-                margin_basis: dict = {}
                 if (
                     _market_type == "linear"
                     and client is not None
