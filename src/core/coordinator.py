@@ -888,6 +888,25 @@ class Coordinator:
                     exc,
                 )
 
+        def _is_prop_account_obj(acc) -> bool:
+            """Account OBJECT -> prop?, via the canonical config predicate.
+
+            `is_prop_account` takes a config MAPPING; account objects here are
+            not mappings, so project the identifying fields rather than
+            re-deriving the rule (a second definition would drift from the one
+            the ruleset binding uses).
+            """
+            try:
+                from src.prop.prop_identity import is_prop_account
+                return is_prop_account({
+                    "exchange": getattr(acc, "exchange", None),
+                    "account_class": getattr(acc, "account_class", None),
+                    "type": getattr(acc, "type", None),
+                    "backtest_ruleset": getattr(acc, "backtest_ruleset", None),
+                })
+            except Exception:  # noqa: BLE001 — never break sizing on a probe
+                return str(getattr(acc, "exchange", "")).lower() == "breakout"
+
         def _default_balance_fetcher(acc) -> float:
             # 1. Per-tick override stashed on pkg.meta — tests + the
             #    bot's per-tick balance refresh use this.
@@ -912,6 +931,23 @@ class Coordinator:
                 cached = getattr(acc, "cached_balance_usd", None)
                 if cached is not None:
                     return float(cached)
+                # PROP ACCOUNTS HAVE NO BROKER SOCKET BY DESIGN. A None here is
+                # not an API failure — there is no API. Their sizing basis is
+                # the operator's reported account status (the same snapshot the
+                # rule-distance guard reads), so consult that BEFORE raising,
+                # and raise with a cause that is actually true otherwise.
+                # Measured 2026-08-13: this raise was 5 of the 7 lifetime
+                # rejections on trend_donchian_sol and is why the leg had never
+                # emitted a prop ticket.
+                if _is_prop_account_obj(acc):
+                    from src.prop.prop_balance import (
+                        prop_sizing_balance, refusal_message)
+                    state, bal, meta = prop_sizing_balance(acc.name)
+                    if state == "ok" and bal is not None:
+                        return float(bal)
+                    # Still refuses — never sizes off a guess. Only the message
+                    # changes, and it now names something the operator can act on.
+                    raise RuntimeError(refusal_message(state, acc.name, meta))
                 raise RuntimeError(
                     f"balance() returned None for {acc.name} "
                     f"(exchange={getattr(acc, 'exchange', 'unknown')}): "
