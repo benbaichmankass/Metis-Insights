@@ -87,6 +87,14 @@ RUNNER_UNIT="/etc/systemd/system/claude-vm-runner@.service"
 # `sudo test -f` asks the question with the privilege needed to answer it. It
 # is a THREE-state answer, and the caller must branch on all three:
 #   0 -> present · 1 -> genuinely absent · 2 -> could not determine
+#
+# CALL IT AS `v=0; priv_exists "$p" || v=$?` — NEVER `priv_exists "$p"; v=$?`.
+# Under `set -e` the second form ABORTS on any non-zero return, before $? is
+# even captured. That killed the 2026-08-13 re-run (#8997) at the first check:
+# the file was genuinely absent (return 1), set -e treated the answer as a
+# failure, and the script exited having printed no post-state at all. The
+# helper's whole purpose is that non-zero is DATA, not an error — the `||`
+# form is what keeps it that way.
 priv_exists() {
     local path="$1"
     if ! sudo -n test -e "${path}" 2>/dev/null; then
@@ -149,7 +157,7 @@ fi
 log "  [ok] verified: ufw still resolves passwordless via the new file"
 
 # ── Step 3: now, and only now, remove the dead grant + its artifacts ─────────
-priv_exists "${OLD_SUDOERS}"; _old_state=$?
+_old_state=0; priv_exists "${OLD_SUDOERS}" || _old_state=$?
 if [ "${_old_state}" -eq 0 ]; then
     if sudo rm -f "${OLD_SUDOERS}"; then
         log "  [ok] removed ${OLD_SUDOERS} (dispatch root grant GONE)"; changed=1
@@ -191,14 +199,14 @@ fi
 log "==> POST-STATE"
 fail=0
 for p in "${OLD_SUDOERS}" "${DISPATCH}" "${RUNNER_UNIT}"; do
-    priv_exists "${p}"; _st=$?
+    _st=0; priv_exists "${p}" || _st=$?
     case "${_st}" in
         0) log "  [FAIL] still present: ${p}"; fail=1 ;;
         1) log "  [ok] absent (verified as root): ${p}" ;;
         *) log "  [FAIL] UNDETERMINED: ${p} — could not check as root; this is NOT an absence"; fail=1 ;;
     esac
 done
-priv_exists "${NEW_SUDOERS}"; _new_st=$?
+_new_st=0; priv_exists "${NEW_SUDOERS}" || _new_st=$?
 case "${_new_st}" in
     0) log "  [ok] present (verified as root): ${NEW_SUDOERS}" ;;
     1) log "  [FAIL] MISSING: ${NEW_SUDOERS}"; fail=1 ;;

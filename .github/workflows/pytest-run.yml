@@ -113,7 +113,32 @@ jobs:
           # test run and merged GREEN while it had actually reddened main's full
           # suite (BL-20260707-FASTCI-CONFIG-DRIFT: #5850 config demote + #5851
           # system-action both slipped through).
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/'; then
+          # scripts/ + deploy/ + comms/ added 2026-08-13 — the THIRD recurrence of
+          # this exact class. The filter enumerates what the suite READS, and it
+          # keeps missing trees: config/ and .github/workflows/ were added after
+          # BL-20260707-FASTCI-CONFIG-DRIFT let two config-only PRs merge green
+          # while reddening main. The same hole was still open for:
+          #   scripts/  — tests/ops/test_system_actions_workflow.py reads
+          #               scripts/ops/*.sh (OPS_DIR) and asserts every wrapper
+          #               uses `set -euo pipefail` and sources _lib.sh. 201 test
+          #               references to scripts/ in total.
+          #   deploy/   — tests/test_s012_service_consolidation.py asserts the
+          #               deploy/*.service set matches the canonical list, and
+          #               tests/test_check_diag_unit_allowlist.py over the units.
+          #   comms/    — schema templates the suite validates against.
+          # PROVEN, not theorised: PR #8994 changed only scripts/ops/purge_vm_runner.sh,
+          # short-circuited to a 9-SECOND green pytest-run, and merged to main
+          # without executing a single test. A required check that reports success
+          # without running is, at the merge button, indistinguishable from a real
+          # pass ("green is not evidence").
+          #
+          # docs/ and data/ are DELIBERATELY still excluded: they are large and
+          # change on nearly every PR, and the suite's assertions over them are
+          # owned by the separate `guards` job (canonical-doc-coherence et al.),
+          # which does not short-circuit. That is a stated trade-off against
+          # MB-20260706-CI-MINUTES, not an oversight — tests/test_pytest_run_filter.py
+          # pins both the inclusions and these exclusions.
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
