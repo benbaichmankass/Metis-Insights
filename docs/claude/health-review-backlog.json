@@ -13104,6 +13104,25 @@
         "BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE",
         "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP"
       ]
+    },
+    {
+      "id": "BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE",
+      "opened_at": "2026-08-13T02:30:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 3,
+      "severity": "medium",
+      "area": "m20-exit-refinement",
+      "title": "5 shipped exit levers measured NET-NEGATIVE out-of-sample by the lever-OFF arm -- removal is a Tier-3 call, queued for the operator",
+      "source": "MEASURED 2026-08-13T02:13Z by the lever-OFF arm (PR #8868; runs 31660158594 / 31660171948 / 31660176552 / 31660181341) at tp_cap_pct=0.099 LIVE PARITY, split 2025-07-01, ONE lever dropped per run so each cell's base differed from live in that lever only (`base_missing_other_levers: []` on all 18 corpus rows).\n\n13 of 13 gradeable shipped levers measured. NOT ONE IS INERT -- every one adds in-sample net_R. Five cost net_R out-of-sample; two of those are worse on OOS drawdown as well:\n\n  leg                    lever          base n IS/OOS   d_net_r IS / OOS      d_max_dd IS / OOS\n  trend_donchian_eth     stale_stop     599 / 117       +24.1924 / -10.5462   -15.7528 / +4.6676\n  trend_donchian_eth     vol_trail      704 / 145        +5.8333 /  -6.0653   -10.6870 / -0.9623\n  qqq_pullback_1h        vol_trail      250 /  26        +8.5923 /  -1.9643    +0.8678 / +4.4918\n  trend_donchian_sol     stale_stop     231 /  60        +6.3678 /  -1.2067    -5.0100 / -1.5830\n  sol_pullback_2h        trail_decay    184 /  42       +14.8202 /  -0.5238    -6.7341 / -1.1540\n\nEvery base clears the MIN_OOS_TRADES=25 floor, so none of these is a thin-window artifact -- `trend_donchian_eth stale_stop` is the largest sample in the arm AND its largest negative.\n\nFUNDING CLASS, checked against config/accounts.yaml rather than assumed: all five are on PAPER (bybit_1, alpaca_paper) or PROP (breakout_1). NO REAL-MONEY LEG carries an OOS-negative lever, so nothing here is urgent. `trend_donchian_eth` and `trend_donchian_sol` DO run on breakout_1 (prop), where the payout consequence is real. `qqq_pullback_1h`'s alpaca_live leg is dry_run.\n\nTHE CONVERSE, worth stating because it is the reassuring half: both PASSING levers (`trend_donchian` trail_decay, `trend_donchian_xrp_4h` stale_stop) run on bybit_2 REAL MONEY. The two levers carrying real money are the two that validated.",
+      "impact": "Each of these is an exit lever changing behaviour on a live (paper/prop) leg on the strength of evidence that, until now, could not have existed -- the sweep structurally could not grade a shipped lever (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES). The in-sample gains are large and real, which is exactly why these were shipped; the out-of-sample cost is what was never visible.",
+      "resolution_criteria": "OPERATOR DECISION, one per lever -- this row is a QUEUE, not a recommendation to bulk-remove. For each: either (a) remove the declared keys from config/strategies.yaml with the measured numbers in the commit message, or (b) keep it with a stated reason (e.g. the IS gain is judged to reflect a regime the OOS window under-samples), recorded on the matrix cell so the next session does not re-raise it.\nDO NOT close this row on a walk-forward alone: the walk-forward was already run and these are its IS/OOS verdicts. What would legitimately change the answer is a LONGER OOS window or a per-year fold split, neither of which exists yet for these legs.\nREFUSED as evidence: any re-measurement made WITHOUT --without-declared-lever.",
+      "suggested_fix": "If removing: delete the lever's declared keys from the leg's block in config/strategies.yaml (stale_exit_bars/stale_exit_below_r; trail_vol_above_pctl/trail_vol_below_pctl/trail_vol_tight_mult; trail_decay_arm_r/trail_decay_stall_bars/trail_decay_tight_mult). Tier-3 because it changes live exit behaviour, even on a paper/prop book. Order the work by measured cost: trend_donchian_eth stale_stop (-10.55R) first, then trend_donchian_eth vol_trail (-6.07R), then qqq_pullback_1h vol_trail (-1.96R and the worst OOS drawdown at +4.49), then the two sub-1.5R legs.",
+      "refs": [
+        "BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES",
+        "BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE",
+        "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP"
+      ]
     }
   ],
   "updated_at": "2026-08-11T20:20:00+00:00",
