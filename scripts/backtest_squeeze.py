@@ -251,6 +251,17 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                 cb = _cost_breakdown(t)
                 fh.write(json.dumps({
                     "strategy": "squeeze_breakout", "entry_time": str(t.entry_time),
+                    # SYMBOL IS NOT OPTIONAL. `build_exit_head_dataset.py`
+                    # resolves each trade's candles with
+                    # `resampled.get(tr["symbol"])` and counts a miss as
+                    # `no_candles` -- so a row without this key is DROPPED, and
+                    # dropped into a counter rather than an error. Measured
+                    # 2026-08-13: the 1d round emitted 371 trend trades and the
+                    # 1h round 510, and every one landed in `no_candles`, so no
+                    # trend-family leg has ever produced a single E0 dataset row.
+                    # It read as "the family has no data" for as long as the
+                    # harness has existed.
+                    "symbol": symbol,
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - cb["total_cost_r"], 4),
                     # MFE is the denominator of the capture ratio; the Trade has

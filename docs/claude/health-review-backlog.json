@@ -13144,6 +13144,24 @@
         "BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES",
         "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
       ]
+    },
+    {
+      "id": "BL-20260813-TREND-SQUEEZE-FVG-HARNESSES-EMIT-NO-SYMBOL",
+      "opened_at": "2026-08-13T05:25:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "3 of 5 backtest harnesses never emitted `symbol`, so no trend/squeeze/fvg leg has EVER produced an E0 exit-head dataset row -- 881 trades dropped into a counter tonight alone",
+      "source": "MEASURED 2026-08-13 on the first-ever exit-head rounds over the trend/pullback 1d + 1h fleets (trainer, relays #8885/#8887/#8888; rounds completed 05:20:27Z and 05:21:00Z).\n\n`scripts/ml/build_exit_head_dataset.py` resolves each trade's candles with `resampled.get(tr[\"symbol\"])` and counts a miss as `no_candles`. A row without that key is DROPPED -- into a counter, not an error.\n\n  round   trend trades emitted                          landed in the build\n  1d      371  (spy 48, qqq 60, tqqq 32, qld 31,\n                iwm 65, splg 72, scha 63)               0\n  1h      510  (slv_trend_1h 292, uso_trend_1h 218)     0\n\nBoth build_reports list ONLY `pullback`. `eh_1d/` contains no `donchian` directory at all. The 1d report reads `trades_in: 1332`, `skipped: {no_candles: 697, unresolvable: 63}` -- and 1332 - 760 = 572, which is the pullback count alone.\n\n  backtest_trend.py       symbol key MISSING\n  backtest_squeeze.py     symbol key MISSING\n  backtest_fvg_range.py   symbol key MISSING\n  backtest_pullback.py    present\n  backtest_ict_scalp.py   present\n\nThe two harnesses that DO emit it are the two whose legs have ever built a dataset. That is the whole pattern, and it means no trend-family leg has ever produced a single E0 row -- which read as 'the family has no data' for as long as the harness has existed.\n\nNOT a regression from the same-night `--strategy-name` change (PR #8868); checked before concluding. That change alters the `strategy` field. This is `symbol`, which `backtest_trend.py` has never written on any revision.",
+      "impact": "Every `exit_head_ml` matrix cell on a trend/squeeze/fvg leg was unreachable for a reason that presented as an empty family rather than as an error. It is the `no_candles` counter doing exactly its job -- the counter was added precisely so a total drop would not read as an empty input -- and nobody had read it against the emitted count until tonight.",
+      "resolution_criteria": "CLOSE when a round over at least one trend leg produces a build_report family with NON-ZERO `trades.harness`, and that family's e1_report carries a per-leg verdict. The fix landing in code is NOT sufficient -- the whole finding is that the rows silently never arrived, so the evidence has to be their arrival.",
+      "suggested_fix": "SHIPPED in PR #8889: `\"symbol\": symbol` added to the emit dict in all three harnesses.\n\nSEPARATE DECISION, recorded so it is not discovered later as a surprise: `family_of` returns `pullback` for `gld_pullback_1d` (substring match) but `spy_trend_long_1d` for a trend leg (nothing matches, so it falls through to the leg name). So pullback legs POOL for training while trend legs each train ALONE on 48-72 trades. Pooling to train and cutting per-leg to grade is the documented intent (the round's own `per_leg_note`), but the two families now get different treatment by accident of string matching rather than by choice. Decide this before reading any trend-leg verdict.",
+      "refs": [
+        "BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES",
+        "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
+      ]
     }
   ],
   "updated_at": "2026-08-11T20:20:00+00:00",
