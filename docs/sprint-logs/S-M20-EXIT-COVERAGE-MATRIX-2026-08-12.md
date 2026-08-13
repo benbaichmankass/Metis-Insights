@@ -774,3 +774,127 @@ is **non-zero** before reading any live-agreement verdict; and re-run
       headline figure this session produced rests on cells whose geometry vintage
       the roll-up now prints beside it.
 - [x] **Tier-3 items proposed, not enacted** — two, § Risks.
+
+---
+
+## §17 — 2026-08-13 continuation: M20 has no runnable work left
+
+**Supersedes two entries in "Gaps not yet verified" above.** That section was
+written before the 03:16Z E1 5m round landed and is now stale in two places;
+both are corrected here rather than edited in place, so the sequence stays
+legible.
+
+### The pooling escape does not exist (measured, not argued)
+
+`m20-1d-fleet-pooling-2026-08-13.md` has the full account. Both same-family 1d
+pools were run through the unmodified trainer at `--min-fold-trades 50`:
+
+| pool | trades | rows | usable folds | largest fold |
+|---|--:|--:|--:|--:|
+| `donchian`-1d (7 legs) | 371 | 13,606 | **0** | 33 |
+| `pullback`-1d (6 legs) | 568 | 15,066 | **0** | 42 |
+
+The bound sits 51% above the best year donchian has, so no threshold ≥34 can
+produce a fold there however the legs are combined. Folds appear only under a
+cross-family mixture nobody would ship, and even that leaves per-leg OOS samples
+at 23–89 against the `MIN_OOS_TRADES` floor of 25.
+
+**This closes the pooling design question I opened at 05:45 and corrected at
+06:12 — for the 1d fleet only.** Not because pooling is unsafe, but because
+pooling *within family, correctly scoped, exactly as the design permits* yields
+nothing. No change to `family_of()` is needed or would help. The scalp-side
+caution in that thread is untouched.
+
+### Every remaining cell is now `blocked`; none is `pending`
+
+Closing the last 4 by measurement took the matrix to **HEADLINE 360/360 =
+100.0%** with the **DONE-CONDITION unchanged at 37**. The two have separated as
+far as they arithmetically can. **M20 is not done**, and there is no measurement
+left that moves it — all 37 need a decision, a code change, or elapsed time.
+Categorised by owner in `m20-what-remains-2026-08-13.md` (14 fold-standard, 9
+OOS-floor, 7 live-arm accrual, 5 data, 2 harness; reconciles to 37, zero
+unclassified).
+
+### CORRECTION to "Gaps not yet verified": the live arm HAS been evaluated
+
+That section says the E1→E2 live arm is *"**unevaluated**, not passed"*. True
+when written; **false since 2026-08-13T03:16Z**. On `ict_scalp_5m` it was
+evaluated for the first time in the entire E1 program — and it **contradicts**
+the harness arm. Ranking transfers (live AUC 0.6333 > harness 0.5929); policy
+does not (every τ worse than doing nothing, best τ +1.32 vs actual +14.58; both
+hard rules beat every τ). Mechanism is visible: live mean hold **83.7 bars** vs
+~18.7 on the harness, so the model exits at 11.5 bars and cuts the long holds the
+live edge comes from.
+
+### The structural finding, which is the part worth carrying forward
+
+Measured on the trainer's synced journal (trainer-diag #8933, `trades_in_table`
+4609, `max(closed_at)` 2026-08-13T00:34Z — freshness stated, and the ~8 MB
+repo-root stub deliberately avoided):
+
+- The three **live, shipped** donchian heads have driven **exactly 2 exits in a
+  month** (`exit_reason='exit_head'`, sum_pnl +1.24, win 1/2).
+- Those legs closed **13 trades total** since the 2026-07-12 go-live, against the
+  **n=15** the promotion cited. So the live evidence base has roughly *doubled*
+  — to ~28, still at the `MIN_OOS_TRADES` floor of 25.
+
+**So "re-evaluate the live arm at accrued n" is not yet answerable for donchian,
+and will not be for months** at ~13 trades/month across three symbols.
+
+That is the structural point: **the heads were shipped on the legs where the live
+arm is slowest to evaluate, and the first contradicting evidence arrived from the
+legs where it is fastest.** A 5m scalp leg accrues live trades an order of
+magnitude quicker than a 1h donchian leg, which is precisely why `ict_scalp_5m`
+was the first place the live arm became evaluable at all. The gate has no
+minimum-n, so sub-floor evidence counted as confirmation at n=15 for a promotion
+and is (rightly) discounted at n=24 for a contradiction.
+
+`BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N`.
+
+### Gaps not yet verified (this continuation)
+
+- **The `future_r_delta` accrual PR #6211 promised for `/ml-review` was not
+  found.** #8933 located the string only in `runtime_logs/m21_entry_head_r2/…`
+  datasets dated 2026-07-14 — not in any live soak log. Whether the promised
+  observability was ever wired is **unconfirmed**, not disproven; a follow-up
+  probe (#8934) asked directly, but its `future_r_delta` block was in the same
+  truncated heredoc and **did not run either** — so this remains genuinely
+  unconfirmed, and the follow-up is still owed.
+- **RESOLVED (#8934): the −$2,115.49 is 100% PAPER. Not one dollar of it is real
+  money.** All four `reconciler_filled` rows are `is_demo=1` / `account_class=paper`
+  (`bybit_portfolio` ×2, `bybit_1` ×2). Splitting the 13 closed-since-go-live rows
+  by funding class:
+
+  | | n (pnl non-null) | sum_pnl |
+  |---|--:|--:|
+  | **real money** (`bybit_2`) | 4 | **+$0.71** (2 wins) |
+  | paper | 7 | −$2,161.00 |
+
+  **Both head-driven exits are real-money** (`bybit_2`): id 3344 +$1.4956 and id
+  3770 −$0.2512, netting **+$1.24** — which reconciles exactly with #8933's
+  `exit_head` sum. Real-money size is 0.003–0.01 BTC, so the live head's entire
+  realised footprint in a month is about one dollar on four-thousandths of a BTC.
+
+  **This is why the check was mandatory rather than optional.** Quoting −$2,115 as
+  a loss on legs carrying a live exit head would have been a confident, alarming,
+  and completely wrong real-money claim — the exact failure CLAUDE.md § "Number
+  provenance" and the *"always state the population"* rule exist to prevent. It
+  was also not safe to *assume* it was fabricated and move on: two of the four
+  rows are genuinely graded (id 3771 `exchange_fill` = MEASURED at −$1,298.88; id
+  4334 `candle_at_close` = ESTIMATED), and only two carry the fabricated
+  `local_markprice` signature (−$405.77, −$151.03). The population, not the
+  provenance, is what made the number harmless.
+
+  ⚠️ **Honesty note on method:** `pnl_source` / `exit_price_source` are **not
+  columns** on `trades` — they live inside the `notes` JSON, and the probe
+  confirmed both are absent from `PRAGMA table_info`. The per-row grades above are
+  **hand-read from those strings, not produced by
+  `src/runtime/provenance.py::classify_pnl`** — the probe's `classify_pnl` block
+  was truncated by a heredoc parse warning and never executed. CLAUDE.md says to
+  import that module rather than re-derive the vocabulary, so treat the per-row
+  buckets as indicative and re-run through `classify_pnl` before quoting them. The
+  **real-vs-paper split is not affected** — it comes from the `is_demo` /
+  `account_class` columns directly.
+
+- Whether IBKR could serve native MES/MGC/MHG daily history **was not tested** —
+  only that no such file exists on the trainer.
