@@ -13039,6 +13039,20 @@
       "impact": "The E1->E2 gate's 'the live validation set agrees in sign' arm -- which the program doc calls a HARD STOP ('if the head's edge disappears on live trades, it learned the engine, not the market') -- is still unevaluated for every ict_scalp leg. Three legs now carry per-leg harness verdicts (eth 2/3 and 3/3, sol 3/3 and 3/3, xrp 3/3 and 2/3 beats) that CANNOT be promoted past E1 without it. Recording any of them as passed would overclaim.",
       "resolution_criteria": "A build_report.json for an ict_scalp round shows a non-zero `live` count under the SCALP leg's own family key (not only under donchian/pullback), its e1_report reads live > 0, and the round exits NON-ZERO when any family's training raises. Verified on a real trainer round, not a fixture.",
       "suggested_fix": "Filter the live arm by the LEG being graded rather than by instrument, so a round cannot manufacture families it was not asked for; report the no_candles denominator PER FAMILY so a leg whose live rows were all dropped is visible instead of reading as live=0; and propagate a non-zero exit from a family training failure. All three are Tier-1 research tooling."
+    },
+    {
+      "id": "BL-20260813-EXIT-LADDER-HAS-NO-HARNESS-OUTSIDE-ICT-SCALP",
+      "opened_at": "2026-08-13T02:10:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "m20-exit-refinement",
+      "title": "The two remaining pending exit_ladder cells cannot be swept: the ladder harness is ict_scalp-only and the fleet sweep has no exit_ladder lever",
+      "source": "MEASURED 2026-08-13 by reading both entry points, not by inference.\n\nRemaining live-leg exit_ladder cells: squeeze_breakout_4h (BTCUSDT 4h) and fvg_range_15m (BTCUSDT 15m). Neither has a path to a verdict:\n\n  1. .github/workflows/m20-exit-lever-sweep.yml -- its `levers` input enumerates      stale_stop, giveback_stop, trail_geometry, trail_decay, vol_trail. No exit_ladder.\n  2. .github/workflows/ict-scalp-exit-sweep.yml -- defaults to cells=exit_ladder, but its      matrix is HARDCODED to the 7 crypto ict_scalp legs and it invokes      scripts/research/m27/ict_scalp_exit_sweep.py, which is ict_scalp-specific      (m27 path, scalp-named, resolves ict_scalp's own declared exit levers into the base).\n\nSo the 45 exit_ladder cells recorded honest_negative came from the memo (`memo section 7.2 -- banking loses net_R`) and the 1 passed_unshipped from the scalp sweep. There is no harness that would produce a ladder verdict for a squeeze or fvg_range leg.",
+      "impact": "2 of the 44 cells blocking M20's done-condition. Small in count, but they cannot be closed by dispatching anything that exists -- unlike the exit_head_ml block, which is running. Recording them as honest_negative on the strength of the trend-family memo would be inheriting a verdict across strategy families, which the exploder's own rule forbids (`silent or un-run -> pending, never an inherited verdict`).",
+      "resolution_criteria": "A verdicts.json exists for squeeze_breakout_4h and fvg_range_15m with an exit_ladder cell graded against each leg's OWN declared tp geometry (a rung >= the leg's tp_at_r is a provable no-op on a fixed-bracket strategy, memo section 10.2), and both matrix cells cite that run. Closing them by citing the trend-family memo does NOT satisfy this.",
+      "suggested_fix": "Either generalise scripts/research/m27/ict_scalp_exit_sweep.py's ladder cell to take a harness + leg like the fleet sweep does, or add an exit_ladder lever to m20_fleet_exit_sweep.py so the ladder rides the harness each family already has (backtest_squeeze.py for squeeze; the fvg_range harness for fvg). The second is likely cheaper and puts every lever behind one entry point instead of two."
     }
   ],
   "updated_at": "2026-08-11T20:20:00+00:00",
