@@ -898,3 +898,93 @@ and is (rightly) discounted at n=24 for a contradiction.
 
 - Whether IBKR could serve native MES/MGC/MHG daily history **was not tested** —
   only that no such file exists on the trainer.
+
+### §17.1 — I nearly filed a false high-severity finding about a live money-path lever
+
+**The draft claim was: "the exit head has no live observability; PR #6211's promised
+accrual was never wired." It is WRONG, and it was one commit from being filed at
+`severity: high`.** Recording the whole chain, because the near-miss is more
+useful than the conclusion.
+
+**What made it look true** (#8937, against the trainer): `future_r_delta` appears
+in the source only in the offline E0 builder, zero occurrences in `src/`; and a
+`grep -rl exit_head runtime_logs/` returned a single artifact JSON.
+
+**Three errors, all mine, in one probe.**
+
+1. **Wrong host.** `maybe_score_exit_head` is called from `trend_donchian`'s
+   monitor, which runs on the **live VM**. I asked the **trainer**, whose
+   `runtime_logs/` is its own and could never hold those records. Sub-class **B**,
+   implicit input selection.
+2. **A content grep used to enumerate files.** `grep -rl` matches *contents*, so
+   it returned only the artifact that happens to contain the string. The mirror
+   actually holds **two** artifacts. I read "one file matched" as "one file
+   exists" — sub-class **C**, an unasserted denominator, again.
+3. **Reading absence in a rotated log as absence in fact** — see below.
+
+**What the live VM actually says** (#8939/#8940/#8941):
+
+- `shadow_predictions.jsonl`: **29,131 records, 30 model_ids**, window
+  2026-08-05T23:35 → 2026-08-13T07:21. No exit head. **But the log is ROTATED**
+  (`ict-shadow-log-rotate.timer`), and the head's only two real fires closed
+  **2026-07-12T14:46** and **2026-07-21T23:03** — both *before* `oldest_retained`.
+  **Rotation explains the absence completely.**
+- `exit_lever_soak.jsonl`: present, 369 KB, actively written (`trail_decay`,
+  `stale_stop`) — and **none of the three head-carrying legs currently holds an
+  open position** (`trend_donchian` 0 open of 96 rows; `_eth` 0 of 8; `_sol` 0 of
+  7). The scorer has nothing to score, so silence is correct.
+- Both artifacts exist with the right identities: `exit-head-donchian-1h-v1`
+  (**stage `advisory`** — the shipped head, exactly as #6211 requires) and
+  `exit-head-donchian-peak-1h-v1` (stage `shadow`, target `peak_is_in`). **No id
+  mismatch.**
+
+**So: no bug.** The one narrow thing that survives is a documentation
+imprecision, not a missing feature — #6211 says *"the realized `future_r_delta`
+record accrues in the standard soak logs"*, and what actually accrues is the
+**scores**; the realized delta is computed offline at dataset-build time from
+those scores. The data needed does accrue. **Not worth a backlog item, and the
+high-severity one I drafted was deleted rather than filed.**
+
+**What caught it: writing the limit down honestly.** The draft carried
+*"`exit_head_shadow.py` was NOT read — a mis-keyed writer is not ruled out"*. I
+had written that as a caveat to ship. Deciding to resolve my own stated caveat
+instead is what surfaced errors 1–3. **A stated limit is a checklist item; a
+vague one is cover.** That is the transferable lesson, not the exit-head result.
+
+### One real observation that does survive
+
+**The head's live track record is effectively frozen.** Two fires ever, both in
+July, +$1.24 combined on `bybit_2`. And the legs are barely trading:
+
+| leg | closed | rejected + exchange_rejected | open |
+|---|--:|--:|--:|
+| `trend_donchian` | 47 | **45** | 0 |
+| `trend_donchian_eth` | 3 | 5 | 0 |
+| `trend_donchian_sol` | **0** | 7 | 0 |
+
+`trend_donchian_sol` **has never closed a trade**. So two of the three "live
+shipped" heads have essentially no live history at all, and the E1→E2 live arm
+cannot accrue on them at any rate worth waiting for. That is a fact for
+`/ml-review` to weigh against `BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N` — it makes
+"wait for more live trades" not a plan.
+
+**Not over-read:** a high rejection count is not per se a fault — per-trade
+`RiskManager` refusals are the designed behaviour under the Prime Directive, and
+nothing here establishes these are wrong. It is flagged as worth a look, not as a
+defect.
+
+### Probe errors this session, tallied
+
+Five, all caught before publication, one of each diagnostic-provenance sub-class
+plus a repeat:
+
+| # | probe | class | caught by |
+|---|---|---|---|
+| 1 | #8923 arm (b) labelled "ALL 1d", was 13 of 16 + 14 stray 1h rows | **C** | reconciling the pool against the open-cell set |
+| 2 | #8924 `trades` column keyed on a field the rows lack → counted legs | **A** | absurd on its face (`trades=1` beside `rows=1606`) |
+| 3 | #8937 asked the trainer about a live-VM log | **B** | resolving my own stated caveat |
+| 4 | #8937 content-grep used to enumerate files | **C** | the follow-up listing showed 2 files, not 1 |
+| 5 | #8938 diag request with prose where the path parser reads paths | — | the relay's own rejection message |
+
+Every one is in a probe written **to audit evidence quality**. Writing the check
+does not exempt the check.
