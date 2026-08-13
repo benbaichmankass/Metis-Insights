@@ -62,6 +62,15 @@ touched, no Tier-3 change enacted.**
    **undefended default**.
 5. Filed `BL-20260813-TPCAP-REQUESTED-NOT-APPLIED` (resolved) and
    `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE` (open, reframed twice).
+6. **Block-size derivation landed** (`docs/research/M20-E1-block-size-derivation-2026-08-13.md`)
+   at the operator's direction to derive the value from a stated statistical
+   target and accept whatever it says. It says **keep 50**, and it says the
+   more useful finding is upstream of the block size — filed as
+   `BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT`.
+7. **Both of that row's open measurements are now done** (relays #9071 / #9072 /
+   #9074 / #9075, 31 reports — up from the 21 the derivation used), and both
+   land badly for the exit head. See *Validation* below. The doc gained §§ 6–8
+   and the backlog row was rewritten around the results.
 
 ## Validation Performed
 
@@ -79,11 +88,49 @@ touched, no Tier-3 change enacted.**
   4.41R. This is what made the corpus's identical books evidence that *both*
   arms were capped rather than evidence the flag was inert.
 
+- **The exit head's edge, measured two ways it had not been.** Both from the
+  same 31 `e1_report.json` files, per fold-geometry × family:
+  - **Selection is the effect, not a bias on it.** Scoring the *median* of the
+    7 tau arms instead of the max the gate credits flips the sign in **all six
+    non-scalp groups** (`pullback` b=50 +1.362R → **−1.379R**; `donchian`
+    calendar +0.426R → **−4.399R**), while every scalp group stays positive
+    (`ict_scalp_5m` +6.037R). 23–50% of non-scalp folds are *flips* — the
+    median arm loses to doing nothing while the selected arm wins.
+  - **`beats_hard` fails the 2/3 bar in every fold geometry** (58.3% calendar /
+    62.2% b=15 / 61.8% b=50) while `beats_actual` clears it in two of three.
+    The fixed-rule comparison is the binding condition fleet-wide.
+- **Verdict reconstruction verified against the field.** I derived the
+  `candidate`/`honest_negative`/`insufficient_base` formula from
+  `per_leg_summary` source and reconstructed all 35 leg-rows before pulling the
+  actual `verdict` key; the reconstruction matched **35/35**. (The first pull
+  read the key as `candidate`, which does not exist — it returned null for
+  every row. Caught as a key-name miss, not reported as "no leg is a
+  candidate".)
+
 ### Gaps not yet verified
 
-- The **block-size derivation is incomplete.** It needs the dispersion of the
-  paired per-trade difference `d_i = R_model,i − R_actual,i`; relay #9063 is
-  pending. Nothing has been concluded about the right value.
+- **The nested tau selection has NOT been run, and it gates the conclusion.**
+  Median-arm is the expected edge of a tau chosen at *random*: it bounds a
+  sensibly-chosen tau from below and a badly-chosen one from above. The
+  deployment truth sits between the median-arm and best-arm columns, and
+  locating it needs tau picked on each fold's TRAINING half and scored on its
+  TEST half. The reports do not contain that. **"Median-arm is negative" must
+  not be read as "the deployed head would be negative"** — it is not that
+  claim, and the distinction is the whole reason item 4 was added to the
+  backlog row's remaining work.
+- The **"% of edge" ratio is not a usable statistic** and is quoted nowhere:
+  it is unstable near a zero denominator (`pullback` b=15 computes to −3421%
+  purely because its edge is −0.027R).
+- `slv_trend_1h` (4 folds) and `uso_trend_1h` (3 folds) are too thin to carry
+  weight and are excluded from every reading above.
+- **Relay output truncation is a live hazard on this workflow.** #9071's FOLD
+  block hit the comment cap and came back carrying a `... (truncated)` marker;
+  241 of the rows parsed cleanly, which would have read as a complete
+  population had the marker not been checked for. No statistic was computed
+  from it — the aggregates were re-derived on the trainer instead (#9074,
+  #9075) so the arithmetic is never done over a silently-short list. This is
+  sub-class **C** of the diagnostic-provenance rule (unasserted denominator)
+  arriving through the relay rather than through a script.
 - Whether a longer history actually yields the projected trades — the earlier
   regime need not signal at the recent rate. Every projection here applies a
   *recent* measured rate to *older* history and is labelled as such.
@@ -144,6 +191,26 @@ touched, no Tier-3 change enacted.**
    text that never made the claim.
 5. **`EQ_1D_START` does not describe the built files.** Declared default
    `2015-01-01`; measured spans SPY 2010, QQQ 2007, TQQQ/QLD 2016.
+6. **The per-fold vote is cast on `n_leg`, not on the block — my own § 3 was
+   wrong, and it is instance SEVEN of the postscript's pattern.** The
+   derivation models the vote as `P(correct) = Φ(√b · δ)`, substituting the
+   block size for the count the vote is actually computed over. `fold_blocks`
+   cuts blocks over the **family's** pooled trades; `per_leg_summary` casts one
+   vote per **leg** per fold on that leg's own `n_trades`. Measured (#9074):
+   multi-leg families vote at median `n_leg` of **3** (`pullback` b=15, min 1),
+   **5** (`allmix`), and **12** (`pullback` b=50), while every single-leg family
+   sits exactly at 50. So the doc's headline 0.771 per-fold reliability is true
+   only for single-leg families; the 1d equity legs the document is *about*
+   vote at 0.57–0.64. Same shape as the others — I read a value I had assumed
+   (`b`) as the one that was measured (`n_leg`), and it was the reassuring
+   reading. Corrected in § 6; the keep-50 recommendation is **strengthened**,
+   not reversed, because raising `b` in a multi-leg family buys `n_leg` only in
+   proportion to that leg's share.
+7. **Verdicts flip across fold geometries, as the report's own note warns.** Of
+   the 8 legs measured under both trade-folds and calendar-folds, 7 agree and
+   `iaum_pullback_1d` disagrees (`honest_negative` under trade-folds,
+   `candidate` under calendar-folds). Low rate, stated rather than smoothed —
+   the `fold_mode` field exists precisely so this is legible.
 
 ## Risks and Follow-Ups
 
@@ -168,13 +235,30 @@ touched, no Tier-3 change enacted.**
 
 ## Next Recommended Sprint
 
-Land the block-size derivation from relay #9063's per-fold data, then re-grade
-the eight blocked `exit_head_ml` cells against the derived value — **including
-the possibility that it lands stricter than 50 and blocks legs currently
-gradeable.** Required verification: the derived block must satisfy both bounds
-recorded here (`b >= 13` from `MIN_OOS_TRADES=25` with `u >= 2`; `b <= N/3`
-for a leg to be gradeable at all), and any re-grade must state which value it
-was graded under, since verdicts at different blocks are not comparable.
+**Run the nested tau selection, then take the family-scope decision.** The
+block-size question is closed (keep 50, derived); the open question is now
+whether `exit_head_ml` is a fleet-wide capability at all.
+
+1. **Nested tau selection inside the walk-forward** — pick τ on each fold's
+   training half, score it on the test half, per leg. This is the one
+   measurement that separates "the head has an edge" from "seven arms and
+   hindsight have an edge", and neither the best-arm figure the gate credits
+   nor the median-arm figure measured here answers it.
+2. **Then** decide whether `exit_head_ml` is scalp-family-scoped. If the edge
+   survives only for scalp, the trend/pullback `exit_head_ml` cells are not a
+   coverage GAP to be filled but a question already answered in the negative —
+   which changes what the M20 matrix should *record* for them, and is therefore
+   an operator decision, not a grading one. **Queued for the operator; not
+   taken in-session.**
+3. **Do not resolve any of this by moving a threshold.** `beats_hard` failing
+   the 2/3 bar in all three fold geometries is the gate working. Relaxing it
+   would convert a measured negative into a recorded positive.
+
+Required verification for any re-grade: state which `fold_mode` **and** which
+`--min-fold-trades` it was graded under (verdicts differ across both, measured
+above), and whether the leg's family is single- or multi-leg, since § 6 shows
+the per-fold reliability differs by roughly 0.14–0.20 between them at the same
+nominal block.
 
 ## Wrap-Up Check
 
@@ -190,12 +274,15 @@ was graded under, since verdicts at different blocks are not comparable.
 
 ## Postscript — the failure mode that recurred all session
 
-Five times this session I read an **absent or assumed** value as a **measured**
-one: a null cap as "uncapped"; my own hand-count as authoritative over the
-canonical roll-up (22 vs 14); a backtest quantity as a live one ("6–15 years"
-of waiting); a shell variable as the artifact it configures; and "100 trades"
-inherited from a ref instead of derived from the code. Four were caught by
-checking, one by the operator.
+**Seven times** this session I read an **absent or assumed** value as a
+**measured** one: a null cap as "uncapped"; my own hand-count as authoritative
+over the canonical roll-up (22 vs 14); a backtest quantity as a live one
+("6–15 years" of waiting); a shell variable as the artifact it configures;
+"100 trades" inherited from a ref instead of derived from the code; a defect
+asserted in `train_exit_head.py` without grepping it, *inside this very
+document*; and the block size `b` standing in for the per-leg vote count
+`n_leg` in a derivation whose entire arithmetic rests on that number. Five were
+caught by checking, one by the operator, one by a later measurement.
 
 The common shape is that each wrong reading was the *reassuring* one — it made
 a problem smaller, closer to solved, or someone else's. The corpus relabel, the
