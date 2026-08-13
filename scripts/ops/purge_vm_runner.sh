@@ -63,6 +63,41 @@ NEW_SRC="${REPO_DIR}/deploy/ict-ufw.sudoers"
 DISPATCH="/usr/local/bin/claude-vm-dispatch"
 RUNNER_UNIT="/etc/systemd/system/claude-vm-runner@.service"
 
+
+# ── Existence checks under /etc/sudoers.d MUST run as root ───────────────────
+#
+# 2026-08-13, found by this script's OWN post-state block on its first live run
+# (issue #8993). The script runs as `ubuntu`; /etc/sudoers.d is root-only, so a
+# plain `[ -f /etc/sudoers.d/x ]` returns FALSE for every file in there whether
+# or not it exists. The run reported, in the same breath:
+#
+#     [ok] installed /etc/sudoers.d/ict-ufw     <- sudo install succeeded
+#     [FAIL] MISSING: /etc/sudoers.d/ict-ufw    <- unprivileged [ -f ] said no
+#     [ok] ufw grant resolves                   <- ...yet the grant works
+#
+# `sudo -n -l` resolving is PROOF that some file in that directory grants ufw,
+# so the existence check was provably wrong rather than ambiguously wrong.
+#
+# The dangerous half is not the false FAIL, it is the false PASS: the removal
+# step read "already absent" for the dead grant and therefore never tried to
+# remove it. A check that cannot distinguish "absent" from "I am not allowed to
+# look" reports the second as the first -- the collapsed-state class, in the
+# assertion that exists to prove this action worked.
+#
+# `sudo test -f` asks the question with the privilege needed to answer it. It
+# is a THREE-state answer, and the caller must branch on all three:
+#   0 -> present · 1 -> genuinely absent · 2 -> could not determine
+priv_exists() {
+    local path="$1"
+    if ! sudo -n test -e "${path}" 2>/dev/null; then
+        # Distinguish "sudo worked and the file is not there" from "sudo itself
+        # could not run" -- otherwise a broken sudo reads as a clean absence.
+        if sudo -n true 2>/dev/null; then return 1; fi
+        return 2
+    fi
+    return 0
+}
+
 changed=0
 
 log "==> purge-vm-runner (BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT)"
@@ -114,14 +149,19 @@ fi
 log "  [ok] verified: ufw still resolves passwordless via the new file"
 
 # ── Step 3: now, and only now, remove the dead grant + its artifacts ─────────
-if [ -f "${OLD_SUDOERS}" ]; then
+priv_exists "${OLD_SUDOERS}"; _old_state=$?
+if [ "${_old_state}" -eq 0 ]; then
     if sudo rm -f "${OLD_SUDOERS}"; then
         log "  [ok] removed ${OLD_SUDOERS} (dispatch root grant GONE)"; changed=1
     else
         log "  [WARN] could NOT remove ${OLD_SUDOERS} — the post-state check will FAIL"
     fi
+elif [ "${_old_state}" -eq 1 ]; then
+    log "  [--] ${OLD_SUDOERS} genuinely absent (verified as root)"
 else
-    log "  [--] ${OLD_SUDOERS} already absent"
+    log "ABORT: cannot determine whether ${OLD_SUDOERS} exists (sudo unavailable)."
+    log "       Refusing to report a purge that was never verified."
+    exit 1
 fi
 
 if [ -e "${DISPATCH}" ]; then
@@ -151,10 +191,19 @@ fi
 log "==> POST-STATE"
 fail=0
 for p in "${OLD_SUDOERS}" "${DISPATCH}" "${RUNNER_UNIT}"; do
-    if [ -e "${p}" ]; then log "  [FAIL] still present: ${p}"; fail=1
-    else log "  [ok] absent: ${p}"; fi
+    priv_exists "${p}"; _st=$?
+    case "${_st}" in
+        0) log "  [FAIL] still present: ${p}"; fail=1 ;;
+        1) log "  [ok] absent (verified as root): ${p}" ;;
+        *) log "  [FAIL] UNDETERMINED: ${p} — could not check as root; this is NOT an absence"; fail=1 ;;
+    esac
 done
-if [ -f "${NEW_SUDOERS}" ]; then log "  [ok] present: ${NEW_SUDOERS}"; else log "  [FAIL] MISSING: ${NEW_SUDOERS}"; fail=1; fi
+priv_exists "${NEW_SUDOERS}"; _new_st=$?
+case "${_new_st}" in
+    0) log "  [ok] present (verified as root): ${NEW_SUDOERS}" ;;
+    1) log "  [FAIL] MISSING: ${NEW_SUDOERS}"; fail=1 ;;
+    *) log "  [FAIL] UNDETERMINED: ${NEW_SUDOERS} — could not check as root"; fail=1 ;;
+esac
 if sudo -n -l /usr/sbin/ufw >/dev/null 2>&1; then
     log "  [ok] ufw grant resolves — the #537/#542/#545 recovery path is intact"
 else
