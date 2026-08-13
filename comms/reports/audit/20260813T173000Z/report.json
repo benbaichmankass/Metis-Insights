@@ -1,0 +1,248 @@
+{
+  "report_id": "AUDIT-20260813",
+  "window": "audit",
+  "reviewer": "claude (full-system-audit + system-review, session 2026-08-13)",
+  "prior_report_id": "AUDIT-20260804",
+  "reviewed_at": "2026-08-13T17:30:00+00:00",
+  "window_start": "2026-08-13T00:00:00+00:00",
+  "window_end": "2026-08-13T17:30:00+00:00",
+  "overall_assessment": "A REAL-MONEY sizing defect was found, root-caused, fixed under operator approval, and shipped \u2014 but it is DEPLOYED-UNVERIFIED, and three of the session's own hypotheses were refuted en route. Read the caveats, not just the headline.",
+  "consolidated": {
+    "roll_up_grade": "attention",
+    "headline": "Combined /full-system-audit + /system-review. THE FINDING: on bybit_2 (REAL MONEY) Bybit returns every ACCOUNT-level margin aggregate as the empty string, so totalAvailableBalance was unusable and the margin pre-flight cap silently fell back to TOTAL EQUITY \u2014 counting initial margin already pledged to open positions as free. NINE venue refusals (ErrCode 110007) across 3 strategies and 2 symbols = 30% of that account's orders in the window, and LATENT not cleared. Found only by widening a filter from one strategy to the whole account; every prior read was structurally incapable of seeing it. FIXED Tier-3/Tier-2 with explicit operator approval (#9039): available margin now derives from the USDT COIN block (equity - totalPositionIM - totalOrderIM, all broker-reported), the equity fallback subtracts ESTIMATED pledged margin, and every rejection row is stamped with its basis. Validated four ways before shipping (0.05% against an independent journal reconstruction; 0.22% against the venue's own posIM; inside a contradiction bound off Bybit's own refusal; replays the rejection window to 0.008 BTC, the size the account was already filling at). STATUS: DEPLOYED (5bbb3416) BUT LIVE-UNVERIFIED \u2014 bybit_2's newest journal row predates the deploy by two days, so nothing carries a margin_basis stamp yet. ALSO SHIPPED: the AVAX venue-max clamp (filed headline DISPROVED), the VM-runner sudoers purge on a root-verified post-state, a 14-day test time bomb reddening main, and a pytest-run short-circuit that let a PR merge having executed ZERO tests. HONESTY: CI caught 8 failures the session missed, two serious \u2014 an UnboundLocalError on the exact failure path the new stamp exists to record, and a RE-CREATED halt vector that would refuse every trade on an account whose journal over-reports open notional (451x measured under netting). Root cause of the misses: a pytest -k filter that excluded every failing test. NOT DONE: the doc-stale backfills.",
+    "operator_priorities": [
+      {
+        "title": "bybit_2 margin fix is DEPLOYED but LIVE-UNVERIFIED \u2014 one read closes it",
+        "detail": "No bybit_2 dispatch since 2026-08-11, so no row carries a margin_basis stamp. Query trades for bybit_2 for a row created after 2026-08-13T17:00Z and read notes.margin_basis: kind=coin_derived (basis ~226) CONFIRMS; equity_unadjusted/equity_minus_pledged/equity_pledged_implausible means the coin-block rung is INERT and the row REOPENS at high. Do NOT substitute a journalctl tail \u2014 a 400-line tail covers 43 SECONDS.",
+        "tier": "1 (read only)",
+        "rank": 1
+      },
+      {
+        "title": "BL-20260701-BYBIT-AVAILABLE-FIELD item 3: the deprecated rung is dead code wearing a trap",
+        "detail": "availableToWithdraw is still the third rung of the ladder. Measured today it fires on NONE of the three Bybit books. Removing it is correct but is its own order-path change and was deliberately not smuggled in behind Part A's approval.",
+        "tier": "2/3 \u2014 operator decision",
+        "rank": 2
+      },
+      {
+        "title": "BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED needs a pooling decision",
+        "detail": "Blocked on an operator call, not on capability.",
+        "tier": "operator decision",
+        "rank": 3
+      },
+      {
+        "title": "Doc-stale backfills from the audit half remain unwritten",
+        "detail": "Velotrade doc, binance_connector.py, 54->55 strategy cells, ten undocumented API routes, Caddy docs + _CANONICAL_UNITS. Identified, not written.",
+        "tier": "1",
+        "rank": 4
+      }
+    ],
+    "backlog_summary": {
+      "note": "Net GROWTH again, deliberately. Several new rows exist because read surfaces finally existed to see the defects, and TWO are defects in this session's own earlier work (the venue-max clamp's operator invisibility, filed by a concurrent session; and the halt vector, caught by CI). Inflating the close count with thin resolutions would defeat the point of the drain.",
+      "resolved_this_session": [
+        "BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX (headline disproved, cap derived, clamp shipped)",
+        "BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT (root-verified post-state)",
+        "BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED",
+        "BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS (resolved_pending_live_verification)"
+      ],
+      "filed_this_session": [
+        "BL-20260701-BYBIT-AVAILABLE-FIELD (filed RETROACTIVELY \u2014 five code citations pointed at no row)",
+        "BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS",
+        "BL-20260813-1D-FRAME-DID-NOT-CACHE-AFTER-CAP-RAISE (unexplained)"
+      ]
+    },
+    "monitoring": [
+      {
+        "item_id": "bybit2-margin-basis-live-verification",
+        "domain": "health",
+        "category": "awaiting-evidence",
+        "detail": "Part A/B deployed (5bbb3416) but bybit_2 has not dispatched since 2026-08-11, so no row carries a margin_basis stamp. ONE READ closes it: a bybit_2 trades row created after 2026-08-13T17:00Z, then notes.margin_basis.kind. coin_derived (~226) confirms; equity_unadjusted/equity_minus_pledged/equity_pledged_implausible REOPENS at high. Do NOT substitute a journalctl tail \u2014 400 lines covers 43 seconds.",
+        "next_check": "next session / on the next bybit_2 dispatch"
+      },
+      {
+        "item_id": "deprecated-availableToWithdraw-rung",
+        "domain": "health",
+        "category": "awaiting-operator",
+        "detail": "Third rung of the available-margin ladder. Fires on NONE of the three Bybit books today \u2014 dead code wearing a trap. Removal is its own order-path change.",
+        "next_check": "operator decision"
+      },
+      {
+        "item_id": "venue-max-clamp-operator-invisibility",
+        "domain": "health",
+        "category": "awaiting-work",
+        "detail": "BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE \u2014 filed by a CONCURRENT session against the clamp this session shipped. This session's own loose end.",
+        "next_check": "next health-review"
+      },
+      {
+        "item_id": "audit-half-doc-backfills",
+        "domain": "docs",
+        "category": "awaiting-work",
+        "detail": "Velotrade doc, binance_connector.py, 54->55 strategy cells, ten undocumented API routes, Caddy docs + _CANONICAL_UNITS. Identified in the audit half, not written.",
+        "next_check": "next audit/doc session"
+      }
+    ],
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": null
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": null
+      },
+      {
+        "unit": "ict-git-sync.timer",
+        "state": "active",
+        "sub_state": "waiting",
+        "active_enter_iso": null
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "summary": "NOT ASSESSED this session \u2014 it was an audit + real-money-defect session, not a promotion/ML review. Recorded explicitly so the omission is visible rather than read as 'nothing to report'.",
+        "assessed": false
+      },
+      "ml_training_health": {
+        "summary": "NOT ASSESSED this session \u2014 it was an audit + real-money-defect session, not a promotion/ML review. Recorded explicitly so the omission is visible rather than read as 'nothing to report'.",
+        "assessed": false
+      },
+      "soak_status": [
+        {
+          "soak": "(none reviewed)",
+          "state": "not_assessed",
+          "detail": "No soak was assessed. Stated rather than omitted \u2014 an empty soak block and an unexamined one look identical otherwise."
+        }
+      ],
+      "flags_raised": [
+        "REAL MONEY: 30% of bybit_2's orders in the window were venue-refused (9x ErrCode 110007) across ict_scalp_5m, trend_donchian and xrp_pullback_2h. Fixed and deployed, but LIVE-UNVERIFIED.",
+        "A halt vector was RE-CREATED in this session's own fix and caught by CI, not by the author \u2014 unconditional pledged-margin subtraction refuses every trade on an account whose journal over-reports open notional (451x measured under netting).",
+        "pytest-run was letting PRs merge having executed ZERO tests (third recurrence of the class); #8994 merged that way.",
+        "A test time bomb reddened main at a wall-clock instant \u2014 second in six days."
+      ],
+      "backlog_drive": {
+        "summary": "Four rows disposed and three filed. Net movement is roughly flat by count and strongly positive by weight: the four closed include a real-money order-path defect and two CI-integrity defects that were letting unverified code reach main. Two of the three filed are defects in this session's own earlier work, which is the honest direction for a backlog to move when read surfaces improve.",
+        "health": {
+          "drained": [
+            {
+              "id": "BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS",
+              "disposition": "resolved_pending_live_verification \u2014 Tier-3 fix shipped (#9039), deployed 5bbb3416"
+            },
+            {
+              "id": "BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX",
+              "disposition": "resolved \u2014 filed headline disproved, cap derived from the venue's own error text, clamp shipped"
+            },
+            {
+              "id": "BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT",
+              "disposition": "resolved on a root-verified post-state"
+            },
+            {
+              "id": "BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED",
+              "disposition": "resolved \u2014 relevance filter fixed + regression-tested with a negative control"
+            }
+          ],
+          "snoozed": [],
+          "promoted": [],
+          "deferred": [
+            {
+              "id": "BL-20260701-BYBIT-AVAILABLE-FIELD",
+              "reason": "Waiting on an OPERATOR decision: removing the deprecated availableToWithdraw rung is an order-path change and must not ride on an approval granted for something else."
+            },
+            {
+              "id": "BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED",
+              "reason": "Waiting on an OPERATOR pooling decision; the measurement is done, the call is not mine."
+            },
+            {
+              "id": "BL-20260813-1D-FRAME-DID-NOT-CACHE-AFTER-CAP-RAISE",
+              "reason": "Waiting on SOAK: the 1d frame did not drop after the cap raise on an n=4-tick warm read; needs a larger sample before the cause is diagnosable."
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "snoozed": [],
+          "promoted": [],
+          "deferred": []
+        },
+        "ml": {
+          "drained": [],
+          "snoozed": [],
+          "promoted": [],
+          "deferred": []
+        }
+      },
+      "execution_capture": {
+        "note": "Not a per-strategy execution-capture review \u2014 this session was audit + defect work. Stated rather than silently omitted. What WAS measured on execution capture: 9 of bybit_2's orders in the window never reached the exchange at all (110007), which is an execution-capture gap by any reading, and it is escalated in flags_raised.",
+        "anomalies": [
+          {
+            "strategy": "ict_scalp_5m",
+            "reviews_open": 1,
+            "detail": "7 of the 9 bybit_2 110007 refusals. Root-caused and fixed this session (#9039); DEPLOYED but LIVE-UNVERIFIED \u2014 the leg has produced no actionable BTC setup since 2026-08-04, so the fix has had no dispatch to prove itself on."
+          },
+          {
+            "strategy": "trend_donchian",
+            "reviews_open": 1,
+            "detail": "1 of the 9 refusals (BTCUSDT). Same root cause, same fix."
+          },
+          {
+            "strategy": "xrp_pullback_2h",
+            "reviews_open": 1,
+            "detail": "1 of the 9 refusals (XRPUSDT). Same root cause, same fix."
+          }
+        ],
+        "summary": "9 of bybit_2's orders in the window never reached the exchange (ErrCode 110007) \u2014 an execution-capture gap by any reading. Root-caused and fixed; DEPLOYED but LIVE-UNVERIFIED.",
+        "dollars_reconciled": null,
+        "per_strategy": [
+          {
+            "strategy": "ict_scalp_5m",
+            "book": "real_money",
+            "state": "anomaly",
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null
+          },
+          {
+            "strategy": "trend_donchian",
+            "book": "real_money",
+            "state": "anomaly",
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null
+          },
+          {
+            "strategy": "xrp_pullback_2h",
+            "book": "real_money",
+            "state": "anomaly",
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null
+          }
+        ]
+      }
+    }
+  },
+  "health": {
+    "overall_assessment": "Attention. One real-money defect fixed but unverified live; the supporting observability is materially better than at session start (four-state margin read, a Bybit diag arm that did not exist, margin_basis on rejection rows).",
+    "findings": {
+      "bybit_2 margin basis (REAL MONEY)": "9x ErrCode 110007 across 3 strategies / 2 symbols = 30% of the account's orders. Cap ran on total equity because every account-level margin field is ''. Fixed (#9039), deployed 5bbb3416, LIVE-UNVERIFIED.",
+      "Bybit available-margin read": "Was a bare Optional[float] collapsing broker-truth / deprecated-substitute / could-not-look into one value. Now FOUR states registered with collapsed-state-guard, with four staged sub-reasons inside 'unavailable'.",
+      "Read surface that did not exist": "/api/diag/broker_account_status had no Bybit arm \u2014 there was no way to ask a live Bybit account which figure it would serve. Added, with margin_fields + the whole USDT coin block + coins_other.",
+      "AVAX venue-max": "Filed headline DISPROVED \u2014 the leg fills below 22,000 and fails only above. Cap derived from Bybit's own error text, separating 22 of 22 outcomes with zero overlap.",
+      "CI integrity": "pytest-run short-circuited to green in 9 seconds for scripts/-only diffs; #8994 merged having executed no tests. Third recurrence of the class. Fixed + regression-tested.",
+      "Test time bomb": "A fixture with hardcoded dates aged out of a rolling 14-day SQL window at exactly 2026-08-13T11:00:00Z, reddening main. Second time bomb in six days.",
+      "VM-runner sudoers purge": "Resolved on a root-verified post-state. Both prior failures were in the VERIFICATION, never the work; attempt 1 reached the right answer by an invalid method and that is recorded.",
+      "Self-inflicted, caught by tooling not by the author": "An UnboundLocalError on the failure path (an AST check that verified line ORDER, not exception control flow); a re-created halt vector (unconditional pledged-margin subtraction refuses every trade when the journal over-reports open notional \u2014 451x measured under netting); a NameError from a missing module logger. All caught by CI or by a pre-existing test, after a pytest -k filter excluded every failing test locally.",
+      "A null result nearly misread": "Verifying the fix's deployment, a 400-line journalctl grep returned zero hits and looked like falsification. It covered 43 SECONDS. Sub-class C of the diagnostic-provenance rule, aimed at the session's own work; the durable instrument is the margin_basis journal stamp.",
+      "Prop bridge": "One operator-reported Breakout fill logged (ETHUSDT short 3.0 @ 1874.34). pnl deliberately left NULL \u2014 the screenshot's +6.18 is OPEN P/L; it rides as open_pnl_usd so nothing aggregating realized PnL can swallow an unrealized number. Read back to confirm."
+    }
+  },
+  "performance": null,
+  "ml": null,
+  "artifacts": null,
+  "claude_channel_ping": null
+}

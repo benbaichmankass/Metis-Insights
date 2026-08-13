@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "AUDIT-20260813",
+      "window": "audit",
+      "generated_at": "2026-08-13T17:30:00+00:00",
+      "window_start": "2026-08-13T00:00:00+00:00",
+      "window_end": "2026-08-13T17:30:00+00:00",
+      "roll_up_grade": "attention",
+      "headline": "Combined /full-system-audit + /system-review. THE FINDING: on bybit_2 (REAL MONEY) Bybit returns every ACCOUNT-level margin aggregate as the empty string, so totalAvailableBalance was unusable and the margin pre-flight cap silently fell back to TOTAL EQUITY \u2014 counting initial margin already pledged to open positions as free. NINE venue refusals (ErrCode 110007) across 3 strategies and 2 symbols = 30% of that account's orders in the window, and LATENT not cleared. Found only by widening a filter from one strategy to the whole account; every prior read was structurally incapable of seeing it. FIXED Tier-3/Tier-2 with explicit operator approval (#9039): available margin now derives from the USDT COIN block (equity - totalPositionIM - totalOrderIM, all broker-reported), the equity fallback subtracts ESTIMATED pledged margin, and every rejection row is stamped with its basis. Validated four ways before shipping (0.05% against an independent journal reconstruction; 0.22% against the venue's own posIM; inside a contradiction bound off Bybit's own refusal; replays the rejection window to 0.008 BTC, the size the account was already filling at). STATUS: DEPLOYED (5bbb3416) BUT LIVE-UNVERIFIED \u2014 bybit_2's newest journal row predates the deploy by two days, so nothing carries a margin_basis stamp yet. ALSO SHIPPED: the AVAX venue-max clamp (filed headline DISPROVED), the VM-runner sudoers purge on a root-verified post-state, a 14-day test time bomb reddening main, and a pytest-run short-circuit that let a PR merge having executed ZERO tests. HONESTY: CI caught 8 failures the session missed, two serious \u2014 an UnboundLocalError on the exact failure path the new stamp exists to record, and a RE-CREATED halt vector that would refuse every trade on an account whose journal over-reports open notional (451x measured under netting). Root cause of the misses: a pytest -k filter that excluded every failing test. NOT DONE: the doc-stale backfills.",
+      "html_path": "comms/reports/audit/20260813T173000Z/report.html",
+      "json_path": "comms/reports/audit/20260813T173000Z/report.json",
+      "md_path": "comms/reports/audit/20260813T173000Z/report.md"
+    },
+    {
       "id": "RPT-20260810-051500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-10T05:15:00+00:00",
