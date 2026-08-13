@@ -13400,8 +13400,50 @@
         "docs/research/m20-1d-fleet-pooling-2026-08-13.md"
       ],
       "limits_of_this_check": "The contradiction is measured on EXACTLY ONE leg (ict_scalp_5m, 5m scalp). Donchian 1h is a different family with a different hold-time distribution; the mechanism is plausibly general but must not be read across without measuring. Equally, 'the scalp leg is special' must not be assumed either -- that is the assumption this item exists to test."
+    },
+    {
+      "id": "BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC",
+      "title": "backtest_trend.py --symbol is a display LABEL while --data silently defaults to a BTC fixture; account_compat_matrix.py has the same shape",
+      "status": "open",
+      "severity": "high",
+      "tier": 1,
+      "area": "research/harness",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "trainer relays #8969 (the void run) and #8975 (the corrected re-run)",
+      "what_to_check": "scripts/backtest_trend.py:885 `--data` defaults to data/backtest_candles.csv -- 5,001 rows of BTC 1-MINUTE candles spanning 2022-07-23..27 -- while `--symbol` (:887) only labels the output. Passing --symbol SOLUSDT without --data therefore grades BTC-1m-over-one-long-weekend and prints it under a 'SOLUSDT 1h' heading. MEASURED 2026-08-13 (#8969): a breakout_1 prop EV/survival gate returned a confident skip at ev_net_usd -$69,945 (SOL) / -$138,467 (ETH), computed entirely from that fixture and extrapolated from 3.5 days to a '(12-mo)' horizon. The corrected run (#8975) on the real per-symbol data returned ROUTE at +$483 / +$883 -- the verdict INVERTED. scripts/prop/account_compat_matrix.py:258 has the identical shape, defaulting --data to /home/user/ict-trader-data/btc_5m.parquet: two harnesses in one call chain, two silent BTC fallbacks. Diagnostic-provenance sub-class B (implicit input selection) feeding sub-class A (the label names a quantity the code never read). THE TELL that caught it, worth keeping: two DIFFERENT symbols returned byte-identical data spans, and 74 trades in 84 hourly bars is arithmetically impossible. Neither is visible unless the span is printed and read. scripts/research/m20_fleet_exit_sweep.py::resolve_data is the only caller that avoids this, because it carries its own resolver. FIX: make --data required, or default it to resolve_data(symbol, tf), or emit a loud warning when the fixture path is used with a --symbol that is not BTC. A run whose declared symbol and loaded data disagree should refuse, not print.",
+      "why_it_matters": "This sits directly under the prop-account routing gate, i.e. a Tier-3 live-wiring decision. The void run produced a plausible, confidently-formatted verdict with the WRONG SIGN. Nothing in the output said which file it read.",
+      "resolution_criteria": "Run `scripts/backtest_trend.py --symbol SOLUSDT --timeframe 1h` with NO --data. Closable when it either exits non-zero naming the missing input, or loads the SOLUSDT file -- confirmed by the printed `  data <start> -> <end>` line NOT reading `2022-07-23 21:24:00+00:00 -> 2022-07-27 08:43:00+00:00` (the BTC fixture span). Repeat for `scripts/prop/account_compat_matrix.py --symbol SOLUSDT` with no --data against its own btc_5m.parquet default. BOTH harnesses must pass; fixing one leaves the call chain broken. A run that still silently loads the fixture keeps this row open however good the surrounding docs are."
+    },
+    {
+      "id": "BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER",
+      "title": "A guard that greps for the bad value reads a CRASH as a pass; pair it with a stale artifact and it certifies the previous run",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "research/tooling",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "trainer relay #8973",
+      "what_to_check": "After BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC, the follow-up probe guarded the input with `grep -qF \"<fixture span>\" out.txt` -- i.e. it tested for the ABSENCE of the wrong answer. The harness then died at import (ModuleNotFoundError: pandas, bare python3 instead of the venv), printed no span at all, and the guard read that silence as innocence. Compounding it, the emit path was reused from the prior run and never truncated, so `wc -l` reported the PREVIOUS void run's ledger: the probe printed '-- emitted 74 trades' / '129 trades', byte-identical to #8969, for a run that computed nothing. Had numpy been importable, it would have produced a confident SOL/ETH prop verdict off BTC 1-minute data, now laundered through a guard that certified the input. An unrelated missing dependency is the only reason it did not. PATTERN TO ENFORCE (already applied in #8975): assert the evidence is PRESENT and correct, never that the wrong value is absent; truncate an artifact before writing it; check the exit code; and give each refusal its own named state (env_unavailable / harness_error / unverified_input / no_trades / insufficient_sample) so 'we could not look' never reads as a verdict. This is the consumer-side half of sub-class C and the same shape silent-empty-guard catches on the producer side -- consider whether diagnostic-provenance-guard can flag `grep -q <literal>` used as an input-provenance check in scripts/{ml,research,ops}/.",
+      "why_it_matters": "The guard was written specifically to prevent the defect it then let through. A guard that is cheaper to satisfy than to actually pass is worse than no guard (the new-table-wiring-guard lesson).",
+      "resolution_criteria": "Closable when a check flags `grep -q <literal>` (and equivalents) used as an INPUT-PROVENANCE test in scripts/{ml,research,ops}/, demonstrated the way the other guards self-test: plant a probe that greps for a bad value, see it flagged; plant one that asserts a positive match plus a non-zero exit code, see it pass. Absent a new check, closable when diagnostic-provenance-guard's --all run over those directories reports zero absence-tests AND that count is shown to be a real denominator (a planted positive is detected), so a clean result is not just an empty scan."
+    },
+    {
+      "id": "BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION",
+      "title": "pull-and-deploy silently skips the post-deploy version assertion when DIAG_READ_TOKEN is unset, and still reports success",
+      "status": "open",
+      "severity": "medium",
+      "tier": 2,
+      "area": "ops/deploy",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "system-action run 31684933837 (issue #8974), deploying af9be48",
+      "what_to_check": "scripts/deploy_pull_restart.sh emitted '>>> Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable).' and then '>>> Recorded deploy marker: af9be48' + wrapper exit 0. So the one step that confirms the RUNNING process actually rolled forward did not run, and the deploy reported success anyway. On this particular run the roll-forward is independently evidenced (post-sync HEAD printed, systemd restart visible in the journal tail), but that is luck of the log format, not the assertion. The check exists precisely for the BL-20260706 class, where the on-disk script was itself stale and its own fetch could not pull the fix that would repair it. Skipping it silently reproduces the condition it guards. FIX: make the skip a loud WARN in the workflow comment (not just a log line), or read the token the same way the prop-report workflow does (sourced from /etc/ict-trader/web-api.env on the VM), or fall back to asserting `git rev-parse HEAD` against the systemd MainPID's cwd. Also seen in the same run and probably benign but unexamined: 'scripts/install_systemd_units.sh: line 392: /etc/ict-vm-role: No such file or directory' on the live trader, which is why both gateway timers log 'skip enable (gateway-only; host role=unset)'. Correct outcome, but it reaches it via a file-not-found error rather than a declared role.",
+      "why_it_matters": "A deploy that cannot verify what is running is a green that checked nothing, on the money box.",
+      "resolution_criteria": "Closable when a real `pull-and-deploy` system-action issue comment either (a) shows the post-deploy version assertion RUNNING and matching the deployed SHA, or (b) surfaces the skip as an explicit WARN in the COMMENT BODY -- not only in the log tail -- so an operator reading the comment cannot mistake the run for verified. Verify by reading the comment on the next deploy, not by reading the script."
     }
   ],
-  "updated_at": "2026-08-13T06:47:00+00:00",
+  "updated_at": "2026-08-13T09:30:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
