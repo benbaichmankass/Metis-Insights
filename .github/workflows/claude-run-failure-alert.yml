@@ -17,11 +17,14 @@ name: claude-run-failure-alert
 # waits hours on a run that failed minutes in. It is the universal backstop; the
 # per-workflow honest issue comment is the session-facing half.
 #
-# NOT noisy by design: it is scoped to the Claude-driven workflows where a
-# waiting-blind failure is the actual cost (the diag/action relays + the
-# GH-runner research builds). Ordinary CI check failures are visible on the PR and
-# are deliberately NOT in scope — an alarm that fires on everything is itself a P1
-# bug (CLAUDE.md § "If you see something, say something").
+# NOT noisy by design: it is scoped to the workflows where a failure is
+# genuinely UNOBSERVED — the Claude-driven diag/action relays and GH-runner
+# research builds (someone is blocked on the result), plus, since 2026-08-13,
+# the cron'd workflows (NOBODY is waiting, which is strictly worse — see the
+# per-entry note in the `workflows:` list). Ordinary CI check failures are
+# visible on the PR and are deliberately NOT in scope — an alarm that fires on
+# everything is itself a P1 bug (CLAUDE.md § "If you see something, say
+# something").
 #
 # `workflow_run` listeners run from the DEFAULT branch (main) — so this is live
 # once merged, and fires regardless of which branch/issue triggered the watched
@@ -42,6 +45,48 @@ on:
       - research-exit-head-build
       - research-panel-build
       - research-symbol-p0-build
+      # ── CRON'D WORKFLOWS (added 2026-08-13, full-system audit) ──────────
+      #
+      # A scheduled run that dies is the SAME failure class this listener was
+      # built for, in its worst form: with a relay at least someone is waiting
+      # and will eventually poke the issue. On a nightly, NOBODY is waiting, so
+      # a failure is not merely un-notified — it is unobservable until an audit
+      # happens to read the Actions API.
+      #
+      # MEASURED 2026-08-13, and it was already biting: `replay-pregate-nightly`
+      # had failed 3 of 3 consecutive nights (runs 31460751157 / 31567167485 /
+      # 31671108501, trainer-VM SSH timeout at head 9/22) and emitted NOTHING.
+      # Its own two notify steps are gated `if: github.event_name == 'issues'`
+      # while the trigger that actually fired was `schedule` — so the schedule
+      # path is silent on success AND failure.
+      #
+      # POPULATION, stated because the first count of it was wrong: there are
+      # 10 cron'd workflows. `Health Snapshot` already notifies on its own
+      # schedule path (via scripts/notify_session.py — a probe grepping for a
+      # literal api.telegram.org missed that and reported it silent), so it is
+      # deliberately NOT listed here; listing it would double-ping. The other 9
+      # are added.
+      #
+      # `macro-valuation-snapshot` + `econ-calendar-produce` are included even
+      # though `macro-producer-liveness` watches them: that check asserts their
+      # OUTPUT is fresh, which is a different question from whether the RUN
+      # failed, and it cannot distinguish "the producer errored" from "the
+      # producer is late". Output-freshness is not run-status coverage.
+      # `macro-producer-liveness` itself is listed too — a silent watchdog is
+      # worse than none.
+      #
+      # Not noisy: these fire at most daily/weekly and ONLY on a dead
+      # conclusion, so a healthy fleet emits zero pings. A recurring ping here
+      # means a nightly is genuinely broken, which is the signal wanted.
+      - diag-relay-sweep
+      - doc-audit-weekly
+      - econ-calendar-produce
+      - econ-event-study
+      - macro-producer-liveness
+      - macro-valuation-snapshot
+      - purge-artifacts
+      - replay-pregate-nightly
+      - research-backtest-augment
     types: [completed]
 
 permissions:

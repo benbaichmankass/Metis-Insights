@@ -41,7 +41,6 @@ EXEMPT: dict[str, str] = {
     "ict-trainer-git-sync.timer": "trainer-VM unit — see ict-trainer-git-sync.service",
     "ict-env-check.service": "one-shot deploy-time env validation, not a recurring monitored unit (no timer)",
     "ict-smoke-once.service": "one-shot smoke test fired manually/at deploy, not a recurring monitored unit (no timer)",
-    "claude-vm-runner@.service": "template unit (instanced per run) — systemctl show on the bare template is meaningless",
 }
 
 

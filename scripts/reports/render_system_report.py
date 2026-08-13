@@ -718,6 +718,62 @@ def _validate_review_coverage(report: dict) -> list[str]:
         val = rc.get(key)
         if val is None or val == "" or val == [] or val == {}:
             violations.append(f"review_coverage.{key} missing/empty")
+    # ── A REVIEW DISPOSITIONS; IT DOES NOT MERELY TOUCH (2026-08-13, binding) ──
+    #
+    # The presence check above was satisfiable by a `deferred` list alone, and
+    # that is exactly what happened: measured across the three backlogs on
+    # 2026-08-13, **75 recorded review touches explicitly said "no new evidence
+    # bearing on this item, carried forward unchanged"**. Honest, and not work —
+    # the guard was green while the backlog grew +129 net over 30 days.
+    #
+    # So `backlog_drive` must now show a real DISPOSITION count: rows drained,
+    # snoozed (behind a date + trigger) or promoted to ROADMAP. Deferring
+    # everything is still permitted — a review can legitimately find nothing
+    # actionable — but it must be SAID in `summary`, not achieved by silence.
+    #
+    # CLAUDE-RULES-CANONICAL § "Backlog governance", rule 5.
+    _NON_REASONS = (
+        "no new evidence", "carried forward", "no time", "didn't look",
+        "did not look", "not looked", "unchanged", "as before", "same as",
+    )
+    disposed = 0
+    for domain in ("health", "performance", "ml"):
+        blk = rc.get("backlog_drive", {}).get(domain) or {}
+        if not isinstance(blk, dict):
+            continue
+        for key in ("drained", "snoozed", "promoted"):
+            v = blk.get(key)
+            if isinstance(v, list):
+                disposed += len(v)
+        # A deferral must name a real blocker. "Carried forward unchanged" is
+        # the shape this rule exists to refuse — it describes the review, not
+        # the row.
+        for d in (blk.get("deferred") or []):
+            reason = str((d or {}).get("reason") or "").strip()
+            if not reason:
+                violations.append(
+                    f"backlog_drive.{domain}: deferred item "
+                    f"'{(d or {}).get('id')}' has no reason")
+                continue
+            low = reason.casefold()
+            if any(nr in low for nr in _NON_REASONS):
+                violations.append(
+                    f"backlog_drive.{domain}: deferred item "
+                    f"'{(d or {}).get('id')}' reason {reason[:60]!r} describes the "
+                    "REVIEW, not a blocker on the row — name what the row is "
+                    "waiting on (soak/data/operator), or dispose of it")
+    if disposed == 0:
+        summary = str(rc.get("backlog_drive", {}).get("summary") or "").strip()
+        # 80 chars is the "you had to actually write a justification" floor,
+        # matching the resolution_criteria guard's reasoning: refuse the empty
+        # and the vacuous, do not attempt to police prose quality.
+        if len(summary) < 80:
+            violations.append(
+                "backlog_drive: ZERO rows drained/snoozed/promoted this run, and "
+                "`summary` does not justify it. A review dispositions; carrying "
+                "every row forward unchanged is not backlog work (75 such touches "
+                "were recorded while the backlog grew +129 net in 30 days)")
+
     # Anti-normalization: a >=2-review execution-capture anomaly must be escalated.
     flags_blob = " ".join(str(f) for f in (rc.get("flags_raised") or []))
     for a in ((rc.get("execution_capture") or {}).get("anomalies") or []):

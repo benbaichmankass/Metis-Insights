@@ -194,6 +194,21 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    purge-vm-runner)
+        # 2026-08-13 (BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT): remove
+        # the dead claude-vm-dispatch passwordless-root sudoers grant from the
+        # live VM while PRESERVING the ufw grant that shared the same file.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            # Exit 3 is the script's deliberate refusal: a claude-vm-runner@
+            # instance was ACTIVE. Nothing in the repo can start one, so that
+            # contradicts the premise of the purge and is a FINDING, not a
+            # transient — it is not "ok", and it is not a crash either.
+            3) result="REFUSED — a runner instance is active; investigate before purging"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     flatten-ib-position|flatten-bybit-position|flatten-alpaca-position)
         # 2026-06-19/2026-06-29/2026-07-15: one-shot guarded flatten of one
         # IB/Bybit/Alpaca position (dry-run unless apply:true).

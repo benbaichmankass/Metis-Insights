@@ -62,11 +62,25 @@ def test_descriptions_within_telegram_limits():
 
 class TestGuards:
     def test_is_halted(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
+        """Drives the ENV VAR, not a module constant.
+
+        Until 2026-08-13 this set `bot.HALT_FLAG_PATH` — a module constant that
+        `is_halted()` no longer reads, because the halt path was single-homed on
+        `runtime_flags.halt_flag_path()` (it had drifted to `/tmp/…` while the
+        pipeline checked `/data/bot-data/…`, so this surface could report the
+        trader RUNNING while it was halted).
+
+        Re-pointing the patch at `HALT_FLAG_PATH` in the environment is not a
+        cosmetic change: had the constant simply been restored to keep this
+        test green, the test would have passed while asserting nothing — it
+        would drive a value no code path consults. Patching the env exercises
+        the resolver the live surface actually uses.
+        """
+        monkeypatch.setenv("HALT_FLAG_PATH", str(tmp_path / "no_flag"))
         assert bot.is_halted() is False
         flag = tmp_path / "halt.flag"
         flag.touch()
-        monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(flag))
+        monkeypatch.setenv("HALT_FLAG_PATH", str(flag))
         assert bot.is_halted() is True
 
     def test_is_authorised_match(self, monkeypatch):

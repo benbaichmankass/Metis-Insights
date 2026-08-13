@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import time
-from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -138,18 +138,35 @@ _STATIC_LOT_RULE: Dict[Tuple[str, str], Tuple[str, str]] = {
     ("SOLUSDT", "linear"): ("0.1", "0.1"),
 }
 
-# (symbol, category) -> ((qtyStep, minOrderQty) strings, monotonic timestamp)
-_LOT_CACHE: Dict[Tuple[str, str], Tuple[Tuple[str, str], float]] = {}
+# (symbol, category) -> ((qtyStep, minOrderQty, maxOrderQty|None) strings,
+# monotonic timestamp). The THIRD slot was added 2026-08-13
+# (BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX): ``maxOrderQty`` was
+# already arriving in the SAME ``lotSizeFilter`` payload this module fetches
+# and was being discarded, so nothing downstream could clamp an order to the
+# venue's per-order ceiling. Measured consequence: ict_scalp_avax_5m sized
+# 23,090-34,526 AVAX against a 22,000 cap and had 18 of 22 sized orders
+# bounced by Bybit while reading healthy on every status surface.
+#
+# ``None`` in the third slot means "the venue published no maximum" and is
+# NEVER conflated with 0.0 — a zero ceiling would refuse every order, so the
+# two must stay distinguishable (the collapsed-state rule).
+_LOT_CACHE: Dict[Tuple[str, str], Tuple[Tuple[str, str, Optional[str]], float]] = {}
 
 
 def _live_lot_rule(
     client: Any, symbol: str, category: str,
-) -> Optional[Tuple[str, str]]:
-    """Fetch ``lotSizeFilter`` (qtyStep, minOrderQty) from instruments-info.
+) -> Optional[Tuple[str, str, Optional[str]]]:
+    """Fetch ``lotSizeFilter`` (qtyStep, minOrderQty, maxOrderQty) from
+    instruments-info.
 
     Spot symbols carry ``basePrecision`` instead of ``qtyStep``; both are
     "the base-asset quantity granularity", so basePrecision is used when
     qtyStep is absent. Returns ``None`` on any error / empty response.
+
+    The third element is the venue's per-order CEILING, or ``None`` when the
+    venue published none. It comes from the same response the step and min
+    already came from — this is a wider read of a payload we were fetching
+    anyway, not a new round-trip.
     """
     try:
         resp = client.get_instruments_info(category=category, symbol=symbol)
@@ -167,7 +184,22 @@ def _live_lot_rule(
     min_qty = lot.get("minOrderQty") or step
     if not step:
         return None
-    return (str(step), str(min_qty))
+    # An ABSENT / unparseable / non-positive maximum resolves to None ("the
+    # venue published no ceiling"), never to 0.0. Collapsing those would turn a
+    # missing field into a ceiling of zero and refuse every order for that
+    # symbol — strictly worse than the bug being fixed.
+    raw_max = lot.get("maxOrderQty")
+    max_qty: Optional[str] = None
+    if raw_max not in (None, ""):
+        try:
+            if Decimal(str(raw_max)) > 0:
+                max_qty = str(raw_max)
+        except (InvalidOperation, TypeError, ValueError):
+            logger.debug(
+                "lot_rule: unparseable maxOrderQty %r for %s %s — treating as absent",
+                raw_max, category, symbol,
+            )
+    return (str(step), str(min_qty), max_qty)
 
 
 def get_lot_rule(
@@ -179,22 +211,49 @@ def get_lot_rule(
     map → ``None`` (rule unknown; caller submits the qty unmodified —
     today's behaviour — rather than aligning to a guessed step).
     """
+    bounds = get_lot_bounds(client, symbol, category)
+    if bounds is None:
+        return None
+    step, min_qty, _max_qty = bounds
+    return (step, min_qty)
+
+
+def get_lot_bounds(
+    client: Any, symbol: str, category: str,
+) -> Optional[Tuple[Decimal, Decimal, Optional[Decimal]]]:
+    """Resolve ``(qtyStep, minOrderQty, maxOrderQty|None)`` for ``symbol``.
+
+    The superset of :func:`get_lot_rule`, which now delegates here so the two
+    can never disagree about the step/min — one resolution, one cache, two
+    views of it.
+
+    The third element is the venue's per-order CEILING, or ``None`` for "the
+    venue published no maximum" (including every entry resolved from the static
+    fallback map, which carries step/min only). ``None`` and ``0`` are
+    deliberately different answers: a caller must clamp on a real ceiling and
+    do nothing on an absent one.
+
+    Same cache (2-hour TTL) → live → static → ``None`` resolution as before.
+    """
     key = (symbol.upper(), category.lower())
     now = time.monotonic()
     entry = _LOT_CACHE.get(key)
     if entry is not None:
         rule, cached_at = entry
         if now - cached_at < _CACHE_TTL_SECONDS:
-            return (Decimal(rule[0]), Decimal(rule[1]))
+            return (Decimal(rule[0]), Decimal(rule[1]),
+                    Decimal(rule[2]) if rule[2] is not None else None)
         del _LOT_CACHE[key]
     if client is not None:
         live = _live_lot_rule(client, key[0], key[1])
         if live:
             _LOT_CACHE[key] = (live, now)
-            return (Decimal(live[0]), Decimal(live[1]))
+            return (Decimal(live[0]), Decimal(live[1]),
+                    Decimal(live[2]) if live[2] is not None else None)
     static = _STATIC_LOT_RULE.get(key)
     if static:
-        return (Decimal(static[0]), Decimal(static[1]))
+        # The static map is a step/min fallback only — it asserts no ceiling.
+        return (Decimal(static[0]), Decimal(static[1]), None)
     return None
 
 

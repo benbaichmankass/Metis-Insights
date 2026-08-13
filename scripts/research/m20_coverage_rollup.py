@@ -49,8 +49,7 @@ from the done-condition, because those two are not the same question.
 ----------------------------------------------------------------------------
 This is the trap the divergence was hiding, and it survives the fix:
 
-* The **progress headline** (``319/376``, the figure PR #8712 established and
-  the one to keep quoting) counts ``blocked`` as closed. A blocked cell is not
+* The **progress headline** counts ``blocked`` as closed. A blocked cell is not
   work anyone can do — it is gated on data that does not exist — so leaving it
   in the numerator's complement would make the percentage a measure of the
   data backlog rather than of exit-refinement progress.
@@ -58,16 +57,29 @@ This is the trap the divergence was hiding, and it survives the fix:
   *"The milestone/health view of 'are we done' = no ``pending``/``blocked``
   rows on live legs."*
 
-Therefore **M20 needs 61 cells resolved, not 57** — the 57 ``pending`` plus
-the 4 ``blocked``. A session reading only the pending count will under-scope
-the milestone by four cells and, more importantly, will never revisit the
-blocked ones, which is how a ``blocked:data_missing`` row becomes permanent.
-``--done-condition`` prints that set explicitly.
+So M20's done-condition is the ``pending`` cells PLUS the ``blocked`` ones. A
+session reading only the pending count will under-scope the milestone and,
+more importantly, will never revisit the blocked ones, which is how a
+``blocked:data_missing`` row becomes permanent. ``--done-condition`` prints
+that set explicitly.
+
+⚠️ **EVERY FIGURE IN THIS DOCSTRING IS HISTORICAL.** The tables and counts above
+record the 2026-08-12 divergence that motivated the script; they are NOT the
+current state and must not be quoted as it. On 2026-08-13 the headline reached
+``360/360 = 100.0%`` with a done-condition of ``37`` still open — the two have
+separated as far as they arithmetically can, which makes quoting a stale
+headline maximally misleading. **Run the script.** It prints its own population
+line, which is the only figure that is true by construction.
 
 POPULATION
 ----------
-Denominator is **live legs only** (``execution == "live"``) × the declared
-``lever_columns`` — 47 × 8 = 376. Shadow and disabled legs are excluded from
+Denominator is **live legs only** × the declared ``lever_columns``, COMPUTED at
+run time and printed on the ``population:`` line — do not hard-code it here (an
+earlier version of this paragraph said ``47 × 8 = 376`` and went stale when the
+live roster changed to 45 legs = 360 cells). "Live" is the leg's EFFECTIVE
+state: ``enabled: false`` outranks any ``execution:`` value, because a disabled
+leg is never constructed and so cannot execute in any mode — see
+``_effective_execution``. Shadow and disabled legs are excluded from
 every figure here, matching the matrix's own framing; they are still
 *validated* (a null status is an error wherever it appears) and reported under
 ``--validate`` so an excluded row cannot rot unnoticed.
@@ -163,6 +175,60 @@ def _declared_strategies() -> set[str] | None:
         return None
     strategies = (cfg or {}).get("strategies")
     return set(strategies) if isinstance(strategies, dict) else None
+
+
+def _declared_legs() -> dict[str, dict[str, Any]] | None:
+    """Leg name -> its declared body from config/strategies.yaml, or None.
+
+    The richer sibling of `_declared_strategies`, which returns only the name
+    SET and therefore cannot answer the question the reverse-direction check
+    needs: *is this leg live?* Both resolve `execution` the same way the
+    runtime does — **omitted means `live`** (the two-gates rule: both gates are
+    default-permissive, so a leg is demoted only by an explicit `shadow`).
+    Reading an absent `execution` as anything other than `live` here would make
+    the guard quietly exempt exactly the legs it exists to police.
+
+    None on an unreadable config — the same third state as `_declared_strategies`,
+    reported by the caller as "not validated", never as "clean".
+    """
+    try:
+        import yaml
+        cfg = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())
+    except (ImportError, OSError, ValueError):
+        return None
+    strategies = (cfg or {}).get("strategies")
+    if not isinstance(strategies, dict):
+        return None
+    return {name: (body or {}) for name, body in strategies.items()}
+
+
+def _effective_execution(body: dict[str, Any]) -> str:
+    """The leg's EFFECTIVE state — `live` | `shadow` | `disabled`.
+
+    TWO config keys collapse into the one value the matrix's `execution` column
+    carries, and the order between them is the whole point: `enabled: false`
+    wins over any `execution:`, because a disabled leg is never constructed at
+    all and so cannot execute in any mode.
+
+    This is not hypothetical tidiness. `xauusd_trend_1h` declares
+    `enabled: false` WITH `execution: live`, and the live trader's loaded-strategy
+    list (52 legs, read 2026-08-13T08:14Z) does not contain it. An earlier draft
+    of the join check compared the raw `execution` strings and reported the
+    matrix's correct `disabled` as a defect — a guard manufacturing a false
+    positive against a row that was right. Both keys, in this order, or the
+    comparison is meaningless.
+
+    Defaults are permissive on both keys (the two-gates rule): a leg is demoted
+    only by saying so explicitly.
+    """
+    if body.get("enabled", True) is False:
+        return "disabled"
+    return body.get("execution", "live")
+
+
+def _is_live(body: dict[str, Any]) -> bool:
+    """Effective liveness — the population the M20 denominator counts."""
+    return _effective_execution(body) == "live"
 
 
 def _family_of(strategy: str) -> str | None:
@@ -310,6 +376,83 @@ def validate(matrix: dict[str, Any]) -> list[str]:
                     f"{row.get('strategy')}/{row.get('symbol')}/{row.get('tf')}: "
                     "live leg is not declared in config/strategies.yaml — no "
                     "sweep can resolve it, so its cells can never be closed")
+
+    # ── THE REVERSE DIRECTION: every LIVE config leg must HAVE a matrix row ──
+    #
+    # The check above walks matrix -> config and catches a row naming a leg that
+    # does not exist (a denominator that is too BIG). It cannot catch the
+    # opposite and more dangerous error: a live, harness-classified leg with no
+    # row at all — a denominator that is too SMALL. Nothing counts that leg, no
+    # cell is ever opened for it, and the milestone's percentage is computed
+    # over a population that silently excludes it.
+    #
+    # That matters precisely now: M20's headline reached `360/360 = 100.0%` on
+    # 2026-08-13. A 100% over an under-counted denominator is the most
+    # expensive shape this file can produce, because it reads as finished.
+    # `BL-20260810-COVERAGE-MATRIX-LEG-IDS-DO-NOT-JOIN-TO-CONFIG` asked for the
+    # set-difference to be empty **in both directions, enforced by a guard
+    # rather than by inspection** — only one direction was ever enforced.
+    #
+    # Measured when this was added: 45 live harness-classified legs in config,
+    # 45 live rows in the matrix, both differences empty. So this ships GREEN —
+    # it locks in a convergence that already holds rather than reporting a new
+    # defect, and the self-test is what proves the probe can still find a
+    # positive (a green guard that cannot fail is not evidence).
+    legs = _declared_legs()
+    if legs is None:
+        problems.append(
+            "config/strategies.yaml could not be read — the config->matrix "
+            "direction was NOT checked (this is 'unchecked', not 'clean')")
+    else:
+        rows_by_leg: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in matrix["rows"]:
+            rows_by_leg[row.get("strategy")].append(row)
+
+        # A leg with TWO rows is the failure mode the bundled-row note warns
+        # about: the matrix asserts two independent statuses for one leg and a
+        # reader gets whichever they looked up first.
+        for leg, dup in sorted(rows_by_leg.items()):
+            if len(dup) > 1:
+                problems.append(
+                    f"{leg}: {len(dup)} matrix rows for ONE leg — the matrix "
+                    "can assert two different statuses for the same leg "
+                    "depending on which row is read")
+
+        classifier_seen = False
+        for name, body in sorted(legs.items()):
+            family = _family_of(name)
+            if family is None:
+                continue  # not harness-classified, or the classifier is absent
+            classifier_seen = True
+            declared_exec = _effective_execution(body)
+
+            # ORDER MATTERS HERE, and the self-test is what established it.
+            # An earlier draft skipped every non-live leg BEFORE comparing
+            # `execution`, which silently exempted the denominator-INFLATING
+            # direction: a row marked `live` for a leg config declares `shadow`
+            # kept its cells inside the headline, and the matrix->config check
+            # above cannot see it either because the NAME resolves fine. So the
+            # agreement check runs for every declared leg that has a row, live
+            # or not; only the missing-row check is scoped to live legs.
+            rows_for_leg = rows_by_leg.get(name)
+            if rows_for_leg:
+                row_exec = rows_for_leg[0].get("execution")
+                if row_exec != declared_exec:
+                    problems.append(
+                        f"{name}: matrix says execution='{row_exec}' but "
+                        f"config/strategies.yaml resolves to '{declared_exec}' — the "
+                        "denominator and the runtime disagree about this leg")
+            elif _is_live(body):
+                problems.append(
+                    f"{name} [live, family={family}]: NO matrix row — the leg is "
+                    "absent from the M20 denominator, so the coverage headline "
+                    "is computed over an under-counted population")
+
+        if not classifier_seen:
+            problems.append(
+                "m20_fleet_exit_sweep.classify could not be imported — NO leg "
+                "was family-classified, so the config->matrix direction was "
+                "NOT checked (this is 'unchecked', not 'clean')")
 
     for row, col, status in cells(matrix, live_only=False):
         who = f"{row.get('strategy')}/{row.get('symbol')}/{row.get('tf')}"
