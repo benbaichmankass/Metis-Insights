@@ -1174,3 +1174,71 @@ structural limit. Recorded so the outcome cannot be quietly matched to it.
 #8965 (per-leg IS/OOS boundary), #8968 (`af9be48` — prop accounts size off the
 operator-reported balance; deployed, trader restarted 09:05Z), #8978 (`f1e815a` —
 this matrix update + three backlog rows).
+
+## §19 — `--min-fold-trades 50` is LOAD-BEARING, measured (relay #8983)
+
+§18 left 10 of the remaining 22 cells at `blocked:insufficient_lifetime_trades` —
+blocked by the 50-trade fold floor, **a chosen number with no measurement behind
+it**. Before calling those cells permanently blocked, the floor itself had to be
+tested. Prediction was written into §18 BEFORE the run: given the
+2-downgrades/0-upgrades asymmetry, smaller blocks should be noisier and *more*
+optimistic, so 50 survives.
+
+**It does.** Two families, four block sizes, E0 datasets unchanged.
+
+`eh_1d/pullback` (6 legs), candidates produced per block size:
+
+| block | folds | candidates | the legs |
+|--:|--:|--:|---|
+| 50 | 10 | **0** | — |
+| 35 | 15 | **0** | — |
+| 25 | 21 | **2** | gdx (9/13), slv (14/21) |
+| 15 | 36 | **2** | gdx (15/22), ief (26/34) |
+
+`4h/donchian` stays `honest_negative` at every size, but its hard-rule beat-rate
+climbs as the blocks shrink — **50.0% → 57.7% → 56.8% → 65.6%** — and its OOS AUC
+rises monotonically **0.5775 → 0.5779 → 0.6080 → 0.6259** on an essentially fixed
+sample (n_oos 900–925). Same shape per-leg: gdx's AUC goes 0.5919 → 0.6967 as the
+test fold shrinks from 50 trades to 15.
+
+**So lowering the floor MANUFACTURES candidates rather than revealing signal.**
+The two legs that turn `candidate` at block 25 are legs that are
+`honest_negative` at 50 on the same data. Dropping to 25 would unblock several of
+the 10 cells — by grading them on 25-trade test folds whose AUC is visibly
+inflated by the small sample. That is the opposite of what unblocking should
+mean.
+
+**The 10 cells stay blocked, and that is now MEASURED rather than assumed.**
+Unblocking needs more trades, not a smaller bar.
+
+### The positive control failed, and the failure was MINE
+
+The run declared `!! CONTROL FAILED -- block-50 does not reproduce #8963`, naming
+`tlt_pullback_1d` (expected `beats_hard=6/10`, got `4/10`).
+
+**E1 reproduces perfectly.** All six legs at block 50 are byte-identical to #8963
+across two runs at DIFFERENT HEADs (`32719418` → `f1e815aa`): same n_oos, same
+AUC to 4dp, same beats_actual, same beats_hard. `random_state=7` is pinned
+(`train_exit_head.py:133`). The expected value in my control table was wrong — I
+transcribed **slv's** `6/10` onto tlt's row, whose real value is `4/10`, and
+which §18's own matrix commit records correctly.
+
+This is probe error **#10**, and it is worth recording for a reason beyond the
+tally: **I was one step from filing a high-severity finding that the entire E1
+program is nondeterministic** — which would have cast doubt on all five
+`passed_unshipped` scalp candidates shipped hours earlier, and on every verdict
+in the coverage matrix. The control fired correctly (it stopped me trusting the
+comparison) but its *diagnosis was inverted*: it said the DATA disagreed when the
+EXPECTATION was wrong.
+
+The lesson is narrower than "check your work": **a positive control's expected
+values are themselves an input that needs provenance.** Mine were hand-copied
+from a relay comment into a shell array, which is exactly the substitution the
+diagnostic-provenance rule names — I had the right mechanism and fed it an
+unverified constant. A control worth having should derive its expectations from
+the artifact (`e1_report.json`) rather than from a human reading a log.
+
+Second time today a false alarm was caught before filing (the first: a claim the
+live exit head has no observability, retracted in PR #8942 once rotation
+explained it). Both were caught by re-reading the primary source instead of
+trusting my own note about it.
