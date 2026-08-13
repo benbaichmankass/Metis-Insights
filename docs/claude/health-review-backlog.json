@@ -12742,7 +12742,7 @@
       "id": "BL-20260810-COVERAGE-MATRIX-LEG-IDS-DO-NOT-JOIN-TO-CONFIG",
       "opened_at": "2026-08-10T02:55:00+00:00",
       "opened_by": "claude (m20-exit-continue-g1qv46)",
-      "status": "open",
+      "status": "resolved",
       "tier": 1,
       "severity": "high",
       "area": "m20-exit-refinement",
@@ -12757,6 +12757,17 @@
         "config/strategies.yaml",
         "scripts/research/m20_fleet_exit_sweep.py",
         "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
+      ],
+      "resolved_at": "2026-08-13T09:05:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon)",
+      "updates": [
+        {
+          "at": "2026-08-13T09:05:00+00:00",
+          "by": "claude (system-audit-review-oy5kon, combined full-system-audit + system-review)",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "RESOLVED, and the three halves closed differently — stated separately so the close is auditable.\n\n(1) NAME DRIFT: GONE, measured not assumed. Re-ran the item's own set-difference this session (config/strategies.yaml legs whose m20_fleet_exit_sweep.classify() resolves a family, vs exit-refinement-coverage.json row ids): config harness-classified 52, matrix rows 50. IN CONFIG NOT IN MATRIX = {trend_donchian_1h, trend_donchian_eth_prop, trend_donchian_sol_prop} (all three execution:shadow, correctly outside the live denominator). IN MATRIX NOT IN CONFIG = the one bundled row. The 7 `*_trend_1d` vs `*_trend_long_1d` equities ids this item was opened on no longer drift — the matrix now carries the config ids. Restricted to the population that actually matters, the LIVE one: 45 live harness-classified legs in config, 45 live rows in the matrix, set-difference EMPTY IN BOTH DIRECTIONS.\n\n(2) THE SURVIVING BUNDLED ROW: kept, deliberately, NOT a defect left open. It is excluded from the done-condition denominator (execution != live) and carries a written `_bundled_row_note` explaining that per-leg evidence does not exist and inventing one would be worse than the bundle. That is the documented-keep disposition, not an orphan.\n\n(3) THE GUARD — the actual remaining work, now SHIPPED. resolution_criteria asked for the set-difference to be empty 'in BOTH directions, enforced by a guard rather than by inspection', and only ONE direction was ever enforced: m20_coverage_rollup.validate() walked matrix->config (a row naming a leg that does not exist -> denominator too BIG) and had nothing for config->matrix (a live leg with no row at all -> denominator too SMALL). The second is the more expensive error and it was live-relevant this week: M20's headline hit 360/360 = 100.0% on 2026-08-13, and a 100% over an under-counted denominator reads as finished. Added to the SAME validate() rather than a new guard file (single-homing: a second definition of the join would be free to drift): config->matrix for live legs, execution-agreement in both directions, duplicate-row detection, and BOTH unreadable-input paths (no yaml / no classify import) reported as 'NOT checked' rather than clean.\n\nTWO DEFECTS IN MY OWN GUARD, both caught before merge and both by evidence rather than review:\n  a. The self-test (tests/test_m20_coverage_join.py, 8 cases) planted a leg declared `shadow` in config but `live` in the matrix and the guard did NOT fire — an early-`continue` skipped non-live legs BEFORE comparing execution, exempting exactly the denominator-INFLATING direction. Fixed by ordering the agreement check ahead of the liveness filter.\n  b. On real data the guard then reported `xauusd_trend_1h: matrix says disabled but config declares live`. The MATRIX WAS RIGHT and the guard was wrong: that leg is `enabled: false` WITH `execution: live`, and the live trader's loaded-strategy list (52 legs, diag read 2026-08-13T08:14Z) does not contain it. Two config keys collapse into the matrix's one `execution` column and `enabled: false` outranks `execution:`. Single-homed as `_effective_execution()`. Had I 'fixed' the matrix row to match my guard I would have corrupted a correct row on a false positive.\n\nVERIFICATION: 8/8 join self-tests pass; `--check` clean on real data; 106 pre-existing m20 tests still pass; headline population unchanged (45 live legs x 8 levers = 360). Also corrected this module's own docstring, which stated `47 x 8 = 376` and quoted `319/376` as 'the one to keep quoting' in the present tense — both stale, and stale in the direction that matters now that headline and done-condition have separated (360/360 vs 37 open)."
+        }
       ]
     },
     {
