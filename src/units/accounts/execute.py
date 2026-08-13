@@ -892,6 +892,22 @@ def read_linear_margin_fields(client: Any) -> Tuple[Optional[dict], Optional[str
             {k: usdt[k] for k in sorted(usdt)[:24]} if isinstance(usdt, dict) else None
         )
         out["coin_count"] = len(coins)
+        # Every OTHER coin, compactly. The USDT block alone makes
+        # `equity - totalPositionIM - totalOrderIM` computable, but a second
+        # coin flagged as collateral would raise the real ceiling — so reading
+        # only USDT would make that derivation a silent LOWER bound with
+        # nothing on the surface to say so. `coin_count: 2` on bybit_2 is what
+        # surfaced the gap; this is the field that closes it.
+        out["coins_other"] = [
+            {
+                k: c.get(k)
+                for k in ("coin", "equity", "usdValue", "walletBalance",
+                          "totalPositionIM", "totalOrderIM",
+                          "marginCollateral", "collateralSwitch")
+            }
+            for c in coins[:8]
+            if isinstance(c, dict) and (c.get("coin") or "").upper() != "USDT"
+        ]
         return out, None
     except Exception as exc:  # noqa: BLE001
         return None, f"call raised: {type(exc).__name__}: {exc}"
