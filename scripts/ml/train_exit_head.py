@@ -35,6 +35,17 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
+# The min-OOS-trades floor is SINGLE-HOMED in the fleet sweep (operator-set
+# 2026-08-11, value 25). Imported rather than mirrored so one matrix is never
+# governed by two floors. An import failure yields None, which `per_leg_summary`
+# treats as "cannot grade" — never as a licence to substitute a local default.
+_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO / "scripts" / "research"))
+try:  # pragma: no cover - exercised by the import-failure path in tests
+    from m20_fleet_exit_sweep import MIN_OOS_TRADES  # noqa: E402
+except Exception:  # noqa: BLE001 - any import failure is the same third state
+    MIN_OOS_TRADES = None
+
 FEATURES = [
     "age_bars", "open_r", "mfe_r", "mae_r", "giveback_r",
     "chop_frac_so_far", "stagnation_run", "dist_to_stop_r",
@@ -224,6 +235,130 @@ def policy_giveback(bars: List[dict], min_mfe: float = 1.0,
     return replay_trade(bars, idx)
 
 
+# ------------------------------------------------------------- per-leg cut
+#
+# WHY THIS EXISTS. Everything above is per-FAMILY: one E0 dir pools every
+# symbol in the family, and `eval_split` aggregates over all of them. That is
+# the right unit for TRAINING (it is what breaks the n-wall the program doc
+# describes) but it is the wrong unit for a VERDICT, because the coverage
+# matrix carries one row per LEG.
+#
+# Recording a pooled verdict against each of a family's leg rows is exactly
+# `BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS` — bundled rows carried
+# one status for a whole family, so the status described only the leg that
+# passed, and the roll-up over-counted. The matrix rows were exploded per-leg
+# to kill that failure; feeding them a pooled number would reintroduce it one
+# layer up, where it is harder to see.
+#
+# So: same model, same folds, same replay — partitioned by the leg each trade
+# belongs to, with each leg's own denominator stated.
+
+def leg_of(bars: List[dict]) -> str:
+    """The strategy leg a trade belongs to — the coverage-matrix row key."""
+    return str(bars[0].get("strategy") or "unknown")
+
+
+def split_by_leg(trades: Dict[str, List[dict]]) -> Dict[str, Dict[str, List[dict]]]:
+    out: Dict[str, Dict[str, List[dict]]] = {}
+    for tk, bars in trades.items():
+        out.setdefault(leg_of(bars), {})[tk] = bars
+    return out
+
+
+def _best_tau(block: dict) -> Optional[tuple]:
+    """(name, stats) of the tau policy with the highest net_R, or None."""
+    model = block.get("model") or {}
+    if not model:
+        return None
+    return max(model.items(), key=lambda kv: kv[1].get("net_r") or -1e9)
+
+
+def per_leg_summary(folds: List[dict], floor: Optional[int]) -> dict:
+    """Aggregate the per-fold, per-leg blocks into one verdict per leg.
+
+    ⚠️ THE FLOOR IS REUSED, NOT INVENTED. `floor` is
+    `m20_fleet_exit_sweep.MIN_OOS_TRADES` (25, operator-set 2026-08-11) — the
+    repo's established denominator requirement for a per-cell verdict. A
+    per-leg exit-head verdict is the same object as a per-cell lever verdict:
+    a claim about one matrix cell, which is worthless below some n. Picking a
+    different number here would mean two floors governing one matrix.
+
+    `floor is None` means the floor could not be imported. That is a THIRD
+    state, not a licence to default: verdicts are withheld entirely rather
+    than graded against a number this module made up. "We could not apply the
+    floor" and "the floor passed" are opposite statements.
+    """
+    legs: Dict[str, dict] = {}
+    for fold in folds:
+        for leg, block in (fold.get("per_leg") or {}).items():
+            acc = legs.setdefault(leg, {
+                "oos_trades": 0, "folds": 0, "aucs": [],
+                "beats_actual_folds": 0, "beats_hard_folds": 0,
+                "usable_folds": 0, "per_fold": [],
+            })
+            n = block.get("n_trades") or 0
+            acc["oos_trades"] += n
+            acc["folds"] += 1
+            if block.get("auc") is not None:
+                acc["aucs"].append(block["auc"])
+
+            best = _best_tau(block)
+            actual = block.get("actual") or {}
+            hard = [block.get("stale_8_0") or {}, block.get("giveback_1_1") or {}]
+            row = {"year": fold.get("year"), "n_trades": n,
+                   "auc": block.get("auc"),
+                   "best_tau": best[0] if best else None,
+                   "best_tau_net_r": (best[1].get("net_r") if best else None),
+                   "actual_net_r": actual.get("net_r")}
+            # A fold with no trades cannot vote either way — count usable
+            # folds explicitly so a leg absent from most folds cannot look
+            # like a leg that lost them.
+            if best and n > 0 and actual.get("net_r") is not None:
+                acc["usable_folds"] += 1
+                b_net, b_dd = best[1].get("net_r"), best[1].get("max_dd_r")
+                a_net, a_dd = actual.get("net_r"), actual.get("max_dd_r")
+                if (b_net is not None and a_net is not None
+                        and b_net > a_net
+                        and (b_dd is None or a_dd is None or b_dd <= a_dd)):
+                    acc["beats_actual_folds"] += 1
+                    row["beats_actual"] = True
+                hard_best = max((h.get("net_r") for h in hard
+                                 if h.get("net_r") is not None), default=None)
+                if (b_net is not None and hard_best is not None
+                        and b_net > hard_best):
+                    acc["beats_hard_folds"] += 1
+                    row["beats_hard"] = True
+            acc["per_fold"].append(row)
+
+    for leg, acc in legs.items():
+        acc["mean_auc"] = (round(sum(acc["aucs"]) / len(acc["aucs"]), 4)
+                           if acc["aucs"] else None)
+        acc.pop("aucs")
+        acc["min_oos_trades_floor"] = floor
+        u = acc["usable_folds"]
+        # The mechanical read of the E1->E2 gate, per leg. Advisory: a human
+        # (or the coverage matrix) records the verdict; this states the
+        # arithmetic behind it so it need not be re-derived by eye.
+        candidate = (u >= 2
+                     and acc["mean_auc"] is not None and acc["mean_auc"] > 0.55
+                     and acc["beats_actual_folds"] * 3 >= u * 2
+                     and acc["beats_hard_folds"] * 3 >= u * 2)
+        if floor is None:
+            acc["verdict"] = "ungraded_no_floor"
+            acc["ungraded_why"] = (
+                "MIN_OOS_TRADES could not be imported from "
+                "m20_fleet_exit_sweep; refusing to grade against a locally "
+                "invented floor")
+        elif acc["oos_trades"] < floor:
+            acc["would_have_been"] = "candidate" if candidate else "honest_negative"
+            acc["verdict"] = "insufficient_base"
+            acc["insufficient_base_why"] = (
+                f"OOS base {acc['oos_trades']} trades < floor {floor}")
+        else:
+            acc["verdict"] = "candidate" if candidate else "honest_negative"
+    return legs
+
+
 def agg(results: List[dict], tf_s: int) -> dict:
     if not results:
         return {"trades": 0}
@@ -341,6 +476,12 @@ def main(argv: List[str]) -> int:
         res = eval_split(model, test, tf_s)
         res["year"] = ytest
         res["train_rows"] = len(train_rows)
+        # Same model, same fold, same replay — cut by leg, because the
+        # coverage matrix's unit is the leg and the family's is not.
+        res["per_leg"] = {
+            leg: eval_split(model, sub, tf_s)
+            for leg, sub in sorted(split_by_leg(test).items())
+        }
         folds.append(res)
         print(f"  fold {ytest}: AUC={res['auc'] and round(res['auc'],3)} "
               f"actual net_R={res['actual']['net_r']} "
@@ -354,6 +495,18 @@ def main(argv: List[str]) -> int:
         print(f"  live: AUC={live_eval['auc'] and round(live_eval['auc'],3)} "
               f"n={live_eval['n_trades']} actual net_R={live_eval['actual']['net_r']}")
 
+    leg_summary = per_leg_summary(folds, MIN_OOS_TRADES)
+    if leg_summary:
+        print("  per-leg (matrix unit):")
+        for leg, s in sorted(leg_summary.items()):
+            print(f"    {leg:<26} n_oos={s['oos_trades']:<5} "
+                  f"auc={s['mean_auc']} "
+                  f"beats_actual={s['beats_actual_folds']}/{s['usable_folds']} "
+                  f"beats_hard={s['beats_hard_folds']}/{s['usable_folds']} "
+                  f"-> {s['verdict']}")
+    else:
+        print("  per-leg: no fold produced a leg block (no usable folds)")
+
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "family": fam_dir.name, "tf": a.tf, "features": FEATURES,
@@ -361,6 +514,18 @@ def main(argv: List[str]) -> int:
         "taus": TAUS, "embargo_days": EMBARGO_S // 86400,
         "harness_trades": len(h_trades), "live_trades": len(l_trades),
         "folds": folds, "live_validation": live_eval,
+        "per_leg": leg_summary,
+        "min_oos_trades_floor": MIN_OOS_TRADES,
+        "per_leg_note": (
+            "One verdict per STRATEGY LEG — the coverage matrix's unit. The "
+            "family-level blocks above pool every symbol in the family, which "
+            "is the right unit to TRAIN on and the wrong one to record a "
+            "verdict from "
+            "(BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). "
+            "`insufficient_base` means the leg's OOS book was too "
+            "thin to judge — NOT that the head failed on it; "
+            "`would_have_been` records the counterfactual so the floor's "
+            "effect stays auditable."),
         "gate_note": ("E1->E2 gate: OOS AUC materially > 0.55 AND a tau-policy "
                       "beats the best hard rule on net_R AND maxDD in the "
                       "walk-forward AND the live set agrees in sign."),

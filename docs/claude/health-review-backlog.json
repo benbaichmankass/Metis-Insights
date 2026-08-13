@@ -12991,6 +12991,24 @@
           "note": "POST-DEPLOY VERIFICATION RAN — status-check #8813 against a VM confirmed at git_sha 5a5ebdde (/api/diag/version), so the fixed code was live. 2 of 3 defects VERIFIED LIVE: the env dump now runs for a running trader ('trader pid: 939707' + DATA_DIR, cross-checked against the same report's ps: PID 939707, 21.2% CPU, 7329s elapsed); the CWD line resolved to /home/ubuntu/ict-trading-bot; and the repo-path block is now labelled 'LEGACY, pre-cutover -- NOT the live files', so its 2026-06-14 mtime can no longer be misread as the answer. The third — the 'we could not look' branch — did NOT execute because /proc was readable, and was closed separately by tests/test_status_check_pid_three_states.py (BL-20260812-STATUSCHECK-COULD-NOT-LOOK-BRANCH-UNEXERCISED, verified against the actual pre-fix string as a planted defect). All three now have evidence."
         }
       ]
+    },
+    {
+      "id": "BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN",
+      "opened_at": "2026-08-12T22:45:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "m20-exit-lever-sweep's corpus job pushes straight to main and branch protection rejects it -- every sweep's durable corpus row is lost",
+      "source": "MEASURED 2026-08-12, run 31647462929 (9 legs, live-parity re-sweep). All 9 sweep jobs succeeded and the corpus job's 'Merge this run into the corpus' step succeeded -- only 'Commit the corpus' failed, on all 4 retry attempts:\n    remote: error: GH006: Protected branch update failed for refs/heads/main.\n    remote: - 3 of 3 required status checks are expected.\n    ! [remote rejected] HEAD -> main (protected branch hook declined)\nThe job does `git push` to main directly. Branch protection on main requires 3 status checks, and a direct push presents none, so the push can NEVER succeed -- this is not a race that a retry can win, which is why all 4 attempts failed identically.\n\nCONSEQUENCE: docs/research/m20-sweep-corpus.jsonl -- the durable, queryable record of every swept cell, and the population the Path B threshold work is supposed to be set from -- receives NOTHING from any sweep run. The per-leg results survive only as artifacts (90-day retention) and as comments posted onto whatever PR happens to be associated with the dispatch SHA. For run 31647462929 that was PR #8814, an ALREADY-MERGED doc PR, purely because it was the PR attached to main's HEAD commit.\n\nWHY IT IS NOT SILENT (the one good part): the job fails loudly and the workflow author had already hardened the neighbouring failure mode -- an earlier version exited 0 when the corpus file was untracked, reporting 'nothing to commit' over a run that had produced everything. That fix is intact; this is a different, later failure.",
+      "why_critical": "The corpus is the evidence base for a decision that has not been made yet: Path B's two thresholds are deliberately UNSET pending a measured net_r_per_capital_day distribution, and that distribution is supposed to accumulate IN THIS FILE. Sweeps that cannot write to it look successful, report per-leg verdicts, and leave the corpus exactly as it was -- so the distribution never accrues and the thresholds stay unsettable, with nothing anywhere connecting the two facts.",
+      "what_to_check": "gh run view <sweep run id> --job corpus, or read docs/research/m20-sweep-corpus.jsonl's git log: confirm whether any row has landed since branch protection began requiring checks. Cross-check the corpus row count against the number of legs swept across all runs -- if the corpus is short by whole runs, this is the reason.",
+      "next_action": "Route the corpus commit through the repo's existing sanctioned path instead of a direct push: .github/workflows/claude-pr-automerge.yml already exists for exactly this (push to a claude/** branch touching .github/pr-automerge-request -> PR -> required checks -> auto-merge). That keeps branch protection intact rather than working around it. A weaker alternative is to have the corpus job open a PR of its own. Do NOT 'fix' this by exempting the bot from branch protection -- the checks are the reason main is trustworthy.",
+      "resolution_criteria": "A sweep run completes and docs/research/m20-sweep-corpus.jsonl on main contains that run's rows, verified by row count and by the run id present in the rows -- not by the job reporting green.",
+      "related": [
+        "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP"
+      ]
     }
   ],
   "updated_at": "2026-08-11T20:20:00+00:00",

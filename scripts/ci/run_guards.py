@@ -226,6 +226,20 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/check_canonical_db_resolver.py", "--list"]],
     },
     {
+        # M20's done-condition lives in the coverage matrix, and the matrix is
+        # only as good as its statuses. A `status: null` sat in it undetected
+        # from the 2026-08-09 explosion until 2026-08-12 — not a legend value,
+        # so nothing could grade the cell, and no reader saw it because the
+        # roll-up was hand-counted. Validates: every status is a legend value,
+        # and every CLOSED live cell carries the evidence ref the matrix's own
+        # `_doc` requires ("statuses only from verified evidence").
+        "name": "exit-coverage-matrix-guard",
+        "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "scripts/research/m20_coverage_rollup.py",
+                           "scripts/research/m20_explode_coverage_rows.py"]},
+        "steps": [["python3", "scripts/research/m20_coverage_rollup.py", "--check"]],
+    },
+    {
         "name": "canonical-doc-coherence",
         # The `declared values` check reads .github/workflows/ + src/web/api/
         # sources, so a change THERE can falsify a doc without touching one —

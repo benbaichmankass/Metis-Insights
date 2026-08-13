@@ -333,6 +333,37 @@ that reads as documentation as something that must never execute as code.
 Contract covered by `tests/test_trainer_diag_cmd_extraction.py`, which runs
 the real awk program out of the workflow rather than a copy of it.
 
+### 9.a.1 A file you check out on the trainer has a ≤15-minute lifetime
+
+**`ict-trainer-git-sync.timer` runs every ~15 min and does a HARD `Reset to
+origin/main`.** Anything you put in the working tree — a `git checkout
+<branch> -- <file>`, a hand-edited script, a patch — is silently discarded at
+the next tick. The trainer auto-deploying from `main` is the *design*, not a
+bug; what bites is that the reset lands **mid-run**.
+
+Measured 2026-08-12. A session checked three fixed research files onto the
+trainer at 22:49 and launched a 7-leg round. Reflog:
+
+```
+368c6fae HEAD@{2026-08-12 23:12:42}: branch: Reset to origin/main
+368c6fae HEAD@{2026-08-12 22:57:24}: branch: Reset to origin/main   <-- mid-round
+```
+
+`ict_scalp_eth_15m` and `ict_scalp_sol_15m` ran fine with the new `--strategy-name`
+flag; the very next leg, invoked from the same loop against the same script,
+died with `error: unrecognized arguments: --strategy-name`. A script cannot gain
+and lose a flag on its own — the reset at 22:57 had reverted it. The round
+half-succeeded, which is the dangerous shape: two legs produced real artifacts
+and one produced a confusing argparse error, so the run looks like a per-leg
+bug rather than a worktree that changed underneath it.
+
+**So:** for anything longer than a few minutes, **merge to `main` and let
+git-sync deliver it** — do not file-checkout. If you must run pre-merge code,
+either finish inside one sync window or copy the scripts OUTSIDE the repo
+(e.g. `/tmp`) where the reset cannot reach them. And when a long run fails
+part-way with a shape that implies the code changed, check
+`git reflog --date=iso` before believing the error at face value.
+
 ### 9.b What Claude may pull without asking
 
 Everything. There are no restricted paths on the trainer VM. Claude
