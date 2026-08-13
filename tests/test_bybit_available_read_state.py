@@ -189,3 +189,273 @@ def test_contract_is_registered_with_collapsed_state_guard():
         AVAILABLE_STATE_DEPRECATED,
         AVAILABLE_STATE_UNAVAILABLE,
     }, "the registry must name the SAME three strings the producer emits"
+
+
+# ── `unavailable` had a residual collapse INSIDE it (2026-08-13) ───────────
+#
+# The first live read of the new Bybit arm returned `unavailable` for bybit_2
+# with the one-line detail "neither ... present". That is true and useless: it
+# cannot say whether the venue ERRORED, returned NO account object, or returned
+# one LACKING both fields — three different bugs with three different fixes,
+# collapsed into one string. Registering a three-state contract does not make
+# the states internally honest; the state was right and the detail was not.
+
+def test_retcode_error_says_the_venue_refused():
+    client = _Client()
+    client.get_wallet_balance = lambda accountType: {  # type: ignore[method-assign]
+        "retCode": 10003, "retMsg": "API key invalid", "result": {},
+    }
+    value, state, detail = read_linear_available_balance(client)
+    assert (value, state) == (None, AVAILABLE_STATE_UNAVAILABLE)
+    assert "retCode=10003" in detail and "API key invalid" in detail
+
+
+@pytest.mark.parametrize(
+    "resp",
+    [
+        {"retCode": 0, "result": {"list": []}},  # empty list
+        {"retCode": 0},                          # no result block at all
+        {"retCode": 0, "result": {}},            # result present, no list
+    ],
+)
+def test_no_account_object_is_distinguishable_from_missing_fields(resp):
+    client = _Client()
+    client.get_wallet_balance = lambda accountType: resp  # type: ignore[method-assign]
+    value, state, detail = read_linear_available_balance(client)
+    assert (value, state) == (None, AVAILABLE_STATE_UNAVAILABLE)
+    assert "NO account object" in detail
+
+
+def test_account_present_but_fieldless_names_the_keys_it_DID_carry():
+    """The keys are the denominator for the negative — without them 'missing'
+    is unfalsifiable."""
+    client = _Client({"accountType": "UNIFIED", "totalEquity": "280.75", "coin": []})
+    value, state, detail = read_linear_available_balance(client)
+    assert (value, state) == (None, AVAILABLE_STATE_UNAVAILABLE)
+    assert "account object present" in detail
+    assert "totalEquity" in detail and "accountType" in detail
+
+
+def test_detail_never_leaks_a_balance_VALUE():
+    """Keys only. A wallet response holds balances and this string reaches logs
+    and a diag payload."""
+    client = _Client({"accountType": "UNIFIED", "totalEquity": "280.75", "coin": []})
+    _, _, detail = read_linear_available_balance(client)
+    assert "280.75" not in detail
+
+
+def test_key_list_is_bounded():
+    # Bound is 14: bybit_2's real response carries 12 keys, so a 12-cap would
+    # have silently TRUNCATED the very evidence that identified this defect
+    # (totalAvailableBalance present-but-empty sat at index 7 of 12). Widened
+    # with headroom — but still bounded, because an unbounded key dump is a
+    # log-flood.
+    client = _Client({f"field_{i:02d}": i for i in range(40)})
+    _, _, detail = read_linear_available_balance(client)
+    assert detail.count("field_") <= 14, "an unbounded key dump is a log-flood"
+
+
+def test_raised_exception_says_it_RAISED():
+    """Distinct from a clean response that carried nothing — one is 'the call
+    failed', the other is 'the call worked and had no answer'."""
+    _, state, detail = read_linear_available_balance(_Client(raises=TimeoutError("t")))
+    assert state == AVAILABLE_STATE_UNAVAILABLE
+    assert detail.startswith("call raised:")
+
+
+def test_the_four_unavailable_sub_reasons_are_mutually_distinct():
+    def detail_for(resp=None, raises=None, account=None):
+        c = _Client(account, raises)
+        if resp is not None:
+            c.get_wallet_balance = lambda accountType: resp  # type: ignore[method-assign]
+        return read_linear_available_balance(c)[2]
+
+    details = {
+        detail_for(resp={"retCode": 10003, "retMsg": "x", "result": {}}),
+        detail_for(resp={"retCode": 0, "result": {"list": []}}),
+        detail_for(account={"accountType": "UNIFIED"}),
+        detail_for(raises=RuntimeError("boom")),
+    }
+    assert len(details) == 4, f"sub-reasons collapsed: {details}"
+
+
+# ── present-but-EMPTY is not ABSENT (2026-08-13, second live read) ─────────
+#
+# bybit_2's response carries `totalAvailableBalance` in its key list AND
+# carries it empty. The previous detail said "carried neither
+# totalAvailableBalance nor ..." while listing that very key — a diagnostic
+# contradicting its own evidence. "Bybit did not send this key" and "Bybit sent
+# it blank" have different causes and different fixes.
+
+_BYBIT_2_SHAPE = {
+    "accountType": "UNIFIED", "totalEquity": "274.91", "totalAvailableBalance": "",
+    "totalInitialMargin": "79.39", "totalMaintenanceMargin": "4.2",
+    "accountIMRate": "0.28", "accountLTV": "0", "coin": [],
+}
+
+
+def test_present_but_empty_is_reported_as_present():
+    _, state, detail = read_linear_available_balance(_Client(dict(_BYBIT_2_SHAPE)))
+    assert state == AVAILABLE_STATE_UNAVAILABLE
+    assert "PRESENT but empty" in detail
+    assert "ABSENT" not in detail
+
+
+def test_genuinely_absent_key_is_reported_as_absent():
+    shape = {k: v for k, v in _BYBIT_2_SHAPE.items() if k != "totalAvailableBalance"}
+    _, state, detail = read_linear_available_balance(_Client(shape))
+    assert state == AVAILABLE_STATE_UNAVAILABLE
+    assert "ABSENT from the response" in detail
+    assert "PRESENT but empty" not in detail
+
+
+def test_detail_never_claims_a_key_is_missing_while_listing_it():
+    """The self-contradiction guard: whatever the wording, a key named in the
+    key list must not also be described as not carried."""
+    _, _, detail = read_linear_available_balance(_Client(dict(_BYBIT_2_SHAPE)))
+    listed = "'totalAvailableBalance'" in detail
+    claimed_missing = "carried neither totalAvailableBalance" in detail
+    assert not (listed and claimed_missing)
+
+
+# ── the margin fields are readable, verbatim and non-interpreting ──────────
+
+def test_margin_fields_returns_every_declared_field():
+    from src.units.accounts.execute import _MARGIN_FIELDS, read_linear_margin_fields
+    fields, err = read_linear_margin_fields(_Client(dict(_BYBIT_2_SHAPE)))
+    assert err is None
+    assert set(_MARGIN_FIELDS) <= set(fields), (
+        "every declared field must appear so a MISSING one is visibly null "
+        "rather than silently dropped"
+    )
+    assert set(fields) - set(_MARGIN_FIELDS) == {"coin_usdt", "coin_count", "coins_other"}
+    assert fields["totalEquity"] == "274.91"
+    assert fields["totalInitialMargin"] == "79.39"
+    assert fields["totalAvailableBalance"] == ""
+    assert fields["totalMarginBalance"] is None  # absent on this account -> null, not dropped
+
+
+def test_margin_fields_does_not_interpret():
+    """It must return raw venue strings. The moment it computes, it becomes an
+    order-path input that nobody validated."""
+    from src.units.accounts.execute import read_linear_margin_fields
+    fields, _ = read_linear_margin_fields(_Client(dict(_BYBIT_2_SHAPE)))
+    assert isinstance(fields["totalEquity"], str)
+    assert "available" not in {k.lower() for k in fields} - {"totalavailablebalance"}
+
+
+@pytest.mark.parametrize(
+    "client, expect",
+    [
+        (_Client(raises=RuntimeError("x")), "call raised"),
+        (_Client({}), None),
+    ],
+)
+def test_margin_fields_error_paths(client, expect):
+    from src.units.accounts.execute import read_linear_margin_fields
+    fields, err = read_linear_margin_fields(client)
+    if expect:
+        assert fields is None and expect in err
+    else:
+        assert err is None and fields is not None
+
+
+def test_margin_fields_reports_a_retcode_refusal():
+    from src.units.accounts.execute import read_linear_margin_fields
+    c = _Client()
+    c.get_wallet_balance = lambda accountType: {"retCode": 10003, "result": {}}  # type: ignore[method-assign]
+    fields, err = read_linear_margin_fields(c)
+    assert fields is None and "retCode=10003" in err
+
+
+# ── the per-coin USDT block is reported WHOLE, not cherry-picked ───────────
+#
+# The 2026-08-13 error this guards against: reading a KEY LIST, seeing
+# `totalInitialMargin` in it, and inferring it carried a value. Every
+# account-level margin aggregate on bybit_2 is the empty string. Selecting
+# fields from the coin block would reproduce that mistake one level down.
+
+def test_usdt_coin_block_is_returned_verbatim():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [
+        {"coin": "BTC", "walletBalance": "0.5"},
+        {"coin": "USDT", "walletBalance": "269.27", "totalPositionIM": "79.39",
+         "totalOrderIM": "0", "equity": "280.07", "availableToWithdraw": ""},
+    ]
+    fields, err = read_linear_margin_fields(_Client(shape))
+    assert err is None
+    block = fields["coin_usdt"]
+    assert block["totalPositionIM"] == "79.39"
+    assert block["availableToWithdraw"] == "", "empty must survive as empty, not vanish"
+    assert set(block) == {"coin", "walletBalance", "totalPositionIM", "totalOrderIM",
+                          "equity", "availableToWithdraw"}, "block must be verbatim"
+    assert fields["coin_count"] == 2
+
+
+def test_usdt_block_is_null_when_absent_and_count_still_reported():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "BTC"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coin_usdt"] is None
+    assert fields["coin_count"] == 1, "a count of 1 with no USDT is a different state from no coins at all"
+
+
+def test_usdt_block_is_bounded():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [dict({"coin": "USDT"}, **{f"f{i:02d}": i for i in range(60)})]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert len(fields["coin_usdt"]) <= 24
+
+
+# ── every OTHER coin, because USDT alone makes the derivation a lower bound ─
+
+def test_other_coins_are_reported_with_their_collateral_flags():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [
+        {"coin": "USDT", "walletBalance": "269.27", "totalPositionIM": "53.93"},
+        {"coin": "BTC", "equity": "0.004", "usdValue": "260.11",
+         "marginCollateral": True, "collateralSwitch": True,
+         "walletBalance": "0.004", "totalPositionIM": "0", "totalOrderIM": "0"},
+    ]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    others = fields["coins_other"]
+    assert [c["coin"] for c in others] == ["BTC"], "USDT must not repeat in coins_other"
+    assert others[0]["usdValue"] == "260.11"
+    assert others[0]["marginCollateral"] is True, (
+        "a collateral-flagged second coin raises the real ceiling — without this "
+        "the derivation is a silent LOWER bound"
+    )
+
+
+def test_other_coins_is_empty_list_not_null_when_usdt_is_the_only_coin():
+    """[] means 'we looked and there are none'. null would mean 'we did not
+    look' — different states."""
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "USDT", "walletBalance": "1"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coins_other"] == []
+    assert fields["coin_count"] == 1
+
+
+def test_other_coins_declares_every_field_even_when_absent():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "ETH"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coins_other"][0]["marginCollateral"] is None, (
+        "an absent flag must be visibly null, never dropped"
+    )
+
+
+def test_other_coins_is_bounded():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": f"C{i:02d}"} for i in range(30)]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert len(fields["coins_other"]) <= 8
+    assert fields["coin_count"] == 30, "the COUNT must stay truthful even when the list is capped"

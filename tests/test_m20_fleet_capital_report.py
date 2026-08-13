@@ -1186,12 +1186,14 @@ def test_the_row_says_how_far_the_capped_tp_actually_SAT():
     """`tp_cap_pct: 0.099` only establishes that the flag was PASSED.
 
     `trend_donchian_eth_prop` came back byte-identical at `tp_cap_pct: 0.099`
-    and at `null` — same base book, all seven shared cells to 4dp — across two
-    books that cannot be identical, since the harness leaves `tp_price = None`
-    entirely when the cap is off (`scripts/backtest_trend.py:463`). The corpus
-    could not distinguish "the cap bound and moved nothing" from "the cap was
-    never applied". The sweep already measures `tp_r_effective_*`; this hop
-    dropped it.
+    and at `null` — same base book, all seven shared cells to 4dp. Two
+    explanations were proposed and BOTH were refuted (the flag is inert: no,
+    a direct positive control moves 57 trades to 127; `null` just predates the
+    field: no, 464 rows carry 0.099 with earlier timestamps). What survives is
+    that the geometry behind a `null` row is UNDETERMINED from the corpus —
+    see BL-20260813-TPCAP-REQUESTED-NOT-APPLIED. The sweep already measures
+    `tp_r_effective_*`; this hop dropped it, which is why the question had to
+    be argued from run logs and git history instead of read off a row.
     """
     ce = _corpus_extract_module()
     rows = ce.rows_from_verdicts(_tp_doc({"live_tp_reach_r": {
@@ -1209,7 +1211,9 @@ def test_reach_zero_and_reach_unknown_are_not_the_same_row():
     """`n: 0` = the cap was on and reached nothing. `n: None` = we did not look.
 
     Collapsing them would let a cap that never applied read as a cap that
-    applied and bound on no trade — which is exactly the eth_prop question.
+    applied and bound on no trade. That distinction is exactly what the
+    eth_prop investigation could not make from the corpus, and why it ended
+    with the geometry undetermined rather than decided either way.
     """
     ce = _corpus_extract_module()
     looked = ce.rows_from_verdicts(_tp_doc({"live_tp_reach_r": {

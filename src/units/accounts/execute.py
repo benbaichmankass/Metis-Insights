@@ -823,6 +823,96 @@ AVAILABLE_STATE_DEPRECATED = "deprecated_withdrawable"
 AVAILABLE_STATE_UNAVAILABLE = "unavailable"
 
 
+#: Account-level USD fields Bybit V5 returns on a UNIFIED wallet read. Reported
+#: verbatim by :func:`read_linear_margin_fields` so the *candidate* derivation
+#: of available margin can be CHECKED before anything is built on it.
+_MARGIN_FIELDS = (
+    "accountType",
+    "totalEquity",
+    "totalWalletBalance",
+    "totalMarginBalance",
+    "totalAvailableBalance",
+    "totalInitialMargin",
+    "totalMaintenanceMargin",
+    "accountIMRate",
+    "accountMMRate",
+    "accountLTV",
+)
+
+
+def read_linear_margin_fields(client: Any) -> Tuple[Optional[dict], Optional[str]]:
+    """Return Bybit's account-level USD margin fields verbatim, or an error.
+
+    Read-only and **deliberately non-interpreting** — it computes nothing and
+    the sizer does not call it. It exists because of what the 2026-08-13
+    bybit_2 read turned up: ``totalAvailableBalance`` is PRESENT in that
+    account's response and EMPTY, while ``totalEquity`` and
+    ``totalInitialMargin`` sit beside it with values. The sizer read the first
+    of those and skipped the second — and the second is exactly the quantity
+    whose omission let the margin cap treat pledged margin as free
+    (BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS).
+
+    That suggests available margin could be DERIVED (Bybit's own definition is
+    ``totalMarginBalance - totalInitialMargin``) rather than fallen back from.
+    This function does not do that: deriving it would change what the sizer
+    receives, which is an order-path change. It surfaces the inputs so the
+    derivation can be validated against the independently-reconstructed
+    journal figure FIRST. A derivation nobody checked is how the current
+    defect got here.
+
+    Values are balances, not credentials. This is reported only on the
+    token-gated diag surface, which already exposes per-account balances.
+    """
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        ret_code = resp.get("retCode")
+        if ret_code not in (None, 0, "0"):
+            return None, f"venue refused the wallet read: retCode={ret_code!r}"
+        wallet_list = (resp.get("result") or {}).get("list")
+        if not wallet_list:
+            return None, "wallet read carried no account object"
+        account = wallet_list[0] or {}
+        # Every declared field appears, so a MISSING one is visibly null rather
+        # than silently dropped — an absent key and a null value must not look
+        # the same to the reader.
+        out: dict = {f: account.get(f) for f in _MARGIN_FIELDS}
+        # The per-coin USDT block, VERBATIM and un-cherry-picked. Reported whole
+        # on purpose: the 2026-08-13 error that made this necessary was reading a
+        # KEY LIST and inferring that a present key carried a value — every
+        # account-level margin aggregate on bybit_2 turned out to be the empty
+        # string. Selecting fields here would reproduce that mistake one level
+        # down. Bounded so a venue that grows the schema cannot flood the payload.
+        coins = account.get("coin") or []
+        usdt = next(
+            (c for c in coins if isinstance(c, dict)
+             and (c.get("coin") or "").upper() == "USDT"),
+            None,
+        )
+        out["coin_usdt"] = (
+            {k: usdt[k] for k in sorted(usdt)[:24]} if isinstance(usdt, dict) else None
+        )
+        out["coin_count"] = len(coins)
+        # Every OTHER coin, compactly. The USDT block alone makes
+        # `equity - totalPositionIM - totalOrderIM` computable, but a second
+        # coin flagged as collateral would raise the real ceiling — so reading
+        # only USDT would make that derivation a silent LOWER bound with
+        # nothing on the surface to say so. `coin_count: 2` on bybit_2 is what
+        # surfaced the gap; this is the field that closes it.
+        out["coins_other"] = [
+            {
+                k: c.get(k)
+                for k in ("coin", "equity", "usdValue", "walletBalance",
+                          "totalPositionIM", "totalOrderIM",
+                          "marginCollateral", "collateralSwitch")
+            }
+            for c in coins[:8]
+            if isinstance(c, dict) and (c.get("coin") or "").upper() != "USDT"
+        ]
+        return out, None
+    except Exception as exc:  # noqa: BLE001
+        return None, f"call raised: {type(exc).__name__}: {exc}"
+
+
 def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Optional[str]]:
     """Read Bybit UNIFIED trading-available margin AND say where it came from.
 
@@ -863,8 +953,32 @@ def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Op
     """
     try:
         resp = client.get_wallet_balance(accountType="UNIFIED") or {}
-        wallet_list = (resp.get("result") or {}).get("list") or [{}]
-        account = wallet_list[0] if wallet_list else {}
+        # Stage the failure so `detail` names the stage that ACTUALLY failed
+        # rather than a plausible-sounding one. Measured 2026-08-13: bybit_2
+        # returns `unavailable`, and the original one-line detail ("neither
+        # field present") could not say whether the venue had errored, returned
+        # no account object, or returned one lacking both fields — three
+        # different bugs with three different fixes, collapsed into one string.
+        # Same lesson as the diag relay's own staged failure message: a message
+        # naming a cause no code path tested is worse than no message.
+        ret_code = resp.get("retCode")
+        if ret_code not in (None, 0, "0"):
+            return (
+                None,
+                AVAILABLE_STATE_UNAVAILABLE,
+                f"venue refused the wallet read: retCode={ret_code!r} "
+                f"retMsg={resp.get('retMsg')!r}",
+            )
+        wallet_list = (resp.get("result") or {}).get("list")
+        if not wallet_list:
+            return (
+                None,
+                AVAILABLE_STATE_UNAVAILABLE,
+                "wallet read succeeded but carried NO account object "
+                "(result.list empty or absent) — commonly an accountType "
+                "mismatch: this asks for UNIFIED",
+            )
+        account = wallet_list[0] or {}
         # Preferred: account-level available-for-trading margin.
         raw = account.get("totalAvailableBalance")
         if raw not in (None, "", "null"):
@@ -882,13 +996,32 @@ def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Op
                         "totalAvailableBalance absent; used deprecated per-coin "
                         "availableToWithdraw",
                     )
+        # PRESENT-BUT-EMPTY IS NOT ABSENT, and saying "carried neither" when the
+        # key is right there in the key list is a diagnostic that contradicts
+        # its own evidence. Measured on bybit_2 2026-08-13: the account object
+        # carries `totalAvailableBalance` AND `totalEquity` AND
+        # `totalInitialMargin` — the field exists, its VALUE is empty. Report
+        # the field's presence and its raw value separately so a reader can
+        # tell "Bybit did not send this key" from "Bybit sent it blank"; those
+        # have different causes and different fixes.
+        _keys = sorted(k for k in account if isinstance(k, str))
+        _tab_present = "totalAvailableBalance" in account
         return (
             None,
             AVAILABLE_STATE_UNAVAILABLE,
-            "neither totalAvailableBalance nor per-coin availableToWithdraw present",
+            (
+                "account object present; totalAvailableBalance "
+                + (
+                    f"PRESENT but empty (raw={account.get('totalAvailableBalance')!r})"
+                    if _tab_present
+                    else "ABSENT from the response"
+                )
+                + ", and no USDT availableToWithdraw either; keys seen: "
+                + f"{_keys[:14]}"
+            ),
         )
     except Exception as exc:  # noqa: BLE001
-        return None, AVAILABLE_STATE_UNAVAILABLE, f"{type(exc).__name__}: {exc}"
+        return None, AVAILABLE_STATE_UNAVAILABLE, f"call raised: {type(exc).__name__}: {exc}"
 
 
 def _fetch_linear_available_balance(client: Any) -> Optional[float]:
