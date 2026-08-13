@@ -4249,9 +4249,9 @@
       "title": "Android home-screen widget symbol chips can clip with 8+ instruments",
       "description": "CandleChartWidget/DashboardWidget render one chip per traded symbol (now 8) on a single Glance Row; Glance rows don't scroll, so narrow widget placements may clip trailing chips. Degradation only — the in-app Overview row scrolls and shows everything. If the instrument count keeps growing, consider a two-row wrap or a widget-config symbol picker.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-08-13T11:00:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon)",
       "resolution_note": null,
       "updates": [
         {
@@ -4286,10 +4286,17 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Cap the widget chip row — a window of ~6 symbols centred on the selected one (always including it), or wrap into two Rows with an overflow chip. VERIFIED still broken AND WORSE this session: CandleChartWidget.kt:95 renders availableSymbols.forEach in a single non-wrapping Glance Row, the worker writes the full uncapped union, and the state store applies no cap on read — now ~20 instruments vs the 8-chip threshold."
+        },
+        {
+          "at": "2026-08-13T11:00:00+00:00",
+          "by": "claude (system-audit-review-oy5kon)",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "FIXED (ict-trader-android#117). Verified still broken AND WORSE than filed before touching it: CandleChartWidget.kt:95 rendered `availableSymbols.forEach` into a single non-wrapping Glance Row, the refresh worker wrote the full uncapped union, and the state store applied no cap on read — ~20 instruments across 51 strategies against the 8-chip threshold this row names.\n\nFix is `visibleSymbolWindow()`: a window of 6 CENTRED on the selection and clamped at both ends, plus a `+N` chip stating the remainder. The centring is the actual fix — a naive take(6) would drop the SELECTED chip once it moved past index 6, leaving the widget charting a symbol with no visible way back, which is worse than clipping. The `+N` chip exists so the row cannot read as 'the roster IS this short' (an unasserted denominator in UI form).\n\nAlgorithm verified out-of-band across all seven cases (short roster, exactly-max, selection first / mid / near-end / last, and a stale selection absent from the roster): the selected symbol is visible in every case and the row is always full. NOT verified by a Kotlin unit test — the app module has no test source set (only core/data does), which is filed separately as BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET."
         }
       ],
       "severity": "low",
-      "disposition": "do_now",
+      "disposition": "fixed",
       "next_action": "Cap the widget chip row — a window of ~6 symbols centred on the selected one (always including it), or wrap into two Rows with an overflow chip. VERIFIED still broken AND WORSE this session: CandleChartWidget.kt:95 renders availableSymbols.forEach in a single non-wrapping Glance Row, the worker writes the full uncapped union, and the state store applies no cap on read — now ~20 instruments vs the 8-chip threshold."
     },
     {
@@ -13719,6 +13726,26 @@
         "src/runtime/orders.py:129-132",
         "src/runtime/runtime_flags.py::halt_flag_path",
         "BL-20260813 halt-flag single-home commit"
+      ]
+    },
+    {
+      "id": "BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET",
+      "severity": "medium",
+      "status": "open",
+      "tier": 1,
+      "area": "android/ci",
+      "opened_at": "2026-08-13T11:00:00+00:00",
+      "opened_by": "claude (system-audit-review-oy5kon)",
+      "title": "The Android app module has NO test source set, so every pure helper in it ships unverified by a test",
+      "source": "Found 2026-08-13 while fixing BL-20260611-SYM-2. `find . -path '*src/test*' -name '*.kt'` returns exactly ONE file, core/data/.../NotificationKindsTest.kt, and `grep testImplementation app/build.gradle.kts` returns nothing. So the app module — which holds the widget, every feature screen and their pure helpers — has no unit-test target at all.",
+      "why_it_matters": "It is not that coverage is low; it is that there is nowhere to PUT a test. The visibleSymbolWindow() helper added today is pure, has a stated invariant (the selected symbol is always visible) and a non-obvious failure mode (a naive take(n) silently drops the selection) — exactly the shape a unit test exists for — and it shipped verified only by an out-of-band check. The next such helper will ship the same way, and the one after that.",
+      "action": "Add a test source set to app/build.gradle.kts (testImplementation for kotlin-test/junit, matching whatever core/data already uses so the toolchain is known-good), then port the seven visibleSymbolWindow cases as the first test. Keep it Tier-1: no main-source behaviour changes.",
+      "resolution_criteria": "app/src/test/kotlin exists and runs in CI, with at least the visibleSymbolWindow invariant cases (selected symbol always present; row full at both edges; stale selection does not throw) passing on a real `./gradlew :app:test` run.",
+      "refs": [
+        "app/build.gradle.kts",
+        "core/data/src/test/kotlin/.../NotificationKindsTest.kt",
+        "app/src/main/kotlin/.../widget/CandleChartWidget.kt::visibleSymbolWindow",
+        "BL-20260611-SYM-2"
       ]
     }
   ],
