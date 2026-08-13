@@ -600,11 +600,44 @@ def main(argv: List[str]) -> int:
             continue
         fams.setdefault(rows[0]["family"], []).extend(rows)
 
+    # THE TWO DROP STAGES ARE REPORTED SEPARATELY AND BOTH ALWAYS.
+    #
+    # `skipped` above counts only the CANDLE stage (a row that reached here and
+    # had no candles / produced no rows). The LOAD stage — a row rejected on
+    # shape, before it was ever a trade — was counted into `harness_report` and
+    # then printed ONLY inside the `if not trades:` total-failure branch. So a
+    # PARTIAL drop was invisible, which is precisely the case the counters
+    # exist for: measured 2026-08-13, the 1d round dropped all 371 trend rows
+    # at the load stage (`missing:exit_time`/`entry`/`sl`) while 578 pullback
+    # rows loaded fine, and `build_report.json` said only
+    # `{"no_candles": 697, "unresolvable": 63}` — no trace of the 371. Reading
+    # that report, the trend family simply did not exist, and `trades_in: 1332`
+    # counted the survivors, so even the denominator gave nothing away.
+    #
+    # The instrumentation added after the 2026-08-12 scalp incident covered the
+    # failure that had already happened (a TOTAL drop) and not the one that had
+    # not (a partial one). Surfacing it unconditionally is the fix.
+    #
+    # They are NOT merged into one `skipped` dict: "rejected on shape" and
+    # "had no candles" are different failures with different fixes, and
+    # collapsing them would re-create the ambiguity this is correcting.
     report: Dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "tf": a.tf, "trades_in": len(trades), "skipped": skipped,
+        "skipped_at_load": dict(harness_report.get("skipped") or {}),
+        "rows_seen_at_load": harness_report.get("rows_seen"),
+        "rows_loaded_at_load": harness_report.get("rows_loaded"),
         "holding_pays_threshold_r": HOLDING_PAYS_R, "families": {},
     }
+    # And say it on stderr too, where the round driver's log will carry it —
+    # a report nobody opens is not an alert.
+    if report["skipped_at_load"]:
+        seen, loaded = report["rows_seen_at_load"], report["rows_loaded_at_load"]
+        print(f"LOAD-STAGE DROPS: {seen} harness row(s) read, {loaded} loaded",
+              file=sys.stderr)
+        for reason, n in sorted(report["skipped_at_load"].items(),
+                                key=lambda kv: -kv[1]):
+            print(f"    dropped {n}: {reason}", file=sys.stderr)
     for fam, rows in sorted(fams.items()):
         d = out_root / fam
         d.mkdir(parents=True, exist_ok=True)
