@@ -863,8 +863,32 @@ def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Op
     """
     try:
         resp = client.get_wallet_balance(accountType="UNIFIED") or {}
-        wallet_list = (resp.get("result") or {}).get("list") or [{}]
-        account = wallet_list[0] if wallet_list else {}
+        # Stage the failure so `detail` names the stage that ACTUALLY failed
+        # rather than a plausible-sounding one. Measured 2026-08-13: bybit_2
+        # returns `unavailable`, and the original one-line detail ("neither
+        # field present") could not say whether the venue had errored, returned
+        # no account object, or returned one lacking both fields — three
+        # different bugs with three different fixes, collapsed into one string.
+        # Same lesson as the diag relay's own staged failure message: a message
+        # naming a cause no code path tested is worse than no message.
+        ret_code = resp.get("retCode")
+        if ret_code not in (None, 0, "0"):
+            return (
+                None,
+                AVAILABLE_STATE_UNAVAILABLE,
+                f"venue refused the wallet read: retCode={ret_code!r} "
+                f"retMsg={resp.get('retMsg')!r}",
+            )
+        wallet_list = (resp.get("result") or {}).get("list")
+        if not wallet_list:
+            return (
+                None,
+                AVAILABLE_STATE_UNAVAILABLE,
+                "wallet read succeeded but carried NO account object "
+                "(result.list empty or absent) — commonly an accountType "
+                "mismatch: this asks for UNIFIED",
+            )
+        account = wallet_list[0] or {}
         # Preferred: account-level available-for-trading margin.
         raw = account.get("totalAvailableBalance")
         if raw not in (None, "", "null"):
@@ -882,13 +906,20 @@ def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Op
                         "totalAvailableBalance absent; used deprecated per-coin "
                         "availableToWithdraw",
                     )
+        # Naming the keys the account object DID carry is what turns this from
+        # "something is missing" into a diagnosable state — it is the
+        # denominator for the negative. Keys only, never values, and bounded:
+        # a wallet response holds balances, and a detail string ends up in
+        # logs and a diag payload.
         return (
             None,
             AVAILABLE_STATE_UNAVAILABLE,
-            "neither totalAvailableBalance nor per-coin availableToWithdraw present",
+            "account object present but carried neither totalAvailableBalance "
+            "nor a USDT availableToWithdraw; keys seen: "
+            f"{sorted(k for k in account if isinstance(k, str))[:12]}",
         )
     except Exception as exc:  # noqa: BLE001
-        return None, AVAILABLE_STATE_UNAVAILABLE, f"{type(exc).__name__}: {exc}"
+        return None, AVAILABLE_STATE_UNAVAILABLE, f"call raised: {type(exc).__name__}: {exc}"
 
 
 def _fetch_linear_available_balance(client: Any) -> Optional[float]:
