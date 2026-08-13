@@ -215,6 +215,91 @@ invoked from the same loop seconds later, died on `unrecognized arguments:
 --strategy-name`. Recorded as `docs/claude/trainer-vm-mode.md` § 9.a.1 with the
 reflog evidence, so the next session merges rather than checks out.
 
+### 10. The sweep cannot grade a lever it already contains — 31 corpus rows are a self-comparison
+
+The prescription I wrote in §8's follow-up — *"re-sweep the shipped cells"* —
+turned out to be unrunnable, and finding out why produced the session's largest
+structural finding.
+
+`base_args → declared_levers()` puts every YAML-declared exit lever **into** the
+config-exact base. That is correct: a shipped lever is part of the leg's
+baseline, and a new lever cell must be measured on top of it. The consequence is
+not: a swept cell reproducing the leg's own declared values measures the base
+**against itself**, so every cell asks *"does this alternative beat the shipped
+one?"* and none asks *"is the shipped one worth anything?"*.
+
+Measured over `docs/research/m20-sweep-corpus.jsonl`, population stated:
+
+| | |
+|---|---:|
+| corpus cell rows | 860 |
+| all-zero delta (`d_net_r` + `d_max_dd` = 0 in **both** windows) | 37 (4.3%) |
+| …of those, on a leg whose YAML **declares** that lever | **31** |
+
+Those 31 carry `gate_reason: tie_no_improvement`, `net_r_retained_frac: 1.0` —
+and wear the verdict labels `is_oos_fail` (27) and `insufficient_base` (4).
+Neither is true; **no comparison happened**. 20 distinct (leg, lever) pairs,
+including 9 of the 13 gradeable stale decisions from §6.
+
+The worked example is the one that makes it a finding rather than a curiosity.
+`qqq_pullback_1h` `vt_hot80_t2.5` is the exact cell the matrix called a *LONE
+PASS*; its YAML has carried `trail_vol_above_pctl: 0.80` / `trail_vol_tight_mult:
+2.5` since 2026-08-09 (#8683); its corpus row reads `verdict=is_oos_fail`, both
+deltas `0.0`, `wf_ran=false`. A reader takes that as *"the live cell failed
+out-of-sample"*. Nothing did — diagnostic-provenance **sub-class A**, sitting in
+the corpus rather than in a probe. I had nearly recorded its mirror image
+earlier the same session, reading one such cell as *"the shipped lever is
+INERT"*.
+
+**The lever-OFF arm** (PR #8868) is the instrument that answers it.
+`--without-declared-lever <lever>` removes a declared lever from the
+config-exact base and emits one `shipped_<lever>_<values>` cell putting it back
+at the leg's own live values, so the delta the sweep already computes becomes a
+verdict on the **shipped** cell. The invariant it rests on is asserted over all
+22 real declaring legs rather than a fixture — `base-OFF + shipped cell ==
+base-ON`, **22/22**, 0 mismatch. If that did not hold the A/B would measure the
+lever plus whatever else drifted, and the verdict would still be attributed to
+the lever.
+
+Four properties are deliberate, not incidental: the drop is enforced in `opt()`
+so a family branch cannot route around it; a dropped key is **omitted, never
+passed as `0`** (an armed lever at a degenerate threshold is a different book
+that looks like the right one); `trail_geometry` is **not offerable** because
+`trail_mult` is a continuous parameter with no OFF state; and `--census` is
+refused in combination, since it would print a capture distribution for a book
+that is not the live book under the same column headings.
+
+**Reach, stated rather than implied: 13 of the 21 stale live decisions.** The
+other 8 need a different instrument — `trail_geometry` (4) by design,
+`exit_head_ml` (3) and `mhg_pullback_1d stale_stop` (1, correctly
+`passed_unshipped`) because no leg declares them, so there is nothing in the
+base to remove.
+
+Designing the actual run then surfaced a gap in the arm itself. Dropping two
+levers from one leg removes **both**, so the cell restoring one measures its
+contribution in a book still lacking the other — a clean one-lever A/B, but
+against a counterfactual base rather than the live configuration. Two legs are
+affected (`trend_donchian_eth`, `trend_donchian_eth_prop`). Every row now
+carries `base_missing_other_levers`, the plan prints a `!! MULTI-LEVER BASE`
+line, and the flag help says drop one lever per run. Note my own round-trip test
+dropped all levers at once — that verifies the cells **collectively
+reconstruct** the live base, which is a weaker statement than any single cell
+having been measured against it.
+
+`BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES` stays **open**: the
+arm exists but has not been run. Its `resolution_criteria` explicitly refuse any
+run of the sweep *without* the new flag as evidence.
+
+### 10a. One matrix cell was stale, found by the arm's own denominator check
+
+`qqq_pullback_1h` `vol_trail` read `passed_unshipped` while the YAML has it
+armed. **Field beats comment** — now `shipped`, with the paper-book context (the
+leg runs on `alpaca_paper`; its `alpaca_live` leg is shelved `dry_run` since
+2026-07-15, which is why the declare was made without the yearly walk-forward
+the previous ref names as its gate — that gap is real, unclosed, and not
+money-at-risk). `resolved-only` 324 → 325; headline unchanged at 346/376, both
+statuses being closed.
+
 ## Validation Performed
 
 **Tests** — 14 new tests in `tests/test_exit_head_per_leg.py`. **Each was
