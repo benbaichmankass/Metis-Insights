@@ -197,6 +197,19 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
         "pre_cutover": 0, "post_cutover": 0, "undated": 0,
         "affected_legs": 0, "clean_legs": 0,
         "stale_cells": [],
+        # THE SPLIT THAT DECIDES WHAT THE CAVEAT COSTS. A stale NEGATIVE costs
+        # knowledge — the lever might have passed and we would not know. A stale
+        # SHIPPED costs money: it is changing exit behaviour on a real-money leg
+        # right now, on a number measured against a geometry production does not
+        # run. Reporting one aggregate for both invites the reader to price the
+        # whole caveat at the cost of the cheap half, which is what happened:
+        # the caveat shipped 2026-08-12 and it took a separate hand-audit on
+        # 2026-08-13 to notice that 19 of the stale cells were live decisions.
+        #
+        # Base rate so far is 1 of 1: `trend_donchian` `trail_decay` is the only
+        # one re-swept, and it did NOT reproduce (BL-20260808, now
+        # `shipped_gate_failed`).
+        "stale_decisions": [],
     }
     for row in matrix["rows"]:
         if row.get("execution") != "live":
@@ -218,14 +231,23 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             if base(cell.get("status")) == "n/a":
                 continue  # structurally inapplicable — no measurement to age
             dates = _DATE.findall(cell.get("ref") or "")
+            stale = (not dates) or max(dates) < GEOMETRY_CUTOVER
             if not dates:
                 out["undated"] += 1
-            elif max(dates) < GEOMETRY_CUTOVER:
+            elif stale:
                 out["pre_cutover"] += 1
                 out["stale_cells"].append(
                     (row["strategy"], row["symbol"], row["tf"], col, max(dates)))
             else:
                 out["post_cutover"] += 1
+            # A stale cell that is not a negative is a live DECISION resting on
+            # unreproduced evidence. Keyed on "not honest_negative" rather than
+            # on a shipped-list, so a status added to the legend later cannot
+            # silently fall out of this set.
+            if stale and base(cell.get("status")) != "honest_negative":
+                out["stale_decisions"].append(
+                    (row["strategy"], col, cell.get("status"),
+                     max(dates) if dates else None))
     return out
 
 
@@ -391,7 +413,7 @@ def render(r: dict[str, Any]) -> str:
     elif v.get("pre_cutover") or v.get("undated"):
         graded = v["pre_cutover"] + v["post_cutover"] + v["undated"]
         pct = round(100 * v["pre_cutover"] / graded, 1) if graded else 0.0
-        out[2:2] = [
+        block = [
             "",
             f"  ⚠️  EVIDENCE VINTAGE — {v['pre_cutover']} of {graded} closed cells"
             f" ({pct}%) on the {v['affected_legs']} legs whose harness modelled",
@@ -409,6 +431,34 @@ def render(r: dict[str, Any]) -> str:
             "      conditioned on that geometry, and until 2026-08-12 nothing"
             " anywhere said so.",
         ]
+        # Appended to the SAME list rather than spliced at a fixed index — the
+        # first attempt hardcoded `out[12:12]` and landed after the population
+        # line, separating the ⛔ block from the caveat it qualifies.
+        dec = v.get("stale_decisions") or []
+        if dec:
+            by_status: dict[str, int] = {}
+            for _leg, _lev, status, _dt in dec:
+                k = base(status) or "?"
+                by_status[k] = by_status.get(k, 0) + 1
+            block += [
+                "",
+                f"      ⛔ {len(dec)} of those stale cells are NOT negatives —"
+                " they are live DECISIONS:",
+                "         " + " · ".join(
+                    f"{s_} {n_}" for s_, n_ in
+                    sorted(by_status.items(), key=lambda kv: -kv[1])),
+                "         A stale NEGATIVE costs knowledge (the lever might have"
+                " passed and we would not know).",
+                "         A stale SHIPPED costs MONEY — it changes exit behaviour"
+                " on a real-money leg now, on a",
+                "         number never reproduced under the geometry the bot"
+                " actually places.",
+                "         Base rate so far is 1 of 1: `trend_donchian`"
+                " `trail_decay` is the only one re-swept",
+                "         and it did NOT reproduce (now `shipped_gate_failed`)."
+                "  List them with `--stale-decisions`.",
+            ]
+        out[2:2] = block
     for s, n in sorted(r["per_status"].items(), key=lambda kv: -kv[1]):
         out.append(f"    {s:<22} {n:>4}")
     out += ["", "per-lever open cells (pending + blocked):"]
@@ -432,6 +482,10 @@ def main(argv: list[str]) -> int:
                     help="CI mode: validate, and fail on any defect")
     ap.add_argument("--done-condition", action="store_true",
                     help="list every cell blocking the milestone (pending + blocked)")
+    ap.add_argument("--stale-decisions", action="store_true",
+                    help="list the CLOSED cells that are not negatives and whose "
+                         "evidence predates the TP-parity cutover — live decisions "
+                         "resting on a number never reproduced under live geometry")
     a = ap.parse_args(argv[1:])
 
     path = Path(a.matrix)
@@ -463,6 +517,31 @@ def main(argv: list[str]) -> int:
                 print(f"\n  {bucket} ({len(rows)}):")
                 for strategy, symbol, tf, col in rows:
                     print(f"    {strategy:<26} {symbol:<9} {tf:<4} {col}")
+        if a.stale_decisions:
+            v = r["evidence_vintage"]
+            dec = v.get("stale_decisions") or []
+            # STATE THE DENOMINATOR THIS RANGES OVER. `stale_decisions` is a
+            # subset of the stale population, so an empty list means one of two
+            # opposite things: every stale cell is a negative (good), or the
+            # stale population is itself empty / never computed (nothing was
+            # examined). Printing "none" alone collapses them — the sub-class C
+            # shape this repo guards for, caught here by
+            # diagnostic-provenance-guard on my own diff.
+            stale_n = v.get("pre_cutover", 0) + v.get("undated", 0)
+            print(f"\nstale DECISIONS ({len(dec)} of {stale_n} stale cells) — "
+                  f"closed, not negative, evidence older than {v['cutover']}:")
+            if not v.get("classifier_available", True):
+                print("  NOT COMPUTED — the family classifier could not be "
+                      "imported. This is not 'no stale decisions found'.")
+            elif stale_n == 0:
+                print("  (0 stale cells in the population — nothing to grade, "
+                      "which is NOT the same as 'all clear')")
+            elif not dec:
+                print(f"  (0 of {stale_n} stale cells is a non-negative — every "
+                      "one is an honest_negative)")
+            for leg, lever, status, dt in sorted(dec):
+                print(f"    {leg:<26} {lever:<16} {str(status):<22} "
+                      f"newest-ref {dt or '(undated)'}")
         if problems:
             print(f"\n⚠️  {len(problems)} structural defect(s) — run --validate")
     return 0

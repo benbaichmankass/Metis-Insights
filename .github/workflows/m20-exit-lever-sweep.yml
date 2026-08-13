@@ -451,23 +451,46 @@ jobs:
           # non-alphanumeric, so a wrapped id resolves to nothing).
           #
           # So: a PR-branch dispatch pushes to its own branch as before; a
-          # default-branch dispatch is retargeted onto a corpus branch and opts
-          # into `claude-pr-automerge.yml` by touching its request file, which
-          # opens the PR and merges it on green. The corpus reaches `main` the
-          # way every other change does — through CI — rather than by weakening
-          # the protection that refused it.
+          # default-branch dispatch is retargeted onto a corpus branch, which
+          # PRESERVES THE ROWS. That is the whole job of this path.
+          #
+          # ⚠️ IT DOES NOT OPEN THE PR, AND CANNOT. This block used to claim it
+          # did, via `claude-pr-automerge.yml`'s request file. MEASURED
+          # 2026-08-13 on the first real default-branch dispatch (run
+          # 31657293634): the push landed 72 rows on the corpus branch and
+          # triggered **ZERO** workflow runs — not the automerge (3 lifetime
+          # runs, newest 2026-08-04), and not CI either. Every run that branch
+          # has is `event=pull_request`, created the moment a SESSION opened the
+          # PR by hand.
+          #
+          # Cause: GitHub does not start workflows from events produced with a
+          # workflow's own `GITHUB_TOKEN` (the recursion guard). So the opt-in
+          # file is written and never read, and — the part that kills every
+          # variant of this — a PR opened by this job would get no checks
+          # either, leaving it permanently un-mergeable behind required checks.
+          # Having the job call the PR API instead would look MORE automatic
+          # and be no more automatic.
+          #
+          # A fully-automatic path therefore needs a credential that is not
+          # `GITHUB_TOKEN` (a PAT with repo write). Originating that value is
+          # the operator's, not this workflow's — so until it exists this path
+          # ends with a LOUD, accurate hand-off rather than a claim that
+          # something downstream will finish the job.
+          # BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR
           TARGET="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           RETARGETED=0
           if [ "$TARGET" = "${DEFAULT_BRANCH:-main}" ]; then
             TARGET="claude/m20-sweep-corpus"
             RETARGETED=1
             echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — "
-            echo "routing the corpus to '$TARGET' for a CI-gated PR instead."
+            echo "routing the corpus to '$TARGET' to preserve the rows."
             mkdir -p .github
             {
               echo "m20 exit-lever sweep corpus — run ${GITHUB_RUN_ID:-unknown}"
-              echo "Touching this file is the opt-in signal for claude-pr-automerge.yml;"
-              echo "its contents are ignored."
+              echo "Opt-in marker for claude-pr-automerge.yml. NOTE: a push made"
+              echo "with GITHUB_TOKEN does not start workflows, so this file is"
+              echo "NOT read on this path — it is written so the branch is ready"
+              echo "the moment a credential that CAN trigger it exists."
             } > .github/pr-automerge-request
             git add .github/pr-automerge-request
           fi
@@ -539,6 +562,28 @@ jobs:
             if git push origin HEAD:"$TARGET" 2>push.err; then
               rm -f .commitmsg push.err
               echo "corpus pushed to $TARGET"
+              # A retargeted push is NOT done — the rows are safe but still off
+              # `main`, and nothing downstream will move them (see the comment
+              # above the retarget). Say so where it cannot be missed: a green
+              # job that silently needs a human step is the shape this whole
+              # fix exists to stop.
+              if [ "$RETARGETED" = "1" ]; then
+                {
+                  echo "### ⚠️ Corpus rows are on \`$TARGET\`, NOT on ${DEFAULT_BRANCH:-main}"
+                  echo
+                  echo "Branch protection declined the direct push, so the rows were"
+                  echo "retargeted. **They are preserved, and a human/session step remains:**"
+                  echo "open a PR from \`$TARGET\` to \`${DEFAULT_BRANCH:-main}\`."
+                  echo
+                  echo "This job cannot open it: a push or PR made with \`GITHUB_TOKEN\`"
+                  echo "starts no workflows, so the PR would carry no checks and could"
+                  echo "never satisfy branch protection. Measured 2026-08-13, run"
+                  echo "31657293634 — that push triggered ZERO runs."
+                  echo
+                  echo "Tracked: BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR"
+                } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+                echo "::warning::corpus rows are on '$TARGET' and NOT on ${DEFAULT_BRANCH:-main} — open the PR; this job cannot (GITHUB_TOKEN starts no workflows)."
+              fi
               exit 0
             fi
             cat push.err
