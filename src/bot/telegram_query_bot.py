@@ -76,12 +76,6 @@ LIVE_SERVICE_NAME = "ict-trader-live"
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Single-homed 2026-08-13 -- see runtime_flags.halt_flag_path(). This was
-# hardcoded to /tmp/ while the pipeline checked /data/bot-data/, so the
-# operator's halt readout could contradict the trader.
-from src.runtime.runtime_flags import halt_flag_path
-HALT_FLAG_PATH = halt_flag_path()  # display only; is_halted() re-resolves
-
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -130,9 +124,12 @@ def is_authorised(update: Update) -> bool:
 
 
 def is_halted() -> bool:
-    # Re-resolved per call, not read from the import-time constant: an
-    # operator changing HALT_FLAG_PATH must not need a bot restart to be
-    # believed by the surface that reports the kill switch.
+    # Single-homed 2026-08-13 (see runtime_flags.halt_flag_path). This used to
+    # be a module constant hardcoded to /tmp/trader_halt.flag while the pipeline
+    # checked /data/bot-data/ -- so the operator's halt readout could contradict
+    # the trader. The constant is gone rather than re-pointed: it was never read
+    # anywhere else, and keeping it would just re-create a second definition of
+    # the path. Resolved per call, so an env change needs no bot restart.
     from src.runtime.runtime_flags import is_halted as _is_halted
     return _is_halted()
 
