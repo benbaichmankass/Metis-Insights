@@ -1547,7 +1547,17 @@ def main(argv: list[str]) -> int:
         decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
         if a.p80_only:
             p["cells"] = []  # fixed cells already verdicted; p80 cell only
-        if (p["family"] in ("donchian", "pullback") and decay_in_scope):
+        # THE LEVER-OFF ARM SUPPRESSES IT. `cells_for` returns only the
+        # `shipped_*` cells under the arm, but this injection happens AFTER that
+        # early return and so bypassed it — the first live run emitted a
+        # `decay_p80arm*` cell on 5 of 7 legs, measured against a base whose
+        # shipped lever had been removed. Those rows are labelled correctly (the
+        # identity fields ride on every row) but they answer a different question
+        # than the same tag does in a normal run, which is exactly what the arm
+        # was documented NOT to do. Found by reading the arm's own first results,
+        # not by the tests — which covered `cells_for` and never this hop.
+        if (p["family"] in ("donchian", "pullback") and decay_in_scope
+                and not without_levers):
             tm_val = next((float(x[1]) for x in
                            zip(p["base"], p["base"][1:])
                            if x[0] == "--trail-mult"), None)
