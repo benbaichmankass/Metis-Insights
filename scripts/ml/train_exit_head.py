@@ -448,6 +448,21 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
     and the embargo are all unchanged — only the definition of a test block
     moves.
 
+    HOW MANY TRADES A LEG NEEDS, stated because this docstring was SILENT on it
+    and the silence cost real time. The loop starts at `block_n` (the first
+    block is training) and steps by `block_n`, so
+
+        u = max(0, floor(N / block_n) - 1)     usable folds
+
+    and `per_leg_summary`'s gate requires `u >= 2`. Therefore a leg needs
+    **N >= 3 * block_n** to be graded at all — 150 trades at the default 50,
+    NOT 100. 100 yields exactly ONE fold, which the gate rejects. A 2026-08-13
+    session read "the 100 needed for a single 50-trade block" off a coverage-
+    matrix ref, took it as the bar, and built a whole remedy on it; the ref was
+    literally true about ONE block and silent about the gate needing two.
+    Anything reasoning about whether a leg CAN be graded belongs against
+    `3 * block_n`.
+
     `years` is kept to reproduce any pre-2026-08-13 result exactly.
     """
     if mode == "years":

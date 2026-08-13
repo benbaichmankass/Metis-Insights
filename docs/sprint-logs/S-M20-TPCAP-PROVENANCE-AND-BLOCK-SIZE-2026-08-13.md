@@ -116,10 +116,21 @@ touched, no Tier-3 change enacted.**
    it floors and why. One of the two numbers gating every E1 verdict is
    derived; the other is not.
 4. **The E1 bar is 3× the block, not 2×.** `u = floor(N/b) − 1` and the gate
-   requires `u >= 2`, so block 50 needs **150** trades. Every affected matrix
-   ref — and this session's own analysis — stated 100. Corrected on the cells;
-   the `fold_blocks` docstring still reasons from the wrong figure and is a
-   deliberate follow-up rather than a second edit to that file this session.
+   requires `u >= 2`, so block 50 needs **150** trades to be graded at all.
+   ⚠️ **This entry originally said the matrix refs and the `fold_blocks`
+   docstring "stated 100" and were wrong. BOTH halves of that were my error,
+   and it is instance SIX of the very pattern this log's postscript catalogues
+   — asserted, in the document about not asserting.** (a) `100` appears
+   NOWHERE in `train_exit_head.py`; the docstring does not reason from a wrong
+   figure, it is SILENT on the trades-mode requirement, which is a gap and not
+   a defect. I claimed a defect in a file without grepping it. (b) The matrix
+   ref's "98 lifetime harness trades vs the 100 needed for a single 50-trade
+   block" is **literally correct** — `N >= 2b` does yield one block. Its error
+   is incompleteness: one fold does not pass a gate requiring `u >= 2`. Saying
+   it "stated the wrong number" overstated a real but different problem.
+   The genuine finding survives — 150, not 100, is what the gate needs — and
+   the docstring gap is now closed rather than a "correction" being applied to
+   text that never made the claim.
 5. **`EQ_1D_START` does not describe the built files.** Declared default
    `2015-01-01`; measured spans SPY 2010, QQQ 2007, TQQQ/QLD 2016.
 
