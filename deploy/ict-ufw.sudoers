@@ -1,0 +1,40 @@
+# /etc/sudoers.d/ict-ufw — passwordless `ufw` for the operator-action workflows.
+#
+# Save to: /etc/sudoers.d/ict-ufw (mode 0440, validated with visudo -c)
+# Installed by: scripts/vm_bootstrap.sh · scripts/ops/purge_vm_runner.sh
+#
+# ── WHY THIS FILE EXISTS SEPARATELY (2026-08-13) ─────────────────────────────
+#
+# It is the surviving half of `deploy/claude-vm-runner.sudoers`, which granted
+# TWO things:
+#
+#   ubuntu ALL=(root) NOPASSWD: /usr/local/bin/claude-vm-dispatch   ← REMOVED
+#   ubuntu ALL=(root) NOPASSWD: /usr/sbin/ufw                       ← kept, here
+#
+# The dispatch grant was a passwordless-root path to a wrapper whose ONLY caller
+# — the Telegram `/vm` + `/vm_write` command surface — was deleted in PR #1933
+# on 2026-05-25. A full-system audit on 2026-08-13 found it still installed on
+# the LIVE MONEY VM three months later, with zero call sites anywhere in `src/`
+# (`BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT`). Nothing exercised it, so
+# nothing would have noticed if the wrapper had been replaced.
+#
+# THE SPLIT IS THE POINT. The obvious remediation — delete
+# /etc/sudoers.d/claude-vm-runner — would ALSO have removed the `ufw` grant,
+# which is live and load-bearing: the `system-actions` / `vm-net-fix` workflows
+# use it to reopen dashboard ingress after the VM-local firewall has blocked
+# TCP/8001 across a reboot with iptables-persistent rules unsaved (#537 / #542 /
+# #545). Losing it would break the auto-recovery for exactly that outage class,
+# and it would break it QUIETLY — the next occurrence would just fail to heal.
+#
+# So `ufw` moves here, under its own name, with its own justification, and the
+# dead grant goes. A grant that has to be read twice to know why it exists is
+# the shape that let the dispatch line survive three months of reviews.
+#
+# ── SCOPE ────────────────────────────────────────────────────────────────────
+#
+# This grants ONE binary. It does NOT grant systemctl, systemd-run, shell, or
+# any path under /usr/local/bin. The tiered mutating actions get their sudo from
+# /etc/sudoers.d/ict-system-actions, which is a separate file with a separate
+# allowlist — see docs/claude/system-actions.md § "VM sudoers setup".
+
+ubuntu ALL=(root) NOPASSWD: /usr/sbin/ufw

@@ -16,7 +16,8 @@
 #      prompts the operator for ANTHROPIC_API_KEY (read silently).
 #   5. Creates /var/log/claude-vm/ and /run/claude/prompts/ with the
 #      right ownership.
-#   6. Drops deploy/claude-vm-runner@.service into /etc/systemd/system/.
+#   6. Installs deploy/ict-ufw.sudoers (the ufw grant). The claude-vm-runner
+#      unit + dispatch wrapper were removed 2026-08-13 (dead since PR #1933).
 #   7. Installs the new vm-runner Telegram command (no restart needed —
 #      the bot picks up the new handler when systemd restarts the unit
 #      after the next deploy / git pull).
@@ -121,24 +122,33 @@ echo "d /run/claude         0750 ubuntu ubuntu - -" | \
 echo "d /run/claude/prompts 0750 ubuntu ubuntu - -" | \
   sudo tee -a /etc/tmpfiles.d/claude-vm.conf >/dev/null
 
-echo "==> 6a/7 Installing claude-vm-runner@.service"
-sudo install -m 0644 -o root -g root \
-  "${REPO_DIR}/deploy/claude-vm-runner@.service" \
-  /etc/systemd/system/claude-vm-runner@.service
-
-echo "==> 6b/7 Installing claude-vm-dispatch wrapper + sudoers"
-sudo install -m 0755 -o root -g root \
-  "${REPO_DIR}/deploy/claude-vm-dispatch" /usr/local/bin/claude-vm-dispatch
+# 6a/6b (the claude-vm-runner@.service unit + claude-vm-dispatch wrapper) were
+# REMOVED 2026-08-13. Their only caller — the Telegram /vm + /vm_write surface —
+# was deleted in PR #1933 (2026-05-25), and the audit found the wrapper's
+# passwordless-root sudoers grant still installed on the live money VM three
+# months later with zero call sites in src/
+# (BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT). A fresh VM must not be
+# bootstrapped back into that state.
+#
+# The `ufw` grant that SHARED that file is live and load-bearing (the
+# system-actions / vm-net-fix reopen of TCP/8001 after a reboot drops it —
+# #537/#542/#545), so it survives on its own in deploy/ict-ufw.sudoers. Splitting
+# it is the whole point: deleting the combined file would have taken the recovery
+# path with it, silently.
+#
+# An ALREADY-bootstrapped VM is cleaned by the `purge-vm-runner` operator action
+# (scripts/ops/purge_vm_runner.sh) — this file is install-only and never removes.
+echo "==> 6/7 Installing ufw sudoers grant"
 # Stage the sudoers file in /etc/sudoers.d after a visudo -c check.
 TMP_SUDOERS="$(mktemp)"
-cp "${REPO_DIR}/deploy/claude-vm-runner.sudoers" "${TMP_SUDOERS}"
+cp "${REPO_DIR}/deploy/ict-ufw.sudoers" "${TMP_SUDOERS}"
 if ! sudo visudo -cf "${TMP_SUDOERS}"; then
   echo "    sudoers file failed visudo -c check; refusing to install" >&2
   rm -f "${TMP_SUDOERS}"
   exit 1
 fi
 sudo install -m 0440 -o root -g root \
-  "${TMP_SUDOERS}" /etc/sudoers.d/claude-vm-runner
+  "${TMP_SUDOERS}" /etc/sudoers.d/ict-ufw
 rm -f "${TMP_SUDOERS}"
 
 sudo systemctl daemon-reload
@@ -148,8 +158,7 @@ echo "    claude:            $(command -v claude)"
 echo "    vm-marker:         $(sudo test -f /etc/claude/vm-marker && echo present || echo MISSING)"
 echo "    permissions.read:  $(sudo test -r /etc/claude/permissions.read.json && echo readable || echo MISSING)"
 echo "    permissions.write: $(sudo test -r /etc/claude/permissions.write.json && echo readable || echo MISSING)"
-echo "    runner unit:       $(systemctl cat claude-vm-runner@.service >/dev/null 2>&1 && echo registered || echo MISSING)"
-echo "    dispatch wrapper:  $(test -x /usr/local/bin/claude-vm-dispatch && echo executable || echo MISSING)"
+echo "    ufw sudoers:       $(test -f /etc/sudoers.d/ict-ufw && echo installed || echo MISSING)"
 echo "    sudoers:           $(sudo test -r /etc/sudoers.d/claude-vm-runner && echo installed || echo MISSING)"
 echo "    sudo (passwordless): $(sudo -n -l /usr/local/bin/claude-vm-dispatch >/dev/null 2>&1 && echo ok || echo MISSING)"
 echo "    swap:              $(free -m | awk '/Swap:/ {print $2}') MB"
