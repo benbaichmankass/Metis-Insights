@@ -652,6 +652,63 @@ def changed_files(base_ref: str, event_name: str) -> List[str]:
     return [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
 
 
+def worktree_files() -> List[str]:
+    """Paths dirty in the WORKING TREE — staged, unstaged, or untracked.
+
+    WHY THIS EXISTS. `changed_files` diffs a COMMIT RANGE, so uncommitted work
+    is invisible to it and every guard gated on those paths is skipped — while
+    the run still prints "All relevant guards passed." That is the same
+    green-that-checked-nothing the `changed_files` error branch already refuses,
+    reached by a different route: there the diff FAILS, here it SUCCEEDS and is
+    simply answering a question about commits when the developer asked about
+    their tree.
+
+    Measured 2026-08-13: five status flips staged in
+    `docs/research/exit-refinement-coverage.json`, `exit-coverage-matrix-guard`
+    SKIPPED, summary green. The guard only ran once the work was committed.
+
+    Two plumbing commands rather than `--porcelain`, deliberately: they emit one
+    clean path per line, so there is no status-prefix or rename-arrow parsing to
+    get wrong.
+
+    ⚠️ A PR THAT EDITS THIS FILE DOES NOT EXERCISE THIS FUNCTION. `run_guards.py`
+    is in `HARNESS_PATHS`, so touching it sets `harness_touched -> force_all`,
+    and `dirty` is computed as `[] if force_all else ...`. That is correct — a
+    harness change should run every guard — but it means the `guards` job going
+    green on such a PR is NOT evidence about this code path. The coverage lives
+    in `tests/test_guards_uncommitted_work.py`, which calls this directly and
+    drives the script end-to-end on a non-`force_all` event. Read `pytest-run`,
+    not `guards`, when changing this.
+    """
+    out: List[str] = []
+    for cmd in (["git", "diff", "--name-only", "HEAD"],
+                ["git", "ls-files", "--others", "--exclude-standard"]):
+        # BOUNDED. This wraps CI; an unbounded subprocess here is the shape
+        # that turns a slow git into a hung job with no diagnosis. Measured at
+        # 88ms locally, so 60s is ~700x headroom and only a genuine wedge
+        # trips it.
+        try:
+            proc = subprocess.run(cmd, cwd=REPO, capture_output=True,
+                                  text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            # Raise rather than degrade: "we could not look" must never be
+            # reported as "nothing is dirty", which is the false green this
+            # whole function exists to prevent.
+            raise SystemExit(
+                f"::error::timed out reading the working tree "
+                f"({' '.join(cmd)}) — cannot confirm what is uncommitted"
+            )
+        if proc.returncode != 0:
+            # Never silently degrade to "nothing is dirty" — that restores the
+            # exact false green this function exists to prevent.
+            raise SystemExit(
+                f"::error::could not read the working tree "
+                f"({' '.join(cmd)}): {proc.stderr.strip()}"
+            )
+        out.extend(ln.strip() for ln in proc.stdout.splitlines() if ln.strip())
+    return out
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-ref", default=os.environ.get("GUARDS_BASE_REF", "main"))
@@ -673,6 +730,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     changed = [] if args.all else changed_files(args.base_ref, args.event_name)
     harness_touched = any(f in HARNESS_PATHS for f in changed)
     force_all = args.all or harness_touched
+    # Captured BEFORE any guard runs: guards WRITE files (training-population
+    # -guard rewrites docs/training-population-matrix.md), so reading the tree
+    # afterwards would report the harness's own output as the developer's
+    # uncommitted work. Skipped under force_all, where nothing is relevance-
+    # gated and coverage is already complete.
+    dirty = [] if force_all else sorted(set(worktree_files()) - set(changed))
 
     print("=" * 72)
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
@@ -742,6 +805,31 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {item}")
         print("  A guard needing real push-time coverage must carry an UNGATED "
               "whole-tree step (see api-tier-policy-guard).")
+    unchecked = sorted({g["name"] for g in selected
+                        if g["name"] in skipped and is_relevant(g["when"], dirty)})
+    # A guard named in --only that relevance then skipped. Distinct from
+    # `unchecked`: nothing is dirty and no commit is missing — the caller
+    # ASKED FOR THIS GUARD BY NAME and it did not run. `PASS 0` is printed,
+    # but "All relevant guards passed" + exit 0 is what a wrapper script reads.
+    asked_but_skipped = sorted(set(args.only or []) & set(skipped))
+    if unchecked:
+        # The skip list above already named these, and that was not enough —
+        # a reader scanning for the green line does not audit 23 skip names.
+        # State the CAUSE next to them.
+        print(f"\nNOT SELECTED because the work is UNCOMMITTED ({len(unchecked)}) — "
+              f"guard relevance is computed from a COMMIT RANGE, so these did "
+              f"NOT run against your working tree:")
+        for name in unchecked:
+            print(f"  - {name}")
+        print(f"  {len(dirty)} dirty path(s) drove this; commit them (or use "
+              f"--all) for real coverage.")
+    if asked_but_skipped:
+        print(f"\nYOU ASKED FOR THESE BY NAME AND THEY DID NOT RUN "
+              f"({len(asked_but_skipped)}) — --only selects, it does not "
+              f"override relevance:")
+        for name in asked_but_skipped:
+            print(f"  - {name}")
+        print("  Add --all to run them regardless of the diff.")
     print("=" * 72)
 
     if args.notify_file and notify:
@@ -753,7 +841,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  ::error::{name}: {reason}")
         return 1
 
-    print("\nAll relevant guards passed.")
+    # The line that lied. "All relevant guards passed" is true of what RAN,
+    # and the reader takes it as a statement about their change. Both routes
+    # below end with a guard the reader believes ran and which did not.
+    caveats = []
+    if unchecked:
+        caveats.append(f"{len(unchecked)} guard(s) were not selected because "
+                       f"your work is uncommitted")
+    if asked_but_skipped:
+        caveats.append(f"{len(asked_but_skipped)} guard(s) you named with "
+                       f"--only were skipped as not relevant")
+    if caveats:
+        print("\nAll SELECTED guards passed — but " + "; and ".join(caveats)
+              + ". This is NOT a clean bill of health for your change.")
+    else:
+        print("\nAll relevant guards passed.")
     return 0
 
 
