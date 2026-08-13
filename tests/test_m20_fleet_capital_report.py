@@ -991,3 +991,40 @@ def test_the_measurement_key_splits_on_what_was_dropped_not_what_was_asked():
     # Argument order must not split a key.
     assert ce.measurement_key({**base, "declared_levers_dropped": ["b", "a"]}) == \
         ce.measurement_key({**base, "declared_levers_dropped": ["a", "b"]})
+
+
+def test_a_multi_lever_drop_states_which_other_levers_the_base_was_missing():
+    """A leg declaring two levers and dropping both yields a cell restoring ONE.
+
+    That is still a clean one-lever A/B — both arms lack the other lever — but
+    the book it is clean IN is not the live configuration. Derivable from
+    `declared_levers_dropped` minus the row's own `lever`; stated anyway,
+    because "the reader can compute it" is how a caveat gets lost.
+    """
+    import importlib.util
+    from pathlib import Path as _P
+    p = _P(__file__).resolve().parents[1] / "scripts/research/m20_corpus_extract.py"
+    spec = importlib.util.spec_from_file_location("m20ce2", p)
+    ce = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ce)
+    doc = {
+        "generated_at": "2026-08-13T00:00:00+00:00", "split": "2025-07-01",
+        "tp_cap_pct": 0.099, "without_declared_levers": ["stale_stop", "vol_trail"],
+        "verdicts": {"trend_donchian_eth": {
+            "proxy": False, "family": "donchian",
+            "declared_levers_present": ["stale_stop", "vol_trail"],
+            "declared_levers_dropped": ["stale_stop", "vol_trail"],
+            "levers": {"stale_stop": [{"cell": "shipped_stale_stop_8_0",
+                                       "verdict": "PASS"}]}}}}
+    rows = [r for r in ce.rows_from_verdicts(doc, "run1") if r["kind"] == "cell"]
+    assert len(rows) == 1
+    assert rows[0]["base_missing_other_levers"] == ["vol_trail"]
+    # The single-lever case says "nothing else differed" — [] not None, which is
+    # the whole point: absent and empty are different claims.
+    doc["verdicts"]["trend_donchian_eth"]["declared_levers_dropped"] = ["stale_stop"]
+    rows = [r for r in ce.rows_from_verdicts(doc, "run1") if r["kind"] == "cell"]
+    assert rows[0]["base_missing_other_levers"] == []
+    # And a run predating the arm records None, not [].
+    del doc["verdicts"]["trend_donchian_eth"]["declared_levers_dropped"]
+    rows = [r for r in ce.rows_from_verdicts(doc, "run1") if r["kind"] == "cell"]
+    assert rows[0]["base_missing_other_levers"] is None

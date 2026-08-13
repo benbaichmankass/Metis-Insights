@@ -1169,7 +1169,16 @@ def main(argv: list[str]) -> int:
                          "(trail_mult is a continuous parameter with no OFF "
                          "state). A row swept with this set is NOT comparable "
                          "to a config-exact row, so the value joins the corpus "
-                         "measurement key.")
+                         "measurement key.\n"
+                         "DROP ONE LEVER PER RUN when a leg declares several. "
+                         "Dropping two removes BOTH from the base, so the cell "
+                         "restoring one measures its contribution in a book that "
+                         "still lacks the other -- a clean one-lever A/B, but "
+                         "against a counterfactual base, not the live "
+                         "configuration. 2 legs are affected "
+                         "(trend_donchian_eth, trend_donchian_eth_prop); the run "
+                         "warns and every row records which other levers were "
+                         "absent, so this is never silent.")
     ap.add_argument("--tp-cap-pct", type=float, default=0.0,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
@@ -1264,6 +1273,21 @@ def main(argv: list[str]) -> int:
                                if not levers or c[1] in levers]})
 
     print(f"plan: {len(plan)} legs runnable, {len(skipped)} skipped")
+    # A LEG WITH TWO LEVERS DROPPED IS MEASURING AGAINST A COUNTERFACTUAL BASE.
+    # Each shipped cell restores exactly one, so the A/B is still clean for that
+    # lever — but the book it is clean IN lacks the other one, which is not the
+    # live configuration. That distinction is invisible in a results table, so it
+    # gets its own line rather than being left for a reader to derive from
+    # `declared_levers_dropped`. Every affected row also carries
+    # `base_missing_other_levers`.
+    for p in plan:
+        _d = p.get("declared_levers_dropped") or []
+        if len(_d) > 1:
+            print(f"  !! MULTI-LEVER BASE {p['leg']}: dropped {_d} together. Each "
+                  f"shipped cell restores ONE, so its delta is that lever's "
+                  f"contribution in a book still missing the rest — NOT its "
+                  f"contribution to the live config. Re-run one lever at a time "
+                  f"for a live-configuration answer.", flush=True)
     for s in skipped:
         print(f"  SKIP {s['leg']}: {s['reason']}")
     for p in plan:

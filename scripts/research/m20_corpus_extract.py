@@ -305,7 +305,19 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                         wins, usable = int(a), int(b_)
                     except ValueError:
                         wins = usable = None
+                # WHICH OTHER LEVERS WERE ABSENT from the base this cell was
+                # measured against. A leg declaring two levers and dropping both
+                # yields a cell restoring ONE — a clean A/B for that lever, but
+                # in a book still missing the other, which is not the live
+                # configuration. Derivable from `declared_levers_dropped` minus
+                # this row's own `lever`; STATED anyway, because "the reader can
+                # compute it" is how a caveat gets lost. `[]` = the base differed
+                # from live in this row's lever only. None = pre-arm run.
+                _dl = leg_common.get("declared_levers_dropped")
+                _other = (sorted(set(_dl) - {lever}) if isinstance(_dl, list)
+                          else None)
                 row = {**leg_common, "kind": "cell", "lever": lever,
+                       "base_missing_other_levers": _other,
                        "cell": e.get("cell"), "verdict": e.get("verdict"),
                        "is_oos_pass": e.get("is_oos_pass"),
                        "path_b_candidate": bool(e.get("path_b_candidate")),
