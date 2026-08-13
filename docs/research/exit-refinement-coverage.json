@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW.",
-  "updated_at": "2026-08-13T06:35:00+00:00",
+  "updated_at": "2026-08-13T06:42:00+00:00",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -624,7 +624,8 @@
         "ref": "no ladder cell in the round-2 sweep — partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner)"
       },
       "exit_head_ml": {
-        "status": "pending"
+        "status": "blocked:insufficient_folds",
+        "ref": "MEASURED 2026-08-13 — round RUN, not skipped (relay #8917, runtime_logs/m20_exit_head/eh_sq4h). This cell had been `pending` with NO ref, and the sprint log's §10d claimed 'no 4h frame anywhere', which is false: resolve_data returns BTCUSDT_15m.csv with resample=4h and proxy=FALSE — native data resampled, the same shape trend_donchian_eth_4h uses, and that leg already carries graded cells. So it was runnable and nobody had run it. Ran it. squeeze: 98 harness trades (2197 rows), 2 live. Every fold under the gate: 2022 test=20 (and train 80 rows < 500), 2023 test=29, 2024 test=15, 2025 test=19, 2026 test=7 — all < 50 (--min-fold-trades). `no fold produced a leg block`. Ungradeable at the current standard, same root cause as the 1d fleet (BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS) though this leg is 4h — the binding fact is TRADE COUNT per calendar year, not the bar size. Re-run if the fold-geometry decision lands."
       },
       "trail_decay": {
         "status": "n/a",

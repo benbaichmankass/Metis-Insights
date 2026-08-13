@@ -13303,8 +13303,27 @@
         "CLAUDE.md § 'The two execution gates'",
         "scripts/research/m20_coverage_rollup.py (reads the stored field)"
       ]
+    },
+    {
+      "id": "BL-20260813-TRAIN-EXIT-HEAD-CRASHES-ON-LIVE-ONLY-FAMILY",
+      "opened_at": "2026-08-13T06:42:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "area": "m20-exit-refinement",
+      "title": "`train_exit_head.py` dies on an unhandled sklearn ValueError when a family has 0 harness trades, and the `--db` live arm CREATES such families because it is not scoped to the round's `--legs`",
+      "source": "MEASURED 2026-08-13 (relay #8917). A round invoked with `--legs squeeze_breakout_4h` alone produced FOUR family dirs, because the `--db` live arm buckets live trades by `family_of` regardless of which legs the round was asked for. Three of the four had ZERO harness trades:\n    pullback  0 harness (0 rows), 20 live (128 rows)   -> CRASH\n    vwap      0 harness (0 rows),  3 live (6 rows)     -> CRASH\n    squeeze  98 harness (2197 rows), 2 live            -> ran, no usable folds\nEach crash is the same unhandled exception out of sklearn:\n    ValueError: Expected 2D array, got 1D array instead: array=[]\nraised from `check_X_y` -> `check_array`, i.e. the walk-forward built an empty training matrix (the folds iterate over harness years, and there are none) and handed it to the model.\n\nNOT FATAL to the round — each family trains in its own subprocess, so the round completed and the one family that mattered produced its report. The cost is diagnostic: a reader gets a 20-line sklearn traceback where a one-line statement of the condition belongs, and a traceback in the log reads like a broken run rather than an empty input.",
+      "why_it_matters": "This is the same class as the two defects fixed earlier tonight, one level down: the code KNOWS the condition (`0 harness trades` is printed on the line immediately above the traceback) and still fails as if it were unexpected. A round log that contains tracebacks trains the reader to skim past them, which is exactly how the 100%-drop went unnoticed for as long as it did.",
+      "proposed_fix": "Two independent halves, both small:\n  (a) `train_exit_head.py` — refuse early with a stated reason when the       harness set is empty ('0 harness trades: the walk-forward folds over       harness years, so there is nothing to train on; live rows alone       cannot form a fold'), exit non-zero, no traceback. NOTE the live-only       case is not nonsense in principle — it is the shape an E1 live-arm       evaluation would want — so the message should say which arm is       missing rather than implying the dir is invalid.\n  (b) `m20_exit_head_round.py` / `build_exit_head_dataset.py` — decide       whether the live arm should be SCOPED to the round's `--legs`.       Today a one-leg round silently acquires unrelated families. That may       be deliberate (the live arm is a cross-check, not a subject), but       nothing states it, and the surprise is what produced this crash.",
+      "resolution_criteria": "CLOSE when a family dir with 0 harness trades produces a one-line stated refusal and a non-zero exit instead of a sklearn traceback, AND the live arm's scoping relative to `--legs` is either enforced or documented as deliberate. Suppressing the traceback without answering the scoping question only hides how those dirs appear.",
+      "refs": [
+        "relay #8917 (the round log with all three tracebacks)",
+        "scripts/ml/train_exit_head.py (the fold loop over harness years)",
+        "scripts/ml/build_exit_head_dataset.py (the --db live arm's family bucketing)"
+      ]
     }
   ],
-  "updated_at": "2026-08-13T06:35:00+00:00",
+  "updated_at": "2026-08-13T06:42:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
