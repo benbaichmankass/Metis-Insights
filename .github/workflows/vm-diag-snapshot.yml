@@ -543,7 +543,39 @@ jobs:
             esac
             REMOTE_SCRIPT+="echo '===DIAG_PATH_START==='"$'\n'
             REMOTE_SCRIPT+="printf '%s\n' $(printf '%q' "$display")"$'\n'
-            REMOTE_SCRIPT+="curl -sS --fail --max-time ${mt} -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' $(printf '%q' "http://127.0.0.1:8001${prefix}${path}") || printf '%s' '{\"error\":\"fetch_failed\"}'"$'\n'
+            # A bare '{"error":"fetch_failed"}' NAMES NO STAGE (2026-08-13).
+            # `curl --fail` also DISCARDS the response body, so the one thing
+            # that would say why was thrown away. Every distinct cause collapsed
+            # into one string: web-api down, bad bearer, unknown table, a
+            # malformed path, a timeout. A session reading it cannot tell "the
+            # VM is broken" from "your request was wrong" — and on 2026-08-13 a
+            # session lost a full relay round-trip to exactly that, reading its
+            # own 404 (a /api/bot/ path written without the `api/bot/` leader,
+            # so it built /api/diag/db/table/...) as a VM-side failure. This is
+            # the collapsed-state rule in CLAUDE-RULES-CANONICAL applied to the
+            # relay itself, and sub-class A of diagnostic provenance: a failure
+            # message naming a cause no code path tested.
+            #
+            # THE SINGLE-PATH (workflow_dispatch) BRANCH ABOVE KEEPS `--fail`
+            # ON PURPOSE — do not "harmonise" them. It has no `||` fallback, so
+            # a failure exits non-zero, turns the run RED, and curl's own `-S`
+            # stderr names the code in the run log. It is already loud. Only the
+            # BATCHED branch needed this, because it must not abort the loop and
+            # therefore swallows the failure into a string a human then reads.
+            #
+            # http_code + curl_exit are plain integers needing no JSON escaping,
+            # and between them they separate the three stages that matter:
+            # stage=no_http_response covers both 000 cases; curl_exit separates them:
+            #   000 / exit 7   no HTTP response — connection refused (service down)
+            #   000 / exit 28  no HTTP response — timed out at the --max-time bound
+            #   4xx/5xx        REACHED it and it refused — the code says why
+            REMOTE_SCRIPT+="__body=/tmp/diag_body.\$\$"$'\n'
+            REMOTE_SCRIPT+="__code=\$(curl -sS --max-time ${mt} -o \"\$__body\" -w '%{http_code}' -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' $(printf '%q' "http://127.0.0.1:8001${prefix}${path}") 2>/dev/null); __rc=\$?"$'\n'
+            REMOTE_SCRIPT+="if [ \"\$__code\" = '200' ]; then cat \"\$__body\"; else"$'\n'
+            REMOTE_SCRIPT+="  if [ \"\$__code\" = '000' ]; then __stage=no_http_response; else __stage=http_error; fi"$'\n'
+            REMOTE_SCRIPT+="  printf '{\"error\":\"fetch_failed\",\"stage\":\"%s\",\"http_code\":\"%s\",\"curl_exit\":\"%s\"}' \"\$__stage\" \"\$__code\" \"\$__rc\""$'\n'
+            REMOTE_SCRIPT+="fi"$'\n'
+            REMOTE_SCRIPT+="rm -f \"\$__body\""$'\n'
             REMOTE_SCRIPT+=$'\n'
             REMOTE_SCRIPT+="echo '===DIAG_PATH_END==='"$'\n'
           done < diag_paths.tsv
