@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
 
+from src.runtime.runtime_flags import halt_flag_path as _resolve_halt_flag_path
 from src.utils.paths import runtime_logs_dir
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,15 @@ _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
 # apply consistently. Hardcoding here masked the runtime-status drift
 # on 2026-05-11 (Settings tab showed stale per-account mode).
 _RUNTIME_STATUS_JSON = runtime_logs_dir() / "runtime_status.json"
-_HALT_FLAG_PATH = "/tmp/trader_halt.flag"
+# Was hardcoded "/tmp/trader_halt.flag" while the pipeline checked
+# /data/bot-data/trader_halt.flag -- so this endpoint could report the
+# trader RUNNING while it was halted. The comment block directly above
+# says hardcoding a path caused the 2026-05-11 drift; that lesson was
+# applied to _RUNTIME_STATUS_JSON and missed on this line.
+# Sentinel, NOT a resolved path: the real value is resolved per request in
+# _compose() so an operator changing HALT_FLAG_PATH is believed without an
+# API restart. Kept as a module global because the test suite overrides it.
+_HALT_FLAG_PATH = None
 
 # Account fields the endpoint is allowed to surface. Anything outside
 # this set (notably ``api_key_env`` / ``api_secret_env``) is dropped.
@@ -199,7 +208,11 @@ def build_config(
     a_path = accounts_yaml or _ACCOUNTS_YAML
     s_path = strategies_yaml or _STRATEGIES_YAML
     r_path = runtime_status_json or _RUNTIME_STATUS_JSON
-    h_path = halt_flag_path if halt_flag_path is not None else _HALT_FLAG_PATH
+    # Precedence: explicit arg (tests) > module override (tests) > the ONE
+    # resolver the pipeline itself uses. Never a literal path here again.
+    h_path = (halt_flag_path if halt_flag_path is not None
+              else _HALT_FLAG_PATH if _HALT_FLAG_PATH is not None
+              else _resolve_halt_flag_path())
     now = now_utc or datetime.now(timezone.utc)
 
     # S-067: collect per-file load errors so the dashboard can surface

@@ -13367,6 +13367,85 @@
         "docs/research/m20-1d-fleet-pooling-2026-08-13.md"
       ],
       "limits_of_this_check": "The contradiction is measured on EXACTLY ONE leg (ict_scalp_5m, 5m scalp). Donchian 1h is a different family with a different hold-time distribution; the mechanism is plausibly general but must not be read across without measuring. Equally, 'the scalp leg is special' must not be assumed either -- that is the assumption this item exists to test."
+    },
+    {
+      "id": "BL-20260813-VM-RUNNER-ZOMBIE-SUDOERS-ROOT-GRANT",
+      "severity": "high",
+      "status": "open",
+      "tier": 2,
+      "area": "security/vm",
+      "opened_at": "2026-08-13T09:40:00+00:00",
+      "opened_by": "claude (system-audit-review-oy5kon, full-system-audit Phase 3B zombie hunt)",
+      "title": "A passwordless-root sudoers grant for the REMOVED claude-vm-runner subsystem is still installed on the live money VM",
+      "source": "MEASURED 2026-08-13, three probes. (A) CALL SITES: `grep -rn 'claude-vm-dispatch|claude_vm|CLAUDE_VM_PROMPT' src/` returns EMPTY -- nothing starts an instance. The only starter was the Telegram `/vm` + `/vm_write` command surface. (B) PROVENANCE: build-arc + retire-arc, NO delete-arc. docs/claude/vm-operator-mode.md:3-5 states the surface 'was removed (PR #1933, 2026-05-25) ... the VM-runner that no longer exists'. (C) STILL INSTALLED: scripts/vm_bootstrap.sh:129-141 copies deploy/claude-vm-runner.sudoers to /etc/sudoers.d/claude-vm-runner and deploy/claude-vm-dispatch to /usr/local/bin/claude-vm-dispatch. The grant reads `ubuntu ALL=(root) NOPASSWD: /usr/local/bin/claude-vm-dispatch`.",
+      "why_it_matters": "A passwordless-root path on the money VM whose only caller was deleted ~3 months ago. Nothing exercises it, so nothing would notice if the wrapper were replaced. This is the zombie class at its most expensive: a clean consistency pass sees an installed unit + an installer + defensive 'is one active?' guards and reads it as alive.",
+      "careful": "DO NOT blanket-delete the sudoers file. It carries a SECOND grant -- `ubuntu ALL=(root) NOPASSWD: /usr/sbin/ufw` -- with a documented justification in the file itself (VM-local firewall has historically blocked TCP/8001 across reboots, refs #537/#542/#545; auto-recovery needs it). The ufw grant may still be wanted. Split the file, do not drop it.",
+      "action": "(1) TIER-1, repo side: delete deploy/claude-vm-runner@.service, deploy/claude-vm-dispatch, deploy/claude-permissions.{read,write}.json; drop the dispatch+sudoers install block from scripts/vm_bootstrap.sh (keeping a ufw-only sudoers file if the ufw grant is retained); remove the 8 dead 'is a vm-runner active?' guards in scripts/deploy_pull_restart.sh:358, scripts/ops/pull_and_deploy.sh:63, enable_m5_consumer.sh:55, disable_m5_consumer.sh:42, disable_closed_flat_invariant.sh:45, disable_signal_dual_write.sh:37, fix_data_dir.sh:94; drop the check_diag_unit_allowlist.py:44 exemption in the SAME PR or the guard goes stale-green. (2) TIER-2, VM side and the part that actually matters: remove /etc/sudoers.d/claude-vm-runner (or replace with a ufw-only file) and /usr/local/bin/claude-vm-dispatch from the live VM. OPERATOR-GATED.",
+      "resolution_criteria": "No passwordless-root grant remains on the live VM for a dispatcher with no caller, and the repo no longer installs one.",
+      "refs": [
+        "deploy/claude-vm-runner.sudoers",
+        "scripts/vm_bootstrap.sh:124-141",
+        "docs/claude/vm-operator-mode.md:3-5",
+        "PR #1933"
+      ]
+    },
+    {
+      "id": "BL-20260813-CRON-WORKFLOWS-FAIL-SILENTLY-ON-SCHEDULE-PATH",
+      "severity": "high",
+      "status": "open",
+      "tier": 1,
+      "area": "ci/observability",
+      "opened_at": "2026-08-13T09:40:00+00:00",
+      "opened_by": "claude (system-audit-review-oy5kon, full-system-audit Phase 3B)",
+      "title": "replay-pregate-nightly has failed 3/3 consecutive scheduled runs and NOTHING alerts -- and 6 of 10 cron'd workflows share the defect",
+      "source": "MEASURED 2026-08-13 via the GH Actions API. Runs 31460751157 (08-11), 31567167485 (08-12), 31671108501 (08-13) -- ALL `failure`, zero successes in the window. Log tail: fleet scoring dies at head 9/22 with 'Timeout, server 158.178.209.121 not responding' -> 'no JSON object in driver output' -> exit 1 (the trainer-VM SSH drops mid-run). WHY IT IS SILENT, verified in the workflow file: both notification steps are gated `if: github.event_name == 'issues'` (.github/workflows/replay-pregate-nightly.yml:203 and :222), while the schedule trigger is at :37 (`cron: 0 4 * * *`) and the job's own `if` at :62 explicitly admits `github.event_name == 'schedule'`. So the nightly path runs and emits nothing on success OR failure. It is also absent from claude-run-failure-alert.yml's watch list (:35-44) and from macro-producer-liveness.yml's registry (:6-9).",
+      "why_it_matters": "This is the 'silently-skipped scheduled job' the 'if you see something, say something' rule names by name. The pre-gate has been dead for at least 3 days and the only reason anyone knows is that an audit read the API. CLASS BREADTH, stated with its denominator: of 10 cron'd workflows, 6 have NO notification on the schedule path -- diag-relay-sweep, doc-audit-weekly, econ-event-study, purge-artifacts, research-backtest-augment, replay-pregate-nightly. Only health-snapshot.yml Telegrams itself; two more are indirectly covered by the macro ledger-freshness check.",
+      "action": "(1) Un-gate the failure notification so it fires on the schedule path too, and add replay-pregate-nightly to claude-run-failure-alert.yml's watch list. (2) Do the same sweep for the other 5 -- a per-workflow fix repeated 6 times is the wrong shape; prefer registering the cron'd set in the existing failure-alert workflow once. (3) SEPARATELY investigate the trainer-VM SSH timeout under the 22-head scoring load (Tier-1 investigation, possibly Tier-2 fix); it is a distinct defect from the silence and must not be closed by fixing the alerting alone.",
+      "resolution_criteria": "A failing scheduled run of any cron'd workflow produces an operator-visible signal, and the pre-gate nightly either passes or its failure is being actively worked.",
+      "refs": [
+        ".github/workflows/replay-pregate-nightly.yml:37,62,203,222",
+        ".github/workflows/claude-run-failure-alert.yml:35-44",
+        "runs 31460751157 / 31567167485 / 31671108501"
+      ]
+    },
+    {
+      "id": "BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED",
+      "severity": "medium",
+      "status": "open",
+      "tier": 1,
+      "area": "architecture/observability",
+      "opened_at": "2026-08-13T09:40:00+00:00",
+      "opened_by": "claude (system-audit-review-oy5kon, full-system-audit Phase 3B)",
+      "title": "Caddy / ict-bot.duckdns.org is a load-bearing production HTTPS transport, appears in ZERO canonical docs, and no diag surface can see it",
+      "source": "MEASURED 2026-08-13. WIRED AND DEFAULT: the Svelte SPA hardcodes it -- ict-trader-dashboard/webapp/src/lib/config.ts:18 `const DEFAULT_BOT_API_URL = \"https://ict-bot.duckdns.org\"`. Server side: deploy/caddy/Caddyfile:24-27 (`ict-bot.duckdns.org { reverse_proxy localhost:8001 }`), scripts/ops/install_caddy.sh, .github/workflows/vm-caddy-deploy.yml, docs/runbooks/webapp-https-caddy.md. Bot CORS is already wired for it (src/web/api/main.py:65-66). /ws/market streams WSS through it. UNDOCUMENTED: `rg -i 'duckdns|caddy' CLAUDE.md docs/ARCHITECTURE-CANONICAL.md docs/CLAUDE-RULES-CANONICAL.md ROADMAP.md` -> ZERO hits, while CLAUDE.md:171-172 still frames the transport story as 'no Vercel rewrite, no Cloudflare tunnel, no cf-worker' and the dashboard repo claims the failure set 'collapses to: Streamlit Cloud, the VM's FastAPI, this script's code' -- now wrong for the SPA, which adds three failure modes (Caddy process, the DuckDNS record, LE cert renewal).",
+      "why_it_matters": "This is the DOCS-LAG-REALITY direction: the transport is correct and deliberate, the docs never caught up. Second-order and worse: `caddy.service` is not an `ict-*` unit, has no deploy/ file, is absent from diag's _CANONICAL_UNITS, and therefore sits OUTSIDE check_diag_unit_allowlist.py's glob entirely (DEPLOY_GLOBS = ('deploy/*.timer','deploy/*.service'), :31). A Caddy outage takes the SPA down and NO diag surface can see it; ict-web-api-watchdog does not cover it. That is the recurring invisible-unit class in a form the guard was not built to catch.",
+      "action": "(1) Document the transport in CLAUDE.md + ARCHITECTURE-CANONICAL (the SPA reaches the bot over Caddy/HTTPS; Streamlit still goes direct) and correct the 'no tunnel' framing, which is true of Streamlit and false of the SPA. (2) Add caddy.service to diag _CANONICAL_UNITS so the outage is visible. (3) Decide whether the LE cert-expiry / DuckDNS record is worth its own liveness check -- currently nothing watches either.",
+      "resolution_criteria": "The canonical docs describe the live transport for both frontends, and a Caddy outage is visible on a diag surface.",
+      "refs": [
+        "deploy/caddy/Caddyfile:24-27",
+        "ict-trader-dashboard/webapp/src/lib/config.ts:18",
+        "src/web/api/routers/diag.py::_CANONICAL_UNITS",
+        "scripts/check_diag_unit_allowlist.py:31"
+      ]
+    },
+    {
+      "id": "BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY",
+      "severity": "medium",
+      "status": "open",
+      "tier": 3,
+      "area": "order-path",
+      "opened_at": "2026-08-13T09:40:00+00:00",
+      "opened_by": "claude (system-audit-review-oy5kon)",
+      "title": "src/runtime/orders.py's halt check is SKIPPED entirely when HALT_FLAG_PATH is absent from its settings dict -- a third, quieter halt semantics",
+      "source": "Found while single-homing the halt flag (this session's halt-flag fix covered the three READERS; this is the remaining ORDER-PATH site and was deliberately left alone). orders.py:129-132: `halt_flag_path = _get_value(settings, 'HALT_FLAG_PATH', None)` then `if halt_flag_path and os.path.exists(...)`. So when the key is absent from `settings`, the guard short-circuits to False and the halt check does not run at all -- distinct from both the pipeline's env-based check and from the readers' path.",
+      "what_to_check": "NOT YET ESTABLISHED and the reason this is filed rather than fixed: whether `settings` as constructed in production actually carries HALT_FLAG_PATH. If it does, this is latent. If it does not, the orders-layer halt check is inert in production and the pipeline's pre-dispatch check is the ONLY thing enforcing the kill switch. Determine which before proposing a change -- the answer decides whether this is cosmetic or a real second line of defence that is down.",
+      "action": "Establish the production value first. Then, if inert, propose the fix as TIER-3 (it changes when an order can be refused): route orders.py through runtime_flags.halt_flag_path() so the order layer and the pipeline agree, with the fail-direction stated explicitly. Do NOT change the order path on inference.",
+      "resolution_criteria": "The orders-layer halt check either demonstrably runs in production or is deliberately and documentedly not a gate.",
+      "refs": [
+        "src/runtime/orders.py:129-132",
+        "src/runtime/runtime_flags.py::halt_flag_path",
+        "BL-20260813 halt-flag single-home commit"
+      ]
     }
   ],
   "updated_at": "2026-08-13T06:47:00+00:00",

@@ -34,7 +34,11 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
 
 import os
 
-HALT_FLAG_PATH = os.environ.get("HALT_FLAG_PATH", "/data/bot-data/trader_halt.flag")
+# Single-homed 2026-08-13: the reporting surfaces used to hardcode a
+# DIFFERENT path (/tmp/...), so "halted?" could disagree with reality.
+# Same value as before -- this is a re-point, not a behaviour change.
+from src.runtime.runtime_flags import halt_flag_path  # noqa: E402
+HALT_FLAG_PATH = halt_flag_path()
 
 from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
