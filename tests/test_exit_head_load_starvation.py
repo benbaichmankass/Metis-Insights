@@ -140,7 +140,9 @@ def test_family_resolution_survives_a_row_that_is_otherwise_unusable(
 
 
 def test_scalp_does_not_resolve_to_a_scalp_family(tmp_path):
-    """PINS A KNOWN DEFECT, deliberately — `BL-20260813-FAMILY-RESOLVER-DRIFT`.
+    """PINS A KNOWN DEFECT, deliberately.
+
+    `BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED`.
 
     `family_of` has branches for donchian / pullback / squeeze / fade and NONE
     for scalp, so every `ict_scalp_*` leg falls through to its own name. The

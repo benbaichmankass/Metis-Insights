@@ -176,8 +176,11 @@ def load_harness_trades(paths: List[Path], report: Optional[dict] = None) -> Lis
     trades = []
     skipped: Counter = Counter()
     seen = 0
-    # PER-FAMILY accounting (2026-08-13, BL-20260813-E0-LOAD-STAGE-DROPS-INVISIBLE
-    # -ON-PARTIAL-FAILURE). The aggregate counters below say HOW MANY rows were
+    # PER-FAMILY accounting (2026-08-13).
+    # BL-20260813-E0-LOAD-STAGE-DROPS-INVISIBLE-ON-PARTIAL-FAILURE
+    # (kept on ONE line: the id was previously wrapped mid-token, so the full id
+    # appeared nowhere in this file and a grep for it found nothing here.)
+    # The aggregate counters below say HOW MANY rows were
     # rejected and WHY, but not WHOSE — so "trend dropped 100% while pullback
     # loaded fine" was not computable from the report at all, which is the exact
     # case the counters exist for. `family_of` reads only `strategy`, which
