@@ -326,6 +326,33 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                 b.get("rate_ungradeable_why") if base_present else "no_base_book_in_run")
             leg_common[f"base_cap_day_{w}"] = _num(b, "net_r_per_capital_day")
             leg_common[f"base_trades_{w}"] = b.get("total_trades")
+            # DID THE CAP THIS ROW NAMES ACTUALLY BIND? `tp_cap_pct` records what
+            # was REQUESTED, and until now that was the only thing any row said
+            # about the geometry — so a row reading `tp_cap_pct: 0.099` was read
+            # as "measured at live parity" when all it establishes is that the
+            # flag was passed. The two are not the same claim, and the gap is not
+            # theoretical: `trend_donchian_eth_prop` came back BYTE-IDENTICAL at
+            # `tp_cap_pct: 0.099` and at `null` — same base book, all seven shared
+            # cells agreeing to 4dp — across two books that cannot be the same,
+            # since the harness leaves `tp_price = None` entirely when the cap is
+            # off (`scripts/backtest_trend.py:463`). Nothing in the corpus could
+            # distinguish "the cap bound and changed nothing" from "the cap was
+            # never applied", which is the question the anomaly turns on.
+            #
+            # `tp_r_effective_*` is the harness's own measurement of how far the
+            # placed TP sat, in R, and `run_cell` already returned it — the sweep
+            # has stamped it per-leg since #8933 and this hop simply dropped it.
+            # `None` is THREE-WAY here and the states are not collapsed:
+            # a run predating the field, a run with the cap OFF (legacy no-TP
+            # geometry — a different book, not a distant TP), and a leg the cap
+            # was on for but that placed no measurable TP. `_n` beside the median
+            # is what separates them: `_n: 0` is "the cap was on and reached
+            # nothing", `_n: None` is "we did not look".
+            t = _win(v.get("live_tp_reach_r"), w)
+            leg_common[f"live_tp_reach_r_n_{w}"] = t.get("n")
+            leg_common[f"live_tp_reach_r_median_{w}"] = _num(t, "median")
+            leg_common[f"live_tp_reach_r_min_{w}"] = _num(t, "min")
+            leg_common[f"live_tp_reach_r_max_{w}"] = _num(t, "max")
 
         if not v.get("levers"):
             out.append({**leg_common, "kind": "leg_status", "cell": None,

@@ -1166,3 +1166,72 @@ def test_the_split_is_part_of_the_merge_identity():
         != ce.measurement_key({**base, "split": None})
     assert ce.measurement_key({**base, "split": "2025-07-01"}) \
         == ce.measurement_key({**base, "split": "2025-07-01"})
+
+
+# ---------------------------------------------------------------------------
+# `tp_cap_pct` records what was REQUESTED. Did it BIND?
+# ---------------------------------------------------------------------------
+
+def _tp_doc(leg_extra: dict) -> dict:
+    return {
+        "generated_at": "2026-08-13T12:00:00+00:00",
+        "split_fallback_date": "2025-07-01", "split_mode": "oos-trades",
+        "split_target_oos": 25, "tp_cap_pct": 0.099,
+        "verdicts": {"trend_donchian_eth_prop": {
+            "proxy": False, "split": "2024-11-02", **leg_extra,
+            "levers": {"vol_trail": [{"cell": "vt_hot80_t1.8"}]}}}}
+
+
+def test_the_row_says_how_far_the_capped_tp_actually_SAT():
+    """`tp_cap_pct: 0.099` only establishes that the flag was PASSED.
+
+    `trend_donchian_eth_prop` came back byte-identical at `tp_cap_pct: 0.099`
+    and at `null` — same base book, all seven shared cells to 4dp — across two
+    books that cannot be identical, since the harness leaves `tp_price = None`
+    entirely when the cap is off (`scripts/backtest_trend.py:463`). The corpus
+    could not distinguish "the cap bound and moved nothing" from "the cap was
+    never applied". The sweep already measures `tp_r_effective_*`; this hop
+    dropped it.
+    """
+    ce = _corpus_extract_module()
+    rows = ce.rows_from_verdicts(_tp_doc({"live_tp_reach_r": {
+        "IS": {"n": 245, "median": 1.62, "min": 0.41, "max": 3.90},
+        "OOS": {"n": 65, "median": 1.71, "min": 0.55, "max": 3.10}}}), "run1")
+    assert rows
+    r = rows[0]
+    assert r["live_tp_reach_r_n_IS"] == 245
+    assert r["live_tp_reach_r_median_IS"] == 1.62
+    assert r["live_tp_reach_r_min_OOS"] == 0.55
+    assert r["live_tp_reach_r_max_OOS"] == 3.10
+
+
+def test_reach_zero_and_reach_unknown_are_not_the_same_row():
+    """`n: 0` = the cap was on and reached nothing. `n: None` = we did not look.
+
+    Collapsing them would let a cap that never applied read as a cap that
+    applied and bound on no trade — which is exactly the eth_prop question.
+    """
+    ce = _corpus_extract_module()
+    looked = ce.rows_from_verdicts(_tp_doc({"live_tp_reach_r": {
+        "IS": {"n": 0, "median": None, "min": None, "max": None}}}), "run1")[0]
+    never = ce.rows_from_verdicts(_tp_doc({}), "run1")[0]
+    assert looked["live_tp_reach_r_n_IS"] == 0
+    assert never["live_tp_reach_r_n_IS"] is None
+    assert looked["live_tp_reach_r_n_IS"] != never["live_tp_reach_r_n_IS"]
+    # Both carry the SAME requested cap — which is the whole point: the
+    # requested value cannot tell these two rows apart.
+    assert looked["tp_cap_pct"] == never["tp_cap_pct"] == 0.099
+
+
+def test_the_reach_is_NOT_part_of_the_merge_identity():
+    """It is a measurement OF the row, not a different measurement.
+
+    Two runs of one cell that disagree on how far the TP sat must supersede
+    each other, not accumulate as two rows — the sibling of why
+    `regime_gate_delta` is deliberately outside the key.
+    """
+    ce = _corpus_extract_module()
+    base = {"kind": "cell", "leg": "L", "cell": "c", "split": "2025-07-01",
+            "tp_cap_pct": 0.099}
+    assert ce.measurement_key({**base, "live_tp_reach_r_median_IS": 1.6}) \
+        == ce.measurement_key({**base, "live_tp_reach_r_median_IS": 2.9})
