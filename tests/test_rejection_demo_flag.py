@@ -96,9 +96,16 @@ def test_zero_qty_refusal_on_demo_account_stamps_demo_flag(
 
     captured: list[dict] = []
 
-    def _capture(pkg, account_cfg, *, reason, status, sized_qty=None):
+    def _capture(pkg, account_cfg, *, reason, status, sized_qty=None,
+                 margin_basis=None, is_dry=False):
+        # `margin_basis` accepted because the real writer now records WHICH
+        # basis produced the size (BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-
+        # REJECTS Part B). Captured rather than dropped so this double stays a
+        # faithful stand-in — a test double that silently ignores a new kwarg
+        # would keep passing while the field it represents went unwritten.
         captured.append(
-            {"status": status, "reason": reason, "demo": account_cfg.get("demo")}
+            {"status": status, "reason": reason, "demo": account_cfg.get("demo"),
+             "margin_basis": margin_basis}
         )
         return True
 

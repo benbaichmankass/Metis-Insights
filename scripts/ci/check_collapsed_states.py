@@ -107,10 +107,18 @@ CONTRACTS: List[Dict[str, object]] = [
         "name": "bybit_available.read_state",
         "producer": "src/units/accounts/execute.py",
         "consumer_token": r"\bread_linear_available_balance\b|\bavailable_margin\b|\bAVAILABLE_STATE_",
-        "states": ["venue_available", "deprecated_withdrawable", "unavailable"],
+        "states": ["venue_available", "coin_derived", "deprecated_withdrawable",
+                   "unavailable"],
         "why": (
             "venue_available = the account-level totalAvailableBalance, the "
-            "only measured one; deprecated_withdrawable = a SUBSTITUTE (a "
+            "only broker-labelled one; coin_derived = equity - totalPositionIM "
+            "- totalOrderIM from the USDT coin block, which is where Bybit "
+            "publishes margin for an account whose account-level aggregates "
+            "come back empty (the measured bybit_2 state) — it is OUR "
+            "arithmetic over the venue's fields, not the venue's own "
+            "'available', and collapsing it into venue_available would lose "
+            "exactly the distinction this investigation was about; "
+            "deprecated_withdrawable = a SUBSTITUTE (a "
             "withdrawal-eligibility figure Bybit deprecated for UNIFIED "
             "accounts in 2025-01) standing in for new-order margin; "
             "unavailable = we COULD NOT LOOK, which is not 'the account has "

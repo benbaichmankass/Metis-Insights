@@ -1427,6 +1427,7 @@ def get_broker_account_status(
                 from src.units.accounts.execute import (
                     AVAILABLE_STATE_DEPRECATED,
                     AVAILABLE_STATE_UNAVAILABLE,
+                    AVAILABLE_STATE_COIN_DERIVED,
                     AVAILABLE_STATE_VENUE,
                     read_linear_available_balance,
                     read_linear_margin_fields,
@@ -1442,8 +1443,12 @@ def get_broker_account_status(
                         "available_usd": value,
                         "detail": detail,
                         # Spelled out per state so a reader never has to infer
-                        # the semantics from the enum name alone.
+                        # the semantics from the enum name alone. These four
+                        # PARTITION the read states — adding a state without a
+                        # flag here would make it read as "none of the above",
+                        # which is the collapse this contract exists to stop.
                         "is_broker_truth": read_state == AVAILABLE_STATE_VENUE,
+                        "is_coin_derived": read_state == AVAILABLE_STATE_COIN_DERIVED,
                         "is_substitute": read_state == AVAILABLE_STATE_DEPRECATED,
                         "could_not_look": read_state == AVAILABLE_STATE_UNAVAILABLE,
                     }
