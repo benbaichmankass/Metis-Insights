@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-13T06:47:00+00:00",
+  "updated_at": "2026-08-13T11:10:39+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -13927,6 +13927,21 @@
       ],
       "updates": [],
       "updated_at": "2026-08-13T10:30:00+00:00"
+    },
+    {
+      "id": "BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS",
+      "opened_at": "2026-08-13T11:15:00+00:00",
+      "opened_by": "claude (M20 exit-coverage-matrix session 2026-08-13)",
+      "area": "ci",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "title": "A test fixture stamped with a LITERAL date, exercised against a ROLLING window, expires and takes the whole repo red",
+      "source": "MEASURED 2026-08-13T11:07Z. tests/test_sweep_no_mark_fabrication.py inserted its fixture trade at created_at='2026-07-30T11:00:00Z'. _sweep_local_pnl_for_unpriced scans \"created_at >= datetime('now','-14 days')\". At 2026-08-13T11:00:00Z - 14 days later TO THE MINUTE - the row aged out, the scan returned zero rows, and 7 of 11 cases failed on EVERY branch, blocking every open PR. Nothing had regressed; the clock moved.\n\nSTATE THE POPULATION: the failure was measured on clean origin/main with local changes stashed (7 failed / 4 passed), and reproduced identically at four separate commits including 80820f4e - the commit that INTRODUCED the file - which is what ruled out a code regression. I had initially attributed it to a concurrently-merged PR (#8964) on adjacency alone; #8964 does not touch that module, that source file, or that test. The bisect is the only reason a false blame report was not posted to the coordination board.\n\nTHE DANGEROUS HALF IS NOT THE OUTAGE, IT IS THE SHAPE. An aged-out row makes the sweep scan zero rows and report still_pending=0, declared_unmeasured=0, filled=0 - byte-identical to a correctly-behaving sweep over a clean book. Three of the cases assert only that something did NOT happen (pnl is None; pnl_source != UNMEASURED_MARKER) and pass VACUOUSLY on an empty scan. They went red only because sibling cases happened to assert '== 1'. That is diagnostic-provenance sub-class C (an unasserted denominator reading as a clean negative). Had the file contained only absence-assertions it would have gone quietly green-while-testing-nothing on 2026-08-13 and stayed that way.",
+      "evidence": "sqlite3: datetime('2026-07-30T11:00:00Z') >= datetime('now','-14 days') -> False (cutoff 2026-07-30 11:07:32 at time of measurement).\nSource predicate: src/runtime/order_monitor.py::_sweep_local_pnl_for_unpriced (~line 8175).\nBisect: 87af13f5 / f1e815aa / af9be482 / 80820f4e all -> 7 failed, 4 passed.",
+      "fixed_instance": "tests/test_sweep_no_mark_fabrication.py fixed in this session: fixture timestamps are now relative (_stamp(hours_ago); 24h back - inside the 14-day window AND outside the 6h _LOCAL_PNL_BROKER_DEFER_MS grace), plus two new cases - test_the_fixture_row_is_actually_inside_the_sweeps_scan_window pins scanned==1 as an explicit denominator, and test_the_denominator_check_can_fail ages the row out on purpose to prove that guard has teeth and to reproduce the outage. 13 passed.",
+      "remaining_work": "The CLASS is not swept. ~70 test files carry literal 2026-xx ISO timestamps on created_at/closed_at rows. Only the two SQL rolling-window predicates in source (order_monitor.py: -7 days and -14 days) were checked this session; the -7 day sweep's four test modules (test_s030_pr4_exchange_modify_close, test_local_pnl, test_s030_pr3_monitor_loop, test_broker_pnl_source_stamp) are GREEN as of 2026-08-13 (85 passed). NOT checked: Python-side rolling windows (timedelta(days=N) / now() - delta), which are far more numerous than the SQL ones and have exactly the same failure mode.\n\nProposed remedy, in order of value: (1) a CI guard that flags a test file combining a literal ISO timestamp with a call into a function carrying a rolling-window predicate; (2) a repo convention that fixture timestamps are relative helpers, never literals; (3) treat 'assert a counter is zero / assert something did not happen' as REQUIRING a companion population assertion, per the sub-class C rule already in CLAUDE.md.",
+      "resolution_criteria": "A CI guard exists that FAILS on a test file combining a literal ISO timestamp on a created_at/closed_at fixture row with a call into a function carrying a rolling-window predicate, AND that guard is demonstrated to have teeth by reverting tests/test_sweep_no_mark_fabrication.py's fixture to the literal '2026-07-30T11:00:00Z' and observing the guard fail on it (the guard must catch the known instance before it is trusted on unknown ones). Until then this row stays open even though the single known instance is fixed - a fixed instance is not a swept class."
     }
   ]
 }
