@@ -766,6 +766,77 @@ def run_census(harness: str, args: list[str], target_r: float | None,
     return exit_capture.summarize(rows, target_r=target_r)
 
 
+def resolve_split(harness: str, base: list[str], mode: str,
+                  fixed_split: str, target_oos: int) -> tuple[str, dict]:
+    """The IS/OOS boundary as a DATE, optionally derived from the leg's own
+    trade distribution.
+
+    WHY. A FIXED calendar split silently makes a strategy's TRADE FREQUENCY
+    decide whether it can be graded. Measured 2026-08-13: at the corpus-standard
+    2025-07-01 the 1d equity legs land **OOS n=3-6** against a floor of 25 — not
+    because the leg is bad but because it trades ~20x/year, so a fixed date buys
+    it a handful of trades. Their lifetimes are 33-79 trades, so 6 of the 7 can
+    support a 25-trade OOS window; the date just was not placed to give them one.
+    Same defect the E1 fold cut had (fold_blocks in train_exit_head.py).
+
+    `oos-trades` runs the base over FULL history, reads the entry timestamps,
+    and returns the date that leaves ~`target_oos` trades after it.
+
+    ⚠️ THE TARGET IS NOT THE ACHIEVED COUNT, AND THIS FUNCTION DOES NOT CLAIM IT
+    IS. The harness windows CANDLES, not trades, so an OOS run starting at the
+    derived date needs warmup and may produce slightly different trades near the
+    boundary. The authority on what OOS actually contained stays the measured
+    `_base_oos_n` the caller already checks against MIN_OOS_TRADES — this only
+    places the boundary better. Returned meta records target AND mode so a
+    verdict states its own derivation.
+
+    Falls back to the fixed date, WITH A STATED REASON, when the leg cannot
+    support the target (a 33-trade leg giving 25 to OOS leaves 8 for IS, which
+    fits nothing). Never silently returns the fixed date.
+    """
+    meta = {"split_mode": mode, "split_target_oos": target_oos}
+    if mode == "date":
+        meta["split"] = fixed_split
+        return fixed_split, meta
+
+    tmp = "/tmp/m20_split_emit.jsonl"
+    Path(tmp).unlink(missing_ok=True)
+    cmd = [sys.executable, str(REPO / harness), *base,
+           "--emit-trades", tmp, "--json", "/tmp/m20_split_metrics.json"]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        if p.returncode != 0:
+            meta.update(split=fixed_split, split_fallback="harness_rc",
+                        split_detail=(p.stderr or p.stdout)[-200:])
+            return fixed_split, meta
+        stamps = []
+        for line in Path(tmp).read_text().splitlines():
+            if not line.strip():
+                continue
+            t = json.loads(line)
+            et = t.get("entry_time")
+            if et:
+                stamps.append(str(et))
+        stamps.sort()
+    except (OSError, json.JSONDecodeError, ValueError, TypeError,
+            subprocess.TimeoutExpired) as exc:
+        meta.update(split=fixed_split, split_fallback="emit_unreadable",
+                    split_detail=str(exc)[:200])
+        return fixed_split, meta
+
+    meta["split_lifetime_trades"] = len(stamps)
+    # Require IS to be at least as large as OOS. A leg that cannot give both
+    # sides `target_oos` trades is genuinely too thin, and moving the date
+    # would only trade one unusable window for another.
+    if len(stamps) < 2 * target_oos:
+        meta.update(split=fixed_split, split_fallback="leg_too_thin")
+        return fixed_split, meta
+
+    boundary = stamps[-target_oos][:10]          # YYYY-MM-DD
+    meta["split"] = boundary
+    return boundary, meta
+
+
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     """One harness run, memoized on its full invocation.
 
@@ -1119,7 +1190,22 @@ def main(argv: list[str]) -> int:
     global CELL_TIMEOUT_S
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data-dir", default=str(REPO / "data"))
-    ap.add_argument("--split", default="2025-07-01")
+    ap.add_argument("--split", default="2025-07-01",
+                    help="IS/OOS boundary date. Used directly when "
+                         "--split-mode=date, and as the fallback when "
+                         "oos-trades cannot be satisfied.")
+    ap.add_argument("--split-mode", choices=["oos-trades", "date"],
+                    default="oos-trades",
+                    help="How the IS/OOS boundary is placed. `oos-trades` "
+                         "(default) derives a per-leg date targeting "
+                         "--split-target-oos trades in OOS, so a "
+                         "low-frequency leg is gradeable; `date` is the legacy "
+                         "fixed calendar split. See resolve_split().")
+    ap.add_argument("--split-target-oos", type=int, default=MIN_OOS_TRADES,
+                    help="Trades to TARGET in the OOS window under "
+                         "--split-mode=oos-trades. Defaults to the floor a "
+                         "cell is judged against, so the boundary aims at "
+                         "exactly what the verdict requires.")
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m20_fleet"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
@@ -1459,8 +1545,23 @@ def main(argv: list[str]) -> int:
     for p in plan:
         leg = p["leg"]
         print(f"== {leg} ({p['symbol']} {p['tf']}) ==", flush=True)
-        base_is = run_cell(p["harness"], p["base"], end=a.split)
-        base_oos = run_cell(p["harness"], p["base"], start=a.split)
+        # PER-LEG boundary. A fixed date makes trade FREQUENCY decide whether a
+        # leg can be graded at all; see resolve_split(). The split is resolved
+        # once per leg and reused for every cell, so IS/OOS means the same thing
+        # across a leg's candidates.
+        leg_split, split_meta = resolve_split(
+            p["harness"], p["base"], a.split_mode, a.split, a.split_target_oos)
+        if split_meta.get("split_fallback"):
+            print(f"    split: FELL BACK to {leg_split} "
+                  f"({split_meta['split_fallback']}"
+                  + (f", lifetime={split_meta['split_lifetime_trades']}"
+                     if "split_lifetime_trades" in split_meta else "") + ")")
+        elif a.split_mode != "date":
+            print(f"    split: {leg_split} (targeting {a.split_target_oos} OOS "
+                  f"trades of {split_meta.get('split_lifetime_trades')} lifetime "
+                  f"— ACHIEVED count is base_oos below, not this target)")
+        base_is = run_cell(p["harness"], p["base"], end=leg_split)
+        base_oos = run_cell(p["harness"], p["base"], start=leg_split)
         log_result({"leg": leg, "cell": "base", "window": "IS", **base_is})
         log_result({"leg": leg, "cell": "base", "window": "OOS", **base_oos})
         if "error" in base_is or "error" in base_oos:
@@ -1468,6 +1569,7 @@ def main(argv: list[str]) -> int:
                              "error": base_is.get("error") or base_oos.get("error")}
             continue
         leg_v = {"proxy": p["proxy"], "family": p["family"], "levers": {},
+                 **split_meta,
                  # Cells the grid deliberately did not ask, and why. Without
                  # this the verdict file cannot distinguish a cell that was
                  # never run from one that ran and moved nothing.
@@ -1561,7 +1663,7 @@ def main(argv: list[str]) -> int:
             tm_val = next((float(x[1]) for x in
                            zip(p["base"], p["base"][1:])
                            if x[0] == "--trail-mult"), None)
-            p80 = winner_mfe_p80(p["harness"], p["base"], a.split)
+            p80 = winner_mfe_p80(p["harness"], p["base"], leg_split)
             if p80 is not None and p80 > 0.5 and tm_val:
                 tight = max(1.5, round(tm_val / 2.0, 1))
                 p["cells"].append(
@@ -1574,8 +1676,8 @@ def main(argv: list[str]) -> int:
                       flush=True)
         for tag, lever, extra in p["cells"]:
             args = p["base"] + extra
-            c_is = run_cell(p["harness"], args, end=a.split)
-            c_oos = run_cell(p["harness"], args, start=a.split)
+            c_is = run_cell(p["harness"], args, end=leg_split)
+            c_oos = run_cell(p["harness"], args, start=leg_split)
             log_result({"leg": leg, "cell": tag, "window": "IS", **c_is})
             log_result({"leg": leg, "cell": tag, "window": "OOS", **c_oos})
             if "error" in c_is or "error" in c_oos:
@@ -1786,7 +1888,8 @@ def main(argv: list[str]) -> int:
             leg_v["regime_gate_delta"] = regime_gate_delta(leg, off_legs)
     (run_dir / "verdicts.json").write_text(json.dumps(
         {"generated_at": datetime.now(timezone.utc).isoformat(),
-         "split": a.split, "tp_cap_pct": a.tp_cap_pct,
+         "split_fallback_date": a.split, "split_mode": a.split_mode,
+         "split_target_oos": a.split_target_oos, "tp_cap_pct": a.tp_cap_pct,
          # The router value ACTUALLY used by the harness runs above — recorded
          # rather than asserted, so a future run that does pass the flag records
          # the difference instead of inheriting this comment.
@@ -1965,7 +2068,8 @@ def main(argv: list[str]) -> int:
     measured = [d for d in dist if d["d_net_r_per_capital_day"] is not None]
     (run_dir / "capital_distribution.json").write_text(json.dumps({
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "window": "OOS", "split": a.split,
+        "window": "OOS", "split_fallback_date": a.split, "split_mode": a.split_mode,
+         "split_target_oos": a.split_target_oos,
         # ALWAYS STATE THE POPULATION — a distribution quoted without its
         # denominator is the failure this repo has a standing rule against.
         "cells_total": len(dist), "cells_measured": len(measured),

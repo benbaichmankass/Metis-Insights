@@ -428,12 +428,74 @@ def eval_split(model, trades: Dict[str, List[dict]], tf_s: int) -> dict:
     return out
 
 
+def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
+    """Walk-forward test folds as `(label, year, test_dict, cutoff_ts)`.
+
+    WHY `trades` IS THE DEFAULT. The original cut was one test fold per CALENDAR
+    YEAR, which silently makes a strategy's TRADE FREQUENCY the thing that
+    decides whether it can be graded at all. A daily-bar leg trades ~20x/year,
+    so every year-fold lands 12-42 trades against a 50-trade floor and is
+    skipped — while the pool holds 371 trades across 19 years. Measured
+    2026-08-13: BOTH 1d family pools returned ZERO usable folds, and the
+    conclusion drawn from that was "the 1d fleet cannot be graded", which was
+    wrong. The data was there; the slicing discarded it
+    (BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS).
+
+    Slicing sequentially by trade count is NOT a weaker bar. What carries the
+    statistics in a fold is the number of TRADES in it, not the calendar span
+    they happen to cover; `--min-fold-trades` is then honoured by construction
+    rather than by rejection. Time ordering, the purge on each trade's LAST bar,
+    and the embargo are all unchanged — only the definition of a test block
+    moves.
+
+    `years` is kept to reproduce any pre-2026-08-13 result exactly.
+    """
+    if mode == "years":
+        years = sorted({r["year"] for tk, b in h_trades.items() for r in b})
+        out = []
+        for ytest in years[1:]:
+            y0 = datetime(ytest, 1, 1, tzinfo=timezone.utc).timestamp()
+            test = {tk: b for tk, b in h_trades.items()
+                    if datetime.fromtimestamp(t_entry(b), tz=timezone.utc).year == ytest}
+            out.append((str(ytest), ytest, test, y0))
+        return out
+
+    ordered = sorted(h_trades.items(), key=lambda kv: t_entry(kv[1]))
+    out = []
+    # Start at `block_n` so the first test block has a training set behind it —
+    # the `years` cut achieved the same thing with `years[1:]`.
+    for start in range(block_n, len(ordered) - block_n + 1, block_n):
+        items = ordered[start:start + block_n]
+        test = dict(items)
+        t0 = min(t_entry(b) for _, b in items)
+        y_last = datetime.fromtimestamp(t_entry(items[-1][1]),
+                                        tz=timezone.utc).year
+        y_first = datetime.fromtimestamp(t0, tz=timezone.utc).year
+        label = (f"t{start}-{start + block_n} ({y_first}"
+                 + (f"-{y_last}" if y_last != y_first else "") + ")")
+        out.append((label, y_last, test, t0))
+    # NEVER let a dropped tail read as full coverage. A trailing partial block
+    # is below the floor by construction, so it is excluded — and SAID so,
+    # rather than silently shortening the population.
+    covered = block_n + len(out) * block_n
+    if out and covered < len(ordered):
+        print(f"  note: {len(ordered) - covered} trailing trade(s) not in any "
+              f"test fold (partial block below --min-fold-trades)")
+    return out
+
+
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--family-dir", required=True,
                     help="E0 family dir containing rows.jsonl")
     ap.add_argument("--tf", required=True, choices=sorted(TF_S))
     ap.add_argument("--min-fold-trades", type=int, default=50)
+    ap.add_argument("--fold-mode", choices=["trades", "years"], default="trades",
+                    help="How walk-forward TEST folds are cut. `trades` "
+                         "(default) slices sequentially by trade count so a "
+                         "low-frequency leg is gradeable; `years` is the legacy "
+                         "per-calendar-year cut, kept ONLY to reproduce "
+                         "pre-2026-08-13 results. See fold_blocks().")
     ap.add_argument("--target", choices=["holding_pays", "peak_is_in"],
                     default="holding_pays",
                     help="M20 P4.2: classification target. peak_is_in needs a "
@@ -465,14 +527,13 @@ def main(argv: List[str]) -> int:
     # ---- purged walk-forward by year over harness trades
     def t_entry(bars):  # first bar time as trade entry proxy
         return bars[0]["bar_t"]
-    years = sorted({r["year"] for r in harness})
     folds = []
-    for ytest in years[1:]:
-        y0 = datetime(ytest, 1, 1, tzinfo=timezone.utc).timestamp()
-        test = {tk: b for tk, b in h_trades.items()
-                if datetime.fromtimestamp(t_entry(b), tz=timezone.utc).year == ytest}
-        # purge on the trade's LAST bar: a hold spanning into the test year
-        # (or the embargo) would leak its final_r label into training.
+    blocks = fold_blocks(h_trades, a.fold_mode, a.min_fold_trades, t_entry)
+    print(f"  fold-mode={a.fold_mode} -> {len(blocks)} candidate fold(s)")
+    for label, ytest, test, y0 in blocks:
+        # purge on the trade's LAST bar: a hold spanning into the test block
+        # (or the embargo) would leak its final_r label into training. Unchanged
+        # by the fold-mode switch — only what defines the block boundary moved.
         train_rows = [r for tk, b in h_trades.items() for r in b
                       if b[-1]["bar_t"] < y0 - EMBARGO_S]
         # NAME THE FAILING CONDITION AND ITS BOUND. This printed one message for
@@ -494,11 +555,15 @@ def main(argv: List[str]) -> int:
             if thin_train:
                 why.append(f"train {len(train_rows)} rows < "
                            f"{_MIN_FOLD_TRAIN_ROWS}")
-            print(f"  fold {ytest}: skipped — {'; '.join(why)}")
+            print(f"  fold {label}: skipped — {'; '.join(why)}")
             continue
         model = train_model(train_rows)
         res = eval_split(model, test, tf_s)
+        # `year` stays an int for schema compatibility (per_leg_summary uses
+        # it as a display label); `fold_label` carries the real identity, which
+        # under trade-folds is a trade-index range, not a calendar year.
         res["year"] = ytest
+        res["fold_label"] = label
         res["train_rows"] = len(train_rows)
         # Same model, same fold, same replay — cut by leg, because the
         # coverage matrix's unit is the leg and the family's is not.
@@ -507,7 +572,7 @@ def main(argv: List[str]) -> int:
             for leg, sub in sorted(split_by_leg(test).items())
         }
         folds.append(res)
-        print(f"  fold {ytest}: AUC={res['auc'] and round(res['auc'],3)} "
+        print(f"  fold {label}: AUC={res['auc'] and round(res['auc'],3)} "
               f"actual net_R={res['actual']['net_r']} "
               f"best_tau={max(res['model'].items(), key=lambda kv: kv[1].get('net_r') or -1e9)[0]}")
 
@@ -540,6 +605,13 @@ def main(argv: List[str]) -> int:
         "folds": folds, "live_validation": live_eval,
         "per_leg": leg_summary,
         "min_oos_trades_floor": MIN_OOS_TRADES,
+        # A verdict must state its own derivation. Trade-folds and
+        # calendar-folds are NOT comparable evidence, so a report that
+        # does not say which one produced it invites exactly the
+        # apples-to-oranges read that the 2026-08-13 re-run exists to
+        # avoid.
+        "fold_mode": a.fold_mode,
+        "min_fold_trades": a.min_fold_trades,
         "per_leg_note": (
             "One verdict per STRATEGY LEG — the coverage matrix's unit. The "
             "family-level blocks above pool every symbol in the family, which "

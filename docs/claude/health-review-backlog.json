@@ -1,6 +1,8 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
+  "updated_at": "2026-08-13T06:47:00+00:00",
+  "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -13792,8 +13794,92 @@
         "scripts/ops/purge_vm_runner.sh",
         "PR #1933"
       ]
+    },
+    {
+      "id": "BL-20260813-1D-FRAME-DID-NOT-CACHE-AFTER-CAP-RAISE",
+      "opened_at": "2026-08-13T08:15:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "title": "After the TTL cap went 60 -> 300 every capped frame's fetch rate fell except 1d, which ROSE 6.5% — the frame with the largest expected win",
+      "source": "MEASURED 2026-08-13 comparing two tick_cost reads: pre-flip n=19 ticks (process 06:21:38Z) vs post-flip n=4 ticks (process 08:04:17Z, diag #8954). Denominators stated because every figure below is a per-tick RATE over those two samples, not a raw count. Per-tick fetch counts:\n\n  1h   8.84 -> 5.25  (-40.6%)\n  2h   4.32 -> 2.00  (-53.7%)\n  4h   5.26 -> 2.50  (-52.5%)\n  1d   3.05 -> 3.25  (+6.5%)   <-- the outlier\n  control 15m+5m+1m 19.00 -> 16.25 (-14.5%)\n\nHeadline cache hit rate 21.5% -> 41.5%, so the cap IS working overall; this row is about the one frame that did not follow.\n\nSTATE THE POPULATION: post-flip n=4 ticks, over which 1d was fetched 13 times (13 of 117 total post-flip misses). That is small enough that +6.5% on 1d could be noise on its own — but it is the only capped frame that failed to move in the same direction as its three siblings, all of which fell 40-54%, and 1d is the frame where the cap should bite HARDEST (8640s wanted vs 60s granted before, now 300s).",
+      "why_it_matters": "1d was the single largest line in the original finding — 762 fetches in 2h at 2.4-3.6s each, 13.9% of tick on-loop. It is the frame the whole cap argument was strongest for, so a non-response is exactly the result worth chasing rather than averaging into a favourable headline. Plausible causes NOT yet distinguished: the off-loop exit loop dominates 1d (its offloop n=22 vs on-loop 13, and the exit loop runs on its own cadence so its inter-fetch gap may exceed 300s); more distinct 1d symbols than other frames, so each (symbol,tf,limit) key is hit less often; or a `since=` parameter on some 1d reads, which is never cached by design.",
+      "resolution_criteria": "A tick_cost read at ticks_measured >= 30 on a single post-flip process either (a) shows fetch.1d per-tick falling in line with its siblings, closing this as small-sample noise, or (b) confirms it stays flat/up, in which case the cause is identified among the three candidates above — distinguished by comparing on-loop vs off-loop 1d counts and checking whether the 1d callers pass `since=`. Either way the outcome is recorded on the CANDLE_CACHE_TTL row in CLAUDE.md so the headline hit-rate is never read as covering 1d.",
+      "next_action": "One warm tick_cost read once the current process has 30+ ticks (~1h). Tier-1, read-only.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE",
+      "opened_at": "2026-08-13T08:05:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "resolved",
+      "resolved_at": "2026-08-13T08:05:00+00:00",
+      "severity": "medium",
+      "tier": 1,
+      "title": "Four live env vars had no read surface — a new var can ship without being added to get_env.py's ALLOWED_KEYS, and nothing catches it",
+      "source": "FOUND BY HITTING IT. The Tier-3 write of CANDLE_CACHE_TTL_MAX_S (60 -> 300, #8949) was followed by the standard post-state verification via get-env (#8950), which FAILED: \"key 'CANDLE_CACHE_TTL_MAX_S' is not allowlisted\". The key had shipped in PR #8815 the same night without being added to ALLOWED_KEYS, so its first live write could not be read back.\n\nA sweep of the same class found 4 of 4 checked vars missing (measured against src/, not inferred):\n  CANDLE_CACHE_TTL_MAX_S       src/runtime/market_data.py   (mine, #8815)\n  EXIT_LOOP_DECOUPLE_DISABLED  src/main.py                  (M20 decouple, #8778)\n  EXIT_LOOP_INTERVAL_SECONDS   src/main.py                  (same)\n  EXIT_LOOP_STALE_SECONDS      src/runtime/exit_loop_health.py (same)\n\nSo this is not a one-off slip by one author — two separate PRs on two different nights each added live env vars and neither added the reader.",
+      "why_it_matters": "get-env exists precisely to close write-without-a-reader on order-path settings (BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC). The gap reopens silently every time a new var ships, and the failure only surfaces when someone tries to verify a write — i.e. AFTER the write is already live.\n\nEXIT_LOOP_DECOUPLE_DISABLED is the sharpest instance. It is a kill-switch whose set state makes exit_loop_health report `never_ran`, which that contract calls \"emphatically NOT healthy\" — and the decoupled exit loop is the one condition the liveness watchdog explicitly no longer covers. A set switch would have produced an unhealthy grade with no way to read back the cause.\n\nCANDLE_CACHE_TTL_MAX_S bounds how stale the price behind a live order may be, so it belongs in the \"reason this exists\" tier, not the cadence tier.",
+      "resolution_criteria": "All four keys present in ALLOWED_KEYS and returned by `get_env.py --list-keys`, with `--self-test` still PASS. Verified: 43 keys listed, all four confirmed present, self-test PASS (5 states incl. pending_restart and the two undetermined paths).",
+      "resolution": "RESOLVED same session. All four added with comments naming why each belongs. NOT resolved by this row and left open deliberately: nothing PREVENTS the next var from shipping without a reader — a guard would need to diff env-var reads in src/ against ALLOWED_KEYS, which is the provenance-consumer-guard shape applied to the ops read surface. Filed as its own item rather than folded in here, because 'we fixed the four we found' is not the same claim as 'this cannot recur'.",
+      "next_action": "See BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE for the recurrence half.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE",
+      "opened_at": "2026-08-13T08:05:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "Nothing prevents the next env var shipping without a get-env read surface — the recurrence half of the four found on 2026-08-13",
+      "source": "Split from BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE, which fixed the four instances found (CANDLE_CACHE_TTL_MAX_S, EXIT_LOOP_DECOUPLE_DISABLED, EXIT_LOOP_INTERVAL_SECONDS, EXIT_LOOP_STALE_SECONDS). Those came from TWO separate PRs on two different nights (#8815 and #8778), which is the evidence that it is a recurring class and not one author's slip.\n\nThe detection today was accidental: it surfaced only because a Tier-3 write happened to be followed by a post-state verification. A var that is never written from a session would sit unreadable indefinitely and nothing would say so.",
+      "why_it_matters": "This is provenance-consumer-guard's own shape applied one level up at the ops surface: a setting that can be WRITTEN but not READ is exactly the asymmetry that guard exists to catch in code, and the ops read surface has no equivalent. The cost is not hypothetical — CONVICTION_SIZING_ACCOUNTS is the recorded case where an EMPTY value meant EVERY account including real money and no surface could establish the live value (BL-20260810).",
+      "resolution_criteria": "A CI guard fails when a file under src/ reads an env var (os.environ.get / os.getenv) that is absent from get_env.py's ALLOWED_KEYS, with a declared exemption list for vars genuinely not worth a read surface (each exemption carrying a one-line reason, verified-not-presence-only in the style of collapsed-state-guard). The guard must ship with a self-test proving it FAILS on a planted unlisted var, and must state its denominator (vars scanned / listed / exempted) so a clean run is a measured clean rather than an empty scan.",
+      "next_action": "Model it on scripts/check_provenance_consumers.py, which already does writer-vs-consumer matching. Tier-1.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC",
+      "title": "backtest_trend.py --symbol is a display LABEL while --data silently defaults to a BTC fixture; account_compat_matrix.py has the same shape",
+      "status": "open",
+      "severity": "high",
+      "tier": 1,
+      "area": "research/harness",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "trainer relays #8969 (the void run) and #8975 (the corrected re-run)",
+      "what_to_check": "scripts/backtest_trend.py:885 `--data` defaults to data/backtest_candles.csv -- 5,001 rows of BTC 1-MINUTE candles spanning 2022-07-23..27 -- while `--symbol` (:887) only labels the output. Passing --symbol SOLUSDT without --data therefore grades BTC-1m-over-one-long-weekend and prints it under a 'SOLUSDT 1h' heading. MEASURED 2026-08-13 (#8969): a breakout_1 prop EV/survival gate returned a confident skip at ev_net_usd -$69,945 (SOL) / -$138,467 (ETH), computed entirely from that fixture and extrapolated from 3.5 days to a '(12-mo)' horizon. The corrected run (#8975) on the real per-symbol data returned ROUTE at +$483 / +$883 -- the verdict INVERTED. scripts/prop/account_compat_matrix.py:258 has the identical shape, defaulting --data to /home/user/ict-trader-data/btc_5m.parquet: two harnesses in one call chain, two silent BTC fallbacks. Diagnostic-provenance sub-class B (implicit input selection) feeding sub-class A (the label names a quantity the code never read). THE TELL that caught it, worth keeping: two DIFFERENT symbols returned byte-identical data spans, and 74 trades in 84 hourly bars is arithmetically impossible. Neither is visible unless the span is printed and read. scripts/research/m20_fleet_exit_sweep.py::resolve_data is the only caller that avoids this, because it carries its own resolver. FIX: make --data required, or default it to resolve_data(symbol, tf), or emit a loud warning when the fixture path is used with a --symbol that is not BTC. A run whose declared symbol and loaded data disagree should refuse, not print.",
+      "why_it_matters": "This sits directly under the prop-account routing gate, i.e. a Tier-3 live-wiring decision. The void run produced a plausible, confidently-formatted verdict with the WRONG SIGN. Nothing in the output said which file it read.",
+      "resolution_criteria": "Run `scripts/backtest_trend.py --symbol SOLUSDT --timeframe 1h` with NO --data. Closable when it either exits non-zero naming the missing input, or loads the SOLUSDT file -- confirmed by the printed `  data <start> -> <end>` line NOT reading `2022-07-23 21:24:00+00:00 -> 2022-07-27 08:43:00+00:00` (the BTC fixture span). Repeat for `scripts/prop/account_compat_matrix.py --symbol SOLUSDT` with no --data against its own btc_5m.parquet default. BOTH harnesses must pass; fixing one leaves the call chain broken. A run that still silently loads the fixture keeps this row open however good the surrounding docs are."
+    },
+    {
+      "id": "BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER",
+      "title": "A guard that greps for the bad value reads a CRASH as a pass; pair it with a stale artifact and it certifies the previous run",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "research/tooling",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "trainer relay #8973",
+      "what_to_check": "After BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC, the follow-up probe guarded the input with `grep -qF \"<fixture span>\" out.txt` -- i.e. it tested for the ABSENCE of the wrong answer. The harness then died at import (ModuleNotFoundError: pandas, bare python3 instead of the venv), printed no span at all, and the guard read that silence as innocence. Compounding it, the emit path was reused from the prior run and never truncated, so `wc -l` reported the PREVIOUS void run's ledger: the probe printed '-- emitted 74 trades' / '129 trades', byte-identical to #8969, for a run that computed nothing. Had numpy been importable, it would have produced a confident SOL/ETH prop verdict off BTC 1-minute data, now laundered through a guard that certified the input. An unrelated missing dependency is the only reason it did not. PATTERN TO ENFORCE (already applied in #8975): assert the evidence is PRESENT and correct, never that the wrong value is absent; truncate an artifact before writing it; check the exit code; and give each refusal its own named state (env_unavailable / harness_error / unverified_input / no_trades / insufficient_sample) so 'we could not look' never reads as a verdict. This is the consumer-side half of sub-class C and the same shape silent-empty-guard catches on the producer side -- consider whether diagnostic-provenance-guard can flag `grep -q <literal>` used as an input-provenance check in scripts/{ml,research,ops}/.",
+      "why_it_matters": "The guard was written specifically to prevent the defect it then let through. A guard that is cheaper to satisfy than to actually pass is worse than no guard (the new-table-wiring-guard lesson).",
+      "resolution_criteria": "Closable when a check flags `grep -q <literal>` (and equivalents) used as an INPUT-PROVENANCE test in scripts/{ml,research,ops}/, demonstrated the way the other guards self-test: plant a probe that greps for a bad value, see it flagged; plant one that asserts a positive match plus a non-zero exit code, see it pass. Absent a new check, closable when diagnostic-provenance-guard's --all run over those directories reports zero absence-tests AND that count is shown to be a real denominator (a planted positive is detected), so a clean result is not just an empty scan."
+    },
+    {
+      "id": "BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION",
+      "title": "pull-and-deploy silently skips the post-deploy version assertion when DIAG_READ_TOKEN is unset, and still reports success",
+      "status": "open",
+      "severity": "medium",
+      "tier": 2,
+      "area": "ops/deploy",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "system-action run 31684933837 (issue #8974), deploying af9be48",
+      "what_to_check": "scripts/deploy_pull_restart.sh emitted '>>> Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable).' and then '>>> Recorded deploy marker: af9be48' + wrapper exit 0. So the one step that confirms the RUNNING process actually rolled forward did not run, and the deploy reported success anyway. On this particular run the roll-forward is independently evidenced (post-sync HEAD printed, systemd restart visible in the journal tail), but that is luck of the log format, not the assertion. The check exists precisely for the BL-20260706 class, where the on-disk script was itself stale and its own fetch could not pull the fix that would repair it. Skipping it silently reproduces the condition it guards. FIX: make the skip a loud WARN in the workflow comment (not just a log line), or read the token the same way the prop-report workflow does (sourced from /etc/ict-trader/web-api.env on the VM), or fall back to asserting `git rev-parse HEAD` against the systemd MainPID's cwd. Also seen in the same run and probably benign but unexamined: 'scripts/install_systemd_units.sh: line 392: /etc/ict-vm-role: No such file or directory' on the live trader, which is why both gateway timers log 'skip enable (gateway-only; host role=unset)'. Correct outcome, but it reaches it via a file-not-found error rather than a declared role.",
+      "why_it_matters": "A deploy that cannot verify what is running is a green that checked nothing, on the money box.",
+      "resolution_criteria": "Closable when a real `pull-and-deploy` system-action issue comment either (a) shows the post-deploy version assertion RUNNING and matching the deployed SHA, or (b) surfaces the skip as an explicit WARN in the COMMENT BODY -- not only in the log tail -- so an operator reading the comment cannot mistake the run for verified. Verify by reading the comment on the next deploy, not by reading the script."
     }
-  ],
-  "updated_at": "2026-08-13T06:47:00+00:00",
-  "generated_at": "2026-07-30T14:40:00+00:00"
+  ]
 }
