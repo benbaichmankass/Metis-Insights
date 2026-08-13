@@ -13194,6 +13194,13 @@
         "PR #8889 body: the corrected 24/55 disagreement table",
         "scripts/ml/train_exit_head.py L238-254: the design intent (family=train, leg=verdict)",
         "scripts/ml/build_exit_head_dataset.py::family_of vs scripts/research/m20_fleet_exit_sweep.py::classify"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T06:47:00+00:00",
+          "by": "claude (m20-exit-coverage-matrix-8d3he7)",
+          "note": "THE POOLING QUESTION IS NOW ANSWERED EMPIRICALLY, not argued (relay #8921). Rather than ship the resolver change blind, I pooled `slv_trend_1h` + `uso_trend_1h` BY HAND -- concatenating the two rows.jsonl the real round produced, no transformation -- and trained once. Result:\n    alone   each leg: 0 usable folds (all 11-38 trades vs the 50 gate)\n    pooled  504 trades / 12075 rows -> 7 of 9 folds usable (2019-2025)\n            slv_trend_1h  n_oos=249 auc=0.5791 beats_hard 2/7 -> honest_negative\n            uso_trend_1h  n_oos=168 auc=0.5496 beats_hard 5/7 -> honest_negative\nBoth matrix cells recorded, with the manual step stated on each.\n\nTHREE THINGS THIS SETTLES:\n  1. Pooling genuinely unblocks the folds -- 0 -> 7 usable.\n  2. ATTRIBUTION SURVIVES IT. The pooled rows still carry their own      `strategy` (7030 slv / 5045 uso) and per_leg_summary cut a separate      verdict with its own denominator for each. This was the main stated      risk of pooling and it does not materialise.\n  3. The verdicts are NEGATIVE. So for these two legs the pooling decision      buys knowledge, not a shipped lever -- which is the cheapest possible      way to learn it.\n\nA prediction of mine was slightly wrong and is corrected here: I said 8 of 9 folds would clear; it is 7. Fold 2018 came in at test=49, ONE TRADE short of the 50 gate. The per-year bucketing I did from entry timestamps was close but not exact -- worth knowing before anyone leans on a predicted fold count again.\n\nThe operator decision is unchanged in shape and better informed: the resolver change would make this reproducible instead of hand-run. Note it is still NOT 'strictly additive' -- 8 trend_donchian* legs already pool and 3 carry shipped live heads, so a mixed round changes what those train on."
+        }
       ]
     },
     {
@@ -13324,6 +13331,6 @@
       ]
     }
   ],
-  "updated_at": "2026-08-13T06:42:00+00:00",
+  "updated_at": "2026-08-13T06:47:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
