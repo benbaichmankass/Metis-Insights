@@ -63,6 +63,13 @@ FEATURES_EXH = [
 # HIGH probability, so its policy arms use TAUS_HI). Set from --target.
 TARGET = "holding_pays"
 EMBARGO_S = 7 * 86400
+
+# Minimum TRAINING rows for a fold to be usable. Named rather than inlined as a
+# bare `500` so the skip message can quote the bound it actually applied — an
+# unquoted threshold is why a whole round's worth of skips read as unexplained.
+# Unlike `--min-fold-trades` this is not a CLI knob today; it is a floor on
+# fitting a model at all, not a research choice about OOS width.
+_MIN_FOLD_TRAIN_ROWS = 500
 TAUS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
 TAUS_HI = [0.60, 0.70, 0.80]
 TF_S = {"5m": 300, "15m": 900, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
@@ -468,9 +475,26 @@ def main(argv: List[str]) -> int:
         # (or the embargo) would leak its final_r label into training.
         train_rows = [r for tk, b in h_trades.items() for r in b
                       if b[-1]["bar_t"] < y0 - EMBARGO_S]
-        if len(test) < a.min_fold_trades or len(train_rows) < 500:
-            print(f"  fold {ytest}: skipped (test={len(test)} trades, "
-                  f"train={len(train_rows)} rows)")
+        # NAME THE FAILING CONDITION AND ITS BOUND. This printed one message for
+        # two independent conditions and stated neither threshold, so
+        # `fold 2024: skipped (test=42 trades, train=12402 rows)` could not tell
+        # a reader that 42 was being compared against 50 -- you had to open the
+        # source to learn why. Measured 2026-08-13: a 1d round skipped all 19
+        # folds this way and reported `no usable folds`, and the reason (a
+        # per-calendar-year fold gate that daily bars cannot satisfy, max fold 42
+        # vs default 50) took a source read to recover
+        # (BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS).
+        thin_test = len(test) < a.min_fold_trades
+        thin_train = len(train_rows) < _MIN_FOLD_TRAIN_ROWS
+        if thin_test or thin_train:
+            why = []
+            if thin_test:
+                why.append(f"test {len(test)} < {a.min_fold_trades} "
+                           f"(--min-fold-trades)")
+            if thin_train:
+                why.append(f"train {len(train_rows)} rows < "
+                           f"{_MIN_FOLD_TRAIN_ROWS}")
+            print(f"  fold {ytest}: skipped — {'; '.join(why)}")
             continue
         model = train_model(train_rows)
         res = eval_split(model, test, tf_s)

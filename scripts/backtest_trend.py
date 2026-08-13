@@ -599,17 +599,35 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     # `strategy_name` DEFAULTS to the old literal, so a caller
                     # that does not pass it emits byte-identically.
                     "strategy": strategy_name, "entry_time": str(t.entry_time),
-                    # SYMBOL IS NOT OPTIONAL. `build_exit_head_dataset.py`
-                    # resolves each trade's candles with
-                    # `resampled.get(tr["symbol"])` and counts a miss as
-                    # `no_candles` -- so a row without this key is DROPPED, and
-                    # dropped into a counter rather than an error. Measured
-                    # 2026-08-13: the 1d round emitted 371 trend trades and the
-                    # 1h round 510, and every one landed in `no_candles`, so no
-                    # trend-family leg has ever produced a single E0 dataset row.
-                    # It read as "the family has no data" for as long as the
-                    # harness has existed.
+                    # THE BUILDER REFUSES A ROW MISSING ANY OF FOUR KEYS --
+                    # `entry_time`, `exit_time`, `entry`, `sl`
+                    # (build_exit_head_dataset.py:193) -- plus `symbol` to
+                    # resolve candles. This dict carried only `entry_time`, so
+                    # every row this harness ever emitted was dropped BEFORE the
+                    # candle stage, and it read as "the family has no data" for
+                    # as long as the harness has existed.
+                    #
+                    # MEASURED 2026-08-13, 1d round, per emit file:
+                    #   7 trend legs    371 rows,   0 usable
+                    #   6 pullback legs 578 rows, 578 usable
+                    # and `trades_in: 1332` == 578 harness-usable + 754
+                    # live-usable is the arithmetic proof the 371 never entered
+                    # the population at all.
+                    #
+                    # CORRECTION to #8889, which added `symbol` ALONE and whose
+                    # comment here claimed the rows "landed in `no_candles`".
+                    # They did not -- `no_candles` is a LATER stage they never
+                    # reached. That was inferred from a subtraction that happened
+                    # to reconcile, not measured, and fixing one of four missing
+                    # keys left the drop at 100%. The load-stage `missing:*`
+                    # counters that DO name the real cause are computed and then
+                    # never surfaced in `build_report.json` -- which is why a
+                    # total drop stayed invisible, and why the check that finally
+                    # caught it was diffing the key set against the family that
+                    # WORKS rather than reasoning from the counter's name.
                     "symbol": symbol,
+                    "exit_time": str(t.exit_time),
+                    "entry": t.entry, "sl": t.sl, "exit_reason": t.outcome,
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - cb["total_cost_r"], 4),
                     # MFE is the denominator of the capture ratio; the Trade has
