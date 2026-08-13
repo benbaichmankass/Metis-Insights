@@ -328,7 +328,7 @@ def test_margin_fields_returns_every_declared_field():
         "every declared field must appear so a MISSING one is visibly null "
         "rather than silently dropped"
     )
-    assert set(fields) - set(_MARGIN_FIELDS) == {"coin_usdt", "coin_count"}
+    assert set(fields) - set(_MARGIN_FIELDS) == {"coin_usdt", "coin_count", "coins_other"}
     assert fields["totalEquity"] == "274.91"
     assert fields["totalInitialMargin"] == "79.39"
     assert fields["totalAvailableBalance"] == ""
@@ -408,3 +408,54 @@ def test_usdt_block_is_bounded():
     shape["coin"] = [dict({"coin": "USDT"}, **{f"f{i:02d}": i for i in range(60)})]
     fields, _ = read_linear_margin_fields(_Client(shape))
     assert len(fields["coin_usdt"]) <= 24
+
+
+# ── every OTHER coin, because USDT alone makes the derivation a lower bound ─
+
+def test_other_coins_are_reported_with_their_collateral_flags():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [
+        {"coin": "USDT", "walletBalance": "269.27", "totalPositionIM": "53.93"},
+        {"coin": "BTC", "equity": "0.004", "usdValue": "260.11",
+         "marginCollateral": True, "collateralSwitch": True,
+         "walletBalance": "0.004", "totalPositionIM": "0", "totalOrderIM": "0"},
+    ]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    others = fields["coins_other"]
+    assert [c["coin"] for c in others] == ["BTC"], "USDT must not repeat in coins_other"
+    assert others[0]["usdValue"] == "260.11"
+    assert others[0]["marginCollateral"] is True, (
+        "a collateral-flagged second coin raises the real ceiling — without this "
+        "the derivation is a silent LOWER bound"
+    )
+
+
+def test_other_coins_is_empty_list_not_null_when_usdt_is_the_only_coin():
+    """[] means 'we looked and there are none'. null would mean 'we did not
+    look' — different states."""
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "USDT", "walletBalance": "1"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coins_other"] == []
+    assert fields["coin_count"] == 1
+
+
+def test_other_coins_declares_every_field_even_when_absent():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "ETH"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coins_other"][0]["marginCollateral"] is None, (
+        "an absent flag must be visibly null, never dropped"
+    )
+
+
+def test_other_coins_is_bounded():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": f"C{i:02d}"} for i in range(30)]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert len(fields["coins_other"]) <= 8
+    assert fields["coin_count"] == 30, "the COUNT must stay truthful even when the list is capped"
