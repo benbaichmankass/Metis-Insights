@@ -1324,6 +1324,14 @@ class Coordinator:
             # + sizing; a positive sentinel qty carries the decision through
             # dispatch to the breakout branch, where the real qty is computed.
             _is_prop_bridge = (account.exchange or "").lower() == "breakout"
+            # Declared OUTSIDE the try on purpose. The balance fetch on the very
+            # next line can raise, and this block's `except` writes a rejection
+            # row that reads `margin_basis` — so a declaration inside the try is
+            # an UnboundLocalError on exactly the failure path the row exists to
+            # record. Line-order alone does not establish this; the assignment
+            # has to be unconditionally REACHED.
+            available_basis_kind = None
+            margin_basis: dict = {}
             try:
                 balance = 0.0 if _is_prop_bridge else float(fetcher(account))
                 # Direction-aware balance override for cash spot.
@@ -1364,10 +1372,21 @@ class Coordinator:
                 ):
                     try:
                         from src.units.accounts.execute import (
-                            _fetch_linear_available_balance,
+                            AVAILABLE_STATE_UNAVAILABLE,
+                            AVAILABLE_STATE_VENUE,
                             _fetch_linear_total_equity,
+                            read_linear_available_balance,
                         )
-                        available_usd = _fetch_linear_available_balance(client)
+                        # Take the READ STATE, not just the number. The state is
+                        # what the journal row is stamped with, so a venue
+                        # refusal says which basis produced the size instead of
+                        # leaving it to be reconstructed by contradiction
+                        # (BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS).
+                        available_usd, _avail_state, _avail_detail = (
+                            read_linear_available_balance(client)
+                        )
+                        if _avail_state != AVAILABLE_STATE_UNAVAILABLE:
+                            available_basis_kind = _avail_state
                         # S-052: total cross-margin equity is the correct
                         # equity basis for the min-balance gate, daily-loss
                         # budget, and margin buffer fallback on a Bybit
@@ -1376,13 +1395,27 @@ class Coordinator:
                         # effort — None leaves the sizer on the current
                         # free-balance behaviour (no regression).
                         total_account_usd = _fetch_linear_total_equity(client)
-                        logger.debug(
-                            "multi_account_execute: linear balances "
-                            "account=%s available_usd=%s total_account_usd=%s",
+                        # INFO, not DEBUG. This one line is what the 2026-08-13
+                        # investigation needed and did not have: at DEBUG it does
+                        # not exist in production, so "we read broker truth" and
+                        # "we could not, here is equity instead" were
+                        # indistinguishable in the record.
+                        logger.info(
+                            "multi_account_execute: linear balances account=%s "
+                            "available_usd=%s basis=%s total_account_usd=%s%s",
                             account.name,
                             f"{available_usd:.4f}" if available_usd is not None else "n/a",
+                            _avail_state,
                             f"{total_account_usd:.4f}" if total_account_usd is not None else "n/a",
+                            f" ({_avail_detail})" if _avail_detail else "",
                         )
+                        if _avail_state != AVAILABLE_STATE_VENUE:
+                            logger.warning(
+                                "multi_account_execute: account=%s is NOT on the "
+                                "venue's own available-margin figure (basis=%s) — "
+                                "%s",
+                                account.name, _avail_state, _avail_detail or "no detail",
+                            )
                     except Exception as _lin_exc:  # noqa: BLE001
                         logger.warning(
                             "multi_account_execute: linear balance "
@@ -1440,6 +1473,8 @@ class Coordinator:
                         market_type=_market_type,
                         available_usd=available_usd,
                         total_account_usd=total_account_usd,
+                        available_basis_kind=available_basis_kind,
+                        margin_basis_out=margin_basis,
                         # Per-exchange whole-unit constraint (alpaca bracket orders
                         # reject fractional shares). The RiskManager is built from
                         # the risk sub-block and never sees the exchange, so resolve
@@ -1466,6 +1501,7 @@ class Coordinator:
                     reason=error_msg,
                     status="rejected",
                     sized_qty=0.0,
+                    margin_basis=margin_basis or None,
                 )
                 results.append({
                     "name": account.name,
@@ -1597,6 +1633,7 @@ class Coordinator:
                         reason=error_msg,
                         status="rejected",
                         sized_qty=0.0,
+                        margin_basis=margin_basis or None,
                     )
                     # BL-20260716-BYBIT2-SUBMIN-QTY: a sub-lot-minimum refusal
                     # is a benign per-trade skip on a small account, not a
@@ -1692,6 +1729,7 @@ class Coordinator:
                     reason=error_msg,
                     status="rejected",
                     sized_qty=0.0,
+                    margin_basis=margin_basis or None,
                 )
                 results.append({
                     "name": account.name,
@@ -1818,6 +1856,7 @@ class Coordinator:
                             reason=_guard_reason,
                             status="rejected",
                             sized_qty=0.0,
+                            margin_basis=margin_basis or None,
                         )
                         results.append({
                             "name": account.name,
@@ -1859,6 +1898,7 @@ class Coordinator:
                             reason=f"intent_noop:{delta.reason}",
                             status="rejected",
                             sized_qty=0.0,
+                            margin_basis=margin_basis or None,
                         )
                         results.append({
                             "name": account.name,
@@ -1992,6 +2032,7 @@ class Coordinator:
                             reason=_hold_reason,
                             status="rejected",
                             sized_qty=0.0,
+                            margin_basis=margin_basis or None,
                         )
                         results.append({
                             "name": account.name,
@@ -2051,6 +2092,7 @@ class Coordinator:
                             reason="intent_sub_min_qty_delta",
                             status="rejected",
                             sized_qty=0.0,
+                            margin_basis=margin_basis or None,
                         )
                         results.append({
                             "name": account.name,
@@ -2183,6 +2225,7 @@ class Coordinator:
                     reason=risk_reason or "risk_gate_refused",
                     status="rejected",
                     sized_qty=sized_qty,
+                    margin_basis=margin_basis or None,
                 )
                 results.append({
                     "name": account.name,
@@ -2213,6 +2256,7 @@ class Coordinator:
                     reason="below_venue_min_qty",
                     status="rejected",
                     sized_qty=0.0,
+                    margin_basis=margin_basis or None,
                 )
                 results.append({
                     "name": account.name,
@@ -2250,6 +2294,7 @@ class Coordinator:
                     reason=f"{type(exc).__name__}: {exc}",
                     status="exchange_rejected",
                     sized_qty=sized_qty,
+                    margin_basis=margin_basis or None,
                 )
                 results.append({
                     "name": account.name,

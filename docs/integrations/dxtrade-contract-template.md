@@ -1,5 +1,41 @@
 # DXtrade API contract — drop zone
 
+> # ⛔ SUPERSEDED — HISTORICAL RECORD ONLY (banner added 2026-08-13)
+>
+> **The Velotrade / DXtrade integration this document describes was PURGED
+> from the repo on 2026-06-15.** Everything below is written in the present
+> tense as an *active* drop zone with an open checklist, which is exactly why
+> it misleads: read as-is, it tells you a wiring exists that you need only
+> fill in. It does not exist. Nothing here is actionable.
+>
+> **Verified deleted (checked on disk 2026-08-13, not inferred from the
+> change log):** `src/units/accounts/dxtrade_client.py`,
+> `velotrade_client_for`, the executor / coordinator / integrator velotrade
+> branches, the `EXCHANGE_MAP["velotrade"]` entry, the `prop_velotrade_1`
+> block in `config/accounts.yaml` + `config/account_state.yaml` + the
+> master-secrets template, and `tests/test_velotrade_infrastructure.py`.
+> `grep -rn velotrade src/ config/` returns **nothing**; the only surviving
+> references are in `tests/` and they *assert the purge*. So every file path,
+> env var (`VELOTRADE_API_KEY_1` / `VELOTRADE_API_SECRET_1` /
+> `VELOTRADE_BASE_URL`), account id, and checklist item below is dead.
+>
+> **What is live instead:** the prop sleeve is **Breakout**, via a
+> **manual Telegram bridge** — not a DXtrade API. `breakout` is NOT a
+> deprecated stub; that framing comes from the 2026-06-15 change-log row and
+> was explicitly superseded two days later by the 2026-06-17 row in
+> [`ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md) § Change log.
+> Current design + contract:
+> - [`prop-accounts-architecture-DESIGN.md`](prop-accounts-architecture-DESIGN.md) — account→ruleset binding, the per-account compat matrix
+> - [`breakout-poc-manual-bridge-DESIGN.md`](breakout-poc-manual-bridge-DESIGN.md) — the ticket→operator→report-back loop actually in production
+> - [`prop-telegram-inbound-DESIGN.md`](prop-telegram-inbound-DESIGN.md) — the inbound report/expiry/invalidation prompts
+> - [`metacopier-bridge-DESIGN.md`](metacopier-bridge-DESIGN.md) — the evaluated copier alternative (correctly refers to "the purged `velotrade`")
+>
+> **Kept, not deleted,** because the endpoint/field taxonomy below is a
+> reusable template if a DXtrade-family prop venue is ever wired for real —
+> and because deleting it would erase the record of why the approach was
+> abandoned. Treat it as an archived spec, and if you do revive it, start
+> from the current prop architecture, not from this checklist.
+
 This file is the **structured drop zone** for the Velotrade DXtrade API
 contract. The phase-2 sprint wired the entire integration *shape*
 (client class, factory, executor branch, coordinator routing,

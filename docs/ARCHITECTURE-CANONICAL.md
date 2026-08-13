@@ -172,19 +172,38 @@ Process** tab fetches that document at runtime — keep it current.
 
 ### Step 1 — Market data intake
 Exchange connectors (`src/exchange/bybit_connector.py`,
-`src/exchange/binance_connector.py`,
+`src/exchange/alpaca_connector.py::AlpacaMarketData`,
+`src/exchange/oanda_connector.py::OandaMarketData`,
 `src/exchange/ib_connector.py::IBMarketData`) and the market-data helpers
 in `src/runtime/market_data.py` produce candles and tick state. The bot is
 **multi-symbol**: `connector_for_symbol(symbol)` routes each symbol to the
 right data source by its `config/instruments.yaml` exchange — BTCUSDT →
 Bybit; MES (CME) / MGC + MHG (COMEX) → Interactive Brokers (delayed
 futures bars via `reqHistoricalData`, no paid real-time subscription).
-See `docs/runbooks/ib-integration.md`.
+See `docs/runbooks/ib-integration.md`. **There are exactly four live
+connectors — Bybit, Alpaca, OANDA, IBKR.** This list previously named a
+`src/exchange/binance_connector.py`; **no such file has ever existed on
+disk** (corrected 2026-08-13, verified by `ls src/exchange/`). Binance
+appears in this repo ONLY as an **offline research archive**
+(`scripts/ops/fetch_binance_vision.py`, pulling monthly klines from
+`data.binance.vision` for backtests because Bybit's REST is 403-blocked from
+the sandbox). It is never in the live market-data path and never in
+`EXCHANGE_MAP` — do not re-add it here on the strength of a `binance`
+grep hit in `scripts/`.
 
 ### Step 2 — Strategy evaluation
 Strategy modules in `src/units/strategies/` consume market data and emit
-signals. The roster has **54 strategy cells registered** in
-`config/strategies.yaml` (verified 2026-07-26 — the +6 over the 2026-07-09
+signals. **STATE THE POPULATION — the roster has two different counts and
+they are not interchangeable:** `config/strategies.yaml` registers **55
+strategy cells**, of which **52 carry `enabled: true`** (the legs the live
+trader loads) and **3 are `enabled: false`** — `vwap`, `trend_donchian_1h`,
+`xauusd_trend_1h`. (Counted from the file 2026-08-13; the previous "54
+registered" was stale and also collapsed the two populations. Note
+`xauusd_trend_1h` is `enabled: false` *with* `execution: live` — the two
+gates are orthogonal and a leg is dark if EITHER excludes it, which is why
+"registered" never implies "trading". A 2026-08-13 audit guard flagged that
+leg as a defect; **the config was right and the guard was wrong** — do not
+"fix" it.) The +6 over the 2026-07-09
 count are the M27 15m scalp legs `ict_scalp_{sol,xrp,avax}_5m` +
 `ict_scalp_{xrp,eth,sol}_15m`, paper-soak on `bybit_1`; grown from the 12-cell
 2026-06-10 crypto+futures core through the multi-symbol crypto alts
@@ -388,10 +407,32 @@ mode-flip part of an automated response.
 ### Step 8 — Operator visibility and control
 The Telegram bot (`src/bot/telegram_query_bot.py`) plus the FastAPI
 diag surface (`src/web/api/routers/diag.py`) expose status, halt and
-resume actions, and pending requests. The Streamlit dashboard
-(`ict-trader-dashboard`, Streamlit Community Cloud — the React+Vercel
-stack was retired 2026-05-12) consumes the unauthenticated Tier 1
-endpoints documented in [`api-tier-policy.md`](api-tier-policy.md).
+resume actions, and pending requests. **Two** frontends live in the
+`ict-trader-dashboard` repo, and they consume the same unauthenticated Tier-1
+endpoints (documented in [`api-tier-policy.md`](api-tier-policy.md)) over
+**two different transports** — plus the native Android app:
+
+| frontend | host | transport to `:8001` |
+|---|---|---|
+| Streamlit dashboard (`streamlit_app.py`) | Streamlit Community Cloud | **server-side plain HTTP** direct to `http://141.145.193.91:8001`. No tunnel, no proxy. CORS not load-bearing. |
+| Svelte SPA (`webapp/`) | GitHub Pages | **browser-direct HTTPS via Caddy** on the live VM — `https://ict-bot.duckdns.org` → `reverse_proxy localhost:8001`, Let's Encrypt cert auto-provisioned for the DuckDNS hostname. `/ws/market` upgrades to **WSS** through the same proxy. CORS **is** load-bearing. |
+| Android app | device | plain HTTP to the same `:8001` default (`AppPrefs.DEFAULT_BOT_URL`), cleartext-allowlisted per-host. |
+
+The SPA path is Caddy-fronted because a mixed-content plain-HTTP fetch from an
+HTTPS page is hard-blocked by the browser. Server side:
+`deploy/caddy/Caddyfile`, `scripts/ops/install_caddy.sh`, the
+`vm-caddy-deploy` workflow. **The React+Vercel stack retired 2026-05-12 is a
+different thing entirely** — do not read "the Vercel/CF stack was retired" as
+"there is no proxy"; that is true of Streamlit and false of the SPA.
+
+**Observability caveat:** `caddy.service` is not an `ict-*` unit and ships no
+`deploy/` unit file (it comes from the Caddy apt package), so it falls outside
+`scripts/check_diag_unit_allowlist.py`'s `deploy/*.{service,timer}` glob and no
+guard cross-checks it. It is listed in diag's `_CANONICAL_UNITS` **by hand** so
+a Caddy outage shows on `/api/diag/services`. A Caddy failure takes the SPA and
+the WSS market stream down **while Streamlit stays green** — the two frontends
+do not share a failure mode. Cert expiry and the DuckDNS record are still
+unwatched (`BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED`).
 
 ## Research and Validation Pipeline
 

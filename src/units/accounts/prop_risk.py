@@ -211,9 +211,19 @@ class PropRiskManager(RiskManager):
         available_usd: Optional[float] = None,
         total_account_usd: Optional[float] = None,
         whole_units: bool = False,
+        available_basis_kind: Optional[str] = None,
+        margin_basis_out: Optional[dict] = None,
     ) -> float:
         """Size a prop trade against the NOMINAL account equity when no live
         balance is available.
+
+        ``available_basis_kind`` / ``margin_basis_out`` are accepted for
+        signature parity with ``RiskManager.position_size`` (the coordinator
+        passes them to whatever manager an account resolves to) and are
+        deliberately UNUSED here: a prop account has no venue margin to have a
+        basis in — its size comes from the ruleset, not from a broker's
+        available-margin figure. Declaring them explicitly rather than swallowing
+        them in ``**kwargs`` keeps the "does not apply" visible at the signature.
 
         A prop account has no live broker-balance API: it "executes" by
         emitting a manual Telegram ticket, so the coordinator's balance
