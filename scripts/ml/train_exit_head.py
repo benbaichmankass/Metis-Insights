@@ -499,6 +499,71 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
     return out
 
 
+def _select_tau_holdout(h_trades: dict, y0: float, a, tf_s: int, t_entry) -> dict:
+    """Pick a tau WITHOUT looking at the test block.
+
+    The E1 gate scores `max(net_r over ~7 tau arms)` on the test fold, which
+    selects the arm using the outcome it is about to be graded on. Measured
+    2026-08-13 over 514 folds (relay #9077, recorded in
+    docs/research/M20-E1-block-size-derivation-2026-08-13.md section 9), that
+    hindsight IS the fleet's edge: +1.217R / 70.2% of folds positive with
+    best-arm, versus -0.341R / 54.1% when tau is chosen causally from earlier
+    folds. This function measures the honest upper end of that interval.
+
+    The carve, all of it inside the fold's own training window (`< y0`):
+
+        [ ............ fit ............ ][embargo][ validation ][embargo][ TEST ]
+                                                                          ^ y0
+
+    A selection model is fit on `fit`, every tau arm is replayed on
+    `validation`, and the argmax is returned. The embargo between fit and
+    validation is the SAME `EMBARGO_S` the outer split uses and is not
+    optional: a trade whose hold spans the boundary would leak its `final_r`
+    into the model that scores it, which is the leak the outer purge exists to
+    stop, one level in.
+
+    RETURNS A THREE-STATE RESULT, never a bare tau:
+
+        selected            a tau was chosen on a real validation block
+        no_validation_block the training window could not spare one -- tau is
+                            None, and the caller MUST NOT fall back to
+                            best-arm. "We could not select" and "we selected"
+                            are opposite statements, and collapsing them would
+                            restore the hindsight figure under an honest key.
+
+    The thresholds are deliberately the SAME ones the outer fold uses
+    (`--min-fold-trades` for the validation block, `_MIN_FOLD_TRAIN_ROWS` for
+    the fit rows). A validation block held to a laxer standard than a test
+    block would be picking tau on evidence we have already declared too thin
+    to grade with.
+    """
+    # Trades wholly inside this fold's training window, in entry order.
+    train_trades = {tk: b for tk, b in h_trades.items()
+                    if b[-1]["bar_t"] < y0 - EMBARGO_S}
+    if not train_trades:
+        return {"tau": None, "state": "no_validation_block", "n_val": 0}
+    ordered = sorted(train_trades.items(), key=lambda kv: t_entry(kv[1]))
+
+    n_val = a.min_fold_trades
+    if len(ordered) <= n_val:
+        # Not enough to hold any out and still have something to fit on.
+        return {"tau": None, "state": "no_validation_block", "n_val": 0}
+    val = dict(ordered[-n_val:])
+    val_start = min(t_entry(b) for b in val.values())
+    fit_rows = [r for tk, b in ordered[:-n_val]
+                if b[-1]["bar_t"] < val_start - EMBARGO_S
+                for r in b]
+    if len(fit_rows) < _MIN_FOLD_TRAIN_ROWS:
+        return {"tau": None, "state": "no_validation_block", "n_val": len(val)}
+
+    sel_model = train_model(fit_rows)
+    val_res = eval_split(sel_model, val, tf_s)
+    best = _best_tau(val_res)
+    if not best:
+        return {"tau": None, "state": "no_validation_block", "n_val": len(val)}
+    return {"tau": best[0], "state": "selected", "n_val": len(val)}
+
+
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--family-dir", required=True,
@@ -597,6 +662,32 @@ def main(argv: List[str]) -> int:
             continue
         model = train_model(train_rows)
         res = eval_split(model, test, tf_s)
+        # ---- HINDSIGHT-FREE tau selection (measured 2026-08-13, relay #9077).
+        # Everything else in this fold reports max-over-arms, which is the same
+        # selection the gate makes and is HINDSIGHT: the arm is picked using the
+        # test block's own outcome. Measured over 514 folds, replacing that with
+        # a causal rule moved the fleet from +1.217R (70.2% of folds positive)
+        # to -0.341R (54.1%) -- i.e. the fleet-level edge WAS the hindsight.
+        # Those causal rules picked tau from EARLIER folds, so they also ate
+        # regime drift and are a lower bound. This is the upper end: carve a
+        # validation block off the TAIL of this fold's own training window, fit
+        # a selection model on train-minus-validation (with the same embargo, so
+        # the validation block cannot leak into the model that scores it), pick
+        # tau there, and apply it to the test block using the FULL-train model.
+        # tau is a hyperparameter chosen on held-out data -- never on test.
+        sel = _select_tau_holdout(h_trades, y0, a, tf_s, t_entry)
+        res["selected_tau"] = sel["tau"]
+        # THREE STATES, never collapsed (CLAUDE.md 'Collapsed states'):
+        #   selected            - a tau was picked on a real validation block
+        #   no_validation_block - the training window could not spare one; tau
+        #                         is None and a consumer MUST NOT fall back to
+        #                         best-tau, which is the hindsight this exists
+        #                         to avoid
+        #   absent              - a report predating this field (older runs)
+        # Collapsing 'could not select' into 'selected nothing' would silently
+        # restore the hindsight figure under an honest-looking key.
+        res["selected_tau_state"] = sel["state"]
+        res["selected_tau_val_trades"] = sel["n_val"]
         # `year` stays an int for schema compatibility (per_leg_summary uses
         # it as a display label); `fold_label` carries the real identity, which
         # under trade-folds is a trade-index range, not a calendar year.
