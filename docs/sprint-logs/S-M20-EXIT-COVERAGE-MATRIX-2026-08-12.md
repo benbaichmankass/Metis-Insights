@@ -734,13 +734,53 @@ neither was chosen at 06:00 with the operator asleep.
    those train on. Needs to be per-round-scoped or an explicit per-family table,
    not "make `family_of` match `classify`".
 
+**⚠️ UPDATE 2026-08-13 07:30Z — items 4 and 5 above are OVERTAKEN BY MEASUREMENT. Read this before acting on either.**
+
+**Item 5 (the pooling unit) is RESOLVED for the 1d fleet, and the answer is that
+pooling does not help.** Item 5 as written would send you toward a pooling design
+for the 1d cells; **do not spend time there.** Measured (#8923/#8924): both
+same-family 1d pools — exactly the scoping the design permits, `family_of()`
+already calling each one family — give **ZERO usable folds**. Donchian 371 trades,
+largest fold 33; pullback 568 trades, largest fold 42; bound 50. No change to
+`family_of()` is needed or would help for these legs.
+**The 1h half of item 5 STANDS unchanged** (`slv_trend_1h` / `uso_trend_1h`: 0
+folds alone, 8/9 pooled), and so does its caution — eight `trend_donchian*` legs
+already pool and three carry shipped live heads.
+
+**Item 4 (the 1d evidence standard) is sharper and its counts have moved.** It is
+now **14 of 37** open cells (fold standard) plus **9** more on the OOS floor,
+not "25 of 39". Two things the original framing did not have:
+
+- **A measured floor.** The bound sits **51% above the best year donchian has**,
+  so this was never a near miss and no pooling arrangement reaches it.
+- **No single threshold treats both families honestly.** Pullback reaches 42 and
+  donchian 33: a bound chosen to unblock pullback (≤42) leaves all 7 donchian
+  legs blocked, and one low enough for donchian (≤33) hands pullback 7 folds at
+  sizes where `beats()` — **no minimum-n** — is near a coin flip.
+
+**I did NOT pre-empt option (b).** Moving those cells `pending → blocked:insufficient_folds`
+records a *measured cause*; it does **not** declare them terminally ungradeable,
+and the done-condition still counts every one of them as **open** (37, unchanged).
+Option (b) — the status that would make the done-condition reachable by treating
+them as closed — remains entirely yours to choose or refuse.
+
+**A sixth item joins the queue.** `BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N`: the
+E1→E2 gate's live arm has no minimum-n, so sub-floor live evidence counted as
+confirmation at **n=15** for the donchian promotion and is (rightly) discounted at
+**n=24** where it contradicts. Measured this session: those three live heads have
+fired **twice in a month**, and **`trend_donchian_sol` has never closed a trade** —
+so *"wait for more live trades"* is not a viable answer.
+
 **Blockers** — the 5m round is blocked on PR #8825 reaching the trainer.
 
 ## Deferred Items
 
-- ROADMAP.md M20 status row (pending the wave-2 cells landing, so the figure
-  written there is the settled one).
-- `doc-freshness` skill pass at session close.
+- ~~ROADMAP.md M20 status row~~ — **DONE 2026-08-13** (PR #8944): the settled
+  figure is `360/360` headline / `37` done-condition, and the new entry marks the
+  two below it as superseded.
+- ~~`doc-freshness` skill pass at session close~~ — **DONE**: the ROADMAP drift
+  above was the finding (it carried `354/376` and `39` open); sprint-log §17's
+  stale "live arm is unevaluated" line was corrected in-file.
 - The `vol_trail` wave-2 re-dispatch (blocked on the corpus fix merging).
 - Re-run of `ict_scalp_xrp_15m` and the full 5m round.
 
