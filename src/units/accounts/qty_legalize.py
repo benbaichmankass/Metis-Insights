@@ -264,8 +264,11 @@ def legalize_qty(
             venue_max=venue_max,
         )
 
-    # --- venue per-order CEILING (2026-08-13, BL-20260810-ICTSCALP-AVAX-QTY-
-    # EXCEEDS-VENUE-MAX) ---------------------------------------------------
+    # --- venue per-order CEILING (2026-08-13) -----------------------------
+    # BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX
+    # (id kept on ONE line: wrapping it mid-token hides it from every grep AND
+    # from the tracking-ref guard, which then reads it as a reference to a row
+    # that was never filed.)
     #
     # Symmetric with the floor above and deliberately in the SAME seam: a
     # second bespoke max-check elsewhere is how the four scattered minimum
