@@ -680,9 +680,28 @@ def test_every_cfg_key_base_args_reads_is_declared_by_some_strategy():
         which diverge from what 11 of 19 pullback legs actually declare. That
         one is ENTRY geometry: it changes which trades exist, not just exits.
 
-    This asserts the weaker but fully general property — every key read must be
-    declared by at least one strategy. It cannot catch a key that is threaded
-    to the wrong FLAG, but it catches every key that is simply not real.
+    TWO STATES, SPLIT 2026-08-13 — they were collapsed, and the collapse fired.
+    "No strategy declares this key" covers two conditions needing OPPOSITE
+    actions:
+
+      * NOT REAL — the key exists nowhere in the runtime. A typo, or a read that
+        was never threaded. `trend_len` / `pullback_len` above are this. **Fails.**
+      * REAL BUT CURRENTLY UNARMED — the key is read by `src/`, so the harness
+        flag is correctly wired; no leg happens to declare it *right now*. This
+        is the normal state after a Tier-3 removal retires a lever fleet-wide,
+        and failing on it would mean the guard punishes correctly removing the
+        last declarer of a lever. **Allowed, and reported.**
+
+    Measured 2026-08-13: removing the OOS-negative `vol_trail` from
+    `trend_donchian_eth` and `qqq_pullback_1h` — the only two legs that armed it
+    — turned `trail_vol_{above_pctl,below_pctl,tight_mult}` + `vol_pctl_window`
+    into state 2, and the collapsed assertion reported them as state 1.
+
+    The discriminator is RUNTIME READABILITY, not a hand-maintained allowlist, so
+    it cannot rot and cannot be satisfied by editing a list. Verified against the
+    original bugs before adoption: `trend_len` and `pullback_len` appear in ZERO
+    `src/**/*.py`, while `trend_lookback` / `pullback_lookback` appear in 2 each —
+    so this split still rejects exactly what motivated the test.
     """
     import re
     import yaml
@@ -698,10 +717,49 @@ def test_every_cfg_key_base_args_reads_is_declared_by_some_strategy():
         if isinstance(block, dict):
             declared |= set(block)
 
-    dead = sorted(keys - declared)
-    assert not dead, (
-        "base_args reads cfg key(s) that NO strategy declares — each silently "
-        "drops its flag and lets the harness default stand in: " + str(dead))
+    undeclared = keys - declared
+    runtime_text = "\n".join(
+        p.read_text(errors="ignore") for p in (REPO / "src").rglob("*.py"))
+
+    def _readable(k: str) -> bool:
+        return re.search(rf'\b{re.escape(k)}\b', runtime_text) is not None
+
+    not_real = sorted(k for k in undeclared if not _readable(k))
+    unarmed = sorted(k for k in undeclared if _readable(k))
+
+    assert not not_real, (
+        "base_args reads cfg key(s) that NO strategy declares AND that the "
+        "runtime never reads — each silently drops its flag and lets the harness "
+        "default stand in. These are typos or never-threaded reads: "
+        + str(not_real))
+
+    if unarmed:  # visible, not fatal — the post-removal state
+        print(f"NOTE: {len(unarmed)} real cfg key(s) read by base_args that no leg "
+              f"currently arms (a lever retired fleet-wide, not a typo): {unarmed}")
+
+
+def test_the_dead_key_check_can_still_catch_its_original_bugs():
+    """The split above must not have blunted the guard.
+
+    Feeds the discriminator the two keys that motivated the original test and
+    asserts it still classifies them NOT REAL. Without this, relaxing the
+    assertion could pass simply because nothing is left to reject.
+    """
+    import re
+    runtime_text = "\n".join(
+        p.read_text(errors="ignore") for p in (REPO / "src").rglob("*.py"))
+
+    def _readable(k: str) -> bool:
+        return re.search(rf'\b{re.escape(k)}\b', runtime_text) is not None
+
+    for typo in ("trend_len", "pullback_len"):
+        assert not _readable(typo), (
+            f"{typo} is now readable in src/ — the discriminator would let the "
+            "original 2026-08-10 bug through; this test's premise has changed")
+    for real in ("trend_lookback", "pullback_lookback", "vol_pctl_window"):
+        assert _readable(real), (
+            f"{real} is NOT readable in src/ — the discriminator would wrongly "
+            "flag a real key as a typo")
 
 
 # --------------------------------- the geometry banner must state what RAN

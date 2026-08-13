@@ -292,3 +292,42 @@ def test_fixture_row_is_inside_the_sweep_scan_window(db):
         "the fixture row fell outside the sweep's `datetime('now','-14 days')` "
         "scan window — the fixture clock has drifted, the sweep is not broken"
     )
+
+
+def test_the_scan_window_check_can_fail(db):
+    """The can-fail companion to the test above — a guard that cannot fail
+    proves nothing.
+
+    `test_fixture_row_is_inside_the_sweep_scan_window` is the important one, but
+    on its own it would pass just as happily if `scanned` were hardcoded to 1,
+    if the sweep silently stopped filtering by date, or if this file's fixture
+    clock were later "simplified" back to a literal that happens to be inside
+    the window on the day someone edits it. Age the row out ON PURPOSE and
+    confirm the scan really does come back empty.
+
+    It also reproduces the 2026-08-13 outage on demand, and pins the property
+    that made it so expensive to diagnose: an aged-out row is SILENT, not loud.
+    `scanned` and `declared_unmeasured` both read 0 — byte-identical to a
+    correctly-behaving sweep over a clean book — which is why seven tests
+    reported `assert 0 == 1` and `KeyError` instead of "the row was not
+    scanned".
+    """
+    from datetime import datetime, timedelta, timezone  # local, as in _fixture_times
+
+    c = sqlite3.connect(db.path)
+    c.execute(
+        "UPDATE trades SET created_at = ? WHERE id = 1",
+        ((datetime.now(timezone.utc) - timedelta(days=_ROW_AGE_DAYS + 13))
+         .strftime("%Y-%m-%dT%H:%M:%SZ"),),
+    )
+    c.commit()
+    c.close()
+
+    summary = om._sweep_local_pnl_for_unpriced(db)
+    assert summary["scanned"] == 0, (
+        "a row 15 days old was still scanned — the 14-day window is not being "
+        "applied, so the test above cannot detect a fixture that drifts out of it"
+    )
+    # The silence that made this expensive: nothing distinguishes it from clean.
+    assert summary["declared_unmeasured"] == 0
+    assert json.loads(_row(db)["notes"]).get("pnl_source") is None

@@ -128,3 +128,66 @@ def test_absent_classifier_reports_unchecked_not_clean(matrix, monkeypatch):
     problems = _join_problems(m20.validate(matrix))
     assert any("NO leg was family-classified" in p.replace("\n", " ") or "was NOT checked" in p
                for p in problems), problems
+
+
+# ── bare `blocked` is a collapsed state (2026-08-13) ──────────────────────────
+def _bare_blocked_problems(problems):
+    return [p for p in problems if "bare 'blocked'" in p]
+
+
+def test_no_live_cell_carries_a_bare_blocked(matrix):
+    """The real matrix states a reason on every blocked cell.
+
+    This is the baseline the plant below moves off. It went green only after
+    `mes_trend_long_1d` `vol_trail` was given its `:insufficient_base` suffix —
+    it was the one cell whose status was silent about a cause its own `ref`
+    described in full.
+    """
+    assert _bare_blocked_problems(m20.validate(matrix)) == []
+
+
+def test_a_planted_bare_blocked_IS_flagged(matrix):
+    """A guard that cannot fail proves nothing.
+
+    Without this, `test_no_live_cell_carries_a_bare_blocked` would pass just as
+    happily if the check were deleted — a clean result over an inert probe,
+    which is the sub-class C shape this repo keeps re-learning.
+    """
+    m = copy.deepcopy(matrix)
+    row = next(r for r in m["rows"] if r.get("execution") == "live")
+    row["vol_trail"] = {"status": "blocked", "ref": "planted — cause deliberately unstated"}
+
+    problems = _bare_blocked_problems(m20.validate(m))
+    assert any(row["strategy"] in p for p in problems), problems
+
+
+def test_a_reasoned_blocked_is_NOT_flagged(matrix):
+    """The negative control: the check must object to SILENCE, not to blocking.
+
+    Without this pair, a check that flagged every `blocked` cell — reasoned or
+    not — would still pass the plant above while making the status field
+    useless.
+    """
+    m = copy.deepcopy(matrix)
+    row = next(r for r in m["rows"] if r.get("execution") == "live")
+    row["vol_trail"] = {"status": "blocked:planted_novel_reason",
+                        "ref": "planted — cause stated"}
+
+    assert _bare_blocked_problems(m20.validate(m)) == []
+
+
+def test_a_novel_reason_is_accepted(matrix):
+    """Reasons are open-vocabulary on purpose.
+
+    Three of the six reasons in use were coined this week. A closed list would
+    push the next genuine discovery toward whichever existing label fits worst,
+    which is how a taxonomy starts lying. `planted_novel_reason` above is not in
+    any legend and must still pass — asserted separately so the intent survives
+    someone later "tightening" the check to a fixed set.
+    """
+    m = copy.deepcopy(matrix)
+    row = next(r for r in m["rows"] if r.get("execution") == "live")
+    row["vol_trail"] = {"status": "blocked:no_such_reason_exists_anywhere",
+                        "ref": "planted"}
+
+    assert _bare_blocked_problems(m20.validate(m)) == []
