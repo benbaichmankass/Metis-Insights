@@ -176,6 +176,15 @@ def load_harness_trades(paths: List[Path], report: Optional[dict] = None) -> Lis
     trades = []
     skipped: Counter = Counter()
     seen = 0
+    # PER-FAMILY accounting (2026-08-13, BL-20260813-E0-LOAD-STAGE-DROPS-INVISIBLE
+    # -ON-PARTIAL-FAILURE). The aggregate counters below say HOW MANY rows were
+    # rejected and WHY, but not WHOSE — so "trend dropped 100% while pullback
+    # loaded fine" was not computable from the report at all, which is the exact
+    # case the counters exist for. `family_of` reads only `strategy`, which
+    # survives every rejection reason here, so a row can be attributed even when
+    # the keys that disqualified it are missing.
+    fam_seen: Counter = Counter()
+    fam_loaded: Counter = Counter()
     for p in paths:
         for line in p.open():
             line = line.strip()
@@ -186,7 +195,17 @@ def load_harness_trades(paths: List[Path], report: Optional[dict] = None) -> Lis
                 r = json.loads(line)
             except json.JSONDecodeError:
                 skipped["bad_json"] += 1
+                # Unparseable: no strategy to attribute it to. It gets its own
+                # bucket rather than being dropped from the denominator or
+                # charged to a neighbouring family.
+                fam_seen["<unparseable>"] += 1
                 continue
+            # `<no_strategy>` is kept DISTINCT from a resolved family: a row the
+            # harness emitted without a strategy name is its own defect (three
+            # harnesses did exactly that until #8889), and folding it into
+            # "unknown" would hide it behind a legitimate bucket.
+            _fam = family_of(r.get("strategy")) if r.get("strategy") else "<no_strategy>"
+            fam_seen[_fam] += 1
             t0 = _epoch(r.get("entry_time"))
             t1 = _epoch(r.get("exit_time"))
             entry, sl = _f(r.get("entry")), _f(r.get("sl"))
@@ -212,10 +231,21 @@ def load_harness_trades(paths: List[Path], report: Optional[dict] = None) -> Lis
                 # emits, None-safe downstream.
                 "confidence": _f(r.get("confidence")),
             })
+            fam_loaded[_fam] += 1
     if report is not None:
         report["rows_seen"] = seen
         report["rows_loaded"] = len(trades)
         report["skipped"] = dict(skipped)
+        report["per_family_load"] = {
+            fam: {"seen": n, "loaded": fam_loaded.get(fam, 0)}
+            for fam, n in sorted(fam_seen.items())
+        }
+        # STARVED = emitted rows, loaded NONE. Reported as its own list so the
+        # asymmetric case (one family at 0 beside a healthy sibling) is a value
+        # a caller can branch on, not a comparison every reader must do by eye.
+        report["families_starved"] = sorted(
+            fam for fam, n in fam_seen.items() if n > 0 and fam_loaded.get(fam, 0) == 0
+        )
     return trades
 
 
@@ -627,6 +657,13 @@ def main(argv: List[str]) -> int:
         "skipped_at_load": dict(harness_report.get("skipped") or {}),
         "rows_seen_at_load": harness_report.get("rows_seen"),
         "rows_loaded_at_load": harness_report.get("rows_loaded"),
+        # Per-family load split + the starved set (2026-08-13). Surfacing the
+        # AGGREGATE drop counts was necessary and NOT sufficient: the number was
+        # computable all along and nobody looked, because nothing said which
+        # family it belonged to. These two make the asymmetric case — one family
+        # at 0 beside a healthy sibling — a value rather than an inference.
+        "per_family_load": harness_report.get("per_family_load") or {},
+        "families_starved": harness_report.get("families_starved") or [],
         "holding_pays_threshold_r": HOLDING_PAYS_R, "families": {},
     }
     # And say it on stderr too, where the round driver's log will carry it —
@@ -638,6 +675,55 @@ def main(argv: List[str]) -> int:
         for reason, n in sorted(report["skipped_at_load"].items(),
                                 key=lambda kv: -kv[1]):
             print(f"    dropped {n}: {reason}", file=sys.stderr)
+
+    # ── THE PER-FAMILY LINE, PRINTED WHETHER OR NOT ANYTHING WAS DROPPED ─────
+    #
+    # Unconditional on purpose. `skipped_at_load` being empty is exactly how a
+    # clean-looking report hid a starved family before: a reader saw no drops
+    # and stopped. Printing `loaded N of M` for every family means the healthy
+    # case states its own denominator, so a 0 is visible by CONTRAST rather than
+    # by knowing to go looking for it.
+    pfl = report["per_family_load"]
+    if pfl:
+        print("LOAD BY FAMILY:", file=sys.stderr)
+        for fam, c in sorted(pfl.items()):
+            mark = "  <-- STARVED" if c["seen"] > 0 and c["loaded"] == 0 else ""
+            print(f"    {fam}: loaded {c['loaded']} of {c['seen']}{mark}",
+                  file=sys.stderr)
+
+    # ── THE LOUD SIGNAL: a family at zero BESIDE a healthy sibling ───────────
+    #
+    # This is the specific shape the row was filed for and the one a reader is
+    # least likely to catch by eye, because the report looks healthy: families
+    # are present, rows are non-zero, nothing is obviously wrong. It cost two
+    # misdiagnoses on 2026-08-13 before a key-set diff found the cause.
+    #
+    # NOT a non-zero exit, deliberately. A round can legitimately be invoked on
+    # inputs where one family has no emitted rows at all, and failing the build
+    # would make the round driver's own error path the thing that needs
+    # explaining. The banner is unmissable and the `families_starved` field is
+    # machine-readable — which is what the row's resolution criteria asked for.
+    starved = report["families_starved"]
+    healthy = [f for f, c in pfl.items() if c["loaded"] > 0]
+    if starved and healthy:
+        print("", file=sys.stderr)
+        print("=" * 72, file=sys.stderr)
+        print("!! FAMILY STARVED AT LOAD — 100% of its rows were rejected on SHAPE,",
+              file=sys.stderr)
+        print("!! while a sibling family in the SAME round loaded fine.",
+              file=sys.stderr)
+        for fam in starved:
+            print(f"!!   {fam}: loaded 0 of {pfl[fam]['seen']} emitted row(s)",
+                  file=sys.stderr)
+        print(f"!! healthy in the same round: {', '.join(sorted(healthy))}",
+              file=sys.stderr)
+        print("!! Every verdict this round produces EXCLUDES the starved family.",
+              file=sys.stderr)
+        print("!! Check `skipped_at_load` above for the missing key, then fix the",
+              file=sys.stderr)
+        print("!! harness emit — this is BL-20260813-TREND-SQUEEZE-FVG-HARNESSES-EMIT-NO-SYMBOL.",
+              file=sys.stderr)
+        print("=" * 72, file=sys.stderr)
     for fam, rows in sorted(fams.items()):
         d = out_root / fam
         d.mkdir(parents=True, exist_ok=True)

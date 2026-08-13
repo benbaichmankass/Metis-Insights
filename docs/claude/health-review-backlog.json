@@ -13503,7 +13503,7 @@
       "id": "BL-20260813-E0-LOAD-STAGE-DROPS-INVISIBLE-ON-PARTIAL-FAILURE",
       "opened_at": "2026-08-13T06:00:00+00:00",
       "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
-      "status": "open",
+      "status": "resolved",
       "tier": 1,
       "severity": "high",
       "area": "m20-exit-refinement",
@@ -13524,8 +13524,18 @@
           "at": "2026-08-13T06:25:00+00:00",
           "by": "claude (m20-exit-coverage-matrix-8d3he7)",
           "note": "SURFACING VERIFIED LIVE (relay #8910). Both re-run reports now carry the load-stage block: `rows_seen_at_load: 949` / `rows_loaded_at_load: 949` (1d) and 1992/1992 (1h), with `skipped_at_load: {}`.\n\nREAD THE EMPTY DICT CORRECTLY: `{}` here means 'nothing was rejected on shape', and it is trustworthy ONLY because the seen/loaded pair is published beside it and they are equal. An empty `skipped_at_load` with no denominator would be exactly the unasserted-negative this row is about -- which is why the counts ship with it rather than the skip dict alone.\n\nRow STAYS OPEN on its stated criteria: nothing yet ALERTS when one family loads 0 of N while a sibling is healthy. Surfacing the number was necessary and is not sufficient; the number was computable all along."
+        },
+        {
+          "at": "2026-08-13T12:15:00+00:00",
+          "by": "claude (system-audit-review-oy5kon)",
+          "disposition": "resolved",
+          "evidence_based": true,
+          "note": "BOTH criteria now met. The surfacing half shipped in #8901; the ALERT half — 'a round in which one family drops 100% at load while another loads fine produces a LOUD signal' — is this change.\n\nTHE MISSING PIECE WAS ATTRIBUTION, NOT VOLUME. `skipped_at_load` said HOW MANY rows were rejected and WHY, but not WHOSE, so 'trend dropped 100% while pullback loaded fine' was not computable from the report at all. `load_harness_trades` now buckets seen/loaded PER FAMILY — `family_of` reads only `strategy`, which survives every rejection reason, so a row is attributable even when the keys that disqualified it are missing. The report gains `per_family_load` + `families_starved`, and stderr prints `loaded N of M` for EVERY family unconditionally, so a 0 is visible by CONTRAST rather than by a reader knowing to look; an asymmetric starvation additionally prints an unmissable banner naming the starved family, the healthy siblings, and that every verdict this round produces EXCLUDES the starved family.\n\nNOT a non-zero exit, deliberately: a round can legitimately be invoked on inputs where one family has no emitted rows, and failing the build would make the round driver's error path the thing needing explanation. The criteria offered either; the explicit per-family line plus a machine-readable field is the one that does not create a second failure mode.\n\nVERIFIED against the real incident, not a toy: a synthetic 1d round at the actual counts (371 trend rows missing exit_time + 578 complete pullback rows) yields rows_seen 949 / loaded 578, per_family_load {donchian: 0 of 371, pullback: 578 of 578}, families_starved ['donchian']. Negative control (all-healthy) reports no starvation; the 2026-08-12 total-drop case still reports starvation; a row with no `strategy` and an unparseable line each keep their own bucket rather than hiding in a real family or shrinking the denominator. 10 tests.\n\nSIDE FINDING, worth more than this row: writing the tests INDEPENDENTLY REPRODUCED BL-20260813-FAMILY-RESOLVER-DRIFT. I asserted family_of('ict_scalp_5m') == 'scalp' from the design intent and it returned 'ict_scalp_5m' — `family_of` has branches for donchian/pullback/squeeze/fade and NONE for scalp. The test now pins the ACTUAL behaviour with a docstring explaining why, so the drift is asserted in exactly one place and that test's failure is the signal when the pooling decision lands."
         }
-      ]
+      ],
+      "disposition": "fixed",
+      "resolved_at": "2026-08-13T12:15:00+00:00",
+      "resolved_by": "claude (system-audit-review-oy5kon)"
     },
     {
       "id": "BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS",
