@@ -382,7 +382,14 @@ resolved or quantified:
    sweep already reads them. With that dir, **19 of the 30** pending cells are
    runnable: 13 at 1d, 6 at 1h. The rest lack a native frame — `MES`, `MGC`,
    `MHG` (proxies, which the round refuses for head training) and
-   `squeeze_breakout_4h` (no 4h frame anywhere).
+   `squeeze_breakout_4h` — **CORRECTED 2026-08-13: this said "no 4h frame
+   anywhere" and that is false.** Asked `resolve_data` itself rather than
+   inferring from filenames: it returns `data/BTCUSDT_15m.csv` with
+   `resample=4h` and **`proxy=False`** — native BTCUSDT resampled, which is the
+   identical shape `trend_donchian_eth_4h` uses (`ETHUSDT_5m` → 4h), and that
+   leg already carries graded `exit_head_ml` cells. So the resample path is
+   established, not novel, and the cell was `pending` with **no ref** because
+   nobody ran it — not because it was blocked. Round dispatched.
 
 ### 10a. One matrix cell was stale, found by the arm's own denominator check
 
@@ -481,7 +488,7 @@ difficulty, which is why the scheme has looked healthy.
 | `vol_trail` | 7 | OOS n = 3,4,4,4,5,5,6 vs `MIN_OOS_TRADES` 25 |
 | `giveback_stop` | 2 | `insufficient_base` |
 
-**25 of the 42 open cells (59.5%) are the 1d fleet**, across three levers and
+**25 of the 39 open cells (64.1%) are the 1d fleet**, across three levers and
 three code paths, with one cause: a daily-bar leg produces 31–72 trades *total*
 over ~16–20 years against standards calibrated on intraday volume. Each cell is
 filed accurately, so the matrix presents 42 items of roughly equal weight when it
@@ -682,7 +689,7 @@ These are not Tier-3 in the live-lever sense — nothing they touch is on the or
 path — but each changes the evidence standard behind every future verdict, so
 neither was chosen at 06:00 with the operator asleep.
 
-4. **The 1d fleet's evidence standard (§13).** 25 of the 42 open cells. The
+4. **The 1d fleet's evidence standard (§13).** 25 of the 39 open cells. The
    options are not equivalent: (a) a different standard for daily bars
    (multi-year folds / lower OOS floor / pooled OOS) — cost: 1d verdicts stop
    being comparable to intraday ones, so the standard must be recorded on every
