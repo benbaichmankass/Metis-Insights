@@ -13153,7 +13153,7 @@
       "tier": 1,
       "severity": "high",
       "area": "m20-exit-refinement",
-      "title": "3 of 5 backtest harnesses never emitted `symbol`, so no trend/squeeze/fvg leg has EVER produced an E0 exit-head dataset row -- 881 trades dropped into a counter tonight alone",
+      "title": "3 of 5 backtest harnesses emit rows the E0 builder REFUSES -- missing `exit_time`/`entry`/`sl` (and, until #8889, `symbol`) -- so no trend/squeeze/fvg leg has EVER produced an E0 exit-head dataset row",
       "source": "MEASURED 2026-08-13 on the first-ever exit-head rounds over the trend/pullback 1d + 1h fleets (trainer, relays #8885/#8887/#8888; rounds completed 05:20:27Z and 05:21:00Z).\n\n`scripts/ml/build_exit_head_dataset.py` resolves each trade's candles with `resampled.get(tr[\"symbol\"])` and counts a miss as `no_candles`. A row without that key is DROPPED -- into a counter, not an error.\n\n  round   trend trades emitted                          landed in the build\n  1d      371  (spy 48, qqq 60, tqqq 32, qld 31,\n                iwm 65, splg 72, scha 63)               0\n  1h      510  (slv_trend_1h 292, uso_trend_1h 218)     0\n\nBoth build_reports list ONLY `pullback`. `eh_1d/` contains no `donchian` directory at all. The 1d report reads `trades_in: 1332`, `skipped: {no_candles: 697, unresolvable: 63}` -- and 1332 - 760 = 572, which is the pullback count alone.\n\n  backtest_trend.py       symbol key MISSING\n  backtest_squeeze.py     symbol key MISSING\n  backtest_fvg_range.py   symbol key MISSING\n  backtest_pullback.py    present\n  backtest_ict_scalp.py   present\n\nThe two harnesses that DO emit it are the two whose legs have ever built a dataset. That is the whole pattern, and it means no trend-family leg has ever produced a single E0 row -- which read as 'the family has no data' for as long as the harness has existed.\n\nNOT a regression from the same-night `--strategy-name` change (PR #8868); checked before concluding. That change alters the `strategy` field. This is `symbol`, which `backtest_trend.py` has never written on any revision.",
       "impact": "Every `exit_head_ml` matrix cell on a trend/squeeze/fvg leg was unreachable for a reason that presented as an empty family rather than as an error. It is the `no_candles` counter doing exactly its job -- the counter was added precisely so a total drop would not read as an empty input -- and nobody had read it against the emitted count until tonight.",
       "resolution_criteria": "CLOSE when a round over at least one trend leg produces a build_report family with NON-ZERO `trades.harness`, and that family's e1_report carries a per-leg verdict. The fix landing in code is NOT sufficient -- the whole finding is that the rows silently never arrived, so the evidence has to be their arrival.",
@@ -13161,6 +13161,13 @@
       "refs": [
         "BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES",
         "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-13T06:00:00+00:00",
+          "by": "claude (m20-exit-coverage-matrix-8d3he7)",
+          "note": "CORRECTION -- the original diagnosis was INCOMPLETE and the first fix did not work. #8889 added `symbol` alone; the re-run at the merged sha produced BYTE-IDENTICAL numbers (trades_in 1332, skipped {no_candles:697, unresolvable:63}, only a `pullback` family). The builder refuses a row missing ANY of FOUR keys (build_exit_head_dataset.py:193): entry_time, exit_time, entry, sl. Those three harnesses emitted only entry_time.\n\nMEASURED per emit file, 1d round: 7 trend legs 371 rows / 0 usable (exit_time+entry+sl missing on all 371); 6 pullback legs 578 rows / 578 usable. And trades_in 1332 == 578 harness-usable + 754 live-usable, which PROVES the 371 never entered the population -- so the original claim that they 'landed in no_candles' is FALSE. no_candles is a later stage they never reached; that claim came from a subtraction that happened to reconcile (1332-697-63=572=the pullback count) and was shipped as a comment into three source files. Corrected in PR #8901.\n\nMETHOD NOTE, since this is the reusable part: reasoning from the NAME of the counter the survivors landed in produced a confident wrong cause twice. What found it in one step was diffing the emitted key set against the family that WORKS (`in PULLBACK but NOT in TREND: [entry, exit_reason, exit_time, sl]`). tests/test_harness_emit_schema.py makes that permanent, importing the requirement from the builder's own guard rather than restating it, and is verified to FAIL on exactly the three broken harnesses at the pre-fix sha."
+        }
       ]
     },
     {
@@ -13183,8 +13190,29 @@
         "scripts/ml/train_exit_head.py L238-254: the design intent (family=train, leg=verdict)",
         "scripts/ml/build_exit_head_dataset.py::family_of vs scripts/research/m20_fleet_exit_sweep.py::classify"
       ]
+    },
+    {
+      "id": "BL-20260813-E0-LOAD-STAGE-DROPS-INVISIBLE-ON-PARTIAL-FAILURE",
+      "opened_at": "2026-08-13T06:00:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "The E0 builder's load-stage drop counters are reported ONLY on total failure, so a 100%-drop of one family beside a healthy one is invisible -- the instrumentation added after the last incident covers the failure that already happened, not the one that had not",
+      "source": "MEASURED 2026-08-13 (relay #8900). `build_exit_head_dataset.py` drops rows at TWO stages: LOAD (rejected on shape -- `missing:exit_time` etc., counted into `harness_report`) and CANDLE (`no_candles`/`unresolvable`, counted into `skipped`). Only the CANDLE counters reached `build_report.json`; the LOAD counters were printed only inside the `if not trades:` total-failure branch (line 566).\n\nSo on the 1d round -- 371 trend rows dropped at LOAD (100% of that family) beside 578 pullback rows loaded fine -- `build_report.json` read exactly:\n    {\"no_candles\": 697, \"unresolvable\": 63}\nwith no trace of the 371, and `'missing:' present in report -> False` for both the 1d and 1h rounds. Reading that report, the trend family simply did not exist. `trades_in: 1332` counted only the survivors, so even the denominator gave nothing away -- an unasserted denominator in the sense of CLAUDE.md § 'Diagnostic provenance' sub-class C, one level up from the row it hid.\n\nTHE SHAPE WORTH REMEMBERING: the counters exist BECAUSE of the 2026-08-12 ict_scalp incident, where 1170 rows dropped 100% and the message was 'no trades loaded'. That fix instrumented the TOTAL-drop path -- the failure that had already happened -- and a PARTIAL drop, which is the case the counters are most needed for, still reported nothing.",
+      "why_it_matters": "A partial drop is the common case once more than one family is in a round, and it is the case a reader is least likely to catch by eye, because the report looks healthy: a family is present, rows are non-zero, nothing is obviously wrong. It cost two misdiagnoses tonight before a key-set diff found the cause.",
+      "proposed_fix": "SHIPPED in PR #8901: `skipped_at_load` + `rows_seen_at_load` + `rows_loaded_at_load` are written into `build_report.json` unconditionally and echoed to stderr so the round driver's log carries them. Kept as a SEPARATE key from the candle-stage `skipped` deliberately -- 'rejected on shape' and 'had no candles' are different failures with different fixes, and merging them would re-create the ambiguity being corrected.\n\nSTILL OPEN: nothing yet ALERTS on a family whose load-usable count is 0 while a sibling family in the same round is healthy. Surfacing the number is necessary and not sufficient -- the number was computable all along.",
+      "resolution_criteria": "CLOSE when a build_report from a real round carries a non-empty `skipped_at_load` block that names the missing key, AND a round in which one family drops 100% at load while another loads fine produces a LOUD signal (non-zero exit, or an explicit per-family 'loaded 0 of N' line) rather than a quiet field a reader must know to look for.",
+      "refs": [
+        "relay #8900 (full build_report + per-emit-file usable counts)",
+        "relay #8899 (the key-set diff that found the real cause)",
+        "PR #8901",
+        "scripts/ml/build_exit_head_dataset.py:566 (the total-failure-only branch)",
+        "BL-20260813-TREND-SQUEEZE-FVG-HARNESSES-EMIT-NO-SYMBOL (the row it hid)"
+      ]
     }
   ],
-  "updated_at": "2026-08-13T05:52:00+00:00",
+  "updated_at": "2026-08-13T06:00:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
