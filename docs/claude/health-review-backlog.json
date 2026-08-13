@@ -13211,8 +13211,28 @@
         "scripts/ml/build_exit_head_dataset.py:566 (the total-failure-only branch)",
         "BL-20260813-TREND-SQUEEZE-FVG-HARNESSES-EMIT-NO-SYMBOL (the row it hid)"
       ]
+    },
+    {
+      "id": "BL-20260813-E1-PER-YEAR-FOLD-UNSATISFIABLE-ON-DAILY-BARS",
+      "opened_at": "2026-08-13T06:10:00+00:00",
+      "opened_by": "claude (m20-exit-coverage-matrix-8d3he7)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "The E1 walk-forward folds by CALENDAR YEAR at --min-fold-trades 50, which a daily-bar strategy cannot satisfy -- so the 16 `1d` exit_head_ml cells (over half the open block) cannot produce a verdict at the default, no matter how much upstream plumbing is fixed",
+      "source": "MEASURED 2026-08-13 from the 1d round's own log (trainer, relay #8898). The round loaded 568 healthy pullback harness trades and produced ZERO verdicts: `per-leg: no fold produced a leg block (no usable folds)`.\n\n`train_exit_head.py:471` skips a fold when `len(test) < a.min_fold_trades or len(train_rows) < 500`. `--min-fold-trades` defaults to **50**. The 19 test folds ran 12-42 trades:\n    2008:17 2009:18 2010:23 2011:25 2012:33 2013:25 2014:25 2015:29 2016:27\n    2017:35 2018:33 2019:28 2020:29 2021:37 2022:39 2023:42 2024:42 2025:29\n    2026:12\nmax 42, threshold 50, folds clearing it: ZERO. (Arithmetic check: the folds sum to 548, +20 in the first year which is never a test fold, = the 568 reported.)\n\nPOOLING DOES NOT RESCUE IT, so this is independent of BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED:\n    donchian 1d alone   371 trades / ~16y = ~23.2 per year\n    pullback 1d alone   568 trades / ~20y = ~28.4 per year\n    ALL 1d legs pooled  949 trades / ~20y = ~47.5 per year  <- still under 50\nContrast 1h: 1450 trades / ~10y = ~145 per year, which clears comfortably -- and the 1h round DID produce the four per-leg pullback verdicts on 2026-08-13. The fold scheme is fine for intraday families and cannot work for daily ones.\n\nSCOPE: 16 of the 31 open `exit_head_ml` cells across all 50 matrix rows are `1d` (gdx/gld/iaum/ief/mgc/mhg/slv/tlt pullback_1d; iwm/mes/qld/qqq/scha/splg/spy/tqqq trend_long_1d). Over half the largest open block on M20's done-condition.\n\nNOT a structural impossibility -- `--min-fold-trades` is a CLI argument, so this is a THRESHOLD CHOICE nobody has made for daily bars, not a wall.",
+      "why_it_matters": "The 1d cells have been sitting `pending` and reading as 'not run yet'. They have effectively been un-runnable at the default, so upstream fixes (the emit schema in #8901, the family-resolver pooling) are necessary and still not sufficient to close a single one of them. Anyone planning M20's remaining work off the matrix would mis-estimate this block badly.",
+      "proposed_fix": "A RESEARCH-DESIGN choice, deliberately not made in-session at 06:10 with the operator asleep -- it changes the OOS reliability of every verdict the harness produces, and picking a fold threshold ad hoc to make cells go green is the anti-pattern this repo files as cosmetic. Two options, both needing a stated basis:\n  (a) Lower `--min-fold-trades` for 1d rounds toward the repo's established       MIN_OOS_TRADES=25 floor. Attraction: one floor governs the matrix       instead of two. Cost: folds of 25-42 are thin, and the per-leg cut       inside them is thinner still.\n  (b) Fold by MULTI-YEAR blocks for daily families (e.g. 3y test windows),       keeping the trade count per fold comparable to the intraday rounds       rather than keeping the calendar unit. Costs fold COUNT (19 -> ~6).\nWhichever is chosen, the 1d verdicts it produces are not comparable to the intraday ones unless the choice is recorded on the cell.\n\nSEPARATELY AND CHEAPLY: `train_exit_head.py:472` prints one message for TWO skip conditions and states neither threshold, so `fold 2024: skipped (test=42 trades, train=12402 rows)` cannot tell a reader that 42 was compared against 50. Naming the failing condition and its bound is a one-line fix and would have made this visible on the first read.",
+      "resolution_criteria": "CLOSE when a 1d exit-head round produces at least one usable fold with a recorded per-leg verdict, AND the fold-geometry choice behind it (threshold or windowing) is stated on the matrix cells it graded, so a reader can see those verdicts rest on a different OOS structure than the intraday ones. Lowering the threshold without recording it does NOT close this.",
+      "refs": [
+        "relay #8898 (the 1d round log with the 19 skipped folds)",
+        "scripts/ml/train_exit_head.py:471 (the skip) + :429 (--min-fold-trades default 50)",
+        "docs/research/exit-refinement-coverage.json (the 16 `1d` exit_head_ml cells)",
+        "BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED (independent; pooling does not fix this)"
+      ]
     }
   ],
-  "updated_at": "2026-08-13T06:00:00+00:00",
+  "updated_at": "2026-08-13T06:10:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
