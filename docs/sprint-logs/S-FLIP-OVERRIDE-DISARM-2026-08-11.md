@@ -465,3 +465,42 @@ asks for — that needs a consumer×timeframe cross costing names against
 **A tooling note for the next overnight session:** `send_later` clamped a
 requested 62-minute delay to **07:00Z** (~8h). It cannot carry an hourly
 cadence; background `sleep` timers can, and did.
+
+### Day-3 close-out: the cap was raised, and the verification found a second bug
+
+**Operator approved the Tier-3 flip** ("raise it if that's what evidence says").
+`CANDLE_CACHE_TTL_MAX_S` **60 → 300** via `set-env` (#8949); trader restarted
+`active`.
+
+**The justification I originally gave was wrong and was corrected before
+dispatch.** I had argued 300s was "the same order as the tick's own staleness" —
+calibrated against a **187.2s** max tick. Post-decouple the tick is 69.3s mean /
+**96.8s** max, so 300s is ~3× it and that argument does not survive. The argument
+that does is the **declared contract**: `CANDLE_CACHE_TTL_FRACTION` declares
+tolerable staleness as 10% of the bar, and at cap=300 every affected frame lands
+*inside* its own tolerance — 1h **8.33%** (binding), 2h 4.17%, 4h 2.08%, 1d
+0.35%. So the flip restores the fraction's intent, which the 60s cap had been
+overriding for every bar ≥ 10m. 15m is deliberately unaffected (stays 90s, below
+the 126.1s cycle, so it correctly keeps missing).
+
+**Then the post-state verification failed, usefully.** `get-env` (#8950) refused
+the key: not in `ALLOWED_KEYS`. It had shipped in #8815 the same night **without
+its reader** — a write-without-a-reader on a value that bounds the price behind a
+live order, the exact asymmetry `get-env` exists to close. Sweeping the class
+found **4 of 4 checked vars missing, from two separate PRs on two different
+nights** (mine + three from the M20 decouple, incl. `EXIT_LOOP_DECOUPLE_DISABLED`,
+whose set state makes `exit_loop_health` grade `never_ran`). All four added;
+`--self-test` PASS. Filed as **two** rows — the fix resolved, the *recurrence*
+left open, because nothing stops the next var shipping the same way.
+
+**The cap is NOT yet verified effective, and is recorded that way.** The first
+post-flip read was `ticks_measured: 1` on a cold-cache process, which cannot show
+a cross-tick cache effect; a second restart followed (`git_sha a7878725`). Both a
+warm `tick_cost` read (`fetch.cache_hit` movement) and a `get-env` read (once the
+allowlist change deploys) are still outstanding. *Set* and *effective* are
+different claims.
+
+**Session close.** Two PRs merged overnight (#8815, #8930) plus this one; six
+backlog rows filed on the night and two more here; sprint log, `ROADMAP.md`,
+`CLAUDE.md` and `provenance.py` updated; board `✅ DONE` posted. Backlog files
+released to the operator's drain session at this commit.
