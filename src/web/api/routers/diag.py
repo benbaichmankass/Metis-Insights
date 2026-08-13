@@ -1429,6 +1429,7 @@ def get_broker_account_status(
                     AVAILABLE_STATE_UNAVAILABLE,
                     AVAILABLE_STATE_VENUE,
                     read_linear_available_balance,
+                    read_linear_margin_fields,
                 )
 
                 client = bybit_client_for(acc)
@@ -1448,6 +1449,19 @@ def get_broker_account_status(
                     }
                     if read_state == AVAILABLE_STATE_UNAVAILABLE:
                         row["error"] = "available_margin_unreadable"
+                        # Only when the read FAILED: surface Bybit's own
+                        # account-level margin fields verbatim. bybit_2's
+                        # response carries totalAvailableBalance PRESENT-but-
+                        # EMPTY next to a populated totalEquity and
+                        # totalInitialMargin — so the inputs for a derived
+                        # available figure are already on the wire. Reported
+                        # here so that derivation can be CHECKED against the
+                        # independently-reconstructed journal figure before
+                        # any code is built on it. Nothing computes from these
+                        # yet; interpreting them is an order-path change.
+                        fields, ferr = read_linear_margin_fields(client)
+                        row["margin_fields"] = fields
+                        row["margin_fields_error"] = ferr
             except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row; one account must not fail the call
                 row["error"] = f"{type(exc).__name__}: {exc}"
                 logger.warning("get_broker_account_status: %s raised %s", aid, exc)

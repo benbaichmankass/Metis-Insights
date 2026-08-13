@@ -823,6 +823,63 @@ AVAILABLE_STATE_DEPRECATED = "deprecated_withdrawable"
 AVAILABLE_STATE_UNAVAILABLE = "unavailable"
 
 
+#: Account-level USD fields Bybit V5 returns on a UNIFIED wallet read. Reported
+#: verbatim by :func:`read_linear_margin_fields` so the *candidate* derivation
+#: of available margin can be CHECKED before anything is built on it.
+_MARGIN_FIELDS = (
+    "accountType",
+    "totalEquity",
+    "totalWalletBalance",
+    "totalMarginBalance",
+    "totalAvailableBalance",
+    "totalInitialMargin",
+    "totalMaintenanceMargin",
+    "accountIMRate",
+    "accountMMRate",
+    "accountLTV",
+)
+
+
+def read_linear_margin_fields(client: Any) -> Tuple[Optional[dict], Optional[str]]:
+    """Return Bybit's account-level USD margin fields verbatim, or an error.
+
+    Read-only and **deliberately non-interpreting** — it computes nothing and
+    the sizer does not call it. It exists because of what the 2026-08-13
+    bybit_2 read turned up: ``totalAvailableBalance`` is PRESENT in that
+    account's response and EMPTY, while ``totalEquity`` and
+    ``totalInitialMargin`` sit beside it with values. The sizer read the first
+    of those and skipped the second — and the second is exactly the quantity
+    whose omission let the margin cap treat pledged margin as free
+    (BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS).
+
+    That suggests available margin could be DERIVED (Bybit's own definition is
+    ``totalMarginBalance - totalInitialMargin``) rather than fallen back from.
+    This function does not do that: deriving it would change what the sizer
+    receives, which is an order-path change. It surfaces the inputs so the
+    derivation can be validated against the independently-reconstructed
+    journal figure FIRST. A derivation nobody checked is how the current
+    defect got here.
+
+    Values are balances, not credentials. This is reported only on the
+    token-gated diag surface, which already exposes per-account balances.
+    """
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        ret_code = resp.get("retCode")
+        if ret_code not in (None, 0, "0"):
+            return None, f"venue refused the wallet read: retCode={ret_code!r}"
+        wallet_list = (resp.get("result") or {}).get("list")
+        if not wallet_list:
+            return None, "wallet read carried no account object"
+        account = wallet_list[0] or {}
+        # Every declared field appears, so a MISSING one is visibly null rather
+        # than silently dropped — an absent key and a null value must not look
+        # the same to the reader.
+        return {f: account.get(f) for f in _MARGIN_FIELDS}, None
+    except Exception as exc:  # noqa: BLE001
+        return None, f"call raised: {type(exc).__name__}: {exc}"
+
+
 def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Optional[str]]:
     """Read Bybit UNIFIED trading-available margin AND say where it came from.
 
@@ -906,17 +963,29 @@ def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Op
                         "totalAvailableBalance absent; used deprecated per-coin "
                         "availableToWithdraw",
                     )
-        # Naming the keys the account object DID carry is what turns this from
-        # "something is missing" into a diagnosable state — it is the
-        # denominator for the negative. Keys only, never values, and bounded:
-        # a wallet response holds balances, and a detail string ends up in
-        # logs and a diag payload.
+        # PRESENT-BUT-EMPTY IS NOT ABSENT, and saying "carried neither" when the
+        # key is right there in the key list is a diagnostic that contradicts
+        # its own evidence. Measured on bybit_2 2026-08-13: the account object
+        # carries `totalAvailableBalance` AND `totalEquity` AND
+        # `totalInitialMargin` — the field exists, its VALUE is empty. Report
+        # the field's presence and its raw value separately so a reader can
+        # tell "Bybit did not send this key" from "Bybit sent it blank"; those
+        # have different causes and different fixes.
+        _keys = sorted(k for k in account if isinstance(k, str))
+        _tab_present = "totalAvailableBalance" in account
         return (
             None,
             AVAILABLE_STATE_UNAVAILABLE,
-            "account object present but carried neither totalAvailableBalance "
-            "nor a USDT availableToWithdraw; keys seen: "
-            f"{sorted(k for k in account if isinstance(k, str))[:12]}",
+            (
+                "account object present; totalAvailableBalance "
+                + (
+                    f"PRESENT but empty (raw={account.get('totalAvailableBalance')!r})"
+                    if _tab_present
+                    else "ABSENT from the response"
+                )
+                + ", and no USDT availableToWithdraw either; keys seen: "
+                + f"{_keys[:14]}"
+            ),
         )
     except Exception as exc:  # noqa: BLE001
         return None, AVAILABLE_STATE_UNAVAILABLE, f"call raised: {type(exc).__name__}: {exc}"

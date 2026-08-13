@@ -245,9 +245,14 @@ def test_detail_never_leaks_a_balance_VALUE():
 
 
 def test_key_list_is_bounded():
+    # Bound is 14: bybit_2's real response carries 12 keys, so a 12-cap would
+    # have silently TRUNCATED the very evidence that identified this defect
+    # (totalAvailableBalance present-but-empty sat at index 7 of 12). Widened
+    # with headroom — but still bounded, because an unbounded key dump is a
+    # log-flood.
     client = _Client({f"field_{i:02d}": i for i in range(40)})
     _, _, detail = read_linear_available_balance(client)
-    assert detail.count("field_") <= 12, "an unbounded key dump is a log-flood"
+    assert detail.count("field_") <= 14, "an unbounded key dump is a log-flood"
 
 
 def test_raised_exception_says_it_RAISED():
@@ -272,3 +277,91 @@ def test_the_four_unavailable_sub_reasons_are_mutually_distinct():
         detail_for(raises=RuntimeError("boom")),
     }
     assert len(details) == 4, f"sub-reasons collapsed: {details}"
+
+
+# ── present-but-EMPTY is not ABSENT (2026-08-13, second live read) ─────────
+#
+# bybit_2's response carries `totalAvailableBalance` in its key list AND
+# carries it empty. The previous detail said "carried neither
+# totalAvailableBalance nor ..." while listing that very key — a diagnostic
+# contradicting its own evidence. "Bybit did not send this key" and "Bybit sent
+# it blank" have different causes and different fixes.
+
+_BYBIT_2_SHAPE = {
+    "accountType": "UNIFIED", "totalEquity": "274.91", "totalAvailableBalance": "",
+    "totalInitialMargin": "79.39", "totalMaintenanceMargin": "4.2",
+    "accountIMRate": "0.28", "accountLTV": "0", "coin": [],
+}
+
+
+def test_present_but_empty_is_reported_as_present():
+    _, state, detail = read_linear_available_balance(_Client(dict(_BYBIT_2_SHAPE)))
+    assert state == AVAILABLE_STATE_UNAVAILABLE
+    assert "PRESENT but empty" in detail
+    assert "ABSENT" not in detail
+
+
+def test_genuinely_absent_key_is_reported_as_absent():
+    shape = {k: v for k, v in _BYBIT_2_SHAPE.items() if k != "totalAvailableBalance"}
+    _, state, detail = read_linear_available_balance(_Client(shape))
+    assert state == AVAILABLE_STATE_UNAVAILABLE
+    assert "ABSENT from the response" in detail
+    assert "PRESENT but empty" not in detail
+
+
+def test_detail_never_claims_a_key_is_missing_while_listing_it():
+    """The self-contradiction guard: whatever the wording, a key named in the
+    key list must not also be described as not carried."""
+    _, _, detail = read_linear_available_balance(_Client(dict(_BYBIT_2_SHAPE)))
+    listed = "'totalAvailableBalance'" in detail
+    claimed_missing = "carried neither totalAvailableBalance" in detail
+    assert not (listed and claimed_missing)
+
+
+# ── the margin fields are readable, verbatim and non-interpreting ──────────
+
+def test_margin_fields_returns_every_declared_field():
+    from src.units.accounts.execute import _MARGIN_FIELDS, read_linear_margin_fields
+    fields, err = read_linear_margin_fields(_Client(dict(_BYBIT_2_SHAPE)))
+    assert err is None
+    assert set(fields) == set(_MARGIN_FIELDS), (
+        "every declared field must appear so a MISSING one is visibly null "
+        "rather than silently dropped"
+    )
+    assert fields["totalEquity"] == "274.91"
+    assert fields["totalInitialMargin"] == "79.39"
+    assert fields["totalAvailableBalance"] == ""
+    assert fields["totalMarginBalance"] is None  # absent on this account -> null, not dropped
+
+
+def test_margin_fields_does_not_interpret():
+    """It must return raw venue strings. The moment it computes, it becomes an
+    order-path input that nobody validated."""
+    from src.units.accounts.execute import read_linear_margin_fields
+    fields, _ = read_linear_margin_fields(_Client(dict(_BYBIT_2_SHAPE)))
+    assert isinstance(fields["totalEquity"], str)
+    assert "available" not in {k.lower() for k in fields} - {"totalavailablebalance"}
+
+
+@pytest.mark.parametrize(
+    "client, expect",
+    [
+        (_Client(raises=RuntimeError("x")), "call raised"),
+        (_Client({}), None),
+    ],
+)
+def test_margin_fields_error_paths(client, expect):
+    from src.units.accounts.execute import read_linear_margin_fields
+    fields, err = read_linear_margin_fields(client)
+    if expect:
+        assert fields is None and expect in err
+    else:
+        assert err is None and fields is not None
+
+
+def test_margin_fields_reports_a_retcode_refusal():
+    from src.units.accounts.execute import read_linear_margin_fields
+    c = _Client()
+    c.get_wallet_balance = lambda accountType: {"retCode": 10003, "result": {}}  # type: ignore[method-assign]
+    fields, err = read_linear_margin_fields(c)
+    assert fields is None and "retCode=10003" in err
