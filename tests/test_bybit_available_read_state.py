@@ -1,5 +1,9 @@
 """The Bybit available-margin read must say WHICH branch it took.
 
+FOUR states since 2026-08-13 (Part A added ``coin_derived``); see
+``read_linear_available_balance`` for the ladder and why the derivation ranks
+above the deprecated field.
+
 BL-20260701-BYBIT-AVAILABLE-FIELD (filed 2026-08-13). The read used to return
 a bare ``Optional[float]`` and log nothing on either non-venue branch, so three
 materially different states arrived at the sizer as one value:
@@ -127,12 +131,19 @@ def test_the_three_states_are_mutually_exclusive_strings():
     ],
 )
 def test_sizer_facing_return_is_byte_for_byte_unchanged(client, expected):
-    """THE NEGATIVE CONTROL.
+    """THE NEGATIVE CONTROL — scope narrowed 2026-08-13 (Part A shipped).
 
-    ``_fetch_linear_available_balance`` is what the coordinator calls and what
-    therefore reaches ``risk.py::position_size``. Making the read three-state is
-    observability; it must not move a single sized quantity. Acting on
-    ``read_state`` is an order-path change and is gated separately.
+    Originally this asserted the read could not move ANY sized quantity, when
+    the three-state split was observability only. That is no longer true:
+    Part A (Tier-3, operator-approved) deliberately inserts a ``coin_derived``
+    rung, so an account whose USDT coin block IS derivable now receives a
+    DIFFERENT and more correct figure than before.
+
+    What this still guards, and what the fixtures below are chosen to cover, is
+    that the OTHER rungs are untouched: a present venue field, a coin block that
+    is not derivable, and the could-not-look paths all return exactly what they
+    always did. If one of these moves, a rung changed that was not supposed to.
+    The coin-derived rung has its own tests below.
     """
     got = _fetch_linear_available_balance(client)
     if expected is None:
@@ -184,11 +195,13 @@ def test_contract_is_registered_with_collapsed_state_guard():
 
     entry = [c for c in mod.CONTRACTS if c["name"] == "bybit_available.read_state"]
     assert entry, "registering the contract is how a three-state field becomes enforced"
+    from src.units.accounts.execute import AVAILABLE_STATE_COIN_DERIVED
     assert set(entry[0]["states"]) == {
         AVAILABLE_STATE_VENUE,
+        AVAILABLE_STATE_COIN_DERIVED,
         AVAILABLE_STATE_DEPRECATED,
         AVAILABLE_STATE_UNAVAILABLE,
-    }, "the registry must name the SAME three strings the producer emits"
+    }, "the registry must name the SAME strings the producer emits"
 
 
 # ── `unavailable` had a residual collapse INSIDE it (2026-08-13) ───────────

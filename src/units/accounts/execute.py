@@ -819,8 +819,66 @@ def _fetch_balance(
 #: The three states ``read_linear_available_balance`` can be in. Registered
 #: with ``collapsed-state-guard`` as ``bybit_available.read_state``.
 AVAILABLE_STATE_VENUE = "venue_available"
+AVAILABLE_STATE_COIN_DERIVED = "coin_derived"
 AVAILABLE_STATE_DEPRECATED = "deprecated_withdrawable"
 AVAILABLE_STATE_UNAVAILABLE = "unavailable"
+
+
+def _num(raw: Any) -> Optional[float]:
+    """Parse a Bybit numeric string, treating '' / 'null' / None as ABSENT.
+
+    Bybit returns an empty string for a field it does not compute for an
+    account — measured on bybit_2 2026-08-13, where every account-level margin
+    aggregate is ``''``. ``float('')`` raises and ``float(None)`` raises, but
+    the dangerous reading is treating either as ``0.0``: a pledged-margin of
+    "absent" silently becomes "nothing is pledged", which is the exact
+    direction that over-permits the sizer. Absent returns None so the caller
+    must decide, and never a zero it did not measure.
+    """
+    if raw in (None, "", "null"):
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _derive_available_from_coin_block(usdt: dict) -> Tuple[Optional[float], Optional[str]]:
+    """Available margin from the USDT coin block, or (None, why-not).
+
+    ``available = equity − totalPositionIM − totalOrderIM`` — Bybit's own
+    definition of available margin, over three fields Bybit reports per-coin.
+    Used when the ACCOUNT-level ``totalAvailableBalance`` is empty, which is
+    the measured state of the real-money bybit_2 book: every account-level
+    aggregate there is ``''`` while the coin block carries values.
+
+    **All three inputs must be present.** A missing ``totalPositionIM`` is
+    refused rather than defaulted to 0 — defaulting it would claim nothing is
+    pledged and reproduce the very over-permission this exists to fix, on an
+    account whose fields we already know can be blank.
+
+    Validated 2026-08-13 against two independent methods: it reproduced a
+    journal reconstruction from open legs to 0.05% ($226.69 vs $226.80), and
+    the venue's own ``totalPositionIM`` sat 0.22% from the modelled
+    notional/leverage. See BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS.
+    """
+    equity = _num(usdt.get("equity"))
+    pos_im = _num(usdt.get("totalPositionIM"))
+    order_im = _num(usdt.get("totalOrderIM"))
+    missing = [
+        name for name, val in
+        (("equity", equity), ("totalPositionIM", pos_im), ("totalOrderIM", order_im))
+        if val is None
+    ]
+    if missing:
+        return None, f"coin block lacks a usable {'/'.join(missing)}"
+    available = equity - pos_im - order_im
+    if available < 0:
+        # Pledged margin exceeding equity is a real state (an underwater book),
+        # and the answer is "no room", not a negative ceiling. Floor at 0 so a
+        # caller multiplying by leverage cannot produce a negative max-qty.
+        return 0.0, "equity below pledged margin; floored at 0"
+    return available, None
 
 
 #: Account-level USD fields Bybit V5 returns on a UNIFIED wallet read. Reported
@@ -983,19 +1041,42 @@ def read_linear_available_balance(client: Any) -> Tuple[Optional[float], str, Op
         raw = account.get("totalAvailableBalance")
         if raw not in (None, "", "null"):
             return max(0.0, float(raw)), AVAILABLE_STATE_VENUE, None
-        # Legacy fallback: per-coin availableToWithdraw (deprecated for UTA
-        # 2025-01-09, but honoured for an old response shape that omits the
-        # account-level field).
-        for coin in account.get("coin", []) or []:
-            if (coin.get("coin") or "").upper() == "USDT":
-                raw = coin.get("availableToWithdraw")
-                if raw not in (None, "", "null"):
-                    return (
-                        max(0.0, float(raw)),
-                        AVAILABLE_STATE_DEPRECATED,
-                        "totalAvailableBalance absent; used deprecated per-coin "
-                        "availableToWithdraw",
-                    )
+        _usdt = next(
+            (c for c in (account.get("coin") or [])
+             if isinstance(c, dict) and (c.get("coin") or "").upper() == "USDT"),
+            None,
+        )
+        # Second: DERIVE from the USDT coin block. Ranked ABOVE the deprecated
+        # field on purpose — this is Bybit's own definition of available margin
+        # over three margin-semantics fields it publishes per-coin, whereas
+        # availableToWithdraw is a WITHDRAWAL-eligibility figure Bybit
+        # deprecated for UNIFIED accounts in 2025-01. Preferring a substitute
+        # over a derivation would keep the account on the worse of the two.
+        _coin_detail: Optional[str] = None
+        if isinstance(_usdt, dict):
+            _derived, _coin_detail = _derive_available_from_coin_block(_usdt)
+            if _derived is not None:
+                return (
+                    _derived,
+                    AVAILABLE_STATE_COIN_DERIVED,
+                    "totalAvailableBalance empty; derived from the USDT coin block "
+                    "(equity - totalPositionIM - totalOrderIM)"
+                    + (f" [{_coin_detail}]" if _coin_detail else ""),
+                )
+        # Third: the deprecated per-coin availableToWithdraw (deprecated for UTA
+        # 2025-01-09, but honoured for an old response shape that omits both the
+        # account-level field and a usable coin block).
+        if isinstance(_usdt, dict):
+            raw = _usdt.get("availableToWithdraw")
+            if raw not in (None, "", "null"):
+                return (
+                    max(0.0, float(raw)),
+                    AVAILABLE_STATE_DEPRECATED,
+                    "totalAvailableBalance empty and the coin block was not "
+                    "derivable"
+                    + (f" ({_coin_detail})" if _coin_detail else "")
+                    + "; fell back to the deprecated per-coin availableToWithdraw",
+                )
         # PRESENT-BUT-EMPTY IS NOT ABSENT, and saying "carried neither" when the
         # key is right there in the key list is a diagnostic that contradicts
         # its own evidence. Measured on bybit_2 2026-08-13: the account object
@@ -1913,6 +1994,7 @@ def log_rejection_to_journal(
     status: str,
     sized_qty: Optional[float] = None,
     is_dry: bool = False,
+    margin_basis: Optional[dict] = None,
 ) -> bool:
     """Public wrapper: log a refusal event to the trade journal.
 
@@ -1940,6 +2022,17 @@ def log_rejection_to_journal(
     ``is_demo`` / ``account_class`` paper-vs-real column, which is derived
     separately from ``account_cfg`` inside ``_log_trade_to_journal``.
 
+    ``margin_basis`` is the record of WHAT THE SIZE WAS COMPUTED FROM — which
+    of ``risk.MARGIN_BASIS_KINDS`` fed the margin pre-flight cap, the basis
+    value, and the leverage/buffer applied. Stamped into ``notes.margin_basis``
+    so a venue refusal is attributable from the row itself. Without it,
+    establishing that the 2026-08 bybit_2 110007 rejections came from an equity
+    basis rather than broker truth took nine diag reads and a proof by
+    contradiction: the row recorded the qty that was emitted and nothing about
+    where it came from (BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS).
+    ``None`` when sizing was not reached — omitted rather than written empty,
+    so "no basis recorded" stays distinct from "basis was unknown".
+
     Wraps the underlying write in a defensive try/except so a
     journal-write failure during failure-handling can never escalate
     to a stack unwind.
@@ -1950,6 +2043,7 @@ def log_rejection_to_journal(
             pkg, account_cfg, order,
             trade_id=None, is_dry=is_dry,
             status=status, reason=reason,
+            extra_notes={"margin_basis": margin_basis} if margin_basis else None,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning(
