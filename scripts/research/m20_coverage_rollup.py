@@ -518,11 +518,27 @@ def main(argv: list[str]) -> int:
                 for strategy, symbol, tf, col in rows:
                     print(f"    {strategy:<26} {symbol:<9} {tf:<4} {col}")
         if a.stale_decisions:
-            dec = r["evidence_vintage"].get("stale_decisions") or []
-            print(f"\nstale DECISIONS ({len(dec)}) — closed, not negative, "
-                  f"evidence older than {r['evidence_vintage']['cutover']}:")
-            if not dec:
-                print("  (none — every stale cell is an honest_negative)")
+            v = r["evidence_vintage"]
+            dec = v.get("stale_decisions") or []
+            # STATE THE DENOMINATOR THIS RANGES OVER. `stale_decisions` is a
+            # subset of the stale population, so an empty list means one of two
+            # opposite things: every stale cell is a negative (good), or the
+            # stale population is itself empty / never computed (nothing was
+            # examined). Printing "none" alone collapses them — the sub-class C
+            # shape this repo guards for, caught here by
+            # diagnostic-provenance-guard on my own diff.
+            stale_n = v.get("pre_cutover", 0) + v.get("undated", 0)
+            print(f"\nstale DECISIONS ({len(dec)} of {stale_n} stale cells) — "
+                  f"closed, not negative, evidence older than {v['cutover']}:")
+            if not v.get("classifier_available", True):
+                print("  NOT COMPUTED — the family classifier could not be "
+                      "imported. This is not 'no stale decisions found'.")
+            elif stale_n == 0:
+                print("  (0 stale cells in the population — nothing to grade, "
+                      "which is NOT the same as 'all clear')")
+            elif not dec:
+                print(f"  (0 of {stale_n} stale cells is a non-negative — every "
+                      "one is an honest_negative)")
             for leg, lever, status, dt in sorted(dec):
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
                       f"newest-ref {dt or '(undated)'}")
