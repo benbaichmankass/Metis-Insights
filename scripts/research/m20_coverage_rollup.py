@@ -477,6 +477,37 @@ def validate(matrix: dict[str, Any]) -> list[str]:
             if not (cell.get("ref") or "").strip():
                 problems.append(
                     f"{who}: '{col}' is '{status}' with no evidence ref")
+
+        # A BARE `blocked` IS A COLLAPSED STATE (2026-08-13).
+        #
+        # `base()` maps `blocked:<reason>` -> `blocked`, which is right for the
+        # headline and wrong as a place to STOP: once normalised, a cell that
+        # says "we know exactly why — the OOS base is 4 against a floor of 25"
+        # is indistinguishable from one where nobody ever established a cause.
+        # Both print as `blocked` in the per-reason breakdown, and the second
+        # kind is the one that becomes permanent, because a reason nobody wrote
+        # down is a reason nobody revisits (the module docstring already warns
+        # that `blocked:data_missing` rows rot; an UNLABELLED block rots faster).
+        #
+        # This is the matrix instance of CLAUDE.md's "collapsed states" rule:
+        # `we did not look` and `we looked and it was too thin` must not share a
+        # spelling. Found by audit, not by this guard — `mes_trend_long_1d`
+        # `vol_trail` carried a bare `blocked` while its ref named the cause in
+        # full, so the STATUS was silent about something the cell knew. One
+        # instance; this check is what makes it a class.
+        #
+        # Deliberately NOT enforced against a fixed vocabulary of reasons: a new
+        # blocking cause is a legitimate discovery (three of the six in use were
+        # coined this week), and a closed list would push the next one toward
+        # whichever existing label fits worst — which is how a taxonomy starts
+        # lying. The requirement is only that a reason be STATED.
+        if row.get("execution") == "live" and status == "blocked":
+            problems.append(
+                f"{who}: '{col}' is a bare 'blocked' with no ':<reason>' — "
+                "state why it is blocked (e.g. blocked:insufficient_base). "
+                "'blocked' alone cannot distinguish a measured cause from an "
+                "unestablished one, and the roll-up's per-reason breakdown "
+                "silently merges the two")
     return problems
 
 
