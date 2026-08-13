@@ -13335,6 +13335,27 @@
         "scripts/ml/train_exit_head.py (the fold loop over harness years)",
         "scripts/ml/build_exit_head_dataset.py (the --db live arm's family bucketing)"
       ]
+    },
+    {
+      "id": "BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N",
+      "title": "E1->E2 gate's live arm has no minimum-n: counted as confirmation at n=15, discounted at n=24",
+      "status": "open",
+      "severity": "high",
+      "tier": 3,
+      "area": "ml/exit-head",
+      "opened_at": "2026-08-13",
+      "opened_by": "session_01Wekhce (M20 exit-coverage matrix)",
+      "source": "docs/research/m20-what-remains-2026-08-13.md",
+      "what_to_check": "On ict_scalp_5m the E1->E2 live arm became evaluable for the FIRST time in the whole E1 program and CONTRADICTED the harness arm: harness verdict=candidate (beats_actual 3/3, beats_hard 3/3, 533 OOS trades, AUC 0.5929) vs a live arm where EVERY tau is worse than doing nothing (best tau +1.32 vs actual +14.58; both hard rules also beat every tau). Ranking transfers -- live AUC 0.6333 is HIGHER -- policy does not. Mechanism is visible, not inferred: live mean_hold_bars 83.7 vs ~18.7 on the harness, so the model exits at 11.5 bars and cuts exactly the long holds the live edge comes from; harness frac_pos 0.21-0.32 vs live 0.56, i.e. a model fitted to a 1-in-4 base rate applied to a better-than-even one. THE GAP: that leg is blocked at n=24 against the MIN_OOS_TRADES floor of 25, while the three LIVE SHIPPED donchian-1h heads were promoted on evidence including 'the n=15 live set agrees in sign' (PR #6211, 2026-07-12, operator-approved). Both are sub-floor. The live arm has no minimum-n, the same gap beats() has, so sub-floor live evidence counts as confirmation when it agrees and is (rightly) discounted when it disagrees. NOT a claim that the promotions were improper: their primary evidence was a purged walk-forward winning 5/5 folds on net_R + maxDD + net_R/pos-day, and the gate as written asks only for sign agreement, which n=15 satisfied.",
+      "next_action": "RE-EVALUATE the live arm for the three shipped donchian heads (trend_donchian, _eth, _sol) at their ACCRUED n -- live since 2026-07-12, ~1 month, so materially more than the n=15 they were promoted on. PR #6211 committed to two follow-ups that I did NOT verify ever happened: a mandatory health-review mechanics check on the first head-driven exit, and the realized future_r_delta record accruing for /ml-review. Check both. Then decide whether the E1->E2 live arm should carry an explicit minimum-n (and whether 'agrees in sign' is the right test at any n).",
+      "resolution_criteria": "CLOSE when (a) the live arm for the three shipped donchian heads has been re-evaluated at accrued n and the result recorded, AND (b) the E1->E2 gate either declares a minimum-n for its live arm or records an explicit decision not to. If (a) shows the sign no longer agrees, this escalates to Tier-3 (three live heads trimming winners on real money) and must NOT be closed on the re-measurement alone.",
+      "refs": [
+        "docs/research/m20-what-remains-2026-08-13.md",
+        "docs/research/exit-refinement-coverage.json (ict_scalp_5m::exit_head_ml ref carries the full numbers)",
+        "PR #6211 (E3 donchian promotion, 2026-07-12)",
+        "docs/research/m20-1d-fleet-pooling-2026-08-13.md"
+      ],
+      "limits_of_this_check": "The contradiction is measured on EXACTLY ONE leg (ict_scalp_5m, 5m scalp). Donchian 1h is a different family with a different hold-time distribution; the mechanism is plausibly general but must not be read across without measuring. Equally, 'the scalp leg is special' must not be assumed either -- that is the assumption this item exists to test."
     }
   ],
   "updated_at": "2026-08-13T06:47:00+00:00",
