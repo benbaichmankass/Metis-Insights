@@ -71,6 +71,17 @@ touched, no Tier-3 change enacted.**
    #9074 / #9075, 31 reports — up from the 21 the derivation used), and both
    land badly for the exit head. See *Validation* below. The doc gained §§ 6–8
    and the backlog row was rewritten around the results.
+8. **Hindsight-free τ selection measured** (#9077, 514 folds) — the fleet's
+   entire edge is the best-arm selection. Doc § 9.
+9. **`train_exit_head._select_tau_holdout` shipped** — per-fold nested τ
+   selection on a validation block carved from that fold's own training window,
+   three-state, observe-only, 3 can-fail-verified tests. The gate is untouched.
+10. **Followed the thread to a live lever.** The API twins of the two pending
+    prop legs are `trend_donchian_sol` / `_eth` at 1h, whose `exit_head_ml`
+    cells read `shipped`. Verifying that rather than inheriting it turned up a
+    stale docstring on a money path, a confirmed-open apply gate, and a lever
+    that may never have fired. Filed as
+    `BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM`.
 
 ## Validation Performed
 
@@ -123,6 +134,48 @@ touched, no Tier-3 change enacted.**
   purely because its edge is −0.027R).
 - `slv_trend_1h` (4 folds) and `uso_trend_1h` (3 folds) are too thin to carry
   weight and are excluded from every reading above.
+- **Hindsight-free τ selection, 514 folds (#9077).** best-arm **+1.217R /
+  70.2%** of folds positive; expanding-window causal **−0.341R / 54.1%**;
+  previous-fold causal **−0.674R / 50.8%**. The fleet edge is the selection.
+  Every scalp group stays positive under both causal rules; **no** non-scalp
+  group does. Against `stale_8_0`, 2 of 7 scalp legs clear.
+- **The live exit head's three apply conditions, each READ rather than
+  inherited from the July ref:** (a) `exit_head_action: close` on three
+  `execution: live` strategies — confirmed in `config/strategies.yaml`;
+  (b) artifact `exit-head-donchian-1h-v1` at stage **`advisory`**, shape
+  `below_half_r @ tau=0.1` (#9078) — the promotion gate is open, and the
+  sibling `-peak-1h-v1` is at `shadow` and not applying; (c) the per-bar
+  policy. So the head is live and applying.
+- **…and it may never have fired.** In 137 parsed rows of a `lines=400` tail of
+  the 430,743-byte `exit_lever_soak.jsonl` spanning 2026-08-09→08-12 (#9080),
+  the lever counts are `trail_decay` 111, `stale_stop` 26, **`exit_head` 0**.
+  The **positive control** is what makes that zero mean anything: 32 of those
+  rows are donchian-family strategies, so donchian monitors are running and
+  writing to this exact log in this exact window. Three days is not the head's
+  month-long lifetime and the payload was truncated, so this is suggestive, not
+  a lifetime count — recorded as such.
+
+### Gaps not yet verified (continued)
+
+- **Whether the live head has EVER fired is still open, and could not be
+  answered from here.** `/api/diag/log_file` only *tails*; there is no
+  relay-reachable way to count occurrences across a whole live log. So "how
+  many times has this lever fired" is currently unanswerable from a sandbox
+  session for **any** lever, not just this one. That is a read-surface gap, and
+  it matters because the answer flips the urgency completely: an inert lever
+  cannot make bad exits, but a lever that is live in config and has never acted
+  is not what `shipped` = "validated + live" conveys either.
+- **The live VM's published copy of the artifact was not read** — #9078 read the
+  *trainer's* mirror, which is the rsync source. A month-old artifact with
+  continuous publishing makes them almost certainly identical; "almost
+  certainly" is not a reading. Related: exit_head artifacts are absent from the
+  `/api/diag/log_file` allowlist, so the artifact that can close a live position
+  has no live read surface — the same shape as the 2026-08-12
+  `exit_loop_health` omission (writer shipped, allowlist entry not).
+- **`_select_tau_holdout` has not produced a single number yet.** Every
+  `e1_report.json` on the trainer predates it, so `selected_tau` is absent
+  everywhere. The code is landed and tested; the measurement needs a fresh
+  round. Until then the causal interval keeps only its lower end.
 - **Relay output truncation is a live hazard on this workflow.** #9071's FOLD
   block hit the comment cap and came back carrying a `... (truncated)` marker;
   241 of the rows parsed cleanly, which would have read as a complete
@@ -206,7 +259,20 @@ touched, no Tier-3 change enacted.**
    reading. Corrected in § 6; the keep-50 recommendation is **strengthened**,
    not reversed, because raising `b` in a multi-leg family buys `n_leg` only in
    proportion to that leg's share.
-7. **Verdicts flip across fold geometries, as the report's own note warns.** Of
+8. **`exit_head_shadow.py` said "observe-only by construction" while its output
+   closes live positions.** The module docstring claimed the function *"returns
+   `None` always"*, that *"nothing reads the logs back"*, and that *"graduation
+   to a real exit influence is E3"* — future tense. The field:
+   `trend_donchian.py:909-911` does `eh_verdict = _exit_head_verdict(...)` /
+   `if eh_verdict is not None: return eh_verdict`, and
+   `config/strategies.yaml` declares `exit_head_action: close` on
+   `trend_donchian` (:213), `trend_donchian_sol` (:1102) and
+   `trend_donchian_eth` (:1172), all `execution: live`. The *function*
+   docstring was already correct; only the module header — the one a reader
+   hits first — had gone stale. It was load-bearing in the wrong direction:
+   it did not merely fail to describe the apply path, it argued there wasn't
+   one. Corrected (docstring only, field untouched).
+9. **Verdicts flip across fold geometries, as the report's own note warns.** Of
    the 8 legs measured under both trade-folds and calendar-folds, 7 agree and
    `iaum_pullback_1d` disagrees (`honest_negative` under trade-folds,
    `candidate` under calendar-folds). Low rate, stated rather than smoothed —
