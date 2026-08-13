@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""A NEW backlog row must say what DONE looks like.
+"""A NEW backlog row must be WORKABLE: what done looks like, how much it
+matters, and who may fix it.
 
 WHY THIS EXISTS. Two high-severity rows were found finished-but-open on
 2026-08-12, and both had the same cause — no ``resolution_criteria``:
@@ -33,12 +34,34 @@ rejected, and criteria must be long enough to name an observable condition. It
 is still trivially possible to write a *bad* criterion — this guard cannot judge
 quality, and does not pretend to. It only refuses the empty and the obviously
 vacuous, which is exactly the failure that produced the two incidents above.
+
+EXTENDED 2026-08-13 (operator-directed) from one field to three, after the
+backlog was measured rather than described. Over 269 open rows: **38% had no
+``resolution_criteria``, 44% no ``severity``, 24% no ``tier``** — and the
+backlog grew **+129 net in 30 days** while **25% of it sat >=45 days old having
+never once been advanced by evidence**. Those are not three tidiness problems,
+they are three different ways for a row to be un-workable:
+
+* no criteria  -> the row can only be RE-READ, never closed
+* no severity  -> it cannot be sorted, so it is picked by recency, not importance
+* no tier      -> nothing says whether a session may fix it or must ask, so it
+  is safest to do neither, and neither is what happens
+
+The corroborating measurement: **zero** Tier-1 high/critical rows were older
+than 14 days. When a row says it matters AND says a session may act, it gets
+fixed. The rot is entirely in rows that say neither.
+
+``snoozed_until`` is validated but never required — it is the DEFER path
+(set on 2 of 269 rows at the time of writing, i.e. effectively unused), and a
+row genuinely blocked on accrual belongs behind a date rather than in front of
+every review pass forever.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import pathlib
+import re
 import subprocess
 import sys
 from typing import Any, Iterable
@@ -84,8 +107,38 @@ def _load_at_ref(ref: str, rel: str) -> list[dict[str, Any]]:
     return d["items"] if isinstance(d, dict) and "items" in d else (d if isinstance(d, list) else [])
 
 
+#: The four severities a new row may declare. Deliberately NOT accepting the
+#: historical variants (`P1`/`P2`/`P3`, `low-medium`, `medium-high`,
+#: `needs-triage`): five spellings of "medium" is why 44% of the open backlog
+#: could not be sorted at all. Old rows are grandfathered; new ones normalise.
+_SEVERITIES = {"critical", "high", "medium", "low"}
+
+#: Tier must resolve to 1/2/3. A trailing annotation is allowed and useful
+#: ("1 (research; promotion past candidate is Tier-3)") — what is refused is a
+#: value from which no tier can be read at all, because that is the field that
+#: decides whether a session may fix the row itself or must ask the operator.
+_TIER_RE = re.compile(r"^\s*(?:tier[\s\-_]*)?([123])\b", re.I)
+
+
 def _verdict(row: dict[str, Any]) -> str | None:
-    """Return a human reason this row fails, or None when it passes."""
+    """Return a human reason this row fails, or None when it passes.
+
+    THREE FIELDS, one question each, and a row missing any of them is
+    structurally un-workable rather than merely untidy:
+
+      resolution_criteria  what does DONE look like?   -> without it the row can
+                           only ever be RE-READ, never closed
+      severity             how much does this matter?  -> without it the row
+                           cannot be sorted, so it is picked by recency
+      tier                 who is allowed to fix it?   -> without it the row
+                           cannot be routed autonomous-vs-operator
+
+    Measured 2026-08-13 over the 269 open rows: 38% had no criteria, 44% no
+    severity, 24% no tier. The consequence is arithmetic, not aesthetic — the
+    backlog grew +129 net over 30 days while 25% of it sat >=45 days old having
+    never once been advanced. `severity`/`tier` were added to this guard that
+    day (it already held the criteria line since 2026-08-12).
+    """
     raw = row.get("resolution_criteria")
     if raw is None:
         return "no resolution_criteria field"
@@ -97,6 +150,41 @@ def _verdict(row: dict[str, Any]) -> str | None:
             f"resolution_criteria is {len(text)} chars, under the {_MIN_LEN}-char "
             f"floor — too short to name an observable condition ({text!r})"
         )
+
+    sev = row.get("severity")
+    if sev is None or str(sev).strip().casefold() in _PLACEHOLDERS:
+        return "no severity — the row cannot be sorted, so it gets picked by recency"
+    if str(sev).strip().casefold() not in _SEVERITIES:
+        return (
+            f"severity {str(sev)!r} is not one of {sorted(_SEVERITIES)} — five "
+            f"spellings of 'medium' is why 44% of the open backlog could not be "
+            f"sorted at all"
+        )
+
+    tier = row.get("tier")
+    if tier is None or str(tier).strip().casefold() in _PLACEHOLDERS:
+        return (
+            "no tier — nothing can tell whether a session may fix this itself or "
+            "must ask the operator, so it is safest to do neither (and nobody does)"
+        )
+    if not _TIER_RE.match(str(tier)):
+        return (
+            f"tier {str(tier)[:60]!r} does not begin with 1, 2 or 3 — a trailing "
+            f"annotation is fine, an unreadable tier is not"
+        )
+
+    # `snoozed_until` is OPTIONAL — but when set it must be a real date, because
+    # its whole job is to drop the row out of review passes until then. An
+    # unparseable value would silently either hide the row forever or not at all,
+    # and the reader could not tell which.
+    snooze = row.get("snoozed_until")
+    if snooze is not None and str(snooze).strip():
+        if not re.match(r"^\d{4}-\d{2}-\d{2}", str(snooze).strip()):
+            return (
+                f"snoozed_until {str(snooze)!r} is not an ISO date — a snooze that "
+                f"cannot be parsed hides the row forever or not at all, and nothing "
+                f"reveals which"
+            )
     return None
 
 
@@ -105,18 +193,21 @@ def _report(bad: list[tuple[str, str, str]], *, advisory: bool) -> int:
         return 0
     lead = "::warning::" if advisory else "::error::"
     print(
-        f"{lead}backlog row(s) without usable resolution_criteria. A row nobody can "
-        f"tell is FINISHED never gets closed — that is how two high-severity rows sat "
-        f"open for days after their fixes landed (2026-08-12), and how a backlog "
-        f"degrades into noise that hides real findings."
+        f"{lead}backlog row(s) that are not WORKABLE — missing or unusable "
+        f"resolution_criteria / severity / tier. A row nobody can tell is FINISHED "
+        f"never gets closed; a row with no severity cannot be sorted; a row with no "
+        f"tier cannot be routed. Measured 2026-08-13: the backlog grew +129 net in "
+        f"30 days with 25% of it >=45 days old and never once advanced."
     )
     for path, rid, why in bad:
         print(f"  {path}: {rid} — {why}")
     print(
-        "\nFix: add `resolution_criteria` naming the OBSERVABLE condition that ends "
-        "the row — what a future session must see to close it. 'the bug is fixed' is "
-        "not one; 'endpoint X returns field Y for a rotated log, verified on the live "
-        "fleet' is."
+        "\nFix: (1) `resolution_criteria` naming the OBSERVABLE condition that ends "
+        "the row — 'the bug is fixed' is not one, 'endpoint X returns field Y for a "
+        "rotated log, verified on the live fleet' is; (2) `severity` in "
+        "critical|high|medium|low; (3) `tier` starting 1, 2 or 3 (a trailing "
+        "annotation is fine). If the row is real but blocked on accrual, set "
+        "`snoozed_until` to an ISO date instead of leaving it in every review pass."
     )
     return 0 if advisory else 1
 
@@ -162,6 +253,10 @@ def _census() -> int:
     return _report(bad, advisory=True)
 
 
+_GOOD_CRIT = ("Endpoint /api/bot/x returns field y for a rotated log, verified "
+              "on the live fleet via the diag relay.")
+
+
 def _self_test() -> int:
     """Prove the guard fails CLOSED on known-bad input, and passes a good row.
 
@@ -175,12 +270,40 @@ def _self_test() -> int:
         ({"id": "X", "resolution_criteria": "TBD"}, True, "placeholder"),
         ({"id": "X", "resolution_criteria": "  n/a  "}, True, "placeholder w/ whitespace"),
         ({"id": "X", "resolution_criteria": "fixed"}, True, "too short"),
+        # `severity`/`tier` added 2026-08-13. NOTE the case below used to be the
+        # "good row" and now correctly REJECTS — criteria alone is no longer
+        # enough. Keeping it as a reject case is the regression test that the two
+        # new fields are actually load-bearing and not merely declared.
         (
             {"id": "X", "resolution_criteria":
                 "A relay shadow_stats read carries soak_start_basis per row and the "
                 "registry_soak_source envelope, verified on the live fleet."},
-            False, "a real criterion",
+            True, "good criteria but NO severity/tier",
         ),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "tier": 1},
+         True, "criteria+tier but no severity"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high"},
+         True, "criteria+severity but no tier"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "P1", "tier": 1},
+         True, "legacy severity spelling (P1) is refused on NEW rows"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "low-medium", "tier": 1},
+         True, "hyphenated severity refused — five spellings of medium is the defect"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": "mixed"},
+         True, "tier from which no 1/2/3 can be read"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "snoozed_until": "soon"}, True, "unparseable snoozed_until"),
+        # ── accepts ────────────────────────────────────────────────────────
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1},
+         False, "complete row"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "MEDIUM", "tier": "Tier-2"},
+         False, "case-insensitive severity + Tier- prefixed tier"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "low",
+          "tier": "1 (research; any promotion past candidate is Tier-3/operator)"},
+         False, "trailing tier annotation is allowed — only unreadable is refused"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "snoozed_until": "2026-09-30"}, False, "valid ISO snooze"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "snoozed_until": None}, False, "snoozed_until null is fine — the field is optional"),
     ]
     failures = 0
     for row, should_fail, label in cases:
@@ -193,7 +316,7 @@ def _self_test() -> int:
     if failures:
         print("self-test FAILED — the guard does not fail closed.")
         return 1
-    print("self-test OK — rejects empty/placeholder/too-short, accepts a real criterion.")
+    print("self-test OK — rejects empty/placeholder/too-short criteria, missing or\n           legacy severity, unreadable tier, and unparseable snooze; accepts a\n           complete row.")
     return 0
 
 
