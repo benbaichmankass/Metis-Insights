@@ -189,3 +189,86 @@ def test_contract_is_registered_with_collapsed_state_guard():
         AVAILABLE_STATE_DEPRECATED,
         AVAILABLE_STATE_UNAVAILABLE,
     }, "the registry must name the SAME three strings the producer emits"
+
+
+# ── `unavailable` had a residual collapse INSIDE it (2026-08-13) ───────────
+#
+# The first live read of the new Bybit arm returned `unavailable` for bybit_2
+# with the one-line detail "neither ... present". That is true and useless: it
+# cannot say whether the venue ERRORED, returned NO account object, or returned
+# one LACKING both fields — three different bugs with three different fixes,
+# collapsed into one string. Registering a three-state contract does not make
+# the states internally honest; the state was right and the detail was not.
+
+def test_retcode_error_says_the_venue_refused():
+    client = _Client()
+    client.get_wallet_balance = lambda accountType: {  # type: ignore[method-assign]
+        "retCode": 10003, "retMsg": "API key invalid", "result": {},
+    }
+    value, state, detail = read_linear_available_balance(client)
+    assert (value, state) == (None, AVAILABLE_STATE_UNAVAILABLE)
+    assert "retCode=10003" in detail and "API key invalid" in detail
+
+
+@pytest.mark.parametrize(
+    "resp",
+    [
+        {"retCode": 0, "result": {"list": []}},  # empty list
+        {"retCode": 0},                          # no result block at all
+        {"retCode": 0, "result": {}},            # result present, no list
+    ],
+)
+def test_no_account_object_is_distinguishable_from_missing_fields(resp):
+    client = _Client()
+    client.get_wallet_balance = lambda accountType: resp  # type: ignore[method-assign]
+    value, state, detail = read_linear_available_balance(client)
+    assert (value, state) == (None, AVAILABLE_STATE_UNAVAILABLE)
+    assert "NO account object" in detail
+
+
+def test_account_present_but_fieldless_names_the_keys_it_DID_carry():
+    """The keys are the denominator for the negative — without them 'missing'
+    is unfalsifiable."""
+    client = _Client({"accountType": "UNIFIED", "totalEquity": "280.75", "coin": []})
+    value, state, detail = read_linear_available_balance(client)
+    assert (value, state) == (None, AVAILABLE_STATE_UNAVAILABLE)
+    assert "account object present" in detail
+    assert "totalEquity" in detail and "accountType" in detail
+
+
+def test_detail_never_leaks_a_balance_VALUE():
+    """Keys only. A wallet response holds balances and this string reaches logs
+    and a diag payload."""
+    client = _Client({"accountType": "UNIFIED", "totalEquity": "280.75", "coin": []})
+    _, _, detail = read_linear_available_balance(client)
+    assert "280.75" not in detail
+
+
+def test_key_list_is_bounded():
+    client = _Client({f"field_{i:02d}": i for i in range(40)})
+    _, _, detail = read_linear_available_balance(client)
+    assert detail.count("field_") <= 12, "an unbounded key dump is a log-flood"
+
+
+def test_raised_exception_says_it_RAISED():
+    """Distinct from a clean response that carried nothing — one is 'the call
+    failed', the other is 'the call worked and had no answer'."""
+    _, state, detail = read_linear_available_balance(_Client(raises=TimeoutError("t")))
+    assert state == AVAILABLE_STATE_UNAVAILABLE
+    assert detail.startswith("call raised:")
+
+
+def test_the_four_unavailable_sub_reasons_are_mutually_distinct():
+    def detail_for(resp=None, raises=None, account=None):
+        c = _Client(account, raises)
+        if resp is not None:
+            c.get_wallet_balance = lambda accountType: resp  # type: ignore[method-assign]
+        return read_linear_available_balance(c)[2]
+
+    details = {
+        detail_for(resp={"retCode": 10003, "retMsg": "x", "result": {}}),
+        detail_for(resp={"retCode": 0, "result": {"list": []}}),
+        detail_for(account={"accountType": "UNIFIED"}),
+        detail_for(raises=RuntimeError("boom")),
+    }
+    assert len(details) == 4, f"sub-reasons collapsed: {details}"
