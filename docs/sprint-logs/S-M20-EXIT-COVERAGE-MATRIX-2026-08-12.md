@@ -137,6 +137,58 @@ roll-up now prints the caveat with its own denominator.
 
 Coverage moved **319 → 334 / 376 (88.8%)**.
 
+### 7a. The `vol_trail` wave-2 block: 2 closed, 1 graded at a stated non-standard split, 7 blocked
+
+The recovered wave-2 sweep (§ 8) graded all 10 legs. The result splits
+**perfectly by timeframe**, which is what makes it structural rather than
+per-leg luck:
+
+| timeframe | legs | OOS n | outcome |
+|---|---|---|---|
+| 1h | slv, uso | 40, 27 | clear the 25 floor → **honest_negative** (both) |
+| 1d | the other 8 | 3–8 | miss the floor → `insufficient_base` |
+
+`slv_trend_1h` is a clean graded refutation — all three cells are the IS-only
+overfit shape (net_R up in-sample, down out). `uso_trend_1h` has one cell at
+`path_b_wf_pass`, but that verdict is **not** `rate ok`: its drawdown exchange
+rate holds on OOS only (headroom −1.494 IS / +5.134 OOS), so nothing is
+shippable; the Path-B row is named in the ref so a future threshold session
+finds it rather than re-deriving it.
+
+**A second sweep tested whether the split, not the data, was binding.** At
+2023-01-01 only `tqqq` crossed (OOS 8 → 27, still `is_oos_fail`); the other
+seven went to 12–21 while IS shrank. `tqqq` is recorded as `honest_negative`
+**with the non-standard split stated in the ref** — safe only because the
+answer is a refutation at both windows, i.e. moving the window made the cell
+gradeable without manufacturing a pass. The seven are `blocked`, not
+`honest_negative`: the cell terminated at "we had too few trades to look",
+which is the opposite claim from "we looked and it failed".
+
+### 7b. Why those seven can't be graded — a gate-ordering finding
+
+`m20_fleet_exit_sweep.py:1442-1451`:
+
+```
+if _thin:            -> verdict=insufficient_base   (walk-forward SKIPPED)
+elif candidate:      -> walkforward(...)
+elif is_path_b_...:  -> walkforward(...)
+```
+
+The skip is deliberate; its comment reasons that the walk-forward "would be
+measuring the same too-thin book". **It would not.** `_thin` is computed from
+the post-split OOS window; the walk-forward's folds span the **full history** —
+the one cell that reached it here (`uso_trend_1h/vt_cold10_t2`) ran six folds,
+2021 through 2026. For a 1h leg the two denominators roughly agree; for a 1d
+leg they diverge by an order of magnitude. So a 60–79-trade leg is refused a
+six-fold test because its 3–8-trade window is thin.
+
+Filed as `BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS`. **Not
+fixed here** — it changes the evidentiary standard by which a live exit lever
+is judged, which is the operator's call, not a research-tooling edit.
+
+Coverage after 7a: **344 / 376 = 91.5%**; done-condition 45 cells (32 pending
++ 13 blocked — blocked rose 6 → 13 on this finding, deliberately visible).
+
 ### 8. The sweep corpus could never reach `main` — and had silently discarded 4 runs
 
 The `corpus` job pushes directly to the dispatch ref. Dispatched on `main`, that
@@ -203,6 +255,30 @@ review:**
 - A probe reported every corpus row's strategy as `?`. The rows key on `leg`,
   not `strategy` — my probe was wrong, the corpus was fine. Verified by dumping
   the actual keys before concluding.
+- A `grep` for `exit_time` in the scalp harness returned five hits, every one an
+  unrelated pre-existing use, while the emit dict still lacked the field. Reading
+  the **dict** rather than grepping for the name is what caught it; the later
+  relaunch was **gated** on that check so an hour of trainer time could not be
+  spent rediscovering 0 rows.
+- I claimed the daily legs were "structurally unreachable" and should be blocked.
+  The arithmetic refuted it (7 of 8 carry 57–79 lifetime trades). I then over-
+  corrected to "the split is the binding constraint" — a second sweep refuted
+  *that* too: only 1 of 8 crossed at an earlier split. Both readings were stated
+  and both were tested; the recorded disposition is the measured one.
+- **I preserved the wrong artifact.** I kept the eth/sol 15m E1 reports rather
+  than recomputing, reasoning "only their live arm was missing". That is self-
+  defeating — the missing live arm is exactly what the corrected `--db` fixes, so
+  preserving them preserved the defect. Confirmed still `live: 0` in #8852; a
+  re-run is queued behind the running round (#8853).
+- I pushed one commit while a guard was failing (`artifact-validity-guard`,
+  missing `resolution_criteria`), because a shell `&&` chain masked the exit
+  code. Caught on the next CI wake and fixed in the following commit — but the
+  push should not have happened.
+- `run_guards --base main` reported PASS while `check_backlog_criteria --base
+  main` exited 1. Rather than take the friendly reading, I checked: my local
+  `main` ref shares **no merge base** with HEAD, so `--base main` degenerates and
+  scans everything. `--base origin/main` is the real scope. Every guard figure in
+  this log is the `origin/main` one.
 
 ### Gaps not yet verified
 
