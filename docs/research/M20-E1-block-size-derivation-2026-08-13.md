@@ -12,6 +12,14 @@ both powered and specific for a leg under ~300 trades. The recommendation is
 therefore **not to change the value** — and to stop treating "raise/lower the
 block" as the lever that unblocks `exit_head_ml`.
 
+> **⚠️ Two corrections landed the same day, both from measurements this document
+> called for and did not have. Read §§ 6–7 before quoting anything above them.**
+> The recommendation (keep 50) survives both. What does **not** survive is the
+> reliability figure in § 3: **0.771 is true only for single-leg families**, and
+> the § 5 caveat that best-tau selection "biases δ upward" turned out to
+> understate it by a wide margin — outside the scalp family, selection is not a
+> bias on the effect, it **is** the effect.
+
 ---
 
 ## 1. What the number actually does
@@ -178,3 +186,135 @@ they did.
 - **The gate's joint specificity**, per § 3 above.
 - **Whether an exit head is worth having on a leg trading ~4×/year** — likely
   the more useful question than how to grade one.
+
+---
+
+## 6. CORRECTION — the per-fold vote is cast on `n_leg`, not on `b`
+
+*Measured 2026-08-13, relay #9074, 31 reports.*
+
+§ 3 models the fold vote as `P(correct) = Φ(√b · δ)`. That substitutes the
+**block** size for the number of trades the vote is actually computed over, and
+the two are the same thing only when the family has ONE leg.
+
+`fold_blocks` cuts blocks over the **family's** pooled trades, but
+`per_leg_summary` casts **one vote per LEG per fold**, on that leg's own
+`n_trades` within the block. In a multi-leg family the block is split across
+legs, so `n_leg ≪ b`:
+
+| family (fold_mode, b) | legs | votes | `n_leg` min / median / max |
+|---|---:|---:|---|
+| `pullback` (trades, 15) | 6 | 169 | **1 / 3 / 8** |
+| `allmix` (calendar) | 13 | 106 | **1 / 5 / 11** |
+| `pullback` (trades, 50) | 4 | 112 | **6 / 12 / 22** |
+| `donchian` (calendar) | 2 | 14 | 19 / 30 / 38 |
+| `donchian` (trades, 15) | 1 | 61 | 15 / 15 / 15 |
+| every `ict_scalp_*`, `slv_trend_1h`, `uso_trend_1h` (trades, 50) | 1 | 3–20 | **50 / 50 / 50** |
+
+So the split is clean and it is **family arity, not timeframe**: single-leg
+families sit exactly on the block, multi-leg families sit far below it.
+Re-running § 3's own formula on the measured `n_leg` instead of `b`:
+
+| population | trades per vote | `Φ(√n · δ)` at δ = 0.105 |
+|---|---:|---:|
+| single-leg families (as § 3 assumed) | 50 | **0.771** |
+| `pullback` b=50 | 12 (median) | **0.642** |
+| `allmix` | 5 (median) | **0.593** |
+| `pullback` b=15 | 3 (median) | **0.572** |
+
+**The legs this whole document is about are in the multi-leg families.** Every
+1d equity leg lives in `pullback` or `allmix`, so their votes are being cast at
+0.57–0.64 reliability, not 0.771 — barely distinguishable from a coin flip.
+`ief_pullback_1d` is graded `candidate` on 34 votes whose median vote rests on
+**three trades**.
+
+**This strengthens rather than reverses § 4.** Raising `b` in a multi-leg family
+raises `n_leg` only by that leg's *share* of the block, so buying reliability
+costs proportionally more folds there than the § 3 model implied. There is still
+no block size that makes these legs gradeable. But the honest statement of the
+current gate is that a multi-leg per-leg verdict is weaker evidence than a
+single-leg one at the same nominal block, and **nothing in the report says
+which kind you are reading.**
+
+## 7. CORRECTION — outside the scalp family, the edge IS the selection
+
+*Measured 2026-08-13, relays #9074 + #9075, 31 reports, per fold-geometry ×
+family.* § 5 left this as "a follow-up, not done here". Done here.
+
+The gate credits the head with `best_tau_net_r − actual_net_r`. Ask instead what
+a tau chosen **without hindsight** is worth — the median of the 7 arms — and the
+sign flips everywhere except the scalp legs:
+
+| group | folds | edge (best − actual) | **median-arm edge** | selection premium |
+|---|---:|---:|---:|---:|
+| `ict_scalp_5m` | 12 | +8.408R | **+6.037R** | +2.371R |
+| `ict_scalp_xrp_5m` | 13 | +5.834R | **+3.353R** | +2.481R |
+| `ict_scalp_avax_5m` | 20 | +5.866R | **+3.069R** | +2.797R |
+| `ict_scalp_sol_5m` | 16 | +5.856R | **+2.966R** | +2.890R |
+| `ict_scalp_sol_15m` | 7 | +3.654R | **+2.331R** | +1.323R |
+| `ict_scalp_xrp_15m` | 6 | +3.837R | **+2.178R** | +1.658R |
+| `ict_scalp_eth_15m` | 6 | +2.823R | **+0.672R** | +2.152R |
+| `pullback` (trades, 50) | 112 | +1.362R | **−1.379R** | +2.741R |
+| `pullback` (trades, 15) | 169 | −0.027R | **−0.962R** | +0.935R |
+| `donchian` (trades, 15) | 61 | +0.670R | **−1.554R** | +2.223R |
+| `allmix` (calendar) | 106 | +0.295R | **−1.534R** | +1.830R |
+| `donchian` (calendar) | 14 | +0.426R | **−4.399R** | +4.825R |
+
+Every non-scalp group has a **negative median-arm edge**. In those groups the
+selection premium exceeds the whole measured edge, and 23–50% of folds are
+"flips" — the median arm loses to doing nothing while the selected arm wins, so
+the fold's `beats_actual` vote is carried entirely by which of seven arms
+happened to land.
+
+**Three things this does NOT say**, because the ratio column is easy to
+over-read and I am not quoting it above for that reason:
+
+1. **"% of edge" is unstable near a zero denominator** and must not be quoted.
+   `pullback` b=15 computes to −3421% purely because its edge is −0.027R. The
+   load-bearing column is **median-arm edge**, which needs no denominator.
+2. **The median arm is not the deployment expectation.** It is the expected edge
+   of a tau picked at *random*, which bounds a sensibly-chosen tau from below
+   and a badly-chosen one from above. A real deployment picks tau by some rule,
+   and the truth sits between the median-arm and best-arm columns. Locating it
+   needs **nested tau selection inside the walk-forward** — pick tau on the
+   training half of each fold, score it on the test half. These reports do not
+   contain that, and it is the single measurement that would settle whether the
+   scalp result is real.
+3. **`slv_trend_1h` (4 folds) and `uso_trend_1h` (3 folds) are too thin to
+   carry weight** and are excluded from the reading above.
+
+**What it does say:** the E1 `candidate` verdicts outside the scalp family are
+resting on a quantity that goes negative the moment hindsight is removed. That
+is consistent with — and a mechanism for —
+`BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK`, where
+`ict_scalp_5m` passed 3/3 harness folds and every tau then lost to doing nothing
+on the live book.
+
+## 8. The head also loses to the FIXED rules, in every fold geometry
+
+*Measured 2026-08-13, relays #9071 + #9072, 35 leg-rows over 27 distinct legs.*
+
+The gate has two independent majority conditions: `beats_actual` (does the head
+beat doing nothing?) and `beats_hard` (does it beat the best of `stale_8_0` /
+`giveback_1_1`?). Both need ≥ 2/3 of usable folds. Pooled per fold geometry:
+
+| geometry | legs | usable folds | `beats_actual` | `beats_hard` |
+|---|---:|---:|---:|---:|
+| calendar-folds | 15 | 120 | 61.7% ✗ | **58.3% ✗** |
+| trade-folds b=15 | 7 | 230 | 68.7% ✓ | **62.2% ✗** |
+| trade-folds b=50 | 13 | 199 | 69.8% ✓ | **61.8% ✗** |
+
+`beats_hard` is **below the 2/3 bar in all three geometries** while
+`beats_actual` clears it in two — so the fixed-rule comparison is the binding
+condition, fleet-wide. A head that beats doing nothing but loses to an
+eight-bar stale-stop is not worth its complexity, and that is where the fleet
+currently sits in aggregate.
+
+Two honesty notes on that table: these are **fold-pooled** rates, whereas the
+gate is applied **per leg**, so the pooled figure is a summary and not the gate
+— the per-leg verdicts are 12 `candidate` / 21 `honest_negative` /
+2 `insufficient_base` across the 35 rows. And 8 legs appear under both fold
+geometries; they agree on 7 and disagree on one (`iaum_pullback_1d`:
+`honest_negative` under trade-folds, `candidate` under calendar-folds), which is
+the report's own "not comparable evidence" warning showing up as an actual
+verdict flip.
