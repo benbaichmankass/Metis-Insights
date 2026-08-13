@@ -43,40 +43,54 @@ def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
                           text=True, timeout=timeout)
 
 
-_ACCEPTS_STRATEGY_NAME: dict[str, bool] = {}
+_ACCEPTS_STRATEGY_NAME: dict[str, bool | None] = {}
 
 
-def accepts_strategy_name(harness: str) -> bool:
+def accepts_strategy_name(harness: str) -> bool | None:
     """Does this harness take `--strategy-name`? ASKED, not declared.
 
-    This used to be the literal `fam == "scalp"`, correct on the day it was
+    THREE STATES, never collapsed to a boolean:
+
+      ``True``   the flag is there — pass the real leg name.
+      ``False``  --help ran and the flag is genuinely absent (fvg, squeeze).
+                 A real answer: proceed, and say what attribution is lost.
+      ``None``   WE COULD NOT LOOK. Not the same as "no", and the caller must
+                 SKIP the leg rather than guess.
+
+    The `None` case is why this is not a boolean. Folding it into ``False``
+    would mean a probe failure silently produces rows stamped with the family
+    literal — unattributable rows, which is the exact defect this function
+    exists to prevent. `silent-empty-guard` caught precisely that in the first
+    version, which returned False on any exception and merely printed about it:
+    a print does not stop the round from emitting the bad rows.
+
+    This replaced the literal `fam == "scalp"`, correct on the day it was
     written and silently wrong the moment the trend and pullback harnesses
     gained the flag (2026-08-13) — a hardcoded capability list drifts exactly
     when someone adds the capability, which is the moment it matters. Probing
     `--help` costs one subprocess per harness per round and cannot go stale.
-
-    A probe that FAILS is not a "no": a harness whose --help errors is a
-    condition worth seeing, not a reason to quietly emit unattributable rows.
-    It returns False (the old behaviour) and says so on stdout.
     """
     if harness in _ACCEPTS_STRATEGY_NAME:
         return _ACCEPTS_STRATEGY_NAME[harness]
-    ok = False
+    verdict: bool | None
     try:
         p = subprocess.run([sys.executable, str(REPO / harness), "--help"],
                            capture_output=True, text=True, timeout=120)
-        if p.returncode == 0:
-            ok = "--strategy-name" in (p.stdout or "")
-        else:
-            print(f"    !! {harness} --help exited {p.returncode}; assuming NO "
-                  f"--strategy-name. Emitted rows will carry the harness's own "
-                  f"family literal and per-leg attribution will be lost for it.",
-                  flush=True)
-    except Exception as exc:                     # noqa: BLE001 - probe only
-        print(f"    !! {harness} --help probe failed ({type(exc).__name__}); "
-              f"assuming NO --strategy-name.", flush=True)
-    _ACCEPTS_STRATEGY_NAME[harness] = ok
-    return ok
+    except (OSError, subprocess.SubprocessError) as exc:
+        # Narrow: the only failures a `--help` invocation can legitimately
+        # produce. Anything else is a bug in this function and propagates.
+        print(f"    !! {harness} --help probe FAILED ({type(exc).__name__}: "
+              f"{exc}) — cannot determine attribution support.", flush=True)
+        verdict = None
+    else:
+        verdict = ("--strategy-name" in (p.stdout or "")
+                   if p.returncode == 0 else None)
+        if verdict is None:
+            print(f"    !! {harness} --help exited {p.returncode} — cannot "
+                  f"determine attribution support. stderr: "
+                  f"{(p.stderr or '')[-200:]}", flush=True)
+    _ACCEPTS_STRATEGY_NAME[harness] = verdict
+    return verdict
 
 
 def main(argv: list[str]) -> int:
@@ -141,7 +155,20 @@ def main(argv: list[str]) -> int:
         # ASKED, not assumed -- see `accepts_strategy_name`. The old `fam ==
         # "scalp"` test was correct when written and would have silently kept
         # excluding trend/pullback after they gained the flag.
-        if accepts_strategy_name(FAMILY_HARNESS[fam]):
+        supports = accepts_strategy_name(FAMILY_HARNESS[fam])
+        if supports is None:
+            # WE COULD NOT LOOK -> skip, never guess. Running the leg anyway
+            # would emit rows stamped with the family literal, which is the
+            # unattributable-row defect this whole change exists to fix; a leg
+            # missing from the round is visible, a leg silently mis-attributed
+            # is not.
+            print(f"SKIP {leg}: could not determine whether "
+                  f"{FAMILY_HARNESS[fam]} supports --strategy-name, so its rows "
+                  f"might not be attributable to this leg. Fix the harness probe "
+                  f"and re-run rather than accepting family-level rows.",
+                  flush=True)
+            continue
+        if supports:
             args = [*args, "--strategy-name", leg]
         else:
             print(f"    NOTE {leg}: {FAMILY_HARNESS[fam]} has no "
