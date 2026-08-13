@@ -43,6 +43,42 @@ def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
                           text=True, timeout=timeout)
 
 
+_ACCEPTS_STRATEGY_NAME: dict[str, bool] = {}
+
+
+def accepts_strategy_name(harness: str) -> bool:
+    """Does this harness take `--strategy-name`? ASKED, not declared.
+
+    This used to be the literal `fam == "scalp"`, correct on the day it was
+    written and silently wrong the moment the trend and pullback harnesses
+    gained the flag (2026-08-13) — a hardcoded capability list drifts exactly
+    when someone adds the capability, which is the moment it matters. Probing
+    `--help` costs one subprocess per harness per round and cannot go stale.
+
+    A probe that FAILS is not a "no": a harness whose --help errors is a
+    condition worth seeing, not a reason to quietly emit unattributable rows.
+    It returns False (the old behaviour) and says so on stdout.
+    """
+    if harness in _ACCEPTS_STRATEGY_NAME:
+        return _ACCEPTS_STRATEGY_NAME[harness]
+    ok = False
+    try:
+        p = subprocess.run([sys.executable, str(REPO / harness), "--help"],
+                           capture_output=True, text=True, timeout=120)
+        if p.returncode == 0:
+            ok = "--strategy-name" in (p.stdout or "")
+        else:
+            print(f"    !! {harness} --help exited {p.returncode}; assuming NO "
+                  f"--strategy-name. Emitted rows will carry the harness's own "
+                  f"family literal and per-leg attribution will be lost for it.",
+                  flush=True)
+    except Exception as exc:                     # noqa: BLE001 - probe only
+        print(f"    !! {harness} --help probe failed ({type(exc).__name__}); "
+              f"assuming NO --strategy-name.", flush=True)
+    _ACCEPTS_STRATEGY_NAME[harness] = ok
+    return ok
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--legs", required=True, help="CSV of strategy leg names")
@@ -93,14 +129,25 @@ def main(argv: list[str]) -> int:
             continue
         emit = out / "emit" / f"{leg}.jsonl"
         args = base_args(leg, cfg, fam, data, resample)
-        # The scalp harness stamped a HARDCODED `strategy: "ict_scalp_5m"` on
-        # every emitted row, so a 15m ETH trade and a 5m XRP trade were
-        # indistinguishable in the E0 dataset and every per-leg verdict would
-        # have been attributed to one arbitrary leg name. Pass the real leg.
-        # Scalp-only: the other harnesses do not accept the flag, and adding it
-        # blindly would turn a working round into an argparse usage error.
-        if fam == "scalp":
+        # Every harness stamped a HARDCODED family literal on each emitted row
+        # -- `ict_scalp_5m`, `trend_donchian`, `htf_pullback_trend_2h` -- so the
+        # E0 dataset, which buckets by that field, could not tell a 15m ETH
+        # trade from a 5m XRP one, or `gld_pullback_1d` from `tlt_pullback_1h`.
+        # Every per-leg verdict would have been attributed to one arbitrary leg.
+        # The scalp harness was fixed first; trend and pullback followed
+        # (2026-08-13), which is what makes the 26 non-scalp `exit_head_ml`
+        # cells runnable at all.
+        #
+        # ASKED, not assumed -- see `accepts_strategy_name`. The old `fam ==
+        # "scalp"` test was correct when written and would have silently kept
+        # excluding trend/pullback after they gained the flag.
+        if accepts_strategy_name(FAMILY_HARNESS[fam]):
             args = [*args, "--strategy-name", leg]
+        else:
+            print(f"    NOTE {leg}: {FAMILY_HARNESS[fam]} has no "
+                  f"--strategy-name; its rows will carry the family literal and "
+                  f"this leg's verdict will NOT be separately attributable.",
+                  flush=True)
         p = sh([sys.executable, REPO / FAMILY_HARNESS[fam], *args,
                 "--emit-trades", emit, "--json", "/tmp/eh_round_cell.json"])
         if p.returncode != 0:
