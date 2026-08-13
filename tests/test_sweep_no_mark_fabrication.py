@@ -16,7 +16,6 @@ from __future__ import annotations
 import inspect
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -60,49 +59,55 @@ class _DB:
         c.close()
 
 
-# The sweep scans a ROLLING 14-day window (`created_at >= now - 14 days`), so a
-# fixture row stamped with a LITERAL date is a time bomb: it is inside the window
-# on the day the test is written and silently outside it some days later. This
-# file shipped with `created_at = '2026-07-30T11:00:00Z'` and went red across the
-# WHOLE REPO at 2026-08-13T11:00:00Z — 14 days later to the minute — failing 7 of
-# 11 cases on every branch and blocking every PR. Nothing had regressed; the
-# clock had simply moved.
+# --- fixture clock -----------------------------------------------------------
 #
-# Worse than the outage is the shape of it. An aged-out row makes the scan return
-# ZERO rows, and a sweep that saw nothing reports `still_pending: 0`,
-# `declared_unmeasured: 0`, `filled: 0` — the same counters a correctly-behaving
-# sweep reports for a clean book. Three of these cases assert only that something
-# did NOT happen (`pnl is None`, `pnl_source != UNMEASURED_MARKER`), and those
-# pass vacuously on an empty scan. They failed here by luck, because their
-# siblings happened to assert `== 1`. That is diagnostic-provenance sub-class C
-# (an unasserted denominator reading as a clean negative), and it is the reason
-# the offsets below are relative AND the denominator is pinned by its own case.
+# TIME BOMB, DEFUSED 2026-08-13. These dates were hardcoded as
+# '2026-07-30T11:00:00Z'. The sweep's scan query bounds itself with
 #
-# 24h back is deliberate, not arbitrary: comfortably inside the 14-day window,
-# and comfortably OUTSIDE the `_LOCAL_PNL_BROKER_DEFER_MS` (6h) grace during
-# which a broker-reader integration still owns the row — so the row is eligible
-# on both axes regardless of how `ib_paper` resolves.
-_CREATED_H_AGO = 24
-_CLOSED_H_AGO = 23
+#     AND datetime(created_at) >= datetime('now', '-14 days')
+#
+# so the fixture row silently aged OUT of the window exactly 14 days later, at
+# 2026-08-13T11:00:00Z, and 7 tests in this file went red without a single line
+# of the code or the tests changing. The CI runs bracket the boundary to the
+# minute: the last green full suite finished 10:38:48Z, the first red one
+# 11:09:03Z, same day. Nothing in either diff was related.
+#
+# That is the SECOND time bomb to redden main in six days (#8778 fixed one in
+# tests/test_exchange_fills_list_rows.py, where `list_fills` measured its cutoff
+# from `datetime.now()`). That fix injected a fixed clock into the function
+# under test, which is the better pattern where it is available — here the
+# window is applied by SQLite inside the query as `datetime('now', ...)`, so
+# there is no clock to inject without changing production SQL for the test's
+# convenience.
+#
+# So the dates are RELATIVE instead. The property the tests need is not a
+# particular calendar date, it is "this row is comfortably inside the sweep's
+# retention window", and that is now true whenever the suite runs.
+_ROW_AGE_DAYS = 2          # inside the 14-day scan window, and older than the
+                           # 6h broker-reader defer, on any day it runs
+_HOLD_SECONDS = 3630       # created -> closed, preserving the original 1h0m30s
 
 
-def _stamp(hours_ago: int) -> str:
-    return (datetime.now(timezone.utc)
-            - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _fixture_times():
+    from datetime import datetime, timedelta, timezone
+    created = datetime.now(timezone.utc) - timedelta(days=_ROW_AGE_DAYS)
+    closed = created + timedelta(seconds=_HOLD_SECONDS)
+    fmt = lambda d: d.strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: E731
+    return fmt(created), fmt(closed)
 
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     path = tmp_path / "j.db"
-    created, closed = _stamp(_CREATED_H_AGO), _stamp(_CLOSED_H_AGO)
     conn = sqlite3.connect(str(path))
     conn.executescript(_SCHEMA)
+    created_at, closed_at = _fixture_times()
     conn.execute(
         "INSERT INTO trades (id, account_id, symbol, direction, position_size, "
         "entry_price, exit_price, pnl, status, is_backtest, closed_at, "
         "created_at, timestamp, notes) VALUES "
         "(1,'ib_paper','MES','long',1.0,5000.0,NULL,NULL,'closed',0,?,?,?,'{}')",
-        (closed, created, created),
+        (closed_at, created_at, created_at),
     )
     conn.commit()
     conn.close()
@@ -146,50 +151,6 @@ def test_the_sweep_uses_the_close_time_anchor():
     src = _code_only(om._sweep_local_pnl_for_unpriced)
     assert "bar_close_at" in src
     assert "UNMEASURED_MARKER" in src
-
-
-# -------------------------------------------------------------- denominator
-def test_the_fixture_row_is_actually_inside_the_sweeps_scan_window(db, monkeypatch):
-    """THE DENOMINATOR for every behavioural case below.
-
-    All of them monkeypatch the anchor and then read the sweep's counters. If
-    the fixture row falls outside the sweep's rolling 14-day scan window the
-    counters are all zero — and "the sweep declared nothing" is indistinguishable
-    from "the sweep never saw the row". The cases that assert an ABSENCE then
-    pass while testing nothing at all.
-
-    So assert the population first, exactly once, and name it. If this is the
-    only failure in the file, the fixture aged out or the window predicate
-    changed — do not go looking for a fabrication regression.
-    """
-    import src.runtime.exit_anchor as EA
-    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "deferred"))
-    summary = om._sweep_local_pnl_for_unpriced(db)
-    assert summary["scanned"] == 1, (
-        f"the sweep scanned {summary['scanned']} rows, not 1 — the fixture row "
-        "is not eligible, so every behavioural assertion below is vacuous"
-    )
-
-
-def test_the_denominator_check_can_fail(db, monkeypatch):
-    """A guard that cannot fail proves nothing.
-
-    Age the row past the window on purpose and confirm the scan really does
-    come back empty — which is both the proof that the check above has teeth
-    and the direct reproduction of the 2026-08-13 outage.
-    """
-    c = sqlite3.connect(db.path)
-    c.execute("UPDATE trades SET created_at = ? WHERE id = 1", (_stamp(24 * 15),))
-    c.commit()
-    c.close()
-
-    import src.runtime.exit_anchor as EA
-    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "no_anchor"))
-    summary = om._sweep_local_pnl_for_unpriced(db)
-    assert summary["scanned"] == 0
-    # And note what the aged-out row looks like: silent, not loud.
-    assert summary["declared_unmeasured"] == 0
-    assert json.loads(_row(db)["notes"]).get("pnl_source") is None
 
 
 # -------------------------------------------------------------- behavioural
@@ -311,3 +272,62 @@ def test_fetch_budget_knob_is_a_tuning_knob_not_a_gate(monkeypatch):
     assert om._exit_anchor_fetches_per_tick() == 0
     monkeypatch.setenv("EXIT_ANCHOR_FETCHES_PER_TICK", "banana")
     assert om._exit_anchor_fetches_per_tick() == 3
+
+
+def test_fixture_row_is_inside_the_sweep_scan_window(db):
+    """THE BOMB-DEFUSAL REGRESSION — asserts the precondition every other test
+    in this file silently depends on.
+
+    All seven behavioural tests here assert on `summary["filled"]`/`declared`.
+    When the fixture aged out of the sweep's 14-day window they did not report
+    "the row was not scanned" — they reported `assert 0 == 1` and
+    `KeyError: 'pnl_source'`, which read as a defect in the exit-anchor code.
+    A whole session can be spent bisecting production code that never changed.
+
+    This asserts `scanned` directly, so the next time the window and the fixture
+    disagree the failure NAMES that, instead of being discovered by elimination.
+    """
+    summary = om._sweep_local_pnl_for_unpriced(db)
+    assert summary["scanned"] == 1, (
+        "the fixture row fell outside the sweep's `datetime('now','-14 days')` "
+        "scan window — the fixture clock has drifted, the sweep is not broken"
+    )
+
+
+def test_the_scan_window_check_can_fail(db):
+    """The can-fail companion to the test above — a guard that cannot fail
+    proves nothing.
+
+    `test_fixture_row_is_inside_the_sweep_scan_window` is the important one, but
+    on its own it would pass just as happily if `scanned` were hardcoded to 1,
+    if the sweep silently stopped filtering by date, or if this file's fixture
+    clock were later "simplified" back to a literal that happens to be inside
+    the window on the day someone edits it. Age the row out ON PURPOSE and
+    confirm the scan really does come back empty.
+
+    It also reproduces the 2026-08-13 outage on demand, and pins the property
+    that made it so expensive to diagnose: an aged-out row is SILENT, not loud.
+    `scanned` and `declared_unmeasured` both read 0 — byte-identical to a
+    correctly-behaving sweep over a clean book — which is why seven tests
+    reported `assert 0 == 1` and `KeyError` instead of "the row was not
+    scanned".
+    """
+    from datetime import datetime, timedelta, timezone  # local, as in _fixture_times
+
+    c = sqlite3.connect(db.path)
+    c.execute(
+        "UPDATE trades SET created_at = ? WHERE id = 1",
+        ((datetime.now(timezone.utc) - timedelta(days=_ROW_AGE_DAYS + 13))
+         .strftime("%Y-%m-%dT%H:%M:%SZ"),),
+    )
+    c.commit()
+    c.close()
+
+    summary = om._sweep_local_pnl_for_unpriced(db)
+    assert summary["scanned"] == 0, (
+        "a row 15 days old was still scanned — the 14-day window is not being "
+        "applied, so the test above cannot detect a fixture that drifts out of it"
+    )
+    # The silence that made this expensive: nothing distinguishes it from clean.
+    assert summary["declared_unmeasured"] == 0
+    assert json.loads(_row(db)["notes"]).get("pnl_source") is None
