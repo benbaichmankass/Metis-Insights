@@ -2685,3 +2685,187 @@ onto the 19 — it sizes the work, not the outcome.
   docstring had to be corrected once: it still led with the book-size
   conclusion after the 2h round refuted it, which is the same stale-prose
   defect this session keeps finding elsewhere.
+
+---
+
+## Second overnight stretch (2026-08-14, ~15:30–17:00 UTC) — post-compaction
+
+Same session, continued past a context compaction. Recorded here rather than in
+a new log because the session never ended; the branch and the objective are
+unchanged.
+
+### (d) — exit-head rounds now leave evidence behind
+
+`m20_exit_head_round.py` writes `rounds.jsonl` beside its report, in the
+committed schema of `docs/research/m20-exit-head-rounds.jsonl`. Until today a
+round left **nothing machine-readable**: `--out` is a required, ephemeral
+trainer directory, so every verdict reached the repo only as prose hand-copied
+into a matrix `ref`. That is *why* 141 matrix cells rest on prose.
+
+Two properties are pinned by tests rather than left to care:
+
+- **It reads the producer's real field names.** I had guessed `n_oos` /
+  `beats_actual`; `train_exit_head.py::per_leg_summary` actually emits
+  `oos_trades` / `mean_auc` / `beats_actual_folds` / `beats_hard_folds` /
+  `usable_folds`. My guess produced `None` for every leg — and a silent `None`
+  in an evidence file is worse than a crash, because it reads as a measurement
+  that was taken.
+- **The emitted `tp_geometry` is the DERIVED stamp**, not the run-level
+  `--tp-cap-pct` flag, since `base_args` withholds the cap from families outside
+  `LIVE_TP_CAPPED_FAMILIES`.
+
+### A defect of mine: a merge that silently un-resolved another session's item
+
+Resolving a conflict in `docs/claude/health-review-backlog.json` earlier in the
+session, I took my side wholesale. That discarded main's edits to **six items I
+had never touched**, including flipping
+`BL-20260814-IB-EVENTLOOP-CONTENTION` from `status: resolved` back to
+`mitigated_fix_in_pr` and clearing its `resolved_at`. Another session had closed
+that item; my merge reopened it, and a reopened item looks exactly like one that
+was never closed.
+
+**Every invariant a careful reader checks still held** — valid JSON, item count
+only grew, no duplicate ids. What was lost was a *status transition*, which
+nothing reads. That is why the filed remedy is a guard on terminal →
+non-terminal transitions and **explicitly not** on item count.
+
+Caught only because I did the next conflict as a three-way classification
+against the merge base instead of by hand: 564 shared items, 8 differing, **zero
+changed by both sides**, and 6 whose divergence I could not account for. Walking
+all 11 of my own non-merge commits touching the file confirmed none had edited
+them. The corrected merge is `122 insertions, 0 deletions` against `origin/main`
+— arithmetic proof it dropped nothing.
+
+I have **not** swept history for earlier instances, so the count of past
+occurrences is *unknown*, not zero.
+
+### BTC 5m: reachable now, and the obvious fix was the wrong one
+
+`ict_scalp_5m` (LIVE) skipped on `data_missing:BTCUSDT`. BTC is the one 5m
+symbol with no canonical `data/<SYM>_5m.csv`; its data is
+`backtest_BTCUSDT_5m.csv` — 647,585 rows, 2020-03-25..2026-05-21, **deeper than
+any canonical alt 5m file**, and already the default feed for all six
+`walkforward_vol_*` scripts, i.e. the series behind the live regime-router OFF
+cells. `resolve_data`'s prefix set is `{btcusdt, btc}`, which
+`backtest_btcusdt_5m.csv` matches neither.
+
+**Creating `data/BTCUSDT_5m.csv` would have worked and been wrong.**
+`DATA_GRAIN` is finest-first and the grain loop takes the first present file at
+or below the leg's timeframe, so every BTC leg at 1h/2h/4h/1d — today falling
+through to `BTCUSDT_15m.csv` (runs to 2026-07-10) — would have taken the 5m file
+(stops 2026-05-21), quietly shortening the book behind verdicts already recorded
+in the matrix. That is the hazard `resolve_data`'s own docstring names, one
+level less visible than the `MGC_1d.csv` incident: there the NAME lied; here the
+name would be honest and only the RANGE dishonest.
+
+Shipped instead: an **exact-timeframe** probe, after the native spelling and
+deliberately not in the grain loop. Measured before touching the resolver
+(trainer-diag #9325) as a wrapper over the unmodified function — 110
+resolutions, **4 changed, all `None` → resolved**. The enumeration corrected my
+own claim: I had said one leg; `vwap` also sits at BTCUSDT 5m, so it is two.
+`backtest_ESF_1h.csv`, the risk I named in advance, is inert (no leg at that
+sym/tf).
+
+### Two CI reds, both mine, both caught by the repo's own guards
+
+**`artifact-validity-guard`** — I truncated a backlog id in a code comment, so it
+resolved to nothing: a comment reading "tracked" while tracked by nobody. Root
+cause was process, not typing: I ran `run_guards` **before committing**, and
+every guard scopes to a commit range (`{pr_diff}` from `origin/main...HEAD`, or
+its own `--base`), so the run never saw the line and still printed "All relevant
+guards passed."
+
+The pre-existing `unchecked` caveat does not cover this, and the reason is
+specific: it reports guards *relevance* skipped, and relevance is a union — a
+guard already made relevant by a committed file runs, passes, is counted, and
+never appears in `unchecked`, having scanned a range without your edits. Any
+uncommitted path now caveats the green line by name.
+
+**My first attempt at that caveat was itself wrong**, and the test pins why: I
+built it as `worktree_files() - changed`, mirroring the existing `dirty`
+variable — which subtracts away exactly the dangerous case (a file both
+committed-changed *and* dirty) and so stayed silent on the very tree that had
+just produced the false green. Caught by testing the behaviour, not by reading
+the code. A second latent bug in the same change: I sampled the worktree at the
+*end* of the run, after guards execute, and two guards write files — the comment
+eight lines above the sibling capture says exactly that. It escaped a false
+positive only because those writes happened to be byte-identical.
+
+This is the converse of the eleven instances in the Postscript. Those were
+"committing first was necessary and never sufficient"; here the commit was
+simply skipped and nothing said so.
+
+**`pytest-run` filter** — my new test reads the committed evidence file, a path
+not in the filter, so a PR touching only that file would short-circuit the suite
+to a ~10s green tick having executed nothing. Instance **five** of the class
+`test_pytest_run_filter.py`'s header enumerates. Instances 1–4 were each found
+by an incident; this one was caught **pre-merge, on the same day the reader was
+written**, by `test_docs_committed_readers_are_all_covered` — the derived check
+added earlier today precisely because hand-enumeration kept failing. The
+mechanism works, so I pointed the stale "exactly FOUR" comment at it rather than
+restating a count that will go stale again.
+
+### (e) — the split margin, measured
+
+Criterion (2) of `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`
+is closed. Memo: `docs/research/m20-split-boundary-loss-2026-08-14.md`. Pure
+read of the committed corpus — no harness run, no VM.
+
+Boundary loss `0,1,1,1,1,1,2,2,4,4,4` — max **4**, ten of eleven are losses,
+**zero gains**. The never-negative half is a *refuted* hypothesis: `[:10]`
+truncates the boundary to a date, so windowing from midnight could plausibly
+sweep in same-day trades sitting *before* the boundary trade and push realized
+above target. It never does.
+
+It tracks **target/lifetime**, not target: the same three legs lose 4 at ratio
+0.55 and 1 at 0.44, while a fixed target of 35 spans 1..4. The three worst come
+from a regime the clamp added today now prevents (`target ≤ lifetime // 2`, so
+ratio ≤ 0.50); every observation at ratio ≤ 0.5 lost ≤ 2.
+
+**Answer: margin 5 → target 30**, which **confirms** the illustrative value
+rather than replacing it.
+
+**The near-miss is the part worth keeping.** Mid-analysis I had a tidy story
+that the illustrative 30 came from mis-counting the three `leg_too_thin` rows,
+whose apparent "loss" is 30/31 — a striking numeric match, and I wrote the
+section header before checking. Wrong: 30 was always the **target** (floor 25 +
+margin 5), never a margin, and those rows are the fixed-date cliff the clamp
+already fixes. Reading the sprint-log line instead of trusting the match is what
+caught it. A confirmation is a duller result than a correction, which is exactly
+when the pull toward the correction should be distrusted.
+
+The independence denominator is stated in the memo rather than quietly used: 18
+corpus rows are **14 boundary events**, not 14 rows (several lever cells share
+one derivation — the same inflation that double-counting `_prop` legs produced
+on decision (a)), minus 3 fallbacks → 11 events across 7 legs, three of which
+are near-identical siblings. Effective independence is nearer **five**.
+
+### Validation
+
+- Guards 38/38 on a clean tree before each push; PR #9257 reached **all four
+  checks green** on `f4825ee9`, `mergeable_state: clean`.
+- New tests: `test_exit_head_round_emits_evidence.py` (4),
+  `test_resolve_data_backtest_prefix.py` (6), 2 appended to
+  `test_run_guards_step_scoping.py`. Every one proven load-bearing by planting
+  the exact regression it exists to catch — the resolver leak tests by moving
+  the probe into the grain loop, the caveat test by re-adding the subtraction.
+- `test_resolve_data_backtest_prefix.py` also asserts `DATA_GRAIN` is still
+  finest-first, because the leak test would pass **vacuously** under a
+  coarsest-first order while the hazard changed shape.
+
+### Gaps not yet verified
+
+- **The 5m round's outcome is unknown.** Last observed 15:47Z (SOL 1,255 trades
+  emitted, XRP in flight); re-poll dispatched as trainer-diag #9333. A round
+  that died mid-XRP and one still running look identical from outside.
+- **`ict_scalp_5m`'s `exit_head_ml` cell is reachable, not re-measured.** When it
+  is, the round must state that BTC's book ends 2026-05-21 while its three 5m
+  siblings run to 2026-06-18 — the OOS window differs for one leg.
+- **Deploy verification is still owed** on PR #9257 after merge; it touches real
+  money.
+- The `--split-target-oos` default is **unchanged** and queued for the operator.
+- Every Tier-1 tooling fix above rides in #9257 behind its Tier-3 approval,
+  including the resolver fix. The trainer runs `main`, so none of it is usable
+  until #9257 merges. Splitting the config change onto its own branch would
+  unblock the rest; not done unilaterally, since it changes what the operator is
+  approving.
