@@ -428,8 +428,35 @@ def eval_split(model, trades: Dict[str, List[dict]], tf_s: int) -> dict:
     return out
 
 
-def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
+def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry,
+                offset: int = 0) -> list:
     """Walk-forward test folds as `(label, year, test_dict, cutoff_ts)`.
+
+    `offset` SHIFTS WHERE THE BLOCKING STARTS, AT FIXED `block_n`. It exists for
+    exactly one job: measuring how much a verdict depends on *where the fold
+    boundaries happen to fall*, which nothing could measure before
+    (BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT:
+    six legs re-measured one day apart moved -0.110 to +0.042 in mean_auc
+    against a gate bar of 0.55, and one leg was graded `candidate` on a 0.0025
+    margin the same night).
+
+    ⚠️ DO NOT MEASURE THAT BY SWEEPING `--min-fold-trades` INSTEAD. That knob's
+    own comment forbids it: P_detect is not monotonic in `b`, and every apparent
+    optimum lands on a `u` where the 2/3 bar is cheap to hit by luck. A b-sweep
+    also changes fold SIZE, so the spread it produced would partly measure "AUC
+    is noisier on smaller folds" — a different quantity, reported under this
+    one's name. Holding `b` fixed and moving only the start is what isolates
+    boundary sensitivity.
+
+    Bounded to `0 <= offset < block_n`: those are the only distinct partitions.
+    An offset of `block_n` is not a new partition, it is the same one with a
+    whole block discarded.
+
+    The skipped head is REPORTED, never silently dropped — the same reason the
+    trailing partial block is announced below. And in `years` mode a non-zero
+    offset RAISES rather than being ignored: a silent no-op would let a
+    dispersion run report five offsets measured when all five were identical,
+    which is the failure this flag exists to detect, inverted.
 
     WHY `trades` IS THE DEFAULT. The original cut was one test fold per CALENDAR
     YEAR, which silently makes a strategy's TRADE FREQUENCY the thing that
@@ -465,6 +492,19 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
 
     `years` is kept to reproduce any pre-2026-08-13 result exactly.
     """
+    if offset and mode != "trades":
+        raise ValueError(
+            f"--fold-offset={offset} is meaningless with --fold-mode={mode}; "
+            "it shifts a sequential trade-block boundary and there is none to "
+            "shift in a per-calendar-year cut. Refusing rather than ignoring "
+            "it, so a dispersion run cannot report distinct offsets that were "
+            "all the same partition.")
+    if not 0 <= offset < max(block_n, 1):
+        raise ValueError(
+            f"--fold-offset={offset} out of range: must be 0 <= offset < "
+            f"block_n ({block_n}). Only those give distinct partitions; "
+            f"offset >= block_n repeats one while discarding a whole block.")
+
     if mode == "years":
         years = sorted({r["year"] for tk, b in h_trades.items() for r in b})
         out = []
@@ -476,6 +516,12 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
         return out
 
     ordered = sorted(h_trades.items(), key=lambda kv: t_entry(kv[1]))
+    if offset:
+        print(f"  note: --fold-offset {offset} — skipping the first {offset} "
+              f"trade(s) before blocking; {len(ordered) - offset} of "
+              f"{len(ordered)} remain. Boundary shifted, block size unchanged "
+              f"at {block_n}.")
+        ordered = ordered[offset:]
     out = []
     # Start at `block_n` so the first test block has a training set behind it —
     # the `years` cut achieved the same thing with `years[1:]`.
@@ -593,6 +639,12 @@ def main(argv: List[str]) -> int:
     # ~7 arms), so 41-64 is a LOWER bound and the honest reading is
     # "delta <= 0.105 typical".
     ap.add_argument("--min-fold-trades", type=int, default=50)
+    ap.add_argument("--fold-offset", type=int, default=0,
+                    help="Shift where trade-blocking starts, at FIXED block "
+                         "size (0 <= k < --min-fold-trades). For measuring how "
+                         "much a verdict depends on where the fold boundaries "
+                         "fall. Do NOT sweep --min-fold-trades for that — see "
+                         "fold_blocks() and that flag's own comment.")
     ap.add_argument("--fold-mode", choices=["trades", "years"], default="trades",
                     help="How walk-forward TEST folds are cut. `trades` "
                          "(default) slices sequentially by trade count so a "
@@ -631,7 +683,8 @@ def main(argv: List[str]) -> int:
     def t_entry(bars):  # first bar time as trade entry proxy
         return bars[0]["bar_t"]
     folds = []
-    blocks = fold_blocks(h_trades, a.fold_mode, a.min_fold_trades, t_entry)
+    blocks = fold_blocks(h_trades, a.fold_mode, a.min_fold_trades, t_entry,
+                         offset=a.fold_offset)
     print(f"  fold-mode={a.fold_mode} -> {len(blocks)} candidate fold(s)")
     for label, ytest, test, y0 in blocks:
         # purge on the trade's LAST bar: a hold spanning into the test block
