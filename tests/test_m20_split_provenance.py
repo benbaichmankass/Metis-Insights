@@ -31,6 +31,7 @@ apart -- plus the two ways a provenance string quietly lies:
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -108,11 +109,26 @@ def test_an_uncounted_lifetime_is_omitted_not_fabricated():
     """
     msg = REASON(24, 25, "2025-07-01",
                  {"split_mode": "date", "split": "2025-07-01"})
-    assert "lifetime" not in msg
-    assert "leg lifetime 0" not in msg
+    # Assert the MEANING -- no lifetime VALUE is invented -- rather than the
+    # proxy "the word never appears". The proxy was too strong and started
+    # failing the moment the message began saying, correctly, that the lifetime
+    # was never counted (2026-08-14, criterion (4) of
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER).
+    # Naming the absence is the honest thing to do and must not be forbidden by
+    # a test whose purpose is to forbid FABRICATING it.
+    assert not re.search(r"leg lifetime \d", msg), (
+        f"a lifetime value was reported when none was counted: {msg}"
+    )
+    assert "never counted" in msg, (
+        "an uncounted lifetime must be stated, not silently omitted -- "
+        "'we did not look' is a claim the reader needs"
+    )
     # The target is equally meaningless here -- nothing was targeted.
     assert "targeting" not in msg
     assert "date" in msg                        # the mode is still stated
+    # And the message must NOT pick a diagnosis it cannot support.
+    assert "TRADE-STARVED" not in msg and "BOUNDARY IS MISPLACED" not in msg
+    assert "UNDIAGNOSED" in msg
 
 
 def test_a_fallback_is_never_silent():
@@ -163,3 +179,56 @@ def test_the_cell_entry_records_the_split_it_was_graded_on():
     thin = src.index("            if _thin:")
     for key in ("split_mode", "split_fallback"):
         assert src.index(f'entry["{key}"] = ') < thin, key
+
+
+def test_a_starved_leg_and_a_misplaced_boundary_get_OPPOSITE_diagnoses():
+    """The message must DIAGNOSE, not just supply the inputs.
+
+    Carrying `leg lifetime` made the discriminator available; it still left the
+    reader to do the arithmetic, and the two conclusions have opposite remedies:
+    a trade-starved leg returns the same refusal however often you re-run it,
+    while a misplaced boundary is fixed by one flag. Printing the same sentence
+    for both is what sent a previous session to a trainer relay to establish
+    something a read should have answered.
+    """
+    starved = REASON(8, 25, "2020-01-01",
+                     {"split_mode": "oos-trades", "split_target_oos": 25,
+                      "split_lifetime_trades": 33})
+    misplaced = REASON(24, 25, "2025-01-01",
+                       {"split_mode": "oos-trades", "split_target_oos": 25,
+                        "split_lifetime_trades": 407})
+
+    assert "TRADE-STARVED" in starved
+    assert "wait for trades" in starved
+    assert "BOUNDARY IS MISPLACED" not in starved
+
+    assert "BOUNDARY IS MISPLACED" in misplaced
+    assert "--split-target-oos" in misplaced
+    assert "TRADE-STARVED" not in misplaced
+
+    assert starved != misplaced
+
+
+def test_the_boundary_of_the_two_diagnoses_is_exactly_two_times_the_floor():
+    """`lifetime >= 2*floor` is the whole discriminator; pin it.
+
+    One off-by-one here silently re-labels a starved leg as a fixable one, which
+    sends the next session re-running a sweep that cannot succeed.
+    """
+    below = REASON(10, 25, "2020-01-01",
+                   {"split_mode": "oos-trades", "split_target_oos": 25,
+                    "split_lifetime_trades": 49})
+    at = REASON(10, 25, "2020-01-01",
+                {"split_mode": "oos-trades", "split_target_oos": 25,
+                 "split_lifetime_trades": 50})
+    assert "TRADE-STARVED" in below
+    assert "BOUNDARY IS MISPLACED" in at
+
+
+def test_a_clamped_target_is_named_in_the_refusal():
+    """A refusal quoting only the REQUESTED target describes a run that never happened."""
+    msg = REASON(24, 25, "2003-01-15",
+                 {"split_mode": "oos-trades", "split_target_oos": 35,
+                  "split_target_clamped_from": 35, "split_target_clamped_to": 32,
+                  "split_lifetime_trades": 64})
+    assert "CLAMPED 35->32" in msg

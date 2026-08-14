@@ -995,10 +995,41 @@ def insufficient_base_reason(base_oos_n, floor: int, split: str,
     # "the leg has no trades" are opposite claims.
     if lifetime is not None:
         parts.append(f"leg lifetime {lifetime}")
+    # A clamp means the caller's target was NOT the one used. Printing only the
+    # requested target beside a refusal invites the reader to compute a band the
+    # run never operated in.
+    if split_meta.get("split_target_clamped_to") is not None:
+        parts.append(f"target CLAMPED {split_meta.get('split_target_clamped_from')}"
+                     f"->{split_meta['split_target_clamped_to']}")
     if fallback:
         parts.append(f"FELL BACK: {fallback}")
+
+    # THE DIAGNOSIS, not just the inputs (criterion (4) of
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER).
+    # Carrying `lifetime` made the discriminator AVAILABLE; it still left every
+    # reader to do the arithmetic, and the two conclusions have opposite
+    # remedies. A leg that cannot seat `floor` on BOTH sides is trade-starved at
+    # ANY boundary -- re-running is wasted. A leg whose lifetime could seat one
+    # and did not got a badly-placed split -- waiting for trades is wasted.
+    # Third state kept distinct on purpose: under `split_mode=date` no emit run
+    # happened, so the lifetime was never counted and the honest answer is that
+    # we cannot tell -- NOT a default to either diagnosis.
+    if lifetime is None:
+        verdict = ("UNDIAGNOSED: leg lifetime was never counted under "
+                   "split_mode=date, so 'thin leg' and 'thin window' are "
+                   "indistinguishable here -- re-run with split_mode=oos-trades "
+                   "to find out")
+    elif lifetime < 2 * floor:
+        verdict = (f"THE LEG IS TRADE-STARVED: {lifetime} lifetime trades cannot "
+                   f"seat {floor} on BOTH sides at any boundary -- re-running "
+                   f"the sweep returns this again; wait for trades")
+    else:
+        verdict = (f"THE BOUNDARY IS MISPLACED, NOT THE LEG: {lifetime} lifetime "
+                   f"trades could seat a floor-clearing window and this split "
+                   f"gave it {base_oos_n} -- re-run with a larger "
+                   f"--split-target-oos")
     return (f"OOS base {base_oos_n} trades < floor {floor} "
-            f"({', '.join(parts)})")
+            f"({', '.join(parts)}) -- {verdict}")
 
 
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
