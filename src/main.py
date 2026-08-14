@@ -836,6 +836,20 @@ def main() -> None:
                     run_exit_loop_health_check()
                 except Exception:  # noqa: BLE001
                     logger.exception("exit_loop_health check failed")
+            else:
+                # The DISABLED branch must still write the state file, or the
+                # previous process's payload survives and keeps reporting
+                # `"state": "fresh"` for a loop that is not running — measured
+                # live on 2026-08-14 after the #9233 rollback, on a file stamped
+                # 16s BEFORE the process it appeared to describe. See
+                # exit_loop_health.write_disabled_state_file for the full account.
+                try:
+                    from src.runtime.exit_loop_health import (
+                        write_disabled_state_file,
+                    )
+                    write_disabled_state_file()
+                except Exception:  # noqa: BLE001
+                    logger.exception("exit_loop_health disabled-state write failed")
 
             # Market-neutral pairs sleeve (M22 D2): an ISOLATED 2-leg executor
             # that does NOT fit the single-symbol intent model, so it runs as

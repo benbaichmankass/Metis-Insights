@@ -154,6 +154,76 @@ def write_state_file(runtime_dir: Optional[str] = None) -> Optional[str]:
         return None
 
 
+def write_disabled_state_file(runtime_dir: Optional[str] = None) -> Optional[str]:
+    """Write the state file for a process where the decouple is DISABLED.
+
+    WHY THIS EXISTS (live-verified 2026-08-14, the same day #9233 rolled the
+    decouple back).
+
+    Only `_exit_loop` ever called `write_state_file`, and `run_exit_loop_health_check`
+    only ran inside `if decoupled:`. So with `EXIT_LOOP_DECOUPLE_DISABLED=1`
+    NOTHING rewrote the file and NOTHING re-read it — the payload from the
+    PREVIOUS process survived untouched, and it said `"state": "fresh"`.
+
+    Measured on the live trader: `exit_loop_health.json` carried
+    `generated_at 2026-08-14T11:46:13Z` while the running process had started at
+    `11:46:29Z` — a file stamped 16 seconds BEFORE the process it appeared to
+    describe, reporting a healthy loop that did not exist. Every downstream
+    reader (the diag surface, a session, the operator) saw `fresh`.
+
+    That is precisely the collapse this module's own docstring says it prevents:
+    "we have not looked" and "it ran and is fine" became indistinguishable, in
+    the one surface built to tell them apart. `CLAUDE.md` states that `never_ran`
+    "is also what a set `EXIT_LOOP_DECOUPLE_DISABLED` produces" — a true
+    statement about the vocabulary that the code did not implement, because the
+    producer of that state never ran either.
+
+    The fix keeps the four-state vocabulary rather than inventing a fifth: the
+    loop genuinely HAS NOT RUN in this process, so `never_ran` is the honest
+    grade. `decouple_disabled` says WHY, so a reader can tell a deliberate
+    rollback from a thread that failed to start — which `_start_exit_loop`
+    already treats as two different conditions and which would otherwise
+    re-collapse the moment this file started reporting `never_ran` for both.
+
+    Called every tick on the disabled branch, not once at startup: a
+    `generated_at` that stops advancing is itself a fossil, so refreshing it is
+    what keeps "disabled since boot" distinguishable from "this file is stale".
+    """
+    try:
+        if runtime_dir is None:
+            from src.utils.paths import runtime_logs_dir
+            runtime_dir = str(runtime_logs_dir())
+        os.makedirs(runtime_dir, exist_ok=True)
+        path = os.path.join(runtime_dir, STATE_FILE_NAME)
+        payload = {
+            "state": "never_ran",
+            "stale": False,
+            "decouple_disabled": True,
+            "passes": 0,
+            "age_seconds": None,
+            "last_pass_utc": None,
+            "last_pass_ms": None,
+            "max_pass_ms": None,
+            "max_pass_at_utc": None,
+            "process_started_utc": None,
+            "stale_threshold_s": stale_seconds(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "note": (
+                "EXIT_LOOP_DECOUPLE_DISABLED is set: exit evaluation rides the "
+                "main tick, so there is no decoupled loop to be healthy. This is "
+                "NOT health — the 60s exit-evaluation target is not met in this "
+                "mode."
+            ),
+        }
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=1)
+        os.replace(tmp, path)   # atomic: a reader never sees a half-written file
+        return path
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _reset_for_tests() -> None:
     global _passes, _last_pass_monotonic, _last_pass_utc, _last_pass_ms
     global _max_pass_ms, _max_pass_at_utc, _started_utc
