@@ -59,3 +59,51 @@ Pre-registration constrains how I *read* the result; it does not make the
 result stronger. If the operator's answer to the queued re-grade question is
 "re-measure per-leg", this round does not substitute for that — it adds six
 more pooled rows to the 21 already there.
+
+---
+
+## OUTCOME — appended 2026-08-14 ~23:20 UTC, after the round reported (relay #9366)
+
+Verdicts, each re-derived from the E1 gate rather than copied:
+
+| leg | n_oos | auc | beats_actual | beats_hard | u | gate |
+|---|--:|--:|--:|--:|--:|---|
+| `gdx_pullback_1d` | 81 | 0.6337 | 5/7 | 4/7 | 7 | honest_negative |
+| `gld_pullback_1d` | 128 | 0.5277 | 4/11 | 3/11 | 11 | honest_negative |
+| `iaum_pullback_1d` | 30 | 0.5525 | 3/4 | 3/4 | 4 | **candidate** |
+| `ief_pullback_1d` | 67 | 0.5337 | 6/11 | 8/11 | 11 | honest_negative |
+| `slv_pullback_1d` | 160 | 0.4895 | 6/11 | 6/11 | 11 | honest_negative |
+| `tlt_pullback_1d` | 84 | 0.5300 | 6/11 | 4/11 | 11 | honest_negative |
+
+**Item-by-item against what was committed in advance:**
+
+1. ✅ **Held.** The pooled cut is confirmed by arithmetic, not just asserted:
+   every leg's `u` exceeds what its own book could support — `ief` has 67
+   emitted trades (per-leg `u` would be 0) and reports `u=11`.
+2. ✅ **Held, and it bound.** `iaum` came back `candidate` and its status was
+   **not** flipped. The margin: 30 OOS trades, present in 4 of 11 folds, AUC
+   0.0025 above the bar — and the entire difference from *yesterday's*
+   `honest_negative` on the same leg is **one fold** (`beats_actual` 2/4 → 3/4;
+   6 < 8 fails, 9 ≥ 8 passes). This is the case the document was written for.
+3. ✅ **Held.** All six recorded `block_unit: family_pooled` with the per-leg
+   fold share in provenance.
+4. ❌ **REFUTED — by its own round.** Item 4 named `slv` "the only one worth a
+   second look" on density grounds (15.4 trades/fold, the thickest leg). It
+   returned the **lowest AUC of the six, 0.4895 — below chance.** Meanwhile the
+   leg the document singled out as *weakest* produced the only positive.
+   Density bounds how much a verdict is **worth**; it predicts nothing about its
+   **sign**, and item 4 should not have implied otherwise.
+
+**The prediction that was checked rather than assumed:** `u = floor(629/50) − 1
+= 11`, written before the round reported. Observed: 11.
+
+**What the round found that the pre-registration did not anticipate at all:**
+all six legs already carried a measurement from one day earlier, and every AUC
+moved (−0.110 to +0.042 against a 0.55 bar). That, and the finding that
+`beats_hard` is the binding term across the programme, are written up in
+[`m20-exit-head-binding-term-2026-08-14.md`](./m20-exit-head-binding-term-2026-08-14.md).
+
+**Net:** the document did its job — it stopped a `candidate` on 2.8 trades a
+fold from becoming a status flip — and it was wrong about which leg mattered.
+Both halves are worth keeping. A pre-registration that only ever confirms its
+author's guesses is not constraining anything.
