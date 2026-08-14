@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T09:00:00+00:00",
+  "updated_at": "2026-08-14T09:07:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14589,6 +14589,13 @@
         "scripts/research/m20_fleet_exit_sweep.py",
         "docs/research/exit-refinement-coverage.json",
         "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T09:07:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-13)",
+          "note": "CRITERION (1) COMPLETE -- THE ITEM IS CONFIRMED, NOT FALSIFIED. Ran base_oos under BOTH split modes on the two legs (trainer relay #9211, config-exact, tp_cap_pct=0.099, MIN_OOS_TRADES=25):\n\n  htf_pullback_trend_2h (BTCUSDT 2h)\n    --split-mode oos-trades -> split=2026-04-03  base_oos_n=24  -> insufficient_base\n    --split-mode date       -> split=2025-07-01  base_oos_n=95  -> GRADEABLE\n\n  tlt_pullback_1h (TLT 1h)\n    --split-mode oos-trades -> split=2026-02-05  base_oos_n=22  -> insufficient_base\n    --split-mode date       -> split=2025-07-01  base_oos_n=56  -> GRADEABLE\n\nBoth SHIPPED real-money cells are GRADEABLE at the corpus-standard split and are refused only under the derived one. The derivation places htf's boundary at 2026-04-03 -- roughly three months before the data ends (2026-07-10) -- leaving 24 trades, then refuses for 24 < 25.\n\nThese also cross-check the independent full-history measurement in relay #9209 (97 and 60 there vs 95 and 56 here); the small gap is the warmup/boundary effect resolve_split's own docstring predicts, which is itself further confirmation of the mechanism rather than a discrepancy.\n\nTHE FIX NOW HAS A ONE-SENTENCE FORM, which it did not when this row was filed: THE DERIVATION SHOULD ONLY EVER *ENLARGE* A THIN OOS WINDOW, NEVER *SHRINK* A RICH ONE. `oos-trades` exists to rescue legs that land at OOS 3-6 on a fixed date (resolve_split's docstring says exactly that); it has no business reducing 95 to 24. Concretely: take max(derived_split_window, fixed_corpus_split_window) rather than the derived one unconditionally -- which also makes criterion (2)'s 'measured boundary-loss distribution' unnecessary for the common case, since a leg that clears the floor at the standard split never needs the derivation at all.\n\nSTILL NOT DONE and still deliberately not taken here: criterion (2) (the actual default change -- fleet-wide verdict impact) and criterion (3) (make the verdict record its split mode/target/achieved count; the cell ref that started this records none of them). And NO cell was re-graded: these are `shipped` real-money cells and their disposition is queued operator decision (d)."
+        }
       ]
     }
   ]

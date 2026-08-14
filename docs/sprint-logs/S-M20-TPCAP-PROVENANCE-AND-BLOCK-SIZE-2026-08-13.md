@@ -1574,6 +1574,44 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     ("aims at exactly what the verdict requires"). Filed with a falsifiable
     first step instead.
 
+59. **Ran item 58's falsification test. It CONFIRMED the item.** Criterion (1)
+    was written to kill the row if a re-run still returned 24 -- the gap item 58
+    honestly flagged was that the cell ref does not record which split mode run
+    31771809102 used, so "the derivation caused it" was inference, not
+    measurement. Relay #9211 ran `base_oos` under **both** modes on both legs,
+    config-exact, `tp_cap_pct=0.099`, `MIN_OOS_TRADES=25`:
+
+    | leg | `--split-mode oos-trades` | `--split-mode date` |
+    |---|---|---|
+    | `htf_pullback_trend_2h` (BTCUSDT 2h) | split=2026-04-03, **n=24** -> `insufficient_base` | split=2025-07-01, **n=95** -> GRADEABLE |
+    | `tlt_pullback_1h` (TLT 1h) | split=2026-02-05, **n=22** -> `insufficient_base` | split=2025-07-01, **n=56** -> GRADEABLE |
+
+    Both SHIPPED real-money cells are gradeable at the corpus-standard split and
+    are refused **only** under the derived one. For `htf` the derivation puts the
+    boundary at 2026-04-03 -- about three months before the data ends
+    (2026-07-10) -- keeps 24 trades, then refuses for 24 < 25.
+
+    These also **cross-check** relay #9209's independent full-history figures
+    (97 and 60 there vs 95 and 56 here). The small gap is the warmup/boundary
+    effect `resolve_split`'s own docstring predicts, so it is further
+    confirmation of the mechanism, not a discrepancy between two measurements.
+
+    **The fix now has a one-sentence form it did not have when the row was
+    filed:** *the derivation should only ever **enlarge** a thin OOS window,
+    never **shrink** a rich one.* `oos-trades` exists to rescue legs sitting at
+    OOS 3-6 on a fixed date -- its docstring says exactly that -- and has no
+    business reducing 95 to 24. Concretely `max(derived_split_window,
+    fixed_corpus_split_window)`, which also makes criterion (2)'s "measured
+    boundary-loss distribution" unnecessary for the common case: a leg that
+    already clears the floor at the standard split never needs the derivation.
+
+    **Still not taken, deliberately:** criterion (2) is the actual default
+    change and moves verdicts fleet-wide; criterion (3) is making a verdict
+    record its own split mode / target / achieved count (the ref that started
+    this records none of the three, which is the diagnostic-provenance
+    sub-class B half of the finding). And **no cell was re-graded** -- these are
+    `shipped` real-money cells whose disposition is queued operator decision (d).
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
