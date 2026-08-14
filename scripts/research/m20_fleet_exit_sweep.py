@@ -148,6 +148,37 @@ def _resolve_one(sym: str, tf: str, data_dir: Path) -> tuple[str | None, str | N
     native = data_dir / f"{sym}_{tf}.csv"
     if native.exists():
         return str(native), None
+    # EXACT-TIMEFRAME ONLY, and deliberately NOT inside the grain loop below
+    # (BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV). Some series live under a
+    # `backtest_` prefix rather than the canonical spelling — BTC 5m is the
+    # live case: `backtest_BTCUSDT_5m.csv` is 647,585 rows (2020-03-25..
+    # 2026-05-21), deeper than any canonical alt 5m file, and is already the
+    # DEFAULT feed for all six walkforward_vol_* scripts, i.e. the series
+    # behind the live regime-router OFF cells. The prefix glob further down
+    # cannot reach it: its prefixes are {sym.lower()} plus the USDT-stripped
+    # base, and `backtest_btcusdt_5m.csv` starts with neither.
+    #
+    # WHY EXACT-TF AND NOT A GRAIN CANDIDATE. Putting this in the grain loop
+    # would be the harmful version. DATA_GRAIN is FINEST-FIRST, so a BTC
+    # 1h/2h/4h/1d leg — which today falls through to BTCUSDT_15m.csv — would
+    # start taking the 5m file instead, and that file ends 2026-05-21 against
+    # the 15m file's 2026-07-10. Every BTC leg coarser than 15m would quietly
+    # lose ~7 weeks of the most recent history, behind verdicts already
+    # recorded in the coverage matrix. That is this module's own docstring
+    # warning one level less visible than the MGC_1d.csv incident: there the
+    # NAME lied, here the name would be honest and only the RANGE dishonest.
+    # Restricted to the leg's own timeframe, the probe can only fire where
+    # nothing resolves at all, so it cannot move any recorded basis.
+    #
+    # MEASURED, not argued from the shape (trainer-diag #9325): enumerating
+    # every leg x symbol x both prefer_native modes = 110 resolutions, this
+    # changes 4 — ict_scalp_5m (live) and vwap (shadow), each in both modes,
+    # all four `None` -> resolved. Nothing that resolves today moves.
+    # data/backtest_ESF_1h.csv also exists and is inert: no leg sits at
+    # (ESF, 1h). data/backtest_candles.csv does not parse as (sym, tf) at all.
+    prefixed = data_dir / f"backtest_{sym}_{tf}.csv"
+    if prefixed.exists():
+        return str(prefixed), None
     for g in DATA_GRAIN:
         if TF_MINUTES[g] > leg_min:
             break
