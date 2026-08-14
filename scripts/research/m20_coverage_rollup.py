@@ -224,6 +224,43 @@ GEOMETRY_SENSITIVE_LEVERS = frozenset({
 
 _DATE = re.compile(r"20\d{2}-\d{2}-\d{2}")
 
+# A NOTE ABOUT THE EVIDENCE IS NOT THE EVIDENCE BEING RENEWED.
+#
+# The date proxy asks "how old is this cell's newest ref date?", which silently
+# assumes every date in a ref marks a MEASUREMENT. Some segments are commentary
+# — an annotation recording that OTHER evidence exists, or that a re-sweep was
+# attempted and returned nothing. Their dates are the date the NOTE was written.
+#
+# Caught 2026-08-14 on my own diff, before merge, by the three-state report added
+# in this same commit: annotating 8 cells with live-parity counter-evidence
+# stamped "2026-08-14" into their refs, and all 8 promptly DROPPED OUT of
+# `stale_cells` — un-staled by a note, with no new measurement behind it. The
+# cells that already handled this (mhg/mes) survive only because they carry an
+# explicit `tp_geometry: no_take_profit`, which overrides the proxy; a cell with
+# `tp_geometry: null` had nothing but the date and was silently laundered.
+#
+# The matrix's own refs state the rule in prose — "a note about the evidence is
+# not the evidence being renewed" — so this encodes what was already written
+# down and merely unenforced.
+_ANNOTATION_SEGMENT = re.compile(
+    r"LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS"
+    r"|RE-SWEEP ATTEMPTED .{0,40}AND RETURNED NO VERDICT",
+    re.I)
+
+
+def evidence_dates(ref: str | None) -> list[str]:
+    """Dates from the EVIDENCE portion of a ref, excluding annotation segments.
+
+    Refs are `||`-separated. A segment that is commentary about the evidence
+    (rather than a measurement) contributes no date, so writing a note can never
+    make a cell look freshly measured.
+    """
+    if not ref:
+        return []
+    keep = [seg for seg in ref.split("||")
+            if not _ANNOTATION_SEGMENT.search(seg)]
+    return _DATE.findall("||".join(keep))
+
 
 def _declared_strategies() -> set[str] | None:
     """Leg names declared in config/strategies.yaml, or None if unreadable.
@@ -343,9 +380,17 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
         # the caveat shipped 2026-08-12 and it took a separate hand-audit on
         # 2026-08-13 to notice that 19 of the stale cells were live decisions.
         #
-        # Base rate so far is 1 of 1: `trend_donchian` `trail_decay` is the only
-        # one re-swept, and it did NOT reproduce (BL-20260808, now
-        # `shipped_gate_failed`).
+        # DO NOT HARDCODE A RE-SWEEP BASE RATE HERE. This comment used to read
+        # "Base rate so far is 1 of 1: `trend_donchian` `trail_decay` ... did
+        # NOT reproduce (now `shipped_gate_failed`)", and the printed banner
+        # said the same. Both went stale and stayed confident: measured
+        # 2026-08-14, that cell's status is `shipped` (NOT
+        # `shipped_gate_failed`, which appears zero times in the matrix today)
+        # and the lever PASSES -- the 2026-08-12 "did not reproduce" reading
+        # was itself invalid, because that sweep measured the base against
+        # itself (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES).
+        # A rate baked into printed text is a claim nothing re-derives; read it
+        # from docs/research/m20-sweep-corpus.jsonl instead.
         "stale_decisions": [],
     }
     for row in matrix["rows"]:
@@ -367,7 +412,10 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
                 continue  # an open cell owes a measurement anyway
             if base(cell.get("status")) == "n/a":
                 continue  # structurally inapplicable — no measurement to age
-            dates = _DATE.findall(cell.get("ref") or "")
+            # evidence_dates(), not _DATE.findall(): an annotation
+            # segment must not renew a cell's vintage. See the comment
+            # on _ANNOTATION_SEGMENT.
+            dates = evidence_dates(cell.get("ref"))
             # PER-LEVER, not one global date: `exit_head_ml` rides a different
             # harness whose TP fix landed four days later (see the map above).
             cut = cutover_for(col)
@@ -402,6 +450,79 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
 def base(status: str | None) -> str:
     """`blocked:data_missing` -> `blocked`. None stays None (an error)."""
     return status.split(":", 1)[0] if isinstance(status, str) else status
+
+
+# THREE STATES, BECAUSE "STALE" ALONE IS THE WRONG PROMPT.
+# `stale_cells` says the evidence is OLD. It does not say whether NEWER evidence
+# already exists, so it sends a reader to re-run a sweep that may already have
+# been run. Measured 2026-08-14
+# (BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): of 186
+# stale cells, 100 already had a live-parity corpus row and 9 of those PASSED
+# against a recorded negative. Over half the backlog was a JOIN, not a re-run.
+CORPUS_NO_ROW = "no_live_parity_row"       # nothing newer — a re-run IS the remedy
+CORPUS_AGREES = "live_parity_agrees"       # newer evidence exists and matches
+CORPUS_DISAGREES = "live_parity_disagrees"  # newer evidence exists and contradicts
+CORPUS_UNAVAILABLE = "corpus_unavailable"   # we could not look — NOT "no row"
+
+
+def _corpus_resolver():
+    """The ONE definition of "newest floor-clearing live-parity row".
+
+    Loaded from the guard rather than re-implemented here. Two copies of this
+    predicate would be free to drift, and the drift would be silent: the roll-up
+    would report a state the guard does not enforce, or vice versa. The repo has
+    a standing rule against re-deriving a vocabulary that already has a home
+    (see the `provenance` and `_regime_score_semantics` modules), and this is the
+    same shape one directory over.
+    """
+    import importlib.util
+    guard = REPO / "scripts" / "ci" / "check_matrix_corpus_agreement.py"
+    if not guard.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("_mca", guard)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def stale_corpus_state(matrix: dict[str, Any]) -> dict[str, Any]:
+    """Per stale cell: does the corpus already answer it, and how?
+
+    Returns the three states above, never collapsing "we could not look" into
+    "there is no row" — those are opposite claims and the second is the one that
+    sends someone to burn a sweep.
+    """
+    out = {"available": True, "counts": {}, "rows": []}
+    mod = _corpus_resolver()
+    corpus = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
+    if mod is None or not corpus.is_file():
+        out["available"] = False
+        out["why"] = (f"resolver_present={mod is not None} "
+                      f"corpus_present={corpus.is_file()}")
+        return out
+    rows = [json.loads(x) for x in corpus.read_text().splitlines() if x.strip()]
+    v = evidence_vintage(matrix)
+    for leg, symbol, tf, lever, ref_date, cut in v.get("stale_cells", []):
+        hit = mod.newest_floor_clearing_pass(rows, leg, lever)
+        cell = next((r.get(lever) or {} for r in matrix["rows"]
+                     if r["strategy"] == leg), {})
+        status = cell.get("status")
+        if hit is None:
+            state = CORPUS_NO_ROW
+        elif base(status) in mod.NEGATIVE_STATUSES:
+            state = CORPUS_DISAGREES
+        else:
+            state = CORPUS_AGREES
+        out["counts"][state] = out["counts"].get(state, 0) + 1
+        out["rows"].append({
+            "leg": leg, "symbol": symbol, "tf": tf, "lever": lever,
+            "status": status, "state": state,
+            "corpus_cell": (hit or {}).get("cell"),
+            "corpus_verdict": (hit or {}).get("verdict"),
+            "corpus_run": ((hit or {}).get("run_id") or "")[:10] or None,
+            "corpus_base_oos": (hit or {}).get("base_trades_OOS"),
+        })
+    return out
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -628,6 +749,52 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
         "evidence_vintage": evidence_vintage(matrix),
+        "geometry_coverage": geometry_coverage(matrix),
+    }
+
+
+def geometry_coverage(matrix: dict[str, Any]) -> dict[str, Any]:
+    """How much of the population states WHICH TP geometry produced its verdict.
+
+    THE FRACTION IS THE POINT, not the marked cells. `tp_geometry` exists for
+    exactly one job: BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+    established that production places `tp = min(entry*1.099, entry + tp_r*risk)`
+    while the harnesses modelled NO take-profit, so **every pre-2026-08-10
+    verdict was measured on a book production does not run**. The field says
+    which geometry a verdict rests on.
+
+    Measured 2026-08-14: **10 of 416 cells carry it (2.4%)**. At that rate the
+    absent value covers three different conditions at once — measured at live
+    parity and unstamped, measured pre-cutover, and nobody looked — and the
+    reassuring reading is the wrong one for most of the population.
+
+    So this reports it the way `/performance` reports `rCoverage` and
+    `pnlCoverage`: **the denominator ships beside the number**, and `unrecorded`
+    is COUNTED rather than omitted. A reader must not be able to infer
+    completeness from the marked cells alone, which is precisely what a bare
+    list of stamped cells invites.
+
+    Live cells only, matching the headline's population — a figure over a
+    different denominator than the headline is how the 304/311/319 divergence
+    started.
+
+    Tracked by BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING
+    """
+    counts: Counter[str] = Counter()
+    for row, col, status in cells(matrix):
+        if status is None:
+            continue
+        cell = row.get(col)
+        geom = cell.get("tp_geometry") if isinstance(cell, dict) else None
+        counts["unrecorded" if geom is None else str(geom)] += 1
+    total = sum(counts.values())
+    recorded = total - counts.get("unrecorded", 0)
+    return {
+        "total_cells": total,
+        "recorded": recorded,
+        "unrecorded": counts.get("unrecorded", 0),
+        "recorded_pct": round(100 * recorded / total, 1) if total else 0.0,
+        "by_value": dict(counts),
     }
 
 
@@ -657,8 +824,27 @@ def render(r: dict[str, Any]) -> str:
         "    ^ NOT 376 - headline. `blocked` is closed for the headline and",
         "      open for the done-condition, deliberately.",
         "",
-        "status counts:",
     ]
+    g = r.get("geometry_coverage") or {}
+    if g.get("total_cells"):
+        # Reported like rCoverage/pnlCoverage: the DENOMINATOR ships with the
+        # number, and `unrecorded` is counted rather than omitted. Without this
+        # a reader infers completeness from the stamped cells alone -- and at
+        # 2.4% stamped that inference is wrong for almost the whole population.
+        out += [
+            "  TP-GEOMETRY COVERAGE (which geometry each verdict rests on)",
+            f"    recorded: {g['recorded']}/{g['total_cells']}"
+            f" = {g['recorded_pct']}%   unrecorded: {g['unrecorded']}",
+            "    " + " · ".join(f"{k}={v}" for k, v in
+                                sorted(g.get("by_value", {}).items())),
+            "    ^ `unrecorded` is NOT 'measured at live parity'. It covers",
+            "      three conditions at once: stamped-nowhere-but-live-parity,",
+            "      pre-2026-08-10 no-take-profit, and nobody looked. Every",
+            "      verdict older than the 2026-08-10 cutover was measured on a",
+            "      book production does not run.",
+            "",
+        ]
+    out += ["status counts:"]
     v = r.get("evidence_vintage") or {}
     if not v.get("classifier_available", True):
         out[2:2] = [
@@ -715,10 +901,11 @@ def render(r: dict[str, Any]) -> str:
                 " on a real-money leg now, on a",
                 "         number never reproduced under the geometry the bot"
                 " actually places.",
-                "         Base rate so far is 1 of 1: `trend_donchian`"
-                " `trail_decay` is the only one re-swept",
-                "         and it did NOT reproduce (now `shipped_gate_failed`)."
-                "  List them with `--stale-decisions`.",
+                "         Read the re-sweep base rate from the CORPUS, not from"
+                " this banner: a rate",
+                "         hardcoded in printed text goes stale silently, and"
+                " this one did.",
+                "         List them with `--stale-decisions`.",
             ]
         out[2:2] = block
     for s, n in sorted(r["per_status"].items(), key=lambda kv: -kv[1]):
@@ -748,6 +935,12 @@ def main(argv: list[str]) -> int:
                     help="list the CLOSED cells that are not negatives and whose "
                          "evidence predates the TP-parity cutover — live decisions "
                          "resting on a number never reproduced under live geometry")
+    ap.add_argument("--stale-corpus-state", action="store_true",
+                    help="for every stale cell, say whether the CORPUS already "
+                         "answers it: no live-parity row / agrees / DISAGREES. "
+                         "'Stale' alone sends a reader to re-run a sweep that may "
+                         "already have been run (measured 2026-08-14: 100 of 186 "
+                         "stale cells already had a live-parity row)")
     a = ap.parse_args(argv[1:])
 
     path = Path(a.matrix)
@@ -805,6 +998,34 @@ def main(argv: list[str]) -> int:
             for leg, lever, status, dt, cut in sorted(dec):
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
                       f"newest-ref {dt or '(undated)'}  (cutover {cut})")
+        if a.stale_corpus_state:
+            cs = stale_corpus_state(matrix)
+            if not cs["available"]:
+                # "We could not look" is NOT "there is nothing to find". Saying
+                # so is the whole point of the third state.
+                print(f"\nstale CORPUS STATE: NOT COMPUTED ({cs.get('why')}). "
+                      f"This is not 'no newer evidence exists'.")
+            else:
+                c = cs["counts"]
+                total = sum(c.values())
+                print(f"\nstale cells vs the CORPUS ({total} stale cell(s)) — does "
+                      f"newer live-parity evidence already exist?")
+                print(f"  {CORPUS_NO_ROW:<26} {c.get(CORPUS_NO_ROW, 0):>4}  "
+                      f"— nothing newer; a re-run IS the remedy")
+                print(f"  {CORPUS_AGREES:<26} {c.get(CORPUS_AGREES, 0):>4}  "
+                      f"— newer evidence exists and matches the status")
+                print(f"  {CORPUS_DISAGREES:<26} {c.get(CORPUS_DISAGREES, 0):>4}  "
+                      f"— newer evidence exists and CONTRADICTS the status")
+                dis = [r for r in cs["rows"] if r["state"] == CORPUS_DISAGREES]
+                if dis:
+                    print("\n  the contradictions (adjudicate; do NOT auto-flip — "
+                          "a passing cell is not a passing lever disposition, and "
+                          "a live-leg status change is Tier-3):")
+                    for r in sorted(dis, key=lambda x: (x["leg"], x["lever"])):
+                        print(f"    {r['leg']:<26} {r['lever']:<16} "
+                              f"{str(r['status']):<18} vs {r['corpus_cell']} "
+                              f"{r['corpus_verdict']} {r['corpus_run']} "
+                              f"base_OOS={r['corpus_base_oos']}")
         if problems:
             print(f"\n⚠️  {len(problems)} structural defect(s) — run --validate")
     return 0
