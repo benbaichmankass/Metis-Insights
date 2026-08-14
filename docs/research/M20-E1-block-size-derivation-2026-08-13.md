@@ -963,3 +963,76 @@ for the operator.**
 
 The factual error in the pending refs — "not exit-processed on this leg's own book" —
 is corrected in the matrix regardless, since it is wrong independent of the grade.
+
+## 18. ⛔ EVERY exit-head round on disk was built on a NO-TAKE-PROFIT book
+
+This one reaches back over §§ 10–17 and I found it by launching a round of my own
+and reading what it actually executed.
+
+**`m20_exit_head_round.py` structurally cannot produce a live-parity book.** Line
+145 calls `base_args(leg, cfg, fam, data, resample)` — five positional args — so
+`tp_cap_pct` takes its default `0.0`; `base_args` appends `--tp-r` /
+`--tp-cap-pct` **only** when `tp_cap_pct > 0.0` (line 386). The driver's own
+argparse has **no `--tp-cap-pct` option at all**, so there is no way to ask for
+one. Every harness therefore runs at its defaults — `tp_cap_pct=0.0`,
+`tp_r=50.0` (the sentinel) — which is **no take-profit**.
+
+Visible in the launch log of my own round (#9144): the emitted command carries
+`--trail-mult 3.5` and **no `--tp-r`**, on a leg whose config declares
+`tp_r: 6.0`. I aborted and quarantined that round
+(`prop_1h.ABORTED-WRONG-GEOMETRY/` + a `DO-NOT-USE.txt`) rather than let a
+wrong-geometry verdict sit on disk looking authoritative.
+
+### The audit's first method failed, and its own positive control caught that
+
+I searched each `round_report.json` for the harness flags. Result: `--trail-mult`
+came back **`False` on every round** — including rounds whose logs demonstrably
+carry it. So `round_report.json` **does not record harness args at all**, the
+search was measuring nothing, and its uniform "no `--tp-r`" answer was
+uninformative rather than confirming. **The control is the only reason that is
+visible**; without it the void method would have produced exactly the answer I
+expected and been believed.
+
+### The second method is independent, and it is conclusive
+
+Exit-reason distributions over the emitted trades:
+
+| round | top exit reasons |
+|---|---|
+| `2h` | stop 109 · trail_stop 104 · timeout 16 |
+| `4h` | trail_stop 184 · flip 33 |
+| **`donchian_1h_nested`** | **trail_stop 174 · stop 162 · timeout 7** |
+| `eh_1d` | trail_stop 31 · stop 31 · timeout 1 |
+| `eh_1h` | trail_stop 201 · stop 151 |
+| `eh_sq4h` | trail_stop 62 · stop 21 · timeout 17 |
+| `p4_hp_ext_1h` / `p4_peak_1h` | trail_stop 388 · flip 40 |
+| `peak_2h` / `peak_4h` | (as `2h` / `4h`) |
+| `prop_1h` (aborted) | trail_stop 522 · stale_stop 253 · stop 202 |
+
+**Not one take-profit exit in any of them.** Eleven rounds, zero TP exits.
+
+**Undetermined, not confirmed:** `scalp_15m` and `scalp_5m` emit `exit_reason`
+as `(none)` — the scalp harness does not stamp it — so this method says nothing
+about them either way. They are not evidence of a TP and not evidence against
+one.
+
+### What this does and does not do to §§ 12–17
+
+**It does not invalidate them.** §§ 13–16 are *within-book* arm contrasts — cond
+vs uncond at the same τ, over the same folds and the same trades (§ 16 verified
+the trade counts are identical on 100% of active folds). A geometry bias shared
+by both arms **cancels in the difference**.
+
+**It does condition their transfer to production.** The live units clamp
+`tp = min(entry*(1+0.099), entry + tp_r*risk)`, and the conditional arm's entire
+mechanism is *holding longer* (§ 13: +3.6 to +4.8 bars). A 9.9% cap truncates
+precisely the long right tail that the arm is buying, so the measured
+"+hold / worse drawdown / no net_R gain" need not carry the same magnitudes —
+or necessarily the same sign — on the book production actually runs. **The
+direction of that error is not known and is not guessed at here.**
+
+This is `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP` — already known
+for the *lever sweeps*, where the fix was `tp_cap_pct=0.099` as the workflow
+default. **The exit-head rounds were never given that fix, and cannot be given it
+without a code change.** Filed as
+`BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`.
