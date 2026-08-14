@@ -2355,6 +2355,58 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     comparison and is printed only to show the sign is stable. Stating that
     rather than letting two adjacent numbers imply a precision they do not have.
 
+73. **Two more defects fixed on the way out, both found by using the tools
+    rather than reading them.**
+
+    **(a) The matrix/config guard.** Criterion (3) of the six-cell finding.
+    `scripts/ci/check_matrix_config_agreement.py` imports the sweep's own
+    `LEVER_DECLARED_KEYS` rather than restating them — a second copy would be
+    free to drift from the one that decides which levers a leg arms, and the
+    failure that produces (grading a lever the sweep does not recognise) looks
+    exactly like a real finding. Its self-test covers **both** directions,
+    including the one that came back clean: a guard that only ever checked the
+    failing direction would report that clean as evidence when it had never
+    looked.
+
+    Running it caught a bug in **itself** — the first version printed *"about a
+    live lever"* over `avax_pullback_2h`, which is `execution: shadow`. A label
+    naming something the code had not checked, in the guard written to catch
+    labels that do not describe what they computed.
+
+    It is **deliberately not registered** in `run_guards.py`: it fails on the
+    current tree, and reconciling those six cells is not a mechanical sync —
+    criterion (2) requires each ref to record *which* evidence supports the
+    shipped value, preserving `tp_geometry` where that evidence predates live
+    parity. So the registration block lands in the same change as the
+    reconciliation. A guard whose first CI run is red teaches everyone to skip
+    it. `tests/test_matrix_config_agreement.py` runs its self-test meanwhile, so
+    it cannot rot while it waits — an unregistered guard is otherwise one whose
+    imports quietly break and nobody notices until the day it is switched on and
+    reports a clean pass over nothing.
+
+    **(b) The refusal now diagnoses.** Criterion (4) of the cliff row. Carrying
+    `leg lifetime` beside the windowed count made the discriminator *available*;
+    it still left every reader to do the arithmetic, and the two conclusions have
+    opposite remedies. The message now states which: **`THE LEG IS
+    TRADE-STARVED`** (lifetime < 2×floor — re-running returns this again) vs
+    **`THE BOUNDARY IS MISPLACED, NOT THE LEG`** (the lifetime could seat a
+    floor-clearing window and this split did not — one flag fixes it), with a
+    third **`UNDIAGNOSED`** for `split_mode=date`, where no emit ran, the
+    lifetime was never counted, and neither diagnosis is supportable. It does not
+    default to one. A test pins the 2×floor boundary at exactly 49 vs 50, because
+    an off-by-one there silently relabels a starved leg as a fixable one and
+    sends the next session re-running a sweep that cannot succeed.
+
+    **Fixing this broke one of my own earlier tests, correctly.**
+    `test_an_uncounted_lifetime_is_omitted_not_fabricated` asserted `"lifetime"
+    not in msg` — a *proxy* for its real intent, which its own docstring states:
+    no lifetime **value** may be invented. The moment the message began saying,
+    accurately, *"leg lifetime was never counted"*, the proxy failed on a change
+    that satisfied the intent. Tightened to `not re.search(r"leg lifetime \d")`
+    plus a positive requirement that the absence be **stated** — because
+    "we did not look" is a claim the reader needs, not one to omit. A test
+    asserting a proxy for its purpose will eventually forbid the right answer.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
