@@ -1399,6 +1399,43 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     against the series it refuses. The next session should not be able to spend
     that hour, and now it cannot.
 
+55. **Made tonight's near-miss impossible to repeat, on the consumer side.**
+
+    Item 47's near-miss was caught by one human-scale question — *where does
+    this file come from* — which is not a control. `market_raw_to_csv.py` now
+    answers it before writing: if the symbol has a declared proxy and that
+    proxy's CSV exists, it compares overlapping-date closes at 1e-6 and
+    **REFUSES (exit 2) with the measurement** when >= 95% are identical.
+    `--allow-proxy-alias` overrides for deliberately materialising a proxy
+    under its own name.
+
+    **Consumer-side deliberately.** It needs no producer change and no new
+    shard field, so it protects every shard ALREADY on disk. The better long
+    answers — record the fetched ticker IN the shard, or write GC=F under its
+    own key — live in `build_trainer_datasets.sh`, which feeds the trainer's
+    nightly ML builds. That is not a change to make unattended at 08:40 on a
+    night whose lesson was *measure before you act*; both stay open on the
+    backlog item.
+
+    **The threshold moved because a test caught me.** I wrote 0.99 reasoning
+    from the real case (2,511 of 2,512). A 20-bar fixture with one stale bar is
+    0.95 — under the cut — so the guard would have waved through exactly the
+    short-overlap case. The fix was not a bigger fixture: the discriminator is
+    **bimodal**, not a similarity score. At 1e-6, two different instruments
+    share ~0% exactly-identical closes (the low digits differ on essentially
+    every bar); two copies of one series share ~100%. Nothing real lands
+    between, so any cut in 0.5..0.99 gives the same answer on real data — and
+    the looser cut removes a length-dependent blind spot at no cost. That is
+    the reasoning now recorded at the constant, because "0.95" alone would read
+    as a tuned tolerance it is not.
+
+    **Fail-open by construction, and tested as such:** no declared proxy, no
+    proxy CSV, no overlapping dates, or a genuine difference all proceed
+    normally. It can block only on positive evidence the two series are the
+    SAME. 9 tests including a can-fail control — disabling the check fails
+    exactly the two refusal tests and leaves the seven fail-open/override tests
+    passing, which is the selectivity that makes the control meaningful.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,

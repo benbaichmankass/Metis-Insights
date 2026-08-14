@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T08:20:00+00:00",
+  "updated_at": "2026-08-14T08:40:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14565,6 +14565,13 @@
         "scripts/research/m20_exit_head_round.py",
         "BL-20260814-MARKET-RAW-TO-CSV-HAS-NO-CALLER",
         "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T08:40:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-13)",
+          "note": "PARTIAL: criterion (c) SHIPPED. `market_raw_to_csv.py` now refuses to write a native-named CSV that IS the proxy. Before writing it loads `data/<PROXY><suffix>.csv`, compares overlapping-date closes at 1e-6, and exits 2 with the measurement when >= 95% are identical. `--allow-proxy-alias` overrides for deliberately materialising a proxy under its own name.\n\nWHY A CONSUMER-SIDE CHECK FIRST: it needs no producer change and no new shard field, so it protects every shard ALREADY on disk. Criteria (a) (record the fetched ticker IN the shard) and (b) (write GC=F under its own key) remain the better long answers and stay OPEN -- they belong in `build_trainer_datasets.sh`, which feeds the trainer's nightly ML builds, and that is not a change to make unattended at 08:40 on a night whose lesson was 'measure before you act'.\n\nTHRESHOLD RATIONALE, since 0.95 looks arbitrary: the discriminator is BIMODAL, not a similarity score. At 1e-6 two different instruments share ~0% exactly-identical closes (the low digits differ on essentially every bar) while two copies of one series share ~100%; nothing real lands between, so any cut in 0.5..0.99 picks the same answer on real data. 0.95 rather than 0.99 because the shortfall does not scale with n -- the proxy's final bar is often a stale print (measured MGC: 2,511 of 2,512), and on a SHORT overlap that one bar is 5%, which a 0.99 cut would wave through. My first draft used 0.99 and a 20-bar test caught it.\n\nFAIL-OPEN BY CONSTRUCTION, verified by test: no declared proxy, no proxy CSV on disk, no overlapping dates, or a genuine difference all proceed normally. The check can block only on positive evidence the two series are the SAME. 9 tests incl. a can-fail control -- disabling the check fails exactly the two refusal tests and leaves the seven fail-open/override tests passing."
+        }
       ]
     }
   ]
