@@ -7,23 +7,43 @@ hypothesis got attached to that ("the head works on ETH"). Operator decision
 positives. This script is that test, run against the committed coverage matrix
 so the numbers are reproducible rather than a one-off shell computation.
 
-WHAT IT FOUND, and it inverts the hypothesis. Across the 20 resolved cells
-whose ref states an `n_oos`, a single threshold on OOS BOOK SIZE predicts the
-E1 verdict better than the symbol does (90.0% vs 80.0%), and once book size is
-held fixed the symbol adds essentially nothing: in the large-book stratum ETH
-is 2/2 and non-ETH is 4/5. Every remaining trace of the "ETH effect" is ONE
-cell — `ict_scalp_eth_15m`, the only pass in a 13-cell small-book stratum.
+THE ANSWER, IN ORDER, BECAUSE THE FIRST TWO ATTEMPTS WERE BOTH WRONG.
 
-WHY THAT IS MECHANISTICALLY UNSURPRISING, which is the part that matters more
-than the ETH question. The E1 gate is a FOLD-COUNT: candidate requires
+  1. The SYMBOL story ("the head works on ETH") does not survive a denominator.
+  2. Nor does the BOOK-SIZE story that replaced it, and that one was mine.
+
+On the 20 mixed-geometry cells that state an `n_oos`, a single `n_oos >= 350`
+split classified the E1 verdict at 90.0% against 80.0% for the symbol — so this
+file originally concluded book size was the better explanation. A matched 2h
+live-parity round was then run as genuine HELD-OUT data for that split (the
+threshold having been chosen on the very sample it was scored on). It scores
+**1 of 7 = 14.3%** there: the two largest books FAIL and the smallest pass sits
+below the largest failure. **Book size is refuted.** The 90.0% was an in-sample
+artifact, which is what the caveat below always said it might be — that caveat
+is the only part of the original reading that survived.
+
+WHERE ETH LANDS. Over both committed live-parity strata (n=12): ETH 4/4,
+non-ETH 2/8, Fisher one-sided p = 0.0303. But two of those ETH rows are `_prop`
+siblings of the other two — same symbol, same family, overlapping book — so
+counting both doubles one observation. Dropping every prop sibling (n=9): ETH
+2/2, non-ETH 2/7, **p = 0.1667**. The significance turns entirely on that
+choice, so `_report_live_parity_rounds` prints both rather than picking. Honest
+reading: no non-ETH leg in either family matches ETH's record, and the sample
+cannot establish that as more than chance. Two non-ETH legs (XRP, ADA) do pass.
+
+WHAT IS ACTUALLY BINDING — and it is now named as unexplained rather than
+misattributed. The E1 gate is a FOLD-COUNT: candidate requires
 `mean_auc > 0.55` AND `beats_actual*3 >= u*2` AND `beats_hard*3 >= u*2`, i.e.
-at least two-thirds of folds on the right side of the comparison
-(`train_exit_head.py`). Per-fold noise falls as trades-per-fold rises, so a leg
-with a thin book has fewer chances to land two-thirds of its folds correctly
-whether or not the head helps it. A gate whose pass rate is 90% predicted by
-book size is substantially a POWER TEST, and a small-book `honest_negative` is
-then closer to "underpowered" than to "the head does not work here" — a
-distinction the status vocabulary cannot currently express.
+at least two-thirds of folds on the right side (`train_exit_head.py`). All
+three 2h negatives fail on `beats_hard` while two of them PASS `beats_actual`,
+and `sol_pullback_2h` carries that stratum's second-highest AUC and still
+fails. So the separating axis is fold consistency against the CHEAP LEVER —
+not the head's discrimination, and not book size. What drives it is open.
+
+(The power-test intuition that motivated the book-size hypothesis — thin book,
+fewer chances to land two-thirds of folds — remains mechanically plausible and
+is simply not what separates these legs. It is recorded here as a rejected
+explanation, not a standing one.)
 
 READ THE POPULATION, NOT THE PERCENTAGE. Three limits, all load-bearing:
 
@@ -38,13 +58,21 @@ READ THE POPULATION, NOT THE PERCENTAGE. Three limits, all load-bearing:
      is therefore partly definitional, which strengthens the "power test"
      reading and weakens any causal claim about book size per se.
 
-The one stratum that IS internally clean is printed separately: the
-trend_donchian 1h family at live parity (relays #9206 main, #9156-58 prop), one
-geometry, one strategy, one calendar window. There ETH is 2/2 and non-ETH 0/3
-(Fisher one-sided p = 0.10, n = 5 — underpowered by construction). Note within
-it that SOL's AUC (0.6161) EXCEEDS both ETH legs': whatever separates them is
-not the head's discrimination, it is fold consistency, which is the book-size
-axis again.
+The single-geometry strata are printed separately, from the committed rounds
+file rather than from prose. The 1h one (relays #9206 main, #9156-58 prop) is
+ETH 2/2 and non-ETH 0/3 (p = 0.10, n = 5 — underpowered by construction), and
+note within it that SOL's AUC (0.6161) EXCEEDS both ETH legs': whatever
+separates them is not the head's discrimination.
+
+A FOURTH SECTION sizes the remaining work rather than the ETH question, and is
+the more consequential of the two: **19 of the 29 negative cells are not known
+to have been measured at live parity at all.** Every exit-head round before
+2026-08-14 was built on a book with NO take-profit (the driver could not pass
+the cap — `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`), so a negative
+graded then says "the head did not help on a book the bot does not trade",
+which is a different claim. Of the 10 recorded negatives re-measured so far, 4
+did not survive. That rate is reported beside its denominator and its scope and
+is deliberately NOT projected onto the 19 — it sizes the work, not the outcome.
 
 Usage:  python3 scripts/research/m20_exit_head_denominator.py
 """
@@ -120,6 +148,7 @@ def load_cells(matrix: dict) -> list[dict]:
         out.append({
             "leg": row["strategy"],
             "symbol": (row.get("symbol") or "").upper(),
+            "tf": row.get("tf"),
             "eth": "ETH" in (row.get("symbol") or "").upper(),
             "n_oos": int(hits[0]) if hits else None,
             "ok": status in PASS_STATUSES,
@@ -233,8 +262,65 @@ def main() -> int:
             print("          stratum below REFUTES that reading, so fold consistency is the axis")
             print("          and what drives it is still unexplained.")
     _report_live_parity_rounds()
+    _report_negative_column_vintage(cells)
     print()
     return 0
+
+
+def _report_negative_column_vintage(cells: list[dict]) -> None:
+    """How much of the NEGATIVE column rests on a geometry production may not run?
+
+    Separate question from the ETH one, and the more consequential of the two.
+    Every exit-head round before 2026-08-14 was built on a book with NO
+    take-profit — the driver could not pass the cap
+    (`BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`) — so a negative graded
+    then says "the head did not help on a book the bot does not trade", which is
+    not the same claim as "the head does not help".
+
+    This sizes the WORK, deliberately not the outcome: the observed flip rate is
+    reported beside its denominator and its scope, and is NOT projected onto the
+    unmeasured cells.
+    """
+    if not ROUNDS.is_file():
+        return
+    rounds = {json.loads(x)["leg"]: json.loads(x)
+              for x in ROUNDS.read_text().splitlines() if x.strip()}
+    lp = re.compile(r"live[ _-]parity|tp_cap_pct\s*=?\s*0\.099|live capped TP", re.I)
+    negatives = [c for c in cells if c["status"] in FAIL_STATUSES]
+    measured = [c for c in negatives
+                if c["leg"] in rounds or lp.search(c["ref"])]
+    unmeasured = [c for c in negatives if c not in measured]
+
+    print(f"\n=== VINTAGE OF THE NEGATIVE COLUMN ({len(negatives)} negative cells) ===")
+    print(f"  measured at live parity            : {len(measured)}")
+    print(f"  NOT known to be live parity        : {len(unmeasured)}  "
+          f"<- graded on a geometry production may not run")
+    if unmeasured:
+        by_tf: dict[str, int] = {}
+        for c in unmeasured:
+            tf = c.get("tf") or "?"
+            by_tf[tf] = by_tf.get(tf, 0) + 1
+        print(f"    by timeframe: {dict(sorted(by_tf.items()))}")
+
+    # Of the recorded negatives that HAVE been re-measured, how many survived?
+    rechecked = [c for c in negatives if c["leg"] in rounds]
+    if rechecked:
+        flipped = [c["leg"] for c in rechecked
+                   if rounds[c["leg"]]["verdict"] == "candidate"]
+        held = [c["leg"] for c in rechecked
+                if rounds[c["leg"]]["verdict"] != "candidate"]
+        n = len(flipped) + len(held)
+        print(f"\n  recorded negatives re-measured so far: {n}")
+        print(f"    did NOT survive (now candidate)   : {len(flipped)} {flipped}")
+        print(f"    reproduced                        : {len(held)} {held}")
+        if n:
+            print(f"    observed flip rate {len(flipped)}/{n} = {100*len(flipped)/n:.0f}%")
+        fams = sorted({rounds[c["leg"]].get("family") or "?" for c in rechecked})
+        tfs = sorted({rounds[c["leg"]].get("tf") or "?" for c in rechecked})
+        print(f"  ⚠️  That rate is NOT projected onto the {len(unmeasured)} unmeasured cells: "
+              f"n={n}, drawn from")
+        print(f"     {len(fams)} strategy famil{'y' if len(fams)==1 else 'ies'} {fams} on "
+              f"{len(tfs)} timeframe(s) {tfs}. It sizes the work, not the outcome.")
 
 
 def _report_live_parity_rounds() -> None:
