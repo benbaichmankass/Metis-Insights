@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T12:30:36.324250+00:00",
+  "updated_at": "2026-08-14T12:32:50.493333+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14175,6 +14175,11 @@
           "at": "2026-08-14T12:14:51.539551+00:00",
           "by": "claude (roadmap + work-plan review 2026-08-14), diag #9235",
           "note": "TWO CHANGES, and the first one matters for whoever picks this up next: **BOTH ACCOUNTS HAVE RECOVERED.** Measured 2026-08-14T11:00:38Z via /api/bot/accounts/balances (n=1 snapshot, the same basis this row's original figures use): alpaca_paper balance $86,157.74 / api_ok true / 6 open positions; alpaca_portfolio $99,983.92 / api_ok true / 7 open positions. So the outage self-resolved somewhere in the ~18h between the 2026-08-13T17:00:53Z null reading and this one. TWO SNAPSHOTS CANNOT LOCATE THE RECOVERY INSIDE THAT WINDOW, exactly as the original regression window is bounded but not located; the hourly balance_snapshots table can narrow both if it matters. Do NOT re-open this as a live outage without re-measuring first.\n\nThat makes the durable defect the MESSAGE, not the accounts — and that half is now FIXED (PR on branch claude/roadmap-work-plan-review-m2aw6p): the non-prop refusal in coordinator.py no longer asserts 'API error or credentials missing - account unreachable'. It is now a module-level `balance_none_refusal_message()` (symmetric with the prop branch's existing `prop_balance.refusal_message`) that states only what the branch knows — the fetch was attempted and returned no value — explicitly disclaims the two causes that were measured healthy while it fired, and points at /api/diag/broker_account_status, the surface that actually discriminates. 6 tests, verified to fail pre-fix.\n\nIt was made a FUNCTION rather than a better inline f-string for a reason worth recording: the first draft of the test grepped coordinator.py for the new prose and FAILED — because the string wraps across source lines and so is not contiguous in the file. Had the wrapping fallen differently the grep would have passed while asserting nothing. An inline refusal is only testable by grepping, and a grep for wrapped prose is a test that can silently check nothing.\n\nSTILL OPEN on this row: the root cause of the balance() None itself is NOT diagnosed — the message fix makes the NEXT occurrence legible, it does not prevent it. Also see the new sibling row BL-20260814-REACHABILITY-PROBES-POSITIONS-NOT-BALANCE for why nothing alerted."
+        },
+        {
+          "at": "2026-08-14T12:32:50.493333+00:00",
+          "by": "claude (dead-leg audit over the trainer's synced journal, trainer-diag #9262)",
+          "note": "**SCOPE IS WIDER THAN THIS ROW'S TITLE, AND THE CONDITION IS NOT OVER.** Correcting my own update from earlier today, which said the two Alpaca accounts had recovered and implied the item was winding down. Both halves of that were too narrow.\n\nMeasured over the trainer's synced journal (mtime 2026-08-14T05:00:05Z), 14-day window, via `scripts/ops/dead_leg_audit.py`:\n\n  * **`ib_paper` / `mgc_trend_1h`: 43 rejections, ALL of them** `sizing_failed: RuntimeError: balance() returned None for ib_paper (exchange=interactive_brokers)`. **So this is NOT an Alpaca-specific condition** - it hits INTERACTIVE_BROKERS too, and it is the single largest refusal cluster in the whole fleet. This row's title should be read as naming an instance, not the class.\n  * `alpaca_paper` / `tlt_pullback_1h`: **21** rejections, same balance()-None message.\n  * `alpaca_portfolio` / `tlt_pullback_1h`: **21**, same.\n  * `alpaca_paper` / `spy_pullback_1h`: 5. Plus gdx/gld/iaum 1d legs at 2 each.\n\nThe original row rested on **2 trades**; the real 14d population is **90+ refusals across at least 8 legs and 3 accounts on 2 different exchanges**. The 'both accounts recovered' observation stands for the balance SNAPSHOT at 11:00Z - but recovery of the snapshot did not mean the refusals had stopped, and I should not have let a point-in-time reading stand in for a window.\n\nNOTE the message in the live data is still the OLD one ('API error or credentials missing - account unreachable'), which is expected: the corrected `balance_none_refusal_message` is on branch `claude/roadmap-work-plan-review-m2aw6p` and not yet merged/deployed. That the old string appears 90+ times in 14 days is the strongest argument for the message fix - every one of those rows sent a reader after credentials that were measured ACTIVE.\n\nROOT CAUSE OF THE None ITSELF REMAINS UNDIAGNOSED. That is now the whole of this row."
         }
       ],
       "updated_at": "2026-08-13T22:10:00+00:00"
@@ -14733,6 +14738,31 @@
         "config/instruments.yaml",
         "BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX",
         "trade 4640 (diag #9254)",
+        "docs/research/WORKPLAN-2026-08-14.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T12:32:50.493333+00:00",
+          "by": "claude (dead-leg audit, trainer-diag #9262)",
+          "note": "n is much larger than the single row this was filed on. Over 14 days `bybit_1`/`ict_scalp_avax_5m` shows **18 `exchange_rejected` against 4 placed** (verdict `partially_refused`, refusal rate 0.85), with the same shape: `order_qty:3452630000000 > max_qty:2200000000000`. So the clamp fails to engage **most of the time, not occasionally** - consistent with the ceiling depending on a live lookup that frequently does not resolve, and inconsistent with a rare blip. The 4 that DID place are what rule out 'the leg is simply misconfigured'."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260814-BYBIT2-ICTSCALP5M-SIX-EXCHANGE-REJECTS",
+      "opened_at": "2026-08-14T12:32:50.493333+00:00",
+      "opened_by": "claude (dead-leg audit, trainer-diag #9262)",
+      "area": "orders",
+      "severity": "high",
+      "tier": "2",
+      "status": "open",
+      "title": "bybit_2 (REAL MONEY) / ict_scalp_5m: 6 of 6 orders exchange_rejected in 14d - the leg placed nothing",
+      "detail": "Surfaced by `scripts/ops/dead_leg_audit.py --days 14` over the trainer's synced journal (mtime 2026-08-14T05:00:05Z), trainer-diag #9262. Verdict `signalled_never_placed`: `bybit_2` / `ict_scalp_5m` shows **placed=0, refused=6, total=6**, all `exchange_rejected`.\n\nWHY THIS ONE IS PROMOTED ABOVE THE OTHER 31: **`bybit_2` is the ONLY live real-money account in the system** (workplan 2026-08-14 s0.1), and `ict_scalp_5m` is one of its 7 routed strategies. It is also the leg carrying the best 30d expectancy on the real book (+35.4R over 4 trades - small-n, but the only positive one). A leg that is both the best-performing and unable to place is the worst combination available.\n\nPOPULATION: 6 rows is a small denominator and is stated as such - this is 14 days of one leg, not a rate over a long window. What makes it worth a row anyway is that the conversion is ZERO, not low.\n\nNOT YET ATTRIBUTED to a cause: the per-leg refusal-reason pull in #9262 was truncated before reaching this leg's sample text (the top-10 cut). The obvious candidate is the same venue-max / margin class as `BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK`, but **that is a hypothesis, not a finding** - do not act on it without pulling this leg's `entry_reason` directly.",
+      "resolution_criteria": "Pull `entry_reason` for `bybit_2`/`ict_scalp_5m` rows with `status='exchange_rejected'` over the window, attribute the rejection to a named cause, and either fix it or record why the refusal is correct. Done when the leg's 14d verdict is no longer `signalled_never_placed`, or a row explains why zero conversion is the right outcome.",
+      "refs": [
+        "scripts/ops/dead_leg_audit.py",
+        "trainer-diag #9262",
+        "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK",
         "docs/research/WORKPLAN-2026-08-14.md"
       ]
     }
