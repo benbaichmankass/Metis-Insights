@@ -14433,6 +14433,26 @@
         "docs/research/M20-exit-refinement-2026-07-12.md:315 -- §7.2 'Trail4 walk-forward', no banking content",
         "docs/research/exit-refinement-coverage.json -- 7 exit_ladder cells corrected §7.2 -> §6.2"
       ]
+    },
+    {
+      "id": "BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED",
+      "opened_at": "2026-08-14T05:32:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "m20-exit-refinement",
+      "severity": "medium",
+      "tier": "2",
+      "status": "open",
+      "title": "mgc_pullback_1d and mhg_pullback_1d exit_head_ml cells are blocked:data_missing on native IBKR history that NO scheduled job produces -- the pull-ibkr-history action was added 2026-07-07 expressly to unblock them and appears never to have been run for either symbol",
+      "source": "Found by asking what would actually unblock the 22 blocked M20 cells, then following the data dependency rather than accepting the status label.\n\nTHREE exit_head_ml cells read `blocked:data_missing` with the ref 'needs native IBKR history for E0 (proxy OK for levers, not for head training)': mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d. `data_missing` reads as 'the data will arrive'. For two of the three, nothing is bringing it.\n\nTHE PRODUCER IS MES-ONLY. The only IBKR deep-history puller in the repo is scripts/ops/pull_mes_ibkr_history.sh. It IS symbol-parameterised (MES_SYMBOL, default MES), but the scheduled unit deploy/ict-mes-ibkr-pull.service invokes it with NO override, so the daily 23:30 UTC timer only ever pulls MES. MGC and MHG accrue nothing on a schedule.\n\nTHE ON-DEMAND PATH EXISTS AND WAS BUILT FOR EXACTLY THESE CELLS. `pull-ibkr-history` (Tier-2, docs/claude/system-actions.md:89) is the symbol-parameterised sibling, allowlisted to MES/MGC/MHG, and its own entry says it was 'Added 2026-07-07 to backtest the metals sleeve (mgc_trend_1h / mgc_pullback_1d / mhg_pullback_1d) on native IBKR history before any shadow->live.' Those cells are still blocked five weeks later.\n\nMEASURED, WITH ITS DENOMINATOR STATED. runtime_logs/ibkr_mes_pull.jsonl via diag #9162/#9163: in the window the relay returned (2026-07-30 -> 2026-08-05, 337 stamped lines, 44 pull_start runs) EVERY run is symbol=MES -- 44/44, zero MGC, zero MHG. I could NOT see 2026-07-07 -> 07-30 (the relay truncates a 400-line request of a 132,659-byte log), so an unseen run in that window is not excluded by the log alone; what makes it unlikely is that both cells still read 'needs native IBKR history'.\n\nA FALSE ALARM I ALMOST FILED, recorded because the next reader will hit the same trap: the truncated 400-line payload's newest visible stamp was 2026-08-05, nine days stale on a DAILY timer, which reads exactly like a recurrence of BL-20260626-MES-BASE-STALE. It is not. A small complete read (lines=12) shows the pull ran 2026-08-13T23:33 -> 23:45 with both timeframes ok (47,190 and 15,751 rows). The truncation had handed me the OLDER part of the 400, not the newest. A large truncated read is worse than a small complete one when the question is 'what happened most recently'.",
+      "resolution_criteria": "Observable: `pull-ibkr-history` has been dispatched for MGC and for MHG and the pull log shows a `pull_end` with `any_ok:1` for each symbol, OR the two cells are re-stated with a status that does not imply pending arrival. TIMING IS PART OF THE FIX, not incidental: the pull shares the LIVE trading gateway on clientId 450 and takes ~27 min, so it must not be launched inside IBKR's own ~03:45-05:45 UTC reset window nor across the 06:05 UTC gateway reset -- both would burn pacing budget on a session being restarted. Run the two SEQUENTIALLY (the wrapper takes a single-instance lock, so a concurrent second invocation exits cleanly and would look like a silent no-op). Then the exit_head_ml cells for mgc_pullback_1d / mhg_pullback_1d become runnable via an E1 round at live parity, the same path that closed the two prop cells on 2026-08-14. NOT resolution: re-labelling the cells without either pulling the data or establishing that IBKR cannot serve it.",
+      "evidence": [
+        "docs/research/exit-refinement-coverage.json -- 3 exit_head_ml cells blocked:data_missing, ref 'needs native IBKR history for E0'",
+        "deploy/ict-mes-ibkr-pull.service -- ExecStart passes no MES_SYMBOL, so the daily timer is MES-only",
+        "scripts/ops/pull_mes_ibkr_history.sh:105 -- MES_SYMBOL=\"${MES_SYMBOL:-MES}\" (parameterised but defaulted)",
+        "docs/claude/system-actions.md:89 -- pull-ibkr-history, Tier 2, allowlisted MES/MGC/MHG, 'Added 2026-07-07 to backtest the metals sleeve'",
+        "diag #9162 -- 44/44 pull_start runs are MES over 2026-07-30..08-05; window does not cover 07-07..07-30",
+        "diag #9163 -- lines=12 complete read: last run 2026-08-13T23:33->23:45, both timeframes ok; the daily pull is HEALTHY"
+      ]
     }
   ]
 }
