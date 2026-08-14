@@ -434,6 +434,39 @@ touched, no Tier-3 change enacted.**
     population"* is a rule this session leaned on repeatedly, so failing it was my
     own inconsistency. Populations now stated in the row.
 
+35. **Fixed the driver, and annotated the eleven rounds it had already spoiled**
+    (PR #9150) — parts **(a)(b)(c)** of
+    `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`, filed only ~40 min
+    earlier in item 33. **Only (d) remains, and it is the operator's.**
+
+    **(a)(b)** `m20_exit_head_round.py` now takes `--tp-cap-pct` **with live
+    parity as the DEFAULT (`0.099`)**. The default is the point: an opt-in is a
+    flag every future caller can forget, and forgetting it is precisely what
+    produced eleven untransferable rounds — the same argument
+    `m20-exit-lever-sweep.yml`'s header makes for its own default. Passing `0`
+    still works, to reproduce a historical no-TP verdict, and the help text says
+    to **declare it when quoting one**. `round_report.json` now also stamps
+    `_round_meta` (`tp_cap_pct`, `tp_geometry`, tf, legs), so a round is
+    self-describing on the one parameter that decides whether its verdict
+    transfers — closing the gap that made my own first audit method void.
+
+    **Four tests, can-fail verified** by reverting both fix points: exactly the
+    two argparse tests fail, and all four pass once restored. The fourth pins the
+    forwarding mechanism itself (at cap 0 *neither* flag is forwarded), so a later
+    edit that re-breaks it fails here rather than passing quietly.
+
+    **(c)** Each affected round now carries a `GEOMETRY-NO-TAKE-PROFIT.txt` with
+    the mechanism, its **own** evidence, and what it does and does not invalidate.
+    Artifacts outlive docs and are read directly, so the doc caveat alone was not
+    sufficient. **The marking pass read every emit file per round** rather than
+    the one-file sample the original audit used — full populations, n=100…1992,
+    and **zero take-profit exits in all eleven**. That is a *stronger*
+    confirmation than the finding it records, not a restatement.
+
+    **`scalp_15m` / `scalp_5m` were deliberately NOT marked** and are listed as
+    undetermined: they stamp no `exit_reason`, and labelling a round I cannot
+    measure would be the same error class the row is about.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.

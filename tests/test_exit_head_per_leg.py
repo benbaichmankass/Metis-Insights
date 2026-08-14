@@ -242,3 +242,96 @@ def test_the_vintage_denominator_equals_the_declared_lever_set():
     matrix = json.loads(
         (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
     assert set(matrix["lever_columns"]) <= rollup.GEOMETRY_SENSITIVE_LEVERS
+
+
+# ------------------------------------------- per-lever cutover + tp_geometry
+#
+# ONE CUTOVER DATE WAS A WRONG ANSWER SHAPED LIKE A RIGHT ONE
+# (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP). `GEOMETRY_CUTOVER` is
+# when the LEVER-SWEEP harness learned to place the live capped TP;
+# `exit_head_ml` rides `m20_exit_head_round.py`, whose own fix landed four days
+# later. Grading both against one date cleared twelve cells that were still
+# measured on a no-take-profit book.
+#
+# And the date is only a PROXY. It failed outright on the three SHIPPED
+# `trend_donchian*` 1h cells: their `RE-SWEPT 2026-08-14` ref is a genuine
+# measurement on that date which re-read the EXISTING round dirs, so the cell is
+# fresh by date and stale by geometry simultaneously. No cutover date separates
+# those — hence `tp_geometry`, a declared measurement that overrides the date in
+# both directions.
+
+def _ehm_matrix(rows):
+    return {"lever_columns": ["exit_head_ml"], "legend": {}, "rows": rows}
+
+
+def _ehm_row(strategy, status="shipped", ref="swept 2026-08-11", geom=None):
+    cell = {"status": status, "ref": ref}
+    if geom is not None:
+        cell["tp_geometry"] = geom
+    return {"strategy": strategy, "symbol": "X", "tf": "1h",
+            "execution": "live", "exit_head_ml": cell}
+
+
+def test_exit_head_ml_uses_its_own_later_cutover():
+    """CAN-FAIL CONTROL: the same date, stale on one lever and not the other.
+
+    Pins the mechanism rather than the outcome — if the per-lever map is
+    dropped, this fails instead of the caveat quietly under-reporting.
+    """
+    assert rollup.cutover_for("exit_head_ml") > rollup.cutover_for("stale_stop")
+    date = "swept 2026-08-11"          # after the sweep fix, before the driver fix
+    ehm = rollup.evidence_vintage(_ehm_matrix([_ehm_row("trend_donchian_eth_4h",
+                                                        ref=date)]))
+    other = rollup.evidence_vintage(_matrix([_row("trend_donchian_eth_4h",
+                                                  ref=date)]))
+    assert ehm["pre_cutover"] == 1, "exit_head_ml must grade against its own fix"
+    assert other["post_cutover"] == 1, "the default lever must be unaffected"
+
+
+def test_an_unlisted_lever_falls_back_to_the_default_cutover():
+    """The map is an override list, not the source of truth for every lever."""
+    assert rollup.cutover_for("a_lever_that_does_not_exist") == \
+        rollup.GEOMETRY_CUTOVER
+
+
+def test_declared_no_take_profit_beats_a_fresh_date():
+    """The measured fact overrides the proxy. This is the case a date CANNOT
+    catch: a real re-sweep, dated today, that re-read a no-TP round."""
+    v = rollup.evidence_vintage(_ehm_matrix([
+        _ehm_row("trend_donchian_eth_4h", ref="RE-SWEPT 2026-09-30",
+                 geom=rollup.GEOMETRY_NO_TP)]))
+    assert v["pre_cutover"] == 1
+    assert [d[1] for d in v["stale_decisions"]] == ["exit_head_ml"]
+
+
+def test_declared_live_parity_beats_an_old_date():
+    """Overrides in BOTH directions, or it is a one-way alarm rather than a
+    statement of fact — a round that DID place the live TP is not stale just
+    because it ran before the fix date."""
+    v = rollup.evidence_vintage(_ehm_matrix([
+        _ehm_row("trend_donchian_eth_4h", ref="swept 2026-07-01",
+                 geom=rollup.GEOMETRY_LIVE_PARITY)]))
+    assert v["stale_decisions"] == []
+    assert v["pre_cutover"] == 0
+
+
+def test_an_undeclared_geometry_is_counted_not_assumed_clean():
+    """'We did not look' must stay visible beside the date-graded verdict."""
+    v = rollup.evidence_vintage(_ehm_matrix([_ehm_row("trend_donchian_eth_4h")]))
+    assert v["geometry_undeclared"] == 1
+    v2 = rollup.evidence_vintage(_ehm_matrix([
+        _ehm_row("trend_donchian_eth_4h", geom=rollup.GEOMETRY_NO_TP)]))
+    assert v2["geometry_undeclared"] == 0
+
+
+def test_the_three_shipped_donchian_1h_cells_are_live_stale_decisions():
+    """The real matrix, not a fixture: these three change exit behaviour on
+    real money today, on a round measured to contain zero take-profit exits.
+    They evaded the stale list for two days because the only test was a date."""
+    matrix = json.loads(
+        (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
+    v = rollup.evidence_vintage(matrix)
+    flagged = {leg for leg, lever, *_ in v["stale_decisions"]
+               if lever == "exit_head_ml"}
+    assert flagged == {"trend_donchian", "trend_donchian_eth",
+                       "trend_donchian_sol"}, flagged

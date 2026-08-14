@@ -143,6 +143,69 @@ OPEN_STATUSES = ("pending", "blocked")
 GEOMETRY_CUTOVER = "2026-08-10"
 TP_PARITY_AFFECTED_FAMILIES = frozenset({"donchian", "pullback", "squeeze"})
 
+# ONE CUTOVER WAS A WRONG ANSWER SHAPED LIKE A RIGHT ONE
+# (added 2026-08-14, BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP).
+#
+# `GEOMETRY_CUTOVER` above is the date the LEVER-SWEEP harness learned to place
+# the live capped TP. `exit_head_ml` does not ride that harness — it rides
+# `m20_exit_head_round.py`, which called `base_args(...)` with five positional
+# args so `tp_cap_pct` took its default `0.0`, AND whose argparse had no
+# `--tp-cap-pct` option at all. No caller could request live parity, so EVERY
+# round built a no-take-profit book until the driver was fixed on 2026-08-14.
+#
+# A single scalar therefore graded `exit_head_ml` cells against a date four days
+# too early, and the cells it wrongly cleared are the expensive kind: the three
+# SHIPPED `trend_donchian*` 1h cells carry refs dated 2026-08-13, so they cleared
+# a 2026-08-10 bar while resting on a round measured to contain ZERO take-profit
+# exits (full populations, n=938..1992). `--stale-decisions` listed five cells and
+# read as the complete set of money-relevant cells on wrong-geometry evidence;
+# three real-money ones sat outside it because the only test was a date, and the
+# date was the wrong harness's.
+#
+# A lever absent from this map falls back to `GEOMETRY_CUTOVER` — the default is
+# the common case, and a new lever cannot silently acquire a later bar than its
+# evidence deserves.
+LEVER_GEOMETRY_CUTOVER = {
+    # the day `m20_exit_head_round.py` gained `--tp-cap-pct` (live parity as the
+    # DEFAULT) and began stamping `_round_meta.tp_geometry` into round_report.json
+    "exit_head_ml": "2026-08-14",
+}
+
+
+def cutover_for(lever: str) -> str:
+    """The date THIS lever's harness started modelling the live TP."""
+    return LEVER_GEOMETRY_CUTOVER.get(lever, GEOMETRY_CUTOVER)
+
+
+# A DATE IS A PROXY, AND IT HAS ALREADY FAILED ONCE (2026-08-14).
+#
+# The three SHIPPED `trend_donchian*` 1h `exit_head_ml` cells carry a genuine
+# `RE-SWEPT 2026-08-14` ref — a real measurement, on that date — and are still
+# built on a NO-TAKE-PROFIT book, because that re-sweep re-read the EXISTING
+# round dirs rather than building new ones, and every round on disk predates the
+# driver fix. So the cell is fresh by date and stale by geometry at the same
+# time, and no choice of cutover date can separate those: the property that
+# matters is not WHEN the cell was measured but WHETHER the round behind it
+# placed the live capped TP.
+#
+# `tp_geometry` is that property, stated on the cell, and it OVERRIDES the date
+# in both directions. Three states, never collapsed:
+#
+#   "no_take_profit"  the round behind this cell was MEASURED to contain zero
+#                     take-profit exits -> stale whatever the date says
+#   "live_parity"     the round declares `_round_meta.tp_geometry: live_parity`
+#                     -> not stale whatever the date says
+#   absent            unknown; fall back to the date. Counted in
+#                     `geometry_undeclared` so "we did not look" stays visible
+#                     rather than reading as a clean pass.
+#
+# This is a DECLARED MEASUREMENT, not a presence-only marker: the eleven rounds
+# were each read end-to-end (full populations, n=100..1992, zero TP exits) before
+# any cell was stamped, and each round carries its own evidence on disk in
+# `GEOMETRY-NO-TAKE-PROFIT.txt`.
+GEOMETRY_NO_TP = "no_take_profit"
+GEOMETRY_LIVE_PARITY = "live_parity"
+
 # Levers whose verdict is a claim about the exit path, and so is conditioned on
 # the TP geometry the harness modelled. `exit_head_ml` is included: its E0 rows
 # come from the same `--emit-trades` harness paths.
@@ -257,10 +320,18 @@ def _family_of(strategy: str) -> str | None:
 def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
     """How much of the closed population predates the TP-parity cutover."""
     out = {
+        # `cutover` is the DEFAULT bar, not the only one. Reporting a single
+        # scalar under a name that reads as "the cutover" is the label-names-a-
+        # quantity-the-code-did-not-compute shape; `cutovers` carries the per-
+        # lever overrides so a reader can see why a 2026-08-13 cell is stale.
         "cutover": GEOMETRY_CUTOVER,
+        "cutovers": dict(LEVER_GEOMETRY_CUTOVER),
         "affected_families": sorted(TP_PARITY_AFFECTED_FAMILIES),
         "classifier_available": True,
         "pre_cutover": 0, "post_cutover": 0, "undated": 0,
+        # Cells with no `tp_geometry` field, graded by the date proxy alone.
+        # Reported so "we did not look" never reads as "we looked and it's fine".
+        "geometry_undeclared": 0,
         "affected_legs": 0, "clean_legs": 0,
         "stale_cells": [],
         # THE SPLIT THAT DECIDES WHAT THE CAVEAT COSTS. A stale NEGATIVE costs
@@ -297,13 +368,24 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             if base(cell.get("status")) == "n/a":
                 continue  # structurally inapplicable — no measurement to age
             dates = _DATE.findall(cell.get("ref") or "")
-            stale = (not dates) or max(dates) < GEOMETRY_CUTOVER
+            # PER-LEVER, not one global date: `exit_head_ml` rides a different
+            # harness whose TP fix landed four days later (see the map above).
+            cut = cutover_for(col)
+            geom = cell.get("tp_geometry")
+            if geom == GEOMETRY_NO_TP:
+                stale = True          # measured; the date cannot overrule it
+            elif geom == GEOMETRY_LIVE_PARITY:
+                stale = False         # declared by the round itself
+            else:
+                out["geometry_undeclared"] += 1
+                stale = (not dates) or max(dates) < cut
             if not dates:
                 out["undated"] += 1
             elif stale:
                 out["pre_cutover"] += 1
                 out["stale_cells"].append(
-                    (row["strategy"], row["symbol"], row["tf"], col, max(dates)))
+                    (row["strategy"], row["symbol"], row["tf"], col,
+                     max(dates), cut))
             else:
                 out["post_cutover"] += 1
             # A stale cell that is not a negative is a live DECISION resting on
@@ -313,7 +395,7 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             if stale and base(cell.get("status")) != "honest_negative":
                 out["stale_decisions"].append(
                     (row["strategy"], col, cell.get("status"),
-                     max(dates) if dates else None))
+                     max(dates) if dates else None, cut))
     return out
 
 
@@ -591,8 +673,14 @@ def render(r: dict[str, Any]) -> str:
             "",
             f"  ⚠️  EVIDENCE VINTAGE — {v['pre_cutover']} of {graded} closed cells"
             f" ({pct}%) on the {v['affected_legs']} legs whose harness modelled",
-            f"      NO take-profit were measured BEFORE {v['cutover']}"
+            f"      NO take-profit were measured BEFORE their harness's TP fix"
             f" ({v['undated']} more carry no date at all).",
+            f"      Cutover is PER-LEVER, not one date: default {v['cutover']}"
+            f" (the lever-sweep harness), and"
+            + (" " + ", ".join(f"{k} {d}" for k, d in
+                               sorted((v.get('cutovers') or {}).items()))
+               if v.get("cutovers") else " no overrides")
+            + " (its own driver).",
             "      BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP: those"
             " live units clamp the TP to 9.9%",
             "      from entry (~1.3-5R at real ATR), so the lever was tuned"
@@ -611,7 +699,7 @@ def render(r: dict[str, Any]) -> str:
         dec = v.get("stale_decisions") or []
         if dec:
             by_status: dict[str, int] = {}
-            for _leg, _lev, status, _dt in dec:
+            for _leg, _lev, status, _dt, _cut in dec:
                 k = base(status) or "?"
                 by_status[k] = by_status.get(k, 0) + 1
             block += [
@@ -703,7 +791,8 @@ def main(argv: list[str]) -> int:
             # diagnostic-provenance-guard on my own diff.
             stale_n = v.get("pre_cutover", 0) + v.get("undated", 0)
             print(f"\nstale DECISIONS ({len(dec)} of {stale_n} stale cells) — "
-                  f"closed, not negative, evidence older than {v['cutover']}:")
+                  f"closed, not negative, evidence older than the cutover for "
+                  f"THAT lever (printed per row; default {v['cutover']}):")
             if not v.get("classifier_available", True):
                 print("  NOT COMPUTED — the family classifier could not be "
                       "imported. This is not 'no stale decisions found'.")
@@ -713,9 +802,9 @@ def main(argv: list[str]) -> int:
             elif not dec:
                 print(f"  (0 of {stale_n} stale cells is a non-negative — every "
                       "one is an honest_negative)")
-            for leg, lever, status, dt in sorted(dec):
+            for leg, lever, status, dt, cut in sorted(dec):
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
-                      f"newest-ref {dt or '(undated)'}")
+                      f"newest-ref {dt or '(undated)'}  (cutover {cut})")
         if problems:
             print(f"\n⚠️  {len(problems)} structural defect(s) — run --validate")
     return 0
