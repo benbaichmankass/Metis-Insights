@@ -655,6 +655,83 @@ them was graded.
     within the hour, on cells I was annotating myself.
 
 
+
+41. **Ran the first exit-head round that models the live take-profit — and it
+    closed both remaining runnable cells.** Coverage **371 → 373/376 (99.2%)**,
+    done-condition **27 → 25**.
+
+    Sequence: pulled `main` onto the trainer and **verified the fix was on disk
+    three ways** (#9154) rather than trusting the pull — HEAD == `origin/main`,
+    `--help` lists `--tp-cap-pct` with the `0.099` default, and `base_args` is
+    called with six args. The flag's *absence* was the original defect, so its
+    presence is the direct probe.
+
+    **The first launch attempt (#9155) started nothing, which is what I wanted
+    from a broken launcher.** The relay indents the `cmd:` block, so my indented
+    `<<'PY'` heredocs were swallowed (`delimited by end-of-file`) and every
+    subsequent line was consumed into them. Relaunched heredoc-free via
+    base64 → `python3 -` (#9156), with the **geometry probe as a precondition**:
+    it prints the exact argv and emits `GEOMETRY_PROBE_OK`/`FAILED`, and the
+    launch is skipped unless it passes. #9144 burned compute on a wrong-geometry
+    book precisely because nothing checked the command *before* running it.
+
+    **Launched at the DEFAULT, without passing `--tp-cap-pct`** — live parity
+    being the default *is* the shipped contract, and a run told the right
+    geometry does not test it.
+
+    **The positive control, criterion (b), is satisfied by MEASUREMENT.** The
+    launch log did show `--tp-cap-pct 0.099 --tp-r 6.0` where #9144 showed no
+    `--tp-r` at all — but that is an arg-string observation, and the arg-string
+    method was voided earlier tonight. So the settling evidence is the emitted
+    trades' own `exit_reason` distribution (#9157):
+
+    | leg | trades | take-profit exits |
+    |---|--:|--:|
+    | `trend_donchian_eth_prop` | 984 | **50** (5.1%) |
+    | `trend_donchian_sol_prop` | 310 | **45** (14.5%) |
+
+    **95 take-profit exits where the eleven pre-fix rounds contain zero.** The
+    round also self-reports `_round_meta.tp_geometry: live_parity`, so it needs
+    no marker file to be read correctly.
+
+    **Verdicts** (per-leg matrix-unit line, same shape the `ict_scalp_sol_5m`
+    cell was graded from):
+
+    - `trend_donchian_eth_prop` — n_oos 902, auc 0.6138, beats_actual 20/24,
+      beats_hard 16/24 → **candidate** → `passed_unshipped`.
+    - `trend_donchian_sol_prop` — n_oos 298, auc 0.5635, beats_actual 15/23,
+      beats_hard 11/23 → **honest_negative**.
+
+    `live_trades: 0` is expected and non-blocking per the operator's 2026-08-13
+    decision that the E1→E2 gate's LIVE arm is a wiring check, not the evidence.
+    I pulled the full report (#9158) rather than grading two live-leg cells off
+    a log tail — the truncation trap that bit at #9139.
+
+42. **The first non-scalp E1 candidate — and why it is not the counterexample it
+    looks like.** The standing read, recorded on the `ict_scalp_sol_5m` cell, is
+    *"all 5 surviving candidates are ict_scalp; every non-scalp family in the
+    re-run is honest_negative"*, and it is the basis of the queued operator
+    question *"is `exit_head_ml` scalp-family-scoped?"*. A **donchian** leg just
+    returned candidate at essentially the same AUC (0.6138 vs 0.6149) on a
+    larger OOS sample (902 vs 800).
+
+    **This does not overturn that read, and I am not recording it as if it
+    does.** Every non-scalp `honest_negative` that formed the scalp-scoping
+    hypothesis was measured on a **no-take-profit** book; this cell is the first
+    at live parity. The two are not comparable, so this is not a like-for-like
+    counterexample — it is a result from a different population.
+
+    What it *does* establish is narrower and more useful: the scalp-scoping read
+    rests on evidence now known to be **geometry-conditioned**. Re-running the
+    non-scalp legs at live parity is what would test it, and one leg is not that
+    test. That raises the value of queued item (d) rather than settling it, and
+    the caveat is written into the cell so the next reader cannot take the
+    shortcut I was one step from taking.
+
+    **Not run tonight:** that re-run is fleet-scale and the disposition of what
+    it would find is Tier-3.
+
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
