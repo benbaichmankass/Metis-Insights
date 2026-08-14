@@ -147,7 +147,15 @@ def main(argv: list[str]) -> int:
         if tf != a.tf:
             print(f"SKIP {leg}: leg tf {tf} != round tf {a.tf}", flush=True)
             continue
-        data, proxy, resample = resolve_data(str(sym), tf, data_dir)
+        # prefer_native: this round REFUSES proxied data two lines down, so it
+        # must look for the native spelling FIRST or the refusal is
+        # unconditional for every symbol in PROXY_DATA regardless of what is on
+        # disk — which is what kept the mes/mgc/mhg `exit_head_ml` cells
+        # unreachable (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA). The lever
+        # sweeps keep the proxy-first default, where the deeper proxy series is
+        # the right choice.
+        data, proxy, resample = resolve_data(str(sym), tf, data_dir,
+                                             prefer_native=True)
         if data is None:
             print(f"SKIP {leg}: data_missing:{sym}", flush=True)
             continue

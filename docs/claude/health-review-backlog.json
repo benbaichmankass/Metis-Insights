@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T06:55:00+00:00",
+  "updated_at": "2026-08-14T07:45:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14476,6 +14476,25 @@
         "src/web/api/routers/roadmap.py::_parse_last_updated",
         "measured 2026-08-14: summary_len 998 (pre-edit HEAD:ROADMAP.md) and 1374 (post-edit), date correct in both",
         "ROADMAP.md:9 -- the '- prior:' chain the parser runs through"
+      ]
+    },
+    {
+      "id": "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA",
+      "opened_at": "2026-08-14T07:45:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "research-tooling",
+      "severity": "medium",
+      "tier": "1",
+      "status": "resolved",
+      "title": "m20_fleet_exit_sweep.resolve_data applied PROXY_DATA unconditionally, so m20_exit_head_round -- which REFUSES proxied data -- could never see native IBKR history, making the three mes/mgc/mhg exit_head_ml cells unreachable no matter how much data was pulled",
+      "source": "Found while checking whether the MGC/MHG IBKR history pull I ran tonight (per BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED) could actually close the cells it was run for. It could not, and the reason was NOT the data.\n\nTHE CHAIN, read from source rather than inferred:\n1. docs/research/exit-refinement-coverage.json grades mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d `exit_head_ml` as `blocked:data_missing`, noted 'needs native IBKR history for E0 (proxy OK for levers, not for head training)'.\n2. scripts/research/m20_exit_head_round.py:154 enforces exactly that -- `if proxy: SKIP ... native history required for head training`.\n3. scripts/research/m20_fleet_exit_sweep.py:147 opened with `sym = PROXY_DATA.get(symbol, symbol)`, applying the proxy UNCONDITIONALLY. PROXY_DATA maps MGC->GC_F, MHG->HG_F, MES->ES_F, XAUUSD->GC_F.\n4. So resolve_data('MGC','1d',...) looked for GC_F_1d.csv and NEVER for MGC_1d.csv -- including the glob fallback, whose prefixes were built from the proxied spelling ({'gc_f'}).\n\nTherefore proxy was True for those symbols on every call, the head round skipped them every time, and the cells could not close. The Tier-2 `pull-ibkr-history` action was added 2026-07-07 for exactly these cells and was inert against this resolver -- a successful pull would have landed data the round could not reach.\n\nThe function's own docstring said the map is 'for futures without their own file', a condition the code never checked. Field beats comment, and here the field was the wrong one.",
+      "resolution_criteria": "RESOLVED in this PR. resolve_data gained a `prefer_native: bool = False` parameter; m20_exit_head_round passes prefer_native=True. Verified by 7 tests in tests/test_exit_head_per_leg.py with a can-fail control (removing the prefer_native branch fails test_prefer_native_reaches_a_native_file_the_default_cannot_see with `assert True is False`, and ONLY that test -- the fallback and no-proxy cases correctly still pass because proxy-first gives the same answer there).\n\nTHE DEFAULT WAS DELIBERATELY LEFT PROXY-FIRST, and that is the load-bearing half. Native-first unconditionally would have been a REGRESSION for the lever sweeps: GC_F is the deep COMEX series reaching the full 2021..2026 fold structure, while native IBKR intraday history is ~1y, so silently preferring a shallow native file would collapse a 6-fold walk-forward to ~1 fold and quietly invalidate recorded verdicts. Depth (levers) and fidelity (head training) are genuinely different needs, so it is a caller decision. For the same reason the default did NOT gain a native fallback either -- a missing proxy file must keep reading `data_missing` rather than resolving shallow native data into a 1-fold run.\n\nFOLLOW-UP, NOT CLOSED BY THIS: the three cells are now REACHABLE but not yet graded, and reaching them is not the same as clearing them. Two conditions remain unverified -- (a) the native shard must reach the TRAINER (the pull writes market_raw on the LIVE VM; sync_trainer_data.sh carries it on the trainer's ~00:50 UTC daily cycle, then scripts/research/market_raw_to_csv.py must convert it to data/<SYM>_<tf>.csv), and (b) the pull I ran was 5m/15m over a 365-day window (the script's default, MES_HIST_START='365 days ago'), which is roughly one year -- against a 6-fold 2021..2026 structure and MIN_OOS_TRADES=25. A 1d deep pull (the pull-mes-ibkr-history-daily precedent uses MES_HIST_START=2019-05-06 with MES_MAX_CONTRACTS=28) is the right-shaped attempt for these 1d legs, since IBKR daily-bar retention is far deeper than intraday. Whether that clears the OOS floor is a MEASUREMENT still to take, not a prediction.",
+      "refs": [
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "scripts/research/m20_exit_head_round.py",
+        "tests/test_exit_head_per_leg.py",
+        "docs/research/exit-refinement-coverage.json",
+        "BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED"
       ]
     }
   ]

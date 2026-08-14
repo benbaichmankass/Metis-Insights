@@ -335,3 +335,85 @@ def test_the_three_shipped_donchian_1h_cells_are_live_stale_decisions():
                if lever == "exit_head_ml"}
     assert flagged == {"trend_donchian", "trend_donchian_eth",
                        "trend_donchian_sol"}, flagged
+
+
+# ---------------------------------------------------------------------------
+# resolve_data: the PROXY map must not SHADOW native data for a consumer that
+# refuses proxies (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA). The map is
+# documented as being "for futures without their own file", but it was applied
+# unconditionally — so `m20_exit_head_round`, which SKIPs any proxied leg
+# ("native history required for head training"), could never see a native pull.
+# Depth-vs-fidelity is a real trade-off, so these pin BOTH directions: the
+# lever-sweep default must stay proxy-first (the proxy is the deeper series).
+
+def _sweep():
+    spec = importlib.util.spec_from_file_location(
+        "m20_fleet_exit_sweep",
+        REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+sweep = _sweep()
+
+
+def test_mgc_is_proxied_to_gc_f_so_the_fixture_is_meaningful():
+    """Denominator for the two tests below: if MGC ever stops being proxied
+    they would pass vacuously, testing nothing."""
+    assert sweep.PROXY_DATA.get("MGC") == "GC_F"
+
+
+def test_the_default_still_prefers_the_deep_proxy_over_shallow_native(tmp_path):
+    """The lever sweeps WANT the proxy: GC_F reaches the full fold structure
+    while native IBKR history is ~1y. Preferring native here would collapse a
+    6-fold walk-forward and silently invalidate every recorded verdict."""
+    (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
+    assert proxy is True
+    assert Path(path).name == "GC_F_1d.csv"
+
+
+def test_prefer_native_reaches_a_native_file_the_default_cannot_see(tmp_path):
+    """The head-training path. Without this the refusal below is
+    unconditional for every symbol in PROXY_DATA, whatever is on disk."""
+    (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path, prefer_native=True)
+    assert proxy is False, "native data present but still reported as proxied"
+    assert Path(path).name == "MGC_1d.csv"
+
+
+def test_prefer_native_falls_back_to_the_proxy_when_no_native_exists(tmp_path):
+    """prefer_native is a PREFERENCE, not a requirement — a leg with only
+    proxy data must still resolve (and still be flagged proxied)."""
+    (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path, prefer_native=True)
+    assert proxy is True
+    assert Path(path).name == "GC_F_1d.csv"
+
+
+def test_a_missing_proxy_file_still_reads_data_missing_by_default(tmp_path):
+    """The default must NOT gain a native fallback: `data_missing` is more
+    honest than silently resolving a shallow native file into a 1-fold run."""
+    (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
+    assert path is None
+    assert proxy is True
+
+
+def test_a_symbol_with_no_proxy_is_unaffected_in_both_modes(tmp_path):
+    """Crypto legs have no PROXY_DATA entry, so neither mode may change them."""
+    (tmp_path / "BTCUSDT_1h.csv").write_text("timestamp,open,high,low,close,volume\n")
+    for kw in ({}, {"prefer_native": True}):
+        path, proxy, resample = sweep.resolve_data("BTCUSDT", "1h", tmp_path, **kw)
+        assert proxy is False and resample is None
+        assert Path(path).name == "BTCUSDT_1h.csv"
+
+
+def test_the_exit_head_round_asks_for_native_first():
+    """The wiring, not just the capability: the refusal and the preference
+    must live in the same call or the cells stay unreachable."""
+    src = (REPO / "scripts" / "research" / "m20_exit_head_round.py").read_text()
+    assert "prefer_native=True" in src

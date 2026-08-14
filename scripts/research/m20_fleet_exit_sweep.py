@@ -136,29 +136,25 @@ def classify(name: str) -> str | None:
     return None
 
 
-def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool, str | None]:
-    """(path, proxy?, resample) — finest grain <= leg tf; None if nothing.
+def _resolve_one(sym: str, tf: str, data_dir: Path) -> tuple[str | None, str | None]:
+    """(path, resample) for ONE symbol spelling — no proxy substitution.
 
-    Primary convention data/{SYMBOL}_{grain}.csv; fallback is a
-    case-insensitive prefix glob (covers legacy names like
-    btc_1h_multiyear.csv), matching on the symbol and its USDT-stripped
-    base, picking the finest grain token found in the filename.
+    Extracted from `resolve_data` so the native and proxy spellings can be
+    tried in order; the body is unchanged.
     """
-    sym = PROXY_DATA.get(symbol, symbol)
-    proxy = sym != symbol
     leg_min = TF_MINUTES.get(tf, 60)
     # native grain first (a 1d archive usually has YEARS more history than
     # the 1h file it would otherwise be resampled from), then finest
     native = data_dir / f"{sym}_{tf}.csv"
     if native.exists():
-        return str(native), proxy, None
+        return str(native), None
     for g in DATA_GRAIN:
         if TF_MINUTES[g] > leg_min:
             break
         p = data_dir / f"{sym}_{g}.csv"
         if p.exists():
             resample = tf if TF_MINUTES[g] < leg_min else None
-            return str(p), proxy, resample
+            return str(p), resample
     prefixes = {sym.lower()}
     if sym.upper().endswith("USDT"):
         prefixes.add(sym.lower()[:-4])
@@ -175,8 +171,59 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
             best = (TF_MINUTES[grain], p)
     if best is not None:
         resample = tf if best[0] < leg_min else None
-        return str(best[1]), proxy, resample
-    return None, proxy, None
+        return str(best[1]), resample
+    return None, None
+
+
+def resolve_data(symbol: str, tf: str, data_dir: Path,
+                 prefer_native: bool = False) -> tuple[str | None, bool, str | None]:
+    """(path, proxy?, resample) — finest grain <= leg tf; None if nothing.
+
+    Primary convention data/{SYMBOL}_{grain}.csv; fallback is a
+    case-insensitive prefix glob (covers legacy names like
+    btc_1h_multiyear.csv), matching on the symbol and its USDT-stripped
+    base, picking the finest grain token found in the filename.
+
+    `prefer_native` (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA) decides which
+    spelling is tried FIRST, and the default is deliberately the historical
+    proxy-first order:
+
+    - **False (default)** — `PROXY_DATA` is applied unconditionally, so MGC
+      resolves `GC_F_*.csv` even when `MGC_*.csv` exists. That is CORRECT for
+      the lever sweeps: the proxy is the DEEP series (GC_F reaches the full
+      2021..2026 fold structure) while native IBKR history is ~1y, and
+      silently preferring a shallow native file would collapse the
+      walk-forward and quietly invalidate every recorded verdict.
+    - **True** — try the native spelling first and fall back to the proxy.
+      For a consumer that REFUSES proxied data this is the only way native
+      data is reachable at all: `m20_exit_head_round` skips any leg whose
+      `proxy` is set ("native history required for head training"), and
+      because the proxy was applied unconditionally that skip fired for
+      MES/MGC/MHG no matter what was on disk — so the three `exit_head_ml`
+      cells blocked on native IBKR history could never close, and the Tier-2
+      pull action added 2026-07-07 for exactly those cells was inert against
+      this resolver.
+
+    Depth vs fidelity is a real trade-off, so it is a caller decision rather
+    than one default pretending to serve both.
+    """
+    alt = PROXY_DATA.get(symbol)
+    proxied = alt is not None and alt != symbol
+    # Default order is EXACTLY the historical one (proxy alone when a proxy is
+    # declared) — no native fallback, because a missing proxy file must keep
+    # reading `data_missing` rather than silently resolving a shallow native
+    # file and turning a 6-fold walk-forward into a 1-fold one.
+    order = [alt if proxied else symbol]
+    if prefer_native and proxied:
+        order.insert(0, symbol)
+    for cand in order:
+        path, resample = _resolve_one(cand, tf, data_dir)
+        if path is not None:
+            return path, cand != symbol, resample
+    # Nothing found either way. Report whether a proxy WOULD have been used,
+    # preserving the historical not-found contract (every caller checks
+    # `data is None` before reading this flag, but the shape stays stable).
+    return None, proxied, None
 
 
 # WHICH CONFIG KEYS CONSTITUTE EACH DECLARED EXIT LEVER.
