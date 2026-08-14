@@ -131,6 +131,13 @@ def main(argv: list[str]) -> int:
                     help="pass through to train_exit_head (P4.2)")
     ap.add_argument("--features", default=None, choices=["base", "extended"],
                     help="pass through to train_exit_head (P4.3)")
+    ap.add_argument("--fold-offset", type=int, default=0,
+                    help="pass through to train_exit_head: shift where "
+                         "trade-blocking starts, at FIXED block size, so a "
+                         "verdict's dependence on WHERE the fold boundaries "
+                         "fall can be measured. Recorded in _round_meta, "
+                         "because N rounds at N offsets that do not say which "
+                         "offset they used are not a dispersion measurement.")
     a = ap.parse_args(argv[1:])
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
@@ -260,6 +267,8 @@ def main(argv: list[str]) -> int:
             train_cmd += ["--target", a.target]
         if a.features:
             train_cmd += ["--features", a.features]
+        if a.fold_offset:
+            train_cmd += ["--fold-offset", str(a.fold_offset)]
         p = sh(train_cmd, timeout=21600)
         print(p.stdout[-3000:], p.stderr[-500:], flush=True)
         e1 = fam_dir / "e1_report.json"
@@ -324,6 +333,11 @@ def main(argv: list[str]) -> int:
         "cap_withheld_from_families": sorted(uncapped_fams),
         "target": a.target,
         "features": a.features,
+        # ALWAYS stamped, including the 0 default. An absent key would leave
+        # an offset-0 round indistinguishable from a round predating the flag,
+        # and a dispersion series is only readable if every arm states its own
+        # offset — `0` is one of the arms, not the absence of one.
+        "fold_offset": a.fold_offset,
     }
     (out / "round_report.json").write_text(json.dumps(
         {"_round_meta": meta, **{k: v for k, v in report.items()}},

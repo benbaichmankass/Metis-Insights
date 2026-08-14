@@ -108,3 +108,43 @@ def test_offsets_are_exhaustive_and_distinct_over_the_legal_range() -> None:
                   fold_blocks(tr, "trades", BLOCK, _t_entry, offset=k))
             for k in range(BLOCK)}
     assert len(seen) == BLOCK, f"only {len(seen)} distinct partitions of {BLOCK}"
+
+
+# ---------------------------------------------------------------------------
+# Reachability. The flag above was shipped on `train_exit_head.py` alone and was
+# UNREACHABLE from `m20_exit_head_round.py`, which is the driver actually
+# launched on the trainer — so the measurement it exists for could not be run.
+# That is the written-and-never-read shape, in a knob rather than a field.
+# ---------------------------------------------------------------------------
+
+ROUND_DRIVER = REPO / "scripts" / "research" / "m20_exit_head_round.py"
+
+
+def test_the_round_driver_exposes_and_forwards_fold_offset() -> None:
+    src = ROUND_DRIVER.read_text()
+    assert '"--fold-offset"' in src, (
+        "the round driver does not expose --fold-offset, so the dispersion "
+        "measurement cannot be launched by the driver the trainer runs")
+    assert 'train_cmd += ["--fold-offset", str(a.fold_offset)]' in src, (
+        "--fold-offset is accepted by the round driver but never forwarded to "
+        "train_exit_head — the arm would silently run at offset 0 and a "
+        "dispersion series would read as 'boundaries do not matter'")
+
+
+def test_the_offset_is_stamped_into_round_meta_unconditionally() -> None:
+    """A dispersion series is only readable if every arm states its own offset.
+
+    Asserted as UNCONDITIONAL because a `if a.fold_offset:` stamp would leave
+    an offset-0 arm indistinguishable from a round predating the flag — the
+    collapsed-state shape, in the one field that identifies the arm.
+    """
+    src = ROUND_DRIVER.read_text()
+    assert '"fold_offset": a.fold_offset,' in src, (
+        "fold_offset is not stamped into _round_meta; N rounds at N offsets "
+        "that do not record which offset they used are not a measurement")
+    stamp = src.index('"fold_offset": a.fold_offset,')
+    guard = src.rfind("if a.fold_offset", 0, stamp)
+    meta_start = src.rindex("meta = {", 0, stamp)
+    assert guard < meta_start, (
+        "the _round_meta stamp appears to sit behind an `if a.fold_offset` "
+        "guard — offset 0 must be recorded, it is an arm not an absence")
