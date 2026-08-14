@@ -14808,6 +14808,26 @@
         "scripts/research/m20_exit_head_round.py",
         "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
       ]
+    },
+    {
+      "id": "BL-20260814-EXIT-HEAD-E1-GATE-IS-90-PERCENT-PREDICTED-BY-OOS-BOOK-SIZE-NOT-SYMBOL",
+      "opened_at": "2026-08-14T13:35:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14)",
+      "severity": "medium",
+      "tier": "1 (measurement + evidence-standard question; no live path)",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "The exit_head_ml E1 verdict is 90% predicted by OOS book size and only 80% by symbol — the ETH hypothesis is largely confounded, and the gate looks substantially like a power test",
+      "detail": "MEASURED 2026-08-14 via `scripts/research/m20_exit_head_denominator.py` (reproducible; reads the committed matrix), executing operator decision (a) -- 'test the ETH hypothesis with a denominator'.\n\nPOPULATION: 20 of the 36 resolved exit_head_ml cells -- those whose ref states an `n_oos`. 16 are excluded for stating none. Geometries are MIXED across the 20 (only 5 confirmed live-parity), which is why the pooled figures below are a BOUND on what the record can say rather than a result.\n\nTHE HYPOTHESIS INVERTS. Two ETH legs passing had attracted a symbol explanation. Head to head on the same 20 cells: `is ETH` classifies the verdict at 80.0% accuracy (ETH 3 of 3 pass, non-ETH 4 of 17); a single threshold `n_oos >= 350` classifies it at 90.0% (big-book 6 of 7 pass, small-book 1 of 13). Holding book size fixed, the symbol adds essentially nothing: in the large-book stratum ETH is 2 of 2 and NON-ETH IS 4 OF 5. Everything left of the 'ETH effect' is ONE cell -- ict_scalp_eth_15m, the only pass among 13 small books (Fisher one-sided p=0.0769, n=13). Medians: PASS 600 (range 300-902, n=7) vs FAIL 168 (range 29-1000, n=13).\n\nWHY THIS IS ABOUT THE GATE, NOT ABOUT ETH. The E1 gate is a FOLD-COUNT (train_exit_head.py): candidate requires mean_auc>0.55 AND beats_actual*3>=u*2 AND beats_hard*3>=u*2 -- at least two-thirds of folds on the right side. Per-fold noise falls as trades-per-fold rises, so a thin book has fewer chances to land two-thirds of its folds correctly WHETHER OR NOT THE HEAD HELPS IT. A gate whose outcome is 90% predicted by book size is substantially a POWER TEST, and a small-book `honest_negative` is then nearer to 'underpowered' than to 'the head does not work here' -- a distinction the status vocabulary cannot currently express, which is the same collapsed-state shape this repo keeps finding. Note the correlation is partly DEFINITIONAL (n_oos feeds the fold counts), which strengthens the power-test reading and weakens any causal claim about book size as such.\n\nTHE ONE INTERNALLY-CLEAN STRATUM still points at ETH, and is underpowered by construction: trend_donchian 1h at live parity (relays #9206 main / #9156-58 prop; one geometry, one strategy, one calendar window) is ETH 2 of 2, non-ETH 0 of 3, Fisher one-sided p=0.10, n=5. But WITHIN it the highest AUC belongs to a FAILING leg -- trend_donchian_sol 0.6161 vs trend_donchian_eth 0.6079 and trend_donchian_eth_prop 0.6138 -- so whatever separates them is NOT the head's discrimination; it is fold consistency, which is the book-size axis again. And the n_oos ordering separates the stratum perfectly (passes 902/566, fails 311/298/273), so at n=5 these two explanations are not distinguishable.\n\nTWO EXCEPTIONS THAT BOUND THE CLAIM: ict_scalp_avax_5m FAILS on the LARGEST book in the set (n_oos=1000), so size is necessary and not sufficient; ict_scalp_eth_15m PASSES on 300, the only sub-threshold pass. The 350 threshold is the best single split ON THIS SAME SAMPLE, so 90.0% is an upper bound on out-of-sample separation, not an estimate of it.",
+      "resolution_criteria": "(1) Decide whether the E1 gate should report POWER alongside its verdict -- e.g. trades-per-fold and the minimum detectable effect at u folds -- so that 'underpowered' and 'the head does not help' stop sharing the single status `honest_negative`. That is the finding's actionable half and it is a vocabulary/reporting change, not a gate change. (2) Re-run the non-1h strata (2h pullback, 4h donchian, 15m/5m scalp) at LIVE PARITY so ETH-vs-control can be compared at one geometry beyond the single trend_donchian 1h family; the eth_prop ref already identifies this as the test that would settle the scalp-scoping question, and it is the same run that would settle (a). (3) Blocked on BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED item (3): until exit_head rounds emit a committed artifact, every figure above is parsed out of PROSE in the matrix refs rather than read from a measurement file, and 16 of 36 cells state no n_oos at all.",
+      "refs": [
+        "scripts/research/m20_exit_head_denominator.py",
+        "docs/research/exit-refinement-coverage.json (exit_head_ml column)",
+        "scripts/ml/train_exit_head.py (the u>=2 / auc>0.55 / beats*3>=u*2 gate)",
+        "trainer relays #9206 (main 1h live parity), #9156-#9158 (prop 1h live parity)",
+        "BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED",
+        "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
+      ]
     }
   ]
 }
