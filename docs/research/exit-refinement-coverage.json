@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW.",
-  "updated_at": "2026-08-14T03:52:00Z",
+  "updated_at": "2026-08-14T03:56:00Z",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -646,8 +646,8 @@
       "tf": "15m",
       "execution": "shadow",
       "trail_geometry": {
-        "status": "blocked",
-        "ref": "lever not applicable — fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary"
+        "status": "n/a",
+        "ref": "lever not applicable — fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary || RE-STATUSED 2026-08-14 blocked -> n/a. The legend defines `blocked` as \"cannot process yet (reason given)\" and `n/a` as \"structurally inapplicable\". This ref's own wording -- the lever is not applicable, fvg_range has no trail in its exit structure, nothing to vary -- is the definition of n/a, not of a blocked cell awaiting work. It was also one of only TWO cells carrying a BARE `blocked` with no reason suffix, which the legend requires. Correction of a mis-status, NOT a re-grade: no evidence changed and no count moved (leg is `shadow`, so it was never in the done-condition; headline treats blocked and n/a alike as closed) -- verified by diffing the rollup before and after."
       },
       "stale_stop": {
         "status": "honest_negative",
