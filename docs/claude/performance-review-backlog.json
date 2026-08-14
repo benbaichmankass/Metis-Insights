@@ -2472,7 +2472,8 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
-        }
+        },
+        "2026-08-14 (M20 overnight session) — CROSS-LINK; this row's own scope is unchanged. TWO M20 COVERAGE CELLS ARE GATED ON THIS EVALUATION: trend_donchian_sol_prop / exit_ladder and trend_donchian_eth_prop / exit_ladder are `pending` and CANNOT be closed by inheriting the fleet banking verdict — memo §6.2 grades banking on net_R and then explicitly carves this case out ('the one venue where this trade could still be RIGHT is the prop ruleset ... survival-weighted EV'), which is the sentence that logged THIS row. So the axis is EV/survival, not net_R. PIECES VERIFIED PRESENT 2026-08-14: the banking lever exists in the harness (--bank-frac/--bank-at-r, m20_exit_sweep.py --phase2, which produced §6.2's own 20 cells); run_ev_montecarlo exists AND has three live callers (scripts/prop/{account_compat_matrix,validate_alt_prop,montecarlo_prop}.py), so 'unused for a month' refers to the EVALUATION and not to a dead function; config/prop_rulesets/breakout.yaml exists. THE ONLY MISSING PIECE IS THE JOIN — montecarlo_prop.py has no banking arm. Chaining two built pieces, not new modelling."
       ]
     },
     {
