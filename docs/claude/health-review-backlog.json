@@ -14925,7 +14925,15 @@
         "src/core/coordinator.py::balance_none_refusal_message",
         "BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE",
         "docs/research/WORKPLAN-2026-08-14.md"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T15:14:00+00:00",
+          "by": "claude (roadmap review session, design follow-up before anyone implements this)",
+          "note": "DO NOT FIX THIS BY ADDING A BALANCE PROBE. That is the obvious reading of this row and it is the wrong implementation — recording the better one now, because the naive fix breaks a deliberate invariant and the row as originally written invites it.\n\naccount_reachability_alert.py's own docstring states the constraint: the check reuses the value the reverse reconciler ALREADY calls every tick (account_open_positions) and adds 'No new exchange round-trip.' Bolting a balance() call onto it would add a broker round-trip per live account per cadence window to the live trader's tick — the exact cost class behind both June 2026 wedges, where every added component was individually cheap.\n\nTHE EVIDENCE IS ALREADY IN THE JOURNAL, so no broker call is needed. When balance() returns None the coordinator raises through balance_none_refusal_message (coordinator.py:47/1000) and the refusal is persisted to trades.entry_reason as 'sizing_failed: ... balance() returned None for <acct> (exchange=<x>)'. That column is queryable and is precisely what this session's measurements read (48 occurrences over ~7 weeks all-history; 6 in the last 30d, 4 of them clustered on 2026-08-13 across THREE accounts). A journal-backed detector is strictly better than a probe on three counts:\n  * zero broker load, so the no-round-trip invariant survives;\n  * it cannot false-positive on a transient network blip, because it keys on refusals that ACTUALLY HAPPENED and cost real signals, not on a probe that might merely have timed out;\n  * it measures the thing that matters — signals refused — rather than a proxy for it.\n\nNote the asymmetry that makes this a genuine gap rather than a duplicate of the existing alert: account_open_positions returning a list proves the account is READABLE, which is a weaker claim than TRADEABLE. An account can answer positions() all day while refusing every signal it is routed. That is the state this row exists for.\n\nTIER: shipping a new latched alert is Tier-2 (it fires operator Telegram + FCM), so this stays a proposal. The rate-limiting must be designed in from the start — this condition can recur every tick for a routed strategy, and a per-tick alarm IS the desensitized-alarm P1 this repo already has a rule about. Latch per (account, cause) the way the existing DOWN/OK alert does, not per occurrence."
+        }
+      ],
+      "updated_at": "2026-08-14T15:14:00+00:00"
     },
     {
       "id": "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK",
