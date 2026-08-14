@@ -59,6 +59,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 MATRIX = REPO / "docs" / "research" / "exit-refinement-coverage.json"
+# The committed exit-head evidence file. It exists because this lever had NONE:
+# rounds run on the trainer into an ephemeral `--out` and nothing came back, so
+# every disposition was parsed out of prose in the matrix refs
+# (BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED item 3).
+# Rows here carry their own geometry stamp, so a comparison across them is
+# comparable BY CONSTRUCTION rather than by hoping the refs agree.
+ROUNDS = REPO / "docs" / "research" / "m20-exit-head-rounds.jsonl"
 
 # A cell whose DECIDING measurement cleared the gate. `shipped_gate_failed` is
 # deliberately a FAIL here and that is not a quibble: the legend defines it as
@@ -221,9 +228,69 @@ def main() -> int:
         if not best["ok"]:
             print(f"    NOTE: the HIGHEST auc in the stratum ({best['leg']}, {best['auc']:.4f}) FAILS. "
                   f"Whatever separates these legs is not the head's discrimination —")
-            print("          it is fold consistency, which is the book-size axis again.")
+            print("          it is FOLD CONSISTENCY (beats_actual / beats_hard). An earlier version")
+            print("          of this line called that 'the book-size axis again'; the held-out 2h")
+            print("          stratum below REFUTES that reading, so fold consistency is the axis")
+            print("          and what drives it is still unexplained.")
+    _report_live_parity_rounds()
     print()
     return 0
+
+
+def _report_live_parity_rounds() -> None:
+    """The committed single-geometry evidence — and the out-of-sample verdict.
+
+    Everything above this line is parsed from matrix PROSE across mixed
+    geometries. This block reads measured rows that each carry
+    `tp_geometry: live_parity`, so the comparison is comparable by construction.
+    It also contains the honest test of this file's own headline: the
+    `n_oos >= 350` split was fitted on the 20 mixed-geometry cells, and the 2h
+    stratum is held-out data for it.
+    """
+    if not ROUNDS.is_file():
+        print(f"\n[live-parity rounds] {ROUNDS.name} absent — NOT a clean result, "
+              f"simply unmeasured here.")
+        return
+    rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
+    assert all(r.get("tp_geometry") == "live_parity" for r in rows), (
+        "a non-live-parity row is in the rounds file; the whole point is one geometry"
+    )
+    print(f"\n=== COMMITTED LIVE-PARITY ROUNDS ({len(rows)} rows, "
+          f"{len({r['tf'] for r in rows})} strata) ===")
+
+    def split(sub, label):
+        e = [r for r in sub if "ETH" in r["symbol"]]
+        o = [r for r in sub if "ETH" not in r["symbol"]]
+        if not e or not o:
+            return
+        ep = sum(r["verdict"] == "candidate" for r in e)
+        op = sum(r["verdict"] == "candidate" for r in o)
+        p = fisher_one_sided(ep, len(e) - ep, op, len(o) - op)
+        print(f"  {label:<50} ETH {ep}/{len(e)}  non-ETH {op}/{len(o)}  p={p:.4f}")
+
+    for tf in sorted({r["tf"] for r in rows}):
+        split([r for r in rows if r["tf"] == tf], f"{tf} stratum alone (n={sum(r['tf']==tf for r in rows)})")
+    split(rows, f"POOLED both strata (n={len(rows)})")
+    # A prop leg shares its symbol, strategy family and much of its book with the
+    # main leg beside it, so counting both doubles a single observation. Whether
+    # the pooled result is significant turns ENTIRELY on this, so it is reported
+    # rather than chosen silently.
+    main = [r for r in rows if not r.get("prop_sibling")]
+    split(main, f"POOLED, prop siblings dropped as non-independent (n={len(main)})")
+
+    held = [r for r in rows if r["tf"] == "2h"]
+    if held:
+        P = sorted(r["n_oos"] for r in held if r["verdict"] == "candidate")
+        F = sorted(r["n_oos"] for r in held if r["verdict"] != "candidate")
+        hit = sum((r["n_oos"] >= BOOK_SPLIT) == (r["verdict"] == "candidate") for r in held)
+        print(f"\n  OUT-OF-SAMPLE TEST of the fitted n_oos >= {BOOK_SPLIT} split, on the 2h stratum:")
+        print(f"    pass n_oos {P}   fail n_oos {F}")
+        if P and F and min(P) < max(F):
+            print(f"    the largest books FAIL and the smallest pass ({min(P)}) is below the "
+                  f"largest fail ({max(F)}) — the split does not order this stratum")
+        print(f"    accuracy {hit}/{len(held)} = {100*hit/len(held):.1f}%  (it was 90.0% in-sample)")
+        print("    => BOOK SIZE IS REFUTED as the explanation; it was an in-sample artifact,")
+        print("       which is exactly what this file warned the 90.0% could be.")
 
 
 if __name__ == "__main__":
