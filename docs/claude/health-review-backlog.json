@@ -14378,6 +14378,25 @@
         "relay #9146 — exit-reason distributions: 11 rounds, zero take-profit exits; positive control voided the arg-string method",
         "docs/research/M20-E1-block-size-derivation-2026-08-13.md section 18"
       ]
+    },
+    {
+      "id": "BL-20260814-COVERAGE-STALENESS-GRADED-BY-DATE-NOT-GEOMETRY",
+      "opened_at": "2026-08-14T05:05:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "m20-exit-refinement",
+      "severity": "medium",
+      "tier": "1",
+      "status": "resolved",
+      "title": "m20_coverage_rollup graded TP-geometry staleness by a single DATE, so three SHIPPED real-money exit_head_ml cells sat outside the --stale-decisions list they belong in -- a date cannot distinguish 're-measured' from 're-read an old round'",
+      "source": "Found while re-running the roll-up after fixing the exit-head round driver (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP), not by auditing the roll-up.\n\nTWO DISTINCT DEFECTS, one symptom.\n\n(1) ONE CUTOVER FOR TWO HARNESSES. GEOMETRY_CUTOVER = 2026-08-10 is when the LEVER-SWEEP harness learned to place the live capped TP. `exit_head_ml` does not ride that harness -- it rides m20_exit_head_round.py, whose own fix landed 2026-08-14. Every exit_head_ml cell was therefore graded against a bar four days too early. Correcting it moved the stale count 174 -> 186 of 286 closed cells.\n\n(2) THE DATE IS ONLY A PROXY, AND IT FAILED OUTRIGHT. The three shipped trend_donchian* 1h exit_head_ml cells carry a GENUINE `RE-SWEPT 2026-08-14` ref -- a real measurement, on that date -- which re-read the EXISTING round dirs rather than building new ones. Every round on disk predates the driver fix, so those cells are fresh by date and stale by geometry simultaneously. No choice of cutover date separates them: the property that matters is not WHEN a cell was measured but WHETHER the round behind it placed the live capped TP.\n\nWHY IT MATTERS: `--stale-decisions` is the surface that says which CLOSED, non-negative cells rest on unreproduced evidence, and its own output calls a stale SHIPPED cell the expensive kind (it changes exit behaviour on a real-money leg now). It listed five and read as the complete set; three real-money shipped cells were missing from it. An unasserted-denominator read (diagnostic-provenance sub-class C): the list looked clean because the only test was a date, and the date was the wrong harness's.\n\nNOTE the base rate that makes this non-theoretical: of stale decisions re-swept so far, 1 of 1 did NOT reproduce (trend_donchian trail_decay, now shipped_gate_failed).",
+      "resolution_criteria": "RESOLVED in the same session (PR on claude/m20-exit-coverage-matrix-8d3he7). Fix has two halves, both can-fail verified by reverting each independently: (a) LEVER_GEOMETRY_CUTOVER + cutover_for() give exit_head_ml its own 2026-08-14 bar, with an unlisted lever falling back to the default; (b) a per-cell `tp_geometry` field OVERRIDES the date in BOTH directions -- `no_take_profit` is stale whatever the date says, `live_parity` is not stale whatever the date says, and an absent field falls back to the date while counting into `geometry_undeclared` so 'we did not look' stays visible. The three shipped donchian-1h cells are stamped `no_take_profit` (a declared MEASUREMENT: all eleven rounds read end-to-end, full populations n=100..1992, zero take-profit exits, each carrying its own GEOMETRY-NO-TAKE-PROFIT.txt on disk -- not a presence-only marker). Verified: --stale-decisions now lists 8, shipped 4 -> 7, and a test asserts the three cells against the REAL matrix so a regression fails CI rather than quietly under-reporting. WHAT IS NOT RESOLVED HERE: the DISPOSITION of those three cells (re-run under live parity, or accept) is part (d) of BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP and is Tier-3, queued for the operator -- it is deliberately NOT double-counted as this row's remit.",
+      "evidence": [
+        "scripts/research/m20_coverage_rollup.py -- GEOMETRY_CUTOVER was a single scalar consulted at the one comparison site",
+        "docs/research/exit-refinement-coverage.json -- the three shipped trend_donchian* 1h exit_head_ml refs read 'RE-SWEPT 2026-08-14', clearing any date bar",
+        "runtime_logs/m20_exit_head/donchian_1h_nested -- the round behind those three cells, annotated GEOMETRY-NO-TAKE-PROFIT",
+        "m20_coverage_rollup.py --stale-decisions -- 5 rows before, 8 after; pre_cutover 174 -> 186 of 286 closed cells",
+        "tests/test_exit_head_per_leg.py -- 6 added tests; reverting (a) fails 1, reverting (b) fails 4"
+      ]
     }
   ]
 }
