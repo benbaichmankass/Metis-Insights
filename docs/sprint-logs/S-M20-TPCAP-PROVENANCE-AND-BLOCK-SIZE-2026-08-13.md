@@ -1354,6 +1354,51 @@ Scattered across the night's pings; gathered here so the morning needs one read.
 | **(c)** | `trend_donchian_eth_prop` / `regime_flip_exit` | Evidence COMPLETE. The disposition is an interpretive override of a recorded PASS, which is why it is yours and not mine. Its SOL twin was graded `honest_negative` by structural derivation (the lever cannot fire); the ETH leg is two-sided so the flip CAN fire. |
 | **(d)** | Do cells graded off the **eleven no-TP rounds** need re-running? | Base rate on stale decisions re-swept so far is **1 of 1 NOT reproducing**. 8 stale cells are live DECISIONS (7 shipped + 1 passed_unshipped), so this one costs money rather than knowledge. |
 
+54. **Emptied the `data_missing` bucket — 4 -> 0 on live legs — by measuring
+    every claim in it instead of inheriting one.**
+
+    Item 50 re-graded three. The fourth, `ict_scalp_mgc_15m`/`exit_ladder`,
+    said *"blocked on DATA, not on the harness ... no MGC_* or XAUUSD_* file
+    remains"*. Literally true about the CSV, and misleading about the
+    situation: the shard exists. Measured it (relay #9200) rather than
+    inheriting the sibling cell's "flat-bar contaminated" claim:
+
+    ```
+    data/ibkr_datasets/market_raw/MGC/15m/v002
+      16,530 bars   FLAT (o==h==l==c) = 7,749  = 46.9%
+                    zero-volume               = 31.4%
+      span 2025-10-31 .. 2026-07-20  (8.7 months)
+    ```
+
+    **Nearly half the series has no intra-bar range at all.** A ladder / trail /
+    giveback lever reads high and low; over this series it would be measuring
+    the gaps, not the exit. So the data is not missing — it is UNUSABLE, which
+    is a different disposition and now says so (`blocked:native-history-thin`,
+    adopting the label its own sibling already carries on this leg).
+
+    And it confirms the pull was no help here either: tonight's MGC 15m pull
+    (22,293 rows) came from the SAME IBKR source, so the same contamination is
+    expected. The ref says *do not re-pull to unblock this*.
+
+    **The bucket after tonight** — every live blocked cell now names a MEASURED
+    cause, and none of them is an errand:
+
+    | reason | cells |
+    |---|--:|
+    | `insufficient_lifetime_trades` | 13 |
+    | `insufficient_base` | 3 |
+    | `no_harness_levers` | 2 |
+    | `insufficient_oos_base_at_derived_split` | 2 |
+    | `native-history-thin` | 2 |
+    | **`data_missing`** | **0** |
+
+    That is the real deliverable of the last two hours. Coverage did not move
+    and was never going to; what moved is that **no blocked cell now points at
+    a data errand that does not exist**. The old bucket cost this session an
+    hour of IBKR pulls, shard conversions and a near-miss on training a head
+    against the series it refuses. The next session should not be able to spend
+    that hour, and now it cannot.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
