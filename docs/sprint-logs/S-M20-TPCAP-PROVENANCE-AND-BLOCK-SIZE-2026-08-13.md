@@ -2594,3 +2594,94 @@ both proven load-bearing by removing the fix.
 
 Filed as
 `BL-20260814-RUN-GUARDS-CONSUMES-A-DIFF-IT-NEVER-GENERATES-SO-LOCAL-RUNS-SCAN-A-STALE-FILE`.
+
+## Operator decision (a) — the ETH hypothesis, answered by refuting it twice
+
+**2026-08-14.** Decision (a) was *"test the ETH hypothesis with a denominator —
+run `exit_head_ml` across the other ETH legs AND a matched set of non-ETH
+controls, so it gets a real denominator instead of two positives."*
+
+### The record could not answer it, and that was the first finding
+
+Scoping the question surfaced that **`exit_head_ml` has zero rows in the sweep
+corpus** — positive control: `trail_decay` 278, `vol_trail` 191, `stale_stop`
+190, `giveback_stop` 150, `trail_geometry` 112, `exit_head_ml` **0**; a raw
+`grep -c exit_head` returns 0 against 288 for `trail_decay`. Its rounds run on
+the trainer into a required, ephemeral `--out` and nothing is committed back,
+so all 36 resolved dispositions were parsed out of **prose** in the matrix
+refs. Consequence: operator decision (d) — *"establish the base rate from the
+corpus, per gate"* — **is not executable for this lever.**
+
+That also exposed `matrix-corpus-agreement` reporting *"376 live cell(s)
+checked"* when 3 of its 8 lever columns hold no corpus rows at all: **141 of
+376 (37.5%)** were unreachable by construction, 115 of them carrying an
+explicit `honest_negative`. Fixed (declared exemptions, separate counts, an
+undeclared corpus-less column now fails) and filed as
+`BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED`.
+
+### Two explanations, both refuted
+
+| attempt | claim | outcome |
+|---|---|---|
+| 1 | the SYMBOL — "the head works on ETH" | does not survive a denominator |
+| 2 | BOOK SIZE — `n_oos >= 350` | **refuted out of sample**, and it was mine |
+
+On the 20 mixed-geometry cells stating an `n_oos`, `n_oos >= 350` classified
+the verdict at **90.0%** against **80.0%** for the symbol, so I reported book
+size as the better explanation — *and sent that to the operator*. I then ran a
+matched **2h pullback round at live parity** (7 legs, `--tp-cap-pct 0.099`
+passed explicitly; relays #9271 / #9282), which is genuine **held-out** data
+for a threshold that had been chosen on the sample it was scored on.
+
+It scores **1 of 7 = 14.3%** there. The two largest books FAIL (400, 357) and
+the smallest pass (231) sits below the largest failure. The 90.0% was an
+in-sample artifact — which the original write-up had explicitly flagged
+(*"an upper bound on out-of-sample separation, not an estimate of it"*). That
+caveat is the only part of the first reading that survived, and it is the
+reason the error cost a correction ping rather than a wrong decision.
+
+### Where ETH actually lands
+
+Over both committed live-parity strata (n=12): ETH **4/4**, non-ETH **2/8**,
+Fisher one-sided **p = 0.0303**. But two ETH rows are `_prop` siblings of the
+other two — same symbol, same family, overlapping book — so counting both
+doubles one observation. Dropping every prop sibling (n=9): ETH **2/2**,
+non-ETH **2/7**, **p = 0.1667**. The significance turns entirely on that
+choice, so both are reported rather than one being picked. Two non-ETH legs
+(XRP, ADA) passed at live parity, which is new.
+
+**What is actually binding** is neither: all three 2h negatives fail on
+`beats_hard` while two of them *pass* `beats_actual`, and `sol_pullback_2h`
+carries the stratum's second-highest AUC (0.6330) and still fails. So the
+separating axis is fold consistency against the **cheap lever** — not the
+head's discrimination, not book size — and it is now recorded as unexplained
+rather than misattributed.
+
+### What the round also found, and it matters more than ETH
+
+4 of the 12 live-parity rows **contradict their recorded matrix cell**:
+`eth_pullback_2h`, `eth_pullback_prop_2h`, `xrp_pullback_2h`,
+`ada_pullback_2h` are recorded `honest_negative` and measure **candidate** at
+the geometry production places. The other 8 reproduce, which is the
+consistency check that makes the 4 worth reading. Counter-evidence was written
+into each ref and **no status was flipped** — a passing cell is not a passing
+lever disposition and a live-leg status change is Tier-3.
+
+Sizing the rest: **19 of the 29 negative cells are not known to have been
+measured at live parity at all** (`4h` 5, `1d` 6, `1h` 6, `5m` 1, `15m` 1). Of
+the 10 re-measured so far, 4 did not survive. That rate ships beside its
+denominator and its scope (2 families, 2 timeframes) and is **not** projected
+onto the 19 — it sizes the work, not the outcome.
+
+### Artifacts
+
+- `docs/research/m20-exit-head-rounds.jsonl` — **the first committed exit-head
+  evidence in the repo**, 12 rows, each with its own `tp_geometry` stamp and
+  provenance, every verdict **re-derived from the gate** rather than copied.
+  The re-derivation caught an indexing error of mine (`beats_hard` vs the fold
+  denominator) before it reached disk.
+- `scripts/research/m20_exit_head_denominator.py` — the analysis, shipped as a
+  re-runnable script so the population is restated on every run. Its own
+  docstring had to be corrected once: it still led with the book-size
+  conclusion after the 2h round refuted it, which is the same stale-prose
+  defect this session keeps finding elsewhere.
