@@ -863,9 +863,25 @@ def resolve_split(harness: str, base: list[str], mode: str,
     places the boundary better. Returned meta records target AND mode so a
     verdict states its own derivation.
 
-    Falls back to the fixed date, WITH A STATED REASON, when the leg cannot
-    support the target (a 33-trade leg giving 25 to OOS leaves 8 for IS, which
-    fits nothing). Never silently returns the fixed date.
+    When the leg cannot support the requested target, the target is CLAMPED to
+    the largest it can support (`lifetime // 2`) and the boundary is still
+    derived from this leg's own trades — recorded as
+    `split_target_clamped_from`/`_to`, never silent, because a verdict must not
+    report a target it did not use.
+
+    Falls back to the fixed date, WITH A STATED REASON, only when the leg
+    cannot seat `MIN_OOS_TRADES` on BOTH sides (a 33-trade leg giving 25 to OOS
+    leaves 8 for IS, which fits nothing) — that leg is ungradeable at any
+    boundary, so there is nothing better to return. Never silently returns the
+    fixed date.
+
+    THE THREE OUTCOMES STAY DISTINGUISHABLE, which is the whole point:
+    `split_fallback` unset + no clamp = derived at the asked-for target ·
+    clamp keys present = derived at a REDUCED target (we looked and the leg is
+    thin) · `split_fallback="leg_too_thin"` = ungradeable at any target ·
+    `split_fallback` in {`harness_rc`, `emit_unreadable`} = **we could not
+    look**, which is a different statement from either and must never be read
+    as thinness.
     """
     meta = {"split_mode": mode, "split_target_oos": target_oos}
     if mode == "date":
@@ -901,9 +917,37 @@ def resolve_split(harness: str, base: list[str], mode: str,
     # Require IS to be at least as large as OOS. A leg that cannot give both
     # sides `target_oos` trades is genuinely too thin, and moving the date
     # would only trade one unusable window for another.
+    #
+    # BUT "cannot support THIS target" is not "cannot be graded", and until
+    # 2026-08-14 those were the same branch: the guard returned the fixed
+    # CALENDAR date, which for exactly the low-frequency legs that trip it is
+    # the worst available boundary -- the very defect the derivation exists to
+    # remove. Measured on one dispatch pair, same legs, same geometry, target
+    # 25 -> 35:
+    #
+    #     iwm_trend_long_1d   OOS 24 -> 4      scha  OOS 23 -> 5
+    #     splg_trend_long_1d  OOS 24 -> 4      (eth_prop, 900+ trades: 24 -> 33)
+    #
+    # Asking for MORE out-of-sample trades returned six times FEWER. That is a
+    # cliff, not a degradation, and it fires precisely when the caller asks for
+    # more rigour (BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-
+    # FOR-MORE-OOS-RETURNS-FAR-FEWER).
+    #
+    # So CLAMP to the largest target the leg can actually support and keep
+    # deriving from the leg's own trades. The clamp is RECORDED, never silent:
+    # a verdict must not report a target it did not use. The fixed-date
+    # fallback survives for the one case it is right for -- a leg that cannot
+    # seat MIN_OOS_TRADES on both sides is ungradeable at any boundary, and
+    # there is nothing better to return.
     if len(stamps) < 2 * target_oos:
-        meta.update(split=fixed_split, split_fallback="leg_too_thin")
-        return fixed_split, meta
+        supportable = len(stamps) // 2
+        if supportable >= MIN_OOS_TRADES:
+            meta["split_target_clamped_from"] = target_oos
+            meta["split_target_clamped_to"] = supportable
+            target_oos = supportable
+        else:
+            meta.update(split=fixed_split, split_fallback="leg_too_thin")
+            return fixed_split, meta
 
     boundary = stamps[-target_oos][:10]          # YYYY-MM-DD
     meta["split"] = boundary
