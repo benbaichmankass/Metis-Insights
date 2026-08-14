@@ -18,18 +18,26 @@ file originally concluded book size was the better explanation. A matched 2h
 live-parity round was then run as genuine HELD-OUT data for that split (the
 threshold having been chosen on the very sample it was scored on). It scores
 **1 of 7 = 14.3%** there: the two largest books FAIL and the smallest pass sits
-below the largest failure. **Book size is refuted.** The 90.0% was an in-sample
+below the largest failure. The 4h stratum refutes it a SECOND time and independently: the smallest book in that set (n_oos 123, XRP) PASSES while the
+largest (188, AVAX) fails. **Book size is refuted.** The 90.0% was an in-sample
 artifact, which is what the caveat below always said it might be — that caveat
 is the only part of the original reading that survived.
 
-WHERE ETH LANDS. Over both committed live-parity strata (n=12): ETH 4/4,
-non-ETH 2/8, Fisher one-sided p = 0.0303. But two of those ETH rows are `_prop`
-siblings of the other two — same symbol, same family, overlapping book — so
-counting both doubles one observation. Dropping every prop sibling (n=9): ETH
-2/2, non-ETH 2/7, **p = 0.1667**. The significance turns entirely on that
-choice, so `_report_live_parity_rounds` prints both rather than picking. Honest
-reading: no non-ETH leg in either family matches ETH's record, and the sample
-cannot establish that as more than chance. Two non-ETH legs (XRP, ADA) do pass.
+WHERE ETH LANDS — and a third stratum killed it. Over the first two strata
+(n=12) ETH was 4/4 vs non-ETH 2/8, Fisher one-sided p = 0.0303, and that was
+reported as arguably significant. The 4h donchian round (relays #9288/#9294)
+then added five INDEPENDENT rows — that family has no `_prop` siblings — and
+**ETH FAILED there** (`trend_donchian_eth_4h`, beats_hard 9/16 against an 11
+bar) while ADA and XRP passed. Updated:
+
+    n=12, prop siblings counted   ETH 4/4  vs 2/8    p = 0.0303
+    n=17, all three strata        ETH 4/5  vs 4/12   p = 0.1109
+    n=14, prop siblings dropped   ETH 2/3  vs 4/11   p = 0.3846   <- the honest one
+
+So the one arguably-significant reading was an artifact of a small sample plus
+double-counted prop legs, and it did not survive a third family. Both prop
+figures are still printed rather than picked, because the choice is what moved
+the number and hiding it would hide the reason.
 
 WHAT IS ACTUALLY BINDING — and it is now named as unexplained rather than
 misattributed. The E1 gate is a FOLD-COUNT: candidate requires
