@@ -778,3 +778,72 @@ drop it and run the unconditional head at the same τ. **Still Tier-3, still
 queued, still not re-graded here** — and still bounded by § 13's caveat that
 these are three correlated legs of one strategy over one calendar window, not
 three independent confirmations.
+
+## 15. The penalty is not a donchian artefact — it holds on scalp, where the head *works*
+
+§§ 13–14 are scoped to donchian-1h, the family whose head has **no** causal edge.
+That leaves the obvious alternative reading: maybe conditioning only looks bad
+because it is bolted to a weak head. Scalp is the control — the one family whose
+edge survives nested τ selection (+3.848R, 5 of 7 legs two-sided PASS, § 11).
+
+**A denominator correction first.** The scalp round writes **one report per leg**
+— seven files — where donchian wrote a single combined report. The first probe
+(#9130) took the first file and so measured `ict_scalp_5m` **alone**: a 1-of-7
+sample that would have carried a family label. It is not quoted here. #9131
+re-ran across all seven, printing the report count as an explicit denominator
+with a guard if it is not 7, and reporting **how many individual legs agree on
+the drawdown sign** so a pooled mean cannot hide a split.
+
+Pooled over 7 legs, n = 80 leg-folds per cell, at each τ carrying conditional
+arms:
+
+| τ | shape | Δ net_R (t) | Δ maxDD (t) | Δ hold (t) | legs worse dd |
+|---|---|---:|---:|---:|:--|
+| 0.10 | `age8` | +0.366 (+1.05) | **+1.095 (+6.90)** | +3.683 (+18.17) | **7/7** |
+| 0.10 | `age8_below_half_r` | −0.568 (−1.54) | **+1.302 (+7.58)** | +4.481 (+22.00) | **7/7** |
+| 0.10 | **`below_half_r`** | **−1.008 (−6.76)** | **+0.215 (+3.64)** | +0.743 (+16.13) | 6/7 |
+| 0.10 | `pre_mfe1` | **−1.165 (−7.77)** | **+0.289 (+3.98)** | +0.643 (+15.01) | 6/7 |
+| 0.15 | `age8` | +0.648 (+1.55) | +1.196 (+6.54) | +4.527 (+26.71) | 7/7 |
+| 0.15 | `age8_below_half_r` | −0.275 (−0.64) | +1.402 (+7.16) | +5.355 (+30.63) | 7/7 |
+| 0.15 | **`below_half_r`** | **−0.889 (−6.47)** | +0.174 (+4.36) | +0.654 (+14.86) | 6/7 |
+| 0.15 | `pre_mfe1` | **−1.013 (−7.02)** | +0.228 (+4.43) | +0.586 (+13.28) | 7/7 |
+| 0.20 | `age8` | +0.738 (+1.77) | +1.419 (+7.82) | +5.189 (+36.73) | 7/7 |
+| 0.20 | `age8_below_half_r` | +0.005 (+0.01) | +1.597 (+8.18) | +6.003 (+41.74) | 7/7 |
+| 0.20 | **`below_half_r`** | **−0.675 (−4.62)** | +0.114 (+3.01) | +0.587 (+14.42) | 6/7 |
+| 0.20 | `pre_mfe1` | **−0.912 (−6.35)** | +0.252 (+5.13) | +0.517 (+12.12) | 7/7 |
+
+**Every one of the twelve cells costs drawdown, every one at `t ≥ 3.01`, and
+6 or 7 of the 7 legs individually agree in each.** Every one holds longer. So the
+donchian result is **not** an artefact of a weak head: conditioning costs
+drawdown on the family where the head genuinely works, across three τ values,
+with per-leg agreement rather than a pooled artefact.
+
+**On the family that works, the live-style shape's net_R cost is *larger*, not
+smaller.** `below_half_r` runs `t` −6.76 / −6.47 / −4.62 on scalp against −0.50 /
+−0.41 / −1.18 on donchian, and `pre_mfe1` is worse still (−7.77 / −7.02 / −6.35).
+The better the head, the more a low-score veto costs — which is the coherent
+direction: overriding a head that is right more often is more expensive.
+
+### The one exception, stated rather than smoothed over
+
+**`age8` does not cost net_R on scalp.** It is *positive* at all three τ (+0.366 /
++0.648 / +0.738), though never significantly (`t` +1.05 / +1.55 / +1.77), and it
+is the only shape on either family that is not negative. So the universal claim
+is about **drawdown**, where all 24 measured cells across both families agree;
+on **net_R** the honest statement is "negative for three of four shapes on scalp,
+`age8` neutral-to-positive but indistinguishable from zero". `age8` also carries
+the *largest* drawdown cost of the four (+1.095 … +1.419), so it is not a way out.
+
+### Caveats
+
+- **The pooled `t` treats 80 leg-folds as independent units and they are not** —
+  seven legs share a calendar window. The **`legs worse dd` column is the more
+  robust statement** (6/7 or 7/7 individually), and it is why the probe reports
+  it; do not quote the pooled `t` without it.
+- Scalp legs are nonetheless a **better-spread** population than donchian's three
+  correlated majors — five symbols across 5m and 15m rather than three crypto
+  majors on one timeframe.
+- The τ range differs by design: donchian conditional arms exist only at τ=0.10,
+  scalp at 0.10/0.15/0.20. Nothing is compared across a τ boundary.
+- **Still not a re-grade, and still not a live change.** Every disposition
+  remains Tier-3 and operator-gated.
