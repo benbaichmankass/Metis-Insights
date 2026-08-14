@@ -100,6 +100,22 @@ def main(argv: list[str]) -> int:
                     choices=["5m", "15m", "1h", "2h", "4h", "1d"])
     ap.add_argument("--data-dir", default=str(REPO / "data"))
     ap.add_argument("--out", required=True)
+    ap.add_argument("--tp-cap-pct", type=float, default=0.099,
+                    help="TP geometry for the E0 emit. DEFAULT 0.099 = LIVE "
+                         "PARITY, what production actually places: "
+                         "tp = min(entry*(1+pct), entry + tp_r*risk). It is a "
+                         "DEFAULT and not an opt-in deliberately — until "
+                         "2026-08-14 this driver could not pass the flag at "
+                         "all (it called base_args positionally, so tp_cap_pct "
+                         "took 0.0, and base_args only forwards --tp-r/"
+                         "--tp-cap-pct when that is > 0), so EVERY round on "
+                         "disk was built on a book with NO take-profit: 11 of "
+                         "13 audited round dirs contain zero take-profit exits "
+                         "(BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP). "
+                         "A head tuned on a book that cannot take profit is "
+                         "tuned on a book production does not run. Pass 0 ONLY "
+                         "to reproduce one of those historical no-TP verdicts, "
+                         "and say so when you quote it.")
     ap.add_argument("--db", default=None,
                     help="optional trade_journal.db for the live-source split")
     ap.add_argument("--target", default=None,
@@ -142,7 +158,7 @@ def main(argv: list[str]) -> int:
                   "for head training", flush=True)
             continue
         emit = out / "emit" / f"{leg}.jsonl"
-        args = base_args(leg, cfg, fam, data, resample)
+        args = base_args(leg, cfg, fam, data, resample, a.tp_cap_pct)
         # Every harness stamped a HARDCODED family literal on each emitted row
         # -- `ict_scalp_5m`, `trend_donchian`, `htf_pullback_trend_2h` -- so the
         # E0 dataset, which buckets by that field, could not tell a 15m ETH
@@ -222,9 +238,33 @@ def main(argv: list[str]) -> int:
                 report[fam_dir.name] = json.loads(e1.read_text())
             except json.JSONDecodeError:
                 pass
+    # STAMP THE GEOMETRY. round_report.json previously recorded ONLY the
+    # per-family e1 payloads, so nothing on disk said which exit geometry the
+    # underlying book was built with. An audit that searched these reports for
+    # the harness flags therefore came back "no --tp-r" for every round — a
+    # TRUE-looking answer produced by a file that records no args at all, and
+    # it agreed with the auditor's prior. The exit-reason distribution of the
+    # emitted trades was the only thing that could actually settle it
+    # (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP). A round is now
+    # self-describing on the one parameter that decides whether its verdict
+    # transfers to production.
+    meta = {
+        "tf": a.tf,
+        "legs": [s.strip() for s in a.legs.split(",") if s.strip()],
+        "tp_cap_pct": a.tp_cap_pct,
+        "tp_geometry": ("live_parity" if a.tp_cap_pct > 0.0
+                        else "NO_TAKE_PROFIT"),
+        "target": a.target,
+        "features": a.features,
+    }
     (out / "round_report.json").write_text(json.dumps(
-        {k: v for k, v in report.items()}, indent=1, default=str))
-    print("round done ->", out)
+        {"_round_meta": meta, **{k: v for k, v in report.items()}},
+        indent=1, default=str))
+    if a.tp_cap_pct <= 0.0:
+        print("WARNING: tp_cap_pct=0 — this round's book models NO TAKE-PROFIT "
+              "and is NOT live parity. Any verdict from it describes a book "
+              "production does not run.", flush=True)
+    print("round done ->", out, "| tp_geometry:", meta["tp_geometry"])
     return 0
 
 
