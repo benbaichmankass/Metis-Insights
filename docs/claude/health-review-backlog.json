@@ -15027,7 +15027,15 @@
         "comms/macro/sysdyn_gas_dual_scorecard.json",
         "scripts/research/analyze_research_panel.py"
       ],
-      "source": "roadmap + work-plan review 2026-08-14 (Lanes 4+5)"
+      "source": "roadmap + work-plan review 2026-08-14 (Lanes 4+5)",
+      "updates": [
+        {
+          "at": "2026-08-14T16:45:00+00:00",
+          "by": "claude (roadmap + work-plan review 2026-08-14), field check of the whole M30 queue",
+          "note": "FIELD-CHECKED THE ENTIRE M30 'Queued loose-ends' LIST (P1-P6), not just the two items that generated lanes. The result both widens the finding and narrows the actual gap.\n\n  P1 --features         SHIPPED (verified hard: commit f4cbc3ba titled 'M30 P1: C2 --features common-core selector (#7718)', implementation at analyze_research_panel.py:913, argparse at :1120, two independent callers)\n  P2 sweep driver       scripts/research/sweep_research_panels.py EXISTS (roadmap: #7730)\n  P3 hypothesis->bt     scripts/research/build_backtest_panel.py EXISTS - but AMBIGUOUS: the roadmap names that file as 'the C1-for-backtests bridge (#7744)' while listing P3 separately as 'hypothesis->backtest bridge'. Same thing or not is undetermined.\n  P4 wider capture      'killzone' present in build_backtest_panel.py, build_research_panel.py, hf_vectorized.py (roadmap: #7723)\n  P5 excursions         'excursion' present in analyze_panel_by_cell.py, analyze_research_panel.py, build_backtest_panel.py (roadmap: #7737/#7741)\n  P6 SHAP               *** GENUINELY NOT SHIPPED *** - see below\n\nSO THE ROADMAP'S 'Shipped:' LINE IS THE ACCURATE HALF and the 'Queued loose-ends' list is stale for P1/P2/P4/P5. The genuinely open items are P6, and P3 only in the sense that the roadmap labels one artifact two ways.\n\nA CAUTION THAT NEARLY BECAME AN ERROR, recorded because it is the same class this row is about. A first pass grepped for 'shap' and hit three files, which would have supported 'all six shipped'. Those hits are `x.shape[1]` - a SUBSTRING false positive, not SHAP. Token presence is weak evidence for 'implemented'; the check that settled it was asking whether the token appears in an import, a def, or an add_argument, and for P6 it appears in none. Do not grade this list by grep alone."
+        }
+      ],
+      "updated_at": "2026-08-14T16:45:00+00:00"
     }
   ]
 }
