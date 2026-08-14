@@ -1287,6 +1287,73 @@ an order of magnitude on donchian and by ~1.6× on scalp.
     instruction cost me an hour tonight; it should cost the next session
     nothing.
 
+51. **Verified the DENOMINATOR the whole night's number rests on — both
+    directions — and it is exactly right.**
+
+    I have quoted "373/376" in every ping tonight without once checking that
+    376 is the correct population. Swept the matrix against
+    `config/strategies.yaml`:
+
+    - matrix rows marked `execution: live` = **47**; config `live` + `enabled`
+      = **47**; the two sets are **identical in both directions**.
+    - live+enabled config legs MISSING from the matrix: **0** (an under-count
+      would hide un-processed legs).
+    - matrix rows claiming live that config does not: **0** (an over-count
+      would INFLATE the denominator and flatter the percentage).
+    - duplicate strategy rows: none. symbol/tf drift vs config: **0 of 52 rows**.
+    - 47 x 8 levers = **376**, matching the roll-up exactly.
+
+    One apparent mismatch resolved rather than filed: `xauusd_trend_1h` reads
+    `execution: disabled` in the matrix and `execution: live` in YAML — but the
+    YAML also carries `enabled: False`, so the matrix records the EFFECTIVE
+    state and is correct. A naive `execution`-vs-`execution` comparison would
+    have reported a false positive; the `enabled` flag is what settles it. Its
+    bare `blocked` status therefore escapes the bare-blocked guard legitimately
+    (that guard is scoped to live rows, and this row is not one).
+
+52. **My futures measurement corroborates an existing item rather than
+    competing with it.**
+
+    `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE` already established that the
+    **seven equity 1d legs** cannot reach the E1 block threshold (projected
+    50-104 lifetime trades against 150 needed, 0 of 7 reach it). Item 50
+    measured the **three futures 1d legs** at 33 / 74 / 80 lifetime and 5 / 7 /
+    10 OOS. Those fail BOTH gates — under 150 lifetime AND under
+    `MIN_OOS_TRADES=25` — so the two findings agree and now cover the whole 1d
+    fleet between them. After the re-grade, **10 of the 13 blocked
+    `exit_head_ml` cells are 1d legs carrying one reason**, which is the point:
+    the fleet-wide fact is now readable off the matrix instead of being spread
+    across two backlog items and three differently-worded cells.
+
+53. **Assessment: M20's AUTONOMOUS work is complete. Everything left needs the
+    operator.**
+
+    Stated as an assessment because it is one, and checked against
+    `--done-condition` rather than impression. The 25 cells are:
+
+    - **3 pending, all prop legs** — `trend_donchian_eth_prop`/`exit_ladder`
+      and `trend_donchian_sol_prop`/`exit_ladder` are gated on
+      `PB-20260712-PROP-BANKING-EV` (the fleet banking verdict does NOT
+      transfer: memo §6.2 carves prop out), and
+      `trend_donchian_eth_prop`/`regime_flip_exit` is queued decision (c).
+    - **22 blocked** — 12 `exit_head_ml` (volume/structural, per items 50-52),
+      6 `vol_trail`, 2 `exit_ladder`, 1 `giveback_stop`, 1 `native-history-thin`.
+
+    There is no cell I can move without a Tier-3 call or a gate that is not
+    mine. That is a legitimate stopping point, not a stall — and it is worth
+    saying plainly rather than manufacturing motion to look busy.
+
+### Tier-3 decisions awaiting the operator (consolidated)
+
+Scattered across the night's pings; gathered here so the morning needs one read.
+
+| # | decision | evidence state |
+|---|---|---|
+| **(a)** | Is `exit_head_ml` **scalp-family-scoped**? | Better informed but NOT answered. The first non-scalp candidate (`trend_donchian_eth_prop`, auc 0.6138, n_oos 902) sits on a DIFFERENT geometry than every `honest_negative` behind the original read, so it is not a clean counterexample. |
+| **(b)** | The **three live donchian-1h** `exit_head_ml` cells | Options: keep as-is / drop the conditioning and run the unconditional head at the same tau / act on BTC alone (the only leg failing its own re-sweep). The conditioning layer is unearned on BOTH families — drawdown worse at t>2 on every leg. |
+| **(c)** | `trend_donchian_eth_prop` / `regime_flip_exit` | Evidence COMPLETE. The disposition is an interpretive override of a recorded PASS, which is why it is yours and not mine. Its SOL twin was graded `honest_negative` by structural derivation (the lever cannot fire); the ETH leg is two-sided so the flip CAN fire. |
+| **(d)** | Do cells graded off the **eleven no-TP rounds** need re-running? | Base rate on stale decisions re-swept so far is **1 of 1 NOT reproducing**. 8 stale cells are live DECISIONS (7 shipped + 1 passed_unshipped), so this one costs money rather than knowledge. |
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
