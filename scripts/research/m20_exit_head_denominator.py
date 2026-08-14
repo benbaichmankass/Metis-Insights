@@ -310,6 +310,29 @@ def _report_negative_column_vintage(cells: list[dict]) -> None:
             by_tf[tf] = by_tf.get(tf, 0) + 1
         print(f"    by timeframe: {dict(sorted(by_tf.items()))}")
 
+    # AND THE OTHER DIRECTION, which is the one nobody had tested. Every
+    # re-measurement up to 2026-08-14 was of a NEGATIVE, so the only observed
+    # risk was "a negative might really be a pass". A recorded POSITIVE resting
+    # on the wrong geometry is the more expensive error: a passed_unshipped cell
+    # is what would justify shipping a lever onto a live leg. The 15m scalp
+    # round tested it and `ict_scalp_eth_15m` -- recorded `passed_unshipped` --
+    # came back `honest_negative`. So the re-measurement risk runs both ways and
+    # is no longer hypothetical.
+    positives = [c for c in cells if c["status"] in PASS_STATUSES]
+    pos_rechecked = [c for c in positives if c["leg"] in rounds]
+    if pos_rechecked:
+        lost = [c["leg"] for c in pos_rechecked
+                if rounds[c["leg"]]["verdict"] != "candidate"]
+        kept = [c["leg"] for c in pos_rechecked
+                if rounds[c["leg"]]["verdict"] == "candidate"]
+        print(f"\n  recorded POSITIVES re-measured so far: {len(pos_rechecked)} "
+              f"of {len(positives)}")
+        print(f"    did NOT survive (now negative)    : {len(lost)} {lost}")
+        print(f"    reproduced                        : {len(kept)} {kept}")
+        print(f"    {len(positives) - len(pos_rechecked)} recorded positive(s) "
+              f"have NEVER been re-measured -- and a positive is what would "
+              f"justify shipping a lever onto a live leg.")
+
     # Of the recorded negatives that HAVE been re-measured, how many survived?
     rechecked = [c for c in negatives if c["leg"] in rounds]
     if rechecked:
@@ -345,12 +368,40 @@ def _report_live_parity_rounds() -> None:
         print(f"\n[live-parity rounds] {ROUNDS.name} absent — NOT a clean result, "
               f"simply unmeasured here.")
         return
-    rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
-    assert all(r.get("tp_geometry") == "live_parity" for r in rows), (
-        "a non-live-parity row is in the rounds file; the whole point is one geometry"
-    )
-    print(f"\n=== COMMITTED LIVE-PARITY ROUNDS ({len(rows)} rows, "
-          f"{len({r['tf'] for r in rows})} strata) ===")
+    all_rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
+
+    # TWO GEOMETRIES LIVE IN THIS FILE AND THEY DO NOT POOL.
+    #
+    # `live_parity_capped` (donchian/pullback: the live unit clamps TP at 9.9%,
+    # and the round applied it) and `live_parity_uncapped` (scalp: the live unit
+    # carries NO clamp, so an uncapped book is parity for it). Both are "live
+    # parity" for their own family and they are NOT the same book — pooling them
+    # would reintroduce, one level up, the exact cross-geometry comparison this
+    # whole file exists to avoid.
+    #
+    # An earlier version asserted a single geometry here. That assert FIRED the
+    # moment the first scalp rows landed, which is the behaviour wanted: it
+    # refused to average two things rather than quietly doing it. Stratifying is
+    # the fix; loosening the assert to `in {...}` would have been the bug.
+    known = {"live_parity", "live_parity_capped", "live_parity_uncapped"}
+    unknown = sorted({r.get("tp_geometry") for r in all_rows} - known)
+    assert not unknown, f"unrecognised tp_geometry in the rounds file: {unknown}"
+    strata = {}
+    for r in all_rows:
+        # `live_parity` is the pre-split label; every row carrying it is a
+        # capped family (donchian/pullback), verified when written.
+        g = "live_parity_capped" if r["tp_geometry"] == "live_parity" else r["tp_geometry"]
+        strata.setdefault(g, []).append(r)
+
+    for geom in sorted(strata):
+        rows = strata[geom]
+        print(f"\n=== COMMITTED ROUNDS — {geom} ({len(rows)} rows, "
+              f"{len({r['tf'] for r in rows})} strata) ===")
+        _report_one_geometry(rows, geom)
+    return
+
+
+def _report_one_geometry(rows: list[dict], geom: str) -> None:
 
     def split(sub, label):
         e = [r for r in sub if "ETH" in r["symbol"]]
@@ -364,13 +415,16 @@ def _report_live_parity_rounds() -> None:
 
     for tf in sorted({r["tf"] for r in rows}):
         split([r for r in rows if r["tf"] == tf], f"{tf} stratum alone (n={sum(r['tf']==tf for r in rows)})")
-    split(rows, f"POOLED both strata (n={len(rows)})")
+    n_str = len({r["tf"] for r in rows})
+    if n_str > 1:
+        split(rows, f"POOLED all {n_str} strata (n={len(rows)})")
     # A prop leg shares its symbol, strategy family and much of its book with the
     # main leg beside it, so counting both doubles a single observation. Whether
     # the pooled result is significant turns ENTIRELY on this, so it is reported
     # rather than chosen silently.
     main = [r for r in rows if not r.get("prop_sibling")]
-    split(main, f"POOLED, prop siblings dropped as non-independent (n={len(main)})")
+    if len(main) != len(rows):
+        split(main, f"POOLED, prop siblings dropped as non-independent (n={len(main)})")
 
     held = [r for r in rows if r["tf"] == "2h"]
     if held:
