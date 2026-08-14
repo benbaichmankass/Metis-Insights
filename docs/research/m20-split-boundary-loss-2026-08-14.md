@@ -135,36 +135,50 @@ that does not reconcile is not a denominator.
 is not thin data. It is the mechanism this memo describes: the target equals the
 floor, so any boundary loss lands under it.
 
-**Target 30 (floor + the measured margin 5) — PARTIAL, 5 of 19 legs, 19 cells:**
+**Target 30 (floor + the measured margin 5) — 19 of 19 legs, 70 of 76 cells**
+(6 still running at readout #9371):
 
 | outcome | cells |
 |---|--:|
-| `is_oos_fail` | 17 |
+| `is_oos_fail` | 63 |
+| `insufficient_base` | 4 |
+| `path_b_wf_pass` | **2** |
 | `wf_fail` | 1 |
-| `path_b_wf_pass` | 1 |
-| **`insufficient_base`** | **0** |
 
-`insufficient_base` disappears, and the cells get **graded on their merits**.
+**Matched population: both arms cover the same 19 legs** (checked with `comm`,
+not assumed — a complete arm compared against a partial one over different leg
+sets is not the A/B it looks like).
+
+### The comparison
+
+| | target 25 | target 30 |
+|---|--:|--:|
+| unmeasurable (`insufficient_base`) | **68/76 = 89.5%** | **4/70 = 5.7%** |
+| graded on the merits | 8/76 = 10.5% | 66/70 = **94.3%** |
+| passes | **0** | 2 (2.9%) |
+
+The 5-trade margin converts **89.5% unmeasurable into 5.7%**.
 
 **Read what this buys.** Primarily **answers instead of refusals**: at 25 the
 sweep could not say whether these levers work; at 30 it can, and mostly says no.
 Most graded cells still *fail*, which is the honest outcome for this family.
 
-*(Corrected at 16/19 legs: the 5-leg partial above supported "it does not buy
-passes", and that is now false. Two cells that were `insufficient_base` at
-target 25 **pass** at target 30 — `mhg_pullback_1d`/`stale8_lt0R` and
-`tlt_pullback_1d`/`gb1R_afterMFE2R`, both `path_b_wf_pass` at wf=4/6. Note
-**Path B**: the same qualified shape as `tlt_pullback_1h`/`trail4`, which was
-recorded `passed_unshipped` rather than shipped because its OOS drawdown got
-worse. A Path-B pass is a gradeable result, not a ship signal — so this
-strengthens the "answers, not passes" reading rather than overturning it, but
-the flat claim was wrong and is withdrawn.)*
+**It does not manufacture winners: 63 of the 66 graded cells still FAIL.** The
+two passes are both **Path B** — `mhg_pullback_1d`/`stale8_lt0R` and
+`tlt_pullback_1d`/`gb1R_afterMFE2R`, `path_b_wf_pass` at wf=4/6 — the same
+qualified shape that made `tlt_pullback_1h`/`trail4` `passed_unshipped` rather
+than `shipped`, because its OOS drawdown got worse. A Path-B pass is a gradeable
+result, not a ship signal.
 
-**Caveats, both load-bearing.** The target-30 arm was **16 of 19 legs** at the
-time of writing, against a complete 19/19 target-25 arm — so the two are not
-matched populations yet and the final counts are pending (readouts #9370/#9371).
-The two arms differ in *nothing but the target*: same family, same levers, same
-explicit `--tp-cap-pct 0.099`.
+*(An earlier revision of this section, written from a 5-leg partial, said the
+flip "does not buy passes". That was falsified at 16 legs and is withdrawn — two
+cells that were `insufficient_base` at 25 do pass at 30. The conclusion it was
+supporting survives; the flat claim did not.)*
+
+**Caveats.** The target-30 arm was **70 of 76 cells** at readout — 6 pending, so
+its percentages can still move by a few points; the direction cannot. Both arms
+differ in *nothing but the target*: same family, same levers, same explicit
+`--tp-cap-pct 0.099`.
 
 **One methodological note, because it nearly cost a denominator.** The #9370
 readout "tightened" the cell counter from a loose `->` grep to a per-cell line
