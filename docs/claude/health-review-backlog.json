@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T09:50:00+00:00",
+  "updated_at": "2026-08-14T10:08:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14655,6 +14655,24 @@
         "docs/research/exit-refinement-coverage.json",
         "docs/research/m20-sweep-corpus.jsonl",
         "BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES",
+        "PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY"
+      ]
+    },
+    {
+      "id": "BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY",
+      "opened_at": "2026-08-14T10:08:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "severity": "medium",
+      "tier": "1 (research tooling — the adjudication of any individual cell may be Tier-3)",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "100 of the 186 stale cells already have a LIVE-PARITY corpus row, and 11 of those rows PASS while the matrix records a negative — the remedy is a JOIN, not a re-run",
+      "detail": "MEASURED against the committed artifacts (docs/research/exit-refinement-coverage.json + docs/research/m20-sweep-corpus.jsonl), 2026-08-14:\n\n  stale_cells (evidence_vintage)                                   186\n  ...that ALREADY have a live-parity (tp_cap_pct 0.099) corpus row  100  (53.8%)\n  ...of which at least one such row is a PASS or path_b_wf_pass      11\n\nThe eleven, matrix status vs the live-parity corpus verdict:\n  ada_pullback_2h        vol_trail        honest_negative   path_b_wf_pass\n  eth_pullback_prop_2h   trail_decay      honest_negative   path_b_wf_pass\n  gld_pullback_1h        vol_trail        honest_negative   PASS\n  mhg_pullback_1d        stale_stop       passed_unshipped  path_b_wf_pass\n  slv_pullback_1d        stale_stop       honest_negative   path_b_wf_pass\n  tlt_pullback_1h        trail_geometry   shipped           path_b_wf_pass   (already filed as PB-20260814-TLT-...)\n  trend_donchian_avax_4h stale_stop       honest_negative   PASS\n  trend_donchian_avax_4h vol_trail        honest_negative   PASS\n  trend_donchian_sol_4h  trail_geometry   honest_negative   path_b_wf_pass\n  trend_donchian_sol_4h  vol_trail        honest_negative   path_b_wf_pass\n  trend_donchian_xrp_4h  trail_decay      honest_negative   PASS\n\nWHY IT MATTERS: `evidence_vintage`'s own comment says a stale NEGATIVE 'costs knowledge -- the lever might have passed and we would not know'. For these it is not hypothetical: the lever DID pass at live parity, the run happened, the row is committed, and the matrix still carries the pre-cutover negative. Worked example -- trend_donchian_xrp_4h/trail_decay reads honest_negative on a ref dated 2026-07-12/13 ('eth/sol/xrp 4h all cells is_oos_fail'), while the corpus holds two live-parity PASSes from 2026-08-10: decay_arm2R_t2.5 (wf 5/6, d_net_r_OOS +1.0043, base_OOS 32) and decay_arm1.5R_stall6_t2.5 (wf 4/6, +0.9204).\n\nSo the 186-cell backlog is not 186 re-runs. Over half is a JOIN the roll-up does not perform, and the expensive part (the sweep) is already paid for.\n\nCAVEATS THAT BOUND THIS, stated because the list above will read as a to-flip list otherwise:\n  1. A passing CELL is not automatically a passing LEVER disposition. Precedent cuts toward it      (tlt_pullback_1h shipped on exactly one passing cell), but each of the 11 needs adjudication.\n  2. EIGHT of the 11 are `path_b_wf_pass` -- the weaker route, whose history includes candidates      that reached it with zero generalisation evidence. Only 4 are a full PASS.\n  3. I did NOT re-run anything; this is a read of two committed files.\n  4. Any resulting status change on a `live` leg is Tier-3 and belongs to the operator.\n\nMY OWN ERROR, RECORDED BECAUSE IT NEARLY BECAME THE HEADLINE: my first pass reported these cells as NOT flagged by evidence_vintage -- i.e. 'invisible'. That was wrong. I unpacked the stale_cells tuple as (leg, lever, ...) when it is (leg, symbol, timeframe, lever, ref_date, cutover), so I was comparing levers against SYMBOLS and every lookup missed. All 11 ARE flagged. The staleness machinery is working; what is missing is the join to the evidence that resolves it. Checking the tuple shape instead of trusting my unpacking is the only reason this row says something true.",
+      "resolution_criteria": "(1) The roll-up (or a sibling tool) reports, per stale cell, whether a live-parity corpus row EXISTS for that (leg, lever) and what it says -- so a reviewer sees 'stale, and here is the newer evidence' rather than 'stale'. Three states, not two: no live-parity row / live-parity row agrees / live-parity row DISAGREES with the recorded status. (2) The 11 disagreements above are each adjudicated and the matrix cell updated or the disagreement explained in the ref (e.g. 'one cell passes but the lever disposition stands because X'). (3) A guard or check fails when a matrix cell's status contradicts the newest live-parity corpus row for the same (leg, lever) without the ref acknowledging it -- otherwise this recurs on the next sweep.",
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "docs/research/m20-sweep-corpus.jsonl",
+        "scripts/research/m20_coverage_rollup.py::evidence_vintage",
         "PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY"
       ]
     }
