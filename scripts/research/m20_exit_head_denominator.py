@@ -130,10 +130,12 @@ def main() -> int:
     print("=" * 78)
     print("M20 — does exit_head_ml prefer ETH, or does it prefer a BIG BOOK?")
     print("=" * 78)
+    clean = [c for c in sized if c["leg"] in set(LIVE_PARITY_1H)]
     print(f"resolved exit_head_ml cells      : {len(cells)}")
     print(f"  of which state an n_oos        : {len(sized)}   <- THE DENOMINATOR")
     print(f"  excluded for stating none      : {len(cells) - len(sized)}")
-    print("  geometries are MIXED across these; only the stratum below is clean.")
+    print(f"  confirmed one-geometry (live parity): {len(clean)} of {len(sized)}; "
+          f"the other {len(sized) - len(clean)} MIX geometries")
     if not sized:
         print("\nno cell states an n_oos — nothing to test", file=sys.stderr)
         return 1
@@ -185,7 +187,8 @@ def main() -> int:
     print(f"\n  PASS median n_oos {statistics.median(P):6.0f}  (range {min(P)}-{max(P)}, n={len(P)})")
     print(f"  FAIL median n_oos {statistics.median(F):6.0f}  (range {min(F)}-{max(F)}, n={len(F)})")
 
-    print("\n--- the one internally-clean stratum: trend_donchian 1h at LIVE PARITY ---")
+    print(f"\n--- single-geometry stratum: trend_donchian 1h at LIVE PARITY "
+          f"({len(clean)} of {len(sized)} sized cells) ---")
     print("    (relays #9206 main / #9156-58 prop — one geometry, one strategy, one window)")
     lp = []
     for name in LIVE_PARITY_1H:
