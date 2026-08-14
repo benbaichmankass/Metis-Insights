@@ -649,8 +649,70 @@ net_R cost is real, measured, and was not previously stated anywhere.
 
 - **Whether BTC's failure reproduces off this one book.** 22 folds, one family,
   one block size. A leg-level demotion wants more than a single re-sweep.
-- **The drawdown side of the conditional gate.** `vs uncond.` is net_R only;
-  the condition's stated justification is about *not truncating winners*, which
-  this table cannot see.
+- ~~**The drawdown side of the conditional gate.**~~ — measured, § 13.
 - **Nothing here is a re-grade.** All three cells remain `shipped`; the
   disposition is Tier-3 and operator-gated.
+
+## 13. The drawdown axis — the condition's own justification does not hold
+
+§ 12 recorded that `vs uncond.` is net_R only, and that the `below_half_r`
+condition was chosen for a *behavioural* reason `agg()`'s net_R column cannot
+see. `agg()` (`scripts/ml/train_exit_head.py:369`) does carry `max_dd_r` and
+`mean_hold_bars`, so the axis is measurable. Relays #9125 + #9126, same nested
+report, same three legs, `model_cond["below_half_r_tau_0.1"]` vs
+`model["tau_0.1"]`, **per fold** — `max_dd_r` is not additive across folds, so
+every figure below is a mean of within-fold differences, never a sum.
+
+**A positive `Δ maxDD` means the condition makes drawdown worse.**
+
+| leg | n | Δ net_R (SE, t) | median | Δ maxDD (SE, t) | median | frac > 0 | Δ hold_bars (SE, t) | frac > 0 |
+|---|---|---|---|---|---|---|---|---|
+| `trend_donchian` (BTC) | 22 | −0.252 (0.505, −0.50) | −0.690 | **+0.171 (0.063, +2.73)** | +0.000 | 36.4% | **+4.714 (1.244, +3.79)** | 86.4% |
+| `trend_donchian_eth` | 22 | −0.288 (0.701, −0.41) | −1.140 | **+0.424 (0.176, +2.40)** | +0.235 | 54.5% | **+3.595 (0.626, +5.75)** | 100.0% |
+| `trend_donchian_sol` | 22 | −0.603 (0.510, −1.18) | −1.025 | **+0.124 (0.056, +2.19)** | +0.000 | 27.3% | **+4.750 (0.746, +6.37)** | 90.9% |
+
+**The mechanism works; the thing it was supposed to buy does not appear.** The
+condition holds materially longer on every leg — `t` of +3.79 / +5.75 / +6.37,
+positive on 86–100% of folds. That is exactly what `_SHAPES` cites live trade
+3344 for: a running trend should not be truncated by a low score alone. It does
+in fact stop truncating them. But the payoff for holding is absent on both axes
+that matter: drawdown is **worse** with `t > 2` on all three legs, and net_R is
+worse in the *typical* fold (median negative on all three; only 27–41% of folds
+positive, the mean pulled toward zero by a few large winners — max +6.47 /
++6.38 / +7.26).
+
+**The `Δ maxDD` distribution is one-sided, which is what makes it readable at
+this n.** The minimum is +0.000 / −1.100 / −0.060 and the median is +0.000 on
+BTC and SOL: across 22 folds the condition essentially never *lowered*
+drawdown — it either left it untouched (the majority: ~64% of BTC folds, ~73%
+of SOL folds are exactly zero, i.e. folds where the condition never bound) or
+raised it. Trimmed means (drop one fold from each tail) barely move: +0.138 /
++0.360 / +0.089, so no single outlier fold carries the sign.
+
+### A defect in my own probe, recorded
+
+Relay #9125 printed "folds where cond LOWERS maxDD: 63.6% / 45.5% / 72.7%",
+which read as *the condition helps on most folds* and appeared to contradict the
+positive mean. It does not: those are exactly the complements of the `frac > 0`
+column above, so the predicate counted **ties as wins** — the label said
+*lowers*, the code computed `<= 0`, and the tied folds are ones where the
+condition did nothing at all. This is sub-class **A** of the
+UNPROVENANCED-DIAGNOSTIC-OUTPUT family in `CLAUDE.md` (the label names a
+quantity the accessor does not compute), self-inflicted, and caught only
+because the apparent mean/majority disagreement was treated as a reason to pull
+the distribution rather than as a finding to publish. Had #9126 not been run,
+"the condition lowers drawdown on most folds" would have gone into this document.
+
+### What this does and does not license
+
+- It is **not** an argument to drop the head. Against the exit that actually
+  ran, *both* arms are large drawdown improvements — #9125 puts the conditional
+  arm at −2.195 / −3.198 / −2.132 `maxDD` vs `actual` on the three legs. What is
+  unsupported is the **conditioning**, not the head.
+- The three legs are **not three independent confirmations.** They are one
+  strategy's logic on three correlated crypto majors over the same calendar
+  window and the same 22 folds; the per-leg `t` values must not be pooled as if
+  independent. Read them as one result seen three times, not as `p < 0.001`.
+- Unchanged: **nothing here re-grades a cell.** All three remain `shipped`, and
+  every disposition — including "drop the condition, keep the head at the same
+  τ" — is Tier-3 and stays queued for the operator.
