@@ -109,3 +109,56 @@ Pure read of the committed corpus — no harness run, no VM:
 `docs/research/m20-sweep-corpus.jsonl`, filter `split_target_oos is not None`,
 group by `(leg, split, split_target_oos)`, drop rows carrying `split_fallback`,
 compute `split_target_oos - base_trades_OOS`.
+
+---
+
+## CONFIRMED AT SCALE, 2026-08-14 ~23:49Z — the consequence, measured
+
+Everything above is a *margin* argument over 11 boundary events. The pullback
+hard-lever re-sweep (relays #9367 launch / #9368 readout) ran the same family
+under both targets and measured the **consequence** directly.
+
+**Target 25 (the current default) — COMPLETE, 19 of 19 legs:**
+
+| outcome | cells | share |
+|---|--:|--:|
+| `insufficient_base` | 68 | **89.5%** |
+| `is_oos_fail` (graded, failed) | 8 | 10.5% |
+| **gradeable passes** | **0** | **0%** |
+
+19 legs × 4 cells = 76, and the log's 77 `->` matches reconcile exactly once the
+one `-> runtime_logs/...` path line is excluded — stated because a denominator
+that does not reconcile is not a denominator.
+
+**Nine of ten cells could not be measured at all**, on a family whose legs carry
+**527, 407, 363, 361, 352, 297, 276, 243, 242, 225, 197** lifetime trades. This
+is not thin data. It is the mechanism this memo describes: the target equals the
+floor, so any boundary loss lands under it.
+
+**Target 30 (floor + the measured margin 5) — PARTIAL, 5 of 19 legs, 19 cells:**
+
+| outcome | cells |
+|---|--:|
+| `is_oos_fail` | 17 |
+| `wf_fail` | 1 |
+| `path_b_wf_pass` | 1 |
+| **`insufficient_base`** | **0** |
+
+`insufficient_base` disappears, and the cells get **graded on their merits**.
+
+**Read what this does and does not buy.** It does not buy passes — 18 of the 19
+graded cells still *fail*, which is the honest outcome for this family. It buys
+**answers instead of refusals**: at 25 the sweep could not say whether these
+levers work; at 30 it can, and mostly says no. That is the entire value, and
+it is larger than the margin distribution above could show.
+
+**Caveats, both load-bearing.** The target-30 arm was **5 of 19 legs** at the
+time of writing — the full comparison is not in yet, and the leg order differs
+between arms, so these are not matched populations until it completes. And the
+two arms differ in *nothing but the target*: same family, same levers, same
+explicit `--tp-cap-pct 0.099`.
+
+**This still does not change the default.** It replaces the basis for the queued
+operator decision: from "the observed boundary loss maxes at 4, so 5 covers it"
+to "at 25 this family yields 0 gradeable verdicts in 76 cells; at 30 it yields
+verdicts."
