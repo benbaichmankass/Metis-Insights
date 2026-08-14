@@ -1085,6 +1085,73 @@ Required verification for any re-grade: state which `fold_mode` **and** which
 whether the figure quoted is best-arm, τ-blind, or nested — the three differ by
 an order of magnitude on donchian and by ~1.6× on scalp.
 
+44. **Pulled the missing history — then found the pull could never have
+    worked, because the resolver could not see native data at all** —
+    `BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA`, PR #9180.
+
+    Item 43 established that nothing was pulling MGC/MHG history. I ran the
+    pulls (MGC clean: 5m 32,751 rows, 15m 22,293 rows, `pull_end any_ok:1` at
+    06:38:36Z; MHG dispatched 07:28:49Z) and then, before planning the E1
+    rounds, asked whether the data would actually be *reachable*. It would not.
+
+    `m20_fleet_exit_sweep.resolve_data` opened with
+    `sym = PROXY_DATA.get(symbol, symbol)` — the proxy applied
+    **unconditionally**. So `resolve_data("MGC", "1d", …)` looked for
+    `GC_F_1d.csv` and **never** for `MGC_1d.csv`; the glob fallback too, since
+    its prefixes were built from the proxied spelling (`{'gc_f'}`). And
+    `m20_exit_head_round.py:154` **refuses** a proxied leg ("native history
+    required for head training"). `proxy` was therefore unconditionally `True`
+    for MES/MGC/MHG/XAUUSD, the head round skipped them on every call, and the
+    three `exit_head_ml` cells could not close **whatever was on disk**.
+
+    So the Tier-2 action added 2026-07-07 *for these exact cells* was **inert
+    against this resolver** — five weeks of "still blocked" had two independent
+    causes, and item 43 found only the first. The docstring already said the map
+    is *"for futures without their own file"*; the code never checked that
+    condition. Field beats comment, and here the field was the wrong one.
+
+    **The fix is a caller decision, and the default deliberately did not move.**
+    My first instinct — native-first unconditionally — is a **regression**, and I
+    wrote it before catching it: `GC_F` is the deep COMEX series reaching the
+    full 2021..2026 fold structure while native IBKR intraday history is ~1y, so
+    silently preferring a shallow native file would collapse a 6-fold
+    walk-forward to ~1 fold and quietly invalidate recorded lever verdicts.
+    Depth (levers) and fidelity (head training) are genuinely different needs.
+    `prefer_native=False` default; `m20_exit_head_round` passes `True`. I also
+    removed a native *fallback* I had added to the default path for the same
+    reason — a missing proxy file must keep reading `data_missing` rather than
+    resolving shallow native data into a 1-fold run.
+
+    Can-fail verified: removing the `prefer_native` branch fails **exactly one**
+    of the 7 new tests (`assert True is False`), and only that one — the
+    fallback and no-proxy cases correctly still pass because proxy-first gives
+    the same answer there.
+
+45. **Two corrections to my own 07:28Z ping, both in the over-claiming
+    direction.**
+
+    (a) I told the operator that once MHG landed, "both `mgc_pullback_1d` and
+    `mhg_pullback_1d` `exit_head_ml` cells become runnable via an E1 round …
+    That would take done-condition 25 → 23." **Wrong on the mechanism** — item
+    44 is why, and the resolver fix was a prerequisite I had not yet found.
+
+    (b) The pull I ran was **5m/15m over the script's default 365-day window**
+    (`MES_HIST_START='365 days ago'`), which is the wrong *shape* for a **1d**
+    leg facing a 6-fold 2021..2026 structure and `MIN_OOS_TRADES=25`. The right
+    attempt is a **1d deep pull** — the `pull-mes-ibkr-history-daily` precedent
+    uses `MES_HIST_START=2019-05-06` with `MES_MAX_CONTRACTS=28`, and IBKR's
+    daily-bar retention is far deeper than its intraday retention. I had also
+    been about to accept the matrix's *"IBKR serves only ~1yr"* as a measured
+    ceiling; it is a **claim I would have been inheriting**, and the script says
+    plainly that "depth is ultimately capped by IBKR's per-contract intraday
+    retention" — a bound on *intraday*, which is not the frame these legs need.
+
+    **Coverage is unchanged at 373/376 and no cell status moved.** Reaching a
+    cell is not clearing it: the shard must still reach the trainer
+    (`sync_trainer_data.sh` on the ~00:50 UTC cycle, then
+    `market_raw_to_csv.py`), and whether the OOS floor clears is a measurement
+    still to take.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
