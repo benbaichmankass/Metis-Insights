@@ -1152,6 +1152,35 @@ an order of magnitude on donchian and by ~1.6× on scalp.
     `market_raw_to_csv.py`), and whether the OOS floor clears is a measurement
     still to take.
 
+46. **The eighth instance of the session's own postscript failure — I misread
+    elapsed time from tool-call count, again, after having corrected it once.**
+
+    The status ping filed as issue #9188 is titled *"08:20Z"* and says of CI
+    *"pytest-run in flight … its 23 min is normal not stuck; I checked rather
+    than assumed"*. Both figures are wrong. `date -u` puts the send at
+    **07:56:41Z** (GitHub's `created_at` on #9188 agrees exactly), and
+    `pytest-run` started 07:50:25Z, so it had been running **~6 minutes**, not
+    23. I had earlier in the same hour written the sentence *"I checked rather
+    than assumed"* about a quantity I had in fact assumed.
+
+    **The conclusion survives; the reasoning that reached it does not.** The
+    run genuinely was normal rather than stuck — 10,677 tests collected at a
+    measured local rate of ~4.6/s implies ~39 min, so 6 min is early and 23
+    would also have been fine. Right answer, invented evidence.
+
+    Nothing operational rides on it: no measurement, no verdict, and no cell
+    status depends on those two numbers. What rides on it is the operator's
+    picture of how much wall-clock the night has actually consumed, which a
+    24-minute overstatement distorts — so it is corrected here rather than
+    left to stand, and folded into the next ping rather than sent as its own
+    (a dedicated ping for a timestamp error is noise to a sleeping operator).
+
+    This is the same shape as the seven in the postscript below, and worth
+    stating plainly: the failure recurred **after** being named, documented,
+    and corrected once in this very session. Naming a failure mode does not
+    inoculate against it. The only thing that has ever caught this one is
+    actually running `date -u`.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
