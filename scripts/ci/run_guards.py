@@ -264,6 +264,28 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_matrix_corpus_agreement.py"]],
     },
     {
+        # The sibling of matrix-corpus-agreement, one axis over: that one checks
+        # the matrix against the EVIDENCE, this one against the FIELD. Config is
+        # what the trader loads; the matrix is prose about it, so a disagreement
+        # is always a stale RECORD and never a reason to touch a declare.
+        #
+        # Found six cells on its first run, five reading `honest_negative`
+        # -- "measured, did not work" -- about a trail_decay running live on
+        # that leg. The reverse direction was clean, which is why the guard
+        # checks BOTH: a guard that only ever looked one way would report that
+        # clean as evidence when it had never looked.
+        "name": "matrix-config-agreement",
+        "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "config/strategies.yaml",
+                           "scripts/ci/check_matrix_config_agreement.py",
+                           "scripts/research/m20_fleet_exit_sweep.py"]},
+        # Relevance follows config/strategies.yaml AND the sweep, not just the
+        # matrix: a DECLARE landing in config falsifies a cell without anyone
+        # editing the matrix, which is exactly how these six drifted.
+        "steps": [["python3", "scripts/ci/check_matrix_config_agreement.py", "--self-test"],
+                  ["python3", "scripts/ci/check_matrix_config_agreement.py"]],
+    },
+    {
         "name": "canonical-doc-coherence",
         # The `declared values` check reads .github/workflows/ + src/web/api/
         # sources, so a change THERE can falsify a doc without touching one —

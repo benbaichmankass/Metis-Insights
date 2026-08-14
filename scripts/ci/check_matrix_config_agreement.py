@@ -41,18 +41,14 @@ Flipping a cell to `shipped` records that the lever IS shipped; it is not a
 claim that it was re-graded. Merging those two claims is how a status becomes
 untrustworthy, so this guard checks exactly one thing.
 
-⚠️ NOT YET REGISTERED IN `scripts/ci/run_guards.py`, ON PURPOSE. It fails on the
-current tree — those six cells are real and unreconciled — so registering it now
-would turn CI red on every unrelated PR until they are fixed. Reconciling them
-is NOT a mechanical sync: criterion (2) of the backlog row requires each cell's
-ref to record WHICH evidence supports the shipped value, and for several the
-supporting evidence is pre-2026-08-10 no-take-profit, so the flip must preserve
-the `tp_geometry` marker rather than imply a re-grade. That is a judgement call
-on cells that drive dispositions, so it is queued for the operator as Tier-3
-decision (j) in the sprint log. **The registration block lands in the same
-change as the reconciliation** — a guard whose first CI run is red teaches
-everyone to skip it. Until then `tests/test_matrix_config_agreement.py` runs the
-self-test, so the guard cannot silently rot while it waits.
+RESOLVED 2026-08-14 (operator decision (j)): all six cells were reconciled --
+`trend_donchian_avax_4h` to `shipped` (its gate passed and the declare landed in
+ #8985), the other five to `shipped_gate_failed`. The guard is GREEN on the tree
+and is now registered.
+
+REGISTERED in `scripts/ci/run_guards.py` as of 2026-08-14, in the SAME change as
+the reconciliation it demanded — deliberately, because a guard whose first CI run
+is red teaches everyone to skip it.
 """
 
 from __future__ import annotations
@@ -69,9 +65,19 @@ sys.path.insert(0, str(REPO / "scripts"))
 MATRIX = REPO / "docs" / "research" / "exit-refinement-coverage.json"
 STRATEGIES = REPO / "config" / "strategies.yaml"
 
-# The matrix says a lever IS shipped only with this status. Everything else --
+# Statuses that ACKNOWLEDGE the lever is armed in config. Everything else --
 # honest_negative, passed_unshipped, pending, blocked:* -- asserts it is not.
-SHIPPED = "shipped"
+#
+# `shipped_gate_failed` belongs here and its absence was a defect in the first
+# version of this guard, found the moment the guard was actually used: the
+# legend defines that status as *"LIVE in config, but a LATER re-sweep failed
+# its gate and the operator chose to HOLD"* -- so it asserts the lever IS
+# armed, exactly as `shipped` does. They differ on whether the VALIDATION
+# stands, not on whether the lever runs. Treating only `shipped` as
+# acknowledgement made the guard demand a status that would OVERCLAIM
+# ('validated + live') on precisely the cells the operator had just, correctly,
+# moved to `shipped_gate_failed` -- i.e. it would have punished the right answer.
+ARMED_STATUSES = frozenset({"shipped", "shipped_gate_failed"})
 
 
 def lever_declared_keys() -> dict[str, tuple[str, ...]]:
@@ -115,14 +121,14 @@ def disagreements(matrix: dict, strategies: dict,
             if status is None:
                 continue
             armed = _arms(cfg, lever_keys)
-            if armed and status != SHIPPED:
+            if armed and status not in ARMED_STATUSES:
                 out.append({"leg": leg, "lever": lever, "status": status,
                             "direction": "config_arms_matrix_denies",
                             "execution": cfg.get("execution", "live"),
                             "keys": [k for k in lever_keys if cfg.get(k) is not None]})
-            elif status == SHIPPED and not armed:
+            elif status in ARMED_STATUSES and not armed:
                 out.append({"leg": leg, "lever": lever, "status": status,
-                            "direction": "matrix_claims_shipped_config_silent",
+                            "direction": "matrix_claims_armed_config_silent",
                             "execution": cfg.get("execution", "live"),
                             "keys": []})
     return out
@@ -175,7 +181,18 @@ def _self_test() -> int:
     d3 = disagreements(m2, s3, keys)
     check("3 (matrix claims shipped while config is silent -> flagged)",
           len(d3) == 1
-          and d3[0]["direction"] == "matrix_claims_shipped_config_silent")
+          and d3[0]["direction"] == "matrix_claims_armed_config_silent")
+
+    # 3b. `shipped_gate_failed` ACKNOWLEDGES an armed lever -- it means "live in
+    #     config, validation lapsed". The first version of this guard omitted it
+    #     and so demanded `shipped` on cells where that would overclaim; it
+    #     would have punished the correct answer.
+    m3b = {"rows": [{"strategy": "leg_a",
+                     "trail_decay": {"status": "shipped_gate_failed"}}]}
+    check("3b (shipped_gate_failed counts as armed -> clean)",
+          disagreements(m3b, s, keys) == [])
+    check("3c (shipped_gate_failed with NO declare -> still flagged)",
+          len(disagreements(m3b, s3, keys)) == 1)
 
     # 4. A lever the leg never armed, recorded as not-shipped, is CORRECT --
     #    that is `passed_unshipped` working as intended, and flagging it would
