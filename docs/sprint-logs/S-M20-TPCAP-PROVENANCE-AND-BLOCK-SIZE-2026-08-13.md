@@ -1612,6 +1612,115 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     sub-class B half of the finding). And **no cell was re-graded** -- these are
     `shipped` real-money cells whose disposition is queued operator decision (d).
 
+60. **Then shipped criterion (3) -- a thin-OOS refusal now says WHICH WINDOW
+    produced the count.** Item 59 deferred it alongside criterion (2); on
+    reading the code the two are not alike. (2) changes which verdicts the sweep
+    produces fleet-wide and needs the operator. (3) changes only what a refusal
+    *says about itself*, reads no verdict branch, and can move no grade — so
+    there was nothing for it to wait on.
+
+    The defective message was `f"OOS base {n} trades < floor {floor}"` — a COUNT
+    over a window it does not name. One sentence covered two **opposite**
+    conditions:
+
+    | | condition | remedy |
+    |---|---|---|
+    | `htf_pullback_trend_2h` | 407 lifetime, 24-trade window | move the split, re-grade **today** |
+    | `mes_trend_long_1d` | 33 lifetime, 5-trade window | wait for trades, or stop grading it |
+
+    Both printed identically. That is exactly why establishing which kind `htf`
+    was cost a fresh trainer-relay run (#9211) instead of a read.
+
+    **`resolve_split`'s own docstring already promised the cure** — *"Returned
+    meta records target AND mode so a verdict states its own derivation"* — and
+    no verdict ever read the meta. Field beats comment, here in the direction
+    where the comment was an aspiration nothing implemented.
+
+    Shipped: a **pure** `insufficient_base_reason(base_oos_n, floor, split,
+    split_meta)` — extracted rather than inlined *because* the verdict block
+    lives inside `main()` and was not reachable from a test, so an inline fix
+    would have been untestable by construction. The message now carries the
+    split date, mode, target, leg **lifetime**, and any fallback; and **every**
+    cell entry — not only refused ones — records `split` / `split_mode` /
+    `split_target_oos` / `split_lifetime_trades` / `split_fallback`, with the
+    assignments placed **above** the `if _thin:` branch so a cell that PASSES
+    carries the same audit trail as one that is refused.
+
+    **The lifetime is the load-bearing field, not the split date** — it is the
+    only thing that separates the two rows above. So the test that matters
+    asserts the two strings *differ*, and still differ when both legs are given
+    the **same** boundary date, so the discrimination cannot be an artifact of
+    the dates being different.
+
+    Two ways a provenance string lies, both pinned: an absent input is
+    **omitted, never fabricated** (under `--split-mode date` no emit run
+    happens, so the lifetime is unknown — printing `0` would turn *"we did not
+    count"* into *"the leg has no trades"*, which makes a refusal look
+    deserved); and a fallback is never silent.
+
+    **Can-fail verified** (7 tests, `tests/test_m20_split_provenance.py`):
+    reverting the function body to the old one-liner fails **5 of 7**, the
+    discriminator among them. The 2 survivors are the structural wiring tests,
+    which that mutation does not touch — the correct result, not a gap.
+
+    Purely additive; no cell re-graded. Criterion (2) stays queued.
+
+    *(Process note, same class as the postscript below: I destroyed this edit
+    once with a careless `git reset --hard origin/main` run to sync the branch
+    after a merge, while it sat uncommitted. Reproducible, ~2 minutes lost,
+    and the ninth instance tonight of a one-liner run without reading what it
+    would take with it.)*
+
+61. **`main` was RED, my PR #9208 made it so, and CI could not have caught it.**
+    Found by running the neighbouring tests while validating item 60 — not by
+    any check.
+
+    `tests/test_exit_head_per_leg.py::test_the_three_shipped_donchian_1h_cells_are_live_stale_decisions`
+    asserted the three cells **are** in `stale_decisions`. Item 56 re-swept them
+    at live parity and recorded `tp_geometry: "live_parity"`, which is exactly
+    what `evidence_vintage` reads to set `stale = False`. So the re-sweep did
+    the thing "stale" was asking for, and the test still demanded the old state.
+
+    **The fix is not to flip the assertion to `== set()`.** "Not stale" is not
+    "fine" — 2 of the 3 did not reproduce, and all three are still `shipped` on
+    real money pending operator decision (b). The rewritten test asserts they
+    left the stale list by being **measured** rather than deleted, reopened, or
+    marked `n/a`, and that the evidence is still on the cell. Can-fail verified:
+    keeping the flag-silencing `live_parity` declaration while replacing the ref
+    with `"graded 2026-08-10"` — the cheapest possible way to clear a stale
+    decision without doing the sweep — fails it.
+
+    **Why CI was green:** `pytest-run` excludes `docs/`, so #9208 (which changed
+    only the matrix) short-circuited to a **ten-second** green pytest-run
+    (08:51:24 → 08:51:34; a real run is 7–9 min over ~10,677 tests), merged, and
+    left `main` red. Verified from the check-run timings, not inferred.
+
+    **This is the FOURTH instance of a class `tests/test_pytest_run_filter.py`'s
+    own header enumerates** — `config/`, then `.github/workflows/`, then
+    `scripts/` via PR #8994's nine-second green on 2026-08-13. It keeps
+    recurring because the filter is a hand-enumerated allowlist and nothing
+    measures what it misses.
+
+    The root is a premise applied at the wrong granularity. The workflow
+    justifies excluding `docs/` on the grounds that *"the suite's assertions
+    over them are owned by the separate `guards` job"* — **true per-file** for
+    `docs/claude/health-review-backlog.json` (every test touching it writes a
+    `tmp_path` fixture; I checked all four) and **false** for the coverage
+    matrix, which is read as-committed. `guards` does run
+    `exit-coverage-matrix-guard`, but that validates statuses and refs — it
+    cannot run the pytest assertion that broke.
+
+    Shipped: the **narrow proven fix** — that one JSON path added to the grep
+    and to `test_pytest_run_filter.py::COVERED`, scoped to the single file so
+    the documented CI-minutes rationale survives. Filed as
+    `BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT`
+    (medium, Tier-1) with the honest denominator: **39 test files reference
+    `docs/` paths and I checked 2**, so I cannot say whether more real-file
+    reads sit behind the same short-circuit. Its resolution criteria ask for a
+    *mechanical* enumeration and a guard that derives the allowlist from the
+    tests — because hand-enumeration is the failure mode, and a narrow fix that
+    reads as complete is how instance 5 happens.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,

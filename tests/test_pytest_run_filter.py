@@ -61,6 +61,10 @@ COVERED = {
         "test_strategy_execution_gate reads config/strategies.yaml",
     ".github/workflows/system-actions.yml":
         "test_system_actions_workflow reads the workflow itself",
+    "docs/research/exit-refinement-coverage.json":
+        "test_exit_head_per_leg reads THE REAL matrix (not a fixture); PR #9208 "
+        "changed only this file, short-circuited to a TEN-SECOND green "
+        "pytest-run, merged, and left main red",
     "src/runtime/order_monitor.py": "python",
     "requirements.txt": "dependency pin",
 }
@@ -68,8 +72,20 @@ COVERED = {
 # Excluded ON PURPOSE — large, change on nearly every PR, and their assertions
 # belong to the separate `guards` job, which does NOT short-circuit.
 DELIBERATELY_EXCLUDED = {
+    # VERIFIED 2026-08-14, not assumed: every test that touches this path writes
+    # it under a `tmp_path` fixture (test_check_allow_degraded,
+    # test_check_backlog_refs, test_check_allow_degraded) or only names it in a
+    # docstring — none reads the committed file. So the "guards owns it"
+    # premise genuinely holds HERE. It did NOT hold for the exit-coverage
+    # matrix, which is why that file moved to COVERED above; the premise is
+    # per-file and re-checking it is the point of this table.
     "docs/claude/health-review-backlog.json": "guards job owns doc coherence",
     "data/some_fixture.csv": "bulk data, not asserted structurally by pytest",
+    # The rest of docs/research/ stays excluded: the matrix is the one file
+    # there the suite reads as-committed, and widening to the tree would pull in
+    # every research memo for no assertion.
+    "docs/research/exit-refinement-notes.md":
+        "prose; no suite assertion reads it",
 }
 
 

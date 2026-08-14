@@ -138,7 +138,20 @@ jobs:
           # which does not short-circuit. That is a stated trade-off against
           # MB-20260706-CI-MINUTES, not an oversight — tests/test_pytest_run_filter.py
           # pins both the inclusions and these exclusions.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/'; then
+          # THE ONE docs/ EXCEPTION, and it is narrow ON PURPOSE (2026-08-14,
+          # BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT).
+          # The exclusion above is justified by "the suite's assertions over
+          # them are owned by the separate `guards` job" — TRUE for
+          # docs/claude/health-review-backlog.json (every test touching it uses
+          # a tmp_path fixture), FALSE for the exit-coverage matrix, which
+          # tests/test_exit_head_per_leg.py reads as THE REAL FILE. Measured:
+          # PR #9208 changed only that matrix, short-circuited to a TEN-SECOND
+          # green pytest-run, merged, and left main red — the fourth instance of
+          # the class this filter's own header enumerates. Scoped to the single
+          # proven file rather than docs/research/ or docs/, so the cost
+          # rationale above survives: this file changes on M20 PRs, not on
+          # nearly every PR. Pinned in tests/test_pytest_run_filter.py::COVERED.
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
