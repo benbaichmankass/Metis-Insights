@@ -1935,3 +1935,28 @@ roll-up tool, and the run-SHA check all exist because earlier sessions made the
 same class of error. That is worth stating plainly in the record: the tooling
 caught what it was built to catch, and the two that got furthest were the ones
 no tool covered.
+
+**An eighth, at 09:52Z, and it is the sharpest instance because the tool warned
+me in advance.** I ran `check_backlog_refs.py --base origin/main` over
+**uncommitted** work, got `OK`, and treated that as validation. The guard diffs
+a **commit range**, so it had compared nothing — a green over an **empty
+denominator**, the exact `unasserted denominator` sub-class this session spent
+the night documenting. CI then caught the real defect: a **truncated backlog id**
+in the Tier-3 table I had just written to make the operator's morning easier, a
+dangling reference in the one artifact meant to be most trustworthy.
+
+What makes it the sharpest: `run_guards.py` prints this warning verbatim —
+*"NOT SELECTED because the work is UNCOMMITTED — guard relevance is computed
+from a COMMIT RANGE … This is NOT a clean bill of health"* — and **I had already
+read it and acted on it earlier the same session**, committing specifically so
+the suite would run against a real range. Then twenty minutes later I ran a
+*single* guard the same wrong way and believed it.
+
+So the lesson is not "read the warning." It is that **knowing a rule does not
+transfer across the shape it arrives in**: the suite-level warning was loud and
+I obeyed it; the identical hazard in a one-line invocation carried no warning
+and I walked straight in. Every guard in this repo that reads `--base` has this
+property. The durable fix is for those scripts to say *"0 files in range"* when
+that is what they scanned — the same remedy this session's own
+`BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT` asks for one
+level up.
