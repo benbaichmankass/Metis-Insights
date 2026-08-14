@@ -174,8 +174,29 @@ def db_table(
 ) -> Dict[str, Any]:
     """Return one page of *table* from whichever federated DB owns it.
 
-    404 on an unknown table. Unknown order/filter columns are ignored
-    (rather than erroring) so a stale UI selection degrades gracefully.
+    404 on an unknown table. An unknown order/filter column is IGNORED rather
+    than erroring, so a stale UI selection degrades gracefully — but the
+    response now SAYS SO via ``filter_state`` / ``order_state``.
+
+    **Why the echo exists** (BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN):
+    the tolerance is right; the silence was not. A filter on a column that does
+    not exist produced no ``WHERE``, so BOTH the ``COUNT`` and the ``SELECT``
+    ran unfiltered and ``total`` came back as the whole table — indistinguishable
+    from "the filter matched every row". Measured 2026-08-13 against the live
+    journal: four different filters on a misspelled column each returned
+    ``total: 4639``, the entire ``trades`` table. This route is on the
+    diag-relay allowlist, so its consumers include analysis sessions that
+    cannot see the query they got, not just a UI that can re-render.
+
+    ``filter_state`` is three-valued and never collapsed:
+
+    ``applied``                the filter formed a WHERE and ``total`` reflects it
+    ``not_requested``          no ``filter_col`` was sent
+    ``ignored_unknown_column`` / ``ignored_bad_op`` / ``ignored_no_value``
+                               a filter WAS sent and DROPPED — ``total`` is the
+                               unfiltered count and must not be read as a match
+
+    A caller asserts ``filter_state == "applied"`` before trusting ``total``.
     """
     target = _resolve_table_db(table, db)
     if target is None:
@@ -188,7 +209,21 @@ def db_table(
 
             params: List[Any] = []
             where = ""
-            if filter_col in colnames and filter_val is not None and filter_op in _FILTER_OPS:
+            # Resolve the filter's FATE explicitly, so the response can report
+            # which of the mutually-exclusive outcomes actually happened rather
+            # than leaving the caller to infer it from a row count.
+            if filter_col is None:
+                filter_state = "not_requested"
+            elif filter_col not in colnames:
+                filter_state = "ignored_unknown_column"
+            elif filter_op not in _FILTER_OPS:
+                filter_state = "ignored_bad_op"
+            elif filter_val is None:
+                filter_state = "ignored_no_value"
+            else:
+                filter_state = "applied"
+
+            if filter_state == "applied":
                 op = _FILTER_OPS[filter_op]
                 val = f"%{filter_val}%" if filter_op == "like" else filter_val
                 where = f' WHERE "{filter_col}" {op} ?'
@@ -199,7 +234,13 @@ def db_table(
             ).fetchone()[0]
 
             order = ""
-            if order_by in colnames:
+            if order_by is None:
+                order_state = "not_requested"
+            elif order_by not in colnames:
+                order_state = "ignored_unknown_column"
+            else:
+                order_state = "applied"
+            if order_state == "applied":
                 direction = "ASC" if str(order_dir).lower() == "asc" else "DESC"
                 order = f' ORDER BY "{order_by}" {direction}'
 
@@ -220,4 +261,13 @@ def db_table(
         "total": total,
         "limit": limit,
         "offset": offset,
+        # Whether `total` is a FILTERED count. Read this before trusting it —
+        # see the docstring. Echoed back alongside so a caller can see exactly
+        # which filter the server resolved, not the one it believes it sent.
+        "filter_state": filter_state,
+        "filter_col": filter_col,
+        "filter_op": filter_op,
+        "filter_val": filter_val,
+        "order_state": order_state,
+        "order_by": order_by,
     }

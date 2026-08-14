@@ -1,0 +1,389 @@
+# Deriving E1's `--min-fold-trades` — measured, 2026-08-13
+
+**Operator decision 2026-08-13:** derive the block size from a stated
+statistical target rather than leave it an undefended default, and *accept
+whatever it says, including stricter than 50.*
+
+**Result, stated first: no block size rescues the short legs, and 50 is not
+the defect.** At the effect size the fleet actually exhibits, the per-fold
+beat/no-beat vote is close to a coin flip, and the block size trades per-fold
+reliability against the number of folds without ever buying a test that is
+both powered and specific for a leg under ~300 trades. The recommendation is
+therefore **not to change the value** — and to stop treating "raise/lower the
+block" as the lever that unblocks `exit_head_ml`.
+
+> **⚠️ Two corrections landed the same day, both from measurements this document
+> called for and did not have. Read §§ 6–7 before quoting anything above them.**
+> The recommendation (keep 50) survives both. What does **not** survive is the
+> reliability figure in § 3: **0.771 is true only for single-leg families**, and
+> the § 5 caveat that best-tau selection "biases δ upward" turned out to
+> understate it by a wide margin — outside the scalp family, selection is not a
+> bias on the effect, it **is** the effect.
+
+---
+
+## 1. What the number actually does
+
+`fold_blocks(h_trades, mode="trades", block_n, …)` slices the leg's trades
+sequentially into test blocks of exactly `block_n`, starting at `block_n` so
+the first block is training:
+
+```
+u = max(0, floor(N / block_n) - 1)          usable folds
+```
+
+`per_leg_summary`'s gate then requires
+
+```
+candidate = u >= 2
+            AND mean_auc > 0.55
+            AND beats_actual_folds * 3 >= u * 2      (>= 2/3 of folds)
+            AND beats_hard_folds   * 3 >= u * 2
+```
+plus `oos_trades >= MIN_OOS_TRADES` (25, operator-set 2026-08-11).
+
+So `block_n` does **two** jobs in the default mode: it is the test-block size
+*and* the minimum each block is checked against — and because blocks are built
+at exactly `block_n`, the `thin_test` check passes by construction. It is a
+block-size choice wearing a minimum's name.
+
+**Consequence worth stating on its own:** `u >= 2` needs `N >= 3 * block_n`.
+At the default that is **150 trades, not 100.** 100 yields exactly one fold,
+which the gate rejects. (Now stated in the `fold_blocks` docstring, which was
+silent on it.)
+
+## 2. The measurement
+
+Per-trade rows are not persisted, but per-fold aggregates are, so the paired
+difference is recoverable: for a fold of `n` trades,
+`sum(d_i) = best_tau_net_r − actual_net_r`, hence `d̄ = that / n`.
+
+Pulled every `e1_report.json` on the trainer (relay #9066):
+**21 reports · 262 folds, all 262 carrying both arms · 15 (family, timeframe)
+groups.** Fold sizes: min 15, median 50, max 343; 63.4% have `n >= 50`.
+
+Within a group, `Var(d̄) ≈ σ_d² / n`, so `σ_d ≈ sd(d̄) · √n̄`:
+
+| group | folds | mean n | mean d̄ | σ_d | δ = d̄/σ_d |
+|---|---:|---:|---:|---:|---:|
+| ict_scalp_5m 5m | 12 | 50 | +0.168 | 0.520 | **+0.324** |
+| ict_scalp_avax_5m 5m | 20 | 50 | +0.117 | 0.671 | +0.175 |
+| ict_scalp_sol_15m 15m | 7 | 50 | +0.073 | 0.462 | +0.158 |
+| ict_scalp_xrp_5m 5m | 13 | 50 | +0.117 | 0.747 | +0.156 |
+| ict_scalp_xrp_15m 15m | 6 | 50 | +0.077 | 0.535 | +0.143 |
+| ict_scalp_sol_5m 5m | 16 | 50 | +0.117 | 0.961 | +0.122 |
+| ict_scalp_eth_15m 15m | 6 | 50 | +0.057 | 0.519 | +0.109 |
+| uso_trend_1h 1h | 3 | 50 | +0.071 | 0.678 | +0.105 |
+| donchian 1h | 22 | 214.5 | +0.022 | 1.375 | +0.016 |
+| donchian 4h | 66 | 27.0 | +0.034 | 5.287 | +0.006 |
+| pullback 1h | 28 | 50 | +0.021 | 1.533 | +0.014 |
+| pullback 2h | 15 | 193.6 | −0.082 | 2.006 | −0.041 |
+| pullback 1d | 35 | 15.0 | −0.135 | 2.420 | −0.056 |
+| allmix 1d | 9 | 60 | −0.146 | 1.582 | −0.092 |
+| slv_trend_1h 1h | 4 | 50 | −0.166 | 0.522 | −0.317 |
+
+**σ_d median 0.747R** (range 0.462–5.287). **δ median 0.105**, range
+−0.317 … +0.324 — and it straddles zero: five of fifteen groups have a
+*negative* mean effect, i.e. the model arm loses.
+
+### The measurement is biased in the model's favour
+
+`_best_tau` takes the **max over ~7 tau arms** per fold, and that is what the
+gate uses, so measuring the selected arm measures the right decision — but it
+means `d̄` is a maximum of several correlated draws and is biased **upward**.
+Every power figure below is therefore **optimistic**: the block sizes derived
+are *lower* bounds on what the true effect would require.
+
+## 3. The derivation
+
+A fold votes "beats" when `sum(d_i) > 0`, so
+`P(correct vote) = Φ(√b · δ)`, and inverting for a target `p` gives
+`b = (z_p / δ)²`. At the median δ = 0.105:
+
+| target per-fold reliability | required block |
+|---|---:|
+| 0.75 | 41 |
+| 0.80 | 64 |
+| 0.90 | 149 |
+
+At the current **b = 50**, per-fold reliability is **Φ(√50 · 0.105) = 0.771**.
+So 50 sits between the 0.75 and 0.80 targets — a defensible place to be, and
+*not* an outlier in either direction.
+
+### But per-fold reliability is not the objective
+
+The gate needs ≥2/3 of `u` folds, and `u` shrinks as `b` grows. Modelling the
+whole gate (`P_detect` at δ = 0.105; `P_false` at δ = 0, i.e. a model with no
+edge at all):
+
+| N | b=20 | b=25 | b=30 | b=40 | b=50 | b=60 | b=75 |
+|---|---|---|---|---|---|---|---|
+| **98** | .759 / **.500** | .490/.250 | .515/.250 | — | — | — | — |
+| **150** | .708/.344 | .529/.188 | .682/.312 | .558/.250 | .595/.250 | — | — |
+| **200** | .684/.254 | .648/.227 | .564/.188 | .733/.312 | .867 / **.500** | .627/.250 | — |
+| **300** | .521/.090 | .570/.113 | .768/.254 | .825/.344 | .677/.188 | .807/.312 | .913 / **.500** |
+| **600** | .547/.031 | .619/.047 | .726/.084 | .732/.090 | .770/.113 | .903/.254 | .882/.227 |
+
+(cells are `P_detect / P_false`; "—" = ungradeable, `u < 2`)
+
+**Three things fall out, and the second is the important one.**
+
+1. **`P_detect` is not monotonic in `b`.** It zig-zags, because
+   `need = ceil(2u/3)` steps discontinuously as `u` changes.
+
+2. **The high-power cells are the high-false-positive cells.** Every apparent
+   optimum above — N=98/b=20, N=200/b=50, N=300/b=75 — carries
+   `P_false = 0.500`. Those are the configurations where `u` makes `2/3` cheap
+   to hit by luck (`u=3` needs 2, `u=2` needs 2). **Maximising `P_detect` over
+   `b` would therefore select precisely the settings that are easiest to pass
+   by chance** — selection on the outcome, one level up from picking a block
+   to unblock legs. This is why the derivation cannot be "pick the b with the
+   best power".
+
+3. **For short legs nothing works.** At N=98 the only gradeable options are
+   b ∈ {20, 25, 30}, and they deliver either 0.49 power or a 50%
+   false-positive rate. No block size gives a test that is both powered and
+   specific on ~100 trades at δ ≈ 0.1.
+
+### What `P_false` here is and is not
+
+It is the false-positive rate of the **fold-vote condition alone**. The gate
+also requires `mean_auc > 0.55` and an independent `beats_hard` majority, so
+the **joint** false-positive rate is materially lower than the table's
+`P_false` column. These numbers upper-bound one of three conditions; they do
+not describe the gate's overall specificity, and should not be quoted as if
+they did.
+
+## 4. Conclusion
+
+- **Keep `--min-fold-trades = 50`.** At the measured effect it delivers 0.771
+  per-fold reliability, between the 0.75 and 0.80 targets; nothing in the data
+  argues for moving it, and the alternatives that *look* better are the ones
+  with 50% single-condition false-positive rates.
+- **Give it a stated basis** rather than leaving it bare — that basis is this
+  document: `b = (z_p/δ)²` at δ ≈ 0.105 puts the 0.75–0.80 reliability band at
+  41–64 trades, and 50 is inside it.
+- **Stop treating block size as the `exit_head_ml` unblock lever.** The seven
+  1d equity legs are not blocked by an arbitrary number; at their lifetimes
+  (31–72 trades, projecting to 50–104 on full history) there is no block size
+  that yields a trustworthy verdict.
+- **The real finding is upstream:** δ ≈ 0.105 with five of fifteen groups
+  negative means the exit head's edge over the actual replay is small and
+  inconsistent across families. That is a question about the head, not about
+  how it is validated.
+
+## 5. What this does not establish
+
+- **The true δ.** The best-tau selection biases it upward, so the honest
+  reading is "δ ≤ 0.105 typical", and every block figure here is a lower
+  bound. Quantifying the selection bias needs per-tau fold arms, which the
+  reports do carry — a follow-up, not done here.
+- **Whether σ_d is stable per leg.** It is estimated per (family, tf) group
+  from as few as 3 folds (`uso_trend_1h`), and `donchian 4h` sits at 5.287,
+  seven times the median. A per-leg block would be defensible on that spread
+  and is deliberately not proposed — verdicts graded at different blocks are
+  not comparable, which is a cost this document does not price.
+- **The gate's joint specificity**, per § 3 above.
+- **Whether an exit head is worth having on a leg trading ~4×/year** — likely
+  the more useful question than how to grade one.
+
+---
+
+## 6. CORRECTION — the per-fold vote is cast on `n_leg`, not on `b`
+
+*Measured 2026-08-13, relay #9074, 31 reports.*
+
+§ 3 models the fold vote as `P(correct) = Φ(√b · δ)`. That substitutes the
+**block** size for the number of trades the vote is actually computed over, and
+the two are the same thing only when the family has ONE leg.
+
+`fold_blocks` cuts blocks over the **family's** pooled trades, but
+`per_leg_summary` casts **one vote per LEG per fold**, on that leg's own
+`n_trades` within the block. In a multi-leg family the block is split across
+legs, so `n_leg ≪ b`:
+
+| family (fold_mode, b) | legs | votes | `n_leg` min / median / max |
+|---|---:|---:|---|
+| `pullback` (trades, 15) | 6 | 169 | **1 / 3 / 8** |
+| `allmix` (calendar) | 13 | 106 | **1 / 5 / 11** |
+| `pullback` (trades, 50) | 4 | 112 | **6 / 12 / 22** |
+| `donchian` (calendar) | 2 | 14 | 19 / 30 / 38 |
+| `donchian` (trades, 15) | 1 | 61 | 15 / 15 / 15 |
+| every `ict_scalp_*`, `slv_trend_1h`, `uso_trend_1h` (trades, 50) | 1 | 3–20 | **50 / 50 / 50** |
+
+So the split is clean and it is **family arity, not timeframe**: single-leg
+families sit exactly on the block, multi-leg families sit far below it.
+Re-running § 3's own formula on the measured `n_leg` instead of `b`:
+
+| population | trades per vote | `Φ(√n · δ)` at δ = 0.105 |
+|---|---:|---:|
+| single-leg families (as § 3 assumed) | 50 | **0.771** |
+| `pullback` b=50 | 12 (median) | **0.642** |
+| `allmix` | 5 (median) | **0.593** |
+| `pullback` b=15 | 3 (median) | **0.572** |
+
+**The legs this whole document is about are in the multi-leg families.** Every
+1d equity leg lives in `pullback` or `allmix`, so their votes are being cast at
+0.57–0.64 reliability, not 0.771 — barely distinguishable from a coin flip.
+`ief_pullback_1d` is graded `candidate` on 34 votes whose median vote rests on
+**three trades**.
+
+**This strengthens rather than reverses § 4.** Raising `b` in a multi-leg family
+raises `n_leg` only by that leg's *share* of the block, so buying reliability
+costs proportionally more folds there than the § 3 model implied. There is still
+no block size that makes these legs gradeable. But the honest statement of the
+current gate is that a multi-leg per-leg verdict is weaker evidence than a
+single-leg one at the same nominal block, and **nothing in the report says
+which kind you are reading.**
+
+## 7. CORRECTION — outside the scalp family, the edge IS the selection
+
+*Measured 2026-08-13, relays #9074 + #9075, 31 reports, per fold-geometry ×
+family.* § 5 left this as "a follow-up, not done here". Done here.
+
+The gate credits the head with `best_tau_net_r − actual_net_r`. Ask instead what
+a tau chosen **without hindsight** is worth — the median of the 7 arms — and the
+sign flips everywhere except the scalp legs:
+
+| group | folds | edge (best − actual) | **median-arm edge** | selection premium |
+|---|---:|---:|---:|---:|
+| `ict_scalp_5m` | 12 | +8.408R | **+6.037R** | +2.371R |
+| `ict_scalp_xrp_5m` | 13 | +5.834R | **+3.353R** | +2.481R |
+| `ict_scalp_avax_5m` | 20 | +5.866R | **+3.069R** | +2.797R |
+| `ict_scalp_sol_5m` | 16 | +5.856R | **+2.966R** | +2.890R |
+| `ict_scalp_sol_15m` | 7 | +3.654R | **+2.331R** | +1.323R |
+| `ict_scalp_xrp_15m` | 6 | +3.837R | **+2.178R** | +1.658R |
+| `ict_scalp_eth_15m` | 6 | +2.823R | **+0.672R** | +2.152R |
+| `pullback` (trades, 50) | 112 | +1.362R | **−1.379R** | +2.741R |
+| `pullback` (trades, 15) | 169 | −0.027R | **−0.962R** | +0.935R |
+| `donchian` (trades, 15) | 61 | +0.670R | **−1.554R** | +2.223R |
+| `allmix` (calendar) | 106 | +0.295R | **−1.534R** | +1.830R |
+| `donchian` (calendar) | 14 | +0.426R | **−4.399R** | +4.825R |
+
+Every non-scalp group has a **negative median-arm edge**. In those groups the
+selection premium exceeds the whole measured edge, and 23–50% of folds are
+"flips" — the median arm loses to doing nothing while the selected arm wins, so
+the fold's `beats_actual` vote is carried entirely by which of seven arms
+happened to land.
+
+**Three things this does NOT say**, because the ratio column is easy to
+over-read and I am not quoting it above for that reason:
+
+1. **"% of edge" is unstable near a zero denominator** and must not be quoted.
+   `pullback` b=15 computes to −3421% purely because its edge is −0.027R. The
+   load-bearing column is **median-arm edge**, which needs no denominator.
+2. **The median arm is not the deployment expectation.** It is the expected edge
+   of a tau picked at *random*, which bounds a sensibly-chosen tau from below
+   and a badly-chosen one from above. A real deployment picks tau by some rule,
+   and the truth sits between the median-arm and best-arm columns. Locating it
+   needs **nested tau selection inside the walk-forward** — pick tau on the
+   training half of each fold, score it on the test half. These reports do not
+   contain that, and it is the single measurement that would settle whether the
+   scalp result is real.
+3. **`slv_trend_1h` (4 folds) and `uso_trend_1h` (3 folds) are too thin to
+   carry weight** and are excluded from the reading above.
+
+**What it does say:** the E1 `candidate` verdicts outside the scalp family are
+resting on a quantity that goes negative the moment hindsight is removed. That
+is consistent with — and a mechanism for —
+`BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK`, where
+`ict_scalp_5m` passed 3/3 harness folds and every tau then lost to doing nothing
+on the live book.
+
+## 8. The head also loses to the FIXED rules, in every fold geometry
+
+*Measured 2026-08-13, relays #9071 + #9072, 35 leg-rows over 27 distinct legs.*
+
+The gate has two independent majority conditions: `beats_actual` (does the head
+beat doing nothing?) and `beats_hard` (does it beat the best of `stale_8_0` /
+`giveback_1_1`?). Both need ≥ 2/3 of usable folds. Pooled per fold geometry:
+
+| geometry | legs | usable folds | `beats_actual` | `beats_hard` |
+|---|---:|---:|---:|---:|
+| calendar-folds | 15 | 120 | 61.7% ✗ | **58.3% ✗** |
+| trade-folds b=15 | 7 | 230 | 68.7% ✓ | **62.2% ✗** |
+| trade-folds b=50 | 13 | 199 | 69.8% ✓ | **61.8% ✗** |
+
+`beats_hard` is **below the 2/3 bar in all three geometries** while
+`beats_actual` clears it in two — so the fixed-rule comparison is the binding
+condition, fleet-wide. A head that beats doing nothing but loses to an
+eight-bar stale-stop is not worth its complexity, and that is where the fleet
+currently sits in aggregate.
+
+Two honesty notes on that table: these are **fold-pooled** rates, whereas the
+gate is applied **per leg**, so the pooled figure is a summary and not the gate
+— the per-leg verdicts are 12 `candidate` / 21 `honest_negative` /
+2 `insufficient_base` across the 35 rows. And 8 legs appear under both fold
+geometries; they agree on 7 and disagree on one (`iaum_pullback_1d`:
+`honest_negative` under trade-folds, `candidate` under calendar-folds), which is
+the report's own "not comparable evidence" warning showing up as an actual
+verdict flip.
+
+## 9. Hindsight-free τ selection — the measurement §§ 5 and 7 asked for
+
+*Measured 2026-08-13, relay #9077, 31 reports, 514 scored folds.* § 7 measured
+the *random*-τ bound; this measures actual **causal selection rules**. `folds`
+is built sequentially by `fold_blocks`, so per leg it is chronological, and a
+selection rule using only prior folds is computable **with no retraining**:
+
+- **PREV** — the τ with the highest `net_r` on the leg's previous fold.
+- **EXPAND** — the τ with the highest cumulative `net_r` over all prior folds.
+
+Fold 1 of each leg has no prior and is excluded (reported as `skip1st`, so the
+denominator is never silently short).
+
+**Fleet totals, 514 folds:**
+
+| τ chosen by | mean vs actual | median | folds positive |
+|---|---:|---:|---:|
+| **best arm (what the gate credits — HINDSIGHT)** | **+1.217R** | +1.220R | **70.2%** |
+| EXPAND (causal) | **−0.341R** | +0.285R | **54.1%** |
+| PREV (causal) | **−0.674R** | +0.065R | **50.8%** |
+| EXPAND vs `stale_8_0` | −0.163R | +0.320R | 54.9% |
+| PREV vs `stale_8_0` | −0.496R | +0.160R | 53.3% |
+
+**The fleet-level edge is the hindsight.** Choose τ causally and the mean goes
+negative and the hit rate falls to a coin flip.
+
+**But the family split survives both causal rules, which is the finding that
+matters.** Every scalp group stays positive vs actual under PREV *and* EXPAND
+(`ict_scalp_5m` +5.638 / +6.304, `xrp_5m` +4.525 / +4.980, `avax_5m` +3.538 /
++3.284, `sol_15m` +3.027 / +3.477, `xrp_15m` +3.118 / +3.578, `sol_5m` +2.714 /
++3.102, `eth_15m` +0.630 / +0.066 — the weakest). Every non-scalp group is
+negative under both (`allmix` −1.707 / −1.250, `pullback` b=50 −1.350 / −0.919,
+`donchian` b=15 −1.488 / −0.723, `donchian` calendar −2.628 / −2.537).
+
+**Against the hard levers, even scalp mostly does not clear.** PREV vs
+`stale_8_0`, per scalp leg: `sol_15m` **+2.723**, `ict_scalp_5m` **+1.564**,
+`sol_5m` +0.340, `avax_5m` +0.229, `xrp_15m` −0.010, `xrp_5m` **−0.470**,
+`eth_15m` **−1.658**. So **2 of 7** scalp legs show a meaningful edge over an
+eight-bar stale-stop once τ is picked without hindsight; the rest sit at or
+below zero.
+
+### What this does and does not license
+
+- **It does not say the deployed head would be negative.** PREV and EXPAND are
+  *lower* bounds on a well-designed selection: they pick τ from earlier folds
+  only, so they eat regime drift between folds, and EXPAND already beats PREV
+  (−0.341 vs −0.674), which says selection quality matters and better rules
+  exist. Picking τ on the *training half of the same fold* would be
+  contemporaneous and should do better. **The achievable value lies between
+  EXPAND and best**, and where in that interval is still unmeasured.
+- **It does say the gate's figure cannot be read as a deployment expectation.**
+  The interval `[−0.341R, +1.217R]` straddles zero and is wider than the effect
+  being claimed. A `candidate` verdict currently means "some τ beat the
+  baselines on this test fold", not "this head is expected to help".
+- **Read mean and median together.** They diverge (PREV: mean −0.674, median
+  +0.065), so the mean carries a negative tail of a few bad folds. `frac_positive`
+  is the robust statistic here and it is ~51–55% for every causal rule against
+  every baseline — a coin flip.
+- **`slv_trend_1h` (3 scored), `uso_trend_1h` (2), `eth_15m` / `xrp_15m` (5),
+  `sol_15m` (6) are too thin to weigh individually** and none of the conclusions
+  above rests on them.
+
+This is the direct mechanism behind
+`BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK`:
+`ict_scalp_5m` passed 3/3 harness folds on the best-arm figure and then had
+*every* τ lose on the live book. A gate scored on the max of seven arms will do
+that whenever the arm ordering is unstable — and § 7's flip rate (23–50% of
+non-scalp folds) says it is.

@@ -64,6 +64,24 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "db_explorer.filter_state",
+        "producer": "src/web/api/routers/db_explorer.py",
+        "consumer_token": r"\bfilter_state\b|\bdb_table\b|\bdb/table\b",
+        "states": ["applied", "not_requested", "ignored_unknown_column"],
+        "why": (
+            "applied = a WHERE ran and `total` is a FILTERED count; "
+            "not_requested = no filter was sent; ignored_unknown_column = a "
+            "filter WAS sent and DROPPED, so `total` is the WHOLE TABLE. "
+            "Collapsing the last two into the first is not a cosmetic loss: "
+            "measured 2026-08-13 against the live journal, four different "
+            "filters on a misspelled column each returned total 4639 (all of "
+            "`trades`), indistinguishable from a filter that matched every "
+            "row. The route is on the diag-relay allowlist, so its callers "
+            "include analysis sessions that cannot see the query they got. "
+            "BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN."
+        ),
+    },
+    {
         "name": "exit_anchor.bar_close_at",
         "producer": "src/runtime/exit_anchor.py",
         "consumer_token": r"\bbar_close_at\b|\bexit_anchor\b",
