@@ -1854,6 +1854,51 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     a trainer run that would have produced a meaningless number. Worth recording
     as the counterexample to tonight's postscript.
 
+64. **Completed the split measurement to 4 of 4 legs — and the case I warned
+    about two items ago landed.** Relay #9218, config-exact, `tp_cap 0.099`,
+    `MIN_OOS_TRADES=25`:
+
+    | leg | derived (`oos-trades`) | fixed (`date`) | what the derivation did |
+    |---|---|---|---|
+    | `htf_pullback_trend_2h` | 2026-04-03 → **24** | 2025-07-01 → **95** | **shrank** a rich window |
+    | `tlt_pullback_1h` | 2026-02-05 → **22** | 2025-07-01 → **56** | **shrank** a rich window |
+    | `mhg_pullback_1d` | 2023-02-07 → **24** | 2025-07-01 → **7** | **enlarged** 7 → 24 |
+    | `mes_trend_long_1d` | fell back → **4** | 2025-07-01 → **4** | `leg_too_thin`, lifetime 33 |
+
+    **`mhg` is the whole defect in one row.** The derivation *enlarged* its
+    window from 7 to 24 — doing exactly the job `oos-trades` exists for — **and
+    it still fails, short by one trade.** It aimed at exactly 25, executed
+    correctly, and missed by 1.
+
+    **That refutes `max(derived, fixed)` as a complete fix rather than merely
+    caveating it.** On `mhg` the max picks 24 and refuses anyway. Had I shipped
+    it as *the* fix — which is how item 59 first wrote it — `htf` and `tlt` would
+    have been rescued, `mhg` would have stayed silently refused, and the row
+    would have been closed as done.
+
+    **What the evidence supports:** `max(derive(target = floor + margin),
+    fixed_window)`. Both terms are load-bearing and neither covers the other's
+    case — the **margin** rescues the enlarge case, the **max** rescues the
+    shrink case. Worked against all four: `htf` → 95, `tlt` → 56, `mhg` → a
+    target of 30 clears 25 with room and its lifetime supports it, and `mes`
+    (lifetime 33) cannot give 30 to OOS so it falls back and **stays correctly
+    refused at 4** — which is the control proving the fix does not simply make
+    everything gradeable.
+
+    The margin *value* still needs criterion (2)'s boundary-loss distribution;
+    30 is an illustration on n=4, not a proposal. `mes` also confirms the
+    documented `leg_too_thin` fallback fires correctly, so that branch is fine.
+
+    *(Two wasted relays first — #9215 and #9217 — because I launched the harness
+    with a bare `python3` and got `ModuleNotFoundError: pandas`. #9215's output
+    showed both legs at `split=2025-07-01`, which reads exactly like "the
+    derivation fell back because these legs are thin" and would have been a
+    confident wrong answer supporting the opposite conclusion. What stopped it
+    was that I had truncated the traceback to 90 characters and so could not
+    tell what failed — the missing diagnostic forced the follow-up that found
+    the real cause. Same class as item 60's whole subject, committed by me, one
+    hour later.)*
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
