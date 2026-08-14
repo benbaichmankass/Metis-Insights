@@ -602,13 +602,26 @@ def emit_prop_sl_tp_alert(
 
 
 def render_status_request_message(account_id: str,
-                                  open_positions: list,
+                                  open_positions: "Optional[list]",
                                   age_hours: "Optional[float]" = None) -> str:
     """Body for the account-status request ping — includes the exact reply
     formats ``telegram_report_handler`` parses, so the operator can answer by
-    editing one line in place."""
+    editing one line in place.
+
+    ``open_positions`` is three-state and the message says which: a list of
+    positions, ``[]`` (the book is flat — stated explicitly, because otherwise
+    being asked for a balance while holding nothing reads as a bug rather than
+    as the account-level DD floor doing its job), or ``None`` (the scan failed
+    — *we could not look*, which must never render as flat).
+    """
     lines = [f"📋 PROP STATUS REQUEST [{account_id}]"]
-    for pos in open_positions[:5]:
+    if open_positions is None:
+        lines.append("(could not read open positions this tick — asking anyway; "
+                     "the DD floor is account-level)")
+    elif not open_positions:
+        lines.append("No open prop positions — asking because the static "
+                     "drawdown floor applies to the account, not to a position.")
+    for pos in (open_positions or [])[:5]:
         lines.append(
             f"open: {pos.get('symbol') or '?'} "
             f"{str(pos.get('direction') or '').upper()} "
@@ -628,16 +641,23 @@ def render_status_request_message(account_id: str,
     return "\n".join(lines)
 
 
-def emit_prop_status_request(account_id: str, open_positions: list, *,
+def emit_prop_status_request(account_id: str,
+                             open_positions: "Optional[list]", *,
                              age_hours: "Optional[float]" = None,
                              push: bool = True,
                              telegram: bool = True) -> Dict[str, bool]:
     """Ask the operator for a fresh account-status report-back (manual bridge).
 
-    Fired by ``prop_status_request.run_prop_status_request`` when a prop
-    position is open but the latest ``prop_account_status`` snapshot is absent
-    or stale. Rides the existing ``prop_monitor`` push kind (it is a
-    monitoring nudge, not a trade event). Best-effort + fully isolated.
+    Fired by ``prop_status_request.run_prop_status_request`` when the latest
+    ``prop_account_status`` snapshot for a declared prop account is absent or
+    stale — **whether or not a position is open**, because the static DD floor
+    is account-level (see that module's docstring). Rides the existing
+    ``prop_monitor`` push kind (it is a monitoring nudge, not a trade event).
+    Best-effort + fully isolated.
+
+    ``open_positions`` accepts ``None`` for "the position scan failed"; the
+    payload keeps that distinct from a genuine zero via ``positions_known``,
+    so a consumer can never read an unread book as an empty one.
     """
     from src.runtime.mobile_push.event_kinds import PROP_MONITOR
 
@@ -645,7 +665,8 @@ def emit_prop_status_request(account_id: str, open_positions: list, *,
     payload = {
         "account": account_id,
         "kind_detail": "status_request",
-        "open_positions": len(open_positions),
+        "positions_known": open_positions is not None,
+        "open_positions": None if open_positions is None else len(open_positions),
         "status_age_hours": _fmt(age_hours),
         "text": text,
     }
