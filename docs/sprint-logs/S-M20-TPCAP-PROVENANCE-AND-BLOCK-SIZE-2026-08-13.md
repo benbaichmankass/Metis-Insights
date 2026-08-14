@@ -1359,6 +1359,8 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
 | **(f)** | `tlt_pullback_1h`: **trail3 → trail4**? | **NEW**, `PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY`. The leg ships trail3; its trail4 cell returns `path_b_wf_pass` at live parity — Δnet_R **+35.47 IS / +5.42 OOS**, wf **5/6**, n_oos 56 — across **three** runs. The base already contains trail3, so that is the gain over what is live. **Caveats that bound it:** Path B is the weaker route (`gate_passed_OOS` false), n=56 is not large, and the three runs **share a corpus and split date** — they rule out a flaky run, not overfit to that window. |
 | **(g)** | *(not a decision — a constraint on (b) and (d))* | **4 of the 5 remaining stale live decisions are `trail_geometry`, and no re-sweep can grade them**: the shipped lever IS the base (a normal cell measures base-vs-self) and `trail_geometry` has no OFF arm (`trail_mult` has no OFF state). So for those cells "re-run it" is not an available remedy. `BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`. |
 | **(h)** | **Eleven cells where NEWER evidence disagrees with the recorded status** — one on REAL MONEY | **NEW.** The matrix and the sweep corpus disagree on 11 (leg, lever) pairs: the cell records a negative while the newest floor-clearing live-parity corpus row PASSES. Nine were found by auditing `stale_cells`; **two more** (`uso_trend_1h`/`vol_trail`, `ict_scalp_sol_5m`/`stale_stop`) were found by the new `matrix-corpus-agreement` guard and are **not stale at all** — their refs carry post-cutover dates, so the staleness proxy reads them as current. **Exactly one is on a real-money account that is actually live: `trend_donchian_xrp_4h`/`trail_decay` on `bybit_2`, and it is a full `PASS` (wf 5/6, Δnet_R OOS +1.00, base_OOS 32) — start there.** The three alpaca legs touch a real_money account whose account-level gate is `dry_run` (no live orders); the rest are paper or prop. All 11 are annotated in-cell; **no status was changed** — a passing cell is not a passing lever disposition, and the flip is yours. |
+| **(i)** | **Five of five gradeable SHIPPED levers fail Path A** (lever-OFF arm, 2026-08-14) | **NEW.** The `--without-declared-lever` arm is the only construction that can grade a shipped lever, and it had never run on six (leg, lever) pairs. It has now. Every one that is gradeable **fails Path A**: `splg`/trail_decay `is_oos_fail` (IS +6.84, **OOS −0.357**), `iwm`/trail_decay `is_oos_fail` (**IS −0.53**, OOS +5.61), `scha`/trail_decay `is_oos_fail` (**IS −3.50**, OOS +1.60), `trend_donchian_eth_prop`/stale_stop `is_oos_fail` (IS +3.63, **OOS −2.68**), `trend_donchian_eth_prop`/trail_decay `wf_fail` (positive both windows, fails the walk-forward). **Read the scoping before the headline:** Path A is a SHIPPING gate (beat on net_R AND maxDD in BOTH windows + wf ≥ 4/6), not a profitability test; three of the five are mixed-sign across windows at n≈27, which is what noise looks like at that sample; and **none of these legs is on a real-money account that is actually live** (six paper, two prop). The two genuinely negative OOS figures are eth_prop/stale_stop (−2.68 R over 33) and splg (−0.357 R over 27). Each row used its own per-leg boundary at a different target (28 / 35), so these are five one-leg measurements, not a five-row comparison. **No status changed, no config touched** — the disposition is yours. |
+| **(j)** | **Six matrix cells contradict the live config** — the matrix says a lever is NOT shipped while `strategies.yaml` arms it | **NEW.** Cross-checked all 52 rows against config using the sweep's own `LEVER_DECLARED_KEYS`. The reverse direction is **clean** (0 cells claim `shipped` without a declare); every discrepancy runs one way. Five read **`honest_negative`** — which a reader takes as *"measured, did not work"* — about a `trail_decay` that is running on that leg right now: `eth_pullback_2h`, `qqq_trend_long_1d`, `trend_donchian_sol_4h`, `xrp_pullback_2h` (all `execution: live`) and `avax_pullback_2h` (shadow); the sixth, `trend_donchian_avax_4h`, reads `passed_unshipped` and its ref literally ends *"AWAITING TIER-3 operator approval to declare in YAML"* — **the approval landed in #8985 on 2026-08-13** and the cell was never flipped. Two causes, both visible in the refs: a landed declare that did not update the cell, and the multileg explosion keeping a ref's FIRST sentence ("FAIL") over a LATER one in the same ref recording the pass and the merge. **This is a RECORD defect, not evidence any live lever is wrong** — every declare is operator-approved work that landed through a normal PR. Fixing the record is Tier-1 and I have not done it unilaterally because these cells drive dispositions; say the word and it is a five-minute change plus the guard. |
 
 
 54. **Emptied the `data_missing` bucket — 4 -> 0 on live legs — by measuring
@@ -2183,6 +2185,101 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
 
     **Not yet a result.** At the time of writing the three runs are queued /
     in-progress; nothing below this line reports their output.
+
+71. **THE OFF-ARM RESULT: five of five gradeable shipped levers FAIL Path A —
+    and getting them gradeable at all took finding a second split defect.**
+
+    **Round 1 (target = the default, i.e. the floor).** Six cells measured; the
+    two `passed_unshipped` NO-OPs are covered in item 69. **Five of the six came
+    back `insufficient_base`** at base OOS 23/24/24/24/23 against
+    `MIN_OOS_TRADES=25`. The single leg in the entire dispatch to clear the floor
+    — `trend_donchian_avax_4h` at OOS **25** — returned a **PASS**. Six measured
+    cells, one verdict, and the difference was one or two trades.
+
+    That is `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-...` reproducing at 5/6,
+    a far stronger denominator than the 4-leg measurement it was filed on.
+
+    **The workflow could not ask for a margin.** `--split-target-oos` has existed
+    since #8965, but `m20-exit-lever-sweep.yml` never declared the input — so the
+    *autonomous* path was locked to the one value most likely to produce no
+    verdict, and only the relay could reach the knob. Fixed, with a test
+    asserting the exposed set and the used set are the same set in both
+    directions. Verified against `origin/main`'s pre-fix copy: the
+    `--split-target-oos` assertion is the one that fires there, while the
+    declared-but-unread check **passes** — never declaring an input at all is
+    invisible to a consistency check between two sets that both omit it. Recorded
+    in the test, because the opposite is the natural assumption.
+
+    **Round 2 (target 35) went backwards, and that is the second finding.**
+
+    | leg | target 25 | target 35 | target 28 |
+    |---|--:|--:|--:|
+    | `iwm_trend_long_1d` | OOS 24 | OOS **4** | OOS 27 |
+    | `scha_trend_long_1d` | OOS 23 | OOS **5** | OOS 27 |
+    | `splg_trend_long_1d` | OOS 24 | OOS **4** | OOS 27 |
+    | `trend_donchian_eth_prop` | OOS 24 | OOS 33 | — |
+
+    **Asking for more OOS trades returned six times fewer.** Read from the field,
+    not inferred — `resolve_split` does this by construction:
+
+    ```python
+    if len(stamps) < 2 * target_oos:
+        meta.update(split=fixed_split, split_fallback="leg_too_thin")
+        return fixed_split, meta
+    ```
+
+    The *reasoning* is sound and the docstring states it. The **destination** is
+    not: when the derivation gives up it returns the corpus-standard **calendar**
+    date, which for exactly the low-frequency legs that trip the guard is the
+    worst available boundary — 4-5 OOS trades, the very defect the derivation was
+    built to remove. So the fallback lands the caller back on the original bug
+    precisely when they asked for more rigour. It is a **cliff, not a
+    degradation**.
+
+    It also **refutes the `max(derived, fixed_window)` fix a second time.** That
+    shape was already refuted this session by the mhg measurement; here the fixed
+    window is the *bad* one, so a max would select it. Filed as
+    `BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-...` with the clamp-to-
+    `floor(lifetime/2)` remedy and a test that drives the three outcomes apart.
+
+    The gradeable band is narrow and nothing announces it: `lifetime >= 2*target`
+    (or the cliff) **and** achieved `>= 25` (or the floor), where achieved runs
+    1-2 under target because the harness windows candles, not trades. For a
+    ~64-trade leg that is roughly `target ∈ [26, 32]`. **28 was predicted from
+    that band and confirmed at OOS 27 on all three legs.**
+
+    **THE RESULT.** Every shipped lever that is now gradeable:
+
+    | leg | cell | verdict | Δnet_R IS | Δnet_R OOS | base OOS | target |
+    |---|---|---|--:|--:|--:|--:|
+    | `splg_trend_long_1d` | shipped_trail_decay_6_2 | `is_oos_fail` | +6.844 | **−0.357** | 27 | 28 |
+    | `iwm_trend_long_1d` | shipped_trail_decay_10_2 | `is_oos_fail` | **−0.527** | +5.606 | 27 | 28 |
+    | `scha_trend_long_1d` | shipped_trail_decay_2_2 | `is_oos_fail` | **−3.498** | +1.599 | 27 | 28 |
+    | `trend_donchian_eth_prop` | shipped_stale_stop_12_0 | `is_oos_fail` | +3.630 | **−2.678** | 33 | 35 |
+    | `trend_donchian_eth_prop` | shipped_trail_decay_10_1.8 | `wf_fail` | +1.015 | +1.924 | 34 | 35 |
+
+    **Five of five fail Path A.** Not one clears the gate that would be required
+    to ship it today.
+
+    **What that does and does not mean — the scoping matters more than the
+    headline.** "Fails Path A" is not "loses money". Path A demands a beat on
+    net_R **and** maxDD in **both** windows plus walk-forward ≥ 4/6, which is a
+    shipping gate, not a profitability test. Three of the five are **mixed-sign
+    across windows** (help one, hurt the other) at n≈27 — which is what noise
+    looks like at that sample size, and is the honest reading rather than five
+    indictments. The two genuinely negative out-of-sample figures are
+    `eth_prop`/stale_stop at **−2.678 R** over 33 and `splg` at −0.357 R over 27.
+    The `wf_fail` row is positive on both windows and fails only the
+    walk-forward. And per item 69, **none of these legs is on a real-money
+    account that is actually live** — six paper, two prop.
+
+    Each row also used its **own** per-leg boundary at a **different** target
+    (28 vs 35), so the target column is printed rather than omitted: these are
+    five separate one-leg measurements, not a five-row comparison on a common
+    basis.
+
+    **Nothing is re-graded here.** No matrix status changed, no config touched.
+    Every disposition is Tier-3 and goes to the operator as decision (i).
 
 ## Wrap-Up Check
 
