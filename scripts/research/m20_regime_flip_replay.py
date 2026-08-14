@@ -39,6 +39,9 @@ sys.path.insert(0, str(REPO))
 
 from src.runtime.regime.detector import regime_label, wilder_adx  # noqa: E402
 from src.runtime.regime.policy import load_policy  # noqa: E402
+from src.runtime.regime_flip_exit import (  # noqa: E402
+    cell_is_off as flip_exit_cell_is_off,
+)
 
 FEE_BPS_ROUNDTRIP = 7.5
 TF_RULE = {"5m": "5min", "15m": "15min", "1h": "1h", "2h": "2h",
@@ -59,10 +62,25 @@ def load_candles(path: str, tf: str) -> pd.DataFrame:
 
 
 def off_cell(policy: Dict[str, Any], label: str, key: str, direction: str) -> bool:
-    cell = ((policy.get(label) or {}).get(key) or {})
-    v = cell.get(direction, "on")
-    # PyYAML maps `on`/`off` -> True/False; mirror policy._evaluate_trend_cell.
-    return v is False or (isinstance(v, str) and v.lower() == "off")
+    """Delegates to the ONE predicate — see src/runtime/regime_flip_exit.py.
+
+    This function used to reimplement the cell lookup locally, under a comment
+    saying it "mirrors policy._evaluate_trend_cell". Two copies of a decision
+    predicate is the drift shape this repo keeps paying for, and it was worse
+    here than usual: THIS copy is what graded all 43 `regime_flip_exit` cells in
+    the M20 coverage matrix, so a divergence would have meant the recorded
+    dispositions described a rule the live gate does not apply.
+
+    They were verified equivalent before the switch — all 100 (label, strategy,
+    side) triples of the committed policy, 0 disagreements (2026-08-14) — so
+    replacing the body changes no past verdict. The equivalence is pinned by
+    tests/test_regime_flip_exit.py, which keeps a verbatim copy of the old body
+    and asserts it exhaustively against the live gate.
+    """
+    is_off, _cell = flip_exit_cell_is_off(
+        policy=policy, regime=label, strategy_key=key, direction=direction
+    )
+    return is_off
 
 
 def replay(trades: List[dict], candles: pd.DataFrame, adx: pd.Series,
