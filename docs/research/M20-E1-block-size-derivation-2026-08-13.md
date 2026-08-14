@@ -684,9 +684,12 @@ positive, the mean pulled toward zero by a few large winners — max +6.47 /
 **The `Δ maxDD` distribution is one-sided, which is what makes it readable at
 this n.** The minimum is +0.000 / −1.100 / −0.060 and the median is +0.000 on
 BTC and SOL: across 22 folds the condition essentially never *lowered*
-drawdown — it either left it untouched (the majority: ~64% of BTC folds, ~73%
-of SOL folds are exactly zero, i.e. folds where the condition never bound) or
-raised it. Trimmed means (drop one fold from each tail) barely move: +0.138 /
+drawdown — it either left it untouched (~64% of BTC folds, ~73% of SOL folds are
+exactly zero) or raised it. ⛔ **The parenthetical here originally read "i.e.
+folds where the condition never bound". That inference was WRONG and is
+corrected in § 16 — the condition is active on 86–100% of folds.** Do not read a
+zero `Δ maxDD` as a fold the condition sat out.
+Trimmed means (drop one fold from each tail) barely move: +0.138 /
 +0.360 / +0.089, so no single outlier fold carries the sign.
 
 ### A defect in my own probe, recorded
@@ -856,3 +859,47 @@ interchangeable observations and must not be counted as such.
   scalp at 0.10/0.15/0.20. Nothing is compared across a τ boundary.
 - **Still not a re-grade, and still not a live change.** Every disposition
   remains Tier-3 and operator-gated.
+
+## 16. CORRECTION — a zero `Δ maxDD` is not a fold the condition sat out
+
+§ 13 listed "why the condition never binds on most folds" as unexplained, and its
+own prose answered the question it was supposed to be asking: it glossed the
+zero-`Δ maxDD` folds as *"folds where the condition never bound"*. **That was an
+inference from a zero, not a measurement, and it is wrong.**
+
+`agg()` carries `trades`, so a fold where `trades`, `net_r`, `max_dd_r` **and**
+`mean_hold_bars` are all identical between arms is a genuine no-op. Measured
+(relay #9133, same 22 folds per leg):
+
+| leg | folds | no-op | no-op % | among ACTIVE folds: Δ maxDD / Δ net_R / Δ hold |
+|---|---:|---:|---:|---|
+| `trend_donchian` (BTC) | 22 | 3 | **13.6%** | +0.198 / −0.292 / +5.46 |
+| `trend_donchian_eth` | 22 | 0 | **0.0%** | +0.424 / −0.288 / +3.60 |
+| `trend_donchian_sol` | 22 | 2 | **9.1%** | +0.136 / −0.663 / +5.23 |
+
+**The condition is active on 86–100% of folds.** BTC has ~64% of folds at exactly
+zero `Δ maxDD` but only 13.6% no-ops — so roughly half its folds are ones where
+the condition **acted and the maximum drawdown still did not move.** That is
+ordinary behaviour for an extremum: a change that shifts exits without touching
+the single worst stretch leaves `max_dd_r` bit-identical. Reading that zero as
+absence was the error.
+
+**This strengthens § 13 rather than weakening it.** The original worry was that
+the drawdown result might rest on a small active subset. It does not: restricted
+to active folds the effect is the same size or slightly *larger* (+0.198 vs
++0.171 on BTC, +0.136 vs +0.124 on SOL, ETH unchanged because it has no no-ops).
+The condition binds nearly always **and still never lowers drawdown.**
+
+**A clean-comparison check that came free with it:** among active folds the trade
+count is identical on **100%** of them, mean `Δ trades` **+0.00**, on all three
+legs. The condition never changes *whether* a trade is taken, only *when* it
+exits — which is what an exit gate should do, and it confirms the two arms are
+being compared over the same trade population rather than different ones.
+
+### What is still open
+
+Distinguishing *"the predicate never fired on this fold"* from *"it fired and
+changed no exit"* needs per-trade rows, which this report does not carry. The
+probe's own output says so. The no-op count bounds it — at most 13.6% / 0% / 9.1%
+of folds can be the former — but does not resolve it, and the § 13 conclusion
+does not depend on which it is.
