@@ -307,6 +307,60 @@ touched, no Tier-3 change enacted.**
     authority on this file's population; hand-iterating it is how you get a
     confident wrong count.
 
+29. **PR #9134 merged (`7efd3899`) — CORRECTION § 16, and it strengthens § 13.**
+    § 13 listed "why the condition never binds on most folds" as unexplained
+    while its own prose had already answered it, glossing the zero-`Δ maxDD`
+    folds as *"folds where the condition never bound"*. **An inference from a
+    zero, not a measurement, and wrong.** Measured (#9133): no-op share is
+    **13.6% / 0.0% / 9.1%** — the condition is **active on 86–100% of folds**.
+    BTC has ~64% of folds at exactly zero `Δ maxDD` but only 13.6% no-ops, so
+    roughly half its folds are ones where the condition *acted* and the
+    **maximum** drawdown still did not move — ordinary for an extremum. This
+    **strengthens** § 13: restricted to active folds the effect is the same size
+    or slightly larger (+0.198 vs +0.171 BTC). A clean-comparison check came free
+    — trade counts identical on **100%** of active folds, mean `Δ trades` +0.00,
+    so both arms are compared over the **same trade population**, which §§ 13–15
+    had assumed and never checked. The § 13 parenthetical is struck in place and
+    points at § 16.
+
+30. **PR #9135 — the first done-condition movement since the prop legs entered
+    the denominator, and the session's only genuine re-grade.** Headline
+    **370 → 371/376**, done-condition **28 → 27**.
+    `trend_donchian_sol_prop / regime_flip_exit` graded `honest_negative` **by
+    structural derivation, not by a sweep** — the lever *cannot fire* on that
+    leg, so no book and no exit geometry is needed to grade it. Four links, each
+    read from the primary source rather than inherited from a ref:
+    `regime_label` emits only `unknown/chop/transitional/trending`
+    (`detector.py:95-113`); `off_cell` looks those 1-D labels up and **never**
+    consults the 2-D `trend_vol` block (`m20_regime_flip_replay.py:61-65`);
+    `regime_policy.yaml` has `trend_donchian` `long: true` in all three 1-D cells
+    and no per-symbol keys; `strategies.yaml:1187` sets `long_only: true`. So
+    `flip == actual` on every trade — the identical degenerate tie the API twin
+    is already graded for.
+
+    **Why the blanket `pending` reasoning did not reach this lever:** all six
+    prop cells shared one ref saying a parent verdict cannot transfer because the
+    exits are inherited and different. True for `exit_head_ml` and `exit_ladder`,
+    whose outcomes depend on geometry — but whether the *flip fires* is a
+    function of `(1-D label, family key, direction)` only, and there is no
+    outcome for geometry to affect when the trigger never occurs.
+
+    **The conditional is recorded in the ref because it is the part that breaks:**
+    `trend_vol` *does* set `trend_donchian` `long: false` in three 2-D cells, so
+    the grade rests entirely on the replay harness reading 1-D cells only. Extend
+    that harness, or turn off a 1-D donchian long cell, and the cell re-opens.
+
+    **Scope is SOL only.** `trend_donchian_eth_prop` is deliberately two-sided
+    ("ETH's edge is short-side-dependent"), so the flip *can* fire there and its
+    outcome *does* depend on the inherited geometry — that cell stays `pending`.
+
+31. **Established that `m20-exit-lever-sweep` cannot close the remaining five
+    pending cells.** Its `levers` input accepts
+    `stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail` — **none of
+    the three levers that are actually pending**. `exit_head_ml` needs an E1 run
+    on each leg's own book. Read the workflow inputs rather than dispatching and
+    discovering it from a useless run.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
