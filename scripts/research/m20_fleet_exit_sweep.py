@@ -930,8 +930,11 @@ def resolve_split(harness: str, base: list[str], mode: str,
     #
     # Asking for MORE out-of-sample trades returned six times FEWER. That is a
     # cliff, not a degradation, and it fires precisely when the caller asks for
-    # more rigour (BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-
-    # FOR-MORE-OOS-RETURNS-FAR-FEWER).
+    # more rigour. Tracked as:
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER
+    # (kept on ONE line even though it overruns: artifact-validity-guard
+    # resolves ids by regex, so a wrapped id silently resolves to NOTHING and
+    # the comment claims tracking that does not exist.)
     #
     # So CLAMP to the largest target the leg can actually support and keep
     # deriving from the leg's own trades. The clamp is RECORDED, never silent:
