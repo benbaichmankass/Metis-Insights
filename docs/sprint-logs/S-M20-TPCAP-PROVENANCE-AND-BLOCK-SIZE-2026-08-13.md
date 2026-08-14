@@ -1721,6 +1721,59 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     tests — because hand-enumeration is the failure mode, and a narrow fix that
     reads as complete is how instance 5 happens.
 
+62. **Did the enumeration instead of leaving it filed — and it corrected my own
+    number, twice over.** Item 61 shipped the narrow fix and filed the general
+    case citing *"39 test files reference `docs/` paths and I checked 2"*. That
+    denominator was **wrong**: 39 counts files *mentioning* `docs/` anywhere,
+    docstrings included. Scanning `tests/` mechanically for a `docs/` path
+    joined onto the repo root:
+
+    - **19** test files carry a `docs/` path *literal*;
+    - **4** read a **committed** `docs/` file — the rest write `tmp_path`
+      fixtures.
+
+    | committed docs/ file | reader | was covered? |
+    |---|---|---|
+    | `docs/research/exit-refinement-coverage.json` | `test_exit_head_per_leg` | fixed in item 61 |
+    | `docs/research/m20-sweep-corpus.jsonl` | `test_m20_regime_book_provenance` | **no** |
+    | `docs/claude/system-actions.md` | `tests/ops/test_system_actions_workflow` | **no** |
+    | `docs/ARCHITECTURE-CANONICAL.md` | `test_audit_verification_checklist` | **no** |
+
+    So the scope was **three more paths, not a project** — which is exactly why
+    it was worth ten minutes rather than a filed row someone reads next month.
+
+    **The `ARCHITECTURE-CANONICAL.md` one nearly escaped, and it is the worst of
+    the three.** `test_live_repo_checklist_clean` asserts the **live** doc has no
+    drift, and the only other check of that property is the **weekly**
+    `doc-audit-weekly.yml`. `arch-doc-guard` *does* list the doc in its globs —
+    which is precisely why it looked covered — but it runs
+    `scripts/arch_doc_guard.py`, a different script that never touches the
+    checklist. Covering it costs a full suite on many docs-only PRs; **included
+    anyway, and the cost stated at the call site rather than slipped in**,
+    because a check a docs PR can silently skip is not a check.
+
+    **Made it self-maintaining** rather than adding three more hand-written
+    rows: `test_docs_committed_readers_are_all_covered` re-derives the set *from
+    the tests* on every run, so a new committed-doc reader fails CI until the
+    filter covers it. It ships with a **negative control** — a scan that
+    silently stopped matching would make the guard vacuously green, which is
+    diagnostic-provenance sub-class C.
+
+    **The finding worth more than the path list:** the class was already filed
+    as `BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED`
+    (severity **high**), whose resolution criterion reads *"pytest-run cannot
+    report a green tick without having executed the suite (or reports a visibly
+    distinct state when it skips)"* — and it is marked **resolved**. That
+    criterion was never met. It was closed by adding the three trees then known,
+    leaving the green-tick ambiguity that **is** the hazard fully intact.
+    Instance 4 arrived four weeks later through the one tree nobody had added.
+
+    **Closing a class-level row on an instance-level fix is itself the
+    recurrence mechanism** — and my own item 61 was about to be the fifth
+    example of it. Recorded in the row (criterion (3), still open) and in the
+    test file's header, so the next reader sees that four fixes have all widened
+    an allowlist and none has made a skipped run distinguishable from a real one.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
