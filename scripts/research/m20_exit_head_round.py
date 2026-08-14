@@ -152,8 +152,9 @@ def main(argv: list[str]) -> int:
         # unconditional for every symbol in PROXY_DATA regardless of what is on
         # disk — which is what kept the mes/mgc/mhg `exit_head_ml` cells
         # unreachable (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA). The lever
-        # sweeps keep the proxy-first default, where the deeper proxy series is
-        # the right choice.
+        # sweeps keep the proxy-first default so their recorded verdicts keep
+        # the basis they were measured against — not because the proxy is the
+        # better series (at 1d it is measurably not).
         data, proxy, resample = resolve_data(str(sym), tf, data_dir,
                                              prefer_native=True)
         if data is None:

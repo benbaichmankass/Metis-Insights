@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T07:45:00+00:00",
+  "updated_at": "2026-08-14T07:55:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14448,7 +14448,7 @@
       "area": "m20-exit-refinement",
       "severity": "medium",
       "tier": "2",
-      "status": "open",
+      "status": "superseded",
       "title": "mgc_pullback_1d and mhg_pullback_1d exit_head_ml cells are blocked:data_missing on native IBKR history that NO scheduled job produces -- the pull-ibkr-history action was added 2026-07-07 expressly to unblock them and appears never to have been run for either symbol",
       "source": "Found by asking what would actually unblock the 22 blocked M20 cells, then following the data dependency rather than accepting the status label.\n\nTHREE exit_head_ml cells read `blocked:data_missing` with the ref 'needs native IBKR history for E0 (proxy OK for levers, not for head training)': mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d. `data_missing` reads as 'the data will arrive'. For two of the three, nothing is bringing it.\n\nTHE PRODUCER IS MES-ONLY. The only IBKR deep-history puller in the repo is scripts/ops/pull_mes_ibkr_history.sh. It IS symbol-parameterised (MES_SYMBOL, default MES), but the scheduled unit deploy/ict-mes-ibkr-pull.service invokes it with NO override, so the daily 23:30 UTC timer only ever pulls MES. MGC and MHG accrue nothing on a schedule.\n\nTHE ON-DEMAND PATH EXISTS AND WAS BUILT FOR EXACTLY THESE CELLS. `pull-ibkr-history` (Tier-2, docs/claude/system-actions.md:89) is the symbol-parameterised sibling, allowlisted to MES/MGC/MHG, and its own entry says it was 'Added 2026-07-07 to backtest the metals sleeve (mgc_trend_1h / mgc_pullback_1d / mhg_pullback_1d) on native IBKR history before any shadow->live.' Those cells are still blocked five weeks later.\n\nMEASURED, WITH ITS DENOMINATOR STATED. runtime_logs/ibkr_mes_pull.jsonl via diag #9162/#9163: in the window the relay returned (2026-07-30 -> 2026-08-05, 337 stamped lines, 44 pull_start runs) EVERY run is symbol=MES -- 44/44, zero MGC, zero MHG. I could NOT see 2026-07-07 -> 07-30 (the relay truncates a 400-line request of a 132,659-byte log), so an unseen run in that window is not excluded by the log alone; what makes it unlikely is that both cells still read 'needs native IBKR history'.\n\nA FALSE ALARM I ALMOST FILED, recorded because the next reader will hit the same trap: the truncated 400-line payload's newest visible stamp was 2026-08-05, nine days stale on a DAILY timer, which reads exactly like a recurrence of BL-20260626-MES-BASE-STALE. It is not. A small complete read (lines=12) shows the pull ran 2026-08-13T23:33 -> 23:45 with both timeframes ok (47,190 and 15,751 rows). The truncation had handed me the OLDER part of the 400, not the newest. A large truncated read is worse than a small complete one when the question is 'what happened most recently'.",
       "resolution_criteria": "Observable: `pull-ibkr-history` has been dispatched for MGC and for MHG and the pull log shows a `pull_end` with `any_ok:1` for each symbol, OR the two cells are re-stated with a status that does not imply pending arrival. TIMING IS PART OF THE FIX, not incidental: the pull shares the LIVE trading gateway on clientId 450 and takes ~27 min, so it must not be launched inside IBKR's own ~03:45-05:45 UTC reset window nor across the 06:05 UTC gateway reset -- both would burn pacing budget on a session being restarted. Run the two SEQUENTIALLY (the wrapper takes a single-instance lock, so a concurrent second invocation exits cleanly and would look like a silent no-op). Then the exit_head_ml cells for mgc_pullback_1d / mhg_pullback_1d become runnable via an E1 round at live parity, the same path that closed the two prop cells on 2026-08-14. NOT resolution: re-labelling the cells without either pulling the data or establishing that IBKR cannot serve it.",
@@ -14459,6 +14459,13 @@
         "docs/claude/system-actions.md:89 -- pull-ibkr-history, Tier 2, allowlisted MES/MGC/MHG, 'Added 2026-07-07 to backtest the metals sleeve'",
         "diag #9162 -- 44/44 pull_start runs are MES over 2026-07-30..08-05; window does not cover 07-07..07-30",
         "diag #9163 -- lines=12 complete read: last run 2026-08-13T23:33->23:45, both timeframes ok; the daily pull is HEALTHY"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T07:55:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-13)",
+          "note": "CORRECTION -- THIS ROW'S ID IS WRONG AND SO WAS ITS CONCLUSION. MGC and MHG WERE pulled, on 2026-07-07, the same day `pull-ibkr-history` was added. Direct evidence on the trainer (relay #9183): data/ibkr_datasets/market_raw/MGC/1d/v003 = 940 rows 2022-09-30..2026-07-06, mtime 2026-07-07 13:33:20, and .../MHG/1d/v003 = 1043 rows 2022-05-03..2026-07-06, mtime 2026-07-07 14:18:02.\n\nWhy I got it wrong: I measured `pull_start` rows over the window the relay returned (07-30..08-05, 44/44 MES) and stated that denominator honestly -- but then drew an UNBOUNDED conclusion ('nothing is bringing it', 'never run for either') from a BOUNDED observation. The 2026-07-07 pulls predate the window entirely. A negative needs a denominator, and mine was correct; the sentence I wrote around it was not.\n\nWHAT REMAINS TRUE: the scheduled daily timer IS MES-only (it invokes the wrapper with no symbol override), so there is no RECURRING MGC/MHG pull. That is the real, surviving finding.\n\nWHAT IS NOW SUPERSEDED: the premise that these cells were blocked on ABSENT data. They were not. Deep native 1d history is present on the trainer and is refreshed daily -- datasets-out/market_raw/{MGC,MHG,MES}/1d/v002 at 2,919 / 2,920 / 2,921 rows spanning 2015-01-02..2026-08-13, mtimes 2026-08-14 05:30-05:34, i.e. hours before my pulls. The real blockers were (a) BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA and (b) the conversion gap in the new row below.\n\nAlso superseded: my 07:28Z ping said the pulls would make both cells runnable. They would not have."
+        }
       ]
     },
     {
@@ -14494,6 +14501,32 @@
         "scripts/research/m20_exit_head_round.py",
         "tests/test_exit_head_per_leg.py",
         "docs/research/exit-refinement-coverage.json",
+        "BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T07:55:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-13)",
+          "note": "CORRECTION to this row's own rationale. It argued the default must stay proxy-first because 'the proxy is the deep series ... native IBKR history is ~1y'. That is TRUE of native IBKR *intraday* shards but FALSE at the 1d frame -- the frame all three blocked cells use. Measured (relay #9183): native MGC 1d = 2,919 rows 2015-01-02..2026-08-13 vs proxy GC_F_1d.csv = 2,512 data rows 2016-07-12..2026-07-10. The native series is deeper AND a month fresher. MHG/MES the same shape.\n\nThe DECISION stands, the REASON changes: the default stays proxy-first so that flipping the basis a recorded verdict was measured against is its own measured decision rather than a side effect of a reachability fix. Code docstring, inline comment, and the test name/docstrings corrected in the same PR rather than left to read as justified by a false premise."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260814-MARKET-RAW-TO-CSV-HAS-NO-CALLER",
+      "opened_at": "2026-08-14T07:55:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "research-tooling",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "title": "scripts/research/market_raw_to_csv.py has no scheduled or committed caller, so deep native 1d market_raw shards for MGC/MHG/MES have never become the data/<SYM>_1d.csv the sweeps read -- the second half of why three exit_head_ml cells are blocked",
+      "source": "Measured on the trainer 2026-08-14 (relay #9182, #9183) while checking whether tonight's IBKR pulls could close the cells they were run for.\n\nTHE DATA IS ALREADY THERE, AND IT IS DEEP:\n  datasets-out/market_raw/MGC/1d/v002  2,919 rows  2015-01-02 -> 2026-08-13  (mtime 2026-08-14 05:34)\n  datasets-out/market_raw/MHG/1d/v002  2,920 rows  2015-01-02 -> 2026-08-13  (mtime 2026-08-14 05:34)\n  datasets-out/market_raw/MES/1d/v002  2,921 rows  2015-01-02 -> 2026-08-13  (mtime 2026-08-14 05:30)\n  datasets-out/market_raw/MES/1d/v001  6,484 rows  2000-09-18 -> 2026-05-22  (deeper but stale since May)\n\nBUT data/ contains ONLY the proxies -- GC_F_1d.csv (2,513 lines, 2016-07-12..2026-07-10), HG_F_1d.csv (2,514), ES_F_1d.csv (2,515), GC_F_1h.csv. The probe printed '(NO native MGC/MHG/MES csv in data/)'.\n\nSo the native 1d series is DEEPER (2,919 vs 2,512 data rows) and a MONTH FRESHER than the proxy the sweeps actually read -- and no code path converts it. A repo-wide grep for `market_raw_to_csv` returns its own usage string, two sprint-log mentions and one capability-index row: NO scheduled unit, NO workflow, NO script calls it. It is a hand-run tool, and for these three symbols it was never hand-run.\n\nThis is the second half of the blocker. BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA meant the resolver could not SEE native data; this means there was no native CSV to see. Either alone keeps the cells shut, which is why five weeks of 'still blocked' survived a Tier-2 tool built to fix it.",
+      "resolution_criteria": "Two observable conditions, in order. (1) `data/MGC_1d.csv`, `data/MHG_1d.csv` and `data/MES_1d.csv` exist on the trainer with row counts matching their shards (~2,919 / ~2,920 / ~2,921), produced by `market_raw_to_csv.py <SYM> datasets-out data/<SYM>_1d.csv 1d` -- the script prints 'wrote N rows', so the count is measured, not assumed. (2) A durable caller exists so this cannot silently rot again: either the trainer's daily cycle converts every market_raw shard that a configured leg's symbol needs, or a guard fails when a strategy symbol has a market_raw shard but no corresponding data/ CSV. Until (2) lands, (1) is a one-off that the next fresh trainer loses.\n\nNOTE for whoever does (1): market_raw_to_csv takes `cands[-1]`, the highest-sorted version dir, so MES/1d resolves v002 (2,921 rows from 2015) and NOT the deeper-but-stale v001 (6,484 rows from 2000, last updated 2026-05-22). If the longer MES history is wanted that is an explicit choice to make, not a default to inherit.",
+      "refs": [
+        "scripts/research/market_raw_to_csv.py",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "docs/research/exit-refinement-coverage.json",
+        "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA",
         "BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED"
       ]
     }

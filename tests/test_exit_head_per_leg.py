@@ -364,10 +364,15 @@ def test_mgc_is_proxied_to_gc_f_so_the_fixture_is_meaningful():
     assert sweep.PROXY_DATA.get("MGC") == "GC_F"
 
 
-def test_the_default_still_prefers_the_deep_proxy_over_shallow_native(tmp_path):
-    """The lever sweeps WANT the proxy: GC_F reaches the full fold structure
-    while native IBKR history is ~1y. Preferring native here would collapse a
-    6-fold walk-forward and silently invalidate every recorded verdict."""
+def test_the_default_keeps_the_proxy_basis_recorded_verdicts_were_measured_on(tmp_path):
+    """The default is about NOT silently changing a recorded verdict's basis.
+
+    Deliberately NOT justified as 'the proxy is deeper' — measured on the
+    trainer 2026-08-14 the 1d native series is deeper AND fresher than its
+    proxy (MGC 2,919 rows 2015-01-02..2026-08-13 vs GC_F_1d 2,512 rows
+    2016-07-12..2026-07-10). Which series is deeper varies by frame, so the
+    flip is its own measured decision, not a side effect of a reachability
+    fix."""
     (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
     (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
     path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
@@ -395,8 +400,8 @@ def test_prefer_native_falls_back_to_the_proxy_when_no_native_exists(tmp_path):
 
 
 def test_a_missing_proxy_file_still_reads_data_missing_by_default(tmp_path):
-    """The default must NOT gain a native fallback: `data_missing` is more
-    honest than silently resolving a shallow native file into a 1-fold run."""
+    """The default must NOT gain a native fallback either: `data_missing` is
+    more honest than silently switching that leg onto a different series."""
     (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
     path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
     assert path is None

@@ -189,11 +189,16 @@ def resolve_data(symbol: str, tf: str, data_dir: Path,
     proxy-first order:
 
     - **False (default)** — `PROXY_DATA` is applied unconditionally, so MGC
-      resolves `GC_F_*.csv` even when `MGC_*.csv` exists. That is CORRECT for
-      the lever sweeps: the proxy is the DEEP series (GC_F reaches the full
-      2021..2026 fold structure) while native IBKR history is ~1y, and
-      silently preferring a shallow native file would collapse the
-      walk-forward and quietly invalidate every recorded verdict.
+      resolves `GC_F_*.csv` even when `MGC_*.csv` exists. The default is kept
+      NOT because the proxy is better — measured 2026-08-14 on the trainer, at
+      the 1d frame the native series is DEEPER and fresher than its proxy
+      (MGC 2,919 rows 2015-01-02..2026-08-13 vs GC_F_1d.csv 2,512 rows
+      2016-07-12..2026-07-10; MHG/MES the same shape) — but because flipping
+      which series a RECORDED verdict was measured against is a separate,
+      measured decision that must not ride along silently inside a
+      reachability fix. The depth ordering differs by frame and by symbol
+      (native IBKR *intraday* history really is ~1y), so "native is deeper"
+      is not a safe blanket default either.
     - **True** — try the native spelling first and fall back to the proxy.
       For a consumer that REFUSES proxied data this is the only way native
       data is reachable at all: `m20_exit_head_round` skips any leg whose
@@ -210,9 +215,11 @@ def resolve_data(symbol: str, tf: str, data_dir: Path,
     alt = PROXY_DATA.get(symbol)
     proxied = alt is not None and alt != symbol
     # Default order is EXACTLY the historical one (proxy alone when a proxy is
-    # declared) — no native fallback, because a missing proxy file must keep
-    # reading `data_missing` rather than silently resolving a shallow native
-    # file and turning a 6-fold walk-forward into a 1-fold one.
+    # declared) — and deliberately no native fallback either, so a missing
+    # proxy file keeps reading `data_missing` rather than silently switching
+    # that leg onto a different series. Both halves are about NOT changing a
+    # recorded verdict's basis as a side effect; neither asserts which series
+    # is deeper (see the docstring — at 1d the native one is).
     order = [alt if proxied else symbol]
     if prefer_native and proxied:
         order.insert(0, symbol)
