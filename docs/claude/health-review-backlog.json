@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T01:30:00+00:00",
+  "updated_at": "2026-08-14T01:40:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14289,6 +14289,21 @@
       "remaining_work": "1. Add the reason clause to the seven refs.\n2. Sweep the other lever columns for the same shape.\n3. Decide (roll-up-level) whether 'blocked under geometry A while a verdict exists under geometry B' deserves its own status rather than a prose ref — it is a real, recurring state and the legend has no vocabulary for it.",
       "resolution_criteria": "A reader of any of the seven cells can tell from the matrix ALONE that a calendar-fold verdict exists and why it was not used, without pulling an e1_report.",
       "updated_at": "2026-08-14T00:30:00+00:00"
+    },
+    {
+      "id": "BL-20260814-COVERAGE-MATRIX-SHADOW-ROW-METADATA",
+      "opened_at": "2026-08-14T01:40:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-14)",
+      "area": "docs",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "title": "Two coverage-matrix SHADOW-leg cells carry metadata their own legend contradicts: fvg_range_15m/trail_geometry is `blocked` while its ref says the lever is structurally inapplicable (= `n/a`), and shadow-fleet/giveback_stop has no `ref` key at all while its three siblings do",
+      "source": "FOUND BY THE LEVER-COLUMN SWEEP that PR #9099 declared as its own open gap ('whether the other seven lever columns have the same shape - I swept exit_head_ml only'). That sweep is now DONE and the headline answer is NEGATIVE: across ALL 28 open cells on LIVE legs, every single one carries a measured, dated, numeric ref (relay/PR id + a date + a figure). The `exit_head_ml` 1d bucket fixed in #9114 was the ONLY instance of the 'a verdict exists and the ref never says we are declining it' shape. DENOMINATOR CHECK: the sweep counted 28 open live cells, which matches m20_coverage_rollup.py --done-condition exactly (6 pending + 22 blocked), so it was not silently scanning a subset.\n\nWhat it DID turn up is two cells on SHADOW legs:\n\n(1) `fvg_range_15m` / `trail_geometry` carries status **`blocked`** (bare, no reason suffix) with ref: 'lever not applicable - fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary'. The matrix's OWN legend defines `blocked` as 'cannot process YET (reason given)' and `n/a` as 'structurally inapplicable'. 'Nothing to vary' is not a 'yet' - no amount of data or waiting changes it. The ref is describing `n/a` and the status says `blocked`; per field-beats-comment the two disagree and one is wrong.\n\n(2) `shadow fleet (turtle_soup, fade_breakout_4h, vwap, trend_donchian_1h, *_prop)` / `giveback_stop` has **no `ref` key at all** (status `pending`), while the same row's `trail_geometry` / `exit_ladder` / `vol_trail` each carry one (69 / 59 / 195 chars). Not a validator failure - `m20_coverage_rollup.py --validate` requires refs on CLOSED live cells only, and it passes - but it is the only cell in that row that says nothing about why it is pending.\n\nMEASURED IMPACT: **NONE on either published number, and this was checked rather than assumed.** Both cells are on SHADOW legs; the headline denominator (376) is live-legs-only x lever_columns, and the done-condition is live-only (`--done-condition` lists 22 blocked and fvg_range_15m is not among them). So neither the 370/376 headline nor the 28 done-condition moves. That is precisely why this is filed at severity `low` and was NOT fixed in-session.",
+      "action_taken": "NOT FIXED IN-SESSION, deliberately. Changing (1) from `blocked` to `n/a` is a matrix STATUS change - a grading action - and this session has kept every status flip operator-gated (the two M20 decisions already queued are of the same kind). Filing beats a unilateral flip on a cell whose ref I did not author. (2) is a one-line ref addition and could be fixed by anyone; it is bundled here because it is the same class (shadow-row metadata hygiene) and belongs in one review pass.",
+      "not_measured": "WHY the fvg_range_15m cell was authored as `blocked` rather than `n/a` - I read the ref and the legend, not the commit history that set it. It is possible `n/a` post-dates the cell. Also NOT measured: whether any CLOSED cell (honest_negative / shipped / passed_unshipped) carries a ref that contradicts its status the same way - this sweep covered OPEN cells only, because the audit question inherited from #9099 was about blocked/pending refs.",
+      "resolution_criteria": "A review session either (a) flips fvg_range_15m/trail_geometry to `n/a` if the legend reading holds, or records why `blocked` is right and makes the ref say so; and (b) gives shadow-fleet/giveback_stop a ref matching its siblings. Both are cosmetic on shadow rows - closing this must not change the 370/376 headline or the 28 done-condition, and if a proposed fix WOULD change either, that is the signal the fix is wrong.",
+      "updated_at": "2026-08-14T01:40:00+00:00"
     }
   ]
 }
