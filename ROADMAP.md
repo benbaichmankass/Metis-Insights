@@ -203,6 +203,34 @@ conditions in the master plan.
 
 ### Next — prioritized work plan
 
+> **⚠️ SUPERSEDED 2026-08-14 for the NON-M20 track — read
+> [`WORKPLAN-2026-08-14.md`](docs/research/WORKPLAN-2026-08-14.md) first.**
+> Built from a full roadmap review + a live performance review, operator-directed.
+> The 2026-07-28 reconciliation below remains accurate about *milestone* state and
+> is kept; what changed is the **ordering premise**.
+>
+> **The measured reframe.** The instinct from this table is "which strategy or
+> model next". The live numbers say that is the wrong question:
+> - The **entire real-money surface is ONE account** — `bybit_2`, **$280.92**.
+>   `alpaca_live` (real money, **16** strategies) is `dry_run` at **$0.10**;
+>   `ib_live` is `dry_run` with 0 strategies; `breakout_1` (prop) is a manual
+>   bridge reading `api_ok:false`.
+> - Real money 30d: **27 trades, 22.2% win rate, −$28.90, profit factor 0.46**
+>   (`pnlCoverage 0.889`, so well-evidenced). Lifetime **−$67.38**. 24h: **0 trades**.
+> - The **−$50.71 / 318-trade `vwap`** line on `/strategy/attribution` is
+>   **history, not a live problem** — `enabled: false` since the M7 kill
+>   (verified in the field). Excluding it the live fleet is ≈ **−$16.67 over ~62
+>   trades**: small, negative, and *thin*.
+> - 30d `expectancyR` of **+0.836** is carried almost entirely by `ict_scalp_5m`
+>   at +35.4R over **4 trades**. At n=4 that is a sample, not an edge — do not
+>   build a plan on it.
+>
+> So the binding constraint is **not** strategy/model/exit quality: it is that
+> almost nothing is live, the one live thing is $280, and several declared-live
+> legs cannot place an order at all. **Next work is capability integrity**;
+> research lanes continue behind it. Lane order + done-conditions are in the
+> workplan doc; Lane 0 items 0.1/0.2 shipped in PR #9244, 0.3 in the same branch.
+>
 > **⚠️ Reconciled 2026-07-28 (S-ROADMAP-RECONCILE) — read this before the list below.**
 > The 2026-07-11 queue had drifted materially. Verified corrections:
 > **M24 P1/P2** (net-R label + re-grade) **SHIPPED** (`net_r_label.py` + re-grade + 17 green tests);
