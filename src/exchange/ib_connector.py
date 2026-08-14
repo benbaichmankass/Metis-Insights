@@ -23,11 +23,12 @@ imports cleanly without the package installed.
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -78,10 +79,26 @@ except (TypeError, ValueError):
 # for MGC/MES/MHG, and balance() returns None so new entries are refused with
 # sizing_failed.
 #
-# A plain lock is NOT sufficient. Serialising still lets thread B run the loop
-# that thread A created; the transport is bound to the loop, and driving it
-# from a different thread is the documented hang. Pinning is the fix, which is
-# why this mirrors candles._FETCH_EXECUTOR rather than widening _usage_lock.
+# TWO invariants are needed, and each covers a collision the other cannot.
+#
+#   1. PINNING (this executor) serialises market-data against market-data and
+#      keeps every fetch on one thread. A plain lock cannot do this job: it
+#      would still let thread B run the loop that thread A created, and the
+#      transport is bound to that loop.
+#   2. _usage_lock serialises market-data against the ACCOUNT/ORDER surface
+#      (connect/place/close/balance/positions/has_protective_orders, which all
+#      hold it). Pinning cannot do this job: those callers run on the tick and
+#      exit threads by design, so the pinned thread and a lock-holding thread
+#      would otherwise drive the one persistent `self._loop` concurrently —
+#      which is precisely the "already running" condition, just reached from
+#      the other side.
+#
+# The first version of this fix (PR #9240) shipped only invariant 1, because
+# get_ohlcv was the surface that had actually failed in the 2026-08-14
+# incident. That closed the half that was firing, not the class: a fetch on
+# the pinned thread could still overlap a lock-held close() on the exit
+# thread. _get_ohlcv_pinned therefore takes _usage_lock as well, so EVERY
+# loop-driving operation in the process is mutually exclusive.
 _IB_FETCH_THREAD_PREFIX = "ib-marketdata"
 _IB_FETCH_EXECUTOR = ThreadPoolExecutor(
     max_workers=1, thread_name_prefix=_IB_FETCH_THREAD_PREFIX
@@ -100,6 +117,20 @@ except (TypeError, ValueError):
     _IB_FETCH_QUEUE_TIMEOUT_S = _IB_FETCH_TIMEOUT_S * 3.0 + 5.0
 
 
+# How long the pinned fetch waits for the client's _usage_lock before giving
+# up. BOUNDED on purpose: connect() can hold that lock for ~20s worst case
+# (probe + retry + account warm-up + retry), and an unbounded wait here would
+# back the single-worker queue up behind it — every later fetch would then miss
+# its caller's _IB_FETCH_QUEUE_TIMEOUT_S while the worker sat blocked. Sized to
+# outlast a worst-case connect() rather than to race it.
+try:
+    _IB_USAGE_LOCK_WAIT_S = float(
+        os.environ.get("IB_USAGE_LOCK_WAIT_S", "") or 0.0
+    ) or (_IB_FETCH_TIMEOUT_S * 3.0)
+except (TypeError, ValueError):
+    _IB_USAGE_LOCK_WAIT_S = _IB_FETCH_TIMEOUT_S * 3.0
+
+
 def _on_ib_fetch_thread() -> bool:
     """True when already running ON the pinned thread.
 
@@ -109,6 +140,30 @@ def _on_ib_fetch_thread() -> bool:
     being on that thread is exactly the property the pin exists to provide.
     """
     return threading.current_thread().name.startswith(_IB_FETCH_THREAD_PREFIX)
+
+
+@contextlib.contextmanager
+def _client_usage_lock(client: Any):
+    """Hold the client's ``_usage_lock`` for the duration of a fetch.
+
+    Yields True when the lock is held (or when the client exposes none — a
+    stand-in or a non-IBClient, where there is no shared loop to protect and
+    proceeding is correct), False when it could not be acquired in time.
+
+    The two outcomes are kept DISTINCT rather than both surfacing as "no
+    bars": "we could not get the lock" and "the venue has no data" are opposite
+    statements, and the caller logs them differently for that reason.
+    """
+    lock = getattr(client, "_usage_lock", None)
+    if lock is None:
+        yield True
+        return
+    acquired = lock.acquire(timeout=_IB_USAGE_LOCK_WAIT_S)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            lock.release()
 
 
 # Map the bot's timeframe vocabulary to IB ``barSizeSetting`` strings.
@@ -243,37 +298,56 @@ class IBMarketData:
             logger.warning("IBMarketData: unsupported timeframe %r", timeframe)
             return None
         try:
-            ib = self._client.connect()
-            # Re-assert the loop right before the data calls. connect() already
-            # does this, but a Telegram alert (asyncio.run) firing between
-            # connect() and here would null the current loop and ib_insync's
-            # reqHistoricalData would raise "no current event loop". Re-asserting
-            # the client's persistent loop (the one this IB is bound to) keeps
-            # the sync request resolvable.
-            self._client._ensure_event_loop()
-            # Delayed mode (3) by default → no paid CME real-time feed
-            # needed; IB serves free delayed futures bars. Best-effort:
-            # older ib_insync builds always have reqMarketDataType.
-            try:
-                ib.reqMarketDataType(self.market_data_type)
-            except Exception:  # noqa: BLE001
-                pass
-            contract = self._client._build_contract(symbol)
-            # `timeout` is the hard cap that makes a logged-out/wedged
-            # Gateway unable to block the (single-threaded) trading loop —
-            # see _IB_FETCH_TIMEOUT_S above. On timeout ib_insync returns
-            # whatever bars arrived (typically none), which we treat as a
-            # graceful no-data result below.
-            bars = ib.reqHistoricalData(
-                contract,
-                endDateTime="",
-                durationStr=_duration_str(timeframe, limit),
-                barSizeSetting=bar_size,
-                whatToShow="TRADES",
-                useRTH=self.use_rth,
-                formatDate=2,
-                timeout=_IB_FETCH_TIMEOUT_S,
-            )
+            # Invariant 2 (see the module header): exclude the account/order
+            # surface, which drives this same persistent loop from the tick and
+            # exit threads. Taken OUTSIDE connect() — _usage_lock is an RLock
+            # and connect() re-takes it, so the nesting is safe on this thread.
+            with _client_usage_lock(self._client) as got_lock:
+                if not got_lock:
+                    # NOT "no data" — we never asked the venue. Logged as its
+                    # own cause so a saturated client is never read as a dead
+                    # feed; the caller treats None as unavailable either way.
+                    logger.warning(
+                        "IBMarketData: could not acquire the IB client's usage "
+                        "lock within %.1fs for symbol=%s timeframe=%s — the "
+                        "account/order surface held it; deferring this fetch "
+                        "(no request was sent to the venue)",
+                        _IB_USAGE_LOCK_WAIT_S,
+                        symbol,
+                        timeframe,
+                    )
+                    return None
+                ib = self._client.connect()
+                # Re-assert the loop right before the data calls. connect()
+                # already does this, but a Telegram alert (asyncio.run) firing
+                # between connect() and here would null the current loop and
+                # ib_insync's reqHistoricalData would raise "no current event
+                # loop". Re-asserting the client's persistent loop (the one
+                # this IB is bound to) keeps the sync request resolvable.
+                self._client._ensure_event_loop()
+                # Delayed mode (3) by default → no paid CME real-time feed
+                # needed; IB serves free delayed futures bars. Best-effort:
+                # older ib_insync builds always have reqMarketDataType.
+                try:
+                    ib.reqMarketDataType(self.market_data_type)
+                except Exception:  # noqa: BLE001
+                    pass
+                contract = self._client._build_contract(symbol)
+                # `timeout` is the hard cap that makes a logged-out/wedged
+                # Gateway unable to block the (single-threaded) trading loop —
+                # see _IB_FETCH_TIMEOUT_S above. On timeout ib_insync returns
+                # whatever bars arrived (typically none), which we treat as a
+                # graceful no-data result below.
+                bars = ib.reqHistoricalData(
+                    contract,
+                    endDateTime="",
+                    durationStr=_duration_str(timeframe, limit),
+                    barSizeSetting=bar_size,
+                    whatToShow="TRADES",
+                    useRTH=self.use_rth,
+                    formatDate=2,
+                    timeout=_IB_FETCH_TIMEOUT_S,
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "IBMarketData.get_ohlcv failed for symbol=%s timeframe=%s: %s",
