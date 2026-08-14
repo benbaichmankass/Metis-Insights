@@ -1085,6 +1085,170 @@ Required verification for any re-grade: state which `fold_mode` **and** which
 whether the figure quoted is best-arm, τ-blind, or nested — the three differ by
 an order of magnitude on donchian and by ~1.6× on scalp.
 
+44. **Pulled the missing history — then found the pull could never have
+    worked, because the resolver could not see native data at all** —
+    `BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA`, PR #9180.
+
+    Item 43 established that nothing was pulling MGC/MHG history. I ran the
+    pulls (MGC clean: 5m 32,751 rows, 15m 22,293 rows, `pull_end any_ok:1` at
+    06:38:36Z; MHG dispatched 07:28:49Z) and then, before planning the E1
+    rounds, asked whether the data would actually be *reachable*. It would not.
+
+    `m20_fleet_exit_sweep.resolve_data` opened with
+    `sym = PROXY_DATA.get(symbol, symbol)` — the proxy applied
+    **unconditionally**. So `resolve_data("MGC", "1d", …)` looked for
+    `GC_F_1d.csv` and **never** for `MGC_1d.csv`; the glob fallback too, since
+    its prefixes were built from the proxied spelling (`{'gc_f'}`). And
+    `m20_exit_head_round.py:154` **refuses** a proxied leg ("native history
+    required for head training"). `proxy` was therefore unconditionally `True`
+    for MES/MGC/MHG/XAUUSD, the head round skipped them on every call, and the
+    three `exit_head_ml` cells could not close **whatever was on disk**.
+
+    So the Tier-2 action added 2026-07-07 *for these exact cells* was **inert
+    against this resolver** — five weeks of "still blocked" had two independent
+    causes, and item 43 found only the first. The docstring already said the map
+    is *"for futures without their own file"*; the code never checked that
+    condition. Field beats comment, and here the field was the wrong one.
+
+    **The fix is a caller decision, and the default deliberately did not move.**
+    My first instinct — native-first unconditionally — is a **regression**, and I
+    wrote it before catching it: `GC_F` is the deep COMEX series reaching the
+    full 2021..2026 fold structure while native IBKR intraday history is ~1y, so
+    silently preferring a shallow native file would collapse a 6-fold
+    walk-forward to ~1 fold and quietly invalidate recorded lever verdicts.
+    Depth (levers) and fidelity (head training) are genuinely different needs.
+    `prefer_native=False` default; `m20_exit_head_round` passes `True`. I also
+    removed a native *fallback* I had added to the default path for the same
+    reason — a missing proxy file must keep reading `data_missing` rather than
+    resolving shallow native data into a 1-fold run.
+
+    Can-fail verified: removing the `prefer_native` branch fails **exactly one**
+    of the 7 new tests (`assert True is False`), and only that one — the
+    fallback and no-proxy cases correctly still pass because proxy-first gives
+    the same answer there.
+
+45. **Two corrections to my own 07:28Z ping, both in the over-claiming
+    direction.**
+
+    (a) I told the operator that once MHG landed, "both `mgc_pullback_1d` and
+    `mhg_pullback_1d` `exit_head_ml` cells become runnable via an E1 round …
+    That would take done-condition 25 → 23." **Wrong on the mechanism** — item
+    44 is why, and the resolver fix was a prerequisite I had not yet found.
+
+    (b) The pull I ran was **5m/15m over the script's default 365-day window**
+    (`MES_HIST_START='365 days ago'`), which is the wrong *shape* for a **1d**
+    leg facing a 6-fold 2021..2026 structure and `MIN_OOS_TRADES=25`. The right
+    attempt is a **1d deep pull** — the `pull-mes-ibkr-history-daily` precedent
+    uses `MES_HIST_START=2019-05-06` with `MES_MAX_CONTRACTS=28`, and IBKR's
+    daily-bar retention is far deeper than its intraday retention. I had also
+    been about to accept the matrix's *"IBKR serves only ~1yr"* as a measured
+    ceiling; it is a **claim I would have been inheriting**, and the script says
+    plainly that "depth is ultimately capped by IBKR's per-contract intraday
+    retention" — a bound on *intraday*, which is not the frame these legs need.
+
+    **Coverage is unchanged at 373/376 and no cell status moved.** Reaching a
+    cell is not clearing it: the shard must still reach the trainer
+    (`sync_trainer_data.sh` on the ~00:50 UTC cycle, then
+    `market_raw_to_csv.py`), and whether the OOS floor clears is a measurement
+    still to take.
+
+46. **The eighth instance of the session's own postscript failure — I misread
+    elapsed time from tool-call count, again, after having corrected it once.**
+
+    The status ping filed as issue #9188 is titled *"08:20Z"* and says of CI
+    *"pytest-run in flight … its 23 min is normal not stuck; I checked rather
+    than assumed"*. Both figures are wrong. `date -u` puts the send at
+    **07:56:41Z** (GitHub's `created_at` on #9188 agrees exactly), and
+    `pytest-run` started 07:50:25Z, so it had been running **~6 minutes**, not
+    23. I had earlier in the same hour written the sentence *"I checked rather
+    than assumed"* about a quantity I had in fact assumed.
+
+    **The conclusion survives; the reasoning that reached it does not.** The
+    run genuinely was normal rather than stuck — 10,677 tests collected at a
+    measured local rate of ~4.6/s implies ~39 min, so 6 min is early and 23
+    would also have been fine. Right answer, invented evidence.
+
+    Nothing operational rides on it: no measurement, no verdict, and no cell
+    status depends on those two numbers. What rides on it is the operator's
+    picture of how much wall-clock the night has actually consumed, which a
+    24-minute overstatement distorts — so it is corrected here rather than
+    left to stand, and folded into the next ping rather than sent as its own
+    (a dedicated ping for a timestamp error is noise to a sleeping operator).
+
+    This is the same shape as the seven in the postscript below, and worth
+    stating plainly: the failure recurred **after** being named, documented,
+    and corrected once in this very session. Naming a failure mode does not
+    inoculate against it. The only thing that has ever caught this one is
+    actually running `date -u`.
+
+47. **I nearly shipped a provenance lie, and caught it in the last check
+    before running on it** — `BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL`.
+
+    Item 44 fixed the resolver; the remaining step was converting the trainer's
+    `market_raw/{MGC,MHG,MES}/1d` shards into the `data/<SYM>_1d.csv` the
+    harness reads. I ran it: 2,919 / 2,920 / 2,921 rows spanning
+    2015-01-02..2026-08-13, zero blank closes, sane gold prices. Then, before
+    launching the E1 round, I read what actually BUILDS those shards:
+
+    ```
+    build_trainer_datasets.sh:943   build_equity_daily MGC "GC=F"
+    build_trainer_datasets.sh:944   build_equity_daily MHG "HG=F"
+    ```
+
+    **The shard is keyed by the micro symbol; the content is the full-size
+    contract from yfinance** — the same series `GC_F_1d.csv` already is.
+    Measured rather than assumed (relay #9191): MGC vs GC_F **2,511 of 2,512
+    overlapping closes IDENTICAL**, the lone difference being the proxy's stale
+    final bar; MHG 2,512/2,513; **MES 2,514/2,514, zero differing**.
+
+    So `data/MGC_1d.csv` was a file whose NAME asserted a provenance its
+    CONTENT did not have. Combined with the `prefer_native` fix from item 44,
+    `resolve_data` would have returned `proxy=False`, `m20_exit_head_round`'s
+    *"native history required for head training"* refusal would have **passed**,
+    and three `exit_head_ml` cells would have been graded **native-trained on
+    the exact series that check exists to exclude**. Removed all three within
+    the hour (relay #9192, verified absent; proxies confirmed intact).
+
+    **The near-miss is the point.** Every individual step was clean — the
+    conversion printed real row counts, the data was real market data, the
+    sanity checks (0 blank closes, plausible prices) all passed. Nothing in the
+    output could have revealed it. The only thing that caught it was asking
+    *where does this file come from* rather than *is this file well-formed*.
+
+48. **And it means item 45's "correction" corrected a TRUE statement into a
+    false one.**
+
+    Item 45(b) and the commit before it recorded that "at the 1d frame the
+    native series is DEEPER and fresher than its proxy — MGC 2,919 rows vs
+    GC_F's 2,512". I measured that on `data/MGC_1d.csv` — **a file I had just
+    created myself from GC=F**. I compared the proxy against itself and
+    reported the difference as a native-vs-proxy finding.
+
+    The truth: genuine native is the IBKR **contract** shard,
+    `data/ibkr_datasets/market_raw/MGC/1d/v003` at **940 rows** (2022-09-30..),
+    against the proxy's 2,512 — the **proxy is ~2.7x deeper**, and the original
+    rationale I "corrected" was right all along. Docstring, inline comment, one
+    test name and two test docstrings re-corrected.
+
+    This is `diagnostic-provenance` sub-class **B** — implicit input selection —
+    committed against my own artifact, inside a session whose postscript is
+    about exactly this. The reassuring reading won again: "the native data is
+    deeper" made the blocked cells look one conversion away.
+
+49. **What actually blocks the three cells, measured** — and it is not data.
+
+    `build_trainer_datasets.sh:375` records that **`mes_trend_long_1d` fires
+    ~2.6x/yr — 26 trades over a 10-year config-exact backtest**. The exit-head
+    gate is `MIN_OOS_TRADES = 25` for the **OOS half alone**. No quantity of
+    history reaches that, and the genuine native shards (940 / 1,043 / 677
+    daily rows) are ~3.7y, ~4y and ~2.7y.
+
+    So these are **volume-blocked**, the same *wait, not to-do* shape as the ten
+    `insufficient_lifetime_trades` cells in item 43 — and their matrix note
+    ("needs native IBKR history for E0") names a PREREQUISITE, not the binding
+    gate. **Coverage stays 373/376.** The resolver defect was real and worth
+    fixing on its own terms; it was never what held these three shut.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
