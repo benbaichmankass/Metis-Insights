@@ -423,11 +423,19 @@ excluded above, and the refusal is why the denominator is honest.
 | **best arm (what the gate credits — HINDSIGHT)** | **+2.788R** | 71.4% |
 | NESTED vs `stale_8_0` | +0.323R | 52.4% |
 
-**The interval closes near its bottom. +0.137R is 4.9% of the +2.788R the gate
-credits** — so on this family roughly **95% of the scored edge is τ-selection
-hindsight**, not exit skill. The nested rule does beat the τ-blind median-arm
-control (+0.137 vs −0.367), which confirms the selector is doing *something*
-real; it is simply an order of magnitude smaller than the headline.
+**The interval closes near its bottom: +0.137R causal against the +2.788R the
+gate credits — an order of magnitude apart.** The nested rule does beat the
+τ-blind median-arm control (+0.137 vs −0.367), which confirms the selector is
+doing *something* real; it is simply nowhere near the headline.
+
+> **Quote the two absolute figures, not their ratio.** +0.137/+2.788 = 4.9% is
+> arithmetically correct and is **not a usable statistic** — not because the
+> denominator is near zero (it is comfortably large) but because the
+> **numerator** is. The three per-leg means span −1.118 to +0.837, so the pooled
+> mean's own uncertainty is of order ±0.5R at this n; a ratio built on it swings
+> through zero and well past 20%. This is the same caution the backlog row
+> already carries about "% of edge" ratios, and it applies here for a different
+> reason, so it is restated rather than assumed.
 
 **Per leg — and the pooled figure hides a sign split:**
 
