@@ -829,10 +829,19 @@ direction: overriding a head that is right more often is more expensive.
 **`age8` does not cost net_R on scalp.** It is *positive* at all three τ (+0.366 /
 +0.648 / +0.738), though never significantly (`t` +1.05 / +1.55 / +1.77), and it
 is the only shape on either family that is not negative. So the universal claim
-is about **drawdown**, where all 24 measured cells across both families agree;
-on **net_R** the honest statement is "negative for three of four shapes on scalp,
+is about **drawdown**, where all 24 measured means across both families agree; on
+**net_R** the honest statement is "negative for three of four shapes on scalp,
 `age8` neutral-to-positive but indistinguishable from zero". `age8` also carries
 the *largest* drawdown cost of the four (+1.095 … +1.419), so it is not a way out.
+
+⚠️ **The two 12s are different units and "24" should not be read as one
+homogeneous count.** Donchian's twelve are **shape × leg** at a single τ; scalp's
+twelve are **shape × τ**, each already pooled over seven legs. Each of the 24 is a
+separately measured mean with its own `t`, and all 24 are positive — that is the
+claim, and it is worth making because the two designs fail differently: the
+donchian cut would miss a τ-specific effect, the scalp cut would miss a
+leg-specific one. Neither does, which is the point. But they are not 24
+interchangeable observations and must not be counted as such.
 
 ### Caveats
 
