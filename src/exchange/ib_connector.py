@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import Optional
 
 import pandas as pd
@@ -132,6 +133,31 @@ class IBMarketData:
             self._client = get_ib_client(
                 host=host, port=int(port), client_id=int(client_id), account=account,
             )
+        # Share the EXECUTION client's serialization lock — see get_ohlcv.
+        #
+        # `_usage_lock` is resolved once, here, rather than per call, so that
+        # "this connector is not participating in IB serialization" is a
+        # construction-time fact somebody can read (and a warning in the log),
+        # never a silent per-call degradation. `_ib_lock_is_shared` is the
+        # honest three-way answer's binary core: True = we hold the same lock
+        # the order path holds; False = we hold a private lock that protects
+        # nothing cross-thread, which is only ever correct for an injected
+        # test double.
+        lock = getattr(self._client, "_usage_lock", None)
+        self._ib_lock_is_shared = lock is not None
+        if lock is None:
+            # Never leave the call site unguarded-and-quiet. A private RLock
+            # keeps single-threaded behaviour byte-for-byte identical (so a
+            # test double behaves exactly as before) while the warning makes
+            # a production instance landing here impossible to miss.
+            lock = threading.RLock()
+            logger.warning(
+                "IBMarketData: client %r exposes no _usage_lock — IB market-data "
+                "reads are NOT serialized against the order path on this instance. "
+                "Expected only for an injected test double.",
+                type(self._client).__name__,
+            )
+        self._ib_lock = lock
 
     def get_ohlcv(self, symbol: str, timeframe: str, limit: int = 200) -> Optional[pd.DataFrame]:
         """Return a candle DataFrame for *symbol* / *timeframe*.
@@ -147,37 +173,76 @@ class IBMarketData:
             logger.warning("IBMarketData: unsupported timeframe %r", timeframe)
             return None
         try:
-            ib = self._client.connect()
-            # Re-assert the loop right before the data calls. connect() already
-            # does this, but a Telegram alert (asyncio.run) firing between
-            # connect() and here would null the current loop and ib_insync's
-            # reqHistoricalData would raise "no current event loop". Re-asserting
-            # the client's persistent loop (the one this IB is bound to) keeps
-            # the sync request resolvable.
-            self._client._ensure_event_loop()
-            # Delayed mode (3) by default → no paid CME real-time feed
-            # needed; IB serves free delayed futures bars. Best-effort:
-            # older ib_insync builds always have reqMarketDataType.
-            try:
-                ib.reqMarketDataType(self.market_data_type)
-            except Exception:  # noqa: BLE001
-                pass
-            contract = self._client._build_contract(symbol)
-            # `timeout` is the hard cap that makes a logged-out/wedged
-            # Gateway unable to block the (single-threaded) trading loop —
-            # see _IB_FETCH_TIMEOUT_S above. On timeout ib_insync returns
-            # whatever bars arrived (typically none), which we treat as a
-            # graceful no-data result below.
-            bars = ib.reqHistoricalData(
-                contract,
-                endDateTime="",
-                durationStr=_duration_str(timeframe, limit),
-                barSizeSetting=bar_size,
-                whatToShow="TRADES",
-                useRTH=self.use_rth,
-                formatDate=2,
-                timeout=_IB_FETCH_TIMEOUT_S,
-            )
+            # SERIALIZE THE WHOLE DATA CALL, not just connect().
+            #
+            # ib_client.py's `_usage_lock` note declares the invariant this holds
+            # up: one `IBClient` wraps ONE ib_insync socket on one clientId driven
+            # by an asyncio loop that is explicitly not thread-safe, so "two
+            # threads on one socket is strictly worse than
+            # BL-20260706-IBACCTUPDATES-COLLISION". It states the ACCEPTED COST
+            # outright — "the two loops SERIALISE on IB".
+            #
+            # That invariant was never actually true here. The note's own
+            # inventory counts "twelve of the seventeen public methods" — of
+            # `IBClient`. `IBMarketData` lives in this sibling module, shares the
+            # SAME client instance through the `get_ib_client` registry, and took
+            # the lock only inside `connect()`, which releases it on return.
+            # `_ensure_event_loop()` + `reqMarketDataType()` + `_build_contract()`
+            # + `reqHistoricalData()` all ran unlocked. The guard was designed
+            # against the wrong population, so the defect sat in the seam between
+            # the two modules rather than in either one.
+            #
+            # Live consequence (trader journal 2026-08-14T09:46:16Z, issue #9233):
+            # once the M20 exit-loop decouple put exit evaluation on a second
+            # thread, this raced the tick thread —
+            # `"IBMarketData.get_ohlcv failed for symbol=MES timeframe=5m: This
+            # event loop is already running"`, then repeated liveness-probe
+            # timeouts tripping the breaker into 120s windows where ALL IB calls
+            # were suppressed, surfacing as MONITOR BLIND on live MGC/MES
+            # packages. The decouple was rolled back to contain it; this is what
+            # makes re-enabling it safe.
+            #
+            # COST, stated here rather than discovered later: an exit needing the
+            # order path can now wait behind an in-flight fetch, bounded by
+            # IB_FETCH_TIMEOUT_S (8s). That is the cost ib_client.py already
+            # accepted in writing; it is strictly better than unbounded socket
+            # corruption, and it is bounded where the failure it replaces was not.
+            #
+            # RLock, so `connect()`'s inner acquisition below nests safely.
+            with self._ib_lock:
+                ib = self._client.connect()
+                # Re-assert the loop right before the data calls. connect() already
+                # does this, but a Telegram alert (asyncio.run) firing between
+                # connect() and here would null the current loop and ib_insync's
+                # reqHistoricalData would raise "no current event loop". Re-asserting
+                # the client's persistent loop (the one this IB is bound to) keeps
+                # the sync request resolvable.
+                self._client._ensure_event_loop()
+                # Delayed mode (3) by default → no paid CME real-time feed
+                # needed; IB serves free delayed futures bars. Best-effort:
+                # older ib_insync builds always have reqMarketDataType.
+                try:
+                    ib.reqMarketDataType(self.market_data_type)
+                except Exception:  # noqa: BLE001
+                    pass
+                contract = self._client._build_contract(symbol)
+                # `timeout` is the hard cap that makes a logged-out/wedged
+                # Gateway unable to block the (single-threaded) trading loop —
+                # see _IB_FETCH_TIMEOUT_S above. On timeout ib_insync returns
+                # whatever bars arrived (typically none), which we treat as a
+                # graceful no-data result below. It is ALSO what bounds how long
+                # a waiter can be held on `_ib_lock`, which is why the accepted
+                # cost above is a bound rather than a hope.
+                bars = ib.reqHistoricalData(
+                    contract,
+                    endDateTime="",
+                    durationStr=_duration_str(timeframe, limit),
+                    barSizeSetting=bar_size,
+                    whatToShow="TRADES",
+                    useRTH=self.use_rth,
+                    formatDate=2,
+                    timeout=_IB_FETCH_TIMEOUT_S,
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "IBMarketData.get_ohlcv failed for symbol=%s timeframe=%s: %s",
