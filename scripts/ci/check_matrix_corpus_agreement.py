@@ -83,11 +83,25 @@ def _base_status(status: str | None) -> str:
 
 
 def newest_floor_clearing_pass(rows: list[dict], leg: str, lever: str) -> dict | None:
-    """The newest live-parity row for (leg, lever) — returned only if it PASSES.
+    """Does (leg, lever) have STANDING passing live-parity evidence?
 
-    Returns None when the newest such row does NOT pass, which is the
-    supersession case: an older passing row is not evidence once a later run
-    refused the same cell.
+    SUPERSESSION IS PER-CELL, AND THAT DISTINCTION IS THE WHOLE FUNCTION.
+    A lever is swept as MANY CELLS in one run — `trail4` and `trail6`, or
+    `vt_hot90` and `vt_cold10` — which are ALTERNATIVE parameterizations, not
+    successive measurements of the same thing. Only the same CELL re-run later
+    supersedes; a sibling cell that happens to sort last within the same
+    `run_id` supersedes nothing.
+
+    Caught 2026-08-14, in the first version of this file: taking `max(run_id)`
+    across the whole (leg, lever) group returned whichever cell fell last in
+    list order within one 2026-08-10 run, so five genuine standing passes read
+    as "superseded" — including `gld_pullback_1h`/`vol_trail`, whose passing
+    `vt_hot90_t2` was masked by a failing `vt_cold10_t2` from the SAME run. The
+    resulting count would have been wrong in the SAFE-LOOKING direction (fewer
+    contradictions reported), which is the kind nobody re-checks.
+
+    So: reduce to the newest row PER CELL first — that is supersession — then
+    ask whether any surviving cell passes.
     """
     cand = [
         r for r in rows
@@ -97,11 +111,18 @@ def newest_floor_clearing_pass(rows: list[dict], leg: str, lever: str) -> dict |
         and isinstance(r.get("base_trades_OOS"), (int, float))
         and r["base_trades_OOS"] >= MIN_OOS_TRADES
     ]
-    if not cand:
+    newest_per_cell: dict[str, dict] = {}
+    for r in cand:
+        key = str(r.get("cell"))
+        prev = newest_per_cell.get(key)
+        if prev is None or (r.get("run_id") or "") > (prev.get("run_id") or ""):
+            newest_per_cell[key] = r
+    passing = [r for r in newest_per_cell.values()
+               if r.get("verdict") in PASS_VERDICTS]
+    if not passing:
         return None
-    cand.sort(key=lambda r: r.get("run_id") or "")
-    newest = cand[-1]
-    return newest if newest.get("verdict") in PASS_VERDICTS else None
+    passing.sort(key=lambda r: r.get("run_id") or "")
+    return passing[-1]
 
 
 def find_disagreements(matrix: dict, rows: list[dict]) -> list[dict]:
@@ -171,6 +192,23 @@ def main(argv: list[str]) -> int:
                           "tp_cap_pct": LIVE_TP_CAP, "verdict": "is_oos_fail",
                           "base_trades_OOS": 40, "run_id": "2026-08-13T00:00:00"})
         assert not find_disagreements(fake_matrix, fake_rows), "supersession not honoured"
+        # ...but a SIBLING CELL in the SAME run must NOT suppress a pass —
+        # supersession is per-cell. This is the case the first version got
+        # wrong, and it failed in the safe-looking direction (under-reporting).
+        sib = [{"leg": "_sib", "lever": "trail_decay", "cell": "trail4",
+                "tp_cap_pct": LIVE_TP_CAP, "verdict": "PASS",
+                "base_trades_OOS": 40, "run_id": "2026-08-10T00:00:00"},
+               {"leg": "_sib", "lever": "trail_decay", "cell": "trail6",
+                "tp_cap_pct": LIVE_TP_CAP, "verdict": "is_oos_fail",
+                "base_trades_OOS": 40, "run_id": "2026-08-10T00:00:00"}]
+        sib_matrix = {
+            "lever_columns": ["trail_decay"],
+            "rows": [{"strategy": "_sib", "execution": "live",
+                      "trail_decay": {"status": "honest_negative", "ref": "old"}}],
+        }
+        assert len(find_disagreements(sib_matrix, sib)) == 1, (
+            "a failing SIBLING cell from the same run wrongly suppressed a "
+            "standing pass — supersession must be per-cell, not per-(leg,lever)")
         print("[selftest] matrix-corpus-agreement")
         print("self-test OK — catches a planted disagreement, clears on an "
               "acknowledgement, and honours supersession.")

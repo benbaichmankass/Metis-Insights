@@ -2045,6 +2045,55 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     supersession. A guard that silently stopped matching would otherwise read as
     a clean pass — sub-class C, on the guard built to prevent sub-class C.
 
+68. **Built the roll-up's three-state report (criterion 1) — and it exposed TWO
+    defects I had just introduced myself, both pre-merge.**
+
+    `m20_coverage_rollup.py --stale-corpus-state` now answers, per stale cell,
+    *does the corpus already answer this?* — `no_live_parity_row` (a re-run **is**
+    the remedy) / `live_parity_agrees` / `live_parity_disagrees`. "Stale" alone
+    sends a reader to re-run a sweep that may already have been run. The resolver
+    is **imported from the guard, not re-implemented**, so the report can never
+    describe a state the guard does not enforce.
+
+    **Defect 1 — my annotations un-staled the cells they annotated.** Writing a
+    note stamps today's date into the `ref`, and the date-proxy read that as the
+    evidence being *renewed*: **8 cells dropped out of `stale_cells` (186 → 178)**
+    purely because I wrote on them. The ones that survived did so only because
+    they carry an explicit `tp_geometry: no_take_profit` overriding the proxy —
+    a cell with `tp_geometry: null` had nothing but the date and was silently
+    laundered. **The matrix's own refs state the rule in prose** — *"a note about
+    the evidence is not the evidence being renewed"* — so it was written down and
+    simply unenforced. Fixed with `evidence_dates()`, which drops annotation
+    segments before extracting dates. Back to 186.
+
+    **Defect 2 — the guard's resolver reduced across CELLS, not runs.** A lever
+    is swept as many cells in one run (`trail4`/`trail6`, `vt_hot90`/`vt_cold10`)
+    — **alternative parameterizations, not successive measurements.** Taking
+    `max(run_id)` across the whole group returned whichever cell fell last in
+    list order within a single 2026-08-10 run, so a **failing sibling masked a
+    standing pass**. Five of the nine read as "superseded" when nothing had
+    superseded them.
+
+    **It failed in the safe-looking direction — fewer contradictions reported —
+    which is the kind nobody re-checks.** Fixed by reducing per **cell** first
+    (that is supersession), then asking whether any surviving cell passes. The
+    self-test now pins the sibling case, because the broken behaviour was
+    invisible from the output.
+
+    **The fix surfaced two more disagreements the bug had masked:**
+    `gld_pullback_1h`/`trail_decay` (base_OOS 31) and `slv_trend_1h`/`trail_decay`
+    (base_OOS 40). Both annotated.
+
+    **Running total: 13 distinct disagreements** — 9 from the stale-cell audit,
+    2 the guard found that were *not stale at all*, and 2 the guard's own bug had
+    hidden. All annotated; **no status changed**.
+
+    Worth stating plainly: within one hour the same finding produced a count that
+    was too high (11, superseded rows counted), then a resolver that made it too
+    low (masked siblings), and both were caught by *building the next thing on
+    top* rather than by re-reading. Neither would have survived contact with a
+    reviewer; both would have survived contact with a proofreader.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
