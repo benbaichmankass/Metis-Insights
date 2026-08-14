@@ -1605,6 +1605,15 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     boundary-loss distribution" unnecessary for the common case: a leg that
     already clears the floor at the standard split never needs the derivation.
 
+    ⚠️ **Corrected in item 63: that fix covers the RICH-leg case only.** Under
+    the derived split the four affected legs recorded base OOS **24 / 24 / 22 /
+    4** — three clustered just under the floor on legs of very different
+    lifetimes, which is the mechanism's own fingerprint. I measured the
+    standard-split counterfactual for **two** of them. A leg whose derivation
+    *enlarged* a thin window and still landed at 24 fails under **both** branches
+    of the max, so the complete fix has to give the target **margin over** the
+    floor rather than equality with it.
+
     **Still not taken, deliberately:** criterion (2) is the actual default
     change and moves verdicts fleet-wide; criterion (3) is making a verdict
     record its own split mode / target / achieved count (the ref that started
@@ -1773,6 +1782,77 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     example of it. Recorded in the row (criterion (3), still open) and in the
     test file's header, so the next reader sees that four fixes have all widened
     an allowlist and none has made a skipped run distinguishable from a real one.
+
+63. **Went to re-sweep the pullback stale decisions, read the tool's own help
+    text first, and did not run it.** I had the invocation written —
+    `--only htf_pullback_trend_2h,tlt_pullback_1h --levers trail_geometry
+    --split-mode date --tp-cap-pct 0.099` — with the trainer free and the lane
+    clear. Two lines of `m20-exit-lever-sweep.yml`'s `--without-declared-levers`
+    help stopped it:
+
+    > *the shipped lever IS the base, so a normal cell reproducing it measures
+    > the base against itself* … *trail_geometry is not offerable: trail_mult has
+    > no OFF state.*
+
+    So a `trail_geometry` cell on a **shipped** leg cannot be graded either way —
+    a normal cell compares the base to itself (`BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES`
+    records 31 of 860 corpus rows as exactly that, all-zero deltas wearing an
+    `is_oos_fail` label), and the lever-off arm that exists for shipped levers
+    excludes this one. **The run would have produced confident base-vs-base
+    numbers that look like verdicts.**
+
+    **4 of the 5 remaining stale live decisions are `trail_geometry`** — so most
+    of that list asks for a remedy that does not exist for it. That is the
+    desensitized-alarm shape: a flag nobody can clear gets walked past, and it
+    will appear in every future review looking like outstanding work. Filed
+    `BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`, whose
+    criteria ask for a three-state `remedy` field — *not yet re-swept* /
+    *re-swept* / **cannot be re-swept** — since collapsing the third into the
+    first is what produces the walk-past.
+
+    **Then read the corpus instead of running anything, and it paid twice.**
+
+    **(a) A CONTROLLED confirmation of the split finding — from the corpus's own
+    history, not an A/B I constructed.** The committed corpus row for
+    `htf_pullback_trend_2h`/`trail3`, run **2026-08-13T01:36Z**:
+
+    ```
+    tp_cap_pct 0.099 · split 2025-07-01 · min_oos_trades_floor 25
+    base_trades_OOS 95 · verdict is_oos_fail          <- gradeable
+    ```
+
+    The same cell on **2026-08-14** under the derived split: base OOS **24** →
+    `insufficient_base`. **The floor was 25 on both days** — so "the floor is
+    new" cannot explain it. Same leg, same lever, same TP geometry, same floor;
+    the only thing that moved is the split, and it took the window from 95 to 24.
+    That is the cleanest form of the finding on record.
+
+    *(I nearly missed it: a first pass read `base_oos=None` on every corpus row
+    and I briefly took that for "these rows predate the floor", which would have
+    made the comparison uncontrolled. It was my own key-name error —
+    `base_trades_oos` vs the actual `base_trades_OOS`. Checking the field that
+    would have invalidated the claim is what turned it from suggestive into
+    controlled.)*
+
+    **(b) An unsurfaced Tier-3 candidate.** `tlt_pullback_1h` **ships trail3**,
+    and the corpus's `trail4` cell for that leg comes back **`path_b_wf_pass` at
+    live parity** — Δnet_R **+35.47 IS / +5.42 OOS**, walk-forward **5/6**,
+    `base_trades_OOS` **56** — reproduced across **three** runs (08-10, 08-12,
+    08-13). The base that delta is measured against already contains the shipped
+    trail3, so it is the improvement over what is live today. `base_trades_OOS`
+    56 independently matches relay #9211's fresh config-exact measurement, which
+    is what makes the window trustworthy rather than a coincidence.
+
+    Filed to the **performance** backlog (strategy follow-ups do not belong in
+    the health one) as `PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY`,
+    **with the caveats that bound it**: it is a *Path B* pass (the weaker route —
+    `gate_passed_OOS` is false), n=56 is above the floor but not large, and the
+    three runs **share a corpus and a split date** — they rule out a flaky run,
+    not overfit to that window. Tier-3 and proposal-only; I changed nothing.
+
+    The whole item cost one read of a help string and one corpus query, against
+    a trainer run that would have produced a meaningless number. Worth recording
+    as the counterexample to tonight's postscript.
 
 ## Wrap-Up Check
 
