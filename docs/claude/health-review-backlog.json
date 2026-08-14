@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T16:20:00+00:00",
+  "updated_at": "2026-08-14T15:08:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15050,6 +15050,26 @@
         }
       ],
       "updated_at": "2026-08-14T16:45:00+00:00"
+    },
+    {
+      "id": "BL-20260814-PROP-BALANCE-REQUEST-ONLY-ASKS-WHILE-A-POSITION-IS-OPEN",
+      "opened_at": "2026-08-14T15:08:00+00:00",
+      "opened_by": "claude (roadmap review session, Lane 0.6), trainer-diag #9311",
+      "status": "open",
+      "severity": "high",
+      "tier": 2,
+      "area": "prop / risk guard",
+      "title": "breakout_1's breach guard has been computing off a 25-day-stale equity because the balance REQUEST is gated on 'a position is open', while the STATIC-DD floor it feeds is an account-level constraint that applies when flat. Last reading sits $125.61 above the hard breach floor.",
+      "detail": "MEASURED 2026-08-14 (trainer-diag #9311, journal path pinned to data/trade_journal.db).\n\n  latest prop_account_status : 2026-07-20T08:28:32Z  balance = equity = $4,825.61\n  age                        : 25.27 days\n  total snapshots EVER       : 6 (2026-07-04 -> 2026-07-20), then reporting stops dead\n\nAgainst config/prop_rulesets/breakout.yaml (account_size_usd 5000, max_drawdown_pct 0.06, drawdown_type STATIC off the starting balance, daily_loss_pct 0.03):\n  static-DD floor  = $4,700   -> distance from the last known equity = **$125.61** (2.60%)\n  daily-loss limit = $150\nSo /api/bot/prop/status has been reporting a $125.61 cushion derived from a reading that predates 25 days of activity.\n\nTHE ACCOUNT DID NOT GO QUIET - ONLY THE BALANCE HALF DID. This is the part that makes it a defect rather than an abandoned account. The manual bridge is demonstrably alive: prop_fills carries 11 'closed' rows with the newest at 2026-08-13T22:14:53Z and 7 'filled' with the newest at 2026-08-13T16:59:26Z, and prop_tickets shows 11 'closed' newest 2026-08-13T16:43Z. The operator has been reporting FILLS as recently as the day before this measurement. What stopped is the `bal <balance> <equity>` half.\n\nROOT CAUSE, read from the code not inferred: src/prop/prop_status_request.py's module docstring states the account set is 'pruned to accounts that currently hold open positions' and it reuses prop_monitor_pulse.find_open_prop_positions for that. So the bot asks for a balance ONLY while it believes a position is open. Query 4 of the pull returned ZERO tickets in 'filled' or 'placed' - so the bot believes the account is flat, therefore never asks, therefore the snapshot ages without bound.\n\nThat gate is wrong for the quantity it feeds. A daily-loss limit is arguably position-scoped, but a STATIC drawdown floor is an ACCOUNT-level constraint measured off the starting balance - it does not stop applying because the book is flat, and the equity that determines the distance to it moves with every closed trade. The guard's input is therefore conditioned on something unrelated to whether the input matters.\n\nSEPARATE OBSERVATION FROM THE SAME PULL - 10 tickets stuck in 'emitted', ages 22.1 to 53.7 days, all ETHUSDT. PROP_EXPIRY_PROMPT_MAX_AGE_HOURS (default 12) bounds how stale a ticket may be before the bot stops asking, so these aged out of the prompt window and can now never reach 'expired' or 'awaiting_report'. They are almost certainly never-placed, but 'emitted' at 54 days does not SAY that - it says we asked and never got an answer, which is a different claim from 'not placed'. They will also sit in find_unacted_tickets / the reconcile drift count forever.\n\nWHAT I AM NOT CLAIMING: that a live prop position is currently open. Zero tickets read 'filled'/'placed'. prop_fills does carry 6 rows at status 'open' (newest 2026-07-16) which may or may not be superseded by the 11 later 'closed' rows - that is not decidable from these counts alone and I did not chase it. The finding stands without it: the guard's input is stale whether or not anything is open.",
+      "what_to_check": "1. THE FIX IS TIER-2 (it changes a live notification path): request a balance on a cadence for any account with a DECLARED prop ruleset, not only one holding an open position. The existing PROP_STATUS_REQUEST_MAX_AGE_HOURS/COOLDOWN knobs already bound the nagging; only the open-position prune has to go.\n2. Decide what /api/bot/prop/status should REPORT when its snapshot is older than the threshold. Today it returns a rule_distance computed from stale data with no staleness on the face of it - which is the collapsed-state shape: 'the cushion is $125.61' and 'the cushion was $125.61 twenty-five days ago' are different statements and the consumer cannot tell them apart. It should carry the snapshot age and refuse to present a distance as current beyond a bound.\n3. Ask the operator for a fresh `bal` for breakout_1 NOW, independently of the fix - the current true distance to the $4,700 floor is unknown and the last known value was $125.61.\n4. Decide the disposition of the 10 aged 'emitted' tickets (bulk-expire them, or widen PROP_EXPIRY_PROMPT_MAX_AGE_HOURS so the prompt still fires). Leaving them is the option that keeps the reconcile drift count permanently wrong.",
+      "resolution_criteria": "prop_account_status for breakout_1 refreshes on a cadence regardless of open-position state, and /api/bot/prop/status cannot present a rule_distance as current when the underlying snapshot is stale.",
+      "refs": [
+        "trainer-diag #9311",
+        "src/prop/prop_status_request.py",
+        "config/prop_rulesets/breakout.yaml",
+        "docs/research/WORKPLAN-2026-08-14.md"
+      ],
+      "source": "roadmap + work-plan review 2026-08-14 (Lane 0.6)"
     }
   ]
 }
