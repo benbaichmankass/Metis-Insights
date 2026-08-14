@@ -387,3 +387,80 @@ This is the direct mechanism behind
 *every* τ lose on the live book. A gate scored on the max of seven arms will do
 that whenever the arm ordering is unstable — and § 7's flip rate (23–50% of
 non-scalp folds) says it is.
+
+---
+
+## 10. NESTED τ selection — the interval § 9 left open, now measured
+
+§ 9 closed by saying the achievable value "lies between EXPAND and best, and
+where in that interval is still unmeasured", and named the rule that would
+measure it: pick τ on the **training half of the same fold**. That rule now
+exists in the harness (`train_exit_head._select_tau_holdout`, PR #9048) and has
+been run.
+
+**POPULATION — read this before quoting any number below.** This is the
+**donchian-1h family ONLY**: 3 legs (`trend_donchian` BTC, `trend_donchian_eth`,
+`trend_donchian_sol`), `fold_mode: trades`, `min_fold_trades: 50`, 22 folds, of
+which **21 selected and 1 returned `no_validation_block`** — so every figure
+below is over **63 leg-folds** (21 × 3), not 64 and not 66. It is **not** the
+514-fold fleet population of § 9, and it is **not** the same config as § 9's
+donchian rows (which are b=15 and calendar). Do not merge the two tables.
+*(Trainer relay #9101, 2026-08-14.)*
+
+The selector carves a validation block from the **tail of the fold's own
+training window**, refits on train-minus-validation under the same `EMBARGO_S`,
+and picks τ there — contemporaneous with the fold, blind to its test block. A
+fold whose training window is too thin to carve one **refuses** (`state:
+no_validation_block`) rather than falling back to a default; that is the 1 of 22
+excluded above, and the refusal is why the denominator is honest.
+
+**Pooled, 63 leg-folds:**
+
+| τ chosen by | mean vs actual | leg-folds positive |
+|---|---:|---:|
+| **NESTED holdout (causal, contemporaneous)** | **+0.137R** | 57.1% |
+| median arm (a τ-blind control) | −0.367R | 55.6% |
+| **best arm (what the gate credits — HINDSIGHT)** | **+2.788R** | 71.4% |
+| NESTED vs `stale_8_0` | +0.323R | 52.4% |
+
+**The interval closes near its bottom. +0.137R is 4.9% of the +2.788R the gate
+credits** — so on this family roughly **95% of the scored edge is τ-selection
+hindsight**, not exit skill. The nested rule does beat the τ-blind median-arm
+control (+0.137 vs −0.367), which confirms the selector is doing *something*
+real; it is simply an order of magnitude smaller than the headline.
+
+**Per leg — and the pooled figure hides a sign split:**
+
+| leg | n | vs actual | pos% | vs `stale_8_0` | vs `giveback_1_1` | median arm | best (hindsight) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `trend_donchian` (BTC) | 21 | **−1.118R** | 52.4% | **+1.351R** | +0.253R | −0.995R | +0.791R |
+| `trend_donchian_eth` | 21 | **+0.692R** | 57.1% | −0.070R | +1.162R | +0.069R | +3.918R |
+| `trend_donchian_sol` | 21 | **+0.837R** | 61.9% | −0.311R | −0.415R | −0.174R | +3.655R |
+
+### The finding that decides the cell
+
+**No leg beats BOTH the actual exit and the cheap deterministic lever.** BTC
+beats `stale_8_0` by +1.351R but *loses to doing nothing* by −1.118R; ETH and
+SOL beat doing nothing (+0.692 / +0.837) but sit at or below the eight-bar
+stale-stop (−0.070 / −0.311). Three legs, three different ways of failing the
+same two-sided test. A lever that cannot clear both comparisons on any leg has
+not earned an order-path change — and the alternative it loses to on two of
+three legs is a **fixed rule with no model, no training, and no τ**.
+
+### What this does and does not license
+
+- **It does not license re-grading the three live `exit_head_ml` cells.** That
+  is operator-gated, and this measurement covers one family at one block size.
+- **It does not say the head is worthless.** +0.137R over median-arm's −0.367R
+  is a real, if small, signal, and the ETH/SOL vs-actual figures are positive.
+- **It does say the gate's number is not a deployment expectation** — the same
+  conclusion as § 9, now with the *upper* end of the interval measured rather
+  than assumed. § 9 hedged that a contemporaneous rule "should do better" than
+  EXPAND; it does (+0.137 vs −0.341 on different populations, so directionally
+  only), and it still lands near zero.
+- **63 leg-folds is small, and they are not 63 independent observations** —
+  walk-forward folds share training windows, so the effective n is lower than
+  the count. 57.1% positive is a coin flip with a lean.
+- **`no_validation_block` fired once.** If a future config makes that the
+  common case, the pooled figure silently becomes a different population — read
+  `selected_tau_state` beside any re-run.
