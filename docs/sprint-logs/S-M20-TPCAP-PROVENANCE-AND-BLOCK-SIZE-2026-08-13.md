@@ -186,6 +186,81 @@ touched, no Tier-3 change enacted.**
     edits survived, because a union merge that silently drops one side is the
     failure mode a byte-count check would miss.
 
+21. **PR #9123 (merged) — the session's biggest error, corrected.** I applied the
+    §§ 10–11 nested-τ figures to the three SHIPPED donchian-1h cells and told the
+    operator "0 of 3 clear the bar" in two pings, a board post and two PR bodies.
+    The nested read measures τ **selection**; those cells run a **fixed** arm
+    (`model_cond["below_half_r_tau_0.1"]`), a different object. Re-measured on the
+    arm the cells actually run: BTC **−1.801R (FAIL)**, ETH **+1.810R / +1.263R
+    (PASS)**, SOL **+1.589R / +0.603R (PASS)** — two of three supported, not zero.
+    Corrected in the doc (§ 12), the backlog row, the board and the PR bodies.
+    Nearly made it twice: the first re-probe read `model["tau_0.1"]` and produced a
+    plausible publishable table (ETH +2.097R, SOL +2.192R); reading
+    `train_exit_head.py:418` against `:423` before publishing caught it.
+
+22. **PR #9127 — the drawdown axis § 12 declared unmeasured** (relays #9125/#9126,
+    doc § 13). `agg()` (`train_exit_head.py:369`) carries `max_dd_r` and
+    `mean_hold_bars`, so the axis the condition's *own justification* rests on was
+    measurable all along. Per fold, 22 folds/leg, never summed (drawdown is not
+    additive). The condition **holds materially longer** on all three legs (`t`
+    +3.79/+5.75/+6.37) — the mechanism works — but **drawdown is worse with `t > 2`
+    on every leg** and net_R is worse in the typical fold (median negative on all
+    three). Readable at n=22 because the distribution is one-sided: median
+    `Δ maxDD` is **+0.000** on BTC and SOL, so across 22 folds it essentially never
+    *lowered* drawdown — it either did nothing or made it worse.
+
+23. **…and it is conditioning *per se*, not the shape** (#9128, doc § 14). All four
+    `_SHAPES` at the same τ: **all twelve shape×leg cells cost drawdown, all twelve
+    at `t > 2`**, all twelve hold longer, eleven of twelve lose net_R. No shape on
+    this family conditions the head and gets paid for it. The **live** choice
+    `below_half_r` is the **mildest of the four** on every leg — the gentlest
+    available conditioning was picked, which defends the live config against the
+    alternatives but not against *no* conditioning. Also killed the tempting
+    mechanism: `Δ maxDD` does **not** track `Δ hold` (on ETH, `age8` and
+    `below_half_r` buy identical +3.595 bars at +1.131 vs +0.424 drawdown). This
+    removes "try a different shape" from the queued Tier-3 option set.
+
+24. **Recorded a defect in my own probe rather than quietly fixing it.** #9125
+    printed "folds where cond LOWERS maxDD: 63.6/45.5/72.7%" — the complement of
+    `frac > 0`, i.e. it counted **ties as wins**. Label said *lowers*, code computed
+    `<= 0`, and the tied folds are ones where the condition never bound. Sub-class
+    **A** of the UNPROVENANCED-DIAGNOSTIC-OUTPUT family, self-inflicted. Caught only
+    because the apparent mean-vs-majority disagreement was treated as a reason to
+    pull the distribution *before* publishing; had #9126 not been run, "the
+    condition lowers drawdown on most folds" would have gone into the doc and a
+    ping. Filed `BL-20260814-PROBE-COUNTED-TIES-AS-WINS`.
+
+25. **`artifact-validity-guard` caught my own new backlog row** (missing
+    `resolution_criteria`) on PR #9127's first push. A correct catch, and exactly
+    the failure mode that guard exists for — a row nobody can tell is finished never
+    closes. Fixed in `5adef613` with criteria naming an observable decision and two
+    acceptable outcomes (adopt with a demonstrated positive control, or close with a
+    written reason); "be more careful with probe labels" is explicitly excluded.
+
+26. **The penalty is not a donchian artefact** (#9130/#9131, doc § 15). §§ 13–14
+    cover the family whose head has **no** causal edge, leaving the reading
+    "conditioning only looks bad bolted to a weak head". Scalp is the control —
+    the family whose edge *survives* nested τ selection. **All twelve scalp
+    shape×τ cells cost drawdown, all at `t ≥ 3.01`, with 6 or 7 of 7 legs
+    individually agreeing.** And on that family the live-style shape's net_R cost
+    is **larger**, not smaller (`below_half_r` `t` −6.76/−6.47/−4.62 vs
+    −0.50/−0.41/−1.18 on donchian) — the coherent direction, since overriding a
+    head that is right more often is more expensive. **One exception recorded
+    rather than smoothed over:** `age8` does not cost net_R on scalp (positive at
+    all three τ, never significantly), so the universal claim is about
+    **drawdown**, not net_R; `age8` also carries the largest drawdown cost, so it
+    is not a way out.
+
+    **Caught a 1-of-7 sample before quoting it.** The scalp round writes **one
+    report per leg** (7 files) where donchian wrote one combined report. The first
+    probe took `cands[0]` and measured `ict_scalp_5m` alone — a single leg that
+    would have carried a family label. The probe's own discovery block printed all
+    seven paths, which is the only reason the gap was visible; re-run across all
+    seven with the count as an explicit denominator and a per-leg agreement
+    column. Also tightened the write-up so the two 12-cell tables are not summed
+    as 24 interchangeable observations — they are **shape×leg** and **shape×τ**,
+    different units.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
@@ -223,7 +298,9 @@ touched, no Tier-3 change enacted.**
 
 ### Gaps not yet verified
 
-- **The nested tau selection has NOT been run, and it gates the conclusion.**
+- ~~**The nested tau selection has NOT been run, and it gates the conclusion.**~~
+  **CLOSED later the same session** — items 12/15 (doc §§ 10–11). Kept as written
+  because the reasoning is still the right reasoning; only the status changed.
   Median-arm is the expected edge of a tau chosen at *random*: it bounds a
   sensibly-chosen tau from below and a badly-chosen one from above. The
   deployment truth sits between the median-arm and best-arm columns, and
@@ -275,10 +352,10 @@ touched, no Tier-3 change enacted.**
   `/api/diag/log_file` allowlist, so the artifact that can close a live position
   has no live read surface — the same shape as the 2026-08-12
   `exit_loop_health` omission (writer shipped, allowlist entry not).
-- **`_select_tau_holdout` has not produced a single number yet.** Every
-  `e1_report.json` on the trainer predates it, so `selected_tau` is absent
-  everywhere. The code is landed and tested; the measurement needs a fresh
-  round. Until then the causal interval keeps only its lower end.
+- ~~**`_select_tau_holdout` has not produced a single number yet.**~~ **CLOSED**
+  by the donchian and scalp nested rounds (items 12/15). Every `e1_report.json`
+  *at the time of writing* predated it, so `selected_tau` was absent everywhere;
+  the fresh rounds supplied it and the causal interval now has both ends.
 - **Relay output truncation is a live hazard on this workflow.** #9071's FOLD
   block hit the comment cap and came back carrying a `... (truncated)` marker;
   241 of the rows parsed cleanly, which would have read as a complete
@@ -304,6 +381,32 @@ touched, no Tier-3 change enacted.**
   the `workflow_dispatch` runs (`044afec3`, `74fdbdde`, `e43423cc` — all
   success) plus a full local guard run before every push. The current head is
   dispatched and not assumed green.
+
+### Gaps not yet verified (added ~03:40Z, items 21–25)
+
+- **Whether BTC's re-sweep failure reproduces off this one book.** The corrected
+  per-cell read (item 21) fails `trend_donchian` on **one** 22-fold book, one
+  family, one block size. A leg-level demotion wants more than a single re-sweep,
+  and this session did not run a second one.
+- **The three donchian legs are not three independent confirmations, and every
+  `t` in items 22–23 inherits that.** One strategy's logic on three correlated
+  crypto majors over the same calendar window and the same 22 folds. Twelve
+  `t > 2` results are one result seen twelve times under shared conditions; they
+  must not be pooled as if independent, and nothing in this log does.
+- **The conditioning finding is scoped to donchian-1h and was not tested on the
+  scalp family**, which is the one family where the head's edge survives causal
+  τ selection (item 15). Whether conditioning is also unearned *there* is
+  unmeasured and is the natural next probe — the same `_SHAPES` columns exist in
+  the scalp nested report.
+- **`Δ maxDD` is a per-fold within-arm comparison and nothing more.** It says the
+  conditional arm's worst intra-fold drawdown is larger; it does **not** translate
+  to a portfolio drawdown figure, and no attempt was made to convert it. Drawdown
+  is not additive across folds and was never summed anywhere in items 22–23.
+- **Why the condition never binds on most folds is not explained.** Median
+  `Δ maxDD` is exactly +0.000 on BTC and SOL — ~64%/~73% of folds where the shape
+  made no difference at all. That could be a rarely-satisfied predicate or a
+  predicate that fires and rarely changes the exit; the report cannot distinguish
+  them, and the difference matters for how much weight the non-zero folds carry.
 
 ## Documentation Updated
 
@@ -425,10 +528,23 @@ What is actually next, in order:
    coverage gap. Two caveats must ride with any such decision — scalp's
    aggregate margin over `stale_8_0` is thin (+0.668R, 56.2%), and the two 15m
    PASSes rest on 5 and 6 leg-folds.
-2. **The three live donchian-1h `exit_head_ml` cells read `shipped` while the
-   nested read says 0 of 3 clear the two-sided bar.** Hold / pull / re-validate
-   is a Tier-3 disposition on a live lever. Also operator-gated, and it is the
-   one item on this list with money attached.
+2. **The three live donchian-1h `exit_head_ml` cells — the one item on this list
+   with money attached, and the one whose framing was WRONG until 2026-08-14.**
+   An earlier version of this bullet read *"the nested read says 0 of 3 clear the
+   two-sided bar"*. **That was an error** (item 21, doc § 12): the nested read
+   grades τ *selection*, while these cells run a **fixed** arm. On the arm they
+   actually run, the result is **per-leg, not uniform** — BTC **−1.801R (FAIL)**,
+   ETH **+1.810R / +1.263R (PASS)**, SOL **+1.589R / +0.603R (PASS)**. Two of
+   three are supported. Do not re-derive the old framing from §§ 10–11.
+
+   Tonight's two follow-ups narrow the disposition further (items 22–23,
+   §§ 13–14): the `below_half_r` conditioning **costs** drawdown on all three
+   legs at `t > 2` and buys only hold time, and that holds for **all four**
+   `_SHAPES` — so "try a different shape" is **off the table** for this family.
+   The live shape is nonetheless the mildest of the four. The remaining options
+   are (a) keep as-is, (b) drop the conditioning and run the unconditional head
+   at the same τ, (c) act on BTC alone, which is the only leg failing its own
+   re-sweep. **Tier-3, operator-gated, and not enacted here.**
 3. **Only if (1) lands permissively:** the remaining scalp work is a bigger
    sample on the `stale_8_0` margin, not another τ rule. The head clearly beats
    *doing nothing*; whether it beats an eight-bar stale-stop is the close

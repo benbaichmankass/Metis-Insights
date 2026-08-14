@@ -649,8 +649,210 @@ net_R cost is real, measured, and was not previously stated anywhere.
 
 - **Whether BTC's failure reproduces off this one book.** 22 folds, one family,
   one block size. A leg-level demotion wants more than a single re-sweep.
-- **The drawdown side of the conditional gate.** `vs uncond.` is net_R only;
-  the condition's stated justification is about *not truncating winners*, which
-  this table cannot see.
+- ~~**The drawdown side of the conditional gate.**~~ — measured, § 13.
 - **Nothing here is a re-grade.** All three cells remain `shipped`; the
   disposition is Tier-3 and operator-gated.
+
+## 13. The drawdown axis — the condition's own justification does not hold
+
+§ 12 recorded that `vs uncond.` is net_R only, and that the `below_half_r`
+condition was chosen for a *behavioural* reason `agg()`'s net_R column cannot
+see. `agg()` (`scripts/ml/train_exit_head.py:369`) does carry `max_dd_r` and
+`mean_hold_bars`, so the axis is measurable. Relays #9125 + #9126, same nested
+report, same three legs, `model_cond["below_half_r_tau_0.1"]` vs
+`model["tau_0.1"]`, **per fold** — `max_dd_r` is not additive across folds, so
+every figure below is a mean of within-fold differences, never a sum.
+
+**A positive `Δ maxDD` means the condition makes drawdown worse.**
+
+| leg | n | Δ net_R (SE, t) | median | Δ maxDD (SE, t) | median | frac > 0 | Δ hold_bars (SE, t) | frac > 0 |
+|---|---|---|---|---|---|---|---|---|
+| `trend_donchian` (BTC) | 22 | −0.252 (0.505, −0.50) | −0.690 | **+0.171 (0.063, +2.73)** | +0.000 | 36.4% | **+4.714 (1.244, +3.79)** | 86.4% |
+| `trend_donchian_eth` | 22 | −0.288 (0.701, −0.41) | −1.140 | **+0.424 (0.176, +2.40)** | +0.235 | 54.5% | **+3.595 (0.626, +5.75)** | 100.0% |
+| `trend_donchian_sol` | 22 | −0.603 (0.510, −1.18) | −1.025 | **+0.124 (0.056, +2.19)** | +0.000 | 27.3% | **+4.750 (0.746, +6.37)** | 90.9% |
+
+**The mechanism works; the thing it was supposed to buy does not appear.** The
+condition holds materially longer on every leg — `t` of +3.79 / +5.75 / +6.37,
+positive on 86–100% of folds. That is exactly what `_SHAPES` cites live trade
+3344 for: a running trend should not be truncated by a low score alone. It does
+in fact stop truncating them. But the payoff for holding is absent on both axes
+that matter: drawdown is **worse** with `t > 2` on all three legs, and net_R is
+worse in the *typical* fold (median negative on all three; only 27–41% of folds
+positive, the mean pulled toward zero by a few large winners — max +6.47 /
++6.38 / +7.26).
+
+**The `Δ maxDD` distribution is one-sided, which is what makes it readable at
+this n.** The minimum is +0.000 / −1.100 / −0.060 and the median is +0.000 on
+BTC and SOL: across 22 folds the condition essentially never *lowered*
+drawdown — it either left it untouched (the majority: ~64% of BTC folds, ~73%
+of SOL folds are exactly zero, i.e. folds where the condition never bound) or
+raised it. Trimmed means (drop one fold from each tail) barely move: +0.138 /
++0.360 / +0.089, so no single outlier fold carries the sign.
+
+### A defect in my own probe, recorded
+
+Relay #9125 printed "folds where cond LOWERS maxDD: 63.6% / 45.5% / 72.7%",
+which read as *the condition helps on most folds* and appeared to contradict the
+positive mean. It does not: those are exactly the complements of the `frac > 0`
+column above, so the predicate counted **ties as wins** — the label said
+*lowers*, the code computed `<= 0`, and the tied folds are ones where the
+condition did nothing at all. This is sub-class **A** of the
+UNPROVENANCED-DIAGNOSTIC-OUTPUT family in `CLAUDE.md` (the label names a
+quantity the accessor does not compute), self-inflicted, and caught only
+because the apparent mean/majority disagreement was treated as a reason to pull
+the distribution rather than as a finding to publish. Had #9126 not been run,
+"the condition lowers drawdown on most folds" would have gone into this document.
+
+### What this does and does not license
+
+- It is **not** an argument to drop the head. Against the exit that actually
+  ran, *both* arms are large drawdown improvements — #9125 puts the conditional
+  arm at −2.195 / −3.198 / −2.132 `maxDD` vs `actual` on the three legs. What is
+  unsupported is the **conditioning**, not the head.
+- The three legs are **not three independent confirmations.** They are one
+  strategy's logic on three correlated crypto majors over the same calendar
+  window and the same 22 folds; the per-leg `t` values must not be pooled as if
+  independent. Read them as one result seen three times, not as `p < 0.001`.
+- Unchanged: **nothing here re-grades a cell.** All three remain `shipped`, and
+  every disposition — including "drop the condition, keep the head at the same
+  τ" — is Tier-3 and stays queued for the operator.
+
+## 14. It is conditioning *per se*, not the shape
+
+§ 13 leaves an obvious fork: is `below_half_r` a bad **shape**, or is *any*
+conditioning unearned on this family? That decides the disposition — a bad shape
+has a fix (pick another), a bad layer does not. `_SHAPES` has four members and
+the same report carries all of them at the same τ. Relay #9128, same 22 folds,
+each conditional shape against the same unconditional `tau_0.1` head, per fold.
+
+The probe printed its discovered shape list as a positive control
+(`['age8', 'age8_below_half_r', 'below_half_r', 'pre_mfe1']` — all four), so an
+empty or short result would have read as a broken probe rather than a finding.
+
+| shape | leg | Δ net_R (t) | Δ maxDD (t) | Δ hold (t) |
+|---|---|---|---|---|
+| `age8` | BTC | −1.024 (−2.81) | +1.047 (+5.68) | +3.036 (+5.07) |
+| `age8` | ETH | −0.731 (−1.14) | +1.131 (+3.42) | +3.595 (+8.08) |
+| `age8` | SOL | −0.661 (−1.97) | +0.622 (+3.78) | +3.500 (+5.99) |
+| `age8_below_half_r` | BTC | −0.878 (−1.27) | +1.337 (+6.73) | +7.864 (+6.51) |
+| `age8_below_half_r` | ETH | −1.413 (−1.60) | +1.510 (+4.14) | +7.677 (+9.21) |
+| `age8_below_half_r` | SOL | −1.150 (−1.79) | +0.702 (+4.17) | +8.486 (+9.30) |
+| **`below_half_r`** (live) | BTC | −0.252 (−0.50) | **+0.171 (+2.73)** | +4.714 (+3.79) |
+| **`below_half_r`** (live) | ETH | −0.288 (−0.41) | **+0.424 (+2.40)** | +3.595 (+5.75) |
+| **`below_half_r`** (live) | SOL | −0.603 (−1.18) | **+0.124 (+2.19)** | +4.750 (+6.37) |
+| `pre_mfe1` | BTC | +0.339 (+0.37) | +0.937 (+4.60) | +9.455 (+6.45) |
+| `pre_mfe1` | ETH | −0.735 (−0.84) | +0.764 (+3.12) | +7.041 (+8.12) |
+| `pre_mfe1` | SOL | −1.045 (−2.35) | +0.427 (+4.76) | +6.777 (+7.79) |
+
+**Every one of the twelve shape×leg cells costs drawdown, and every one clears
+`t > 2`** (+2.19 … +6.73). Every one holds longer (`t` +3.79 … +9.30). Eleven of
+twelve lose net_R; the twelfth (`pre_mfe1` on BTC, +0.339) has `t` +0.37 and is
+indistinguishable from zero. There is no shape on this family that conditions
+the head and gets paid for it.
+
+**The live choice is the mildest of the four.** `below_half_r` carries the
+smallest drawdown cost on every leg (+0.171 / +0.424 / +0.124 against
+`age8_below_half_r`'s +1.337 / +1.510 / +0.702) and the smallest net_R loss on
+two of three. Whoever picked it picked the gentlest available conditioning. That
+is a real defence of the live config against the alternatives — and it does not
+rescue the layer, because the comparison that matters is against *no*
+conditioning, where all four are negative.
+
+### The obvious mechanism is wrong, and it was worth checking
+
+The tempting story is that conditioning = hold longer = eat more drawdown, so
+`Δ maxDD` should track `Δ hold`. **It does not.** On ETH, `age8` and
+`below_half_r` buy *identical* extra hold (+3.595 bars each) at +1.131 vs
++0.424 drawdown — a 2.7× difference in cost for the same amount of holding. On
+BTC the shape with the *least* extra hold (`age8`, +3.04) costs +1.047 while
+`below_half_r` at +4.71 bars costs +0.171. So shape governs **how much** the
+conditioning costs, and holding time does not explain it. What survives is only
+the sign: no shape escapes it.
+
+### What this changes for the queued decision
+
+It removes "try a different shape" from the option set for this family. The
+operator's choice on the three live donchian-1h cells narrows to: keep the
+conditioning as-is (mildest available, costs a measured but small amount), or
+drop it and run the unconditional head at the same τ. **Still Tier-3, still
+queued, still not re-graded here** — and still bounded by § 13's caveat that
+these are three correlated legs of one strategy over one calendar window, not
+three independent confirmations.
+
+## 15. The penalty is not a donchian artefact — it holds on scalp, where the head *works*
+
+§§ 13–14 are scoped to donchian-1h, the family whose head has **no** causal edge.
+That leaves the obvious alternative reading: maybe conditioning only looks bad
+because it is bolted to a weak head. Scalp is the control — the one family whose
+edge survives nested τ selection (+3.848R, 5 of 7 legs two-sided PASS, § 11).
+
+**A denominator correction first.** The scalp round writes **one report per leg**
+— seven files — where donchian wrote a single combined report. The first probe
+(#9130) took the first file and so measured `ict_scalp_5m` **alone**: a 1-of-7
+sample that would have carried a family label. It is not quoted here. #9131
+re-ran across all seven, printing the report count as an explicit denominator
+with a guard if it is not 7, and reporting **how many individual legs agree on
+the drawdown sign** so a pooled mean cannot hide a split.
+
+Pooled over 7 legs, n = 80 leg-folds per cell, at each τ carrying conditional
+arms:
+
+| τ | shape | Δ net_R (t) | Δ maxDD (t) | Δ hold (t) | legs worse dd |
+|---|---|---:|---:|---:|:--|
+| 0.10 | `age8` | +0.366 (+1.05) | **+1.095 (+6.90)** | +3.683 (+18.17) | **7/7** |
+| 0.10 | `age8_below_half_r` | −0.568 (−1.54) | **+1.302 (+7.58)** | +4.481 (+22.00) | **7/7** |
+| 0.10 | **`below_half_r`** | **−1.008 (−6.76)** | **+0.215 (+3.64)** | +0.743 (+16.13) | 6/7 |
+| 0.10 | `pre_mfe1` | **−1.165 (−7.77)** | **+0.289 (+3.98)** | +0.643 (+15.01) | 6/7 |
+| 0.15 | `age8` | +0.648 (+1.55) | +1.196 (+6.54) | +4.527 (+26.71) | 7/7 |
+| 0.15 | `age8_below_half_r` | −0.275 (−0.64) | +1.402 (+7.16) | +5.355 (+30.63) | 7/7 |
+| 0.15 | **`below_half_r`** | **−0.889 (−6.47)** | +0.174 (+4.36) | +0.654 (+14.86) | 6/7 |
+| 0.15 | `pre_mfe1` | **−1.013 (−7.02)** | +0.228 (+4.43) | +0.586 (+13.28) | 7/7 |
+| 0.20 | `age8` | +0.738 (+1.77) | +1.419 (+7.82) | +5.189 (+36.73) | 7/7 |
+| 0.20 | `age8_below_half_r` | +0.005 (+0.01) | +1.597 (+8.18) | +6.003 (+41.74) | 7/7 |
+| 0.20 | **`below_half_r`** | **−0.675 (−4.62)** | +0.114 (+3.01) | +0.587 (+14.42) | 6/7 |
+| 0.20 | `pre_mfe1` | **−0.912 (−6.35)** | +0.252 (+5.13) | +0.517 (+12.12) | 7/7 |
+
+**Every one of the twelve cells costs drawdown, every one at `t ≥ 3.01`, and
+6 or 7 of the 7 legs individually agree in each.** Every one holds longer. So the
+donchian result is **not** an artefact of a weak head: conditioning costs
+drawdown on the family where the head genuinely works, across three τ values,
+with per-leg agreement rather than a pooled artefact.
+
+**On the family that works, the live-style shape's net_R cost is *larger*, not
+smaller.** `below_half_r` runs `t` −6.76 / −6.47 / −4.62 on scalp against −0.50 /
+−0.41 / −1.18 on donchian, and `pre_mfe1` is worse still (−7.77 / −7.02 / −6.35).
+The better the head, the more a low-score veto costs — which is the coherent
+direction: overriding a head that is right more often is more expensive.
+
+### The one exception, stated rather than smoothed over
+
+**`age8` does not cost net_R on scalp.** It is *positive* at all three τ (+0.366 /
++0.648 / +0.738), though never significantly (`t` +1.05 / +1.55 / +1.77), and it
+is the only shape on either family that is not negative. So the universal claim
+is about **drawdown**, where all 24 measured means across both families agree; on
+**net_R** the honest statement is "negative for three of four shapes on scalp,
+`age8` neutral-to-positive but indistinguishable from zero". `age8` also carries
+the *largest* drawdown cost of the four (+1.095 … +1.419), so it is not a way out.
+
+⚠️ **The two 12s are different units and "24" should not be read as one
+homogeneous count.** Donchian's twelve are **shape × leg** at a single τ; scalp's
+twelve are **shape × τ**, each already pooled over seven legs. Each of the 24 is a
+separately measured mean with its own `t`, and all 24 are positive — that is the
+claim, and it is worth making because the two designs fail differently: the
+donchian cut would miss a τ-specific effect, the scalp cut would miss a
+leg-specific one. Neither does, which is the point. But they are not 24
+interchangeable observations and must not be counted as such.
+
+### Caveats
+
+- **The pooled `t` treats 80 leg-folds as independent units and they are not** —
+  seven legs share a calendar window. The **`legs worse dd` column is the more
+  robust statement** (6/7 or 7/7 individually), and it is why the probe reports
+  it; do not quote the pooled `t` without it.
+- Scalp legs are nonetheless a **better-spread** population than donchian's three
+  correlated majors — five symbols across 5m and 15m rather than three crypto
+  majors on one timeframe.
+- The τ range differs by design: donchian conditional arms exist only at τ=0.10,
+  scalp at 0.10/0.15/0.20. Nothing is compared across a τ boundary.
+- **Still not a re-grade, and still not a live change.** Every disposition
+  remains Tier-3 and operator-gated.
