@@ -2281,6 +2281,59 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     **Nothing is re-graded here.** No matrix status changed, no config touched.
     Every disposition is Tier-3 and goes to the operator as decision (i).
 
+72. **Shipped the clamp, and confirmed it against the exact dispatch that
+    exposed the cliff — prediction stated first, then measured.**
+
+    `resolve_split` now clamps an unreachable target to `lifetime // 2` and
+    keeps deriving from the leg's own trades, recording
+    `split_target_clamped_from`/`_to`. `split_target_oos` keeps its
+    REQUESTED-value meaning, so no existing consumer changes meaning underneath
+    itself. The fixed-date fallback survives only where it is actually right —
+    a leg that cannot seat `MIN_OOS_TRADES` on both sides is ungradeable at any
+    boundary. Four states stay distinguishable: derived-as-asked ·
+    derived-CLAMPED · `leg_too_thin` · `harness_rc`/`emit_unreadable`, the last
+    being *we could not look*, which is not thinness.
+
+    **The tests were verified against the pre-fix code rather than assumed.**
+    Running `origin/main`'s `resolve_split` over a synthetic 64-trade leg:
+
+    | target | 25 | 28 | 32 | 35 | 40 |
+    |---|---|---|---|---|---|
+    | pre-fix boundary | 2003-04-15 | 2003-01-15 | 2002-09-15 | **2025-07-01** | **2025-07-01** |
+
+    One trade of extra ambition moves the boundary **twenty-three years
+    forward**. The monotonicity and clamp assertions FAIL on that copy and pass
+    on the fix, so their green is earned.
+
+    **Then the live confirmation.** I re-ran the *identical* dispatch that had
+    produced the cliff — same three legs, same lever, same geometry,
+    `--split-target-oos 35` — and stated the expected result first: clamped to
+    32, deriving OOS ≈ 31.
+
+    | leg | before (target 35) | after (target 35) |
+    |---|--:|--:|
+    | `iwm_trend_long_1d` | OOS **4** | OOS **31** |
+    | `scha_trend_long_1d` | OOS **5** | OOS **31** |
+    | `splg_trend_long_1d` | OOS **4** | OOS **31** |
+
+    **And the verdicts held their sign on the larger window**, which is the part
+    that matters for trusting them — the target-28 read was not an artifact of a
+    lucky boundary:
+
+    | leg | OOS 27 (target 28) | OOS 31 (target 35, clamped) |
+    |---|---|---|
+    | `iwm` | IS −0.527 / OOS +5.606 | IS −1.373 / OOS +6.452 |
+    | `splg` | IS +7.584* / OOS −0.357 | IS +7.584 / OOS −0.439 |
+    | `scha` | IS −3.498 / OOS +1.599 | IS −4.298 / OOS +2.399 |
+
+    Same verdict (`is_oos_fail`) and same sign on both windows across two
+    different boundaries. Item 71's reading stands.
+
+    \* the target-28 IS figure was +6.844; the two runs' IS windows differ
+    (36-37 vs 32-33 trades), so the IS column is **not** a like-for-like
+    comparison and is printed only to show the sign is stable. Stating that
+    rather than letting two adjacent numbers imply a precision they do not have.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
