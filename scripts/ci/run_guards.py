@@ -240,6 +240,30 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/research/m20_coverage_rollup.py", "--check"]],
     },
     {
+        # The CROSS-ARTIFACT sibling of the guard above: that one validates the
+        # matrix against ITSELF (legend values, refs present); this one validates
+        # it against the CORPUS the dispositions rest on. Both files can be
+        # internally valid and disagree with each other, and nothing checked
+        # that — measured 2026-08-14, 100 of 186 stale cells already had a
+        # live-parity corpus row and 9 of those PASSED against a recorded
+        # negative (BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY).
+        #
+        # NOT a subset of the staleness pass: the first run of this guard found
+        # TWO disagreements that are NOT in `stale_cells` at all, because their
+        # refs carry post-cutover dates so the date-proxy reads them as current
+        # while the STATUS rests on an older negative. A staleness scan
+        # structurally cannot reach those.
+        "name": "matrix-corpus-agreement",
+        "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "docs/research/m20-sweep-corpus.jsonl",
+                           "scripts/ci/check_matrix_corpus_agreement.py"]},
+        # Self-test FIRST, so a guard that silently stopped matching cannot read
+        # as a clean pass — it proves it catches a planted disagreement, clears
+        # on an acknowledgement, and honours supersession.
+        "steps": [["python3", "scripts/ci/check_matrix_corpus_agreement.py", "--self-test"],
+                  ["python3", "scripts/ci/check_matrix_corpus_agreement.py"]],
+    },
+    {
         "name": "canonical-doc-coherence",
         # The `declared values` check reads .github/workflows/ + src/web/api/
         # sources, so a change THERE can falsify a doc without touching one —

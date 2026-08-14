@@ -863,9 +863,25 @@ def resolve_split(harness: str, base: list[str], mode: str,
     places the boundary better. Returned meta records target AND mode so a
     verdict states its own derivation.
 
-    Falls back to the fixed date, WITH A STATED REASON, when the leg cannot
-    support the target (a 33-trade leg giving 25 to OOS leaves 8 for IS, which
-    fits nothing). Never silently returns the fixed date.
+    When the leg cannot support the requested target, the target is CLAMPED to
+    the largest it can support (`lifetime // 2`) and the boundary is still
+    derived from this leg's own trades — recorded as
+    `split_target_clamped_from`/`_to`, never silent, because a verdict must not
+    report a target it did not use.
+
+    Falls back to the fixed date, WITH A STATED REASON, only when the leg
+    cannot seat `MIN_OOS_TRADES` on BOTH sides (a 33-trade leg giving 25 to OOS
+    leaves 8 for IS, which fits nothing) — that leg is ungradeable at any
+    boundary, so there is nothing better to return. Never silently returns the
+    fixed date.
+
+    THE THREE OUTCOMES STAY DISTINGUISHABLE, which is the whole point:
+    `split_fallback` unset + no clamp = derived at the asked-for target ·
+    clamp keys present = derived at a REDUCED target (we looked and the leg is
+    thin) · `split_fallback="leg_too_thin"` = ungradeable at any target ·
+    `split_fallback` in {`harness_rc`, `emit_unreadable`} = **we could not
+    look**, which is a different statement from either and must never be read
+    as thinness.
     """
     meta = {"split_mode": mode, "split_target_oos": target_oos}
     if mode == "date":
@@ -901,9 +917,40 @@ def resolve_split(harness: str, base: list[str], mode: str,
     # Require IS to be at least as large as OOS. A leg that cannot give both
     # sides `target_oos` trades is genuinely too thin, and moving the date
     # would only trade one unusable window for another.
+    #
+    # BUT "cannot support THIS target" is not "cannot be graded", and until
+    # 2026-08-14 those were the same branch: the guard returned the fixed
+    # CALENDAR date, which for exactly the low-frequency legs that trip it is
+    # the worst available boundary -- the very defect the derivation exists to
+    # remove. Measured on one dispatch pair, same legs, same geometry, target
+    # 25 -> 35:
+    #
+    #     iwm_trend_long_1d   OOS 24 -> 4      scha  OOS 23 -> 5
+    #     splg_trend_long_1d  OOS 24 -> 4      (eth_prop, 900+ trades: 24 -> 33)
+    #
+    # Asking for MORE out-of-sample trades returned six times FEWER. That is a
+    # cliff, not a degradation, and it fires precisely when the caller asks for
+    # more rigour. Tracked as:
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER
+    # (kept on ONE line even though it overruns: artifact-validity-guard
+    # resolves ids by regex, so a wrapped id silently resolves to NOTHING and
+    # the comment claims tracking that does not exist.)
+    #
+    # So CLAMP to the largest target the leg can actually support and keep
+    # deriving from the leg's own trades. The clamp is RECORDED, never silent:
+    # a verdict must not report a target it did not use. The fixed-date
+    # fallback survives for the one case it is right for -- a leg that cannot
+    # seat MIN_OOS_TRADES on both sides is ungradeable at any boundary, and
+    # there is nothing better to return.
     if len(stamps) < 2 * target_oos:
-        meta.update(split=fixed_split, split_fallback="leg_too_thin")
-        return fixed_split, meta
+        supportable = len(stamps) // 2
+        if supportable >= MIN_OOS_TRADES:
+            meta["split_target_clamped_from"] = target_oos
+            meta["split_target_clamped_to"] = supportable
+            target_oos = supportable
+        else:
+            meta.update(split=fixed_split, split_fallback="leg_too_thin")
+            return fixed_split, meta
 
     boundary = stamps[-target_oos][:10]          # YYYY-MM-DD
     meta["split"] = boundary
@@ -948,10 +995,41 @@ def insufficient_base_reason(base_oos_n, floor: int, split: str,
     # "the leg has no trades" are opposite claims.
     if lifetime is not None:
         parts.append(f"leg lifetime {lifetime}")
+    # A clamp means the caller's target was NOT the one used. Printing only the
+    # requested target beside a refusal invites the reader to compute a band the
+    # run never operated in.
+    if split_meta.get("split_target_clamped_to") is not None:
+        parts.append(f"target CLAMPED {split_meta.get('split_target_clamped_from')}"
+                     f"->{split_meta['split_target_clamped_to']}")
     if fallback:
         parts.append(f"FELL BACK: {fallback}")
+
+    # THE DIAGNOSIS, not just the inputs (criterion (4) of
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER).
+    # Carrying `lifetime` made the discriminator AVAILABLE; it still left every
+    # reader to do the arithmetic, and the two conclusions have opposite
+    # remedies. A leg that cannot seat `floor` on BOTH sides is trade-starved at
+    # ANY boundary -- re-running is wasted. A leg whose lifetime could seat one
+    # and did not got a badly-placed split -- waiting for trades is wasted.
+    # Third state kept distinct on purpose: under `split_mode=date` no emit run
+    # happened, so the lifetime was never counted and the honest answer is that
+    # we cannot tell -- NOT a default to either diagnosis.
+    if lifetime is None:
+        verdict = ("UNDIAGNOSED: leg lifetime was never counted under "
+                   "split_mode=date, so 'thin leg' and 'thin window' are "
+                   "indistinguishable here -- re-run with split_mode=oos-trades "
+                   "to find out")
+    elif lifetime < 2 * floor:
+        verdict = (f"THE LEG IS TRADE-STARVED: {lifetime} lifetime trades cannot "
+                   f"seat {floor} on BOTH sides at any boundary -- re-running "
+                   f"the sweep returns this again; wait for trades")
+    else:
+        verdict = (f"THE BOUNDARY IS MISPLACED, NOT THE LEG: {lifetime} lifetime "
+                   f"trades could seat a floor-clearing window and this split "
+                   f"gave it {base_oos_n} -- re-run with a larger "
+                   f"--split-target-oos")
     return (f"OOS base {base_oos_n} trades < floor {floor} "
-            f"({', '.join(parts)})")
+            f"({', '.join(parts)}) -- {verdict}")
 
 
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
@@ -1884,6 +1962,24 @@ def main(argv: list[str]) -> int:
             entry["split_lifetime_trades"] = split_meta.get(
                 "split_lifetime_trades")
             entry["split_fallback"] = split_meta.get("split_fallback")
+            # THE CLAMP MUST RIDE WITH THE TARGET OR THE ROW LIES BY OMISSION.
+            # `split_target_oos` above is what the CALLER ASKED FOR; when the
+            # leg could not support it, `resolve_split` clamps and derives at a
+            # smaller one. Without these two keys the corpus row reads
+            # `split_target_oos: 35` for a run that used 32 -- a row reporting a
+            # target it did not use, which is exactly what resolve_split's own
+            # docstring forbids.
+            #
+            # Caught 2026-08-14 by reading back the twelve OFF-arm rows this
+            # session had just produced: the three clamped rows landed with
+            # `split_target_clamped_to: null` while their OOS window had
+            # visibly moved 4 -> 31. The meta carried the clamp, the writer
+            # dropped it, and nothing downstream could tell. Verifying my own
+            # output is what found it; the sweep itself was correct.
+            entry["split_target_clamped_from"] = split_meta.get(
+                "split_target_clamped_from")
+            entry["split_target_clamped_to"] = split_meta.get(
+                "split_target_clamped_to")
             if _thin:
                 # Record what it WOULD have been, so the floor's effect on this
                 # cell is auditable rather than invisible.
