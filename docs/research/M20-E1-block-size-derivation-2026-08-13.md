@@ -29,6 +29,14 @@ block" as the lever that unblocks `exit_head_ml`.
 > there isn't one.** § 5's "biases δ upward" caveat is right for donchian and
 > wrong for scalp, and § 9's own prediction that a contemporaneous rule would
 > beat PREV/EXPAND is confirmed (scalp two-sided passes went 2/7 → 5/7).
+>
+> **⛔ § 12 (2026-08-14) CORRECTS HOW §§ 10–11 WERE BEING APPLIED. Read it
+> before quoting either against the three LIVE `exit_head_ml` cells.** Those
+> cells do not select a τ — they run a fixed conditional arm
+> (`below_half_r @ τ=0.10`), and on a re-sweep of it **2 of 3 PASS the
+> two-sided test** (ETH +1.810R, SOL +1.589R) while **BTC fails by −1.801R vs
+> actual**. The earlier "0 of 3 clear the bar" was a statement about
+> *selection* and was never true of the shipped lever.
 
 ---
 
@@ -572,3 +580,77 @@ and the gap is large enough to change the verdict on three legs.
 - **This grades no cell.** Whether `exit_head_ml` becomes family-scoped is an
   operator decision (`BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT` item 3);
   this section supplies the evidence it was waiting on and takes nothing.
+
+---
+
+## 12. CORRECTION — §§ 10–11 do not speak to the three SHIPPED cells
+
+**§§ 10–11 measured τ-SELECTION. The three live `exit_head_ml` cells do not
+select a τ — they run a FIXED, pre-committed arm.** Reporting the nested
+selection figure as if it graded those cells was a category error on my part,
+and it pointed the wrong way. *(Trainer relay #9121, 2026-08-14.)*
+
+The live head is **`below_half_r @ τ=0.10`** — verified in
+`src/runtime/exit_head_shadow.py:5` and `config/strategy_changelog.json`, not
+inferred from the matrix ref. In `train_exit_head.py` that is a **conditional
+shape** under `model_cond` (`_SHAPES["below_half_r"]`, key
+`below_half_r_tau_0.1`), **not** `model["tau_0.1"]` — which is the
+*unconditional* head at the same τ and is a different lever.
+
+> **This was nearly a second wrong number.** My first probe read
+> `model["tau_0.1"]` on the strength of the τ matching, and produced a
+> plausible, publishable table (ETH +2.097R, SOL +2.192R). Reading
+> `train_exit_head.py:418` vs `:423` before publishing is what caught it —
+> the same class as the `per_leg_summary`-is-a-function-name miss earlier the
+> same night, and the reason the probe below prints its `model_cond` key
+> inventory as a positive control.
+
+**The shipped arm, 22 folds per leg (no validation block needed, so all 22
+count — the nested read's n was 21):**
+
+| leg | vs actual | pos% | vs `stale_8_0` | vs uncond. τ=0.10 | two-sided |
+|---|---:|---:|---:|---:|:--|
+| `trend_donchian` (BTC) | **−1.801R** | 40.9% | +1.213R | −0.252R | **fail** |
+| `trend_donchian_eth` | **+1.810R** | 68.2% | **+1.263R** | −0.288R | **PASS** |
+| `trend_donchian_sol` | **+1.589R** | 68.2% | **+0.603R** | −0.603R | **PASS** |
+
+Pooled: **+0.532R** vs actual (59.1% positive), **+1.026R** vs `stale_8_0`
+(68.2%).
+
+### What this changes
+
+- **Two of the three shipped cells are supported by a re-sweep; one is not.**
+  ETH and SOL clear both baselines. **BTC loses to doing nothing by −1.801R**
+  at 40.9% positive — the head fires and the trade would have done better
+  untouched.
+- **The earlier framing — "0 of 3 clear the bar" — was wrong for these cells**
+  and must not be quoted. It was true of nested *selection* (§ 10) and remains
+  true of that; it was never a statement about the fixed arm.
+- **This is a re-sweep of a STALE DECISION.** All three cells carry
+  `newest-ref 2026-07-12`, and `m20_coverage_rollup.py --stale-decisions`
+  flags them among 8 such cells with the note that a stale *shipped* cell
+  "costs MONEY — it changes exit behaviour on a real-money leg now, on a number
+  never reproduced under the geometry the bot actually places." The base rate
+  for stale-decision re-sweeps moves from **1 of 1 failing** (`trend_donchian`
+  `trail_decay` → `shipped_gate_failed`) to **2 of 4 failing** — and both
+  failures are on the same leg, `trend_donchian` (BTC).
+
+### The conditional gate costs net_R on this book
+
+`vs uncond.` is negative on all three legs (−0.252 / −0.288 / −0.603): the
+`below_half_r` condition makes the head **worse on net_R** than the plain
+unconditional head at the same τ. That is not automatically an argument to drop
+it — the condition was chosen for a *behavioural* reason (`_SHAPES` comments
+cite live trade 3344: a running trend should never be truncated by a low score
+alone), which is a drawdown/holding argument rather than a net_R one. But the
+net_R cost is real, measured, and was not previously stated anywhere.
+
+### Still not measured
+
+- **Whether BTC's failure reproduces off this one book.** 22 folds, one family,
+  one block size. A leg-level demotion wants more than a single re-sweep.
+- **The drawdown side of the conditional gate.** `vs uncond.` is net_R only;
+  the condition's stated justification is about *not truncating winners*, which
+  this table cannot see.
+- **Nothing here is a re-grade.** All three cells remain `shipped`; the
+  disposition is Tier-3 and operator-gated.
