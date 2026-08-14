@@ -56,6 +56,10 @@ on:
         type: choice
         options: ['oos-trades', 'date']
         default: 'oos-trades'
+      split_target_oos:
+        description: "How many OOS trades the derived boundary AIMS AT (oos-trades mode only). Empty = the script default, which is MIN_OOS_TRADES itself — i.e. it targets exactly the number the verdict requires, so a shortfall of one trade lands below the floor and the cell returns insufficient_base. Measured 2026-08-14: the lever-OFF arm hit OOS 23/24/24/24/23 on five legs (all ungradeable) and 25 on the one that passed. Set 30-35 to leave the floor a margin. Empty reproduces every pre-2026-08-14 run."
+        required: false
+        default: ''
       fee_bps_roundtrip:
         description: "Roundtrip fee in bps. Empty = the harness default (7.5). Set 15 for the fee-SURVIVAL arm — SRQ-20260618-003 rejected the 5m scalp alts because they were +50R at 7.5bps and -38R at 15bps, and the entire corpus is 7.5bps, so that arm was unrunnable until now."
         required: false
@@ -273,6 +277,22 @@ jobs:
           # cell `insufficient_base`. Exposing the mode is what makes a
           # pre-2026-08-13 row reproducible at all.
           SPLIT_MODE: ${{ inputs.split_mode || 'oos-trades' }}
+          # WHY this is plumbed (2026-08-14): the sweep's --split-target-oos
+          # DEFAULTS TO MIN_OOS_TRADES ITSELF, so the derived boundary aims at
+          # exactly the number the verdict requires and any shortfall lands
+          # below the floor. That is not a hypothetical: the nine-pair lever-OFF
+          # arm dispatched this morning returned base OOS 23/24/24/24/23 on the
+          # five legs it could measure -- ALL FIVE `insufficient_base` -- while
+          # the single leg that reached 25 (trend_donchian_avax_4h) returned a
+          # PASS. Six measured cells, one gradeable, and the difference was one
+          # or two trades. Until this input existed the workflow could not ask
+          # for a margin at all: the CLI flag has existed since #8965 and only
+          # the relay path could reach it, so the autonomous path was locked to
+          # the value most likely to produce no verdict.
+          # Empty = the script's own default (the floor), which is what every
+          # pre-2026-08-14 run used -- so an omitted value REPRODUCES history
+          # rather than silently changing it.
+          SPLIT_TARGET_OOS: ${{ inputs.split_target_oos }}
           WITHOUT: ${{ inputs.without_declared_levers }}
         run: |
           set -o pipefail
@@ -296,6 +316,7 @@ jobs:
             --only "${LEG}" \
             --split "${SPLIT}" \
             --split-mode "${SPLIT_MODE}" \
+            ${SPLIT_TARGET_OOS:+--split-target-oos "${SPLIT_TARGET_OOS}"} \
             --tp-cap-pct "${TP_CAP_PCT}" \
             ${FEE_BPS:+--fee-bps-roundtrip "${FEE_BPS}"} \
             ${MIN_CONF:+--min-confidence-override "${MIN_CONF}"} \
