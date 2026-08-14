@@ -191,3 +191,61 @@ def test_a_novel_reason_is_accepted(matrix):
                         "ref": "planted"}
 
     assert _bare_blocked_problems(m20.validate(m)) == []
+
+
+def test_geometry_coverage_ships_its_denominator_and_counts_unrecorded():
+    """`tp_geometry` coverage must be a FRACTION, not a list of marked cells.
+
+    The field exists for one job: BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+    established that every pre-2026-08-10 verdict was measured on a book with no
+    take-profit, and `tp_geometry` says which geometry a verdict rests on.
+    Measured 2026-08-14 it is set on 10 of 416 cells, so ABSENCE covers three
+    conditions at once -- live-parity-but-unstamped, pre-cutover, and nobody
+    looked -- and the reassuring reading is wrong for nearly the whole
+    population.
+
+    So `unrecorded` is COUNTED, never omitted: a reader must not be able to
+    infer completeness from the marked cells, which is exactly what a bare list
+    invites. Same discipline as `rCoverage`/`pnlCoverage` on `/performance`.
+    """
+    matrix = {
+        "lever_columns": ["stale_stop", "trail_decay"],
+        "rows": [
+            {"strategy": "a", "symbol": "A", "tf": "1h", "execution": "live",
+             "stale_stop": {"status": "shipped", "tp_geometry": "live_parity"},
+             "trail_decay": {"status": "honest_negative"}},
+            {"strategy": "b", "symbol": "B", "tf": "1h", "execution": "live",
+             "stale_stop": {"status": "honest_negative",
+                            "tp_geometry": "no_take_profit"},
+             "trail_decay": {"status": None}},
+        ],
+    }
+    g = m20.geometry_coverage(matrix)
+
+    # Three cells carry a status; the None-status cell is not in the population.
+    assert g["total_cells"] == 3
+    assert g["recorded"] == 2
+    assert g["unrecorded"] == 1
+    assert g["recorded_pct"] == round(100 * 2 / 3, 1)
+    assert g["by_value"] == {"live_parity": 1, "no_take_profit": 1,
+                             "unrecorded": 1}
+
+
+def test_geometry_coverage_uses_the_headline_population_not_all_rows():
+    """A figure over a different denominator than the headline is how the
+    304/311/319 divergence started. Shadow rows are excluded, same as `cells()`.
+    """
+    matrix = {
+        "lever_columns": ["stale_stop"],
+        "rows": [
+            {"strategy": "live_leg", "symbol": "A", "tf": "1h",
+             "execution": "live",
+             "stale_stop": {"status": "shipped", "tp_geometry": "live_parity"}},
+            {"strategy": "shadow_leg", "symbol": "B", "tf": "1h",
+             "execution": "shadow",
+             "stale_stop": {"status": "honest_negative"}},
+        ],
+    }
+    g = m20.geometry_coverage(matrix)
+    assert g["total_cells"] == 1, "the shadow row must not enter the denominator"
+    assert g["recorded_pct"] == 100.0

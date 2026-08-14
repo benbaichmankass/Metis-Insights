@@ -380,9 +380,17 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
         # the caveat shipped 2026-08-12 and it took a separate hand-audit on
         # 2026-08-13 to notice that 19 of the stale cells were live decisions.
         #
-        # Base rate so far is 1 of 1: `trend_donchian` `trail_decay` is the only
-        # one re-swept, and it did NOT reproduce (BL-20260808, now
-        # `shipped_gate_failed`).
+        # DO NOT HARDCODE A RE-SWEEP BASE RATE HERE. This comment used to read
+        # "Base rate so far is 1 of 1: `trend_donchian` `trail_decay` ... did
+        # NOT reproduce (now `shipped_gate_failed`)", and the printed banner
+        # said the same. Both went stale and stayed confident: measured
+        # 2026-08-14, that cell's status is `shipped` (NOT
+        # `shipped_gate_failed`, which appears zero times in the matrix today)
+        # and the lever PASSES -- the 2026-08-12 "did not reproduce" reading
+        # was itself invalid, because that sweep measured the base against
+        # itself (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES).
+        # A rate baked into printed text is a claim nothing re-derives; read it
+        # from docs/research/m20-sweep-corpus.jsonl instead.
         "stale_decisions": [],
     }
     for row in matrix["rows"]:
@@ -741,6 +749,52 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
         "evidence_vintage": evidence_vintage(matrix),
+        "geometry_coverage": geometry_coverage(matrix),
+    }
+
+
+def geometry_coverage(matrix: dict[str, Any]) -> dict[str, Any]:
+    """How much of the population states WHICH TP geometry produced its verdict.
+
+    THE FRACTION IS THE POINT, not the marked cells. `tp_geometry` exists for
+    exactly one job: BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+    established that production places `tp = min(entry*1.099, entry + tp_r*risk)`
+    while the harnesses modelled NO take-profit, so **every pre-2026-08-10
+    verdict was measured on a book production does not run**. The field says
+    which geometry a verdict rests on.
+
+    Measured 2026-08-14: **10 of 416 cells carry it (2.4%)**. At that rate the
+    absent value covers three different conditions at once — measured at live
+    parity and unstamped, measured pre-cutover, and nobody looked — and the
+    reassuring reading is the wrong one for most of the population.
+
+    So this reports it the way `/performance` reports `rCoverage` and
+    `pnlCoverage`: **the denominator ships beside the number**, and `unrecorded`
+    is COUNTED rather than omitted. A reader must not be able to infer
+    completeness from the marked cells alone, which is precisely what a bare
+    list of stamped cells invites.
+
+    Live cells only, matching the headline's population — a figure over a
+    different denominator than the headline is how the 304/311/319 divergence
+    started.
+
+    Tracked by BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING
+    """
+    counts: Counter[str] = Counter()
+    for row, col, status in cells(matrix):
+        if status is None:
+            continue
+        cell = row.get(col)
+        geom = cell.get("tp_geometry") if isinstance(cell, dict) else None
+        counts["unrecorded" if geom is None else str(geom)] += 1
+    total = sum(counts.values())
+    recorded = total - counts.get("unrecorded", 0)
+    return {
+        "total_cells": total,
+        "recorded": recorded,
+        "unrecorded": counts.get("unrecorded", 0),
+        "recorded_pct": round(100 * recorded / total, 1) if total else 0.0,
+        "by_value": dict(counts),
     }
 
 
@@ -770,8 +824,27 @@ def render(r: dict[str, Any]) -> str:
         "    ^ NOT 376 - headline. `blocked` is closed for the headline and",
         "      open for the done-condition, deliberately.",
         "",
-        "status counts:",
     ]
+    g = r.get("geometry_coverage") or {}
+    if g.get("total_cells"):
+        # Reported like rCoverage/pnlCoverage: the DENOMINATOR ships with the
+        # number, and `unrecorded` is counted rather than omitted. Without this
+        # a reader infers completeness from the stamped cells alone -- and at
+        # 2.4% stamped that inference is wrong for almost the whole population.
+        out += [
+            "  TP-GEOMETRY COVERAGE (which geometry each verdict rests on)",
+            f"    recorded: {g['recorded']}/{g['total_cells']}"
+            f" = {g['recorded_pct']}%   unrecorded: {g['unrecorded']}",
+            "    " + " · ".join(f"{k}={v}" for k, v in
+                                sorted(g.get("by_value", {}).items())),
+            "    ^ `unrecorded` is NOT 'measured at live parity'. It covers",
+            "      three conditions at once: stamped-nowhere-but-live-parity,",
+            "      pre-2026-08-10 no-take-profit, and nobody looked. Every",
+            "      verdict older than the 2026-08-10 cutover was measured on a",
+            "      book production does not run.",
+            "",
+        ]
+    out += ["status counts:"]
     v = r.get("evidence_vintage") or {}
     if not v.get("classifier_available", True):
         out[2:2] = [
@@ -828,10 +901,11 @@ def render(r: dict[str, Any]) -> str:
                 " on a real-money leg now, on a",
                 "         number never reproduced under the geometry the bot"
                 " actually places.",
-                "         Base rate so far is 1 of 1: `trend_donchian`"
-                " `trail_decay` is the only one re-swept",
-                "         and it did NOT reproduce (now `shipped_gate_failed`)."
-                "  List them with `--stale-decisions`.",
+                "         Read the re-sweep base rate from the CORPUS, not from"
+                " this banner: a rate",
+                "         hardcoded in printed text goes stale silently, and"
+                " this one did.",
+                "         List them with `--stale-decisions`.",
             ]
         out[2:2] = block
     for s, n in sorted(r["per_status"].items(), key=lambda kv: -kv[1]):
