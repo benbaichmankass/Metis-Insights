@@ -822,6 +822,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # uncommitted work. Skipped under force_all, where nothing is relevance-
     # gated and coverage is already complete.
     dirty = [] if force_all else sorted(set(worktree_files()) - set(changed))
+    # Same capture, WITHOUT subtracting `changed`, for the end-of-run caveat.
+    # Two differences from `dirty`, both deliberate:
+    #   * no subtraction — a file both COMMITTED-changed and dirty is the case
+    #     that bites (it reads as covered while the edits on top of the commit
+    #     went unscanned), and subtracting it is exactly what hid it;
+    #   * not gated on force_all — `--all` disables RELEVANCE, not the commit
+    #     range, so diff-scoped guards are equally blind under it.
+    # Captured HERE for the reason the comment above gives: guards WRITE files
+    # (two `--matrix` steps rewrite docs/*-matrix.md), so sampling the tree
+    # after they run would report the harness's own output as the developer's
+    # uncommitted work. My first version of this caveat did sample afterwards
+    # and only escaped a false positive because those writes happened to be
+    # byte-identical that run.
+    tree_dirty_at_start = sorted(worktree_files())
 
     print("=" * 72)
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
@@ -952,13 +966,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # Computed independently of `force_all`: `--all` disables RELEVANCE, not
     # the commit range, so the diff-scoped guards are just as blind under it.
     #
-    # And deliberately NOT `set(worktree_files()) - set(changed)`, the way
-    # `dirty` above is built. Subtracting the changed set removes precisely the
-    # case that bites: a file both COMMITTED-changed and dirty is in `changed`,
-    # so it reads as covered, while the edits sitting on top of the commit were
-    # never scanned. My first attempt at this caveat made that subtraction and
-    # stayed silent on the exact tree that had just produced the false green.
-    tree_dirty = sorted(worktree_files())
+    # Sampled BEFORE any guard ran (see `tree_dirty_at_start` above) — guards
+    # write files, so sampling here would blame the harness's own output on the
+    # developer.
+    tree_dirty = tree_dirty_at_start
     if tree_dirty:
         caveats.append(f"{len(tree_dirty)} path(s) are UNCOMMITTED and every "
                        f"guard is scoped to a commit range, so nothing here "
