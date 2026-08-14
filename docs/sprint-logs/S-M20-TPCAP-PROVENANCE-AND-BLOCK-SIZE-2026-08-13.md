@@ -261,6 +261,52 @@ touched, no Tier-3 change enacted.**
     as 24 interchangeable observations — they are **shape×leg** and **shape×τ**,
     different units.
 
+27. **PR #9127 merged (`29a5cf85`)** — doc §§ 13–15, sprint items 21–26,
+    `BL-20260814-PROBE-COUNTED-TIES-AS-WINS`. Docs + backlog only. Notable: the
+    first push failed `artifact-validity-guard`, and marking the PR
+    ready-for-review re-fires the whole check suite, so a merge attempted
+    immediately after the conversion 405s on `guards` still in progress — worth
+    knowing rather than re-diagnosing.
+
+28. **PR #9132 merged (`b8e9ab66`) — the matrix itself, with no re-grade.** Two
+    changes to `exit-refinement-coverage.json`, both verified by **diffing
+    `m20_coverage_rollup.py --json` before and after** rather than asserted:
+
+    (a) The three shipped donchian-1h `exit_head_ml` refs carried an **identical
+    July-only ref** with nothing recording that an August re-sweep had been run —
+    the same defect item 11 found in the blocked bucket. Each now carries its own
+    **per-leg** result plus an **inline warning** that the §§ 10–11 nested figures
+    grade τ *selection* and do not describe these cells. That warning exists
+    because I got it wrong (item 21); it means the matrix alone is now sufficient
+    to stop the next reader repeating it, without their having to find the doc.
+    **0 statuses changed across all 52 rows**, asserted by the edit script.
+
+    (b) `fvg_range_15m / trail_geometry` was `blocked` while its own ref read
+    *"lever not applicable … nothing to vary"*. The legend defines `blocked` as
+    "cannot process yet (**reason given**)" and `n/a` as "structurally
+    inapplicable", so this was a **mis-status**, not a judgement call.
+    Re-statused; the only field that moved in the rollup JSON was
+    `matrix_updated_at`.
+
+    Filed `BL-20260814-COVERAGE-MATRIX-BLOCKED-REASON-VOCABULARY` for two defects
+    **not** fixed: `xauusd_trend_1h / exit_head_ml` carries a **bare `blocked`**
+    with no reason suffix and a ref that **begins with the word "same"** — a
+    dangling antecedent left by the 2026-08-09 row explosion — so its reason is
+    genuinely unrecoverable from the file and **was not invented**; and
+    `blocked:native-history-thin` uses hyphens where all five sibling reasons use
+    underscores. The suffix is the only machine-readable statement of *why* a cell
+    is open, and the done-condition can only be driven down by resolving those
+    reasons.
+
+    **Two of my own re-derivations were wrong here and caught by cross-checking
+    the authoritative script.** An ad-hoc scan tested `status == 'blocked'` and
+    silently missed every `blocked:<reason>` variant, returning an empty set that
+    looked like a clean answer — the same shape as the ties-as-wins bug in item
+    24, and the reason the measured status vocabulary (12 distinct values across
+    416 cells) went into the backlog row. `m20_coverage_rollup.py` is the
+    authority on this file's population; hand-iterating it is how you get a
+    confident wrong count.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
