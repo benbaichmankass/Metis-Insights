@@ -398,6 +398,42 @@ touched, no Tier-3 change enacted.**
     so it goes to the operator. The full argument **and** the fleet context are
     written into the cell's own ref, so the decision needs no archaeology.
 
+33. **⛔ Every exit-head round on disk was built on a NO-TAKE-PROFIT book** (doc
+    § 18, `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`, **high**). The
+    session's largest-scope finding, and it was found by *launching a round and
+    reading what it actually executed* rather than by reading the code first.
+
+    **`m20_exit_head_round.py` structurally cannot produce a live-parity book:**
+    line 145 calls `base_args` with five positional args so `tp_cap_pct` defaults
+    to `0.0`; `base_args` appends `--tp-r`/`--tp-cap-pct` only when that is
+    `> 0.0` (line 386); and the driver's argparse has **no `--tp-cap-pct` option
+    at all**. Every harness runs at `tp_cap_pct=0.0, tp_r=50.0` — no TP. Visible
+    in my own launch log: `--trail-mult 3.5` present, `--tp-r` **absent**, on a
+    leg declaring `tp_r: 6.0`. Aborted and **quarantined** to
+    `prop_1h.ABORTED-WRONG-GEOMETRY/` + `DO-NOT-USE.txt`.
+
+    **A method I tried first was void, and its own positive control caught it.**
+    Searching `round_report.json` for the flags returned `--trail-mult: False` on
+    *every* round including ones whose logs carry it — that file does not record
+    args at all. **It would have returned exactly the answer I expected.** The
+    conclusive method was independent: exit-reason distributions over 11 of the 13
+    round dirs with a readable `exit_reason` (n=63…977) — `trail_stop`/`stop`/
+    `timeout`/`flip`/`stale_stop`, **zero take-profit exits**, `donchian_1h_nested`
+    included. `scalp_15m`/`scalp_5m` stamp none, so **undetermined, not confirmed**.
+
+    **The self-caveat this forces, stated precisely:** it does **not** invalidate
+    §§ 13–16 — those are *within-book* arm contrasts over identical folds and
+    trades (61 of 66 active leg-folds, counts identical on all). A shared geometry
+    bias cancels in the difference. It **does** condition their transfer to
+    production, where the clamp truncates exactly the long right tail the
+    conditional arm buys, so magnitudes and possibly sign need not carry. **The
+    direction of that error is not known and is not guessed at.**
+
+34. **`claim-basis-guard` caught my own new row** for quoting `100%` and `9.9%`
+    with no parseable denominator — a correct catch, and *"always state the
+    population"* is a rule this session leaned on repeatedly, so failing it was my
+    own inconsistency. Populations now stated in the row.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
