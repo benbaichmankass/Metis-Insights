@@ -1683,7 +1683,7 @@
       },
       "exit_head_ml": {
         "status": "passed_unshipped",
-        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — CANDIDATE. n_oos=800, auc=0.6149, beats_actual=12/16, beats_hard=12/16. Unblocked by operator decision 2026-08-13: the E1->E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3). NOTE the population: all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative."
+        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — CANDIDATE. n_oos=800, auc=0.6149, beats_actual=12/16, beats_hard=12/16. Unblocked by operator decision 2026-08-13: the E1->E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3). NOTE the population: all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative. || CONFIRMED 2026-08-14 (round scalp_5m_20260814T151003Z, relay #9333): reproduces at live parity, n_oos 800 -> 1150, auc 0.6149 -> 0.6184, beats_actual 22/23. BUT MARGINAL on the binding term: beats_hard 16/23 clears by 2 points of 46, so one fold the other way (15/23 -> 45) fails it. Read the confirmation with that width."
       },
       "trail_decay": {
         "status": "n/a",
@@ -1721,7 +1721,7 @@
       },
       "exit_head_ml": {
         "status": "passed_unshipped",
-        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — CANDIDATE. n_oos=650, auc=0.613, beats_actual=12/13, beats_hard=9/13. Unblocked by operator decision 2026-08-13: the E1->E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3). NOTE the population: all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative."
+        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — CANDIDATE. n_oos=650, auc=0.613, beats_actual=12/13, beats_hard=9/13. Unblocked by operator decision 2026-08-13: the E1->E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3). NOTE the population: all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative. || CONFIRMED 2026-08-14 (round scalp_5m_20260814T151003Z, relay #9333): reproduces at live parity, n_oos 650 -> 1100, auc 0.613 -> 0.5987, beats_actual 21/22, beats_hard 19/22 -> candidate, clearing by 13 points of 44."
       },
       "trail_decay": {
         "status": "n/a",
@@ -1759,7 +1759,7 @@
       },
       "exit_head_ml": {
         "status": "honest_negative",
-        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — DOWNGRADED from candidate. n_oos=1000, auc=0.6221, beats_actual=18/20, beats_hard=13/20. Under 3-fold calendar-year folds this read 3/3 and graded 'candidate'; given more folds it fails the hard-rule bar. 3-fold years-mode was systematically optimistic across the fleet: 2 downgrades, 0 upgrades."
+        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — DOWNGRADED from candidate. n_oos=1000, auc=0.6221, beats_actual=18/20, beats_hard=13/20. Under 3-fold calendar-year folds this read 3/3 and graded 'candidate'; given more folds it fails the hard-rule bar. 3-fold years-mode was systematically optimistic across the fleet: 2 downgrades, 0 upgrades. || COUNTER-EVIDENCE 2026-08-14 (round scalp_5m_20260814T151003Z, relay #9333): re-measured at live parity on a 45% LARGER book and the NEGATIVE DID NOT SURVIVE — n_oos 1000 -> 1450, auc 0.6221 -> 0.6175, beats_actual 25/29, beats_hard 24/29 -> CANDIDATE, clearing the gate by 14 points of 58 on the binding beats_hard term. Status left at honest_negative deliberately: a recorded verdict is not flipped on one re-measurement inside the session that produced it. QUEUED for the operator."
       },
       "trail_decay": {
         "status": "n/a",
@@ -1835,7 +1835,7 @@
       },
       "exit_head_ml": {
         "status": "passed_unshipped",
-        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — CANDIDATE. n_oos=600, auc=0.6038, beats_actual=12/12, beats_hard=11/12. Unblocked by operator decision 2026-08-13: the E1->E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3). NOTE the population: all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative."
+        "ref": "E1 RE-RUN 2026-08-13 (relay #8963, fold-mode=trades, fold_blocks fix) — CANDIDATE. n_oos=600, auc=0.6038, beats_actual=12/12, beats_hard=11/12. Unblocked by operator decision 2026-08-13: the E1->E2 gate's LIVE arm is a wiring check, not the evidence — the backtest is. Awaiting E3 ship (Tier-3). NOTE the population: all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative. || STILL UNMEASURED 2026-08-14 (round scalp_5m_20260814T151003Z): SKIPPED on data_missing:BTCUSDT. BTC is the one 5m symbol with no canonical data/<SYM>_5m.csv; its 647k-row series sits under a backtest_ prefix the resolver's {btcusdt,btc} prefix set cannot match. The exact-tf probe that fixes this is on the PR branch and the trainer runs main, so this cell stays unmeasurable until #9257 merges. BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME"
       },
       "trail_decay": {
         "status": "n/a",
