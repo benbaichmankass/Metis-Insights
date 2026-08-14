@@ -931,6 +931,39 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # and the reader takes it as a statement about their change. Both routes
     # below end with a guard the reader believes ran and which did not.
     caveats = []
+    # A guard that RAN is not evidence about work that is not committed. Every
+    # guard here is scoped to a COMMIT RANGE — either `{pr_diff}`, generated
+    # above from `origin/<base>...HEAD`, or its own `--base origin/<base>`.
+    # Neither range contains the working tree, so a dirty file is invisible to
+    # a guard that ran, passed, and was counted.
+    #
+    # `unchecked` above does NOT cover this. It reports guards RELEVANCE
+    # skipped, and relevance is a union: if any COMMITTED file already made a
+    # guard relevant, it runs, is counted as passed, and never appears in
+    # `unchecked` — while still having scanned a range without your edits.
+    # That is the hole this closes, and it is not hypothetical: on 2026-08-14
+    # a local run of this script printed "All relevant guards passed" over a
+    # truncated backlog id in an UNCOMMITTED comment; the same commit failed
+    # `artifact-validity-guard` in CI minutes later, because CI necessarily
+    # scans committed code. The sprint log already recorded "committing first
+    # was necessary and never sufficient" — this is the converse half, where
+    # the commit was simply skipped and the harness said green anyway.
+    #
+    # Computed independently of `force_all`: `--all` disables RELEVANCE, not
+    # the commit range, so the diff-scoped guards are just as blind under it.
+    #
+    # And deliberately NOT `set(worktree_files()) - set(changed)`, the way
+    # `dirty` above is built. Subtracting the changed set removes precisely the
+    # case that bites: a file both COMMITTED-changed and dirty is in `changed`,
+    # so it reads as covered, while the edits sitting on top of the commit were
+    # never scanned. My first attempt at this caveat made that subtraction and
+    # stayed silent on the exact tree that had just produced the false green.
+    tree_dirty = sorted(worktree_files())
+    if tree_dirty:
+        caveats.append(f"{len(tree_dirty)} path(s) are UNCOMMITTED and every "
+                       f"guard is scoped to a commit range, so nothing here "
+                       f"scanned them ({', '.join(tree_dirty[:5])}"
+                       f"{' …' if len(tree_dirty) > 5 else ''})")
     if unchecked:
         caveats.append(f"{len(unchecked)} guard(s) were not selected because "
                        f"your work is uncommitted")

@@ -149,7 +149,8 @@ def _resolve_one(sym: str, tf: str, data_dir: Path) -> tuple[str | None, str | N
     if native.exists():
         return str(native), None
     # EXACT-TIMEFRAME ONLY, and deliberately NOT inside the grain loop below
-    # (BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV). Some series live under a
+    # (BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME).
+    # Some series live under a
     # `backtest_` prefix rather than the canonical spelling — BTC 5m is the
     # live case: `backtest_BTCUSDT_5m.csv` is 647,585 rows (2020-03-25..
     # 2026-05-21), deeper than any canonical alt 5m file, and is already the
