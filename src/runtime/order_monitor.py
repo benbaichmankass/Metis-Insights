@@ -6514,7 +6514,7 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     global _LAST_IB_BROKER_NAKED_CHECK_MONO
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0, "skipped": 0,
-        "partially_naked": 0, "ungradeable": 0,
+        "partially_naked": 0, "ungradeable": 0, "read_failed": 0, "covered": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
     if interval <= 0:
@@ -6603,7 +6603,21 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 )
             cov = protected_cache[cache_key]
             if cov is None:
-                continue  # read failure ⇒ skip (fail-safe, never re-arm blind)
+                # Fail-safe skip (never re-arm on an unconfirmed read) — but say
+                # so. A bare `continue` here made "the sweep ran and could not
+                # read" indistinguishable from "the sweep never ran", which is
+                # the collapsed-state shape this repo has a guard for, and it
+                # blocked verifying the coverage fix on the 2026-08-14 deploy:
+                # the post-restart breaker was open, every read returned None,
+                # and the logs were silent either way.
+                summary["read_failed"] += 1
+                logger.info(
+                    "_check_broker_naked_ib_positions: %s/%s coverage read "
+                    "unavailable (breaker open / gateway unreachable) — "
+                    "skipping, protection left as-is",
+                    account_id, protect_symbol,
+                )
+                continue
             size = float(cov.get("size") or 0.0)
             covered = float(cov.get("covered_qty") or 0.0)
             if size <= 0:
@@ -6622,6 +6636,7 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 )
                 continue
             if covered >= size - _IB_COVERAGE_EPSILON:
+                summary["covered"] += 1
                 continue  # fully covered
             # Partially covered is the case the old boolean could not see: a
             # surviving sibling leg made the whole netted position read
@@ -6678,6 +6693,20 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 "_check_broker_naked_ib_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
+    if summary["checked"]:
+        # One line per sweep that actually looked at something, so the pass is
+        # observable even when it changes nothing. Without it the ONLY evidence
+        # the sweep runs is a re-arm — i.e. it is visible exactly when something
+        # is wrong and invisible when it is working, which is the wrong way
+        # round for confirming a deploy.
+        logger.info(
+            "_check_broker_naked_ib_positions: swept %d open IB position(s) — "
+            "covered=%d naked=%d partially_naked=%d rearmed=%d "
+            "read_failed=%d ungradeable=%d errors=%d",
+            summary["checked"], summary["covered"], summary["broker_naked"],
+            summary["partially_naked"], summary["rearmed"],
+            summary["read_failed"], summary["ungradeable"], summary["errors"],
+        )
     return summary
 
 
