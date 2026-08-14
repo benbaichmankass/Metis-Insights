@@ -1517,6 +1517,63 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     at 08:50 unattended is a worse outcome than a fourth session hitting the
     trap.
 
+58. **The "wait for more trades" disposition on two SHIPPED cells is false,
+    and the mechanism is that the split targets exactly the floor** —
+    `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`.
+
+    Item 56 raised the stale-decision base rate to 3-of-4 not reproducing,
+    which makes the *un-re-swept* stale decisions the real exposure. I had been
+    repeating all night — inherited, never checked — that the five non-exit-head
+    ones are "a wait, OOS 24/24/22/4 against a floor of 25". Measured the two I
+    had no number for (relay #9209, config-exact, live parity):
+
+    | leg | lifetime | OOS @ 2025-07-01 | span |
+    |---|--:|--:|---|
+    | `htf_pullback_trend_2h` | 407 | **97** | 2021-07-21 .. 2026-07-10 |
+    | `tlt_pullback_1h` | 527 | **60** | 2017-03-30 .. 2026-06-18 |
+
+    Neither is trade-starved. So why was `htf_pullback_trend_2h`/`trail_geometry`
+    refused today with `base OOS n (24)`? From source:
+
+    ```
+    --split-mode        default 'oos-trades'
+    --split-target-oos  default MIN_OOS_TRADES  (= 25)
+        "Defaults to the floor a cell is judged against, so the boundary
+         aims at exactly what the verdict requires."
+    ```
+
+    **Aiming at exactly the floor means any boundary loss fails**, and
+    `resolve_split`'s own docstring already says the loss exists: *"THE TARGET IS
+    NOT THE ACHIEVED COUNT … the harness windows CANDLES, not trades, so an OOS
+    run … needs warmup."* Derive ~25 → warmup shaves to 24 → refuse at 24 < 25.
+    **Re-running can never help**, because the split is re-derived to target 25
+    every time, whatever the leg has accumulated.
+
+    So the cell's recorded conclusion — *"re-running returns exactly this
+    again"* — is **right**, and its reason is **wrong**. It is not waiting for
+    trades; it has 97 and was handed a window containing 24.
+
+    **The distinction is the finding, not "the sweep is broken".** For
+    `mes_trend_long_1d` (5 OOS) and `mhg_pullback_1d` (10 OOS) the same
+    derivation is doing exactly the job it was built for — item 50 measured
+    those. The defect bites the legs with plenty of trades, which is the
+    opposite of where anyone would look.
+
+    **What I did NOT verify, and said so in the item:** whether run
+    31771809102 actually used the default split mode. The cell ref does not
+    record it — which is its own gap, since `resolve_split` deliberately returns
+    mode and target *"so a verdict states its own derivation"*. A cell refused
+    for thin OOS that does not say which split produced the number is
+    diagnostic-provenance sub-class B one level up. Resolution criterion (1) is
+    written to FALSIFY the item if the re-run still returns 24.
+
+    **Deliberately not fixed tonight.** Changing the default changes which
+    verdicts the sweep produces fleet-wide, and picking a new target without a
+    measured boundary-loss distribution would repeat the exact error being
+    reported — the current value was chosen because it *looked* principled
+    ("aims at exactly what the verdict requires"). Filed with a falsifiable
+    first step instead.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
