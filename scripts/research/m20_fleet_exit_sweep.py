@@ -1962,6 +1962,24 @@ def main(argv: list[str]) -> int:
             entry["split_lifetime_trades"] = split_meta.get(
                 "split_lifetime_trades")
             entry["split_fallback"] = split_meta.get("split_fallback")
+            # THE CLAMP MUST RIDE WITH THE TARGET OR THE ROW LIES BY OMISSION.
+            # `split_target_oos` above is what the CALLER ASKED FOR; when the
+            # leg could not support it, `resolve_split` clamps and derives at a
+            # smaller one. Without these two keys the corpus row reads
+            # `split_target_oos: 35` for a run that used 32 -- a row reporting a
+            # target it did not use, which is exactly what resolve_split's own
+            # docstring forbids.
+            #
+            # Caught 2026-08-14 by reading back the twelve OFF-arm rows this
+            # session had just produced: the three clamped rows landed with
+            # `split_target_clamped_to: null` while their OOS window had
+            # visibly moved 4 -> 31. The meta carried the clamp, the writer
+            # dropped it, and nothing downstream could tell. Verifying my own
+            # output is what found it; the sweep itself was correct.
+            entry["split_target_clamped_from"] = split_meta.get(
+                "split_target_clamped_from")
+            entry["split_target_clamped_to"] = split_meta.get(
+                "split_target_clamped_to")
             if _thin:
                 # Record what it WOULD have been, so the floor's effect on this
                 # cell is auditable rather than invisible.

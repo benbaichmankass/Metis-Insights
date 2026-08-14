@@ -183,3 +183,24 @@ def test_the_clamp_never_reports_a_target_it_did_not_use(fake_harness) -> None:
     assert meta["split_target_oos"] == 35, "the requested value is preserved"
     assert meta["split_target_clamped_to"] == 32, "the used value is recorded"
     assert meta["split_target_clamped_to"] != meta["split_target_oos"]
+
+
+def test_the_corpus_entry_carries_the_clamp_beside_the_target() -> None:
+    """A row recording only the REQUESTED target describes a run that did not happen.
+
+    Found by reading back the twelve OFF-arm rows this change produced: three
+    landed with `split_target_clamped_to: null` while their OOS window had
+    visibly moved 4 -> 31. The meta carried the clamp and the corpus writer
+    dropped it, so `split_target_oos: 35` sat on rows derived at 32 and nothing
+    downstream could tell.
+
+    Asserted against the SOURCE rather than a synthetic run because the writer
+    lives inside `main()`'s cell loop and is not otherwise reachable — the same
+    reason `insufficient_base_reason` was extracted as a pure function.
+    """
+    src = (REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py").read_text()
+    for key in ("split_target_clamped_from", "split_target_clamped_to"):
+        assert f'entry["{key}"] = split_meta.get(' in src, (
+            f"the corpus entry does not carry {key}; a clamped run would "
+            f"report a target it never used"
+        )
