@@ -237,6 +237,30 @@ touched, no Tier-3 change enacted.**
     acceptable outcomes (adopt with a demonstrated positive control, or close with a
     written reason); "be more careful with probe labels" is explicitly excluded.
 
+26. **The penalty is not a donchian artefact** (#9130/#9131, doc § 15). §§ 13–14
+    cover the family whose head has **no** causal edge, leaving the reading
+    "conditioning only looks bad bolted to a weak head". Scalp is the control —
+    the family whose edge *survives* nested τ selection. **All twelve scalp
+    shape×τ cells cost drawdown, all at `t ≥ 3.01`, with 6 or 7 of 7 legs
+    individually agreeing.** And on that family the live-style shape's net_R cost
+    is **larger**, not smaller (`below_half_r` `t` −6.76/−6.47/−4.62 vs
+    −0.50/−0.41/−1.18 on donchian) — the coherent direction, since overriding a
+    head that is right more often is more expensive. **One exception recorded
+    rather than smoothed over:** `age8` does not cost net_R on scalp (positive at
+    all three τ, never significantly), so the universal claim is about
+    **drawdown**, not net_R; `age8` also carries the largest drawdown cost, so it
+    is not a way out.
+
+    **Caught a 1-of-7 sample before quoting it.** The scalp round writes **one
+    report per leg** (7 files) where donchian wrote one combined report. The first
+    probe took `cands[0]` and measured `ict_scalp_5m` alone — a single leg that
+    would have carried a family label. The probe's own discovery block printed all
+    seven paths, which is the only reason the gap was visible; re-run across all
+    seven with the count as an explicit denominator and a per-leg agreement
+    column. Also tightened the write-up so the two 12-cell tables are not summed
+    as 24 interchangeable observations — they are **shape×leg** and **shape×τ**,
+    different units.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
