@@ -14968,6 +14968,27 @@
         "trainer relay #9297 (the 15m scalp launch whose command exposed it)",
         "BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP"
       ]
+    },
+    {
+      "id": "BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING",
+      "opened_at": "2026-08-14T14:20:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14)",
+      "severity": "high",
+      "tier": "1 (research tooling; no live path) — but it conditions Tier-3 evidence",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "42 of 43 regime_flip_exit negatives were graded on NO-TAKE-PROFIT books: three sibling drivers still call base_args positionally, and none of them stamps a geometry",
+      "detail": "FOUND BY APPLYING THE LESSON FROM THE SAME DAY'S FIX, not by a new symptom. `BL-20260814-EXIT-HEAD-ROUND-STAMPS-LIVE-PARITY-ON-FAMILIES-THAT-NEVER-GOT-THE-CAP` ended with 'a per-file fix for a class leaves every sibling that shares the class'. Auditing the other `base_args` callers found three that still carry the ORIGINAL defect (`BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`), which the exit-head driver was fixed for earlier today:\n\n  scripts/research/m20_flip_replay_sweep.py:65   base_args(name, cfg, fam, data, resample)\n  scripts/research/m21_entry_head_round.py:125   base_args(name, cfg, fam, data, resample)\n  scripts/research/m21_entry_sweep.py:133        base_args(name, cfg, fam, data, resample)\n\n`tp_cap_pct` is the 6th positional parameter and defaults to `0.0`, and `base_args` gates on `if tp_cap_pct > 0.0 and fam in LIVE_TP_CAPPED_FAMILIES`. DEMONSTRATED rather than reasoned, on a real leg (`trend_donchian_eth_4h`, family `donchian`): the sibling call shape yields `--tp-cap-pct present: False | --tp-r present: False`, the exit-head call shape yields `True | True`. So the sibling books have **no take-profit target at all** — not merely an uncapped one — for every donchian/pullback/fade/squeeze leg.\n\n**IMPACT, and it is larger by cell count than the exit-head instance.** `m20_flip_replay_sweep` is what produced the `regime_flip_exit` column. Measured against the committed matrix: the column holds 43 `honest_negative`, 8 `n/a`, 1 `pending`, and **42 of the 43 negatives are capped-family legs** (donchian 22, pullback 19, squeeze 1). So essentially the entire regime_flip_exit negative column was graded on a book production does not run, on legs whose live unit clamps TP at 9.9%.\n\n**AND IT IS INVISIBLE.** Unlike the exit-head driver — which at least stamped a geometry, even a wrong one — these three write NO geometry field at all (`grep -c 'tp_cap|geometry'` returns 0 for both m21 drivers). There is no field in their output a reader could check, which is why 42 cells accumulated without anyone noticing. That is sub-class C, an unasserted denominator, in the strongest form: not a mislabelled value but an absent one.\n\n**WHY THIS IS NOT AUTOMATICALLY 'RE-RUN EVERYTHING'.** A regime-flip exit fires on an ADX regime flip, and a take-profit that closes the trade EARLIER mechanically removes opportunities for a later flip to fire — so a no-TP book plausibly OVERSTATES the flip lever's opportunity, meaning the negatives may hold or even strengthen at live parity. That is a hypothesis about the direction, not a result; the point is that nobody has measured it and the column reads as though someone had.\n\n**Scope note:** `m20_flip_replay_sweep` is M20 (mine). The two `m21_entry_*` drivers belong to the entry-head workstream, so their books are conditioned the same way but the call is not mine to make unilaterally.",
+      "resolution_criteria": "(1) Decide, per driver, whether its book SHOULD be live-parity. For `m20_flip_replay_sweep` the answer is almost certainly yes — its verdicts feed a matrix column that is read as evidence about live legs — in which case pass `tp_cap_pct` through and re-run, treating the existing 42 negatives as provisional until they reproduce. (2) Whatever is decided, every one of these drivers must STAMP the geometry it ran, using the same four-state derivation now in `m20_exit_head_round.py` (`live_parity_capped` / `live_parity_uncapped` / `NO_TAKE_PROFIT` / `MIXED_capped_and_uncapped_families`), so the next reader can check rather than trust. An unstamped research output is the condition that let 42 cells accumulate silently. (3) Consider a guard asserting that any caller of `base_args` either passes `tp_cap_pct` explicitly or records why it does not — the positional default is what makes this failure silent and repeatable, and it has now recurred in four drivers.",
+      "refs": [
+        "scripts/research/m20_flip_replay_sweep.py:65",
+        "scripts/research/m21_entry_head_round.py:125",
+        "scripts/research/m21_entry_sweep.py:133",
+        "scripts/research/m20_fleet_exit_sweep.py:452 (the tp_cap_pct > 0.0 gate) + :283 (the positional signature)",
+        "docs/research/exit-refinement-coverage.json (regime_flip_exit column)",
+        "BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP",
+        "BL-20260814-EXIT-HEAD-ROUND-STAMPS-LIVE-PARITY-ON-FAMILIES-THAT-NEVER-GOT-THE-CAP"
+      ]
     }
   ]
 }

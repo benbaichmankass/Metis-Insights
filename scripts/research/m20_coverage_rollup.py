@@ -165,15 +165,50 @@ TP_PARITY_AFFECTED_FAMILIES = frozenset({"donchian", "pullback", "squeeze"})
 # A lever absent from this map falls back to `GEOMETRY_CUTOVER` — the default is
 # the common case, and a new lever cannot silently acquire a later bar than its
 # evidence deserves.
+# A DATE CANNOT SAY "NEVER", AND ONE LEVER NEEDS IT TO (2026-08-14).
+#
+# This map's contract is "the date THIS lever's harness started modelling the
+# live TP". For `regime_flip_exit` that harness — `m20_flip_replay_sweep.py` —
+# HAS NOT STARTED: it still calls `base_args(name, cfg, fam, data, resample)`
+# with no `tp_cap_pct`, which defaults to 0.0, and `base_args` then appends
+# neither `--tp-cap-pct` NOR `--tp-r` for a capped family. Demonstrated on
+# `trend_donchian_eth_4h` (family `donchian`): the positional call yields both
+# flags absent, the explicit call yields both present.
+#
+# Falling back to the default date was therefore an ANSWER SHAPED LIKE A RIGHT
+# ONE for the second time in this file: it asserts that column's evidence became
+# live-parity on 2026-08-10, so any cell dated after that reads `post_cutover`.
+# Measured against the committed matrix, 42 of the 43 `regime_flip_exit`
+# negatives are capped-family legs (donchian 22, pullback 19, squeeze 1) — i.e.
+# essentially the whole negative column was graded on a book with no take-profit
+# and was scoring as clean on a date test.
+#
+# `NEVER` is the honest value: no cell in such a column can be post-cutover,
+# whatever its date, until the harness is fixed. Removing the entry is what
+# marks the fix — not editing a date.
+GEOMETRY_CUTOVER_NEVER = "NEVER"
+
 LEVER_GEOMETRY_CUTOVER = {
     # the day `m20_exit_head_round.py` gained `--tp-cap-pct` (live parity as the
     # DEFAULT) and began stamping `_round_meta.tp_geometry` into round_report.json
     "exit_head_ml": "2026-08-14",
+    # `m20_flip_replay_sweep.py` still calls base_args positionally — its books
+    # model NO take-profit for every donchian/pullback/fade/squeeze leg, and it
+    # stamps no geometry at all, so there is not even a field to check.
+    # BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING
+    "regime_flip_exit": GEOMETRY_CUTOVER_NEVER,
 }
 
 
 def cutover_for(lever: str) -> str:
-    """The date THIS lever's harness started modelling the live TP."""
+    """The date THIS lever's harness started modelling the live TP.
+
+    May return `GEOMETRY_CUTOVER_NEVER` — the harness has not been fixed, so no
+    date can clear a cell in that column. Callers must handle that explicitly
+    rather than comparing it as a date: `max(dates) < "NEVER"` is True for every
+    ISO date by string order, which would accidentally give the right answer for
+    the wrong reason and break silently the day the sentinel changed.
+    """
     return LEVER_GEOMETRY_CUTOVER.get(lever, GEOMETRY_CUTOVER)
 
 
@@ -424,6 +459,13 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
                 stale = True          # measured; the date cannot overrule it
             elif geom == GEOMETRY_LIVE_PARITY:
                 stale = False         # declared by the round itself
+            elif cut == GEOMETRY_CUTOVER_NEVER:
+                # The harness never started modelling the live TP, so the date
+                # test cannot clear this cell. Counted as undeclared too: we
+                # still did not look at THIS cell's geometry, we merely know its
+                # producer could not have got it right.
+                out["geometry_undeclared"] += 1
+                stale = True
             else:
                 out["geometry_undeclared"] += 1
                 stale = (not dates) or max(dates) < cut
