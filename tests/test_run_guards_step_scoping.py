@@ -20,6 +20,7 @@ keeps saying so.
 from __future__ import annotations
 
 import importlib.util
+import pathlib
 import os
 import sys
 
@@ -130,3 +131,46 @@ class TestTheAffectedPopulationIsStated:
             "push-time coverage decision was measured against exactly two "
             "guards; re-measure before assuming it still holds"
         )
+
+
+# ---------------------------------------------------------------------------
+# The harness must GENERATE the diff it consumes (2026-08-14).
+#
+# Eight guards take `{pr_diff}` and scan ONLY that file. CI writes it in a
+# separate `guards.yml` step and exports GUARDS_PR_DIFF; nothing wrote it
+# locally, and the default is a fixed `/tmp/pr.diff` — so a local run rescanned
+# whatever STALE diff a previous run had left there and printed "All relevant
+# guards passed" over content unrelated to the branch. Measured: three
+# consecutive local runs reported diagnostic-provenance-guard PASS on a commit
+# where CI failed it, same command, same path.
+#
+# A stale diff is strictly worse than a missing one: an absent file errors,
+# a stale file passes.
+# ---------------------------------------------------------------------------
+
+def test_harness_generates_the_pr_diff_when_no_caller_supplied_one() -> None:
+    src = pathlib.Path(REPO, "scripts", "ci", "run_guards.py").read_text()
+    assert "could not generate the PR diff" in src, (
+        "run_guards no longer generates the diff its guards scan; a stale "
+        "/tmp/pr.diff will silently produce a false green"
+    )
+    # The generation must be skipped when a caller (CI) supplies the file,
+    # or the harness would clobber the diff the workflow just built.
+    assert "GUARDS_PR_DIFF" in src and "explicit_diff" in src, (
+        "the caller-supplied-diff escape hatch is gone; CI's own diff would be "
+        "overwritten"
+    )
+    # ...and a failure to produce it must be fatal, never a quiet continue.
+    assert "return 2" in src.split("could not generate the PR diff")[1][:400], (
+        "failing to build the diff must be a hard error — continuing would scan "
+        "a stale file and report a green having checked nothing"
+    )
+
+
+def test_ci_still_supplies_its_own_diff_so_the_two_paths_stay_distinct() -> None:
+    """The workflow builds the diff; the harness must not fight it."""
+    wf = pathlib.Path(REPO, ".github", "workflows", "guards.yml").read_text()
+    assert "GUARDS_PR_DIFF" in wf, (
+        "guards.yml no longer exports GUARDS_PR_DIFF, so run_guards would "
+        "regenerate the diff CI built — a different range on a merge commit"
+    )

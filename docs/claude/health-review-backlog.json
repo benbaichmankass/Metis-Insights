@@ -14828,6 +14828,25 @@
         "BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED",
         "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
       ]
+    },
+    {
+      "id": "BL-20260814-RUN-GUARDS-CONSUMES-A-DIFF-IT-NEVER-GENERATES-SO-LOCAL-RUNS-SCAN-A-STALE-FILE",
+      "opened_at": "2026-08-14T13:50:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14)",
+      "severity": "high",
+      "tier": "1 (CI harness; no live path)",
+      "status": "resolved",
+      "area": "research-tooling",
+      "title": "scripts/ci/run_guards.py consumed /tmp/pr.diff but never wrote it, so every local run scanned a STALE diff and reported 'All relevant guards passed'",
+      "detail": "THE DEFECT. 8 of the 38 registered guards take `{pr_diff}` and scan ONLY that file (api-tier-policy, diagnostic-provenance, dry-run, env-gate, new-table-wiring, silent-empty, strategy-risk-field, writer-conformance). CI builds it in a SEPARATE `guards.yml` step (`git diff origin/<base>...HEAD > /tmp/pr.diff`, line 93) and exports GUARDS_PR_DIFF. `run_guards.py` never wrote it -- it only read `--pr-diff`, defaulting to the fixed path `/tmp/pr.diff`. So a LOCAL run scanned whatever a previous run had left there. A file absent from that stale diff is never scanned at all, and the harness prints 'All relevant guards passed'.\n\nMEASURED 2026-08-14. Three consecutive local runs reported `diagnostic-provenance-guard PASS (0.2s)` on a tree where CI failed that exact guard on the same commit -- identical command, identical path, different file contents. The CI finding was real (2 sub-class-C universal claims with no denominator in `m20_exit_head_denominator.py`). Rewriting /tmp/pr.diff by hand with `git diff origin/main...HEAD` and re-running reproduced the failure immediately.\n\nWHY THIS MATTERS MORE THAN THE ONE FINDING. This session had already logged the recurring 'guards passed locally, failed on CI' pattern ELEVEN times and attributed it to running diff-scoped guards on uncommitted work. That diagnosis was incomplete: the harness itself could not see the change on ANY local run, committed or not. A stale diff is strictly worse than a missing one -- an absent file errors, a stale file PASSES -- which is why the failure always presented as a false green rather than a crash. It is also sub-class C in the harness that enforces sub-class C.\n\nNOT A CI DEFECT: CI was always correct, because the workflow builds the diff itself. The gap was local-only, which is exactly the surface a session uses to decide whether to push.",
+      "resolution_criteria": "DONE. `run_guards.py` now generates `{pr_diff}` from `origin/<base_ref>...HEAD` whenever no caller supplied one (GUARDS_PR_DIFF unset AND no `--pr-diff` argument), prints the path and line count so the scanned range is visible, and returns 2 rather than continuing if the diff cannot be produced -- refusing to scan a stale file instead of reporting a green that checked nothing. CI is untouched: it exports GUARDS_PR_DIFF, which suppresses generation, so the workflow's own range still wins. Verified by planting an EMPTY /tmp/pr.diff (regenerated to 1,070 lines), by confirming an explicit GUARDS_PR_DIFF is never overwritten, and by planting the real violation behind a stale diff and watching the run go rc=1 where it previously passed. Pinned by 2 tests in tests/test_run_guards_step_scoping.py, both proven load-bearing by removing the fix (1 failed).",
+      "refs": [
+        "scripts/ci/run_guards.py (diff generation + explicit_diff escape hatch)",
+        ".github/workflows/guards.yml:93 (the step that builds the diff in CI)",
+        "tests/test_run_guards_step_scoping.py",
+        "scripts/check_diagnostic_provenance.py (the guard whose false green exposed this)",
+        "PR #9257 check_run 94775601819 (the CI failure that contradicted three local passes)"
+      ]
     }
   ]
 }

@@ -44,6 +44,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -772,6 +773,45 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"{g['name']:34s} {scope}")
         print(f"\n{len(GUARDS)} guards")
         return 0
+
+    # GENERATE THE DIFF WE CONSUME, unless a caller supplied one.
+    #
+    # Eight guards take `{pr_diff}` and scan ONLY that file. CI writes it in a
+    # separate workflow step (`guards.yml`: `git diff origin/<base>...HEAD >
+    # /tmp/pr.diff`) and passes GUARDS_PR_DIFF; nothing wrote it locally, and
+    # the default path is a fixed `/tmp/pr.diff`. So a local run silently
+    # rescanned whatever STALE diff a previous run had left there and printed
+    # "All relevant guards passed" over content that had nothing to do with the
+    # current branch — a file absent from that stale diff is never scanned at
+    # all.
+    #
+    # Measured 2026-08-14: three consecutive local runs reported
+    # diagnostic-provenance-guard PASS on a commit where CI failed it, on the
+    # same command and the same path, because /tmp/pr.diff was stale. This is
+    # the mechanism behind a failure this session had already logged as "guards
+    # were run on uncommitted work" — that diagnosis was incomplete, and a
+    # stale diff is strictly worse than a missing one because an absent file
+    # errors while a stale file passes.
+    #
+    # A guard that cannot see the change it is scoped to is not a guard, so a
+    # failure to produce the diff is a hard error, never a quiet continue.
+    argv_seq = list(sys.argv[1:] if argv is None else argv)
+    explicit_diff = bool(os.environ.get("GUARDS_PR_DIFF")) or any(
+        a == "--pr-diff" or a.startswith("--pr-diff=") for a in argv_seq
+    )
+    if not explicit_diff and args.event_name != "push":
+        rng = f"origin/{args.base_ref}...HEAD"
+        proc = subprocess.run(["git", "diff", rng], cwd=REPO,
+                              capture_output=True, text=True)
+        if proc.returncode != 0:
+            print(f"::error::could not generate the PR diff for {rng}: "
+                  f"{proc.stderr.strip()} — refusing to scan a stale or absent "
+                  f"{args.pr_diff}, which would report a green having checked "
+                  f"nothing.")
+            return 2
+        Path(args.pr_diff).write_text(proc.stdout)
+        print(f"generated {args.pr_diff} from {rng} "
+              f"({len(proc.stdout.splitlines())} lines)")
 
     changed = [] if args.all else changed_files(args.base_ref, args.event_name)
     harness_touched = any(f in HARNESS_PATHS for f in changed)
