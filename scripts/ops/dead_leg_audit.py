@@ -54,22 +54,14 @@ import sqlite3
 import sys
 from typing import Any, Dict, List, Optional
 
-# Terminal statuses that mean THE ORDER REACHED THE EXCHANGE AND BECAME A
-# POSITION. This is the numerator that matters: not "did we try", but "did a
-# position exist". `orphaned` counts as placed — an orphan is a position the
-# journal lost track of, which is a different (also bad) problem, and folding it
-# into "never placed" would blame the wrong defect.
-_PLACED_STATUSES = ("open", "closed", "orphaned")
-
-# Statuses that mean the order DIED BEFORE BECOMING A POSITION. Kept as distinct
-# buckets rather than one "failed" count, because they route to different
-# owners: a venue rejection is an order-construction bug, a risk refusal is a
-# sizing/limits question, and conflating them is how a fix gets aimed wrong.
-_REFUSED_STATUSES = (
-    "rejected",              # refused before submission (risk / intent layer)
-    "exchange_rejected",     # the venue bounced it
-    "rejected_too_small",    # sub-minimum qty
-)
+# The status vocabulary + the verdict rule live in `src/runtime/dead_leg.py`,
+# because the LIVE latched alert (`src/runtime/silent_refusal_alert.py`) grades
+# the same column and two copies would drift — this report calling a leg healthy
+# while the alert calls it dead. The status tuples themselves are deliberately
+# NOT re-exported here: nothing imports them from this module, and a re-export
+# kept "for compatibility" with no importer is just a second name for the same
+# constant, which is the drift this move exists to remove.
+from src.runtime.dead_leg import bucket_for, verdict_for  # noqa: E402
 
 
 def _resolve_db(explicit: Optional[str]) -> str:
@@ -157,28 +149,17 @@ def audit(db: str, days: int) -> Dict[str, Any]:
             "by_status": {},
         })
         leg["by_status"][status or "?"] = n
-        if status in _PLACED_STATUSES:
-            leg["placed"] += n
-        elif status in _REFUSED_STATUSES:
-            leg["refused"] += n
-        else:
-            # An unrecognised status is NOT silently folded into either bucket —
-            # a new status the venue or the reconciler starts writing would
-            # otherwise change every leg's verdict invisibly.
-            leg["other"] += n
+        # An unrecognised status is NOT silently folded into either bucket — a
+        # new status the venue or the reconciler starts writing would otherwise
+        # change every leg's verdict invisibly. `bucket_for` owns that rule.
+        leg[bucket_for(status)] += n
 
     out: List[Dict[str, Any]] = []
     for leg in legs.values():
         total = leg["placed"] + leg["refused"] + leg["other"]
         leg["total_rows"] = total
-        if leg["placed"] == 0 and leg["refused"] > 0:
-            leg["verdict"] = "signalled_never_placed"
-        elif leg["placed"] == 0 and leg["other"] > 0:
-            leg["verdict"] = "no_placed_rows_unrecognised_status_only"
-        elif leg["placed"] > 0 and leg["refused"] == 0:
-            leg["verdict"] = "healthy"
-        else:
-            leg["verdict"] = "partially_refused"
+        leg["verdict"] = verdict_for(leg)
+        if leg["verdict"] == "partially_refused":
             leg["refusal_rate"] = round(leg["refused"] / total, 4) if total else None
         out.append(leg)
 
