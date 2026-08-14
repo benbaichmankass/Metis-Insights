@@ -1339,20 +1339,46 @@ class IBClient:
 
         ib = self.connect()
         sym = str(order.get("symbol") or self.symbol or "").upper()
-        # Accumulation guard (BL-20260624-MHG-FLIP). Cancel any resting protective
-        # legs for this symbol BEFORE placing the fresh OCA pair. place_protective
-        # is reached on every re-arm — orphan adopt/reattach
+        # Accumulation guard (BL-20260624-MHG-FLIP). Cancel resting protective
+        # legs BEFORE placing the fresh OCA pair. place_protective is reached on
+        # every re-arm — orphan adopt/reattach
         # (_rearm_broker_protection_after_recovery) and naked-autoprotect — and
-        # each call makes a NEW independent OCA group (oca-protect-<reqId>). Without
-        # a pre-cancel, repeated re-arms across an orphan flap STACK multiple live
-        # OCA brackets on the same position; their stops later fire together and
-        # FLIP a (by-then flat) position into a reverse orphan — the MHG long that
-        # closed clean then reappeared as a short (2026-06-24). This mirrors the
-        # cancel-then-re-arm discipline already in modify_protective(); making
-        # place_protective itself idempotent fixes every direct caller. Best-effort:
-        # a cancel failure must not block arming protection on a live naked position.
+        # without a pre-cancel, repeated re-arms across an orphan flap STACK
+        # multiple live OCA brackets on the same position; their stops later fire
+        # together and FLIP a (by-then flat) position into a reverse orphan — the
+        # MHG long that closed clean then reappeared as a short (2026-06-24).
+        #
+        # SCOPE (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY, 2026-08-14).
+        # This used to cancel EVERY resting order on the symbol root, then arm a
+        # single OCA sized to the CALLING trade's qty. IB nets per contract per
+        # account, so on a contract several strategies trade that silently
+        # DESTROYED the siblings' protection: three MGC trades, one goes naked,
+        # the re-arm wipes the other two trades' take-profit legs and replaces
+        # them with one bracket covering only its own qty. The siblings' TPs then
+        # never fire, and the boolean naked check reported PROTECTED afterwards
+        # because a leg (the new one) existed. That is the mechanism behind a
+        # take-profit that was reached and never executed.
+        #
+        # With a DETERMINISTIC per-trade OCA group (``oca_key``) the accumulation
+        # the pre-cancel exists to prevent cannot happen in the first place — a
+        # re-arm for the same trade reuses the same group name — so cancelling
+        # only THIS trade's group fully serves the original purpose without
+        # touching a sibling's. When no key is supplied the legacy symbol-wide
+        # cancel still runs (a caller with no trade identity cannot scope), and
+        # says so loudly, because that path is the one that can strand a sibling.
+        oca_key = str(order.get("oca_key") or "").strip()
+        oca_group = f"oca-protect-t{oca_key}" if oca_key else None
         try:
-            self._cancel_resting_orders_for_symbol(ib, sym)
+            if oca_group:
+                self._cancel_oca_group_for_symbol(ib, sym, oca_group)
+            else:
+                logger.warning(
+                    "place_protective: no oca_key for %s — falling back to the "
+                    "symbol-wide pre-cancel, which CAN cancel a sibling trade's "
+                    "protective legs on a netted contract "
+                    "(BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY)", sym,
+                )
+                self._cancel_resting_orders_for_symbol(ib, sym)
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "place_protective: pre-cancel of resting %s legs failed "
@@ -1371,7 +1397,12 @@ class IBClient:
         try:
             # OCA group ties the legs together with no parent: when one
             # fills, IBKR cancels the remaining leg (ocaType=1).
-            oca_group = f"oca-protect-{ib.client.getReqId()}"
+            # Deterministic per-trade group when the caller supplied a key, so a
+            # re-arm for the SAME trade reuses the SAME group (idempotent, and
+            # scopeable) instead of minting a fresh one each time. The reqId
+            # fallback preserves the legacy behaviour for keyless callers.
+            if oca_group is None:
+                oca_group = f"oca-protect-{ib.client.getReqId()}"
             legs = []
             if tp_price is not None:
                 tp = LimitOrder(reverse, qty, tp_price)
@@ -1668,6 +1699,44 @@ class IBClient:
                     return None
         return 0.0
 
+    def _cancel_oca_group_for_symbol(
+        self, ib: Any, symbol: str, oca_group: str
+    ) -> int:
+        """Cancel only the legs of ONE OCA group on *symbol* — best-effort.
+
+        The scoped counterpart of :meth:`_cancel_resting_orders_for_symbol`, and
+        the reason a re-arm no longer strands a sibling trade's take-profit on a
+        netted contract (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). The
+        symbol-wide variant stays as-is because its OTHER callers — :meth:`close`
+        and :meth:`cancel_resting_protection` — are flatten paths that genuinely
+        do want every leg gone.
+
+        Returns the number of legs cancelled. Never raises.
+        """
+        sym = str(symbol or "").upper()
+        group = str(oca_group or "")
+        if not group:
+            return 0
+        cancelled = 0
+        for trade in self._open_trades(ib):
+            try:
+                contract = getattr(trade, "contract", None)
+                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                if sym and trade_sym and trade_sym != sym:
+                    continue
+                order = getattr(trade, "order", None)
+                if str(getattr(order, "ocaGroup", "") or "") != group:
+                    continue
+                ib.cancelOrder(order)
+                cancelled += 1
+            except Exception:  # noqa: BLE001 — one un-cancellable leg never aborts
+                continue
+        try:
+            ib.sleep(0)
+        except Exception:  # noqa: BLE001
+            pass
+        return cancelled
+
     def _cancel_resting_orders_for_symbol(self, ib: Any, symbol: str) -> None:
         """Cancel every open (resting) order on *symbol* — best-effort.
 
@@ -1773,6 +1842,137 @@ class IBClient:
             ib.reqAllOpenOrders()
         return self._open_trades(ib)
 
+    @staticmethod
+    def _protective_leg_qty(order: Any):
+        """Qty a resting IB protective leg would close, or ``None`` if unknown.
+
+        An unknown qty must NOT be silently treated as full coverage — the
+        caller counts these and refuses to grade coverage rather than guessing
+        (the same rule :func:`order_monitor._bybit_sl_leg_qty` follows).
+        """
+        for attr in ("totalQuantity", "filledQuantity", "quantity"):
+            try:
+                q = float(getattr(order, attr))
+            except (AttributeError, TypeError, ValueError):
+                # AttributeError matters: an order object that simply lacks the
+                # attribute must fall through to the next candidate and finally
+                # to None (ungradeable), not raise out of the coverage read.
+                continue
+            if q == q and q > 0:  # not NaN, positive
+                return q
+        return None
+
+    def protection_coverage(self, symbol: Optional[str]) -> Optional[Dict[str, Any]]:
+        """How MUCH of *symbol*'s IB position is covered by resting protection?
+
+        Returns ``None`` on any read failure (breaker open / gateway wedged /
+        ambiguous) so the caller SKIPS — never re-arm on an unconfirmed read —
+        else a dict::
+
+            {"size", "covered_qty", "legs", "unknown_qty_legs",
+             "oca_groups", "source"}
+
+        **Why this measures QUANTITY, not a boolean**
+        (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY -- kept on one line: a
+        line-wrapped id resolves to nothing for a grep, a reader, or
+        artifact-validity-guard). IB nets per contract per account: three
+        strategies trading MGC share ONE broker position whose size is the SUM
+        of their journal rows, while each trade's protective OCA is sized to its
+        OWN qty (:meth:`place_protective` takes the calling trade's ``qty``).
+        The predecessor of this method returned ``True`` on the FIRST matching
+        STP/LMT — so one surviving leg made the whole netted position read
+        PROTECTED, and :func:`order_monitor._check_broker_naked_ib_positions`
+        (which caches one verdict per ``(account, symbol)``) skipped every
+        sibling. A position covered for a third of its size was indistinguishable
+        from one covered in full.
+
+        This is the exact defect PR #8000 fixed for Bybit
+        (:func:`order_monitor._bybit_position_protection`) and did not fix for
+        IB, because at the time IB was believed not to net. It does.
+
+        A leg whose qty cannot be parsed is COUNTED in ``unknown_qty_legs``
+        rather than assumed — coverage is then ungradeable and the caller must
+        skip, because a blind re-arm would stamp one trade's geometry over the
+        whole netted position.
+        """
+        with self._usage_lock:
+            return self._locked_protection_coverage(symbol=symbol)
+
+    def _locked_protection_coverage(
+        self, symbol: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        sym = str(symbol or self.symbol or "").upper()
+        if not sym:
+            return None
+        try:
+            ib = self.connect()
+        except Exception:  # noqa: BLE001 — breaker open / connect failed
+            return None
+
+        # (1) The DENOMINATOR: the netted broker position for this root.
+        try:
+            positions = self._req_positions_snapshot(ib)
+        except Exception:  # noqa: BLE001 — could not read ⇒ cannot grade
+            return None
+        size = 0.0
+        for p in positions or []:
+            try:
+                contract = getattr(p, "contract", None)
+                if str(getattr(contract, "symbol", "") or "").upper() != sym:
+                    continue
+                size += abs(float(getattr(p, "position", 0) or 0.0))
+            except Exception:  # noqa: BLE001 — one bad row never breaks the read
+                continue
+        if size <= 0:
+            return {
+                "size": 0.0, "covered_qty": 0.0, "legs": 0,
+                "unknown_qty_legs": 0, "oca_groups": {}, "source": "flat",
+            }
+
+        # (2) The NUMERATOR: resting protective legs, summed by qty.
+        try:
+            trades = self._req_all_open_orders(ib)
+        except Exception:  # noqa: BLE001 — account-wide read failed
+            return None
+        covered = 0.0
+        legs = 0
+        unknown = 0
+        oca_groups: Dict[str, float] = {}
+        for trade in trades:
+            try:
+                contract = getattr(trade, "contract", None)
+                if str(getattr(contract, "symbol", "") or "").upper() != sym:
+                    continue
+                order = getattr(trade, "order", None)
+                otype = str(getattr(order, "orderType", "") or "").upper()
+                if not ("STP" in otype or "LMT" in otype or "TRAIL" in otype):
+                    continue
+                legs += 1
+                q = self._protective_leg_qty(order)
+                if q is None:
+                    unknown += 1
+                    continue
+                group = str(getattr(order, "ocaGroup", "") or "")
+                # An OCA group is one-fills-cancels-the-rest, so its STOP and
+                # LIMIT legs protect the SAME qty — counting both would double
+                # the coverage and hide a genuinely naked remainder. Take the
+                # max within a group; ungrouped legs each stand alone.
+                if group:
+                    oca_groups[group] = max(oca_groups.get(group, 0.0), q)
+                else:
+                    covered += q
+            except Exception:  # noqa: BLE001 — one malformed trade never breaks it
+                continue
+        covered += sum(oca_groups.values())
+        return {
+            "size": size,
+            "covered_qty": covered,
+            "legs": legs,
+            "unknown_qty_legs": unknown,
+            "oca_groups": dict(oca_groups),
+            "source": "resting_legs",
+        }
+
     def has_protective_orders(self, symbol: Optional[str]) -> Optional[bool]:
         """Does *symbol* have a resting protective leg (a stop OR a limit) open
         at the broker, ACCOUNT-WIDE?
@@ -1786,6 +1986,18 @@ class IBClient:
         broker-naked yet invisible to that check (the MGC monitor-blind incident,
         2026-07-09). This reads the broker's own order state so the sweep can
         detect and re-arm it.
+
+        ⚠️ **This is a LOSSY view — do NOT use it to decide whether a netted
+        position is protected.** It answers "does ANY leg rest?", which on a
+        contract several strategies trade is not the same question as "is the
+        position covered": IB nets per contract per account, so one surviving
+        leg makes a one-third-covered position read exactly like a fully covered
+        one (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Use
+        :meth:`protection_coverage`, which returns the QUANTITY, for any
+        naked-detection or re-arm decision. This method is retained for the
+        cheap "is there anything at all" probe and for parity with
+        :meth:`AlpacaClient.has_protective_orders` (Alpaca does not net, so the
+        boolean is sound there).
 
         Returns ``True`` when at least one resting stop/limit leg exists for the
         symbol, ``False`` when the position is broker-naked (a confirmed clean
