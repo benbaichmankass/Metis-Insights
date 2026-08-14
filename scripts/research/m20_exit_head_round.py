@@ -136,6 +136,9 @@ def main(argv: list[str]) -> int:
     # Families actually EMITTED (not requested) — the geometry stamp is
     # derived from this, so a skipped leg never contributes to the label.
     fams_seen: set[str] = set()
+    # leg -> {symbol, family}, recorded at emit so the evidence rows carry the
+    # same facts the round actually ran on rather than a re-read of YAML.
+    emitted_meta: dict[str, dict] = {}
     for leg in a.legs.split(","):
         cfg = strategies.get(leg)
         if not isinstance(cfg, dict):
@@ -220,6 +223,7 @@ def main(argv: list[str]) -> int:
             # Recorded HERE, after the harness actually produced trades — a leg
             # that skipped or failed must not colour the round's geometry stamp.
             fams_seen.add(fam)
+            emitted_meta[leg] = {"symbol": str(sym), "family": fam}
 
     if not emits:
         print("no emitted trades — nothing to build")
@@ -316,6 +320,55 @@ def main(argv: list[str]) -> int:
     (out / "round_report.json").write_text(json.dumps(
         {"_round_meta": meta, **{k: v for k, v in report.items()}},
         indent=1, default=str))
+
+    # EMIT THE EVIDENCE ROWS THE REPO CAN KEEP.
+    #
+    # Until 2026-08-14 an exit-head round left NOTHING behind: `--out` is a
+    # required, ephemeral trainer directory, so every verdict reached the repo
+    # only as PROSE hand-copied into a matrix `ref`. That is why 141 of 376
+    # coverage cells rest on refs no guard can check
+    # (BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED),
+    # and it is what makes operator decision (d) — "establish the base rate
+    # from the corpus" — not executable for this lever.
+    #
+    # This writes `rounds.jsonl` in the canonical shape of
+    # `docs/research/m20-exit-head-rounds.jsonl`, so promoting a round's
+    # evidence is a `cat` and an append rather than transcription. The
+    # GEOMETRY in particular is written by the same derivation that computed
+    # `meta` above — on 2026-08-14 a scalp round had to be hand-corrected from
+    # `live_parity` to `live_parity_uncapped` on the way in, and a label a
+    # human has to remember to fix is one they will eventually not fix.
+    #
+    # Field names are read from `per_leg_summary`'s actual output
+    # (`oos_trades`, `mean_auc`, `beats_actual_folds`, `beats_hard_folds`),
+    # NOT the names the matrix refs happen to print. A first probe guessed
+    # `n_oos`/`beats_actual` and got `None` back for every leg — the data was
+    # there under other keys, and reading the producer is what settled it.
+    rows = []
+    for fam_name, payload in report.items():
+        for leg, blk in (payload.get("per_leg") or {}).items():
+            info = emitted_meta.get(leg) or {}
+            rows.append({
+                "leg": leg,
+                "symbol": info.get("symbol"),
+                "tf": a.tf,
+                "lever": "exit_head_ml",
+                "n_oos": blk.get("oos_trades"),
+                "mean_auc": blk.get("mean_auc"),
+                "beats_actual": blk.get("beats_actual_folds"),
+                "beats_hard": blk.get("beats_hard_folds"),
+                "usable_folds": blk.get("usable_folds"),
+                "verdict": blk.get("verdict"),
+                "tp_cap_pct": a.tp_cap_pct,
+                "tp_geometry": geometry,
+                "family": info.get("family") or fam_name,
+                "prop_sibling": leg.endswith("_prop") or "_prop_" in leg,
+                "provenance": f"round {out.name}; driver-emitted",
+            })
+    (out / "rounds.jsonl").write_text(
+        "".join(json.dumps(r, default=str) + "\n" for r in rows))
+    print(f"evidence rows -> {out / 'rounds.jsonl'} ({len(rows)} rows, "
+          f"tp_geometry={geometry})")
     if a.tp_cap_pct <= 0.0:
         print("WARNING: tp_cap_pct=0 — this round's book models NO TAKE-PROFIT "
               "and is NOT live parity. Any verdict from it describes a book "
