@@ -36,6 +36,14 @@ sys.path.insert(0, str(REPO / "scripts" / "research"))
 from m20_fleet_exit_sweep import (  # noqa: E402
     FAMILY_HARNESS, LIVE_TP_CAPPED_FAMILIES, base_args, classify, resolve_data)
 
+# IMPORTED, never re-implemented. `block_unit` below must answer "what did the
+# BUILD actually group these trades into?", so it has to be the build's own
+# predicate — a local copy would be a second definition of the grouping rule,
+# free to drift from the one that cuts the blocks. Same reasoning as
+# regime_flip_exit delegating to the live gate rather than mirroring it.
+sys.path.insert(0, str(REPO / "scripts" / "ml"))
+from build_exit_head_dataset import family_of as _family_of  # noqa: E402
+
 
 def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
     print("+", " ".join(str(c) for c in cmd), flush=True)
@@ -363,6 +371,31 @@ def main(argv: list[str]) -> int:
                 "tp_geometry": geometry,
                 "family": info.get("family") or fam_name,
                 "prop_sibling": leg.endswith("_prop") or "_prop_" in leg,
+                # WHICH TRADES THE E1 BLOCKS WERE CUT OVER — the thing that
+                # decides whether two rows here are comparable at all, and the
+                # one axis `tp_geometry` does NOT cover.
+                #
+                # `build_exit_head_dataset.family_of` collapses every
+                # *pullback* / *donchian* / `trend_*` leg into ONE family dir,
+                # so its blocks are cut over the FAMILY's pooled trades and a
+                # per-leg verdict is that leg's slice within them. Scalp legs
+                # fall through the branch chain and keep their own name, so
+                # their blocks are cut on the leg alone.
+                #
+                # This is not a nicety: `train_exit_head`'s own `per_leg_note`
+                # calls the pooled block "the right unit to TRAIN on and the
+                # wrong one to record a verdict from", and
+                # `iwm_trend_long_1d`'s matrix cell explicitly DECLINES to
+                # grade from a pooled verdict for exactly that reason. Measured
+                # 2026-08-14 over the committed evidence file: 17 of 23 rows
+                # were pooled and 6 per-leg, with nothing in the schema saying
+                # which — so the file invited precisely the comparison the
+                # repo already knows is invalid.
+                #
+                # Derived from the same function the build uses rather than
+                # from the round's directory layout, so the two cannot drift.
+                "block_unit": ("per_leg" if _family_of(leg) == leg
+                               else "family_pooled"),
                 "provenance": f"round {out.name}; driver-emitted",
             })
     (out / "rounds.jsonl").write_text(

@@ -15257,6 +15257,29 @@
         "scripts/ml/walkforward_vol_gating.sh:16 (one of six consumers)"
       ],
       "source": "M20 session 2026-08-14, 5m exit-head round"
+    },
+    {
+      "id": "BL-20260814-EXIT-HEAD-EVIDENCE-MIXED-POOLED-AND-PER-LEG-BLOCKS-WITH-NOTHING-SAYING-WHICH",
+      "opened_at": "2026-08-14T18:35:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14) — found in an artifact I created the same night",
+      "evidence": "derived from the BUILD's own predicate, not a re-implementation — checked: scripts/ml/build_exit_head_dataset.py (family_of); the criticism it triggers is quoted from checked: scripts/ml/train_exit_head.py (per_leg_note) and the iwm_trend_long_1d cell in checked: docs/research/exit-refinement-coverage.json.",
+      "severity": "medium",
+      "tier": "1 (research evidence provenance; no live path)",
+      "status": "fixed (field added + backfilled + emitter writes it); the RE-GRADE question is queued",
+      "area": "M20 exit_head_ml evidence",
+      "title": "docs/research/m20-exit-head-rounds.jsonl mixed FAMILY-POOLED and PER-LEG E1 block cuts in one file with no field distinguishing them — 17 of 23 rows pooled — inviting exactly the incomparable-evidence comparison the repo already documents as invalid.",
+      "detail": "MEASURED 2026-08-14 while launching the 1h pullback round.\n\nMECHANISM. build_exit_head_dataset.family_of collapses every leg whose name contains 'pullback'/'donchian' or starts with 'trend_' into ONE family directory; scalp legs fall through the branch chain and keep their own name. So a pullback or donchian round cuts its E1 blocks over the FAMILY's POOLED trades and each per-leg verdict is that leg's slice within them, while a scalp round cuts blocks on the leg alone. Observed directly in two round logs: the 5m scalp round built three family dirs (ict_scalp_avax_5m / _sol_5m / _xrp_5m, 27513 / 22120 / 21258 rows); the 1h pullback round built ONE ('pullback: 35609 rows, trades {'harness': 1367}') for four legs.\n\nWHY IT MATTERS, and it is not my judgement — it is already the repo's. train_exit_head's own per_leg_note calls the family-pooled block 'the right unit to TRAIN on and the wrong one to record a verdict from', and iwm_trend_long_1d's matrix cell explicitly DECLINES to grade from a pooled verdict, calling those 'the weakest verdicts in the programme'. So the file was carrying 17 rows of a kind the repo says should not be graded from, beside 6 of a kind that can be, with nothing marking the difference. tp_geometry covers the CAP axis and says nothing about the BLOCK axis.\n\nSCALE OF THE POOLING DIFFERS AND I AM NOT FLATTENING IT. The iwm criticism targets 'allmix', which pools across FAMILIES and reaches a median n_leg of 5. A pullback-only pooled dir is milder: at 1397 pooled trades a 50-trade block holds roughly 12 gld trades and 19 tlt ones. Milder is not the same as comparable-to-per-leg, so the field records WHICH unit rather than grading the rows.\n\nFIXED: `block_unit` added to the schema, backfilled across all 23 rows, and emitted by m20_exit_head_round.py — derived by IMPORTING family_of from the build rather than re-implementing it, so the label cannot drift from the grouping that actually cut the blocks (the same delegation rule regime_flip_exit follows against the live gate). A `block_unit_note` field was tried and removed: a 700-char identical string on every row is documentation, not data, and the schema test correctly caught the emitter/file mismatch it created.",
+      "what_to_check": "1. THE RE-GRADE QUESTION IS OPEN AND IS NOT MINE: should the 17 family_pooled cells be re-measured with per-leg blocks before their verdicts stand? That is a real cost (a round per leg) against a real risk (verdicts from the unit the repo says not to grade from). Queued for the operator.\n2. Whether family_of SHOULD collapse these families at all, or whether the pooling is a training-only convenience that leaked into verdict recording. Not investigated.\n3. Whether the matrix cells sourced from pooled rounds carry the caveat in their ref. Spot checks say some do (iwm) and some do not; not swept.",
+      "resolution_criteria": "Every exit_head_ml verdict states the block unit it was cut on, and the matrix does not compare a pooled verdict against a per-leg one without saying so.",
+      "refs": [
+        "docs/research/m20-exit-head-rounds.jsonl",
+        "scripts/ml/build_exit_head_dataset.py (family_of)",
+        "scripts/ml/train_exit_head.py (per_leg_note)",
+        "scripts/research/m20_exit_head_round.py",
+        "round pullback_1h_20260814T182245Z (trainer-diag #9338)",
+        "round scalp_5m_20260814T151003Z (trainer-diag #9333)"
+      ],
+      "source": "M20 session 2026-08-14, found while launching the 1h pullback round"
     }
   ]
 }
