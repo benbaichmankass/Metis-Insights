@@ -103,6 +103,37 @@ def _resolve_db(explicit: Optional[str]) -> str:
 def audit(db: str, days: int) -> Dict[str, Any]:
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
+        # DENOMINATOR FIRST — measured 2026-08-14, and this is not hypothetical.
+        # The trainer VM carries TWO journals: the db-puller writes the real one
+        # to `<repo>/data/trade_journal.db` (837 MB, 4649 non-backtest rows,
+        # 12 accounts, current), while `src.utils.paths.trade_journal_db_path()`
+        # on that box resolves to `<repo>/trade_journal.db` — 8.5 MB, **ZERO**
+        # rows, untouched since 2026-08-02. So the canonical resolver this
+        # script deliberately trusts points at an EMPTY database there.
+        #
+        # Without this check the report renders "legs graded: 0 / No
+        # signalled-never-placed legs in this window" — which is exactly the
+        # UNPROVENANCED-DIAGNOSTIC sub-class C shape (an empty result read as a
+        # clean negative), and it would be read as an all-clear by the reviewer
+        # this tool exists to inform. A dead-leg audit that reports "nothing
+        # wrong" because it queried the wrong file is worse than no audit.
+        #
+        # So: prove the table has rows AT ALL before believing anything about
+        # the window. A zero-row journal is a HARD STOP naming both the path and
+        # the likely sibling, never a clean report.
+        total_rows = conn.execute(
+            "SELECT COUNT(*) FROM trades WHERE is_backtest = 0"
+        ).fetchone()[0]
+        if not total_rows:
+            raise SystemExit(
+                f"REFUSING TO REPORT: {db} contains ZERO non-backtest `trades` "
+                "rows, so an empty result would say nothing about the system. "
+                "This is the stray-journal trap (see canonical-db-resolver) — "
+                "on the trainer VM the canonical resolver points at an empty "
+                "repo-root journal while the real one is under `data/`. Pass "
+                "--db explicitly with the populated journal."
+            )
+
         cur = conn.execute(
             """
             SELECT account_id, strategy_name, status, COUNT(*) AS n
@@ -157,6 +188,9 @@ def audit(db: str, days: int) -> Dict[str, Any]:
     return {
         "db": db,
         "window_days": days,
+        # The denominator that licenses every negative below, carried in the
+        # payload so a JSON consumer sees it too rather than only the CLI reader.
+        "nonbacktest_rows_in_db": total_rows,
         # POPULATION, stated rather than implied: legs with ZERO rows in the
         # window do not appear here at all. A leg absent from this report has
         # not been graded — that is "we did not observe it", not "it is fine".
@@ -176,6 +210,7 @@ def _render(report: Dict[str, Any]) -> str:
         f"dead-leg audit — {report['db']}",
         f"window: last {report['window_days']}d · legs graded: {report['legs_graded']}"
         f" · SIGNALLED-NEVER-PLACED: {report['dead_legs']}",
+        f"denominator: {report['nonbacktest_rows_in_db']} non-backtest rows in this DB",
         f"population: {report['population']}",
         "",
         f"{'verdict':<38} {'account':<22} {'strategy':<30} "

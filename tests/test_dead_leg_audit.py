@@ -113,6 +113,47 @@ def test_unrecognised_status_is_not_silently_bucketed(tmp_path):
     assert report["dead_legs"] == 0
 
 
+def test_empty_journal_is_a_hard_stop_not_a_clean_report(tmp_path):
+    """An EMPTY journal must refuse, never render as "no dead legs".
+
+    Not hypothetical. Measured on the trainer VM 2026-08-14: the db-puller
+    writes the real journal to `<repo>/data/trade_journal.db` (4649 rows) while
+    `trade_journal_db_path()` there resolves to `<repo>/trade_journal.db` —
+    ZERO rows, stale since 2026-08-02. This script trusts that resolver by
+    design, so on that box it would query the empty file and print
+    "legs graded: 0 / No signalled-never-placed legs" — a confident all-clear
+    derived from the wrong file. That is the unasserted-denominator shape, and
+    an audit that reports "nothing wrong" because it read nothing is worse than
+    no audit at all.
+    """
+    db = _db(tmp_path, [])  # schema present, zero rows — the stray-journal shape
+
+    with pytest.raises(SystemExit) as exc:
+        audit(db, days=7)
+
+    msg = str(exc.value)
+    # Must name the path, so the reader can tell WHICH file was wrong...
+    assert db in msg
+    # ...and point at the actual trap rather than just saying "empty".
+    assert "canonical-db-resolver" in msg
+    assert "--db" in msg
+
+
+def test_populated_journal_reports_its_denominator(tmp_path):
+    """The negative-licensing count travels in the payload, not just the CLI.
+
+    A JSON consumer that only sees `dead_legs: 0` cannot tell a clean system
+    from an empty read; the denominator is what separates them.
+    """
+    db = _db(tmp_path, [("bybit_1", "s", "closed", 1, 3),
+                        ("bybit_1", "old", "closed", 400, 2)])
+    report = audit(db, days=7)
+
+    # Counts the WHOLE table, not the window — it licenses the window's negatives.
+    assert report["nonbacktest_rows_in_db"] == 5
+    assert report["legs_graded"] == 1
+
+
 def test_window_excludes_older_rows(tmp_path):
     db = _db(tmp_path, [("bybit_1", "old", "exchange_rejected", 30, 9)])
     assert audit(db, days=7)["legs_graded"] == 0
@@ -120,6 +161,16 @@ def test_window_excludes_older_rows(tmp_path):
 
 
 def test_backtest_rows_are_excluded(tmp_path):
+    """A backtest row is not graded — proven against a LIVE row in the same DB.
+
+    This test used to seed ONLY the backtest row and assert `legs_graded == 0`.
+    That passed for an ambiguous reason: zero graded legs is equally what an
+    EMPTY database produces, so the assertion could not distinguish "the
+    backtest row was correctly excluded" from "nothing was read at all" — the
+    same unasserted-denominator shape the audit's own hard-stop now guards
+    against. Seeding a real row beside it makes the exclusion the only
+    explanation for the result.
+    """
     p = tmp_path / "j.db"
     conn = sqlite3.connect(p)
     conn.execute(
@@ -132,10 +183,23 @@ def test_backtest_rows_are_excluded(tmp_path):
         "created_at, timestamp) VALUES ('bybit_1','bt','exchange_rejected',1, "
         "datetime('now','-1 days'), NULL)"
     )
+    # The positive control: a live row, so the probe is demonstrably able to
+    # grade something in this window.
+    conn.execute(
+        "INSERT INTO trades (account_id, strategy_name, status, is_backtest, "
+        "created_at, timestamp) VALUES ('bybit_1','live_leg','closed',0, "
+        "datetime('now','-1 days'), NULL)"
+    )
     conn.commit()
     conn.close()
 
-    assert audit(str(p), days=7)["legs_graded"] == 0
+    report = audit(str(p), days=7)
+
+    graded = [r["strategy"] for r in report["legs"]]
+    assert graded == ["live_leg"], "the backtest leg must not be graded"
+    # And the denominator counts only the non-backtest row, so a reader can see
+    # the exclusion happened rather than inferring it from an absence.
+    assert report["nonbacktest_rows_in_db"] == 1
 
 
 if __name__ == "__main__":  # pragma: no cover
