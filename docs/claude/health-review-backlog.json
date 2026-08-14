@@ -14340,6 +14340,24 @@
         "m20_coverage_rollup.py --json diff before/after the (1) fix: only matrix_updated_at changed",
         "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS — the row explosion that orphaned the 'same' antecedent"
       ]
+    },
+    {
+      "id": "BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE",
+      "opened_at": "2026-08-14T04:20:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "research-tooling",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "title": "The regime-flip replay writes `verdict: PASS` on legs where the lever NEVER FIRED -- 12 of 14 fleet passes have flip_pct 0.0, so the plain reading of the label is wrong 86% of the time",
+      "source": "Found while establishing whether two prop-leg regime_flip_exit cells could be graded from existing evidence (relays #9138-#9141). Not the assigned workstream; filed rather than swept.\n\nMEASURED across all 42 artifacts in runtime_logs/m20_flip_replay/2026-07-13/:\n  verdict PASS   14\n  verdict fail   28\nOf the 14 PASS, TWELVE have flip_pct == 0.0 -- the flip never fired on a single trade, so `flip` is byte-identical to `actual` and the walk-forward reads a perfect 6/6 because every fold is a TIE counted as a beat. Exactly two passes involve a flip that actually fires: trend_donchian_eth_4h (46.8%) and trend_donchian_eth_prop (45.9%).\n\nWHY IT MATTERS: `verdict: PASS` + `walkforward: 6/6` is as strong as this artifact's output gets, and on 12 of 14 legs it means the lever DID NOTHING. A reader who trusts the label concludes the opposite of the truth. Worked example from this session: trend_donchian_sol_prop reads PASS 6/6 and its every fold is identical to the actual exit to four decimals.\n\nCLASS: the tie-counted-as-a-win shape -- the same defect as BL-20260814-PROBE-COUNTED-TIES-AS-WINS, but in SHIPPED TOOLING rather than a throwaway relay probe, and therefore durable and re-readable by every future session. Adjacent to UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A (CLAUDE.md): the label names a quantity (\"the flip beat the actual exit\") that the computation does not distinguish from \"there was no flip\".\n\nTHE DISAMBIGUATING FIELD ALREADY EXISTS: `flip_pct`. Nothing forces it to be read beside the verdict, and the matrix refs that cite these artifacts do not all carry it.\n\nNOT A FABRICATED NUMBER: every value in the artifact is correct. This is purely about what the LABEL licenses a reader to conclude -- which is why it is medium and not high.",
+      "resolution_criteria": "Observable: (a) the flip replay emits a verdict that CANNOT be read as a positive when the lever never fired -- either a distinct third state (e.g. `no_fire` / `degenerate_tie`, registered with collapsed-state-guard so producer and consumer are both checked) or a verdict that is refused unless flip_pct > 0; AND (b) a planted positive control demonstrates it -- an artifact with flip_pct 0.0 must NOT come back `PASS`, verified by running it, since a quiet pass proves nothing; AND (c) the existing 12 degenerate-PASS artifacts are either re-emitted or annotated so a future reader of the ON-DISK files is not misled by the stale label. NOT resolution: documenting the caveat in a doc and leaving the field as-is -- the artifacts outlive the doc and are read directly.",
+      "evidence": [
+        "runtime_logs/m20_flip_replay/2026-07-13/*_flip.json — 42 artifacts, 14 PASS / 28 fail, 12 of the PASSes at flip_pct 0.0",
+        "trend_donchian_sol_prop_flip.json — PASS, walkforward 6/6, flip_pct 0.0, every fold identical to actual",
+        "relay #9141 — the fleet verdict distribution",
+        "docs/research/M20-E1-block-size-derivation-2026-08-13.md section 17"
+      ]
     }
   ]
 }

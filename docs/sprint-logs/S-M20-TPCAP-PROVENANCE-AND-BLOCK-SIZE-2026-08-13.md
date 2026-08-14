@@ -361,6 +361,43 @@ touched, no Tier-3 change enacted.**
     on each leg's own book. Read the workflow inputs rather than dispatching and
     discovering it from a useless run.
 
+32. **The prop-leg flip replays already existed, and `verdict: PASS` is 86%
+    degenerate ties** (relays #9138–#9141, doc § 17). Chasing the E1 path for the
+    remaining pending cells turned up three things:
+
+    (a) **A factual error in the matrix.** Two prop-leg `regime_flip_exit` cells
+    read `pending` because the leg was *"NOT exit-processed on THIS leg's own
+    book"* — false, and false when written:
+    `m20_flip_replay/2026-07-13/` holds both legs' own `_flip.json` **and**
+    `_trades.jsonl`, a month before that ref was authored. Corrected in the refs,
+    scoped to the flip lever only (the clause **is** true for `exit_head_ml` —
+    the `m20_exit_head` tree has no prop-leg directory — and for `exit_ladder`).
+
+    (b) **Item 30's grade survived a falsification test.** The SOL grade was made
+    by structural derivation; the artifact tests it directly and confirms it —
+    `flip_exits: 0`, `flip_pct: 0.0` over 412 trades, `overall_flip` byte-identical
+    to `overall_actual`, all six folds equal to four decimals. Right for the reason
+    it gave.
+
+    (c) **The finding.** The artifacts carry their own `verdict`/`walkforward`
+    fields, which I had *listed and not read* — reading the field instead of
+    re-deriving one from the fold table is what surfaced it. Fleet-wide: **14
+    `PASS` / 28 `fail`, and 12 of the 14 passes have `flip_pct = 0.0`.** The lever
+    never fired, `flip` is identical to `actual`, and the walk-forward reads a
+    perfect **6/6 because every fold is a tie counted as a beat**. `PASS` means
+    "changed nothing" 86% of the time. Same shape as item 24's probe defect, but
+    in **shipped tooling**, so it is durable and re-read by every future session.
+    Filed `BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE`.
+
+    **Left ungraded on purpose:** `trend_donchian_eth_prop / regime_flip_exit` has
+    complete evidence (PASS, 4/6, +19.38R, −21.95R maxDD) and a defensible
+    `honest_negative` case on the fleet ref's own rationale — the improvement lands
+    on a **money-losing book** (−85.76R → −66.38R) and the **two most recent folds
+    are the two failures** (2026 swings −18.8R). But that is an *interpretive
+    override of a recorded `PASS` on a live leg*, unlike the mechanical SOL case,
+    so it goes to the operator. The full argument **and** the fleet context are
+    written into the cell's own ref, so the decision needs no archaeology.
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.

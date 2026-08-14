@@ -903,3 +903,63 @@ changed no exit"* needs per-trade rows, which this report does not carry. The
 probe's own output says so. The no-op count bounds it — at most 13.6% / 0% / 9.1%
 of folds can be the former — but does not resolve it, and the § 13 conclusion
 does not depend on which it is.
+
+## 17. The flip replays already existed — and "PASS" is 86% degenerate
+
+Two prop-leg `regime_flip_exit` cells read `pending` on the stated grounds that the
+leg was *"NOT exit-processed on THIS leg's own book"*. **That is false.**
+`runtime_logs/m20_flip_replay/2026-07-13/` holds `trend_donchian_sol_prop_flip.json`
+and `trend_donchian_eth_prop_flip.json` with their trades files — both legs were
+replayed on their own books a month ago (relays #9138–#9141).
+
+### The § 15-era grade survives a falsification test
+
+PR #9135 graded `trend_donchian_sol_prop / regime_flip_exit` by *structural
+derivation* — the flip cannot fire on a long-only donchian leg. The artifact is a
+direct test of that claim, and it passes: **`flip_exits: 0`, `flip_pct: 0.0`** over
+412 trades, with `overall_flip` byte-identical to `overall_actual` and all six folds
+identical to the decimal. The derivation was right for the reason it gave.
+
+### The harness's own `verdict` field, which I nearly re-derived instead of reading
+
+The artifacts carry `verdict` and `walkforward`. Reading them rather than inferring
+from the fold table:
+
+| leg | verdict | walk-forward | flip_pct | overall Δ net_R | overall Δ maxDD |
+|---|---|---|---:|---:|---:|
+| `trend_donchian_sol_prop` | `PASS` | 6/6 | **0.0%** | +0.0000 | +0.0000 |
+| `trend_donchian_sol` (twin) | `PASS` | 6/6 | **0.0%** | +0.0000 | +0.0000 |
+| `trend_donchian_eth_prop` | **`PASS`** | 4/6 | 45.9% | **+19.38** | **−21.95** |
+| `trend_donchian_eth` (twin) | `fail` | 2/6 | 44.9% | −16.45 | +5.68 |
+
+**Fleet-wide: 14 `PASS`, 28 `fail` — and 12 of the 14 passes have `flip_pct = 0.0`.**
+So **86% of the passes are folds where the lever never fired**, and `PASS` there means
+"changed nothing", not "helped". Exactly two passes involve a flip that actually
+fires: `trend_donchian_eth_4h` (46.8%) and `trend_donchian_eth_prop` (45.9%).
+
+This is the API twin's ref confirmed against the fleet — it already said the passes
+are *"degenerate ties … or improvements on money-LOsing books"*. Both categories are
+now counted: 12 ties, and `eth_prop` is the money-losing case (its book is **−85.76R**
+before the flip and **−66.38R** after — improved, still a heavy loser).
+
+⚠️ **`PASS` in this artifact is a label whose plain reading is wrong 86% of the time.**
+A reader taking "PASS 6/6" at face value on `sol_prop` would conclude the lever is
+excellent when it did *nothing at all*. That is the tie-counted-as-a-win shape from
+§ 16 — the same class as the probe defect in
+`BL-20260814-PROBE-COUNTED-TIES-AS-WINS`, but in **shipped tooling** rather than a
+throwaway probe, and `flip_pct` is the field that disambiguates it. Never quote a flip
+`verdict` without `flip_pct` beside it.
+
+### What I am NOT doing, and why
+
+`trend_donchian_eth_prop / regime_flip_exit` is left **`pending`, not graded.** The
+SOL grade was mechanical — the flip cannot fire, so there is nothing to judge. This
+one is **interpretive**: it would mean overriding a recorded `PASS` on the grounds
+that the improvement lands on a money-losing book and that both of the two most recent
+folds fail (2025 −3.48 → −9.29; 2026 **+11.16 → −7.65**, a −18.8R swing). That
+rationale is the fleet ref's own, so it is defensible — but it is a disposition call
+on a live leg, and it is not one to make unattended. **Recorded, evidenced, and left
+for the operator.**
+
+The factual error in the pending refs — "not exit-processed on this leg's own book" —
+is corrected in the matrix regardless, since it is wrong independent of the grade.
