@@ -1436,6 +1436,87 @@ Scattered across the night's pings; gathered here so the morning needs one read.
     exactly the two refusal tests and leaves the seven fail-open/override tests
     passing, which is the selectivity that makes the control meaningful.
 
+56. **Re-swept the three SHIPPED real-money donchian-1h cells at live parity.
+    Two of three do not reproduce.**
+
+    These are the cells my own staleness fix (#9150) added to
+    `--stale-decisions`: `shipped`, changing exit behaviour on real money
+    **today**, on evidence measured against a book with no take-profit. They
+    are the only 3 of the 8 stale live decisions where a re-run is both
+    possible and informative — the other 5 are trail/stale-stop cells whose OOS
+    n is 4–24 against a floor of 25 (item 50 measured `mes_trend_long_1d` at 5
+    and `mhg_pullback_1d` at 10, consistent with that).
+
+    Relay #9206, round self-stamps `tp_geometry: live_parity`, 23 usable folds:
+
+    | leg | n_oos | auc | beats_actual | beats_hard | verdict |
+    |---|--:|--:|--:|--:|---|
+    | `trend_donchian` (BTC) | 311 | 0.5403 | 14/23 | 17/23 | **honest_negative** |
+    | `trend_donchian_eth` | 566 | 0.6079 | 16/23 | 16/23 | candidate |
+    | `trend_donchian_sol` | 273 | 0.6161 | 15/23 | 12/23 | **honest_negative** |
+
+    All three are **gradeable** — n_oos 311/566/273 against the floor of 25 —
+    so unlike the 1d futures legs this is a verdict, not an abstention.
+
+    **I checked the gate arithmetic from source rather than reading the
+    printout, and it corrected me.** `train_exit_head.py:349-352`: candidate
+    needs `u>=2 AND mean_auc>0.55 AND beats_actual*3>=u*2 AND beats_hard*3>=u*2`
+    — at u=23, **≥16 on BOTH**. So:
+
+    - **BTC fails TWO conditions**, not one: auc 0.5403 is *below* 0.55, and
+      beats_actual 14 is short 2. Its beats_hard 17 **passes** — a reader
+      scanning only that column would conclude the opposite.
+    - **SOL is NOT knife-edge.** I had drafted "missed by one fold", which is
+      true only of `beats_actual` (15, short 1); `beats_hard` is 12, **short
+      4**. The reassuring reading again, and again wrong.
+
+    **Status deliberately LEFT `shipped` on all three.** Moving a live
+    real-money cell to `shipped_gate_failed` is the operator's call — the
+    legend defines that status as *"the operator chose to HOLD"* — and it is
+    precisely queued decision (d). The measurement is Tier-1 and is recorded in
+    the refs; the disposition is not mine.
+
+    **What it does to decision (d):** the stale-decision base rate was 1 of 1
+    not reproducing. It is now **3 of 4** (`trend_donchian`/`trail_decay`, plus
+    BTC and SOL). That is no longer a curiosity.
+
+    **What it does to decision (a):** two non-scalp donchian legs are now
+    candidates at live parity — `trend_donchian_eth` (auc 0.6079, n_oos 566)
+    and `trend_donchian_eth_prop` (0.6138, n_oos 902). **Both are ETH.** So the
+    evidence weakens *scalp*-scoping while hinting at something narrower nobody
+    has framed. Flagged as a **hypothesis needing a denominator**, not a
+    finding: two legs on one symbol is exactly the sample size that
+    manufactures patterns.
+
+    **Two limits on the claim, stated because they bound it:**
+    1. Every earlier verdict on these legs was built on a **no-TP book**, so
+       this compares two GEOMETRIES. The honest reading is *"the shipped
+       decision was made on a geometry production does not place, and under the
+       one it does place, two of three fail"* — not *"the model degraded"*.
+    2. I did **not** verify the original rounds resolved the same source CSVs
+       (this run used BTCUSDT_15m / ETHUSDT_5m / SOLUSDT_5m resampled to 1h), so
+       a data-resolution difference is an **unexcluded confounder**. Recorded in
+       the cell refs rather than left for a reader to discover.
+
+57. **Owned: I hit a documented MUST three times tonight.**
+
+    `docs/claude/diag-relay.md:176` says *"Any non-trivial `cmd:` script MUST be
+    base64'd"* and records a 2026-08-13 session hitting the heredoc trap **four
+    times**. I hit it three times (#9190, #9205, and once earlier), each time
+    losing a dispatch to `here-document ... delimited by end-of-file`.
+
+    **This is not a documentation gap and should not be answered with more
+    documentation.** The doc is already emphatic and already carries the
+    incident count. What is missing is mechanical: the failure SILENTLY
+    truncates — the heredoc swallows the rest of the script, so in #9205 the
+    `nohup` launch never ran and the only evidence was a bash warning buried
+    mid-output. A relay that reports success for a script it did not finish
+    reading is the "silent truncation reads as complete" class this repo has a
+    guard family for. Filed as a proposal rather than shipped: the relay
+    workflow is shared infrastructure every session depends on, and breaking it
+    at 08:50 unattended is a worse outcome than a fourth session hitting the
+    trap.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
