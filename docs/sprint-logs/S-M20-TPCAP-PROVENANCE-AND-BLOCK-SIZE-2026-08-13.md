@@ -1913,11 +1913,25 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     |---|--:|
     | `stale_cells` | **186** |
     | …that already have a **live-parity** corpus row | **100** (53.8%) |
-    | …of which at least one such row **PASSES** | **11** |
+    | …of which the **newest floor-clearing** such row **PASSES** | **9** |
 
-    The eleven carry a recorded negative against a live-parity pass — nine
-    `honest_negative`, one `passed_unshipped`, and the `tlt` cell already filed
-    as (f). Worked example: `trend_donchian_xrp_4h`/`trail_decay` reads
+    The nine carry a recorded negative against a live-parity pass — four a full
+    `PASS`, five the weaker `path_b_wf_pass`, with base OOS 29–67; the `tlt`
+    cell (56 OOS) is one of them and is separately filed as (f).
+
+    ⚠️ **It was eleven until I checked, and the correction is downward.** Two —
+    `mhg_pullback_1d`/`stale_stop` and `slv_pullback_1d`/`stale_stop` — passed on
+    **6- and 7-trade** OOS windows on 2026-08-10, *before* `MIN_OOS_TRADES`
+    existed (`min_oos_trades_floor: None` on those rows), and the corpus has
+    **already retracted them**: the same cells re-ran on 08-13 with the floor at
+    25 and returned `insufficient_base`. They are not contradictions — they are
+    the floor working. **My error was the aggregation, not the read:** I counted
+    *any* passing live-parity row instead of the *newest* one, so a superseded
+    pass and a standing one carried equal weight. Caught by collecting the
+    per-cell evidence to write into the refs — by doing the next step, not by
+    re-reading.
+
+    Worked example: `trend_donchian_xrp_4h`/`trail_decay` reads
     `honest_negative` on a ref dated **2026-07-12/13** (*"eth/sol/xrp 4h all
     cells is_oos_fail"*), while the corpus holds **two live-parity PASSes from
     2026-08-10** — `decay_arm2R_t2.5` (wf 5/6, Δnet_R OOS **+1.0043**) and
@@ -1935,8 +1949,8 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     row / agrees / **disagrees**) and a guard so it cannot recur.
 
     **Bounded deliberately:** a passing *cell* is not automatically a passing
-    *lever* disposition (though `tlt` shipped on exactly one); **8 of the 11 are
-    the weaker `path_b_wf_pass`**, only 4 a full PASS; I re-ran nothing; and any
+    *lever* disposition (though `tlt` shipped on exactly one); **5 of the 9 are
+    the weaker `path_b_wf_pass`**, 4 a full PASS; I re-ran nothing; and any
     status change on a live leg is Tier-3.
 
     *(And the headline was nearly wrong in the alarming direction. My first pass
