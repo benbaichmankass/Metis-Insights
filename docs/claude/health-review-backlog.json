@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T02:45:00+00:00",
+  "updated_at": "2026-08-14T06:55:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -13832,7 +13832,7 @@
       "id": "BL-20260813-1D-FRAME-DID-NOT-CACHE-AFTER-CAP-RAISE",
       "opened_at": "2026-08-13T08:15:00+00:00",
       "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": 1,
       "title": "After the TTL cap went 60 -> 300 every capped frame's fetch rate fell except 1d, which ROSE 6.5% — the frame with the largest expected win",
@@ -13840,7 +13840,14 @@
       "why_it_matters": "1d was the single largest line in the original finding — 762 fetches in 2h at 2.4-3.6s each, 13.9% of tick on-loop. It is the frame the whole cap argument was strongest for, so a non-response is exactly the result worth chasing rather than averaging into a favourable headline. Plausible causes NOT yet distinguished: the off-loop exit loop dominates 1d (its offloop n=22 vs on-loop 13, and the exit loop runs on its own cadence so its inter-fetch gap may exceed 300s); more distinct 1d symbols than other frames, so each (symbol,tf,limit) key is hit less often; or a `since=` parameter on some 1d reads, which is never cached by design.",
       "resolution_criteria": "A tick_cost read at ticks_measured >= 30 on a single post-flip process either (a) shows fetch.1d per-tick falling in line with its siblings, closing this as small-sample noise, or (b) confirms it stays flat/up, in which case the cause is identified among the three candidates above — distinguished by comparing on-loop vs off-loop 1d counts and checking whether the 1d callers pass `since=`. Either way the outcome is recorded on the CANDLE_CACHE_TTL row in CLAUDE.md so the headline hit-rate is never read as covering 1d.",
       "next_action": "One warm tick_cost read once the current process has 30+ ticks (~1h). Tier-1, read-only.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-14T06:55:00+00:00",
+          "by": "claude (scheduled check-in), diag #9170",
+          "note": "RESOLVED — DIAGNOSED at n=40, and the answer is that the 1d frame is behaving CORRECTLY. There is no cache bug; the cap simply sits below 1d's reuse period.\n\nTHE MATURE SAMPLE, finally obtained (diag #9170): process_started_utc 2026-08-14T05:17:25Z, ticks_measured 40, ~87.2 min uptime, so the tick INTERVAL is 87.2*60/40 = 131s (note this is the interval, not the 72.3s mean tick DURATION — they are different numbers and the TTL competes with the interval). On-loop per-tick fetch rates against the row's pre-flip / post-flip baselines:\n    1h   3.73   (pre 8.84, post 5.25)   -57.9% vs pre\n    2h   1.52   (pre 4.32, post 2.00)   -64.7%\n    4h   1.82   (pre 5.26, post 2.50)   -65.3%\n    1d   3.02   (pre 3.05, post 3.25)    -0.8%   <-- the outlier, confirmed\n    ctl 16.05   (pre 19.00, post 16.25) -15.5%   (15m+5m+1m, uncapped)\nSo at 4x the largest previous sample the anomaly is real and not noise: every capped sibling fell 58-65% while 1d did not move.\n\nTHE CAUSE — arithmetic, not a defect. config/strategies.yaml has SIXTEEN enabled 1d strategies, each pinned to its own symbol (MES MGC MHG SPY QQQ TQQQ QLD IWM GLD TLT IEF SLV GDX SPLG IAUM SCHA). 121 fetches / 16 symbols = 7.6 fetches per symbol over 40 ticks, i.e. each 1d symbol is re-requested about once every 40/7.6*131 = **692 SECONDS**. The TTL is 300s. 692 > 300, so every 1d entry has ALREADY EXPIRED on its own TTL before the next request for that symbol arrives. The cache cannot hit, and raising 60 -> 300 could not have helped, because 300 was still less than half the revisit interval. 1h/2h/4h improved precisely because their revisit intervals fall INSIDE 300s.\n\nTWO OF THE THREE CANDIDATE CAUSES ARE REFUTED, not merely unselected:\n  * `since=` reads never cached — REFUTED. Zero callers pass since= on the signal path (grep over src/ for fetch_candles(... since ...)     returns 0); the only since= mention in market_data.py is its own error string. `limit` is 200 at 22 of 26 call sites, so key     fragmentation by limit is not material either.\n  * off-loop exit-loop dominance — REFUTED AS THE CAUSE. Off-loop fetch.1d is n=242 vs on-loop 121, exactly 2.00x, holding the ratio     seen at every earlier sample. But the ON-LOOP rate is fully explained by the revisit interval alone, so the exit loop does not need     to be invoked to account for it. (It remains true that the exit loop is the larger 1d consumer in absolute terms.)\n  * more distinct 1d symbols — CONFIRMED, in the precise form above: 16 symbols spreading the per-symbol revisit interval past the TTL.\n\nNOTED WHILE READING, NOT THE CAUSE HERE: market_data.py::_candle_cache_put bounds the map by CLEARING IT ENTIRELY at >512 entries rather than evicting LRU. That is not what is happening to 1d (the TTL expiry alone accounts for it), but a wholesale flush disproportionately harms exactly the long-revisit frames, so it is worth knowing if the cap is ever raised.\n\nWHAT WOULD ACTUALLY FIX 1d, IF THE OPERATOR WANTS IT (Tier-3, NOT actioned): a cap above ~700s would bring 1d's revisit interval inside the TTL. That is well within 1d's OWN declared tolerance — the CANDLE_CACHE_TTL_FRACTION contract is 10% of the bar, which for a daily bar is 8640s, so even 900s would be 1.0% of the bar. But the VALUE is Tier-3 (strategies read close.iloc[-1] as the current price for entry geometry, and the monitor reads it for exits), so this is a proposal, not a change. The measured upside is bounded: 1d is 15.5% of on-loop tick time here, and eliminating its misses is worth at most that."
+        }
+      ],
+      "updated_at": "2026-08-14T06:55:00+00:00"
     },
     {
       "id": "BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE",
