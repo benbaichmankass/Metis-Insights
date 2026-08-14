@@ -14453,6 +14453,23 @@
         "diag #9162 -- 44/44 pull_start runs are MES over 2026-07-30..08-05; window does not cover 07-07..07-30",
         "diag #9163 -- lines=12 complete read: last run 2026-08-13T23:33->23:45, both timeframes ok; the daily pull is HEALTHY"
       ]
+    },
+    {
+      "id": "BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN",
+      "opened_at": "2026-08-14T05:36:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "dashboard",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "title": "roadmap.py::_parse_last_updated returns the ENTIRE prior-entry chain as the 'summary', so /api/bot/roadmap's lastUpdated summary is ~1000-1400 chars of history rather than the current entry",
+      "source": "Noticed while updating ROADMAP.md's header for the M20 coverage move, and CHECKED against the pre-edit file rather than assumed -- the run-on is PRE-EXISTING, not introduced by that edit.\n\nMEASURED both ways with the real parser: BEFORE the edit `_parse_last_updated` returned date=2026-08-13 with a summary of 998 characters; AFTER, date=2026-08-14 with 1374. The DATE is correct in both cases; it is only the summary that runs on. The header line is a chain of the form `**Last Updated:** <date> (**<summary>**) - prior: <date> (**<summary>**) - prior: ...`, and the terminator does not stop at the first entry, so every historical entry is concatenated into the field.\n\nWHY IT IS ONLY LOW: nothing is wrong or fabricated -- the text returned is real and the date is right. The cost is legibility on the surface that consumes it: `/api/bot/roadmap`'s `lastUpdated` feeds the dashboard + Android Roadmap views, where a 'summary' is presumably meant to be a line, not the full changelog. It also grows monotonically as entries accumulate, so it degrades over time rather than staying constant.\n\nI did not fix it in the same change deliberately: the fix is a parser-regex change on a live read surface two front-ends consume, and bundling it into a ROADMAP content edit would have mixed a doc update with a behaviour change to an endpoint.",
+      "resolution_criteria": "Observable: `_parse_last_updated` returns ONLY the first entry's summary -- i.e. its length stops growing as `- prior:` entries accumulate. A regression test that appends a second synthetic `- prior:` entry and asserts the returned summary is unchanged would pin it, since the defect is precisely that the field grows with history. Either fix is acceptable: terminate the summary at the first `) - prior:` boundary, or return a structured list of entries and let the consumer pick the first. NOT resolution: truncating the string to N characters, which would still be the whole chain, just clipped.",
+      "evidence": [
+        "src/web/api/routers/roadmap.py::_parse_last_updated",
+        "measured 2026-08-14: summary_len 998 (pre-edit HEAD:ROADMAP.md) and 1374 (post-edit), date correct in both",
+        "ROADMAP.md:9 -- the '- prior:' chain the parser runs through"
+      ]
     }
   ]
 }
