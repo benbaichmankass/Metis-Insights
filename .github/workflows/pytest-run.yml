@@ -138,7 +138,41 @@ jobs:
           # which does not short-circuit. That is a stated trade-off against
           # MB-20260706-CI-MINUTES, not an oversight — tests/test_pytest_run_filter.py
           # pins both the inclusions and these exclusions.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/'; then
+          # THE docs/ EXCEPTIONS — FOUR FILES, ENUMERATED MECHANICALLY, not a
+          # tree (2026-08-14,
+          # BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT).
+          #
+          # The exclusion above is justified by "the suite's assertions over
+          # them are owned by the separate `guards` job". That premise is
+          # PER-FILE and had only ever been applied per-TREE. Measured: PR #9208
+          # changed only the exit-coverage matrix, short-circuited to a
+          # TEN-SECOND green pytest-run, merged, and left main RED — the fourth
+          # instance of the class this filter's own header enumerates.
+          #
+          # So the set below was derived by SCANNING tests/ for a docs/ path
+          # joined onto the repo root, rather than by thinking hard about it —
+          # hand-enumeration is the failure mode that produced instances 1-4.
+          # 19 test files carry a docs/ path literal; exactly FOUR read a
+          # COMMITTED docs/ file (the rest write fixtures under tmp_path):
+          #
+          #   docs/research/exit-refinement-coverage.json  test_exit_head_per_leg
+          #   docs/research/m20-sweep-corpus.jsonl         test_m20_regime_book_provenance
+          #   docs/claude/system-actions.md                tests/ops/test_system_actions_workflow
+          #   docs/ARCHITECTURE-CANONICAL.md               test_audit_verification_checklist
+          #
+          # THE COST IS REAL AND IS BEING PAID DELIBERATELY. ARCHITECTURE-
+          # CANONICAL.md is edited by many docs-only PRs, and each now pays a
+          # full ~8-min suite. It is included anyway because
+          # `test_live_repo_checklist_clean` asserts the live doc has no drift
+          # and the ONLY other check of that property is the WEEKLY
+          # doc-audit-weekly.yml — `arch-doc-guard` runs a different script and
+          # does not cover it. A check that a docs PR can silently skip is not a
+          # check. The cheaper alternative — move those four assertions into the
+          # `guards` job, which never short-circuits — is the recorded follow-up
+          # on the backlog row; it is a bigger change than this one.
+          #
+          # Pinned in tests/test_pytest_run_filter.py::COVERED.
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

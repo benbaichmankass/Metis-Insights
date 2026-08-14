@@ -324,17 +324,55 @@ def test_an_undeclared_geometry_is_counted_not_assumed_clean():
     assert v2["geometry_undeclared"] == 0
 
 
-def test_the_three_shipped_donchian_1h_cells_are_live_stale_decisions():
-    """The real matrix, not a fixture: these three change exit behaviour on
-    real money today, on a round measured to contain zero take-profit exits.
-    They evaded the stale list for two days because the only test was a date."""
+DONCHIAN_1H_LEGS = ("trend_donchian", "trend_donchian_eth",
+                    "trend_donchian_sol")
+
+
+def test_the_three_shipped_donchian_1h_cells_were_re_swept_not_merely_unflagged():
+    """The real matrix, not a fixture.
+
+    HISTORY, because the assertion INVERTED and an inverted assertion is the
+    easiest place to launder a regression. These three change exit behaviour on
+    real money today, and were graded on a round measured to contain zero
+    take-profit exits; they evaded the stale list for two days because the only
+    test was a date. This test used to assert they WERE stale.
+
+    They were re-swept at live parity on 2026-08-14 (trainer relay #9206), which
+    is precisely the remedy "stale" was asking for — so they are correctly no
+    longer stale, and asserting staleness now would pin a defect as a
+    requirement.
+
+    But **"not stale" is not "fine"**: 2 of the 3 did NOT reproduce at live
+    parity, and all three remain `shipped` on real money pending operator
+    decision (b). So the test asserts the two things that could each silently
+    undo the work — that they left the stale list by being MEASURED rather than
+    by being deleted, reopened, or marked n/a; and that the measurement is still
+    recorded on the cell.
+    """
     matrix = json.loads(
         (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
     v = rollup.evidence_vintage(matrix)
+
     flagged = {leg for leg, lever, *_ in v["stale_decisions"]
                if lever == "exit_head_ml"}
-    assert flagged == {"trend_donchian", "trend_donchian_eth",
-                       "trend_donchian_sol"}, flagged
+    assert flagged.isdisjoint(DONCHIAN_1H_LEGS), flagged
+
+    rows = {r["strategy"]: r for r in matrix["rows"]}
+    for leg in DONCHIAN_1H_LEGS:
+        row = rows.get(leg)
+        assert row is not None, f"{leg} vanished from the matrix"
+        # Still live and still shipped — the caveat is not resolved by the
+        # re-sweep, only re-based. If either flips, the exemption below stops
+        # describing the same situation and this test must be re-read.
+        assert row.get("execution") == "live", leg
+        cell = row.get("exit_head_ml") or {}
+        assert rollup.base(cell.get("status")) == "shipped", (leg, cell.get("status"))
+        # THE LOAD-BEARING PAIR. `live_parity` is what makes `evidence_vintage`
+        # return stale=False, so without the ref it is an unbacked declaration
+        # that silences the flag — the cheapest possible way to clear a stale
+        # decision without doing the sweep.
+        assert cell.get("tp_geometry") == rollup.GEOMETRY_LIVE_PARITY, leg
+        assert "RE-SWEPT AT LIVE PARITY" in (cell.get("ref") or ""), leg
 
 
 # ---------------------------------------------------------------------------

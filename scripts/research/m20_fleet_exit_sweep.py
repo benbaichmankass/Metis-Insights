@@ -910,6 +910,50 @@ def resolve_split(harness: str, base: list[str], mode: str,
     return boundary, meta
 
 
+def insufficient_base_reason(base_oos_n, floor: int, split: str,
+                             split_meta: dict) -> str:
+    """Why a cell was refused for a thin OOS window -- INCLUDING which window.
+
+    The old message was `f"OOS base {n} trades < floor {floor}"`, which names a
+    COUNT over a window it does not name. That reads as a statement about the
+    LEG ("this strategy has 24 trades") when it can equally be a statement about
+    the BOUNDARY ("the derivation handed this 407-trade leg a 24-trade window").
+    Those are opposite conditions with opposite remedies -- wait for trades, vs
+    move the split -- and both were printing the same sentence.
+
+    Measured 2026-08-14 on the two legs that motivated this
+    (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS):
+    `htf_pullback_trend_2h` refused at n=24 under the derived split and graded
+    at n=95 under the corpus-standard one, same config, same day. Nothing in the
+    refusal said which split produced the 24, so establishing that took a fresh
+    trainer relay run rather than a read.
+
+    Pure and side-effect-free so it can be tested directly -- the verdict block
+    that calls it lives inside `main()` and is not otherwise reachable from a
+    test. It composes a STRING and nothing more; no caller branches on it.
+    """
+    mode = split_meta.get("split_mode")
+    lifetime = split_meta.get("split_lifetime_trades")
+    fallback = split_meta.get("split_fallback")
+    parts = [f"window from {split}", f"split_mode={mode}"]
+    # The target is meaningless under `date` (nothing was targeted), so it is
+    # omitted rather than printed as None -- a None target would read as a
+    # derivation that failed rather than one that never ran.
+    if mode != "date":
+        parts.append(f"targeting {split_meta.get('split_target_oos')}")
+    # `lifetime` is the discriminator the whole message exists for: it is what
+    # separates a trade-starved leg from a badly-placed boundary. It is absent
+    # under `date` (no emit run happened), and absence is reported by OMISSION
+    # rather than a fabricated 0 -- "we did not count the leg's lifetime" and
+    # "the leg has no trades" are opposite claims.
+    if lifetime is not None:
+        parts.append(f"leg lifetime {lifetime}")
+    if fallback:
+        parts.append(f"FELL BACK: {fallback}")
+    return (f"OOS base {base_oos_n} trades < floor {floor} "
+            f"({', '.join(parts)})")
+
+
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     """One harness run, memoized on its full invocation.
 
@@ -1812,14 +1856,42 @@ def main(argv: list[str]) -> int:
                      and _base_oos_n < MIN_OOS_TRADES)
             entry["base_trades_oos"] = _base_oos_n
             entry["min_oos_trades_floor"] = MIN_OOS_TRADES
+            # WHERE THE BOUNDARY CAME FROM. `_base_oos_n` is a count over a
+            # window that was CHOSEN, and until 2026-08-14 nothing downstream
+            # recorded the choice -- so a refusal read as "this leg has 24
+            # trades" when the leg has 407 and the DERIVATION handed it 24
+            # (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS,
+            # measured on htf_pullback_trend_2h: 95 OOS at the corpus-standard
+            # split vs 24 at the derived one -- same leg, same day, same
+            # config). That is diagnostic-provenance sub-class B: an implicit
+            # input selection substituted for the declared one, with nothing in
+            # the output revealing it. `resolve_split`'s own docstring already
+            # promised the cure -- "Returned meta records target AND mode so a
+            # verdict states its own derivation" -- and no verdict read the
+            # meta, so the promise was prose about a property that did not
+            # exist. Recorded on EVERY cell, not only refused ones: a boundary
+            # that decides a PASS deserves the same audit trail as one that
+            # decides a refusal.
+            #
+            # PURELY ADDITIVE -- no verdict branch reads these keys, so this
+            # cannot move a grade. `split_target_oos` is the TARGET; the
+            # ACHIEVED count is `base_trades_oos` above, and the two are not
+            # interchangeable (resolve_split's docstring is explicit that the
+            # harness windows CANDLES, not trades).
+            entry["split"] = leg_split
+            entry["split_mode"] = split_meta.get("split_mode")
+            entry["split_target_oos"] = split_meta.get("split_target_oos")
+            entry["split_lifetime_trades"] = split_meta.get(
+                "split_lifetime_trades")
+            entry["split_fallback"] = split_meta.get("split_fallback")
             if _thin:
                 # Record what it WOULD have been, so the floor's effect on this
                 # cell is auditable rather than invisible.
                 entry["would_have_been"] = (
                     "is_oos_pass" if candidate else "is_oos_fail")
                 entry["verdict"] = "insufficient_base"
-                entry["insufficient_base_why"] = (
-                    f"OOS base {_base_oos_n} trades < floor {MIN_OOS_TRADES}")
+                entry["insufficient_base_why"] = insufficient_base_reason(
+                    _base_oos_n, MIN_OOS_TRADES, leg_split, split_meta)
             elif candidate:
                 wf = walkforward(p["harness"], p["base"], args, log_result,
                                  leg, tag, require_dd=True)
