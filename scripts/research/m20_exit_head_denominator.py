@@ -431,7 +431,12 @@ def _report_one_geometry(rows: list[dict], geom: str) -> None:
         P = sorted(r["n_oos"] for r in held if r["verdict"] == "candidate")
         F = sorted(r["n_oos"] for r in held if r["verdict"] != "candidate")
         hit = sum((r["n_oos"] >= BOOK_SPLIT) == (r["verdict"] == "candidate") for r in held)
-        print(f"\n  OUT-OF-SAMPLE TEST of the fitted n_oos >= {BOOK_SPLIT} split, on the 2h stratum:")
+        # `geom` qualifies the claim: the split was fitted on cells that were
+        # overwhelmingly capped-family, so this is a held-out test WITHIN that
+        # geometry. Saying so keeps the result from being read as a statement
+        # about every book the fleet runs.
+        print(f"\n  OUT-OF-SAMPLE TEST of the fitted n_oos >= {BOOK_SPLIT} split, "
+              f"on the 2h stratum ({geom}):")
         print(f"    pass n_oos {P}   fail n_oos {F}")
         if P and F and min(P) < max(F):
             print(f"    the largest books FAIL and the smallest pass ({min(P)}) is below the "
