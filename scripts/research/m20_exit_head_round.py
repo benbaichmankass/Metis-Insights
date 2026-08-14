@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "research"))
 
 from m20_fleet_exit_sweep import (  # noqa: E402
-    FAMILY_HARNESS, base_args, classify, resolve_data)
+    FAMILY_HARNESS, LIVE_TP_CAPPED_FAMILIES, base_args, classify, resolve_data)
 
 
 def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
@@ -133,6 +133,9 @@ def main(argv: list[str]) -> int:
 
     emits: list[str] = []
     candles: dict[str, str] = {}
+    # Families actually EMITTED (not requested) — the geometry stamp is
+    # derived from this, so a skipped leg never contributes to the label.
+    fams_seen: set[str] = set()
     for leg in a.legs.split(","):
         cfg = strategies.get(leg)
         if not isinstance(cfg, dict):
@@ -214,6 +217,9 @@ def main(argv: list[str]) -> int:
         if n:
             emits.append(str(emit))
             candles[str(sym)] = data
+            # Recorded HERE, after the harness actually produced trades — a leg
+            # that skipped or failed must not colour the round's geometry stamp.
+            fams_seen.add(fam)
 
     if not emits:
         print("no emitted trades — nothing to build")
@@ -260,12 +266,50 @@ def main(argv: list[str]) -> int:
     # (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP). A round is now
     # self-describing on the one parameter that decides whether its verdict
     # transfers to production.
+    # ...BUT THE STAMP MUST DESCRIBE WHAT RAN, NOT WHAT WAS ASKED FOR.
+    #
+    # `base_args` applies `--tp-cap-pct` ONLY when the leg's family is in
+    # `LIVE_TP_CAPPED_FAMILIES` ({donchian, pullback, fade, squeeze}), because
+    # only those live units carry `_TP_SENTINEL_CAP_PCT` — verified 2026-08-14:
+    # `grep -c _TP_SENTINEL_CAP_PCT src/units/strategies/ict_scalp.py` -> 0,
+    # against 4 for `trend_donchian.py`. So withholding the cap from a scalp
+    # round is CORRECT; the live scalp unit does not clamp.
+    #
+    # The defect was the label. This block read the RUN-LEVEL flag and stamped
+    # `live_parity` for every leg regardless of family, so a scalp round would
+    # self-report a geometry its harness never received — `diagnostic-
+    # provenance-guard` sub-class A, in the one field whose entire job is to
+    # tell a reader which geometry produced the numbers. `m20_fleet_exit_sweep`
+    # was fixed for exactly this on 2026-08-10 ("THE GEOMETRY THIS LEG ACTUALLY
+    # RAN, not the one the run requested") and the fix never reached this
+    # sibling driver, which is how a round launched 2026-08-14 came within one
+    # relay of writing a false stamp into the committed evidence file.
+    #
+    # Three states, never collapsed — the distinction between the last two is
+    # the whole point, since both run without a cap for OPPOSITE reasons:
+    #   live_parity_capped   — cap applied; the live unit clamps
+    #   live_parity_uncapped — no cap applied AND the live unit does not clamp,
+    #                          so this IS parity for that unit
+    #   NO_TAKE_PROFIT       — no cap on a family that DOES clamp live: a book
+    #                          production does not run
+    capped_fams = {f for f in fams_seen if f in LIVE_TP_CAPPED_FAMILIES}
+    uncapped_fams = {f for f in fams_seen if f not in LIVE_TP_CAPPED_FAMILIES}
+    if a.tp_cap_pct > 0.0:
+        geometry = ("live_parity_capped" if not uncapped_fams
+                    else "live_parity_uncapped" if not capped_fams
+                    else "MIXED_capped_and_uncapped_families")
+    else:
+        geometry = ("NO_TAKE_PROFIT" if capped_fams else "live_parity_uncapped")
     meta = {
         "tf": a.tf,
         "legs": [s.strip() for s in a.legs.split(",") if s.strip()],
         "tp_cap_pct": a.tp_cap_pct,
-        "tp_geometry": ("live_parity" if a.tp_cap_pct > 0.0
-                        else "NO_TAKE_PROFIT"),
+        "tp_geometry": geometry,
+        # The families actually seen, so a reader can check the stamp rather
+        # than trust it. `cap_applied` is the fact the label is derived from.
+        "families": sorted(fams_seen),
+        "cap_applied_to_families": sorted(capped_fams),
+        "cap_withheld_from_families": sorted(uncapped_fams),
         "target": a.target,
         "features": a.features,
     }

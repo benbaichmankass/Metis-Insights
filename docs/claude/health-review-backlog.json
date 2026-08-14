@@ -14948,6 +14948,26 @@
         "scripts/check_diagnostic_provenance.py (the guard whose false green exposed this)",
         "PR #9257 check_run 94775601819 (the CI failure that contradicted three local passes)"
       ]
+    },
+    {
+      "id": "BL-20260814-EXIT-HEAD-ROUND-STAMPS-LIVE-PARITY-ON-FAMILIES-THAT-NEVER-GOT-THE-CAP",
+      "opened_at": "2026-08-14T14:05:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14)",
+      "severity": "high",
+      "tier": "1 (research tooling; no live path)",
+      "status": "resolved",
+      "area": "research-tooling",
+      "title": "m20_exit_head_round stamped tp_geometry from the RUN-LEVEL flag, so a scalp round self-reported live_parity for a cap its harness never received",
+      "detail": "THE DEFECT. `_round_meta` computed `tp_geometry = 'live_parity' if a.tp_cap_pct > 0.0 else 'NO_TAKE_PROFIT'` -- a pure function of the CLI argument, applied to every leg in the round regardless of family. But `base_args` (m20_fleet_exit_sweep.py:452) appends `--tp-cap-pct` ONLY when `fam in LIVE_TP_CAPPED_FAMILIES` = {donchian, pullback, fade, squeeze}. So a round over the `scalp` family emits harness commands with NO cap and then stamps the report `live_parity`.\n\nCAUGHT BY READING THE RELAY OUTPUT, not the code: the 15m scalp launch (#9297) showed `backtest_ict_scalp.py --data ... --sim-breakeven --htf-rule 1h ... --emit-trades ...` with no `--tp-cap-pct` and no `--tp-r`, where the 2h/4h rounds visibly carried `--tp-cap-pct 0.099 --tp-r 50.0`.\n\n⚠️ THE WITHHOLDING IS CORRECT; ONLY THE LABEL WAS WRONG. Verified rather than assumed: `grep -c _TP_SENTINEL_CAP_PCT src/units/strategies/ict_scalp.py` -> **0**, against **4** for `trend_donchian.py` (positive control, so the zero is a reading and not a broken probe). The live scalp unit does not clamp, so a scalp book WITHOUT a cap IS live parity for that unit. Passing the cap would have been the bug; stamping it as the same geometry as a capped donchian round is the bug that shipped.\n\nTHE CLASS, and it is a repeat. `diagnostic-provenance-guard` sub-class A (semantic substitution): the label names 'the geometry the book was built with'; the code reported 'the value of the CLI arg'. **`m20_fleet_exit_sweep` was already fixed for exactly this on 2026-08-10** -- its comment reads 'THE GEOMETRY THIS LEG ACTUALLY RAN, not the one the run requested', after its PR banner printed 'LIVE-PARITY (capped TP 0.099)' over 8 ict_scalp legs and fvg_range_15m. The fix landed in one sibling and never propagated to the other, which is the more general lesson: a per-file fix for a class leaves every sibling that shares the class.\n\nWHY IT MATTERED HERE. The stamp is what `docs/research/m20-exit-head-rounds.jsonl` records, and that file's ENTIRE value is that its geometry stamps can be trusted across strata -- it exists because this lever had no committed evidence at all. The 15m scalp round was running when this was found; recording its output would have put a false `live_parity` row beside 17 true ones and silently made every cross-stratum comparison unsound. The 17 existing rows are UNAFFECTED: 2h is `pullback` and 4h is `donchian`, both in LIVE_TP_CAPPED_FAMILIES, and their emit commands visibly carried the flag.",
+      "resolution_criteria": "DONE. The stamp is now derived from `fams_seen` -- the families that ACTUALLY EMITTED trades, recorded after the harness returns rows so a skipped or failed leg cannot colour the label -- crossed with `LIVE_TP_CAPPED_FAMILIES`. Four states, never collapsed: `live_parity_capped` (cap applied, unit clamps) / `live_parity_uncapped` (no cap AND the unit does not clamp -- parity for that unit) / `NO_TAKE_PROFIT` (no cap on a family that DOES clamp live -- a book production does not run) / `MIXED_capped_and_uncapped_families` (a round spanning both says so rather than picking one). The two uncapped states are deliberately distinct: they mean the same mechanics for OPPOSITE reasons. `_round_meta` additionally ships `families`, `cap_applied_to_families` and `cap_withheld_from_families`, so a reader can CHECK the label rather than trust it. Pinned by 4 tests in tests/test_exit_head_round_geometry_stamp.py, including a positive-control assertion that the `_TP_SENTINEL_CAP_PCT` probe finds a non-zero in trend_donchian before believing the zero in ict_scalp; proven load-bearing by restoring the old one-line stamp (1 failed).",
+      "refs": [
+        "scripts/research/m20_exit_head_round.py (_round_meta geometry derivation)",
+        "scripts/research/m20_fleet_exit_sweep.py:452 (base_args cap gate) + :100 (LIVE_TP_CAPPED_FAMILIES) + :2169 (the 2026-08-10 fix this never inherited)",
+        "tests/test_exit_head_round_geometry_stamp.py",
+        "docs/research/m20-exit-head-rounds.jsonl (the artifact this protects)",
+        "trainer relay #9297 (the 15m scalp launch whose command exposed it)",
+        "BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP"
+      ]
     }
   ]
 }
