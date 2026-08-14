@@ -1905,6 +1905,64 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     the real cause. Same class as item 60's whole subject, committed by me, one
     hour later.)*
 
+65. **Audited the matrix against the corpus, and over half the stale backlog
+    turns out to be already answered.** Measured across the two committed
+    artifacts:
+
+    | | count |
+    |---|--:|
+    | `stale_cells` | **186** |
+    | …that already have a **live-parity** corpus row | **100** (53.8%) |
+    | …of which the **newest floor-clearing** such row **PASSES** | **9** |
+
+    The nine carry a recorded negative against a live-parity pass — four a full
+    `PASS`, five the weaker `path_b_wf_pass`, with base OOS 29–67; the `tlt`
+    cell (56 OOS) is one of them and is separately filed as (f).
+
+    ⚠️ **It was eleven until I checked, and the correction is downward.** Two —
+    `mhg_pullback_1d`/`stale_stop` and `slv_pullback_1d`/`stale_stop` — passed on
+    **6- and 7-trade** OOS windows on 2026-08-10, *before* `MIN_OOS_TRADES`
+    existed (`min_oos_trades_floor: None` on those rows), and the corpus has
+    **already retracted them**: the same cells re-ran on 08-13 with the floor at
+    25 and returned `insufficient_base`. They are not contradictions — they are
+    the floor working. **My error was the aggregation, not the read:** I counted
+    *any* passing live-parity row instead of the *newest* one, so a superseded
+    pass and a standing one carried equal weight. Caught by collecting the
+    per-cell evidence to write into the refs — by doing the next step, not by
+    re-reading.
+
+    Worked example: `trend_donchian_xrp_4h`/`trail_decay` reads
+    `honest_negative` on a ref dated **2026-07-12/13** (*"eth/sol/xrp 4h all
+    cells is_oos_fail"*), while the corpus holds **two live-parity PASSes from
+    2026-08-10** — `decay_arm2R_t2.5` (wf 5/6, Δnet_R OOS **+1.0043**) and
+    `decay_arm1.5R_stall6_t2.5` (wf 4/6, +0.9204).
+
+    `evidence_vintage`'s own comment says a stale negative *"costs knowledge —
+    the lever might have passed and we would not know."* For these it is not
+    hypothetical: **the lever did pass, the run happened, the row is committed,
+    and the matrix still carries the pre-cutover negative.**
+
+    **So the 186-cell backlog is not 186 re-runs.** Over half is a **join** the
+    roll-up does not perform, and the expensive part is already paid for. Filed
+    `BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY`,
+    whose criteria ask for a three-state report per stale cell (no live-parity
+    row / agrees / **disagrees**) and a guard so it cannot recur.
+
+    **Bounded deliberately:** a passing *cell* is not automatically a passing
+    *lever* disposition (though `tlt` shipped on exactly one); **5 of the 9 are
+    the weaker `path_b_wf_pass`**, 4 a full PASS; I re-ran nothing; and any
+    status change on a live leg is Tier-3.
+
+    *(And the headline was nearly wrong in the alarming direction. My first pass
+    reported these cells as **not flagged** — "invisible". They are all flagged.
+    I had unpacked the `stale_cells` tuple as `(leg, lever, …)` when it is
+    `(leg, symbol, timeframe, lever, …)`, so every lookup compared a lever
+    against a **symbol** and missed. The staleness machinery works fine; what is
+    missing is the join. Checking the tuple shape rather than trusting my own
+    unpacking is the only reason this item says something true — and it would
+    have been the ninth instance of the postscript's pattern, this time
+    inventing a defect rather than dismissing one.)*
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
