@@ -131,6 +131,60 @@ touched, no Tier-3 change enacted.**
     lean); the two 15m PASSes rest on 5 and 6 leg-folds; and `eth_15m`, the
     weakest leg, is the one that **already has a shipped stale-stop**, so the cheap
     lever winning there is coherent with what is deployed.
+16. **PR #9114 (merged).** The seven `*_trend_long_1d` `exit_head_ml` refs now
+    **say** they are declining a verdict they already hold. The status was
+    always right; the ref never recorded that the choice had been made, so the
+    next auditor reads the matrix as stale. Numbers **re-verified from the
+    report** (relays #9112 + #9113) rather than quoted from my own audit note —
+    and the first probe read key `per_leg_summary`, which is the **function**
+    name, not a key. It returned "no entry in any report" for all seven legs,
+    the *opposite* of the truth; its positive control (0 legs found anywhere,
+    while `per_leg_note` resolved fine) is what flagged the probe rather than
+    the data. Both relays carry a positive control for that reason. Internal
+    check recorded with the numbers: the only two `insufficient_base` legs are
+    exactly the two under the floor of 25 (qld 23, tqqq 24). Same PR fixed the
+    CLAUDE.md `db/table` row, which still documented the pre-`filter_state`
+    return shape.
+17. **PR #9115 (merged) — the lever-column sweep #9099 declared as its own gap.**
+    Result is **negative**: across **all 28 open cells on live legs**, every one
+    carries a measured, dated, numeric ref. The `exit_head_ml` 1d bucket was the
+    only instance of that shape. **Denominator stated**, because a clean sweep
+    without one is the unasserted-negative shape: 17 membership + 6 pattern
+    validations, and the count (28) reconciles with `--done-condition` (28).
+    Two shadow-leg cosmetics filed (`BL-20260814-COVERAGE-MATRIX-SHADOW-ROW-METADATA`):
+    `fvg_range_15m/trail_geometry` is `blocked` while its ref describes `n/a`,
+    and `shadow fleet/giveback_stop` has no `ref` key. **Neither moves a
+    published number — checked against `--done-condition`, not assumed.**
+18. **PR #9116 — `collapsed-state-guard` had a real hole, and it was MEASURED.**
+    I registered `db_explorer.filter_state` with that guard earlier in the
+    session and recorded at the time that the registration was weaker than I had
+    claimed. Confirmed: collapsing `filter_state` so it could only ever return
+    `"applied"` left the guard **clean**, because the sibling `order_state` in
+    the same file still carried the other two literals — producer integrity was
+    file-scoped. That is the guard's own *"cheaper to lie to than to satisfy"*
+    failure one level up: not a false annotation, but a **neighbouring field
+    standing in as evidence**. Fixed with an opt-in `producer_field` (line-scoped,
+    because producers here emit states via bare returns, tuple returns and module
+    constants, so an assignment regex would match almost none of them);
+    registered `order_state` as its own contract (it was unguarded entirely,
+    which is how it came to be supplying its sibling's evidence); and added the
+    **self-test this guard never had** — the reason the hole survived its own
+    review.
+19. **The db-explorer fix is LIVE-VERIFIED, not merely merged** (relay #9117) —
+    a change is done when it is active in production. The probe was
+    **discriminating**, since one call returning `ignored_unknown_column` would
+    not prove `applied` is reachable: a bad column returns
+    `ignored_unknown_column` with `total` **4643** (the whole table), a real
+    column returns `applied` with `total` **1109**. *(4643 vs the 4639 measured
+    2026-08-13 is four rows of overnight growth, not a contradiction.)*
+    `BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN` is now
+    fully closed — all six sub-items.
+20. **Two concurrent-merge conflicts, both resolved with invariant assertions**
+    rather than by eye: the sprint log (my own #9104 squash vs item 15) and the
+    backlog (`updated_at` only — items merged cleanly). The backlog resolution
+    asserted item count **529**, **no duplicate ids**, and that *both* sessions'
+    edits survived, because a union merge that silently drops one side is the
+    failure mode a byte-count check would miss.
 
 ## Validation Performed
 
@@ -350,30 +404,47 @@ touched, no Tier-3 change enacted.**
 
 ## Next Recommended Sprint
 
-**Run the nested tau selection, then take the family-scope decision.** The
-block-size question is closed (keep 50, derived); the open question is now
-whether `exit_head_ml` is a fleet-wide capability at all.
+**The measurement this section previously asked for HAS BEEN RUN — do not
+re-run it.** Nested (contemporaneous) τ selection landed 2026-08-14 for both
+decision-relevant families, and the answer is family-dependent:
 
-1. **Nested tau selection inside the walk-forward** — pick τ on each fold's
-   training half, score it on the test half, per leg. This is the one
-   measurement that separates "the head has an edge" from "seven arms and
-   hindsight have an edge", and neither the best-arm figure the gate credits
-   nor the median-arm figure measured here answers it.
-2. **Then** decide whether `exit_head_ml` is scalp-family-scoped. If the edge
-   survives only for scalp, the trend/pullback `exit_head_ml` cells are not a
-   coverage GAP to be filled but a question already answered in the negative —
-   which changes what the M20 matrix should *record* for them, and is therefore
-   an operator decision, not a grading one. **Queued for the operator; not
-   taken in-session.**
-3. **Do not resolve any of this by moving a threshold.** `beats_hard` failing
+| family | causal | credited | τ-blind control | from zero | two-sided PASS |
+|---|---:|---:|---:|---|---|
+| **scalp** (7 legs, 73 leg-folds) | **+3.848R** | +6.022R | +3.475R | **6.4 SE** | **5 of 7** |
+| **donchian-1h** (3 legs, 63 leg-folds) | +0.137R | +2.788R | −0.367R | 0.22 SE | 0 of 3 |
+
+**There is no fleet-wide nested figure and none may be quoted.** Doc §§ 10–11.
+
+What is actually next, in order:
+
+1. **The family-scope decision is the whole critical path, and it is the
+   OPERATOR's.** Both halves are now evidenced. Recommendation recorded in
+   `BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT` item 3 and explicitly
+   **not enacted**: scope `exit_head_ml` to the scalp family, and record the
+   trend/pullback cells as a question *answered in the negative* rather than a
+   coverage gap. Two caveats must ride with any such decision — scalp's
+   aggregate margin over `stale_8_0` is thin (+0.668R, 56.2%), and the two 15m
+   PASSes rest on 5 and 6 leg-folds.
+2. **The three live donchian-1h `exit_head_ml` cells read `shipped` while the
+   nested read says 0 of 3 clear the two-sided bar.** Hold / pull / re-validate
+   is a Tier-3 disposition on a live lever. Also operator-gated, and it is the
+   one item on this list with money attached.
+3. **Only if (1) lands permissively:** the remaining scalp work is a bigger
+   sample on the `stale_8_0` margin, not another τ rule. The head clearly beats
+   *doing nothing*; whether it beats an eight-bar stale-stop is the close
+   contest, and it is carried by two legs out of seven.
+4. **`pullback` / `allmix` / the 1d legs have no nested read** and are low
+   priority — already negative under *both* causal rules, so a nested read
+   there refines a negative rather than changing a decision. Say so rather than
+   listing it as a gap.
+5. **Do not resolve any of this by moving a threshold.** `beats_hard` failing
    the 2/3 bar in all three fold geometries is the gate working. Relaxing it
    would convert a measured negative into a recorded positive.
 
 Required verification for any re-grade: state which `fold_mode` **and** which
-`--min-fold-trades` it was graded under (verdicts differ across both, measured
-above), and whether the leg's family is single- or multi-leg, since § 6 shows
-the per-fold reliability differs by roughly 0.14–0.20 between them at the same
-nominal block.
+`--min-fold-trades` it was graded under (verdicts differ across both), and
+whether the figure quoted is best-arm, τ-blind, or nested — the three differ by
+an order of magnitude on donchian and by ~1.6× on scalp.
 
 ## Wrap-Up Check
 
