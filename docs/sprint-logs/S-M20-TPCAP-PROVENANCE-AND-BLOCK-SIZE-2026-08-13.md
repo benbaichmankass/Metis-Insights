@@ -2336,3 +2336,30 @@ property. The durable fix is for those scripts to say *"0 files in range"* when
 that is what they scanned — the same remedy this session's own
 `BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT` asks for one
 level up.
+
+**And a NINTH and TENTH, both after 11:00Z, both the SAME instance repeating —
+which is the part worth recording.** The eighth (above) taught the lesson
+explicitly: *guards are diff-scoped over a commit range, so a green over
+uncommitted work compared nothing.* I then did it twice more within the hour.
+
+- **Ninth:** ran the suite before committing the `--split-target-oos` /
+  Tier-3-table work, read `PASS 37 · FAIL 0`, pushed. CI failed on
+  `artifact-validity-guard`: **two more ellipsis-truncated backlog ids**
+  (`BL-...-A-CLIFF-...`, `BL-...-THE-FLOOR-...`) in the sprint log.
+- **Tenth:** same again on the clamp commit. This time the defect was a backlog
+  id I had **line-wrapped inside a code comment** —
+  `...-IS-A-CLIFF-SO-ASKING-` / `FOR-MORE-OOS-RETURNS-FAR-FEWER` — which the
+  guard's regex resolves to nothing. A wrapped id is a dangling reference that
+  *looks* fine to a human reader, which is precisely why a regex owns it.
+
+Three instances, one root cause, and a second root cause underneath it: I kept
+piping the guard runner into `tail`, so the shell reported **`tail`'s** exit
+status and the `&&` chain pushed regardless of the result. A failing guard and
+a passing one produced identical-looking terminal output. That is the same
+defect class as everything else in this postscript — an **unasserted
+denominator**, this time in my own tooling rather than the repo's — and it is
+why the count is three and not one.
+
+The durable fix is mechanical, not attentional: **commit, then run guards,
+then read the exit code** (`> file 2>&1; echo $?`), never `| tail`. Both are
+now habits in this session's remaining commands.
