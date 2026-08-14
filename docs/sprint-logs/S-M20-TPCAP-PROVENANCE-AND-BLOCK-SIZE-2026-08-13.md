@@ -1963,6 +1963,39 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     have been the ninth instance of the postscript's pattern, this time
     inventing a defect rather than dismissing one.)*
 
+66. **Made the nine disagreements visible where a reader will actually meet
+    them — in the matrix cell, not only in a backlog row.** Criterion (2) of the
+    row filed in item 65.
+
+    Each of the nine `ref`s now carries the live-parity counter-evidence: the
+    passing cell name, verdict, run date, walk-forward, Δnet_R IS/OOS, ΔmaxDD
+    OOS, and `base_trades_OOS`, plus how many *other* live-parity cells passed
+    for that lever.
+
+    **Nothing was re-graded.** The diff is **9 changed lines, all `ref`** —
+    verified by grepping the added lines for `"status"` and `"tp_geometry"` and
+    getting **zero**, and by re-running the live status histogram before and
+    after (286 `honest_negative` / 21 `shipped` / 11 `passed_unshipped` / 22
+    `blocked` / 33 `n/a` / 3 `pending`, unchanged).
+
+    Each annotation says explicitly how to read it — *"the newer evidence
+    disagrees and nobody has adjudicated it"*, **not** a verdict — and names the
+    three things that bound it: a passing cell is not a passing lever
+    disposition; whether the row is the weaker `path_b` route or a full `PASS`;
+    and that any status change on a live leg is Tier-3.
+
+    **One nuance the annotations carry per-cell rather than in aggregate.**
+    Eight of the nine come from runs that *predate* `MIN_OOS_TRADES`
+    (`min_oos_trades_floor: null`). Their recorded `base_trades_OOS` is 29–67,
+    so **today's floor would not refuse them** — but that is an inference about
+    the floor dimension only, and each ref says so: *whether other gate logic
+    moved since 2026-08-10 is not established here.* Only the `tlt` row was
+    graded under the floor (its run records `min_oos_trades_floor: 25`).
+
+    The point of putting this in the cell is that the backlog row is read by
+    whoever drains the backlog, while the **cell** is read by whoever is about
+    to trust the status.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
