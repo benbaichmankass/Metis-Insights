@@ -14397,6 +14397,42 @@
         "m20_coverage_rollup.py --stale-decisions -- 5 rows before, 8 after; pre_cutover 174 -> 186 of 286 closed cells",
         "tests/test_exit_head_per_leg.py -- 6 added tests; reverting (a) fails 1, reverting (b) fails 4"
       ]
+    },
+    {
+      "id": "BL-20260814-SWEEP-THIN-OOS-BANNER-MISSES-THE-GRADING-FLOOR",
+      "opened_at": "2026-08-14T05:15:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "m20-exit-refinement",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "title": "m20_fleet_exit_sweep's THIN OOS banner fires at 20 trades but the gradeability floor is 25, so a leg with 20-24 OOS trades prints a full delta table under NO warning while nothing in it was graded",
+      "source": "Found by reading the output of run 31771809102 (the 2026-08-14 live-parity re-sweep of the stale decisions), not by auditing the harness.\n\nTWO DIFFERENT NUMBERS, NEITHER WRONG ON ITS OWN. `_THIN_OOS_TRADES = 20` (m20_fleet_exit_sweep.py:898) drives the header's \"⚠️ THIN OOS (<20 trades — a verdict here is not comparable to one on a full window)\" banner; `MIN_OOS_TRADES = 25` (line 402, operator decision 2026-08-11) is the floor below which every cell returns `insufficient_base`. The band between them is a leg that is ENTIRELY ungradeable and gets NO banner.\n\nMEASURED, all four legs of that run: htf_pullback_trend_2h OOS 24, mhg_pullback_1d OOS 24, tlt_pullback_1h OOS 22 -- all three under the floor, all three unflagged, each printing a four-row Path-A/capital-efficiency delta table. Only mes_trend_long_1d (OOS 4) tripped the banner. So 3 of 4 legs in that run landed exactly in the blind band.\n\nSTATED PRECISELY, THIS IS LEGIBILITY AND NOT FALSEHOOD -- and the distinction is the reason the severity is low rather than high. The per-cell `PathA` column does read `insufficient_base` on every row, and the harness even records `would_have_been` so the floor's effect is auditable. Nothing printed is untrue. But the header is where a reader calibrates before reading the table, and a reader who trusts it sees four rows of signed deltas with no caveat over a leg where nothing was graded.\n\nThis is the consumer half of the unasserted-denominator family (diagnostic-provenance sub-class C): the numbers are real, the label above them does not say they decided nothing.",
+      "resolution_criteria": "Observable: the sweep SUMMARY header carries a warning whenever the leg's base OOS n is below MIN_OOS_TRADES, not below a separate constant -- e.g. by deriving the banner threshold FROM the floor rather than declaring it independently, so the two cannot drift apart again. Two acceptable outcomes: (a) the banner fires at the floor and the 20-24 band is flagged; or (b) the two thresholds are deliberately kept distinct AND the header states the floor alongside the OOS n, so a reader can see the gap without knowing the constant. NOT resolution: raising _THIN_OOS_TRADES to 25 by hand and leaving two independent literals free to diverge on the next floor change.",
+      "evidence": [
+        "scripts/research/m20_fleet_exit_sweep.py:898 -- _THIN_OOS_TRADES = 20",
+        "scripts/research/m20_fleet_exit_sweep.py:402 -- MIN_OOS_TRADES = 25 (operator decision 2026-08-11)",
+        "scripts/research/m20_fleet_exit_sweep.py:1754 -- verdict insufficient_base when base OOS n < floor",
+        "GH Actions run 31771809102 -- 4 legs, OOS n 24/24/22/4; only the n=4 leg carried the banner; results posted as comments on PR #9149"
+      ]
+    },
+    {
+      "id": "BL-20260814-EXIT-LADDER-CELLS-CITED-THE-WRONG-MEMO-SECTION",
+      "opened_at": "2026-08-14T05:16:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "m20-exit-refinement",
+      "severity": "low",
+      "tier": "1",
+      "status": "resolved",
+      "title": "Seven exit_ladder coverage cells cited 'memo §7.2' for the partial-TP banking verdict, which lives in §6.2 -- §7.2 is the trail4 walk-forward and says nothing about banking",
+      "source": "Found while checking whether the fleet banking verdict transfers to the two PENDING prop exit_ladder cells -- i.e. by following the citation, which is the one activity that surfaces a wrong pointer.\n\nThe claim is TRUE and the pointer was wrong. `docs/research/M20-exit-refinement-2026-07-12.md` §6.2 is titled \"Trailing-stop geometry + exit-ladder banking\" and states \"partial-TP banking reduced net_R in every one of the 20 banking cells\". §7.2 is \"Trail4 walk-forward (the requested decision input)\" and contains nothing about banking; §7.3 is the giveback-stop grid. No other memo in the repo has a §7.2, so the citation could not have resolved elsewhere.\n\nWHY IT MATTERS ENOUGH TO FIX: a reader verifying an honest_negative grade follows the pointer, lands on a section about a different lever, and either re-derives the verdict from scratch or -- worse -- reads §7.2's PASS language for trail4 and mis-attributes it. Five of the seven are honest_negative grades on live legs; two are blocked cells whose refs cite it while describing the other rows.\n\nA SEPARATE TRACEABILITY WEAKNESS NOTICED IN PASSING, NOT FIXED HERE: of the 45 honest_negative exit_ladder cells, only 5 carried any section citation at all and 34 carry none -- so most rest on the banking verdict with no pointer to it. That is a wider gap than this row's remit and is left stated rather than silently folded in.",
+      "resolution_criteria": "RESOLVED in the same session: all 7 refs now cite §6.2, each carrying an inline note naming the section title and quoting the verdict sentence so the correction is checkable from the cell itself rather than by trusting this row. The corrective note deliberately carries NO date -- five of the seven are honest_negative cells that the vintage counter buckets, and a date would have flipped them pre_cutover -> post_cutover and marked pre-cutover evidence as refreshed (the date-proxy hazard fixed the same day in BL-20260814-COVERAGE-STALENESS-GRADED-BY-DATE-NOT-GEOMETRY). Verified: `--validate` OK, and no cell still contains the string 'memo §7.2'. NOT resolved here: the 34 uncited honest_negative exit_ladder cells noted above.",
+      "evidence": [
+        "docs/research/M20-exit-refinement-2026-07-12.md:234 -- §6.2 'Trailing-stop geometry + exit-ladder banking'",
+        "docs/research/M20-exit-refinement-2026-07-12.md:254 -- 'partial-TP banking reduced net_R in every one of the 20 banking cells'",
+        "docs/research/M20-exit-refinement-2026-07-12.md:315 -- §7.2 'Trail4 walk-forward', no banking content",
+        "docs/research/exit-refinement-coverage.json -- 7 exit_ladder cells corrected §7.2 -> §6.2"
+      ]
     }
   ]
 }
