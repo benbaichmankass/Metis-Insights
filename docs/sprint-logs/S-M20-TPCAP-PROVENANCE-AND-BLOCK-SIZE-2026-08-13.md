@@ -2094,6 +2094,96 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     top* rather than by re-reading. Neither would have survived contact with a
     reviewer; both would have survived contact with a proofreader.
 
+69. **Measured the OFF-arm coverage gap — and checked the money-losing direction
+    FIRST, which is what stopped a spurious finding.**
+
+    The matrix holds 21 `shipped` cells, and
+    `BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES` established the
+    sweep is *structurally* unable to grade any of them in a normal run: the
+    shipped lever IS the base, so every cell asks "does this alternative beat
+    it?" and none asks "is it worth anything?". `--without-declared-lever` is the
+    only route, and I wanted to know how much of the shipped surface it has
+    actually covered.
+
+    **First I looked for the finding that would matter — and did not find it.**
+    The dangerous shape is a positive-status cell sitting over live-parity
+    evidence that the lever LOSES. I scanned for it and got 4 cells: positive
+    status, every alternative failing. I nearly filed it. It is the **expected**
+    shape, not a defect — alternatives failing is exactly what "the shipped value
+    is locally best" looks like, because the shipped value is the thing they were
+    measured against. The reverse-direction scan was the right instinct and the
+    wrong reading of its output; the only thing that caught it was asking what
+    the base of those comparisons was.
+
+    So I checked the OFF arm's *actual* results instead of its absence: 22 corpus
+    rows carry `without_declared_levers`, all 2026-08-13, and they are already
+    correctly reflected. `trend_donchian_eth`/`stale_stop` measures
+    `d_net_r_OOS -10.5462` over 117 OOS trades and the cell reads
+    `honest_negative`; `trend_donchian`/`trail_decay` measures **+2.029** and
+    passes. **There is no unrecorded money-losing case.** That is the finding,
+    and it is a negative.
+
+    **The real gap is coverage.** Positive status + offerable lever + no OFF-arm
+    row = **11 matrix cells across 9 legs** (the other 2 are the single
+    `shadow fleet (...)` / `various` / `various` aggregate roll-up row, which is
+    not a leg and cannot be swept as one — stated rather than dropped, because 9
+    and 11 read as inconsistent unless you say which is legs and which is cells):
+
+    | leg | lever | status |
+    |---|---|---|
+    | `ict_scalp_eth_15m` | stale_stop | shipped |
+    | `mhg_pullback_1d` | stale_stop | passed_unshipped |
+    | `trend_donchian_eth_prop` | stale_stop | shipped |
+    | `iwm_trend_long_1d` | trail_decay | shipped |
+    | `scha_trend_long_1d` | trail_decay | shipped |
+    | `splg_trend_long_1d` | trail_decay | shipped |
+    | `trend_donchian_avax_4h` | trail_decay | passed_unshipped |
+    | `trend_donchian_eth_prop` | trail_decay | shipped |
+    | `qqq_trend_long_1d` | vol_trail | passed_unshipped |
+
+    **Scoped honestly, because the severity turns on it: NONE of the nine is on a
+    real-money account that is actually live.** Six are paper, two are the prop
+    bridge (`breakout_1` — real capital, different risk class, manual placement),
+    and the `alpaca_live` appearances are on an account whose account-level gate
+    is `dry_run`, so it places no orders. This is a KNOWLEDGE gap. It must not be
+    reported as "nine shipped levers may be losing money" — that sentence is
+    available, alarming, and unsupported.
+
+    `trail_geometry` is excluded throughout: `trail_mult` is continuous and has
+    no OFF state, so those cells are permanently ungradeable by this route
+    (`BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`).
+
+    Filed `BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE`
+    (medium), whose resolution criteria include the third state explicitly: a
+    cell whose OFF arm returns `insufficient_base` is recorded as *"we could not
+    grade it"* and must not read as *"the lever is fine"*.
+
+70. **Dispatched the nine-pair OFF-arm sweep** — three `m20-exit-lever-sweep`
+    runs at live parity (`tp_cap_pct 0.099`, `split_mode oos-trades`), one per
+    lever, from `main`:
+
+    - run `31793061293` — `stale_stop` over ict_scalp_eth_15m, mhg_pullback_1d,
+      trend_donchian_eth_prop
+    - run `31793067690` — `trail_decay` over iwm/scha/splg_trend_long_1d,
+      trend_donchian_avax_4h, trend_donchian_eth_prop
+    - run `31793072500` — `vol_trail` over qqq_trend_long_1d
+
+    **One lever per run, deliberately.** The flag drops the lever from the base,
+    so dropping two at once measures each restored lever in a book that still
+    lacks the other — a clean one-lever A/B against a *counterfactual* base
+    rather than the live configuration. `trend_donchian_eth_prop` is the only one
+    of the nine declaring both, so it appears in two runs rather than in one run
+    with two drops.
+
+    Dispatched from `main`, not this branch, on purpose: it makes the new rows
+    directly comparable to the 22 existing OFF-arm rows, which that same code
+    produced. The branch's split-provenance work changes what a row *records*,
+    not what it measures — but "not comparable" is then a claim I would have to
+    defend rather than avoid.
+
+    **Not yet a result.** At the time of writing the three runs are queued /
+    in-progress; nothing below this line reports their output.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
