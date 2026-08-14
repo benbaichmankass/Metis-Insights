@@ -2412,6 +2412,51 @@ but both sit on paper/prop legs or on the decision record rather than on money.
     "we did not look" is a claim the reader needs, not one to omit. A test
     asserting a proxy for its purpose will eventually forbid the right answer.
 
+74. **The roll-up now reports TP-geometry coverage as a fraction — and printing
+    it exposed a stale claim the tool had been asserting to every reader.**
+
+    Criterion (4) of the `tp_geometry` row. Coverage is reported the way
+    `/performance` reports `rCoverage` and `pnlCoverage`: **the denominator ships
+    with the number and `unrecorded` is COUNTED**, never omitted. Current
+    reading: **10/376 = 2.7% recorded, 366 unrecorded** over the live population
+    (the same denominator as the headline — a coverage figure over a *different*
+    denominator is how the 304/311/319 divergence started).
+
+    Note the two figures for the same fact, and which population each is over:
+    **10/416 = 2.4% across all rows** (what the backlog row quotes) and
+    **10/376 = 2.7% live-only** (what the roll-up prints). Both correct. Stating
+    both because an unexplained 2.4-vs-2.7 is exactly the shape that cost time
+    earlier today with 9-vs-11.
+
+    **What printing it turned up.** The vintage banner has been telling every
+    reader:
+
+    > *Base rate so far is 1 of 1: `trend_donchian` `trail_decay` is the only one
+    > re-swept and it did NOT reproduce (now `shipped_gate_failed`).*
+
+    **Both halves are false as of today.** That cell's status is `shipped`;
+    `shipped_gate_failed` appears **zero** times in the matrix; and the lever
+    **PASSES** — because the 2026-08-12 "did not reproduce" reading was itself
+    invalid, measured by a sweep that graded the base against itself
+    (`BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES`). The same
+    claim sat in a source comment too, so it had two copies and no owner.
+
+    **I did not replace it with today's number.** Substituting a fresher rate
+    resets the clock on the identical defect — a rate baked into printed text is
+    a claim nothing re-derives. The banner now points at the corpus, which is the
+    artifact that can answer it.
+
+    **And a correction I owe another session.** My own coordination-board comment
+    at 08:46Z published *"the base rate ... is now 3 of 4"*, counting
+    `trend_donchian`/`trail_decay` as a non-reproduction — after it had already
+    been retracted. I am deliberately **not** publishing a corrected count here,
+    because I have not established one to the standard this log demands: those
+    four cases mix a lever-sweep cell with three `exit_head_ml` cells, which are
+    different measurements under different gates, and pooling them into a single
+    "base rate" may not be a meaningful quantity at all. What I can say is that
+    the published 3 is wrong and the honest source is the corpus. Flagged for the
+    next board post rather than left standing.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
