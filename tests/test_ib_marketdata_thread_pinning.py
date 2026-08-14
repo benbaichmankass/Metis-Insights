@@ -180,6 +180,142 @@ def test_reentrant_call_on_pinned_thread_does_not_deadlock():
     assert all(n.startswith("ib-marketdata") for n in client.fetch_threads)
 
 
+class _LockingClient(_RecordingClient):
+    """Adds the real IBClient's ``_usage_lock`` (an RLock, as in production).
+
+    ``connect()`` re-takes it, mirroring IBClient.connect, so the test also
+    covers the re-entrant nesting the fetch relies on.
+    """
+
+    def __init__(self, dwell: float = 0.0):
+        super().__init__(dwell=dwell)
+        self._usage_lock = threading.RLock()
+        self.overlapped_with_account_op = False
+        self.account_op_active = False
+
+    def connect(self):
+        with self._usage_lock:  # re-entrant on the fetch thread
+            return self
+
+    def reqHistoricalData(self, *a, **k):
+        # Catches the op-first ordering.
+        if self.account_op_active:
+            self.overlapped_with_account_op = True
+        return super().reqHistoricalData(*a, **k)
+
+    def account_op(self, hold: float):
+        """Stand-in for balance()/close()/positions() — all lock-held."""
+        with self._usage_lock:
+            # Catches the fetch-first ordering: a fetch still inside
+            # reqHistoricalData while this op holds the lock. Checked HERE
+            # rather than only at fetch entry, because the fetch entered
+            # before this op existed.
+            with self._lock:
+                if self._in_flight > 0:
+                    self.overlapped_with_account_op = True
+            self.account_op_active = True
+            try:
+                time.sleep(hold)
+            finally:
+                self.account_op_active = False
+
+
+def test_fetch_excludes_the_account_order_surface():
+    """An account op cannot start while a fetch is in flight.
+
+    This is the half PR #9240 did NOT close. Pinning serialises market-data
+    against market-data, but the account/order surface runs on the tick and
+    exit threads by design; without the fetch also holding _usage_lock, both
+    drive the one persistent event loop at once — the same "already running"
+    condition reached from the other side.
+
+    ORDERING IS THE WHOLE TEST. Starting the account op FIRST proves nothing:
+    connect() takes _usage_lock and RELEASES it before reqHistoricalData, so
+    the fetch would merely block in connect() and the op would be long done by
+    the time the real hazard window opened — the test would pass on timing,
+    with or without the fix. The hazard is the op arriving while the fetch is
+    already inside reqHistoricalData, so that is what this reproduces.
+    """
+    client = _LockingClient(dwell=0.6)
+    md = _market_data(client)
+
+    result: list[object] = []
+    fetch = threading.Thread(
+        target=lambda: result.append(md.get_ohlcv("MGC", "15m", limit=1)),
+        name="tick",
+    )
+    fetch.start()
+
+    # Wait until the fetch is demonstrably INSIDE reqHistoricalData, then have
+    # the exit thread attempt a lock-held account op.
+    deadline = time.time() + 10
+    while not client.fetch_threads and time.time() < deadline:
+        time.sleep(0.01)
+    assert client.fetch_threads, "fetch never entered reqHistoricalData"
+
+    op = threading.Thread(
+        target=client.account_op, args=(0.05,), name="exit-evaluation-loop"
+    )
+    op.start()
+    op.join(timeout=30)
+    fetch.join(timeout=30)
+
+    assert result, "fetch thread never returned"
+    assert not client.overlapped_with_account_op, (
+        "an account/order op ran while a market-data fetch was in flight — "
+        "both drive the same event loop"
+    )
+    # The op is DEFERRED, not dropped: it waits out the fetch and then runs,
+    # so the exclusion costs latency rather than correctness.
+    assert result[0] is not None
+
+
+def test_lock_wait_is_bounded_and_outlasts_a_worst_case_connect():
+    """The wait must be finite, or a slow connect() backs up the single worker.
+
+    It must also exceed the per-request cap, so a fetch queued behind a normal
+    account op is not discarded as a failure.
+    """
+    from src.exchange import ib_connector
+
+    assert 0 < ib_connector._IB_USAGE_LOCK_WAIT_S < float("inf")
+    assert (
+        ib_connector._IB_USAGE_LOCK_WAIT_S
+        > ib_connector._IB_FETCH_TIMEOUT_S
+    )
+
+
+def test_unacquirable_lock_is_not_reported_as_no_data(caplog):
+    """"We could not look" must not collapse into "the venue has nothing".
+
+    Both return None to the caller, so the LOG is the only place the two are
+    distinguishable — assert the cause is actually stated.
+    """
+    import logging as _logging
+
+    client = _LockingClient()
+    md = _market_data(client)
+    client._usage_lock.acquire()  # never released within the wait window
+    try:
+        from src.exchange import ib_connector
+
+        original = ib_connector._IB_USAGE_LOCK_WAIT_S
+        ib_connector._IB_USAGE_LOCK_WAIT_S = 0.2
+        try:
+            with caplog.at_level(_logging.WARNING):
+                assert md.get_ohlcv("MGC", "15m", limit=1) is None
+        finally:
+            ib_connector._IB_USAGE_LOCK_WAIT_S = original
+    finally:
+        client._usage_lock.release()
+
+    assert not client.fetch_threads, "no request should reach the venue"
+    assert any(
+        "usage lock" in r.message.lower() or "usage lock" in r.getMessage().lower()
+        for r in caplog.records
+    ), f"cause not stated in logs: {[r.getMessage() for r in caplog.records]}"
+
+
 def test_queue_timeout_exceeds_fetch_timeout():
     """The wait covers QUEUE time plus the request, so it must exceed the
     per-request cap — otherwise a queued-but-healthy fetch is discarded as a
