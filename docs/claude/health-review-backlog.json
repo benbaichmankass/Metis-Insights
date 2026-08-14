@@ -15205,6 +15205,47 @@
         "BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP",
         "BL-20260814-EXIT-HEAD-ROUND-STAMPS-LIVE-PARITY-ON-FAMILIES-THAT-NEVER-GOT-THE-CAP"
       ]
+    },
+    {
+      "id": "BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION",
+      "opened_at": "2026-08-14T15:55:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14) — self-reported, my own error",
+      "severity": "high",
+      "tier": "1 (docs/coordination substrate; no live path)",
+      "status": "open",
+      "area": "multi-session coordination / merge hygiene",
+      "title": "A hand-resolved conflict in this very file took my side wholesale and silently reverted SIX items another session had edited — including flipping BL-20260814-IB-EVENTLOOP-CONTENTION from status `resolved` back to `mitigated_fix_in_pr` and clearing its `resolved_at`. Nothing flags a merge that un-resolves someone else's item.",
+      "detail": "MEASURED 2026-08-14 while resolving the NEXT conflict in the same file (merge a38123cd on claude/m20-exit-coverage-matrix-8d3he7).\n\nWHAT HAPPENED. This backlog is append-only in intent, so a conflict here looks purely additive and invites the fast resolution: keep my new items, keep theirs, move on. It is not purely additive. Sessions also EDIT existing items — adding history, flipping status, stamping resolved_at. My earlier merge (c601d82e) resolved the conflict by taking my side of the overlapping region, which silently discarded main's edits to six items that I had never touched:\n\n  BL-20260814-IB-EVENTLOOP-CONTENTION                       status resolved -> mitigated_fix_in_pr, resolved_at cleared\n  BL-20260814-IB-MARKETDATA-VS-ACCOUNT-LOCK-GAP\n  BL-20260814-EXIT-PASS-SLOWER-THAN-M20\n  BL-20260814-REACHABILITY-PROBES-POSITIONS-NOT-BALANCE      (main-side, survived)\n  BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE\n  BL-20260730-PR-CI-NOT-ATTACHING\n  BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH\n\nThe IB-EVENTLOOP one is the sharp end: another session closed that item, and my merge REOPENED it. A reopened item is not a loud failure — it looks exactly like an item that was never closed, so the next reader re-investigates work already done, and the session that closed it has no way to notice.\n\nHOW IT WAS CAUGHT, AND WHY THAT IS THE ACTUAL FINDING. Not by review and not by CI — by my doing the three-way classification on the NEXT conflict instead of resolving it by hand again. Comparing both sides against the merge base separates 'they changed it' from 'I changed it' from 'both changed it'; that immediately showed 8 shared items differing, 0 changed by both, and 6 whose divergence I could not account for. Walking all 11 of my own non-merge commits that touch the file confirmed NONE of them had edited those six. The reversion was invisible to every other check available: the file parses, the item count only grows, and no guard reads item status transitions.\n\nWHY A GUARD IS THE RIGHT ANSWER RATHER THAN 'BE MORE CAREFUL'. The failure mode is a merge that LOSES information while every surface-level invariant (valid JSON, monotonic item count, no duplicate ids) still holds. Those invariants are exactly what a careful person spot-checks. A status going resolved -> open across a merge is mechanically detectable and semantically almost never intended.",
+      "resolution_criteria": "A CI guard (diff-scoped, the canonical-db-resolver / silent-empty-guard family) fails when a commit moves any backlog item from a terminal status (resolved / fixed / measured_no_action / invalid) to a non-terminal one, or clears a populated resolved_at, unless the same commit records why. Item COUNT is not a sufficient invariant and must not be what the guard checks.",
+      "what_to_check": "1. Whether any EARLIER merge on any branch did the same thing and has not been undone — this one was caught only because a second conflict followed. A sweep of `git log -p` on this file for terminal->non-terminal status transitions would establish the denominator; I did not run it, so the count of past instances is UNKNOWN, not zero.\n2. Whether performance-review-backlog.json and ml-review-backlog.json (same shape, same multi-session write pattern) have the same exposure. Almost certainly yes; unverified.\n3. Whether the coordination board protocol should say anything about this file specifically — it is the one artifact nearly every session writes to, which is what makes it the most likely to be concurrently edited.",
+      "refs": [
+        "merge a38123cd (the correct resolution: 122 insertions, 0 deletions vs origin/main)",
+        "merge c601d82e (the bad one)",
+        "docs/claude/health-review-backlog.json",
+        "docs/claude/coordination-board.md"
+      ],
+      "source": "M20 session 2026-08-14, found while resolving a follow-on conflict in the same file"
+    },
+    {
+      "id": "BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME",
+      "opened_at": "2026-08-14T15:58:00+00:00",
+      "opened_by": "claude (M20 session 2026-08-14), trainer-diag #9321",
+      "severity": "medium",
+      "tier": "1 (research data availability; no live path)",
+      "status": "open (mechanism established; disposition pending trainer-diag #9324)",
+      "area": "research data / M20 coverage matrix",
+      "title": "ict_scalp_5m is a LIVE leg on BTCUSDT whose 5m data is unreachable to the sweep harnesses: every other 5m symbol has data/<SYM>_5m.csv, BTC has only data/backtest_BTCUSDT_5m.csv, and resolve_data's prefix set is {btcusdt, btc} so the backtest_-prefixed name matches nothing.",
+      "detail": "MEASURED 2026-08-14. The 5m exit-head round (trainer-diag #9321) printed `SKIP ict_scalp_5m: data_missing:BTCUSDT` while its three siblings ran fine.\n\nDIRECTORY LISTING, from the trainer:\n  5m CSVs present: ADAUSDT_5m, AVAXUSDT_5m, BNBUSDT_5m, ETHUSDT_5m, LINKUSDT_5m, SOLUSDT_5m, XRPUSDT_5m, backtest_BTCUSDT_5m\n  BTCUSDT files  : BTCUSDT_15m.csv only\nSo BTC is the ONE 5m symbol without the canonical spelling, and the only BTC 5m bytes on disk wear a `backtest_` prefix.\n\nMECHANISM, read from the code rather than inferred (scripts/research/m20_fleet_exit_sweep.py:148-174). resolve_data tries, in order: (a) data/{SYM}_{tf}.csv -> absent; (b) each finer grain data/{SYM}_{g}.csv -> absent, and the loop BREAKS at the first grain coarser than the leg, so BTCUSDT_15m.csv is correctly not substituted for a 5m leg; (c) a case-insensitive prefix glob over prefixes = {sym.lower()} plus the USDT-stripped base, i.e. {'btcusdt','btc'}, matching only names starting with '<prefix>_' or equal to '<prefix>.csv'. 'backtest_btcusdt_5m.csv' starts with 'backtest_'. It matches nothing, so the resolver returns None and the leg is skipped.\n\nThe resolver is not obviously wrong here — a file whose name leads with an unrelated token has unknown provenance, and this repo has been burned specifically by a filename asserting a provenance its CONTENT did not have (see the prefer_native docstring in the same module: a session converted a yfinance-derived series into data/MGC_1d.csv, whose NAME then claimed native IBKR history, and the head round would have trained on exactly the series it refuses). So silently globbing backtest_*.csv into the canonical slot would repeat that.\n\nWHAT THIS COSTS. ict_scalp_5m carries a `passed_unshipped` exit_head_ml cell that is one of only three recorded positives never re-measured at live parity. It is a LIVE leg. Its cell therefore cannot be confirmed or refuted at its own timeframe by any current harness, and the coverage matrix has no way to say so — the cell reads like the other unmeasured ones rather than like one that is structurally unmeasurable. That is the collapsed-state shape again: 'not yet measured' and 'cannot be measured with what is on disk' are different states.\n\nWHAT I AM NOT CLAIMING. That backtest_BTCUSDT_5m.csv is BTC 5m OHLCV of usable range and provenance. I have not opened it. Row count, date range, columns and whether anything in the repo writes or reads it are the subject of trainer-diag #9324; until that returns, the right disposition (rename/copy to the canonical slot, build a fresh 5m series, or record the leg as structurally unmeasurable) is undetermined.",
+      "resolution_criteria": "Either data/BTCUSDT_5m.csv exists with stated provenance and ict_scalp_5m's exit_head_ml cell is re-measured at live parity, or the matrix records that cell as structurally unmeasurable with the reason, rather than leaving it indistinguishable from a cell simply awaiting a round.",
+      "refs": [
+        "trainer-diag #9321 (the skip + the directory listing)",
+        "trainer-diag #9324 (characterizing the file)",
+        "scripts/research/m20_fleet_exit_sweep.py:148-174 (resolve_data)",
+        "scripts/research/m20_exit_head_round.py:169-171 (the skip site)",
+        "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA",
+        "docs/research/exit-refinement-coverage.json"
+      ],
+      "source": "M20 session 2026-08-14, 5m exit-head round"
     }
   ]
 }
