@@ -1347,9 +1347,14 @@ an order of magnitude on donchian and by ~1.6× on scalp.
 
 Scattered across the night's pings; gathered here so the morning needs one read.
 **Nothing below was acted on.** Rows (a)–(d) are as first raised, with their
-evidence state updated as the night measured more; (e) and (f) accrued later.
+evidence state updated as the night measured more; (e)–(j) accrued later, (i)
+and (j) after 11:00Z.
 
-| # | decision | evidence state (updated through 09:50Z) |
+**If you read one row, read (h)** — it is the only item touching a real-money
+account that is actually live. (i) and (j) are the night's two largest findings
+but both sit on paper/prop legs or on the decision record rather than on money.
+
+| # | decision | evidence state (updated through 11:30Z) |
 |---|---|---|
 | **(a)** | Is `exit_head_ml` **scalp-family-scoped**? | Better informed, still **NOT answered** — and the shape of the answer changed. There are now **two** non-scalp candidates at live parity: `trend_donchian_eth_prop` (auc 0.6138, n_oos 902) and `trend_donchian_eth` (auc 0.6079, n_oos 566). **Both are ETH.** So the evidence weakens *scalp*-scoping while pointing at something narrower nobody has framed — a possible ETH-specific effect. Flagged as a **hypothesis needing a denominator, not a finding**: two legs on one symbol is exactly the sample size that manufactures patterns. |
 | **(b)** | The **three live donchian-1h** `exit_head_ml` cells | **Now measured at live parity** (relay #9206): `trend_donchian` auc 0.5403, beats_actual 14/23 → `honest_negative`; `trend_donchian_eth` auc 0.6079, 16/23 + 16/23 → `candidate`; `trend_donchian_sol` auc 0.6161 but beats_hard **12/23, short 4** → `honest_negative`. **2 of 3 do not reproduce.** All three left at `shipped` — moving a live real-money cell to `shipped_gate_failed` is defined in the legend as *"the operator chose to HOLD"*, so it is this decision, not mine. |
