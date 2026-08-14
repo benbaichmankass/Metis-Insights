@@ -146,17 +146,33 @@ floor, so any boundary loss lands under it.
 
 `insufficient_base` disappears, and the cells get **graded on their merits**.
 
-**Read what this does and does not buy.** It does not buy passes — 18 of the 19
-graded cells still *fail*, which is the honest outcome for this family. It buys
-**answers instead of refusals**: at 25 the sweep could not say whether these
-levers work; at 30 it can, and mostly says no. That is the entire value, and
-it is larger than the margin distribution above could show.
+**Read what this buys.** Primarily **answers instead of refusals**: at 25 the
+sweep could not say whether these levers work; at 30 it can, and mostly says no.
+Most graded cells still *fail*, which is the honest outcome for this family.
 
-**Caveats, both load-bearing.** The target-30 arm was **5 of 19 legs** at the
-time of writing — the full comparison is not in yet, and the leg order differs
-between arms, so these are not matched populations until it completes. And the
-two arms differ in *nothing but the target*: same family, same levers, same
+*(Corrected at 16/19 legs: the 5-leg partial above supported "it does not buy
+passes", and that is now false. Two cells that were `insufficient_base` at
+target 25 **pass** at target 30 — `mhg_pullback_1d`/`stale8_lt0R` and
+`tlt_pullback_1d`/`gb1R_afterMFE2R`, both `path_b_wf_pass` at wf=4/6. Note
+**Path B**: the same qualified shape as `tlt_pullback_1h`/`trail4`, which was
+recorded `passed_unshipped` rather than shipped because its OOS drawdown got
+worse. A Path-B pass is a gradeable result, not a ship signal — so this
+strengthens the "answers, not passes" reading rather than overturning it, but
+the flat claim was wrong and is withdrawn.)*
+
+**Caveats, both load-bearing.** The target-30 arm was **16 of 19 legs** at the
+time of writing, against a complete 19/19 target-25 arm — so the two are not
+matched populations yet and the final counts are pending (readouts #9370/#9371).
+The two arms differ in *nothing but the target*: same family, same levers, same
 explicit `--tp-cap-pct 0.099`.
+
+**One methodological note, because it nearly cost a denominator.** The #9370
+readout "tightened" the cell counter from a loose `->` grep to a per-cell line
+shape and tightened it into wrongness — `[a-z0-9_]+` cannot match `stale8_lt0R`
+or `gb1R_afterMFE2R`, so it reported **0 cells on a complete 19-leg arm**. That
+zero was only obviously wrong because the expected denominator (`legs × 4`) was
+printed beside it. A count with no denominator next to it cannot distinguish a
+broken probe from an empty result.
 
 **This still does not change the default.** It replaces the basis for the queued
 operator decision: from "the observed boundary loss maxes at 4, so 5 covers it"
