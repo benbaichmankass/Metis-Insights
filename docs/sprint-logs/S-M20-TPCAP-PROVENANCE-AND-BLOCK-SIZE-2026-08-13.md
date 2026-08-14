@@ -1359,7 +1359,7 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
 | **(f)** | `tlt_pullback_1h`: **trail3 → trail4**? | **NEW**, `PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY`. The leg ships trail3; its trail4 cell returns `path_b_wf_pass` at live parity — Δnet_R **+35.47 IS / +5.42 OOS**, wf **5/6**, n_oos 56 — across **three** runs. The base already contains trail3, so that is the gain over what is live. **Caveats that bound it:** Path B is the weaker route (`gate_passed_OOS` false), n=56 is not large, and the three runs **share a corpus and split date** — they rule out a flaky run, not overfit to that window. |
 | **(g)** | *(not a decision — a constraint on (b) and (d))* | **4 of the 5 remaining stale live decisions are `trail_geometry`, and no re-sweep can grade them**: the shipped lever IS the base (a normal cell measures base-vs-self) and `trail_geometry` has no OFF arm (`trail_mult` has no OFF state). So for those cells "re-run it" is not an available remedy. `BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`. |
 | **(h)** | **Eleven cells where NEWER evidence disagrees with the recorded status** — one on REAL MONEY | **NEW.** The matrix and the sweep corpus disagree on 11 (leg, lever) pairs: the cell records a negative while the newest floor-clearing live-parity corpus row PASSES. Nine were found by auditing `stale_cells`; **two more** (`uso_trend_1h`/`vol_trail`, `ict_scalp_sol_5m`/`stale_stop`) were found by the new `matrix-corpus-agreement` guard and are **not stale at all** — their refs carry post-cutover dates, so the staleness proxy reads them as current. **Exactly one is on a real-money account that is actually live: `trend_donchian_xrp_4h`/`trail_decay` on `bybit_2`, and it is a full `PASS` (wf 5/6, Δnet_R OOS +1.00, base_OOS 32) — start there.** The three alpaca legs touch a real_money account whose account-level gate is `dry_run` (no live orders); the rest are paper or prop. All 11 are annotated in-cell; **no status was changed** — a passing cell is not a passing lever disposition, and the flip is yours. |
-| **(i)** | **Five of five gradeable SHIPPED levers fail Path A** (lever-OFF arm, 2026-08-14) | **NEW.** The `--without-declared-lever` arm is the only construction that can grade a shipped lever, and it had never run on six (leg, lever) pairs. It has now. Every one that is gradeable **fails Path A**: `splg`/trail_decay `is_oos_fail` (IS +6.84, **OOS −0.357**), `iwm`/trail_decay `is_oos_fail` (**IS −0.53**, OOS +5.61), `scha`/trail_decay `is_oos_fail` (**IS −3.50**, OOS +1.60), `trend_donchian_eth_prop`/stale_stop `is_oos_fail` (IS +3.63, **OOS −2.68**), `trend_donchian_eth_prop`/trail_decay `wf_fail` (positive both windows, fails the walk-forward). **Read the scoping before the headline:** Path A is a SHIPPING gate (beat on net_R AND maxDD in BOTH windows + wf ≥ 4/6), not a profitability test; three of the five are mixed-sign across windows at n≈27, which is what noise looks like at that sample; and **none of these legs is on a real-money account that is actually live** (six paper, two prop). The two genuinely negative OOS figures are eth_prop/stale_stop (−2.68 R over 33) and splg (−0.357 R over 27). Each row used its own per-leg boundary at a different target (28 / 35), so these are five one-leg measurements, not a five-row comparison. **No status changed, no config touched** — the disposition is yours. |
+| **(i)** | **All six SHIPPED levers that had never been graded against their own absence now have been — and all six fail Path A** | **NEW.** `--without-declared-lever` is the only construction that can grade a shipped lever (the shipped lever IS the base of every ordinary cell). It had never run on these six. It has now, and none clears Path A. **The split inside the six matters more than the count.** FOUR are `is_oos_fail` and genuinely mixed: `iwm`/trail_decay (IS −1.37, OOS +6.45), `scha`/trail_decay (IS −4.30, OOS +2.40) and `splg`/trail_decay (IS +7.58, **OOS −0.44**) flip sign between windows, while `trend_donchian_eth_prop`/stale_stop is the one clean negative at **OOS −2.68**. TWO are `wf_fail` and **positive on BOTH windows**, failing only the walk-forward: `eth_prop`/trail_decay (+1.01 / +1.92) and `ict_scalp_eth_15m`/stale_stop (**+7.31 IS, +3.84 OOS, drawdown better on both**, over base IS=350) — that last is the strongest cell in the set and reporting it as "fails" without saying how would misrepresent it. Path A is a SHIPPING gate (net_R AND maxDD in BOTH windows + wf ≥ 4/6), not a profitability test, and the sign-flips sit at n≈31. **None of these legs is on a real-money account that is actually live** (six paper, two prop). `ict_scalp_eth_15m` ran uncapped because the scalp unit carries no TP cap — live parity for that leg, so its figures are not comparable on the cap axis. **No status changed, no config touched** — the disposition is yours. |
 | **(j)** | **Six matrix cells contradict the live config** — the matrix says a lever is NOT shipped while `strategies.yaml` arms it | **NEW.** Cross-checked all 52 rows against config using the sweep's own `LEVER_DECLARED_KEYS`. The reverse direction is **clean** (0 cells claim `shipped` without a declare); every discrepancy runs one way. Five read **`honest_negative`** — which a reader takes as *"measured, did not work"* — about a `trail_decay` that is running on that leg right now: `eth_pullback_2h`, `qqq_trend_long_1d`, `trend_donchian_sol_4h`, `xrp_pullback_2h` (all `execution: live`) and `avax_pullback_2h` (shadow); the sixth, `trend_donchian_avax_4h`, reads `passed_unshipped` and its ref literally ends *"AWAITING TIER-3 operator approval to declare in YAML"* — **the approval landed in #8985 on 2026-08-13** and the cell was never flipped. Two causes, both visible in the refs: a landed declare that did not update the cell, and the multileg explosion keeping a ref's FIRST sentence ("FAIL") over a LATER one in the same ref recording the pass and the merge. **This is a RECORD defect, not evidence any live lever is wrong** — every declare is operator-approved work that landed through a normal PR. Fixing the record is Tier-1 and I have not done it unilaterally because these cells drive dispositions; say the word and it is a five-minute change plus the guard. |
 
 
@@ -2186,7 +2186,7 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     **Not yet a result.** At the time of writing the three runs are queued /
     in-progress; nothing below this line reports their output.
 
-71. **THE OFF-ARM RESULT: five of five gradeable shipped levers FAIL Path A —
+71. **THE OFF-ARM RESULT: six of six gradeable shipped levers FAIL Path A —
     and getting them gradeable at all took finding a second split defect.**
 
     **Round 1 (target = the default, i.e. the floor).** Six cells measured; the
@@ -2252,14 +2252,35 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
 
     | leg | cell | verdict | Δnet_R IS | Δnet_R OOS | base OOS | target |
     |---|---|---|--:|--:|--:|--:|
-    | `splg_trend_long_1d` | shipped_trail_decay_6_2 | `is_oos_fail` | +6.844 | **−0.357** | 27 | 28 |
-    | `iwm_trend_long_1d` | shipped_trail_decay_10_2 | `is_oos_fail` | **−0.527** | +5.606 | 27 | 28 |
-    | `scha_trend_long_1d` | shipped_trail_decay_2_2 | `is_oos_fail` | **−3.498** | +1.599 | 27 | 28 |
+    | `splg_trend_long_1d` | shipped_trail_decay_6_2 | `is_oos_fail` | +7.584 | **−0.439** | 31 | 35→32 |
+    | `iwm_trend_long_1d` | shipped_trail_decay_10_2 | `is_oos_fail` | **−1.373** | +6.452 | 31 | 35→32 |
+    | `scha_trend_long_1d` | shipped_trail_decay_2_2 | `is_oos_fail` | **−4.298** | +2.399 | 31 | 35→32 |
     | `trend_donchian_eth_prop` | shipped_stale_stop_12_0 | `is_oos_fail` | +3.630 | **−2.678** | 33 | 35 |
     | `trend_donchian_eth_prop` | shipped_trail_decay_10_1.8 | `wf_fail` | +1.015 | +1.924 | 34 | 35 |
+    | `ict_scalp_eth_15m` | shipped_stale_stop_12_0 | `wf_fail` | +7.305 | +3.845 | 34 | 35 |
 
-    **Five of five fail Path A.** Not one clears the gate that would be required
-    to ship it today.
+    **Six of six fail Path A** — every one of the shipped levers that had never
+    been graded against its own absence. Not one clears the gate that would be
+    required to ship it today.
+
+    **But "six of six" is the wrong sentence to stop on, and the split inside it
+    matters more than the count.** The six are two different animals:
+
+    - **Four `is_oos_fail`** — genuinely mixed. Three (`iwm`, `scha`, `splg`)
+      flip sign between windows; one (`eth_prop`/stale_stop) is the clean
+      negative at **−2.678 R OOS**.
+    - **Two `wf_fail`** — **positive on BOTH windows**, failing only the
+      walk-forward. `ict_scalp_eth_15m`/stale_stop is the strongest cell in the
+      whole set: +7.305 IS, +3.845 OOS, and drawdown **improved on both**
+      (−4.065 / −3.066) over base n IS=350. Calling that "fails" without saying
+      *how* would misrepresent it as evidence against the lever when it is
+      evidence the lever helps but does not generalise across folds.
+
+    `ict_scalp_eth_15m` also ran on **different geometry** and the tool said so
+    unprompted: the `scalp` family's unit carries no `_TP_SENTINEL_CAP_PCT`, so
+    the requested cap was **not applied** — which is live parity *for that leg*,
+    and is why its row has no `Live TP reach` table. Its Δ figures are therefore
+    not comparable on the cap axis to the five capped rows.
 
     **What that does and does not mean — the scoping matters more than the
     headline.** "Fails Path A" is not "loses money". Path A demands a beat on
