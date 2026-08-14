@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T12:32:50.493333+00:00",
+  "updated_at": "2026-08-14T12:45:36.323481+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14180,6 +14180,11 @@
           "at": "2026-08-14T12:32:50.493333+00:00",
           "by": "claude (dead-leg audit over the trainer's synced journal, trainer-diag #9262)",
           "note": "**SCOPE IS WIDER THAN THIS ROW'S TITLE, AND THE CONDITION IS NOT OVER.** Correcting my own update from earlier today, which said the two Alpaca accounts had recovered and implied the item was winding down. Both halves of that were too narrow.\n\nMeasured over the trainer's synced journal (mtime 2026-08-14T05:00:05Z), 14-day window, via `scripts/ops/dead_leg_audit.py`:\n\n  * **`ib_paper` / `mgc_trend_1h`: 43 rejections, ALL of them** `sizing_failed: RuntimeError: balance() returned None for ib_paper (exchange=interactive_brokers)`. **So this is NOT an Alpaca-specific condition** - it hits INTERACTIVE_BROKERS too, and it is the single largest refusal cluster in the whole fleet. This row's title should be read as naming an instance, not the class.\n  * `alpaca_paper` / `tlt_pullback_1h`: **21** rejections, same balance()-None message.\n  * `alpaca_portfolio` / `tlt_pullback_1h`: **21**, same.\n  * `alpaca_paper` / `spy_pullback_1h`: 5. Plus gdx/gld/iaum 1d legs at 2 each.\n\nThe original row rested on **2 trades**; the real 14d population is **90+ refusals across at least 8 legs and 3 accounts on 2 different exchanges**. The 'both accounts recovered' observation stands for the balance SNAPSHOT at 11:00Z - but recovery of the snapshot did not mean the refusals had stopped, and I should not have let a point-in-time reading stand in for a window.\n\nNOTE the message in the live data is still the OLD one ('API error or credentials missing - account unreachable'), which is expected: the corrected `balance_none_refusal_message` is on branch `claude/roadmap-work-plan-review-m2aw6p` and not yet merged/deployed. That the old string appears 90+ times in 14 days is the strongest argument for the message fix - every one of those rows sent a reader after credentials that were measured ACTIVE.\n\nROOT CAUSE OF THE None ITSELF REMAINS UNDIAGNOSED. That is now the whole of this row."
+        },
+        {
+          "at": "2026-08-14T12:45:36.323481+00:00",
+          "by": "claude (attribution pull, trainer-diag #9264)",
+          "note": "**CORRECTION OF MY OWN PREVIOUS UPDATE — I read a SAMPLE as a POPULATION.** Two hours ago I wrote that `ib_paper`/`mgc_trend_1h` showed '43 rejections, ALL of them balance() returned None' and that the class totalled '~90+ refusals across 8 legs / 3 accounts / 2 exchanges'. **Both figures are wrong.**\n\nThe dead-leg audit reported 43 `rejected` rows for that leg and, separately, a `MAX(entry_reason)` **sample** string. I generalised the one sampled reason to all 43 rows. Counting the actual predicate (`entry_reason LIKE '%balance() returned None%'`) over ALL history gives:\n\n| account | n | first | last |\n|---|--:|---|---|\n| `alpaca_live` | 20 | 2026-06-26 13:32 | 2026-06-26 19:10 |\n| `breakout_1` | 18 | 2026-06-26 06:43 | 2026-06-29 03:11 |\n| `ib_paper` | **5** | 2026-07-01 14:00 | 2026-08-13 22:00 |\n| `alpaca_paper` | 4 | 2026-07-15 13:31 | 2026-08-13 17:01 |\n| `alpaca_portfolio` | 1 | 2026-08-13 17:01 | 2026-08-13 17:01 |\n\n**Total 48 over ~7 WEEKS, not 90+ over 14 days. `ib_paper` is 5, not 43.** The other ~38 of that leg's 43 rejections are a DIFFERENT cause — almost certainly `intent_noop:flip_suppressed_hold_policy` (the journal shows exactly that string for `mgc_trend_1h`, 'desired short opposes current long (qty=105.0)'), which is the hold policy working CORRECTLY on the 105-contract MGC position, not a defect at all.\n\nWHAT SURVIVES the correction, and it is still the substantive part: the class is **not Alpaca-specific** — `ib_paper` (interactive_brokers) and `breakout_1` (prop) both carry it, so the row's title still under-scopes. And it is **recurrent rather than a single incident**: 5 distinct onsets spread over 7 weeks, most recently 2026-08-13T22:00Z. Nothing in the last ~14h.\n\nWHAT DOES NOT SURVIVE: any claim about the magnitude. 48 refusals over 7 weeks is a much smaller problem than I stated, and the severity should be judged on that number."
         }
       ],
       "updated_at": "2026-08-13T22:10:00+00:00"
@@ -14745,6 +14750,11 @@
           "at": "2026-08-14T12:32:50.493333+00:00",
           "by": "claude (dead-leg audit, trainer-diag #9262)",
           "note": "n is much larger than the single row this was filed on. Over 14 days `bybit_1`/`ict_scalp_avax_5m` shows **18 `exchange_rejected` against 4 placed** (verdict `partially_refused`, refusal rate 0.85), with the same shape: `order_qty:3452630000000 > max_qty:2200000000000`. So the clamp fails to engage **most of the time, not occasionally** - consistent with the ceiling depending on a live lookup that frequently does not resolve, and inconsistent with a rare blip. The 4 that DID place are what rule out 'the leg is simply misconfigured'."
+        },
+        {
+          "at": "2026-08-14T12:45:36.323481+00:00",
+          "by": "claude (attribution pull, trainer-diag #9264)",
+          "note": "**CONFIRMED BY PERFECT SEPARATION AT THE CAP.** Every `ict_scalp_avax_5m` order over 14 days, by qty against Bybit's 22,000 AVAXUSDT ceiling:\n\n  * **exchange_rejected: n=18, range 24,357.8 - 34,526.3 — ALL ABOVE the cap.**\n  * **placed/closed: n=4, range 368.4 - 15,413.9 — ALL BELOW the cap.**\n  * Zero overlap. The cap is a clean discriminator with no exceptions in either direction.\n\n(A further 4 rows are `rejected` at `qty=0.0` — a different refusal, sizing produced nothing, correctly excluded from the above.)\n\nThis rules out the competing explanations that a boundary case would leave open: it is not intermittent venue behaviour (nothing above the cap ever succeeded), not a misconfigured leg (orders below the cap place fine), and not a sizing bug per se (the sizer's number is defensible from margin - it is simply never clamped to the venue ceiling). The clamp is absent from the decision, not wrong in it."
         }
       ]
     },
@@ -14755,7 +14765,7 @@
       "area": "orders",
       "severity": "high",
       "tier": "2",
-      "status": "open",
+      "status": "likely_already_fixed_unverified",
       "title": "bybit_2 (REAL MONEY) / ict_scalp_5m: 6 of 6 orders exchange_rejected in 14d - the leg placed nothing",
       "detail": "Surfaced by `scripts/ops/dead_leg_audit.py --days 14` over the trainer's synced journal (mtime 2026-08-14T05:00:05Z), trainer-diag #9262. Verdict `signalled_never_placed`: `bybit_2` / `ict_scalp_5m` shows **placed=0, refused=6, total=6**, all `exchange_rejected`.\n\nWHY THIS ONE IS PROMOTED ABOVE THE OTHER 31: **`bybit_2` is the ONLY live real-money account in the system** (workplan 2026-08-14 s0.1), and `ict_scalp_5m` is one of its 7 routed strategies. It is also the leg carrying the best 30d expectancy on the real book (+35.4R over 4 trades - small-n, but the only positive one). A leg that is both the best-performing and unable to place is the worst combination available.\n\nPOPULATION: 6 rows is a small denominator and is stated as such - this is 14 days of one leg, not a rate over a long window. What makes it worth a row anyway is that the conversion is ZERO, not low.\n\nNOT YET ATTRIBUTED to a cause: the per-leg refusal-reason pull in #9262 was truncated before reaching this leg's sample text (the top-10 cut). The obvious candidate is the same venue-max / margin class as `BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK`, but **that is a hypothesis, not a finding** - do not act on it without pulling this leg's `entry_reason` directly.",
       "resolution_criteria": "Pull `entry_reason` for `bybit_2`/`ict_scalp_5m` rows with `status='exchange_rejected'` over the window, attribute the rejection to a named cause, and either fix it or record why the refusal is correct. Done when the leg's 14d verdict is no longer `signalled_never_placed`, or a row explains why zero conversion is the right outcome.",
@@ -14764,6 +14774,13 @@
         "trainer-diag #9262",
         "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK",
         "docs/research/WORKPLAN-2026-08-14.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T12:45:36.323481+00:00",
+          "by": "claude (attribution pull, trainer-diag #9264)",
+          "note": "**CAUSE IDENTIFIED, AND ALL SIX ROWS PREDATE THE FIX FOR IT.** I filed this without guessing a cause; the pull names one and it changes the disposition.\n\nEvery rejection is Bybit **`ErrCode 110007` — 'ab not enough for new order'** (available BALANCE, not venue max — so my noted venue-max hypothesis was WRONG for this leg). BTCUSDT qty 0.011 at ~$63.5k is ~$700 notional against `bybit_2`'s $280.92 equity.\n\nThat is exactly `BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS`, whose Part A fix (sizing from the `coin_derived` margin rung instead of falling back to total equity) shipped **2026-08-13**. The six rows are dated **2026-07-25, 07-31, 08-02 x2, 08-03 x2, 08-04** — every one of them BEFORE that fix. The leg has produced no rejection in the 10 days since.\n\nSTATUS -> `likely_already_fixed_unverified`, NOT `resolved`, because the fix is **untested on this leg**: the dead-leg audit shows `placed=0` over 14d, so the leg has neither rejected NOR placed since. Absence of rejections here is absence of ATTEMPTS, not evidence the fix works. Do not close this until `bybit_2`/`ict_scalp_5m` actually places an order.\n\nMY FRAMING WAS ALSO WRONG in a way worth recording: I presented this as a live real-money defect on the strength of a 14-day window that happened to still contain pre-fix rows. A window that straddles a fix will always make a fixed bug look current — the dead-leg audit should be read with the fix dates in hand, and I have added that caveat to the workplan."
+        }
       ]
     }
   ]
