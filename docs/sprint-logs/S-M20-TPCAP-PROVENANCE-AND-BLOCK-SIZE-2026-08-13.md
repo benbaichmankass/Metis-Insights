@@ -1249,6 +1249,44 @@ an order of magnitude on donchian and by ~1.6× on scalp.
     gate. **Coverage stays 373/376.** The resolver defect was real and worth
     fixing on its own terms; it was never what held these three shut.
 
+50. **Measured the fire rate instead of inferring it, and re-graded the three
+    cells off `data_missing`.**
+
+    Item 49 concluded these were volume-blocked from ONE documented figure
+    (`mes_trend_long_1d` ~2.6x/yr). That covered one leg of three; asserting it
+    for MGC/MHG would have been the same inference-from-a-neighbour error I
+    made twice earlier tonight. So I ran all three config-exact on the deepest
+    available series (trainer relay #9195, `tp_cap_pct=0.099`):
+
+    | leg | data | lifetime | OOS @ 2025-07-01 | rate |
+    |---|---|---|---|---|
+    | `mes_trend_long_1d` | ES_F_1d | 33 | **5** | ~3.7/yr |
+    | `mgc_pullback_1d` | GC_F_1d | 74 | **7** | ~7.4/yr |
+    | `mhg_pullback_1d` | HG_F_1d | 80 | **10** | ~8.0/yr |
+
+    Against `MIN_OOS_TRADES = 25`: **5, 7, 10 — all UNREACHABLE**, on ~10 years
+    of the *deepest* series available. Genuine native IBKR contract history is
+    shallower still (940 / 1,043 / 677 daily rows), so these are an UPPER
+    BOUND. (My own measurement puts MES at 33 lifetime where the code comment
+    says 26 over 10y — different span/vintage, same order; I quote mine because
+    I ran it.)
+
+    Re-graded all three `blocked:data_missing` → `blocked:insufficient_lifetime_trades`,
+    the status its ten siblings already carry, with the numbers and the reason
+    the old status misled in the ref. **The prior ref is preserved after a
+    `|| PRIOR REF:` marker** — a re-grade should add evidence, not delete the
+    record it overturns.
+
+    **One judgement flagged rather than made:** for MGC (74) and MHG (80) an
+    EARLIER split could arithmetically reach 25 OOS, at the cost of in-sample.
+    MES's 33 lifetime cannot under any split. I recorded that asymmetry in the
+    cell rather than quietly picking a split that would make the cells gradeable.
+
+    **Coverage stays 373/376** — blocked→blocked moves no number. What changes
+    is that the matrix no longer tells the next session to go get data. That
+    instruction cost me an hour tonight; it should cost the next session
+    nothing.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
