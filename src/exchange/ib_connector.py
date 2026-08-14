@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
 from typing import Optional
 
 import pandas as pd
@@ -48,6 +50,65 @@ try:
     _IB_FETCH_TIMEOUT_S = float(os.environ.get("IB_FETCH_TIMEOUT_S", "") or 8.0)
 except (TypeError, ValueError):
     _IB_FETCH_TIMEOUT_S = 8.0
+
+
+# --- Single-thread pinning for every IB market-data request ----------------
+#
+# WHY (2026-08-14 incident, BL-20260814-IB-EVENTLOOP-CONTENTION): ib_insync
+# resolves its event loop per sync call and the cached IB's socket transport
+# LIVES ON ONE LOOP (see IBClient._ensure_event_loop's docstring: "dispatching
+# a request on a different loop would hang instead of returning bars"). So
+# every IB request in a process must run on ONE thread. The web-api already
+# encodes this — src/web/api/routers/candles.py pins its fetches to a
+# max_workers=1 pool and calls that "load-bearing".
+#
+# The trader had no such pin, and until the M20 exit-loop decouple it did not
+# need one: exit evaluation ran INLINE on the tick thread, so the process had
+# exactly one IB caller by construction. The decouple moved exit evaluation to
+# a daemon thread, and both it and the main tick call get_ohlcv on the SAME
+# cached IBClient (get_ib_client caches per host/port/client_id). IBClient's
+# _usage_lock covers connect() but NOT reqHistoricalData, so the two threads
+# drove one loop and produced, live:
+#     IBMarketData.get_ohlcv failed for symbol=MES timeframe=5m:
+#         This event loop is already running
+# The same collisions time out the liveness probe, which trips the circuit
+# breaker for IB_BREAKER_COOLDOWN_S (120s) — and the breaker suppresses ALL IB
+# calls, so the blast radius is far wider than the racing fetch: candles go
+# unavailable (MONITOR BLIND on open MGC/MES packages), strategy_builder raises
+# for MGC/MES/MHG, and balance() returns None so new entries are refused with
+# sizing_failed.
+#
+# A plain lock is NOT sufficient. Serialising still lets thread B run the loop
+# that thread A created; the transport is bound to the loop, and driving it
+# from a different thread is the documented hang. Pinning is the fix, which is
+# why this mirrors candles._FETCH_EXECUTOR rather than widening _usage_lock.
+_IB_FETCH_THREAD_PREFIX = "ib-marketdata"
+_IB_FETCH_EXECUTOR = ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix=_IB_FETCH_THREAD_PREFIX
+)
+
+# How long a caller waits for the pinned thread. It covers QUEUE time (another
+# thread's fetch ahead of us) plus our own bounded request, so it must exceed
+# _IB_FETCH_TIMEOUT_S or a queued-but-healthy fetch would be discarded as a
+# failure. Overridable on the VM without a redeploy; an unparseable value falls
+# back to the derived default rather than disabling the wait.
+try:
+    _IB_FETCH_QUEUE_TIMEOUT_S = float(
+        os.environ.get("IB_FETCH_QUEUE_TIMEOUT_S", "") or 0.0
+    ) or (_IB_FETCH_TIMEOUT_S * 3.0 + 5.0)
+except (TypeError, ValueError):
+    _IB_FETCH_QUEUE_TIMEOUT_S = _IB_FETCH_TIMEOUT_S * 3.0 + 5.0
+
+
+def _on_ib_fetch_thread() -> bool:
+    """True when already running ON the pinned thread.
+
+    Re-entrancy guard: submitting to a max_workers=1 pool from inside that
+    pool's own worker would wait for a slot that cannot free until the caller
+    returns — a self-deadlock. Running inline is correct there anyway, since
+    being on that thread is exactly the property the pin exists to provide.
+    """
+    return threading.current_thread().name.startswith(_IB_FETCH_THREAD_PREFIX)
 
 
 # Map the bot's timeframe vocabulary to IB ``barSizeSetting`` strings.
@@ -141,7 +202,42 @@ class IBMarketData:
         ``fetch_candles`` and the strategies consume IB candles unchanged.
         Returns ``None`` on any error (never raises) so the pipeline's
         per-symbol loop degrades gracefully when the Gateway is down.
+
+        The request is executed on the process-wide pinned IB thread (see
+        ``_IB_FETCH_EXECUTOR``) regardless of which thread calls, because the
+        cached IB connection's socket transport is bound to a single loop.
+        Callers are unaffected: this is still a blocking call returning the
+        same value, and it still never raises.
         """
+        if _on_ib_fetch_thread():
+            return self._get_ohlcv_pinned(symbol, timeframe, limit)
+        try:
+            future = _IB_FETCH_EXECUTOR.submit(
+                self._get_ohlcv_pinned, symbol, timeframe, limit
+            )
+            return future.result(timeout=_IB_FETCH_QUEUE_TIMEOUT_S)
+        except _FutureTimeout:
+            # Degrade exactly like a venue timeout: the caller already handles
+            # None. Distinct message so a queue starvation is never read as a
+            # gateway fault — they need different fixes.
+            logger.warning(
+                "IBMarketData.get_ohlcv timed out waiting for the pinned IB "
+                "thread (symbol=%s timeframe=%s, waited %.1fs) — another IB "
+                "request is still in flight.",
+                symbol, timeframe, _IB_FETCH_QUEUE_TIMEOUT_S,
+            )
+            return None
+        except Exception as exc:  # noqa: BLE001 — never raise into the tick
+            logger.warning(
+                "IBMarketData.get_ohlcv dispatch failed for symbol=%s "
+                "timeframe=%s: %s", symbol, timeframe, exc,
+            )
+            return None
+
+    def _get_ohlcv_pinned(
+        self, symbol: str, timeframe: str, limit: int = 200
+    ) -> Optional[pd.DataFrame]:
+        """The real fetch. MUST run on the pinned thread — see ``get_ohlcv``."""
         bar_size = _BAR_SIZE.get(timeframe)
         if bar_size is None:
             logger.warning("IBMarketData: unsupported timeframe %r", timeframe)

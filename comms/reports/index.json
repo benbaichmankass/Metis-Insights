@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260814-122000-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-14T12:20:00+00:00",
+      "window_start": "2026-08-07T00:00:00+00:00",
+      "window_end": "2026-08-14T12:20:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Root-caused the operator's MONITOR BLIND alerts to TWO independent IB defects. (1) An event-loop race introduced by the M20 exit-loop decouple - mitigated, fix in PR #9240. (2) The MGC take-profit never fired because IB protection is attributed to a SYMBOL, not a TRADE: any sibling MGC strategy re-arming cancels this trade's legs, and the account-wide boolean protection check then reads 'protected'. No surface exists to observe IB open orders at all. Real money is near-flat (-$1.47 / 3 trades / 7d); ML training has silently stalled for 9 of 76 manifests since 07-26.",
+      "html_path": "comms/reports/since-last/20260814T122000Z/report.html",
+      "json_path": "comms/reports/since-last/20260814T122000Z/report.json",
+      "md_path": "comms/reports/since-last/20260814T122000Z/report.md"
+    },
+    {
       "id": "AUDIT-20260813",
       "window": "audit",
       "generated_at": "2026-08-13T17:30:00+00:00",

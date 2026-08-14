@@ -1,0 +1,422 @@
+{
+  "report_id": "RPT-20260814-122000-since-last",
+  "reviewed_at": "2026-08-14T12:20:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-08-07T00:00:00+00:00",
+  "window_end": "2026-08-14T12:20:00+00:00",
+  "prior_report_id": null,
+  "overall_assessment": "investigate",
+  "health": {
+    "_note": "Run inline by this session via the live diag relay (no separate /health-review sub-session). Findings folded into consolidated.*.",
+    "overall_assessment": "investigate",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "services": "all allowlisted units active; ict-trader-live + ict-web-api active. Trader restarted twice in-window (11:46Z set-env, 11:59Z ict-git-sync auto-deploy to 2091d57f).",
+    "heartbeat": "running (86s age at 12:07Z, cadence 60s)",
+    "vm_health": {
+      "cpu_pct": 0.0,
+      "memory_pct": 11.0,
+      "disk_pct": 41.8
+    },
+    "findings": {
+      "ib_market_data": {
+        "status": "concern",
+        "note": "Event-loop race from the M20 exit-loop decouple: two threads on one ib_insync socket -> 'This event loop is already running' -> breaker -> 120s windows suppressing ALL IB calls. Mitigated via EXIT_LOOP_DECOUPLE_DISABLED=1; fix in PR #9240."
+      },
+      "ib_exit_coverage": {
+        "status": "concern",
+        "note": "MGC take-profit never fired. IB protective legs are cancelled symbol-wide by any sibling strategy's re-arm, then an account-wide BOOLEAN check reports 'protected'. 105-lot open 7 days past TP; also blocks every mgc_trend_1h signal."
+      },
+      "ib_observability": {
+        "status": "concern",
+        "note": "No read surface exists for IB open orders - exit coverage on IB cannot be verified from any session. Directly why the above survived 7 days."
+      },
+      "exit_loop_health": {
+        "status": "watch",
+        "note": "Reports state=fresh / age_seconds=0.0 indefinitely once its writer stops, so 'fresh' and 'frozen' are indistinguishable on the ONE surface that can say whether decoupled exit evaluation is alive."
+      },
+      "pairs_sleeve": {
+        "status": "ok",
+        "note": "Recovered: close=13 (was 0) and skip_state_unreadable 958->959 across 500 new rows - marginal unreadable rate 38.8% -> 0.2%. Residuals: half_open=6, open_failed=10."
+      },
+      "services": {
+        "status": "ok",
+        "note": "All allowlisted units active; heartbeat running; VM cpu 0-10%, mem 11%, disk 42%."
+      },
+      "account_reachability": {
+        "status": "watch",
+        "note": "ib_paper read down in the 10:00Z snapshot (breaker), recovered by 12:07Z. ib_live/oanda_practice/breakout_1 null is expected (dry/API-less), not a fault."
+      }
+    }
+  },
+  "performance": {
+    "_note": "Grading run via the grade-closed-trades system-action (issue #9250). Aggregates from /api/bot/performance + /api/bot/strategy/attribution.",
+    "overall_assessment": "caution",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "graded_packages": 51,
+    "grade_histogram": {
+      "B": 9,
+      "C": 40,
+      "D": 2
+    },
+    "real_money_7d": {
+      "trades": 3,
+      "wins": 1,
+      "losses": 2,
+      "win_rate": 33.3,
+      "total_pnl_usd": -1.473,
+      "profit_factor": 0.4509,
+      "max_drawdown": -2.6826,
+      "pnl_coverage": 0.3333
+    },
+    "real_money_lifetime": {
+      "total_pnl_usd": -67.38,
+      "win_rate": 26.5,
+      "open_trades": 1
+    },
+    "worst_real_money_strategy": {
+      "strategy": "vwap",
+      "closed_trades": 318,
+      "win_rate": 23.6,
+      "total_pnl_usd": -50.7137
+    }
+  },
+  "ml": {
+    "_note": "From the live-VM trainer mirror (/api/bot/ml/*) + /api/bot/shadow/stats. Trainer VM reachable, mirror age 36s.",
+    "overall_assessment": "investigate",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "registry": {
+      "models": 95,
+      "advisory": 3,
+      "shadow": 29,
+      "candidate": 62,
+      "research_only": 1
+    },
+    "cycles_24h": 2,
+    "dataset_builds_24h": {
+      "ok": 120,
+      "failed": 0,
+      "skipped": 2
+    },
+    "last_cycle": {
+      "ts": "2026-08-14T05:35:05+00:00",
+      "outcome": "already_complete",
+      "trained": 0,
+      "failed": 0,
+      "overall_rc": 0
+    },
+    "training_staleness": {
+      "scanned": 76,
+      "stale": 7,
+      "never_trained": 2,
+      "awaiting_source": 1,
+      "threshold_days": 7.0
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "investigate",
+    "headline": "Root-caused the operator's MONITOR BLIND alerts to TWO independent IB defects. (1) An event-loop race introduced by the M20 exit-loop decouple - mitigated, fix in PR #9240. (2) The MGC take-profit never fired because IB protection is attributed to a SYMBOL, not a TRADE: any sibling MGC strategy re-arming cancels this trade's legs, and the account-wide boolean protection check then reads 'protected'. No surface exists to observe IB open orders at all. Real money is near-flat (-$1.47 / 3 trades / 7d); ML training has silently stalled for 9 of 76 manifests since 07-26.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Merge PR #9240, then CLEAR EXIT_LOOP_DECOUPLE_DISABLED",
+        "source_review": "health",
+        "tier": 2,
+        "operator_action_required": true,
+        "detail": "The mitigation is live, so the M20 30s exit cadence is OFF and exits are back to ~1/tick - the exact condition BL-20260810-TICK-TAKES-253S exists to flag. A deliberate trade, not a fix; must not stand."
+      },
+      {
+        "rank": 2,
+        "title": "Ship an IB open-orders read surface before any protection fix",
+        "source_review": "health",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "No route answers 'does a protective leg rest on IB for this trade?'. That blindness is why the MGC defect survived 7 days beside three firing alarms. Tier-1, read-only, safe alone."
+      },
+      {
+        "rank": 3,
+        "title": "Make IB protective legs TRADE-attributable, not symbol-attributable",
+        "source_review": "health",
+        "tier": 2,
+        "operator_action_required": true,
+        "detail": "place_protective pre-cancels on contract.symbol alone, so any of the 3 MGC strategies re-arming strips the others' brackets; has_protective_orders is then account-wide AND boolean, so a sibling leg reads as cover."
+      },
+      {
+        "rank": 4,
+        "title": "ML training stalled: 9 of 76 manifests unadvanced since 2026-07-26",
+        "source_review": "ml",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "7 stale >7d + 2 with ZERO registered runs ever (setup-candidates-metalabel-paper-v1, exit-policy-v1) while the cycle reports outcome=already_complete / rc=0. A green cycle over a stalled subset."
+      },
+      {
+        "rank": 5,
+        "title": "Two shadow heads have soaked 87 days emitting a CONSTANT score",
+        "source_review": "ml",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "execution-quality-baseline-v0 (-0.20166275180833781) and setup-quality-audit-baseline-v0 (-0.0571959596) have min==max across 1531 predictions. Dead predictors accruing soak - the ETH-xa pattern."
+      },
+      {
+        "rank": 6,
+        "title": "51 graded packages this window: zero A grades, 40 of 51 are C",
+        "source_review": "performance",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "Window dominated by the pairs sleeve trading micro-edges (|pnl| often < $3) whose dominant exit_quality is premature_exit. Real money closed just 3 trades in 7d for -$1.47."
+      }
+    ],
+    "cross_review_notes": [
+      "The mitigation for finding #1 REINTRODUCES the condition of an existing open backlog item (BL-20260810-TICK-TAKES-253S-MONITOR-CADENCE-5MIN). Health and performance disagree about which risk is worse; the resolution is to land PR #9240 quickly rather than to choose.",
+      "The stranded MGC position is BOTH an exit-coverage defect and a silent strategy outage: mgc_trend_1h has emitted signals continuously since 2026-08-12 and every one is journaled rejected by flip_suppressed_hold_policy. A strategy can be dark without being disabled - and nothing alerts on that.",
+      "The reported ib_paper MGC uPnL (+$110,145, provenance=estimated) is contradicted by an existing open item, BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH, which measured exchange truth at +$37.80 on the day the position opened. Do NOT quote the $110k as a magnitude \u2014 it is a known-bad local mark-price computation, and this review initially repeated it.",
+      "Real money is effectively idle (3 closed trades in 7 days, 1 open position) while paper carries 23 open positions. Any read of 'system performance' that does not state which population it covers is meaningless here.",
+      "Detection and cancellation of IB protective legs use DIFFERENT scopes - reqAllOpenOrders (account-wide) to detect, openTrades() (session-only) to cancel. Both directions bite: after a trader restart the pre-cancel silently no-ops and OCA brackets STACK (the BL-20260624-MHG-FLIP accumulation the pre-cancel exists to prevent), while the account-wide boolean makes 'protected' un-attributable to any trade."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -1.473,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 3,
+        "wins": 1,
+        "win_rate": 33.3,
+        "note": "Journal-based, NOT wallet-reconciled (dollars_reconciled=false). pnlCoverage 0.3333 - only 1 of 3 rows is MEASURED provenance."
+      },
+      "paper": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": null,
+        "wins": null,
+        "win_rate": null,
+        "note": "23 open positions; lifetime -98156.51 dominated by fabricated/estimated marks. Never blended with real."
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": null,
+        "wins": null,
+        "win_rate": null,
+        "note": "No prop activity read this window."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "MGC",
+        "open": null,
+        "close": 4374.2,
+        "high": 4475.6,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Sustained gold advance 08-07..08-14 (daily highs 4399.6/4420.7/4461.9/4469.0/4475.6). Never traded back below the stranded long's 4297.66 TP after day one."
+      }
+    ],
+    "trade_dossiers": [],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 0,
+      "summarized_trades": 51,
+      "rule": "full-per-trade (since-last) NOT MET - 51 packages were graded (B:9/C:40/D:2, issue #9250) but per-trade dossiers were not synthesised and the delta was not appended to comms/claude_strategy_scores.jsonl."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 547,
+        "open": 205,
+        "resolved": 337
+      },
+      "performance": {
+        "total": 92,
+        "open": 39,
+        "resolved": 53
+      },
+      "ml": {
+        "total": 99,
+        "open": 26,
+        "resolved": 72
+      },
+      "_basis": "Computed from the three backlog JSON files at HEAD; 'open' counts every non-terminal status, not just literal 'open'."
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "health",
+        "tier": 3,
+        "summary": "Make IB place_protective cancel only the CALLING trade's legs instead of every resting leg on the symbol (order-path behaviour change)."
+      },
+      {
+        "source_review": "health",
+        "tier": 3,
+        "summary": "Return covered QUANTITY from IBClient.has_protective_orders and compare to exchange position size - the PR #8000 Bybit shape ported to IB."
+      },
+      {
+        "source_review": "health",
+        "tier": 3,
+        "summary": "Disposition of the stranded ib_paper MGC 105-lot (flatten + reconcile, or close the journal row). HELD - operator-gated, 2026-08-14: investigate + report only."
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260814-IB-EVENTLOOP-CONTENTION",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Mitigated by env flip; fix in PR #9240.",
+        "since": "2026-08-14",
+        "next_check": "PR #9240 merged + deployed, EXIT_LOOP_DECOUPLE_DISABLED cleared, then a multi-hour window with zero 'event loop is already running'"
+      },
+      {
+        "item_id": "MB/soaks-constant-score",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "execution-quality-baseline-v0 + setup-quality-audit-baseline-v0 emit a constant score over 87.3d.",
+        "since": "2026-05-19",
+        "next_check": "operator call: retire or re-train; further soak accrues nothing"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "vwap",
+            "gate": "DEMOTE/KILL candidate",
+            "evidence": "318 closed real-money trades, 23.6% win rate, -$50.71 \u2014 the largest real-money loss in /strategy/attribution."
+          },
+          {
+            "name": "mgc_trend_1h",
+            "gate": "NOT a performance verdict \u2014 DARK",
+            "evidence": "Emits signals continuously since 2026-08-12; every one journaled rejected by flip_suppressed_hold_policy against the stranded MGC 105-lot. A routing blockage, not an edge failure."
+          }
+        ],
+        "summary": "NOT a full per-strategy promotion pass. Measured: real-money attribution over 12 strategies with any closed history \u2014 vwap is the clear demote/kill candidate (318 closed, 23.6% win, -$50.71, the largest real-money loss). mgc_trend_1h is DARK (not un-promoted): it emits signals and every one is rejected by flip_suppressed_hold_policy against the stranded MGC long \u2014 a routing blockage, not a performance verdict. No M7 review packets were pulled this run, so no KILL/DEMOTE/HOLD/PROMOTE badges were read; this block is therefore evidence-backed but INCOMPLETE."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 2,
+        "dataset_builds_ok": "120 ok / 0 failed / 2 skipped",
+        "summary": "Cycles ARE running (2 in 24h, timer active, next 2026-08-15T00:02:32Z) and dataset builds are clean (120 ok / 0 failed). But training has NOT advanced: last cycle outcome=already_complete, trained=0, and the staleness summary reports scanned=76 stale=7 never_trained=2 awaiting_source=1 against a 7d threshold. All 7 stale manifests last trained 2026-07-26 (19.0d). Two have ZERO registered runs across all 95 registry files and have been skipped/failed every cycle since landing: setup-candidates-metalabel-paper-v1, exit-policy-v1. No manifest_quarantine_tripped events observed. The cycle reports overall_rc=0 throughout \u2014 a green cycle over a stalled subset."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow fleet (29 shadow + 3 advisory)",
+          "state": "accruing",
+          "detail": "Cadence ~315s crypto / ~440s MES; last_seen 12:14Z on every head."
+        },
+        {
+          "soak": "execution-quality-baseline-v0",
+          "state": "STALLED-IN-SUBSTANCE",
+          "detail": "87.3d soak, 1531 predictions, score min==max==-0.20166275180833781 \u2014 a constant, non-discriminating predictor."
+        },
+        {
+          "soak": "setup-quality-audit-baseline-v0",
+          "state": "STALLED-IN-SUBSTANCE",
+          "detail": "87.3d soak, 1531 predictions, score min==max==-0.05719595959595961 \u2014 constant."
+        },
+        {
+          "soak": "mes-regime-5m-lgbm-v2 (ADVISORY)",
+          "state": "live-influencing",
+          "detail": "24.5d at advisory; score_mean 0.746, range 0.500\u20130.986."
+        },
+        {
+          "soak": "conviction-meta-v1",
+          "state": "accruing",
+          "detail": "52.2d, score_mean 0.685."
+        },
+        {
+          "soak": "training pipeline",
+          "state": "STALLED",
+          "detail": "9 of 76 manifests unadvanced since 2026-07-26 (7 stale >7d, 2 never trained) while the cycle reports rc=0 / already_complete."
+        }
+      ],
+      "execution_capture": {
+        "status": "unavailable",
+        "per_strategy": [],
+        "anomalies": [],
+        "dollars_reconciled": false,
+        "summary": "unavailable (m20_exit_analysis not run - needs the trainer relay + its market_raw store; the session budget went to the live IB incident). No roundtrippers_pct / mean_giveback_r / anomaly ageing. NOT a clean result. The one hold-vs-expected datum obtained without it is severe and IS root-caused: ict_scalp_mgc_15m, a 15-minute strategy, has held a position 7 days past a take-profit that was blown through on day one - because IB protection is symbol-scoped, not trade-scoped (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY, now CRITICAL)."
+      },
+      "dollars_reconciled": false,
+      "account_reachability": "Measured via /api/diag/exchange_positions + /api/bot/accounts/balances (10:00Z snapshot). UP: bybit_1, bybit_2, bybit_portfolio, alpaca_paper, alpaca_portfolio, alpaca_options_paper (positions read, api_ok true). DOWN-IN-WINDOW: ib_paper \u2014 balance null / api_ok false in the 10:00Z snapshot and 'balance() returned None ... account unreachable' in journaled sizing refusals, caused by the IB breaker (BL-20260814-IB-EVENTLOOP-CONTENTION); it read positions successfully again at 12:07Z. EXPECTED-NULL (not a fault): ib_live (mode dry/shelved), oanda_practice (dry), breakout_1 (API-less prop bridge). NOTE: alpaca_live shows balance 0.1 with equity 0.1 \u2014 funded-but-idle, not down.",
+      "flags_raised": [
+        "IB event-loop contention degraded ALL IB symbols for ~2h+ in 120s cycles \u2014 blind monitors, strategy errors, AND refused entries. Mitigated; fix in PR #9240.",
+        "A 15-minute scalp has held 105 MGC contracts for 7 days past its take-profit. ROOT-CAUSED: monitor() has no TP close path by design, and the broker bracket that owns TP enforcement is cancelled whenever any sibling MGC strategy re-arms, after which an account-wide boolean check reports it protected.",
+        "ML training stalled for 9 of 76 manifests since 2026-07-26 while the cycle reports success.",
+        "Two shadow heads have soaked 87 days emitting a constant score.",
+        "exit_loop_health reports state=fresh / age_seconds=0.0 indefinitely after its writer stops \u2014 the ONE surface that can say whether decoupled exit evaluation is alive cannot distinguish 'fresh' from 'frozen'.",
+        "No read surface exists for IB open orders, so IB exit coverage is unverifiable from any session."
+      ],
+      "backlog_drive": {
+        "health": {
+          "open_at_start": 205,
+          "triaged": 4,
+          "count_untriaged": 201,
+          "drained": [
+            "BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED (CRITICAL) \u2014 re-measured: pairs soak now shows close=13 (was 0) and skip_state_unreadable 958->959 across 500 NEW rows, i.e. the marginal unreadable rate fell 38.8% -> 0.2%. The headline condition is resolved; half_open=6 and open_failed=10 remain as residuals.",
+            "BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH - re-validated, still open and still correct: the +$110,145 uPnL this review initially quoted for MGC is the very figure that item flags as contradicted by exchange truth (+$37.80 measured 2026-08-07). Kept open; used here to CORRECT this report."
+          ],
+          "added": [
+            "BL-20260814-IB-EVENTLOOP-CONTENTION",
+            "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY (escalated to CRITICAL after root-cause)",
+            "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE"
+          ],
+          "deferred_reason": "NOT TRIAGED \u2014 202 open health items were not individually re-validated this run."
+        },
+        "performance": {
+          "open_at_start": 39,
+          "triaged": 0,
+          "count_untriaged": 39,
+          "drained": [],
+          "deferred_reason": "NOT TRIAGED this run."
+        },
+        "ml": {
+          "open_at_start": 26,
+          "triaged": 0,
+          "count_untriaged": 26,
+          "drained": [],
+          "deferred_reason": "NOT TRIAGED this run."
+        }
+      },
+      "known_gaps": [
+        "GATE FAILS: backlog_drive.count_untriaged is non-zero in all three domains (202/39/26). The skill requires 100% triage; this run triaged 3 health items.",
+        "execution_capture was not measured (m20_exit_analysis not run).",
+        "dollars_reconciled=false \u2014 /api/bot/pnl/exchange and /api/bot/pnl/broker-truth were requested (issue #9249) but not read into this report.",
+        "The 51-row grading delta (issue #9250) was NOT appended to comms/claude_strategy_scores.jsonl.",
+        "No per-trade dossiers were synthesised.",
+        "No M7 strategy review packets were pulled.",
+        "authored_cells re-audit register was not checked (weekly-window requirement; this is a since-last window)."
+      ]
+    },
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-08-14 11:59 UTC"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-08-14 09:45:34 UTC"
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260814T122000Z/report.json",
+    "html_path": "comms/reports/since-last/20260814T122000Z/report.html",
+    "md_path": "comms/reports/since-last/20260814T122000Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/Metis-Insights/blob/main/comms/reports/since-last/20260814T122000Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260814-122000-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "high",
+    "message": "[system-report:since-last] roll-up investigate: H:investigate P:caution M:investigate. 2 IB bugs (1 mitigated, PR #9240), MGC scalp stranded 7d, ML 9/76 manifests stalled."
+  }
+}
