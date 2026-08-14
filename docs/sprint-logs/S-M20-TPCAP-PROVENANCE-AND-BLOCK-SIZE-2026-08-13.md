@@ -732,6 +732,58 @@ them was graded.
     it would find is Tier-3.
 
 
+
+43. **Asked what would actually unblock the 22 blocked cells, and found two
+    waiting on data nothing produces** —
+    `BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED`.
+
+    Most of the 22 are volume constraints (10 `insufficient_lifetime_trades`, 3
+    `insufficient_base`, 2 `insufficient_oos_base_at_derived_split`, 1
+    `native-history-thin`) — the same **wait, not to-do** shape as item 37, and 2
+    are structural (`no_harness_levers`). The interesting four were
+    `data_missing`.
+
+    Three of those are IBKR futures legs needing native history for E0
+    (`mes_trend_long_1d`, `mgc_pullback_1d`, `mhg_pullback_1d`). `data_missing`
+    reads as *"the data will arrive"*. **For two of the three, nothing is
+    bringing it.** The only puller in the repo is `pull_mes_ibkr_history.sh`; it
+    *is* symbol-parameterised (`MES_SYMBOL`, default `MES`), but the scheduled
+    unit invokes it with **no override**, so the daily timer is MES-only.
+
+    **And the tool built to fix exactly this already exists.** `pull-ibkr-history`
+    (Tier-2, allowlisted MES/MGC/MHG) says in its own entry that it was *"Added
+    2026-07-07 to backtest the metals sleeve (`mgc_trend_1h` / `mgc_pullback_1d`
+    / `mhg_pullback_1d`) on native IBKR history"* — the same two cells, still
+    blocked five weeks on.
+
+    Measured with the denominator stated: across the window the relay returned
+    (07-30 → 08-05, 44 `pull_start` runs) **44/44 are MES**, zero MGC, zero MHG.
+    I could not see 07-07 → 07-30, so the log alone does not exclude a run there;
+    what makes it unlikely is that both cells still read *"needs native IBKR
+    history"*.
+
+    **A false alarm I did not file, recorded because the trap is reusable.** The
+    truncated 400-line payload's newest visible stamp was **2026-08-05** — nine
+    days stale on a *daily* timer, which reads exactly like a recurrence of
+    `BL-20260626-MES-BASE-STALE` ("the pull … stopped running 2026-06-14,
+    freezing MES 5m/15m"). **It is not.** A small complete read (`lines=12`)
+    shows the pull ran last night, 2026-08-13T23:33 → 23:45, both timeframes
+    `ok` (47,190 and 15,751 rows). The truncation had handed me the *older* part
+    of the 400. **When the question is "what happened most recently", a large
+    truncated read is worse than a small complete one** — and a false alarm about
+    a previously-real incident is the most expensive kind.
+
+    **Not dispatched tonight, and the reason is timing rather than tier** (Tier-2
+    is pre-granted). The pull shares the **live** trading gateway on clientId
+    450 and takes ~27 min; at the time of writing (~05:32Z) we are inside IBKR's
+    own ~03:45–05:45 UTC reset window and ~33 min from the 06:05 UTC gateway
+    reset, so a run started now would span a session being restarted and burn
+    pacing budget for nothing. The two must also run **sequentially** — the
+    wrapper takes a single-instance lock, so a concurrent second invocation
+    exits cleanly and would look like a silent no-op. Both constraints are
+    written into the row's resolution criteria rather than left as folklore.
+
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
