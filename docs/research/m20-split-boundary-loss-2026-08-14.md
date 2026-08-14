@@ -157,6 +157,13 @@ sets is not the A/B it looks like).
 | graded on the merits | 8/76 = 10.5% | 66/70 = **94.3%** |
 | passes | **0** | 2 (2.9%) |
 
+"Unmeasurable" here is not an inference — it is the sweep's own
+`insufficient_base` outcome, counted per cell from the run logs of both arms.
+checked: scripts/research/m20_fleet_exit_sweep.py — the `insufficient_base`
+verdict it emits when a leg's achieved OOS base falls under `MIN_OOS_TRADES`;
+counts read from each arm's `sweep.log` via relay #9371, with the denominator
+`legs × 4` asserted (`reconciles: YES` on the complete arm).
+
 The 5-trade margin converts **89.5% unmeasurable into 5.7%**.
 
 **Read what this buys.** Primarily **answers instead of refusals**: at 25 the
