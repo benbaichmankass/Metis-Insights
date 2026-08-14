@@ -467,6 +467,194 @@ touched, no Tier-3 change enacted.**
     undetermined: they stamp no `exit_reason`, and labelling a round I cannot
     measure would be the same error class the row is about.
 
+36. **The staleness classifier could not see the defect I had just fixed**
+    (same PR #9150) — `BL-20260814-COVERAGE-STALENESS-GRADED-BY-DATE-NOT-GEOMETRY`,
+    found by re-running the roll-up after item 35 rather than by auditing it.
+
+    `--stale-decisions` is the surface that names the CLOSED, non-negative cells
+    resting on unreproduced evidence, and its own output calls a stale SHIPPED
+    cell the expensive kind. It listed five and **read as the complete set**.
+    Three SHIPPED real-money `exit_head_ml` cells were missing from it.
+
+    **Two causes, and the second is the interesting one.**
+
+    (1) **One cutover for two harnesses.** `GEOMETRY_CUTOVER` (2026-08-10) is
+    when the *lever-sweep* harness learned to place the live capped TP.
+    `exit_head_ml` does not ride that harness — it rides the driver item 35 had
+    just fixed, four days later. Twelve cells cleared a bar their evidence never
+    met (stale 174 → 186 of 286 closed).
+
+    (2) **The date is only a proxy, and it failed outright.** The three shipped
+    `trend_donchian*` 1h cells carry a **genuine** `RE-SWEPT 2026-08-14` ref — a
+    real measurement, on that date — which re-read the **existing** round dirs
+    rather than building new ones. So the cell is *fresh by date and stale by
+    geometry at the same time*, and **no choice of cutover date separates
+    those**: the property that decides transfer is not WHEN a cell was measured
+    but WHETHER the round behind it placed the live TP.
+
+    So the fix is not a better date. A per-cell **`tp_geometry`** overrides the
+    date **in both directions** — `no_take_profit` is stale whatever the date
+    says, `live_parity` is not stale whatever the date says — and an absent
+    field falls back to the date while counting into `geometry_undeclared`, so
+    *"we did not look"* stays visible instead of reading as a clean pass. It is
+    a declared **measurement**, not a presence-only marker: the eleven rounds of
+    item 35 are its evidence, each carrying its own on-disk marker.
+
+    `--stale-decisions` now lists **8**, shipped **4 → 7**.
+
+    **Six tests; both fix points can-fail verified independently** (reverting the
+    per-lever map fails exactly 1, reverting the geometry override fails exactly
+    4). One asserts the three cells against the **real** matrix, so a regression
+    fails CI rather than quietly under-reporting.
+
+    **A correction to my own reasoning inside this item.** I expected reverting
+    the per-lever cutover to also break the real-matrix test; it did not, because
+    the `tp_geometry` stamp alone is sufficient for those three. The date is the
+    backstop, not the mechanism — which is the right layering, but I had it
+    backwards until the can-fail run said otherwise.
+
+    **What this does NOT resolve, deliberately:** the disposition of the three
+    cells is part (d) of `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`,
+    Tier-3, and is *not* double-counted as this row's remit. This change makes
+    the classifier tell the truth about which cells are affected; it does not
+    decide what to do about them.
+
+37. **Re-swept the other five stale decisions at live parity**
+    (`m20-exit-lever-sweep` run 31771809102) — `htf_pullback_trend_2h`,
+    `mes_trend_long_1d`, `mhg_pullback_1d`, `tlt_pullback_1h` ×
+    `trail_geometry,stale_stop`. These are the stale decisions the *lever-sweep*
+    harness owns, so unlike the `exit_head_ml` three they were runnable
+    immediately — that harness has taken `--tp-cap-pct` since 2026-08-10.
+
+    **Two checks before dispatch, both of which changed what I ran.**
+
+    First, the workflow's own input docs say *"trail_geometry is not offerable:
+    `trail_mult` has no OFF state"*, and I read that as "cannot be graded" — four
+    of the five cells are `trail_geometry`, so that would have made them
+    permanently unmeasurable. It is **not** what it says. "Not offerable" scopes
+    the *lever-off arm*; the ordinary arm sweeps a `trail_mult ± 1.0` grid
+    (`m20_fleet_exit_sweep.py:618-622`), which is a real comparison against the
+    shipped value. The code settled a question the prose left ambiguous, in the
+    direction that meant the work was possible.
+
+    Second, the live cap only applies to `LIVE_TP_CAPPED_FAMILIES`, so a leg
+    classifying outside it would have re-run at the OLD geometry and cleared its
+    stale flag on evidence that had not changed. Checked all four through
+    `classify()` first: `pullback` ×3, `donchian` ×1 — all capped. `tlt_pullback_1h`
+    additionally declares `tp_r: None`, which `base_args` guards
+    (`if tpr is not None`), so it takes the cap without a malformed `--tp-r`.
+
+## SWEEP RESULT (run 31771809102) — the answer is a NEGATIVE, and it is the useful kind
+
+All four legs returned, all four green, **every cell `insufficient_base`**.
+Live parity WAS applied on all four (`capped TP 0.099 APPLIED` on each).
+
+| leg | base n IS | base n OOS | vs floor 25 | cells |
+|---|--:|--:|---|---|
+| htf_pullback_trend_2h | 382 | **24** | −1 | 4/4 insufficient_base |
+| mhg_pullback_1d       |  55 | **24** | −1 | 4/4 insufficient_base |
+| tlt_pullback_1h       | 502 | **22** | −3 | 4/4 insufficient_base |
+| mes_trend_long_1d     |  29 |  **4** | −21 | 4/4 insufficient_base (split fell back: leg_too_thin, lifetime=33) |
+
+`MIN_OOS_TRADES = 25` (m20_fleet_exit_sweep.py:402, operator decision 2026-08-11).
+
+**So none of the five stale `trail_geometry` / `stale_stop` decisions can be
+re-graded today** — and NOT for the reason the stale flag implies. The geometry
+was fixed and applied; the legs simply sit below the operator's own OOS evidence
+floor. Three of the four are short by **1-3 trades**, so they become gradeable
+with a little more live history; `mes_trend_long_1d` (lifetime 33) is nowhere
+near.
+
+This is worth stating precisely because the stale-decision list reads as a
+to-do. For these five it is not: it is a **wait**, and re-running the sweep
+before those legs accumulate OOS trades will return exactly this again.
+
+### Side finding: the warning threshold and the grading floor disagree
+
+`_THIN_OOS_TRADES = 20` (the ⚠️ **THIN OOS** banner) vs `MIN_OOS_TRADES = 25`
+(the gradeability floor). A leg in the **20-24 band is entirely ungradeable and
+gets no banner** — which is exactly where `htf_pullback_trend_2h` (24),
+`mhg_pullback_1d` (24) and `tlt_pullback_1h` (22) landed. Only `mes` (4) was
+flagged.
+
+Stated precisely: this is **legibility, not falsehood.** The per-cell
+`PathA: insufficient_base` column does say it, and the harness even records
+`would_have_been`. But the header is where a reader calibrates, and three legs
+printed a full four-row delta table under no warning at all while nothing in
+them was graded.
+
+38. **Followed a citation, and it did not lead where it said** — filed
+    `BL-20260814-EXIT-LADDER-CELLS-CITED-THE-WRONG-MEMO-SECTION` (resolved
+    same session).
+
+    Seven `exit_ladder` cells cited **memo §7.2** for the partial-TP banking
+    verdict. §7.2 is *"Trail4 walk-forward"* and contains nothing about
+    banking; the verdict is **§6.2** *"Trailing-stop geometry + exit-ladder
+    banking"* — *"partial-TP banking reduced net_R in every one of the 20
+    banking cells"*. No other memo in the repo has a §7.2, so it could not have
+    resolved elsewhere. The claim was right and the pointer was off by one
+    section — which matters because a reader verifying the grade lands on a
+    section about a **different lever**, and §7.2's content is a *PASS*.
+
+    All seven now cite §6.2 with the section title and the verdict sentence
+    inline, so the correction is checkable from the cell rather than by trusting
+    the backlog row. **The corrective note carries no date, deliberately** —
+    five of the seven are `honest_negative` cells the vintage counter buckets,
+    and a date would have flipped them `pre_cutover → post_cutover`, marking
+    pre-cutover evidence as refreshed. That is the same date-proxy hazard item
+    36 exists to fix, and it would have been self-inflicted an hour later.
+
+    **Two counting errors of mine that the asserts caught, both before any
+    write.** I first said *45* cells cited §7.2 — I had extrapolated from a
+    three-row sample, and a regex that read decimals out of data-rich refs as
+    section numbers agreed with me. The real count is 7 (34 of the 45 carry no
+    citation at all). Then my write script asserted "no ref still contains
+    §7.2" and tripped **on its own correction note**, which quotes the wrong
+    section in order to explain it. Neither reached the file.
+
+    **Left stated, not fixed:** 34 of the 45 `honest_negative` `exit_ladder`
+    cells carry no section citation at all. Wider than this row's remit, and
+    folding it in silently would have hidden it.
+
+39. **The two pending prop `exit_ladder` cells have a named path now, and it is
+    not the one the fleet verdict implies.** This is the substantive find of the
+    stretch, and it came out of the wrong-citation chase above.
+
+    Memo §6.2 grades banking on **net_R** and then explicitly carves out this
+    exact case: *"The one venue where this trade could still be RIGHT is the
+    **prop ruleset** (survival-weighted EV, daily-loss/DD breach rules —
+    smoothness is worth net_R there)"*, logging `PB-20260712-PROP-BANKING-EV`.
+
+    So grading the two prop cells `honest_negative` by inheriting §6.2 would
+    **apply a verdict the memo excludes prop from** — and the axis is wrong
+    besides: survival-weighted EV, not net_R. Their `pending` status is correct,
+    but their stated reason (*"not exit-processed on this leg's own book"*) was
+    generic and understated it.
+
+    **What it would take, pieces verified present rather than assumed:** the
+    banking lever exists in the harness (`--bank-frac` / `--bank-at-r`,
+    `m20_exit_sweep.py --phase2`, which produced §6.2's own 20 cells); the prop
+    scorer exists (`run_ev_montecarlo`, already called by three
+    `scripts/prop/*` scripts — so the health-review row's "unused for a month"
+    is about the *evaluation*, not a dead function); `breakout.yaml` exists.
+    **The only missing piece is the join** — `montecarlo_prop.py` has no banking
+    arm. Chaining two built pieces, not new modelling.
+
+    **Deliberately not built tonight.** The output grades a live prop leg's
+    exits, and a harness authored at speed that emits a confident EV verdict is
+    the wrong artifact to leave on disk unattended — the same reasoning that had
+    me quarantine the wrong-geometry round rather than let its numbers stand.
+    The path is written into both cells so the next session does not re-derive it.
+
+40. **Recorded the re-sweep on the five stale-decision cells — and watched the
+    new mechanism do its job.** All five now carry a genuine `2026-08-14` ref
+    date. Under the date-only logic that shipped this morning, that date alone
+    would have dropped every one of them off `--stale-decisions`. They stay
+    correctly flagged because `tp_geometry: no_take_profit` overrides it. The
+    hazard item 36 was written against is not hypothetical: I walked into it
+    within the hour, on cells I was annotating myself.
+
+
 ## Validation Performed
 
 - 125 tests pass across the four M20 suites; 58 after the merge resolution.
