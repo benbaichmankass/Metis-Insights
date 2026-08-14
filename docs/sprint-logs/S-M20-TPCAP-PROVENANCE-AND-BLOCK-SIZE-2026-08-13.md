@@ -2869,3 +2869,115 @@ are near-identical siblings. Effective independence is nearer **five**.
   until #9257 merges. Splitting the config change onto its own branch would
   unblock the rest; not done unilaterally, since it changes what the operator is
   approving.
+
+---
+
+## Third overnight stretch (2026-08-14, ~22:20–23:50Z)
+
+### Objective
+
+Read out the 1d pullback round against the pre-registration written before it,
+then characterise what the accumulated exit-head corpus actually says.
+
+### Work completed
+
+**The 1d pullback round (relays #9358 launch / #9366 report).** Six legs, all
+re-derived from the E1 gate in `train_exit_head.py` rather than copied from the
+printout. The advance prediction `u = floor(629/50) − 1 = 11` was checked, not
+assumed: observed 11.
+
+| leg | n_oos | auc | beats_actual | beats_hard | u | gate |
+|---|--:|--:|--:|--:|--:|---|
+| `gdx_pullback_1d` | 81 | 0.6337 | 5/7 | 4/7 | 7 | honest_negative |
+| `gld_pullback_1d` | 128 | 0.5277 | 4/11 | 3/11 | 11 | honest_negative |
+| `iaum_pullback_1d` | 30 | 0.5525 | 3/4 | 3/4 | 4 | **candidate** |
+| `ief_pullback_1d` | 67 | 0.5337 | 6/11 | 8/11 | 11 | honest_negative |
+| `slv_pullback_1d` | 160 | 0.4895 | 6/11 | 6/11 | 11 | honest_negative |
+| `tlt_pullback_1d` | 84 | 0.5300 | 6/11 | 4/11 | 11 | honest_negative |
+
+**No status flipped**, per the pre-registration. It bound on `iaum`: the gate
+computes `candidate`, and the entire difference from *yesterday's*
+`honest_negative` on that leg is **one fold** (`beats_actual` 2/4 → 3/4), on
+30 OOS trades present in 4 of 11 folds, at an AUC margin of 0.0025.
+
+The pre-registration also **refuted its own item 4**: `slv`, named in advance as
+"the only one worth a second look" on density grounds (the thickest leg, 15.4
+trades/fold), returned the lowest AUC of the six — 0.4895, below chance. Density
+bounds what a verdict is worth; it predicts nothing about its sign.
+
+**Pooling proven by arithmetic, not by the identical-`u` signature.** Every
+leg's `u` exceeds what its own book could support (`ief`: 67 trades, per-leg `u`
+would be 0, reports 11). This also **refines** the claim recorded on the
+`tlt_pullback_1h` row: identical `u` across legs is a *sufficient* signature of
+pooling, but varying `u` is **not** a counter-signature — a leg thin enough to
+be absent from some folds gets a lower `u` under the same pooled cut.
+
+**Which gate term binds** — new memo,
+[`m20-exit-head-binding-term-2026-08-14.md`](../research/m20-exit-head-binding-term-2026-08-14.md).
+Over all 33 recorded leg-rounds, `beats_hard` fails in 16 (48%) and is the sole
+failing term in **6 of the 7** single-term failures. Those six are the
+highest-AUC legs in the corpus (0.601–0.6337): each clears the AUC bar and beats
+the exit the bot actually takes on ≥ ⅔ of folds.
+
+**The inference that invites was refuted, and the memo records the refuted
+version.** "There is exit alpha here and a simple hard rule captures it" fails
+one lookup: 11 of the 12 `stale_stop`/`giveback_stop` cells on those same legs
+are themselves negatives. `beats_hard` races the head against two **fixed**
+parameter points; the hard-lever cells are verdicts over the **tuned** sweep
+under their own gate — different comparator, different aggregation, so both can
+fail. `ict_scalp_eth_15m` is the sole exception (its `stale_stop` did ship) and
+does not generalise.
+
+**`tp_geometry` was being written where nothing reads it.** The roll-up's
+coverage figure reads a **structured** `cell["tp_geometry"]`, while live parity
+was being recorded in ref prose and in `m20-exit-head-rounds.jsonl`. Sixteen
+cells had been measured at live parity and counted as `unrecorded`.
+
+That fix was then **wrong twice, and both corrections matter more than the fix**:
+
+1. Stamping on **citation** alone put `live_parity` on six cells whose
+   live-parity round *contradicts* the recorded status — declaring "not stale"
+   over exactly the cells that most need to surface.
+2. The revert predicate — string equality between cell status and round verdict
+   — then **over-reverted four correct stamps**. `shipped` beside a `candidate`
+   round is consistent (shipping is downstream of passing); `shipped_gate_failed`
+   beside `honest_negative` is the status the legend defines for that case.
+
+Final predicate is **sign**, not string: `{candidate, shipped, passed_unshipped}`
+vs `{honest_negative, shipped_gate_failed}`. Coverage 11/376 (2.9%) → 28/376
+(7.4%), with **ten** cells deliberately left unstamped because their live-parity
+round contradicts them.
+
+### Validation
+
+- Guards **38/38** on a clean tree before each push (three pushes).
+- Coverage headline re-checked with the canonical
+  `scripts/research/m20_coverage_rollup.py` after every matrix write: **373/376
+  = 99.2%, unchanged**, as pre-registered. An ad-hoc re-derivation of that
+  figure mid-stretch returned 345/380 and was **wrong** — the canonical
+  population is 47 *live* legs, not all 52 rows. Running the producer instead of
+  trusting my own count is what caught it.
+- Every verdict re-derived from the four gate conditions in source; all six
+  matched the printout, and the re-derivation is what made the `iaum` one-fold
+  margin visible.
+
+### Gaps not yet verified
+
+- **CI still is not attaching to PR #9257** — `get_check_runs` returned
+  `total_count: 0` on the new head `af687ba7`, the sixth consecutive push. The
+  earlier isolation stands (a `workflow_dispatch` of the same workflow on this
+  branch ran and passed at 19:24:45Z, so the workflow and branch are fine and
+  only `pull_request`-event delivery is dead) — but **why** delivery stopped is
+  still unestablished, and #9257 remains unmergeable. No positive control was
+  available this stretch: #9257 is the only open PR.
+- **The pullback hard-lever re-sweep is in flight** (relay #9367), launched
+  because the `beats_hard` finding is precisely what those columns' live-parity
+  numbers would inform. Unread at time of writing.
+- **The AUC-dispersion measurement is specified but not run**, and the obvious
+  implementation is a trap: there is no fold-seed flag, and the only knob that
+  moves fold boundaries (`--min-fold-trades`) carries an explicit comment
+  forbidding this use — `P_detect` is not monotonic in `b` and "maximising power
+  over `b` selects the settings easiest to pass BY CHANCE". The correct form is
+  a new `--fold-offset k` at fixed `b`; it does not exist yet.
+- The ten cells whose live-parity evidence contradicts their recorded status are
+  **listed, not re-graded** — that is the operator's queued question.
