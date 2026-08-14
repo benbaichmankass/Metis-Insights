@@ -2539,3 +2539,58 @@ why the count is three and not one.
 The durable fix is mechanical, not attentional: **commit, then run guards,
 then read the exit code** (`> file 2>&1; echo $?`), never `| tail`. Both are
 now habits in this session's remaining commands.
+
+### Eleventh instance — and the mechanical fix above was NOT sufficient
+
+**2026-08-14.** I followed the durable fix to the letter: committed first, ran
+`run_guards.py` with `> file 2>&1; echo $?`, read `rc=0` and
+`PASS 38 · FAIL 0`, pushed. CI then failed `diagnostic-provenance-guard` on
+that commit — **same guard, same command, same file path, opposite result.**
+
+So the conclusion the previous section reached was incomplete, and the incident
+that proves it is the eleventh in the sequence rather than a new class.
+
+**The actual root cause, measured rather than inferred.** Eight of the 38
+guards take `{pr_diff}` and scan **only that file**. CI builds it in a separate
+`guards.yml` step (`git diff origin/<base>...HEAD > /tmp/pr.diff`, line 93) and
+exports `GUARDS_PR_DIFF`. `run_guards.py` **never wrote that file** — it only
+read `--pr-diff`, whose default is the fixed path `/tmp/pr.diff`. Locally,
+nothing generated it, so every run rescanned whatever a previous run had left
+there. A file absent from that stale diff is never scanned at all, and the
+harness prints *"All relevant guards passed."*
+
+That is why three consecutive local runs reported
+`--- diagnostic-provenance-guard: PASS (0.2s)` while CI failed it: the
+finding was real (two sub-class-C universal claims with no denominator in
+`m20_exit_head_denominator.py`), and the local harness could not see the file.
+Overwriting `/tmp/pr.diff` by hand with `git diff origin/main...HEAD` and
+re-running reproduced the failure immediately.
+
+**Note what this does to the earlier diagnosis.** Instances eight through ten
+were attributed to *running diff-scoped guards on uncommitted work*. That was
+true of those runs but it was not the whole cause: the harness could not see
+the change on **any** local run, committed or not. Committing first was
+necessary and never sufficient. And the failure mode is the worse of the two
+available — **a stale diff passes where a missing one errors** — so it
+presented as a false green every time rather than as a crash, which is why ten
+instances went by without anyone reaching the harness.
+
+It is also, precisely, an **unasserted denominator inside the harness that
+enforces unasserted denominators**.
+
+**The fix is now in the harness, not in a habit.** `run_guards.py` generates
+`{pr_diff}` from `origin/<base_ref>...HEAD` whenever no caller supplied one
+(`GUARDS_PR_DIFF` unset and no `--pr-diff` argument), prints the path and line
+count so the scanned range is visible in the output, and returns `2` rather
+than continuing if the diff cannot be built. CI is untouched — it exports
+`GUARDS_PR_DIFF`, which suppresses generation, so the workflow's own range
+still wins.
+
+Verified three ways: an **empty** planted `/tmp/pr.diff` was regenerated to
+1,070 lines; an explicit `GUARDS_PR_DIFF` was **not** overwritten; and the real
+violation planted behind a stale diff took the run to `rc=1` where it had
+previously passed. Two tests in `tests/test_run_guards_step_scoping.py` pin it,
+both proven load-bearing by removing the fix.
+
+Filed as
+`BL-20260814-RUN-GUARDS-CONSUMES-A-DIFF-IT-NEVER-GENERATES-SO-LOCAL-RUNS-SCAN-A-STALE-FILE`.
