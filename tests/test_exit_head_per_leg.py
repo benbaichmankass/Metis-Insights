@@ -327,6 +327,23 @@ def test_an_undeclared_geometry_is_counted_not_assumed_clean():
 DONCHIAN_1H_LEGS = ("trend_donchian", "trend_donchian_eth",
                     "trend_donchian_sol")
 
+# Operator decision (b), 2026-08-14. The live-parity re-sweep (relay #9206)
+# graded these three: `trend_donchian` auc 0.5403 (beats_actual 14/23) and
+# `trend_donchian_sol` beats_hard 12/23 — SHORT BY 4 — did NOT reproduce, while
+# `trend_donchian_eth` (auc 0.6079, 16/23 + 16/23) did.
+#
+# BOTH statuses mean the head is still LIVE on the leg; the operator chose to
+# RECORD the lapse, not to disable anything. `shipped_gate_failed` is the
+# legend's status for "LIVE in config, but a LATER re-sweep failed its gate and
+# the operator chose to HOLD" — `honest_negative` would be wrong (it implies NOT
+# live) and `shipped` overclaims (it asserts a validation that no longer
+# reproduces).
+EXPECTED_DONCHIAN_1H_STATUS = {
+    "trend_donchian": "shipped_gate_failed",
+    "trend_donchian_eth": "shipped",
+    "trend_donchian_sol": "shipped_gate_failed",
+}
+
 
 def test_the_three_shipped_donchian_1h_cells_were_re_swept_not_merely_unflagged():
     """The real matrix, not a fixture.
@@ -343,11 +360,25 @@ def test_the_three_shipped_donchian_1h_cells_were_re_swept_not_merely_unflagged(
     requirement.
 
     But **"not stale" is not "fine"**: 2 of the 3 did NOT reproduce at live
-    parity, and all three remain `shipped` on real money pending operator
-    decision (b). So the test asserts the two things that could each silently
-    undo the work — that they left the stale list by being MEASURED rather than
-    by being deleted, reopened, or marked n/a; and that the measurement is still
-    recorded on the cell.
+    parity. So the test asserts the two things that could each silently undo the
+    work — that they left the stale list by being MEASURED rather than by being
+    deleted, reopened, or marked n/a; and that the measurement is still recorded
+    on the cell.
+
+    UPDATED 2026-08-14 — operator decision (b) landed, and this test was written
+    while it was still pending. It asserted all three were `shipped`, which was
+    the correct PRE-decision state and became wrong the moment the decision was
+    made: the two that did not reproduce moved to `shipped_gate_failed`, the
+    status the legend defines as *"LIVE in config, but a LATER re-sweep failed
+    its gate and the operator chose to HOLD"*.
+
+    The assertion is now STRONGER, not weaker. It pins the decision itself:
+    `trend_donchian` and `trend_donchian_sol` must be `shipped_gate_failed`
+    (recording the hold) and `trend_donchian_eth` — the one that DID reproduce —
+    must still be `shipped`. Loosening this to "any live-acknowledging status"
+    would let a later edit silently swap which legs are held, which is exactly
+    the substitution this file exists to catch. Both statuses assert the head is
+    still LIVE on the leg; neither means anything was disabled.
     """
     matrix = json.loads(
         (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
@@ -361,12 +392,18 @@ def test_the_three_shipped_donchian_1h_cells_were_re_swept_not_merely_unflagged(
     for leg in DONCHIAN_1H_LEGS:
         row = rows.get(leg)
         assert row is not None, f"{leg} vanished from the matrix"
-        # Still live and still shipped — the caveat is not resolved by the
-        # re-sweep, only re-based. If either flips, the exemption below stops
-        # describing the same situation and this test must be re-read.
+        # Still live — the caveat is not resolved by the re-sweep, only
+        # re-based. If this flips, the exemption below stops describing the
+        # same situation and this test must be re-read.
         assert row.get("execution") == "live", leg
         cell = row.get("exit_head_ml") or {}
-        assert rollup.base(cell.get("status")) == "shipped", (leg, cell.get("status"))
+        # Per-leg, matching operator decision (b): the two that did not
+        # reproduce record the hold; the one that did stays `shipped`. Named
+        # explicitly so a later edit cannot swap WHICH legs are held while
+        # keeping the test green.
+        expected = EXPECTED_DONCHIAN_1H_STATUS[leg]
+        assert rollup.base(cell.get("status")) == expected, (
+            leg, cell.get("status"), f"expected {expected}")
         # THE LOAD-BEARING PAIR. `live_parity` is what makes `evidence_vintage`
         # return stale=False, so without the ref it is an unbacked declaration
         # that silences the flag — the cheapest possible way to clear a stale
