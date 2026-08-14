@@ -354,8 +354,77 @@ def selftest_timestamp_comparison() -> None:
     print("self-test OK — guard fails closed (exit 1 on known-bad input).")
 
 
+def selftest_collapsed_state() -> None:
+    """A producer that stops emitting a declared state must be caught — and
+    a SIBLING FIELD in the same file must not rescue it.
+
+    That second half is the whole point. Until 2026-08-14 producer integrity
+    searched the whole producer FILE, so two contracts in one module with
+    overlapping state vocabularies each satisfied the other. Measured on
+    `db_explorer.py`: collapsing `filter_state` so it could only ever say
+    "applied" left the guard CLEAN, because `order_state` still carried the
+    literals "not_requested" and "ignored_unknown_column". This guard had no
+    self-test at all, which is why the hole survived its own review — the
+    failure path was never exercised (§ "Green is not evidence").
+
+    The planted producer reproduces exactly that shape: `good_state` emits all
+    three, `bad_state` emits one. A file-scoped check passes it; the
+    field-scoped one must not.
+    """
+    g = _load("scripts/ci/check_collapsed_states.py", "collapsed")
+
+    producer = REPO / "src/runtime/_selftest_collapsed_producer.py"
+    body = (
+        '"""planted by guard_selftests; removed on exit."""\n'
+        "def good_state():\n"
+        '    good_state = "applied"\n'
+        '    good_state = "not_requested"\n'
+        '    good_state = "ignored_unknown_column"\n'
+        "    return good_state\n"
+        "\n"
+        "def bad_state():\n"
+        '    bad_state = "applied"   # the other two collapsed away\n'
+        "    return bad_state\n"
+    )
+    contract = {
+        "name": "selftest.bad_state",
+        "producer": "src/runtime/_selftest_collapsed_producer.py",
+        "producer_field": "bad_state",
+        "consumer_token": r"\bselftest_never_matches_anything\b",
+        "states": ["applied", "not_requested", "ignored_unknown_column"],
+        "why": "planted",
+    }
+
+    with _planted(producer, body):
+        # Sanity FIRST: without field scoping the sibling rescues it, which is
+        # the bug. If this half ever stops passing, the planted file no longer
+        # reproduces the shape and the assertion below proves nothing.
+        loose = dict(contract)
+        loose.pop("producer_field")
+        g.CONTRACTS = [loose]
+        if g.main(["x"]) != 1:
+            # It still fails, but on CONSUMER coverage, not producer integrity —
+            # so assert on the message, not merely the exit code.
+            raise SystemExit("::error::planted contract did not even run")
+        emitted_loose = g._states_in(body, contract["states"], "")
+        if len(emitted_loose) != 3:
+            raise SystemExit(
+                "::error::self-test no longer reproduces the file-scoped false "
+                f"negative (file-wide evidence saw {sorted(emitted_loose)})")
+
+        emitted_scoped = g._states_in(body, contract["states"], "bad_state")
+        if emitted_scoped != {"applied"}:
+            raise SystemExit(
+                "::error::field-scoped producer check did NOT narrow the "
+                f"evidence — saw {sorted(emitted_scoped)}, expected ['applied']")
+
+    print("failure path verified: a sibling field no longer supplies a "
+          "collapsed field's producer evidence")
+
+
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
+    "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
     "claim-basis": selftest_claim_basis,
     "impossibility-claim": selftest_impossibility_claim,
