@@ -189,16 +189,27 @@ def resolve_data(symbol: str, tf: str, data_dir: Path,
     proxy-first order:
 
     - **False (default)** — `PROXY_DATA` is applied unconditionally, so MGC
-      resolves `GC_F_*.csv` even when `MGC_*.csv` exists. The default is kept
-      NOT because the proxy is better — measured 2026-08-14 on the trainer, at
-      the 1d frame the native series is DEEPER and fresher than its proxy
-      (MGC 2,919 rows 2015-01-02..2026-08-13 vs GC_F_1d.csv 2,512 rows
-      2016-07-12..2026-07-10; MHG/MES the same shape) — but because flipping
-      which series a RECORDED verdict was measured against is a separate,
-      measured decision that must not ride along silently inside a
-      reachability fix. The depth ordering differs by frame and by symbol
-      (native IBKR *intraday* history really is ~1y), so "native is deeper"
-      is not a safe blanket default either.
+      resolves `GC_F_*.csv` even when `MGC_*.csv` exists. Two reasons, and the
+      first is the load-bearing one: the PROXY IS THE DEEPER SERIES. Measured
+      2026-08-14 on the trainer, genuine native IBKR *contract* history is
+      `market_raw/MGC/1d/v003` at **940 rows** (2022-09-30..) vs the proxy
+      `GC_F_1d.csv` at **2,512** (2016-07-12..) — ~2.7x. MHG 1,043 and MES 677
+      are the same shape. Preferring native by default would collapse the
+      2021..2026 fold structure. Second, independently: flipping which series a
+      RECORDED verdict was measured against must not ride along silently inside
+      a reachability fix.
+
+      ⚠️ **`datasets-out/market_raw/{MGC,MHG,MES}/1d` IS NOT NATIVE** — it is
+      built by `build_trainer_datasets.sh::build_equity_daily MGC "GC=F"`, i.e.
+      yfinance on the FULL-SIZE contract, and it is byte-for-byte the proxy:
+      2,511 of 2,512 overlapping closes identical to `GC_F_1d.csv` (the one
+      difference is the proxy's stale last bar), MES 2,514 of 2,514. Converting
+      it to `data/MGC_1d.csv` produces a file whose NAME asserts a provenance
+      its CONTENT does not have, and `prefer_native` would then report
+      `proxy=False` and let the head round train on exactly the series it
+      refuses. A session did that on 2026-08-14 and removed it the same hour;
+      do not recreate it. Native means the IBKR contract shards under
+      `data/ibkr_datasets/market_raw/`, nothing else.
     - **True** — try the native spelling first and fall back to the proxy.
       For a consumer that REFUSES proxied data this is the only way native
       data is reachable at all: `m20_exit_head_round` skips any leg whose
@@ -218,8 +229,9 @@ def resolve_data(symbol: str, tf: str, data_dir: Path,
     # declared) — and deliberately no native fallback either, so a missing
     # proxy file keeps reading `data_missing` rather than silently switching
     # that leg onto a different series. Both halves are about NOT changing a
-    # recorded verdict's basis as a side effect; neither asserts which series
-    # is deeper (see the docstring — at 1d the native one is).
+    # recorded verdict's basis as a side effect. On depth: the PROXY is deeper
+    # at 1d too (940 native rows vs 2,512) — see the docstring, and note that
+    # `datasets-out/market_raw/MGC/1d` is NOT native, it is yfinance GC=F.
     order = [alt if proxied else symbol]
     if prefer_native and proxied:
         order.insert(0, symbol)

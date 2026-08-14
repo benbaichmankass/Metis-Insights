@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T07:55:00+00:00",
+  "updated_at": "2026-08-14T08:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -14508,6 +14508,11 @@
           "at": "2026-08-14T07:55:00+00:00",
           "by": "claude (M20 overnight session 2026-08-13)",
           "note": "CORRECTION to this row's own rationale. It argued the default must stay proxy-first because 'the proxy is the deep series ... native IBKR history is ~1y'. That is TRUE of native IBKR *intraday* shards but FALSE at the 1d frame -- the frame all three blocked cells use. Measured (relay #9183): native MGC 1d = 2,919 rows 2015-01-02..2026-08-13 vs proxy GC_F_1d.csv = 2,512 data rows 2016-07-12..2026-07-10. The native series is deeper AND a month fresher. MHG/MES the same shape.\n\nThe DECISION stands, the REASON changes: the default stays proxy-first so that flipping the basis a recorded verdict was measured against is its own measured decision rather than a side effect of a reachability fix. Code docstring, inline comment, and the test name/docstrings corrected in the same PR rather than left to read as justified by a false premise."
+        },
+        {
+          "at": "2026-08-14T08:05:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-13)",
+          "note": "TWO CORRECTIONS, one to this row's rationale (again) and one to its claimed consequence.\n\n1. THE DEPTH CLAIM: my 07:55 update said 'at the 1d frame the native series is DEEPER and fresher than its proxy'. FALSE — I measured that on data/MGC_1d.csv, a file I had created MYSELF from yfinance GC=F, so I was comparing the proxy against itself. Genuine native (IBKR contract) is 940 rows vs the proxy's 2,512. The proxy is ~2.7x deeper and THE ROW'S ORIGINAL RATIONALE WAS CORRECT. I corrected a true statement into a false one by measuring a file whose name asserted a provenance its content lacked — diagnostic-provenance sub-class B (implicit input selection) committed against my own artifact. Code docstring, inline comment, one test name and two test docstrings re-corrected.\n\n2. THE CONSEQUENCE: this row says the fix means the three exit_head_ml cells 'could never close no matter how much data was pulled'. The DEFECT is real and the fix stands — a consumer that refuses proxies genuinely could not see native data. But the fix does NOT unblock those cells, and the binding constraint is not data at all: `build_trainer_datasets.sh:375` records that mes_trend_long_1d fires ~2.6x/yr — 26 trades over a 10-YEAR config-exact backtest — against MIN_OOS_TRADES=25 for the OOS half ALONE. No quantity of history reaches that. These are volume-blocked, the same 'wait, not to-do' shape as the other 10 insufficient_lifetime_trades cells, and their matrix note ('needs native IBKR history for E0') describes a prerequisite rather than the binding gate."
         }
       ]
     },
@@ -14518,7 +14523,7 @@
       "area": "research-tooling",
       "severity": "medium",
       "tier": "1",
-      "status": "open",
+      "status": "superseded",
       "title": "scripts/research/market_raw_to_csv.py has no scheduled or committed caller, so deep native 1d market_raw shards for MGC/MHG/MES have never become the data/<SYM>_1d.csv the sweeps read -- the second half of why three exit_head_ml cells are blocked",
       "source": "Measured on the trainer 2026-08-14 (relay #9182, #9183) while checking whether tonight's IBKR pulls could close the cells they were run for.\n\nTHE DATA IS ALREADY THERE, AND IT IS DEEP:\n  datasets-out/market_raw/MGC/1d/v002  2,919 rows  2015-01-02 -> 2026-08-13  (mtime 2026-08-14 05:34)\n  datasets-out/market_raw/MHG/1d/v002  2,920 rows  2015-01-02 -> 2026-08-13  (mtime 2026-08-14 05:34)\n  datasets-out/market_raw/MES/1d/v002  2,921 rows  2015-01-02 -> 2026-08-13  (mtime 2026-08-14 05:30)\n  datasets-out/market_raw/MES/1d/v001  6,484 rows  2000-09-18 -> 2026-05-22  (deeper but stale since May)\n\nBUT data/ contains ONLY the proxies -- GC_F_1d.csv (2,513 lines, 2016-07-12..2026-07-10), HG_F_1d.csv (2,514), ES_F_1d.csv (2,515), GC_F_1h.csv. The probe printed '(NO native MGC/MHG/MES csv in data/)'.\n\nSo the native 1d series is DEEPER (2,919 vs 2,512 data rows) and a MONTH FRESHER than the proxy the sweeps actually read -- and no code path converts it. A repo-wide grep for `market_raw_to_csv` returns its own usage string, two sprint-log mentions and one capability-index row: NO scheduled unit, NO workflow, NO script calls it. It is a hand-run tool, and for these three symbols it was never hand-run.\n\nThis is the second half of the blocker. BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA meant the resolver could not SEE native data; this means there was no native CSV to see. Either alone keeps the cells shut, which is why five weeks of 'still blocked' survived a Tier-2 tool built to fix it.",
       "resolution_criteria": "Two observable conditions, in order. (1) `data/MGC_1d.csv`, `data/MHG_1d.csv` and `data/MES_1d.csv` exist on the trainer with row counts matching their shards (~2,919 / ~2,920 / ~2,921), produced by `market_raw_to_csv.py <SYM> datasets-out data/<SYM>_1d.csv 1d` -- the script prints 'wrote N rows', so the count is measured, not assumed. (2) A durable caller exists so this cannot silently rot again: either the trainer's daily cycle converts every market_raw shard that a configured leg's symbol needs, or a guard fails when a strategy symbol has a market_raw shard but no corresponding data/ CSV. Until (2) lands, (1) is a one-off that the next fresh trainer loses.\n\nNOTE for whoever does (1): market_raw_to_csv takes `cands[-1]`, the highest-sorted version dir, so MES/1d resolves v002 (2,921 rows from 2015) and NOT the deeper-but-stale v001 (6,484 rows from 2000, last updated 2026-05-22). If the longer MES history is wanted that is an explicit choice to make, not a default to inherit.",
@@ -14528,6 +14533,33 @@
         "docs/research/exit-refinement-coverage.json",
         "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA",
         "BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-14T08:05:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-13)",
+          "note": "SUPERSEDED — MY PREMISE WAS WRONG, AND WRONG IN THE DANGEROUS DIRECTION. I claimed 'the deep native 1d data is ALREADY there' on the strength of datasets-out/market_raw/{MGC,MHG,MES}/1d/v002 at 2,919/2,920/2,921 rows. That data is NOT native. `build_trainer_datasets.sh:943-944` builds it as `build_equity_daily MGC \"GC=F\"` / `MHG \"HG=F\"` -- yfinance on the FULL-SIZE contract, which is the same series the GC_F/HG_F proxies already are.\n\nMEASURED, not inferred (relay #9191): data/MGC_1d.csv vs data/GC_F_1d.csv = 2,512 overlapping dates, 2,511 IDENTICAL closes (100.0%), the single difference being the proxy's stale final bar (2026-07-10, ratio 0.99767). MHG 2,512/2,513 identical. MES 2,514/2,514 identical, zero differing. 407 native-only dates, 0 proxy-only -- i.e. the same series with a longer head and tail.\n\nSO THE CONVERSION I RAN PRODUCED A PROVENANCE LIE: a file whose NAME asserts native provenance and whose CONTENT is the proxy. With the prefer_native fix in the same PR, resolve_data would have returned proxy=False, m20_exit_head_round's 'native history required for head training' refusal would have PASSED, and three exit_head_ml cells would have been graded native-trained on the exact series that check exists to exclude. I removed all three files the same hour (relay #9192, verified absent; the GC_F/HG_F/ES_F proxies confirmed intact).\n\nWHAT IS ACTUALLY TRUE: genuine native = the IBKR CONTRACT shards under data/ibkr_datasets/market_raw/ -- MGC 940 rows (2022-09-30..2026-07-06), MHG 1,043, MES 677. So the PROXY IS ~2.7x DEEPER, and the original rationale I 'corrected' an hour earlier was right all along.\n\nWHAT SURVIVES AS A REAL ITEM: market_raw_to_csv.py genuinely has no caller. But it is NOT the blocker I filed it as, and building a durable caller over datasets-out would MASS-PRODUCE this same mislabelling for every futures symbol. Any future caller must convert from the IBKR root, or name the output for the series it actually contains. Re-filed at that framing as BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL",
+      "opened_at": "2026-08-14T08:05:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "area": "research-tooling",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "title": "build_trainer_datasets.sh writes yfinance FULL-SIZE-contract bars into market_raw/<MICRO_SYMBOL>/, so market_raw/MGC/1d is GC=F wearing the MGC name -- any consumer that treats the shard name as provenance is misled",
+      "source": "`scripts/ops/build_trainer_datasets.sh:943-944` runs `build_equity_daily MGC \"GC=F\"` and `build_equity_daily MHG \"HG=F\"`, writing to `market_raw/MGC/1d/` and `market_raw/MHG/1d/`. The SHARD IS KEYED BY THE MICRO SYMBOL; the CONTENT is the full-size continuous contract from yfinance.\n\nMEASURED 2026-08-14 (relay #9191), converting both to CSV and comparing: MGC vs GC_F 2,512 overlapping dates with 2,511 IDENTICAL closes (100.0%); MHG vs HG_F 2,512/2,513; MES vs ES_F 2,514/2,514 with ZERO differences. They are the same series.\n\nFor the LEVER sweeps this is harmless and arguably intended -- a proxy is explicitly sanctioned there, and `PROXY_DATA` already maps MGC->GC_F, so both paths reach the same bars. The hazard is any consumer that reads the SYMBOL DIRECTORY as evidence of provenance. `m20_exit_head_round` refuses proxied data ('native history required for head training'); combined with the new `prefer_native` resolution it would have accepted `data/MGC_1d.csv` built from this shard, reported `proxy=False`, and trained on the refused series. I did exactly that this session and reverted it within the hour (relay #9192).\n\nThis is the number-provenance rule one level out: not 'is this value measured or manufactured' but 'does this shard's KEY describe its CONTENT'.",
+      "resolution_criteria": "Any ONE of these, verifiable by reading the shard: (a) `build_equity_daily` records the fetched ticker INTO the shard -- a `ticker`/`source_symbol` field in the manifest or each row -- so a consumer can ask what it actually holds instead of inferring from the path, and `market_raw_to_csv.py` refuses (or renames) when the shard's recorded ticker does not match the symbol requested; or (b) the yfinance full-size series is written under its OWN key (`market_raw/GC_F/1d`) with `market_raw/MGC/1d` reserved for genuine MGC bars; or (c) a guard asserts that no `market_raw/<SYM>` shard is byte-identical to a declared `PROXY_DATA[<SYM>]` series without being labelled as that proxy.\n\nNOT resolved by adding a market_raw->CSV caller: over `datasets-out` that would mass-produce this mislabelling for every futures symbol at once. Explicitly supersedes BL-20260814-MARKET-RAW-TO-CSV-HAS-NO-CALLER, which mistook this shard for native data.",
+      "refs": [
+        "scripts/ops/build_trainer_datasets.sh",
+        "scripts/research/market_raw_to_csv.py",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "scripts/research/m20_exit_head_round.py",
+        "BL-20260814-MARKET-RAW-TO-CSV-HAS-NO-CALLER",
+        "BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA"
       ]
     }
   ]

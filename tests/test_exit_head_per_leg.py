@@ -364,15 +364,19 @@ def test_mgc_is_proxied_to_gc_f_so_the_fixture_is_meaningful():
     assert sweep.PROXY_DATA.get("MGC") == "GC_F"
 
 
-def test_the_default_keeps_the_proxy_basis_recorded_verdicts_were_measured_on(tmp_path):
-    """The default is about NOT silently changing a recorded verdict's basis.
+def test_the_default_still_prefers_the_deeper_proxy_series(tmp_path):
+    """The proxy IS the deeper series, at 1d as well as intraday.
 
-    Deliberately NOT justified as 'the proxy is deeper' — measured on the
-    trainer 2026-08-14 the 1d native series is deeper AND fresher than its
-    proxy (MGC 2,919 rows 2015-01-02..2026-08-13 vs GC_F_1d 2,512 rows
-    2016-07-12..2026-07-10). Which series is deeper varies by frame, so the
-    flip is its own measured decision, not a side effect of a reachability
-    fix."""
+    Measured on the trainer 2026-08-14: genuine native IBKR CONTRACT history
+    is 940 rows (MGC), 1,043 (MHG), 677 (MES) against proxies of 2,512 /
+    2,513 / 2,514 — roughly 2.7x. Preferring native by default would collapse
+    the 2021..2026 fold structure.
+
+    An earlier revision of this test asserted the OPPOSITE, on a 2,919-row
+    `data/MGC_1d.csv` that looked native and was not: it was
+    `datasets-out/market_raw/MGC/1d`, built by `build_equity_daily MGC "GC=F"`
+    from yfinance, with 2,511 of 2,512 overlapping closes IDENTICAL to
+    `GC_F_1d.csv`. The filename asserted a provenance the content lacked."""
     (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
     (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
     path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
@@ -401,7 +405,7 @@ def test_prefer_native_falls_back_to_the_proxy_when_no_native_exists(tmp_path):
 
 def test_a_missing_proxy_file_still_reads_data_missing_by_default(tmp_path):
     """The default must NOT gain a native fallback either: `data_missing` is
-    more honest than silently switching that leg onto a different series."""
+    more honest than silently switching that leg onto a shallower series."""
     (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
     path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
     assert path is None

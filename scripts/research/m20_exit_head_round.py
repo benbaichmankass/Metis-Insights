@@ -152,9 +152,12 @@ def main(argv: list[str]) -> int:
         # unconditional for every symbol in PROXY_DATA regardless of what is on
         # disk — which is what kept the mes/mgc/mhg `exit_head_ml` cells
         # unreachable (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA). The lever
-        # sweeps keep the proxy-first default so their recorded verdicts keep
-        # the basis they were measured against — not because the proxy is the
-        # better series (at 1d it is measurably not).
+        # sweeps keep the proxy-first default because the proxy is the DEEPER
+        # series (940 native rows vs 2,512 at 1d, measured 2026-08-14) and
+        # because their recorded verdicts keep the basis they were measured
+        # against. NOTE: only the IBKR contract shards under
+        # data/ibkr_datasets/ are native; datasets-out/market_raw/MGC/1d is
+        # yfinance GC=F, i.e. the proxy under another name.
         data, proxy, resample = resolve_data(str(sym), tf, data_dir,
                                              prefer_native=True)
         if data is None:

@@ -1181,6 +1181,74 @@ an order of magnitude on donchian and by ~1.6× on scalp.
     inoculate against it. The only thing that has ever caught this one is
     actually running `date -u`.
 
+47. **I nearly shipped a provenance lie, and caught it in the last check
+    before running on it** — `BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL`.
+
+    Item 44 fixed the resolver; the remaining step was converting the trainer's
+    `market_raw/{MGC,MHG,MES}/1d` shards into the `data/<SYM>_1d.csv` the
+    harness reads. I ran it: 2,919 / 2,920 / 2,921 rows spanning
+    2015-01-02..2026-08-13, zero blank closes, sane gold prices. Then, before
+    launching the E1 round, I read what actually BUILDS those shards:
+
+    ```
+    build_trainer_datasets.sh:943   build_equity_daily MGC "GC=F"
+    build_trainer_datasets.sh:944   build_equity_daily MHG "HG=F"
+    ```
+
+    **The shard is keyed by the micro symbol; the content is the full-size
+    contract from yfinance** — the same series `GC_F_1d.csv` already is.
+    Measured rather than assumed (relay #9191): MGC vs GC_F **2,511 of 2,512
+    overlapping closes IDENTICAL**, the lone difference being the proxy's stale
+    final bar; MHG 2,512/2,513; **MES 2,514/2,514, zero differing**.
+
+    So `data/MGC_1d.csv` was a file whose NAME asserted a provenance its
+    CONTENT did not have. Combined with the `prefer_native` fix from item 44,
+    `resolve_data` would have returned `proxy=False`, `m20_exit_head_round`'s
+    *"native history required for head training"* refusal would have **passed**,
+    and three `exit_head_ml` cells would have been graded **native-trained on
+    the exact series that check exists to exclude**. Removed all three within
+    the hour (relay #9192, verified absent; proxies confirmed intact).
+
+    **The near-miss is the point.** Every individual step was clean — the
+    conversion printed real row counts, the data was real market data, the
+    sanity checks (0 blank closes, plausible prices) all passed. Nothing in the
+    output could have revealed it. The only thing that caught it was asking
+    *where does this file come from* rather than *is this file well-formed*.
+
+48. **And it means item 45's "correction" corrected a TRUE statement into a
+    false one.**
+
+    Item 45(b) and the commit before it recorded that "at the 1d frame the
+    native series is DEEPER and fresher than its proxy — MGC 2,919 rows vs
+    GC_F's 2,512". I measured that on `data/MGC_1d.csv` — **a file I had just
+    created myself from GC=F**. I compared the proxy against itself and
+    reported the difference as a native-vs-proxy finding.
+
+    The truth: genuine native is the IBKR **contract** shard,
+    `data/ibkr_datasets/market_raw/MGC/1d/v003` at **940 rows** (2022-09-30..),
+    against the proxy's 2,512 — the **proxy is ~2.7x deeper**, and the original
+    rationale I "corrected" was right all along. Docstring, inline comment, one
+    test name and two test docstrings re-corrected.
+
+    This is `diagnostic-provenance` sub-class **B** — implicit input selection —
+    committed against my own artifact, inside a session whose postscript is
+    about exactly this. The reassuring reading won again: "the native data is
+    deeper" made the blocked cells look one conversion away.
+
+49. **What actually blocks the three cells, measured** — and it is not data.
+
+    `build_trainer_datasets.sh:375` records that **`mes_trend_long_1d` fires
+    ~2.6x/yr — 26 trades over a 10-year config-exact backtest**. The exit-head
+    gate is `MIN_OOS_TRADES = 25` for the **OOS half alone**. No quantity of
+    history reaches that, and the genuine native shards (940 / 1,043 / 677
+    daily rows) are ~3.7y, ~4y and ~2.7y.
+
+    So these are **volume-blocked**, the same *wait, not to-do* shape as the ten
+    `insufficient_lifetime_trades` cells in item 43 — and their matrix note
+    ("needs native IBKR history for E0") names a PREREQUISITE, not the binding
+    gate. **Coverage stays 373/376.** The resolver defect was real and worth
+    fixing on its own terms; it was never what held these three shut.
+
 ## Wrap-Up Check
 
 - [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
