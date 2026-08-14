@@ -21,7 +21,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from src.prop import prop_journal
+from src.prop import prop_balance, prop_journal
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +185,34 @@ def _ruleset_for(account_id: str):
         return None
 
 
+def _status_freshness(status: Dict[str, Any]) -> tuple:
+    """``(age_hours, freshness)`` for the snapshot the distances are computed on.
+
+    Four states, never collapsed, sharing ``prop_balance``'s vocabulary so the
+    prop subsystem has ONE answer to "is this snapshot current":
+
+      ``absent``    — no snapshot has ever been reported
+      ``stale``     — older than the threshold, **or undateable** (a snapshot
+                      that cannot be dated cannot be shown to be current, and
+                      the fail-safe reading of a safety cushion is stale)
+      ``ok``        — inside the threshold
+      ``unchecked`` — ``PROP_STATUS_REQUEST_MAX_AGE_HOURS <= 0`` disables the
+                      staleness check; *we did not look*, which is not ``ok``
+
+    ``age_hours`` is ``None`` for an absent or undateable snapshot — read
+    ``freshness`` to tell those apart, never the null.
+    """
+    if not status:
+        return None, "absent"
+    age = prop_balance.status_age_hours(status)
+    limit = prop_balance.max_age_hours()
+    if limit <= 0:
+        return age, "unchecked"
+    if age is None or age >= limit:
+        return age, "stale"
+    return age, "ok"
+
+
 def compute_rule_distance(
     account_id: str, status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -193,9 +221,21 @@ def compute_rule_distance(
     Returns a dict with the resolved limits and the computed distances; any
     value that can't be derived from the available status fields is ``None``
     (never a fabricated 0). ``status`` defaults to the latest snapshot.
+
+    ⚠️ **Read ``status_freshness`` before treating any distance as a live
+    cushion** (added 2026-08-14, Tier-2). Every number here is a function of
+    ONE operator-reported snapshot, and the manual bridge has no broker feed to
+    refresh it — so a three-week-old row produces a full-looking cushion that
+    describes an account state long gone. ``status_present: true`` said only
+    that a row exists; it never said the row was current, and it was the single
+    field a consumer had. The distances are still returned when stale (throwing
+    away the last known cushion helps nobody) — the caveat travels *with* them,
+    inside this dict, so a consumer reading only ``rule_distance`` cannot miss
+    it the way it could a sibling field on the envelope.
     """
     status = status or prop_journal.latest_account_status(account_id) or {}
     rs = _ruleset_for(account_id)
+    age_hours, freshness = _status_freshness(status)
 
     account_size = getattr(rs, "account_size_usd", None) if rs else None
     limits = getattr(rs, "limits", None) if rs else None
@@ -253,6 +293,9 @@ def compute_rule_distance(
         "static_dd_floor_usd": dd_floor,
         "distance_to_dd_floor_usd": distance_to_dd,
         "status_present": bool(status),
+        "status_age_hours": age_hours,
+        "status_freshness": freshness,
+        "status_max_age_hours": prop_balance.max_age_hours(),
     }
 
 

@@ -1,10 +1,11 @@
 """Tests for the prop account-status request ping.
 
-Covers the trigger condition (open prop position + absent/stale
-``prop_account_status`` snapshot), the freshness gate, the cooldown, the
-pause knob, state pruning when flat, and the reply-template content — all
-against an isolated ``trade_journal.db`` + runtime-logs dir with the
-notification emitter monkeypatched (no FCM / Telegram I/O).
+Covers the trigger condition (an absent/stale ``prop_account_status`` snapshot
+on a declared prop account — **with or without an open position**), the
+freshness gate, the cooldown, the pause knob, cadence-state pruning, and the
+reply-template content — all against an isolated ``trade_journal.db`` +
+runtime-logs dir with the notification emitter monkeypatched (no FCM /
+Telegram I/O).
 """
 from __future__ import annotations
 
@@ -23,11 +24,29 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
+def declared(monkeypatch: pytest.MonkeyPatch):
+    """Pin the declared prop-account set so tests don't ride real config.
+
+    Returns a setter; call it with the ids a test wants declared, or with
+    ``None`` to simulate an unreadable ``accounts.yaml``. Left at the default
+    ``["breakout_1"]`` when a test doesn't care.
+    """
+    def _set(ids):
+        from src.prop import prop_status_request
+
+        monkeypatch.setattr(prop_status_request, "declared_prop_account_ids",
+                            lambda *, live_only=False: ids)
+
+    _set(["breakout_1"])
+    return _set
+
+
+@pytest.fixture
 def captured(monkeypatch: pytest.MonkeyPatch) -> List[Dict[str, Any]]:
     """Capture emit_prop_status_request calls instead of sending."""
     calls: List[Dict[str, Any]] = []
 
-    def _fake(account_id: str, open_positions: list, *, age_hours=None,
+    def _fake(account_id: str, open_positions, *, age_hours=None,
               push: bool = True, telegram: bool = True):
         calls.append({"account_id": account_id,
                       "open_positions": open_positions,
@@ -93,13 +112,112 @@ def test_reasks_after_cooldown(isolated_env: Path, captured) -> None:
     assert len(captured) == 2
 
 
-def test_flat_account_never_pings_and_prunes_state(isolated_env: Path,
-                                                   captured) -> None:
+def test_flat_declared_account_is_still_asked(isolated_env: Path, captured,
+                                              declared) -> None:
+    """A FLAT prop account with no snapshot must still be asked.
+
+    This test used to assert the exact opposite — ``run_prop_status_request()
+    == []`` and the cadence state pruned to ``{}`` when nothing was open — and
+    it passed against a real defect. The old implementation bailed on
+    ``if not positions: return []``, so the instant the prop book went flat the
+    bot stopped asking and the snapshot aged without bound.
+
+    That is wrong because the two prop limits are not both position-scoped:
+    ``config/prop_rulesets/breakout.yaml`` declares ``drawdown_type: static``
+    with ``max_drawdown_pct: 0.06`` on a ``$5,000`` account — a **$4,700
+    account-level floor** that binds while flat. A flat account is precisely
+    when the next ticket is about to be sized against a cushion nobody has
+    measured. Do not restore the old assertion.
+    """
     from src.prop.prop_status_request import run_prop_status_request, _load_state
 
+    assert run_prop_status_request() == ["breakout_1"]
+    assert len(captured) == 1
+    # Flat is stated, not implied: `[]` (looked, book is empty), never `None`.
+    assert captured[0]["open_positions"] == []
+    # And the cadence state SURVIVES, or the cooldown cannot bound the re-ask.
+    assert "breakout_1" in _load_state()
+
+
+def test_undeclared_flat_account_is_not_asked(isolated_env: Path, captured,
+                                              declared) -> None:
+    """Widening the trigger must not turn into asking about everything.
+
+    The ask is scoped to declared prop accounts (union open positions). With
+    nothing declared and nothing open there is no one to ask, and the state
+    prunes — which is what keeps a retired account from nagging forever.
+    """
+    from src.prop.prop_status_request import run_prop_status_request, _load_state
+
+    declared([])
     assert run_prop_status_request() == []
     assert captured == []
     assert _load_state() == {}
+
+
+def test_position_holder_asked_even_when_not_declared(isolated_env: Path,
+                                                      captured, declared) -> None:
+    """A position we can see is a position to protect.
+
+    An id that config no longer declares but that still holds an open prop
+    position is covered by the union — otherwise removing a line from
+    ``accounts.yaml`` would silently blind the guard on a live position.
+    """
+    from src.prop import prop_journal
+    from src.prop.prop_status_request import run_prop_status_request
+
+    declared([])
+    prop_journal.insert_fill(_open_fill())
+    assert run_prop_status_request() == ["breakout_1"]
+
+
+def test_unreadable_config_still_covers_open_positions(isolated_env: Path,
+                                                       captured, declared) -> None:
+    """``None`` from the enumerator is "we could not look", not "none exist".
+
+    Coverage degrades to the position-holding subset — strictly smaller, and
+    logged — rather than silently becoming zero.
+    """
+    from src.prop import prop_journal
+    from src.prop.prop_status_request import run_prop_status_request
+
+    declared(None)
+    prop_journal.insert_fill(_open_fill())
+    assert run_prop_status_request() == ["breakout_1"]
+
+
+def test_failed_position_scan_is_not_reported_as_flat(
+        isolated_env: Path, captured, declared,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """A scan failure must reach the operator as ``None``, never ``[]``.
+
+    "We could not read your positions" and "you hold nothing" are opposite
+    statements, and the ping renders them differently.
+    """
+    from src.prop import prop_monitor_pulse
+    from src.prop.prop_status_request import run_prop_status_request
+
+    def _boom():
+        raise RuntimeError("journal unreadable")
+
+    monkeypatch.setattr(prop_monitor_pulse, "find_open_prop_positions", _boom)
+
+    assert run_prop_status_request() == ["breakout_1"]
+    assert captured[0]["open_positions"] is None
+
+
+def test_real_config_declares_the_live_prop_account() -> None:
+    """Positive control: the enumerator finds a real account in real config.
+
+    Every other test here pins the declared set, so without this one a broken
+    enumerator returning ``[]`` against production config would leave the whole
+    file green — the unasserted-denominator shape.
+    """
+    from src.prop.prop_identity import declared_prop_account_ids
+
+    ids = declared_prop_account_ids(live_only=True)
+    assert ids is not None, "accounts.yaml must be readable from the repo root"
+    assert "breakout_1" in ids
 
 
 def test_pause_knob(isolated_env: Path, captured,
