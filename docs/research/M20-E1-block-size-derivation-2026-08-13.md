@@ -716,3 +716,65 @@ the distribution rather than as a finding to publish. Had #9126 not been run,
 - Unchanged: **nothing here re-grades a cell.** All three remain `shipped`, and
   every disposition — including "drop the condition, keep the head at the same
   τ" — is Tier-3 and stays queued for the operator.
+
+## 14. It is conditioning *per se*, not the shape
+
+§ 13 leaves an obvious fork: is `below_half_r` a bad **shape**, or is *any*
+conditioning unearned on this family? That decides the disposition — a bad shape
+has a fix (pick another), a bad layer does not. `_SHAPES` has four members and
+the same report carries all of them at the same τ. Relay #9128, same 22 folds,
+each conditional shape against the same unconditional `tau_0.1` head, per fold.
+
+The probe printed its discovered shape list as a positive control
+(`['age8', 'age8_below_half_r', 'below_half_r', 'pre_mfe1']` — all four), so an
+empty or short result would have read as a broken probe rather than a finding.
+
+| shape | leg | Δ net_R (t) | Δ maxDD (t) | Δ hold (t) |
+|---|---|---|---|---|
+| `age8` | BTC | −1.024 (−2.81) | +1.047 (+5.68) | +3.036 (+5.07) |
+| `age8` | ETH | −0.731 (−1.14) | +1.131 (+3.42) | +3.595 (+8.08) |
+| `age8` | SOL | −0.661 (−1.97) | +0.622 (+3.78) | +3.500 (+5.99) |
+| `age8_below_half_r` | BTC | −0.878 (−1.27) | +1.337 (+6.73) | +7.864 (+6.51) |
+| `age8_below_half_r` | ETH | −1.413 (−1.60) | +1.510 (+4.14) | +7.677 (+9.21) |
+| `age8_below_half_r` | SOL | −1.150 (−1.79) | +0.702 (+4.17) | +8.486 (+9.30) |
+| **`below_half_r`** (live) | BTC | −0.252 (−0.50) | **+0.171 (+2.73)** | +4.714 (+3.79) |
+| **`below_half_r`** (live) | ETH | −0.288 (−0.41) | **+0.424 (+2.40)** | +3.595 (+5.75) |
+| **`below_half_r`** (live) | SOL | −0.603 (−1.18) | **+0.124 (+2.19)** | +4.750 (+6.37) |
+| `pre_mfe1` | BTC | +0.339 (+0.37) | +0.937 (+4.60) | +9.455 (+6.45) |
+| `pre_mfe1` | ETH | −0.735 (−0.84) | +0.764 (+3.12) | +7.041 (+8.12) |
+| `pre_mfe1` | SOL | −1.045 (−2.35) | +0.427 (+4.76) | +6.777 (+7.79) |
+
+**Every one of the twelve shape×leg cells costs drawdown, and every one clears
+`t > 2`** (+2.19 … +6.73). Every one holds longer (`t` +3.79 … +9.30). Eleven of
+twelve lose net_R; the twelfth (`pre_mfe1` on BTC, +0.339) has `t` +0.37 and is
+indistinguishable from zero. There is no shape on this family that conditions
+the head and gets paid for it.
+
+**The live choice is the mildest of the four.** `below_half_r` carries the
+smallest drawdown cost on every leg (+0.171 / +0.424 / +0.124 against
+`age8_below_half_r`'s +1.337 / +1.510 / +0.702) and the smallest net_R loss on
+two of three. Whoever picked it picked the gentlest available conditioning. That
+is a real defence of the live config against the alternatives — and it does not
+rescue the layer, because the comparison that matters is against *no*
+conditioning, where all four are negative.
+
+### The obvious mechanism is wrong, and it was worth checking
+
+The tempting story is that conditioning = hold longer = eat more drawdown, so
+`Δ maxDD` should track `Δ hold`. **It does not.** On ETH, `age8` and
+`below_half_r` buy *identical* extra hold (+3.595 bars each) at +1.131 vs
++0.424 drawdown — a 2.7× difference in cost for the same amount of holding. On
+BTC the shape with the *least* extra hold (`age8`, +3.04) costs +1.047 while
+`below_half_r` at +4.71 bars costs +0.171. So shape governs **how much** the
+conditioning costs, and holding time does not explain it. What survives is only
+the sign: no shape escapes it.
+
+### What this changes for the queued decision
+
+It removes "try a different shape" from the option set for this family. The
+operator's choice on the three live donchian-1h cells narrows to: keep the
+conditioning as-is (mildest available, costs a measured but small amount), or
+drop it and run the unconditional head at the same τ. **Still Tier-3, still
+queued, still not re-graded here** — and still bounded by § 13's caveat that
+these are three correlated legs of one strategy over one calendar window, not
+three independent confirmations.
