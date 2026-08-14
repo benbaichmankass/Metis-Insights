@@ -1358,6 +1358,7 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
 | **(e)** | Change the sweep's **default split mode**? (criterion (2) of `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`) | **NEW.** Now has a measured basis and a designed fix, and still moves verdicts fleet-wide. All 4 affected legs measured both ways: `htf` 95→24, `tlt` 56→22 (**shrank** rich windows), `mhg` 7→24 (**enlarged**, still short by **one trade**), `mes` fell back at lifetime 33. Fix the evidence supports: `max(derive(target = floor + margin), fixed_window)` — both terms load-bearing. **The margin value needs a boundary-loss distribution; the illustrative 30 rests on n=4.** Two SHIPPED real-money cells are currently refused as *"waiting for trades"* when they have 407 and 527 lifetime trades. |
 | **(f)** | `tlt_pullback_1h`: **trail3 → trail4**? | **NEW**, `PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY`. The leg ships trail3; its trail4 cell returns `path_b_wf_pass` at live parity — Δnet_R **+35.47 IS / +5.42 OOS**, wf **5/6**, n_oos 56 — across **three** runs. The base already contains trail3, so that is the gain over what is live. **Caveats that bound it:** Path B is the weaker route (`gate_passed_OOS` false), n=56 is not large, and the three runs **share a corpus and split date** — they rule out a flaky run, not overfit to that window. |
 | **(g)** | *(not a decision — a constraint on (b) and (d))* | **4 of the 5 remaining stale live decisions are `trail_geometry`, and no re-sweep can grade them**: the shipped lever IS the base (a normal cell measures base-vs-self) and `trail_geometry` has no OFF arm (`trail_mult` has no OFF state). So for those cells "re-run it" is not an available remedy. `BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`. |
+| **(h)** | **Eleven cells where NEWER evidence disagrees with the recorded status** — one on REAL MONEY | **NEW.** The matrix and the sweep corpus disagree on 11 (leg, lever) pairs: the cell records a negative while the newest floor-clearing live-parity corpus row PASSES. Nine were found by auditing `stale_cells`; **two more** (`uso_trend_1h`/`vol_trail`, `ict_scalp_sol_5m`/`stale_stop`) were found by the new `matrix-corpus-agreement` guard and are **not stale at all** — their refs carry post-cutover dates, so the staleness proxy reads them as current. **Exactly one is on a real-money account that is actually live: `trend_donchian_xrp_4h`/`trail_decay` on `bybit_2`, and it is a full `PASS` (wf 5/6, Δnet_R OOS +1.00, base_OOS 32) — start there.** The three alpaca legs touch a real_money account whose account-level gate is `dry_run` (no live orders); the rest are paper or prop. All 11 are annotated in-cell; **no status was changed** — a passing cell is not a passing lever disposition, and the flip is yours. |
 
 
 54. **Emptied the `data_missing` bucket — 4 -> 0 on live legs — by measuring
@@ -1995,6 +1996,54 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     The point of putting this in the cell is that the backlog row is read by
     whoever drains the backlog, while the **cell** is read by whoever is about
     to trust the status.
+
+67. **Built criterion (3)'s guard — and it immediately found two disagreements
+    my own audit structurally could not reach.** `matrix-corpus-agreement`
+    (`scripts/ci/check_matrix_corpus_agreement.py`, registered in
+    `run_guards.py`).
+
+    It is the **cross-artifact** sibling of `exit-coverage-matrix-guard`: that
+    one validates the matrix against *itself* (legend values, refs present);
+    this one validates it against the **corpus its dispositions rest on**. Both
+    files can be internally valid and disagree with each other, and nothing
+    checked that.
+
+    **First run, on a tree I had just finished auditing by hand, it failed with
+    two cells I had never seen:**
+
+    | leg | lever | status | newest live-parity corpus row |
+    |---|---|---|---|
+    | `uso_trend_1h` | `vol_trail` | honest_negative | `vt_cold10_t2` **path_b_wf_pass**, 2026-08-13, wf 4/6, base_OOS **27** |
+    | `ict_scalp_sol_5m` | `stale_stop` | honest_negative | `be_touch_arm` **path_b_wf_pass**, 2026-08-11, wf 3/4, base_OOS **286** |
+
+    **Neither is in `stale_cells`** — their refs carry post-cutover dates, so the
+    staleness date-proxy reads them as *current* while the **status** rests on an
+    older negative. My item-65 audit scanned the stale list, so it could not
+    have reached these no matter how carefully I looked. That is the difference
+    between an audit and an invariant, and it showed up within a minute of the
+    guard existing. Both are now annotated (the annotations say explicitly that
+    the staleness pass does not cover them).
+
+    **Three design choices, each of which a draft of my own analysis got wrong
+    first** — which is why they are asserted in the self-test rather than left
+    to prose:
+
+    - **newest, not any** — counting *any* passing live-parity row treats a
+      superseded pass as standing evidence, which is precisely how my count
+      reached 11 instead of 9;
+    - **floor-clearing only** — a pass on a window today's `MIN_OOS_TRADES`
+      would refuse is not evidence against anything, and pre-floor rows carry
+      `min_oos_trades_floor: null` so the floor is *applied*, not trusted;
+    - **the remedy is an acknowledgement, not a status flip** — a passing cell
+      is not a passing lever disposition and a live-leg change is Tier-3, so the
+      guard asks only that the disagreement be visible where someone about to
+      trust the status will read it. That keeps the guard Tier-1 while the
+      judgement stays with the operator.
+
+    The self-test runs **first** in the guard's step list and asserts all three:
+    it catches a planted disagreement, clears on an acknowledgement, and honours
+    supersession. A guard that silently stopped matching would otherwise read as
+    a clean pass — sub-class C, on the guard built to prevent sub-class C.
 
 ## Wrap-Up Check
 
