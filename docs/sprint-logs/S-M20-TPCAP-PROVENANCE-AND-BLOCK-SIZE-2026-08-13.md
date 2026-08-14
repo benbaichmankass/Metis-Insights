@@ -3,7 +3,7 @@
 ## Date Range
 
 - **Start:** 2026-08-13 ~13:00 UTC
-- **End:** 2026-08-13 (in flight at time of writing; overnight autonomous session)
+- **End:** 2026-08-14 (still in flight; overnight autonomous session, ran past midnight UTC)
 
 ## Objective
 
@@ -82,6 +82,39 @@ touched, no Tier-3 change enacted.**
     stale docstring on a money path, a confirmed-open apply gate, and a lever
     that may never have fired. Filed as
     `BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM`.
+11. **PR #9099 (merged `92759864`).** Two things: an audit of the **blocked
+    bucket** — seven `*_trend_long_1d` legs read
+    `blocked:insufficient_lifetime_trades` while all seven carry an E1 verdict;
+    the STATUS is defensible (those verdicts are calendar-geometry and
+    `per_leg_note` says the geometries are not comparable evidence) but the
+    **ref never records that the choice was made**, so the next auditor reads
+    it as staleness — and the nested-τ measurement below.
+12. **The nested-τ measurement landed** (relay #9101) — the number § 9 left
+    open. Over the donchian-1h family (3 legs, `trades` geometry, b=50, **21 of
+    22 folds `selected`**, 1 `no_validation_block`, 63 leg-folds): nested
+    holdout τ scores **+0.137R vs actual (57.1% positive)** against the
+    **+2.788R** the gate credits and **−0.367R** for a τ-blind median-arm
+    control. Causal and credited are an order of magnitude apart, and the
+    selector does beat the blind control — so it finds something real that is
+    nowhere near the headline. Doc § 10; backlog item 6 closed for this family.
+    **The finding that decides the cell: no leg beats BOTH the actual exit and
+    the cheap deterministic lever** — BTC −1.118R vs actual / +1.351R vs
+    `stale_8_0`; ETH +0.692 / −0.070; SOL +0.837 / −0.311. The thing that wins
+    on two of three legs is a fixed rule with no model, no training and no τ.
+13. **Self-corrected the same hour.** I first wrote "+0.137R is 4.9% of
+    +2.788R, so ~95% of the edge is hindsight." Arithmetically right, **not a
+    usable statistic** — and the backlog row already said so about "% of edge"
+    ratios. It applies here for a *different* reason: the instability is in the
+    **numerator** (per-leg means span −1.118 to +0.837, so the pooled mean
+    carries ±0.5R at n=63 and the ratio swings through zero). Corrected in the
+    doc and the backlog before it could propagate.
+14. **Scalp nested round launched** (relay #9103, backgrounded on the trainer).
+    Scalp is the ONLY family positive under both causal rules, so it is the one
+    whose nested number could move a decision permissively — and all 7 legs are
+    **single-leg families**, i.e. `n_leg` = b = 50 exactly (§ 6), which makes
+    them the strongest evidence in the fleet rather than the weakest. Each leg
+    runs against a **symlink to the original `rows.jsonl`**, so the comparison
+    isolates the τ-selection change from any dataset rebuild.
 
 ## Validation Performed
 
