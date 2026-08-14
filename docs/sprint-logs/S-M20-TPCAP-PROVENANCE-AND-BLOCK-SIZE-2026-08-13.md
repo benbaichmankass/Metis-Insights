@@ -115,6 +115,22 @@ touched, no Tier-3 change enacted.**
     them the strongest evidence in the fleet rather than the weakest. Each leg
     runs against a **symlink to the original `rows.jsonl`**, so the comparison
     isolates the τ-selection change from any dataset rebuild.
+15. **The scalp nested round LANDED, and it splits the verdict by family** (relays
+    #9103 run / #9108 read). All 7 scalp legs, 73 leg-folds (80 folds less exactly
+    one `no_validation_block` per leg — each leg's first fold): nested holdout τ
+    scores **+3.848R vs actual, 79.5% positive**, against **+6.022R** credited and
+    **+3.475R** for the τ-blind median-arm control. **5 of 7 legs pass the
+    two-sided test** (beat actual AND `stale_8_0`) — against **2 of 7** under § 9's
+    PREV rule, which is that section's own prediction confirmed.
+    **The τ-blind control is the sharpest statement of the split:** on scalp the
+    median arm alone scores +3.475R, so τ choice barely matters and the edge is in
+    the head; on donchian it was −0.367R, so what the gate credited there WAS the
+    τ choice. Between-leg SE: scalp is **6.4 SE** from zero, donchian **0.22 SE**.
+    Doc § 11. **Three caveats ride with it and are recorded, not buried:** the
+    aggregate margin over `stale_8_0` is thin (+0.668R, 56.2% — a coin flip with a
+    lean); the two 15m PASSes rest on 5 and 6 leg-folds; and `eth_15m`, the
+    weakest leg, is the one that **already has a shipped stale-stop**, so the cheap
+    lever winning there is coherent with what is deployed.
 
 ## Validation Performed
 

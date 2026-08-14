@@ -19,6 +19,16 @@ block" as the lever that unblocks `exit_head_ml`.
 > the § 5 caveat that best-tau selection "biases δ upward" turned out to
 > understate it by a wide margin — outside the scalp family, selection is not a
 > bias on the effect, it **is** the effect.
+>
+> **⚠️ §§ 10–11 (2026-08-14) close the causal interval § 9 left open, and they
+> disagree with each other by family — which is the point.** Measured with a
+> *contemporaneous* τ rule (a holdout carved from each fold's own training
+> window): **donchian-1h +0.137R, 0.22 SE from zero** — the credited edge was the
+> selection. **Scalp +3.848R, 6.4 SE from zero, 5 of 7 legs passing a two-sided
+> test** — the edge is in the head. **Do not quote a fleet-wide nested figure;
+> there isn't one.** § 5's "biases δ upward" caveat is right for donchian and
+> wrong for scalp, and § 9's own prediction that a contemporaneous rule would
+> beat PREV/EXPAND is confirmed (scalp two-sided passes went 2/7 → 5/7).
 
 ---
 
@@ -472,3 +482,93 @@ three legs is a **fixed rule with no model, no training, and no τ**.
 - **`no_validation_block` fired once.** If a future config makes that the
   common case, the pooled figure silently becomes a different population — read
   `selected_tau_state` beside any re-run.
+
+---
+
+## 11. SCALP nested τ — the family split is real, and it survives honest selection
+
+§ 10 measured the donchian family and found the credited edge was almost entirely
+τ-selection hindsight. **The scalp family behaves completely differently, and this
+is the measurement that decides whether `exit_head_ml` is a capability or an
+artifact.** *(Trainer relay #9103 ran the round, #9108 read it, 2026-08-14.)*
+
+**POPULATION.** All **7 scalp legs**, each its own **single-leg family** — so per
+§ 6 `n_leg` = `b` = **50 exactly**, making these the *strongest* per-fold votes in
+the fleet rather than the weakest. `fold_mode: trades`, `min_fold_trades: 50`.
+80 folds total; **7 returned `no_validation_block` — exactly one per leg**, which
+is each leg's *first* fold (thinnest training window, nothing to carve). So the
+figures are over **73 leg-folds**, and the refusals are a coherent pattern rather
+than scattered failures. Each leg ran against a **symlink to the original
+`rows.jsonl`**, so this isolates the τ-selection change from any dataset rebuild.
+
+**Pooled, 73 leg-folds:**
+
+| τ chosen by | mean vs actual | positive |
+|---|---:|---:|
+| **NESTED holdout (causal, contemporaneous)** | **+3.848R** | 79.5% |
+| median arm (τ-blind control) | **+3.475R** | 72.6% |
+| best arm (hindsight) | +6.022R | 90.4% |
+| **NESTED vs `stale_8_0`** | **+0.668R** | 56.2% |
+| NESTED vs `giveback_1_1` | +3.522R | 79.5% |
+
+### The contrast with § 10 is the whole finding
+
+| | causal | credited | causal ÷ credited | distance from zero |
+|---|---:|---:|---:|---|
+| **scalp** (7 legs) | **+3.848R** | +6.022R | **63.9%** | **6.4 SE** |
+| **donchian-1h** (3 legs) | +0.137R | +2.788R | 4.9% | **0.22 SE** |
+
+*(SE computed between legs — `sd(leg means)/√n_legs`: scalp 1.583/√7 = 0.598;
+donchian 1.089/√3 = 0.629. This is why the ratio is quotable for scalp and, per
+§ 10's warning box, is **not** for donchian: same denominator quality, completely
+different numerator stability.)*
+
+**Read the τ-blind control row, because it is the sharpest statement of the
+split.** On scalp the median arm alone scores **+3.475R** — nearly the whole
+causal figure — so τ choice barely matters and the edge lives in the *head*. On
+donchian the median arm was **−0.367R**, so what the gate was crediting there
+*was* the τ choice. Same instrument, opposite readings:
+
+> **On scalp the edge is in the model. On donchian the "edge" was the selection.**
+
+### Per leg, and the two-sided test
+
+A leg passes only if it beats **both** the actual exit and the cheap
+deterministic `stale_8_0` lever — the bar § 10 established:
+
+| leg | leg-folds | vs actual | pos% | vs `stale_8_0` | two-sided |
+|---|---:|---:|---:|---:|:--|
+| `ict_scalp_5m` | 11 | +5.771R | 90.9% | +1.696R | **PASS** |
+| `ict_scalp_avax_5m` | 19 | +3.698R | 84.2% | +0.388R | **PASS** |
+| `ict_scalp_sol_5m` | 15 | +3.306R | 66.7% | +0.932R | **PASS** |
+| `ict_scalp_sol_15m` | 6 | +3.108R | 83.3% | +2.805R | **PASS** |
+| `ict_scalp_xrp_15m` | 5 | +3.640R | 100.0% | +0.512R | **PASS** |
+| `ict_scalp_xrp_5m` | 12 | +4.782R | 83.3% | **−0.213R** | fail |
+| `ict_scalp_eth_15m` | 5 | +0.670R | 40.0% | **−1.618R** | fail |
+
+**5 of 7 pass — against 2 of 7 under § 9's PREV rule.** That is § 9's own
+prediction confirmed: it flagged PREV/EXPAND as *lower* bounds that "eat regime
+drift between folds" and said a contemporaneous rule "should do better". It does,
+and the gap is large enough to change the verdict on three legs.
+
+### Caveats that bound this
+
+- **The 15m legs are thin.** `sol_15m` and `xrp_15m` pass on **6 and 5**
+  leg-folds. Their per-fold votes are full 50-trade blocks (§ 6), which is why
+  they are worth reporting at all — but two passes resting on five and six
+  observations must not be weighted like `avax_5m`'s nineteen.
+- **The margin over `stale_8_0` is thin in aggregate** — +0.668R, **56.2%**
+  positive, a coin flip with a lean. It is carried by `sol_15m` (+2.805) and
+  `ict_scalp_5m` (+1.696); four of the remaining five sit between −0.2 and +0.9.
+  The head clearly beats *doing nothing*; beating the eight-bar stale-stop is a
+  much closer contest.
+- **`eth_15m` is the weakest leg on every axis** (+0.670 vs actual at 40%
+  positive, −1.618 vs stale) — and it is the leg that **already has a shipped
+  stale-stop** (`S-M20-ICTSCALP-ETH15M-STALE-SHIP-2026-07-29`). The cheap lever
+  winning there is coherent with what is already deployed, not a contradiction.
+- **73 leg-folds are not 73 independent observations** — walk-forward folds share
+  training windows. The 6.4-SE figure above is computed *between legs* (n=7)
+  precisely to avoid leaning on the within-leg count.
+- **This grades no cell.** Whether `exit_head_ml` becomes family-scoped is an
+  operator decision (`BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT` item 3);
+  this section supplies the evidence it was waiting on and takes nothing.
