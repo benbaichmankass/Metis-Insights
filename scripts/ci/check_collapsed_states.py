@@ -66,6 +66,7 @@ CONTRACTS: List[Dict[str, object]] = [
     {
         "name": "db_explorer.filter_state",
         "producer": "src/web/api/routers/db_explorer.py",
+        "producer_field": "filter_state",
         "consumer_token": r"\bfilter_state\b|\bdb_table\b|\bdb/table\b",
         "states": ["applied", "not_requested", "ignored_unknown_column"],
         "why": (
@@ -79,6 +80,24 @@ CONTRACTS: List[Dict[str, object]] = [
             "row. The route is on the diag-relay allowlist, so its callers "
             "include analysis sessions that cannot see the query they got. "
             "BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN."
+        ),
+    },
+    {
+        "name": "db_explorer.order_state",
+        "producer": "src/web/api/routers/db_explorer.py",
+        "producer_field": "order_state",
+        "consumer_token": r"\border_state\b|\bdb_table\b|\bdb/table\b",
+        "states": ["applied", "not_requested", "ignored_unknown_column"],
+        "why": (
+            "The ORDER-side twin of `filter_state`, and it was unguarded "
+            "entirely until 2026-08-14 — which is how it came to be the thing "
+            "that silently satisfied its sibling's evidence under the old "
+            "file-wide producer check. Same three states, same consequence in "
+            "miniature: an unknown `order_by` is IGNORED, so the rows come "
+            "back in the table's natural order while the caller believes they "
+            "are sorted. That is quieter than the filter bug (no count is "
+            "wrong) and therefore easier to build a conclusion on — a caller "
+            "reading 'the newest N rows' is really reading 'some N rows'."
         ),
     },
     {
@@ -178,13 +197,35 @@ def _py_files() -> List[Path]:
     return out
 
 
-def _states_in(text: str, states: List[str]) -> set:
+def _states_in(text: str, states: List[str], field: str = "") -> set:
     """Which declared states this text references, ignoring override lines.
 
     The annotation is excluded from its own evidence — otherwise writing the
     override would itself satisfy the coverage it is opting out of.
+
+    ``field`` narrows the evidence to LINES THAT ALSO NAME THE FIELD, which is
+    the fix for a file-scoped false negative measured 2026-08-14. Producer
+    integrity searched the whole producer FILE, so when one module carries two
+    contracts whose state vocabularies overlap, either one satisfies the
+    other's evidence. Demonstrated on `db_explorer.py`: collapsing
+    `filter_state` so it could only ever say ``"applied"`` left the guard
+    **clean**, because the sibling `order_state` still contained the literals
+    ``"not_requested"`` and ``"ignored_unknown_column"``. That is the guard's
+    own "cheaper to lie to than to satisfy" failure one level up — not a false
+    annotation, but a *neighbouring field* standing in as evidence.
+
+    Line-scoping (not assignment-parsing) is deliberate: producers in this repo
+    emit states as bare returns (``return close, "anchored"``), tuple returns
+    (``return ("absent", None)``) and module constants
+    (``AVAILABLE_STATE_VENUE = "venue_available"``), so a ``<field> = "<state>"``
+    pattern would match almost none of them. A contract omitting ``producer_field``
+    keeps the file-wide behaviour, so registering the narrower check is opt-in
+    per contract and no existing contract changes meaning.
     """
-    body = "\n".join(ln for ln in text.splitlines() if not _OVERRIDE.search(ln))
+    keep = [ln for ln in text.splitlines() if not _OVERRIDE.search(ln)]
+    if field:
+        keep = [ln for ln in keep if re.search(rf"\b{re.escape(field)}\b", ln)]
+    body = "\n".join(keep)
     return {s for s in states if re.search(rf"[\"']{re.escape(s)}[\"']", body)}
 
 
@@ -209,15 +250,21 @@ def main(argv: List[str]) -> int:
                 f"contract is a dead claim.")
             continue
 
-        # (1) producer integrity
+        # (1) producer integrity. `producer_field`, when declared, requires the
+        # state literal to sit on a line that also names the field — so a
+        # SIBLING field in the same module can no longer stand in as evidence
+        # (measured false negative, 2026-08-14; see `_states_in`).
+        prod_field = str(c.get("producer_field") or "")
         prod_text = prod_path.read_text(encoding="utf-8", errors="replace")
-        emitted = _states_in(prod_text, states)
+        emitted = _states_in(prod_text, states, prod_field)
         missing = [s for s in states if s not in emitted]
         if missing:
+            scope = (f"on any line naming `{prod_field}`" if prod_field
+                     else "anywhere in the file")
             findings.append(
                 f"{name}: producer {c['producer']} never emits "
-                f"{missing} — a contract naming a state its own module does "
-                f"not produce is a dead claim, not a guarantee.")
+                f"{missing} {scope} — a contract naming a state its own module "
+                f"does not produce is a dead claim, not a guarantee.")
 
         # (2)+(3) consumers.
         #
