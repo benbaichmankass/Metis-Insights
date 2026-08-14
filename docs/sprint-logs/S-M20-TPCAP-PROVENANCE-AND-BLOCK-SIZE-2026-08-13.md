@@ -2970,9 +2970,22 @@ round contradicts them.
   only `pull_request`-event delivery is dead) — but **why** delivery stopped is
   still unestablished, and #9257 remains unmergeable. No positive control was
   available this stretch: #9257 is the only open PR.
-- **The pullback hard-lever re-sweep is in flight** (relay #9367), launched
-  because the `beats_hard` finding is precisely what those columns' live-parity
-  numbers would inform. Unread at time of writing.
+- **The pullback hard-lever re-sweep answered a different question than it was
+  launched for** (relays #9367 / #9368). It was launched because the
+  `beats_hard` finding needed those columns' live-parity numbers. At the default
+  `--split-target-oos 25` it returned **68 of 76 cells `insufficient_base`
+  (89.5%) and zero gradeable passes**, across 19 legs carrying up to 527
+  lifetime trades — so it produced almost no hard-lever numbers, and instead
+  measured the *consequence* of the split-target question that had been sitting
+  queued on a margin argument. A matched second arm at target 30 was launched
+  (the same family, levers and `0.099` cap; only the target differs) and at 5/19
+  legs `insufficient_base` had disappeared entirely with every cell graded on
+  its merits. Written up in
+  [`m20-split-boundary-loss-2026-08-14.md`](../research/m20-split-boundary-loss-2026-08-14.md)
+  § "Confirmed at scale". **The hard-lever numbers the `beats_hard` finding
+  wanted are still not measured** — they need the target-30 arm, or a re-run.
+- **The target-30 arm was incomplete at 5 of 19 legs** when last read, so the
+  two arms are not yet matched populations; readout dispatched as #9370.
 - **The AUC-dispersion measurement is specified but not run**, and the obvious
   implementation is a trap: there is no fold-seed flag, and the only knob that
   moves fold boundaries (`--min-fold-trades`) carries an explicit comment
