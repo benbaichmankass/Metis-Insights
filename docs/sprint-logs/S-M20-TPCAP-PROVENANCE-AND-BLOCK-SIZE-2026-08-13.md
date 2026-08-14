@@ -2196,7 +2196,7 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     — `trend_donchian_avax_4h` at OOS **25** — returned a **PASS**. Six measured
     cells, one verdict, and the difference was one or two trades.
 
-    That is `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-...` reproducing at 5/6,
+    That is `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS` reproducing at 5/6,
     a far stronger denominator than the 4-leg measurement it was filed on.
 
     **The workflow could not ask for a margin.** `--split-target-oos` has existed
@@ -2239,7 +2239,7 @@ evidence state updated as the night measured more; (e) and (f) accrued later.
     It also **refutes the `max(derived, fixed_window)` fix a second time.** That
     shape was already refuted this session by the mhg measurement; here the fixed
     window is the *bad* one, so a max would select it. Filed as
-    `BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-...` with the clamp-to-
+    `BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER` with the clamp-to-
     `floor(lifetime/2)` remedy and a test that drives the three outcomes apart.
 
     The gradeable band is narrow and nothing announces it: `lifetime >= 2*target`
