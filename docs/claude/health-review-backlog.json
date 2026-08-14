@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-14T14:15:00+00:00",
+  "updated_at": "2026-08-14T16:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15008,6 +15008,26 @@
         "docs/research/WORKPLAN-2026-08-14.md"
       ],
       "source": "roadmap + work-plan review 2026-08-14 (Lane 0.3)"
+    },
+    {
+      "id": "BL-20260814-ROADMAP-QUEUED-LISTS-CONTRADICT-SHIPPED-LINES",
+      "opened_at": "2026-08-14T16:20:00+00:00",
+      "opened_by": "claude (roadmap + work-plan review 2026-08-14), Lanes 4+5",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "docs / roadmap coherence",
+      "title": "ROADMAP.md cells carry STALE forward-looking 'queued/remaining' lists beside later 'Shipped'/'corrected' statements about the SAME items, in the SAME cell — so a planner reading top-down generates work that is already done. It did: 2 of 5 lanes in the 2026-08-14 work plan were already shipped.",
+      "detail": "TWO CONFIRMED INSTANCES, both found by planning real work off them and then checking the field.\n\n(1) M30. The cell lists: 'Queued loose-ends ... P1 C2 --features selector (unblocks pooled multivariate discovery - DO FIRST)'. Further down THE SAME CELL: 'PIVOT 2026-07-27 ... Shipped: P1 --features (f4cbc3b) - P2 sweep driver (#7730) - P4 wider capture (#7723) - P5 excursion toolchain (#7737/#7741)'. The field agrees with the second: commit f4cbc3ba is titled 'M30 P1: C2 --features common-core selector (unblocks pooled multivariate discovery) (#7718)', the implementation sits at scripts/research/analyze_research_panel.py:913 with its argparse at :1120, and TWO other callers already consume it (sweep_research_panels.py, m20_exit_head_round.py). The queued list was simply never pruned when the pivot shipped its items.\n\n(2) M29. The cell says 'P1b remaining = calibrate on real point-in-time EIA/weather/NG-price history'. Elsewhere it says the dual calibration ran on eia_v2 with 864 real storage obs at OOS storage R^2 ~0.58, and that the operator ask is 'stale - no operator hand-off is outstanding here'. The artifact agrees with the second: comms/macro/sysdyn_gas_dual_scorecard.json carries target_source 'eia_v2 + fred + open-meteo', n_obs 418, generated 2026-07-25.\n\nWHY IT IS COSTLY RATHER THAN MERELY UNTIDY. A stale descriptive claim misinforms; a stale FORWARD-LOOKING claim GENERATES WORK. 'Remaining' and 'do first' are instructions, and a planner reading a 900-line roadmap top-down hits them before the correction buried later in the same cell. This is field-beats-comment at document scale: the queued list is a CLAIM ABOUT the work; the commit, the argparse and the committed scorecard are the FIELD.\n\nMEASURED IMPACT: 2 of the 5 lanes in docs/research/WORKPLAN-2026-08-14.md were derived from these stale lists and were already complete. That plan was itself the product of an operator-requested full roadmap review whose stated purpose was working out what is actually left - which is the strongest possible evidence that the current structure does not answer that question reliably.",
+      "what_to_check": "1. Sweep every ROADMAP.md cell for a 'Queued'/'Remaining'/'Next'/'do first' list and reconcile each named item against the field (a commit, a symbol in the tree, or a committed artifact) rather than against later prose in the same cell. Prune what shipped.\n2. Consider a structural fix rather than a one-off sweep, since this WILL recur: the forward-looking list and the shipped-log are two different kinds of statement sharing one cell, and nothing forces them to agree. Either (a) keep queued items in ONE place per milestone with shipped items struck through in-line, or (b) drop the per-cell queued lists entirely in favour of the backlogs, which are already the tracked, guard-enforced surface.\n3. A cheap CI-adjacent probe worth considering: flag any ROADMAP cell that names the same P-number in both a 'queued/remaining' context and a 'Shipped' context. That is a purely textual check and it would have caught BOTH instances here.\n4. Re-derive what actually remains of M30 (P2/P3/P5/P6) and M29 (P2-P4) by field check. This row does NOT claim those are done - only that the roadmap cannot be trusted to say.",
+      "resolution_criteria": "No ROADMAP cell simultaneously lists an item as queued/remaining and as shipped, and a planner can determine what is outstanding for a milestone without cross-checking commits.",
+      "refs": [
+        "docs/research/WORKPLAN-2026-08-14.md",
+        "f4cbc3ba",
+        "comms/macro/sysdyn_gas_dual_scorecard.json",
+        "scripts/research/analyze_research_panel.py"
+      ],
+      "source": "roadmap + work-plan review 2026-08-14 (Lanes 4+5)"
     }
   ]
 }
