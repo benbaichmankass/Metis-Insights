@@ -1,8 +1,15 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~07:30Z)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~07:35Z)
 
 Everything the overnight session queued rather than decided, in one place.
-**Seven items**, plus one coda outside M20's scope. **Nothing here has been acted
-on.** No matrix status was flipped, no gate changed, no live lever touched.
+**Seven items**, plus one coda outside M20's scope. **No decision here has been
+taken for you.** No matrix status was flipped, no gate changed, no live lever
+touched, no config written.
+
+*(Precise as of 07:35Z: MEASUREMENTS were taken — item 7's re-sweep is mine to
+run, since measuring is Tier-1 and only changing a lever is Tier-3. What was
+withheld is every DECISION, not every action. An earlier version of this line
+said "nothing has been acted on", which would have read as "no sweeps were run"
+once item 7 reports a number.)*
 
 Coverage is **373/376 = 99.2%**, unchanged all night (verified by re-running
 `m20_coverage_rollup.py` each cycle, not by repeating the number).
@@ -19,7 +26,7 @@ and it is the night's actual result.
 | 4 | `iaum_pullback_1d` | **leave the status**; the real question is about the gate |
 | 5 | The fragile-margin population | **no flip needed** — unchanged, but read the 07:00Z update: one mover refuted my stated *cause* |
 | 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
-| 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | **measurement RUNNING** (relay #9426) — I took it; measuring is Tier-1, only changing the lever is yours |
+| 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | ✅ **RESOLVED — no action needed.** I ran it; the live value survives at live parity (both neighbours fail OOS) |
 | — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
 
 Each item states what I'd do and how confident I am, because Tier-3 is *propose,
@@ -449,6 +456,60 @@ retired; a FAIL means the cell should go to `pending` and the live value gets a
 Tier-3 decision from you; an `insufficient_base` at both targets means the leg
 cannot be judged at this depth and the honest status is `blocked`, not either
 verdict.
+
+### ✅ RESULT (07:35Z) — the live value SURVIVES re-measurement at live parity
+
+Both arms finished (relay #9427). **Against the pre-committed reading, this is
+the PASS branch: nothing to change, and the staleness is retired.**
+
+| target | OOS base n | `trail3` | `trail5` |
+|--:|--:|---|---|
+| 25 | 24 | `insufficient_base` | `insufficient_base` |
+| **30** | **31** | **`is_oos_fail`** | **`is_oos_fail`** |
+
+At target 30 both neighbours were **graded on the merits and both lost to the
+config-exact base** — i.e. to the live `trail_mult: 4.0`, under
+`--tp-cap-pct 0.099`:
+
+| cell | Δ net_R IS | Δ net_R OOS | Δ maxDD IS | Δ maxDD OOS | shape |
+|---|--:|--:|--:|--:|---|
+| `trail3` | −12.63 | −5.48 | +11.97 | +1.22 | worse on everything |
+| `trail5` | +8.39 | −4.69 | −3.19 | +1.63 | **IS-only — the overfit shape** |
+
+`trail5` is the instructive one: it looks good in-sample and fails out. That is
+precisely the pattern the IS/OOS split exists to catch, and it is why a
+re-measurement that only reported the in-sample number would have argued for
+*loosening* a live stop.
+
+**What this does NOT establish.** It tests `4.0 ± 1` only, so it says no
+neighbour beats the shipped value — **not** that 4.0 is optimal. A wider grid
+was not run and I am not going to imply one from two cells.
+
+⚠️ **Caveat that belongs on the number, not in a footnote:** `verdicts.json`
+reports `regime_router: "off"` while listing `htf_pullback_trend_2h` in
+`regime_policy_off_legs`, with `regime_gate_delta: "narrower_live"`. So **live
+trades a NARROWER book than this backtest** — the measurement is over a superset
+of what the leg actually takes. That does not invalidate the comparison (base
+and cells share the identical book, so the *delta* is sound), but the absolute
+net_R figures are not the live book's.
+
+**Bonus datum for item 2, from a real cell rather than a fleet aggregate.** The
+same leg is **unmeasurable at target 25 and graded at 30** — OOS base 24 vs 31
+against a floor of 25, on a leg with **407 lifetime trades**. The sweep's own
+`insufficient_base_why` says it plainly: *"THE BOUNDARY IS MISPLACED, NOT THE
+LEG."* That is item 2's argument reproduced end-to-end on one cell.
+
+**Also worth correcting while I am here:** the SUMMARY measures the live TP
+reach on this leg at **median 3.51R IS / 4.27R OOS**, not the **1.3–2.0R** range
+quoted when `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP` was filed.
+That range was explicitly illustrative and ATR-derived; these are measurements.
+The 9.9% clamp is a more ordinary target on a 2h BTC frame than the backlog row
+implies.
+
+**So: no action needed from you on this item.** The cell's evidence should be
+re-stamped to this run (matrix bookkeeping, Tier-1 — but a status write is a
+matrix edit I have deliberately not made overnight, so it is queued rather than
+done). The three paper stale decisions are untouched.
 
 ⚠️ **What this does NOT say:** that the lever is wrong. Pre-cutover evidence is
 unreproduced, not refuted — the re-sweep may confirm `trail_mult: 4.0`. The
