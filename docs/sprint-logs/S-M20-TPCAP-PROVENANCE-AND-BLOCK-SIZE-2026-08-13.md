@@ -4197,3 +4197,35 @@ result looks tidy.
   whose counts I reconciled by hand this session and nothing pins.
 - The 44 pointer-less refs were classified by **reading a sample**, not
   exhaustively — I checked the shape of a dozen and generalised.
+
+### Addendum (15:55Z) — CI caught a hole in the test I had just written
+
+`pytest-run` failed on `1a3a74f7`, and it was not a flake:
+
+```
+FAILED test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered
+these docs/ files are read as COMMITTED by the suite but would SHORT-CIRCUIT
+pytest-run: m20-fold-dispersion-2026-08-15.md,
+            m20-fold-dispersion-arms-consolidated.jsonl
+```
+
+`test_dispersion_rate_matches_the_doc.py` asserts over those two files as
+committed data, but `pytest-run` short-circuits on a docs-only diff. So a PR
+editing **just the dispersion doc or the arms record** would skip the suite and
+report a green tick having executed nothing — the guard's own docstring records
+that as how PR #9208 merged and left `main` red. **My new drift-guard would have
+been silently unenforceable on exactly the changes it exists to police.**
+
+One-line fix (both paths added to the workflow's relevance grep), proven by
+reverting it and watching the guard fail again.
+
+**Why I missed it locally, since the guard existed and I did run it:** I ran
+`test_pytest_run_filter.py` *before* creating the new test module and never
+re-ran it after. That guard derives its expectation **from the tests on every
+run**, so it cannot catch a new reader until the reader exists. The rule that
+follows: adding a test that reads committed `docs/` means re-running *that*
+guard, not just the new test.
+
+It is the same shape as the four phantom defects above, inverted — there I
+trusted a probe that was too loose; here I trusted a probe result that was
+**stale**. Both are "the check ran" standing in for "the check covered this".
