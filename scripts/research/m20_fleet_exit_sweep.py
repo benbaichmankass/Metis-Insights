@@ -989,6 +989,70 @@ def resolve_split(harness: str, base: list[str], mode: str,
     return boundary, meta
 
 
+def summary_split_line(leg: str, v: dict) -> str:
+    """The SUMMARY's per-leg `- split (leg): ...` line -- the boundary APPLIED.
+
+    The sibling of the `- geometry (leg): ...` line, written for the same
+    reason and against the same defect one axis over. The boundary is resolved
+    HERE, per leg, by `resolve_split()`; the workflow knows only the `--split`
+    input, which under the default `--split-mode oos-trades` is merely the
+    FALLBACK date and not the boundary at all. So the PR banner's unqualified
+    ``IS/OOS split <SPLIT>`` asserted one shared calendar cut across every leg.
+
+    Measured on the 2026-08-15 pullback re-sweep: 17 comments printed
+    ``IS/OOS split `2025-07-01` `` and SIXTEEN legs had run at a different
+    derived boundary (`sol_pullback_2h` 2025-08-23, `slv_pullback_1d`
+    2022-11-29, `ief_pullback_1d` 2017-01-20, ...). The single leg that really
+    did use 2025-07-01 was `iaum_pullback_1d`, and only because its derivation
+    could not be satisfied -- the one true reading was true by FAILURE. A
+    reader comparing two legs' cells on the banner's stated assumption of a
+    common split is comparing different partitions of different books.
+
+    That is `diagnostic-provenance-guard` sub-class A on the same banner the
+    geometry line was added to fix five days earlier, and this file's own
+    docstring was corrected for it on 2026-08-13 while the emitted line was
+    not -- which is why the remedy is in the OUTPUT, not in more prose.
+
+    THREE STATES, never collapsed, the same discipline `insufficient_base_reason`
+    keeps below:
+
+      * **unknown** -- the leg never reached `resolve_split` (harness error /
+        skipped), so no boundary exists to report. Printing the requested date
+        here would manufacture exactly the claim this function exists to stop.
+      * **fell back** -- the derivation could not be satisfied, so the fixed
+        date was USED but never CHOSEN for this leg. Silently rendering it as a
+        derived boundary invites the reader to blame the leg for the fallback's
+        window.
+      * **derived** -- a real per-leg boundary, which also means legs in one run
+        do not share one.
+
+    Pure and side-effect-free so it can be tested directly -- the SUMMARY block
+    that calls it lives inside `main()` and is not otherwise reachable from a
+    test. It composes a STRING and nothing more; no caller branches on it.
+    """
+    split = v.get("split")
+    if split is None:
+        return (f"- split (`{leg}`): unknown — this leg did not run, so no "
+                f"boundary was resolved")
+    mode = v.get("split_mode")
+    if v.get("split_fallback"):
+        lifetime = v.get("split_lifetime_trades")
+        return (f"- split (`{leg}`): **{split}** — FELL BACK to the `--split` "
+                f"date ({v['split_fallback']}"
+                + (f", lifetime={lifetime} trades" if lifetime is not None else "")
+                + f"); the `{mode}` derivation could not be satisfied, so this "
+                f"boundary was NOT chosen for this leg")
+    if mode != "date":
+        return (f"- split (`{leg}`): **{split}** — DERIVED per leg "
+                f"(split_mode=`{mode}`, targeting {v.get('split_target_oos')} "
+                f"OOS trades; the ACHIEVED count is `base n OOS` below, not "
+                f"this target). Legs in one run do NOT share a boundary — do "
+                f"not compare two legs' cells as though they were cut at the "
+                f"same date")
+    return (f"- split (`{leg}`): **{split}** — fixed calendar date "
+            f"(split_mode=`date`), the same for every leg")
+
+
 def insufficient_base_reason(base_oos_n, floor: int, split: str,
                              split_meta: dict) -> str:
     """Why a cell was refused for a thin OOS window -- INCLUDING which window.
@@ -2237,6 +2301,7 @@ def main(argv: list[str]) -> int:
                     f"quantity does not exist here, which is a different statement "
                     f"from 'the TP is far away' or 'the cap was off'.")
         lines.append(f"- geometry (`{_leg}`): {_geo}")
+        lines.append(summary_split_line(_leg, _v))
     lines.append("")
     for leg, v in verdicts.items():
         if "levers" not in v:
