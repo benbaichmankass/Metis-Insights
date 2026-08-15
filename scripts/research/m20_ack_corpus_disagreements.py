@@ -117,8 +117,16 @@ def caveats_for(row: dict) -> list[str]:
     return out
 
 
-def draft(hit: dict, row: dict) -> str:
-    """The ref segment for one disagreement. Must contain the ACK phrase."""
+def draft(row: dict) -> str:
+    """The ref segment for one disagreement. Must contain the ACK phrase.
+
+    Takes the CORPUS ROW only. An earlier draft also took the guard's `hit`
+    dict and never read it -- every field it carries (`verdict`, `run`,
+    `base_oos`, `wf`) is a copy of one already on the row, so the parameter
+    was pure duplication with two places to drift. `diagnostic-provenance-guard`
+    caught it as D/inert-parameter, which is the correct call: a parameter the
+    body ignores is either dead or a bug.
+    """
     counted, real, inert = fold_quality(row)
     wf = row.get("wf_summary") or "n/a"
     seg = (f" || {ACK_PHRASE} (run {str(row.get('run_id'))[:19]}Z, "
@@ -168,7 +176,7 @@ def main(argv: list[str]) -> int:
                   f"source row could not be re-resolved — SKIPPED, not drafted",
                   file=sys.stderr)
             continue
-        seg = draft(hit, src)
+        seg = draft(src)
         print(f"\n=== {hit['leg']} / {hit['lever']}  "
               f"(status={hit['status']} vs {hit['verdict']})")
         print(seg.strip())

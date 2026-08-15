@@ -81,9 +81,6 @@ STRONG = {
     ],
 }
 
-HIT = {"leg": "x", "lever": "y", "status": "honest_negative", "verdict": "PASS"}
-
-
 # --------------------------------------------------- fold arithmetic is right
 
 def test_inert_folds_are_counted_apart_from_real_wins() -> None:
@@ -93,7 +90,7 @@ def test_inert_folds_are_counted_apart_from_real_wins() -> None:
 
 def test_the_draft_refuses_to_let_5_of_6_stand_alone() -> None:
     """The number that misleads must not appear without its correction."""
-    seg = ACK.draft(HIT, WEAK)
+    seg = ACK.draft(WEAK)
     assert "5/6" in seg
     assert "THE WIN TOTAL IS NOT A COUNT OF WINS" in seg
     assert "2 real win" in seg
@@ -103,7 +100,7 @@ def test_the_draft_refuses_to_let_5_of_6_stand_alone() -> None:
 
 def test_a_clean_walk_forward_gets_NO_inert_caveat() -> None:
     """Boilerplate trains readers to skip caveats; absence has to mean something."""
-    seg = ACK.draft(HIT, STRONG)
+    seg = ACK.draft(STRONG)
     assert "THE WIN TOTAL IS NOT A COUNT OF WINS" not in seg
     assert "inert" not in seg.lower()
 
@@ -111,7 +108,7 @@ def test_a_clean_walk_forward_gets_NO_inert_caveat() -> None:
 # ------------------------------------------------------- Path B is called out
 
 def test_path_b_is_named_with_its_own_numbers() -> None:
-    seg = ACK.draft(HIT, WEAK)
+    seg = ACK.draft(WEAK)
     assert "PATH-B, NOT PATH A" in seg
     assert "is_oos_pass=False" in seg
     assert "maxdd_worse" in seg
@@ -119,13 +116,13 @@ def test_path_b_is_named_with_its_own_numbers() -> None:
 
 
 def test_a_path_a_pass_is_not_labelled_path_b() -> None:
-    assert "PATH-B" not in ACK.draft(HIT, STRONG)
+    assert "PATH-B" not in ACK.draft(STRONG)
 
 
 # ------------------------------------------------- partition, not a rerun
 
 def test_the_derived_split_is_stated_as_a_different_partition() -> None:
-    seg = ACK.draft(HIT, WEAK)
+    seg = ACK.draft(WEAK)
     assert "2022-11-29" in seg
     assert "DIFFERENT PARTITION, NOT A RERUN" in seg
 
@@ -137,14 +134,14 @@ def test_every_draft_contains_the_phrase_the_guard_matches() -> None:
     import re
     guard = ACK._guard()
     for row in (WEAK, STRONG):
-        assert guard.ACK.search(ACK.draft(HIT, row)), "guard would not accept the draft"
+        assert guard.ACK.search(ACK.draft(row)), "guard would not accept the draft"
     assert isinstance(guard.ACK, re.Pattern)
 
 
 def test_the_draft_never_claims_the_status_changed() -> None:
     """The one thing this tool must never imply it did."""
     for row in (WEAK, STRONG):
-        seg = ACK.draft(HIT, row)
+        seg = ACK.draft(row)
         assert "NOT FLIPPED" in seg
         assert "Tier-3" in seg
 

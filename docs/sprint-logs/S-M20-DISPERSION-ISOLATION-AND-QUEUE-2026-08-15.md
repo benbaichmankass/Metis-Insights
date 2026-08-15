@@ -490,6 +490,15 @@ Not addressable by this sweep, and stated so it is not mistaken for pending
 work: `regime_flip_exit` (38 stale cells) has its own driver and a cutover of
 **NEVER**, and `exit_ladder` (29) has no harness levers.
 
+**I re-verified the `NEVER` rather than inheriting it**, because it holds 38
+cells stale and "a previous session checked it" is not verification. It is
+**correct and current**: `m20_flip_replay_sweep.py:65` calls
+`base_args(name, cfg, fam, data, resample)` — five positional args — while
+`base_args`'s sixth parameter is `tp_cap_pct: float = 0.0`, so that driver
+builds no-take-profit books by construction; `grep` for `tp_cap` / `tp_geometry`
+in that file returns nothing, so there is not even a field to check. A clean
+result, recorded with its date so the next session knows when it was last true.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
