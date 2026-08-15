@@ -898,6 +898,16 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         for r in matrix["rows"] if r.get("execution") == "live"
     }
 
+    # WHY the sub-status is kept. `base()` collapses
+    # `blocked:insufficient_lifetime_trades` and `blocked:native-history-thin`
+    # into one `blocked`, which is right for the headline arithmetic and wrong
+    # for the reader: those two are different problems with different remedies,
+    # and the aggregate invites "12 blocked, revisit later" over a set where
+    # most will not clear on any window. The reason is already ON the cell --
+    # this stops dropping it. Structural: it reports the status string the
+    # matrix carries, never a claim about whether a cell can clear.
+    per_lever_reason: dict[str, Counter[str]] = defaultdict(Counter)
+
     for row, col, status in cells(matrix):
         b = base(status) or "MISSING"
         per_status[b] += 1
@@ -905,6 +915,9 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         if b in OPEN_STATUSES:
             open_cells[b].append(
                 (row["strategy"], row["symbol"], row["tf"], col))
+            # Sub-status only where one exists; a bare `blocked` records itself
+            # as `blocked` rather than inventing a reason it does not state.
+            per_lever_reason[col][status if isinstance(status, str) else str(status)] += 1
 
     total = sum(per_status.values())
     counts = {
@@ -918,6 +931,7 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "total_cells": total,
         "per_status": dict(per_status),
         "per_lever": {k: dict(v) for k, v in per_lever.items()},
+        "per_lever_reason": {k: dict(v) for k, v in per_lever_reason.items()},
         "counts": counts,
         "headline_pct": round(100 * counts["headline"] / total, 1) if total else 0.0,
         "cells_to_done": per_status["pending"] + per_status["blocked"],
@@ -1101,6 +1115,14 @@ def render(r: dict[str, Any]) -> str:
             detail = " ".join(
                 f"{s}={counts[s]}" for s in OPEN_STATUSES if counts.get(s))
             out.append(f"    {lever:<20} {opened:>3}   ({detail})")
+            # The declared reason, where the cell states one. Printed only when
+            # it says more than the base status already did — a lever whose
+            # cells carry no sub-status prints nothing extra rather than a
+            # decorative echo.
+            reasons = r.get("per_lever_reason", {}).get(lever, {})
+            extra = {k: v for k, v in reasons.items() if ":" in k}
+            for k, v in sorted(extra.items(), key=lambda kv: -kv[1]):
+                out.append(f"        {v:>3} × {k}")
     return "\n".join(out)
 
 
