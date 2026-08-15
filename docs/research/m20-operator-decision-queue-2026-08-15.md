@@ -495,7 +495,14 @@ net_R figures are not the live book's.
 
 **Bonus datum for item 2, from a real cell rather than a fleet aggregate.** The
 same leg is **unmeasurable at target 25 and graded at 30** — OOS base 24 vs 31
-against a floor of 25, on a leg with **407 lifetime trades**. The sweep's own
+against a floor of 25, on a leg with **407 lifetime trades**.
+
+checked: scripts/research/m20_fleet_exit_sweep.py — "unmeasurable" is not my
+inference but that sweep's own `insufficient_base` verdict, read from
+`verdicts.json` for both cells of the target-25 arm (relay #9427), beside the
+target-30 arm's `is_oos_fail` on the identical cells. The base OOS counts (24 /
+31) and the floor (25) are the run's own `base_trades_oos` /
+`min_oos_trades_floor` fields, not a reconstruction. The sweep's own
 `insufficient_base_why` says it plainly: *"THE BOUNDARY IS MISPLACED, NOT THE
 LEG."* That is item 2's argument reproduced end-to-end on one cell.
 

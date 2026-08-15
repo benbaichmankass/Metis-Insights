@@ -3308,3 +3308,100 @@ which-fix decision), and the exit-cadence margin added as a coda.
   the confound unless its leg order is matched by hand.
 - **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
   Deploy verification is owed *after* merge.
+
+---
+
+## Sixth overnight stretch (2026-08-15, ~06:45–07:10Z)
+
+### Work completed
+
+1. **Fixed the `pytest-run` filter failure on my own HEAD** (`fc71372` →
+   `518b1e3c`). `test_docs_committed_readers_are_all_covered` reported
+   `{'docs/research': [test_exit_head_corpus_exemption_is_honest.py]}`. A genuine
+   find by that guard, but the reported path was a **scanner artifact**: the
+   derived check scans `tests/` line by line for a docs path joined onto the repo
+   root, and my matrix read was wrapped across two lines, so it saw
+   `REPO / "docs" / "research"` and truncated to the directory. Both files the
+   test actually reads were already in `COVERED` **and** matched by the grep. Fix
+   was to hoist the path to a one-line constant — **not** to widen the grep to the
+   tree, which would have broken `test_deliberate_exclusions_stay_excluded`
+   (`exit-refinement-notes.md` is a pinned deliberate exclusion). Recorded in the
+   test file that the truncation is fail-**SAFE** (a directory never matches the
+   filename-scoped grep, so it errs strict), so a future session does not read the
+   failure as "add the tree".
+
+2. **The stale-decisions banner asserted routing it never computed.**
+   `m20_coverage_rollup.py` printed *"it changes exit behaviour on a real-money
+   leg now"* over every stale non-negative cell while nothing in the script had
+   ever read `config/accounts.yaml`. Measured: **wrong for 3 of 4 rows** —
+   `mes_trend_long_1d` and `mhg_pullback_1d` route to `ib_paper`, and `ib_live` is
+   `real_money` at `mode: dry_run`. Sub-class **A** inside the tool written to
+   stop that class, so it was fixed rather than reworded. Three states
+   (`real_money` / `paper` / `unresolved`), `real_money` requiring **both** gates.
+   Reads through the canonical `src.config.accounts_loader.load_accounts_dict` —
+   `canonical-config-loaders` caught my first hand-rolled `yaml.safe_load`, and
+   the canonical loader's `{}`-on-failure return is mapped back to `None` via its
+   `errors` list so "could not read" is not collapsed into "no accounts".
+
+3. **The 15m screen COMPLETED and refuted a conclusion I had already written.**
+   `ict_scalp_xrp_15m` off4 → `honest_negative` (`beats_hard` 6 → 5), against
+   `candidate` on the other three draws. I recomputed E1 over all 8 arms and it
+   reproduces every recorded verdict. **The flip is not monotone in AUC** — off4
+   fails at 0.5800 while the passing control sits at 0.5681.
+
+4. **Item 7 raised, measured, and resolved in one stretch.** Found via
+   `--stale-decisions`: `htf_pullback_trend_2h / trail_geometry` is `shipped` on
+   2026-07-12 evidence against a 2026-08-10 cutover, on a leg routed to `bybit_2`
+   (real money, live). Re-swept at `--tp-cap-pct 0.099` on both split targets.
+   **Both neighbours lose to the live `trail_mult: 4.0`** (`trail3` worse on
+   everything; `trail5` the IS-only overfit shape). Staleness retired, no Tier-3
+   decision needed.
+
+### Validation performed
+
+- 71 tests across the touched files; guards **38 PASS / 0 FAIL** re-run *after*
+  committing each time, because the guard's own footer states it scans only
+  committed paths.
+- The routing resolver was **mutation-checked**: collapsing `unresolved`→`paper`
+  fails 2 tests; dropping the `mode: live` gate fails exactly the `ib_live` test.
+  Restore verified byte-identical.
+- Item 7's reading was **pre-committed in the queue before the number existed**,
+  so the conclusion could not be fitted to the result.
+
+### Contradictions or drift found (in my own work)
+
+- **I stated a causal claim over two data points and it was refuted within the
+  hour.** "Both movers are 1d, so sample size predicts instability" — `xrp_15m`
+  then moved at `u = 9`, `n_oos = 450`. Struck rather than deleted in both
+  documents. The corrected reading claims only what 12 legs can carry: of two
+  slack-0 cells at equal depth, one moved and one did not.
+- **I conflated measuring with acting.** Item 7 first said I had not run the
+  re-sweep "because it is Tier-3 and yours". Measuring is Tier-1; only changing
+  the lever is gated. Withholding the measurement handed the operator an item
+  asking permission to *look*.
+- **I asserted a CI anomaly without checking the clock.** I twice reported
+  `pytest-run` as running 26 and 35 minutes against a 6.6-minute baseline and
+  began treating it as a pattern. The actual elapsed time was **2.2 minutes** —
+  I had been tracking elapsed time by turn count. Nothing was wrong with CI.
+  Caught before it reached a backlog row, but only just.
+- **Fifth wrong-accessor readout**, now filed as
+  `BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES` with
+  observable resolution criteria. Two relays (#9423, #9424) were spent learning a
+  shape that `grep -n round_report.json scripts/research/m20_exit_head_round.py`
+  answers locally in under a second. The data is remote; the **shape** is not.
+
+### Gaps not yet verified
+
+- **The `htf_pullback_trend_2h` re-sweep tests `4.0 ± 1` only.** No neighbour
+  beats the shipped value; that is not evidence 4.0 is optimal.
+- **Its absolute net_R figures are not the live book's** — `verdicts.json` reports
+  `regime_router: off` with `regime_gate_delta: narrower_live`, so live trades a
+  narrower book. The *delta* is sound (base and cells share the book); the levels
+  are not.
+- **The matrix cell for that lever has NOT been re-stamped** to this run. That is
+  Tier-1 bookkeeping, deliberately left for a session that is not also the one
+  that produced the evidence.
+- **The three paper stale decisions are untouched.**
+- **`trend_donchian 1h` and `scalp_5m` second-pass rounds were never launched** —
+  the trainer was busy with the 15m screen, then the item-7 sweep took the idle
+  window.
