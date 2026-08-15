@@ -4016,3 +4016,114 @@ populated; and `get-env` returns `process: '0'` / `declared: '0'` with no
   rather than the 3.2× measured at go-live, so setting
   `EXIT_LOOP_DECOUPLE_DISABLED` as a rollback costs materially more than the
   08-12 numbers imply.
+
+---
+
+## Twelfth overnight stretch (2026-08-15, ~15:00–15:30Z) — the headline was 22% machine-readable
+
+### Objective
+
+Relaunch the voided 5m screen now that the queue fix exists, then work threads
+that do not need the trainer while it holds the lock. The second half turned
+into the more important finding.
+
+### Work completed
+
+**1. The 5m screen is running, and for the first time it holds the queue.**
+Launched 14:47:56Z at sha `6340a012`, `{"status": "heavy_lock_acquired"}`
+confirmed in the arm log. Box idle apart from it (load 1.02 against 3.65 during
+the 05:33Z thrash). Per-arm re-checkout, hashes printed raw, row counts asserted
+rather than `[ -f ]`. Queue hold flagged on the coordination board with its
+timer impact spelled out, so nobody reads a queued job as a wedged box.
+
+Two launch attempts failed first, both the same way: the relay preserves the
+`cmd:` block's indentation, so a heredoc terminator at column 0 never closed.
+I hit it with a shell heredoc (#9470), fixed it with base64, then **hit it again
+with a Python heredoc one tool over** (#9478). Base64 both times now, with a
+sha256 checked on the box before the script runs.
+
+**2. Matrix bookkeeping + a labelling defect it exposed.** Recorded the
+`htf_pullback_trend_2h` / `trail_geometry` re-sweep in full, deliberately
+**without** touching `status` or `tp_geometry`: the verdict exists only at split
+target 30, which is the operator's open item 2, so stamping `live_parity` would
+retire the cell's staleness on a configuration nobody approved. Both branches of
+item 2 are now spelled out so the follow-up needs no re-derivation.
+
+That surfaced a defect worse than the row it came from. The stale-decisions list
+is headed *"evidence older than the cutover"*, but four conditions set `stale`
+and only one is that. Each row now prints its own `why:` — and **all four are
+held by the geometry field, none by a date**, so the header was wrong for 100 %
+of the rows it described.
+
+**3. The exit_head_ml blocked-cell fleet view.** Verified the gate needs
+`N >= 3b = 150` by enumerating `fold_blocks`' loop; measured that **zero of the
+seven equity 1d legs** reaches it even on full available history (`spy`, with 33
+years, estimates to ~121). The three futures legs pose a different question and
+`mhg`/`mgc` may be rebuild-reachable — flagged as **not measured** rather than
+guessed.
+
+**4. The consolidation — the stretch's real result.** Re-deriving the
+pre-registered baseline from committed data revealed it could not be done:
+`m20-fold-dispersion-arms.jsonl` held **6 legs** against a screened denominator
+of **27**, so **78 %** of the night's headline existed only as prose tables.
+Same defect `rounds.jsonl` was built to prevent.
+
+`docs/research/m20-fold-dispersion-arms-consolidated.jsonl` now holds **234 rows
+/ 61 arm files / 60 screens / 33 legs** — a 3.9× increase — with `fold_offset`
+recovered from each `_round_meta` (61 of 61, zero mismatches against the
+directory names) and the transfer sha256-verified. Then
+`scripts/research/m20_dispersion_rate.py` + a 6-test guard pinning its output
+against the prose.
+
+### Validation performed
+
+- 6 new tests in `test_dispersion_rate_matches_the_doc.py`, **each proven
+  load-bearing by planting the defect it guards**.
+- `run_guards.py --base main` → 38 PASS / 0 FAIL, changed paths confirmed in the
+  scanned diff.
+- Consolidation integrity: sha256 over the uncompressed file matched the box's,
+  234/234 rows, `offset_source: round_meta` on every row, 0 defaulted.
+
+### Contradictions or drift found (mine, this stretch)
+
+- **🔴 One of my own new tests failed its planted-defect proof and was
+  rewritten.** `test_the_disagreeing_legs_are_NAMED_in_the_doc` searched the
+  whole document for leg names that appear in a dozen other tables, so it passed
+  with the section it guards gutted. Scoped to the section, re-planted, now
+  fails. The module argues that a guard which cannot fail is not a guard; it had
+  exempted itself.
+- **The pre-registration I wrote two hours earlier is invalidated by its own
+  data.** `per_leg` is **3 legs, not 2** — `ict_scalp_eth_15m` was screened in
+  `unanimity2` and I never counted it. So the test is 3→6, one mover is already
+  banked, and **no reachable outcome reaches p < 0.05**. Recorded before the 5m
+  rows land.
+- **A "systematic 2×–26× error across 8 matrix cells" that does not exist.** My
+  regex read the *first* stated gap in each ref, which is the superseded one;
+  all eight already carry the correction. I expected staleness in that direction
+  and my parse obligingly produced it.
+- **Two findings that were already known.** The full-history result and the
+  block-size proposal were both already in
+  `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`, the second on stronger grounds
+  (powered *and* specific, not just `u >= 2`). I verified my arithmetic
+  carefully and my novelty not at all.
+- **A negative I nearly published.** An inventory scoped to `/tmp` found no
+  surviving arm logs; a deeper search **with a positive control** found all 61
+  under `runtime_logs/`. A search returning nothing is not proof of absence.
+- **My pings carried invented timestamps** — two labelled 15:40Z and 16:45Z were
+  sent ~15:16Z and ~15:20Z. I was estimating elapsed time rather than reading
+  it. Corrected in the next ping; relay-stamped times from here.
+
+### Gaps not yet verified
+
+- The 5m screen is **arm 1 of 4**; no rows yet, and its verdicts are unread.
+- `fold_offset` is still absent from emitted rows
+  (`BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET`, open). **Deliberately
+  not fixed mid-screen** — the trainer re-checks out per arm, so it would change
+  code between arms. Attribution for this screen is recoverable from each round
+  report.
+- The queue-bypass class is **one script fixed of at least four**; the
+  enumeration is not done (`BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE`).
+- **A second-order result nobody has acted on:** 2 of 22 multi-screen legs have
+  a *mover verdict* that disagrees across screens (~9 %). Every rate in the
+  study is one draw of a statistic with its own dispersion, and no analysis
+  currently accounts for that.
