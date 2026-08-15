@@ -467,6 +467,48 @@ anything, and a leg with one arm has not been screened at all — the same
 overstating-label class this document keeps finding. The readout now refuses to
 say "unanimous" below two arms and always prints the arm count beside the claim.
 
+## This is not an `exit_head_ml` quirk — the same bar governs the other levers
+
+The one-flip criterion was derived on the E1 gate. It transfers, and I checked
+rather than assumed it.
+
+The sweep corpus (`m20-sweep-corpus.jsonl`) grades the *other* lever families —
+`trail_decay`, `stale_stop`, `giveback_stop` — through a walk-forward gate on
+`wf_wins / wf_usable`. Deriving that threshold **empirically** from the 78 wf
+cells rather than taking the "5/6" folklore:
+
+| `wf_wins`/`wf_usable` | verdicts |
+|---|---|
+| 6/6 · 5/6 · 4/6 · 3/4 | all PASS (or `path_b_wf_pass`) |
+| 3/6 · 2/6 · 2/4 · 1/6 · 1/4 · 0/6 | all fail |
+
+That is exactly `wf_wins * 3 >= wf_usable * 2` — **the same 2/3 majority as the
+E1 fold terms**, fitting **78 of 78 rows with zero mispredictions**. So one
+walk-forward fold changing side moves the slack by 3, and the identical
+arithmetic applies:
+
+| | one fold flip from the opposite verdict |
+|---|---|
+| **passing wf cells** | **24 of 49 (49%)** |
+| failing wf cells | 15 of 29 (52%) |
+
+**Twenty-three of those 24 sit at `4/6` — slack exactly zero.** `4/6` is both the
+most common passing value and the minimum passing value, which is what makes the
+share so high: the gate's bar is where its mass is.
+
+**So the fragility is structural to the 2/3 majority rule, not a property of the
+exit-head programme.** Two independent gates, two different harnesses, two
+different lever families, the same arithmetic and the same order of exposure
+(49% / 57%).
+
+### The one reassuring reading, and it is about the live change
+
+**PR #9257's cell — `trend_donchian_xrp_4h` / `decay_arm2R_t2.5` — passes at
+`wf 5/6`, slack `+3`. It SURVIVES one fold flip.** It is not in the fragile
+population, on either of the two runs that measured it. That is a genuine point
+in favour of the queued Tier-3 merge, and it is the reason to state this finding
+beside that decision rather than only as a caveat somewhere else.
+
 ## Limits, stated plainly
 
 1. **This family is the THIN one, so this is an UPPER BOUND** — pre-registered as

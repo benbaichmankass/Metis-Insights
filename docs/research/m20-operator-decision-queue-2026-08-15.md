@@ -30,6 +30,14 @@ Rollback is deleting the two lines.
 config-exact base — so the gain is over *what is live*, and the OOS base book is
 profitable (+2.574), so this is not improvement-to-a-losing-book.
 
+**A late datum in its favour, found after this queue was first written.** The
+one-fold-flip fragility criterion from § 5 also applies to the walk-forward gate
+these levers are graded by (same 2/3 majority, verified an exact fit on 78 of 78
+corpus cells). **49% of all passing wf cells sit exactly at the bar and would
+fail on one fold flip — this one does not.** It passes at `wf 5/6`, slack `+3`,
+on both runs that measured it. So on the axis that turned out to be the night's
+main finding, this change is in the robust half.
+
 **Recommendation: merge, then let me verify the deploy.** Confidence: reasonably
 high on the evidence, which is the strongest in the queue. **Deploy verification
 is owed and unpaid** — merged is not deployed, and this one touches real money.
@@ -125,6 +133,13 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 
 Three candidates sit **exactly** at a fold-majority bar; `eth_pullback_2h` clears
 the AUC bar by **+0.0006**.
+
+**It is not an `exit_head_ml` quirk.** The same 2/3 majority governs the
+walk-forward gate the *other* lever families are graded by — derived empirically
+and an exact fit on **78 of 78** corpus cells. There, **24 of 49 passing cells
+(49%) sit at slack zero**, 23 of them at `4/6`, which is simultaneously the
+minimum and the most common passing value. Two gates, two harnesses, two lever
+families, the same arithmetic and the same order of exposure.
 
 **Why this is the item that matters:** a fragile negative costs an unexplored
 opportunity. A fragile candidate is a cell that would justify **shipping a lever
