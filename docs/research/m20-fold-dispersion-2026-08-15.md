@@ -2642,3 +2642,66 @@ The dedup rule was fixed before counting: a leg is a mover if it moved in **any*
 screen (one observed flip demonstrates instability; a later hold does not
 un-demonstrate it). The stricter *"moved in every screen"* rule gives
 `family_pooled` **7/27 = 25.9 %**. Both are reported; neither is "the" rate.
+
+---
+
+## The 5m re-screen (2026-08-15 evening) — stability is real, but NOT on the axis the summary implies
+
+Four `--fold-offset` arms of `ict_scalp_{avax,sol,xrp}_5m`, run under
+worktree isolation so a mid-run `git reset` could not void them (see the
+CORRECTION above — the heavy lock does not stop the 15-min sync; a linked
+worktree does). Three arms complete at the time of writing; each took
+**~74 min** (74m21s / 74m21s / 74m16s).
+
+| leg | off0 | off4 | off8 | spread | u |
+|---|---|---|---|---|---|
+| `ict_scalp_avax_5m` | 0.6175 | 0.6174 | 0.6251 | 0.0077 | 29 |
+| `ict_scalp_sol_5m`  | 0.6184 | 0.6158 | 0.6177 | 0.0026 | 23 |
+| `ict_scalp_xrp_5m`  | 0.5987 | 0.6064 | 0.6016 | 0.0077 | 22 |
+
+All nine rows graded `candidate`. **Zero verdict flips across three
+partitions** — on this screen, at `block_unit: per_leg`, the verdict did not
+depend on where the folds were cut.
+
+### ⚠️ But `mean_auc` is not the decision variable, and reporting its spread is the wrong reassurance
+
+The E1 gate (`train_exit_head.py:352-354`) is
+`mean_auc > 0.55 AND beats_actual*3 >= u*2 AND beats_hard*3 >= u*2`. The AUC
+term clears by a wide margin **everywhere** — the smallest margin over the bar
+is **+0.0487** — so it is never close to binding. What actually decides these
+cells is the **fold-count** term, and that moves considerably more than AUC
+does:
+
+| leg | `beats_hard` off0 → off4 → off8 | gate slack (min of the two beats terms) |
+|---|---|---|
+| avax | 24 → 26 → 27 | +14 / +20 / +23 |
+| **sol** | 16 → 17 → **16** | **+2** / +5 / **+2** |
+| xrp | 19 → 16 → 17 | +13 / +4 / +7 |
+
+**`ict_scalp_sol_5m` sits at slack +2 in two of the three arms.** Its `u` is 23,
+so the gate needs `beats_hard*3 >= 46`; at `beats_hard = 16` it scores 48. **One
+fold fewer — `beats_hard = 15` — scores 45 and flips the cell to
+`honest_negative`.** The AUC on that same cell moved by 0.0026, the *smallest*
+spread in the table.
+
+So the honest reading is **not** "the verdict is robust because AUC barely
+moved". It is: *the verdict did not flip in three draws, and one of the three
+legs is one fold away from flipping, on a term the AUC spread says nothing
+about.* Quoting the AUC spread as the stability evidence is the
+diagnostic-provenance sub-class A shape — a real number under a label that is
+not the quantity the decision uses.
+
+**Consequence for anyone reading a dispersion summary:** report the spread of
+the **binding term**, or report the gate slack directly. A future screen that
+reports only `mean_auc` dispersion can show a reassuring 0.003 while a cell sits
+one fold from reversing.
+
+### Provenance of these rows
+
+The evidence rows do **not** carry `fold_offset` — the worktree is pinned to a
+commit predating that stamping fix (`BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET`),
+so `off` reads `None` in every row and `None` means *not recorded*, never
+*offset 0*. The partition is recovered from **`round_report.json::_round_meta`**,
+which was verified present and correct for all three arms (`0`, `4`, `8`) —
+which is exactly the field `m20_consolidate_dispersion_arms.offset_for()` reads,
+so the consolidation is unaffected.
