@@ -1081,3 +1081,40 @@ prop_1h              (relay #9156)  legs: trend_donchian_sol_prop, trend_donchia
 A re-run must pass `--legs` in **that** order, not alphabetically. `scalp_5m` is
 `per_leg` and needs no such care. Recording the orders here so the next session
 does not re-derive them from four relays, which is what this cost.
+
+### How much of the corpus could the confound actually reach?
+
+"27 of 33 rows are exposed" says which rows the mechanism can touch, not which
+verdicts it could move. This bounds the second question from committed data.
+
+The AUC term is graded against a **0.55** bar, and leg order alone was observed
+to move `mean_auc` by between **0.0009 and 0.0331** (relay #9402, 2h family, one
+permutation). So a row whose `mean_auc` sits closer to 0.55 than the movement
+could have its AUC term change side from argument order alone:
+
+| bound used | rows within it, of the 27 exposed |
+|---|--:|
+| the **largest** observed movement, 0.0331 | **13** |
+| the **smallest** observed movement, 0.0009 | **1** |
+
+**So: between 1 and 13 of 27.** That is a genuine range, not a hedge — 0.0331 is
+the worst movement seen on one family under one permutation, and quoting it as
+*the* noise level would be as wrong as quoting the smallest.
+
+**Two things that must travel with the number.** Crossing the AUC bar is
+**necessary but not sufficient** to flip a verdict: the gate is a four-term
+conjunction, so a row already failing a fold-majority term does not flip because
+its AUC moved. And `usable_folds` was *also* observed to move (43→42, 43→41),
+which feeds the other three terms — so this bound covers one term of four and is
+not a bound on verdict changes.
+
+**The single most marginal row in the corpus is an exposed one.**
+`eth_pullback_2h` is graded `candidate` on a `mean_auc` of **0.5506** — it clears
+the bar by **0.0006**, while the order-noise measured on *its own family, in its
+own round* reaches **0.0331**. The margin is roughly **55× smaller than the
+nuisance term**. That single row is the clearest statement of why the defect
+matters, and it is why I would not want a `candidate` at that margin read as a
+finding without the fix.
+
+**Reproduce:** `docs/research/m20-exit-head-rounds.jsonl` alone — `mean_auc`,
+`block_unit` and the round id parsed from `provenance`; no trainer call.
