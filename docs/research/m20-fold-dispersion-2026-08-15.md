@@ -2378,6 +2378,39 @@ earlier regime need not trade at the same rate, so `est. max N` is an
 worth running"* — and says no — never *"this leg will not grade"*. A rebuild
 that measured the real counts would settle it; this says don't expect it to.
 
+### The 3 futures legs split the other way — and their question is still open
+
+The table above covers the seven equity 1d legs. The remaining three
+(`insufficient_lifetime_trades` on futures series) behave differently and should
+not be folded into the same verdict:
+
+| leg | series | N | rate/yr | span built | yrs for 150 | extra yrs needed |
+|---|---|--:|--:|--:|--:|--:|
+| `mhg_pullback_1d` | `HG_F_1d.csv` | 80 | 8.0 | 9.7 | 18.8 | **9.1** |
+| `mgc_pullback_1d` | `GC_F_1d.csv` | 74 | 7.4 | 9.7 | 20.3 | **10.6** |
+| `mes_trend_long_1d` | `ES_F_1d.csv` | 33 | 3.7 | 9.0 | 40.5 | 31.5 |
+
+**The equity question was "does the full known series suffice?" — answer no.
+Here it is a different question**: the series is ~10 y *by construction* (each
+ref calls it "the deepest available"), so what matters is whether a deeper one
+**exists**. `mhg` and `mgc` need roughly **double** the span on hand, which is
+well within what a continuous-contract daily series can plausibly cover. `mes`
+needs ~40 y and is not in that category.
+
+⚠️ **NOT MEASURED, and it is the entire question.** Whether ES_F / GC_F / HG_F
+daily series longer than ~10 y are obtainable through the builder's source has
+not been established this session. *"Deepest available"* in those refs describes
+**what was built**, and I have not shown that is **what exists** — which is
+precisely the distinction that made the equity-side `EQ_1D_START` *"~11.6 y
+chosen window"* claim wrong (retracted 2026-08-13: field beats comment). I am
+not repeating that error one series over.
+
+**The concrete next step, and it is small:** ask the builder's source for the
+earliest available daily bar on those three roots. If a ~20 y series exists,
+`mhg` and `mgc` become rebuild-reachable and stop belonging in the same bucket
+as the seven equity legs. Not run tonight — the trainer is holding my screen's
+heavy lock, and this is a query, not an emergency.
+
 ### 🔴 The block-size route is already closed — my version of it is superseded
 
 I drafted this section as *"if not history, then block size"*, with the
