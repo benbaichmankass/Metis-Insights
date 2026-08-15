@@ -2986,6 +2986,28 @@ round contradicts them.
   Two findings compose here: the CI re-trigger needs a merge commit, and the
   merge commit needs the board's backlog-conflict recipe to produce. Confirmed
   back on the board so the row carries the datum.
+
+  **FINAL: all four GREEN, `mergeable_state: clean`** on head `960047c1`
+  (`pytest-run` 9m59s). #9257 went from unmergeable-across-seven-pushes to
+  clean. It is **still a draft and still NOT merged** — Tier-3 real money.
+
+  ⚠️ **And I made it worse before better, which is the part worth keeping.**
+  After the merge commit went green I pushed three more docs commits, polled,
+  saw **3 of 4** checks with `pytest-run` missing, read that as the
+  partial-attach case, and closed+reopened the PR to re-trigger. `pytest-run`
+  **had already started** — 15 s behind the other three. **Check-run
+  registration is not atomic**, so a short poll returning N < 4 is not evidence
+  a check is absent. My close **cancelled a running `pytest-run`**
+  (`conclusion: cancelled`, 29 s in) and the reopen restarted it from zero:
+  ~10 minutes lost, plus a duplicate `repo-inventory`. Two polls a minute apart
+  both showed 3 and I treated the repetition as confirmation — it was just the
+  same too-early snapshot twice.
+
+  The narrower rule, posted to the board: **prefer the merge commit** (attaches
+  all four, cancels nothing); close/reopen is the fallback for when there is
+  nothing to merge — which is exactly when a still-registering check is most
+  likely to be mistaken for an absent one. Close/reopen also drops auto-merge
+  and queue membership, irrelevant here but not in general.
 - **The backlog merge used a three-way classification, not the published
   recipe.** The board's rule ("for a row on both sides, your branch wins") is
   right in the common case but loses the *other* session's in-place edit when
