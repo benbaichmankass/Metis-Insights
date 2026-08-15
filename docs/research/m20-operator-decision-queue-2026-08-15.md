@@ -339,6 +339,15 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 > something falsifiable: a family with AUCs near 0.55 should produce movers the
 > slack flag misses.
 >
+> **5c-bis. ⚠️ A caveat on the 34% itself, found 12:23Z:** that figure pools
+> **two different perturbations**. The corpus is 27 `family_pooled` legs and 6
+> `per_leg`. In a pooled round, shifting the fold offset re-cuts a stream
+> *interleaved across legs*, so a leg's verdict can move because a **sibling's**
+> trades crossed the boundary; in a `per_leg` round only its own trades move.
+> Measured: `family_pooled` **9/27 (33%)**, `per_leg` **1/2** — and that second
+> cell is **vacuous at n = 2**, so the comparison I would most want cannot be made
+> with the data I have. The running 5m screen takes `per_leg` from 2 legs to 5.
+>
 > **5d. Two false negatives resist all of it** — `ada_4h` (slack +7, AUC margin
 > +0.12) and `eth_4h` (−5, +0.08) are far from **both** bars and moved anyway. I
 > am not adding a third term to cover them; three post-hoc stories have already
