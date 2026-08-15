@@ -2963,13 +2963,39 @@ round contradicts them.
 
 ### Gaps not yet verified
 
-- **CI still is not attaching to PR #9257** — `get_check_runs` returned
-  `total_count: 0` on the new head `af687ba7`, the sixth consecutive push. The
-  earlier isolation stands (a `workflow_dispatch` of the same workflow on this
-  branch ran and passed at 19:24:45Z, so the workflow and branch are fine and
-  only `pull_request`-event delivery is dead) — but **why** delivery stopped is
-  still unestablished, and #9257 remains unmergeable. No positive control was
-  available this stretch: #9257 is the only open PR.
+- ~~**CI still is not attaching to PR #9257**~~ — **RESOLVED 00:24Z, and my
+  diagnosis was wrong.** I reported this as a repo-wide outage across seven
+  pushes. A concurrent session had already measured the truth and posted it to
+  coordination board #6927 at 14:30Z: the condition is **intermittent per push**
+  (4 of 6 attached nothing, 2 ran), and **a merge commit or a close/reopen
+  attaches every time**. So zero checks means *this head was skipped and can be
+  re-triggered*, not *CI is down*.
+
+  I had the evidence to reach that myself and drew the wrong conclusion from it:
+  a `workflow_dispatch` passing on the same workflow and branch proves the
+  workflow and branch are fine, and says **nothing** about whether the next push
+  will attach. I read it as "therefore delivery is dead."
+
+  Acting on the board's finding: `PUT /pulls/9257/update-branch` returned **422
+  `merge conflict between base and head`** (8 commits behind, conflicting on
+  `docs/claude/health-review-backlog.json` alone), so the merge was done locally
+  and pushed as `dc393f82`. **All four checks attached immediately** —
+  `guards` ✅, `repo-inventory` ✅, `pytest-collect` ✅, `pytest-run` running.
+  The eight preceding plain pushes to the same branch attached zero each.
+
+  Two findings compose here: the CI re-trigger needs a merge commit, and the
+  merge commit needs the board's backlog-conflict recipe to produce. Confirmed
+  back on the board so the row carries the datum.
+- **The backlog merge used a three-way classification, not the published
+  recipe.** The board's rule ("for a row on both sides, your branch wins") is
+  right in the common case but loses the *other* session's in-place edit when
+  both sides touch one row. Classified against the merge base instead: base 565
+  + 12 new mine + 1 new theirs + 2 edited-by-me + 7 edited-by-you = **578**,
+  reconciles exactly, **zero rows changed on both sides**, and a distinctive
+  string from both my edits and theirs was asserted to survive.
+- **#9257 is still NOT merged and must not be** — Tier-3 real-money
+  `config/strategies.yaml`, draft, queued for the operator. CI attaching only
+  removes the "cannot be evaluated" blocker in front of that decision.
 - **The pullback hard-lever re-sweep answered a different question than it was
   launched for** (relays #9367 / #9368). It was launched because the
   `beats_hard` finding needed those columns' live-parity numbers. At the default
