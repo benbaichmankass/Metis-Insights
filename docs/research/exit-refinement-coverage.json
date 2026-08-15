@@ -28,19 +28,19 @@
       "execution": "live",
       "trail_geometry": {
         "status": "honest_negative",
-        "ref": "memo §7.2 (2.5 ATR stands)"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.2 (2.5 ATR stands)"
       },
       "stale_stop": {
         "status": "honest_negative",
-        "ref": "memo §6 (BTC cell fails)"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6 (BTC cell fails)"
       },
       "giveback_stop": {
         "status": "honest_negative",
-        "ref": "memo §7.3"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.3"
       },
       "exit_ladder": {
         "status": "honest_negative",
-        "ref": "memo §6.2 (banking loses net_R) [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2 (banking loses net_R) [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "shipped_gate_failed",
@@ -67,7 +67,7 @@
       "execution": "live",
       "trail_geometry": {
         "status": "honest_negative",
-        "ref": "memo §7.2"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.2"
       },
       "stale_stop": {
         "status": "honest_negative",
@@ -75,11 +75,11 @@
       },
       "giveback_stop": {
         "status": "honest_negative",
-        "ref": "memo §7.3"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.3"
       },
       "exit_ladder": {
         "status": "honest_negative",
-        "ref": "memo §6.2 [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2 [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "shipped",
@@ -106,7 +106,7 @@
       "execution": "live",
       "trail_geometry": {
         "status": "honest_negative",
-        "ref": "memo §7.2"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.2"
       },
       "stale_stop": {
         "status": "honest_negative",
@@ -114,11 +114,11 @@
       },
       "giveback_stop": {
         "status": "honest_negative",
-        "ref": "memo §7.3"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.3"
       },
       "exit_ladder": {
         "status": "honest_negative",
-        "ref": "memo §6.2 [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2 [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "shipped_gate_failed",
@@ -150,19 +150,19 @@
       },
       "stale_stop": {
         "status": "honest_negative",
-        "ref": "memo §6"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6"
       },
       "giveback_stop": {
         "status": "honest_negative",
-        "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) — the trail5-era sweep pass (memo §7.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
+        "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) — the trail5-era sweep pass (memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
       },
       "exit_ladder": {
         "status": "honest_negative",
-        "ref": "memo §6.2 [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2 [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "honest_negative",
-        "ref": "|| LIVE-PARITY RE-SWEEP RECORDED 2026-08-14 (the cell previously rested on a pre-cutover round; this is the newer evidence, not a new verdict). The re-sweep REPRODUCES the negative — status unchanged, and that is the finding. Round htf_pullback_trend_2h @ live_parity: n_oos=400 auc=0.5342 beats_actual=28/43 beats_hard=22/43 -> honest_negative, re-derived from the E1 gate. Failing term(s): mean_auc>0.55, beats_actual, beats_hard [mean_auc>0.55=0.5342; beats_actual=84/86; beats_hard=66/86]. block_unit=family_pooled — folds are cut over the FAMILY's pooled trades, so this is this leg's slice of a pooled cut, not an independent measurement. || PRIOR REF, PRESERVED: E1 pullback-2h AUC~0.50, memo §8 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate — 0/5 folds — every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail.",
+        "ref": "|| LIVE-PARITY RE-SWEEP RECORDED 2026-08-14 (the cell previously rested on a pre-cutover round; this is the newer evidence, not a new verdict). The re-sweep REPRODUCES the negative — status unchanged, and that is the finding. Round htf_pullback_trend_2h @ live_parity: n_oos=400 auc=0.5342 beats_actual=28/43 beats_hard=22/43 -> honest_negative, re-derived from the E1 gate. Failing term(s): mean_auc>0.55, beats_actual, beats_hard [mean_auc>0.55=0.5342; beats_actual=84/86; beats_hard=66/86]. block_unit=family_pooled — folds are cut over the FAMILY's pooled trades, so this is this leg's slice of a pooled cut, not an independent measurement. || PRIOR REF, PRESERVED: E1 pullback-2h AUC~0.50, memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §8 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate — 0/5 folds — every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail.",
         "tp_geometry": "live_parity"
       },
       "trail_decay": {
@@ -185,7 +185,7 @@
       "execution": "live",
       "trail_geometry": {
         "status": "honest_negative",
-        "ref": "trail stays 5.0 (no passing cell), memo §7.2"
+        "ref": "trail stays 5.0 (no passing cell), memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §7.2"
       },
       "stale_stop": {
         "status": "honest_negative",
@@ -197,7 +197,7 @@
       },
       "exit_ladder": {
         "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked (memo §6.2) [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked (memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2) [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "honest_negative",
@@ -632,7 +632,7 @@
       },
       "exit_ladder": {
         "status": "blocked:no_harness_levers",
-        "ref": "no ladder cell in the round-2 sweep — partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner) || MEASURED 2026-08-13: the harness cannot express this lever. Verified by AST over the harness CLI (the same method the `blocked:no_harness_levers` precedent on THIS row's `vol_trail` cell used, not a grep): `scripts/backtest_squeeze.py` declares 28 CLI flags including SEVEN exit levers (`--tp-r`, `--tp-cap-pct`, `--trail-mult`, `--giveback-r`, `--giveback-min-mfe-r`, `--stale-exit-bars`, `--stale-exit-below-r`) but NEITHER `--bank-frac` NOR `--bank-at-r`, which are what partial-TP banking is expressed with. Positive control asserted first: the same AST probe finds both flags in `backtest_ict_scalp.py`, the leg that carries a real measured `exit_ladder` verdict — so the absence here is a finding, not a broken probe. Only 3 of 13 harnesses have banking (ict_scalp, pullback, trend). `pending` -> `blocked:no_harness_levers`: the cell was un-run because it is UNRUNNABLE, which is a measured cause. Deliberately NOT set to `honest_negative` by inheriting the 45 rows that carry memo §6.2 (`banking loses net_R`) — the matrix's own `_doc` forbids an inherited verdict, and 'the memo measured other legs' is not a measurement of this one. || FORWARD ASSESSMENT 2026-08-13 (a PROJECTION, explicitly not a measurement — recorded so the next session does not re-derive it, and labelled so nobody cites it as a verdict): is it worth BUILDING the missing harness lever for this leg? Expected value is LOW, on three grounds, only the first two of which are measured. (1) FLEET PRIOR IS NEGATIVE. vol_trail was swept fleet-wide on 2026-08-13 across 6 legs and returned exactly ONE candidate (qqq_pullback_1h, wf 6/6, passed_unshipped); one honest_negative (scha); four blocked for thin data. Partial-TP banking, which is what exit_ladder expresses, is the milestone-wide honest negative of memo section 7.2 (banking loses net_R across 45 rows). Neither prior is evidence about THIS leg — the matrix _doc forbids an inherited verdict and this note does not claim one — but a prior that weak is a poor reason to spend harness work. (2) THE SAMPLE MAY NOT SUPPORT A VERDICT EVEN IF THE LEVER EXISTED. Deepest recorded backtest depth for this leg is n=135 at a 2900d lookback (docs/research/RESEARCH-RIGOR-STANDARD.md line 94); at 730d it is n=28. A derived IS/OOS split of n=135 lands the OOS base in roughly the 25-35 band against the harness's 25-trade floor — i.e. MARGINAL, not comfortably clear. That is the same regime that returned blocked:insufficient_oos_base_at_derived_split for iwm/splg in the 2026-08-13 vol_trail sweep, so the plausible outcome of building the lever is another blocked cell rather than a verdict. Stated as a range because it is arithmetic on a recorded n, NOT a run: the actual split is resolve_split's to compute and it has surprised me before (probe error #8 — I screened eligibility off matrix lifetime refs and the harness measured materially lower). (3) The leg is BTC 4h, the slowest cadence in the fleet, so accrual will not relieve (2) on any near horizon. WHAT WOULD CHANGE THIS: a measured lifetime count for this leg above roughly 2x the OOS floor at the split the harness actually derives — measure it, do not project it — or a fleet vol_trail/banking result that stops being a coin flip. [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "no ladder cell in the round-2 sweep — partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner) || MEASURED 2026-08-13: the harness cannot express this lever. Verified by AST over the harness CLI (the same method the `blocked:no_harness_levers` precedent on THIS row's `vol_trail` cell used, not a grep): `scripts/backtest_squeeze.py` declares 28 CLI flags including SEVEN exit levers (`--tp-r`, `--tp-cap-pct`, `--trail-mult`, `--giveback-r`, `--giveback-min-mfe-r`, `--stale-exit-bars`, `--stale-exit-below-r`) but NEITHER `--bank-frac` NOR `--bank-at-r`, which are what partial-TP banking is expressed with. Positive control asserted first: the same AST probe finds both flags in `backtest_ict_scalp.py`, the leg that carries a real measured `exit_ladder` verdict — so the absence here is a finding, not a broken probe. Only 3 of 13 harnesses have banking (ict_scalp, pullback, trend). `pending` -> `blocked:no_harness_levers`: the cell was un-run because it is UNRUNNABLE, which is a measured cause. Deliberately NOT set to `honest_negative` by inheriting the 45 rows that carry memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2 (`banking loses net_R`) — the matrix's own `_doc` forbids an inherited verdict, and 'the memo measured other legs' is not a measurement of this one. || FORWARD ASSESSMENT 2026-08-13 (a PROJECTION, explicitly not a measurement — recorded so the next session does not re-derive it, and labelled so nobody cites it as a verdict): is it worth BUILDING the missing harness lever for this leg? Expected value is LOW, on three grounds, only the first two of which are measured. (1) FLEET PRIOR IS NEGATIVE. vol_trail was swept fleet-wide on 2026-08-13 across 6 legs and returned exactly ONE candidate (qqq_pullback_1h, wf 6/6, passed_unshipped); one honest_negative (scha); four blocked for thin data. Partial-TP banking, which is what exit_ladder expresses, is the milestone-wide honest negative of memo section 7.2 (banking loses net_R across 45 rows). Neither prior is evidence about THIS leg — the matrix _doc forbids an inherited verdict and this note does not claim one — but a prior that weak is a poor reason to spend harness work. (2) THE SAMPLE MAY NOT SUPPORT A VERDICT EVEN IF THE LEVER EXISTED. Deepest recorded backtest depth for this leg is n=135 at a 2900d lookback (docs/research/RESEARCH-RIGOR-STANDARD.md line 94); at 730d it is n=28. A derived IS/OOS split of n=135 lands the OOS base in roughly the 25-35 band against the harness's 25-trade floor — i.e. MARGINAL, not comfortably clear. That is the same regime that returned blocked:insufficient_oos_base_at_derived_split for iwm/splg in the 2026-08-13 vol_trail sweep, so the plausible outcome of building the lever is another blocked cell rather than a verdict. Stated as a range because it is arithmetic on a recorded n, NOT a run: the actual split is resolve_split's to compute and it has surprised me before (probe error #8 — I screened eligibility off matrix lifetime refs and the harness measured materially lower). (3) The leg is BTC 4h, the slowest cadence in the fleet, so accrual will not relieve (2) on any near horizon. WHAT WOULD CHANGE THIS: a measured lifetime count for this leg above roughly 2x the OOS floor at the split the harness actually derives — measure it, do not project it — or a fleet vol_trail/banking result that stops being a coin flip. [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "blocked:insufficient_lifetime_trades",
@@ -670,7 +670,7 @@
       },
       "exit_ladder": {
         "status": "blocked:no_harness_levers",
-        "ref": "no ladder cell in the round-2 sweep — partial-TP banking is parked milestone-wide (M20 finding) || MEASURED 2026-08-13: the harness cannot express this lever. Verified by AST over the harness CLI (the same method the `blocked:no_harness_levers` precedent on `squeeze_breakout_4h`'s `vol_trail` cell used, not a grep): `scripts/backtest_fvg_range.py` declares 30 CLI flags but NEITHER `--bank-frac` NOR `--bank-at-r`, which are what partial-TP banking is expressed with. Positive control asserted first: the same AST probe finds both flags in `backtest_ict_scalp.py`, the leg that carries a real measured `exit_ladder` verdict — so the absence here is a finding, not a broken probe. Only 3 of 13 harnesses have banking (ict_scalp, pullback, trend). `pending` -> `blocked:no_harness_levers`: the cell was un-run because it is UNRUNNABLE, which is a measured cause. Deliberately NOT set to `honest_negative` by inheriting the 45 rows that carry memo §6.2 (`banking loses net_R`) — the matrix's own `_doc` forbids an inherited verdict, and 'the memo measured other legs' is not a measurement of this one. [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
+        "ref": "no ladder cell in the round-2 sweep — partial-TP banking is parked milestone-wide (M20 finding) || MEASURED 2026-08-13: the harness cannot express this lever. Verified by AST over the harness CLI (the same method the `blocked:no_harness_levers` precedent on `squeeze_breakout_4h`'s `vol_trail` cell used, not a grep): `scripts/backtest_fvg_range.py` declares 30 CLI flags but NEITHER `--bank-frac` NOR `--bank-at-r`, which are what partial-TP banking is expressed with. Positive control asserted first: the same AST probe finds both flags in `backtest_ict_scalp.py`, the leg that carries a real measured `exit_ladder` verdict — so the absence here is a finding, not a broken probe. Only 3 of 13 harnesses have banking (ict_scalp, pullback, trend). `pending` -> `blocked:no_harness_levers`: the cell was un-run because it is UNRUNNABLE, which is a measured cause. Deliberately NOT set to `honest_negative` by inheriting the 45 rows that carry memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §6.2 (`banking loses net_R`) — the matrix's own `_doc` forbids an inherited verdict, and 'the memo measured other legs' is not a measurement of this one. [ref corrected: the banking verdict is memo §6.2 \"Trailing-stop geometry + exit-ladder banking\" — \"partial-TP banking reduced net_R in every one of the 20 banking cells\". The trail4 walk-forward section contains nothing about banking; the claim was right, the pointer was off by one section.]"
       },
       "exit_head_ml": {
         "status": "pending"
@@ -1578,7 +1578,7 @@
       },
       "exit_ladder": {
         "status": "pending",
-        "ref": "turtle_soup is the only ladder-declaring strategy (memo §5)"
+        "ref": "turtle_soup is the only ladder-declaring strategy (memo (`docs/research/M20-exit-refinement-2026-07-12.md`) §5)"
       },
       "exit_head_ml": {
         "status": "pending"
