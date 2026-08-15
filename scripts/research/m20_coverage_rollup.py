@@ -1187,8 +1187,14 @@ def render(r: dict[str, Any]) -> str:
                 f"N >= 3b = {3 * _E1_BLOCK}; even ONE fold needs N >= {2 * _E1_BLOCK}.",
                 "    THERE IS NO DATE SPLIT ON THIS LEVER — MIN_OOS_TRADES and the "
                 "IS/OOS cut belong to the LEVER sweep. Moving a split cannot create "
-                "folds a leg has no trades for (BL-20260815-EXIT-HEAD-MATRIX-REFS-"
-                "USE-THE-LEVER-SWEEPS-ARITHMETIC)."]
+                "folds a leg has no trades for. Tracked by",
+                # KEPT ON ONE LINE. A tracking id wrapped across a string-literal
+                # break reads to `check_backlog_refs` as the truncated prefix, which
+                # resolves to nothing and fails the guard — correctly, since a doc
+                # citing a half-id is citing a row that does not exist. This is the
+                # SECOND time this session; the fix is never to wrap an id, not to
+                # loosen the guard.
+                "    BL-20260815-EXIT-HEAD-MATRIX-REFS-USE-THE-LEVER-SWEEPS-ARITHMETIC."]
         for row in reach:
             out.append(f"      {row['strategy']:<26} N={row['lifetime_trades']:>4}  "
                        f"u={row['usable_folds']}  needs {row['short_by']} more trade(s) "
