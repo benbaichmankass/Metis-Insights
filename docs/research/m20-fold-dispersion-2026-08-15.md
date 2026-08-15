@@ -999,3 +999,39 @@ Filed as `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER`.
 
 **Reproduce:** `m20_exit_head_round.py:157,343` · `build_exit_head_dataset.py:583,634,730`
 · `train_exit_head.py:90,518` · relays #9403 (fold divergence), #9406 (leg orders).
+
+### Which rows are exposed — and the comparability rule, upgraded
+
+The confound needs **two or more legs pooled into one sort**. A `per_leg` round
+trains on one leg, so there are no cross-leg ties to permute and its result
+cannot depend on argument order. That splits the corpus cleanly:
+
+| `block_unit` | rounds | rows | exposure |
+|---|--:|--:|---|
+| `family_pooled` (2–7 legs each) | 6 | **27** | **exposed** — order sets the tie-break |
+| `per_leg` (`scalp_15m`, `scalp_5m`) | 2 | 6 | **structurally immune** |
+
+**This predicts the observed control partition with no free parameters:**
+
+| round | pooled? | control | why |
+|---|---|---|---|
+| `scalp_15m` | per_leg | ✅ OK | immune |
+| `pullback_1h` | family_pooled ×4 | ✅ OK | order happened to match |
+| `pullback_1d` | family_pooled ×6 | ✅ OK (×2 runs) | order matched |
+| `eth_denom_2h` | family_pooled ×7 | ❌ MISMATCH | order differed |
+| `eth_denom_4h` | family_pooled ×5 | ❌ MISMATCH | order differed |
+
+And it is being confirmed live as this is written: the running 15m screen's arms
+are single-leg (`legs=['ict_scalp_sol_15m']`), and its off0 control reproduces the
+recorded `0.5808` at `u = 9` **exactly** — the immunity prediction, met.
+
+**So the comparability rule committed earlier gets one more line.** It previously
+said: check the round id before launching, because a `family_pooled` re-run can
+only reproduce legs from one round. Add:
+
+> …and for a `family_pooled` round, **match the leg ORDER too** — it is recorded
+> in `round_report.json::_round_meta::legs`. Matching the round id is not
+> sufficient. A `per_leg` round needs no such check.
+
+That is a check that costs one file read and would have saved the four relays
+this took to find.
