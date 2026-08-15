@@ -140,6 +140,45 @@ deciding measurement* or *the latest measurement*. Those give different answers
 here, and it is a policy choice about what the matrix means, not a fact about
 these ten legs.
 
+### UPDATE 06:40Z — I re-derived this list from committed data, and it is NOT ten silent contradictions
+
+Two corrections, both to my own framing, and the second is a correction to an
+analysis I nearly put in front of you.
+
+**1. Seven of the ten already say so in their own `ref`.** The matrix cells carry
+`LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS` (the string
+`check_matrix_corpus_agreement.py` recognises as an acknowledgement). So they are
+**documented, deliberate retentions** with the newer measurement recorded beside
+them — not undisclosed disagreements. That is a materially different item from
+the one this section originally described.
+
+**2. My own "the re-measurements are systematically favourable" finding was an
+artifact, and I am reporting it because I nearly reported the opposite.** Scoring
+direction over the ten gave **9 of 10 moving the favourable way** (p = 0.0215
+against a fair-coin null) — which reads as a garden-of-forking-paths warning.
+Reading the refs killed it:
+
+- The refs **already name that exact mechanism**, measured by an earlier session:
+  *"3-fold years-mode was systematically optimistic across the fleet: 2
+  downgrades, 0 upgrades."* So the asymmetry is a known, corrected effect, not a
+  new discovery.
+- The cells are **not exchangeable**, which a binomial test assumes. Three of the
+  ten are `ict_scalp` rows whose own provenance string says **"NOT comparable to
+  the capped donchian/pullback rounds"** — a geometry difference recorded at the
+  time.
+- For those three the **matrix is the more-folds measurement** (`2026-08-13`
+  re-run, `fold-mode=trades`, the `fold_blocks` fix) and the rounds row is a
+  later run under a different configuration. `ict_scalp_xrp_15m` has now read
+  candidate → downgraded → candidate across three measurements.
+
+**What survives, and what it means for your decision:** the honest description is
+**"ten cells with competing measurements, seven already annotated as such"**, and
+at least three of them are a *fold-count/geometry* disagreement rather than a
+same-experiment reversal. The policy question above is unchanged — but the item
+is smaller and better-documented than it looked, and **the fleet-wide
+favourable-direction alarm I was about to raise is already-known and
+already-corrected**, so please do not read one into it.
+
 ---
 
 ## 4. `iaum_pullback_1d` — a `candidate` that survives 1 of 7 boundary draws
