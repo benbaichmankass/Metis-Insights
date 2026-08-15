@@ -33,6 +33,16 @@ read is kept explicit:
     standing in for the other. On the 2026-08-15 corpus: 61 of 61 recovered from
     the report, **0 mismatches** against the directory.
 
+    ⚠️ READ ``dir_offset_mismatch`` BESIDE ``dir_offset_comparable``. A bare 0
+    is the SAME reading whether every arm agreed or no arm could be compared,
+    and only one of those is reassuring. The layout decides which: the flat
+    ``…/off8/rounds.jsonl`` states the offset in the arm dir, but the
+    worktree-isolated screen writes ``…/off8/out/rounds.jsonl`` (the driver
+    passes ``--out <arm>/out``), whose basename is ``out``. ``dir_offset_for``
+    checks the parent for exactly that reason; before it did, every arm of that
+    run resolved None and the cross-check would have been vacuous while
+    reporting a clean 0. The run summary now says so in words.
+
 RUN IT ON THE TRAINER (the arm tree lives there, not in the repo), e.g. via the
 `trainer-vm-diag` relay, then transfer the output. **Transfer it compressed and
 check the hash**: a first plain-text emit was silently truncated by GitHub's
@@ -64,6 +74,34 @@ CARRY = ("leg", "block_unit", "mean_auc", "usable_folds", "beats_actual",
 _DIR_OFFSET = re.compile(r"off(\d+)$")
 
 
+def dir_offset_for(arm_dir: str) -> object:
+    """The offset parsed from the directory NAME, or None if it does not state one.
+
+    Deliberately checks the arm dir AND its parent, because the two layouts this
+    tree has used put the marker in different places::
+
+        runtime_logs/m20_exit_head/<screen>/off8/rounds.jsonl   -> basename `off8`
+        /tmp/m20_5m_wt_<ts>/off8/out/rounds.jsonl               -> basename `out`
+
+    The second is what the 2026-08-15 worktree-isolated screen writes (the driver
+    passes `--out <arm>/out`), and against a basename-only match EVERY arm in that
+    run resolves None. That is not a cosmetic miss: `dir_offset` exists solely as
+    an INDEPENDENT check on the `_round_meta` offset, so silently resolving it to
+    None everywhere leaves `dir_offset_mismatch` at 0 over a population of ZERO
+    comparisons -- a clean-looking agreement that compared nothing, which is the
+    unasserted-denominator class this repo's diagnostic-provenance rule names.
+
+    Still returns None when neither level states an offset. None means "the path
+    does not say", never 0 -- the same distinction `offset_for` keeps.
+    """
+    base = os.path.basename(os.path.normpath(arm_dir))
+    m = _DIR_OFFSET.search(base)
+    if m is None:
+        parent = os.path.basename(os.path.dirname(os.path.normpath(arm_dir)))
+        m = _DIR_OFFSET.search(parent)
+    return int(m.group(1)) if m else None
+
+
 def offset_for(arm_dir: str) -> tuple[object, str]:
     """(fold_offset, offset_source) for one arm directory.
 
@@ -85,8 +123,12 @@ def offset_for(arm_dir: str) -> tuple[object, str]:
 
 def consolidate(root: str) -> tuple[list[dict], dict]:
     out: list[dict] = []
+    # `dir_offset_comparable` is the DENOMINATOR for `dir_offset_mismatch`, and
+    # it ships beside it because the mismatch count alone cannot distinguish
+    # "every arm agreed" from "no arm was comparable". Both read 0.
     stats = {"arm_dirs": 0, "rows": 0, "meta_ok": 0, "meta_missing": 0,
-             "dir_offset_mismatch": 0, "unparseable_rows": 0}
+             "dir_offset_comparable": 0, "dir_offset_mismatch": 0,
+             "unparseable_rows": 0}
     for dirpath, _dirs, files in os.walk(root):
         if "rounds.jsonl" not in files:
             continue
@@ -94,10 +136,11 @@ def consolidate(root: str) -> tuple[list[dict], dict]:
         off, src = offset_for(dirpath)
         stats["meta_ok" if src == "round_meta" else "meta_missing"] += 1
 
-        m = _DIR_OFFSET.search(os.path.basename(dirpath))
-        dir_off = int(m.group(1)) if m else None
-        if off is not None and dir_off is not None and int(off) != dir_off:
-            stats["dir_offset_mismatch"] += 1
+        dir_off = dir_offset_for(dirpath)
+        if off is not None and dir_off is not None:
+            stats["dir_offset_comparable"] += 1
+            if int(off) != dir_off:
+                stats["dir_offset_mismatch"] += 1
 
         for line in open(os.path.join(dirpath, "rounds.jsonl")):
             line = line.strip()
@@ -146,6 +189,17 @@ def main(argv: list[str]) -> int:
         fh.write(body)
 
     print("STATS " + json.dumps(stats, sort_keys=True))
+    # Say it in words, because `dir_offset_mismatch: 0` is the SAME reading
+    # whether every arm agreed or none could be compared, and only one of those
+    # is reassuring.
+    _cmp, _arms = stats["dir_offset_comparable"], stats["arm_dirs"]
+    if _cmp == 0:
+        print(f"dir cross-check: VACUOUS — 0 of {_arms} arm dir(s) stated an "
+              f"offset in their path, so `dir_offset_mismatch: 0` compared "
+              f"NOTHING and is not evidence the offsets are right.")
+    else:
+        print(f"dir cross-check: {_cmp} of {_arms} arm dir(s) comparable, "
+              f"{stats['dir_offset_mismatch']} mismatch(es).")
     for label, key in (("offsets", "fold_offset"), ("offset_source", "offset_source"),
                        ("block_unit", "block_unit")):
         print(f"{label:<14}: "
