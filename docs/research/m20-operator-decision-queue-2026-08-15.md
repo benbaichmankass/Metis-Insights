@@ -895,10 +895,37 @@ That range was explicitly illustrative and ATR-derived; these are measurements.
 The 9.9% clamp is a more ordinary target on a 2h BTC frame than the backlog row
 implies.
 
-**So: no action needed from you on this item.** The cell's evidence should be
-re-stamped to this run (matrix bookkeeping, Tier-1 — but a status write is a
-matrix edit I have deliberately not made overnight, so it is queued rather than
-done). The three paper stale decisions are untouched.
+**So: no action needed from you on this item.** The three paper stale decisions
+are untouched.
+
+#### UPDATE 15:05Z — the re-stamp is DONE, and it hands you one contingent call
+
+The cell's `ref` now records this run in full (result, the two Δ tables, and the
+scope limits). What I did **not** touch is `status` or `tp_geometry`, and the
+reason is yours to resolve:
+
+**this verdict exists only at split target 30.** At today's default of 25 the
+leg is still `insufficient_base` — OOS base n 24 against the floor of 25. So
+stamping `tp_geometry: live_parity` would retire this cell's staleness on the
+strength of a configuration **you have not approved** (that is item 2), and it
+would silently drop a row out of the stale-decisions count via a field nobody
+has decided. It stays `no_take_profit` until item 2 resolves:
+
+- **item 2 → yes (flip to 30):** this cell flips to `live_parity` and drops off
+  the stale list. One less stale decision, and it is the only one of the four
+  with a live-parity re-measurement behind it.
+- **item 2 → no (stay at 25):** it stays here until the leg accumulates enough
+  OOS trades to be gradeable at 25. Nothing to do meanwhile.
+
+**A defect fell out of doing this, and it was worse than the row I was fixing.**
+The stale-decisions list is headed *"evidence older than the cutover"*, but four
+different conditions set `stale` and only one of them is that. This row now
+prints `newest-ref 2026-08-15` against `cutover 2026-08-10` — dated **after** the
+bar, in a list whose header says everything in it is older — because it is held
+by its declared `no_take_profit` geometry, which the date cannot overrule. Each
+row now prints its own `why:`. Measured consequence: **all four** stale decisions
+are held by the geometry field and **none** by a date, so the old header was
+wrong for 100 % of the rows it described, not just for the one I added.
 
 ⚠️ **What this does NOT say:** that the lever is wrong. Pre-cutover evidence is
 unreproduced, not refuted — the re-sweep may confirm `trail_mult: 4.0`. The
