@@ -1,4 +1,4 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~07:05Z)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~07:20Z)
 
 Everything the overnight session queued rather than decided, in one place.
 **Seven items**, plus one coda outside M20's scope. **Nothing here has been acted
@@ -17,7 +17,7 @@ and it is the night's actual result.
 | 2 | `--split-target-oos` 25 → 30 | **flip it** |
 | 3 | Ten contradicting cells | *no recommendation* — it is a policy choice about what the matrix means |
 | 4 | `iaum_pullback_1d` | **leave the status**; the real question is about the gate |
-| 5 | The fragile-margin population | **no flip needed** — the screen says exposure, not instability |
+| 5 | The fragile-margin population | **no flip needed** — unchanged, but read the 07:00Z update: one mover refuted my stated *cause* |
 | 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
 | 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | **re-sweep it first** — one arm, and the only stale decision touching real money |
 | — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
@@ -245,7 +245,7 @@ arithmetic flag rather than on observed behaviour — and the flag is validated 
 exactly one leg (`gdx`), where it selected correctly but did **not** predict the
 mechanism.
 
-### UPDATE 06:25Z — the hardest test reported, and it does not budge
+### UPDATE 06:25Z / 07:00Z — the hardest test reported; sol does not budge, xrp DOES
 
 `ict_scalp_sol_15m` finished all four arms. It is the cleanest available test of
 this item: graded `candidate` at **slack ZERO** on the fold-majority term
@@ -265,9 +265,36 @@ Running total over clean-control legs: **12 of 14 unanimous**, and the only two
 that moved (`gdx`, `iaum`) are both **1d** — the thinnest books in the corpus
 (`u` 4–11 vs 9–26 elsewhere).
 
-**So the sharper reading is that SAMPLE SIZE, not proximity to the bar, predicts
-instability.** That is a different conclusion from the one the arithmetic alone
-supports, and it is why this item was worth holding.
+~~**So the sharper reading is that SAMPLE SIZE, not proximity to the bar, predicts
+instability.**~~
+
+### ⚠️ UPDATE 07:00Z — the xrp arms landed and REFUTED the paragraph above
+
+Struck rather than deleted, because you may have already read it.
+
+**`ict_scalp_xrp_15m` moved.** Its off4 draw returns **`honest_negative`**
+(`beats_hard` 6 → 5, i.e. `15 < 18`), against `candidate` on the other three. So
+the third mover is **not 1d and not thin** — `u = 9`, `n_oos = 450`, a 524-trade
+book, the same depth as the sol leg that did *not* move.
+
+**And it failed while its AUC ROSE** — 0.5681 (control, passes) → 0.5800 (off4,
+fails). The verdict is not monotone in the headline number; read by AUC alone,
+the failing arm outranks the passing one. I recomputed E1 over all 8 arms
+independently and it reproduces every recorded verdict, so this is the gate
+working, not a harness artifact.
+
+**Corrected reading, at the confidence it earns:** of the two slack-0 cells
+tested at equal depth (same family, same `u`, same `n_oos`, same `block_unit`),
+**one moved and one did not**. Proximity to the bar is not sufficient to predict
+a flip; small samples are not necessary for one. Twelve legs cannot separate the
+two factors, and I am not going to offer a third explanation to cover the
+residual — writing a causal story over two data points is exactly what produced
+the struck sentence.
+
+**My recommendation on this item is UNCHANGED**, and that is the point worth
+noting: it never rested on the sample-size story. It rests on 3 of 12 flagged
+legs actually moving, which is what makes the population *a re-measure list
+rather than a distrust list*.
 
 **It does not retire the flag.** A flagged cell is still one fold from a different
 answer, and item 6 shows the AUC term carries its own nuisance term of the same

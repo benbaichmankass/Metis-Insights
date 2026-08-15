@@ -1129,7 +1129,12 @@ finding without the fix.
 
 ---
 
-## The 15m candidate screen — `ict_scalp_sol_15m` complete, and it does not budge
+## The 15m candidate screen — COMPLETE: `sol` does not budge, `xrp` does
+
+**Read the xrp subsection below before quoting this one.** The section was
+written when only the sol arms had landed and its original heading
+("`ict_scalp_sol_15m` complete, and it does not budge") described half the
+screen; both legs are now in and they disagree, which is the result.
 
 The screen was launched to test the § 5 fragility flag on a cell where the flag
 actually fires and the arm is provably comparable. `ict_scalp_sol_15m` qualifies
@@ -1154,6 +1159,36 @@ tighter** than the 1d family's 0.0515 median.
 
 `ict_scalp_xrp_15m` has reported its control so far: **0.5681, exact**, `u = 9`,
 `candidate` — also a slack-0 cell (on the `beats_hard` term). Three arms pending.
+
+### ✅ The xrp arms finished — and xrp MOVED (07:00Z, screen complete)
+
+All 8 arms are in. **`ict_scalp_xrp_15m` is the first non-1d leg to change
+verdict under re-partition**, which revises the conclusion written below.
+
+| offset | mean_auc | `beats_actual` | `beats_hard` | u | slack | verdict |
+|--:|--:|--:|--:|--:|--:|---|
+| **0 (control)** | **0.5681** | 7 | **6** | 9 | **0** | candidate |
+| 4 | 0.5800 | 8 | **5** | 9 | **−3** | **`honest_negative`** |
+| 8 | 0.5833 | 8 | 8 | 9 | +6 | candidate |
+| 12 | 0.5783 | 8 | 8 | 9 | +6 | candidate |
+
+I recomputed the E1 gate independently over all 8 arms
+(`u ≥ 2 ∧ auc > 0.55 ∧ 3·beats_actual ≥ 2u ∧ 3·beats_hard ≥ 2u`) and it
+**reproduces every recorded verdict**, so the flip is the gate working, not a
+harness artifact.
+
+**The flip is on `beats_hard`, and the AUC went UP while the verdict went
+down** — 0.5681 → 0.5800 as it failed. That is worth stating plainly because it
+is the sharpest available demonstration that **the verdict is not monotone in
+the headline number.** Anyone reading these cells by AUC alone would rank off4
+*above* the control it fails against. The fold-majority terms decide, and they
+move independently of the mean.
+
+**sol vs xrp is the controlled comparison.** Both are `per_leg` 15m scalp legs,
+both `u = 9`, both `n_oos = 450`, both slack 0 on the control — differing in
+*which* term is at the bar (sol on `beats_actual`, xrp on `beats_hard`). sol's
+three off-control draws all moved **away** from its bar (slack 0 → +3, +3, +3);
+xrp's moved **both ways** (0 → −3, +6, +6). One of two slack-0 legs moved.
 
 ⚠️ **READ THE `xrp` RESULT AGAINST THE ROUNDS ROW, NOT THE MATRIX STATUS** (added
 06:40Z, before the arms finish, so the finish is not misread). That cell's matrix
@@ -1185,12 +1220,37 @@ Running total of clean-control legs that were re-partitioned:
 | `iaum_pullback_1d` | candidate, 0.0025 margin | 7 | **1** |
 | `gld_pullback_1h` | fragile negative | 4 | 0 |
 | `ict_scalp_sol_15m` | **candidate, slack 0** | 4 | **0** |
+| `ict_scalp_xrp_15m` | **candidate, slack 0** | 4 | **1** |
 | 7 other clean-control legs | — | 4 | 0 |
 
 **So the flag identifies cells whose verdict COULD move, and most of them do
-not.** Both legs that actually moved are 1d — the thinnest books in the corpus
-(`u` 4–11 against 9–26 elsewhere) — which points at *sample size* as the thing
-that predicts instability, rather than proximity to the bar.
+not** — 3 of 12 re-partitioned legs moved at all.
+
+⚠️ **CORRECTION (07:00Z) — I wrote the wrong cause here, and the xrp arms
+refuted it before this memo left my hands.** This paragraph previously read:
+
+> Both legs that actually moved are 1d — the thinnest books in the corpus
+> (`u` 4–11 against 9–26 elsewhere) — which points at *sample size* as the thing
+> that predicts instability, rather than proximity to the bar.
+
+**That is no longer true and the reasoning behind it was weak.** `ict_scalp_xrp_15m`
+moved, and it is **not** 1d and **not** thin: `u = 9`, `n_oos = 450`, a 524-trade
+harness book. The 1d pattern was a real observation over 2 movers — which is
+simply too small a base to carry a causal claim, and I stated it as one anyway
+because every mover I had seen happened to share a property.
+
+**What the evidence now supports, stated at the confidence it earns:** of the two
+slack-0 cells tested at equal depth (`u = 9`, `n_oos = 450`, same family, same
+`block_unit`), **one moved and one did not**. Proximity to the bar is *not*
+sufficient to predict a flip, and sample size is *not* necessary for one. Twelve
+legs is too few to separate the two factors, and I am not going to propose a
+third explanation to cover the residual — that is how the first wrong cause got
+written.
+
+**This does not change what the flag is FOR.** A flagged cell is one fold from a
+different answer; that is arithmetic and holds regardless. What moved is my claim
+about *which* flagged cells cash that in — from "the thin ones" to "we cannot yet
+say."
 
 That is a different conclusion from the one § 5 reaches on arithmetic alone, and
 it is the reason the screen was worth running before proposing anything. **It
