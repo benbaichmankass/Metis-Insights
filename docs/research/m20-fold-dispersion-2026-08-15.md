@@ -2301,6 +2301,23 @@ I believe" is a finding about my own test.)*
 - The pooled 9/27 baseline is itself an all-night accumulation across screens
   with different arm counts. It is the best denominator available, not a clean
   one.
+- ⚠️ **AND IT IS 78 % PROSE.** Measured just now: `m20-fold-dispersion-arms.jsonl`
+  holds **6 legs** (the 01:49Z 1d-pullback screen), while the pooled denominator
+  is **27** — so **6/27 = 22.2 %** of the baseline is machine-readable and the
+  other 21 legs exist only as tables in this document. The `9` movers cannot be
+  re-derived from committed data, and neither can the night's headline
+  *"10 of 29 screened legs (34 %)"*.
+
+  The denominator itself checks out — all 27 `family_pooled` corpus legs were
+  screened, so 27 is the right divisor and not a corpus-wide count standing in
+  for a screened one (I checked, expecting to find exactly that error).
+  What is missing is the *auditability*: this is the same shape as the defect
+  `rounds.jsonl` was added to fix — *"its verdicts reach the repo only as
+  hand-copied prose"* — and the same shape as the ten `trend_donchian` rows
+  whose hand-transcribed `family` silently disagreed with `classify()` until a
+  test was written for it. A transcription slip in the 21 prose legs would be
+  invisible today. Filed as
+  `BL-20260815-DISPERSION-SCREEN-ARMS-NOT-PROMOTED-TO-A-MACHINE-READABLE-RECORD`.
 - **No pooling across block units.** Any combined "mover rate over 32 legs" is
   the mistake this section exists to stop, and it is the same shape as the
   earlier pooling of 7-draw and 4-draw legs into one rate.
