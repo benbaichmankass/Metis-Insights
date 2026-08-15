@@ -153,6 +153,43 @@ def test_the_preflight_matches_flag_names_at_a_WORD_BOUNDARY() -> None:
         "the same characters")
 
 
+def test_the_round_takes_the_trainer_HEAVY_JOB_QUEUE() -> None:
+    """The reset that voided two arms runs INSIDE this lock.
+
+    `docs/claude/trainer-resource-protocol.md` § Rule 1 is binding: every
+    memory-heavy job on the 6 GB trainer takes one shared blocking lock. The
+    timer wrappers take it — including `run_training_cycle.sh`, whose
+    `git checkout --force -B main origin/main` IS the "~15-min reset" that
+    removed `--fold-offset` mid-arm. That reset is not a background force of
+    nature: it runs inside the queue and skips its whole cycle when the queue is
+    held. Holding the lock prevents it landing mid-arm outright.
+
+    This round took the queue nowhere, and the `ml` CLI's enforced backstop
+    cannot cover it — that fires for `python -m ml train|build-dataset`, and
+    this driver shells out to `scripts/ml/train_exit_head.py`, which is not the
+    CLI. So the protection was absent on both paths.
+
+    Ordering matters and is asserted: pre-flight BEFORE the lock. A missing flag
+    should fail in two seconds, not after waiting up to an hour in a queue to
+    learn the trainer would have rejected it anyway.
+    """
+    src = _source()
+    assert "acquire_heavy_lock" in src, (
+        "the round does not take the trainer heavy-job queue, so a training "
+        "cycle can reset the worktree mid-arm and this driver is also free to "
+        "collide with any other heavy job on a 6 GB box")
+    lock_at = src.index("acquire_heavy_lock(")
+    preflight_at = src.index("PRE-FLIGHT FAILED")
+    emit_at = src.index('for leg in a.legs.split(",")')
+    assert preflight_at < lock_at, (
+        "the heavy lock is taken before the capability pre-flight, so a round "
+        "with a flag the trainer will reject can sit in the queue for up to an "
+        "hour before finding out")
+    assert lock_at < emit_at, (
+        "the lock is taken after the emit loop starts, so the expensive half "
+        "runs unqueued — which is the collision this protocol exists to stop")
+
+
 def test_a_zero_row_round_does_NOT_write_rounds_jsonl() -> None:
     """Existence of the evidence file must imply the round produced evidence.
 

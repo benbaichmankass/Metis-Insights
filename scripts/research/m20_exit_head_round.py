@@ -45,6 +45,9 @@ from m20_fleet_exit_sweep import (  # noqa: E402
 sys.path.insert(0, str(REPO / "scripts" / "ml"))
 from build_exit_head_dataset import family_of as _family_of  # noqa: E402
 
+sys.path.insert(0, str(REPO))
+from src.utils.trainer_heavy_lock import acquire_heavy_lock  # noqa: E402
+
 
 def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
     print("+", " ".join(str(c) for c in cmd), flush=True)
@@ -210,6 +213,45 @@ def main(argv: list[str]) -> int:
             return 3
         print(f"pre-flight OK: trainer accepts {', '.join(forwarded)}",
               flush=True)
+
+    # ---------------------------------------------------------------------
+    # TAKE THE TRAINER HEAVY-JOB QUEUE. This is the actual reason the arms kept
+    # dying, and it is a protocol violation rather than bad luck.
+    #
+    # `docs/claude/trainer-resource-protocol.md` § Rule 1 is binding: every
+    # memory-heavy job on the 6 GB trainer takes ONE shared blocking lock. The
+    # three timer wrappers take it -- INCLUDING `run_training_cycle.sh`, whose
+    # `git checkout --force -B main origin/main` is the "~15-min reset" that
+    # removed `--fold-offset` mid-arm and voided two 73-minute arms. That reset
+    # is not a background force of nature: it runs INSIDE the lock, and skips
+    # its whole cycle if the queue is held past the wait. Holding the lock
+    # PREVENTS the reset landing mid-arm outright.
+    #
+    # So this round was never protected, and could not be, because it takes the
+    # queue nowhere. The `ml` CLI's enforced backstop (src/utils/
+    # trainer_heavy_lock.py, wired in ml/cli.py) does not cover it either --
+    # that fires for `python -m ml train|build-dataset`, and this driver shells
+    # out to `scripts/ml/train_exit_head.py`, which is not the CLI. The whole
+    # M20 exit-head path (this driver, train_exit_head.py, m20_fleet_exit_sweep)
+    # sits outside both halves of the enforcement.
+    #
+    # It also explains the 2026-08-15T05:33Z slowdown: identical arms differing
+    # only in `--fold-offset` took 7.9 / 15.9 / 20.5 / 25.8+ min as an
+    # unqueued 4.08 GB `replay_pregate_fleet.py` swap-thrashed the box. Arms
+    # that cannot cost different amounts of time DID, which is contention.
+    #
+    # ORDERING IS DELIBERATE: pre-flight FIRST, lock SECOND. A missing flag
+    # should fail in two seconds, not after waiting up to an hour in a queue to
+    # discover the trainer would have rejected it anyway.
+    #
+    # Inert off the trainer VM (the helper gates on the role marker), so this is
+    # a no-op in CI, in a sandbox, and on the live VM. A clean queue timeout
+    # raises SystemExit(75) -- "the box is genuinely busy", which is the queue
+    # working, not a failure. The handle is bound to a name so the flock lives
+    # for the whole process; the helper also exports TRAINER_HEAVY_LOCK_HELD=1
+    # so the backtest/build/train subprocesses below skip re-acquiring it
+    # instead of deadlocking against their own parent.
+    _heavy_lock = acquire_heavy_lock("m20_exit_head_round")  # noqa: F841
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
                                  .read_text()) or {}).get("strategies") or {}
