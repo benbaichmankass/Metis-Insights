@@ -51,6 +51,25 @@ showing verdict instability**, a lower bound. So being one flip from the bar
 predicts a verdict *can* move, **not that it does** — and the one fragile cell
 that produced a clean arm was stable.
 
+**⚠️ AND A FOURTH FINDING LANDED AT 04:50 THAT OUTRANKS ALL THREE — read
+§ "ROOT CAUSE" at the end.** Chasing why nine legs failed their control turned up
+a defect in the harness itself: **an E1 verdict depends on the ORDER the legs were
+typed on the command line.** `--legs` order becomes the row order in
+`rows.jsonl`, which becomes the tie-break in a *stable* sort over a `bar_t` that
+is massively tied (on a 2h family every leg entering on the same bar ties), which
+moves fold membership. Confirmed end-to-end: two runs of the same seven legs in
+different orders produced identical trade counts, identical total rows and an
+identical 43×50 fold shape, yet **8 of 43 folds differ**, AUC moved up to
+**0.0331**, and two legs *lost a usable fold*.
+
+That is roughly **two-thirds of the 0.0515 median dispersion this entire study was
+built to measure — from a nuisance parameter nobody declared.** It also means the
+"control MISMATCH" partition below is not measuring experiment comparability at
+all; it is measuring whether the leg order happened to match. Filed
+`BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER`; no verdict
+re-graded on it, and no fix applied, because every candidate fix changes recorded
+numbers.
+
 **What was NOT done, deliberately:** no matrix status flipped, no gate changed,
 no cell re-graded. Coverage unchanged at **373/376 = 99.2%**. Both are Tier-3
 and queued for the operator, with options written out and none taken.
@@ -677,14 +696,27 @@ trade population, deterministic training, unedited rows — and four of the seve
 still differ, by 0.0009 to 0.0331. Every difference-generating input I have been
 able to name has now been measured and excluded.
 
-The same read also found the round records **no flags** — `_round_meta` printed
-nothing. I am not yet reporting that as "empty": an absence read from a probe not
-shown capable of finding a positive is precisely the error I made on `provenance`
-earlier tonight, so relay #9400 re-runs it with a positive control (the same
-reader on `per_leg`, known populated) and asks which 3 legs reproduce. **The leg
-identity is the discriminating datum** — if the reproducing three are the ones an
-ETH-denomination transform would leave untouched, that is a lead; if they are an
-arbitrary three, it is not.
+That same read appeared to show the round records **no flags** — `_round_meta`
+came back `<<KEY ABSENT>>` from `e1_report.json`, and #9400 confirmed the absence
+against a positive control (the same reader on `per_leg`, which returned a dict
+of 7). **The absence was real and the conclusion was still wrong: I was reading
+the wrong file.** `m20_exit_head_round.py:343` writes
+`{"_round_meta": meta, **report}` into **`round_report.json`**, and `meta`
+(`:324-340`) carries `legs` in command-line order, `fold_offset`, `target`,
+`features`, `tp_cap_pct` and the family list. The round records its flags
+completely; I opened the wrong artifact three times, then read the right one at
+the wrong nesting depth (`legs` is inside `_round_meta`, not top-level).
+
+**The lesson is about the control, and it is not the one I thought I had
+learned.** I added the positive control specifically to avoid repeating the
+`provenance` false-absence — and it did not save me, because **a positive control
+validates the READER, not the choice of TARGET.** `per_leg` proved my parser
+worked on the file I opened; nothing in it could say that file was the wrong one.
+Four accessor errors in one night (`provenance`, `u` vs `usable_folds`,
+`_round_meta`'s file, `legs`' nesting) share one root: I kept naming a key and
+inspecting what came back, instead of printing the object and reading what is
+there. The cheap general fix is to dump the whole structure when exploring an
+unfamiliar schema, and only then name a field.
 
 ### The generalizable rule: check comparability BEFORE launching
 
@@ -870,3 +902,77 @@ number, not less.
 
 **Reproduce:** the table is computed from `docs/research/m20-exit-head-rounds.jsonl`
 alone — `usable_folds`, `beats_actual`, `beats_hard` per row; no trainer call.
+
+---
+
+## ROOT CAUSE: an E1 verdict depends on the ORDER the legs were typed (04:50Z)
+
+The open item above is closed, and the answer is worse than "these two rounds
+were incomparable".
+
+**The chain, each link read in the code and then confirmed on the artifacts:**
+
+| # | link | evidence |
+|--:|---|---|
+| 1 | `--legs` is split and iterated in **command-line order** | `m20_exit_head_round.py:157` — `for leg in a.legs.split(",")` |
+| 2 | each leg's emit file is appended to `emits` in that order | same loop, `:236` |
+| 3 | the dataset builder reads those paths in list order and `extend`s, so `rows.jsonl` is written in **leg-concatenation order** | `build_exit_head_dataset.py:583` → `:634` → `:730` |
+| 4 | folds are cut from `sorted(h_trades.items(), key=bars[0]["bar_t"])` — and Python's sort is **stable**, so **ties inherit that file order** | `train_exit_head.py:518` |
+| 5 | on a 2h family every leg entering on the same bar has an **identical `bar_t`**, so tie groups are large — one per bar, spanning all 7 legs | — |
+
+**And the two runs did pass the legs in different orders** (relay #9406, read from
+each round's own `_round_meta`):
+
+```
+RECORDED : eth, eth_prop, sol, xrp, ada, avax, htf     <- hand-typed
+off0 ARM : ada, avax, eth, eth_prop, htf, sol, xrp     <- alphabetical (my re-run sorted them)
+```
+
+Same seven legs. Different permutation. That is the entire difference between the
+two runs, and it predicts **every** observation that had accumulated:
+
+| observation | explained |
+|---|---|
+| identical `harness_trades` (2220) and total rows (71199) | same trades, only reordered |
+| identical fold shape (43 folds × exactly 50 trades) | blocking is by trade count |
+| **35 of 43 folds byte-identical**, 8 shifted | ties are local to a bar, so most boundaries never move |
+| small AUC deltas (0.0009 → 0.0331) on the shifted legs | different fold composition, same data |
+| `ada` and `eth_pullback_prop_2h` reproduce at **+0.0000** | their trades never sat in a moved tie group |
+| `avax` 42 and `sol` 41 usable folds vs 43 | a fold's per-leg OOS count crossed `min_oos_trades_floor: 25` |
+| the determinism test passing **5/5** | it re-ran the *same command*, so the *same* order |
+
+### Why this matters more than the mismatch it explains
+
+**A nuisance parameter — the order arguments were typed — moves `mean_auc` by up
+to 0.0331.** The deliberate boundary re-draw this whole memo measures has a median
+spread of **0.0515**. So permuting the leg list produces AUC movement of the same
+order as the effect the study was designed to detect — roughly **two-thirds of
+it** — and nothing anywhere records or controls for it.
+
+That reframes several things above:
+
+- **The "control MISMATCH" partition was not measuring comparability.** Those nine
+  legs were not different experiments; they were the *same* experiment with a
+  permuted tie-break. The memo's clean/dirty split is really an
+  order-matched/order-mismatched split.
+- **The comparability rule I committed earlier is insufficient, and now
+  demonstrably so.** It says to check the round id before launching. Matching the
+  round id does not match the leg *order*, and the order is what bites.
+- **`usable_folds` is not a stable property of a leg.** It moved 43 → 41 on `sol`
+  from reordering alone, which feeds `u` directly into the gate's `u >= 2` term
+  and into every fragility computation in the section above.
+
+### What is NOT claimed
+
+This does not show any recorded verdict is wrong, and **no cell is re-graded on
+it.** Both leg orders are equally valid; neither is the "correct" one. What is
+established is that the harness has an undeclared degree of freedom, that it is
+large relative to the effects being measured, and that nothing in the rounds file
+or the round report lets a reader detect two rows that differ by it — `legs` is
+recorded, but no consumer compares it, and the committed row does not carry it at
+all.
+
+Filed as `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER`.
+
+**Reproduce:** `m20_exit_head_round.py:157,343` · `build_exit_head_dataset.py:583,634,730`
+· `train_exit_head.py:90,518` · relays #9403 (fold divergence), #9406 (leg orders).
