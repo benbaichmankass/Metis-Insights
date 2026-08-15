@@ -2304,3 +2304,117 @@ I believe" is a finding about my own test.)*
 - **No pooling across block units.** Any combined "mover rate over 32 legs" is
   the mistake this section exists to stop, and it is the same shape as the
   earlier pooling of 7-draw and 4-draw legs into one rate.
+
+---
+
+## The 11 `exit_head_ml` blocked cells: a rebuild does not reach the bar (15:25Z)
+
+`m20_coverage_rollup.py` reports `exit_head_ml 12 (blocked=12)` and stops there.
+Each cell's own `ref` is thorough, but nothing puts the fleet side by side, so
+the question `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE` left open — *is a
+dataset rebuild over a longer window the remedy?* — had no cross-leg answer.
+
+### First, the bar, verified rather than restated
+
+`per_leg_summary` requires `u >= 2`, and `fold_blocks` yields
+`u = len(range(b, N-b+1, b))`. Enumerated directly from that loop at `b = 50`:
+`N = 100 → u = 1`, `N = 149 → u = 1`, **`N = 150 → u = 2`**. So the gate needs
+**`N >= 3b = 150` lifetime harness trades**, not the 100 that produces a single
+fold.
+
+*(A footnote on the closed form: the refs state `u = floor(N/b) - 1`, which is
+right for `N >= b` and returns **−1** at `N = 48` where the loop returns 0. It
+never changes a verdict — both are below 2 — but anyone reusing the formula
+below `N = b` gets a negative fold count. `max(0, floor(N/b) - 1)`.)*
+
+### A near-miss worth recording before the result
+
+Parsing each ref for its stated gap, I found **8 of 11 cells** quoting a
+distance computed against the **100** bar — `squeeze_breakout_4h` "misses by TWO
+trades" where the gate needs 52, `spy` "52" where it needs 102. A systematic
+2×–26× optimistic error across the matrix.
+
+**It does not exist.** All eight already carry the correction, appended and
+marked, further down the same `ref`; my regex took the *first* stated gap, which
+is the superseded one. I had a tidy systematic-defect finding and it was an
+artifact of my own extraction. Recording it because it is precisely the case
+CLAUDE.md's *"verify your own output too, hardest when it confirms what you
+expected"* is about — I expected the corpus to be stale in that direction and my
+parse obligingly produced it.
+
+### The actual result: more history does not fix these legs
+
+The measured rates are **trades per year of DATA**, not forward accrual, so the
+lever is the dataset window. Taking each leg's earliest yfinance-served year
+from its own ref and holding its measured rate constant:
+
+| leg | N | rate/yr | yrs built | first avail | max yrs | est. max N | reaches 150? |
+|---|--:|--:|--:|--:|--:|--:|:--|
+| `splg_trend_long_1d` | 72 | 4.43 | 16.3 | 2005 | 21.6 | 96 | **NO** |
+| `iwm_trend_long_1d` | 65 | 4.43 | 14.7 | 2000 | 26.6 | 118 | **NO** |
+| `scha_trend_long_1d` | 63 | 4.15 | 15.2 | 2009 | 17.6 | 73 | **NO** |
+| `qqq_trend_long_1d` | 60 | 4.15 | 14.5 | 1999 | 27.6 | 115 | **NO** |
+| `spy_trend_long_1d` | 48 | 3.60 | 13.3 | 1993 | 33.6 | 121 | **NO** |
+| `tqqq_trend_long_1d` | 32 | 7.47 | 4.3 | 2010 | 16.6 | 124 | **NO** |
+| `qld_trend_long_1d` | 31 | 5.81 | 5.3 | 2006 | 20.6 | 120 | **NO** |
+
+**Zero of seven.** Even `spy`, with 33 years of available history — the deepest
+series in the group — estimates to ~121 against a bar of 150.
+
+⚠️ **This CONFIRMS an existing conclusion; it does not establish one.**
+`BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE` already records the full-history
+range as **50–104 trades**, reached by a different route. My estimate spans
+73–124. Both land short of 150 and agree on the verdict, and I found the row
+*after* computing this. The independent agreement is worth something — two
+methods, same answer — but the finding is not mine and must not be cited as new.
+The numeric gap between the two estimates (mine higher on every leg) is
+unexplained and unreconciled; if a rebuild is ever run, its real counts settle
+both.
+
+⚠️ **The caveat travels with the number, not in a footnote.** The rate is
+measured over the *current* window and assumed constant back to inception; an
+earlier regime need not trade at the same rate, so `est. max N` is an
+**estimate, not a count**. It answers *"is a full-history rebuild plausibly
+worth running"* — and says no — never *"this leg will not grade"*. A rebuild
+that measured the real counts would settle it; this says don't expect it to.
+
+### 🔴 The block-size route is already closed — my version of it is superseded
+
+I drafted this section as *"if not history, then block size"*, with the
+arithmetic `u >= 2 ⟺ N >= 3b ⟺ b <= N/3` and a table showing 0 of 11 legs clear
+at `b = 50`, 2 at `b = 25`, 7 at `b = 20` — offered as a proposal with the
+non-monotonicity hazard attached.
+
+**That is superseded, and by something stronger that was already written down.**
+`BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`'s `remaining_work` item 2 says it
+outright:
+
+> *STOP treating block size as the exit_head_ml unblock lever — the derivation
+> closes that route. The 7 daily legs are not blocked by an arbitrary number: at
+> 31–72 lifetime trades (50–104 on full history) NO block size yields a test
+> that is both powered and specific. At N = 98 the only gradeable options give
+> either 0.49 power or a 50 % single-condition false-positive rate.*
+
+My table asks only whether a `b` produces `u >= 2`. The existing derivation asks
+whether the resulting test is **powered and specific**, which is the question
+that matters, and answers it for every `b` rather than for three sampled values.
+A cell can clear `u >= 2` and still be a coin flip; that is the whole hazard, and
+the derivation quantifies it where I only gestured at it.
+
+So the arithmetic above is kept as the *mechanism* — it explains why `b` looks
+like a lever — and the recommendation is withdrawn. **Do not lower `b` to
+unblock these cells.**
+
+*(Second time in one section. I checked the fleet before checking whether the
+question was already answered, and the answer was in the row I was about to
+update. Both misses share a shape: I verified my arithmetic carefully and my
+NOVELTY not at all.)*
+
+### What this changes for the matrix
+
+Nothing, today — no status flipped and none should be. `blocked` is the honest
+state for all eleven. What changes is the **reading**: `blocked:insufficient_
+lifetime_trades` invites "revisit when it clears", and for the seven equity 1d
+legs there is no window that clears it at `b = 50`. That belongs on
+`BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`, whose remedy line currently
+points at a rebuild.
