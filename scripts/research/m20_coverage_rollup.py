@@ -570,8 +570,22 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             # harness whose TP fix landed four days later (see the map above).
             cut = cutover_for(col)
             geom = cell.get("tp_geometry")
+            # WHY a cell is stale, not just THAT it is. Four different
+            # conditions set `stale` below and only ONE of them is "the
+            # evidence predates the cutover" — yet that was the only reason the
+            # printed header stated. Surfaced 2026-08-15 by the first row where
+            # the two diverge: `htf_pullback_trend_2h`/`trail_geometry` gained a
+            # 2026-08-15 live-parity re-sweep and so prints `newest-ref
+            # 2026-08-15` under a cutover of 2026-08-10 — a row dated AFTER the
+            # bar, sitting in a list whose header says everything in it is
+            # older. It is held stale by its declared `no_take_profit` geometry,
+            # which the date cannot overrule, and a reader had no way to see
+            # that from the output. Sub-class A: the label named a quantity the
+            # code did not compute.
+            why = None
             if geom == GEOMETRY_NO_TP:
                 stale = True          # measured; the date cannot overrule it
+                why = "geometry=no_take_profit (declared; date cannot clear it)"
             elif geom == GEOMETRY_LIVE_PARITY:
                 stale = False         # declared by the round itself
             elif cut == GEOMETRY_CUTOVER_NEVER:
@@ -581,9 +595,13 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
                 # producer could not have got it right.
                 out["geometry_undeclared"] += 1
                 stale = True
+                why = "harness never modelled the live TP (cutover=never)"
             else:
                 out["geometry_undeclared"] += 1
                 stale = (not dates) or max(dates) < cut
+                if stale:
+                    why = ("undated" if not dates
+                           else f"evidence {max(dates)} predates cutover {cut}")
             if not dates:
                 out["undated"] += 1
             elif stale:
@@ -600,7 +618,7 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             if stale and base(cell.get("status")) != "honest_negative":
                 out["stale_decisions"].append(
                     (row["strategy"], col, cell.get("status"),
-                     max(dates) if dates else None, cut))
+                     max(dates) if dates else None, cut, why))
     return out
 
 
@@ -1042,7 +1060,7 @@ def render(r: dict[str, Any]) -> str:
         dec = v.get("stale_decisions") or []
         if dec:
             by_status: dict[str, int] = {}
-            for _leg, _lev, status, _dt, _cut in dec:
+            for _leg, _lev, status, *_rest in dec:
                 k = base(status) or "?"
                 by_status[k] = by_status.get(k, 0) + 1
             fund = _stale_decision_funding(dec)
@@ -1150,8 +1168,11 @@ def main(argv: list[str]) -> int:
             # diagnostic-provenance-guard on my own diff.
             stale_n = v.get("pre_cutover", 0) + v.get("undated", 0)
             print(f"\nstale DECISIONS ({len(dec)} of {stale_n} stale cells) — "
-                  f"closed, not negative, evidence older than the cutover for "
-                  f"THAT lever (printed per row; default {v['cutover']}):")
+                  f"closed, not negative, and NOT REPRODUCED under the live TP "
+                  f"geometry. Each row states WHY: a date older than the "
+                  f"cutover is only one of the reasons, and a row can be newer "
+                  f"than the cutover and still stale (default cutover "
+                  f"{v['cutover']}; per-lever printed per row):")
             if not v.get("classifier_available", True):
                 print("  NOT COMPUTED — the family classifier could not be "
                       "imported. This is not 'no stale decisions found'.")
@@ -1162,11 +1183,13 @@ def main(argv: list[str]) -> int:
                 print(f"  (0 of {stale_n} stale cells is a non-negative — every "
                       "one is an honest_negative)")
             _by_leg = _funding_by_leg()
-            for leg, lever, status, dt, cut in sorted(dec):
+            for leg, lever, status, dt, cut, why in sorted(
+                    dec, key=lambda d: (d[0], d[1])):
                 routing = _leg_funding(leg, _by_leg)
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
                       f"newest-ref {dt or '(undated)'}  (cutover {cut})  "
                       f"routing={routing}")
+                print(f"      why: {why or '(reason not recorded)'}")
         if a.stale_corpus_state:
             cs = stale_corpus_state(matrix)
             if not cs["available"]:
