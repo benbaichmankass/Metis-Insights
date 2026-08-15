@@ -641,7 +641,39 @@ timeframe.
 **One piece is still unexplained, and is left open rather than tidied:** inside
 the single `eth_denom_2h` round, 3 of its 7 legs reproduce exactly under my
 full-7-leg re-run and 4 do not. Had that round pooled a different leg set, all
-seven should have differed.
+seven should have differed. Three explanations are *ruled out*, not merely
+unselected — data growth (`n_oos` identical, `d_n = +0`), training
+non-determinism (5/5 legs reproduce byte-identically), and hand-editing of the
+evidence (all 7 rows unchanged since commit `306ee999` introduced them, checked
+with `git show`). The round's own `_round_meta` records the flags it ran with and
+is the next place to look (relay #9398).
+
+### The generalizable rule: check comparability BEFORE launching
+
+The first screen discovered its incomparable arms *after* running 16 of them. The
+file can predict that, and this is the check to run first.
+
+**A `family_pooled` re-run can only reproduce legs from ONE round.** So where a
+family's committed rows span several runs, control failure is *guaranteed* for
+the legs belonging to the other runs. Measured across the whole file by grouping
+`(family, tf)` on the round id parsed out of `provenance`:
+
+| family / tf | runs | a single family re-run… |
+|---|--:|---|
+| pullback 1d · 1h · 2h · trend_donchian 4h | 1 each | reproduces the whole family |
+| scalp 15m · 5m | `per_leg` | n/a — each leg is its own round |
+| **trend_donchian 1h** | **2** | **must mismatch some legs** |
+
+`trend_donchian 1h` is the **only** offender: `relay #9206` produced
+`trend_donchian` / `_eth` / `_sol`, while `relay #9156` produced `_eth_prop` /
+`_sol_prop`. That matters concretely — its two fragile candidates,
+`trend_donchian_eth` and `trend_donchian_eth_prop`, sit on **opposite sides of
+that split**, so one re-run can validate at most one of them.
+
+This is why the second-pass screen targets the two 15m scalp candidates first
+(relay #9399): both `per_leg`, both from `scalp_15m_20260814T135244Z`, a round
+whose sibling leg already came back control-OK — comparability established in
+advance rather than discovered afterwards.
 
 ## Limits, stated plainly
 
