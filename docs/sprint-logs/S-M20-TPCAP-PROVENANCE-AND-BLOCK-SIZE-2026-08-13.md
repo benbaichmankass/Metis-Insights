@@ -3138,12 +3138,22 @@ processes executing the **same** `ict_scalp_eth_15m` backtest — one from the
 superseded run, one from the live one — on a 1-OCPU box at load 2.13, with the
 live run's log frozen at 475 bytes across a 30 s window.
 
-Two things worth keeping from it. The relaunch printed *"stopped the wrong-leg-set
-run"*, which was **false** — it stopped the driver, not the work, and I would have
-reported the stall as slowness had the probe not distinguished "growing" from
-"stuck" by measuring the log size across a window. And the fix's kill pattern had
-to be checked against the thing it must not match: `unanimity_2026` does not match
-`unanimity2_2026`, so the live run is safe from it.
+The relaunch printed *"stopped the wrong-leg-set run"*, which was **false** — it
+stopped the driver, not the work.
+
+**How it actually resolved, stated because it is not what I predicted:** by the
+time the cleanup ran, the orphan had **finished on its own** and the kill matched
+nothing. Load was back to 1.02 and `15m off0` had completed `exit=0 skips=0`. So
+the contention was real and transient, and my remediation was a no-op. Recording
+that rather than the tidier "diagnosed and fixed it".
+
+**My own probe had the defect it was hunting.** Its growth check measured
+`15m_off0/round.log` — an arm that had by then **completed** — so it reported
+`STILL-NO-GROWTH` on a perfectly healthy run. A finished arm's log never grows,
+and a probe that cannot tell "done" from "stuck" reports the same string for both.
+That is sub-class A of `diagnostic-provenance-guard` in a throwaway probe: the
+value was real, the label described a different condition.
+
 
 **Backlog.**
 `BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
