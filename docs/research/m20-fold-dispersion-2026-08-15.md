@@ -1155,6 +1155,22 @@ tighter** than the 1d family's 0.0515 median.
 `ict_scalp_xrp_15m` has reported its control so far: **0.5681, exact**, `u = 9`,
 `candidate` — also a slack-0 cell (on the `beats_hard` term). Three arms pending.
 
+⚠️ **READ THE `xrp` RESULT AGAINST THE ROUNDS ROW, NOT THE MATRIX STATUS** (added
+06:40Z, before the arms finish, so the finish is not misread). That cell's matrix
+status is `honest_negative` from a **different measurement**: the 2026-08-13
+re-run (relay #8963, `fold-mode=trades`, the `fold_blocks` fix) at **6 folds**,
+`beats_actual 5/6`, `beats_hard 2/6`, `auc 0.5622`. My screen re-partitions the
+**2026-08-14** round instead — `u = 9`, `auc 0.5681` — which is what its off0
+control reproduces exactly.
+
+So the screen measures **whether the 08-14 measurement is boundary-stable**, and
+says nothing about whether the 08-13 six-fold measurement or the 08-14 nine-fold
+one is the better estimate. Those are different questions and only the first is
+being asked here. The cell has now read `candidate → downgraded → candidate`
+across three measurements, and the matrix ref for its sibling records the reason
+an earlier session found: *"3-fold years-mode was systematically optimistic
+across the fleet: 2 downgrades, 0 upgrades."*
+
 ### What this does to the fragility finding
 
 It reinforces the tempering, on the hardest available test. A cell sitting
