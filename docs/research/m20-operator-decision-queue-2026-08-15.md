@@ -1,4 +1,4 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~07:45Z)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~14:55Z)
 
 Everything the overnight session queued rather than decided, in one place.
 **Seven items**, plus one coda outside M20's scope. **No decision here has been
@@ -27,7 +27,7 @@ and it is the night's actual result.
 | 5 | The fragile-margin population | **no flip needed** — unchanged, but read the 07:00Z update: one mover refuted my stated *cause* |
 | 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
 | 7 | ~~Stale SHIPPED lever on a real-money leg~~ | 🔴 **RETRACTED — the leg is PAPER.** I published a false real-money claim; read the 07:45Z correction. Re-sweep result stands, urgency does not |
-| — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
+| — | Exit-loop max pass vs your 60 s ask | outside M20; filed. **14:55Z: second observation, 51.1 s at 703 passes on a fresh process — still under the ask.** But the *tick* doubled, which raises what the decouple is worth |
 
 Each item states what I'd do and how confident I am, because Tier-3 is *propose,
 you approve* — not *ask an open question*. Where I don't have a recommendation I
@@ -938,3 +938,45 @@ I have not touched the knobs — Tier-2, and it is the other session's subsystem
 Filed `BL-20260815-EXIT-LOOP-MAX-PASS-NEAR-THE-60S-ASK-AND-NOTHING-WATCHES-IT`
 (high). Stated limit: a max over 625 passes is one order statistic and the writer
 keeps no percentiles, so I cannot yet say rare tail vs thickening distribution.
+
+### Update 14:55Z — a SECOND observation, from a different process
+
+The trader restarted at **08:02:28Z**, so the counters above are gone; these are
+fresh. Read as a second draw, **not** as a correction to the first:
+
+| | earlier process | current process |
+|---|--:|--:|
+| passes | 625 | **703** |
+| `max_pass_ms` | 58.9 s | **51.1 s** |
+| margin to your 60 s ask | 1.8 % | **14.8 %** |
+| mean pass | — | 28.7 s |
+| observed evaluation interval | — | **33.9 s** (703 passes / 6.62 h) |
+
+**Both are under the ask.** Two maxima from two processes at comparable sample
+sizes is still not a distribution, and the writer keeps no percentiles, so the
+question the first note raised — rare tail or thickening distribution — is
+**still open**. What the second draw does rule out is the reading that the loop
+was on a monotonic march toward 60 s: it was not, or not only.
+
+The backlog row stays open on its own merits: `exit_loop_health` thresholds
+staleness only, so the loop still reads `fresh` while nothing watches the
+statistic the ask is actually about.
+
+⚠️ **One thing here DID move against us, and it is not the exit loop.** The tick
+now measures **144.8 s mean / 202.0 s max** (n=115) against the 69.3 s
+post-decouple reading in CLAUDE.md — slower than even the *pre*-decouple 83.9 s
+baseline. Cache hit rate (44.5 %) and `fetch.1d` request rate (3.01/tick) are
+both unchanged; per-fetch latency is up **4.1–6.2×**. Flagged to the tick-chain
+session on the coordination board; not mine to diagnose.
+
+Its consequence for your decisions: exit evaluation would otherwise ride the
+tick, so **the decouple is now buying 4.3×** (144.8 s → 33.9 s) rather than the
+3.2× measured at go-live. If anyone proposes `EXIT_LOOP_DECOUPLE_DISABLED` as a
+rollback, the cost of that is materially higher today than the 08-12 numbers
+imply — it would put exit evaluation at ~145 s, well past your 60 s ask, where
+before it would have been ~96 s.
+
+*(Checked, not assumed: `get-env` returns `process: '0'` / `declared: '0'` with
+no `pending_restart`, and `exit_loop_health` reads `state: "fresh"` with
+`offloop_hooks` populated. The decouple is on. The coordination board's header
+still says otherwise — that item is stale and I have said so there.)*
