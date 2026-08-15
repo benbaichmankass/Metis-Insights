@@ -61,9 +61,31 @@ def test_it_reads_the_producers_real_field_names() -> None:
 
 
 def test_the_emitted_geometry_is_the_derived_one_not_the_flag() -> None:
+    # Anchor on the WRITE SITE, not on the first mention of the filename.
+    # `src.index("rounds.jsonl")` used to land here because the string appeared
+    # nowhere else; on 2026-08-15 a comment above the training loop mentioned
+    # the file by name, the index jumped ~250 lines earlier, and this test
+    # failed on a driver whose geometry stamping was untouched. A locator that
+    # prose can move is a locator that reports the wrong thing — the failure
+    # named the geometry stamp while the actual change was a comment.
+    #
+    # Bound it by the ROW LITERAL, not by a fixed character count backwards.
+    # The old `src[i - 3000:i]` window is a proxy for "somewhere above the
+    # write", and a 1,000-character comment added between the two pushed the
+    # stamp out of the window while the code was unchanged — the same false
+    # failure a second time, for a second reason. `rows.append({` … write-site
+    # IS the region the assertion is about: the dict that becomes an evidence
+    # row.
     src = DRIVER.read_text()
-    i = src.index("rounds.jsonl")
-    block = src[max(0, i - 3000):i]
+    write_site = '(out / "rounds.jsonl").write_text'
+    assert write_site in src, (
+        "the evidence file is no longer written by a literal "
+        f"`{write_site}` call — re-derive this locator against the driver "
+        "rather than loosening it back to a bare filename search")
+    assert src.count("rows.append({") == 1, (
+        "more than one row-append site; this locator assumed exactly one and "
+        "would now check an arbitrary one of them")
+    block = src[src.index("rows.append({"):src.index(write_site)]
     assert '"tp_geometry": geometry' in block, (
         "the evidence rows stamp something other than the derived geometry; "
         "a scalp round would write live_parity for a cap it never received"

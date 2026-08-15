@@ -269,6 +269,29 @@ def main(argv: list[str]) -> int:
         return 1
 
     report = {}
+    # WHY THIS LIST EXISTS. The dataset-build subprocess above is checked
+    # (`if p.returncode != 0: return 1`); the TRAINING subprocess below was not,
+    # and control fell straight through to `if e1.exists()`. So a training run
+    # that died left `report` empty, the round wrote a ZERO-ROW rounds.jsonl,
+    # and `main` returned 0 — a failed arm reporting success.
+    #
+    # Measured twice on 2026-08-15, both times because the trainer's ~15-min
+    # `Reset to origin/main` removed a branch-only flag MID-ARM and argparse
+    # rejected it (`unrecognized arguments: --fold-offset 4`):
+    #   * 2h round arm off12 — 73 min of emit+build, then 0 rows, exit 0.
+    #   * 5m round arm off4  — identical, while arm off0 of the same round
+    #     produced 3 rows (offset 0 is FALSY, so that arm never passes the flag
+    #     and needs no branch code — which is exactly why the failure read as a
+    #     partial success rather than a broken run).
+    # Both were caught only by an external row-count assertion; `exit=0` and a
+    # `[ -f ]` existence check BOTH passed on a dead arm.
+    #
+    # Deliberately NOT `return 1` on the first failure, unlike the build step: a
+    # 3-leg round whose second leg fails should still train the third, and the
+    # operator wants the partial evidence. What must not happen is REPORTING
+    # SUCCESS. So failures are collected, named on stdout, recorded in
+    # `round_report.json`, and turned into a non-zero exit at the end.
+    train_failures: list[dict] = []
     for fam_dir in sorted(d for d in out.iterdir()
                           if d.is_dir() and (d / "rows.jsonl").exists()):
         train_cmd = [sys.executable, REPO / "scripts/ml/train_exit_head.py",
@@ -284,11 +307,32 @@ def main(argv: list[str]) -> int:
         p = sh(train_cmd, timeout=21600)
         print(p.stdout[-3000:], p.stderr[-500:], flush=True)
         e1 = fam_dir / "e1_report.json"
+        if p.returncode != 0:
+            # Report the FAILURE, not merely the absence of a report file —
+            # "no e1_report.json" and "training exited 3" are different facts
+            # and a reader must not have to infer the second from the first.
+            train_failures.append({"family": fam_dir.name,
+                                   "returncode": p.returncode,
+                                   "stderr_tail": (p.stderr or "")[-400:]})
+            print(f"!! TRAINING FAILED for {fam_dir.name}: exit "
+                  f"{p.returncode}. This family contributes NO evidence rows.",
+                  flush=True)
+            continue
         if e1.exists():
             try:
                 report[fam_dir.name] = json.loads(e1.read_text())
             except json.JSONDecodeError:
                 pass
+        else:
+            # Exited 0 and still wrote nothing: a third state, distinct from
+            # both success and a non-zero exit. Recorded rather than silently
+            # skipped, for the same reason as above.
+            train_failures.append({"family": fam_dir.name, "returncode": 0,
+                                   "stderr_tail": "exited 0 but wrote no "
+                                                  "e1_report.json"})
+            print(f"!! {fam_dir.name}: training exited 0 but produced no "
+                  f"e1_report.json. No evidence rows from this family.",
+                  flush=True)
     # STAMP THE GEOMETRY. round_report.json previously recorded ONLY the
     # per-family e1 payloads, so nothing on disk said which exit geometry the
     # underlying book was built with. An audit that searched these reports for
@@ -355,6 +399,14 @@ def main(argv: list[str]) -> int:
         # apart from one measured under the other, and the whole migration
         # depends on telling them apart.
         "total_sort": bool(a.total_sort),
+        # A round that lost families must SAY SO on disk. Without this, the
+        # artifact of a partial round is indistinguishable from a complete one
+        # whose legs happened to be fewer — the reader would have to know the
+        # expected leg count from somewhere else to notice. Empty list on a
+        # clean round, so "no failures" is stated rather than implied by
+        # absence.
+        "train_failures": train_failures,
+        "families_trained": sorted(report),
     }
     (out / "round_report.json").write_text(json.dumps(
         {"_round_meta": meta, **{k: v for k, v in report.items()}},
@@ -468,15 +520,58 @@ def main(argv: list[str]) -> int:
                 "total_sort": bool(a.total_sort),
                 "provenance": f"round {out.name}; driver-emitted",
             })
-    (out / "rounds.jsonl").write_text(
-        "".join(json.dumps(r, default=str) + "\n" for r in rows))
-    print(f"evidence rows -> {out / 'rounds.jsonl'} ({len(rows)} rows, "
-          f"tp_geometry={geometry})")
+    # EXISTENCE MUST IMPLY ROWS. A zero-row `rounds.jsonl` is the worst of the
+    # three artifacts a dead arm can leave, because it is the one every
+    # readiness check believes: `[ -f rounds.jsonl ]` passes, and a readout loop
+    # that `sed`s the file prints nothing — so the arm reads as ABSENT rather
+    # than as FAILED, and a screen tallying arms loses it silently. (I wrote
+    # exactly that loop on 2026-08-15 and it swallowed the off12 arm; the file's
+    # mtime was the only thing that proved the arm had run at all.)
+    #
+    # So an empty round writes a DIFFERENTLY-NAMED marker instead. The three
+    # states are then distinguishable from the filesystem alone, with no exit
+    # code and no stdout:
+    #   rounds.jsonl present  -> the round produced evidence (>= 1 row)
+    #   rounds.EMPTY present  -> the round ran and produced NO evidence
+    #   neither present       -> the round did not reach the emit step
+    if rows:
+        (out / "rounds.jsonl").write_text(
+            "".join(json.dumps(r, default=str) + "\n" for r in rows))
+        print(f"evidence rows -> {out / 'rounds.jsonl'} ({len(rows)} rows, "
+              f"tp_geometry={geometry})")
+    else:
+        (out / "rounds.EMPTY").write_text(json.dumps({
+            "reason": ("no per-leg summaries survived; "
+                       + (f"{len(train_failures)} family/families failed to "
+                          f"train: "
+                          + ", ".join(f["family"] for f in train_failures)
+                          if train_failures
+                          else "every family trained but emitted no gradeable "
+                               "per-leg summary")),
+            "train_failures": train_failures,
+            "families_trained": sorted(report),
+            "tp_geometry": geometry,
+        }, indent=2) + "\n")
+        print(f"!! NO EVIDENCE ROWS. Wrote {out / 'rounds.EMPTY'} instead of a "
+              f"zero-row rounds.jsonl, so an existence check on rounds.jsonl "
+              f"correctly reads this arm as having produced nothing.",
+              flush=True)
     if a.tp_cap_pct <= 0.0:
         print("WARNING: tp_cap_pct=0 — this round's book models NO TAKE-PROFIT "
               "and is NOT live parity. Any verdict from it describes a book "
               "production does not run.", flush=True)
     print("round done ->", out, "| tp_geometry:", meta["tp_geometry"])
+    if train_failures:
+        # NON-ZERO EXIT IS THE POINT. A caller looping arms records `exit=$?`;
+        # returning 0 here is what let two dead arms be written into a
+        # dispersion screen as completed ones. The row count is printed above,
+        # but a wrapper should not have to parse stdout to learn the run failed.
+        print(f"!! ROUND INCOMPLETE: {len(train_failures)} of "
+              f"{len(train_failures) + len(report)} families failed to train "
+              f"({', '.join(f['family'] for f in train_failures)}). "
+              f"rounds.jsonl holds {len(rows)} row(s) and is NOT a complete "
+              f"round.", flush=True)
+        return 2
     return 0
 
 
