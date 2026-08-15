@@ -430,7 +430,30 @@ in PR #9257 on the same leg, with no interaction, and is flagged only so the two
 are not conflated.
 
 Nothing is re-graded here. Which of these eight actually flip is what an offset
-screen measures, and that screen is running for the negatives first.
+screen measures.
+
+### Screen coverage — what is measured, what is not, and what it would take
+
+Recorded so the next session does not re-derive it. A screen must run the
+**whole family** (see § Reproduce), so one round covers every fragile cell in
+that family at once.
+
+| cell | family / tf | status |
+|---|---|---|
+| `iaum_pullback_1d` **(C)** · `gdx_pullback_1d` **(N)** | pullback 1d | ✅ done — the dispersion run |
+| `trend_donchian_xrp_4h` **(C)** · `avax_4h` **(N)** · `sol_4h` **(N)** | donchian 4h | 🔄 running |
+| `eth_pullback_2h` **(C)** | pullback 2h | 🔄 running |
+| `gld_pullback_1h` **(N)** | pullback 1h | 🔄 running |
+| `trend_donchian_eth` **(C)** · `trend_donchian_eth_prop` **(C)** | donchian 1h | ❌ **one round covers both** |
+| `ict_scalp_sol_15m` **(C)** · `ict_scalp_xrp_15m` **(C)** | scalp 15m (`per_leg`) | ❌ two single-leg rounds |
+| `ict_scalp_sol_5m` **(C)** | scalp 5m (`per_leg`) | ❌ heaviest — 1150 OOS trades |
+
+After the running screen: **all 4 fragile negatives covered, 3 of 8 fragile
+candidates.** The remaining five candidates need **three more rounds** — donchian
+1h (two cells for one round, the best ratio left), scalp 15m ×2, scalp 5m ×1.
+
+That the negatives finish first is an artefact of when each finding landed, not a
+judgement that they matter more — by the reasoning above they matter less.
 
 ## Limits, stated plainly
 
