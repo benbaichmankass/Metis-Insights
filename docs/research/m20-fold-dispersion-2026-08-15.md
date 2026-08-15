@@ -586,14 +586,40 @@ why the screen was worth running before proposing anything to the operator.
 ### The control failures are their own finding, and are being investigated
 
 Nine legs' arms do not reproduce their recorded round while `u` matches exactly.
-`tp_geometry` and `block_unit` are identical across the OK and mismatched groups,
-and **`tf=2h` is split 3-OK / 4-mismatched inside the SAME arm** — one pool, one
-partition — so this is per-leg, not a run-level config difference. The leading
-hypothesis is that those legs' trade sets have grown since their recorded rounds
-(a changed OOS population, hence a changed AUC), with `n_oos` as the direct test
-(relay #9395, in flight). **If that is right, several committed rounds are stale
-rather than wrong** — which is a separate matter from boundary sensitivity and
-belongs to the ten-contradicting-cells question already queued for the operator.
+
+**Data growth is REFUTED** (relay #9395): `n_oos` is **identical on all 17 legs**,
+`d_n = +0`, including every mismatch. Same trade population, different AUC. That
+was the leading hypothesis and it is dead.
+
+What the numbers look like:
+
+| | legs | AUC delta vs recorded |
+|---|--:|---|
+| control OK | 8 | **exactly 0.0000** |
+| control MISMATCH | 9 | 0.0009 → **0.0331** |
+
+Two features argue against plain training noise. The reproducing legs match **to
+the digit**, not approximately. And within a **single pooled 2h arm** — one model,
+one training call — 3 legs reproduce exactly while 4 do not; a globally noisy fit
+would have moved all seven.
+
+**The file cannot settle it, and that is its own finding.** The rounds file's
+entire field set is `beats_actual · beats_hard · block_unit · family · leg ·
+lever · mean_auc · n_oos · prop_sibling · provenance · symbol · tf · tp_cap_pct ·
+tp_geometry · usable_folds · verdict` — **no run id, no timestamp, no git sha**.
+A row says *what* was measured and never *when* or *by which run*, so
+"the recorded row came from a different run" and "training is non-deterministic"
+are indistinguishable from the artifact. Filed as
+`BL-20260815-EXIT-HEAD-ROUNDS-CANNOT-IDENTIFY-THEIR-OWN-RUN` — the same
+provenance class this programme keeps fixing elsewhere: the value is recorded and
+the derivation is not.
+
+**Settled by experiment instead** (relay #9396, in flight): re-run one arm a
+second time, byte-identical. All legs identical ⇒ deterministic, so the recorded
+rows are **stale evidence** and the off0 control is sound. Any leg differing ⇒
+non-deterministic, and **the control needs a tolerance rather than equality** —
+which would also mean the 8 exact matches are the surprising half, not the 9
+mismatches.
 
 ## Limits, stated plainly
 

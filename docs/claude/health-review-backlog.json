@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-15T02:20:00+00:00",
+  "updated_at": "2026-08-15T03:25:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15426,6 +15426,27 @@
           "by": "claude (M20 overnight session 2026-08-15)",
           "note": "PRECISION CORRECTION on my own validation claim, checked against the arms rather than assumed. I wrote that gdx validates the one-fold criterion. It validates it as a FLAG, not as a mechanism: off0 has u=7/beats_hard=4 (slack -2, honest_negative) and off10 has u=8/beats_hard=6 (slack +2, candidate) — u moved AND beats_hard moved by two, so the observed transition is larger than the single-fold move the criterion is built on. The criterion correctly SELECTED the leg that turned out unstable; it does not model how the instability happens. Also worth noting gdx is the same leg whose u is not constant across arms, so it is the awkward leg in both the median and this validation."
         }
+      ]
+    },
+    {
+      "id": "BL-20260815-EXIT-HEAD-ROUNDS-CANNOT-IDENTIFY-THEIR-OWN-RUN",
+      "opened_at": "2026-08-15T03:25:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-15)",
+      "source": "Surfaced when 9 of 17 legs failed to reproduce their recorded round in a fresh arm and the file could not say whether the recorded row came from a different run. Found while investigating the unanimity screen's control failures, not by any audit of the file.",
+      "title": "docs/research/m20-exit-head-rounds.jsonl carries NO run id and NO timestamp — a row cannot be traced to the run that produced it, so a reproduction mismatch is unattributable.",
+      "tier": "1 (research evidence artifact; no live path)",
+      "area": "M20 exit_head_ml",
+      "severity": "medium",
+      "status": "open",
+      "detail": "The committed rounds file is the exit-head programme's evidence of record — the denominator script reads it, the coverage narrative cites it, and every off0 control compares against it. Its full field set is:\n\n  beats_actual, beats_hard, block_unit, family, leg, lever, mean_auc, n_oos,\n  prop_sibling, provenance, symbol, tf, tp_cap_pct, tp_geometry, usable_folds, verdict\n\nThere is no run id, no output directory, no timestamp, and no git sha. So a row states WHAT was measured and never WHEN or BY WHICH RUN.\n\nMEASURED CONSEQUENCE 2026-08-15: a fresh screen re-ran 17 legs at their recorded configuration and 9 failed to reproduce their recorded mean_auc, while n_oos was IDENTICAL on all 17 (d_n = +0) — so the trade population is unchanged and data growth is refuted. The residual hypotheses are (a) the recorded rows came from a different run or config, or (b) training is non-deterministic. THE FILE CANNOT DISTINGUISH THEM, because it cannot say which run any row came from. A separate determinism test had to be dispatched to settle what a run id would have answered for free.\n\nThe bimodality is the striking part and is what a run id would explain or refute: the 8 reproducing legs match to EXACTLY 0.0000 while the 9 mismatches reach 0.0331, and within a single pooled 2h arm 3 legs reproduce exactly and 4 do not — one model, one training call, so a globally noisy fit would have moved all seven.\n\nThis is the same provenance class the programme has been fixing everywhere else: the artifact records the value and not the derivation.",
+      "proposed_fix": "Add a run identity to each row when it is written by scripts/research/m20_exit_head_round.py — at minimum the round output directory and a UTC timestamp, ideally the git sha of the worktree that produced it (the driver already knows all three). Backfilling existing rows is NOT proposed: their run identity is genuinely unknown now, and inventing one would be worse than the gap. Mark pre-existing rows with an explicit null/unknown so 'we did not record it' stays distinguishable from 'it was this run'.",
+      "resolution_criteria": "New rows written by the round driver carry a run identifier sufficient to trace them to their producing run, and pre-existing rows carry an explicit unknown rather than a fabricated value. Closes on that being written and a fresh row demonstrating it.",
+      "evidence": "checked: docs/research/m20-exit-head-rounds.jsonl (full field set read, no run/time field present); trainer-diag #9393 (17 legs, 9 control mismatches) and #9395 (n_oos identical on all 17, d_n=+0, refuting data growth); #9396 (determinism test dispatched because the file could not answer).",
+      "refs": [
+        "docs/research/m20-exit-head-rounds.jsonl",
+        "scripts/research/m20_exit_head_round.py",
+        "docs/research/m20-fold-dispersion-2026-08-15.md",
+        "trainer-diag #9393 #9395 #9396"
       ]
     }
   ]
