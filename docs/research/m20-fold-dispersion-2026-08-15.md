@@ -1626,7 +1626,7 @@ independently and reproduced.
 
 #### 🔴 First, a defect in MY OWN GATE — gate 1 is insufficient, and it cost an arm
 
-**The off12 arm never ran.** Its log carries:
+**The off12 arm produced zero evidence rows.** Its log carries:
 
 ```
 train_exit_head.py: error: unrecognized arguments: --fold-offset 12
@@ -1645,10 +1645,40 @@ sha256 pair across all four arms" as though it established the latter. It does
 not, and every screen tonight carried the same hole — the others simply got
 lucky on timing.
 
-Worse, **`versions.txt` records `ARM off=12 exit=0`.** The round driver exited
-**zero** while its training subprocess failed, so the only evidence the arm died
-is the *absence* of `rounds.jsonl` — a missing file, not an error. Filed
-separately.
+**⚠️ CORRECTION (10:14Z) — I first wrote "the arm never ran", and that was
+wrong in a way worth keeping.** Verified against the box rather than inferred:
+the arm *ran*. All seven backtests emitted (363/343/225/297/243/361/407 trades)
+and the dataset built **72,725 rows**. Only the **training step** was rejected,
+after which the driver printed `evidence rows -> …/rounds.jsonl (0 rows…)` and
+`round done`. The accurate statement is: **the arm ran and wrote a 0-row evidence
+file.**
+
+**And it is worse than a missing file — it is an EMPTY one.** `versions.txt`
+records `ARM off=12 exit=0`; `rounds.jsonl` **exists**, mtime `10:04:53Z`,
+**0 lines**. So an existence check passes. Filed separately.
+
+**🔴 Which broke MY OWN readout, in the class I have documented three times
+tonight.** My relay loop is:
+
+```
+if [ -f "$a/rounds.jsonl" ]; then sed "s#^#$n #" "$a/rounds.jsonl"
+else echo "$n (no rounds.jsonl yet)"; fi
+```
+
+The file exists, so the `else` never fires; `sed` over an empty file prints
+**nothing**. The off12 arm therefore vanished from #9444's output with no line at
+all — and I read that silence as "the directory does not exist yet". **An empty
+result rendered identically to an absent one: CLAUDE.md § "Diagnostic
+provenance" sub-class C, the unasserted denominator, committed inside the
+diagnostic I was using to police exactly that.** The same `[ -f ]` test then made
+#9445 *refuse to re-run the arm*, because a 0-row file counts as "already has
+rounds.jsonl".
+
+**The scientific conclusion is unchanged** — off12 contributed no rows either
+way, so the round is genuinely 3 draws and every number below stands. What
+changed is that I nearly corrected a right answer on the strength of a
+contradiction between two of my own broken reads, and only avoided it by going
+and looking at the mtime.
 
 **So this round is 3 draws, not 4**, which matters for every comparison below
 and is why I redid them at matched draw counts rather than quoting the old ones.
