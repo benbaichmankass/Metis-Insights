@@ -41,6 +41,8 @@ import numpy as np
 # treats as "cannot grade" — never as a licence to substitute a local default.
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "scripts" / "research"))
+sys.path.insert(0, str(_REPO / "scripts" / "ml"))
+from _heavy_queue import take_heavy_queue  # noqa: E402
 try:  # pragma: no cover - exercised by the import-failure path in tests
     from m20_fleet_exit_sweep import MIN_OOS_TRADES  # noqa: E402
 except Exception:  # noqa: BLE001 - any import failure is the same third state
@@ -697,6 +699,9 @@ def main(argv: List[str]) -> int:
                     help="M20 P4.3: 'extended' adds the exhaustion block "
                          "(needs a post-P4 dataset; missing cols become NaN).")
     a = ap.parse_args(argv[1:])
+    # Bound to a name for the process lifetime: the flock releases when the fd
+    # closes, so letting this be garbage-collected would silently unlock.
+    _heavy_lock = take_heavy_queue("train_exit_head")  # noqa: F841
     global TARGET, FEATURES
     TARGET = a.target
     if a.features == "extended":

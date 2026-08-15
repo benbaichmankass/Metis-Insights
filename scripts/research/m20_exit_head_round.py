@@ -646,6 +646,48 @@ def main(argv: list[str]) -> int:
                 # corpus carries True. Without it the two conventions pool
                 # invisibly in one evidence file.
                 "total_sort": bool(a.total_sort),
+                # WHICH FOLD PARTITION THIS ROW WAS MEASURED UNDER.
+                # BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET.
+                #
+                # This is the axis the entire fold-dispersion study VARIES, and
+                # it was the one axis the evidence rows did not carry — while
+                # `total_sort` and `block_unit`, both stamped right here, are
+                # the axes it holds FIXED. `_round_meta` recorded it, so the
+                # round knew; the rows did not, and rows are what get
+                # consolidated. `m20_consolidate_dispersion_arms.py` exists in
+                # part to reach back into each arm's `round_report.json` and
+                # staple the offset on afterwards — carrying an explicit
+                # `offset_source` of `round_meta` vs `unavailable` precisely
+                # because a row whose report is missing can then only be
+                # recorded as UNKNOWN. That recovery is correct and stays (it
+                # is the only way to read the 234 rows already committed), but
+                # it should never have been the primary path.
+                #
+                # 0 IS A RECORDED VALUE HERE, NOT AN ABSENCE. The train call
+                # above deliberately does not forward `--fold-offset 0` (the
+                # `if a.fold_offset:` guard — 0 is falsy and the unshifted
+                # partition is the trainer's own default), so the control arm
+                # never needs the branch-only flag. That asymmetry is real and
+                # is exactly why off0 survived the reset that voided its
+                # siblings — but it is a fact about the ARGV, not about the
+                # measurement, and the row must state which partition produced
+                # it either way. Consumers distinguish "control arm" from "we
+                # did not record it" by the presence of the key, never by 0.
+                "fold_offset": a.fold_offset,
+                # HOW WE KNOW THAT OFFSET — three states, never collapsed, the
+                # same shape as the consolidator's `offset_source`:
+                #   argv                      — read from this run's argument
+                #   predates_flag_<commit>    — the producing driver had no
+                #                               --fold-offset at all, so the
+                #                               partition was necessarily the
+                #                               unshifted one (backfill only)
+                #   unavailable               — we could not establish it
+                # A live round always knows, so it always writes `argv`. The
+                # value exists so a backfilled 0 and a measured 0 are not the
+                # same claim: one is inferred from the code's history, the other
+                # is what was passed. Without it, backfilling the corpus would
+                # have produced 33 rows indistinguishable from measured ones.
+                "fold_offset_basis": "argv",
                 "provenance": f"round {out.name}; driver-emitted",
             })
     # EXISTENCE MUST IMPLY ROWS. A zero-row `rounds.jsonl` is the worst of the

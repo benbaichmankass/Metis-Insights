@@ -46,6 +46,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+_HEAVY_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_HEAVY_REPO / "scripts" / "ml"))
+from _heavy_queue import take_heavy_queue  # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 FEATURES_CAT = ["strategy_name", "symbol", "direction", "setup_type",
@@ -202,6 +206,10 @@ def main() -> int:
                     help="extra chronological cut-points for stability")
     ap.add_argument("--json", default="")
     args = ap.parse_args()
+    # Trainer heavy-job queue — this script FITS (three lgb.train arms), so
+    # it is a heavy job by the protocol's definition, not a scoring pass.
+    # Bound to a name: the flock releases when the fd closes.
+    _heavy_lock = take_heavy_queue("spike_a_pooled_labels")  # noqa: F841
 
     rows = _load_rows(Path(args.dataset))
     amap = _account_class_map(Path(args.accounts_yaml))

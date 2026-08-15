@@ -444,6 +444,19 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/check_provenance_consumers.py", "--verbose"]],
     },
     {
+        "name": "trainer-heavy-lock-guard",
+        # The self-test runs on EVERY invocation, same reasoning as
+        # api-tier-policy-guard: a guard whose failure path is never exercised
+        # is indistinguishable from one that always passes — and this guard's
+        # whole design point is that a MENTION of the helper must not satisfy
+        # it, which is only demonstrable by running the negative.
+        "when": {"regex": r"^scripts/(ml|research)/.*\.py$"},
+        "steps": [
+            ["python3", "scripts/ci/check_trainer_heavy_lock.py", "--self-test"],
+            ["python3", "scripts/ci/check_trainer_heavy_lock.py", "--list"],
+        ],
+    },
+    {
         "name": "qty-legalization-guard",
         "when": {"globs": ["**/*.py"]},
         "steps": [["python3", "scripts/check_qty_legalization_guard.py"]],
