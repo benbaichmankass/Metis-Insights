@@ -276,28 +276,51 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 > finding CHANGED.** The original framing below is preserved because you may
 > have read it, but do not act on it. Current state, 10:00Z:
 >
-> **1. The fragile-margin flag does NOT predict instability. It was refuted.**
-> I measured whether cells near the gate bar are the ones whose verdict moves
-> when the fold boundaries move. They are not: flagged **6/11** moved, unflagged
-> **2/4** — 55% vs 50%, one-sided Fisher **p = 0.66**. Two unflagged legs moved,
-> one from slack **+7**. I told you the opposite at 09:20Z ("zero false
-> negatives in 17") and that was wrong.
+> **⚠️ This box was itself corrected at 10:10Z when the slack-blind screen
+> landed. I have made TWO claims to you on this item tonight that I then had to
+> walk back — at 09:20Z ("the flag is a clean sieve") and at 09:45Z ("the flag is
+> refuted"). Both were overstated in opposite directions. What follows is the
+> version with the measurement that was designed to settle it.**
 >
-> **2. Why, in one line:** slack measures distance from ONE fold flipping inside
-> a *fixed* partition; moving the boundaries *re-draws every fold* and shifts the
-> counts three at a time. Two different quantities — I was using one as a proxy
-> for the other without checking.
+> **1. The flag's status: SUGGESTIVE, NOT ESTABLISHED — and not refuted.**
+> At matched draw counts (17 legs, same three offsets): flagged **3/6 = 50%**
+> moved, unflagged **3/11 = 27%**, one-sided Fisher **p = 0.34**. The direction
+> the flag predicts, at a sample that cannot establish it.
 >
-> **3. What replaces it, and it is a bigger claim than the original:**
-> **8 of 15 screened legs (53%) changed verdict under re-partitioning, and
-> nothing yet identifies which will.** Not just the ones near the bar. Any of
-> them.
+> **2. What was wrong with my 09:45Z refutation, because it was my error and not
+> a data change:** I pooled legs measured at *different numbers of draws* — 7 for
+> two of them, 4 for the rest. More draws is more chances to move, so "moved" was
+> not comparable across them, and the unflagged denominator was **four**. The
+> slack-blind screen supplied the missing unflagged sample, which is what it was
+> for.
 >
-> **4. The caveat, stated with the number and not after it:** I *chose* those 15
-> to be flag-enriched, so 53% is not an unbiased fleet rate. The reason to still
-> weigh it is that the enrichment provably did not work. **A slack-blind screen
-> is running now (#9441) to settle exactly this**, with both competing
-> predictions written down before it started.
+> **3. The slack-blind screen (#9441) is the reason this moved.** A round with
+> **zero** flagged legs, picked by a rule that ignores margin, moved **1 of 7** —
+> the lowest rate of any round screened. Both competing predictions were written
+> down before it ran.
+>
+> **4. The one mover flipped on a term the flag never measured.** It failed the
+> **AUC** bar (`0.5427` vs `0.55`), not a fold bar — and its control clears that
+> bar by **+0.0006**, which is the thinnest margin in the corpus and is *already
+> recorded in this very item, below*. The gate has two independent failure terms;
+> the flag measures one. I tested the obvious two-term repair: it explains that
+> case and does **not** improve prediction, so it is written down as an untested
+> hypothesis and **not adopted**.
+>
+> **5. What stands: 6 of 17 legs (35%) changed verdict at matched draws**, and
+> **two false negatives remain genuinely unexplained** (`ada_4h` at slack +7,
+> `eth_4h` at −5 — both far from both bars). I am not inventing a third criterion
+> to cover them; three post-hoc stories have already been advanced and retracted
+> tonight.
+>
+> **6. A defect in my own instrument, found by the same screen.** One of the four
+> arms **never ran** — the trainer's 15-minute reset wiped the branch-only flag
+> mid-arm — and my sha256 gate **passed anyway**, because it hashes at arm start,
+> before the training call. I had been quoting that gate as proof each arm ran
+> the pinned code. It is not. Every screen tonight carried the same hole and
+> differed only in timing luck; the affected round is 3 draws, not 4, and is
+> reported that way throughout. Filed as
+> `BL-20260815-EXIT-HEAD-ROUND-EXITS-ZERO-WHEN-TRAINING-SUBPROCESS-FAILS`.
 >
 > **5. What I would actually ask of you:** nothing on this item tonight. It needs
 > no Tier-3 decision. When you read it, the ask is a *posture* change — treat a
