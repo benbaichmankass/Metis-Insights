@@ -645,8 +645,35 @@ seven should have differed. Three explanations are *ruled out*, not merely
 unselected — data growth (`n_oos` identical, `d_n = +0`), training
 non-determinism (5/5 legs reproduce byte-identically), and hand-editing of the
 evidence (all 7 rows unchanged since commit `306ee999` introduced them, checked
-with `git show`). The round's own `_round_meta` records the flags it ran with and
-is the next place to look (relay #9398).
+with `git show`).
+
+**A fourth is now ruled out too, and it was the leading one** (relay #9398). The
+round's own `e1_report.json` names the legs it pooled:
+
+```
+['ada_pullback_2h', 'avax_pullback_2h', 'eth_pullback_2h', 'eth_pullback_prop_2h',
+ 'htf_pullback_trend_2h', 'sol_pullback_2h', 'xrp_pullback_2h']
+```
+
+That is **exactly** the 7-leg set my re-run pooled — same legs, same count. So
+"the recorded round pooled a different subset, and `family_pooled` makes a subset
+a different measurement" is dead as an explanation. It was the hypothesis the
+whole comparability rule was built on, and it does not cover this round.
+
+**What that leaves is a narrower and more uncomfortable question**, stated
+without a replacement explanation because I do not have one: same legs, same
+trade population, deterministic training, unedited rows — and four of the seven
+still differ, by 0.0009 to 0.0331. Every difference-generating input I have been
+able to name has now been measured and excluded.
+
+The same read also found the round records **no flags** — `_round_meta` printed
+nothing. I am not yet reporting that as "empty": an absence read from a probe not
+shown capable of finding a positive is precisely the error I made on `provenance`
+earlier tonight, so relay #9400 re-runs it with a positive control (the same
+reader on `per_leg`, known populated) and asks which 3 legs reproduce. **The leg
+identity is the discriminating datum** — if the reproducing three are the ones an
+ETH-denomination transform would leave untouched, that is a lead; if they are an
+arbitrary three, it is not.
 
 ### The generalizable rule: check comparability BEFORE launching
 
