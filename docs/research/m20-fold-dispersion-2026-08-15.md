@@ -585,7 +585,18 @@ why the screen was worth running before proposing anything to the operator.
 
 ### The control failures are their own finding, and are being investigated
 
-Nine legs' arms do not reproduce their recorded round while `u` matches exactly.
+Nine legs' arms do not reproduce their recorded round.
+
+⚠️ **This sentence used to end "…while `u` matches exactly", and that was wrong**
+(corrected 04:40Z from relay #9402, which read the arms' per-leg fold counts
+rather than restating the claim). On the `2h` group `usable_folds` matches on 5
+of 7 legs and **differs on two** — `avax` 42 vs 43, `sol` 41 vs 43 — and those
+are among the legs whose AUC moved. The error is the same accessor mistake I
+made on `provenance`: the field is `usable_folds`, I had been reading `u`, and
+every row returned `None`, so "matches exactly" was `None == None` on both
+sides. A reassurance built on comparing two nulls is worse than no reassurance,
+because it closes off the question. **`usable_folds` differing is now the single
+most informative fact in this section** — see below.
 
 **Data growth is REFUTED** (relay #9395): `n_oos` is **identical on all 17 legs**,
 `d_n = +0`, including every mismatch. Same trade population, different AUC. That
@@ -787,3 +798,75 @@ The flag refuses `--fold-mode=years` with a non-zero offset, refuses
 into `_round_meta` so an offset-0 arm is distinguishable from a round predating
 the flag. Twelve tests in `tests/test_fold_offset.py`, each verified load-bearing
 by planting its own regression.
+
+---
+
+## The fragility flag has a base rate, and it is not constant (04:45Z)
+
+Everything above reports "one fold flip from the opposite verdict" as a single
+pooled number. That number is not comparable across rows, and the reason is
+arithmetic.
+
+**`usable_folds` spans 4 to 43 across the 33 committed rounds** — more than a
+tenfold range. One fold flip is therefore **25.0% of the evidence** on
+`iaum_pullback_1d` (`u = 4`) and **2.3%** on `eth_pullback_2h` (`u = 43`). Those
+are not the same claim, and § 5 of the operator queue reports them under one
+percentage.
+
+Worse, the *flag itself* is likelier to fire at low `u`. Slack is
+`3·beats − 2·u`, so it lives on one residue class mod 3 with spacing 3, taking
+`u + 1` achievable values; the one-flip band `[−3, 2]` is six consecutive
+integers and contains exactly **2** points of any residue class. So the lattice
+alone gives a base rate of `2/(u+1)` per term:
+
+| `u` | one flip perturbs | lattice base rate (either term) | observed |
+|--:|--:|--:|:--|
+| 4 | 25.0% | 64.0% | 1/1 |
+| 9 | 11.1% | 36.0% | 2/2 |
+| 16 | 6.2% | 22.1% | 3/5 |
+| 23 | 4.3% | 16.0% | 4/5 |
+| 43 | 2.3% | 8.9% | 1/5 |
+
+**A row with `u = 4` is nine times likelier to be flagged than a row with
+`u = 43`, before any evidence about the leg.** Pooling them and quoting one
+percentage lets the small-`u` rows set the headline.
+
+### Correcting for it makes the finding STRONGER, not weaker
+
+That was a deflationary check and it failed to deflate. Over all 33 rounds:
+
+| | rows flagged | share |
+|---|--:|--:|
+| **observed** | 16 / 33 | **48.5%** |
+| expected from the fold-count lattice alone | 6.9 / 33 | 20.8% |
+| | | **excess +27.6 pp** |
+
+And the excess is **larger where one flip is a smaller perturbation**:
+
+| population | observed | lattice-expected | excess |
+|---|--:|--:|--:|
+| `u ≤ 11` (one flip = 9–25% of evidence) | 55.6% | 36.9% | **+18.6 pp** |
+| `u ≥ 23` (one flip = 2–4% of evidence) | 44.4% | 12.7% | **+31.8 pp** |
+
+So verdicts cluster at the bar most tightly exactly where a flip is cheapest —
+the opposite of an artefact of coarse low-fold lattices, which is what I was
+testing for.
+
+**State the null honestly, because it is crude.** "Expected" here assumes
+`beats` is uniform over `0..u`, which no real gate produces: a *discriminating*
+threshold ought to sit where cells are dense, and this memo already argued
+exactly that about the walk-forward mode. So the +27.6 pp excess over uniform is
+**not** by itself evidence of a defect. What does not depend on the null is the
+**differential** — both groups face the same crude assumption, so `u ≥ 23`
+carrying a larger excess than `u ≤ 11` is a comparison between like and like.
+
+**What this changes for the operator.** Nothing yet, and deliberately: it is a
+qualification of how a number was reported, not a new verdict on any leg. But
+queue item 5 should be read with it — "8 of 14 candidates are one flip from
+failing" is a pooled figure over rows where a flip means between 2% and 25% of
+the evidence, and the correct reading of the sub-population that matters most
+(`u ≥ 23`, where a flip is nearly free) is *more* concerning than the pooled
+number, not less.
+
+**Reproduce:** the table is computed from `docs/research/m20-exit-head-rounds.jsonl`
+alone — `usable_folds`, `beats_actual`, `beats_hard` per row; no trainer call.
