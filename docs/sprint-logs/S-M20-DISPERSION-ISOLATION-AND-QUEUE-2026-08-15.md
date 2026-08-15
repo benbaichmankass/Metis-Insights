@@ -251,6 +251,52 @@ Producer and consumer landed together — a field written and never read is wors
 than a missing one. Statuses untouched (asserted by diffing every cell
 old-vs-new), headline unchanged, all three matrix guards green.
 
+### 8. Audited the 3 remaining PENDING cells — genuine work, and one has no driver
+
+With the arithmetic split landed, only **3 cells on live legs are `pending`**, all
+on the two prop donchian legs that graduated shadow→live on 2026-08-13. I audited
+whether they are real work or mislabels. **Three hypotheses were tested and
+REFUTED** — recorded so nobody re-runs them:
+
+| # | hypothesis | how it died |
+|---|---|---|
+| 1 | duplicate matrix rows hide a status | zero duplicate `strategy` keys |
+| 2 | the row's `execution` is stale vs `strategies.yaml` | zero disagreements — my first pass compared against `_declared_legs()` (**55 declared**) instead of the **47 effective-live** legs, which manufactured a 4-row "defect" |
+| 3 | `exit_ladder` is `n/a` for legs that declare no ladder | refuted by convention: **45 of 52** rows grade it `honest_negative`, every donchian sibling included |
+
+Hypothesis 2 is the one worth remembering: the module holds **two** definitions of
+"live" — `_declared_legs()` (all declared) and `rollup()`'s `execution == "live"`
+(the denominator). Reading the wrong one turns a correct file into a confident
+finding. I nearly published it.
+
+**What the audit did find**, measured rather than inferred:
+
+    bank-flag hits per harness
+      backtest_ict_scalp.py  32     backtest_squeeze.py    0
+      backtest_trend.py      16     backtest_fvg_range.py  0
+      backtest_pullback.py   17
+
+`exit_ladder` has **zero non-comment occurrences** in `m20_fleet_exit_sweep.py`
+(its `--levers` is `choices=sorted(LEVER_DECLARED_KEYS)` — four keys, not
+including it), and the only driver constructing ladder cells is
+`m27/ict_scalp_exit_sweep.py::ladder_cells()`, whose `_HARNESS` is **hardcoded**
+to the scalp harness. So donchian/pullback have the **capability and no driver**:
+their 45 verdicts rest on the 2026-07-12 memo-era pass, and nothing runnable
+today reproduces the column for a leg added since.
+
+The **coherence check** that this read is right: the two cells already carrying
+`blocked:no_harness_levers` are `squeeze_breakout_4h` and `fvg_range_15m` —
+exactly the two harnesses measuring **0** bank flags. The vocabulary is applied
+correctly; the gap is one level up.
+
+**Deliberately did NOT re-label the cells.** `blocked:no_harness_levers` would be
+factually wrong (the harness *has* the levers), and minting a status to close them
+is the cosmetic-cell anti-pattern (`BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS`).
+They stay `pending` because they are genuinely open. Filed as
+`BL-20260815-EXIT-LADDER-HAS-NO-DRIVER-FOR-THE-DONCHIAN-PULLBACK-FAMILIES` with
+the port + a reproduction check as its resolution criteria — the fix routes the
+column onto **free runners**, so it costs the trainer nothing.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
