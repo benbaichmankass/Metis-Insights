@@ -67,16 +67,25 @@ read. Current standing, over **17 re-partitioned legs**:
   and `trend_donchian_eth_4h` from **−5**, both outside the flag, while the
   flagged `xrp_4h` held. Struck rather than deleted because it was quoted to the
   operator before it was refuted.
-- **The flag does not predict boundary sensitivity.** Over the 15 screened legs
-  with a named control slack: flagged **6/11** moved, unflagged **2/4** —
-  55% vs 50%, one-sided Fisher **p = 0.66**. Slack models one fold flipping in a
-  *fixed* partition; the screen *re-draws* every fold, and the counts move by
-  three at a time (`eth_4h`'s `beats_hard` runs 9 → 12). Different quantities.
-- **What stands: 8 of 15 screened legs (53%) changed verdict under
-  re-partitioning, and margin does not tell you which.** The screened set was
-  chosen flag-enriched, so 53% is not an unbiased fleet rate — but since the
-  enrichment provably did not work, the next measurement is a screen selected
-  **without reference to slack**.
+- ⚠️ ~~**The flag does not predict boundary sensitivity** … flagged 6/11 vs
+  unflagged 2/4, p = 0.66.~~ **OVERSTATED — corrected 10:05Z.** That comparison
+  pooled legs measured at *different numbers of draws* (7 for `gdx`/`iaum`, 4 for
+  the rest); more draws is more chances to move, so it was not a valid
+  comparison, and its unflagged denominator was **four**. Redone at matched draws
+  (off0/4/8, 17 legs): flagged **3/6 = 50%**, unflagged **3/11 = 27%**, Fisher
+  **p = 0.34** — the predicted direction, **not** statistically established.
+- **The slack-blind round is the reason that changed.** A round with **zero**
+  flagged legs, chosen by a rule that ignores margin, moved **1 of 7** — the
+  lowest rate of any round screened. See § "The SLACK-BLIND 2h round".
+- **The one mover flipped on the AUC bar, not a fold bar** (`0.5427` vs `0.55`),
+  and its control clears that bar by **+0.0006** — already on record as the
+  thinnest margin in the corpus. The gate has two independent failure terms and
+  the flag measures one, so that is a false negative of a *one-term* criterion,
+  not proof fragility is unpredictable.
+- **What stands: 6 of 17 legs (35%) moved at three matched draws**, and two
+  genuine false negatives remain unexplained (`ada_4h` at slack +7, `eth_4h` at
+  −5, both far from both bars). Quote 35%, not the earlier 53%, which mixed draw
+  counts.
 
 **Two ways of triaging the flagged population down to a shorter list have been
 measured and BOTH fail:**
@@ -1602,4 +1611,116 @@ Recorded because "re-partition" is the word I have used throughout, and it
 implies the same data cut differently. It is *nearly* that, and the gap is
 small, stated, and bounded — but it was not something I had checked before
 building on it.
+
+
+### ⚠️ The SLACK-BLIND 2h round (10:05Z, relay #9444) — 1 of 7, and it partly walks back my 09:45Z refutation
+
+This is the screen I said at 09:45Z was the one worth running, chosen by a rule
+that makes no reference to margin (**largest wholly-unscreened round**), with both
+competing predictions written into #9441 **before** it started: *flag has
+predictive value ⇒ ≈0 movers of 7; boundary sensitivity is broad ⇒ ≈3–4.*
+All seven legs are **unflagged** (slacks +4, −6, +4, +13, −20, −7, +4).
+
+**Result: 1 of 7 moved** — `eth_pullback_2h`. All 21 verdicts recomputed
+independently and reproduced.
+
+#### 🔴 First, a defect in MY OWN GATE — gate 1 is insufficient, and it cost an arm
+
+**The off12 arm never ran.** Its log carries:
+
+```
+train_exit_head.py: error: unrecognized arguments: --fold-offset 12
+```
+
+That is the trainer's ~15-minute `Reset to origin/main` landing **between** the
+driver's `git checkout` and its `train_exit_head.py` invocation, wiping the
+branch-only flag — the precise hazard
+`BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH` names, and the
+one gate 1 was built to catch.
+
+**Gate 1 passed anyway, and that is the lesson.** It records `sha256` at *arm
+start*; the reset arrived after. **A matching hash proves the file was correct
+when it was hashed, NOT that the arm ran that code.** I have been quoting "one
+sha256 pair across all four arms" as though it established the latter. It does
+not, and every screen tonight carried the same hole — the others simply got
+lucky on timing.
+
+Worse, **`versions.txt` records `ARM off=12 exit=0`.** The round driver exited
+**zero** while its training subprocess failed, so the only evidence the arm died
+is the *absence* of `rounds.jsonl` — a missing file, not an error. Filed
+separately.
+
+**So this round is 3 draws, not 4**, which matters for every comparison below
+and is why I redid them at matched draw counts rather than quoting the old ones.
+
+#### ⚠️ Second — my 09:45Z "the flag is REFUTED" was overstated, for a reason that is my error
+
+At 09:45Z I reported flagged **6/11** vs unflagged **2/4**, `p = 0.66`, and
+called the flag refuted. **That comparison pooled legs measured at DIFFERENT
+numbers of draws** — 7 for `gdx`/`iaum`, 4 for the rest. More draws is more
+chances to move, so "moved" is not comparable across them. I should have matched
+the draw count the first time.
+
+Redone over the four rounds where I hold per-arm data at the **same** offsets
+(0/4/8), **17 legs**:
+
+| | moved | held | rate |
+|---|--:|--:|--:|
+| flagged (`\|slack\| ≤ 2`) | 3 | 3 | **50%** |
+| unflagged | 3 | 8 | **27%** |
+
+One-sided Fisher **`p = 0.34`**. And by round:
+
+| round | movers / legs | flagged legs in round |
+|---|--:|--:|
+| donchian 4h | **4/5** | 3 |
+| donchian 1h | 1/3 | 2 |
+| prop donchian 1h | 0/2 | 1 |
+| **pullback 2h (slack-blind)** | **1/7** | **0** |
+
+**The round with zero flagged legs has the lowest move rate of any round.** That
+is the direction the flag predicts. So the honest position is **not** "refuted"
+and **not** "validated": at matched draws the separation runs the predicted way
+and is **not statistically established** (`p = 0.34`, n = 17). The `p = 0.66` I
+gave you was driven by an unflagged denominator of **four**; this screen supplied
+the missing sample, which is exactly what it was for.
+
+#### Third — the one mover moved on a term the flag never measured
+
+`eth_pullback_2h` flipped `candidate → honest_negative` at off4 **on the AUC
+bar**, not on a fold-majority term: `0.5427` against the `0.55` line, with
+`beats_actual`/`beats_hard` both comfortably clear. **Every previous mover in
+this study moved on `beats_hard` or `beats_actual`.**
+
+And its control AUC is **0.5506 — clearing the bar by `+0.0006`**, the thinnest
+margin in the corpus, which **item 5 of the operator queue had already recorded**.
+So this leg was *known* to be fragile, on a dimension my flag does not look at.
+It is better described as a **false negative of a one-term criterion** than as
+evidence that fragility is unpredictable.
+
+The gate has two independent ways to fail. My flag measured one.
+
+I tested the obvious repair — flag if `|slack| ≤ 2` **OR** `|auc − 0.55| ≤ 0.01`:
+
+| criterion | flagged movers | unflagged movers | p | false negatives |
+|---|---|---|--:|---|
+| slack only | 3/6 | 3/11 | 0.34 | `ada_4h`, `eth_4h`, `eth_pullback_2h` |
+| slack **or** AUC margin | 4/9 | 2/8 | 0.37 | `ada_4h`, `eth_4h` |
+
+**It explains one false negative and does not improve prediction** — it flags
+three more legs to catch one more mover, and `p` moves the wrong way. ⚠️ The
+`0.01` was chosen **after** seeing these data and is **not adopted**; it is a
+hypothesis for the next round to test, recorded as such precisely because three
+post-hoc stories have already been advanced and retracted in this document.
+
+**Two genuine false negatives survive**: `trend_donchian_ada_4h` (slack **+7**,
+AUC margin **+0.12**) and `trend_donchian_eth_4h` (slack **−5**, margin
+**+0.08**). Both are far from *both* bars and both moved. Nothing here explains
+those, and I am not going to invent a third term to cover them.
+
+#### Where the tally actually stands
+
+**6 of 17 legs (35%) moved at three matched draws.** That is the number to quote
+— not the earlier 53%, which mixed draw counts. The population is still
+flag-enriched overall, but it now contains 11 unflagged legs rather than 4.
 
