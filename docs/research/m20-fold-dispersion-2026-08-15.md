@@ -324,6 +324,61 @@ flipping does not make the other six wrong, `beats_hard` being the common term i
 expected (it is a count over folds, so it is the most boundary-exposed term by
 construction), and six of these legs have never been offset-tested at all.
 
+## The candidate column is thinner than the negative column — arithmetic, whole corpus
+
+`gdx` raised the question empirically. The committed rounds answer it *without a
+harness*, because the fold-majority terms have exact arithmetic: the gate is
+`beats * 3 >= u * 2`, so one fold changing side moves `beats` by 1 and the slack
+by **3**. **A slack of 0, 1 or 2 means a single fold flip changes the verdict.**
+That is not an extrapolation from the dispersion measured above — it holds for
+any family, any `u`.
+
+**Population: the 33 committed rounds — 14 `candidate`, 19 `honest_negative`.**
+
+| | one fold flip from the opposite verdict |
+|---|---|
+| **candidates** | **8 of 14 (57%)** |
+| negatives | 4 of 19 (21%) |
+
+The fragile candidates, with slack `(beats_actual, beats_hard)`:
+
+| leg | AUC margin | slack | what is thin |
+|---|--:|---|---|
+| `ict_scalp_sol_15m` | +0.0308 | `(+0, +3)` | `beats_actual` **at the bar** |
+| `ict_scalp_xrp_15m` | +0.0181 | `(+3, +0)` | `beats_hard` **at the bar** |
+| `trend_donchian_eth_prop` | +0.0638 | `(+12, +0)` | `beats_hard` **at the bar** |
+| `iaum_pullback_1d` | **+0.0025** | `(+1, +1)` | all three — *and it flipped* |
+| `trend_donchian_xrp_4h` | +0.1054 | `(+7, +1)` | `beats_hard` |
+| `trend_donchian_eth` | +0.0579 | `(+2, +2)` | both majorities |
+| `ict_scalp_sol_5m` | +0.0684 | `(+20, +2)` | `beats_hard` |
+| `eth_pullback_2h` | **+0.0006** | `(+7, +4)` | AUC, by six ten-thousandths |
+
+**The criterion is validated by the one leg that was actually re-partitioned.**
+`gdx_pullback_1d` sits at `beats_hard` slack **−2** — the arithmetic says one
+fold flip would pass it — and re-drawing the boundary passed it on 2 of 7 draws.
+Predicted fragile, observed fragile. That is `n = 1`, and it is the only
+empirical anchor this criterion has.
+
+**What this does and does not say.** "One fold flip away" is a statement about
+**robustness, not correctness**: none of these verdicts is thereby wrong, and
+several may be perfectly stable under re-partitioning — `eth_pullback_2h` sits
+at +0.0006 on AUC but has comfortable slack on both majorities, so it is thin in
+a different way than `ict_scalp_sol_15m`, which is exactly at its `beats_actual`
+bar. The fold-majority half is pure arithmetic; the AUC half (`< 0.005`) is a
+threshold I chose against the dispersion measured above, and is therefore the
+softer of the two.
+
+**The reframing matters more than the count.** The night began with a worry about
+the *negative* column and ended measuring that the *candidate* column is roughly
+**2.7× more exposed** — and candidates are the cells that would justify shipping
+a lever onto a live leg. `trend_donchian_xrp_4h` appears here on its
+`exit_head_ml` cell; that is a **different lever** from the `trail_decay` change
+in PR #9257 on the same leg, with no interaction, and is flagged only so the two
+are not conflated.
+
+Nothing is re-graded here. Which of these eight actually flip is what an offset
+screen measures, and that screen is running for the negatives first.
+
 ## Limits, stated plainly
 
 1. **This family is the THIN one, so this is an UPPER BOUND** — pre-registered as
