@@ -455,6 +455,18 @@ candidates.** The remaining five candidates need **three more rounds** — donch
 That the negatives finish first is an artefact of when each finding landed, not a
 judgement that they matter more — by the reasoning above they matter less.
 
+**The corrected design is validated.** The first arm back reproduces its recorded
+round exactly — `ict_scalp_eth_15m`, arm `u=11 auc=0.6083` against recorded
+`u=11 auc=0.6083` — so running the whole family (here `per_leg`, so one leg) is
+what makes an arm comparable, and the off0 control now runs automatically inside
+the readout rather than depending on me to remember it.
+
+*One caveat on reading that readout:* its first version printed **"UNANIMOUS"**
+for a leg with a **single** arm. Unanimity over one draw is not evidence of
+anything, and a leg with one arm has not been screened at all — the same
+overstating-label class this document keeps finding. The readout now refuses to
+say "unanimous" below two arms and always prints the arm count beside the claim.
+
 ## Limits, stated plainly
 
 1. **This family is the THIN one, so this is an UPPER BOUND** — pre-registered as
