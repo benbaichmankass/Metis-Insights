@@ -191,6 +191,37 @@ arithmetic flag rather than on observed behaviour — and the flag is validated 
 exactly one leg (`gdx`), where it selected correctly but did **not** predict the
 mechanism.
 
+### UPDATE 06:25Z — the hardest test reported, and it does not budge
+
+`ict_scalp_sol_15m` finished all four arms. It is the cleanest available test of
+this item: graded `candidate` at **slack ZERO** on the fold-majority term
+(`6 × 3 = 18 = 9 × 2`), so one fold changing side fails it.
+
+| offset | mean_auc | u | verdict |
+|--:|--:|--:|---|
+| **0 (control)** | **0.5808** — reproduces the recorded value exactly | 9 | candidate |
+| 4 | 0.5777 | 9 | candidate |
+| 8 | 0.5729 | 9 | candidate |
+| 12 | 0.5720 | 9 | candidate |
+
+**Unanimous, spread 0.0088 — 5.9× tighter than the 1d family's 0.0515 median.**
+`ict_scalp_xrp_15m`'s control is also exact (0.5681, `u = 9`); three arms pending.
+
+Running total over clean-control legs: **12 of 14 unanimous**, and the only two
+that moved (`gdx`, `iaum`) are both **1d** — the thinnest books in the corpus
+(`u` 4–11 vs 9–26 elsewhere).
+
+**So the sharper reading is that SAMPLE SIZE, not proximity to the bar, predicts
+instability.** That is a different conclusion from the one the arithmetic alone
+supports, and it is why this item was worth holding.
+
+**It does not retire the flag.** A flagged cell is still one fold from a different
+answer, and item 6 shows the AUC term carries its own nuisance term of the same
+order. What changes is what the flag is evidence *of*: **exposure, not
+instability**. If you want one sentence for the decision — *the fragile-margin
+population is a list of cells to re-measure before shipping, not a list of cells
+to distrust.*
+
 ---
 
 ## 6. The harness has an undeclared degree of freedom — HOW to fix it is yours
