@@ -2735,3 +2735,38 @@ so `off` reads `None` in every row and `None` means *not recorded*, never
 which was verified present and correct for all three arms (`0`, `4`, `8`) —
 which is exactly the field `m20_consolidate_dispersion_arms.offset_for()` reads,
 so the consolidation is unaffected.
+
+### The consolidation chain, verified end-to-end on this screen
+
+Both pre-flight fixes were checked against the real tree rather than only in
+tests, because both failure modes are silent by construction.
+
+**Consolidator** (run on the trainer from the pushed branch via
+`git show FETCH_HEAD:`, leaving its checkout untouched — verified identical
+`HEAD` and untracked list before/after):
+
+```
+STATS {"arm_dirs": 4, "dir_offset_comparable": 4, "dir_offset_mismatch": 0,
+       "meta_missing": 0, "meta_ok": 4, "rows": 12, "unparseable_rows": 0}
+dir cross-check: 4 of 4 arm dir(s) comparable, 0 mismatch(es).
+offset_source : {"round_meta": 12}
+```
+
+`dir_offset_comparable: 4` is the load-bearing number. Pre-fix it would have
+read **0**, and `dir_offset_mismatch: 0` beside it would have been indistinguishable
+from the genuine agreement it now reports. All 12 rows recovered their offset from
+`_round_meta`, and `dir_offset` equals `fold_offset` on every row.
+
+**Rate script**, over that same 12-row record:
+
+```
+screen_of -> ['(root)']          # all four arms in ONE screen
+EXCLUDED  : 0 screen-leg pair(s) measured at ONE offset
+distinct legs : 3
+ANY-SCREEN  per_leg  1/3 = 33.3%
+```
+
+Pre-fix, the four arms resolved to four screens, so all **12** screen-leg pairs
+held a single arm, all 12 were excluded as "cannot move", `distinct_legs` was
+**0**, and the rate was **0/0** — printed as a clean result. The fix is the
+difference between *no measurement at all* and *one leg in three moved*.

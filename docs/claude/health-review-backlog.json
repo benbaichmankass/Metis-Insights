@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-15T18:31:35+00:00",
+  "updated_at": "2026-08-15T21:23:06+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15714,6 +15714,21 @@
       ],
       "verification_note": "Three sibling hypotheses were tested and REFUTED before landing on this one, recorded so nobody re-runs them: (1) duplicate matrix rows hiding a status -- zero duplicates; (2) the matrix row `execution` field stale vs config/strategies.yaml -- zero disagreements once compared against the 47 EFFECTIVE-live legs rather than the 55 DECLARED legs (_declared_legs() returns all declared legs, which is what made the first pass look like a 4-row defect); (3) exit_ladder being n/a for non-ladder-declaring legs -- refuted by the convention, 45 of 52 rows grade it honest_negative including every donchian sibling.",
       "resolution_criteria": "scripts/research/m20_fleet_exit_sweep.py emits an `exit_ladder` cell for a donchian or pullback leg (i.e. `--levers exit_ladder` is an accepted choice and produces a graded cell, not `no_harness_levers`), AND a run of .github/workflows/m20-exit-lever-sweep.yml with levers=exit_ladder on trend_donchian_sol_prop + trend_donchian_eth_prop returns a status for both cells, AND those two cells in docs/research/exit-refinement-coverage.json are no longer `pending`. REPRODUCTION CHECK required before the new verdicts are trusted: re-derive exit_ladder for one already-verdicted donchian leg (e.g. trend_donchian_eth) and state whether it reconciles with its stored 2026-07-12 honest_negative -- and if it does not, say so rather than overwriting, since the stored row was measured on the pre-2026-08-10 no-TP geometry and a disagreement is expected rather than a failure of the port."
+    },
+    {
+      "id": "BL-20260815-SCALP-EXIT-HEAD-MATRIX-DISAGREES-WITH-THE-4-ARM-SCREEN",
+      "title": "A cell QUEUED for a Tier-3 ship (ict_scalp_sol_5m/exit_head_ml) has a passing verdict that does not survive re-partitioning; a second cell's recorded status is contradicted by the fresher screen",
+      "area": "M20 coverage matrix / exit_head_ml",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened_at": "2026-08-15",
+      "opened_by": "session_01WekhceSkxLeuDLuXJMionS (M20 overnight)",
+      "source": "the completed 4-arm fold-offset screen of the three 5m scalp legs (16:13:48Z -> 21:10:52Z), compared against the statuses those same legs carry in docs/research/exit-refinement-coverage.json",
+      "basis": "TWO RUNS, DIFFERENT PARAMETERIZATION -- stated because that is what stops this being a simple 'the matrix is stale' claim. MATRIX (E1 re-run 2026-08-13, relay #8963, fold-mode=trades): sol n_oos=800 beats 12/16, avax n_oos=1000 beats 13/20, xrp n_oos=650 beats 9/13. TONIGHT (4 arms, per_leg, tp_geometry=live_parity_uncapped, tp_cap_pct=0.099): sol n_oos=1150 u=23, avax n_oos=1450 u=29, xrp n_oos=1100 u=22 -- a LARGER book and more folds in every case. VERDICTS. ict_scalp_sol_5m: matrix `passed_unshipped` (candidate, awaiting E3 ship, Tier-3); tonight 3 arms candidate + 1 HONEST_NEGATIVE (off12, beats_hard 16->14, u=23 needs beats_hard*3>=46, 42<46). ict_scalp_avax_5m: matrix `honest_negative` (downgraded 2026-08-13 on beats_hard 13/20); tonight candidate in ALL FOUR arms at gate slack +14/+20/+23/+14. ict_scalp_xrp_5m: matrix `passed_unshipped`; tonight candidate 4/4 -- consistent, no action.",
+      "detail": "The sol row is the urgent half: it is sitting in the operator's queue AWAITING A TIER-3 SHIP, and the freshest evidence says its pass is partition-dependent. Shipping a lever whose passing verdict flips to honest_negative when the folds are cut 12 trades later is a decision the operator should get to make WITH that fact, not without it. Note the AUC gives no warning at all -- sol's AUC spread across the four arms is 0.0034, the SMALLEST of the three legs, while both legs that never flipped have spreads over twice that. The avax row is the opposite direction: a cell recorded `honest_negative` that the larger-book screen grades candidate unanimously with comfortable slack. That is not automatically a correction -- more folds can move a beats-ratio either way, and the two runs differ in book size -- but a recorded negative contradicted 4/4 by fresher, larger evidence should not sit unexamined.",
+      "resolution_criteria": "Either (a) both cells are re-graded from ONE agreed parameterization -- same fold-mode, same tp_geometry, same book -- and the matrix records that run with its arm count, so the two runs are no longer being compared across differing inputs; or (b) the matrix cell for ict_scalp_sol_5m carries an explicit note that its verdict was measured partition-dependent (1 of 4 arms honest_negative) so the Tier-3 ship decision is made with it; and in EITHER case the operator has answered the ship question for sol with the flip on the table. Closing this by re-running once and taking whichever verdict comes back does NOT satisfy it -- a single partition is the exact thing the screen showed to be insufficient.",
+      "deliberately_not_done": "No matrix status was changed. Overwriting a recorded verdict with a differently-parameterized run would destroy the disagreement that IS the finding, and ship/unship is Tier-3 regardless."
     }
   ]
 }
