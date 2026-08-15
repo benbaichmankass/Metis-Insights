@@ -1362,3 +1362,65 @@ but the base is now large enough to state one thing at the confidence it earns:
 has produced no false negatives in 15 legs. Its false-positive rate is 11 of 15,
 which is what "exposure, not instability" means in numbers.
 
+
+### ✅ `trend_donchian_eth_prop` — UNANIMOUS, and it inverts the naive reading (09:34Z, relay #9438)
+
+Both gates passed, and gate 2 was the **two-row** version this time — off0
+reproduced `trend_donchian_eth_prop` at `auc 0.6138 / u 24 / candidate` **and**
+`trend_donchian_sol_prop` at `auc 0.5635 / u 23 / honest_negative`, both exact.
+That is what pins the partition on a pooled round: a wrong leg order can land one
+row right by luck, not two. It also independently confirms the leg order
+`trend_donchian_sol_prop,trend_donchian_eth_prop` (sol first) recovered from
+launch relay #9156's own argv. One sha256 pair across all four arms, pinned
+`8f90f435`.
+
+| offset | mean_auc | `beats_actual` | `beats_hard` | u | bar (2u) | slack | verdict |
+|--:|--:|--:|--:|--:|--:|--:|---|
+| **0 (control)** | **0.6138** | 20 | **16** | 24 | 48 | **0** | candidate |
+| 4 | 0.6081 | 20 | 19 | 24 | 48 | +9 | candidate |
+| 8 | 0.6108 | 17 | 16 | 23 | 46 | +2 | candidate |
+| 12 | 0.6076 | 18 | 17 | 23 | 46 | +5 | candidate |
+
+**Unanimous `candidate` across four boundary draws.** `trend_donchian_sol_prop`
+is likewise unanimous `honest_negative` (slack −13/−16/−23/−20, never close). I
+recomputed E1 over all eight rows independently; it reproduces all eight recorded
+verdicts.
+
+#### This inverts the expectation the flag invites, and the pair is controlled
+
+`trend_donchian_eth` (slack **+2**) **moved**. `trend_donchian_eth_prop` (slack
+**0** — literally at the bar, `3·16 = 48` against 48) **did not**. Same family,
+same timeframe, same symbol; the two differ by being the API leg and its prop
+sibling. The cell that was *closer* to the bar was the *stabler* one.
+
+So "closer to the bar ⇒ likelier to flip" is now measured and **false as a
+predictor**. Across all three slack-0 cells tested — `ict_scalp_sol_15m` (held),
+`ict_scalp_xrp_15m` (moved), `trend_donchian_eth_prop` (held) — **one of three**
+moved.
+
+**I am not proposing a mechanism for why this pair split.** Two candidate causes
+have already been advanced and refuted in this document (sample size at 07:00Z,
+and now bar-proximity), each on evidence that looked sufficient at the time. The
+honest statement is that slack tells you a cell is *exposed* and does not tell
+you whether it will *cash that in*, and 17 legs cannot separate what does.
+
+#### A mechanism that IS visible here: the bar moves with the partition
+
+`u` is not constant across arms — `eth_prop` runs `24, 24, 23, 23` and `sol_prop`
+runs `23, 23, 22, 22`, and `n_oos` moves with it (902/900/859/858). Since the
+threshold is `2u`, **the bar itself shifts between draws**: 48 at `u = 24`, 46 at
+`u = 23`. A leg can therefore change verdict with its `beats_*` counts unchanged,
+purely because the denominator moved. The donchian-1h round held `u = 23` on all
+four arms and hid this; here it is explicit. Anyone comparing `beats_hard` across
+arms must compare it against that arm's own bar, never a remembered one.
+
+#### Running mover tally
+
+**4 of 17 re-partitioned legs have moved.** Unchanged in direction, and the two
+statements it now supports:
+
+- **Every leg that moved was flagged; no unflagged leg has moved.** 0 false
+  negatives in 17.
+- **Slack magnitude does not rank the flagged legs.** The one slack-+2 cell
+  tested moved; two of three slack-0 cells did not.
+
