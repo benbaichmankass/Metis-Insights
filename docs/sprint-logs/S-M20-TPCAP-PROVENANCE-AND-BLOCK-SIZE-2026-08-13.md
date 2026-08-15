@@ -4127,3 +4127,73 @@ against the prose.
   a *mover verdict* that disagrees across screens (~9 %). Every rate in the
   study is one draw of a statistic with its own dispersion, and no analysis
   currently accounts for that.
+
+---
+
+## Thirteenth overnight stretch (2026-08-15, ~15:35–15:50Z) — ref resolvability, and a pattern in my own errors
+
+### Work completed
+
+**1. The roll-up now says WHY a cell is blocked.** `base()` collapses
+`blocked:insufficient_lifetime_trades` and `blocked:native-history-thin` into
+one `blocked` — right for the headline arithmetic, wrong for the reader, since
+"exit_head_ml 12 (blocked=12)" invites *"revisit later"* over a set where most
+will not clear on any window. The sub-status is already on the cell; the tool
+stopped dropping it. **Structural** — it prints the status string the matrix
+carries and computes nothing about whether a cell can clear, deliberately,
+because a reachability number baked into printed text is exactly what went stale
+in this file before. Reason rows reconcile exactly against open counts on all
+five levers (2/2, 4/4, 12/12, 1/1, 6/6).
+
+**2. 19 refs cited a document nobody named.** The structural validator reports
+*"all closed live cells carry a ref"* — true, and silent on whether a ref
+**resolves**. Measured: 19 cells cite `memo §5/§6/§6.2/§7.2/§7.3/§8` and not one
+names the document, while the legend uses "memo" generically. The refs are
+correct and were unresolvable without tribal knowledge. The document is
+`docs/research/M20-exit-refinement-2026-07-12.md`; **every cited section was
+verified to exist with a title matching the lever citing it** before anything
+was qualified. Minimal edit — only the first bare `memo §X` per ref gains the
+path, because repeating a 48-character path five times in one ref buries the
+evidence it points at.
+
+**3. A full ref-resolvability sweep over all 413 refs — and it is CLEAN.**
+Recorded so nobody re-runs it: **17 of 17** `BL-`/`MB-` ids cited anywhere in
+the matrix resolve to a filed backlog row; **0** cells carry an unknown
+`tp_geometry`; **0** cited repo paths are missing. The 44 refs carrying no
+pointer of any kind are overwhelmingly `n/a` cells whose ref *is* the reasoning
+("lever not applicable — `fvg_range` has no trail in its exit structure"), which
+is the right shape for that status.
+
+### 🔴 The pattern worth naming: four phantom defects, all mine, all regex
+
+This stretch produced two findings that did not exist, and they were the third
+and fourth of the night:
+
+| # | the "finding" | what it actually was |
+|---|---|---|
+| 1 | 8 of 11 matrix cells state a gap against the wrong bar (2×–26× optimistic) | my regex took the **first** stated gap; all eight carry the correction further down the same ref |
+| 2 | 43 of 49 scripts bypass the trainer queue | matched anything mentioning `LightGBM` / `.fit(` / `python -m ml` — including everything the CLI backstop **already covers**. True answer: 6 of 7 |
+| 3 | 2 cited repo paths do not exist | `(md\|json\|jsonl)` alternates left-to-right, so `.json` matched **inside** `.jsonl` and truncated the path. True answer: 0 missing |
+| 4 | the corpus records `fold_offset: None` on all 33 rows | `.get()` on an **absent** key. The field is never written at all |
+
+**Every one of them pointed the same way — toward a defect — and every one was
+mine.** That is not coincidence: I write the probe *after* forming the
+hypothesis, so a loose pattern finds what I am looking for. Two of the four
+(#1, #2) would have been published as systematic failures of other people's work
+had I not re-checked; #2 would have sent someone to lock scripts already locked
+one layer down.
+
+The habit that caught all four was the same one each time — **re-derive the
+positive before trusting the negative, and re-read the raw field rather than the
+parse**. It is the guard I keep writing into other people's code, and the four
+misses are the argument for applying it to my own probes by default, not after a
+result looks tidy.
+
+### Gaps not yet verified
+
+- The 5m screen is still **arm 1 of 4** (54 min in at 15:42Z, load 1.07,
+  on track for ~16:01Z). No rows yet.
+- The `blocked:` sub-status surfacing has **no test**; it is a display change
+  whose counts I reconciled by hand this session and nothing pins.
+- The 44 pointer-less refs were classified by **reading a sample**, not
+  exhaustively — I checked the shape of a dozen and generalised.
