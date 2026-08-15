@@ -337,8 +337,14 @@ def _declared_legs() -> dict[str, dict[str, Any]] | None:
     return {name: (body or {}) for name, body in strategies.items()}
 
 
-def _funding_by_symbol() -> dict[str, str] | None:
-    """Symbol -> funding class of the accounts that route it, or None.
+def _funding_by_leg() -> dict[str, str] | None:
+    """LEG NAME -> funding class of the accounts that declare it, or None.
+
+    ⚠️ RENAMED from `_funding_by_symbol` 2026-08-15, and the rename IS the fix's
+    second half. The first version keyed on symbols; after re-keying on each
+    account's `strategies` list the old name described a mapping the function no
+    longer returned — the exact "label does not describe what it computes" class
+    this module exists to police, left inside the correction for it.
 
     THREE STATES, NEVER COLLAPSED — `real_money` / `paper` / `unresolved`.
     Added 2026-08-15 because the ⛔ stale-DECISIONS banner asserted a stale
@@ -438,10 +444,10 @@ def _stale_decision_funding(dec: list) -> dict[str, int]:
     tuple shape stays stable for its existing consumers in
     `tests/test_exit_head_per_leg.py`.
     """
-    by_symbol = _funding_by_symbol()
+    by_leg = _funding_by_leg()
     out: dict[str, int] = {}
     for leg, *_rest in dec:
-        k = _leg_funding(leg, by_symbol)
+        k = _leg_funding(leg, by_leg)
         out[k] = out.get(k, 0) + 1
     return out
 
@@ -1155,9 +1161,9 @@ def main(argv: list[str]) -> int:
             elif not dec:
                 print(f"  (0 of {stale_n} stale cells is a non-negative — every "
                       "one is an honest_negative)")
-            _by_sym = _funding_by_symbol()
+            _by_leg = _funding_by_leg()
             for leg, lever, status, dt, cut in sorted(dec):
-                routing = _leg_funding(leg, _by_sym)
+                routing = _leg_funding(leg, _by_leg)
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
                       f"newest-ref {dt or '(undated)'}  (cutover {cut})  "
                       f"routing={routing}")

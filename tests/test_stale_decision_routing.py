@@ -71,7 +71,7 @@ def test_prop_is_its_own_class_not_folded_into_real_money_or_paper() -> None:
     money-at-risk; folding it into `paper` understates a fundable account that
     can be lost. The repo never blends prop into either KPI.
     """
-    routing = ROLLUP._funding_by_symbol()
+    routing = ROLLUP._funding_by_leg()
     assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) == "prop"
     assert ROLLUP._leg_funding("trend_donchian_eth_prop", routing) == "prop"
 
@@ -84,7 +84,7 @@ def test_routing_is_keyed_on_declared_strategies_not_on_symbols() -> None:
     `bybit_2.strategies`. A symbol-keyed resolver grades both `real_money`;
     the leg-keyed one separates them.
     """
-    routing = ROLLUP._funding_by_symbol()
+    routing = ROLLUP._funding_by_leg()
     assert ROLLUP._leg_funding("eth_pullback_2h", routing) == "real_money"
     assert ROLLUP._leg_funding("htf_pullback_trend_2h", routing) == "paper", (
         "htf_pullback_trend_2h graded real_money again — it trades BTCUSDT, "
@@ -103,8 +103,8 @@ def test_unreadable_config_is_unresolved_NOT_paper() -> None:
     assert ROLLUP._leg_funding("eth_pullback_2h", None) == "unresolved"
 
 
-def test_unknown_symbol_is_unresolved_NOT_paper() -> None:
-    """A leg whose symbol no account declares is unresolved for the same reason."""
+def test_an_undeclared_leg_is_unresolved_NOT_paper() -> None:
+    """A leg no account declares is unresolved for the same reason."""
     assert ROLLUP._leg_funding("no_such_leg_at_all", {"x": "real_money"}) == "unresolved"
 
 
@@ -112,12 +112,12 @@ def test_a_leg_with_no_declared_body_is_unresolved() -> None:
     assert ROLLUP._leg_funding(None, {"x": "real_money"}) == "unresolved"
 
 
-def test_real_money_wins_over_paper_when_both_route_the_symbol() -> None:
+def test_real_money_wins_over_paper_when_both_declare_the_leg() -> None:
     """One live real-money route makes the leg money-at-risk.
 
-    BTCUSDT is mirrored by paper books (`bybit_1`, `bybit_portfolio`) alongside
-    the real one. Letting a paper mirror mask the real route would under-report
-    exactly the cell that matters.
+    `eth_pullback_2h` is declared by `bybit_2` (real) AND by the paper books
+    `bybit_1`/`bybit_portfolio`. Letting a paper mirror mask the real route
+    would under-report exactly the cell that matters.
     """
     assert ROLLUP._leg_funding("eth_pullback_2h",
                                {"eth_pullback_2h": "real_money"}) == "real_money"
@@ -139,7 +139,7 @@ def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> Non
     assert ib_live.get("account_class") == "real_money"
     assert "MES" in (ib_live.get("symbols") or [])
     # ...and yet the MES leg resolves to paper: ib_paper is the only LIVE route.
-    assert ROLLUP._funding_by_symbol().get("mes_trend_long_1d") == "paper", (
+    assert ROLLUP._funding_by_leg().get("mes_trend_long_1d") == "paper", (
         "MES graded money-at-risk. If ib_live was deliberately flipped to "
         "mode: live, then mes_trend_long_1d's stale shipped trail_geometry cell "
         "just became a real-money exposure — re-read the stale-decisions table "
@@ -152,17 +152,17 @@ def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> Non
 # --------------------------------------------------------------------------
 
 def test_the_resolver_actually_resolves_something() -> None:
-    by_sym = ROLLUP._funding_by_symbol()
-    assert by_sym, "accounts.yaml resolved to nothing — every routing verdict above is vacuous"
-    assert "eth_pullback_2h" in by_sym, "the leg->account map resolved no known leg"
-    assert "real_money" in by_sym.values(), (
-        "no symbol anywhere resolved to real_money, so a real_money verdict "
+    by_leg = ROLLUP._funding_by_leg()
+    assert by_leg, "accounts.yaml resolved to nothing — every routing verdict above is vacuous"
+    assert "eth_pullback_2h" in by_leg, "the leg->account map resolved no known leg"
+    assert "real_money" in by_leg.values(), (
+        "no leg anywhere resolved to real_money, so a real_money verdict "
         "could never be produced and the paper counts prove nothing")
 
 
 def test_a_known_real_money_leg_resolves_real_money() -> None:
     """Positive anchor — without one, every `paper` verdict below is vacuous."""
-    assert ROLLUP._funding_by_symbol().get("eth_pullback_2h") == "real_money"
+    assert ROLLUP._funding_by_leg().get("eth_pullback_2h") == "real_money"
 
 
 # --------------------------------------------------------------------------
