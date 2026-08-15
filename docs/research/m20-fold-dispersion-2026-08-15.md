@@ -2527,6 +2527,31 @@ It is not a reason to stop the screen. The three 5m legs are worth having on
 their own terms — 5m is the thinnest-covered timeframe in the corpus — and the
 run also re-measures whether the VOID screen's `off0` values reproduce.
 
+### Push safety during a running screen — measured, not asserted
+
+The trainer re-checks out this branch **per arm**, so every push during the 5m
+screen is a candidate for changing the code between arms. I pushed **15 times**
+while arm `off0` was running, which is exactly the thing my own gate exists to
+catch, so it is measured rather than waved away:
+
+```
+launch sha 6340a012 → HEAD 338cee20
+scripts/research/m20_exit_head_round.py   43eec43d0c837dea → 43eec43d0c837dea  STABLE
+scripts/ml/train_exit_head.py             6412613984a3812f → 6412613984a3812f  STABLE
+```
+
+`43eec43d0c837dea` is the same value the arm log recorded as `BEFORE_DRIVER`, so
+this is the file the running arm actually loaded, not a same-named file. Both
+executed files are **byte-identical** across all 15 commits; everything changed
+was docs, the backlog, a new script and a new test — nothing on the round's
+execution path.
+
+**The repo sha DOES move between arms and that is fine.** The arm log records
+`sha` and the driver/trainer hashes *separately*, so "the repo advanced" and
+"the code the arm runs changed" stay distinguishable — a single combined check
+would have flagged all three remaining arms as contaminated when nothing they
+execute had moved.
+
 ### A second-order finding the consolidation makes visible for the first time
 
 **22 legs were measured by more than one screen, and on 2 of them the
