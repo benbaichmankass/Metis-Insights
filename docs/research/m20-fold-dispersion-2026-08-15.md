@@ -10,6 +10,44 @@ Read this against that document. The statistic, the control values, the three
 interpretation bands and the five committed consequences were all fixed in
 advance; nothing below selects them after the fact.
 
+---
+
+## In one screen
+
+**What was asked:** how much of an `exit_head_ml` verdict is the accident of
+where the fold boundaries fall? A backlog row had specified the measurement; it
+had never been run because no flag could move a boundary at fixed block size.
+
+**What was measured:** `--fold-offset` shipped, 10 arms over the 1d pullback
+family, same pool and geometry. The pre-registered control passed — offset 0
+reproduced all six recorded AUCs exactly.
+
+**Three findings, in ascending order of how much they matter:**
+
+1. **The AUC spread lands ON its own threshold.** Median 0.0515 against a
+   pre-registered 0.05 line; 0.0496 without the one leg whose fold count moves.
+   The measurement cannot resolve which side, and is reported that way.
+2. **A recorded NEGATIVE is boundary-fragile.** `gdx_pullback_1d` reads
+   `candidate` on 2 of 7 draws. The `candidate` direction was expected to be
+   fragile; the negative direction was not, and nothing revisits a negative.
+3. **The candidate column is ~2.7× more exposed than the negative one** —
+   **8 of 14** candidates sit one fold flip from failing, against 4 of 19
+   negatives. This is *arithmetic over the whole committed corpus*, not an
+   extrapolation from (1): the gate is `beats * 3 >= u * 2`, so a slack of 0–2
+   means one fold changes the verdict. Three candidates sit **exactly** at a
+   fold-majority bar. The criterion is validated by the single leg actually
+   re-partitioned — `gdx`, predicted fragile, observed fragile.
+
+**Why (3) is the one to act on:** a fragile negative costs an unexplored
+opportunity; a fragile candidate is a cell that would justify shipping a lever
+onto a **live** leg.
+
+**What was NOT done, deliberately:** no matrix status flipped, no gate changed,
+no cell re-graded. Coverage unchanged at **373/376 = 99.2%**. Both are Tier-3
+and queued for the operator, with options written out and none taken.
+
+---
+
 ## The control PASSES — twice
 
 The one stop condition: offset 0 must reproduce the six recorded `mean_auc`
