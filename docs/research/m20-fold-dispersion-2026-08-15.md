@@ -378,11 +378,32 @@ now excludes any non-zero `fold_offset` and says which rows it dropped
 (`tests/test_rounds_exclude_dispersion_arms.py`, 7 tests, each verified
 load-bearing by planting its own regression).
 
-## Reproduce
+## Reproduce — and the two ways an arm silently stops being comparable
 
 ```
-scripts/research/m20_exit_head_round.py --fold-offset K ...   # K in 0..block_n-1, and K <= 29 to hold u
+scripts/research/m20_exit_head_round.py --fold-offset K --data-dir <repo>/data --legs <FULL family set> --tf <tf>
 ```
+
+**Always run the off0 control and check it against the recorded round.** Both
+failures below produced clean-looking runs with plausible numbers, and both were
+caught only by that check.
+
+1. **The leg set must be the round's whole family.** `block_unit: family_pooled`
+   means the head trains on the *pooled* family, so running a subset is a
+   different measurement, not a cheaper one. A screen launched on just the two
+   1h legs of interest returned `gld_pullback_1h` at `u=16 / auc 0.5426` against
+   the recorded `u=26 / auc 0.601` — same leg, same flag, incomparable numbers.
+   Recover each round's real leg set by grouping
+   `m20-exit-head-rounds.jsonl` on `(family, tf)`.
+2. **`--data-dir` defaults to `REPO/"data"`**, which inside a git worktree is
+   empty. That run "finished" 12 arms in 45 s, every one `exit=1`
+   `data_missing`, and wrote `DONE`. Pass the path explicitly and pre-flight it.
+
+**`u` is not free to choose.** The legal offset band is `N mod block_n` wide —
+the 1d family held `u = 11` only for `k <= 29` at `N = 629, b = 50` — and `N` is
+not known before the round runs. So pick small offsets, then **check `u` per arm
+at readout** and report any arm whose fold count moved separately rather than
+pooling it.
 The flag refuses `--fold-mode=years` with a non-zero offset, refuses
 `K >= block_n`, prints the skipped-head count, and is stamped unconditionally
 into `_round_meta` so an offset-0 arm is distinguishable from a round predating
