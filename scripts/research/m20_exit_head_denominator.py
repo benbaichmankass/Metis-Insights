@@ -275,6 +275,40 @@ def main() -> int:
     return 0
 
 
+def _load_graded_rounds() -> list[dict]:
+    """Rounds that GRADE a leg — `--fold-offset` dispersion arms excluded, loudly.
+
+    Both consumers of this file assume one row per leg-measurement:
+    `_report_negative_column_vintage` keys a dict on `leg` (so the LAST row for a
+    leg silently wins), and `_report_live_parity_rounds` pools every row into a
+    per-geometry flip rate (so repeats of one leg inflate its denominator). A
+    dispersion ARM is the same leg re-measured on a shifted fold boundary — six
+    legs × five offsets is thirty rows that look exactly like thirty graded
+    rounds. Appending them here would change which measurement each leg is judged
+    against, and nothing would say so.
+
+    The schema has carried `fold_offset` since the flag shipped, precisely so the
+    two are distinguishable — and until 2026-08-15 **no consumer read it**. A
+    field written and never read is the shape that lets a contaminating row in
+    unnoticed (`provenance-consumer-guard` exists for exactly this). This is the
+    read. Arms belong in `docs/research/m20-fold-dispersion-arms.jsonl`.
+
+    `null` and `0` both mean baseline — `null` is a round predating the flag, and
+    conflating the two is safe here because neither shifts a boundary.
+    """
+    rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
+    arms = [r for r in rows if r.get("fold_offset")]
+    if arms:
+        where = sorted({(r.get("leg"), r.get("fold_offset")) for r in arms})
+        print(f"\n!! {len(arms)} row(s) in {ROUNDS.name} carry a NON-ZERO "
+              f"`fold_offset` and are EXCLUDED from every count below:")
+        print(f"   {where}")
+        print("   These are dispersion arms, not graded rounds — see "
+              "docs/research/m20-fold-dispersion-arms.jsonl. Counting them would "
+              "overwrite the leg-keyed lookup and inflate the pooled denominator.")
+    return [r for r in rows if not r.get("fold_offset")]
+
+
 def _report_negative_column_vintage(cells: list[dict]) -> None:
     """How much of the NEGATIVE column rests on a geometry production may not run?
 
@@ -291,8 +325,7 @@ def _report_negative_column_vintage(cells: list[dict]) -> None:
     """
     if not ROUNDS.is_file():
         return
-    rounds = {json.loads(x)["leg"]: json.loads(x)
-              for x in ROUNDS.read_text().splitlines() if x.strip()}
+    rounds = {r["leg"]: r for r in _load_graded_rounds()}
     lp = re.compile(r"live[ _-]parity|tp_cap_pct\s*=?\s*0\.099|live capped TP", re.I)
     negatives = [c for c in cells if c["status"] in FAIL_STATUSES]
     measured = [c for c in negatives
@@ -368,7 +401,7 @@ def _report_live_parity_rounds() -> None:
         print(f"\n[live-parity rounds] {ROUNDS.name} absent — NOT a clean result, "
               f"simply unmeasured here.")
         return
-    all_rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
+    all_rows = _load_graded_rounds()
 
     # TWO GEOMETRIES LIVE IN THIS FILE AND THEY DO NOT POOL.
     #

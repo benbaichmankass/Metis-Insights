@@ -124,10 +124,51 @@ which measured `beats_hard` as the sole failing term in 6 of 7 single-term
 failures across 33 rounds. A leg failing AUC by 0.02 *and* missing a fold
 majority by 4 folds is not re-graded by a 0.05 AUC wobble.
 
-So the top band's consequence bites on the **`candidate` side** (a pass that
-should not be trusted at a thin margin) and essentially not at all on the
-**negative side** here. That asymmetry is the useful finding, and it is the
-opposite of the alarming reading the band's wording invites.
+An earlier revision of this memo concluded from that table that "the dispersion
+bites on the `candidate` side and essentially not at all on the negative side."
+**That is falsified and withdrawn** — see the verdict grid below. It was written
+from AUC values before per-arm *verdicts* were extracted, and the leg that breaks
+it is `gdx`, whose single failing term is `beats_hard`, not AUC.
+
+## The verdict grid — post-hoc, not pre-registered, and the sharper result
+
+The pre-registered statistic is the AUC spread above. Once relay #9380 emitted
+each arm's **verdict** the direct question became answerable, so it is reported
+here as an explicit **post-hoc addition** with no pre-registered reading attached.
+It is not a selected view: it is the complete 6 legs × 7 pure-boundary offsets
+grid, every cell.
+
+`C` = `candidate`, `n` = `honest_negative`. Offsets 0 · 6 · 10 · 12 · 18 · 20 · 24
+(the 0/10/20 and 0/6/12/18/24 sets share offset 0, which is one partition, counted
+once).
+
+| leg | recorded | 0 | 6 | 10 | 12 | 18 | 20 | 24 | disagrees with recorded | single failing term? |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gld | `honest_negative` | n | n | n | n | n | n | n | **0/7** | no — 3 terms |
+| ief | `honest_negative` | n | n | n | n | n | n | n | **0/7** | no — 2 terms |
+| slv | `honest_negative` | n | n | n | n | n | n | n | **0/7** | no — 3 terms |
+| tlt | `honest_negative` | n | n | n | n | n | n | n | **0/7** | no — 3 terms |
+| **gdx** | `honest_negative` | n | n | **C** | n | n | **C** | n | **2/7** | **yes — `beats_hard`** |
+| **iaum** | `candidate` | C | n | n | n | n | n | n | **6/7** | **yes — `mean_auc`** |
+
+**Four of six verdicts are unanimous across every boundary draw. The two that are
+not are exactly the two sitting on a single-term margin, and they move in opposite
+directions.** `iaum` is a recorded pass that survives 1 of 7 draws; `gdx` is a
+recorded *negative* that reads `candidate` on 2 of 7 (and on both non-pooled arms,
+30 and 40).
+
+Two things follow that the AUC spread alone could not have shown:
+
+1. **Boundary placement moves `beats_hard`, not just AUC.** That matters more than
+   the AUC finding, because `beats_hard` is the programme's binding term —
+   [`m20-exit-head-binding-term-2026-08-14.md`](./m20-exit-head-binding-term-2026-08-14.md)
+   measured it as the sole failing term in 6 of 7 single-term failures across 33
+   rounds. The term that decides most cells is itself boundary-sensitive.
+2. **Stability tracks MARGIN, not sample size.** `slv` is unanimous on 154–160 OOS
+   trades; `gld` is unanimous on 128–131; `ief` is unanimous on 62–67. `gdx` flips
+   on 81–86. A leg is stable here because it fails several terms decisively, not
+   because its book is large — so "n_oos is healthy" is not evidence a verdict is
+   boundary-robust.
 
 ## The 3-arm cross-check reconciles — and my earlier band call on it was wrong
 
@@ -188,9 +229,11 @@ offsets it spans 0.4903–0.5791, straddling its own gate bar in both directions
 
 ## Queued for the operator (Tier-3, not acted on)
 
-**`iaum_pullback_1d` / `exit_head_ml` is the only `candidate` in this family, and
-it is produced by 1 of 5 boundary draws.** It also carries `n_oos = 30` and
-`u = 4` — the thinnest book of the six. Three options, none taken here:
+**Two cells, not one.**
+
+**(a) `iaum_pullback_1d` / `exit_head_ml` — a recorded `candidate` that survives 1
+of 7 boundary draws.** It also carries `n_oos = 30` and `u = 4`, the thinnest book
+of the six. Three options, none taken here:
 
 1. Leave it. It passed the gate as written; the gate does not claim
    boundary-invariance.
@@ -200,6 +243,18 @@ it is produced by 1 of 5 boundary draws.** It also carries `n_oos = 30` and
 3. Treat `u >= 2` as too permissive at `n_oos = 30`. Independent of this
    measurement, and the one worth asking about: `iaum` clears a four-term
    conjunction on four folds of thirty trades.
+
+**(b) `gdx_pullback_1d` / `exit_head_ml` — a recorded `honest_negative` that reads
+`candidate` on 2 of 7 pure draws and on both non-pooled ones.** This direction is
+the more uncomfortable of the two: a *negative* is a decision not to pursue a
+lever, and nothing re-examines it. The matrix status is **not** changed here — a
+verdict that holds on 5 of 7 draws is not thereby wrong, and re-grading a cell
+because two alternative partitions liked it is precisely the selection this whole
+programme refuses. What is queued is the **question**: `gdx` fails on `beats_hard`
+alone, and `beats_hard` is a fold-majority count, so it is mechanically the term
+most exposed to where the folds fall. Whether single-term `beats_hard` negatives
+across the matrix deserve a boundary-robustness check before being treated as
+settled is an operator call, and it is a larger population than this one cell.
 
 ## Limits, stated plainly
 
@@ -215,6 +270,14 @@ it is produced by 1 of 5 boundary draws.** It also carries `n_oos = 30` and
 4. **Six legs**, and the band assignment turns on one of them.
 5. **The statistic grows with arm count** (see the cross-check section). Any
    future comparison must hold the number of arms fixed.
+6. **The arms do not score identical trade sets, and "same pool" oversold that.**
+   `--fold-offset k` drops the first `k` trades before blocking, so each leg's OOS
+   count moves between arms: `gdx` 81–86, `gld` 128–131, `iaum` 30–34, `ief` 62–67,
+   `slv` 154–160, `tlt` 82–84 (swings of 2–13% of the smallest). That is intrinsic
+   to shifting a boundary at fixed block size rather than a defect — but a reader
+   told the arms share a pool could reasonably assume the scored sets are identical,
+   and they are not. This surfaced only from the emitted per-arm rows, not from the
+   formatted summary table, which is the argument for committing the raw arms.
 
 ## Reproduce
 
