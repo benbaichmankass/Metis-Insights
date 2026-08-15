@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-15T02:15:00+00:00",
+  "updated_at": "2026-08-15T02:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15420,6 +15420,11 @@
           "at": "2026-08-15T02:15:00+00:00",
           "by": "claude (M20 overnight session 2026-08-15)",
           "note": "SCOPE CORRECTED — this row was opened about the NEGATIVE column and the candidate column is worse. Pure read of the 33 committed rounds, no harness.\n\nTHE CRITERION IS ARITHMETIC, not an extrapolation from the measured dispersion. The gate is `beats * 3 >= u * 2`, so one fold changing side moves beats by 1 and the slack by 3. A slack of 0/1/2 therefore means a SINGLE fold flip changes the verdict — true for any family, any u.\n\n  candidates one fold flip from FAILING : 8 of 14 (57%)\n  negatives  one fold flip from PASSING : 4 of 19 (21%)\n\nThe eight fragile candidates: ict_scalp_sol_15m (beats_actual AT the bar, slack +0), ict_scalp_xrp_15m (beats_hard +0), trend_donchian_eth_prop (beats_hard +0), iaum_pullback_1d (+1/+1, and the one measured to flip), trend_donchian_xrp_4h (beats_hard +1), trend_donchian_eth (+2/+2), ict_scalp_sol_5m (beats_hard +2), and eth_pullback_2h — whose AUC margin is +0.0006.\n\nVALIDATED, n=1: gdx_pullback_1d sits at beats_hard slack -2, i.e. the arithmetic says one fold flip passes it, and re-partitioning DID pass it on 2 of 7 draws. Predicted fragile, observed fragile. That is the only empirical anchor the criterion has.\n\nWHY IT MATTERS MORE ON THIS SIDE: a candidate is the cell that would justify shipping a lever onto a live leg. A fragile negative costs an unexplored opportunity; a fragile candidate can cost a live change made on a verdict that a different fold boundary would not have produced.\n\nNOT A CLAIM ANY VERDICT IS WRONG. 'One fold flip away' is robustness, not correctness, and the AUC half of the criterion (<0.005) is a chosen threshold rather than arithmetic. Which of the eight actually flip is what an offset screen measures. Note trend_donchian_xrp_4h appears here on its exit_head_ml cell — a DIFFERENT lever from the trail_decay change in PR #9257 on the same leg, no interaction; recorded so the two are never conflated."
+        },
+        {
+          "at": "2026-08-15T02:20:00+00:00",
+          "by": "claude (M20 overnight session 2026-08-15)",
+          "note": "PRECISION CORRECTION on my own validation claim, checked against the arms rather than assumed. I wrote that gdx validates the one-fold criterion. It validates it as a FLAG, not as a mechanism: off0 has u=7/beats_hard=4 (slack -2, honest_negative) and off10 has u=8/beats_hard=6 (slack +2, candidate) — u moved AND beats_hard moved by two, so the observed transition is larger than the single-fold move the criterion is built on. The criterion correctly SELECTED the leg that turned out unstable; it does not model how the instability happens. Also worth noting gdx is the same leg whose u is not constant across arms, so it is the awkward leg in both the median and this validation."
         }
       ]
     }

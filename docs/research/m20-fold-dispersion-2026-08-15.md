@@ -391,10 +391,25 @@ The fragile candidates, with slack `(beats_actual, beats_hard)`:
 | `ict_scalp_sol_5m` | +0.0684 | `(+20, +2)` | `beats_hard` |
 | `eth_pullback_2h` | **+0.0006** | `(+7, +4)` | AUC, by six ten-thousandths |
 
-**The criterion is validated by the one leg that was actually re-partitioned.**
-`gdx_pullback_1d` sits at `beats_hard` slack **−2** — the arithmetic says one
-fold flip would pass it — and re-drawing the boundary passed it on 2 of 7 draws.
-Predicted fragile, observed fragile. That is `n = 1`, and it is the only
+**The criterion flags correctly on the one leg actually re-partitioned — but it
+does not establish the mechanism, and I checked rather than assumed.**
+`gdx_pullback_1d` sits at `beats_hard` slack **−2**, so the arithmetic says it is
+within one fold of passing; re-drawing the boundary did pass it, on 2 of 7 draws.
+Predicted fragile, observed fragile.
+
+What the arms do **not** show is a single fold changing side:
+
+```
+off0    u=7   beats_hard=4   slack −2   honest_negative
+off10   u=8   beats_hard=6   slack +2   candidate
+```
+
+`u` moved 7→8 *and* `beats_hard` moved 4→6. So the observed transition is larger
+than the one-fold move the criterion is built on. The criterion is validated as a
+**flag** — it selected the leg that turned out to be unstable — and not as a
+model of how the instability happens. (`gdx` is also the leg whose `u` is not
+constant across arms, which is why it is excluded from the second median above;
+it is doing awkward duty in both directions.) `n = 1`, and it is the only
 empirical anchor this criterion has.
 
 **What this does and does not say.** "One fold flip away" is a statement about
