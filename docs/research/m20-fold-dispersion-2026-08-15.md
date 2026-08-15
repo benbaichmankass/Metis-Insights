@@ -1974,3 +1974,43 @@ has bought.
   (mechanism confirmed, prediction failed, separation unproven). I am not
   proposing a fifth.
 
+
+### ✅ Scope limit, established by reading the harness (11:25Z) — the finding does NOT reach the lever walk-forward
+
+I raised, in an operator-facing comment on PR #9257, that the `trail_decay`
+walk-forward *might* share the boundary sensitivity measured here because both
+gates are majority-of-folds votes. **I then read the harness, and it does not.**
+
+`scripts/research/m20_fleet_exit_sweep.py:118` — the lever walk-forward's folds
+are a fixed list of **calendar years**:
+
+```python
+FOLDS = [("2021", "2021-01-01", "2022-01-01"), … , ("2026", "2026-01-01", None)]
+```
+
+run as `run_cell(..., start=fs, end=fe)`. There is **no sequential trade-block
+partition**, so there is no boundary to slide.
+
+`scripts/ml/train_exit_head.py:495` makes the same point as an enforced guard —
+`--fold-offset` **raises** for year-mode folds:
+
+> *"it shifts a sequential trade-block boundary and there is none to shift in a
+> per-calendar-year cut. Refusing rather than ignoring it, so a dispersion run
+> cannot report distinct offsets that were all the same partition."*
+
+**So the scope of everything in this document is the `exit_head_ml` E1 gate**,
+whose folds are sequential trade blocks starting at an arbitrary point. That
+arbitrariness *is* the finding. A calendar-year cut is a natural partition, not a
+chosen one; the two gates share the 2-of-3-majority **shape** but not the
+property that made verdicts move.
+
+**Recorded here because the reverse error is the expensive one.** A reader who
+carried "fold-majority gates are boundary-sensitive" across to the walk-forward
+would distrust evidence that has no such defect, and I had already published that
+inference before checking it. Both the claim and its withdrawal are on the PR.
+
+*(This does not say a year-fold cut has no arbitrary choices — WHICH years, and
+where a year boundary falls relative to a regime, are choices. It says the
+specific machinery and the specific finding here do not test them, and answering
+that would need different tooling, not the existing flag.)*
+
