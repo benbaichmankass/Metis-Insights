@@ -123,6 +123,30 @@ def test_the_rollup_actually_reads_the_field() -> None:
         "the reachability block is computed but not rendered")
 
 
+def test_the_done_condition_SPLITS_actionable_from_arithmetic() -> None:
+    """A done-condition that pools both invites "keep sweeping and it converges".
+
+    It does not. A leg with 31 lifetime trades cannot reach u>=2 (N>=150) by
+    being re-run — only by TRADING more, which is a strategy question, not an
+    M20 one. The two kinds of remaining work must be legible as two kinds.
+    """
+    mod = _rollup()
+    matrix = json.loads(MATRIX.read_text())
+    r = mod.rollup(matrix)
+    text = mod.render(r)
+
+    unreachable = [x for x in r["fold_reachability"] if x["usable_folds"] == 0]
+    assert unreachable, "no u=0 cells — the split below would be vacuous"
+    assert "ARITHMETICALLY unreachable" in text, (
+        "the done-condition no longer separates cells that cannot be closed by "
+        "more work from ones that can")
+    # The arithmetic must RECONCILE, not just be printed.
+    actionable = r["cells_to_done"] - len(unreachable)
+    assert f"{actionable} actionable + {len(unreachable)} arithmetic" in text, (
+        f"the split does not reconcile with cells_to_done={r['cells_to_done']} "
+        f"and {len(unreachable)} unreachable")
+
+
 def test_a_cell_missing_the_count_is_REPORTED_not_skipped() -> None:
     """Silently dropping it would report a denominator nothing measured."""
     mod = _rollup()

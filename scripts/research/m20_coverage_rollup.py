@@ -1068,6 +1068,27 @@ def render(r: dict[str, Any]) -> str:
         "      open for the done-condition, deliberately.",
         "",
     ]
+    # HOW MANY OF THOSE BLOCKERS CANNOT BE CLOSED BY DOING MORE WORK.
+    # A done-condition that counts arithmetically-impossible cells alongside
+    # runnable ones invites the reading "keep sweeping and it converges". It
+    # does not: a leg with 31 lifetime trades cannot reach u>=2 (N>=150) by
+    # being re-run, only by TRADING more, which is a strategy question and not
+    # an M20 one. Stated here so the remaining work is legible as two different
+    # kinds of remaining.
+    _unreach = [x for x in (r.get("fold_reachability") or [])
+                if x.get("usable_folds") == 0]
+    if _unreach:
+        _blocked = r["per_status"].get("blocked", 0)
+        out += [
+            f"    OF THE {_blocked} BLOCKED: {len(_unreach)} are exit_head_ml cells "
+            f"at u=0 — ARITHMETICALLY unreachable, not un-run.",
+            "      They close only if the leg trades more (a strategy question), or if",
+            "      the E1 protocol changes. Re-running the sweep cannot move them, so",
+            "      read the done-condition as "
+            f"{r['cells_to_done'] - len(_unreach)} actionable "
+            f"+ {len(_unreach)} arithmetic.",
+            "",
+        ]
     g = r.get("geometry_coverage") or {}
     if g.get("total_cells"):
         # Reported like rCoverage/pnlCoverage: the DENOMINATOR ships with the
