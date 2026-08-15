@@ -409,6 +409,39 @@ reverting to a date-only renderer fails 6 of its 9 tests, including both
 controls. The first draft of one test was itself wrong (it banned the bare form
 outright, which is *correct* under `split_mode=date`) and the suite caught it.
 
+### 12. Declared the re-sweep's geometry, moving evidence vintage 62.8% → 52.4%
+
+The re-sweep's whole point was the **vintage** axis, and finishing it meant the
+matrix had to cite it: 34 live cells (17 pullback legs × `stale_stop`,
+`giveback_stop`) still pointed at pre-cutover evidence while the measurement
+that clears them sat committed in the corpus. Evidence no consumer reads is the
+defect the corpus exists to end, one level up.
+
+`tp_geometry` is a **declared measurement, not a marker**, so the stamp rests on
+three checks made against the data — deliberately not against the run's PR
+comment, which § 11 had just shown is not evidence:
+
+1. `pullback` ∈ `m20_fleet_exit_sweep.LIVE_TP_CAPPED_FAMILIES`;
+2. all 68 rows carry `tp_cap_pct == 0.099`, the `LIVE_TP_CAP` the agreement
+   guard keys on; and
+3. all 68 carry a **measured** live-TP-reach distribution (**0 missing**) —
+   which the sweep emits *only* where the cap actually applies. That is the
+   APPLIED-vs-REQUESTED distinction, i.e. exactly what the banner got wrong.
+
+Statuses untouched. **32** cells record that the re-sweep *reproduces* the
+negative under the geometry production actually places; the other **2** say the
+opposite in as many words and point at their counter-evidence segment, so no
+cell claims a reproduction it did not get.
+
+**Vintage 181/288 (62.8%) → 151/288 (52.4%).** The drop reconciles exactly:
+34 stamped − 4 already non-stale by date (the four 1h `giveback` cells dated
+2026-08-12, after the 2026-08-10 cutover) = **30** = the observed 181−151. I
+checked that rather than assuming it, because "34 stamped, 30 moved" is the
+shape a silent partial failure also has.
+
+**Headline coverage is unchanged at 373/376.** This moves what the closed cells
+are *conditioned on*, not how many are closed — and those are different claims.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
