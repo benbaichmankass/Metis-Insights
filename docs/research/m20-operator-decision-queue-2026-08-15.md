@@ -220,6 +220,20 @@ was built to measure.** 27 of the 33 committed rows sit in multi-leg
 `family_pooled` rounds and are exposed; the 6 `per_leg` rows are structurally
 immune.
 
+**How far it could reach, bounded from committed data.** Leg order moved
+`mean_auc` by 0.0009–0.0331, and the AUC term is graded at 0.55, so **between 1
+and 13 of the 27 exposed rows** sit closer to the bar than the movement (13 at
+the largest observed movement, 1 at the smallest). Two caveats travel with that:
+crossing the AUC bar is *necessary but not sufficient* — the gate is a four-term
+conjunction — and `usable_folds` moved too, which feeds the other three terms. So
+it bounds one term of four, not verdict changes.
+
+**The one line I would want you to see:** `eth_pullback_2h` is graded
+`candidate` on `mean_auc` **0.5506** — clearing the bar by **0.0006** — while the
+order-noise measured *on its own family, in its own round* reaches **0.0331**.
+The margin is about **55× smaller than the nuisance term**. That is the concrete
+reason I would not want a `candidate` at that margin acted on before the fix.
+
 **The reassuring half, and it is genuinely reassuring:** the pre-registered off0
 control *passing* is proof the leg order matched, so the primary 1d measurement
 is unaffected — a permuted order cannot reproduce six of six AUCs exactly. The
