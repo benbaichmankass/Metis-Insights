@@ -135,15 +135,30 @@ that does not reconcile is not a denominator.
 is not thin data. It is the mechanism this memo describes: the target equals the
 floor, so any boundary loss lands under it.
 
-**Target 30 (floor + the measured margin 5) — 19 of 19 legs, 70 of 76 cells**
-(6 still running at readout #9371):
+**Target 30 (floor + the measured margin 5) — FINISHED, 19 of 19 legs,
+74 of 76 cells** (readout #9373):
 
 | outcome | cells |
 |---|--:|
-| `is_oos_fail` | 63 |
+| `is_oos_fail` | 67 |
 | `insufficient_base` | 4 |
 | `path_b_wf_pass` | **2** |
 | `wf_fail` | 1 |
+
+⚠️ **Two cells produced no outcome line and the cause is not established.** The
+run finished and all 19 legs were seen, so `74 != 76` is a real gap rather than
+a truncated read — the `reconciles: NO` check is what surfaced it. Rather than
+quote a percentage over a denominator I cannot account for, the conclusion is
+stated against its **worst case**: even assuming *both* missing cells were
+`insufficient_base`, target 30 gives **6/76 = 7.9%** against target 25's
+**68/76 = 89.5%**. The gap is ~12x either way, so the finding does not depend
+on resolving those two.
+
+**The one leg still refused at target 30 is the shortest book in the family** —
+`iaum_pullback_1d`, all four of its cells, at **90 lifetime trades**. That is
+the floor doing its job, not evidence the margin is still too thin: every other
+leg became gradeable. A leg that cannot clear a 25-trade OOS floor out of 90
+lifetime trades *should* be refused.
 
 **Matched population: both arms cover the same 19 legs** (checked with `comm`,
 not assumed — a complete arm compared against a partial one over different leg
@@ -153,9 +168,9 @@ sets is not the A/B it looks like).
 
 | | target 25 | target 30 |
 |---|--:|--:|
-| unmeasurable (`insufficient_base`) | **68/76 = 89.5%** | **4/70 = 5.7%** |
-| graded on the merits | 8/76 = 10.5% | 66/70 = **94.3%** |
-| passes | **0** | 2 (2.9%) |
+| unmeasurable (`insufficient_base`) | **68/76 = 89.5%** | **4/74 = 5.4%** (worst case 7.9%) |
+| graded on the merits | 8/76 = 10.5% | 70/74 = **94.6%** |
+| passes | **0** | 2 (2.7%) |
 
 "Unmeasurable" here is not an inference — it is the sweep's own
 `insufficient_base` outcome, counted per cell from the run logs of both arms.
@@ -164,13 +179,13 @@ verdict it emits when a leg's achieved OOS base falls under `MIN_OOS_TRADES`;
 counts read from each arm's `sweep.log` via relay #9371, with the denominator
 `legs × 4` asserted (`reconciles: YES` on the complete arm).
 
-The 5-trade margin converts **89.5% unmeasurable into 5.7%**.
+The 5-trade margin converts **89.5% unmeasurable into 5.4%**.
 
 **Read what this buys.** Primarily **answers instead of refusals**: at 25 the
 sweep could not say whether these levers work; at 30 it can, and mostly says no.
 Most graded cells still *fail*, which is the honest outcome for this family.
 
-**It does not manufacture winners: 63 of the 66 graded cells still FAIL.** The
+**It does not manufacture winners: 68 of the 70 graded cells still FAIL.** The
 two passes are both **Path B** — `mhg_pullback_1d`/`stale8_lt0R` and
 `tlt_pullback_1d`/`gb1R_afterMFE2R`, `path_b_wf_pass` at wf=4/6 — the same
 qualified shape that made `tlt_pullback_1h`/`trail4` `passed_unshipped` rather
