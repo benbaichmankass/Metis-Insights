@@ -2650,18 +2650,23 @@ un-demonstrate it). The stricter *"moved in every screen"* rule gives
 Four `--fold-offset` arms of `ict_scalp_{avax,sol,xrp}_5m`, run under
 worktree isolation so a mid-run `git reset` could not void them (see the
 CORRECTION above — the heavy lock does not stop the 15-min sync; a linked
-worktree does). Three arms complete at the time of writing; each took
-**~74 min** (74m21s / 74m21s / 74m16s).
+worktree does). **All four arms complete**, each ~74 min (74m21s / 74m21s /
+74m16s / 74m06s), 16:13:48Z → 21:10:52Z.
 
-| leg | off0 | off4 | off8 | spread | u |
-|---|---|---|---|---|---|
-| `ict_scalp_avax_5m` | 0.6175 | 0.6174 | 0.6251 | 0.0077 | 29 |
-| `ict_scalp_sol_5m`  | 0.6184 | 0.6158 | 0.6177 | 0.0026 | 23 |
-| `ict_scalp_xrp_5m`  | 0.5987 | 0.6064 | 0.6016 | 0.0077 | 22 |
+| leg | off0 | off4 | off8 | off12 | AUC spread | u | verdicts |
+|---|---|---|---|---|---|---|---|
+| `ict_scalp_avax_5m` | 0.6175 | 0.6174 | 0.6251 | 0.6253 | 0.0079 | 29 | 4 × candidate |
+| `ict_scalp_sol_5m`  | 0.6184 | 0.6158 | 0.6177 | **0.6150** | **0.0034** | 23 | 3 × candidate, **1 × honest_negative** |
+| `ict_scalp_xrp_5m`  | 0.5987 | 0.6064 | 0.6016 | 0.6067 | 0.0080 | 22 | 4 × candidate |
 
-All nine rows graded `candidate`. **Zero verdict flips across three
-partitions** — on this screen, at `block_unit: per_leg`, the verdict did not
-depend on where the folds were cut.
+**Mover rate on this screen: 1 of 3 legs = 33.3 %.** (Numerically the same as
+the corpus headline; that is a coincidence over n=3, not a replication.)
+
+The first three arms all graded `candidate` and looked like a clean stability
+result. **The fourth arm flipped `ict_scalp_sol_5m` to `honest_negative`** —
+`beats_hard` fell 16 → **14**, and `u=23` needs `beats_hard*3 >= 46`, so 42 < 46
+fails the gate. Reporting after three arms would have concluded "the verdict does
+not depend on where the folds are cut". It does.
 
 ### ⚠️ But `mean_auc` is not the decision variable, and reporting its spread is the wrong reassurance
 
@@ -2683,6 +2688,31 @@ so the gate needs `beats_hard*3 >= 46`; at `beats_hard = 16` it scores 48. **One
 fold fewer — `beats_hard = 15` — scores 45 and flips the cell to
 `honest_negative`.** The AUC on that same cell moved by 0.0026, the *smallest*
 spread in the table.
+
+> ### ✅ That was written as a PREDICTION, and the fourth arm confirmed it
+>
+> The paragraph above was committed in **`fc46889c`** and pushed at **20:27Z**.
+> Arm off12 finished at **21:10:52Z** — 44 minutes later — and returned
+> `ict_scalp_sol_5m` at `beats_hard = 14`, i.e. `3 × 14 = 42 < 46`, verdict
+> **`honest_negative`**. The named leg, the named term, the named direction.
+> Pre-registered rather than fitted after the fact; the timestamps are the
+> evidence.
+>
+> **And the mechanism holds in the sharpest possible form — the relationship is
+> ANTI-correlated on this screen:**
+>
+> | leg | AUC spread | flipped? |
+> |---|---|---|
+> | `ict_scalp_avax_5m` | 0.0079 | no |
+> | `ict_scalp_xrp_5m` | 0.0080 | no |
+> | **`ict_scalp_sol_5m`** | **0.0034** | **YES** |
+>
+> The leg with the **smallest** AUC dispersion is the only one whose verdict
+> moved, and the two legs with more than twice its spread both held. So AUC
+> dispersion is not merely a *different* axis from verdict stability — on this
+> screen it points the **wrong way**. A summary that had led with "AUC moved by
+> only 0.003 on SOL" would have singled out the one cell that was about to
+> reverse as the most reassuring of the three.
 
 So the honest reading is **not** "the verdict is robust because AUC barely
 moved". It is: *the verdict did not flip in three draws, and one of the three
