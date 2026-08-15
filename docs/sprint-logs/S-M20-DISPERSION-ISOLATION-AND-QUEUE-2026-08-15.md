@@ -1,11 +1,15 @@
 # Sprint Log: S-M20-DISPERSION-ISOLATION-AND-QUEUE-2026-08-15
 
-> **WRITTEN MID-SESSION, DELIBERATELY.** The 5m dispersion screen this sprint
-> re-launched is still running (4 arms × ~74 min from 16:13:48Z, ETA ~21:15Z),
-> so § "Screen result" is **open**. Everything else here is verified and closed.
-> Recording it now rather than at session end because the session has already
-> been through one context compaction and the durable record must not depend on
-> reaching the end.
+> **WRITTEN MID-SESSION, DELIBERATELY** — recorded before the screen finished
+> because the session had already been through one context compaction and the
+> durable record must not depend on reaching the end.
+>
+> ✅ **The screen has since COMPLETED** (4 arms × ~74 min, 16:13:48Z →
+> 21:10:52Z; ETA was ~21:15Z, so it landed within 4 minutes of the estimate).
+> § "Screen result" is **closed** — see item 9 below and
+> `docs/research/m20-fold-dispersion-2026-08-15.md` for the result: **1 of 3
+> legs moved**, the flip was **pre-registered** 44 minutes ahead, and AUC
+> dispersion proved **anti-correlated** with verdict stability.
 
 ## Date Range
 - Start: 2026-08-15 (overnight, operator asleep; hourly-ping mandate active)
