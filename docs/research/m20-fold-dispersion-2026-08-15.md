@@ -289,6 +289,41 @@ most exposed to where the folds fall. Whether single-term `beats_hard` negatives
 across the matrix deserve a boundary-robustness check before being treated as
 settled is an operator call, and it is a larger population than this one cell.
 
+## How exposed is the negative column? — sized, same night, pure read
+
+`gdx` prompts the obvious question: how many recorded negatives rest on a single
+gate term, i.e. are in the position `gdx` was in when it flipped? The committed
+rounds carry every input, so this needs no harness run.
+
+**Population, stated: the 33 rounds in `m20-exit-head-rounds.jsonl` — 19 of them
+`honest_negative`.** This is *not* the matrix's 281-cell negative column, which
+spans all 8 levers; it is the `exit_head_ml` legs actually re-measured.
+
+| failing gate terms | negatives |
+|---|--:|
+| **exactly 1** | **7 (37%)** |
+| 2 | 6 |
+| 3 | 6 |
+
+Of the 7 single-term negatives, **6 fail on `beats_hard`** and 1 on `mean_auc`:
+`gdx_pullback_1d` · `gld_pullback_1h` · `ict_scalp_eth_15m` · `sol_pullback_2h` ·
+`trend_donchian_eth_4h` · `trend_donchian_sol_4h` (all `beats_hard`), and
+`tlt_pullback_1h` (`mean_auc`).
+
+Two checks before reading anything into that. Recomputing the four gate terms
+from the stored fields **reproduces all 33 recorded verdicts, zero
+disagreements** — as it did for the 60 arms. And the split reconciles *exactly*
+with [`m20-exit-head-binding-term-2026-08-14.md`](./m20-exit-head-binding-term-2026-08-14.md),
+which reported `beats_hard` as the sole failure in **6 of 7** single-term
+failures. Same 6-of-7: that memo had already sized this population; what is new
+is that one of its members has now been shown to flip under re-partitioning.
+
+**So the exposure is 7 cells, one of which is measured fragile.** That is a
+tractable follow-up, not an alarm — and deliberately no more is claimed. `gdx`
+flipping does not make the other six wrong, `beats_hard` being the common term is
+expected (it is a count over folds, so it is the most boundary-exposed term by
+construction), and six of these legs have never been offset-tested at all.
+
 ## Limits, stated plainly
 
 1. **This family is the THIN one, so this is an UPPER BOUND** — pre-registered as
