@@ -148,6 +148,63 @@ existing.
 table, and its overclaiming sentence — *"the backstop so nothing can slip
 past"* — is corrected in place. That sentence is why the gap went unnoticed.
 
+### 5. 🔴 The worktree fix silently opted the screen OUT of the queue
+
+Found by reading `_lock_file()` while trying to close § "Gaps"' own
+"lock unexercised on the trainer" item — i.e. by chasing my own stated gap.
+
+`trainer_heavy_lock._lock_file()` resolves `<repo_root>/runtime_logs/trainer/
+.heavy.lock` from `parents[2]` of the **running** module. Correct for the
+canonical clone; a trap for any other checkout. So § 2's worktree — the right
+fix for the code-reset problem — moved the lock file too, and the screen took a
+**private mutex**.
+
+**Measured on the box (#9497), screen mid-arm:**
+
+| | |
+|---|---|
+| `/tmp/m20_screen_wt/runtime_logs/trainer/.heavy.lock` | **HELD** |
+| `/home/ubuntu/ict-trading-bot/runtime_logs/trainer/.heavy.lock` | **FREE** |
+| probe launched from the canonical clone | **acquired immediately, rc=0** |
+
+A training cycle or drift-retrain was free to start into the 6 GB box beside a
+running screen — the exact contention the queue exists to prevent. **Two
+individually-correct fixes; their interaction was the defect** — the seam shape
+`CLAUDE.md` § Number provenance already names.
+
+**Why it survived review:** every log line said the right thing. The job prints
+`{"status": "heavy_lock_acquired"}`, which is **true** — it acquired *a* lock —
+and nothing in the output distinguishes "joined the shared queue" from "created
+a private one". *The lock message is not evidence the queue was joined.*
+
+Fixed the additive half only: `_heavy_queue.canonical_lock_file()` points a
+non-canonical checkout at the canonical clone's lock, and the round driver —
+which imported `acquire_heavy_lock` **directly**, bypassing the helper — is
+routed through it. `tests/test_heavy_queue_shared_across_checkouts.py` asserts
+it with **real processes and a real flock**, because a path-string comparison
+would have passed against the broken version too: it resolved a perfectly valid
+path, just not a shared one.
+
+**Deliberately not done:** the default lock path in `trainer_heavy_lock.py` and
+the shell wrapper is unchanged. They agree with each other today, and moving the
+mutex has a transition window in which an in-flight job on the old path does not
+serialize against a new job on the new one. That is a live-behaviour change to
+the trainer's scheduled-job serialization — **queued for the operator**.
+`BL-20260815-WORKTREE-RUN-TAKES-A-PRIVATE-HEAVY-LOCK`.
+
+**The running screen is not retrofitted**, and the reasoning is recorded rather
+than left implicit: contention costs time and carries an OOM risk but **not
+verdict correctness** (an E1 verdict does not depend on wall-clock), the box had
+5,251 MB available with no other heavy job, and a restart would burn ~35 min of
+arm `off0`.
+
+Two smaller things, both mine: my relay probes in #9492/#9493/#9496 tested
+`runtime_logs/.trainer_heavy.lock`, a path **neither implementation uses**, so
+those "flock FREE" readings said nothing — and `flock -n` *created* that file,
+so I removed it (#9498, guarded on empty-and-unheld). And the canonical
+`heavy_lock_holder.json` still names a dead `drift_retrain` pid: documented
+stale-holder behaviour, so read it through `read_holder()` and never `cat`.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
@@ -178,9 +235,12 @@ past"* — is corrected in place. That sentence is why the gap went unnoticed.
 ### Gaps not yet verified
 - **The screen result itself.** Four arms, ETA ~21:15Z. Nothing about the
   dispersion finding is updated by this sprint.
-- **The lock is unexercised on the trainer.** All four behaviours were verified
-  **off-box** via `TRAINER_HEAVY_LOCK_FORCE`; the role-marker path has not been
-  observed firing on the real VM.
+- ~~The lock is unexercised on the trainer.~~ **Closed by § 5** — chasing this
+  gap is what found the private-lock defect. `on_trainer_vm()` returns True on
+  the box and both lock files were observed in real held/free states (#9497).
+  What remains unexercised is the **new entrypoint** locking specifically: the
+  running screen is pinned to the pre-fix worktree commit, so `train_exit_head`'s
+  own `take_heavy_queue` has not yet run on the trainer.
 - `replay_pregate*` remains outside the queue by design — filed as
   `BL-20260815-HEAVY-IS-UNDEFINED-FOR-REPLAY-AND-EVAL-JOBS` rather than patched,
   because adding four filenames would pass today's scan while leaving the next
