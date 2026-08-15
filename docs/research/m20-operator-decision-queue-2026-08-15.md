@@ -55,6 +55,10 @@ A matched A/B over the same 19 legs, differing in nothing but the target:
 | graded on the merits | 8/76 | **70/74 = 94.6%** |
 | passes | 0 | 2 (both Path B) |
 
+checked: scripts/research/m20_fleet_exit_sweep.py — "unmeasurable" here is not an
+inference but that sweep's own `insufficient_base` outcome, counted per cell from
+both arms' run logs with the denominator `legs × 4` asserted.
+
 At 25 the sweep returns *almost no verdicts* on a family whose legs carry up to
 527 lifetime trades — because the target equals the floor, so any boundary loss
 lands under it.
