@@ -337,6 +337,95 @@ def _declared_legs() -> dict[str, dict[str, Any]] | None:
     return {name: (body or {}) for name, body in strategies.items()}
 
 
+def _funding_by_symbol() -> dict[str, str] | None:
+    """Symbol -> funding class of the accounts that route it, or None.
+
+    THREE STATES, NEVER COLLAPSED — `real_money` / `paper` / `unresolved`.
+    Added 2026-08-15 because the ⛔ stale-DECISIONS banner asserted a stale
+    `shipped` cell "changes exit behaviour on a real-money leg now" for EVERY
+    row, while nothing in this script had ever read `config/accounts.yaml`.
+    Measured against the field the same day, that label was wrong for 3 of the
+    4 rows it was printed over: `mes_trend_long_1d` and `mhg_pullback_1d` route
+    to `ib_paper` (paper) and `ib_live` (real_money but `mode: dry_run`), while
+    only `htf_pullback_trend_2h` (BTCUSDT -> `bybit_2`) is money-at-risk. That
+    is CLAUDE.md § "Diagnostic provenance" sub-class **A** — the label names a
+    quantity the code never computed — in the very tool written to stop that
+    class, which is why it is fixed here rather than reworded.
+
+    `real_money` requires **both** gates the runtime requires: an account whose
+    `account_class` is `real_money` AND whose `mode` is `live`. `ib_live` is
+    `real_money` at `mode: dry_run`, so it places no live order and must not
+    make a leg read as money-at-risk.
+
+    None on an unreadable config — the same third state as `_declared_legs`.
+    The caller renders that as `unresolved`, which is emphatically NOT `paper`:
+    "we could not look" and "we looked and it is paper" are opposite claims,
+    and defaulting the unknown to the safe-sounding one is the exact shape
+    § "Collapsed states" exists to forbid.
+
+    Reads through the CANONICAL `src.config.accounts_loader.load_accounts_dict`,
+    not a hand-rolled `yaml.safe_load` — `canonical-config-loaders` caught my
+    first version doing the latter, correctly: eight hand-rolled parsers of this
+    file once existed and one of them iterated the wrong shape and silently
+    returned nothing on every live run.
+
+    ⚠️ The canonical loader returns `{}` on a read/parse failure, which COLLAPSES
+    "could not read" into "no accounts" — the very distinction this function
+    exists to preserve. It takes an `errors` list for exactly that reason, so a
+    captured error maps back to `None` here rather than to an empty mapping that
+    would render every leg `unresolved` *without saying why*.
+    """
+    sys.path.insert(0, str(REPO))
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+    except ImportError:
+        return None
+    errors: list[dict[str, Any]] = []
+    accounts = load_accounts_dict(REPO / "config" / "accounts.yaml", errors=errors)
+    if errors or not isinstance(accounts, dict) or not accounts:
+        return None
+    out: dict[str, str] = {}
+    for body in accounts.values():
+        if not isinstance(body, dict):
+            continue
+        live_real = (body.get("account_class") == "real_money"
+                     and body.get("mode") == "live")
+        for sym in (body.get("symbols") or []):
+            # real_money WINS over paper: one live real-money route is enough
+            # to make the leg money-at-risk, however many paper books mirror it.
+            if live_real or out.get(sym) != "real_money":
+                out[sym] = "real_money" if live_real else out.get(sym, "paper")
+    return out
+
+
+def _leg_funding(body: dict[str, Any] | None,
+                 by_symbol: dict[str, str] | None) -> str:
+    """`real_money` / `paper` / `unresolved` for one leg's declared body."""
+    if by_symbol is None or not isinstance(body, dict):
+        return "unresolved"
+    syms = body.get("symbols") or ([body["symbol"]] if body.get("symbol") else [])
+    seen = [by_symbol[s] for s in syms if s in by_symbol]
+    if not seen:
+        return "unresolved"
+    return "real_money" if "real_money" in seen else "paper"
+
+
+def _stale_decision_funding(dec: list) -> dict[str, int]:
+    """Counts of `real_money` / `paper` / `unresolved` over stale decisions.
+
+    Resolved at PRINT time rather than folded into the `stale_decisions` tuple,
+    so the vintage computation stays a pure function of the matrix and the
+    tuple shape stays stable for its existing consumers in
+    `tests/test_exit_head_per_leg.py`.
+    """
+    legs, by_symbol = _declared_legs(), _funding_by_symbol()
+    out: dict[str, int] = {}
+    for leg, *_rest in dec:
+        k = _leg_funding((legs or {}).get(leg), by_symbol)
+        out[k] = out.get(k, 0) + 1
+    return out
+
+
 def _effective_execution(body: dict[str, Any]) -> str:
     """The leg's EFFECTIVE state — `live` | `shadow` | `disabled`.
 
@@ -930,6 +1019,7 @@ def render(r: dict[str, Any]) -> str:
             for _leg, _lev, status, _dt, _cut in dec:
                 k = base(status) or "?"
                 by_status[k] = by_status.get(k, 0) + 1
+            fund = _stale_decision_funding(dec)
             block += [
                 "",
                 f"      ⛔ {len(dec)} of those stale cells are NOT negatives —"
@@ -937,10 +1027,18 @@ def render(r: dict[str, Any]) -> str:
                 "         " + " · ".join(
                     f"{s_} {n_}" for s_, n_ in
                     sorted(by_status.items(), key=lambda kv: -kv[1])),
+                "         routing: " + " · ".join(
+                    f"{k} {n_}" for k, n_ in sorted(fund.items())),
                 "         A stale NEGATIVE costs knowledge (the lever might have"
                 " passed and we would not know).",
-                "         A stale SHIPPED costs MONEY — it changes exit behaviour"
-                " on a real-money leg now, on a",
+                "         A stale SHIPPED costs MONEY ONLY WHERE THE LEG IS"
+                " ROUTED TO A LIVE REAL-MONEY ACCOUNT —",
+                "         read the per-row `routing` column, not this count."
+                " Until 2026-08-15 this banner asserted",
+                "         'a real-money leg' for EVERY row while nothing here"
+                " had read accounts.yaml; it was",
+                "         wrong for 3 of 4. `unresolved` means we could not"
+                " look — it is NOT 'paper'.",
                 "         number never reproduced under the geometry the bot"
                 " actually places.",
                 "         Read the re-sweep base rate from the CORPUS, not from"
@@ -1037,9 +1135,12 @@ def main(argv: list[str]) -> int:
             elif not dec:
                 print(f"  (0 of {stale_n} stale cells is a non-negative — every "
                       "one is an honest_negative)")
+            _legs, _by_sym = _declared_legs(), _funding_by_symbol()
             for leg, lever, status, dt, cut in sorted(dec):
+                routing = _leg_funding((_legs or {}).get(leg), _by_sym)
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
-                      f"newest-ref {dt or '(undated)'}  (cutover {cut})")
+                      f"newest-ref {dt or '(undated)'}  (cutover {cut})  "
+                      f"routing={routing}")
         if a.stale_corpus_state:
             cs = stale_corpus_state(matrix)
             if not cs["available"]:

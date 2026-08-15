@@ -1,7 +1,7 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~06:30Z)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~07:05Z)
 
 Everything the overnight session queued rather than decided, in one place.
-**Six items**, plus one coda outside M20's scope. **Nothing here has been acted
+**Seven items**, plus one coda outside M20's scope. **Nothing here has been acted
 on.** No matrix status was flipped, no gate changed, no live lever touched.
 
 Coverage is **373/376 = 99.2%**, unchanged all night (verified by re-running
@@ -19,6 +19,7 @@ and it is the night's actual result.
 | 4 | `iaum_pullback_1d` | **leave the status**; the real question is about the gate |
 | 5 | The fragile-margin population | **no flip needed** — the screen says exposure, not instability |
 | 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
+| 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | **re-sweep it first** — one arm, and the only stale decision touching real money |
 | — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
 
 Each item states what I'd do and how confident I am, because Tier-3 is *propose,
@@ -345,6 +346,57 @@ one-flip arithmetic is exact and independent of AUC — but `usable_folds` is an
 input to it and `usable_folds` is what moved on two legs.
 
 Filed `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER` (high).
+
+---
+
+## 7. One SHIPPED lever on a real-money leg rests on pre-cutover evidence
+
+Found 07:0xZ by running `m20_coverage_rollup.py --stale-decisions` and then
+**checking the routing the banner had been asserting** — which nothing had done.
+
+`htf_pullback_trend_2h` · `trail_geometry` · **`shipped`** · newest evidence ref
+**2026-07-12**, against that lever's cutover of **2026-08-10**. That is 29 days
+older than the TP-geometry fix, so the `trail_mult: 4.0` now shaping exits was
+tuned on a book production does not run
+(`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`).
+
+**It is money-at-risk.** Verified from the field, not inferred: the leg declares
+`symbols: [BTCUSDT]` + `execution: live` in `config/strategies.yaml`, and
+BTCUSDT is routed by **`bybit_2`** (`mode: live`, `account_class: real_money`)
+alongside the `bybit_1` / `bybit_portfolio` paper mirrors.
+
+**The other three stale decisions are PAPER, and that is a correction to my own
+tool, not a softening of the finding:**
+
+| leg | lever | status | newest ref | routing |
+|---|---|---|---|---|
+| `htf_pullback_trend_2h` | `trail_geometry` | shipped | 2026-07-12 | **real_money** |
+| `mes_trend_long_1d` | `trail_geometry` | shipped | 2026-08-09 | paper |
+| `mhg_pullback_1d` | `stale_stop` | passed_unshipped | 2026-08-09 | paper |
+| `mhg_pullback_1d` | `trail_geometry` | shipped | 2026-08-09 | paper |
+
+The roll-up's ⛔ banner had asserted *"it changes exit behaviour on a real-money
+leg now"* over **all four** rows while nothing in that script had ever read
+`config/accounts.yaml` — sub-class **A** (a label naming a quantity the code
+never computed), inside the tool written to stop that class. Fixed rather than
+reworded: the banner now prints a `routing` column resolved from both gates
+(`account_class: real_money` **and** `mode: live`, so the `dry_run` `ib_live`
+cannot make MES read as money-at-risk), with `unresolved` kept distinct from
+`paper`. Pinned in `tests/test_stale_decision_routing.py`, mutation-checked.
+
+**This sharpens the item rather than shrinking it:** one real-money cell 29 days
+stale is more actionable than four cells of unstated funding.
+
+**My recommendation: re-sweep `htf_pullback_trend_2h` / `trail_geometry` under
+live TP geometry before anything else in the stale backlog** — it is one arm, the
+trainer is free once the 15m screen drains, and it is the only stale decision
+touching real money. **I did not run it**: a re-sweep that comes back worse is an
+argument for changing a live exit parameter, which is Tier-3 and yours. The three
+paper rows can wait for the general re-sweep.
+
+⚠️ **What this does NOT say:** that the lever is wrong. Pre-cutover evidence is
+unreproduced, not refuted — the re-sweep may confirm `trail_mult: 4.0`. The
+defect is that nobody can currently tell which, on a real-money leg.
 
 ---
 
