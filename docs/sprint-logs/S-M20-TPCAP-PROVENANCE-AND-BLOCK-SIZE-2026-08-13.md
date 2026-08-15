@@ -3198,3 +3198,113 @@ push attached* (26 commits, unknown push count).
   for the operator as questions.
 - **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
   Deploy verification is owed *after* merge.
+
+## Fifth overnight stretch (2026-08-15, ~04:15–05:15Z)
+
+### Objective
+
+Read out the 15m candidate screen, close the one open item the fourth stretch
+left (`eth_denom_2h`: 3 of 7 legs reproduce, 4 do not), and keep the operator
+queue accurate. The open item turned into the session's main finding.
+
+### Work completed
+
+**A root cause for the control failures — and it is a harness defect, not a
+data one.** `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER` (high).
+An E1 verdict depends on the ORDER the legs were typed on the command line:
+`m20_exit_head_round.py:157` iterates `a.legs.split(",")` → `emits` order →
+`rows.jsonl` row order (`build_exit_head_dataset.py:583,634,730`) → the tie-break
+in a **stable** sort over `bars[0]["bar_t"]` (`train_exit_head.py:518`). On a 2h
+family every leg entering on the same bar shares that timestamp, so the tie groups
+span every pooled leg.
+
+Measured (relays #9403, #9406): same 7 legs, two orders → identical
+`harness_trades` 2220, identical 71199 rows, identical 43×50 fold shape, yet **8
+of 43 folds differ** (first divergence fold 21, 1378 vs 1370 rows), AUC moved up
+to **0.0331**, and two legs **lost a usable fold** (43→42, 43→41). That is ~2/3
+of the 0.0515 median dispersion the study was built to measure.
+
+**Four candidate causes were measured and excluded before this one**, including
+my own leading hypotheses: data growth (`n_oos` identical), training
+non-determinism (5/5 byte-identical), edited evidence (`git show`), a differing
+leg **set** (#9398 — the roster is identical), and a differing parameter set
+(#9401/#9402 — the arm ran the same `fold_mode`/`target`/floors).
+
+**Isolated by a controlled pair, found in #9412.** The determinism run
+(alphabetical, vs its own re-run — same order) reproduced 5/5 byte-identically;
+the 4h control (alphabetical, vs `eth_denom_4h`'s hand-typed
+`eth,sol,xrp,ada,avax`) mismatched. Same code, same data, same flags, same legs;
+order is the only variable. It also retires an apparent tension in the earlier
+write-up — the determinism result and the unexplained mismatches were answering
+different questions, not contradicting each other.
+
+**The primary measurement survives, and the control is why.** A permuted order
+cannot reproduce six of six AUCs exactly, so the pre-registered off0 control
+*passing* is proof the 1d arms and their recorded round shared a leg order. The
+control caught a failure mode nobody had named — the argument for pre-registering
+a stop condition whose failure modes you cannot yet enumerate.
+
+**Exposure quantified from committed data:** 27 of 33 rows sit in multi-leg
+`family_pooled` rounds (exposed); 6 `per_leg` rows are structurally immune. That
+partition predicts the observed control results with no free parameters, and is
+being confirmed live by the 15m screen (single-leg arms, control exact).
+
+**Shipped fix (c) only, deliberately.** `pooled_legs_ordered` is now stamped on
+every emitted round row (+5 tests, regression planted and confirmed failing).
+It changes no numbers and makes two rows differing by order *detectable*, which
+they were not. **Fix (a) — a total sort key — is NOT taken**: it rewrites
+recorded verdicts across the corpus, so it is queued as an operator decision with
+its cost stated.
+
+**A second, unrelated live finding.**
+`BL-20260815-EXIT-LOOP-MAX-PASS-NEAR-THE-60S-ASK-AND-NOTHING-WATCHES-IT` (high).
+Read `exit_loop_health` (#9410) to confirm the other session's
+`EXIT_LOOP_DECOUPLE_DISABLED` tail had completed — it had (`fresh`, 625 passes).
+But `max_pass_ms` is **58.9 s** against the operator's 60 s ask, a **1.8% margin**,
+versus the 43.2% the decouple sprint recorded at n=55. Lowering
+`EXIT_LOOP_INTERVAL_SECONDS` cannot help — the interval is `max(floor, pass)` and
+the pass binds. And nothing alerts: `exit_loop_health` thresholds *staleness*
+only, so the loop reads `fresh` while approaching a breach of the ask it exists
+to satisfy.
+
+**Also fixed:** the trainer-diag relay executed my issue body's trailing prose as
+bash (#9400 returned `Three: command not found`) — a recurrence of
+`BL-20260731-TRAINERDIAG-TRAILING-PROSE`, whose fix ends the block only at a
+closing fence or the next `key:`. An unfenced `cmd: |` whose trailing prose is an
+ordinary sentence matched neither. Now ends at the first dedent, per YAML's own
+rule for block scalars; +2 tests, both written failing first.
+
+**Operator queue kept current:** item 1 corrected (#9257 is a 30-file PR, not the
+two-line merge the item described; `src/runtime/regime_flip_exit.py` is new but
+imported by nothing under `src/`), item 6 added (the root cause, as a
+which-fix decision), and the exit-cadence margin added as a coda.
+
+### Validation performed
+
+- 38/38 guards green on every pushed commit; the push is now gated on a captured
+  `rc` rather than piped through `tail` (which had let one red push through —
+  the same mistake fixed earlier in `bb960eaa`, repeated and re-fixed here).
+- New tests: 5 (`pooled_legs_ordered`) + 2 (relay parser) — each written failing
+  first, with a planted regression confirmed to fail, then passing.
+- Coverage re-run through `m20_coverage_rollup.py`: **373/376 = 99.2%**,
+  unchanged.
+- The backlog's `ensure_ascii=False` convention was determined by **exact
+  round-trip against the `origin/main` blob**, after my own `json.dumps` default
+  re-encoded 1889 lines and made ~580 pre-existing rows read as "added" to the
+  diff-scoped guards.
+
+### Gaps not yet verified
+
+- **The 15m screen is still running** — 3 of 8 arms. `ict_scalp_sol_15m` holds
+  `candidate` across offsets 0/4/8 with `u = 9` constant and a spread of 0.0079,
+  but `ict_scalp_xrp_15m`'s four arms have not started. Nothing is claimed yet.
+- **Whether the 58.9 s exit pass is a rare tail or a thickening distribution is
+  unknown.** A max over 625 passes is one order statistic and the writer keeps no
+  percentiles, so p95 is not recoverable from the artifact.
+- **The leg-order defect's effect on the corpus is bounded, not measured.** 27 of
+  33 rows are *exposed*; how many of their verdicts would actually move under a
+  total sort key is unmeasured, and measuring it means re-running them.
+- **Fix (a) is not applied**, so every future `family_pooled` round still inherits
+  the confound unless its leg order is matched by hand.
+- **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
+  Deploy verification is owed *after* merge.
