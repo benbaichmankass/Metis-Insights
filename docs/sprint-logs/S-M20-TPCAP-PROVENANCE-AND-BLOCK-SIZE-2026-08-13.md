@@ -3405,3 +3405,151 @@ which-fix decision), and the exit-cadence margin added as a coda.
 - **`trend_donchian 1h` and `scalp_5m` second-pass rounds were never launched** —
   the trainer was busy with the 15m screen, then the item-7 sweep took the idle
   window.
+
+## Seventh overnight stretch (2026-08-15, ~09:15–09:50Z)
+
+### Objective
+
+Read the donchian-1h fold-dispersion screen against its two pre-committed gates,
+then keep the screen queue moving. Secondary: whatever the read turns up.
+
+### Work completed
+
+**1. The donchian-1h screen (relay #9435) — both gates passed, and the leg moved.**
+
+Gates were fixed in the launch issue (#9431) *before* any number existed, which
+is the only reason the result is interpretable — the trainer resets to
+`origin/main` every ~15 min and `--fold-offset` is branch-only
+(`BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH`):
+
+- **Gate 1** — one sha256 pair (`b197e75b…` / `64126139…`) repeated across all
+  four arms, pinned `f28348c8`. No arm silently reverted.
+- **Gate 2** — off0 reproduced `auc 0.6079 / u 23 / candidate` exactly.
+
+`trend_donchian_eth` **moved**: 3 of 4 draws `candidate`, off4 →
+`honest_negative` on `beats_hard` (13 against a bar of 16 at `u = 23`). I
+recomputed E1 over all **twelve** rows of the round independently; it reproduces
+every recorded verdict, so the flip is the gate working.
+
+Two readings worth more than the flip itself:
+
+- **AUC spread carries no information about verdict stability.** The flipping
+  arm's AUC is `0.6077` against a control of `0.6079` — flat to three decimals —
+  while the verdict moves. Four-draw spread `0.0086`; `ict_scalp_sol_15m`, which
+  did **not** move, spreads `0.0088`. The two tightest-AUC legs in the corpus
+  split one-and-one. Any triage that ranked this population by "how much does the
+  headline wobble" is now measured and does not work.
+- **The mover is the deepest leg screened** (`u = 23`, `n_oos = 566`). That is a
+  second and stronger refutation of the sample-size cause I retracted at 07:00Z —
+  not merely "a mover can be thick" but "the thickest book screened moved while
+  thinner ones held".
+
+The pooled round returned two more legs free, both `honest_negative` on all four
+draws. `trend_donchian_sol` is the notable one: slack **−1**, a **fragile
+NEGATIVE** one fold from reading `candidate` — the first negative-side cell
+actually tested, and it held.
+
+Tally **4 of 15**. New at this base size, stated positively rather than as a
+caveat: **every leg that moved was flagged, and no unflagged leg has moved** —
+0 false negatives, 11/15 false positives.
+
+Written into `docs/research/m20-fold-dispersion-2026-08-15.md` and folded into
+operator-queue item 5, whose **recommendation is unchanged for the second time**.
+That is the property worth recording: it has now survived two screens that each
+refuted a *different* explanation I had attached to it, because it never rested
+on either.
+
+**2. A corpus data defect, found while planning the next screen — 10 of 33 rows.**
+
+Every `trend_donchian*` row in `docs/research/m20-exit-head-rounds.jsonl`
+recorded `family: "trend_donchian"`. The driver writes `classify(leg)`, which
+returns **`"donchian"`** — `classify` matches the SUBSTRING
+(`m20_fleet_exit_sweep.py:134`), so the leg id and the family name are different
+strings and transcribing the former produced the latter's near-miss. All ten
+carry a hand-transcription provenance (`"relays #NNNN …"`); every driver-emitted
+donchian row says `"donchian"`.
+
+**No verdict or number is wrong.** The cap is decided at RUN time from the live
+`classify()` call inside `base_args`, never from this file, and relay #9156's
+geometry probe gated that launch on the cap actually being forwarded. The damage
+is to the reader: `LIVE_TP_CAPPED_FAMILIES` is `{donchian, pullback, fade,
+squeeze}`, so filtering the corpus by that set to ask *"which rounds ran at
+live-parity TP"* returned **NO for every donchian row** — ten correctly-capped
+rounds reading as `NO_TAKE_PROFIT` books, a geometry production does not run.
+CLAUDE.md § "Diagnostic provenance" sub-class **A**.
+
+It caught me first, which is why it is written up rather than quietly patched:
+planning #9436 I read `family: "trend_donchian"`, saw it absent from
+`LIVE_TP_CAPPED_FAMILIES`, and briefly concluded that round had run **uncapped**.
+I avoided publishing that only by reading `classify()` instead of trusting the
+record — the same "read the field, not the prose about it" move that RULE ONE
+asks for, arriving one step later than it should have.
+
+Fixed **surgically, not by re-serializing**: a `json.dumps` round-trip is *not*
+byte-identical on this file (one row was written with `ensure_ascii=True` and
+carries a literal `—` where its siblings carry the raw character), so a
+rewrite would have silently changed a row this commit is not about. The replace
+asserts exactly 10 occurrences, then re-parses every line to prove key order held
+and no field other than `family` moved.
+
+Guarded by `tests/test_rounds_family_matches_classify.py` — **written first,
+observed to FAIL on exactly those 10 rows**, with two positive controls so a
+comparison that stopped comparing cannot read as a clean corpus. It pins the
+consequence (`LIVE_TP_CAPPED_FAMILIES` membership) as well as the rule, because
+the next hand-transcribed row is one relay away.
+
+**3. `trend_donchian_eth_prop` screen launched (#9436), readout fired (#9438).**
+
+The last slack-0 1h candidate: `u = 24`, `ba 20`, `bh 16` ⇒ slack
+`min(12, 0) = 0`, binding on `beats_hard` **exactly** at the bar. A different
+round from `trend_donchian_eth`, so it needs its own control.
+
+Leg order `trend_donchian_sol_prop,trend_donchian_eth_prop` (**sol first**) was
+read out of launch relay #9156's own `--legs` argument — not memory, and not
+inferred from the corpus, whose `pooled_legs_ordered` is `None` for that round
+(the field postdates it). Gate 2 requires **both** rows to reproduce, stricter
+than #9435's single-row gate, because on a pooled round a wrong leg order can
+still land one row right by luck.
+
+Not passing `--tp-cap-pct`: the original ran at the driver default, and that
+default *is* `0.099` (`m20_exit_head_round.py:111`). Passing it explicitly would
+be the same value under a different provenance claim.
+
+### Validation performed
+
+- 38 guards PASS / 0 FAIL, re-run **after committing** each change — the guards
+  are scoped to a commit range and print an explicit warning when uncommitted
+  paths were not scanned, which is what makes a green meaningful here.
+- New test observed failing on the real defect (10 rows) before the fix, passing
+  after; its two positive controls pass in both states.
+- The four sibling corpus tests (`…corpus_exemption_is_honest`,
+  `…round_emits_evidence`, `…exclude_dispersion_arms`, `…round_geometry_stamp`)
+  plus `test_pytest_run_filter`: 39 passed.
+- Coverage roll-up re-run: **373/376 = 99.2%**, unchanged.
+- PR #9257 CI on `3ed8d9d1`: `repo-inventory`, `guards`, `pytest-collect` green;
+  `pytest-run` still in flight at write time (started 09:32:14Z).
+- Coordination board: no open PR other than #9257, and PR #8815 (the tick-chain
+  session, `01Gvmm6…`) **merged 2026-08-12** — no live contention.
+
+### Contradictions or drift found
+
+- The corpus `family` defect above (mine to the extent I read it wrongly first,
+  not mine in origin — it predates this session).
+- `docs/research/m20-exit-head-rounds.jsonl` mixes `ensure_ascii` conventions
+  across rows. Left alone deliberately: harmless, and normalising it would touch
+  evidence rows for cosmetics. Recorded here so the next session that runs a
+  round-trip check is not surprised by it.
+
+### Gaps not yet verified
+
+- **#9436's gates are not yet read.** If either fails the screen is void and the
+  `trend_donchian_eth_prop` cell keeps its single unreplicated measurement.
+- **`scalp_5m` second-pass round** still not launched — deliberately queued
+  rather than run concurrently, since the trainer is 1 OCPU and the 2026-08-15
+  thrashing incident came from overlapping jobs.
+- **The three paper stale decisions** (`mes_trend_long_1d` trail_geometry,
+  `mhg_pullback_1d` stale_stop + trail_geometry) are untouched. All three are
+  PAPER — confirmed by routing, after the 07:25Z retraction — so none is a
+  money-at-risk exposure; they are stale knowledge.
+- The claim "no unflagged leg has moved" is read off my own tally table. It is
+  checkable from that table, but the table is the only record of it.
