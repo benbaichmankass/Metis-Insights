@@ -429,7 +429,7 @@ def eval_split(model, trades: Dict[str, List[dict]], tf_s: int) -> dict:
 
 
 def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry,
-                offset: int = 0) -> list:
+                offset: int = 0, total_sort: bool = False) -> list:
     """Walk-forward test folds as `(label, year, test_dict, cutoff_ts)`.
 
     `offset` SHIFTS WHERE THE BLOCKING STARTS, AT FIXED `block_n`. It exists for
@@ -515,7 +515,36 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry,
             out.append((str(ytest), ytest, test, y0))
         return out
 
-    ordered = sorted(h_trades.items(), key=lambda kv: t_entry(kv[1]))
+    # TIE-BREAK. `sorted` is STABLE, so trades sharing an entry `bar_t` keep the
+    # order they appear in `rows.jsonl` — which is the order the LEGS were passed
+    # on the command line (m20_exit_head_round.py:157 ->
+    # build_exit_head_dataset.py:583,634,730). On a 2h family every leg entering
+    # on the same bar carries an IDENTICAL bar_t, so those tie groups span every
+    # pooled leg and the argument order moves fold membership.
+    #
+    # Measured 2026-08-15 (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER):
+    # the same 7 legs in two orders gave identical trade counts (2220), identical
+    # rows (71199) and an identical 43x50 fold shape — yet 8 of 43 folds differed,
+    # AUC moved up to 0.0331, and two legs LOST a usable fold.
+    #
+    # `trade_key` makes the sort TOTAL, so the partition stops depending on
+    # argument order at all. It is OPT-IN and DEFAULT-OFF, and that default is
+    # deliberate rather than timid: switching it changes recorded AUCs across the
+    # committed corpus, so it is a re-measure to be decided and dated, not a
+    # silent drive-by that would leave old and new verdicts pooled in one file
+    # with nothing marking which convention produced them.
+    #
+    # This is a MIGRATION flag, not a permanent gate: the intended end state is
+    # total-by-default once the corpus is re-measured. Do not read the default as
+    # an endorsement of the unstable sort.
+    if total_sort:
+        ordered = sorted(h_trades.items(), key=lambda kv: (t_entry(kv[1]), str(kv[0])))
+        print("  note: --total-sort — ties broken by trade_key, so the partition "
+              "does not depend on --legs order. NOT the recorded-corpus "
+              "convention; verdicts from this run are not comparable to rows "
+              "produced without it.")
+    else:
+        ordered = sorted(h_trades.items(), key=lambda kv: t_entry(kv[1]))
     if offset:
         print(f"  note: --fold-offset {offset} — skipping the first {offset} "
               f"trade(s) before blocking; {len(ordered) - offset} of "
@@ -645,6 +674,15 @@ def main(argv: List[str]) -> int:
                          "much a verdict depends on where the fold boundaries "
                          "fall. Do NOT sweep --min-fold-trades for that — see "
                          "fold_blocks() and that flag's own comment.")
+    ap.add_argument("--total-sort", action="store_true",
+                    help="Break entry-time ties by trade_key, making the fold "
+                         "sort TOTAL so the partition does not depend on the "
+                         "order --legs were passed. DEFAULT OFF: turning it on "
+                         "changes recorded AUCs across the committed corpus, so "
+                         "it is a deliberate re-measure, not a drive-by. A "
+                         "MIGRATION flag — the intended end state is total-by-"
+                         "default once the corpus is re-measured "
+                         "(BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER).")
     ap.add_argument("--fold-mode", choices=["trades", "years"], default="trades",
                     help="How walk-forward TEST folds are cut. `trades` "
                          "(default) slices sequentially by trade count so a "
@@ -684,7 +722,7 @@ def main(argv: List[str]) -> int:
         return bars[0]["bar_t"]
     folds = []
     blocks = fold_blocks(h_trades, a.fold_mode, a.min_fold_trades, t_entry,
-                         offset=a.fold_offset)
+                         offset=a.fold_offset, total_sort=a.total_sort)
     print(f"  fold-mode={a.fold_mode} -> {len(blocks)} candidate fold(s)")
     for label, ytest, test, y0 in blocks:
         # purge on the trade's LAST bar: a hold spanning into the test block
