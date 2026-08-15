@@ -2468,3 +2468,80 @@ lifetime_trades` invites "revisit when it clears", and for the seven equity 1d
 legs there is no window that clears it at `b = 50`. That belongs on
 `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`, whose remedy line currently
 points at a rebuild.
+
+---
+
+## The record is now machine-readable — and it corrects the pre-registration above (16:50Z)
+
+`docs/research/m20-fold-dispersion-arms-consolidated.jsonl` is committed: **234
+rows, 61 arm files, 60 screens, 33 legs**, assembled from every surviving
+`rounds.jsonl` under `runtime_logs/m20_exit_head/`. This replaces the 60-row,
+6-leg `m20-fold-dispersion-arms.jsonl` as the record — a **3.9× increase in
+machine-readable coverage** — and resolves the substance of
+`BL-20260815-DISPERSION-SCREEN-ARMS-NOT-PROMOTED-TO-A-MACHINE-READABLE-RECORD`.
+
+**Provenance, since the rows do not self-describe.** `fold_offset` is absent
+from every emitted row (`BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET`),
+so it was taken from each arm's `round_report.json` → `_round_meta.fold_offset`:
+**61 of 61 recovered, `meta_missing` 0**, cross-checked against the
+directory-name offset kept as a separate `dir_offset` field — **0 mismatches**.
+Every row carries `offset_source: "round_meta"`; none is a default. The transfer
+was sha256-verified end-to-end (92,606 bytes, `0a2b7002…`) after a first
+plain-text emit was **silently truncated by GitHub's comment limit at 137 of
+234 rows** — caught only because the relay printed its own row count first.
+
+### The prose was right. The denominator was off by one, and it matters.
+
+| | prose | from the data |
+|---|---|---|
+| all screened legs | 10 of 29 = 34 % | **10 of 30 = 33.3 %** |
+| `family_pooled` | 9/27 = 33 % | **9/27 = 33.3 %** — exact |
+| `per_leg` | **1/2** | **1/3** |
+
+The headline survives re-derivation, which is the reassuring part. The
+`per_leg` count does not: it is **3 legs, not 2**. `ict_scalp_eth_15m` was
+screened in `unanimity2_20260815T020802Z` and I had not counted it.
+
+### 🔴 That kills the pre-registered test outright
+
+The section above pre-registered `per_leg` going **2 → 5** and found that
+exactly one outcome (5/5) could reach significance. The true arithmetic is
+**3 → 6**, and the three existing legs already carry **one mover**, so only
+outcomes 1–4 are reachable:
+
+| per_leg movers | rate | p vs 9/27 | reachable? |
+|--:|--:|--:|---|
+| 1/6 | 17 % | 0.640 | ✅ |
+| 2/6 | 33 % | 1.000 | ✅ |
+| 3/6 | 50 % | 0.643 | ✅ |
+| 4/6 | 67 % | 0.182 | ✅ |
+| 6/6 | 100 % | **0.005** | ❌ — 1 mover is already banked |
+
+**No reachable outcome reaches p < 0.05.** The test is *worse* than the version
+I pre-registered, not better: at the imagined n = 5 there was one significant
+outcome; at the real n = 6 there is none. **The 5m screen cannot settle
+`per_leg` vs `family_pooled` in either direction, and I am recording that before
+its rows land.**
+
+It is not a reason to stop the screen. The three 5m legs are worth having on
+their own terms — 5m is the thinnest-covered timeframe in the corpus — and the
+run also re-measures whether the VOID screen's `off0` values reproduce.
+
+### A second-order finding the consolidation makes visible for the first time
+
+**22 legs were measured by more than one screen, and on 2 of them the
+*mover verdict itself* disagrees:**
+
+- `gdx_pullback_1d` — MOVED in `dispersion_…012205Z`, held in `dispersion_clean_…012717Z`
+- `trend_donchian_sol_4h` — MOVED in `donch4h_…093818Z`, held in `unanimity2_…020802Z`
+
+So *"does this leg's verdict move under re-partitioning"* is itself unstable at
+roughly **2/22 ≈ 9 %**. Every mover rate in this document — including the 33.3 %
+headline — is one draw of a statistic that has its own dispersion, and nothing
+before now could have shown that, because the two measurements of each leg lived
+in separate prose tables.
+
+The dedup rule was fixed before counting: a leg is a mover if it moved in **any**
+screen (one observed flip demonstrates instability; a later hold does not
+un-demonstrate it). The stricter *"moved in every screen"* rule gives
+`family_pooled` **7/27 = 25.9 %**. Both are reported; neither is "the" rate.
