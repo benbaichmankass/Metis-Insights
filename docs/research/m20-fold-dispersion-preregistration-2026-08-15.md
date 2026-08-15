@@ -67,3 +67,52 @@ Five offsets out of 50 legal ones is a sample of the partition space, not a
 census. The arms are also not independent — they share the same trades, so
 this measures re-partitioning sensitivity, **not** sampling error over new
 data. Those are different quantities and the readout will not conflate them.
+
+---
+
+## AMENDMENT — 2026-08-15 ~01:30 UTC, after the first arms RAN but before any AUC was seen
+
+**The distinction matters and is the reason this is an amendment rather than a
+post-hoc note:** relay #9377 returned the arms' *fold counts* and their
+`--fold-offset` head-skip lines, and **no per-leg AUCs at all** (my grep matched
+the `per-leg (matrix unit):` header and none of the rows under it). So the
+choice below was made with the confound visible and the results still hidden.
+
+### The offsets I chose broke this document's own control
+
+Arms 30 and 40 reported **10 candidate folds** where 0/10/20 reported **11**.
+That is arithmetic, not a fault:
+
+```
+u = floor((N − k) / b) − 1      N = 629, b = 50
+k=0 → 11 · k=10 → 11 · k=20 → 11 · k=29 → 11 · k=30 → 10 · k=40 → 10
+```
+
+Skipping `k` head trades shrinks `N`, and the fold count holds at 11 only for
+**k ≤ 29** (30 of the 50 legal offsets).
+
+**So offsets 30 and 40 are not a pure boundary shift — they also dropped a
+fold.** That is exactly the confound § "The statistic" invokes to rule out a
+`--min-fold-trades` sweep: changing fold count or size alongside placement
+means the spread measures a mixture. Reporting all five as one dispersion
+number would have been the same error in a different flag.
+
+### What changes
+
+- The **primary** measurement moves to a relaunched clean set — offsets
+  **0 · 6 · 12 · 18 · 24**, all inside the `u = 11` band (relay #9378).
+- Arms **0/10/20** from the first run stay usable as an independent **3-arm
+  cross-check** of the same quantity, and are reported as such.
+- Arms **30/40** are **not discarded but are not pooled** — they answer a
+  different question (boundary shift *plus* one fewer fold) and will be quoted
+  only under that label, if at all.
+- Everything else in this document stands unchanged: the control values, the
+  statistic, the thresholds, and items 1–5.
+
+### The limitation this exposes in the original
+
+The document fixed the control, the statistic and the thresholds, and still
+assumed **any legal offset was a clean shift**. It was not enough to bound how
+the result would be *read*; the arms themselves needed a stated invariant —
+"hold `u` constant" — and that invariant is now written down. A pre-registration
+can be rigorous about interpretation and still under-specify the experiment.
