@@ -409,6 +409,45 @@ reading `candidate` — and held across all four draws. The flag is symmetric, a
 this is the first negative-side cell actually tested. It behaved like the
 majority of positive-side ones: flagged, exposed, stable.
 
+### ✅ UPDATE 09:40Z — the prop screen landed and it REFUTES the other obvious heuristic
+
+`trend_donchian_eth_prop` is **unanimous `candidate` across all four boundary
+draws** — and it sits at slack **0**, literally at the bar (`3·16 = 48` against
+48). Its API sibling `trend_donchian_eth`, at slack **+2**, is the one that
+moved. Same family, same timeframe, same symbol.
+
+**So the cell CLOSER to the bar was the STABLER one, and "rank the population by
+slack" does not work.** Across all three slack-0 cells now tested —
+`ict_scalp_sol_15m` (held), `ict_scalp_xrp_15m` (moved), `trend_donchian_eth_prop`
+(held) — **one of three** moved.
+
+That is now **two heuristics measured and refuted** in this population: AUC
+spread (09:20Z above) and bar-proximity (here). Both are the natural ways one
+would triage a 15-cell re-measure list down to a shorter one, and neither
+survives contact with the data. **I am not offering a third.** Two causes have
+already been advanced and refuted overnight, each on evidence that looked
+sufficient when I wrote it, and proposing a replacement is precisely the move
+that produced both.
+
+**This makes the item-5 recommendation stronger, not weaker, and for a reason
+worth stating plainly:** the recommendation is *re-measure the flagged cells
+before shipping any of them*. Every attempt to find a cheaper rule — screen only
+the thin ones, only the wobbly-AUC ones, only the at-the-bar ones — has failed.
+Re-measuring is not the conservative option here; it is the only one with
+evidence behind it. **Gate 2 passed both rows exactly**, so the control is sound.
+
+Cost, so the ask is concrete: each screen is **4 arms × ~45 s ≈ 3 minutes** of
+trainer time on an idle box, and it covers every leg in the pooled round at once.
+The 4h donchian round now running (#9439) clears **three** flagged cells in one
+go. This is not an expensive recommendation.
+
+**One mechanism the screen did surface**, and it is arithmetic rather than a
+story: `u` is **not constant across arms** (`eth_prop` ran 24, 24, 23, 23), and
+the gate threshold is `2u` — so the bar itself moves, 48 → 46. A leg can change
+verdict with its `beats_*` counts unchanged, purely because the denominator
+moved. Anyone reading these tables must compare each arm's counts against **that
+arm's own bar**, never a remembered one.
+
 ---
 
 ## 6. The harness has an undeclared degree of freedom — HOW to fix it is yours
