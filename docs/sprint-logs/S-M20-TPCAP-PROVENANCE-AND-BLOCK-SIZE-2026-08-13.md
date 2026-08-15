@@ -3553,3 +3553,123 @@ be the same value under a different provenance claim.
   money-at-risk exposure; they are stale knowledge.
 - The claim "no unflagged leg has moved" is read off my own tally table. It is
   checkable from that table, but the table is the only record of it.
+
+## Eighth overnight stretch (2026-08-15, ~09:50–10:05Z) — the flag itself was refuted
+
+### Objective
+
+Screen the remaining fragile cells. What actually happened is that the screen
+refuted the criterion the whole study had been using to choose its targets.
+
+### Work completed
+
+**1. `trend_donchian_eth_prop` (#9436/#9438) — unanimous, and the first inversion.**
+
+Both gates passed, gate 2 in a stricter **two-row** form: off0 reproduced
+`eth_prop 0.6138/u24/candidate` **and** `sol_prop 0.5635/u23/honest_negative`,
+both exact. On a pooled round one row can land right by luck and two cannot, so
+this is what pins the leg order (`sol` first, recovered from #9156's argv).
+
+`trend_donchian_eth_prop` is **unanimous `candidate` across four draws while
+sitting at slack 0** — literally at the bar. Its API sibling
+`trend_donchian_eth`, at slack **+2**, moved. Same family, timeframe, symbol.
+
+Also surfaced a mechanism that is arithmetic rather than a story: **`u` varies
+across arms** (24, 24, 23, 23), and the gate bar is `2u`, so the **bar moves**
+(48 → 46). A leg can change verdict with its `beats_*` unchanged. Every arm must
+be read against its own bar.
+
+**2. The 4h donchian round (#9439/#9440) — 4 of 5 legs moved, and it REFUTED the fragility flag.**
+
+Strongest control run of the study: one sha256 pair across four arms, and off0
+reproduced **all five** recorded rows exactly at `u 16`. All 20 verdicts
+recomputed independently and reproduced.
+
+| leg | control slack | flagged? | moved? |
+|---|--:|:--:|:--:|
+| `trend_donchian_ada_4h` | **+7** | **NO** | **YES** |
+| `trend_donchian_avax_4h` | −2 | yes | **YES** |
+| `trend_donchian_eth_4h` | **−5** | **NO** | **YES** |
+| `trend_donchian_sol_4h` | −2 | yes | **YES** |
+| `trend_donchian_xrp_4h` | +1 | yes | no |
+
+**🔴 This refutes what I published at 09:20Z and repeated to the operator** —
+*"every leg that moved was flagged, and no unflagged leg has moved; zero false
+negatives in 17."* Two unflagged legs moved, one from slack **+7**, while the
+flagged leg was the one that held. Struck rather than deleted at all three sites
+(dispersion doc header, dispersion doc body, operator-queue item 5), because it
+had been quoted to the operator before it was refuted.
+
+Restated over the 15 screened legs with a nameable control slack: flagged
+**6/11** moved, unflagged **2/4** — 55% vs 50%, one-sided Fisher **p = 0.66**.
+**No separation.**
+
+**Why, which is the part worth keeping:** slack measures distance from ONE fold
+flipping inside a **fixed** partition; this screen **re-draws every fold**.
+`eth_4h`'s `beats_hard` moves 9 → 12 between arms — three folds' worth — which no
+one-flip margin can anticipate. I had been using one quantity as a proxy for the
+other without ever checking that it was one. The flag is not *wrong* about what
+it states (a slack-0 cell **is** one fold from a different answer, by
+arithmetic); it is wrong as a **predictor of boundary sensitivity**, which is the
+thing this study measures.
+
+**What stands:** **8 of 15 screened legs (53%) changed verdict under
+re-partitioning, and margin does not tell you which.** Stated with its caveat:
+that 53% is **not** an unbiased fleet rate, because I chose the screened set to
+be flag-enriched — the reason to still weigh it is that the enrichment provably
+did not work, and the clean measurement is a screen selected **without reference
+to slack**, which is now the higher-value use of trainer time than finishing the
+flagged list.
+
+Three heuristics have now been measured and refuted overnight — sample size
+(07:00Z), AUC spread (09:20Z), margin/slack (09:45Z). **No fourth is proposed.**
+
+**3. Flagged, deliberately as a question and not a claim:** PR #9257's evidence
+is a **walk-forward** `wf 5/6`, a different harness and a different lever from
+anything measured here — but it shares the *structure* that proved
+boundary-sensitive (a majority-of-folds vote over a chosen partition). **I have
+not measured whether walk-forward verdicts move under re-partitioning, and this
+is not a reason to hold that merge.** Recorded in queue item 5 so it cannot later
+be discovered and mistaken for something I knew and did not say.
+
+**4. Filed `BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE`.**
+
+The guard fails on an already-annotated claim when the file has uncommitted
+edits, and reports a line number that does not hold the claim — it errored at
+line 688 for a claim at line 750, a 62-line offset exactly matching an
+uncommitted block inserted earlier in the file. Committing that block with no
+other change flipped the same invocation from 1 finding to 0. Cost me a cycle
+twice tonight. Not a CI correctness bug (CI runs a clean checkout), which is
+exactly why it survives — it is invisible to the surface that would catch it.
+
+### Validation performed
+
+- 38 guards PASS / 0 FAIL on the **committed** tree after each change.
+- All 20 rows of the 4h round and all 8 of the prop round re-derived through E1
+  independently; every recorded verdict reproduced.
+- The flag's predictive value computed with a **stated denominator** (15 legs
+  whose control slack I can name; the 1d study's 7 other clean-control legs
+  deliberately excluded rather than assumed), with a Fisher exact rather than an
+  eyeballed comparison.
+- CI independently reported the `guards` failure on `6a71ff82` that my local run
+  had also caught — fixed forward in `49c6170c`.
+
+### Contradictions or drift found (in my own work)
+
+- **The 09:20Z zero-false-negatives claim** — published, quoted to the operator,
+  refuted 25 minutes later. Retracted at three sites.
+- **The backlog row about the guard failed the guard**, by writing the bare
+  annotation token while describing it. The guard was right; fixed by naming a
+  real path and recording how the behaviour was established.
+
+### Gaps not yet verified
+
+- **The unbiased-rate screen has not been run.** Every leg screened so far was
+  chosen with reference to slack, so `53%` carries a selection caveat that only a
+  slack-blind sample can remove.
+- **Walk-forward re-partitioning is unmeasured** (see item 3 above).
+- **`ict_scalp_sol_5m`** (slack +2) is the one remaining nameable fragile cell
+  never screened. Lower priority now that the flag has stopped being a reason to
+  prefer it.
+- The three paper stale decisions remain untouched; all three are PAPER, so none
+  is a money-at-risk exposure.
