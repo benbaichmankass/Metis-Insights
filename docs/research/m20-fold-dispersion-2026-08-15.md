@@ -42,6 +42,15 @@ reproduced all six recorded AUCs exactly.
 opportunity; a fragile candidate is a cell that would justify shipping a lever
 onto a **live** leg.
 
+**⚠️ AND THE SCREEN TEMPERS (3) — read § "The screen finished" before acting on
+it.** A 16-arm screen over 17 legs came back after this summary was first
+written: **every leg with a proven-clean off0 control was UNANIMOUS across four
+boundary draws (8 of 8)**, and all five verdict changes sat in legs that *also*
+failed their control. Pooling both runs' clean-control legs gives **2 of 14 (14%)
+showing verdict instability**, a lower bound. So being one flip from the bar
+predicts a verdict *can* move, **not that it does** — and the one fragile cell
+that produced a clean arm was stable.
+
 **What was NOT done, deliberately:** no matrix status flipped, no gate changed,
 no cell re-graded. Coverage unchanged at **373/376 = 99.2%**. Both are Tier-3
 and queued for the operator, with options written out and none taken.
@@ -530,6 +539,61 @@ different lever families, the same arithmetic and the same order of exposure
 population, on either of the two runs that measured it. That is a genuine point
 in favour of the queued Tier-3 merge, and it is the reason to state this finding
 beside that decision rather than only as a caveat somewhere else.
+
+## The screen finished — and it TEMPERS the fragility reading
+
+16 arms over four (family, tf) groups, 17 legs, all `exit=0 skips=0` (relay
+#9393). The result is not what the arithmetic flag predicted, and the honest
+partition is by whether each arm's **off0 control** reproduced its recorded round.
+
+| | verdict unanimous over 4 draws | verdict changes |
+|---|--:|--:|
+| **control OK** (8 legs) | **8** | **0** |
+| control MISMATCH (9 legs) | 4 | 5 |
+
+**Every leg whose arm is provably comparable is unanimous. Every one of the five
+verdict changes sits in a leg that also fails its control.** So on this run the
+clean evidence says verdicts are *stable* under re-partitioning, and the changes
+cannot yet be attributed to the boundary — something else differs in those arms.
+
+### The denominator that actually matters
+
+Pooling **only** legs with a proven-clean control, across both runs:
+
+| | legs | verdict changes |
+|---|--:|--:|
+| 1d dispersion (7 draws each) | 6 | **2** — `gdx`, `iaum` |
+| unanimity screen (4 draws each) | 8 | 0 |
+| **total** | **14** | **2 (14%)** |
+
+**Two of fourteen clean-control legs show verdict instability**, and both are from
+the arm set with **seven** draws rather than four. More draws is more chance to
+*observe* a change, so **14% is a lower bound on instability, not an estimate of
+it** — the 4-draw legs are less likely to have revealed one even if fragile.
+
+### What this does to the one-flip finding
+
+It does **not** refute it — the arithmetic is unchanged, and `8 of 14` candidates
+still sit one fold from failing. What it changes is the inference from flag to
+behaviour: **being one flip from the bar predicts that a verdict *can* move, not
+that it *does*.** Of the fragile cells this screen was built to test, exactly one
+produced a clean arm — `gld_pullback_1h`, a fragile negative — and it was
+**unanimous across four draws**. One clean observation, and it says stable.
+
+That is the opposite of the direction I would have guessed at 02:15, and it is
+why the screen was worth running before proposing anything to the operator.
+
+### The control failures are their own finding, and are being investigated
+
+Nine legs' arms do not reproduce their recorded round while `u` matches exactly.
+`tp_geometry` and `block_unit` are identical across the OK and mismatched groups,
+and **`tf=2h` is split 3-OK / 4-mismatched inside the SAME arm** — one pool, one
+partition — so this is per-leg, not a run-level config difference. The leading
+hypothesis is that those legs' trade sets have grown since their recorded rounds
+(a changed OOS population, hence a changed AUC), with `n_oos` as the direct test
+(relay #9395, in flight). **If that is right, several committed rounds are stale
+rather than wrong** — which is a separate matter from boundary sensitivity and
+belongs to the ten-contradicting-cells question already queued for the operator.
 
 ## Limits, stated plainly
 
