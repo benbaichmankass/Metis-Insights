@@ -61,11 +61,22 @@ read. Current standing, over **17 re-partitioned legs**:
 
 - **4 of 17 have moved.** (`gdx_pullback_1d` ×2 draws, `iaum_pullback_1d`,
   `ict_scalp_xrp_15m`, `trend_donchian_eth`.)
-- **Every leg that moved was flagged; no unflagged leg has moved.** Zero false
-  negatives in 17. That is the finding (3) criterion doing its job.
-- **11 of 15 flagged legs did NOT move.** The flag marks *exposure*, not
-  instability — which is the same direction the block above reaches, at a base
-  large enough to say it.
+- 🔴 ~~**Every leg that moved was flagged; no unflagged leg has moved.** Zero
+  false negatives in 17.~~ **REFUTED at 09:41Z by the 4h donchian round** — see
+  § "🔴 The 4h donchian round". `trend_donchian_ada_4h` moved from slack **+7**
+  and `trend_donchian_eth_4h` from **−5**, both outside the flag, while the
+  flagged `xrp_4h` held. Struck rather than deleted because it was quoted to the
+  operator before it was refuted.
+- **The flag does not predict boundary sensitivity.** Over the 15 screened legs
+  with a named control slack: flagged **6/11** moved, unflagged **2/4** —
+  55% vs 50%, one-sided Fisher **p = 0.66**. Slack models one fold flipping in a
+  *fixed* partition; the screen *re-draws* every fold, and the counts move by
+  three at a time (`eth_4h`'s `beats_hard` runs 9 → 12). Different quantities.
+- **What stands: 8 of 15 screened legs (53%) changed verdict under
+  re-partitioning, and margin does not tell you which.** The screened set was
+  chosen flag-enriched, so 53% is not an unbiased fleet rate — but since the
+  enrichment provably did not work, the next measurement is a screen selected
+  **without reference to slack**.
 
 **Two ways of triaging the flagged population down to a shorter list have been
 measured and BOTH fail:**
@@ -1460,4 +1471,93 @@ statements it now supports:
   negatives in 17.
 - **Slack magnitude does not rank the flagged legs.** The one slack-+2 cell
   tested moved; two of three slack-0 cells did not.
+
+
+### 🔴 The 4h donchian round (09:41Z, relay #9440) — 4 of 5 legs moved, and it REFUTES the fragility flag itself
+
+Both gates passed, on the strongest control run so far: one sha256 pair across
+all four arms (pinned `5fe0943d`), and off0 reproduced **all five** recorded rows
+exactly — `eth_4h 0.6285 hn` · `sol_4h 0.6119 hn` · `xrp_4h 0.6554 cand` ·
+`ada_4h 0.6722 cand` · `avax_4h 0.6226 hn`, every one at `u 16`. Five rows cannot
+reproduce by luck, so the leg order decoded from #9288's argv is confirmed. I
+recomputed E1 over all **20** rows; it reproduces all 20 recorded verdicts.
+
+| leg | control slack | flagged? | off0 | off4 | off8 | off12 | moved? |
+|---|--:|:--:|---|---|---|---|:--:|
+| `trend_donchian_ada_4h` | **+7** | **NO** | cand | cand | **hn** | **hn** | **YES** |
+| `trend_donchian_avax_4h` | −2 | yes | hn | hn | **cand** | **cand** | **YES** |
+| `trend_donchian_eth_4h` | **−5** | **NO** | hn | hn | **cand** | **cand** | **YES** |
+| `trend_donchian_sol_4h` | −2 | yes | hn | hn | **cand** | hn | **YES** |
+| `trend_donchian_xrp_4h` | **+1** | **yes** | cand | cand | cand | cand | **no** |
+
+#### 🔴 RETRACTION — my 09:20Z claim is false
+
+At 09:20Z I wrote, and repeated in the doc header and in operator-queue item 5:
+
+> **every leg that moved was flagged, and no unflagged leg has moved.** Zero
+> false negatives in 17.
+
+**That is refuted.** `trend_donchian_ada_4h` moved from slack **+7** and
+`trend_donchian_eth_4h` from **−5** — both comfortably outside the flag — while
+the flagged `trend_donchian_xrp_4h` (slack +1) was the one leg in this round that
+held. I published a clean-sieve claim on 17 legs and it did not survive the next
+five.
+
+Restated with the arithmetic, over the **15 screened legs whose control slack I
+can name** (the 1d study's seven other clean-control legs are excluded — I have
+not re-derived their slacks this session, so they stay out of the denominator):
+
+| | moved | held |
+|---|--:|--:|
+| flagged (`|slack| ≤ 2`) | **6** | 5 |
+| unflagged (`|slack| > 2`) | **2** | 2 |
+
+**55% vs 50%. One-sided Fisher `p = 0.66`.** The flag does not separate movers
+from non-movers on this evidence at all.
+
+#### Why — and this is the part worth keeping
+
+**Slack models ONE fold flipping inside a FIXED partition. The screen REDRAWS
+every fold.** Those are different quantities, and I had been treating the first
+as a proxy for the second without ever checking that it was one.
+
+The magnitudes make it concrete: `eth_4h`'s `beats_hard` moves **9 → 12** between
+off0 and off8 — three folds' worth of change, which no one-flip margin can
+anticipate. `ada_4h`'s runs 13 → 10. A boundary shift is not a perturbation of
+one fold's outcome; it re-draws the membership of all of them, and the counts
+move by several at a time.
+
+So the fragility flag is not wrong about what it says — a cell at slack 0 *is*
+one fold from a different answer, which is arithmetic. It is wrong as a
+**predictor of boundary sensitivity**, which is what this study measures, and I
+was reading it as one.
+
+#### The finding that replaces it
+
+**8 of 15 screened legs (53%) changed verdict under re-partitioning, and margin
+does not tell you which.**
+
+⚠️ **That 53% is NOT an unbiased fleet estimate**, and the reason is that I chose
+the screened set to be flag-enriched. But the enrichment demonstrably did not
+work — flagged and unflagged move at the same rate — which removes the usual
+reason to distrust the number and is itself the argument that it may generalise.
+Four unflagged legs is a thin basis for that, and I am not going to claim more
+from it than that.
+
+**The measurement that would settle it** is a screen over legs chosen **without
+reference to slack** — a random or exhaustive sweep of the corpus — to get a rate
+with a denominator nobody selected. That is the next thing to run, and it is now
+a more valuable use of trainer time than screening the remaining flagged cells,
+because the flag has stopped being a reason to prefer them.
+
+#### Running tally
+
+**8 of 22 re-partitioned legs have moved** (22 = the 15 above plus the 1d study's
+7 clean-control legs). Of the 15 with named slack, **8 moved**. Movers:
+`gdx_pullback_1d`, `iaum_pullback_1d`, `ict_scalp_xrp_15m`, `trend_donchian_eth`,
+`trend_donchian_ada_4h`, `trend_donchian_avax_4h`, `trend_donchian_eth_4h`,
+`trend_donchian_sol_4h`.
+
+**Three heuristics have now been measured and refuted** — sample size (07:00Z),
+AUC spread (09:20Z), and margin/slack (here). I am not proposing a fourth.
 
