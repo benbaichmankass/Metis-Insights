@@ -575,6 +575,35 @@ jobs:
             echo "::error::send-ping requires 'message' (workflow_dispatch input) or 'message: <text>' (issue body)."
             exit 1
           fi
+          # ...AND the message must not be a bare YAML block-scalar marker.
+          #
+          # The issue-body parser is `grep -i -m1 '^message:'` -- it takes ONE
+          # LINE and strips the prefix. A body written as `message: |` followed
+          # by an indented block therefore yields the single character `|`, the
+          # action queues a 1-character ping, and it EXITS 0. Measured
+          # 2026-08-15: EIGHT consecutive hourly status pings (issues #9495,
+          # #9499, #9501, #9504, #9507, #9512, #9515, #9521, 16:17Z->23:18Z)
+          # each delivered `|` while every one closed "completed" -- roughly
+          # seven hours in which the operator's only overnight visibility
+          # channel was silently dead and reported success.
+          #
+          # The non-empty check above cannot catch it: `|` IS non-empty. This
+          # is the unasserted-denominator class -- a green that carried nothing
+          # is worse than a red, because nobody goes looking.
+          #
+          # Refusing is right rather than "helpfully" joining the block: the
+          # parser is single-line BY DESIGN (priority/target are single tokens
+          # and `reason` behaves the same way), so silently accepting multi-line
+          # here would make `message` the one field whose parse differs, and a
+          # ping is a notification -- truncating one is worse than rejecting it.
+          # Multi-line senders should collapse to one line or use a file-backed
+          # report; the error says so rather than leaving the author guessing.
+          case "${ACTION}:${ACTION_MESSAGE}" in
+            "send-ping:|"|"send-ping:|-"|"send-ping:|+"|"send-ping:>"|"send-ping:>-"|"send-ping:>+")
+              echo "::error::send-ping message is the bare YAML block marker '${ACTION_MESSAGE}' — the issue-body parser reads ONE line, so a 'message: |' block delivers only that marker. Put the whole message on the single 'message:' line."
+              exit 1
+              ;;
+          esac
           # set-env / get-env require a valid env_key; service defaults in the
           # wrapper. The charset guard defends the shell on both sides; get-env
           # additionally rejects any key outside ALLOWED_KEYS in get_env.py (it

@@ -15729,6 +15729,25 @@
       "detail": "The sol row is the urgent half: it is sitting in the operator's queue AWAITING A TIER-3 SHIP, and the freshest evidence says its pass is partition-dependent. Shipping a lever whose passing verdict flips to honest_negative when the folds are cut 12 trades later is a decision the operator should get to make WITH that fact, not without it. Note the AUC gives no warning at all -- sol's AUC spread across the four arms is 0.0034, the SMALLEST of the three legs, while both legs that never flipped have spreads over twice that. The avax row is the opposite direction: a cell recorded `honest_negative` that the larger-book screen grades candidate unanimously with comfortable slack. That is not automatically a correction -- more folds can move a beats-ratio either way, and the two runs differ in book size -- but a recorded negative contradicted 4/4 by fresher, larger evidence should not sit unexamined.",
       "resolution_criteria": "Either (a) both cells are re-graded from ONE agreed parameterization -- same fold-mode, same tp_geometry, same book -- and the matrix records that run with its arm count, so the two runs are no longer being compared across differing inputs; or (b) the matrix cell for ict_scalp_sol_5m carries an explicit note that its verdict was measured partition-dependent (1 of 4 arms honest_negative) so the Tier-3 ship decision is made with it; and in EITHER case the operator has answered the ship question for sol with the flip on the table. Closing this by re-running once and taking whichever verdict comes back does NOT satisfy it -- a single partition is the exact thing the screen showed to be insufficient.",
       "deliberately_not_done": "No matrix status was changed. Overwriting a recorded verdict with a differently-parameterized run would destroy the disagreement that IS the finding, and ship/unship is Tier-3 regardless."
+    },
+    {
+      "id": "BL-20260815-SEND-PING-BLOCK-SCALAR-DELIVERS-ONE-CHARACTER",
+      "title": "send-ping silently delivered `|` for 8 consecutive hourly pings and exited 0",
+      "severity": "high",
+      "tier": 2,
+      "status": "open",
+      "opened_at": "2026-08-15",
+      "opened_by": "session_01WekhceSkxLeuDLuXJMionS (M20 overnight)",
+      "source": "observed while verifying my own hourly ping actually fired",
+      "why_it_matters": "The issue-body parser for send-ping is `grep -i -m1 '^message:'` -- one line, prefix stripped. A body written `message: |` with an indented block therefore yields the single character `|`; the action queues a 1-character ping and EXITS 0, and the issue closes 'completed'. MEASURED: eight consecutive hourly status pings (#9495 #9499 #9501 #9504 #9507 #9512 #9515 #9521, 16:17Z->23:18Z) each delivered `|`. That is ~7 hours in which the operator's only overnight visibility channel was dead while every signal said success -- during a session the operator had explicitly asked to ping at least hourly. The pre-existing non-empty check cannot catch it because `|` is non-empty. Same class as the 403-poller that read 0 checks as clean: a green that carried nothing, which nobody goes looking behind. Proof of both directions is in the action's own log line: the failing send reported 'Enqueuing low ping to claude bot (1 chars)', the corrected resend (#9523) reported 1279 chars.",
+      "next_action": "FIXED in this session for the bare-marker case: system-actions.yml now refuses `message:` equal to a YAML block marker (| |- |+ > >- >+) with an error naming the single-line parse. REMAINING, and why this row stays open: the guard is enumerative, so it catches the shape that bit us and not the general case of a message that parses SHORTER than the author intended. The durable fix is for the wrapper to assert a plausible length -- or echo the queued body back -- so a truncated ping can never read as a delivered one. Also worth auditing whether `reason:` and other single-line fields have produced the same silent truncation elsewhere.",
+      "resolution_criteria": "A send-ping whose parsed message is materially shorter than the issue body's intended message either fails the action or is visibly reported as truncated in the issue comment; demonstrated by a deliberate multi-line `message: |` dispatch that does NOT close as a clean success.",
+      "updates": [
+        {
+          "at": "2026-08-15",
+          "note": "Root-caused, bare-marker guard shipped, and the 23:00Z ping resent single-line and confirmed at 1279 chars. Backlog row kept open for the general truncation case."
+        }
+      ]
     }
   ]
 }
