@@ -2218,3 +2218,89 @@ hour of queueing), and each arm re-checks-out the branch because a reset landing
 the three sibling scripts, and the enumeration of how many others bypass the
 queue, which has **not** been done.
 
+
+---
+
+## PRE-REGISTERED: the `per_leg` vs `family_pooled` comparison (written 15:10Z, before the 5m rows land)
+
+The 5m screen relaunched at 14:47Z will take the screened `per_leg` column from
+**n = 2 to n = 5**. Earlier tonight I called that comparison *"the one I would
+most want and cannot make"*. Writing the analysis down **now**, while the arms
+are still running, because twice tonight I read a result after seeing it and got
+it wrong — the p = 0.66 "refutation" that pooled legs measured at different
+numbers of draws, and the "zero false negatives in 17" that a later round
+refuted 25 minutes on.
+
+### The hypothesis, and why it is directional
+
+The two block units are **different perturbations**, not two samples of one:
+
+- **`family_pooled`** — the fold offset re-cuts a trade stream *interleaved
+  across legs*, so a leg's fold membership can change because a **sibling's**
+  trades crossed the boundary.
+- **`per_leg`** — one leg per block. Only that leg's own trades move, and there
+  is no pooled tie group for `--legs` order to reorder, so it is structurally
+  immune to the leg-order confound (`BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER`).
+
+`per_leg` is therefore the **weaker** perturbation, and the prediction is that it
+moves **fewer** verdicts than `family_pooled`'s 9/27 = 33.3 %.
+
+### ⚠️ The power calculation, done BEFORE the data — and it kills my own test
+
+Two-tailed Fisher against the pooled 9/27, for every outcome n = 5 can produce:
+
+| per_leg movers | rate | p | at α = 0.05 |
+|--:|--:|--:|---|
+| 0/5 | 0 % | 0.288 | not significant |
+| 1/5 | 20 % | 1.000 | not significant |
+| 2/5 | 40 % | 1.000 | not significant |
+| 3/5 | 60 % | 0.338 | not significant |
+| 4/5 | 80 % | 0.132 | not significant |
+| **5/5** | **100 %** | **0.010** | **significant** |
+
+**Exactly one of the six possible outcomes reaches significance, and it is the
+one that contradicts my hypothesis.** The direction I predict — `per_leg` moving
+*less* — cannot be established at this n **even if every single leg holds**:
+0/5 lands at p = 0.288. Only `per_leg` moving *more* (5/5) could be established.
+
+So this screen is **structurally incapable of confirming my hypothesis** and
+capable only of refuting it. I would rather know that now than discover it while
+writing up a 1/5 result as "consistent with the prediction" — which is what a
+20 % rate against 33 % genuinely invites, and it would be worth nothing.
+
+*(I first printed a summary line saying no outcome at all reaches p < 0.05 —
+directly contradicting the table above it, which I had just generated. Caught by
+re-deriving 0/5 and 5/5 from the hypergeometric by hand rather than re-running
+the helper that produced the claim. Recorded because the near-miss is the point:
+the wrong version was more convenient for me, since "underpowered in both
+directions" needs no further thought and "underpowered in exactly the direction
+I believe" is a finding about my own test.)*
+
+### Pre-committed readings
+
+- **5/5 movers** — my hypothesis is **refuted**, and significantly. The pooling
+  confound is not what drives verdict instability; something the two block units
+  share is. This would be the night's most useful single result.
+- **0/5 or 1/5** — *consistent with* the hypothesis and **establishes nothing**.
+  I will report it as a descriptive rate with the p value attached, and will not
+  write it up as support. The honest sentence is "the direction is as predicted
+  and the test cannot distinguish it from chance".
+- **2/5–4/5** — nothing. Report the rate, stop.
+- **Any arm returning `rounds.EMPTY` or a row count below 3** — the arm did not
+  produce evidence and the denominator changes. I will state the reduced n and
+  re-run this power table against it rather than quietly comparing a 4-arm
+  design's numbers to a 3-arm result. That is the specific error the voided
+  screens caused twice tonight.
+
+### What is NOT being tested, so it is not claimed later
+
+- **These are not paired.** The `per_leg` legs are 15m/5m scalp; the pooled ones
+  are donchian/pullback across 1h–1d. Family, timeframe and trade count all vary
+  with block unit, so a difference is **confounded three ways** and the
+  comparison cannot attribute a cause even if it reaches significance.
+- The pooled 9/27 baseline is itself an all-night accumulation across screens
+  with different arm counts. It is the best denominator available, not a clean
+  one.
+- **No pooling across block units.** Any combined "mover rate over 32 legs" is
+  the mistake this section exists to stop, and it is the same shape as the
+  earlier pooling of 7-draw and 4-draw legs into one rate.
