@@ -1269,3 +1269,96 @@ recovering when that job finished (free RAM 97 MB → 4,214 MB; swap 4,375 → 2
 MB). **The AUCs and verdicts are unaffected** — the computation is deterministic
 and thrashing changes only throughput. Recorded so the timing trail in the relays
 is not later mistaken for something about the arms.
+
+### ✅ The donchian-1h screen finished — `trend_donchian_eth` MOVED (09:19Z, relay #9435)
+
+Both pre-committed gates passed before I read a single number, which is the only
+reason this screen is interpretable at all
+(`BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH`: the trainer
+resets to `origin/main` every ~15 min and `--fold-offset` / `--total-sort` exist
+only on this branch, so an arm silently running unpinned code is the live risk):
+
+1. **Identical `sha256` across all four arms** — `m20_exit_head_round.py`
+   `b197e75b4afb0fcd92326a19bc7208e5d74ef3d4599dd8d1b6f94cbcdbaf923a`,
+   `train_exit_head.py`
+   `6412613984a3812f5ff0e128817cab4ba3ea9ceaa5412c278c1f36fdd45612a6`, pinned at
+   `f28348c8`. Every arm ran the same code as its control.
+2. **The off0 control reproduces `auc 0.6079 / u 23 / candidate` exactly**
+   (relay #9206). A permuted partition cannot reproduce an AUC to four decimals,
+   so this is what makes the recorded baseline *checkable* rather than asserted.
+
+This is a **`family_pooled`** round — the block unit exposed to the leg-order
+confound — but `pooled_legs_ordered` is byte-identical across all four arms
+(`['trend_donchian', 'trend_donchian_eth', 'trend_donchian_sol']`, `total_sort:
+false`). **Leg order is held constant and only the fold boundary moves**, so the
+screen isolates the boundary, which is what it claims to measure.
+
+#### `trend_donchian_eth` — ETHUSDT 1h, the target
+
+| offset | mean_auc | `beats_actual` | `beats_hard` | u | slack | verdict |
+|--:|--:|--:|--:|--:|--:|---|
+| **0 (control)** | **0.6079** | 16 | **16** | 23 | **+2** | candidate |
+| 4 | 0.6077 | 17 | **13** | 23 | **−7** | **`honest_negative`** |
+| 8 | 0.6008 | 16 | **16** | 23 | **+2** | candidate |
+| 12 | 0.6094 | 19 | **16** | 23 | **+2** | candidate |
+
+I recomputed E1 independently over all twelve rows in this round
+(`u ≥ 2 ∧ auc > 0.55 ∧ 3·beats_actual ≥ 2u ∧ 3·beats_hard ≥ 2u`, `2u = 46`) and
+it **reproduces every one of the twelve recorded verdicts**. The flip is the gate
+working.
+
+**This is the sharpest AUC/verdict decoupling in the whole screen, and it is
+sharper than xrp's.** xrp flipped while its AUC *rose* 0.5681 → 0.5800. Here the
+flipping arm's AUC is **0.6077 against a control of 0.6079 — a difference of
+0.0002, flat to three decimals** — and the verdict still moves candidate →
+`honest_negative`. The full spread across four draws is **0.0086**, essentially
+identical to sol's 0.0088, and sol did not move. So AUC spread carries **no
+information about verdict stability**: the two legs with the tightest AUC
+dispersion in the corpus split one-and-one on whether they flip.
+
+**The mover is also the DEEPEST leg screened so far** — `u = 23`, `n_oos = 566`,
+against the `u = 9 / n_oos = 450` scalp legs and the `u = 4–11` 1d legs. That is
+a second, stronger refutation of the retracted "thin books move" claim from
+07:00Z: not only is a mover not necessarily thin, the largest book screened moved
+while smaller ones held. I am recording this rather than replacing the cause with
+a new one, for the reason given in that retraction.
+
+#### The other two legs in the same round (pooled, so they came free)
+
+| leg | AUC range (spread) | control slack | draws | verdict changes |
+|---|---|--:|--:|--:|
+| `trend_donchian` (BTC) | 0.5335–0.5619 (0.0284) | −4 | 4 | **0** — `honest_negative` ×4 |
+| `trend_donchian_sol` | 0.6161–0.6359 (0.0198) | **−1** | 4 | **0** — `honest_negative` ×4 |
+
+`trend_donchian_sol` is worth naming: at slack **−1** on `beats_actual`
+(`3·15 = 45` against a bar of 46) it is a **fragile NEGATIVE** — one fold from
+reading `candidate` — and it did not move in three off-control draws. The
+fragility flag is symmetric and this is the first negative-side instance
+observed; it behaved the same way the positive-side ones mostly do.
+
+**`n_oos` itself shifts with the boundary** — BTC 311/310/310/310, sol
+273/274/274/274 — while ETH is 566 on all four. That is the partition moving
+which trades land OOS, exactly as intended, and it is a cheap sanity check that
+the offset flag is doing something.
+
+#### Running mover tally, updated
+
+| leg | flag | draws | verdict changes |
+|---|---|--:|--:|
+| `gdx_pullback_1d` | fragile negative | 7 | **2** |
+| `iaum_pullback_1d` | candidate, 0.0025 margin | 7 | **1** |
+| `ict_scalp_xrp_15m` | **candidate, slack 0** | 4 | **1** |
+| **`trend_donchian_eth`** | **candidate, slack +2** | 4 | **1** |
+| `gld_pullback_1h` | fragile negative | 4 | 0 |
+| `ict_scalp_sol_15m` | candidate, slack 0 | 4 | 0 |
+| **`trend_donchian`** (BTC) | negative, slack −4 | 4 | 0 |
+| **`trend_donchian_sol`** | **fragile negative, slack −1** | 4 | 0 |
+| 7 other clean-control legs | — | 4 | 0 |
+
+**4 of 15 re-partitioned legs have moved.** The direction of the update is
+unchanged from 07:00Z — the flag marks cells that *could* move and most do not —
+but the base is now large enough to state one thing at the confidence it earns:
+**every leg that moved was flagged, and no unflagged leg has moved.** The flag
+has produced no false negatives in 15 legs. Its false-positive rate is 11 of 15,
+which is what "exposure, not instability" means in numbers.
+
