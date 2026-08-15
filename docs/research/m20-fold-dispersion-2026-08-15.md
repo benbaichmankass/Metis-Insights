@@ -170,6 +170,39 @@ Two things follow that the AUC spread alone could not have shown:
    because its book is large — so "n_oos is healthy" is not evidence a verdict is
    boundary-robust.
 
+### Per-term failure across the 7 pure arms — and a qualifier on the binding term
+
+`F` = term fails at that offset, in offset order 0 · 6 · 10 · 12 · 18 · 20 · 24.
+
+| leg | `auc > 0.55` | `beats_actual` | `beats_hard` | verdict |
+|---|---|---|---|---|
+| gdx | `.......` | `.F.FF.F` | `FF....F` | `nnCnnCn` |
+| gld | `FFFFFFF` | `FFFFFFF` | `FFFFFFF` | `nnnnnnn` |
+| iaum | `.FFFFFF` | `.FFFFFF` | `.FFFFF.` | `Cnnnnnn` |
+| ief | `F.....F` | `FFFFFF.` | `.F..FF.` | `nnnnnnn` |
+| slv | `FFFFFFF` | `FFFF.FF` | `FFFFFF.` | `nnnnnnn` |
+| tlt | `FFFFFFF` | `FFFFFFF` | `FFFFFF.` | `nnnnnnn` |
+
+**Every one of the 60 arms' recorded verdicts is reproduced exactly by
+recomputing the four gate terms from the committed row** — zero disagreements.
+That is the check that the artifact and this reading of the gate are both sound,
+and it is why the grid above can be trusted at cell level.
+
+**A qualifier on the binding-term finding.** Across these 60 arms the failure
+counts are `beats_actual` 48 · `auc` 42 · `beats_hard` 40, and as the *sole*
+failing term: `beats_actual` 4 · `auc` 2 · `beats_hard` 2. So in **this family**
+`beats_actual` is the most frequently failing term, not `beats_hard`. That does
+not contradict
+[`m20-exit-head-binding-term-2026-08-14.md`](./m20-exit-head-binding-term-2026-08-14.md)
+— that measured 33 rounds across many families and found `beats_hard` the sole
+failure in 6 of 7 single-term failures — but it does bound it: **the binding term
+is family-dependent, and the 1d pullback family is not where `beats_hard` binds.**
+Anyone carrying that finding forward should carry this sentence with it.
+
+Note also `ief`: its AUC clears the bar at 5 of the 7 offsets and it is never a
+`candidate`, because `beats_actual` fails at 6 of 7. A leg can be well above the
+AUC bar on most partitions and still be a stable, correct negative.
+
 ## The 3-arm cross-check reconciles — and my earlier band call on it was wrong
 
 Run 1's arms 0/10/20 (the only pure boundary shifts in that run) gave:
@@ -278,6 +311,37 @@ settled is an operator call, and it is a larger population than this one cell.
    told the arms share a pool could reasonably assume the scored sets are identical,
    and they are not. This surfaced only from the emitted per-arm rows, not from the
    formatted summary table, which is the argument for committing the raw arms.
+
+## The committed arms
+
+[`m20-fold-dispersion-arms.jsonl`](./m20-fold-dispersion-arms.jsonl) — all **60
+rows** (6 legs × 10 arms across both runs), emitted by the trainer and verified
+**byte-exact against its own sha256** (`41c34c75…`, 18758 chars) rather than
+trusted as a transcription.
+
+Two things about how it was produced, because both were defects caught in flight:
+
+- A first emit wrote `"beats_actual": null` / `"beats_hard": null` — my extractor
+  guessed key names, and the real ones are `beats_actual_folds` /
+  `beats_hard_folds`. Committing those nulls would have put *"we did not look"*
+  and *"the value is absent"* into one field, in the artifact whose entire job is
+  provenance. Fixed by copying each record verbatim instead of naming keys.
+- A second emit was **silently truncated at 34 of 60 rows** by GitHub's comment
+  size cap — including its own `reconciles=` line, so the output lost the very
+  assertion that would have flagged it. Caught only because the expected row count
+  was asserted independently. The nested `per_fold` array was the cause; it is
+  omitted here (flagged per row as `per_fold_omitted: true`, and still present in
+  each arm's `e1_report.json` on the trainer), and the emitter now prints a
+  checksum so a future truncation cannot pass as a complete read.
+
+These rows deliberately live **outside**
+`docs/research/m20-exit-head-rounds.jsonl`. That file is the *graded-round*
+record, read by a leg-keyed dict (last-wins) and by a pooled flip rate; thirty
+arms of six legs would silently change which measurement each leg is judged
+against and inflate the denominator. `m20_exit_head_denominator._load_graded_rounds`
+now excludes any non-zero `fold_offset` and says which rows it dropped
+(`tests/test_rounds_exclude_dispersion_arms.py`, 7 tests, each verified
+load-bearing by planting its own regression).
 
 ## Reproduce
 
