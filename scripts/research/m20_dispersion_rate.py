@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,15 +41,40 @@ REPO = Path(__file__).resolve().parents[2]
 ARMS = REPO / "docs" / "research" / "m20-fold-dispersion-arms-consolidated.jsonl"
 
 
+_ARM_COMPONENT = re.compile(r"off\d+$")
+ROOT_SCREEN = "(root)"
+
+
 def screen_of(row: dict) -> str:
     """The screen a row belongs to — the run dir, not the per-arm subdir.
 
-    `screen` is stored as `<run>/<arm>` (e.g. `donch4h_.../donch4h_off12`), so
-    grouping on it raw would put every arm in its own group and NO leg could
-    ever move. Taking the first path component is what makes the arms of one
-    screen comparable.
+    `screen` is `relpath(arm_dir, root)`, so what it contains depends on where
+    the consolidator's ``--root`` was pointed, and the arms must end up in ONE
+    group or no leg can ever be seen at two offsets.
+
+    Strips trailing ARM components rather than taking ``split("/")[0]``, because
+    that index assumed one specific layout::
+
+        pull2h_20260815T095550Z/pull2h_off0   -> pull2h_20260815T095550Z   (run)
+        off0/out                              -> off0                      (ARM!)
+
+    The second is what the 2026-08-15 worktree-isolated screen produces when
+    ``--root`` is the run dir itself (the driver writes ``<arm>/out``). Under the
+    index rule each arm became its OWN screen, every screen-leg pair then had a
+    single arm, and `rates()` excludes those as "cannot move" — so a 4-arm run
+    would have reported a mover rate over ZERO comparable pairs and read as a
+    clean "nothing moved". Verified a no-op on all 234 committed rows.
+
+    An empty result means every path component was an arm marker, i.e. ``--root``
+    WAS the run dir — one screen, which is exactly right. It returns
+    ``ROOT_SCREEN`` rather than ``""`` so the grouping is legible in the output
+    instead of appearing as a blank label. Sibling runs under a shared root keep
+    their own names and never merge.
     """
-    return str(row.get("screen") or "").split("/")[0]
+    parts = [p for p in str(row.get("screen") or "").split("/") if p and p != "."]
+    while parts and (parts[-1] == "out" or _ARM_COMPONENT.search(parts[-1])):
+        parts.pop()
+    return "/".join(parts) or ROOT_SCREEN
 
 
 def load(path: Path) -> list[dict]:
