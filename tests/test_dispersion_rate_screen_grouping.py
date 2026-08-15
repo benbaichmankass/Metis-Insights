@@ -71,11 +71,17 @@ def test_the_published_headline_still_reproduces() -> None:
     """The rate itself, not just the mapping — arithmetic catches what reading misses."""
     m = _mod()
     r = m.rates(_corpus())
-    assert r["screen_leg_pairs_with_multi_arms"] == 52
+    # Updated 2026-08-15T23:21Z when the 4-arm 5m screen's 12 rows landed
+    # (record 234 -> 246). The ANY-screen headline reads 33.3% before AND
+    # after -- 9/27 -> 11/33 lands on the same value -- so it is asserted
+    # alongside the EVERY-screen rate, which DID move (26.7% -> 27.3%).
+    # Pinning only the coincidental one would let a future merge that adds
+    # nothing pass unnoticed.
+    assert r["screen_leg_pairs_with_multi_arms"] == 55
     assert r["screen_leg_pairs_excluded_single_arm"] == 14
-    assert r["distinct_legs"] == 30
+    assert r["distinct_legs"] == 33
     text = m.render(r)
-    assert "33.3%" in text and "26.7%" in text
+    assert "33.3%" in text and "27.3%" in text
 
 
 # --------------------------------------- 2/3. the layouts that must work

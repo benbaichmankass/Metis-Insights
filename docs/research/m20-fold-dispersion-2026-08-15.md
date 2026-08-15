@@ -2574,6 +2574,37 @@ The headline survives re-derivation, which is the reassuring part. The
 `per_leg` count does not: it is **3 legs, not 2**. `ict_scalp_eth_15m` was
 screened in `unanimity2_20260815T020802Z` and I had not counted it.
 
+#### Update 2026-08-15 23:21Z — the 4-arm 5m screen's rows are now IN the record
+
+The completed screen (`m20_5m_wt_20260815T161348Z`, off0/4/8/12 × 3 legs) was
+still **trainer-side only**: the committed record carried `off0` and nothing
+else for those legs, so 12 rows of measured evidence were unreachable from the
+repo — the exact "22 % machine-readable" defect this record exists to end.
+Pulled via relay #9522, transfer sha256-verified (`3a9a31d6…`, 12 rows,
+`dir_offset_comparable: 4` of 4, 0 mismatches, `offset_source: {round_meta: 12}`
+— no offset defaulted). Record **234 → 246 rows**.
+
+| | before | now |
+|---|---|---|
+| all screened legs, ANY-screen | 10 of 30 = 33.3 % | **11 of 33 = 33.3 %** |
+| all screened legs, EVERY-screen | 7/27 = 25.9 % | **9 of 33 = 27.3 %** |
+| `family_pooled` any-screen | 9/27 | **9/27** — unchanged |
+| `per_leg` any-screen | 1/3 | **2/6** |
+| multi-arm screen-leg pairs | 52 | **55** |
+
+**The `per_leg` denominator moved 3 → 6, which is what the sprint pre-registered
+as the required verification.** The screen contributed exactly one mover:
+`ict_scalp_sol_5m` flips `candidate → honest_negative` at off12, while
+`ict_scalp_avax_5m` and `ict_scalp_xrp_5m` hold `candidate` across all four
+offsets — machine-readable confirmation of the 1-of-3 result reported from the
+arm logs hours earlier, and of the flip that was **pre-registered 44 minutes
+before the arm that produced it finished**.
+
+⚠️ **The ANY-screen headline reads 33.3 % before and after, and that is a
+coincidence of the arithmetic, not evidence nothing was added** — 9/27 → 11/33
+happens to land on the same value. The EVERY-screen rule is where the addition
+shows (25.9 % → 27.3 %), which is one more reason both rules are printed.
+
 ### 🔴 That kills the pre-registered test outright
 
 The section above pre-registered `per_leg` going **2 → 5** and found that
