@@ -3865,3 +3865,154 @@ dropping a leg from a pooled round changes the pool.
   criterion tried and remain unexplained. Deliberately.
 - **Four heuristics tested, none established.** The honest state of the
   fragility question is unresolved, and the operator box says exactly that.
+
+---
+
+## Eleventh overnight stretch (2026-08-15, ~13:20–15:00Z) — the arms were not unlucky, they were unqueued
+
+### Objective
+
+Land the deferred fix for the driver that reported success on dead arms, then
+find out why the arms kept dying at all. The second half turned out to be the
+real work: the answer was not in my harness, it was a binding protocol this
+whole research path had never been wired into.
+
+### Work completed
+
+**1. The silent-failure fix (commit `8b5fc789`), deferred since the screen was
+mid-flight.** `m20_exit_head_round.py` checked the DATASET-BUILD subprocess's
+returncode at line 266 and not the TRAINING one; control fell through to
+`if e1.exists():`, so a dead training run left `report` empty, the driver wrote
+a **zero-row** `rounds.jsonl`, and `main` returned **0**. Three properties now
+hold, matching the backlog row's criteria:
+
+- the training returncode is checked, and *exited-0-but-wrote-no-report* is
+  caught as a **distinct third state**. Deliberately not `return 1` on the first
+  failure the way the build step does — a 3-leg round whose second leg dies
+  should still train the third, and the partial evidence is wanted. What must
+  not happen is reporting success;
+- `main()` returns **2** naming the failed families and the row count, so a
+  wrapper reading `exit=$?` need not parse stdout;
+- **existence now implies rows** — a zero-row round writes `rounds.EMPTY`
+  carrying the failures, the families that did train, and the geometry. The
+  empty file was the artifact that fooled the most checks: created, so `[ -f ]`
+  passes; empty, so a `sed` readout prints nothing and the arm reads as ABSENT
+  rather than FAILED. That is precisely the loop I wrote at 10:04Z, and it is
+  why the off12 arm vanished with no line at all.
+
+`round_report.json`'s `_round_meta` additionally carries `train_failures` (an
+**empty list** on a clean round, so "no failures" is stated rather than implied
+by absence) and `families_trained`.
+
+**2. A capability pre-flight (commit `23a0fdf6`).** The round now asks the
+trainer whether it accepts the flags it intends to forward *before* the emit
+loop. Scoped to flags actually forwarded, so `--fold-offset 0` — never passed,
+because `if a.fold_offset:` treats 0 as falsy — does not block a control arm.
+Verified four ways against the real driver: flag present → proceeds; offset 0 →
+no probe at all; flag renamed → `PRE-FLIGHT FAILED`, exit 3; argument removed →
+`--help` itself fails and the returncode branch catches it, exit 3.
+
+**3. The root cause (commit `4cc4c552`) — and it is not what I had recorded.**
+The "~15-min `Reset to origin/main`" that voided two 73-minute arms is not an
+ambient force of nature. It is `git checkout --force -B main origin/main` at
+`scripts/ops/run_training_cycle.sh:138`, and that line runs **inside the trainer
+heavy-job queue**: the cycle calls `take_trainer_heavy_lock()` first and
+**skips its entire cycle** if the queue stays held past the wait. An arm holding
+the lock does not get warned about the reset — it *prevents* it.
+
+The M20 exit-head path took that queue **nowhere**. Measured: `grep -c
+heavy_lock` returns 0 for `m20_exit_head_round.py`, `scripts/ml/train_exit_head.py`
+and `m20_fleet_exit_sweep.py`. The `ml` CLI's enforced backstop
+(`src/utils/trainer_heavy_lock.py`, wired in `ml/cli.py`) cannot cover them
+either — it fires for `python -m ml train|build-dataset`, and this driver shells
+out to a research script that never imports the CLI. Both halves of an
+enforcement `docs/claude/trainer-resource-protocol.md` describes as binding miss
+this entire family. **Every voided arm was voided by a mechanism the repo
+already had the primitive to stop, and the reason it did not was that this path
+never asked for it.**
+
+It also explains the 05:32:50Z slowdown (trainer-diag #9419): an unqueued
+`replay_pregate_fleet.py` at 4.08 GB RSS on a 6 GB box drove 4.4 GB into swap
+while four arms — identical work differing only in `--fold-offset`, which cannot
+cost time — ran 7.9 / 15.9 / 20.5 / 25.8+ min in launch order. Arms that cannot
+differ in duration did. Both sides of that collision were unqueued.
+
+Driver now acquires the lock, ordered **after** the pre-flight (a missing flag
+should fail in two seconds, not after an hour in a queue).
+
+**4. Live-state reads, prompted by the coordination board.** The board header
+recorded `EXIT_LOOP_DECOUPLE_DISABLED` as set with an intent to clear it, and no
+comment after 05:33Z confirmed the clear — so I read it rather than assuming
+either way. Both halves agree it is OFF: `exit_loop_health` `state: "fresh"`,
+703 passes over 6.62 h = **33.9 s per exit evaluation**, `offloop_hooks`
+populated; and `get-env` returns `process: '0'` / `declared: '0'` with no
+`pending_restart`. Reported to the board so the stale header can be struck.
+
+### Validation performed
+
+- 10 structural tests in `tests/test_exit_head_round_fails_loudly.py`, **each
+  proven load-bearing by planting the exact defect it guards**: removing the
+  training returncode check → 2 fail; making the `rounds.jsonl` write
+  unconditional → 1 fails; degrading the boundary match to a substring → 1
+  fails; removing the lock call → 1 fails. All restored → 10 pass.
+- The heavy lock verified four ways off-box: inert without the role marker (no
+  lock file created), acquires under `TRAINER_HEAVY_LOCK_FORCE=1`, queues then
+  exits **75** when contended, re-acquires on release.
+- `run_guards.py --base main` → **38 PASS / 0 FAIL**, with the changed paths
+  confirmed present in the scanned `/tmp/pr.diff`. This mattered: the previous
+  run's green had **not** scanned them, because they were uncommitted and every
+  guard is scoped to a commit range.
+- `check_backlog_refs` caught an abbreviated id (`BL-…-EXITS-ZERO-…`) in my own
+  correction text that resolved to nothing. Expanded and re-run clean.
+
+### Contradictions or drift found (mine, this stretch)
+
+- **🔴 A conclusion wrong in KIND, not in detail.** I had recorded the missing
+  piece for the screen harness as *"a sound gate hashes AFTER the run"*. That is
+  a **detection** fix where a **prevention** fix existed: an after-hash tells
+  you an hour was wasted, the lock stops the hour being wasted. I reached for a
+  better gauge when the available move was to remove the cause. Corrected in the
+  backlog rather than quietly rewritten, and the reasoning error recorded, not
+  just the corrected answer.
+- **My own probe could not fail.** The pre-flight's first version tested
+  `flag in help_text`. Its own negative test renamed the trainer's argument to
+  `--fold-offset-REMOVED-BY-SIMULATED-RESET` and the probe printed
+  "pre-flight OK" — because the flag is a substring of the rename. Sub-class A
+  committed inside the guard whose purpose is to stop sub-class A. Now a
+  word-boundary match.
+- **A test locator that prose could move.** `test_the_emitted_geometry_is_the_
+  derived_one_not_the_flag` anchored on the first *mention* of `rounds.jsonl`
+  and looked 3000 chars back. My comment naming the file in prose moved the
+  index ~250 lines and failed the test against untouched code; widening the
+  window only deferred it, since the next comment pushed the stamp out of a
+  correct window too. Now bounded by `rows.append({` … the literal write site.
+- **I measured the wrong thing once.** Reading the queue-timeout exit as
+  `exit=0` — that was `grep`'s status through a pipeline, not python's. Measured
+  directly: **75**. The same shape as the `[ -f ]` and empty-hash failures this
+  stretch is about, committed while writing about them.
+
+### Gaps not yet verified
+
+- **The class is not fixed, only one script is.** `train_exit_head.py`,
+  `m20_fleet_exit_sweep.py` and `replay_pregate_fleet.py` still take the queue
+  nowhere, and **the enumeration has not been done** — I do not know how many
+  heavy research entrypoints bypass it, only that at least four do. Filed as
+  `BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE` (open, high) with
+  criteria requiring the enumeration *and* a real CI guard, explicitly not a
+  presence-only marker.
+- The tests are **structural** (asserting on source), not behavioural. A
+  behavioural test needs a fake trainer and a fake harness; worth building, not
+  done. What is claimed is that the properties are pinned against regression,
+  **not** that a failing round was observed end-to-end.
+- The 5m screen is still **VOID and not re-run**. The fix makes a re-run
+  survivable; it does not make the earlier result exist.
+- ⚠️ **Flagged to the tick-chain session, not diagnosed by me:** the live tick
+  measured **144.8 s mean / 202.0 s max** (n=115), against the 69.3 s post-
+  decouple and 83.9 s pre-decouple readings in CLAUDE.md — i.e. slower than the
+  pre-decouple baseline. Cache hit rate (44.5 %) and `fetch.1d` request rate
+  (3.01/tick vs 3.02 recorded) are both **unchanged**; what moved is per-fetch
+  latency, 14.9 s against a recorded 2.4–3.6 s. Board comment on #6927. One
+  consequence for M20: the decouple is now buying **4.3×** (144.8 → 33.9 s)
+  rather than the 3.2× measured at go-live, so setting
+  `EXIT_LOOP_DECOUPLE_DISABLED` as a rollback costs materially more than the
+  08-12 numbers imply.
