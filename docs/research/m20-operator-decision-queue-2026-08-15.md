@@ -193,11 +193,92 @@ mechanism.
 
 ---
 
+## 6. The harness has an undeclared degree of freedom — HOW to fix it is yours
+
+**Added 05:10Z. This landed after items 1–5 were written and it is the most
+important thing found overnight.**
+
+**An E1 `exit_head_ml` verdict depends on the ORDER the legs were typed on the
+command line.** `--legs` order becomes the row order in `rows.jsonl`, which
+becomes the tie-break in a *stable* sort over `bars[0]["bar_t"]`; on a 2h family
+every leg entering on the same bar carries an identical `bar_t`, so the tie groups
+span every pooled leg.
+
+**Measured, not inferred** (relays #9403 / #9406). Same 7 legs, two orders:
+
+| | recorded round | off0 arm |
+|---|---|---|
+| harness trades | 2220 | 2220 |
+| total rows | 71199 | 71199 |
+| fold shape | 43 × 50 | 43 × 50 |
+| **folds with differing composition** | — | **8 of 43** |
+| AUC movement | — | up to **0.0331** |
+| legs that lost a usable fold | — | **2** (`avax` 43→42, `sol` 43→41) |
+
+**0.0331 is about two-thirds of the 0.0515 median dispersion this entire study
+was built to measure.** 27 of the 33 committed rows sit in multi-leg
+`family_pooled` rounds and are exposed; the 6 `per_leg` rows are structurally
+immune.
+
+**The reassuring half, and it is genuinely reassuring:** the pre-registered off0
+control *passing* is proof the leg order matched, so the primary 1d measurement
+is unaffected — a permuted order cannot reproduce six of six AUCs exactly. The
+control caught a failure mode nobody had named. That is also why the nine
+mismatched legs were never quoted as a result.
+
+**The decision is which fix, because each has a different cost:**
+
+| | what it does | cost |
+|---|---|---|
+| **(a) total sort key** — add `trade_key` as a secondary key | makes every future round reproducible; the real fix | **changes recorded AUCs**, so the corpus needs a re-measure or a vintage marker |
+| **(b) sort `emits` in the driver** | canonicalises the order whatever the operator types | narrower; does not fix a genuinely tied sort |
+| **(c) stamp the ordered leg set on the row** | makes two rows differing by order *detectable* | none — additive metadata, no number moves |
+
+**Recommendation: (a) + (c).** Confidence: high on (c), which I have **already
+shipped** because it changes no numbers and the confound was previously
+undetectable from the evidence file. **(a) I have NOT touched** — it rewrites
+recorded verdicts across the corpus, and doing that unasked is exactly the
+"drive-by that changes the record" this programme refuses. Say the word and it is
+a one-line change plus a re-measure.
+
+**What this does to item 5:** read the fragility numbers knowing that 27 of 33
+rows carry a nuisance term of up to 0.0331. It does not invalidate them — the
+one-flip arithmetic is exact and independent of AUC — but `usable_folds` is an
+input to it and `usable_folds` is what moved on two legs.
+
+Filed `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER` (high).
+
+---
+
 ## What I would do first, if you only have ten minutes
 
 1. **Merge #9257** (item 1) — best-evidenced, and it unblocks the deploy
-   verification that is already owed.
+   verification that is already owed. **Read the 04:55Z correction on it first**:
+   it is not the two-line merge the item originally described.
 2. **Say yes or no to the split-target flip** (item 2) — it gates whether future
    sweeps produce verdicts at all.
-3. Leave 3, 4 and 5 alone until the screen reports; 5 is the one to read properly
-   when you have longer.
+3. **Read item 6.** It is the night's real finding, and the only decision in it
+   is *which* fix — nothing is broken while you decide, because the control
+   already refuses to pool mismatched runs.
+4. Leave 3, 4 and 5 alone until the screen reports; 5 is the one to read properly
+   when you have longer, and read it *after* 6.
+
+---
+
+## One more thing, outside M20's scope but on its mandate
+
+**The decoupled exit loop's worst pass is 58.9s against your 60s "no live trade
+goes unevaluated" ask — a 1.8% margin — and nothing alerts on it.** At the 55
+passes the decouple sprint measured, the worst was 34.1s (43% margin); at 625
+passes it is 58.9s. Nothing regressed — a larger sample found the tail, exactly
+as that sprint log warned when it called its own defaults "CHOSEN, NOT MEASURED".
+
+Lowering `EXIT_LOOP_INTERVAL_SECONDS` cannot help: the interval is
+`max(floor, pass)` and the pass is binding.
+
+`exit_loop_health` records `max_pass_ms` but thresholds only *staleness*, so the
+loop reads `fresh` while approaching a breach of the ask it exists to satisfy.
+I have not touched the knobs — Tier-2, and it is the other session's subsystem.
+Filed `BL-20260815-EXIT-LOOP-MAX-PASS-NEAR-THE-60S-ASK-AND-NOTHING-WATCHES-IT`
+(high). Stated limit: a max over 625 passes is one order statistic and the writer
+keeps no percentiles, so I cannot yet say rare tail vs thickening distribution.
