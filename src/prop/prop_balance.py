@@ -64,7 +64,21 @@ def max_age_hours() -> float:
         return _DEFAULT_MAX_AGE_H
 
 
-def _age_hours(row: Dict[str, Any]) -> Optional[float]:
+def status_age_hours(row: Optional[Dict[str, Any]]) -> Optional[float]:
+    """Age in hours of a ``prop_account_status`` row, or ``None`` when it
+    carries no readable timestamp.
+
+    Public because the freshness of the operator's snapshot is asked by more
+    than one consumer — sizing (here), the periodic status request, and the
+    rule-distance guard on ``/api/bot/prop/status`` — and a second copy of the
+    ISO parse is how those three start disagreeing about what "24h old" means.
+
+    ``None`` is *undateable*, never *fresh*: every caller must decide what an
+    undateable snapshot means for it, and on both the sizing and the
+    rule-distance paths the fail-safe reading is stale.
+    """
+    if not row:
+        return None
     ts = row.get("reported_at") or row.get("created_at")
     if not ts:
         return None
@@ -75,6 +89,10 @@ def _age_hours(row: Dict[str, Any]) -> Optional[float]:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0)
+
+
+def _age_hours(row: Dict[str, Any]) -> Optional[float]:
+    return status_age_hours(row)
 
 
 def prop_sizing_balance(account_id: str) -> Tuple[str, Optional[float], Dict[str, Any]]:

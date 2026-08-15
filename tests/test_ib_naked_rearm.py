@@ -161,14 +161,37 @@ def _insert(db, **kw):
 
 
 class _FakeIBClient:
-    def __init__(self, protected):
+    """Fake IB client for the broker-naked sweep.
+
+    ``protected`` is the legacy boolean the fixture is written in terms of; the
+    sweep now reads QUANTITY (``protection_coverage``, BL-20260814-IB-PROTECTION
+    -BOOLEAN-NOT-QUANTITY), so it is translated into the equivalent coverage:
+    protected → fully covered, naked → zero covered, ``None`` → could-not-read.
+    ``size`` defaults to the position size these fixtures insert.
+    """
+
+    def __init__(self, protected, size=2.0):
         self._protected = protected
+        self._size = size
         self.queried = []
         self.rearmed = []
 
     def has_protective_orders(self, symbol):
         self.queried.append(symbol)
         return self._protected
+
+    def protection_coverage(self, symbol):
+        self.queried.append(symbol)
+        if self._protected is None:
+            return None  # read failure ⇒ caller must skip
+        return {
+            "size": self._size,
+            "covered_qty": self._size if self._protected else 0.0,
+            "legs": 1 if self._protected else 0,
+            "unknown_qty_legs": 0,
+            "oca_groups": {},
+            "source": "resting_legs",
+        }
 
     def place_protective(self, order):
         self.rearmed.append(order)
@@ -281,9 +304,24 @@ def test_ib_sweep_skips_active_close(tmp_path, monkeypatch):
     assert fake.rearmed == []
 
 
-def test_ib_sweep_dedupes_read_per_symbol(tmp_path, monkeypatch):
-    # Two open trades on the SAME symbol → ONE account-wide has_protective read,
-    # and only the first re-arm (the symbol is protected after it).
+def test_ib_sweep_dedupes_read_but_rearms_every_uncovered_sibling(
+    tmp_path, monkeypatch
+):
+    """One broker read per symbol, but EVERY uncovered sibling gets re-armed.
+
+    ⚠️ This test previously asserted ``broker_naked == 1`` / ``rearmed == 1``
+    with the comment "only the first re-arm (the symbol is protected after it)"
+    — i.e. it encoded the BUG as the expected behaviour. Two naked MHG trades
+    on a netted position: the first re-armed, the cached verdict flipped to the
+    boolean ``True``, and the second trade was skipped as protected while it had
+    no protection at all. A green test asserting exactly the defect is why this
+    survived (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY).
+
+    Now the cache holds COVERAGE, and a re-arm credits only the re-armed trade's
+    own qty — so the still-uncovered sibling stays visible on the same sweep.
+    The read is still deduped (one account-wide call), which was the part of the
+    original intent that was correct.
+    """
     db = _FakeDB(tmp_path / "j.db")
     _insert(db, id=1, account_id="ib_paper", symbol="MHG", direction="long",
             position_size=1, stop_loss=4.0, take_profit_1=6.0,
@@ -291,15 +329,17 @@ def test_ib_sweep_dedupes_read_per_symbol(tmp_path, monkeypatch):
     _insert(db, id=2, account_id="ib_paper", symbol="MHG", direction="long",
             position_size=1, stop_loss=4.1, take_profit_1=6.1,
             created_at="2026-06-25T00:00:00+00:00", status="open")
-    fake = _FakeIBClient(protected=False)
+    # Netted position of 2 contracts (1 per trade), zero covered.
+    fake = _FakeIBClient(protected=False, size=2.0)
     _patch_accounts(monkeypatch, fake)
 
     summary = om._check_broker_naked_ib_positions(db)
     assert summary["checked"] == 2
-    # One broker read (cached per symbol), one re-arm (cache flips to protected).
-    assert fake.queried == ["MHG"]
-    assert summary["broker_naked"] == 1
-    assert summary["rearmed"] == 1
+    assert fake.queried == ["MHG"], "the account-wide read must stay deduped"
+    assert summary["broker_naked"] == 2
+    assert summary["rearmed"] == 2, (
+        "a sibling was left unprotected — the boolean-cache defect is back"
+    )
 
 
 def test_ib_sweep_cadence_gate_skips_second_call(tmp_path, monkeypatch):

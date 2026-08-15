@@ -6097,6 +6097,13 @@ _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 # execute.py's ``_SL_LEG_TYPES`` — a divergence here would misgrade coverage.
 _SL_LEG_TYPES_MON = {"stoploss", "partialstoploss"}
 
+# Tolerance when comparing summed protective-leg qty against the netted IB
+# position size (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Futures trade
+# in whole contracts, so anything below one contract is float noise, never a
+# genuine uncovered remainder — without it a 3.0000000000000004 vs 3.0 compare
+# would report a permanently partially-naked position and re-arm every sweep.
+_IB_COVERAGE_EPSILON = 0.5
+
 # Fractional slack when comparing summed leg qty against position size. Bybit
 # echoes leg qty as a string at the instrument's qty step, so a hair of float
 # noise must not be read as a coverage hole. 0.5% of position size.
@@ -6331,6 +6338,12 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
                 "qty": qty,
                 "sl": sl,
                 "tp": tp,
+                # Scope the re-arm's pre-cancel to THIS trade's own OCA group.
+                # Without it place_protective cancels every resting leg on the
+                # symbol root, which on a netted IB contract destroys the OTHER
+                # strategies' take-profit legs
+                # (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY).
+                "oca_key": str(row["id"]),
             }
         )
         if not resp or resp.get("retCode") != 0:
@@ -6501,6 +6514,7 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     global _LAST_IB_BROKER_NAKED_CHECK_MONO
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0, "skipped": 0,
+        "partially_naked": 0, "ungradeable": 0, "read_failed": 0, "covered": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
     if interval <= 0:
@@ -6584,12 +6598,58 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 continue
             cache_key = (account_id, protect_symbol)
             if cache_key not in protected_cache:
-                protected_cache[cache_key] = client.has_protective_orders(
+                protected_cache[cache_key] = client.protection_coverage(
                     protect_symbol
                 )
-            protected = protected_cache[cache_key]
-            if protected is None or protected:
-                continue  # read failure (skip, fail-safe) or already protected
+            cov = protected_cache[cache_key]
+            if cov is None:
+                # Fail-safe skip (never re-arm on an unconfirmed read) — but say
+                # so. A bare `continue` here made "the sweep ran and could not
+                # read" indistinguishable from "the sweep never ran", which is
+                # the collapsed-state shape this repo has a guard for, and it
+                # blocked verifying the coverage fix on the 2026-08-14 deploy:
+                # the post-restart breaker was open, every read returned None,
+                # and the logs were silent either way.
+                summary["read_failed"] += 1
+                logger.info(
+                    "_check_broker_naked_ib_positions: %s/%s coverage read "
+                    "unavailable (breaker open / gateway unreachable) — "
+                    "skipping, protection left as-is",
+                    account_id, protect_symbol,
+                )
+                continue
+            size = float(cov.get("size") or 0.0)
+            covered = float(cov.get("covered_qty") or 0.0)
+            if size <= 0:
+                continue  # flat at the broker — nothing to protect
+            if cov.get("unknown_qty_legs"):
+                # Coverage is UNGRADEABLE, not zero. Re-arming here would stamp
+                # this trade's geometry over the whole netted position; skipping
+                # leaves whatever protection exists intact. Mirrors the Bybit
+                # sweep's refusal to guess.
+                summary["ungradeable"] += 1
+                logger.warning(
+                    "_check_broker_naked_ib_positions: %s/%s has %d protective "
+                    "leg(s) with unparseable qty — coverage ungradeable, "
+                    "skipping re-arm rather than guessing",
+                    account_id, protect_symbol, cov["unknown_qty_legs"],
+                )
+                continue
+            if covered >= size - _IB_COVERAGE_EPSILON:
+                summary["covered"] += 1
+                continue  # fully covered
+            # Partially covered is the case the old boolean could not see: a
+            # surviving sibling leg made the whole netted position read
+            # PROTECTED while this trade's own protection was gone.
+            if covered > 0:
+                summary["partially_naked"] += 1
+                logger.warning(
+                    "_check_broker_naked_ib_positions: %s/%s PARTIALLY NAKED — "
+                    "position %s vs %s covered by %d resting leg(s); "
+                    "re-arming trade_id=%s for its own qty",
+                    account_id, protect_symbol, size, covered,
+                    cov.get("legs", 0), row["id"],
+                )
             summary["broker_naked"] += 1
             sl = row["stop_loss"]
             tp = row["take_profit_1"]
@@ -6610,9 +6670,18 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 continue
             if _attempt_naked_autoprotect(row, a_sl, a_tp):
                 summary["rearmed"] += 1
-                # Invalidate the per-symbol cache: this symbol is now protected,
-                # so a sibling trade on it must not re-read "naked" and stack.
-                protected_cache[cache_key] = True
+                # Credit ONLY this trade's qty against the netted position's
+                # coverage — not the whole position. The old code set the cached
+                # verdict to True, which told every sibling on the symbol it was
+                # protected when the re-arm had covered just one trade's share;
+                # that is the boolean defect in miniature. Crediting the qty
+                # keeps a still-uncovered sibling visible on this same sweep.
+                try:
+                    cov["covered_qty"] = float(cov.get("covered_qty") or 0.0) + float(
+                        row["position_size"] or 0.0
+                    )
+                except (TypeError, ValueError):
+                    pass
                 logger.info(
                     "_check_broker_naked_ib_positions: re-armed GTC OCA "
                     "(sl=%s tp=%s) on broker-naked trade_id=%s account=%s "
@@ -6624,6 +6693,20 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 "_check_broker_naked_ib_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
+    if summary["checked"]:
+        # One line per sweep that actually looked at something, so the pass is
+        # observable even when it changes nothing. Without it the ONLY evidence
+        # the sweep runs is a re-arm — i.e. it is visible exactly when something
+        # is wrong and invisible when it is working, which is the wrong way
+        # round for confirming a deploy.
+        logger.info(
+            "_check_broker_naked_ib_positions: swept %d open IB position(s) — "
+            "covered=%d naked=%d partially_naked=%d rearmed=%d "
+            "read_failed=%d ungradeable=%d errors=%d",
+            summary["checked"], summary["covered"], summary["broker_naked"],
+            summary["partially_naked"], summary["rearmed"],
+            summary["read_failed"], summary["ungradeable"], summary["errors"],
+        )
     return summary
 
 
