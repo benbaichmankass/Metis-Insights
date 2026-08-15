@@ -409,6 +409,21 @@ reverting to a date-only renderer fails 6 of its 9 tests, including both
 controls. The first draft of one test was itself wrong (it banned the bare form
 outright, which is *correct* under `split_mode=date`) and the suite caught it.
 
+✅ **LIVE-VERIFIED at 22:48Z** on the next sweep's real output — and it landed on
+the sharpest case available. `iaum_pullback_1d` is the one leg that genuinely
+*did* run at 2025-07-01, so the old renderer would have printed that date and
+looked right. The new output instead reads:
+
+> `- split (iaum_pullback_1d): **2025-07-01** — FELL BACK to the --split date
+> (leg_too_thin, lifetime=36 trades); the oos-trades derivation could not be
+> satisfied, so this boundary was NOT chosen for this leg`
+
+with the banner above it now saying `IS/OOS split DERIVED per leg … 2025-07-01
+is only the FALLBACK date — legs do NOT share a boundary`. Same date as before
+the fix, opposite meaning, and the difference is now on the page. That is
+exactly the case `test_a_fallback_is_never_dressed_as_a_derivation` pins, so
+the test and production agree on a real run rather than only on a fixture.
+
 ### 12. Declared the re-sweep's geometry, moving evidence vintage 62.8% → 52.4%
 
 The re-sweep's whole point was the **vintage** axis, and finishing it meant the
