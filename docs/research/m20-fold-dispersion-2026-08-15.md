@@ -2014,3 +2014,35 @@ where a year boundary falls relative to a regime, are choices. It says the
 specific machinery and the specific finding here do not test them, and answering
 that would need different tooling, not the existing flag.)*
 
+
+### Screen runtime cost, measured — and why the 5m round is the last one queued tonight
+
+Worth recording for anyone planning screens, because the spread is two orders of
+magnitude and it is **not** proportional to leg count:
+
+| round | legs | folds | per arm | 4 arms |
+|---|--:|--:|--:|--:|
+| donchian 4h | 5 | 16 | **~45 s** | ~3 min |
+| donchian 1h | 3 | 23 | ~65 s | ~4 min |
+| prop donchian 1h | 2 | 23 | ~45 s | ~3 min |
+| pullback 1h | 4 | 26 | ~50 s | ~3.5 min |
+| pullback 2h | 7 | 43 | ~2 m 40 s | ~11 min |
+| **scalp 5m** | 4 | 22–29 | **~60–70 min** | **~4–5 h** |
+
+The driver is **bar count, not leg count or fold count** — the 5m legs emit
+1,209–1,255 trades each off 5-minute bars, and the dataset build over that is
+where the time goes. A 7-leg 43-fold round finished in 11 minutes; a 4-leg 5m
+round is projected at 4–5 hours on the 1-OCPU trainer.
+
+**The trade-off I am making, stated rather than left implicit:** the 5m screen
+occupies the box for the rest of the night, so the three paper-routed stale
+decisions and the 15m scalp leg will **not** be re-swept this session. I am
+letting it run anyway, for one reason — **it is a pre-registered test, and
+abandoning a pre-registered test because it turned out slow is how inconvenient
+results stop getting reported.** Its predictions and falsification condition are
+fixed in #9454 and will be scored either way.
+
+The cost is real and the deferred work is named, so a later session can weigh it
+differently. If trainer time is contested, **screen the low-bar-count families
+first** — the 4h/1h rounds return a whole pooled family in under four minutes.
+
