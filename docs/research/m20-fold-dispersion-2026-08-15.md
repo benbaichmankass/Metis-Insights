@@ -1035,3 +1035,49 @@ only reproduce legs from one round. Add:
 
 That is a check that costs one file read and would have saved the four relays
 this took to find.
+
+### The determinism test and the control failure were a controlled pair
+
+Relay #9412 recovered the leg orders of the 4h rounds, and they turn the root
+cause from *"explains every observation"* into *"isolated by a controlled
+comparison"* — because two experiments I had already run differ in **exactly one
+variable**, and I had not noticed they formed a pair:
+
+| run | leg order | compared against | result |
+|---|---|---|---|
+| `determinism_20260815T032648Z` (mine) | `ada, avax, eth, sol, xrp` — alphabetical | its own re-run, **same order** | **5 of 5 byte-identical** |
+| the 4h off0 control arm | alphabetical | `eth_denom_4h`, order `eth, sol, xrp, ada, avax` | **MISMATCH** |
+
+Same code, same data, same flags, same legs. **Order held fixed → exact
+reproduction. Order permuted → mismatch.** Nothing else varies between those two
+comparisons, which is what makes it a controlled contrast rather than a
+consistent story.
+
+It also retires a worry the earlier text left open. § "The control failures are
+their own finding" cited the determinism result as proof that *training* is
+deterministic, and then had to leave the mismatches unexplained — the two read as
+being in tension. They never were: the determinism run compared **like order to
+like order**, so it was measuring the training, and it was right. The control
+compared **unlike to unlike**. Both results are correct and they were answering
+different questions.
+
+**`eth_denom_4h`'s order is hand-typed** (`eth, sol, xrp, ada, avax` — the ETH
+investigation's legs first), while every re-run I launched sorted alphabetically.
+That is the whole mechanism, and it is why the mismatch tracked *provenance*
+rather than leg, family, geometry or timeframe: the `eth_denom_*` rounds are
+precisely the ones a human typed in investigation order.
+
+### The remaining second-pass rounds are re-runnable — with the recorded order
+
+`trend_donchian 1h` was the family the comparability rule flagged as spanning two
+runs. Both round directories survive and state their orders, so it **is**
+re-runnable comparably, one run at a time:
+
+```
+1h_donchian_reswept  (relay #9206)  legs: trend_donchian, trend_donchian_eth, trend_donchian_sol
+prop_1h              (relay #9156)  legs: trend_donchian_sol_prop, trend_donchian_eth_prop
+```
+
+A re-run must pass `--legs` in **that** order, not alphabetically. `scalp_5m` is
+`per_leg` and needs no such care. Recording the orders here so the next session
+does not re-derive them from four relays, which is what this cost.
