@@ -1,4 +1,4 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~07:35Z)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~07:25Z + 07:35Z items)
 
 Everything the overnight session queued rather than decided, in one place.
 **Seven items**, plus one coda outside M20's scope. **No decision here has been
@@ -88,6 +88,49 @@ fail on one fold flip — this one does not.** It passes at `wf 5/6`, slack `+3`
 on both runs that measured it. So on the axis that turned out to be the night's
 main finding, this change is in the robust half.
 
+### ⚠️ UPDATE 07:25Z — a REPRODUCIBILITY argument for merging, found by a crash
+
+A screen launch died at 07:16 on `unrecognized arguments: --fold-offset`, three
+hours after eight arms used that flag on the same box. Diagnosing it produced a
+finding bigger than the launch:
+
+**Every fold-dispersion screen this workstream has produced was computed by code
+that exists only on THIS BRANCH.** Measured, not inferred — `--fold-offset` came
+in with commit `43820a32`; `git merge-base --is-ancestor 43820a32 origin/main`
+returns **NO**, and `origin/main`'s copies of BOTH
+`scripts/research/m20_exit_head_round.py` and `scripts/ml/train_exit_head.py`
+contain **zero** occurrences of the fold-offset / total-sort machinery (7 and 9
+on the branch).
+
+So: the 1d family screens, `gld_pullback_1h`, the completed 15m sol/xrp screen,
+and the whole fragility finding are **not reproducible from `main`** while this
+PR is unmerged, and the committed rounds corpus references offsets no released
+code can generate.
+
+**It also sharpens item 6.** I described fix (a) as "written and default-off
+awaiting your call". More precisely: it is **not on `main` at all**. Leaving the
+PR unmerged does not hold the fix at default-off — it holds it outside the
+released code entirely.
+
+**This is not an argument that the evidence is wrong** — the arms were run, the
+controls reproduced, the numbers stand. It is an argument that they cannot
+currently be re-derived by anyone starting from `main`, which is a different and
+fixable problem.
+
+checked: scripts/research/m20_exit_head_round.py and scripts/ml/train_exit_head.py
+— the two files that carry the machinery. Method: `git merge-base --is-ancestor
+43820a32 origin/main` returns non-zero (not an ancestor), and grepping each file
+as it exists on `origin/main` yields **0** occurrences of `fold-offset`, against
+7 and 9 respectively on this branch. A git-reachability fact about two named
+files, not a judgement about the numbers.
+
+Filed `BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH` (high),
+whose durable half is not the merge but a **git SHA stamped into each round's
+`_round_meta`**, so a future version drift shows up in the artifact rather than
+in a crash. Today it crashed loudly because argparse REJECTS an unknown flag; had
+the flag been silently ignored, four arms would have run at offset 0 and reported
+as a spread.
+
 **Recommendation: merge, then let me verify the deploy.** Confidence: reasonably
 high on the evidence, which is the strongest in the queue. **Deploy verification
 is owed and unpaid** — merged is not deployed, and this one touches real money.
@@ -113,8 +156,8 @@ A matched A/B over the same 19 legs, differing in nothing but the target:
 | graded on the merits | 8/76 | **70/74 = 94.6%** |
 | passes | 0 | 2 (both Path B) |
 
-checked: scripts/research/m20_fleet_exit_sweep.py — "unmeasurable" here is not an
-inference but that sweep's own `insufficient_base` outcome, counted per cell from
+checked: scripts/research/m20_fleet_exit_sweep.py — that grading here is not an
+inference but the sweep's own `insufficient_base` outcome, counted per cell from
 both arms' run logs with the denominator `legs × 4` asserted.
 
 At 25 the sweep returns *almost no verdicts* on a family whose legs carry up to
@@ -497,8 +540,8 @@ net_R figures are not the live book's.
 same leg is **unmeasurable at target 25 and graded at 30** — OOS base 24 vs 31
 against a floor of 25, on a leg with **407 lifetime trades**.
 
-checked: scripts/research/m20_fleet_exit_sweep.py — "unmeasurable" is not my
-inference but that sweep's own `insufficient_base` verdict, read from
+checked: scripts/research/m20_fleet_exit_sweep.py — that grading is not my
+inference but the sweep's own `insufficient_base` verdict, read from
 `verdicts.json` for both cells of the target-25 arm (relay #9427), beside the
 target-30 arm's `is_oos_fail` on the identical cells. The base OOS counts (24 /
 31) and the floor (25) are the run's own `base_trades_oos` /
