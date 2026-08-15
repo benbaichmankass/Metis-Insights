@@ -51,6 +51,43 @@ showing verdict instability**, a lower bound. So being one flip from the bar
 predicts a verdict *can* move, **not that it does** — and the one fragile cell
 that produced a clean arm was stable.
 
+**⚠️ SUPERSEDING COUNT (09:45Z) — the tempering above is right in DIRECTION but
+its numbers are stale, and two follow-up heuristics have since been refuted.**
+Read this before quoting "2 of 14".
+
+Sixteen further arms have run since, each with a pre-committed sha256 gate and a
+control that had to reproduce the recorded row(s) exactly before any offset was
+read. Current standing, over **17 re-partitioned legs**:
+
+- **4 of 17 have moved.** (`gdx_pullback_1d` ×2 draws, `iaum_pullback_1d`,
+  `ict_scalp_xrp_15m`, `trend_donchian_eth`.)
+- **Every leg that moved was flagged; no unflagged leg has moved.** Zero false
+  negatives in 17. That is the finding (3) criterion doing its job.
+- **11 of 15 flagged legs did NOT move.** The flag marks *exposure*, not
+  instability — which is the same direction the block above reaches, at a base
+  large enough to say it.
+
+**Two ways of triaging the flagged population down to a shorter list have been
+measured and BOTH fail:**
+
+| heuristic | refuted by |
+|---|---|
+| rank by **AUC spread** | `trend_donchian_eth` flipped with its arm's AUC at `0.6077` vs a `0.6079` control — flat to three decimals. Its 0.0086 spread is *tighter* than `ict_scalp_sol_15m`'s 0.0088, which held. |
+| rank by **slack** (proximity to the bar) | `trend_donchian_eth_prop` at slack **0** — literally at the bar — is unanimous across four draws, while its sibling `trend_donchian_eth` at slack **+2** moved. 1 of 3 slack-0 cells has moved. |
+
+**No third heuristic is offered.** Two causal stories have already been advanced
+and retracted in this document (sample size at 07:00Z; bar-proximity here), each
+on evidence that looked sufficient when written. The supported statement is
+narrow: **slack identifies which cells are exposed and nothing yet ranks them, so
+a flagged cell is re-measured rather than reasoned about.** A screen is 4 arms ×
+~45 s and covers every leg of a pooled round at once, so that recommendation is
+cheap rather than cautious.
+
+**One mechanism worth carrying into any reading of these tables:** `u` is not
+constant across arms (measured 24, 24, 23, 23 on one leg), and the gate bar is
+`2u` — so the bar moves between draws, 48 → 46. A leg can change verdict with its
+`beats_*` counts unchanged. Compare each arm against **its own** bar.
+
 **⚠️ AND A FOURTH FINDING LANDED AT 04:50 THAT OUTRANKS ALL THREE — read
 § "ROOT CAUSE" at the end.** Chasing why nine legs failed their control turned up
 a defect in the harness itself: **an E1 verdict depends on the ORDER the legs were
