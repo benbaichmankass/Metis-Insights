@@ -889,6 +889,59 @@ def validate(matrix: dict[str, Any]) -> list[str]:
     return problems
 
 
+# The E1 fold block size. SINGLE-HOMED here as a named constant so the printed
+# bound and the code that produces it cannot drift apart in prose; the value is
+# `train_exit_head.py`'s `--min-fold-trades` default (50), derived in
+# docs/research/M20-E1-block-size-derivation-2026-08-13.md and NOT a knob to
+# tune for reachability (that doc forbids it: P_detect is not monotonic in b).
+_E1_BLOCK = 50
+
+
+def usable_folds(n_trades: int, block: int = _E1_BLOCK) -> int:
+    """`u` for a leg with `n_trades` lifetime harness trades.
+
+    Mirrors `train_exit_head.fold_blocks`: `range(block, len(ordered)-block+1,
+    block)`. Deliberately the same arithmetic rather than a closed form, so a
+    change to the fold construction shows up here as a diff rather than as a
+    silently stale formula.
+    """
+    return len(range(block, n_trades - block + 1, block))
+
+
+def fold_reachability(matrix: dict[str, Any]) -> list[dict[str, Any]]:
+    """Per blocked `exit_head_ml` cell: is the block arithmetic, or data?
+
+    READS the `lifetime_trades` field. It exists because that number lived only
+    in ref PROSE, so nothing could recompute the bound and two different
+    arithmetics coexisted in one lever column for a day — three cells reasoned
+    from the LEVER sweep's date split and named an "earlier split" route the
+    fold code forecloses. A field that is written and never read is worse than
+    a missing one, so this is the reader.
+
+    A cell with the blocked status and NO `lifetime_trades` is REPORTED as
+    ungraded rather than skipped — silently dropping it would report a
+    denominator this never measured.
+    """
+    out: list[dict[str, Any]] = []
+    for row in matrix.get("rows") or []:
+        cell = row.get("exit_head_ml")
+        if not isinstance(cell, dict):
+            continue
+        if not str(cell.get("status") or "").startswith("blocked:insufficient_lifetime"):
+            continue
+        n = cell.get("lifetime_trades")
+        if not isinstance(n, int):
+            out.append({"strategy": row.get("strategy"), "lifetime_trades": None,
+                        "usable_folds": None, "short_by": None,
+                        "ungraded_why": "cell carries no `lifetime_trades` field"})
+            continue
+        u = usable_folds(n)
+        out.append({"strategy": row.get("strategy"), "lifetime_trades": n,
+                    "usable_folds": u, "short_by": max(0, 3 * _E1_BLOCK - n)})
+    out.sort(key=lambda x: (x["lifetime_trades"] is None, x["lifetime_trades"] or 0))
+    return out
+
+
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
     per_status: Counter[str] = Counter()
     per_lever: dict[str, Counter[str]] = defaultdict(Counter)
@@ -932,6 +985,7 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "per_status": dict(per_status),
         "per_lever": {k: dict(v) for k, v in per_lever.items()},
         "per_lever_reason": {k: dict(v) for k, v in per_lever_reason.items()},
+        "fold_reachability": fold_reachability(matrix),
         "counts": counts,
         "headline_pct": round(100 * counts["headline"] / total, 1) if total else 0.0,
         "cells_to_done": per_status["pending"] + per_status["blocked"],
@@ -1123,6 +1177,25 @@ def render(r: dict[str, Any]) -> str:
             extra = {k: v for k, v in reasons.items() if ":" in k}
             for k, v in sorted(extra.items(), key=lambda kv: -kv[1]):
                 out.append(f"        {v:>3} × {k}")
+    reach = r.get("fold_reachability") or []
+    if reach:
+        out += ["", "exit_head_ml — is the block ARITHMETIC or is it waiting on data?",
+                f"    Derived from each cell's `lifetime_trades` field against "
+                f"`train_exit_head.fold_blocks`: folds are fixed blocks of "
+                f"b={_E1_BLOCK} over the sorted trade list starting one block in, so "
+                f"u = len(range(b, N-b+1, b)). The E1 gate needs u >= 2, i.e. "
+                f"N >= 3b = {3 * _E1_BLOCK}; even ONE fold needs N >= {2 * _E1_BLOCK}.",
+                "    THERE IS NO DATE SPLIT ON THIS LEVER — MIN_OOS_TRADES and the "
+                "IS/OOS cut belong to the LEVER sweep. Moving a split cannot create "
+                "folds a leg has no trades for (BL-20260815-EXIT-HEAD-MATRIX-REFS-"
+                "USE-THE-LEVER-SWEEPS-ARITHMETIC)."]
+        for row in reach:
+            out.append(f"      {row['strategy']:<26} N={row['lifetime_trades']:>4}  "
+                       f"u={row['usable_folds']}  needs {row['short_by']} more trade(s) "
+                       f"for u>=2")
+        unreachable = sum(1 for x in reach if x["usable_folds"] == 0)
+        out.append(f"    {unreachable} of {len(reach)} cannot form a SINGLE fold — for "
+                   f"those the block is arithmetic, not data availability.")
     return "\n".join(out)
 
 
