@@ -1891,3 +1891,86 @@ Recorded before the run, so a null is reportable rather than reframed:
 **falsification is `tlt` stable while `qqq`/`spy` move, or nothing moving at all
 despite AUC margins this thin.**
 
+
+### 🔬 The PRE-REGISTERED 1h pullback test (10:30Z, relay #9452) — my prediction FAILED, and the mechanism was confirmed anyway
+
+All four arms landed clean under the corrected gate: **`preflight=OK`,
+`exit=0`, `rows=4` on every arm**, and off0 reproduced all four recorded rows
+exactly (`gld 0.6010` · `qqq 0.5330` · `spy 0.5395` · `tlt 0.5450`, all `u 26`,
+all `honest_negative`).
+
+**Result: 0 of 4 moved.**
+
+#### Prediction 1 failed, and it was written down in advance
+
+#9449 predicted `tlt_pullback_1h` would move — slack `+5` (invisible to the
+slack flag) with an AUC margin of `−0.0050` (inside the two-term band). **It did
+not move in four draws.** The falsification condition I recorded before the run
+was *"`tlt` stable while `qqq`/`spy` move, or nothing moving at all"*, and the
+second branch is what happened. **I am scoring it as a failed prediction, not
+reframing it.**
+
+#### But the MECHANISM claim was confirmed, and it does not depend on movement
+
+The failure decomposition per arm is the evidence, and it is direct rather than
+inferred. `tlt_pullback_1h`, bar `2u = 52`:
+
+| arm | AUC | 3·beats_actual | 3·beats_hard | fails on |
+|---|--:|--:|--:|---|
+| off0 | 0.5450 | **57** | **57** | **AUC only** |
+| off4 | 0.5399 | **60** | **60** | **AUC only** |
+| off8 | 0.5444 | 54 | 51 | AUC + beats_hard |
+| off12 | 0.5404 | **57** | **57** | **AUC only** |
+
+**In three of four arms the fold terms clear the bar comfortably and the ONLY
+thing keeping this leg negative is the AUC bar.** That is the "which term binds
+depends on the family" claim, visible in the arithmetic. A slack-only reading
+calls `tlt` a comfortable negative at `+5`; it is in fact one AUC point from
+`candidate`, and **its own arm-to-arm AUC spread is `0.0051` against a margin of
+`0.0050`** — the same size. It is genuinely on the edge; it simply did not
+happen to cross in four draws.
+
+The other three legs behaved as the framework says they should, which is worth
+recording because a test that only "passes" on its headline is weak evidence:
+
+- **`gld_pullback_1h`** is the reverse case — AUC fine (0.59–0.60), failing on
+  **fold** terms, slack-flagged at `−1`. It had already been screened at 4 draws
+  without moving, and **did not move again here**. An independent consistency
+  check, passed.
+- **`qqq` and `spy` fail on ALL THREE terms in most arms** (e.g. `qqq` off0:
+  AUC 0.533, 3·ba 39, 3·bh 33 against 52). They were never near any bar, and both
+  criteria correctly decline to flag them. **Correct negative controls.**
+
+#### What it does to the numbers
+
+Three more unflagged non-movers. Over **29 screened legs, 10 movers (34%)**:
+
+| cut | criterion | flagged | unflagged | p |
+|---|---|---|---|--:|
+| **uniform 4-arm (23 legs)** | slack only | 4/9 (44%) | 4/14 (29%) | 0.367 |
+| **uniform 4-arm (23 legs)** | **either term** | 6/13 (46%) | 2/10 (20%) | **0.195** |
+| pooled 29 *(not quotable)* | slack only | 6/11 | 4/18 | 0.085 |
+| pooled 29 *(not quotable)* | either term | 8/15 | 2/14 | 0.033 |
+
+**The valid cut remains uniform 4-arm exposure**, and there the two-term
+criterion sits at **`p = 0.195`** — still not significant, still better than
+slack-only's `0.367`. The pooled numbers keep drifting toward significance and I
+keep declining to quote them, for the reason given above: they mix 9-arm and
+4-arm legs.
+
+**`tlt` is now a false POSITIVE for the two-term criterion** (flagged, did not
+move), which is the honest cost of that test — it is the first one the criterion
+has bought.
+
+#### Standing summary
+
+- **34% of screened legs (10 of 29) change verdict under re-partitioning.**
+- **Neither criterion is established.** Two-term leads slack-only in every cut
+  and reaches significance in no valid one.
+- **Two false negatives still resist everything** — `ada_4h` (slack +7, AUC
+  margin +0.12) and `eth_4h` (−5, +0.08).
+- **Four heuristics have now been advanced and tested overnight**: sample size
+  (refuted), AUC spread (refuted), slack magnitude (weak), binding-term/two-term
+  (mechanism confirmed, prediction failed, separation unproven). I am not
+  proposing a fifth.
+
