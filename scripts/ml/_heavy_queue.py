@@ -48,6 +48,48 @@ from typing import IO, Optional
 
 _REPO = Path(__file__).resolve().parents[2]
 
+# The trainer's ONE canonical clone. `CLAUDE.md` pins it: "VM clone dirs stay
+# /home/ubuntu/ict-trading-bot + /opt/ict-trading-bot — a GitHub repo rename does
+# NOT move the on-disk clone." Every timer wrapper runs from here, so this is
+# where the SHARED lock lives.
+_CANONICAL_TRAINER_CLONE = Path("/home/ubuntu/ict-trading-bot")
+_LOCK_REL = Path("runtime_logs") / "trainer" / ".heavy.lock"
+
+
+def canonical_lock_file() -> Optional[Path]:
+    """The SHARED lock path, or None when this checkout is already canonical.
+
+    ⚠️ THE LOCK PATH IS CHECKOUT-RELATIVE, AND THAT IS A TRAP FOR A WORKTREE.
+    `trainer_heavy_lock._lock_file()` resolves `<repo_root>/runtime_logs/trainer/
+    .heavy.lock` from `parents[2]` of the RUNNING module. Run the same code from
+    a git worktree and the "shared" mutex silently becomes a PRIVATE file — the
+    job prints `{"status": "heavy_lock_acquired"}`, which is true, and serializes
+    against nothing.
+
+    MEASURED, not theorised (trainer-diag #9497, 2026-08-15, while the 5m screen
+    was mid-arm from `/tmp/m20_screen_wt`): the worktree lock read **HELD**, the
+    shared lock at the canonical clone read **FREE**, and a probe launched from
+    the canonical clone **acquired immediately (rc=0)** — i.e. a training cycle
+    or drift-retrain was free to start straight into the box beside it. That is
+    the exact contention the queue exists to prevent, and it was introduced BY
+    the worktree fix that solved a different problem (the 15-min code reset).
+
+    So a non-canonical checkout points at the canonical clone's lock explicitly.
+    Returns None when we are already canonical (no override needed) or when the
+    canonical clone is absent (a dev box / CI — the caller then keeps the
+    default, which is correct off-trainer since the lock is inert there anyway).
+    """
+    try:
+        if _REPO == _CANONICAL_TRAINER_CLONE:
+            return None
+        target = _CANONICAL_TRAINER_CLONE / _LOCK_REL
+        # Require the canonical clone to actually exist. Pointing at a path on a
+        # machine that has no such clone would move the lock somewhere nothing
+        # else looks — the same defect one directory over.
+        return target if _CANONICAL_TRAINER_CLONE.is_dir() else None
+    except OSError:
+        return None
+
 
 def take_heavy_queue(label: str) -> Optional[IO]:
     """Acquire the shared trainer heavy-job lock; return the handle or None.
@@ -56,6 +98,14 @@ def take_heavy_queue(label: str) -> Optional[IO]:
     when the fd closes, so letting it be garbage-collected silently unlocks
     while the job keeps running.
     """
+    # Join the SHARED queue even when running from a worktree — see
+    # canonical_lock_file(). An explicit caller-set override always wins, so a
+    # test that pins its own lock file is unaffected.
+    import os
+    if not os.environ.get("TRAINER_HEAVY_LOCK_FILE"):
+        shared = canonical_lock_file()
+        if shared is not None:
+            os.environ["TRAINER_HEAVY_LOCK_FILE"] = str(shared)
     # Resolve the repo root ourselves rather than relying on CWD. The callers
     # happen to `cd` to the repo root today, but the 5m screen already runs from
     # a git WORKTREE at a different path, and a lock that quietly stops being

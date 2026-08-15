@@ -188,12 +188,24 @@ def test_the_round_takes_the_trainer_HEAVY_JOB_QUEUE() -> None:
     learn the trainer would have rejected it anyway.
     """
     src = _source()
-    assert "acquire_heavy_lock" in src, (
+    assert "take_heavy_queue(" in src, (
         "the round does not take the trainer heavy-job queue, so it is free to "
         "collide with any other heavy job on a 6 GB box — the measured "
         "2026-08-15 slowdown. (It would NOT have prevented the mid-arm reset; "
         "see this docstring.)")
-    lock_at = src.index("acquire_heavy_lock(")
+    # MUST go through `_heavy_queue`, not `src.utils.trainer_heavy_lock`
+    # directly. The direct import resolves the lock file from the RUNNING
+    # module's repo root, so from a git worktree it takes a PRIVATE lock and
+    # serializes against nothing while still logging `heavy_lock_acquired`.
+    # Measured mid-arm on the trainer (#9497): worktree lock HELD, canonical
+    # lock FREE, a probe from the canonical clone acquired immediately.
+    # This round is the one thing we KNOW runs from a worktree.
+    assert "from src.utils.trainer_heavy_lock import" not in src, (
+        "the round imports the lock helper directly again — from the worktree "
+        "it runs in, that resolves a private lock file. Route it through "
+        "scripts/ml/_heavy_queue.py, which points a non-canonical checkout at "
+        "the shared lock (BL-20260815-WORKTREE-RUN-TAKES-A-PRIVATE-HEAVY-LOCK)")
+    lock_at = src.index("take_heavy_queue(")
     preflight_at = src.index("PRE-FLIGHT FAILED")
     emit_at = src.index('for leg in a.legs.split(",")')
     assert preflight_at < lock_at, (

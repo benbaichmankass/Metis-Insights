@@ -46,7 +46,13 @@ sys.path.insert(0, str(REPO / "scripts" / "ml"))
 from build_exit_head_dataset import family_of as _family_of  # noqa: E402
 
 sys.path.insert(0, str(REPO))
-from src.utils.trainer_heavy_lock import acquire_heavy_lock  # noqa: E402
+# Routed through `_heavy_queue`, NOT `src.utils.trainer_heavy_lock` directly.
+# The direct import is what this file used, and from a git worktree it resolves
+# a lock file under the WORKTREE — a private mutex that serializes against
+# nothing while still logging `heavy_lock_acquired`. Measured mid-arm on the
+# trainer (#9497): worktree lock HELD, canonical lock FREE, a probe from the
+# canonical clone acquired immediately. See _heavy_queue.canonical_lock_file().
+from _heavy_queue import take_heavy_queue  # noqa: E402
 
 
 def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
@@ -276,7 +282,7 @@ def main(argv: list[str]) -> int:
     # for the whole process; the helper also exports TRAINER_HEAVY_LOCK_HELD=1
     # so the backtest/build/train subprocesses below skip re-acquiring it
     # instead of deadlocking against their own parent.
-    _heavy_lock = acquire_heavy_lock("m20_exit_head_round")  # noqa: F841
+    _heavy_lock = take_heavy_queue("m20_exit_head_round")  # noqa: F841
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
                                  .read_text()) or {}).get("strategies") or {}
