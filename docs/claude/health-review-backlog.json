@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-15T05:05:00+00:00",
+  "updated_at": "2026-08-15T05:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15491,6 +15491,24 @@
         "docs/sprint-logs/S-M20-EXIT-LOOP-DECOUPLE-2026-08-12.md (34.1s / 43.1% at n=55)",
         "CLAUDE.md § EXIT_LOOP_INTERVAL_SECONDS (period-targeting: interval = max(interval, pass))",
         "src/runtime/exit_loop_health.py"
+      ]
+    },
+    {
+      "id": "BL-20260815-TRAINER-VM-THRASHING-4GB-SWAP-DEGRADES-EVERY-JOB",
+      "opened_at": "2026-08-15T05:35:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-15)",
+      "source": "Found while distinguishing 'slow' from 'stuck' on my own 15m screen arm. The arm was healthy; the box was not. Not found by any monitor — nothing watches trainer memory or swap.",
+      "title": "Trainer VM is thrashing: replay_pregate_fleet.py holds 4.08 GB of a 6 GB box, 4.4 GB is in swap with 97 MB free, and every other job on the box has slowed ~3x. Nothing alerts on trainer memory or swap.",
+      "tier": "1",
+      "severity": "medium",
+      "area": "trainer VM / capacity",
+      "detail": "MEASURED (trainer-diag #9419, 2026-08-15T05:32:50Z):\n  load average: 3.65, 3.31, 3.15   on a 1-OCPU box\n  Mem:  5909 total  5080 used    97 free   625 available\n  Swap: 8191 total  4375 used  3816 free\n  kswapd0 CPU time: 1:03:21\n  PID 1524014  elapsed 1:00:25  %MEM 67.3  RSS 4,077,032 kB  STAT D\n    .venv/bin/python scripts/ml/replay_pregate_fleet.py --json -\n\nSTAT D = blocked in uninterruptible I/O, i.e. the holder is itself waiting on the\nswap it caused.\n\nIMPACT IS MEASURED, NOT ASSUMED. My 15m screen runs arms that are identical work\ndiffering only in --fold-offset, which cannot cost time:\n  off0  ~7.9 min   (finished 04:30:41)\n  off4  ~15.9 min\n  off8  ~20.5 min\n  off12  25.8 min and still running\nreplay_pregate_fleet started ~04:32 — between off0 finishing and off4 running. Arm\nwall-time has roughly tripled since. Deterministic compute is unaffected (AUCs and\nverdicts are unchanged); only throughput is.\n\nTHE GAP: nothing watches trainer memory or swap. There is a trainer-down alert\n(TRAINER_DOWN_STALE_SECONDS, mirror-heartbeat staleness) but a box that is UP and\nthrashing is invisible to it — the mirror keeps publishing, just slower. So the\ntrainer can degrade to ~3x slower on every job with no signal, which is the same\nshape as the live VM's pre-2026-08-09 tick cost: each component individually fine,\nthe SUM unwatched.\n\nNOT ACTED ON: the process is not mine and was an hour into its work. Killing an\nhour-long job on a shared autonomous box, unasked, is not a call to make from a\nsession that does not own it — particularly after this same session already reached\nfor pkill on this box earlier tonight, orphaned a child, and left two duplicate\nbacktests contending. Flagged on coordination board #6927 instead.\n\nWHETHER replay_pregate_fleet's 4 GB FOOTPRINT IS ITSELF A BUG IS UNDETERMINED — I\ndid not read that script. It may legitimately need it, in which case the finding is\nthat the 6 GB trainer cannot run it concurrently with anything else and the two\nshould be serialized.",
+      "resolution_criteria": "Either (a) trainer memory/swap is watched — a threshold that fires when swap-in-use or available-RAM crosses a declared bound, verified by a test or a forced condition, so a thrashing-but-up trainer is distinguishable from a healthy one; or (b) replay_pregate_fleet's peak RSS is measured and either reduced below a level the 6 GB box can host concurrently, or the job is serialized against other trainer work with that serialization enforced rather than conventional. Closing this on 'it finished and the box recovered' is not sufficient — that is the condition recurring, not resolving.",
+      "status": "open",
+      "evidence": [
+        "trainer-diag #9419 (ps/free/uptime, 2026-08-15T05:32:50Z)",
+        "trainer-diag #9418 (per-arm completion mtimes showing the 7.9 -> 25.8 min trend)",
+        "coordination board #6927 comment 5300750846"
       ]
     }
   ]
