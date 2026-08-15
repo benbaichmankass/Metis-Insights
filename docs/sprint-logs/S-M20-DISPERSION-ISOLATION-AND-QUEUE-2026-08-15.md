@@ -297,6 +297,47 @@ They stay `pending` because they are genuinely open. Filed as
 the port + a reproduction check as its resolution criteria — the fix routes the
 column onto **free runners**, so it costs the trainer nothing.
 
+### 9. Completed the 4-arm screen; dispatched the pullback re-sweep on evidence VINTAGE
+
+The screen finished 21:10:52Z. Result + the pre-registered flip are written up in
+`docs/research/m20-fold-dispersion-2026-08-15.md`; the short version is **1 of 3
+legs moved**, the flip was predicted 44 min ahead in `fc46889c`, and AUC
+dispersion turned out **anti-correlated** with verdict stability on this screen.
+
+**Then a scoping correction worth recording.** The named next thread was "the
+pullback-family stale/giveback re-sweep". Checked against the matrix, that
+thread is nearly *closed* on the axis I first looked at — 18 of 19 pullback rows
+are `honest_negative` on BOTH levers, and the only re-sweepable cell
+(`mhg_pullback_1d/giveback_stop`) is `blocked:insufficient_base`, which
+re-running cannot fix. Reporting "no actionable work" there would have been
+true and useless.
+
+The actionable population is on a different axis — **evidence vintage**:
+
+| pullback stale/giveback cells | count |
+|---|---|
+| `tp_geometry` recorded | 1 (`no_take_profit`) |
+| **unrecorded, newest ref PRE-2026-08-10 cutover** | **32** |
+| unrecorded, newest ref post-cutover | 5 |
+
+Those 32 are `honest_negative` verdicts measured on a book with **no TP
+modelled**, which is not the book production runs. The census precedent says
+this is not a formality: `tqqq_trend_long_1d` went 32 → 75 trades and median
+capture +0.40 → +1.05 once real geometry was modelled — so a no-TP
+`honest_negative` can be wrong in the *conservative* direction, leaving a real
+improvement unshipped.
+
+**Dispatched** `m20-exit-lever-sweep.yml` (run `31911850455`, `in_progress`,
+22:20:02Z) over the **17 LIVE** pullback legs carrying pre-cutover cells,
+`levers=stale_stop,giveback_stop`, `tp_cap_pct=0.099` (live parity),
+`split_target_oos=35` — the workflow's own input doc notes the default targets
+`MIN_OOS_TRADES` exactly, so a one-trade shortfall lands below the floor and
+returns `insufficient_base`; 35 leaves margin. **Free runners**, so the idle
+trainer stays free.
+
+The 204 was verified against the run list rather than trusted — a dispatch
+acknowledgement is not evidence a job started.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
