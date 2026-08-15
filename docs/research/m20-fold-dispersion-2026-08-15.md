@@ -962,6 +962,29 @@ That reframes several things above:
   from reordering alone, which feeds `u` directly into the gate's `u >= 2` term
   and into every fragility computation in the section above.
 
+### The primary measurement is NOT affected, and the control is why
+
+This is the corollary, and it deserves stating as loudly as the defect, because
+without it the finding reads as undermining the study it came out of.
+
+**The pre-registered off0 control passing IS proof that the leg order matched.**
+An order mismatch changes fold membership, which changes AUC — so six of six legs
+reproducing their recorded `mean_auc` *exactly*, on two independent runs, cannot
+happen across a permuted leg list. The 1d pullback dispersion (median **0.0515**,
+§ "The primary") is therefore measuring what it claims: boundary placement at a
+fixed leg order.
+
+So the control did exactly the job it was written for. It was written to catch
+"these arms are not comparable to the recorded round"; the *mechanism* it turned
+out to be catching was one nobody had identified, and it caught it anyway. That
+is the argument for pre-registering a stop condition you cannot yet name the
+failure modes of — and it is why the nine mismatched legs were never quoted as a
+dispersion result.
+
+The screen's "control MISMATCH" partition is best relabelled: those nine legs
+were not incomparable *experiments*, they were the same experiment at a different
+leg order, and the control is what refused to pool them.
+
 ### What is NOT claimed
 
 This does not show any recorded verdict is wrong, and **no cell is re-graded on
