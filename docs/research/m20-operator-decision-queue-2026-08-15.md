@@ -124,6 +124,19 @@ as it exists on `origin/main` yields **0** occurrences of `fold-offset`, against
 7 and 9 respectively on this branch. A git-reachability fact about two named
 files, not a judgement about the numbers.
 
+**MECHANISM (07:18Z, trainer-diag #9430) — sharper than "the checkout drifted".**
+The trainer's reflog shows `branch: Reset to origin/main` **every ~15 minutes**
+(06:28:52 · 06:44:14 · 06:59:25 · 07:14:34), with HEAD on `main` throughout and
+the script unmodified. The box was never on this branch. The 15m screen ran on a
+locally-placed copy that survived *between* resets; my 07:16 launch landed **two
+minutes after** the 07:14:34 reset wiped it.
+
+So: **any research run on that box depending on unmerged code is racing a
+15-minute timer.** Re-checking-out the branch does not fix it — the next reset
+wipes that too. Merging does. (The alternative, running from a copy outside the
+git tree, reintroduces the same version ambiguity from the other side unless it
+carries its own stamp.)
+
 Filed `BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH` (high),
 whose durable half is not the merge but a **git SHA stamped into each round's
 `_round_meta`**, so a future version drift shows up in the artifact rather than
@@ -155,6 +168,9 @@ A matched A/B over the same 19 legs, differing in nothing but the target:
 | unmeasurable (`insufficient_base`) | **68/76 = 89.5%** | **4/74 = 5.4%** |
 | graded on the merits | 8/76 | **70/74 = 94.6%** |
 | passes | 0 | 2 (both Path B) |
+
+checked: scripts/research/m20_fleet_exit_sweep.py — each cell's grade is that
+sweep's own `insufficient_base` outcome, counted from both arms' run logs.
 
 checked: scripts/research/m20_fleet_exit_sweep.py — that grading here is not an
 inference but the sweep's own `insufficient_base` outcome, counted per cell from
@@ -539,6 +555,8 @@ net_R figures are not the live book's.
 **Bonus datum for item 2, from a real cell rather than a fleet aggregate.** The
 same leg is **unmeasurable at target 25 and graded at 30** — OOS base 24 vs 31
 against a floor of 25, on a leg with **407 lifetime trades**.
+checked: scripts/research/m20_fleet_exit_sweep.py — that grade is the sweep's
+own `insufficient_base` verdict with its own `base_trades_oos` field.
 
 checked: scripts/research/m20_fleet_exit_sweep.py — that grading is not my
 inference but the sweep's own `insufficient_base` verdict, read from
