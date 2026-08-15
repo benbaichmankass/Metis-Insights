@@ -603,23 +603,45 @@ the digit**, not approximately. And within a **single pooled 2h arm** — one mo
 one training call — 3 legs reproduce exactly while 4 do not; a globally noisy fit
 would have moved all seven.
 
-**The file cannot settle it, and that is its own finding.** The rounds file's
-entire field set is `beats_actual · beats_hard · block_unit · family · leg ·
-lever · mean_auc · n_oos · prop_sibling · provenance · symbol · tf · tp_cap_pct ·
-tp_geometry · usable_folds · verdict` — **no run id, no timestamp, no git sha**.
-A row says *what* was measured and never *when* or *by which run*, so
-"the recorded row came from a different run" and "training is non-deterministic"
-are indistinguishable from the artifact. Filed as
-`BL-20260815-EXIT-HEAD-ROUNDS-CANNOT-IDENTIFY-THEIR-OWN-RUN` — the same
-provenance class this programme keeps fixing elsewhere: the value is recorded and
-the derivation is not.
+**Training is DETERMINISTIC** (relay #9396): the `4h off0` arm re-run
+byte-identically reproduced **5 of 5 legs to exactly 0.0000**. So the off0 control
+is a valid equality check — no tolerance needed — and the mismatched rows were
+produced by a *different configuration*, not by a noisy fit.
 
-**Settled by experiment instead** (relay #9396, in flight): re-run one arm a
-second time, byte-identical. All legs identical ⇒ deterministic, so the recorded
-rows are **stale evidence** and the off0 control is sound. Any leg differing ⇒
-non-deterministic, and **the control needs a tolerance rather than equality** —
-which would also mean the 8 exact matches are the surprising half, not the 9
-mismatches.
+### A wrong claim of mine, retracted in place
+
+I then asserted that the rounds file "carries no run id and no timestamp, so a row
+cannot be traced to the run that produced it", and filed a backlog row saying so.
+**That was false.** `m20_exit_head_round.py:413` stamps
+`provenance = f"round {out.name}; driver-emitted"`, and the committed rows read
+e.g. `round eth_denom_4h_20260814T134036Z; relays #9288 launch / #9294 report` —
+round directory, UTC timestamp, and relay numbers.
+
+**How I got it wrong matters more than the claim.** I printed the *field names*,
+saw no key called `run`/`time`/`stamp`, and concluded absence — while
+`provenance` sat in that very list with its value unread. That is RULE ONE
+inverted: I read the schema instead of the data, and asserted a negative from a
+probe I never showed could find a positive. The backlog row is retracted and
+rescoped to what survives — the run identity is *free text*, so a consumer cannot
+group or filter by run without parsing prose. Low severity, and not the integrity
+gap I filed.
+
+### And reading the field answered the question immediately
+
+| control | producing round |
+|---|---|
+| **OK** (8 legs) | `pullback_1h_20260814T182245Z` · `scalp_15m_20260814T135244Z` |
+| **MISMATCH** (9 legs) | `eth_denom_2h_20260814T130657Z` · `eth_denom_4h_20260814T134036Z` |
+
+Every mismatched row comes from an **`eth_denom_*` round** — the ETH-denominator
+investigation, a different experiment — and every reproducing row comes from a
+plain family round. The split is by *provenance*, not by leg, family, geometry or
+timeframe.
+
+**One piece is still unexplained, and is left open rather than tidied:** inside
+the single `eth_denom_2h` round, 3 of its 7 legs reproduce exactly under my
+full-7-leg re-run and 4 do not. Had that round pooled a different leg set, all
+seven should have differed.
 
 ## Limits, stated plainly
 
