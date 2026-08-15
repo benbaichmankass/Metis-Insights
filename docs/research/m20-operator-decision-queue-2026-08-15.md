@@ -360,11 +360,25 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 > than by cell. Three heuristics for shortening that list have now been measured
 > and refuted (sample size, AUC spread, margin). I am not proposing a fourth.
 >
-> **6. One thing NOT claimed:** PR #9257 (item 1) rests on a walk-forward, a
-> different harness from anything measured here. It shares the *structure* that
-> proved boundary-sensitive, but **I have not measured walk-forward
-> re-partitioning and this is not a reason to hold that merge.** Flagged so it is
-> not discovered later and mistaken for something I knew and withheld.
+> **6. ✅ RESOLVED 11:25Z — a doubt I raised and then WITHDREW after reading the
+> harness.** I had flagged that PR #9257's `wf 5/6` might share this boundary
+> sensitivity, since both gates are majority-of-folds votes. **It does not, and
+> the reason is structural.** The lever walk-forward's folds are a fixed list of
+> **calendar years** (`m20_fleet_exit_sweep.py:118`, run as `start=`/`end=`
+> dates) — there is no sequential trade-block partition, so **there is no
+> boundary to slide**. `train_exit_head.py:495` enforces exactly this: it
+> **raises** on `--fold-offset` under year-mode, saying *"there is none to shift
+> in a per-calendar-year cut"*.
+>
+> Everything measured here is the `exit_head_ml` E1 gate, whose blocks start at
+> an arbitrary point — **that arbitrariness IS the finding**. Calendar years are
+> a natural partition. The two gates share the 2-of-3 shape but not the property
+> that made verdicts move. **The doubt is withdrawn; both it and the withdrawal
+> are posted on PR #9257** so the sequence is visible rather than quietly edited.
+>
+> ⚠️ What this does *not* say: a year cut still involves choices (which years,
+> where a boundary falls relative to a regime). It says this machinery and this
+> finding do not test them.
 
 ---
 
