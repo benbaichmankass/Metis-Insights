@@ -131,6 +131,16 @@ def main(argv: list[str]) -> int:
                     help="pass through to train_exit_head (P4.2)")
     ap.add_argument("--features", default=None, choices=["base", "extended"],
                     help="pass through to train_exit_head (P4.3)")
+    ap.add_argument("--total-sort", action="store_true",
+                    help="pass through to train_exit_head: break entry-time "
+                         "ties by trade_key so the fold partition does not "
+                         "depend on the order --legs was given. Recorded in "
+                         "_round_meta AND on every emitted row, because a "
+                         "re-measured round and a legacy one that do not say "
+                         "which convention produced them are not "
+                         "distinguishable — which is the defect this flag "
+                         "exists to end "
+                         "(BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER).")
     ap.add_argument("--fold-offset", type=int, default=0,
                     help="pass through to train_exit_head: shift where "
                          "trade-blocking starts, at FIXED block size, so a "
@@ -269,6 +279,8 @@ def main(argv: list[str]) -> int:
             train_cmd += ["--features", a.features]
         if a.fold_offset:
             train_cmd += ["--fold-offset", str(a.fold_offset)]
+        if a.total_sort:
+            train_cmd += ["--total-sort"]
         p = sh(train_cmd, timeout=21600)
         print(p.stdout[-3000:], p.stderr[-500:], flush=True)
         e1 = fam_dir / "e1_report.json"
@@ -338,6 +350,11 @@ def main(argv: list[str]) -> int:
         # and a dispersion series is only readable if every arm states its own
         # offset — `0` is one of the arms, not the absence of one.
         "fold_offset": a.fold_offset,
+        # ALWAYS stamped, including False. Same reasoning as fold_offset above:
+        # a round that does not state its tie-break convention cannot be told
+        # apart from one measured under the other, and the whole migration
+        # depends on telling them apart.
+        "total_sort": bool(a.total_sort),
     }
     (out / "round_report.json").write_text(json.dumps(
         {"_round_meta": meta, **{k: v for k, v in report.items()}},
@@ -444,6 +461,11 @@ def main(argv: list[str]) -> int:
                 "pooled_legs_ordered": (
                     [leg] if _family_of(leg) == leg
                     else [x for x in meta["legs"] if _family_of(x) == fam_name]),
+                # Which tie-break convention produced this row. Legacy rows
+                # predate the flag and carry False; a row from a re-measured
+                # corpus carries True. Without it the two conventions pool
+                # invisibly in one evidence file.
+                "total_sort": bool(a.total_sort),
                 "provenance": f"round {out.name}; driver-emitted",
             })
     (out / "rounds.jsonl").write_text(

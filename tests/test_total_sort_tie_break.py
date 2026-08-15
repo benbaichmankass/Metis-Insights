@@ -116,3 +116,43 @@ def test_untied_data_is_unaffected_either_way() -> None:
     pool = {f"t{i}": [{"bar_t": 1000.0 + i, "age_bars": 0, "year": 2026}]
             for i in range(6)}
     assert _order_of(m, pool, True) == _order_of(m, pool, False)
+
+
+# --------------------------------------------------------------------------
+# The flag must be REACHABLE from the round driver, and the convention must be
+# RECORDED. A flag only `train_exit_head.py` accepts is unreachable in practice,
+# because rounds are launched through `m20_exit_head_round.py` — the
+# written-but-never-wired shape this repo has guards for one level down.
+
+_DRIVER = REPO / "scripts" / "research" / "m20_exit_head_round.py"
+
+
+def test_the_round_driver_ACCEPTS_and_FORWARDS_total_sort() -> None:
+    src = _DRIVER.read_text()
+    assert '"--total-sort", action="store_true"' in src, \
+        "the round driver does not accept --total-sort, so the flag is unreachable"
+    assert 'train_cmd += ["--total-sort"]' in src, \
+        "the driver accepts --total-sort but never forwards it to train_exit_head"
+
+
+def test_the_convention_is_RECORDED_in_round_meta_and_on_the_row() -> None:
+    """Unrecorded, a re-measured round is indistinguishable from a legacy one.
+
+    That is the same defect the flag exists to end, one level up: the migration
+    is only auditable if each artifact says which convention produced it.
+    """
+    src = _DRIVER.read_text()
+    assert src.count('"total_sort": bool(a.total_sort),') == 2, (
+        "expected the convention stamped in BOTH _round_meta and the emitted "
+        "evidence row; found "
+        f"{src.count('chr(34)total_sort(chr(34)): bool(a.total_sort),')}")
+
+
+def test_it_is_stamped_UNCONDITIONALLY_not_only_when_true() -> None:
+    """`bool(...)` not `if a.total_sort`. An absent key would make a legacy
+    round and a False round indistinguishable — the collapsed-state shape."""
+    src = _DRIVER.read_text()
+    assert 'if a.total_sort:\n            train_cmd' in src, \
+        "forwarding should be conditional (no flag = no arg)"
+    assert '"total_sort": bool(a.total_sort),' in src, \
+        "but the STAMP must be unconditional, recording False explicitly"
