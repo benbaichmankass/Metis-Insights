@@ -369,6 +369,46 @@ instability**. If you want one sentence for the decision — *the fragile-margin
 population is a list of cells to re-measure before shipping, not a list of cells
 to distrust.*
 
+### ✅ UPDATE 09:20Z — the donchian-1h screen landed; a FOURTH mover, and it kills one more shortcut
+
+**`trend_donchian_eth` moved** — 3 of 4 boundary draws `candidate`, off4 flips to
+`honest_negative` on `beats_hard` (13 against a bar of 16 at `u = 23`). Both
+pre-committed gates passed *before* I read any number: identical `sha256` across
+all four arms, and the off0 control reproducing `auc 0.6079 / u 23 / candidate`
+exactly. Full result + the two legs the pooled round gave free:
+`docs/research/m20-fold-dispersion-2026-08-15.md`.
+
+**Two things in it change what you can safely shortcut, so they are here and not
+only in the memo:**
+
+1. **AUC spread tells you NOTHING about verdict stability.** The flipping arm's
+   AUC is **0.6077 against a control of 0.6079** — flat to three decimals — and
+   the verdict still moves. Its four-draw spread is 0.0086; `ict_scalp_sol_15m`,
+   which did **not** move, spreads 0.0088. The two tightest-AUC legs in the
+   corpus split one-and-one on whether they flip. If you were going to triage
+   this population by "how much does the headline number wobble", that heuristic
+   is now measured and it does not work.
+2. **The mover is the DEEPEST leg screened** (`u = 23`, `n_oos = 566`, against
+   `u = 9` scalps and `u = 4–11` 1d legs). That is a second and stronger
+   refutation of the struck sample-size story above — not merely "a mover can be
+   thick", but "the thickest book screened moved while thinner ones held".
+
+**The tally is now 4 of 15**, and the base is finally large enough to state one
+thing positively rather than only as a caveat: **every leg that moved was
+flagged, and no unflagged leg has moved.** Zero false negatives in 15 legs;
+11 of 15 false positives.
+
+**My recommendation on this item is STILL unchanged** — and it has now survived
+two screens that each refuted a *different* explanation I had attached to it.
+That is the useful property: the recommendation never depended on either story.
+Re-measure before shipping; do not distrust wholesale.
+
+One new observation worth a line, because it is the first of its kind:
+`trend_donchian_sol` sits at slack **−1** — a **fragile NEGATIVE**, one fold from
+reading `candidate` — and held across all four draws. The flag is symmetric, and
+this is the first negative-side cell actually tested. It behaved like the
+majority of positive-side ones: flagged, exposed, stable.
+
 ---
 
 ## 6. The harness has an undeclared degree of freedom — HOW to fix it is yours
