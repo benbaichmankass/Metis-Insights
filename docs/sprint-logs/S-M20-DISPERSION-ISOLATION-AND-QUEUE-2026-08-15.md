@@ -205,6 +205,52 @@ so I removed it (#9498, guarded on empty-and-unheld). And the canonical
 `heavy_lock_holder.json` still names a dead `drift_retrain` pid: documented
 stale-holder behaviour, so read it through `read_holder()` and never `cat`.
 
+### 6. The `exit_head_ml` column held TWO INCOMPATIBLE ARITHMETICS
+
+Found while checking whether the mes/mgc/mhg cells were reachable — a gap an
+earlier turn of this session had recorded as open and which relay #9195 had in
+fact already closed. **Verifying my own stated gap is what surfaced this.**
+
+The seven equity 1d cells reason correctly from lifetime trades (*"48 lifetime
+harness trades; a 50-trade test block needs >=100 for one fold"*). The three
+futures cells reason from the **LEVER sweep's** `MIN_OOS_TRADES=25` and its date
+split, and then name an escape route — *"an EARLIER split could arithmetically
+reach 25 OOS"* — that this lever has **no date split to take**.
+
+Computed against `train_exit_head.fold_blocks`'s actual loop rather than from
+prose: folds are fixed blocks of `b=50` over the sorted trade list starting one
+block in, so `u = len(range(b, N-b+1, b))`. **u ≥ 2 needs N ≥ 150; even ONE fold
+needs N ≥ 100.** MES 33, MGC 74, MHG 80 → **u = 0 at any split.**
+
+The statuses were right; the stated way out was not. It matters because that same
+ref exists partly to stop a session burning time on a dead route — it records one
+doing exactly that a day earlier — and then named a second one.
+
+### 7. Derived the block instead of asserting it (the class fix)
+
+**Not what my own backlog row first proposed.** That said "check the
+blocked-reason vocabulary"; it would not have caught this, because both
+arithmetics wrote the *same* status string and the divergence was in ref prose.
+A keyword guard over prose would also be brittle and cheap to lie to — which
+this repo already rules out.
+
+The real defect: the trade counts lived **only in prose**, so nothing could
+recompute the bound.
+
+- `lifetime_trades` promoted to a **field** on all 11 blocked cells.
+- `m20_coverage_rollup.py` **derives** `u` from it, mirroring the trainer's own
+  `range(...)` rather than a closed form, so a change to the fold construction
+  shows up as a diff instead of a stale formula. A cell missing the field is
+  reported **ungraded**, never skipped.
+- The **done-condition now splits**: 25 remaining = **14 actionable + 11
+  arithmetic**. Pooling them invited "keep sweeping and it converges"; those 11
+  close only if the leg *trades* more (a strategy question) or the E1 protocol
+  changes.
+
+Producer and consumer landed together — a field written and never read is worse
+than a missing one. Statuses untouched (asserted by diffing every cell
+old-vs-new), headline unchanged, all three matrix guards green.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
