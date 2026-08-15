@@ -410,6 +410,40 @@ def main(argv: list[str]) -> int:
                 # from the round's directory layout, so the two cannot drift.
                 "block_unit": ("per_leg" if _family_of(leg) == leg
                                else "family_pooled"),
+                # THE ORDERED LEG SET THIS ROW'S MODEL WAS TRAINED OVER.
+                # BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER.
+                #
+                # Order, not just membership, because the order is load-bearing:
+                # `--legs` order becomes the row order in `rows.jsonl`
+                # (build_exit_head_dataset.py:583,634,730), which becomes the
+                # tie-break in `sorted(h_trades.items(), key=bars[0]["bar_t"])`
+                # (train_exit_head.py:518) — and Python's sort is STABLE, so
+                # ties inherit it. On a 2h family every leg entering on the same
+                # bar carries an IDENTICAL bar_t, so the tie groups span every
+                # pooled leg.
+                #
+                # Measured 2026-08-15: the same 7 legs in two different orders
+                # gave identical trade counts (2220), identical rows (71199) and
+                # an identical 43x50 fold shape, yet 8 of 43 folds differed, AUC
+                # moved up to 0.0331, and two legs LOST a usable fold. That is
+                # ~2/3 of the deliberate fold-boundary dispersion the M20 study
+                # set out to measure.
+                #
+                # Recording it does NOT fix it — a total sort key would (see the
+                # backlog row's option (a), which changes recorded numbers and so
+                # is an operator call). This makes two rows that differ by it
+                # DETECTABLE, which they were not: `legs` was stamped only in
+                # `round_report.json::_round_meta`, nothing compared it, and the
+                # committed evidence row carried nothing at all. Four relays went
+                # into re-deriving from the artifacts what this one field states.
+                #
+                # For a `per_leg` row the pooled set is the leg alone, so the
+                # field is `[leg]` rather than null — null would conflate "this
+                # row is immune" with "we did not record it", and those are
+                # opposite statements.
+                "pooled_legs_ordered": (
+                    [leg] if _family_of(leg) == leg
+                    else [x for x in meta["legs"] if _family_of(x) == fam_name]),
                 "provenance": f"round {out.name}; driver-emitted",
             })
     (out / "rounds.jsonl").write_text(
