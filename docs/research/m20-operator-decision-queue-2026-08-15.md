@@ -1,4 +1,4 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~07:20Z)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~07:30Z)
 
 Everything the overnight session queued rather than decided, in one place.
 **Seven items**, plus one coda outside M20's scope. **Nothing here has been acted
@@ -19,7 +19,7 @@ and it is the night's actual result.
 | 4 | `iaum_pullback_1d` | **leave the status**; the real question is about the gate |
 | 5 | The fragile-margin population | **no flip needed** — unchanged, but read the 07:00Z update: one mover refuted my stated *cause* |
 | 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
-| 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | **re-sweep it first** — one arm, and the only stale decision touching real money |
+| 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | **measurement RUNNING** (relay #9426) — I took it; measuring is Tier-1, only changing the lever is yours |
 | — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
 
 Each item states what I'd do and how confident I am, because Tier-3 is *propose,
@@ -415,11 +415,40 @@ cannot make MES read as money-at-risk), with `unresolved` kept distinct from
 stale is more actionable than four cells of unstated funding.
 
 **My recommendation: re-sweep `htf_pullback_trend_2h` / `trail_geometry` under
-live TP geometry before anything else in the stale backlog** — it is one arm, the
-trainer is free once the 15m screen drains, and it is the only stale decision
-touching real money. **I did not run it**: a re-sweep that comes back worse is an
-argument for changing a live exit parameter, which is Tier-3 and yours. The three
-paper rows can wait for the general re-sweep.
+live TP geometry before anything else in the stale backlog** — it is one arm and
+the only stale decision touching real money. The three paper rows can wait for
+the general re-sweep.
+
+### UPDATE 07:30Z — I am running the measurement. It was mine to take.
+
+This item first said *"I did not run it: a re-sweep that comes back worse is an
+argument for changing a live exit parameter, which is Tier-3 and yours."* That
+conflated two different things. **Measuring is Tier-1 research; only CHANGING
+the lever is Tier-3.** Withholding the measurement did not protect the gate — it
+just handed you an item that asked permission to look, which is the opposite of
+how the autonomy mandate splits the work. Launched on the now-idle trainer
+(relay #9426); **it writes no config, and the sweep tool never can.**
+
+**One flag in it is load-bearing: `--tp-cap-pct 0.099`, passed explicitly.** The
+default is `0.0` — *not* live parity — so a re-sweep left on defaults would
+reproduce the very geometry gap the cell is stale for and still look like a
+clean re-measurement. That is the trap this whole item is about, and it is one
+argument away.
+
+Running **both** split targets (25 = today's default, 30 = your undecided item
+2), because for one leg it is cheap, it gives item 2 a real cell instead of a
+fleet aggregate, and it pre-empts neither choice.
+
+**What the result will and will not settle.** It will say whether `trail_mult:
+4.0` still beats its neighbours under the geometry the bot actually places. It
+will **not** settle whether to change the live value — that stays yours, and a
+worse result is an argument, not a mandate. **Pre-committing to the reading now,
+before I have the number, so the conclusion is not fitted to whatever comes
+back:** a PASS means the shipped value is re-confirmed and the staleness is
+retired; a FAIL means the cell should go to `pending` and the live value gets a
+Tier-3 decision from you; an `insufficient_base` at both targets means the leg
+cannot be judged at this depth and the honest status is `blocked`, not either
+verdict.
 
 ⚠️ **What this does NOT say:** that the lever is wrong. Pre-cutover evidence is
 unreproduced, not refuted — the re-sweep may confirm `trail_mult: 4.0`. The
