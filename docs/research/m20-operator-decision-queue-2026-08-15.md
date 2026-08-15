@@ -537,6 +537,13 @@ whose control slack I can name:
 
 55% vs 50%, one-sided Fisher **p = 0.66**.
 
+> ⚠️ **I CORRECTED THIS AT 10:10Z — the box at the top of item 5 has the current
+> version.** The comparison above pooled legs measured at different numbers of
+> draws over an unflagged denominator of four. At matched draws: flagged **3/6**
+> vs unflagged **3/11**, **p = 0.34**. The flag is **suggestive, not refuted**.
+> Everything below this line is kept as written so you can see what I told you
+> and when, but do not act on its numbers.
+
 **Why, because the reason matters more than the number:** slack measures how far
 a cell is from ONE fold flipping *inside a fixed partition*. This screen
 **re-draws every fold**. `eth_4h`'s `beats_hard` moves 9 → 12 between two arms —

@@ -1524,6 +1524,15 @@ not re-derived their slacks this session, so they stay out of the denominator):
 **55% vs 50%. One-sided Fisher `p = 0.66`.** The flag does not separate movers
 from non-movers on this evidence at all.
 
+> ⚠️ **SUPERSEDED AT 10:05Z — do not quote the two numbers above.** That
+> comparison pooled legs measured at *different numbers of draws* (7 for
+> `gdx`/`iaum`, 4 for the rest); more draws is more chances to move, and the
+> unflagged denominator was **four**. At matched draws over 17 legs it is
+> flagged **3/6** vs unflagged **3/11**, **`p = 0.34`** — the direction the flag
+> predicts, not established. See § "The SLACK-BLIND 2h round". The section below
+> is kept as written because its *mechanism* argument still stands; only its
+> statistics were wrong.
+
 #### Why — and this is the part worth keeping
 
 **Slack models ONE fold flipping inside a FIXED partition. The screen REDRAWS
@@ -1544,7 +1553,8 @@ was reading it as one.
 #### The finding that replaces it
 
 **8 of 15 screened legs (53%) changed verdict under re-partitioning, and margin
-does not tell you which.**
+does not tell you which.** ⚠️ **Superseded: quote 35% (6 of 17 at matched draws),
+not this 53%, which mixed draw counts — see § "The SLACK-BLIND 2h round".**
 
 ⚠️ **That 53% is NOT an unbiased fleet estimate**, and the reason is that I chose
 the screened set to be flag-enriched. But the enrichment demonstrably did not
