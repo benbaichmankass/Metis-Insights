@@ -1561,3 +1561,45 @@ because the flag has stopped being a reason to prefer them.
 **Three heuristics have now been measured and refuted** — sample size (07:00Z),
 AUC spread (09:20Z), and margin/slack (here). I am not proposing a fourth.
 
+
+### What `--fold-offset` actually does — read 09:58Z, because I had been describing it loosely
+
+I have drawn a large conclusion from this flag and had not read its
+implementation this session. Doing so (`scripts/ml/train_exit_head.py:549`) turns
+up a detail that belongs in the record:
+
+```
+if offset:
+    ordered = ordered[offset:]     # skip the first N trades, THEN block
+```
+
+So an arm at offset N differs from its control in **two** ways, not one:
+
+1. **the fold boundaries move** — the intended effect; block size is unchanged, and
+2. **the first N trades are DISCARDED** — up to 12 of ~2,200 on these rounds,
+   about **0.5%**.
+
+**This does not change any conclusion, and I want to be precise about why rather
+than wave it away.** A 0.5% truncation cannot plausibly move `beats_hard` by
+three folds (`eth_4h`, 9 → 12); and the two effects are not really separable in
+principle anyway, since dropping leading trades is *how* you move a sequential
+block boundary at fixed block size. But it does explain something I had reported
+as purely a partition effect: **`u` falling across arms** (24 → 23, 43 → 42) is
+partly the round simply having fewer trades to fill its last block with.
+
+Two guard rails in the same function are worth knowing, because they mean the
+arms cannot be quietly incomparable:
+
+- `0 <= offset < block_n` is **enforced with a raise**, not clamped — an offset
+  at or beyond the block size would repeat a partition while discarding a whole
+  block, and the code refuses rather than ignoring it. All four offsets used here
+  ran, so `block_n > 12` on every round screened.
+- `--fold-offset` with `--fold-mode=years` **raises** rather than being ignored,
+  explicitly so "a dispersion run cannot report distinct offsets that were all
+  the same partition". Every round here is `fold-mode=trades`.
+
+Recorded because "re-partition" is the word I have used throughout, and it
+implies the same data cut differently. It is *nearly* that, and the gap is
+small, stated, and bounded — but it was not something I had checked before
+building on it.
+
