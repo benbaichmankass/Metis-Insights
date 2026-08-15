@@ -1839,3 +1839,55 @@ the slack flag misses, and a family whose AUCs sit well above it should not.**
 `trend_donchian_eth_4h` (slack **−5**, margin **+0.08**) are far from **both**
 bars and moved anyway. Nothing here explains them and I am not adding a term to.
 
+
+### The full picture across all 26 screened legs (10:25Z) — and the pooling trap, in the direction that FAVOURS my hypothesis
+
+Adding the committed 1d arms (`m20-fold-dispersion-arms.jsonl`, 6 legs × 9 arms,
+already on disk and never folded into this tally) gives **26 screened legs, 10
+movers (38%)**.
+
+**The 1d round alone is the strongest evidence the flag has:** flagged **2/2**
+moved, unflagged **0/4** — and those four legs held across **NINE** arms each, so
+they had more than twice the exposure of any other round and still did not budge.
+
+| cut | criterion | flagged | unflagged | p |
+|---|---|---|---|--:|
+| **pooled, all 26** | slack only | 6/11 (55%) | 4/15 (27%) | 0.150 |
+| **pooled, all 26** | either term | **8/14 (57%)** | **2/12 (17%)** | **0.042** |
+| uniform 4-arm (20 legs) | slack only | 4/9 (44%) | 4/11 (36%) | 0.535 |
+| **uniform 4-arm (20 legs)** | **either term** | 6/12 (50%) | 2/8 (25%) | **0.260** |
+| 1d round only (9 arms) | slack only | 2/2 | 0/4 | 0.067 |
+
+#### ⚠️ I am NOT quoting the p = 0.042
+
+It is the **pooled** cut, and pooling legs with 9 arms against legs with 4 is the
+**exact methodological error I identified and corrected at 10:05Z** — when it was
+working against the flag. It is no more valid now that it works for it. *"Verify
+your own output too, hardest when it confirms what you expected."*
+
+**The valid cut is uniform 4-arm exposure**, and there the two-term criterion
+gives **`p = 0.26`. Not significant.**
+
+What can be said honestly:
+
+- **The two-term criterion beats slack-only in EVERY cut** — 0.042 vs 0.150
+  pooled, 0.260 vs 0.535 at uniform exposure. The direction is consistent across
+  three independent slices; none of them individually establishes it.
+- **10 of 26 legs (38%) moved.** That figure is stable-ish across cuts, unlike
+  the separation statistic.
+- **Two false negatives survive every criterion**: `trend_donchian_ada_4h`
+  (slack +7, AUC margin +0.12) and `trend_donchian_eth_4h` (−5, +0.08), far from
+  **both** bars.
+
+#### The confirmatory test is running (#9449), with predictions fixed first
+
+The 1h pullback family sits *below* the AUC bar and separates the two criteria
+cleanly: `tlt_pullback_1h` is **slack-unflagged (+5)** but **AUC-flagged
+(−0.0050)**; `gld_pullback_1h` is the reverse (slack −1, AUC margin +0.051) and
+has **already been screened at 4 draws without moving**. `spy` (−0.0105) and
+`qqq` (−0.0170) sit just outside the `0.01` band and test where it belongs.
+
+Recorded before the run, so a null is reportable rather than reframed:
+**falsification is `tlt` stable while `qqq`/`spy` move, or nothing moving at all
+despite AUC margins this thin.**
+
