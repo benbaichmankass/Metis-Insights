@@ -215,20 +215,45 @@ def main(argv: list[str]) -> int:
               flush=True)
 
     # ---------------------------------------------------------------------
-    # TAKE THE TRAINER HEAVY-JOB QUEUE. This is the actual reason the arms kept
-    # dying, and it is a protocol violation rather than bad luck.
+    # TAKE THE TRAINER HEAVY-JOB QUEUE. Required by
+    # docs/claude/trainer-resource-protocol.md § Rule 1, and it stops this round
+    # contending with other heavy jobs on the 6 GB box.
+    #
+    # 🔴 IT DOES NOT STOP THE ~15-MIN RESET, and an earlier version of this
+    # comment claimed it did. CORRECTED 2026-08-15T16:05Z against measurement.
+    # There are TWO reset paths, not one:
+    #   * run_training_cycle.sh:138 — inside this lock, ~daily. The lock DOES
+    #     hold this one off.
+    #   * scripts/ops/trainer_git_sync.sh via ict-trainer-git-sync.timer,
+    #     OnUnitActiveSec=15min — DELIBERATELY LOCK-FREE. Its own header: "a
+    #     tiny, frequent, lock-free force-sync so 'keep the code current' can
+    #     never be blocked by 'run training'" (BL-20260718-TRAINER-GITSYNC-STALE:
+    #     gating sync behind the heavy lock once left the trainer 495 commits
+    #     behind and froze the forecast producer). That is the one whose cadence
+    #     matches, and no lock can stop it — correctly so.
+    # PROOF, not inference: the 5m screen's off0 arm ran the whole 74 min under
+    # a held lock and its AFTER hashes were 6f6458ac22d8 / 08541341e093, which
+    # are byte-identical to origin/main's copies of this file and of
+    # train_exit_head.py. off0 survived only because `--fold-offset 0` is falsy
+    # and never forwarded.
+    #
+    # SO: a branch-only research run CANNOT be protected by this lock. Run it
+    # from a git worktree (which `git checkout -B main` in the main worktree
+    # cannot touch), or land the flag on main. Do NOT mask the timer — it exists
+    # to prevent a worse failure. The capability pre-flight above remains the
+    # thing that makes the residual race cheap, not this.
     #
     # `docs/claude/trainer-resource-protocol.md` § Rule 1 is binding: every
-    # memory-heavy job on the 6 GB trainer takes ONE shared blocking lock. The
-    # three timer wrappers take it -- INCLUDING `run_training_cycle.sh`, whose
-    # `git checkout --force -B main origin/main` is the "~15-min reset" that
-    # removed `--fold-offset` mid-arm and voided two 73-minute arms. That reset
-    # is not a background force of nature: it runs INSIDE the lock, and skips
-    # its whole cycle if the queue is held past the wait. Holding the lock
-    # PREVENTS the reset landing mid-arm outright.
+    # memory-heavy job on the 6 GB trainer takes ONE shared blocking lock, and
+    # the three timer wrappers take it. What that buys is CONTENTION control --
+    # this round no longer runs beside a 4 GB sibling on a 6 GB box. What it
+    # does NOT buy is protection from the reset, per the correction above: the
+    # `run_training_cycle.sh` checkout is inside the lock, but the 15-min
+    # `trainer_git_sync.sh` checkout is not, and the 15-min one is the one that
+    # voided the arms.
     #
-    # So this round was never protected, and could not be, because it takes the
-    # queue nowhere. The `ml` CLI's enforced backstop (src/utils/
+    # This round took the queue nowhere at all before the change below, so it
+    # had neither. The `ml` CLI's enforced backstop (src/utils/
     # trainer_heavy_lock.py, wired in ml/cli.py) does not cover it either --
     # that fires for `python -m ml train|build-dataset`, and this driver shells
     # out to `scripts/ml/train_exit_head.py`, which is not the CLI. The whole

@@ -154,18 +154,32 @@ def test_the_preflight_matches_flag_names_at_a_WORD_BOUNDARY() -> None:
 
 
 def test_the_round_takes_the_trainer_HEAVY_JOB_QUEUE() -> None:
-    """The reset that voided two arms runs INSIDE this lock.
+    """Contention control on a 6 GB box — NOT protection from the reset.
 
     `docs/claude/trainer-resource-protocol.md` § Rule 1 is binding: every
-    memory-heavy job on the 6 GB trainer takes one shared blocking lock. The
-    timer wrappers take it — including `run_training_cycle.sh`, whose
-    `git checkout --force -B main origin/main` IS the "~15-min reset" that
-    removed `--fold-offset` mid-arm. That reset is not a background force of
-    nature: it runs inside the queue and skips its whole cycle when the queue is
-    held. Holding the lock prevents it landing mid-arm outright.
+    memory-heavy job on the 6 GB trainer takes one shared blocking lock, and
+    this round took it nowhere.
 
-    This round took the queue nowhere, and the `ml` CLI's enforced backstop
-    cannot cover it — that fires for `python -m ml train|build-dataset`, and
+    ⚠️ AN EARLIER VERSION OF THIS DOCSTRING CLAIMED THE LOCK STOPS THE RESET
+    THAT VOIDED TWO ARMS. It does not, and the claim was published in code,
+    docs, a backlog row and the coordination board before being measured.
+    Corrected 2026-08-15. There are TWO reset paths: `run_training_cycle.sh`'s
+    checkout runs INSIDE this lock (~daily, so the lock does hold it off), and
+    `scripts/ops/trainer_git_sync.sh` via `ict-trainer-git-sync.timer`
+    (`OnUnitActiveSec=15min`) is **deliberately lock-free** — its header says a
+    lock-free force-sync exists so "keep the code current" can never be blocked
+    by "run training" (BL-20260718-TRAINER-GITSYNC-STALE, where gating sync
+    behind this lock left the trainer 495 commits behind). The 15-min one is
+    the one whose cadence matches, and it is the one that landed: arm off0 ran
+    74 min under a HELD lock and came out carrying origin/main's file hashes.
+    A branch-only research run is protected by a git worktree, not by this.
+
+    What the lock is still for, and why this test stays: the 2026-08-15T05:33Z
+    slowdown, where identical arms differing only in `--fold-offset` took
+    7.9/15.9/20.5/25.8 min beside an unqueued 4.08 GB `replay_pregate_fleet.py`.
+
+    The `ml` CLI's enforced backstop cannot cover this round either — it fires
+    for `python -m ml train|build-dataset`, and
     this driver shells out to `scripts/ml/train_exit_head.py`, which is not the
     CLI. So the protection was absent on both paths.
 
@@ -175,9 +189,10 @@ def test_the_round_takes_the_trainer_HEAVY_JOB_QUEUE() -> None:
     """
     src = _source()
     assert "acquire_heavy_lock" in src, (
-        "the round does not take the trainer heavy-job queue, so a training "
-        "cycle can reset the worktree mid-arm and this driver is also free to "
-        "collide with any other heavy job on a 6 GB box")
+        "the round does not take the trainer heavy-job queue, so it is free to "
+        "collide with any other heavy job on a 6 GB box — the measured "
+        "2026-08-15 slowdown. (It would NOT have prevented the mid-arm reset; "
+        "see this docstring.)")
     lock_at = src.index("acquire_heavy_lock(")
     preflight_at = src.index("PRE-FLIGHT FAILED")
     emit_at = src.index('for leg in a.legs.split(",")')

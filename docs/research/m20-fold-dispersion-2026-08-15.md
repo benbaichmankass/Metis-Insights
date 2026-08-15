@@ -2218,6 +2218,78 @@ hour of queueing), and each arm re-checks-out the branch because a reset landing
 the three sibling scripts, and the enumeration of how many others bypass the
 queue, which has **not** been done.
 
+#### 🔴🔴 SECOND CORRECTION (16:05Z) — the correction above is itself wrong
+
+**Holding the heavy lock does not prevent the reset.** I asserted that it does —
+in this document, in `m20_exit_head_round.py`, in a test docstring, in two
+backlog rows, on the coordination board, and in two Telegram pings — and then
+the very next arm measured it false.
+
+Arm `off0` of the relaunched 5m screen ran its **full 74 minutes under a held
+lock** (`{"status": "heavy_lock_acquired"}` in its own log) and came out with:
+
+```
+!! DRIVER HASH CHANGED 43eec43d0c83 -> 6f6458ac22d8
+!! TRAIN  HASH CHANGED 6412613984a3 -> 08541341e093
+```
+
+Both AFTER hashes are byte-identical to `origin/main`'s copies of those files.
+The reset landed **while the lock was held**. (`off0` still produced its three
+rows only because `if a.fold_offset:` treats `0` as falsy, so the control arm
+never forwards the flag and never needs the branch-only code.)
+
+**Why the lock cannot help: there are TWO reset paths and I only found one.**
+
+| path | cadence | takes the heavy lock? |
+|---|---|---|
+| `run_training_cycle.sh:138` | ~daily | **yes** — the one I found, and the lock does hold it off |
+| `scripts/ops/trainer_git_sync.sh` via `ict-trainer-git-sync.timer` | `OnUnitActiveSec=15min` | **no — deliberately not** |
+
+The second script's own header says it: *a tiny, frequent, **lock-free**
+force-sync so "keep the code current" can never be blocked by "run training"*.
+That is not an oversight to be fixed — it exists because gating sync behind the
+heavy lock once left the trainer **495 commits behind** and froze the forecast
+producer (`BL-20260718-TRAINER-GITSYNC-STALE`). Masking or locking that timer
+would re-introduce a worse failure than the one it would prevent.
+
+And the cadence was the tell I had in hand the whole time: I wrote "~15-min
+reset" repeatedly while attributing it to a **daily** job. The two numbers never
+matched, and I did not check.
+
+**What was actually wrong with my reasoning.** `grep -c heavy_lock` over the
+three M20 scripts returned 0, which is a true fact about the *callers*. I turned
+it into a claim about the *reset* without ever enumerating the reset's
+producers — a search that found one positive and was treated as complete. "A
+search returning nothing is not proof of absence" has a mirror image that bit
+here: **a search returning one thing is not proof there is only one.**
+
+**The actual fix — a git worktree.** `git checkout -B main` in the main worktree
+cannot touch a linked worktree, so the screen now runs its *code* from
+`/tmp/m20_screen_wt` pinned at a detached HEAD. Proven, not assumed: a sync was
+**forced** while the worktree stood, and the main tree moved to `6f6458ac22d8`
+while the worktree stayed at `43eec43d0c83` / `6412613984a3`. Push-safety was
+measured the same way — 15 pushes to the branch during a running arm left both
+executed files byte-identical.
+
+Two things the worktree cost, both now handled and both worth recording because
+each read as a *completed* run:
+
+1. A worktree checks out **tracked** files only, and the candle CSVs are
+   untracked — so `--data-dir` defaulted to an empty `$WT/data` and all three
+   legs skipped `data_missing:<SYM>` in four seconds. The driver now passes the
+   main clone's data dir explicitly and **refuses to launch** unless it finds
+   at least three 5m CSVs first.
+2. An orphaned child (`backtest_ict_scalp.py`, pid 1550816) survived the stop
+   holding the **inherited** flock fd, so the queue read HELD with nothing
+   running.
+
+**What still stands from the first correction:** the queue-bypass class is real
+and open (`BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE`), the
+05:33Z contention slowdown is exactly what the lock *is* for, and taking the
+queue remains correct. What does not stand is the claim that taking it protects
+a branch-only run from the reset. It does not, and the round's comment, its
+test, and this section now say so.
+
 
 ---
 
