@@ -448,6 +448,68 @@ verdict with its `beats_*` counts unchanged, purely because the denominator
 moved. Anyone reading these tables must compare each arm's counts against **that
 arm's own bar**, never a remembered one.
 
+### 🔴 UPDATE 09:45Z — READ THIS ONE. The 4h round refuted the FLAG, and I am retracting a claim I made to you 25 minutes earlier.
+
+**What I told you at 09:20Z:** *"every leg that moved was flagged, and no
+unflagged leg has moved — 0 false negatives in 17."* **That is false.** The next
+screen (#9440, 4h donchian, five legs) moved **4 of 5**, and two of the movers
+were **unflagged**: `trend_donchian_ada_4h` from slack **+7** and
+`trend_donchian_eth_4h` from **−5**. The one leg that held was the *flagged* one
+(`trend_donchian_xrp_4h`, slack +1). Both gates passed — off0 reproduced all five
+recorded rows exactly, which is the strongest control any of these screens has
+had — so this is not a bad run.
+
+**The flag does not predict boundary sensitivity.** Over the 15 screened legs
+whose control slack I can name:
+
+| | moved | held |
+|---|--:|--:|
+| flagged (`\|slack\| ≤ 2`) | **6** | 5 |
+| unflagged | **2** | 2 |
+
+55% vs 50%, one-sided Fisher **p = 0.66**.
+
+**Why, because the reason matters more than the number:** slack measures how far
+a cell is from ONE fold flipping *inside a fixed partition*. This screen
+**re-draws every fold**. `eth_4h`'s `beats_hard` moves 9 → 12 between two arms —
+three folds' worth — which no one-flip margin can anticipate. I had been using
+one quantity as a proxy for the other without checking that it was one.
+
+#### What this does to item 5
+
+**The finding is bigger and the scoping is worse than I told you.** What stands
+is: **8 of 15 screened legs (53%) changed verdict under re-partitioning, and
+nothing yet identifies which.** So the re-measure list is *not* "the flagged
+cells" — that scoping is what the evidence just removed.
+
+**My recommendation changes accordingly.** Not "re-measure the flagged
+population" but: **do not treat any single E1 `exit_head_ml` verdict as
+replicated until it has been screened**, and screen by *round* rather than by
+cell — a pooled round costs 4 arms × ~45 s and returns every leg in it, which is
+how this one delivered five legs for three minutes of trainer time.
+
+⚠️ **The 53% is not an unbiased fleet rate** and I want you to see the caveat, not
+just the number: I *chose* the screened set to be flag-enriched. The reason to
+still take it seriously is that the enrichment provably did not work. The clean
+version of this measurement is a screen over rounds chosen **without reference to
+slack**, and that is what I would spend the next trainer hours on rather than
+finishing the flagged list.
+
+#### ⚠️ An untested question this raises for item 1 — flagged, NOT claimed
+
+PR #9257's evidence is a **walk-forward** `wf 5/6`, not an E1 `exit_head_ml`
+verdict. Different harness, different lever, and **nothing measured here touches
+it.** But the two gates share a *structure* — a majority-of-folds vote over a
+partition someone had to choose — and that structure is what turned out to be
+boundary-sensitive.
+
+**I have not measured whether walk-forward verdicts move under re-partitioning.
+I am not asserting that they do, and this is not a reason to hold the merge on
+its own.** It is a question I would want asked before the *next* Tier-3 lever
+ships on a fold-majority result, and it is cheap to answer with the same
+`--fold-offset` machinery. Recording it now so it is not discovered later and
+mistaken for something I knew and did not say.
+
 ---
 
 ## 6. The harness has an undeclared degree of freedom — HOW to fix it is yours
