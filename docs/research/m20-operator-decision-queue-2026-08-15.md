@@ -307,8 +307,16 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 > case and does **not** improve prediction, so it is written down as an untested
 > hypothesis and **not adopted**.
 >
-> **5. What stands, updated 10:20Z after I recovered the lost arm: 7 of 17 legs
-> (41%) changed verdict.** And the most useful thing I can tell you about that
+> **5. What stands, updated 10:30Z after two more screens: 10 of 29 legs (34%)
+> changed verdict.** I also ran a **pre-registered** test (#9449) whose
+> prediction **FAILED** — 0 of 4 moved where I predicted 1 would — and scored it
+> as a failure rather than reframing it. Its *mechanism* claim was confirmed
+> regardless: `tlt_pullback_1h` clears both fold bars in 3 of 4 arms and is held
+> negative **only** by the AUC bar, one point away, with an arm-to-arm AUC spread
+> the same size as its margin. At the valid (uniform-exposure) cut the two-term
+> criterion sits at **p = 0.195** against slack-only's 0.367 — better, still not
+> significant. **Four heuristics have now been tested overnight and none is
+> established.** Earlier in this box I said 7 of 17 (41%); And the most useful thing I can tell you about that
 > number is that **it is not stable at this sample size.** One extra arm took the
 > slack-flag separation from `p = 0.34` to `p = 0.48`; I have now quoted that
 > statistic at **0.66, 0.34 and 0.48 inside ninety minutes**, each change from
