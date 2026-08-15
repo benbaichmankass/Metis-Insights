@@ -307,11 +307,34 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 > case and does **not** improve prediction, so it is written down as an untested
 > hypothesis and **not adopted**.
 >
-> **5. What stands: 6 of 17 legs (35%) changed verdict at matched draws**, and
-> **two false negatives remain genuinely unexplained** (`ada_4h` at slack +7,
-> `eth_4h` at −5 — both far from both bars). I am not inventing a third criterion
-> to cover them; three post-hoc stories have already been advanced and retracted
-> tonight.
+> **5. What stands, updated 10:20Z after I recovered the lost arm: 7 of 17 legs
+> (41%) changed verdict.** And the most useful thing I can tell you about that
+> number is that **it is not stable at this sample size.** One extra arm took the
+> slack-flag separation from `p = 0.34` to `p = 0.48`; I have now quoted that
+> statistic at **0.66, 0.34 and 0.48 inside ninety minutes**, each change from
+> adding data rather than from an error. Treat it as a range under measurement,
+> not a result.
+>
+> **5b. One genuine piece of forward progress.** The two-term criterion
+> (`|slack| ≤ 2` **or** `|auc − 0.55| ≤ 0.01`) was proposed at 10:05Z on data
+> where it did **not** help, and recorded as untested. The recovered arm produced
+> a new mover — `avax_pullback_2h`, AUC margin **−0.0052** — falling **inside a
+> band chosen before that data existed**. That is one out-of-sample hit, `p`
+> improves 0.48 → 0.22, and false negatives drop 4 → 2. **Still not adopted**:
+> n = 1, and the band was chosen by eye.
+>
+> **5c. The structural reason, which is checkable rather than a story.** The gate
+> has **two** independent failure terms and my flag read one. The 2h pullback
+> legs' AUCs cluster against the `0.55` bar (0.534–0.637) so the **AUC** term
+> binds there; the donchian legs sit well above it so the **fold** terms bind.
+> Every 2h mover flipped on AUC; every donchian mover on a fold term. It predicts
+> something falsifiable: a family with AUCs near 0.55 should produce movers the
+> slack flag misses.
+>
+> **5d. Two false negatives resist all of it** — `ada_4h` (slack +7, AUC margin
+> +0.12) and `eth_4h` (−5, +0.08) are far from **both** bars and moved anyway. I
+> am not adding a third term to cover them; three post-hoc stories have already
+> been advanced and retracted tonight.
 >
 > **6. A defect in my own instrument, found by the same screen.** One of the four
 > arms **never ran** — the trainer's 15-minute reset wiped the branch-only flag

@@ -1764,3 +1764,78 @@ those, and I am not going to invent a third term to cover them.
 — not the earlier 53%, which mixed draw counts. The population is still
 flag-enriched overall, but it now contains 11 unflagged legs rather than 4.
 
+
+### ✅ The off12 arm recovered (10:19Z, relay #9448) — the 2h round is 4 draws, and the numbers moved AGAIN
+
+The re-run landed with the gate fixed the way the finding demanded: **capability
+pre-flight OK** (`--fold-offset` confirmed accepted immediately before invoking),
+**sha256 stable BEFORE and AFTER** the run, **7 rows** asserted by count rather
+than by an existence test. This is the first arm all night whose code identity
+was actually established rather than assumed.
+
+**`avax_pullback_2h` moved.** The 2h round is now **2 of 7**, not 1 of 7.
+
+| leg | off0 | off4 | off8 | off12 | moved |
+|---|---|---|---|---|:--:|
+| `eth_pullback_2h` | cand | **hn** | cand | cand | **YES** |
+| `avax_pullback_2h` | hn | hn | hn | **cand** | **YES** |
+| `ada_pullback_2h` · `eth_pullback_prop_2h` · `htf_pullback_trend_2h` · `xrp_pullback_2h` · `sol_pullback_2h` | — | — | — | — | no |
+
+**Both 2h movers flipped on the AUC bar**, neither on a fold bar. `avax` at off12
+reads `auc 0.5509` against the `0.55` line — and its `beats_hard` lands on `84`
+against a bar of exactly `84`. It passed by the narrowest available margin on
+**both** terms simultaneously.
+
+#### The honest headline is that these rates are not stable at this n
+
+| | after the 3-draw read (10:05Z) | after ONE more arm (10:19Z) |
+|---|--:|--:|
+| 2h round movers | 1/7 | **2/7** |
+| total movers | 6/17 | **7/17 (41%)** |
+| slack-only separation | flagged 3/6 vs 2/11, `p = 0.34` | flagged 3/6 vs **4/11**, **`p = 0.48`** |
+
+**A single additional arm moved `p` from 0.34 to 0.48.** I have now quoted this
+statistic at 0.66, 0.34 and 0.48 within ninety minutes, and each time the change
+came from adding data rather than from an error. **The correct reading is that
+17 legs cannot resolve this question**, and I should present it as a range under
+active measurement rather than as a number.
+
+#### The two-term criterion: a real out-of-sample hit, on n = 1
+
+| criterion | flagged | unflagged | p | false negatives |
+|---|---|---|--:|---|
+| slack only (`\|slack\| ≤ 2`) | 3/6 | 4/11 | **0.48** | `ada_4h`, `eth_4h`, `eth_pullback_2h`, `avax_pullback_2h` |
+| **either term** (`\|slack\| ≤ 2` **or** `\|auc − 0.55\| ≤ 0.01`) | **5/9** | **2/8** | **0.22** | `ada_4h`, `eth_4h` |
+
+**Why this is worth more than the earlier version of the same table.** I proposed
+the `0.01` band at 10:05Z on the 3-draw data, where it did **not** help
+(`p 0.34 → 0.37`) and I recorded it as untested and not adopted. The off12 arm is
+data that did not exist when the band was chosen, and the new mover it produced —
+`avax_pullback_2h`, control AUC margin **−0.0052** — falls **inside** that band.
+That is a genuine out-of-sample confirmation.
+
+**It is a confirmation on ONE leg.** `p = 0.22` is not significance, the band was
+still chosen by eye, and I am not adopting it. What has changed is that it is now
+a hypothesis with one prediction it did not fail, rather than a curve fitted to
+the sample.
+
+#### The structural reason, which is checkable and not a story
+
+**Which gate term binds depends on the family.** The 2h pullback legs carry
+control AUCs of **0.5342–0.6373**, clustered against the `0.55` bar; the donchian
+legs carry **0.5403–0.6722**, mostly far above it. So in the pullback family the
+**AUC** term is the live constraint, while in the donchian family the **fold**
+terms are. A flag that measures only fold slack was measuring, for the 2h family,
+the term that was not binding — which is why every 2h mover was invisible to it
+and every donchian mover was not.
+
+This is not a fourth post-hoc explanation of the same residual: it is the direct
+observation that the gate has two terms and the flag read one. It predicts
+something testable — **a family whose AUCs sit near 0.55 should produce movers
+the slack flag misses, and a family whose AUCs sit well above it should not.**
+
+**The two genuine false negatives still resist all of it**:
+`trend_donchian_ada_4h` (slack **+7**, AUC margin **+0.12**) and
+`trend_donchian_eth_4h` (slack **−5**, margin **+0.08**) are far from **both**
+bars and moved anyway. Nothing here explains them and I am not adding a term to.
+
