@@ -668,7 +668,10 @@ investigation, a different experiment — and every reproducing row comes from a
 plain family round. The split is by *provenance*, not by leg, family, geometry or
 timeframe.
 
-**One piece is still unexplained, and is left open rather than tidied:** inside
+**One piece resisted explanation for four relays — it is now RESOLVED, and the
+answer is § "ROOT CAUSE" below.** The elimination sequence is kept in full,
+because which hypotheses were killed, and by what, is the part worth reusing:
+inside
 the single `eth_denom_2h` round, 3 of its 7 legs reproduce exactly under my
 full-7-leg re-run and 4 do not. Had that round pooled a different leg set, all
 seven should have differed. Three explanations are *ruled out*, not merely
@@ -690,11 +693,16 @@ That is **exactly** the 7-leg set my re-run pooled — same legs, same count. So
 a different measurement" is dead as an explanation. It was the hypothesis the
 whole comparability rule was built on, and it does not cover this round.
 
-**What that leaves is a narrower and more uncomfortable question**, stated
-without a replacement explanation because I do not have one: same legs, same
-trade population, deterministic training, unedited rows — and four of the seven
-still differ, by 0.0009 to 0.0331. Every difference-generating input I have been
-able to name has now been measured and excluded.
+**What that left was a narrower question** — same legs, same trade population,
+deterministic training, unedited rows, and yet four of the seven differ by
+0.0009 to 0.0331. At this point every difference-generating input I could *name*
+had been measured and excluded, which is exactly the state in which the next
+move is to stop hypothesising and read the producer.
+
+**That is what resolved it.** The answer was not a new input but an undeclared
+one: the ORDER the legs were passed. See § "ROOT CAUSE: an E1 verdict depends on
+the ORDER the legs were typed" — and note that the leg *set* being identical,
+established here, is precisely what forced the search onto the leg *order*.
 
 That same read appeared to show the round records **no flags** — `_round_meta`
 came back `<<KEY ABSENT>>` from `e1_report.json`, and #9400 confirmed the absence
