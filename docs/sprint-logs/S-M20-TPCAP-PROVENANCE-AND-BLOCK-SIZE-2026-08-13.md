@@ -3673,3 +3673,100 @@ exactly why it survives — it is invisible to the surface that would catch it.
   prefer it.
 - The three paper stale decisions remain untouched; all three are PAPER, so none
   is a money-at-risk exposure.
+
+## Ninth overnight stretch (2026-08-15, ~10:05–10:20Z) — the slack-blind screen, and three corrections to my own work
+
+### Objective
+
+Run the measurement my own 09:45Z result said to run next: a dispersion screen
+selected **without reference to slack**, to find out whether the 53% move rate
+was a selection artifact.
+
+### Work completed
+
+**1. The slack-blind 2h pullback screen (#9441/#9444).** Chosen by a stated
+margin-blind rule — *largest wholly-unscreened round* — and **0 of its 7 legs are
+flagged**. Both competing predictions were written into the launch issue before
+it ran: *flag-has-value ⇒ ≈0 movers; broad-sensitivity ⇒ ≈3–4.* Gate 2 passed on
+**all seven** off0 rows exactly. **Result: 1 of 7 moved.**
+
+**2. 🔴 CORRECTION — my 09:45Z "the flag is REFUTED" was overstated, and the flaw
+was mine.** That analysis pooled legs measured at **different numbers of draws**
+(7 for `gdx`/`iaum`, 4 for the rest); more draws is more chances to move, so
+"moved" was not comparable across them, and the unflagged denominator was **4**.
+Redone at matched draws (off0/4/8, **17 legs**): flagged **3/6 = 50%**, unflagged
+**3/11 = 27%**, Fisher **p = 0.34**. The direction the flag predicts, **not
+established**. The slack-blind round supplied the missing unflagged sample —
+which is exactly what it was designed for. Corrected in the doc header, the doc
+body, and the operator-queue lead box.
+
+**3. The one mover flipped on a term the flag never measured.** `eth_pullback_2h`
+failed the **AUC** bar (`0.5427` vs `0.55`), not a fold bar — and its control
+clears that bar by **+0.0006**, already recorded in queue item 5 as the corpus's
+thinnest margin. The gate has two independent failure terms; my flag measured
+one. I tested the two-term repair (`|slack| ≤ 2 OR |auc−0.55| ≤ 0.01`): it
+explains that case and **does not improve prediction** (p 0.34 → 0.37, flagging 3
+more legs to catch 1 more mover). Recorded as an untested post-hoc hypothesis and
+**explicitly not adopted** — three such stories have already been advanced and
+retracted tonight.
+
+**4. 🔴 A defect in my own gate, and then a second one in my own readout.**
+
+The off12 arm produced no rows: the trainer's ~15-min reset removed the
+branch-only `--fold-offset` between the driver's `git checkout` and its training
+call. **Gate 1 passed anyway**, because it hashes at *arm start* — **a matching
+hash proves the file was correct when hashed, not that the arm ran that code.**
+I had been quoting it as the latter on every screen tonight; the others differed
+only in timing luck.
+
+Then I wrote *"the arm never ran"* and had to correct that too. Verified against
+the box (#9447): the arm **ran** — all seven backtests emitted, the dataset built
+72,725 rows — and **only the training step** was rejected, after which the driver
+wrote a **0-row** `rounds.jsonl` and printed `round done`.
+
+**That empty file then broke two of my own diagnostics**, in the class I had
+documented three times the same night: my readout loop tests `[ -f ]` then `sed`s
+the file, so the `else` never fires and `sed` over an empty file prints nothing —
+the arm vanished from the report with **no line at all**, and I read the silence
+as "directory absent". Sub-class **C**, the unasserted denominator, committed
+inside the diagnostic I was using to police it. The same `[ -f ]` test then made
+my re-run guard **refuse to re-run the arm**.
+
+**The scientific conclusion never changed** — off12 contributed no rows either
+way, the round is genuinely 3 draws, every number stands. What nearly happened is
+that I corrected a *right* answer on the strength of two broken reads of my own,
+and the only thing that stopped it was going to look at the file's mtime.
+
+**5. Filed** `BL-20260815-EXIT-HEAD-ROUND-EXITS-ZERO-WHEN-TRAINING-SUBPROCESS-FAILS`
+(high) — the driver returns 0 and writes an empty evidence file, so a dead arm
+passes an existence check — with the measured downstream damage and a criterion
+that **existence must imply rows**. Re-run relaunched (#9448) with a capability
+pre-flight, before/after hashes, and a **row-count** assertion.
+
+### Validation performed
+
+- All 21 verdicts of the 2h round recomputed independently through E1 and
+  reproduced; gate 2 matched all seven off0 rows exactly.
+- The flag comparison redone at **matched draw counts** with a Fisher exact,
+  rather than the pooled-draw comparison that produced the 09:45Z error.
+- The off12 question settled by **reading the file's mtime and row count on the
+  box**, not by choosing between two contradictory earlier reads.
+- 38 guards PASS on the committed tree after each change.
+
+### Contradictions or drift found (all in my own work, this stretch)
+
+- 09:45Z "the flag is refuted" — overstated; corrected at three sites.
+- "the off12 arm never ran" — wrong; it ran and wrote a 0-row file.
+- My readout loop and my re-run guard both treated an empty evidence file as a
+  present one.
+
+### Gaps not yet verified
+
+- **#9448's outcome is unread.** If it lands, the 2h round becomes 4 draws and
+  every rate in this stretch needs recomputing at 4 draws for that round.
+- **The two genuine false negatives** (`ada_4h` slack +7, `eth_4h` −5) remain
+  unexplained, deliberately.
+- **The other screens tonight were never re-verified** against the
+  hash-after-run standard; they passed a gate now known to be insufficient. Their
+  controls DID reproduce exactly, which is independent evidence they ran the
+  right code — but that is an inference, not the check I claimed to be making.
