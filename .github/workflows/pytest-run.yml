@@ -175,7 +175,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
