@@ -1126,3 +1126,70 @@ finding without the fix.
 
 **Reproduce:** `docs/research/m20-exit-head-rounds.jsonl` alone — `mean_auc`,
 `block_unit` and the round id parsed from `provenance`; no trainer call.
+
+---
+
+## The 15m candidate screen — `ict_scalp_sol_15m` complete, and it does not budge
+
+The screen was launched to test the § 5 fragility flag on a cell where the flag
+actually fires and the arm is provably comparable. `ict_scalp_sol_15m` qualifies
+on both counts: it is graded `candidate` at **slack 0** on the fold-majority term
+(`beats_actual 6 × 3 = 18 = u 9 × 2`), so **one fold changing side fails it**.
+
+| offset | mean_auc | u | verdict |
+|--:|--:|--:|---|
+| **0 (control)** | **0.5808** | 9 | candidate |
+| 4 | 0.5777 | 9 | candidate |
+| 8 | 0.5729 | 9 | candidate |
+| 12 | 0.5720 | 9 | candidate |
+
+**The off0 control reproduces the recorded `0.5808` exactly**, and `u` is 9 on
+every arm — so the arms are comparable and the partition itself is stable. These
+are `per_leg` rounds (`legs=['ict_scalp_sol_15m']`), which the § "Which rows are
+exposed" analysis predicted would be *structurally immune* to the leg-order
+confound. That prediction held.
+
+**Unanimous `candidate` across four boundary draws, spread 0.0088** — **5.9×
+tighter** than the 1d family's 0.0515 median.
+
+`ict_scalp_xrp_15m` has reported its control so far: **0.5681, exact**, `u = 9`,
+`candidate` — also a slack-0 cell (on the `beats_hard` term). Three arms pending.
+
+### What this does to the fragility finding
+
+It reinforces the tempering, on the hardest available test. A cell sitting
+**exactly** at a fold-majority bar — where the arithmetic says one flip decides
+it — did not move across four re-partitions, and its AUC barely moved either.
+
+Running total of clean-control legs that were re-partitioned:
+
+| leg | flag | draws | verdict changes |
+|---|---|--:|--:|
+| `gdx_pullback_1d` | fragile negative | 7 | **2** |
+| `iaum_pullback_1d` | candidate, 0.0025 margin | 7 | **1** |
+| `gld_pullback_1h` | fragile negative | 4 | 0 |
+| `ict_scalp_sol_15m` | **candidate, slack 0** | 4 | **0** |
+| 7 other clean-control legs | — | 4 | 0 |
+
+**So the flag identifies cells whose verdict COULD move, and most of them do
+not.** Both legs that actually moved are 1d — the thinnest books in the corpus
+(`u` 4–11 against 9–26 elsewhere) — which points at *sample size* as the thing
+that predicts instability, rather than proximity to the bar.
+
+That is a different conclusion from the one § 5 reaches on arithmetic alone, and
+it is the reason the screen was worth running before proposing anything. **It
+does not retire the fragility flag** — a flagged cell is still one fold from a
+different answer, and § "How much of the corpus could the confound actually
+reach" shows the AUC term has its own nuisance term of the same order. It changes
+what the flag is *evidence of*: exposure, not instability.
+
+### Measurement-environment note, recorded because it is not a caveat on the result
+
+These arms ran while the trainer VM was thrashing (`replay_pregate_fleet.py` at
+4.08 GB of a 6 GB box, 4.4 GB in swap —
+`BL-20260815-TRAINER-VM-THRASHING-4GB-SWAP-DEGRADES-EVERY-JOB`). Arm wall-time
+tracked it: 7.9 → 15.9 → 20.5 → **36.2** → 28.9 min, peaking with the swap and
+recovering when that job finished (free RAM 97 MB → 4,214 MB; swap 4,375 → 262
+MB). **The AUCs and verdicts are unaffected** — the computation is deterministic
+and thrashing changes only throughput. Recorded so the timing trail in the relays
+is not later mistaken for something about the arms.
