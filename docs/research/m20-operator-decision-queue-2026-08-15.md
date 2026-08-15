@@ -1,11 +1,25 @@
-# M20 — what is waiting on you, 2026-08-15 ~02:30Z
+# M20 — what is waiting on you, 2026-08-15 (last updated ~06:30Z)
 
-Everything the overnight session queued rather than decided, in one place, newest
-evidence first. Five items. **Nothing here has been acted on.** No matrix status
-was flipped, no gate changed, no live lever touched.
+Everything the overnight session queued rather than decided, in one place.
+**Six items**, plus one coda outside M20's scope. **Nothing here has been acted
+on.** No matrix status was flipped, no gate changed, no live lever touched.
 
-Coverage is **373/376 = 99.2%**, unchanged all night (verified by running
-`m20_coverage_rollup.py`, not by counting).
+Coverage is **373/376 = 99.2%**, unchanged all night (verified by re-running
+`m20_coverage_rollup.py` each cycle, not by repeating the number).
+
+**Read order if you are short of time:** the ten-minute list at the bottom. If you
+read only one item in full, make it **6** — it landed after items 1–5 were written
+and it is the night's actual result.
+
+| # | item | my recommendation |
+|--:|---|---|
+| 1 | PR #9257 merge (Tier-3, real money) | **merge** — but read the 04:55Z correction; it is not a two-line merge |
+| 2 | `--split-target-oos` 25 → 30 | **flip it** |
+| 3 | Ten contradicting cells | *no recommendation* — it is a policy choice about what the matrix means |
+| 4 | `iaum_pullback_1d` | **leave the status**; the real question is about the gate |
+| 5 | The fragile-margin population | **no flip needed** — the screen says exposure, not instability |
+| 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
+| — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
 
 Each item states what I'd do and how confident I am, because Tier-3 is *propose,
 you approve* — not *ask an open question*. Where I don't have a recommendation I
