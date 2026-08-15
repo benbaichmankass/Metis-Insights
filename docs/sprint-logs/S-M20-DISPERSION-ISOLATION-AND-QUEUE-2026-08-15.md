@@ -442,6 +442,39 @@ shape a silent partial failure also has.
 **Headline coverage is unchanged at 373/376.** This moves what the closed cells
 are *conditioned on*, not how many are closed — and those are different claims.
 
+### 13. Sized and dispatched the next vintage tranche (82 cells, 31 legs)
+
+With the pullback stale/giveback cells cleared, `--stale-corpus-state` says of
+the remaining **151** stale cells: **144** have *no* newer live-parity row —
+"a re-run IS the remedy" — and **7** have one that *contradicts* the status.
+
+**The 7 are not a finding.** I checked each ref: all 7 already carry the
+`LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS` acknowledgement from an
+earlier session. The roll-up asks *"does newer evidence disagree?"* and the
+agreement guard asks *"is the disagreement acknowledged?"* — different
+questions, both answered correctly, and it would have been easy to file the
+gap between them as a defect.
+
+For the re-runnable set I first re-derived the population myself and got **119**
+cells across 16 legs — **wrong**, because my derivation omitted the family
+filter and swept in the 8 `ict_scalp` legs, whose harness *does* model a real
+target and which are therefore not in the stale population at all. Using the
+roll-up's own `stale_cells` instead: **82 cells across 31 legs** in
+lever-sweep-addressable columns, dominated by `trail_geometry` (28),
+`vol_trail` (23) and `trail_decay` (12). That is the second time this session a
+hand re-derivation disagreed with the tool that owns the definition, and both
+times the tool was right.
+
+**Dispatched** run `31913017711` (22:46:39Z) over those 31 legs,
+`levers=trail_geometry,vol_trail,trail_decay`, `tp_cap_pct=0.099`,
+`split_target_oos=35` — the same shape as the run that just worked. Verified
+**31 sweep jobs actually queued/in-progress**, not merely that the dispatch was
+acknowledged.
+
+Not addressable by this sweep, and stated so it is not mistaken for pending
+work: `regime_flip_exit` (38 stale cells) has its own driver and a cutover of
+**NEVER**, and `exit_ladder` (29) has no harness levers.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
