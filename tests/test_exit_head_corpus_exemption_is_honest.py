@@ -24,6 +24,15 @@ sys.path.insert(0, str(REPO / "scripts" / "ci"))
 import check_matrix_corpus_agreement as guard  # noqa: E402
 
 ROUNDS = REPO / "docs" / "research" / "m20-exit-head-rounds.jsonl"
+# Kept on ONE line, deliberately. `test_pytest_run_filter.py`'s derived check
+# scans tests/ LINE BY LINE for a docs/ path joined onto the repo root, so a
+# wrapped join truncates to the directory (`docs/research`) and fails that
+# guard. Both files here are individually named in the pytest-run grep; the
+# tree is NOT, and must not be widened to it (`exit-refinement-notes.md` is a
+# pinned deliberate exclusion). Truncation there is fail-SAFE — a directory
+# never matches the filename-scoped grep, so it errs strict — but the honest
+# fix is to let the scanner see the real path, not to widen the filter.
+MATRIX = REPO / "docs" / "research" / "exit-refinement-coverage.json"
 
 
 def test_the_exemption_does_NOT_ASSERT_that_nothing_is_committed() -> None:
@@ -81,8 +90,7 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
     decoration.
     """
     rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
-    matrix = json.loads((REPO / "docs" / "research"
-                         / "exit-refinement-coverage.json").read_text())
+    matrix = json.loads(MATRIX.read_text())
     by_strategy: dict[str, dict] = {}
     for r in matrix["rows"]:
         by_strategy.setdefault(r.get("strategy"), r)
