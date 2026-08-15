@@ -3130,7 +3130,8 @@ have read as *"no leg flipped"* — the null result the screen exists to
 distinguish from a real one. Relaunched with an explicit data dir, a pre-flight
 that aborts on a missing feed, and `skips=` on every progress row.
 
-**Backlog.** `BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN`
+**Backlog.**
+`BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
 closed on its own criteria (spread measured and recorded; gate unchanged).
 Opened `BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS`, already
 SIZED, with the unanimity screen as its remaining item.
