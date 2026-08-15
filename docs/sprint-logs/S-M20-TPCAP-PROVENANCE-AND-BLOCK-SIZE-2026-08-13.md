@@ -3130,6 +3130,21 @@ have read as *"no leg flipped"* — the null result the screen exists to
 distinguish from a real one. Relaunched with an explicit data dir, a pre-flight
 that aborts on a missing feed, and `skips=` on every progress row.
 
+**`pkill` on a driver orphans its children — a self-inflicted contention.** The
+screen was relaunched twice (wrong data dir, then wrong leg sets), and each
+relaunch `pkill`-ed the superseded run's `driver.sh`. That killed the *shell* and
+left its child `m20_exit_head_round.py` running. A liveness probe caught two
+processes executing the **same** `ict_scalp_eth_15m` backtest — one from the
+superseded run, one from the live one — on a 1-OCPU box at load 2.13, with the
+live run's log frozen at 475 bytes across a 30 s window.
+
+Two things worth keeping from it. The relaunch printed *"stopped the wrong-leg-set
+run"*, which was **false** — it stopped the driver, not the work, and I would have
+reported the stall as slowness had the probe not distinguished "growing" from
+"stuck" by measuring the log size across a window. And the fix's kill pattern had
+to be checked against the thing it must not match: `unanimity_2026` does not match
+`unanimity2_2026`, so the live run is safe from it.
+
 **Backlog.**
 `BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
 closed on its own criteria (spread measured and recorded; gate unchanged).
