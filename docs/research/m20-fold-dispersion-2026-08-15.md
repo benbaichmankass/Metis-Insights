@@ -2046,3 +2046,49 @@ The cost is real and the deferred work is named, so a later session can weigh it
 differently. If trainer time is contested, **screen the low-bar-count families
 first** — the 4h/1h rounds return a whole pooled family in under four minutes.
 
+
+### Interim: 5m scalp arm off0 complete (12:23Z) — gate 2 passed, and a structural point I had missed
+
+**off0 finished in 73 minutes** (10:35:29 → 11:48:55), `preflight=OK`, `exit=0`,
+**rows=3**. Gate 2 passes exactly on all three: `avax 0.6175 u29 candidate` ·
+`sol 0.6184 u23 candidate` · `xrp 0.5987 u22 candidate`. off4 is running; four
+arms projects to **~4.9 h**, finishing ~15:30Z.
+
+#### These rows are `block_unit: per_leg`, and I had not registered that
+
+The payload reads `"block_unit": "per_leg"` with `pooled_legs_ordered:
+["ict_scalp_avax_5m"]` — **one leg per block**. So this round is **structurally
+immune to the leg-order confound** (`BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER`),
+because there is no pooled tie group for `--legs` order to reorder. Each leg's
+partition is cut over its own trades alone.
+
+**That matters for the whole study, and the corpus splits 27 `family_pooled` / 6
+`per_leg`.** In a pooled round, moving the fold offset re-cuts a stream
+*interleaved across legs*, so a leg's fold membership can change because a
+*sibling's* trades moved across the boundary. In a `per_leg` round only that
+leg's own trades move. **Those are different perturbations**, and I have been
+pooling their results into one mover rate all night.
+
+Tested on what exists:
+
+| block unit | movers | rate |
+|---|--:|--:|
+| `family_pooled` | 9/27 | 33% |
+| `per_leg` | **1/2** | — |
+
+**The `per_leg` cell is vacuous at n = 2** and I am not going to read 50% off it.
+That is the finding for now: **the comparison I would most want cannot be made
+with the data I have.**
+
+#### A better reason for the 5m screen than the one I recorded — found after the fact
+
+The 5m round is `per_leg` and adds **three** legs to that column, taking it from
+2 to 5. That is the only subset immune to the leg-order confound, and it is
+currently the thinnest.
+
+**I did not choose the round for this reason** — I picked it as the mirror-image
+AUC/fold test, and noticed the `per_leg` stamp only when off0's rows landed. I am
+recording it as a retrospective justification, not as foresight, because writing
+it the other way round is how a lucky choice becomes a claimed method. It does
+make the 4.9 hours easier to defend than my original note did.
+
