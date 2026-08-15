@@ -3770,3 +3770,98 @@ pre-flight, before/after hashes, and a **row-count** assertion.
   hash-after-run standard; they passed a gate now known to be insufficient. Their
   controls DID reproduce exactly, which is independent evidence they ran the
   right code — but that is an inference, not the check I claimed to be making.
+
+## Tenth overnight stretch (2026-08-15, ~10:20–10:45Z) — a pre-registered prediction, and it failed
+
+### Objective
+
+Stop generating post-hoc explanations and test one. Three had already been
+advanced and retracted overnight; the fourth — that the E1 gate has **two**
+failure terms and my fragility flag reads only one — was the first to make a
+falsifiable prediction, so I ran it.
+
+### Work completed
+
+**1. The pre-registered 1h pullback test (#9449/#9452) — prediction FAILED.**
+
+Chosen because that family sits *below* the AUC bar and separates the two
+criteria cleanly. Predictions and a falsification condition went into the launch
+issue **before** the run: *AUC binds ⇒ `tlt_pullback_1h` moves* (slack +5, so the
+slack flag misses it; AUC margin −0.0050, inside the two-term band); falsified by
+*`tlt` stable while `qqq`/`spy` move, or nothing moving at all*.
+
+All four arms clean under the corrected gate — `preflight=OK`, `exit=0`,
+`rows=4` each — and off0 reproduced all four recorded rows exactly.
+**Result: 0 of 4 moved. The second falsification branch is what happened, and I
+scored it as a failed prediction rather than reframing it.**
+
+**2. The MECHANISM claim was confirmed regardless, and does not depend on
+movement.** Per-arm failure decomposition for `tlt_pullback_1h` (bar `2u = 52`):
+
+| arm | AUC | 3·ba | 3·bh | fails on |
+|---|--:|--:|--:|---|
+| off0 | 0.5450 | **57** | **57** | **AUC only** |
+| off4 | 0.5399 | **60** | **60** | **AUC only** |
+| off8 | 0.5444 | 54 | 51 | AUC + bh |
+| off12 | 0.5404 | **57** | **57** | **AUC only** |
+
+In three of four arms the fold terms clear comfortably and **only** the AUC bar
+holds the leg negative. A slack-only reading calls `tlt` a comfortable negative
+at `+5`; it is one AUC point from `candidate`, and its arm-to-arm AUC spread
+(`0.0051`) is the same size as its margin (`0.0050`). Genuinely on the edge — it
+simply did not cross in four draws.
+
+The other three legs behaved as the framework says they should, which matters
+because a test that passes only on its headline is weak evidence.
+`gld_pullback_1h` is the reverse case (AUC fine, fails on **fold** terms,
+slack-flagged at −1) and **did not move, consistent with its earlier independent
+4-draw screen**. `qqq`/`spy` fail on **all three** terms in most arms — correct
+negative controls.
+
+**3. Numbers, at the cut that is valid.** 29 screened legs, **10 movers (34%)**.
+Uniform 4-arm exposure (23 legs): two-term **`p = 0.195`** vs slack-only
+`0.367`. The pooled-29 cut reaches `p = 0.033` and **I am still declining to
+quote it**, because it mixes 9-arm and 4-arm legs — the exact error I corrected
+at 10:05Z when it ran *against* the flag. `tlt` is now the two-term criterion's
+**first false positive**: the honest cost of having run the test.
+
+**4. Complement launched (#9454)** on the 5m scalp family, which sits far
+**above** the AUC bar (margins +0.049 to +0.068) so the **fold** terms bind — the
+mirror image. Pre-registered: *if anything moves it is `ict_scalp_sol_5m`*
+(slack +2); `xrp`/`avax` at slack +13/+14 are five fold flips away. Falsified by
+either of those moving while `sol` does not. Passing the original **four**-leg
+`--legs` including the one that burned on `data_missing:BTCUSDT`, because
+dropping a leg from a pooled round changes the pool.
+
+### Validation performed
+
+- All 16 rows of the 1h round recomputed through E1 independently; every recorded
+  verdict reproduced, and off0 matched all four controls exactly.
+- Gate integrity read per arm rather than assumed — preflight, exit code, row
+  count — after the previous stretch showed the old gate passing over a dead arm.
+- 38 guards PASS on the committed tree after each change; CI green on `guards`,
+  `pytest-collect` and `repo-inventory` for the latest push.
+- Coverage roll-up re-verified: **373/376 = 99.2%**.
+
+### Contradictions or drift found
+
+- ⚠️ **My own launcher's `sha_before_*` came back EMPTY** in #9449 (a nested
+  `cut -d" "` did not survive the `bash -c`), so that gate would have compared
+  two blanks and reported agreement. Caught only because the relay echoed
+  `versions.txt`. Recorded as a third instance on the existing backlog row, with
+  the general lesson: **a verification step must be able to say "I could not
+  measure" distinctly from "I measured and they agree"** — an empty-equals-empty
+  pass is the collapsed-state defect occurring inside the check itself. Fixed in
+  #9454 by printing the hash raw and unparsed.
+- The Bash working directory reset from the repo to `/home/user` mid-stretch and
+  an append silently failed on a relative path. No partial write (the redirect
+  never opened); re-done with an absolute path. Noted because a *partial* append
+  to a sprint log would have been much harder to spot.
+
+### Gaps not yet verified
+
+- **#9454's result is unread.**
+- The **two false negatives** (`ada_4h` slack +7, `eth_4h` −5) resist every
+  criterion tried and remain unexplained. Deliberately.
+- **Four heuristics tested, none established.** The honest state of the
+  fragility question is unresolved, and the operator box says exactly that.
