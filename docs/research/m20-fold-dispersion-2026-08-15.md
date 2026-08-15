@@ -2163,3 +2163,58 @@ cannot reach them, or **split each offset into its own short job** so no single
 job outlives the reset window. The second is the smaller change and fits the
 existing relay pattern.
 
+#### 🔴 CORRECTION (14:50Z) — both remedies above are wrong, and one of them is impossible
+
+The diagnosis in this section is right: **arm duration against reset interval,
+not luck.** The remedies are not, and the second one cannot work at all.
+
+**"Split each offset into its own short job" is unimplementable.** An arm *is*
+73 minutes — seven backtests, a 72,725-row dataset build, and three trainings.
+There is no seam to split it on. I wrote "the smaller change" about a change
+that does not exist, because I was reasoning about the shape of the fix rather
+than about what the arm actually does.
+
+**And the whole framing was wrong.** I treated the reset as weather — something
+to be detected after the fact, or hidden from. It is not:
+
+```
+scripts/ops/run_training_cycle.sh:124   take_trainer_heavy_lock "training_cycle" || exit 0
+scripts/ops/run_training_cycle.sh:138   git checkout --quiet --force -B main origin/main
+```
+
+The reset runs **inside the trainer heavy-job queue**, and the cycle **skips
+itself entirely** when the queue is held past `TRAINER_HEAVY_LOCK_WAIT_S`. An
+arm holding that lock does not detect the reset — it **prevents** it.
+
+The M20 exit-head path took the queue nowhere. Measured: `grep -c heavy_lock`
+returns **0** for `m20_exit_head_round.py`, `scripts/ml/train_exit_head.py` and
+`m20_fleet_exit_sweep.py`, and the `ml` CLI's enforced backstop cannot reach
+them because these are research scripts that never import the CLI. So every
+voided arm tonight was voided by a mechanism the repo already had the primitive
+to stop, and `docs/claude/trainer-resource-protocol.md` § Rule 1 — *"Manual
+sessions MUST use the queue too"* — was binding on me the whole time.
+
+**What this costs the claim above.** The sentence *"No pre-flight at arm start
+can fix this"* stands, and the AFTER-hash genuinely did catch it. But
+`the sha256 gate finally did the job it was always claimed to do` was me
+grading a **gauge** when the available move was to remove the cause. A better
+gauge tells you the 73 minutes were wasted; the lock stops them being wasted.
+That is the error worth recording — not that I chose a weaker fix, but that I
+never asked whether the thing I was measuring was preventable.
+
+It also explains the 05:33Z slowdown recorded earlier in this document. Four
+arms of identical work differing only in `--fold-offset` — which cannot cost
+time — ran 7.9 / 15.9 / 20.5 / 25.8+ min in launch order against an unqueued
+4.08 GB `replay_pregate_fleet.py`. **Both sides of that collision were
+unqueued**, and `replay_pregate_fleet.py` is absent from the heavy-lock caller
+list too, so this is not one stray script: it is `scripts/research/` generally
+(`BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE`, open).
+
+**The re-run is therefore a genuinely different construction, not a retry**, and
+it is running: the driver now acquires the queue (ordered *after* the capability
+pre-flight, so a missing flag still fails in two seconds rather than after an
+hour of queueing), and each arm re-checks-out the branch because a reset landing
+*between* arms is legitimate and expected. What remains unfixed is the class —
+the three sibling scripts, and the enumeration of how many others bypass the
+queue, which has **not** been done.
+
