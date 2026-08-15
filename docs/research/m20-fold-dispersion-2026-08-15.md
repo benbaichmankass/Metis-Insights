@@ -2092,3 +2092,74 @@ recording it as a retrospective justification, not as foresight, because writing
 it the other way round is how a lucky choice becomes a claimed method. It does
 make the 4.9 hours easier to defend than my original note did.
 
+
+### 🔴 The 5m screen is VOID — arm duration vs reset interval, and the AFTER-hash is what caught it (13:20Z)
+
+**Reporting this as NOT RUN, not as a null result.** The distinction is the whole
+point: a null would be evidence about fold dispersion, and this round produced
+none.
+
+#### What happened
+
+`versions.txt` records BEFORE and AFTER hashes per arm. **They differ on every
+arm:**
+
+```
+BEFORE   round b197e75b…   train 64126139…     (branch)
+AFTER    round 6f6458ac…   train 08541341…     (origin/main)
+```
+
+The trainer's ~15-minute `Reset to origin/main` replaces both files **during**
+each 73-minute arm. off4's log, all three legs:
+
+```
+train_exit_head.py: error: unrecognized arguments: --fold-offset 4
+```
+
+`exit=0`, `rows=0`. Caught by the **row-count** assertion; `exit=0` and a `[ -f ]`
+check both passed, for the second time tonight.
+
+#### Why off0 nonetheless produced three valid rows
+
+`m20_exit_head_round.py:280` reads `if a.fold_offset: train_cmd += [...]`.
+**Zero is falsy** — so the off0 arm never passes the flag and runs correctly on
+`origin/main`. **The control arm is the only arm that does not need the branch.**
+Every offset arm does, and none of them can get it.
+
+That is why the failure looked like a partial success: a control that reproduced
+its recorded values exactly (`avax 0.6175 u29` · `sol 0.6184 u23` ·
+`xrp 0.5987 u22`) sitting beside arms returning nothing.
+
+#### The constraint I had backwards
+
+**It is arm duration against reset interval, not luck.** The 4h/1h/2h screens
+succeeded because their arms are **45 s – 2 m 40 s** and fit inside the ~15-minute
+window. A **73-minute** arm cannot, ever.
+
+**No pre-flight at arm start can fix this.** The check passes; the files are
+replaced fifteen minutes later, mid-arm. The pre-flight added after the previous
+failure is necessary and **not sufficient** — **the AFTER hash is the check that
+actually caught it**, and it exists only because the earlier empty-string bug
+forced me to print hashes raw.
+
+⚠️ **This retroactively explains the 2h `off12` failure** by the same mechanism,
+and it means the honest reading of my gate history is: *the sha256 gate finally
+did the job it was always claimed to do, on its third revision.*
+
+#### What survives, and what does not
+
+- **Survives:** off0's three rows independently re-confirm the recorded corpus
+  values for all three 5m legs. Worth keeping as a re-measurement.
+- **Does not:** any dispersion information. The 5m legs stay **unscreened**, and
+  the `per_leg` column stays at **n = 2** — the comparison I most wanted is still
+  unmakeable.
+- **The pre-registered prediction is unscored.** `sol` vs `xrp`/`avax` was never
+  tested. It is not a failed prediction and not a confirmed one.
+
+#### What a re-run would need (not attempted tonight)
+
+Not a retry — a different construction. Either pin the two files where the reset
+cannot reach them, or **split each offset into its own short job** so no single
+job outlives the reset window. The second is the smaller change and fits the
+existing relay pattern.
+
