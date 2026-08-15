@@ -3042,3 +3042,133 @@ round contradicts them.
   a new `--fold-offset k` at fixed `b`; it does not exist yet.
 - The ten cells whose live-parity evidence contradicts their recorded status are
   **listed, not re-graded** — that is the operator's queued question.
+
+---
+
+## Fourth overnight stretch (2026-08-15, ~00:20–02:05Z)
+
+### Objective
+
+Run the AUC-dispersion measurement the previous stretch specified but could not
+execute, against a pre-registration written first. Then act on whatever it found.
+
+### Work completed
+
+**The measurement, and it lands on its own threshold.** `--fold-offset` (shipped
+last stretch) drove ten arms over the 1d pullback family — same pool, same
+`0.099` live-parity geometry, only the fold boundary moving. Seven are pure
+boundary shifts; offsets 30 and 40 also drop a fold, because
+`u = floor((N−k)/b) − 1` holds `u = 11` only for `k <= 29` at `N = 629, b = 50`.
+
+- The pre-registration's stop condition **did not fire**: offset 0 reproduced all
+  six recorded `mean_auc` values exactly, on both independent runs.
+- **Median per-leg spread 0.0515, max 0.0658.** The pre-registered top band is
+  `> 0.05`, so it clears by **0.0015** — and dropping `gdx`, the one leg whose
+  usable-fold count is not constant across arms, gives **0.0496**, below. Written
+  up as *"lands ON the threshold and the measurement cannot resolve which side"*
+  rather than resolved by choosing a leg set.
+- The independent 3-arm cross-check (0.0333) **reconciles**: it sits on the
+  median (0.0326) of all ten 3-arm subsets of the primary. So the two runs agree
+  and the gap is purely arm count — which also means the pre-registration fixed
+  thresholds on a statistic that is **not invariant to the number of arms**
+  without saying so. Recorded as a gap in that document.
+
+**A conclusion of mine, falsified within the hour and withdrawn.** From AUC
+values alone I wrote that the dispersion *"bites on the `candidate` side and
+essentially not at all on the negative side"*. Per-arm **verdicts** falsify it:
+`gdx_pullback_1d`, a recorded `honest_negative`, reads `candidate` on **2 of 7**
+pure boundary draws. Withdrawn explicitly in the memo, not softened — the second
+time this session a claim written from a partial read had to be retracted rather
+than qualified, and both retractions are in the artifact.
+
+**The verdict grid is the sharper result, and is labelled post-hoc.** The
+complete 6 legs × 7 offsets grid, no selection: four legs unanimous across every
+draw; `iaum` (recorded `candidate`) survives 1 of 7; `gdx` flips 2 of 7. **The
+two that move are exactly the two on a single-term margin, and they move in
+opposite directions.** So boundary placement shifts the fold-majority terms, not
+only AUC — and stability tracks **margin, not book size** (`slv` unanimous at 160
+OOS trades; `gdx` flips at 81).
+
+**A qualifier the arms forced onto an earlier finding.** Across the 60 arms the
+sole failing term is `beats_actual` 4× / `auc` 2× / `beats_hard` 2×, and
+`beats_actual` fails most often overall. The binding-term memo measured
+`beats_hard` as the sole failure in 6 of 7 single-term failures across 33 rounds
+of many families. Both are correct: **the binding term is family-dependent**, and
+that sentence now travels with the earlier finding.
+
+**Exposure sized the same night, pure read.** Of the 33 committed rounds, 19 are
+`honest_negative`; **7 (37%) fail on exactly one gate term**, six of them
+`beats_hard`. That reconciles *exactly* with the binding-term memo's 6-of-7 — so
+that memo had already sized this population, and what is new is that one of its
+members has been shown to flip.
+
+**Two provenance defects of mine, caught before commit.**
+
+- An emit wrote `beats_actual: null` where the value exists under
+  `beats_actual_folds` — committing it would have put *"we did not look"* and
+  *"absent"* into one field, in the artifact whose entire job is provenance.
+- The verbatim re-emit was **silently truncated at 34 of 60 rows** by GitHub's
+  comment cap, *including its own `reconciles=` line*. Caught only because the
+  row count was asserted independently. The emitter now prints a sha256, and the
+  committed 60 rows were verified **byte-exact** against it.
+
+**Consumer hardening.** `m20-exit-head-rounds.jsonl` is read by a leg-keyed dict
+(last-wins) and by a pooled flip rate; appending dispersion arms would silently
+change which measurement each leg is judged against and inflate the denominator,
+and neither consumer would raise. The schema had carried `fold_offset` since the
+flag shipped and **no consumer read it** — written and never read.
+`_load_graded_rounds` is the read: excludes non-zero offsets, announces which
+rows it dropped, silent on a clean file. Seven tests, each proven load-bearing by
+planting its own regression (filter removed, filter inverted, announcement
+removed, announcement always-on); every plant failed exactly its own tests.
+
+**A screen that ran empty and said DONE.** The first unanimity-screen launch
+"finished" 12 arms in 45 s — every one `exit=1`, `data_missing:GLD`, because
+`--data-dir` defaults to `REPO/"data"`, which inside a worktree is empty. Had the
+progress file recorded completion without exit codes, twelve empty arms would
+have read as *"no leg flipped"* — the null result the screen exists to
+distinguish from a real one. Relaunched with an explicit data dir, a pre-flight
+that aborts on a missing feed, and `skips=` on every progress row.
+
+**Backlog.** `BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN`
+closed on its own criteria (spread measured and recorded; gate unchanged).
+Opened `BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS`, already
+SIZED, with the unanimity screen as its remaining item.
+
+**CI, corrected.** My earlier board claim implied a merge commit fixes *that
+push*. Measured over `guards.yml` runs on this branch: **nine consecutive plain
+pushes since the merge commit, nine attached**, against zero across the preceding
+run. The merge commit clears a **branch** state — a one-time cost per episode,
+not a merge commit per push. Also corrected my own denominator: I reported "seven
+plain pushes skipped" but can only substantiate *a ~7-hour window in which no
+push attached* (26 commits, unknown push count).
+
+### Validation
+
+- Guards **38/38** on every commit; `ruff` clean (one unused import caught and
+  removed).
+- 19 tests across `test_fold_offset.py` + `test_rounds_exclude_dispersion_arms.py`.
+- Committed arms verified **byte-exact** against the trainer's sha256
+  (`41c34c75`, 18758 chars, 60 rows).
+- Recomputing the four E1 gate terms reproduces **all 60 arm verdicts** and **all
+  33 committed round verdicts**, zero disagreements — an independent check on both
+  artifacts and on this reading of the gate.
+- Coverage re-run through `m20_coverage_rollup.py` (the producer, not a hand
+  count): **373/376 = 99.2%**, unchanged.
+
+### Gaps not yet verified
+
+- **The unanimity screen on the six untested single-term negatives is still
+  running** (relay #9384). Nothing is claimed about those legs.
+- **`u` constancy for that screen is unverified** — offsets 0/5/10 were chosen to
+  be small, not proven inside the band. It is checked at readout; any arm whose
+  fold count moved will be reported separately, not pooled.
+- **The dispersion result is one thin family** (`u` 4–11 against 26 for
+  `pullback_1h`), so it is an upper bound on what a well-powered family shows.
+- **The arms do not score identical trade sets** — per-leg `n_oos` swings 2–13%
+  across offsets. Intrinsic to shifting a boundary at fixed block size, but
+  "same pool" oversold it, and it surfaced only from the emitted rows.
+- **No matrix status flipped and no gate changed.** `iaum` and `gdx` are queued
+  for the operator as questions.
+- **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
+  Deploy verification is owed *after* merge.
