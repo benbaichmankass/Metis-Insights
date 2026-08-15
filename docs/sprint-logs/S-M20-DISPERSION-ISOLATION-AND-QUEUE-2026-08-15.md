@@ -342,6 +342,73 @@ trainer stays free.
 The 204 was verified against the run list rather than trusted — a dispatch
 acknowledgement is not evidence a job started.
 
+### 10. The re-sweep landed and produced counter-evidence against two live cells
+
+Run `31911850455` completed at ~22:25Z: 17 legs, 68 new corpus rows, 4
+superseded. `matrix-corpus-agreement` then **failed CI on my own head**, which
+is the guard doing exactly its job — two cells now PASS where the matrix records
+`honest_negative`:
+
+| leg / lever | cell | verdict | wf | base n OOS |
+|---|---|---|---|--:|
+| `sol_pullback_2h` / giveback_stop | `gb1R_afterMFE1R` | **PASS** | 5/6 | 34 |
+| `sol_pullback_2h` / giveback_stop | `gb1R_afterMFE2R` | **PASS** | 6/6 | 34 |
+| `slv_pullback_1d` / stale_stop | `stale12_lt0R` | `path_b_wf_pass` | 5/6 | 33 |
+
+**The statuses are NOT flipped** — a passing cell is not a passing lever
+disposition and a live-leg status change is Tier-3, so both are **queued for the
+operator**. The guard's prescribed remedy was taken instead: the evidence is
+appended to each cell's `ref` so a reader meeting the status also meets the
+measurement that disagrees with it (`f804b12b`).
+
+Two caveats went into the refs because the headline numbers overstate the case,
+and both were **measured from the corpus rows, not inferred**:
+
+- **A win total is not a count of wins.** An all-zero walk-forward fold (the
+  lever never fired) still counts `ok`. `slv`'s 5/6 is really **2 real wins
+  against 1 real loss with three inert folds** (2021, 2024, 2026); `sol`'s 6/6
+  is 5 real wins plus one no-op. On that basis `gb1R_afterMFE1R` — **zero**
+  inert folds, 5 real wins — is the stronger cell despite the lower headline,
+  and the ref says to read them in that order rather than by `wf_summary`.
+- **`slv` is economically nothing.** Path-B, `is_oos_pass:false`,
+  `rate_ok_OOS:false` (`maxdd_worse`), OOS net_R gain **+0.001**.
+
+One correction to my own first pass, recorded because it nearly shipped: I
+diffed the corpus on `(leg, lever, cell)` and got "147 verdict changes" over a
+commit that added 68 rows. That key is **not unique** (218 duplicated keys,
+multiplicity up to 5) — the dict silently collapsed rows and I was comparing
+whichever survived. The arithmetic is what caught it, not re-reading the list.
+
+### 11. Every leg's sweep comment claimed a split 16 of 17 legs had not used
+
+Found while checking the above against the corpus rather than the PR comments.
+The banner prints ``IS/OOS split `${SPLIT}` `` unqualified, but under the
+default `--split-mode oos-trades` that value is only the **fallback** — the real
+boundary is resolved per leg by `resolve_split()`, inside the sweep, which the
+workflow cannot see. All 17 comments said `2025-07-01`; **sixteen legs had run
+at a different derived boundary** (`sol_pullback_2h` 2025-08-23,
+`slv_pullback_1d` 2022-11-29, `ief_pullback_1d` 2017-01-20, …). The one leg that
+genuinely used it, `iaum_pullback_1d`, did so **because its derivation failed
+and fell back** — the single true reading was true by failure.
+
+This matters because comparing legs is what a fleet sweep is *for*, and the
+banner promised a shared cut that did not exist. It is diagnostic-provenance
+sub-class A on the **same banner** whose `geometry` line was added to kill the
+identical defect five days earlier, and this file's docstring was corrected for
+the same drift on 2026-08-13 while the emitted line was not — so the fix went
+into the output, not into more prose about it (`198a822d`).
+
+Both halves mirror how geometry was already solved: the SUMMARY carries a
+per-leg `- split (leg): …` line emitted by the sweep (three states, never
+collapsed — DERIVED / FELL BACK / unknown, and the requested date is **never**
+substituted for an unresolved one), and the banner states the request + names
+`split_mode`, pointing at the per-leg line. Extracted as a pure
+`summary_split_line()` for the reason its sibling `insufficient_base_reason`
+documents, and pinned by `tests/test_m20_summary_split_line.py` — **plant-proven**:
+reverting to a date-only renderer fails 6 of its 9 tests, including both
+controls. The first draft of one test was itself wrong (it banned the bare form
+outright, which is *correct* under `split_mode=date`) and the suite caught it.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
@@ -403,6 +470,15 @@ acknowledgement is not evidence a job started.
   worktree** during the same session; annotated rather than silently dropped.
 - My hand enumeration "7 scripts in scope" was incomplete — the guard found the
   8th.
+- **Mine:** I diffed the sweep corpus on `(leg, lever, cell)` and reported 147
+  verdict changes over a commit that added 68 rows. The key is not unique; the
+  arithmetic caught it before it was published (§ 10).
+- The sweep banner asserted one shared IS/OOS split across legs that had each
+  been cut at a different derived boundary — 16 of 17 comments wrong, on the
+  same banner and the same defect class as the `geometry` line five days
+  earlier (§ 11). Fixed, not logged.
+- The sprint log's own header still said the 5m screen was running after it had
+  finished; corrected in `ec632c3d`.
 
 ## Risks and Follow-Ups
 - **Trainer disk at 90% (4.8 G free)** across every relay this session. Not
@@ -412,7 +488,19 @@ acknowledgement is not evidence a job started.
 
 ## Deferred Items
 - Three paper-routed stale decisions in the coverage matrix.
-- The pullback-family stale/giveback re-sweep.
+- ~~The pullback-family stale/giveback re-sweep.~~ **DONE** — dispatched on the
+  evidence-vintage axis and landed (§ 9, § 10). It is *not* closed as a
+  question, though: it produced two Tier-3 decisions for the operator rather
+  than settling them.
+
+## Queued for the operator (Tier-3 — added by this sprint)
+- `sol_pullback_2h` / **giveback_stop**: both cells PASS at live parity
+  (`gb1R_afterMFE1R` wf 5/6 with zero inert folds — the strongest evidence in
+  the run; `gb1R_afterMFE2R` wf 6/6 = 5 real wins + 1 no-op). Ship, or leave the
+  `honest_negative` standing on the older partition?
+- `slv_pullback_1d` / **stale_stop**: `path_b_wf_pass` — my read is **do not
+  ship**: Path-B only, 3 of 6 folds inert, OOS net_R gain +0.001. Recorded as a
+  decision because the matrix now carries the counter-evidence either way.
 
 ## Next Recommended Sprint
 Read the four arms when they land, run
