@@ -112,6 +112,47 @@ def test_the_ARTIFACT_states_the_failure_rather_than_merely_lacking_rows() -> No
         "is implied by absence rather than stated")
 
 
+def test_the_capability_preflight_runs_BEFORE_any_expensive_work() -> None:
+    """A branch-only flag must be checked before the hour is spent, not after.
+
+    The trainer VM re-checks out from origin/main every ~15 min, so a reset
+    landing mid-arm removes `--fold-offset` from the trainer while this driver
+    still forwards it. Twice on 2026-08-15 that cost 73 minutes of emit+build
+    before argparse rejected the flag at the very last step.
+
+    A file-hash gate cannot catch this — the screen harness hashed both files at
+    ARM START and passed, because the reset arrived afterwards. Asking the
+    trainer whether it accepts the flag at the moment of use is the check that
+    holds, and its VALUE comes from running early: the same check placed after
+    the build would be correct and still waste the hour.
+    """
+    src = _source()
+    assert "pre-flight" in src.lower(), "the capability pre-flight is gone"
+    preflight_at = src.index("PRE-FLIGHT FAILED")
+    # The emit loop is the first expensive thing main() does.
+    emit_at = src.index('for leg in a.legs.split(",")')
+    assert preflight_at < emit_at, (
+        "the pre-flight runs after the emit loop has already started, so it "
+        "can only confirm that an hour was wasted rather than prevent it")
+
+
+def test_the_preflight_matches_flag_names_at_a_WORD_BOUNDARY() -> None:
+    """A substring probe answers a question adjacent to the one asked.
+
+    `"--fold-offset" in help_text` is TRUE for a trainer offering
+    `--fold-offsets`, `--fold-offset-mode`, or any rename — so the probe reports
+    a capability the trainer does not have. This is not hypothetical: the
+    negative test written for this very pre-flight renamed the trainer's
+    argument to `--fold-offset-REMOVED-BY-SIMULATED-RESET` and the substring
+    version printed "pre-flight OK". A guard that cannot fail is not a guard.
+    """
+    src = _source()
+    assert "re.escape" in src and r"(?![\w-])" in src, (
+        "the pre-flight no longer matches flag names at a word boundary; a "
+        "bare `flag in help_text` passes on any longer flag that starts with "
+        "the same characters")
+
+
 def test_a_zero_row_round_does_NOT_write_rounds_jsonl() -> None:
     """Existence of the evidence file must imply the round produced evidence.
 

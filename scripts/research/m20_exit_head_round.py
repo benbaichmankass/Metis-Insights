@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -149,6 +150,66 @@ def main(argv: list[str]) -> int:
                          "because N rounds at N offsets that do not say which "
                          "offset they used are not a dispersion measurement.")
     a = ap.parse_args(argv[1:])
+
+    # ---------------------------------------------------------------------
+    # CAPABILITY PRE-FLIGHT — assert the trainer accepts the flags we intend to
+    # forward, BEFORE spending an hour producing a book it will then reject.
+    #
+    # This is the second half of the 2026-08-15 failure and it is a different
+    # bug from the unchecked returncode below. The trainer VM re-checks out this
+    # repo from origin/main roughly every 15 minutes. `--fold-offset` lives only
+    # on a research branch, so a reset landing between the driver's checkout and
+    # its train invocation removes the flag from train_exit_head.py while THIS
+    # file still passes it. Measured twice: a 2h arm burned 73 minutes of emit +
+    # build and a 5m arm burned 73 minutes, each dying at the very last step on
+    # `unrecognized arguments: --fold-offset N`.
+    #
+    # A file-hash gate CANNOT catch this. The screen harness hashed both files
+    # at ARM START and passed, because the reset arrived afterwards; hashing at
+    # the end tells you only that the run was void, and by then the hour is
+    # spent. Asking the trainer whether it accepts the flag AT THE MOMENT OF USE
+    # is the check that actually holds -- and doing it here, before the emit
+    # loop, converts a 73-minute silent loss into a two-second loud one.
+    #
+    # Scoped to flags we would actually pass: `--fold-offset 0` is never
+    # forwarded (see the `if a.fold_offset:` guard at the train call), so a
+    # control arm must NOT be blocked by a trainer that lacks the flag. That
+    # asymmetry is real and load-bearing -- it is why the off0 arm of the dead
+    # 5m round produced rows while off4 produced none.
+    trainer = REPO / "scripts/ml/train_exit_head.py"
+    forwarded = ["--fold-offset"] if a.fold_offset else []
+    if forwarded:
+        probe = sh([sys.executable, str(trainer), "--help"], timeout=120)
+        if probe.returncode != 0:
+            print(f"PRE-FLIGHT FAILED: `{trainer.name} --help` exited "
+                  f"{probe.returncode}, so this round cannot establish whether "
+                  f"the trainer accepts {forwarded}. Refusing to start rather "
+                  f"than discovering it after the build.\n"
+                  f"{(probe.stderr or '')[-600:]}", flush=True)
+            return 3
+        # WORD-BOUNDARY MATCH, not `flag in help_text`. A bare substring test
+        # reports a capability the trainer does not have: `--fold-offset` is a
+        # substring of `--fold-offsets`, of `--fold-offset-mode`, and of any
+        # rename. Caught on 2026-08-15 by the negative test for this very
+        # pre-flight -- the test renamed the trainer's argument to
+        # `--fold-offset-REMOVED-BY-SIMULATED-RESET` and the substring check
+        # printed "pre-flight OK" against a trainer that would have rejected the
+        # flag. The check is only worth having if it can fail, and a probe that
+        # answers a question adjacent to the one asked is CLAUDE.md
+        # § "Diagnostic provenance" sub-class A inside the guard itself.
+        help_text = probe.stdout or ""
+        missing = [f for f in forwarded
+                   if not re.search(re.escape(f) + r"(?![\w-])", help_text)]
+        if missing:
+            print(f"PRE-FLIGHT FAILED: {trainer} does not accept "
+                  f"{', '.join(missing)}. On the trainer VM this is almost "
+                  f"always the ~15-min `Reset to origin/main` having replaced a "
+                  f"branch-only trainer while this driver still forwards the "
+                  f"flag. Re-check out the branch and re-launch. Nothing has "
+                  f"been built, so nothing is wasted.", flush=True)
+            return 3
+        print(f"pre-flight OK: trainer accepts {', '.join(forwarded)}",
+              flush=True)
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
                                  .read_text()) or {}).get("strategies") or {}
