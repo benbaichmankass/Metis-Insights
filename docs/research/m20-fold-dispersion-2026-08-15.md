@@ -492,9 +492,31 @@ arithmetic applies:
 | **passing wf cells** | **24 of 49 (49%)** |
 | failing wf cells | 15 of 29 (52%) |
 
-**Twenty-three of those 24 sit at `4/6` — slack exactly zero.** `4/6` is both the
-most common passing value and the minimum passing value, which is what makes the
-share so high: the gate's bar is where its mass is.
+**Twenty-three of those 24 sit at `4/6` — slack exactly zero.** That is not a
+coincidence, and the distribution says why. Over the 75 cells with six usable
+folds:
+
+```
+0/6   2   2.7%  ##
+1/6   4   5.3%  ####
+2/6   7   9.3%  #######
+3/6  14  18.7%  ##############
+4/6  23  30.7%  #######################   <- THE PASS THRESHOLD
+5/6  16  21.3%  ################
+6/6   9  12.0%  #########
+```
+
+**The gate's bar sits exactly on the MODE of the win distribution** (4/6, 30.7%
+of all cells), with the mean at 3.81/6 = 0.636 just under the 0.667 threshold. A
+threshold placed at the peak of the statistic it thresholds puts the *largest
+single group of cells* at zero slack — which is the mechanical reason the
+exposure is ~half rather than a few percent.
+
+To be fair to the gate: a discriminating threshold often *belongs* near the
+middle of a distribution, and this one separates cleanly (78/78). The problem is
+not the placement in the abstract — it is that each of these verdicts is a
+ship-or-don't decision about **one leg**, so "half the passes are one fold from
+not being passes" is a statement about how much individual decisions can bear.
 
 **So the fragility is structural to the 2/3 majority rule, not a property of the
 exit-head programme.** Two independent gates, two different harnesses, two

@@ -137,9 +137,18 @@ the AUC bar by **+0.0006**.
 **It is not an `exit_head_ml` quirk.** The same 2/3 majority governs the
 walk-forward gate the *other* lever families are graded by — derived empirically
 and an exact fit on **78 of 78** corpus cells. There, **24 of 49 passing cells
-(49%) sit at slack zero**, 23 of them at `4/6`, which is simultaneously the
-minimum and the most common passing value. Two gates, two harnesses, two lever
-families, the same arithmetic and the same order of exposure.
+(49%) sit at slack zero**, 23 of them at `4/6`.
+
+**And the distribution explains why.** Across the 75 six-fold cells, `4/6` is the
+**mode** — 30.7% of all cells — and the mean is 3.81/6 = 0.636, just under the
+0.667 bar. **The threshold sits on the peak of the statistic it thresholds**, so
+the largest single group of cells has zero slack by construction. That is the
+mechanical reason the exposure is ~half rather than a few percent, on two
+independent gates.
+
+In the gate's defence, a discriminating threshold often belongs near the middle
+of a distribution and this one separates cleanly (78/78). The issue is that each
+verdict is a ship-or-don't decision about one leg.
 
 **Why this is the item that matters:** a fragile negative costs an unexplored
 opportunity. A fragile candidate is a cell that would justify **shipping a lever
