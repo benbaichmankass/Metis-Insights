@@ -23,8 +23,36 @@ trail_decay_arm_r: 2.0
 trail_decay_tight_mult: 2.5
 ```
 
-**State:** all four checks green, `mergeable_state: clean`, still a draft.
-Rollback is deleting the two lines.
+**State:** still a draft. Rollback of the *behaviour* is deleting the two lines.
+
+⚠️ **CORRECTION (04:55Z) — MERGING #9257 IS NOT A TWO-LINE MERGE.** Everything
+above describes the config change accurately, and I checked it again: the
+`config/strategies.yaml` diff is `+26 / −0`, of which **2 lines are the keys and
+24 are the explanatory comment**, so the semantic change and the rollback really
+are two lines. **But the PR carries 30 files**, because this branch is also where
+all of tonight's M20 research landed:
+
+| what | files |
+|---|--:|
+| the Tier-3 config change | 1 |
+| research docs + evidence artifacts (incl. the memos in this queue) | 10 |
+| research/CI tooling + guards + workflows | 9 |
+| tests | 4 |
+| **`src/runtime/regime_flip_exit.py`** (new) | 1 |
+| sprint log, backlog, coverage matrix, corpus | 5 |
+
+**On the one that would worry me:** `src/runtime/regime_flip_exit.py` is new and
+sits in the live-runtime tree, but **nothing under `src/` imports it** — its only
+importer is `scripts/research/m20_regime_flip_replay.py`. It lives there so the
+research replay and any future live wiring share ONE predicate rather than
+mirroring it. So it ships as dead code on the live path, not as a behaviour
+change. I verified that by grep rather than by recalling the design intent.
+
+I am flagging this because the queue as first written invited you to read
+"merge #9257" as a two-line decision, and it is not. If you want the config
+change isolated, say so and I will split it onto its own branch off `main` —
+that is mechanical and I did not do it unasked because it would rewrite the PR
+you were already pointed at.
 
 **Evidence:** PASS on two independent windows (`base_OOS` 32 and 40), `wf 5/6`,
 config-exact base — so the gain is over *what is live*, and the OOS base book is
