@@ -384,30 +384,50 @@ def _funding_by_symbol() -> dict[str, str] | None:
     accounts = load_accounts_dict(REPO / "config" / "accounts.yaml", errors=errors)
     if errors or not isinstance(accounts, dict) or not accounts:
         return None
+    # KEYED ON THE ACCOUNT'S `strategies` LIST, NOT ON `symbols`.
+    #
+    # The first version of this keyed on symbols and was UNSOUND, caught
+    # 2026-08-15 while prioritising the stale population: `eth_pullback_prop_2h`
+    # and `eth_pullback_2h` both trade ETHUSDT, so a symbol map graded BOTH
+    # `real_money` -- but only the latter is declared by `bybit_2`; the prop leg
+    # is declared solely by `breakout_1`. A symbol map answers "does some live
+    # real-money account trade this instrument", which is NOT the question. Every
+    # account declares `strategies` explicitly, so the leg->account edge is
+    # available and exact; there is no reason to infer it.
+    #
+    # FOUR states, because `account_class` has THREE values in the field --
+    # measured, not assumed: paper x7, real_money x3, **prop x1**
+    # (`breakout_1`, mode live, a $5k funded account). Prop is a distinct
+    # funding class this repo never blends into real-money or paper KPIs, and
+    # folding it into either would be the same collapse this module exists to
+    # stop. Precedence real_money > prop > paper: a leg routed to both reads as
+    # the strongest money-at-risk claim.
     out: dict[str, str] = {}
+    rank = {"real_money": 3, "prop": 2, "paper": 1}
     for body in accounts.values():
         if not isinstance(body, dict):
             continue
-        live_real = (body.get("account_class") == "real_money"
-                     and body.get("mode") == "live")
-        for sym in (body.get("symbols") or []):
-            # real_money WINS over paper: one live real-money route is enough
-            # to make the leg money-at-risk, however many paper books mirror it.
-            if live_real or out.get(sym) != "real_money":
-                out[sym] = "real_money" if live_real else out.get(sym, "paper")
+        cls = body.get("account_class")
+        live = body.get("mode") == "live"
+        # A dry_run account places no order, so it cannot make a leg
+        # money-at-risk whatever its class (`ib_live` is real_money at dry_run).
+        grade = cls if (live and cls in ("real_money", "prop")) else "paper"
+        for leg in (body.get("strategies") or []):
+            if rank[grade] > rank.get(out.get(leg, "paper"), 0) or leg not in out:
+                out[leg] = grade if rank[grade] > rank.get(out.get(leg), 0) else out[leg]
     return out
 
 
-def _leg_funding(body: dict[str, Any] | None,
-                 by_symbol: dict[str, str] | None) -> str:
-    """`real_money` / `paper` / `unresolved` for one leg's declared body."""
-    if by_symbol is None or not isinstance(body, dict):
+def _leg_funding(leg: str | None, routing: dict[str, str] | None) -> str:
+    """`real_money` / `prop` / `paper` / `unresolved` for one leg NAME.
+
+    `unresolved` means the config was unreadable OR no account declares this
+    leg -- deliberately NOT folded into `paper`. "We could not look" and "we
+    looked and it is paper" are opposite claims.
+    """
+    if routing is None or not leg:
         return "unresolved"
-    syms = body.get("symbols") or ([body["symbol"]] if body.get("symbol") else [])
-    seen = [by_symbol[s] for s in syms if s in by_symbol]
-    if not seen:
-        return "unresolved"
-    return "real_money" if "real_money" in seen else "paper"
+    return routing.get(leg, "unresolved")
 
 
 def _stale_decision_funding(dec: list) -> dict[str, int]:
@@ -418,10 +438,10 @@ def _stale_decision_funding(dec: list) -> dict[str, int]:
     tuple shape stays stable for its existing consumers in
     `tests/test_exit_head_per_leg.py`.
     """
-    legs, by_symbol = _declared_legs(), _funding_by_symbol()
+    by_symbol = _funding_by_symbol()
     out: dict[str, int] = {}
     for leg, *_rest in dec:
-        k = _leg_funding((legs or {}).get(leg), by_symbol)
+        k = _leg_funding(leg, by_symbol)
         out[k] = out.get(k, 0) + 1
     return out
 
@@ -1135,9 +1155,9 @@ def main(argv: list[str]) -> int:
             elif not dec:
                 print(f"  (0 of {stale_n} stale cells is a non-negative — every "
                       "one is an honest_negative)")
-            _legs, _by_sym = _declared_legs(), _funding_by_symbol()
+            _by_sym = _funding_by_symbol()
             for leg, lever, status, dt, cut in sorted(dec):
-                routing = _leg_funding((_legs or {}).get(leg), _by_sym)
+                routing = _leg_funding(leg, _by_sym)
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
                       f"newest-ref {dt or '(undated)'}  (cutover {cut})  "
                       f"routing={routing}")

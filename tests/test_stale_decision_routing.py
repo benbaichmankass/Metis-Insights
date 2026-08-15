@@ -4,21 +4,39 @@
 "changes exit behaviour on a real-money leg now". Nothing in that script had ever
 read `config/accounts.yaml`, so the claim was not computed — it was assumed.
 
-Measured against the field 2026-08-15, it was wrong for **3 of the 4** rows it was
-printed over:
+Measured against the field 2026-08-15, it was wrong for **all four** rows:
 
-  htf_pullback_trend_2h  trail_geometry  shipped           BTCUSDT -> bybit_2   real_money
-  mes_trend_long_1d      trail_geometry  shipped           MES     -> ib_paper  paper
-  mhg_pullback_1d        stale_stop      passed_unshipped  MHG     -> ib_paper  paper
-  mhg_pullback_1d        trail_geometry  shipped           MHG     -> ib_paper  paper
+  htf_pullback_trend_2h  trail_geometry  shipped           bybit_1   paper
+  mes_trend_long_1d      trail_geometry  shipped           ib_paper  paper
+  mhg_pullback_1d        stale_stop      passed_unshipped  ib_paper  paper
+  mhg_pullback_1d        trail_geometry  shipped           ib_paper  paper
+
+⚠️ THE FIRST FIX WAS ALSO WRONG, IN THE SAME SHAPE ONE LEVEL UP. It resolved
+routing from the account's `symbols` list, which answers "does some live
+real-money account trade this INSTRUMENT" — not "is this LEG routed to one".
+`htf_pullback_trend_2h` trades BTCUSDT, which `bybit_2` (real_money) does trade,
+so it graded `real_money`; but `bybit_2.strategies` does not list that leg —
+only `bybit_1` (paper) declares it. A real-money claim was published to the
+operator on that inference before it was caught.
+
+Every account declares `strategies` EXPLICITLY, so the leg->account edge is
+exact and there was never a reason to infer it from symbols. The resolver now
+keys on that list.
+
+And `account_class` has THREE values in the field, not two: paper x7,
+real_money x3, **prop x1** (`breakout_1`, live). A two-state resolver graded
+`eth_pullback_prop_2h` — a prop-only leg — as `real_money` because a sibling
+account trades ETHUSDT. Prop is a funding class this repo never blends into
+either bucket.
 
 That is CLAUDE.md § "Diagnostic provenance" sub-class **A** (the label names a
 quantity the code never computed) occurring inside the tool written to stop that
 class — which is why it was fixed rather than reworded, and why it is pinned here.
 
-The severity inversion matters: it does not make the finding smaller, it makes it
-SHARPER. One real-money cell resting on evidence 29 days older than its cutover is
-a more actionable statement than four cells of unstated funding.
+CORRECTED PICTURE: all four stale DECISIONS are paper; ZERO are real-money. The
+24 real-money stale cells are all `honest_negative` — stale knowledge, not stale
+live behaviour. That is a smaller finding than the one first published, and
+saying so is the point.
 """
 from __future__ import annotations
 
@@ -46,6 +64,34 @@ ROLLUP = _rollup()
 # The three states, and the one that must never collapse.
 # --------------------------------------------------------------------------
 
+def test_prop_is_its_own_class_not_folded_into_real_money_or_paper() -> None:
+    """`breakout_1` is `account_class: prop`, live — a third class.
+
+    A prop-only leg must grade `prop`. Folding it into `real_money` overstates
+    money-at-risk; folding it into `paper` understates a fundable account that
+    can be lost. The repo never blends prop into either KPI.
+    """
+    routing = ROLLUP._funding_by_symbol()
+    assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) == "prop"
+    assert ROLLUP._leg_funding("trend_donchian_eth_prop", routing) == "prop"
+
+
+def test_routing_is_keyed_on_declared_strategies_not_on_symbols() -> None:
+    """The regression that published a false real-money claim.
+
+    `htf_pullback_trend_2h` and `eth_pullback_2h` both trade instruments that a
+    live real-money account also trades. Only the SECOND is declared by
+    `bybit_2.strategies`. A symbol-keyed resolver grades both `real_money`;
+    the leg-keyed one separates them.
+    """
+    routing = ROLLUP._funding_by_symbol()
+    assert ROLLUP._leg_funding("eth_pullback_2h", routing) == "real_money"
+    assert ROLLUP._leg_funding("htf_pullback_trend_2h", routing) == "paper", (
+        "htf_pullback_trend_2h graded real_money again — it trades BTCUSDT, "
+        "which bybit_2 trades, but bybit_2.strategies does not list this leg. "
+        "That inference is what published a false real-money claim on 2026-08-15")
+
+
 def test_unreadable_config_is_unresolved_NOT_paper() -> None:
     """`None` from the config read is "we could not look", not "it is paper".
 
@@ -54,17 +100,16 @@ def test_unreadable_config_is_unresolved_NOT_paper() -> None:
     `paper` stops worrying, and they would be doing so over a routing nobody
     resolved.
     """
-    assert ROLLUP._leg_funding({"symbols": ["BTCUSDT"]}, None) == "unresolved"
+    assert ROLLUP._leg_funding("eth_pullback_2h", None) == "unresolved"
 
 
 def test_unknown_symbol_is_unresolved_NOT_paper() -> None:
     """A leg whose symbol no account declares is unresolved for the same reason."""
-    by_sym = {"BTCUSDT": "real_money"}
-    assert ROLLUP._leg_funding({"symbols": ["NOSUCHUSDT"]}, by_sym) == "unresolved"
+    assert ROLLUP._leg_funding("no_such_leg_at_all", {"x": "real_money"}) == "unresolved"
 
 
 def test_a_leg_with_no_declared_body_is_unresolved() -> None:
-    assert ROLLUP._leg_funding(None, {"BTCUSDT": "real_money"}) == "unresolved"
+    assert ROLLUP._leg_funding(None, {"x": "real_money"}) == "unresolved"
 
 
 def test_real_money_wins_over_paper_when_both_route_the_symbol() -> None:
@@ -74,9 +119,8 @@ def test_real_money_wins_over_paper_when_both_route_the_symbol() -> None:
     the real one. Letting a paper mirror mask the real route would under-report
     exactly the cell that matters.
     """
-    by_sym = {"BTCUSDT": "real_money"}
-    assert ROLLUP._leg_funding({"symbols": ["ETHUSDT", "BTCUSDT"]},
-                               {**by_sym, "ETHUSDT": "paper"}) == "real_money"
+    assert ROLLUP._leg_funding("eth_pullback_2h",
+                               {"eth_pullback_2h": "real_money"}) == "real_money"
 
 
 def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> None:
@@ -94,8 +138,8 @@ def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> Non
         pytest.skip("ib_live absent or now live — the fixture this pins is gone")
     assert ib_live.get("account_class") == "real_money"
     assert "MES" in (ib_live.get("symbols") or [])
-    # ...and yet MES resolves to paper, because ib_paper is the only LIVE route.
-    assert ROLLUP._funding_by_symbol().get("MES") == "paper", (
+    # ...and yet the MES leg resolves to paper: ib_paper is the only LIVE route.
+    assert ROLLUP._funding_by_symbol().get("mes_trend_long_1d") == "paper", (
         "MES graded money-at-risk. If ib_live was deliberately flipped to "
         "mode: live, then mes_trend_long_1d's stale shipped trail_geometry cell "
         "just became a real-money exposure — re-read the stale-decisions table "
@@ -110,14 +154,15 @@ def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> Non
 def test_the_resolver_actually_resolves_something() -> None:
     by_sym = ROLLUP._funding_by_symbol()
     assert by_sym, "accounts.yaml resolved to nothing — every routing verdict above is vacuous"
+    assert "eth_pullback_2h" in by_sym, "the leg->account map resolved no known leg"
     assert "real_money" in by_sym.values(), (
         "no symbol anywhere resolved to real_money, so a real_money verdict "
         "could never be produced and the paper counts prove nothing")
 
 
-def test_btcusdt_is_real_money_on_the_live_config() -> None:
-    """The anchor for the one row that IS money-at-risk."""
-    assert ROLLUP._funding_by_symbol().get("BTCUSDT") == "real_money"
+def test_a_known_real_money_leg_resolves_real_money() -> None:
+    """Positive anchor — without one, every `paper` verdict below is vacuous."""
+    assert ROLLUP._funding_by_symbol().get("eth_pullback_2h") == "real_money"
 
 
 # --------------------------------------------------------------------------
@@ -132,7 +177,7 @@ def test_the_stale_decision_routing_split_is_not_uniform() -> None:
     cell updates the numbers without failing a test that is really about the
     banner having stopped over-claiming.
     """
-    dec = [("htf_pullback_trend_2h", "trail_geometry", "shipped", "2026-07-12", "2026-08-10"),
+    dec = [("eth_pullback_2h", "trail_geometry", "shipped", "2026-07-12", "2026-08-10"),
            ("mes_trend_long_1d", "trail_geometry", "shipped", "2026-08-09", "2026-08-10"),
            ("mhg_pullback_1d", "trail_geometry", "shipped", "2026-08-09", "2026-08-10")]
     split = ROLLUP._stale_decision_funding(dec)

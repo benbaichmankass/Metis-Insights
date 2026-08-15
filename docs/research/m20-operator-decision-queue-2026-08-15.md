@@ -1,4 +1,4 @@
-# M20 — what is waiting on you, 2026-08-15 (last updated ~07:25Z + 07:35Z items)
+# M20 — what is waiting on you, 2026-08-15 (last updated ~07:45Z)
 
 Everything the overnight session queued rather than decided, in one place.
 **Seven items**, plus one coda outside M20's scope. **No decision here has been
@@ -26,7 +26,7 @@ and it is the night's actual result.
 | 4 | `iaum_pullback_1d` | **leave the status**; the real question is about the gate |
 | 5 | The fragile-margin population | **no flip needed** — unchanged, but read the 07:00Z update: one mover refuted my stated *cause* |
 | 6 | **The leg-order defect** | **(a) + (c)**; (c) already shipped, (a) written and default-off, awaiting your call |
-| 7 | **Stale SHIPPED lever on a REAL-MONEY leg** | ✅ **RESOLVED — no action needed.** I ran it; the live value survives at live parity (both neighbours fail OOS) |
+| 7 | ~~Stale SHIPPED lever on a real-money leg~~ | 🔴 **RETRACTED — the leg is PAPER.** I published a false real-money claim; read the 07:45Z correction. Re-sweep result stands, urgency does not |
 | — | Exit-loop 58.9 s vs your 60 s ask | outside M20; filed, nothing alerts on it |
 
 Each item states what I'd do and how confident I am, because Tier-3 is *propose,
@@ -442,7 +442,56 @@ Filed `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER` (high).
 
 ---
 
-## 7. One SHIPPED lever on a real-money leg rests on pre-cutover evidence
+## 7. ~~One SHIPPED lever on a real-money leg~~ — RETRACTED: it is PAPER
+
+# 🔴 CORRECTION FIRST (07:45Z) — I published a false real-money claim here
+
+**This item told you a live real-money lever was running on 29-day-stale
+evidence. That is WRONG. `htf_pullback_trend_2h` is a PAPER leg.**
+
+`config/accounts.yaml` declares it in **`bybit_1.strategies`** (paper) and
+nowhere else. `bybit_2` (real_money) trades BTCUSDT but **does not list this
+leg**. I resolved routing from the account's `symbols` list — which answers
+*"does some live real-money account trade this instrument"*, not *"is this leg
+routed to one"* — and published the inference as a measurement.
+
+**The corrected picture: ALL FOUR stale decisions are paper. ZERO are
+real-money.** Nothing in the stale-decision set is money-at-risk.
+
+checked: config/accounts.yaml — every account declares `strategies` explicitly,
+so the leg→account edge is exact; `htf_pullback_trend_2h` appears only under
+`bybit_1` (`account_class: paper`). Also scripts/research/m20_coverage_rollup.py,
+whose resolver now keys on that list.
+
+**This is the same defect I opened the item by criticising**, one level up: the
+banner asserted routing it never computed, and my fix computed routing by the
+wrong key. Recording that because "I caught the tool doing it" and "I then did
+it myself" are the same lesson, and the second half is the useful one.
+
+**Two further corrections that follow from it:**
+- **`account_class` has THREE values, not two** — paper ×7, real_money ×3, and
+  **prop ×1** (`breakout_1`, live). My two-state resolver graded
+  `eth_pullback_prop_2h`, a prop-only leg, as `real_money`. Prop is a class this
+  repo never blends into either bucket.
+- **The stale-population split I was about to hand you was also wrong.** Correct
+  figures, leg-declared: **paper 132 · real_money 24 · prop 12** of 168 — not
+  the "55 real-money" a symbol-keyed count produced. The 24 real-money stale
+  cells are **all `honest_negative`** (stale knowledge, not stale live
+  behaviour), across 5 legs: `trend_donchian_eth_4h` 7 · `xrp_pullback_2h` 6 ·
+  `eth_pullback_2h` 5 · `trend_donchian_xrp_4h` 5 · `trend_donchian` 1.
+
+**What SURVIVES unchanged:** the re-sweep itself and its result. `trail_mult: 4.0`
+still beat both neighbours at live parity, both arms still graded, and item 2's
+boundary argument still reproduced end-to-end on a real cell. The measurement was
+sound; the URGENCY framing around it was not. **It was never a real-money
+decision, so there is even less for you to do here than the item claimed.**
+
+Everything below is the original item, kept so the correction is legible rather
+than silently rewritten.
+
+---
+
+## 7 (as originally written). One SHIPPED lever rests on pre-cutover evidence
 
 Found 07:0xZ by running `m20_coverage_rollup.py --stale-decisions` and then
 **checking the routing the banner had been asserting** — which nothing had done.
@@ -553,10 +602,12 @@ and cells share the identical book, so the *delta* is sound), but the absolute
 net_R figures are not the live book's.
 
 **Bonus datum for item 2, from a real cell rather than a fleet aggregate.** The
+checked: scripts/research/m20_fleet_exit_sweep.py — the grade below is that
+sweep's own `insufficient_base` verdict, with its own `base_trades_oos` and
+`min_oos_trades_floor` fields; not my inference.
+
 same leg is **unmeasurable at target 25 and graded at 30** — OOS base 24 vs 31
 against a floor of 25, on a leg with **407 lifetime trades**.
-checked: scripts/research/m20_fleet_exit_sweep.py — that grade is the sweep's
-own `insufficient_base` verdict with its own `base_trades_oos` field.
 
 checked: scripts/research/m20_fleet_exit_sweep.py — that grading is not my
 inference but the sweep's own `insufficient_base` verdict, read from
