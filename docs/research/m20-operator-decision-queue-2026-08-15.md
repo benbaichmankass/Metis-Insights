@@ -270,6 +270,51 @@ after seeing which term it failed on is exactly what I won't do unprompted.
 
 ## 5. The fragile-margin population — the finding I'd most want you to read
 
+> ### 📍 WHERE THIS ITEM ACTUALLY LANDED — read this box, then the history below only if you want it
+>
+> **This item was revised five times overnight as screens came in, and the
+> finding CHANGED.** The original framing below is preserved because you may
+> have read it, but do not act on it. Current state, 10:00Z:
+>
+> **1. The fragile-margin flag does NOT predict instability. It was refuted.**
+> I measured whether cells near the gate bar are the ones whose verdict moves
+> when the fold boundaries move. They are not: flagged **6/11** moved, unflagged
+> **2/4** — 55% vs 50%, one-sided Fisher **p = 0.66**. Two unflagged legs moved,
+> one from slack **+7**. I told you the opposite at 09:20Z ("zero false
+> negatives in 17") and that was wrong.
+>
+> **2. Why, in one line:** slack measures distance from ONE fold flipping inside
+> a *fixed* partition; moving the boundaries *re-draws every fold* and shifts the
+> counts three at a time. Two different quantities — I was using one as a proxy
+> for the other without checking.
+>
+> **3. What replaces it, and it is a bigger claim than the original:**
+> **8 of 15 screened legs (53%) changed verdict under re-partitioning, and
+> nothing yet identifies which will.** Not just the ones near the bar. Any of
+> them.
+>
+> **4. The caveat, stated with the number and not after it:** I *chose* those 15
+> to be flag-enriched, so 53% is not an unbiased fleet rate. The reason to still
+> weigh it is that the enrichment provably did not work. **A slack-blind screen
+> is running now (#9441) to settle exactly this**, with both competing
+> predictions written down before it started.
+>
+> **5. What I would actually ask of you:** nothing on this item tonight. It needs
+> no Tier-3 decision. When you read it, the ask is a *posture* change — treat a
+> single E1 `exit_head_ml` verdict as unreplicated until it has been screened,
+> and screen by ROUND (4 arms, ~45 s each, returns every leg in the round) rather
+> than by cell. Three heuristics for shortening that list have now been measured
+> and refuted (sample size, AUC spread, margin). I am not proposing a fourth.
+>
+> **6. One thing NOT claimed:** PR #9257 (item 1) rests on a walk-forward, a
+> different harness from anything measured here. It shares the *structure* that
+> proved boundary-sensitive, but **I have not measured walk-forward
+> re-partitioning and this is not a reason to hold that merge.** Flagged so it is
+> not discovered later and mistaken for something I knew and withheld.
+
+---
+
+
 **Arithmetic over the 33 committed rounds, not an extrapolation.** The gate is
 `beats * 3 >= u * 2`, so one fold changing side moves the slack by 3: a slack of
 0–2 means **one fold flip changes the verdict**.
