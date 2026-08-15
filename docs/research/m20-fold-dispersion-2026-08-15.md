@@ -6,155 +6,223 @@ matrix status flipped) · **Pre-registration:**
 written and committed (`017fc636`) before any arm reported, amended (`1c7e5ace`)
 after the arms ran but **before any AUC was visible**.
 
-Read this document against that one. Every threshold, the statistic, the control
-values and the five committed consequences were fixed in advance; nothing below
-selects them after the fact.
+Read this against that document. The statistic, the control values, the three
+interpretation bands and the five committed consequences were all fixed in
+advance; nothing below selects them after the fact.
 
-## The control PASSES
+## The control PASSES — twice
 
-The pre-registration made one stop condition: offset 0 must reproduce the six
-recorded `mean_auc` values, or the arms are not comparable and **no dispersion
-number is reported**.
+The one stop condition: offset 0 must reproduce the six recorded `mean_auc`
+values, or the arms are not comparable and **no dispersion number is reported**.
 
-| leg | required | offset-0 arm | |
-|---|---|---|---|
-| gdx_pullback_1d | 0.6337 | 0.6337 | ✅ |
-| gld_pullback_1d | 0.5277 | 0.5277 | ✅ |
-| iaum_pullback_1d | 0.5525 | 0.5525 | ✅ |
-| ief_pullback_1d | 0.5337 | 0.5337 | ✅ |
-| slv_pullback_1d | 0.4895 | 0.4895 | ✅ |
-| tlt_pullback_1d | 0.5300 | 0.5300 | ✅ |
+| leg | required | run 1 off0 | run 2 off0 | |
+|---|---|---|---|---|
+| gdx_pullback_1d | 0.6337 | 0.6337 | 0.6337 | ✅ |
+| gld_pullback_1d | 0.5277 | 0.5277 | 0.5277 | ✅ |
+| iaum_pullback_1d | 0.5525 | 0.5525 | 0.5525 | ✅ |
+| ief_pullback_1d | 0.5337 | 0.5337 | 0.5337 | ✅ |
+| slv_pullback_1d | 0.4895 | 0.4895 | 0.4895 | ✅ |
+| tlt_pullback_1d | 0.5300 | 0.5300 | 0.5300 | ✅ |
 
-Six of six, exact. `--fold-offset 0` is byte-for-byte the old partition — which
-is also what `test_offset_zero_is_byte_for_byte_the_old_behaviour` asserts at the
-unit level, now confirmed end-to-end on real data.
+Six of six, exact, on both independent runs. `--fold-offset 0` is byte-for-byte
+the old partition — asserted at unit level by
+`test_offset_zero_is_byte_for_byte_the_old_behaviour`, now confirmed end-to-end
+on real data, including `gdx`'s `u = 7`.
 
-## Arm set 1 — the 3-arm cross-check (offsets 0 / 10 / 20)
+## The primary — 5 arms, offsets 0 / 6 / 12 / 18 / 24
 
-Reported **as a cross-check, not as the primary**, per the amendment: this run's
-other two arms (30 / 40) shrank the fold count 11 → 10, so only 0/10/20 are a
-pure boundary shift. Relay #9377 launch, #9378 readout.
+This is the arm set the pre-registered thresholds were written for ("per leg,
+over the 5 arms"). Relay #9378 launch, #9379 readout.
 
-| leg | off0 | off10 | off20 | **spread** | u |
-|---|---|---|---|---|---|
-| gdx_pullback_1d | 0.6337 | 0.6513 | 0.6140 | 0.0373 | 7–8 |
-| gld_pullback_1d | 0.5277 | 0.5167 | 0.5394 | 0.0227 | 11 |
-| iaum_pullback_1d | 0.5525 | 0.5277 | 0.5231 | 0.0294 | 4 |
-| ief_pullback_1d | 0.5337 | 0.5602 | 0.5860 | 0.0523 | 11 |
-| slv_pullback_1d | 0.4895 | 0.4917 | 0.5157 | 0.0262 | 11 |
-| tlt_pullback_1d | 0.5300 | 0.5038 | 0.4749 | **0.0551** | 11 |
+| leg | off0 | off6 | off12 | off18 | off24 | **spread** | u | n_oos |
+|---|---|---|---|---|---|---|---|---|
+| gdx_pullback_1d | 0.6337 | 0.6694 | 0.6507 | 0.6215 | 0.6036 | **0.0658** | 7·8·8·8·8 | 81 |
+| gld_pullback_1d | 0.5277 | 0.5166 | 0.5233 | 0.5378 | 0.5108 | 0.0270 | 11 | 128 |
+| iaum_pullback_1d | 0.5525 | 0.5307 | 0.5460 | 0.5400 | 0.4903 | 0.0622 | 4 | 30 |
+| ief_pullback_1d | 0.5337 | 0.5529 | 0.5606 | 0.5870 | 0.5365 | 0.0533 | 11 | 67 |
+| slv_pullback_1d | 0.4895 | 0.5027 | 0.5008 | 0.5199 | 0.5107 | 0.0304 | 11 | 160 |
+| tlt_pullback_1d | 0.5300 | 0.4855 | 0.4924 | 0.4804 | 0.5080 | 0.0496 | 11 | 84 |
 
-**Median spread = 0.0333** · mean 0.0372 · **max 0.0551** (`tlt`), quoted
-separately exactly as the pre-registration required. Every spread above was
-recomputed from the printed AUCs rather than taken from the relay's own spread
-column; all six agree.
+Every spread was recomputed from the printed AUCs rather than taken from the
+relay's own spread column; all six agree.
 
-### Which pre-registered band this lands in
+### **Median spread = 0.0515** · max **0.0658** (`gdx`)
 
-**0.01–0.05 — "material but smaller than the observed one-day movement;
-boundary placement is a contributor, not the explanation."**
+By the pre-registered rule that is the **top band**: *"boundary placement alone
+can move a verdict across the 0.55 bar, and every AUC-alone `honest_negative` in
+the matrix is a decision taken inside that noise."*
 
-That is the middle band, and it is the least convenient of the three: it does not
-license "the gate is fine" and it does not license "the gate is noise". The
-one-day re-measurement that opened this question moved `mean_auc` by −0.110 on
-its worst leg; re-partitioning the *same* trades moves it a median 0.033. So
-boundary placement accounts for roughly a third of that movement at the median —
-real, and not the whole of it.
+**It clears that threshold by 0.0015, and I am not going to present that as a
+clean result.** Two things sit against it, and both are visible in the table
+above:
 
-**Two of six legs exceed the 0.05 line individually** (`tlt` 0.0551, `ief`
-0.0523). The headline is the median by pre-registration, and the median is what
-governs; but a per-leg statistic that clears the top band on a third of the legs
-is not something the median should be allowed to hide, which is why the
-pre-registration demanded the max separately.
+1. **Drop `gdx` and the median is 0.0496 — below the line, in the middle band.**
+   `gdx` is the one leg whose `u` is not constant across arms (7 at offset 0, 8
+   at the other four), so its offset-0 AUC is an average over one fewer fold than
+   its siblings'. That is not a clean like-for-like, and it happens to be the leg
+   carrying the largest spread.
+2. **The median of six is a weak median**, and both candidate values (0.0515,
+   0.0496) sit within 0.0015 of the threshold.
 
-### `iaum` — the pre-registered watch, and it fires
+**So the honest reading is that this family's median dispersion lands *on* the
+0.05 boundary and the measurement cannot resolve which side of it.** The
+pre-registered headline is 0.0515 and I report it as the headline because that
+is what was committed to — but the band it selects is decided by one leg, and
+that has to travel with the number.
 
-Item 5 named this in advance: `iaum_pullback_1d` was graded `candidate` at offset
-0 on a **0.0025 margin** over the 0.55 bar (0.5525). Across the pooled arms:
+### What the invariant check caught
+
+Committing "`u` constant across arms" as an explicit assertion was worth it. It
+flagged `gdx` immediately. The partition itself is stable — four legs read
+exactly `u = 11` on all five arms — so the 11 blocks of 50 held; what moves is
+how many of those folds contain enough `gdx` trades to score. That is a
+*consequence* of boundary placement rather than a separate treatment, so it is
+not a confound of the same kind as the discarded 30/40 arms. It is still a
+contaminant of that one leg's spread, and it is why the second median is
+reported rather than buried.
+
+### `iaum` — the pre-registered watch, and it fires decisively
+
+Item 5 named this leg in advance: graded `candidate` at offset 0 on a **0.0025
+margin** over the 0.55 bar. Verdicts read directly from each arm's
+`e1_report.json`, not inferred from the AUC:
 
 ```
-off0   0.5525   clears  (+0.0025)
-off10  0.5277   FAILS   (-0.0223)
-off20  0.5231   FAILS   (-0.0269)
+off0    0.5525   candidate          <- the recorded matrix verdict
+off6    0.5307   honest_negative
+off12   0.5460   honest_negative
+off18   0.5400   honest_negative
+off24   0.4903   honest_negative
 ```
 
-The E1 gate is a **conjunction** — `u >= 2` AND `mean_auc > 0.55` AND the two
-`beats_*` fold majorities — so a leg at 0.5277 cannot be `candidate` whatever the
-other three terms do. Failing the AUC term is decisive on its own. This is the
-concrete demonstration the pre-registration said would be worth more than the
-aggregate: **one leg, one gate term, three draws, and the grade does not survive
-re-drawing the fold boundaries.**
+**One of five boundary draws produces the grade.** The other four terms of the
+gate (`u >= 2`, both fold majorities) pass at every offset — recomputed
+independently from the round data, reproducing all six recorded verdicts exactly
+— so `mean_auc` is the term doing the work, and re-drawing the boundary is
+enough to take it away.
 
-It is one leg at `u = 4`, and that is the whole caveat — see the limits below.
+This is the top band's first clause demonstrated rather than argued: **boundary
+placement alone moves a verdict across the 0.55 bar.**
 
-### Arms 30 / 40 — reported under their own label, not pooled
+### The second clause of that band is vacuous on this family — stated, not hidden
 
-| leg | off30 | off40 | folds |
-|---|---|---|---|
-| gdx | 0.6265 | 0.6185 | 7 |
-| gld | 0.5329 | 0.5369 | **10** |
-| iaum | 0.5791 | 0.5389 | 4 |
-| ief | 0.4983 | 0.5240 | **10** |
-| slv | 0.5192 | 0.4885 | **10** |
-| tlt | 0.4788 | 0.4977 | **10** |
+"Every AUC-alone `honest_negative` is a decision taken inside that noise" needs
+AUC-alone negatives to exist. Recomputing all four gate terms per leg:
 
-These answer a *different* question — boundary shift **plus one fewer fold** —
-because `u = floor((N−k)/b) − 1` with `N = 629, b = 50` holds `u = 11` only for
-`k ≤ 29`. They are recorded, labelled, and excluded from every number above.
+| leg | failing terms |
+|---|---|
+| gdx | `beats_hard` only |
+| gld | auc + `beats_actual` + `beats_hard` |
+| ief | auc + `beats_actual` |
+| slv | auc + `beats_actual` + `beats_hard` |
+| tlt | auc + `beats_actual` + `beats_hard` |
 
-Worth one observation, offered as a note and not a finding: `iaum` reads 0.5791
-at offset 30 — its **highest** of the five — while reading 0.5231 at offset 20.
-Across all five arms the leg spans 0.5231–0.5791, straddling its gate bar in both
-directions. That is consistent with the pooled reading, from an arm that cannot
-be pooled.
+**None of the five negatives fails on AUC alone.** Four fail AUC *and* at least
+one fold-majority term, and `gdx` fails only `beats_hard` — consistent with
+[`m20-exit-head-binding-term-2026-08-14.md`](./m20-exit-head-binding-term-2026-08-14.md),
+which measured `beats_hard` as the sole failing term in 6 of 7 single-term
+failures across 33 rounds. A leg failing AUC by 0.02 *and* missing a fold
+majority by 4 folds is not re-graded by a 0.05 AUC wobble.
 
-## Arm set 2 — the primary (offsets 0 / 6 / 12 / 18 / 24)
+So the top band's consequence bites on the **`candidate` side** (a pass that
+should not be trusted at a thin margin) and essentially not at all on the
+**negative side** here. That asymmetry is the useful finding, and it is the
+opposite of the alarming reading the band's wording invites.
 
-All five arms completed `exit=0` (`dispersion_clean_20260815T012717Z`). Readout
-dispatched as relay #9379, which additionally asserts the **fold-count invariant
-per leg** — `u` constant across all five arms — since holding `u` fixed is the
-entire reason this set was relaunched. **Results pending; this section will be
-filled from #9379 and the headline median restated from it.** The 3-arm figures
-above stand as the cross-check either way.
+## The 3-arm cross-check reconciles — and my earlier band call on it was wrong
 
-## What this does NOT do
+Run 1's arms 0/10/20 (the only pure boundary shifts in that run) gave:
 
-Committed in advance, and honoured:
+| leg | off0 | off10 | off20 | spread |
+|---|---|---|---|---|
+| gdx | 0.6337 | 0.6513 | 0.6140 | 0.0373 |
+| gld | 0.5277 | 0.5167 | 0.5394 | 0.0227 |
+| iaum | 0.5525 | 0.5277 | 0.5231 | 0.0294 |
+| ief | 0.5337 | 0.5602 | 0.5860 | 0.0523 |
+| slv | 0.4895 | 0.4917 | 0.5157 | 0.0262 |
+| tlt | 0.5300 | 0.5038 | 0.4749 | 0.0551 |
+
+Median **0.0333**. An earlier revision of this memo assigned that to the
+0.01–0.05 band. **That was an error and is withdrawn.** `max − min` is an order
+statistic: it can only grow as arms are added, so a 3-arm spread is not
+comparable to thresholds written for 5 arms.
+
+The correction is also the reconciliation. Taking all ten 3-arm subsets of the
+**primary** data:
+
+```
+C(5,3) = 10 subsets   min 0.0202   median 0.0326   max 0.0400
+```
+
+The independent 3-arm run measured **0.0333**, sitting essentially on that
+median. **The two runs do not disagree — the 3-arm/5-arm gap is entirely the arm
+count.** That is a stronger cross-check than matching medians would have been,
+because it reproduces the *distribution* the primary implies.
+
+It also exposes a real gap in the pre-registration: it fixed thresholds on a
+statistic that is not invariant to the number of arms, without saying so. The
+thresholds are valid for the 5-arm primary and for nothing else.
+
+### Arms 30 / 40 — labelled, not pooled
+
+Recorded in the pre-registration's amendment: these also dropped a fold
+(`u = floor((N−k)/b) − 1` holds `u = 11` only for `k ≤ 29` at `N = 629, b = 50`),
+so they answer "boundary shift **plus one fewer fold**" and are excluded from
+every number above. For the record: `iaum` reads 0.5791 at offset 30 — its
+highest of any arm — against 0.4903 at offset 24. Across all seven measured
+offsets it spans 0.4903–0.5791, straddling its own gate bar in both directions.
+
+## What this does NOT do — committed in advance, honoured
 
 - **No matrix status is flipped, in either direction.** `iaum`'s `candidate` is
-  *not* being re-graded here. The measurement is of the instrument, not the leg.
+  *not* re-graded here. Headline coverage is unchanged at **373/376 = 99.2%**
+  (verified by running `m20_coverage_rollup.py`, not by counting).
 - **No gate change is proposed.** Changing a gate after seeing which term it
-  fails on is how a gate stops meaning anything. The deliverable is the number;
-  the Tier-3 decision is the operator's.
-- The backlog row
-  `BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
-  is **narrowed, not closed**: boundary placement is a measured contributor at
-  ~⅓ of the observed movement, so the other two candidates (TP geometry, pool
-  size) still own the remainder.
+  fails on is how a gate stops meaning anything.
+- `BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
+  is **narrowed, not closed.** The one-day re-measurement moved `mean_auc` by
+  −0.110 on its worst leg; re-partitioning the same trades moves it a median
+  0.0515 over five draws. Boundary placement is a measured contributor of roughly
+  half that movement, so the other candidates (TP geometry, pool size) still own
+  a remainder.
+
+## Queued for the operator (Tier-3, not acted on)
+
+**`iaum_pullback_1d` / `exit_head_ml` is the only `candidate` in this family, and
+it is produced by 1 of 5 boundary draws.** It also carries `n_oos = 30` and
+`u = 4` — the thinnest book of the six. Three options, none taken here:
+
+1. Leave it. It passed the gate as written; the gate does not claim
+   boundary-invariance.
+2. Re-grade it against a boundary-averaged AUC. This is a **gate change** and
+   would be proposed *after* seeing which term it fails on — the thing item 3
+   forbids doing quietly. It would need its own pre-registration.
+3. Treat `u >= 2` as too permissive at `n_oos = 30`. Independent of this
+   measurement, and the one worth asking about: `iaum` clears a four-term
+   conjunction on four folds of thirty trades.
 
 ## Limits, stated plainly
 
 1. **This family is the THIN one, so this is an UPPER BOUND** — pre-registered as
-   item 1. `u` runs 4–11 here against 26 for `pullback_1h`. The reading that
-   travels is the *small*-spread direction (it would hold a fortiori for thicker
+   item 1. `u` runs 4–11 here against 26 for `pullback_1h`. The direction that
+   travels is the *small*-spread one (it would hold a fortiori for thicker
    families); a large spread on thin legs does not establish that well-powered
-   verdicts are unstable. The median 0.0333 is therefore a ceiling on what a
-   thick family would show, not an estimate of it.
+   verdicts are unstable. Median 0.0515 is a ceiling on what a thick family would
+   show, not an estimate of it.
 2. **The arms share trades.** This measures re-partitioning sensitivity, **not**
-   sampling error over new data. Those are different quantities and are not
-   conflated here.
-3. **Three or five offsets out of fifty** is a sample of the partition space, not
-   a census.
-4. **Six legs.** The median of six is a weak median. It is reported with all six
-   values visible so a reader can form their own view of it.
+   sampling error over new data. Different quantities, not conflated.
+3. **Five offsets of fifty** is a sample of the partition space, not a census.
+4. **Six legs**, and the band assignment turns on one of them.
+5. **The statistic grows with arm count** (see the cross-check section). Any
+   future comparison must hold the number of arms fixed.
 
 ## Reproduce
 
 ```
-scripts/research/m20_exit_head_round.py --fold-offset K ...   # K in 0..block_n-1
+scripts/research/m20_exit_head_round.py --fold-offset K ...   # K in 0..block_n-1, and K <= 29 to hold u
 ```
-The flag refuses `--fold-mode=years` with a non-zero offset and refuses
-`K >= block_n`, prints the skipped head count, and is stamped unconditionally
+The flag refuses `--fold-mode=years` with a non-zero offset, refuses
+`K >= block_n`, prints the skipped-head count, and is stamped unconditionally
 into `_round_meta` so an offset-0 arm is distinguishable from a round predating
-the flag. Twelve tests in `tests/test_fold_offset.py`, each verified
-load-bearing by planting its own regression.
+the flag. Twelve tests in `tests/test_fold_offset.py`, each verified load-bearing
+by planting its own regression.
