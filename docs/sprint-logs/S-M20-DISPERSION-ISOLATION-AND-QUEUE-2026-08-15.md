@@ -997,6 +997,32 @@ found this.
   through `json` before the edit, all 33 changed lines are a pure suffix append
   of the two new keys, and every pre-existing field compares equal across all rows.
 
+**Validation for §§ 17–23 (the 2026-08-16 continuation):**
+
+- **563 tests** in the M20 selection pass, 0 failures — the *broad* selection,
+  after § 23 showed the narrow one was not enough. **39 new tests** across five
+  files, every one **plant-proven**: neutering `interpreter_defect` fails 3 ·
+  a naive substring match + collapsed empty message fails 7 · restoring the
+  positional `base_args` call fails 2 · collapsing `UNOBSERVED` fails 1 ·
+  re-deriving the geometry label in the driver fails 2 · reverting the two-state
+  verdict fails 2 · declaring `exit_ladder` a producer fails 2 · disabling the
+  NEVER branch fails 2 · removing the schema assertion fails 3 · dropping the
+  correction-field propagation fails 1.
+- **Guards:** `scripts/ci/run_guards.py` **PASS 39 · FAIL 0** locally over the
+  full commit range, and CI `guards` green on the corrected commit. One CI red
+  was real and mine (`artifact-validity-guard` — a new backlog row with no
+  `resolution_criteria`); fixed, and the lesson recorded: I had run one guard
+  locally instead of the runner.
+- **Live-verified, not asserted:** the inert-verdict fix re-measured on the very
+  leg that produced the false PASS, same numbers, corrected label; the TP-cap fix
+  A/B'd on one leg before spending the fleet sweep (books differ by 24.8 % of
+  trades and 45.7 % of net_R); the extractor refusal exercised end-to-end
+  (exit 1, corpus byte-identical).
+- **The matrix edit proven status-neutral:** the stamping writer asserts every
+  touched cell's `status` is unchanged *before* saving, and the roll-up headline
+  (373/376 = 99.2 %) and status census (`honest_negative` 303 · `shipped` 22 ·
+  `pending` 11) are identical across the change.
+
 ### Gaps not yet verified
 - **The screen result itself.** Four arms, ETA ~21:15Z. Nothing about the
   dispersion finding is updated by this sprint.
