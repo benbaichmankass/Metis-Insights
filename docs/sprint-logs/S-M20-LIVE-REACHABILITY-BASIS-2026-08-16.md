@@ -235,3 +235,53 @@ the backtest and live bases differ and neither substitutes for the other.
       nothing was decided.
 - [x] Contradictions recorded (three, above).
 - [x] Unknowns stated explicitly (Gaps not yet verified).
+
+---
+
+## ADDENDUM (same session, ~19:55Z) — two of this log's own numbers are WRONG
+
+Written before the interval was closed. **The 10 unrecovered rows were then
+recovered** (relays #9774/#9775/#9776, targeting the known gap positions, since
+truncation always cuts the **tail** of a page). Corrected in PR #9779.
+
+### 1. The reach share is 2/37 = 5.4%, not 0/27
+
+The bound `[0.0%, 27.0%]` **held**, but the point estimate was not zero:
+**both reaching rows sat in the tail I had lost.** Complete population 37/37,
+`cap_R` min 1.84 / median 3.03 / **max 5.00**, **2 reach the 4.49R arm**.
+
+Everywhere this log says *0/27*, *max 4.46*, or quotes the interval as the
+answer — **read 2/37 = 5.4% instead**.
+
+### 2. `cap_r_max: 8.38` REPRODUCES — this log says it does not, and that is wrong
+
+§ "Gaps not yet verified" claims it *"reproduces on no row I have seen"* and
+§ "Contradictions" lists it as not reproducible. **Both are wrong.** It
+reproduces exactly, from a **different field**:
+
+| field | meaning |
+|---|---|
+| `targets[].reach_r` | the **actual** final target's reach — governs |
+| `realism_notes[].reach_r` | the **original** target a realism clamp **discarded** |
+
+`pkg-639da91607cc46d3` (entry 1.0903, risk 0.012875): original 0.9823603 =
+**8.3837R** (a 9.90% move — the TP cap exactly), clamped to 1.025925 =
+**5.0000R**. The registry's 8.38 was read off a target the bot never placed.
+
+### 3. The consequence that outlives this log
+
+**The realism clamp pins final targets at `reach_r` 5.0, and 5.0 > 4.49** — so
+the clamped rows are exactly the ones that reach the arm. On low-ATR entries
+**the binding ceiling is the 5.0R clamp, not the 9.9% TP cap**, which inverts
+the model the M20/M31 arm-reachability work has been running on
+(`cap_R = 0.099/(atr_stop_mult × ATR/close)` is correct only while the clamp
+does **not** bind).
+
+**Live 5.4% vs backtest 5.9%** — independent populations and independent
+extraction paths agreeing to 0.5 pp, the first real cross-check either had.
+
+`trend_donchian_sol_4h` (0/16) is **unaffected** — its extraction read
+`targets[].reach_r` and none of its rows were clamped (max 4.32 < 5.0).
+
+**Deferred item "Locating the origin of `cap_r_max: 8.38`" is CLOSED** by this
+addendum. All three legs remain `queued_tier3`.
