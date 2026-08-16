@@ -145,6 +145,46 @@ is held fixed. **It was never a population conflict; it was an unstated era.**
 wrong summary — **normalized vol mean-reverts across multi-year regimes, and a
 p80 pooled across all of them describes no regime in particular.**
 
+### The two remaining queued legs — and the sharpest form of the mechanism (relay #9715)
+
+| leg | n | span | med `risk/entry` | `cap_R` @med | arm | **reachable** |
+|---|--:|---|--:|--:|--:|--:|
+| `trend_donchian_sol_4h` | 127 | 2023-01→2026-06 | 6.038% | 1.64 | 5.57 | **0/127 (0.0%)** |
+| `xrp_pullback_2h` | 204 | 2023-01→2026-07 | 4.306% | 2.30 | 4.49 | **12/204 (5.9%)** |
+
+**`trend_donchian_sol_4h` is zero in every single year** (2023 0/36 · 2024 0/36 ·
+2025 0/38 · 2026 0/17). **So era is not the universal answer** — for GLD the leg
+straddles its threshold and the era decides; here it never clears in any regime.
+The registry's candle screen read 2.8% against this 0.0%, overstating in the same
+direction it overstated xrp, which is exactly why `unmeasured_reason` declined to
+record it as a verdict.
+
+**`xrp_pullback_2h` resolves a warning the registry raised about itself.** Its
+live basis is truncated to the 6 newest of up to 25 and reads 33.3%, with the
+note *"do NOT read 33.3% as a lifetime rate — the sample is truncated and
+recency-biased."* At n=204 it reads **5.9%**. The truncated sample overstated by
+**~5.6×**. The warning was right, and this is the leg behind real-money trade
+4163 (`bybit_2`), whose M31 telemetry recorded `peak_r 3.4179` against `cap_r
+3.9233` and `arm_r 4.49`.
+
+#### The clearest statement of the defect
+
+`trend_donchian` and `trend_donchian_sol_4h` are the **same family, same
+`atr_stop_mult` 2.5**, and were given near-identical arms — **6.49 and 5.57**, a
+1.16× spread. Their ceilings differ by **7.3×**:
+
+| leg | ATR/close | `cap_R` | arm | reachable |
+|---|--:|--:|--:|--:|
+| `trend_donchian` (BTC 1h) | ~0.333% | **11.91** | 6.49 | 100% |
+| `trend_donchian_sol_4h` (SOL 4h) | ~2.415% | **1.64** | 5.57 | **0%** |
+
+That is what a p80 over an **uncapped** book does: uncapped winner-MFE
+distributions are similar *in R* across a family, so the sweep produced similar
+arms — while the capped ceiling, which nobody was computing, differs by an order
+of magnitude with the instrument and timeframe. **The arms were never wrong
+relative to each other; they were measured against a ceiling that was not in the
+measurement.**
+
 ## 5. The cap is a Bybit constraint, and three of these legs never touch Bybit
 
 `_TP_SENTINEL_CAP_PCT = 0.099` is documented as a Bybit `ErrCode 10001`
@@ -187,7 +227,8 @@ registry's `vol_conditional` vocabulary is the right one; the missing piece was
 that *every* arm is vol-conditional, and the condition is computable in closed
 form (§ 2).
 
-**Two of the queued entries now have a large-n basis they lacked:**
+**Four of the five queued entries now have a large-n basis they lacked** — every
+one except `gld_pullback_1d`, which already had a complete live history:
 
 - `qqq_trend_long_1d` — was `inert` on **n=1** live package plus a candle screen.
   n=81 entry-conditioned agrees (19.8% reachable). Note the two bases differ in
@@ -200,6 +241,17 @@ form (§ 2).
   concentrated in high-vol years (2020: 2/6, 2022: 1/3, 2026: 1/3). **On this
   evidence its queued item looks closable as `ok` — but that is the operator's
   call and I have left the disposition untouched.**
+- `trend_donchian_sol_4h` — was the last entry recorded `unmeasured`. n=127
+  reads **0.0%, in every year**. Its `unmeasured_reason` said *"No entry-conditioned
+  pull yet"*, which is no longer true, so **that text was corrected** — but the
+  `verdict` was not. On a 3.4× gap at n=127 the evidence supports `inert`; I left
+  every verdict in the file untouched this session for consistency, and because
+  the authoritative live basis is still absent.
+- `xrp_pullback_2h` — its truncated live basis (33.3%, 6 of up to 25) is now
+  bounded by a large-n one at **5.9%**, an overstatement of ~5.6×.
+
+**All five queued reachability entries are now decidable on measurement rather
+than on a screen or a truncated sample.** None of them was decided here.
 
 **The methodology consequence is the durable half.** A p80 arm swept over a
 pooled multi-era population encodes a volatility mix the live book does not
