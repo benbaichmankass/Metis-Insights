@@ -1,0 +1,56 @@
+# System report — since-last
+
+- Generated: 2026-08-16T09:25:00+00:00
+- Window: 2026-08-14T12:20:00+00:00 → 2026-08-16T09:25:00+00:00
+- Roll-up grade: investigate
+
+A 15-minute scalp has been holding a 105-lot MGC position for 223 hours with its take-profit CROSSED and unfilled — confirmed two ways (uPnL-implied mark 4398.60 = MGC candle close 4398.60, vs a TP at 4297.66) — and it is currently monitor-blind on IB breaker flaps. Second consecutive review with this open. Real money took no trades in the window; over 30d it is -$19.23, and ONE leg, eth_pullback_2h, is 90.3% of that. Shipped the IB open-orders read surface that makes this class contradictable at all, and fixed a roll-up that was under-reporting 96 open backlog items.
+
+## P&L by class
+- **real**: window +$0.00 (prior —, flat)
+- **paper**: window $-1,377.26 (prior —, down)
+- **prop**: window +$0.00 (prior —, flat)
+
+## Operator priorities
+1. MGC trade 4487: a crossed take-profit, unfilled for 9 days, on a monitor-blind position — ib_paper MGC long 105 @ 4272.40, open since 2026-08-07T01:27Z. TP 4297.66 is crossed by 100.94 (2.35%); at the TP it books +$26,520.75. Two independent confirmations of the mark: markprice_local uPnL +$132,510 / (105 x 10) implies 4398.60, and the MGC 1h candle last close IS 4398.60. Root cause BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY (critical, partially_resolved) — IB protection is attributed to a SYMBOL not a TRADE. It is PAPER money, but the code path is the one real money uses. DECISION NEEDED: flatten/re-arm this position manually, or accept it. I have shipped the read surface (/api/diag/ib_open_orders) that lets you see what the broker actually holds before deciding.
+2. eth_pullback_2h is 90.3% of the 30-day real-money loss and has never been review-packeted — n=6 over 30d, win rate 16.7%, -$17.3673 of a -$19.2256 book, expectancy -0.6635R. Lifetime 11 closed / 36.4% / -$15.16, so the 30d loss EXCEEDS the lifetime total. Its review row (PB-20260618-015) has been open 59 days with the PnL half explicitly unmeasured — measured this run. n=6 is thin: run generate-strategy-review-packets (Tier-1, I can do it autonomously on your word) and decide DEMOTE_SHADOW on the packet, not on n=6.
+3. The orders-layer halt check is INERT in production — build_settings_from_env() (validation.py:202-215) emits no HALT_FLAG_PATH, so the halt check in the orders layer never fires and pipeline.py:501 is the ONLY halt enforcement. Answered against the field this run (BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY). A single-point halt is not what the design assumes.
+4. Four ML/strategy gates are MET and sitting unactioned — (a) six exit_head_ml cells at passed_unshipped, E1->E2 blocker already lifted by your 2026-08-13 decision; (b) mes-regime-15m-lgbm-v2 gate-ready on all 8 gates, parked since 2026-07-21 — note promoting it DISPLACES the operator-approved 5m head as MES's live vol label (ml_vol_verdict.py:341-368 prefers 15m); (c) mes-regime-5m-lgbm-yz-v1 anti-predictive at AUC 0.17, demote recommended since 2026-06-26; (d) tlt_pullback_1h trail4, path_b_wf_pass in five consecutive corpus runs clearing the trades floor.
+5. Prop cushion is being scored off a 27-day-old snapshot — breakout_1 status is 648.4h stale. The panel still renders $125.61 to the static-DD floor and $144.77 to the daily-loss limit from a 2026-07-20 row. The ask mechanism was fixed 2026-08-14 and is deployed; what is missing is your reply. One 'bal <balance> <equity>' message re-arms the whole safety panel.
+
+## Review coverage
+- Strategy promotion: 47 live strategies. Four gates MET and unactioned (detailed in operator_priorities #4). No strategy currently reads KILL. The clearest DEMOTE candidate is eth_pullback_2h on real money, but it has never had an M7 packet generated, so the packet — not this review — should carry the verdict.
+- ML training health: Cycles ran and dataset builds are clean (0 failed). Two manifests are NOT training and neither is a quarantine: mes-regime-1d-lgbm-v2 is manifest_audit_skipped_enforced (dead feature / degenerate label) and mes-execution-quality is skipped on an EMPTY dataset. The material finding is that oos_edge has been silently absent from the daily promotion-readiness sweep since 2026-07-27 (MB-20260719 regressed, not resolved), which still blocks M25-P2's fleet-wide powered-RG4 packets.
+- Soak `regime shadow heads`: accruing_but_degenerate — btc-regime-5m-baseline-v1 2848 preds / 85.9d with max(proba) mean 0.9985 in a 0.024-wide band; btc-regime-5m-lgbm-yz-v1 0.9989; eth-regime-5m-lgbm-v1 0.9712. Volume accrues, discrimination does not — days-in-shadow is not readiness evidence for these heads.
+- Soak `fc-geometry`: accruing — 373 rows, fc_coverage 49.1% — the honest denominator, steady.
+- Soak `exit-ladder`: accruing — 496 rows; every sampled row differs_from_single_target=false (n_rungs 0), so the ladder is not yet proposing anything different.
+- Soak `allocator`: accruing_but_parked — Every sampled multi-candidate tick disagrees with routing (regret up to 5.09 ev_net_r). M18 P2/P3 remain PARKED on the 2026-06-30 finding that the EV scorer's selection does not beat dumb priority.
+- Soak `pairs sleeve`: healthy — CONFIRMED LIVE this run that close events fire — the 2026-08-10 defect (29 open / ZERO close) is genuinely fixed, not just fixed in code: graded closes carry pairs_stop / pairs_revert / pairs_half_open_cleanup exit reasons, and the soak shows hold events with bars_held 1-7 against a max_hold_bars of 20.
+- Soak `exposure`: accruing — All declared accounts measured except ib_live and breakout_1 (equity_unavailable — correctly null, never 0.0). Peak alpaca_portfolio 1.98x. NO account declares a policy (policy_declared false everywhere), so there is still no ceiling to breach.
+- Soak `netting attribution`: annotate_only — Still NETTING_ATTRIBUTION_MODE=annotate. The bybit_portfolio ETHUSDT 66.3% over-count found this run is exactly its target class.
+- Execution capture: Real money: n=2, mean_giveback 2.12R, 50% roundtrippers — the percentage is ONE trade of two and must not be read as a rate. What is not sample-size-dependent: neither real-money close used its own exit. Paper is healthier (roundtrippers 2.2% over n=92) but three ict_scalp legs hold 6-8x their timeframe. DOLLARS NOT RECONCILED: /api/bot/pnl/exchange was pulled without an account_id filter, so its 7d figure blends real bybit_2 with paper bybit_1 and cannot be attributed per-class; the real-money dollar figures here come from /performance + the broker-truth ledger instead, and the gap is stated rather than papered over. (dollars reconciled: False)
+  - `ict_scalp_avax_5m` [paper]: round-trip 0.0%, giveback 3.55R, hold 8.30/1.00h → degraded
+  - `ict_scalp_sol_15m` [paper]: round-trip 0.0%, giveback 2.93R, hold 21.80/3.00h → degraded
+  - `ict_scalp_5m` [paper]: round-trip 0.0%, giveback 1.25R, hold 6.20/1.00h → degraded
+  - `ALL real_money` [real_money]: round-trip 50.0%, giveback 2.12R, hold 33.40/—h → anomaly
+  - 🔴 `ict_scalp_mgc_15m`: Trade 4487: 223h hold on a 15-MINUTE strategy (~223x expected), take-profit crossed by 2.35% and unfilled, position currently monitor-blind. Flagged in the 2026-08-14 report and still open — this is its SECOND consecutive review, so it is escalated to flags_raised per the anti-normalization rule. (open 2 review(s), BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY) ⚠️ ESCALATE
+  - 🔴 `real_money exit path`: NEITHER real-money close in 14 days used its own exit: 4572 exit=netting_attributed (MFE +1.75R -> -0.80R), 4546 exit=reconciler_filled (MFE +0.70R -> -0.99R). The 2026-08-07 report recorded '7 of 10 scalp closes never touched a stop or target' and called itself the second consecutive review with this open, so this is at least the third. n=2 forbids a RATE claim; 'no real-money trade exited by its own TP or SL' is not a rate. (open 3 review(s), BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY) ⚠️ ESCALATE
+  - 🔴 `ict_scalp family (5m/15m holds)`: Three legs hold 6-8x their timeframe's expected duration with 1.25-3.55R mean giveback: ict_scalp_avax_5m 8.3h (mean_r -2.509), ict_scalp_sol_15m 21.8h, ict_scalp_5m 6.2h. Expected hold basis stated: ~12 bars of the strategy's own timeframe, the setup lookback its config declares. (open 1 review(s), BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED)
+- 🚩 ict_scalp_mgc_15m — trade 4487 held 223h on a 15-minute strategy with its take-profit CROSSED and unfilled, currently monitor-blind. SECOND consecutive review. Mandatory escalation per the anti-normalization rule.
+- 🚩 real_money exit path — neither real-money close in 14 days exited via its own TP or SL; both went out through a reconciler. At least the THIRD consecutive review with this open.
+- 🚩 eth_pullback_2h — 90.3% of the entire 30-day real-money loss, and its review row has been open 59 days with the PnL half unmeasured until this run.
+- 🚩 The orders-layer halt check is INERT in production (no HALT_FLAG_PATH emitted); pipeline.py:501 is the only halt enforcement.
+- 🚩 MB-20260719-PROMOREADY-OOSEDGE-OOM has REGRESSED — the daily promotion-readiness sweep has run WITHOUT oos_edge since 2026-07-27, and its log said the item was 'resolved'.
+- 🚩 The review's own backlog roll-up under-reported open work by 96 items, so prior reports' backlog_summary figures are understated.
+- 🚩 breakout_1's prop safety panel is scoring a $125.61 account-killer cushion off a 27-day-old snapshot.
+- 🚩 Exit-eval interval max is 58918.3ms against a 60000ms requirement — 1.08s of margin — and a second, independent process maxed at 58940.8ms.
+
+## Monitoring (soaking / awaiting decision)
+- `MB-20260721-FCPCV-V2-SOAK` [ml · soaking] Both -v2 regime siblings swapped in; BTC's PSI 0.2093 sits nearer its 0.25 bar than SOL's. (next: next drift read; escalate if PSI crosses 0.25)
+- `BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT` [health · verify] max_interval_ms 58918.3 vs a 60000 requirement — 1.08s of margin, requirement_state 'within' at intervals_measured 28 on a process only 16 min old. A SECOND process independently maxed at 58940.8ms. Two processes landing within 23ms of each other at 98.2% of the limit is worth identifying a common bound for. (next: a process reaching n>=500 without a breach, or the first breach alert)
+- `BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN` [health · awaiting-data] Tick 112.7s mean / 170.3s max at n=6 this run vs the 69.3s/96.8s M20 baseline. (next: a warm read at ticks_measured>=20 during US cash open)
+- `MB-20260719-PROMOREADY-OOSEDGE-OOM` [ml · awaiting-decision] REGRESSED — the daily sweep has run without oos_edge since 2026-07-27; blocks M25-P2. (next: compute_oos_edge's dataset load made memory-bounded)
+- `BL-20260807-NEWS-FEED-SYMBOL-COVERAGE-5-OF-24` [health · awaiting-decision] All 10 recent news decisions read item_count 0 while NEWS_VETO_ENABLED is on-by-omission. (next: symbol_groups covers every traded base, or the veto is disarmed)
+- `PROP-STATUS-STALE` [health · awaiting-decision] breakout_1 snapshot 648.4h stale; the safety panel is scoring off it. (next: one operator 'bal' reply)
+
+_report_id RPT-20260816-092500-since-last_

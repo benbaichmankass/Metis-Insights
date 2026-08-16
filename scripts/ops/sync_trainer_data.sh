@@ -315,6 +315,50 @@ print(json.dumps({'ts': sys.argv[1], 'status': 'ok', 'artifact': sys.argv[2],
   fi
 done
 
+# --- Rotated shadow-prediction ARCHIVES (MB-20260712-SHADOW-LOG-HISTORY) --
+# The four pulls above name LITERAL paths, so they fetch only the CURRENT
+# shadow_predictions.jsonl. But ict-shadow-log-rotate.timer rotates that file
+# on the live VM at 100 MiB / 7 days into
+# `shadow_predictions.<YYYY-MM-DD>.jsonl[.gz]` (scripts/ops/rotate_shadow_log.py
+# ::_next_rotated_path, plus a `.N` suffix when rotation runs twice in one UTC
+# day) — and NOTHING pulled those. So every trainer-side research join over
+# shadow history silently began at the last rotation: a window that LOOKS like
+# the full record and is bounded by a log-hygiene timer nobody was thinking
+# about while analysing. That is the unasserted-denominator shape — the join
+# returns rows, so the truncation never announces itself.
+#
+# Non-fatal by design: no archives yet (a fresh VM, or under the rotation
+# thresholds) is the expected early state, and `rsync` exits 23 when a glob
+# matches nothing. We log `status:"none"` for that case rather than "ok" with
+# a zero count, so "no archive exists" stays distinguishable from "we pulled
+# and got nothing" — the same rule the artifact pulls above follow.
+emit "$(printf '{"ts":"%s","status":"pulling","artifact":"shadow_predictions_archives","src":"%s@%s:%s"}' \
+  "$(iso_now)" "$VM_SSH_USER" "$LIVE_VM_IP" "$(dirname "${LIVE_VM_SHADOW_PRED_PATH}")/shadow_predictions.*")"
+set +e
+rsync -az --checksum -e "ssh ${SSH_OPTS}" \
+  --include='shadow_predictions.????-??-??.jsonl' \
+  --include='shadow_predictions.????-??-??.jsonl.gz' \
+  --include='shadow_predictions.????-??-??.*.jsonl' \
+  --include='shadow_predictions.????-??-??.*.jsonl.gz' \
+  --exclude='*' \
+  "${VM_SSH_USER}@${LIVE_VM_IP}:$(dirname "${LIVE_VM_SHADOW_PRED_PATH}")/" \
+  "${RUNTIME_LOGS_DIR}/"
+rc=$?
+set -e
+archive_count="$(find "${RUNTIME_LOGS_DIR}" -maxdepth 1 -name 'shadow_predictions.????-??-??*' 2>/dev/null | wc -l | tr -d ' ')"
+if [ "$rc" -eq 0 ]; then
+  if [ "${archive_count:-0}" -gt 0 ]; then
+    emit "$(printf '{"ts":"%s","status":"ok","artifact":"shadow_predictions_archives","archives":%d}' \
+      "$(iso_now)" "${archive_count:-0}")"
+  else
+    emit "$(printf '{"ts":"%s","status":"none","artifact":"shadow_predictions_archives","detail":"no rotated archives on the live VM yet"}' \
+      "$(iso_now)")"
+  fi
+else
+  emit "$(printf '{"ts":"%s","status":"skipped","artifact":"shadow_predictions_archives","detail":"rsync failed (23 = glob matched nothing)","exit_code":%d,"archives_local":%d}' \
+    "$(iso_now)" "$rc" "${archive_count:-0}")"
+fi
+
 # --- IBKR MES market_raw shards (optional, deep history) ------------------
 # When the operator has run scripts/ops/pull_mes_ibkr_history.sh on the LIVE
 # VM, native MES intraday history lands under LIVE_VM_IBKR_PATH. Pull the whole

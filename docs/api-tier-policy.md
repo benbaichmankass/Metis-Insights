@@ -17,10 +17,10 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 92 of 92 routes documented (100%).**
+> **Coverage, computed rather than counted: 93 of 93 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
-> route table (`app.routes`): the enumerator finds exactly those 92 with no
+> route table (`app.routes`): the enumerator finds exactly those 93 with no
 > false positives, and the only live routes it does not cover are the five
 > defined outside `routers/` — `GET /api/health` (`main.py`) and FastAPI's
 > four built-in docs routes.*
@@ -53,7 +53,7 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **69 of the 92 routes**;
+Endpoints a consumer hits directly without a JWT. **69 of the 93 routes**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
 
@@ -225,6 +225,7 @@ routes on this router call `_require_diag_token` — no exceptions.
 | `GET /api/diag/audit_query`, `db_info`, `version`, `shadow_stats`, `ib_state`, `exchange_positions`, `broker_account_status` | `routers/diag.py` | **Backfilled 2026-08-09.** Added piecemeal between 2026-05 and 2026-07 and never rowed here — part of the completeness gap this file's guard now prevents. Same token gate, same read-only contract. |
 | `GET /api/diag/exposure` | `routers/diag.py` | **Added 2026-08-09 (#8678).** Per-account gross exposure, served as the identical `RiskManager.report()["exposure"]` the enforcing side reports through — deliberately not a reconstruction. Connection-free; never consults policy to compute. |
 | `GET /api/diag/tick_cost` | `routers/diag.py` | **Added 2026-08-09 (#8688).** Per-tick wall-clock cost of the trader's hook chain (`max_ms` beside `ticks_measured`). Pure file read. Measurement only — enforces no budget. |
+| `GET /api/diag/ib_open_orders` | `routers/diag.py` | **Added 2026-08-16 (#9612, BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE).** The resting IB orders the broker actually holds, per account. Every other consumer of IB order state REDUCES it before anyone sees it (`has_protective_orders` → a boolean, `protection_coverage` → a covered quantity), so a stripped take-profit could not be contradicted from any session; this reduces nothing. Three states, never collapsed (`read_state` ∈ `not_ib` / `could_not_look` / `orders_read`); `count` is `null`, never `0`, when we could not look. Opens a brief **read-only** client per account and places NO order. |
 
 ---
 
@@ -238,7 +239,7 @@ These will require:
   signed action token), AND
 - An audit log entry per call with the caller's email + IP.
 
-**No route on the API is Tier 3 today** — verified 2026-08-09 across all 92
+**No route on the API is Tier 3 today** — re-verified 2026-08-16 across all 93
 routes. S-065 will land the first one (halt). Until then, every mutating
 operator action goes through the `system-actions.yml` GitHub workflow, whose
 allowlist is the real Tier-3 surface.
