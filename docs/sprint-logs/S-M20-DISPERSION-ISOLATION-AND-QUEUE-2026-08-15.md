@@ -1016,6 +1016,24 @@ different partition is a different measurement, and `measurement_key` includes
 queued for the operator; passing an explicit value for one research run is not
 the same decision.
 
+✅ **Confirmed on restart, same leg and same config — only the target moved**
+(relay #9545; the stopped run had reached **34** refusals):
+
+| `trend_donchian` (BTCUSDT 1h, 343 lifetime) | derived split | verdicts |
+|---|---|---|
+| target **25** (default) | 2026-02-25 | `insufficient_base` × 5 |
+| target **50** | 2025-10-26 | `is_oos_fail` × 6, `path_b_wf_fail wf=2/6` |
+
+The cells are **gradeable** at the higher target — refusals became real verdicts
+on the identical book. That is the mechanism demonstrated a third time, now on a
+leg the backlog had never examined, and it is what makes this tranche clearable
+at all.
+
+The verdicts so far are all fails, which is the *expected* outcome for cells
+standing at `honest_negative` — a confirmation, not a null result. Any
+floor-clearing `PASS` that appears becomes a Tier-3 adjudication and is queued,
+never auto-flipped.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
