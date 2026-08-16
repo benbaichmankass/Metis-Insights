@@ -69,11 +69,28 @@ REACH_GATE_KEYS = ("trail_decay_arm_r", "giveback_min_mfe_r")
 # that must be made deliberately, not defaulted into.
 VERDICTS = {"reachable", "inert", "vol_conditional", "unmeasured"}
 
-# `ok` asserts the lever is fine as declared. The other two are open states
-# that a review can query; both require evidence of WHEN they were opened, so
-# an indefinite park is visible rather than silent.
-DISPOSITIONS = {"ok", "queued_tier3", "accepted_risk"}
-DISPOSITIONS_REQUIRING_DATE = {"queued_tier3", "accepted_risk"}
+# `ok` asserts the lever is fine as declared. The others are open states that a
+# review can query; each requires evidence of WHEN it was opened, so an
+# indefinite park is visible rather than silent.
+#
+# `recorded_inert` (added 2026-08-16) is the CLOSED terminal state for a lever
+# measured `inert` and then ADJUDICATED by the operator: the arm cannot fire, we
+# know, and the item is no longer awaiting anyone. It exists because the enum
+# had no way to express that outcome and the gap was not cosmetic -- an operator
+# who decided "record it inert" had only three landing places and all three are
+# wrong: `ok` asserts the lever is FINE (refused below for exactly this verdict),
+# `queued_tier3` says a decision is still PENDING (it is not), and
+# `accepted_risk` says the arm was KNOWINGLY LEFT LIVE AS-IS, which is the
+# opposite disposition -- it is what you record when you decline to act. Reusing
+# any of them would have made the decision unreadable, and `accepted_risk` would
+# have inverted it.
+#
+# The distinction that keeps this honest: `accepted_risk` = "we are leaving a
+# lever that may not fire"; `recorded_inert` = "we established it CANNOT fire and
+# stopped counting it as shipped". A future reader must be able to tell a
+# deliberate non-decision from a decision, and one enum value cannot carry both.
+DISPOSITIONS = {"ok", "queued_tier3", "accepted_risk", "recorded_inert"}
+DISPOSITIONS_REQUIRING_DATE = {"queued_tier3", "accepted_risk", "recorded_inert"}
 VERDICTS_REQUIRING_DISPOSITION = {"inert", "vol_conditional"}
 
 
@@ -153,7 +170,18 @@ def check(strategies: Dict[str, Any], registry: Dict[str, Any]) -> List[str]:
                     f"{leg}/{lever}: verdict={verdict} cannot carry "
                     f"disposition='ok' — a lever that cannot reliably fire is "
                     f"either corrected (Tier-3) or recorded as "
-                    f"queued_tier3/accepted_risk")
+                    f"queued_tier3/accepted_risk/recorded_inert")
+            elif disposition == "recorded_inert" and verdict != "inert":
+                # `recorded_inert` asserts the arm CANNOT fire. A
+                # `vol_conditional` lever fires on SOME entries, so recording it
+                # inert would be a false statement about measured data — and it
+                # is the tempting shortcut, because closing the item is easier
+                # than making the real design choice `vol_conditional` demands.
+                problems.append(
+                    f"{leg}/{lever}: disposition='recorded_inert' requires "
+                    f"verdict='inert', got verdict={verdict!r} — a lever that "
+                    f"arms on SOME entries has not been shown inert, and "
+                    f"recording it so would assert more than was measured")
         if disposition in DISPOSITIONS_REQUIRING_DATE and not entry.get("opened_at"):
             problems.append(
                 f"{leg}/{lever}: disposition={disposition} requires "
