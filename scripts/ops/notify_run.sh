@@ -218,6 +218,23 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    cancel-ib-order)
+        # 2026-08-16: cancel ONE resting IB order by id (dry-run unless
+        # apply:true). BL-20260816-NO-PER-ORDER-IB-CANCEL. The exit codes are
+        # deliberately distinct and must NOT be collapsed into ok/failed —
+        # "we could not look" (3) and "we looked and it is gone" (0) are the
+        # split this action exists to preserve, and a refusal (4) is the
+        # guard working, not a fault.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (dry-run preview, cancelled+verified gone, or no such order)"; priority="normal" ;;
+            1) result="cancel FAILED or did not take effect — order may still be resting"; priority="urgent" ;;
+            2) result="refused: bad/ambiguous id (orderId is unique only per clientId — retry with perm:)"; priority="high" ;;
+            3) result="COULD NOT LOOK or unconfirmed — NOT evidence the order is gone; re-run the dry-run"; priority="high" ;;
+            4) result="refused by a safety guard (protective leg, or a trader-band clientId)"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     cancel-stale-tpsl-legs)
         # 2026-07-21: cancel accumulated stale Partial-tpsl legs on one Bybit
         # symbol (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP; dry-run unless apply:true;

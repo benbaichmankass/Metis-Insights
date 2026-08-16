@@ -2215,6 +2215,18 @@ class IBClient:
                     "exchange": _str(contract, "exchange"),
                     "order_id": _num(order, "orderId"),
                     "perm_id": _num(order, "permId"),
+                    # WHO PLACED IT. Load-bearing, not decorative: IB binds an
+                    # order to its submitting clientId and `cancelOrder` "can
+                    # only be used to cancel an order that was placed
+                    # originally by a client with the same client ID" (TWS API,
+                    # cancel_order). So the owning clientId IS the address you
+                    # must connect as to cancel it, and without this field the
+                    # account-wide read could show you an order it gave you no
+                    # way to act on — which is exactly the wall the stranded
+                    # MGC order 6 hit (BL-20260816-NO-PER-ORDER-IB-CANCEL).
+                    # `None` when IB did not populate it: that means "not
+                    # reported", never "client 0".
+                    "client_id": _num(order, "clientId"),
                     "order_type": _str(order, "orderType"),
                     "action": _str(order, "action"),
                     "total_quantity": _num(order, "totalQuantity"),
