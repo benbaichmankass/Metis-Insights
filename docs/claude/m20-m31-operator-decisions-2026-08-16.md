@@ -232,17 +232,42 @@ in the live band. *"Gold got more volatile recently"* is the wrong summary.
    downstream symptom of `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`,
    and it predicts which legs break (holds 3/3).
 
-**§ 2's two unmeasured entries are also affected:** `scha_trend_long_1d` now has
-a large-n basis (n=65, **83.1% reachable** — its arm 2.00 sits *below* its
-ceiling 2.65, and both bases now agree), so on this evidence its row looks
-closable as `ok`. `qqq_trend_long_1d`'s n=1 verdict is confirmed at n=81
-(19.8%). **Dispositions left untouched — closing a queued row is yours.**
+**All five queued entries now have a large-n entry-conditioned basis.** (An
+earlier version of this paragraph named § 2's pair as *scha and qqq* — wrong:
+§ 2's two are **`trend_donchian_sol_4h` and `scha_trend_long_1d`**, and `qqq`
+belongs to § 1. Corrected, and `sol_4h` added, which that slip had omitted.)
+
+| leg | § | prior basis | new basis | reachable |
+|---|:-:|---|--:|--:|
+| `gld_pullback_1d` | 1 | 8 live (complete) | n=112 | 37.5% pooled · **1/7 in 2025-26** |
+| `qqq_trend_long_1d` | 1 | **n=1** live | n=81 | 19.8% — n=1 verdict confirmed |
+| `xrp_pullback_2h` | 1 | 6 **truncated** (33.3%) | n=204 | **5.9%** — truncation overstated ~5.6× |
+| `trend_donchian_sol_4h` | 2 | none (screen 2.8%) | n=127 | **0.0%, every year** |
+| `scha_trend_long_1d` | 2 | none (screen 73.6%) | n=65 | **83.1%** — arm sits *below* its ceiling |
+
+**Two of these look closable on the evidence, in opposite directions** —
+`scha` toward `ok` (its arm is reachable), `sol_4h` toward `inert` (0 of 127, a
+3.4× gap). **Both are yours; every verdict and disposition is untouched.** The
+one edit I made was correcting `sol_4h`'s `unmeasured_reason`, whose text *"No
+entry-conditioned pull yet"* had become false.
 
 ⚠️ **And a new Tier-3 item this surfaced, filed not acted on**
 (`PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS`): the 9.9% cap is
 documented as a **Bybit** `ErrCode 10001` workaround, applied as a module
 constant with no venue branch — and **no Bybit account carries GLD, QQQ or
-SCHA**. Whether Alpaca/IBKR would accept a farther take-profit is **untested**.
+SCHA**.
+
+**Scope narrowed the same day, after checking the venues' own rules.** Alpaca
+documents **no maximum take-profit distance**; **IBKR is reported to reject
+stock orders more than ~10% from NBBO** (unverified — its primary pages 403'd),
+which would make the cap approximately *correct* on that route. So the finding
+holds for the **Alpaca-only** legs (`gld_pullback_1d`, `scha_trend_long_1d`) and
+**`qqq_trend_long_1d` is not a clean instance** — it also routes to `ib_paper`,
+and a package fanning out to both venues must satisfy the tighter rule, so a
+fix would have to be **route-aware, not leg-aware**. The code comment's
+*"Bybit (and most exchanges)"* was more accurate than my first reading of it.
+Whether Alpaca would accept a farther TP **in practice** is still untested —
+documentation is not the live API.
 
 **`xrp_pullback_2h` closes the other escape:** its proposed **2.17R would be
 reachable** (`cap_R` 3.92–8.38) and the cell **still fails OOS**. So lowering

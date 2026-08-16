@@ -202,13 +202,32 @@ re-derived downstream: `pkg.tp` reaches Alpaca verbatim as
 `take_profit.limit_price` (`alpaca_client.py:189`), with no distance check
 anywhere in that client.
 
-So for these three legs the ceiling that makes their arms unreachable — and that
-truncates every winner at `cap_R` — is imported from a venue they do not trade
-on.
+### ⚠️ CORRECTION — this claim was too broad, and it does NOT cover QQQ
 
-⚠️ **What is NOT established:** that Alpaca or IBKR would *accept* a
-farther take-profit. I have not tested it and cannot without placing an order.
-Absence of a distance check in our client is not proof the venue lacks one.
+An earlier draft of this section said the cap *"is imported from a venue they do
+not trade on"* for **all three** legs. **Checking the venues' own rules narrows
+that to two, and the code comment turns out to have been more accurate than my
+reading of it** — it says *"Bybit **(and most exchanges)** reject TP further than
+~10%"*, and I had been treating the parenthetical as throat-clearing.
+
+| venue | documented rule on take-profit distance | source quality |
+|---|---|---|
+| **Alpaca** | **No maximum distance.** Only a `$0.01` minimum stop offset and `take_profit.limit_price` must be better than `stop_loss.stop_price`. | read this session (`docs.alpaca.markets`) |
+| **IBKR** | **Reported to reject stock orders priced more than ~10% from NBBO** (20% options) — which would make the 9.9% cap *approximately correct* on this route. | ⚠️ **search summary only — both IBKR primary pages returned HTTP 403 to the fetcher, so I did not read it on a source page.** Treat as unconfirmed. |
+
+So the claim survives for the **Alpaca-only** legs — `gld_pullback_1d` (GLD) and
+`scha_trend_long_1d` (SCHA) — and **`qqq_trend_long_1d` is NOT a clean instance**,
+because it also routes to `ib_paper`. If IBKR really does enforce ~10%, then a
+single order package fanning out to both Alpaca and IBKR has to satisfy the
+tighter of the two, and a venue-aware cap would have to resolve per *route*, not
+per leg — which makes the design change meaningfully harder than "look up the
+leg's venue".
+
+⚠️ **What is STILL NOT established:** that Alpaca would *accept* a farther
+take-profit in practice. Documented rules are not the live API, and absence of a
+distance check in our client is not proof the venue lacks one. An undocumented
+validation is exactly the kind of thing only an order attempt reveals — which is
+why step 1 of the backlog row is a paper-account test, not more reading.
 
 ⚠️ **And the unconditional application has a real structural reason**, not just
 oversight: `tp` is computed in the signal builder, which runs **before**
