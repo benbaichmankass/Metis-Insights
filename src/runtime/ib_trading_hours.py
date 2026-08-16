@@ -123,10 +123,9 @@ def resolve_timezone(tz_id: Optional[str]) -> Optional[Any]:
         candidates.append(alias)
 
     try:
-        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError  # type: ignore
+        from zoneinfo import ZoneInfo  # type: ignore
     except ImportError:  # pragma: no cover - stdlib since 3.9
         ZoneInfo = None  # type: ignore
-        ZoneInfoNotFoundError = Exception  # type: ignore
     if ZoneInfo is not None:
         for cand in candidates:
             try:

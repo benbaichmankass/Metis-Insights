@@ -1242,6 +1242,45 @@ def beats(cell: dict, base: dict) -> bool:
     see the axis. Path B (§ P2 of the exit-refinement skill) exists for exactly
     that population; its two thresholds are UNSET pending the distribution this
     sweep now reports, so nothing here grades against them.
+
+    ⚠️ **THOSE 2026-07-12 PULLBACK NEGATIVES PREDATE THE PATH B WALK-FORWARD
+    ROUTING — do not read them as measurements of the lever.** The gate gap was
+    found on **2026-08-10** (see ``main()``'s verdict block), so on 2026-07-12 a
+    Path B candidate short-circuited to ``is_oos_fail`` with no walk-forward at
+    all. Re-grading them needs a **re-run**, not a re-read.
+
+    Measured 2026-08-16, pullback family, ``--split-target-oos 50
+    --tp-cap-pct 0.099``, 76 cells: cells this gate refuses DO surface as
+    ``path_b_wf_pass`` once the routing runs — 3 of them. **And all three fail
+    the drawdown exchange rate**, two of them OUT-OF-SAMPLE:
+
+      ===========================  =================  ==================
+      leg / cell                   verdict            rate ok (IS/OOS)
+      ===========================  =================  ==================
+      mhg_pullback_1d stale8_lt0R  path_b_wf_pass     maxdd_worse / ok
+      htf_pullback_trend_2h gb2R   path_b_wf_pass     ok / maxdd_worse
+      tlt_pullback_1d gb2R         path_b_wf_pass     ok / maxdd_worse
+      ===========================  =================  ==================
+
+    **So `path_b_wf_pass` was, on this run, ZERO-for-three on the rate** — which
+    is the whole point of the sentence above and why it stays unchanged: both
+    Path B thresholds remain unset, ``drawdown_exchange_rate`` is *reported, not
+    enforced*, and this verdict says only that the net_R gain generalises across
+    folds. **NEVER report a `path_b_wf_pass` count without the rate column
+    beside it.** At fleet scale 6 of 18 failed it; here 3 of 3 did.
+
+    The run's actual result is elsewhere and is a **Path A** PASS:
+    ``sol_pullback_2h`` ``gb1R_afterMFE1R`` and ``gb1R_afterMFE2R``, both
+    ``ok / ok`` in BOTH windows (base n IS=175 OOS=49). A session that had read
+    only the partial log led with the three Path B rows and missed it.
+
+    ⚠️ **And that PASS is still not a declare.** ``sol_pullback_2h`` runs on
+    ``htf_pullback_trend_2h``, which implements **no giveback lever at all** —
+    the harness applies ``giveback_r``/``giveback_min_mfe_r`` in its own engine
+    (see ``backtest_pullback.py``), so a passing cell here is evidence to
+    IMPLEMENT the lever in the unit module (Tier-3 code), never to add the key
+    to YAML. A YAML declare would be an orphan: silently inert, and caught by
+    ``exit-mechanism-coverage-guard``.
     """
     try:
         cn, bn = float(cell["net_total_r"]), float(base["net_total_r"])

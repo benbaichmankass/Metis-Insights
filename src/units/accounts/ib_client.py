@@ -1716,8 +1716,12 @@ class IBClient:
                           "refusing fractional futures close",
             }
 
-        # Step 0b — VENUE SESSION GATE (BL-20260816-IB-CLOSE-HAS-NO-MARKET-
-        # HOURS-AWARENESS). The IB analogue of the Alpaca close's
+        # Step 0b — VENUE SESSION GATE.
+        # BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS — kept on ONE line
+        # deliberately: hyphen-wrapping a backlog id across two comment lines
+        # leaves `artifact-validity-guard` reading a truncated id that resolves
+        # to nothing, i.e. a reference that reads as tracked while being tracked
+        # by nobody. The IB analogue of the Alpaca close's
         # ``us_equity_session()`` check, which has existed since
         # BL-20260716-ALPACA-MARKET-HOURS-EXIT while this path had nothing:
         # ``src/runtime/market_hours.py`` models fx / us_equity / crypto and
