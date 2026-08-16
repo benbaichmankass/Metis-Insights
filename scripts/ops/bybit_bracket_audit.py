@@ -220,6 +220,28 @@ def _audit_symbol(
         res["verdict"] = "PARTIALLY_NAKED"
     else:
         res["verdict"] = "PROTECTED"
+    # ``verdict`` grades the STOP SIDE ONLY and always has. Stamped explicitly
+    # because "PROTECTED" reads as a claim about the whole bracket, and this
+    # script collected `tp_legs` from the start while never letting them reach
+    # the verdict — so it printed PROTECTED over books with no take-profit at
+    # all (BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT). The
+    # scope now travels WITH the value rather than living in a docstring the
+    # reader of the output never sees.
+    res["verdict_scope"] = "stop_side_only"
+
+    # --- target side, graded SEPARATELY ------------------------------------
+    # A stop and a take-profit are not interchangeable: a fully stop-covered
+    # position with no target can only stop out or run. Three states, never
+    # collapsed — `unknown` is "we could not grade it", NOT "absent".
+    if pos_tp and pos_tp not in ("0", "0.0", "0.00"):
+        res["target_state"] = "present"          # Full-mode position-level TP
+        res["target_source"] = "full_mode_position_takeProfit"
+    elif tp_legs:
+        res["target_state"] = "present"
+        res["target_source"] = "partial_tp_legs"
+    else:
+        res["target_state"] = "absent"
+        res["target_source"] = None
     # An SL leg whose qty we could not parse makes the verdict unreliable —
     # say so rather than reporting a coverage number we cannot stand behind.
     if unknown_qty_sl and not has_pos_sl:
@@ -257,6 +279,17 @@ def _audit_symbol(
     res["trades_with_no_tracked_leg"] = sum(
         1 for t in per_trade if t["tracked_leg_alive_at_broker"] is None
     )
+    # --- journal qty vs the exchange position ------------------------------
+    # Measured 2026-08-16 on bybit_portfolio ETHUSDT: the exchange held 21.05
+    # while the journal held two open rows summing 35.01, the exchange size
+    # equalling ONE row's qty exactly — so the other row's 13.96 was backed by
+    # nothing, and its tracked SL leg was DEAD. Coverage read 100% because it
+    # is measured against the EXCHANGE size, which is the right denominator
+    # for "is the venue position covered" and the wrong one for "is every
+    # journal row backed". Both are worth knowing; only one was reported.
+    j_sum = res["journal_qty_sum"] or 0.0
+    res["journal_qty_excess"] = max(0.0, j_sum - size)
+    res["journal_qty_divergent"] = res["journal_qty_excess"] > size * _COVERAGE_EPS_FRAC
     return res
 
 
@@ -300,6 +333,54 @@ def classify_rollup(summary: Dict[str, Any]) -> Tuple[List[Tuple], List[Tuple], 
                 over.append((a.get("account_id"), s.get("symbol"), v,
                              s.get("sl_covered_qty"), pct))
     return bad, over, audited
+
+
+# Every condition the roll-up is allowed to fold into a clean bill of health.
+# THE LIST IS THE POINT. This function has now produced an all-clear over an
+# ungraded condition three times: the 444.7% over-coverage (2026-07-30), and
+# then target-nakedness AND a dead tracked leg with unbacked journal qty
+# (2026-08-16, both sitting in the record while the summary printed
+# "0 naked, 0 over-covered"). The first fix bolted on one bucket, which is
+# exactly why there was a second and a third. So the all-clear is now computed
+# FROM this list and prints the dimensions it actually cleared — a summary that
+# names its own scope cannot overclaim, and a new concern field that no
+# dimension reads is caught by `test_every_concern_field_is_graded`.
+_ROLLUP_DIMENSIONS: Tuple[Tuple[str, str], ...] = (
+    ("sl_coverage", "stop side covers the position"),
+    ("over_coverage", "SL legs do not exceed the netted position"),
+    ("target_present", "a resting take-profit exists"),
+    ("tracked_legs_alive", "no open journal row's tracked SL leg is dead"),
+    ("journal_qty_backed", "open journal qty does not exceed the exchange position"),
+)
+
+
+def grade_rollup(summary: Dict[str, Any]) -> Tuple[Dict[str, List[Tuple]], int]:
+    """Grade every declared dimension. Returns ``(findings_by_dimension, audited)``.
+
+    Delegates the two stop-side dimensions to :func:`classify_rollup` rather
+    than recomputing them — one definition of "under-covered", so the roll-up
+    and the per-symbol verdict can never drift apart.
+    """
+    bad, over, audited = classify_rollup(summary)
+    found: Dict[str, List[Tuple]] = {k: [] for k, _ in _ROLLUP_DIMENSIONS}
+    found["sl_coverage"] = bad
+    found["over_coverage"] = over
+    for a in summary.get("accounts", []):
+        for s in a.get("symbols", []):
+            if str(s.get("verdict") or "") == "FLAT":
+                continue
+            aid, sym = a.get("account_id"), s.get("symbol")
+            if s.get("target_state") == "absent":
+                found["target_present"].append((aid, sym, "TARGET_ABSENT", None, None))
+            if (s.get("trades_with_tracked_leg_dead") or 0) > 0:
+                found["tracked_legs_alive"].append(
+                    (aid, sym, "TRACKED_LEG_DEAD",
+                     s.get("trades_with_tracked_leg_dead"), None))
+            if s.get("journal_qty_divergent"):
+                found["journal_qty_backed"].append(
+                    (aid, sym, "JOURNAL_QTY_UNBACKED",
+                     s.get("journal_qty_excess"), None))
+    return found, audited
 
 
 def main() -> int:
@@ -383,7 +464,12 @@ def main() -> int:
             r = _audit_symbol(client, category, sym, journal_rows)
             acc_out["symbols"].append(r)
             print()
-            print("  --- %s : %s ---" % (sym, r["verdict"]))
+            # Print the verdict's SCOPE inline. "PROTECTED" alone reads as a
+            # claim about the whole bracket; it has only ever graded the stop.
+            _tgt = r.get("target_state")
+            print("  --- %s : SL=%s | TARGET=%s ---"
+                  % (sym, r["verdict"],
+                     (_tgt or "—").upper() if r["verdict"] != "FLAT" else "—"))
             if r.get("error"):
                 print("      ERROR: %s" % r["error"])
                 continue
@@ -436,7 +522,8 @@ def main() -> int:
     print("=" * 74)
     print("ROLL-UP")
     print("=" * 74)
-    bad, over, audited = classify_rollup(summary)
+    found, audited = grade_rollup(summary)
+    bad, over = found["sl_coverage"], found["over_coverage"]
     if bad:
         print("  %d symbol(s) NOT fully protected at the broker:" % len(bad))
         for aid, sym, v, unc, pct in bad:
@@ -449,12 +536,40 @@ def main() -> int:
         for aid, sym, v, cov_qty, pct in over:
             print("    %-16s %-10s %-32s sl_covered_qty=%s coverage=%.1f%%"
                   % (aid, sym, v, cov_qty, pct or 0.0))
-    if not bad and not over:
-        print("  %d/%d audited non-flat symbol(s) SL-covered at the broker "
-              "within [100%%, %.1f%%]; 0 naked, 0 over-covered."
-              % (audited, audited, 100.0 + 100.0 * _COVERAGE_EPS_FRAC))
-    summary["rollup"] = {"audited_non_flat": audited,
-                         "under_covered": len(bad), "over_covered": len(over)}
+    if found["target_present"]:
+        print("  %d symbol(s) TARGET-NAKED (fully stop-covered and holding NO "
+              "take-profit — can only stop out or run):"
+              % len(found["target_present"]))
+        for aid, sym, v, _a, _b in found["target_present"]:
+            print("    %-16s %-10s %s" % (aid, sym, v))
+    if found["tracked_legs_alive"]:
+        print("  %d symbol(s) with an open journal row whose tracked SL leg is "
+              "DEAD at the broker:" % len(found["tracked_legs_alive"]))
+        for aid, sym, v, n, _b in found["tracked_legs_alive"]:
+            print("    %-16s %-10s %-24s dead_legs=%s" % (aid, sym, v, n))
+    if found["journal_qty_backed"]:
+        print("  %d symbol(s) whose open journal qty EXCEEDS the exchange "
+              "position (rows backed by nothing):"
+              % len(found["journal_qty_backed"]))
+        for aid, sym, v, excess, _b in found["journal_qty_backed"]:
+            print("    %-16s %-10s %-24s unbacked_qty=%s" % (aid, sym, v, excess))
+
+    if not any(found.values()):
+        # The all-clear NAMES ITS OWN SCOPE. It previously read
+        # "…SL-covered…; 0 naked, 0 over-covered" over books that were
+        # target-naked and carrying dead legs — literally true and far weaker
+        # than it sounded. It can now only claim the dimensions it graded.
+        print("  %d/%d audited non-flat symbol(s) clean across ALL %d graded "
+              "dimension(s):" % (audited, audited, len(_ROLLUP_DIMENSIONS)))
+        for name, desc in _ROLLUP_DIMENSIONS:
+            print("      · %-20s %s" % (name, desc))
+        print("    Nothing outside those dimensions was checked.")
+    summary["rollup"] = {
+        "audited_non_flat": audited,
+        "under_covered": len(bad), "over_covered": len(over),
+        "graded_dimensions": [n for n, _ in _ROLLUP_DIMENSIONS],
+        "findings_by_dimension": {k: len(v) for k, v in found.items()},
+    }
     if args.json:
         print()
         print("===== JSON =====")
