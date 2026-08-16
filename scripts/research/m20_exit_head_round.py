@@ -64,6 +64,32 @@ def sh(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess:
 _ACCEPTS_STRATEGY_NAME: dict[str, bool | None] = {}
 
 
+def interpreter_defect(stderr: str) -> str | None:
+    """Name the module the LAUNCHING interpreter is missing, else ``None``.
+
+    A `--help` probe that dies on `ModuleNotFoundError` says nothing about the
+    harness and everything about the python that ran it: every harness is
+    invoked with `sys.executable`, so the driver's own interpreter decides
+    whether they can even import. On the trainer that is
+    `.venv/bin/python3` (the docstring's documented invocation) — a bare
+    `python3` has no pandas, and `scripts/backtest_trend.py` imports it at
+    module level.
+
+    This exists because the message that DIDN'T say so cost a round. Trainer
+    relay #9531 launched with bare `python3`, every harness probe returned
+    `None`, and both legs were refused with *"could not determine whether
+    <harness> supports --strategy-name … fix the harness probe"* — a sentence
+    that names a cause no code path tested. The refusal itself was correct
+    (unattributable rows are worse than a missing leg); the DIAGNOSIS pointed
+    at the harness and the probe, and the actual defect was the command line.
+    CLAUDE.md § "Diagnostic provenance" sub-class A prescribes the remedy
+    taken here: branch on the actual failure STAGE, do not reword the label.
+    """
+    m = re.search(r"(?:ModuleNotFoundError|ImportError): No module named "
+                  r"['\"]([\w.]+)['\"]", stderr or "")
+    return m.group(1) if m else None
+
+
 def accepts_strategy_name(harness: str) -> bool | None:
     """Does this harness take `--strategy-name`? ASKED, not declared.
 
@@ -104,11 +130,46 @@ def accepts_strategy_name(harness: str) -> bool | None:
         verdict = ("--strategy-name" in (p.stdout or "")
                    if p.returncode == 0 else None)
         if verdict is None:
-            print(f"    !! {harness} --help exited {p.returncode} — cannot "
-                  f"determine attribution support. stderr: "
-                  f"{(p.stderr or '')[-200:]}", flush=True)
+            missing = interpreter_defect(p.stderr or "")
+            if missing:
+                print(f"    !! INTERPRETER, NOT HARNESS: {harness} --help died "
+                      f"on `No module named '{missing}'` under "
+                      f"{sys.executable}. Every harness runs with this same "
+                      f"interpreter, so NO leg can run — relaunch the round "
+                      f"with the venv python (.venv/bin/python3, per this "
+                      f"file's docstring). Nothing is wrong with {harness}.",
+                      flush=True)
+            else:
+                print(f"    !! {harness} --help exited {p.returncode} — cannot "
+                      f"determine attribution support. stderr: "
+                      f"{(p.stderr or '')[-200:]}", flush=True)
     _ACCEPTS_STRATEGY_NAME[harness] = verdict
     return verdict
+
+
+def empty_round_reason(n_legs: int, n_invoked: int, n_failed: int) -> str:
+    """Why did this round emit nothing? The three causes, never collapsed.
+
+    `n_invoked` is legs that actually reached their harness; `n_failed` is how
+    many of those returned non-zero. The distinction the old single message
+    could not carry: a round where NO leg reached a harness has not measured
+    anything, and reporting it as "no emitted trades" invites the reader to
+    conclude the strategies produced no trades — a clean negative that was
+    never observed.
+    """
+    if n_invoked == 0:
+        return (f"NOTHING RAN: all {n_legs} leg(s) were skipped before their "
+                f"harness was invoked, so this round MEASURED NOTHING — it is "
+                f"not evidence that these legs produce no trades. Read the "
+                f"SKIP lines above for the cause and re-run; do not record "
+                f"this as an empty result.")
+    if n_failed == n_invoked:
+        return (f"NOTHING RAN CLEANLY: {n_invoked} of {n_legs} leg(s) reached "
+                f"their harness and ALL {n_failed} failed, so no trade "
+                f"population was observed. See the HARNESS FAIL lines.")
+    return (f"no emitted trades: {n_invoked} of {n_legs} leg(s) ran "
+            f"({n_failed} failed) and the ones that succeeded produced zero "
+            f"trades in this window — a real empty result, nothing to build.")
 
 
 def main(argv: list[str]) -> int:
@@ -298,6 +359,16 @@ def main(argv: list[str]) -> int:
     # leg -> {symbol, family}, recorded at emit so the evidence rows carry the
     # same facts the round actually ran on rather than a re-read of YAML.
     emitted_meta: dict[str, dict] = {}
+    # An empty round has THREE causes and they demand opposite responses, so
+    # they are counted apart rather than collapsed into "nothing to build":
+    # no leg ever reached a harness (we never looked — fix the invocation),
+    # harnesses ran and failed, or harnesses ran cleanly and the strategies
+    # genuinely produced no trades in the window (the only real negative).
+    # Relay #9531 printed the one message for the first case, which is
+    # CLAUDE.md § "Diagnostic provenance" sub-class C — an empty result
+    # reading as a clean answer.
+    n_invoked = 0
+    n_harness_failed = 0
     for leg in a.legs.split(","):
         cfg = strategies.get(leg)
         if not isinstance(cfg, dict):
@@ -368,9 +439,11 @@ def main(argv: list[str]) -> int:
                   f"--strategy-name; its rows will carry the family literal and "
                   f"this leg's verdict will NOT be separately attributable.",
                   flush=True)
+        n_invoked += 1
         p = sh([sys.executable, REPO / FAMILY_HARNESS[fam], *args,
                 "--emit-trades", emit, "--json", "/tmp/eh_round_cell.json"])
         if p.returncode != 0:
+            n_harness_failed += 1
             print(f"HARNESS FAIL {leg}: {(p.stderr or p.stdout)[-300:]}",
                   flush=True)
             continue
@@ -385,7 +458,8 @@ def main(argv: list[str]) -> int:
             emitted_meta[leg] = {"symbol": str(sym), "family": fam}
 
     if not emits:
-        print("no emitted trades — nothing to build")
+        print(empty_round_reason(len(a.legs.split(",")), n_invoked,
+                                 n_harness_failed))
         return 1
 
     build_cmd = [sys.executable, REPO / "scripts/ml/build_exit_head_dataset.py",
