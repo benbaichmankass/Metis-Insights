@@ -738,6 +738,23 @@ affected — but the old code records no per-fold flip count, so partial inertne
 is not recoverable from its output. Re-run on the fixed commit rather than
 patched.
 
+✅ **Live-verified on the very leg that produced it** (#9536, worktree
+`70bb3316`) — same leg, same numbers, corrected label:
+
+```
+before:  trend_donchian (BTCUSDT 1h): PASS                wf=6/6 flip%=0.0 net 37.3918 -> 37.3918
+after:   trend_donchian (BTCUSDT 1h): INERT_NEVER_FLIPPED wf=6/6 flip%=0.0 net 37.3918 -> 37.3918
+```
+
+The v1 sweep also completed cleanly at `tp_geometry: live_parity_capped` — the
+first `regime_flip_exit` evidence ever produced on the geometry the live units
+place. Its pullback legs are **real** fails, not inert ones: `ada_pullback_2h`
+flip% 100.0 taking net_R 30.13 → −0.54, `avax_pullback_2h` 98.9 % taking
+16.82 → −2.99, `htf_pullback_trend_2h` 99.5 % taking 19.20 → −9.69. A lever that
+fires on essentially every trade and destroys the book is a finding the old
+no-take-profit evidence agreed with; what changes is that it is now measured
+against the right baseline.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
