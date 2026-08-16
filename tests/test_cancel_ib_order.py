@@ -10,7 +10,9 @@ the failure this tool exists to prevent, not a cosmetic nicety.
 """
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 
@@ -62,7 +64,6 @@ def _run(monkeypatch, reads, argv, cancel=None):
     monkeypatch.setattr(mod, "_read_orders", _read)
     monkeypatch.setattr(mod, "_cancel_as_owner",
                         lambda cfg, **kw: cancel or {"retCode": 0, "retMsg": "OK"})
-    import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         rc = mod.main(argv)
@@ -70,7 +71,6 @@ def _run(monkeypatch, reads, argv, cancel=None):
 
 
 def test_requires_an_id():
-    import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         rc = mod.main(["--account", "ib_paper"])

@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T12:58:00+00:00",
+  "updated_at": "2026-08-16T13:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17703,6 +17703,35 @@
         "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY"
       ],
       "updated_at": "2026-08-16T12:45:00+00:00"
+    },
+    {
+      "id": "BL-20260816-NO-PER-ORDER-IB-CANCEL",
+      "opened_at": "2026-08-16T13:05:00+00:00",
+      "opened_by": "claude (sysrev-0816 session, operator-directed: 'that's a huge gap in capabilities that shouldn't exist')",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "fix_landed_pending_live_verification",
+      "area": "exit-coverage",
+      "title": "No way to cancel a SINGLE IB order from any session -- the only two mechanisms either PLACE another order or strip every protective stop on the account",
+      "detail": "OPERATOR-DIRECTED. Surfaced when the operator instructed 'cancel order 6' (the stranded ib_paper/MGC MKT SELL 105 abandoned by a failed flatten) and NO mechanism could carry it out.\n\nTHE THREE THINGS THAT LOOKED LIKE A CANCEL, AND WHY EACH FAILED.\n(a) `IBClient.cancel(order_id)` exists, but `_locked_cancel` resolves its target by iterating `self._open_trades(ib)` = `ib.openTrades()`, which returns only orders THIS clientId placed. Any ops caller runs on a process-unique id, so it returns 'order <id> not found among open trades' for an order it can plainly see on the account-wide read.\n(b) `flatten-ib-position` is a FLATTEN: it would place a third market sell, and its Step-1 cancel runs on the same session-scoped read (already measured no-op'ing on 2026-08-16 -- see `_cancel_resting_orders_for_symbol`'s docstring).\n(c) `reqGlobalCancel` is the only cross-client cancel and is all-or-nothing: it would take the MGC stop and both MES protective legs with it.\n\nTHE MECHANISM, VERIFIED AGAINST THE TWS API DOCS (not assumed, and it REFUTES the previously recorded fix premise). `cancelOrder` 'can only be used to cancel an order that was placed originally by a client with the same client ID (or from TWS for client ID 0)', and 'Orders submitted via the TWS API will always be bound to the client application (i.e. client Id) they were submitted from meaning only the submitting client will be able to modify the placed order.' ⚠️ The **Master API client ID does NOT grant cancellation** -- the API reference mentions it solely for RECEIVING order-status callbacks ('The client with Master Client ID (set in TWS/IBG) will receive order status messages for all clients'), a visibility role. `BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER`'s 11:50Z update proposed 'a gateway Master API client id + a narrow cancel-ib-order action' as option (1); the Master-ID half of that is WRONG and configuring one would not have cancelled order 6. The only per-order path is to connect AS the owning clientId.\n\nA SECOND GAP FOUND WHILE FIXING THIS, in code shipped the same day: `IBClient.list_open_orders` -- the account-wide read surface added for `BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE` -- did NOT capture `clientId`. So the one surface that could SHOW you a stranded order gave you no way to learn the address a cancel must be sent from. A read surface whose whole purpose is 'reduce nothing' had reduced away the field that makes the rows actionable.",
+      "resolution_criteria": "1. SHIPPED: `list_open_orders` rows carry `client_id` (null = IB did not report it, which is NOT 'client 0').\n2. SHIPPED: `scripts/ops/cancel_ib_order.py` + the Tier-2 `cancel-ib-order` system-action -- reads account-wide, resolves the owner, connects AS that clientId, cancels, re-reads to verify. Dry-run by default. Lookup is three-state and never collapsed (`could_not_look` / `not_found` / `found`), and an accepted cancel whose verification read fails reports `cancelled_unconfirmed` rather than success.\n3. SHIPPED: two default refusals with SEPARATE explicit overrides -- a protective order (OCA-grouped or a stop/trailing type) needs `--force-protective`; a clientId below 9000 (the trader's execution band) needs `--force-client-id`, because taking over that id would evict the trader's live IB session.\n4. OPEN -- LIVE VERIFICATION. Not yet exercised against a real broker: at 12:37:33Z the IB breaker was open and `/api/diag/ib_open_orders` returned `read_state: could_not_look`. The action must be run in DRY-RUN first against a real order and shown to resolve a real `owner_client_id`, then applied and verified `gone`. A `could_not_look` run is NOT evidence either way. Until then the 14 unit tests prove the DECISION logic only, never the IB semantics.\n5. OPEN -- the class this does NOT cover: an order owned by the trader's own live execution client cannot be cancelled by any ops session (connecting as that id evicts the trader). The trader can cancel its own orders; nothing else can. Whether that needs its own wire is a separate question, deliberately not answered here.",
+      "refs": [
+        "scripts/ops/cancel_ib_order.py",
+        "scripts/ops/cancel_ib_order_action.sh",
+        "tests/test_cancel_ib_order.py",
+        "src/units/accounts/ib_client.py::_locked_cancel (the session-scoped read)",
+        "src/units/accounts/ib_client.py::_locked_list_open_orders (client_id added)",
+        "src/units/accounts/ib_client.py::_cancel_resting_orders_for_symbol (the measured no-op)",
+        "TWS API cancel_order + open_orders (the clientId-binding contract)",
+        "issue #9689 (order 6 + 378 both resting)",
+        "issue #9695 (read_state could_not_look at 12:37:33Z)"
+      ],
+      "related": [
+        "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
+        "BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED",
+        "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE"
+      ],
+      "updated_at": "2026-08-16T13:05:00+00:00"
     }
   ]
 }
