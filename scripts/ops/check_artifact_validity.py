@@ -142,13 +142,19 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
     # 5427/2211), verified against the committed artifacts. They are now regular registered
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
-    "comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json": {
-        "backlog": "BL-20260730-PRODUCER-VACUITY-GUARD",
-        "until": "2026-08-15",
-        "why": "A zero-row FMP capture, consistent with the FMP free-tier NO-BUILD "
-               "finding (#7888). Either prune the dead capture or stop writing "
-               "empty ones.",
-    },
+    # REMOVED 2026-08-16 (the entry's own contract, and its expiry fired on 2026-08-15 —
+    # which is what forced the decision rather than letting the debt go permanent; the
+    # mechanism worked as designed). The entry offered two dispositions, "prune the dead
+    # capture OR stop writing empty ones"; BOTH were done, because either alone leaves the
+    # class open:
+    #   * the capture US-20260729T073711Z.fmp.json was PRUNED — verified `rows == []` before
+    #     deleting, so zero rows left the PIT ledger (econ_calendar_produce globs every
+    #     capture in that dir, so a non-empty one could not have been removed silently);
+    #   * econ_calendar_fmp.write_capture now REFUSES to write a zero-row capture and says
+    #     so (`wrote: False` + reason, CLI exits 1), so provisioning FMP_API_KEY later
+    #     cannot re-seed the same vacuous artifact.
+    # It was the only .fmp.json ever written (a one-off from the #7888 free-tier probe);
+    # the daily econ-calendar-produce cron runs FXStreet, not FMP, so nothing regressed.
 }
 
 
