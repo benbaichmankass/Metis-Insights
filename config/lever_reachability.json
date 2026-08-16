@@ -198,7 +198,28 @@
         "corrects_this_row": "The sibling fields cap_r_max=8.38 and reach_share_pct=33.3 on this entry do NOT reproduce. Across 33 distinct live observations (these 27 plus the earlier 6) the maximum cap_R is 4.4573 and 8.38 appears in none. The derived 33.3% is arithmetically impossible on this population: 33.3% of 37 is 12.3 rows while only 10 rows are unaccounted for, so the ceiling is 10/37 = 27.0%. Those two fields are LEFT IN PLACE rather than edited -- they are the record of what the truncated 6-row read reported, and this block is the correction. Read this block, not them.",
         "arm_declared_in_only_2_of_27": "trail_decay_arm_r appears in the signal_logic of only 2 of the 27 rows (2026-07-15, 2026-07-29) over a span starting 2026-06-19: the lever was declared mid-July. cap_R is pure entry geometry and is unaffected by the declare, but 'how often would it have armed' and 'how often did it fail to arm' are therefore different questions on this leg.",
         "agreement_with_backtest_basis": "Consistent with backtest_entry_conditioned_2026_08_16 (5.9%, 12/204) in direction. 0 hits in 27 draws at a 5.9% base rate is unremarkable (P ~ 0.19), so the two bases do not conflict -- but they are different populations and neither substitutes for the other.",
-        "changes_nothing": "verdict and disposition deliberately UNTOUCHED. The operator's 2026-08-16 instruction was 'widen the sample FIRST' -- widening it is not deciding it. Resolving a queued_tier3 row is the operator's call."
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED. The operator's 2026-08-16 instruction was 'widen the sample FIRST' -- widening it is not deciding it. Resolving a queued_tier3 row is the operator's call.",
+        "SUPERSEDED_BY": "live_entry_conditioned_COMPLETE_2026_08_16 — this block measured 27 of 37 rows and reported 0/27. The COMPLETE population is 2/37. Read the complete block; this one is retained as the record of the partial read."
+      },
+      "live_entry_conditioned_COMPLETE_2026_08_16": {
+        "basis": "live order_packages/risk_per_unit, COMPLETE population. The 10 rows the first pass lost to truncation were recovered by targeting the known gap positions (truncation always cuts the TAIL of a page, so the losses sat at the end of each 12-row page): relay #9774 (offset 10, limit 2), #9775 (offset 20, limit 4), #9776 (offset 32, limit 4). Every page returned its full envelope.",
+        "measured_at": "2026-08-16",
+        "envelope_total": 37,
+        "filter_state": "applied",
+        "n_recovered": 37,
+        "n_lost_to_truncation": 0,
+        "population_complete": true,
+        "cap_r_min": 1.84,
+        "cap_r_median": 3.03,
+        "cap_r_max": 5.0,
+        "reach_count": "2/37",
+        "reach_share_pct": 5.4,
+        "CORRECTS_THE_PARTIAL_BLOCK": "The 27-row block reported 0/27 and cap_r_max 4.46 and inferred the bound [0.0%, 27.0%]. The bound was correct and the point estimate was NOT 0: both reaching rows sat in the unrecovered tail. 2/37 = 5.4%.",
+        "the_8_38_is_EXPLAINED_and_it_reproduces": "I previously wrote that cap_r_max 8.38 'reproduces on none of the live observations'. THAT WAS WRONG -- it reproduces exactly, and it comes from a DIFFERENT FIELD than the one reachability must read. exit_plan_state carries TWO reach_r values with different meanings: targets[].reach_r is the ACTUAL final target's reach, and realism_notes[].reach_r is the reach of the ORIGINAL target that a realism clamp DISCARDED. On pkg-639da91607cc46d3: entry 1.0903, risk 0.012875, original target 0.9823603 = 8.3837R (a 9.90% move -- the TP cap exactly), clamped to 1.025925 = 5.0000R. The registry's 8.38 was read off realism_notes, i.e. off a target the bot did not use.",
+        "realism_clamp": "Final targets are clamped to reach_r 5.0. So on low-ATR entries the binding ceiling is the 5.0R realism clamp, not the 9.9% TP cap -- and 5.0 > the 4.49 arm, which is why exactly those rows reach it. Both reaching rows are clamped ones (targets[].reach_r == 5.0).",
+        "read_the_right_field": "Any future reachability measurement must read targets[].reach_r. Reading realism_notes[].reach_r overstates the ceiling by the clamp ratio and is what produced the original 8.38/33.3% pair.",
+        "agreement_with_backtest_basis": "5.4% live (2/37) vs 5.9% backtest (12/204) -- two independent populations, two independent extraction paths, agreeing to 0.5pp. That agreement is the strongest evidence either basis has.",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED. Still the operator's Tier-3 call."
       }
     },
     {
