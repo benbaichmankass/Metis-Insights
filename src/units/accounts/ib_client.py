@@ -1681,10 +1681,20 @@ class IBClient:
                 # /api/diag/ib_open_orders showed BOTH the 105-lot stop AND an
                 # abandoned `MKT SELL 105 tif DAY` — 210 contracts of resting
                 # sell against a 105 long, in two orders with no OCA linking
-                # them, so neither could cancel the other. Every retry adds one
-                # more (IB_CLOSE_RETRY_COOLDOWN_S bounds the RATE, not the
-                # total), and a fill on one while another rests flips the
-                # account short.
+                # them, so neither could cancel the other. A fill on one while
+                # the other rests flips the account short.
+                #
+                # ON STACKING, stated precisely because the obvious phrasing
+                # overstates it: retries CAN accumulate orders, because
+                # IB_CLOSE_RETRY_COOLDOWN_S bounds the retry RATE and never the
+                # total. But that is a property of the MONITOR's close path
+                # (order_monitor._apply_update), which is what retries. The
+                # 2026-08-16 incident came from a one-shot ops action against a
+                # strategy whose monitor has no close path at all, so exactly
+                # ONE order was abandoned and no stacking was observed — a
+                # re-read at T+23min still showed the same four orders. The
+                # hazard is real for a strategy whose monitor does close against
+                # a non-filling venue; it is not what was measured here.
                 #
                 # Cancelling here makes the retry idempotent: each attempt
                 # leaves at most one live order, and a caller that gives up
