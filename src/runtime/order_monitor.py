@@ -6132,6 +6132,66 @@ _BYBIT_QTY_DIVERGENCE_FRAC = 0.10
 _DEFAULT_IB_BROKER_NAKED_CHECK_SECONDS = 300
 _LAST_IB_BROKER_NAKED_CHECK_MONO: float = 0.0
 
+# Rate-limit the target-naked CRITICAL per (account, symbol). The sweep runs
+# on IB_BROKER_NAKED_CHECK_SECONDS (default 300s) and the condition PERSISTS
+# until someone repairs the bracket, so an un-limited alert would fire every
+# five minutes forever — which is the desensitized-alarm P1 this repo treats
+# as its own bug, not diligence. One page per 6h per (account, symbol) keeps
+# it loud without training the operator to scroll past it.
+_TARGET_NAKED_ALERT_COOLDOWN_S: float = 6 * 3600.0
+_LAST_TARGET_NAKED_ALERT_MONO: Dict[tuple, float] = {}
+
+
+def _emit_target_naked_alert(
+    *,
+    account_id: str,
+    symbol: str,
+    size: float,
+    target_qty: float,
+    stop_qty: Any,
+    declared_tp: Any,
+    trade_id: Any,
+) -> bool:
+    """Page the operator that a position has a declared TP and no target at the
+    broker. Rate-limited per (account, symbol). Returns whether it alerted.
+
+    CRITICAL, not WARN: a position that can only stop out or run is the state
+    the operator has ruled unacceptable, and CRITICAL is what reaches Telegram
+    (``outcomes._TELEGRAM_LEVELS``) as well as the ``/api/bot/notifications``
+    banner. Never raises into the sweep.
+    """
+    key = (str(account_id), str(symbol))
+    now = time.monotonic()
+    last = _LAST_TARGET_NAKED_ALERT_MONO.get(key)
+    if last is not None and (now - last) < _TARGET_NAKED_ALERT_COOLDOWN_S:
+        return False
+    _LAST_TARGET_NAKED_ALERT_MONO[key] = now
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report(
+            "ib_target_naked",
+            "detected",
+            level=Level.CRITICAL,
+            reason=(
+                f"{account_id}/{symbol}: position {size} has {target_qty} of "
+                f"take-profit coverage against a declared TP of {declared_tp} "
+                f"— the position can only stop out or run"
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            size=size,
+            target_qty=target_qty,
+            stop_qty=stop_qty,
+            declared_tp=declared_tp,
+            trade_id=trade_id,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception(
+            "_emit_target_naked_alert: alert failed for %s/%s", account_id, symbol
+        )
+    return True
+
 
 def _ib_broker_naked_check_interval_seconds() -> float:
     """Min seconds between IB broker-side naked sweeps.
@@ -6515,6 +6575,9 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0, "skipped": 0,
         "partially_naked": 0, "ungradeable": 0, "read_failed": 0, "covered": 0,
+        # Graded SEPARATELY from the stop side: a position can be fully
+        # stop-covered and hold no target at all (BL-20260816-COVERAGE-IS-ONE-SIDED).
+        "target_naked": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
     if interval <= 0:
@@ -6635,9 +6698,50 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                     account_id, protect_symbol, cov["unknown_qty_legs"],
                 )
                 continue
+            # TARGET-side coverage, graded separately (2026-08-16,
+            # BL-20260816-COVERAGE-IS-ONE-SIDED). `covered_qty` counts a stop
+            # and a take-profit as interchangeable, so a position holding a
+            # full stop and NO target grades FULLY COVERED and this sweep has
+            # never once fired on a stripped target. Measured on ib_paper the
+            # same day: MGC 105 long with one stop and no limit, MES 15 long
+            # with TWO stops and no limit — zero limit orders account-wide.
+            #
+            # This ALERTS and does not re-arm, deliberately. `place_protective`
+            # is reached with oca_key=trade_id, so it cancels group
+            # `oca-protect-t<id>` — while the legs actually resting sit in
+            # `oca-protect-<reqId>` groups it will not match. A re-arm would
+            # therefore ADD a stop+TP pair on top of the surviving stop (MGC:
+            # 210 contracts of stop against 105) and, once the new target
+            # filled and cancelled its own OCA sibling, leave the stray stop
+            # resting on a FLAT book — able to fill into a short. Clearing the
+            # stray legs needs a cancel addressed to their owning clientId
+            # (BL-20260816-NO-PER-ORDER-IB-CANCEL); until that repair lands,
+            # alerting is the honest action and silence is not.
+            declared_tp = row["take_profit_1"]
+            tp_declared = declared_tp not in (None, 0) and declared_tp > 0
+            target_q = cov.get("target_qty")
+            if tp_declared and target_q is not None and float(target_q) < size - _IB_COVERAGE_EPSILON:
+                summary["target_naked"] = summary.get("target_naked", 0) + 1
+                _emit_target_naked_alert(
+                    account_id=account_id,
+                    symbol=protect_symbol,
+                    size=size,
+                    target_qty=float(target_q),
+                    stop_qty=cov.get("stop_qty"),
+                    declared_tp=declared_tp,
+                    trade_id=row["id"],
+                )
+                logger.error(
+                    "_check_broker_naked_ib_positions: %s/%s TARGET-NAKED — "
+                    "size=%s target_qty=%s stop_qty=%s declared_tp=%s "
+                    "trade_id=%s (alert only; re-arm blocked on "
+                    "BL-20260816-NO-PER-ORDER-IB-CANCEL)",
+                    account_id, protect_symbol, size, target_q,
+                    cov.get("stop_qty"), declared_tp, row["id"],
+                )
             if covered >= size - _IB_COVERAGE_EPSILON:
                 summary["covered"] += 1
-                continue  # fully covered
+                continue  # fully covered (STOP side; see the target check above)
             # Partially covered is the case the old boolean could not see: a
             # surviving sibling leg made the whole netted position read
             # PROTECTED while this trade's own protection was gone.
