@@ -879,6 +879,56 @@ I hit it twice more (#9538 heredoc, #9539 `-c`) before following the doc. The
 doc needed no change — **I did**. Recorded because "the doc says so" is not the
 same as having read it.
 
+### 22. Stamped, and the sentinel cleared — vintage 36.1 % → 23.3 %
+
+With a complete live-parity population in hand, the column was stamped from the
+artifact (relay #9541, machine-readable dump — not retyped from a summary):
+
+- **41 cells** gained the measurement in `ref` **plus an explicit
+  `tp_geometry: live_parity`**. **No status moved**, and the writer asserts that
+  before saving. Because 0 of 42 legs returned `PASS`, every `honest_negative`
+  is **confirmed**, not merely retained.
+- The **12 inert** cells say so distinctly — their `honest_negative` rests on
+  *never tested*, and each ref records that the old verdict would have scored it
+  `PASS` at a walk-forward up to **20/20**.
+- **`regime_flip_exit` removed from `LEVER_GEOMETRY_CUTOVER`.** That entry's own
+  comment says removal — not a date edit — is how a harness fix is marked, and
+  both conditions are now met *and checkable*: the harness passes the cap and
+  stamps geometry, **and** a sweep landed on it. This is exactly why the
+  sentinel was not dropped in the same commit as the harness fix: a fixed
+  harness with no evidence behind it still leaves every cell on the old book.
+
+**Evidence vintage 36.1 % → 23.3 %** (104 → 67 stale cells), and the
+`harness_never_modelled_the_tp` bucket **self-cleared 38 → 0 with no edit to the
+state logic** — the property § 18 built it to have, now demonstrated rather than
+asserted. The remaining 67: **33** re-runnable · **29** with no producer · **5**
+already-adjudicated disagreements.
+
+**Two honest residuals, both stated rather than smoothed over:**
+
+- **`squeeze_breakout_4h`** is the one `regime_flip_exit` cell the re-sweep did
+  not cover *and a re-run will not cover*: `POLICY_KEY` maps only `donchian` and
+  `pullback`, so a `squeeze` leg is skipped silently. It now reads
+  `no_live_parity_row` — the closest available state and still not exact.
+  Deliberately **not** given a fourth state for a population of **one**; the
+  reason is written into that cell's own `ref`, where a reader meets it.
+- **The sweep was dropping the correction fields.** `walkforward_real` and
+  `inert_folds` were computed by the replay and present in each
+  `<leg>_flip.json`, but `verdicts.json` — the file every reader and every
+  downstream tool opens — returned `null` for all 42 legs, because the per-leg
+  dict copied a fixed field list that predated them. A wholly-inert leg survives
+  that (its verdict says so); a **partially** inert one does not. Now propagated
+  via `.get`, so a pre-fix report degrades to null rather than crashing.
+
+**Two of my own tests failed on this correct change**, and the failure was
+right: they asserted that *some* lever IS pinned at `NEVER`, which made them a
+function of production state, so removing the entry broke them with a message
+about a missing positive case rather than about the logic. They now **inject** a
+`NEVER` lever and restore it — plant-proven still to catch a disabled branch —
+and one had to stop demanding the cleared cells land in `no_live_parity_row`,
+which holds only for a lever that *has* a producer. It asserts conservation of
+the whole distribution instead.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
