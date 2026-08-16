@@ -44,7 +44,7 @@
       "verdict": "unmeasured",
       "disposition": "queued_tier3",
       "opened_at": "2026-08-16",
-      "unmeasured_reason": "No entry-conditioned pull yet. The candle screen reads cap_R p50 3.56 vs arm 5.57 (2.8% reach), which points at near-inert — but the candle basis overstated xrp by 2.7x and is not a bound, so this is NOT recorded as a verdict.",
+      "unmeasured_reason": "No entry-conditioned LIVE pull yet (order_packages/risk_per_unit, the authoritative basis). UPDATED 2026-08-16: a BACKTEST entry-conditioned basis now exists and reads 0/127 (0.0%) across every year 2023-2026 - see backtest_entry_conditioned_2026_08_16. The earlier candle screen read 2.8%, i.e. it OVERSTATED, the same direction it overstated xrp. The prior text 'No entry-conditioned pull yet' is no longer accurate and was corrected.",
       "basis": null,
       "measured_at": null,
       "note": "Needs its own order-packages pull (one path per relay issue — six paths share one 55KB budget and starved every leg to 1-3 rows).",
@@ -56,6 +56,22 @@
         "oos_n": 52,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
         "note": "Proposes 1.5R — far below the declared 5.57 — and still fails OOS. The candle screen had pointed at near-inert; this neither confirms nor refutes reachability, it says the cell does not clear the gate at any arm it proposes."
+      },
+      "backtest_entry_conditioned_2026_08_16": {
+        "basis": "backtest entry-conditioned |entry-sl|/entry via --emit-trades, config-exact, --tp-cap-pct 0.099, 15m source resampled to the leg timeframe, repo venv (relay #9715)",
+        "basis_caveat": "A THIRD basis. NOT the authoritative live order_packages/risk_per_unit population. Entry-conditioned and large-n, but drawn from the BACKTEST book.",
+        "memo": "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "measured_at": "2026-08-16",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED - this records a measurement; resolving a queued_tier3 row is the operator's call.",
+        "n": 127,
+        "span": "2023-01-09 -> 2026-06-29",
+        "med_risk_entry_pct": 6.038,
+        "cap_r_at_median": 1.64,
+        "reach_share_pct": 0.0,
+        "reach_count": "0/127",
+        "era_note": "ZERO in EVERY year: 2023 0/36, 2024 0/36, 2025 0/38, 2026 0/17. Unlike gld_pullback_1d this is NOT an era effect - the leg never clears its own ceiling in any regime. arm 5.57 needs risk/entry <= 1.777%; the backtest p25 is 4.845%.",
+        "screen_disagreement": "The candle screen recorded in unmeasured_reason read 2.8% reach; the entry-conditioned population reads 0.0%. The screen OVERSTATED again, the same direction it overstated xrp - which is exactly why unmeasured_reason declined to record it as a verdict.",
+        "supports": "An `inert` verdict, on a 3.4x gap (cap_R 1.64 vs arm 5.57) at n=127 over the leg's complete backtest span. NOT recorded as one here: the authoritative live basis is still absent, and every verdict in this file was left untouched this session for consistency."
       }
     },
     {
@@ -79,7 +95,22 @@
         "oos_net_r": 20.9844,
         "oos_n": 50,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
-        "note": "⚠️ THE PROPOSED ARM IS ITSELF UNREACHABLE ON THIS LEG'S OWN ENTRIES — DO NOT SHIP 3.86. It needs risk/entry <= 2.565%; the 8 live entries (a COMPLETE history) ran 3.294-4.506%, giving cap_R 2.20-3.01. 3.86 exceeds the best observed cap_R by 0.85R, so zero of 8 could arm it. Taking this PASS at face value would replace one inert arm with a SECOND inert arm carrying a pass badge — worse, because the badge suppresses the next question. NOT RESOLVED HERE: the p80 is over backtest winner MFEs (134 lifetime trades) while cap_R is over 8 live order packages; either the live entries are unrepresentative or the backtest risk/entry differs systematically. Both testable, neither tested."
+        "note": "⚠️ THE PROPOSED ARM IS ITSELF UNREACHABLE ON THIS LEG'S OWN ENTRIES — DO NOT SHIP 3.86. It needs risk/entry <= 2.565%; the 8 live entries (a COMPLETE history) ran 3.294-4.506%, giving cap_R 2.20-3.01. 3.86 exceeds the best observed cap_R by 0.85R, so zero of 8 could arm it. Taking this PASS at face value would replace one inert arm with a SECOND inert arm carrying a pass badge — worse, because the badge suppresses the next question. RESOLVED 2026-08-16 (was: 'both testable, neither tested' — flagged as stale on board #6927 by a concurrent session, and it was). BOTH were tested. The answer is the SECOND branch: the backtest population's risk/entry differs systematically. Backtest median 2.300% sits BELOW the live minimum 3.294%; only 16/112 backtest trades fall inside the live band; 3.86R is met by 71/112 backtest and 0/8 live entries. The by-ERA cut then explains why: entry-conditioned reachability of arm 5.06 runs 7/7 in 2018 and 1/7 across 2025-2026, so the pooled 37.5% averages a vol regime the live book does not sample — held at fixed era the two populations AGREE (14.3% vs 0%). NOTE THE BUCKETING, because it is the whole validity of the comparison: entries are bucketed by year, NOT calendar bars. A high-ATR year can hold entries clustered in its calm stretches (the strategy chooses when it enters), so an all-bars bucket would answer a different question. Both sides here are entry-conditioned. The DO-NOT-SHIP-3.86 verdict above is unaffected and is STRONGER, not weaker. Memo: docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md"
+      },
+      "backtest_entry_conditioned_2026_08_16": {
+        "basis": "backtest entry-conditioned |entry-sl|/entry via --emit-trades, config-exact, --tp-cap-pct 0.099, repo venv (relay #9710)",
+        "basis_caveat": "A THIRD basis. NOT the authoritative live order_packages/risk_per_unit population and NOT the unconditional candle screen. Entry-conditioned like the live basis and large-n, but drawn from the BACKTEST book - so it is comparable only when the ERA is held fixed, which is the whole finding.",
+        "memo": "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "measured_at": "2026-08-16",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED - this records a measurement; resolving a queued_tier3 row is the operator's call.",
+        "n": 112,
+        "span": "2010-03-26 -> 2026-04-02",
+        "med_risk_entry_pct": 2.3,
+        "cap_r_at_median": 4.3,
+        "reach_share_pct": 37.5,
+        "reach_count": "42/112",
+        "era_note": "2025: 1/5 (med 3.452%, cap_R 2.87) - 2026: 0/2 (med 7.396%, cap_R 1.34); 2025+2026 = 1/7 = 14.3% against the live basis's 0/8. Best era 2018 7/7 (med 1.805%, cap_R 5.48). Reachability is regime-clustered, NOT a monotone trend: 2011 (3.327%) and 2013 (3.169%) also sit in the live band.",
+        "live_band_overlap": "16/112 inside live risk/entry band 3.294-4.506%; 21/112 at or above the live minimum"
       }
     },
     {
@@ -104,6 +135,22 @@
         "oos_n": 53,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
         "note": "The proposed 2.17R WOULD be reachable (observed cap_R 3.92-8.38) and the cell STILL fails OOS — so 'lower the arm' is not the answer on this leg either. That closes the escape the gld row leaves open."
+      },
+      "backtest_entry_conditioned_2026_08_16": {
+        "basis": "backtest entry-conditioned |entry-sl|/entry via --emit-trades, config-exact, --tp-cap-pct 0.099, 15m source resampled to the leg timeframe, repo venv (relay #9715)",
+        "basis_caveat": "A THIRD basis. NOT the authoritative live order_packages/risk_per_unit population. Entry-conditioned and large-n, but drawn from the BACKTEST book.",
+        "memo": "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "measured_at": "2026-08-16",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED - this records a measurement; resolving a queued_tier3 row is the operator's call.",
+        "n": 204,
+        "span": "2023-01-06 -> 2026-07-17",
+        "med_risk_entry_pct": 4.306,
+        "cap_r_at_median": 2.3,
+        "reach_share_pct": 5.9,
+        "reach_count": "12/204",
+        "era_note": "Flat across eras, no rescue: 2023 2/51, 2024 6/56, 2025 1/63, 2026 3/34.",
+        "truncation_resolved": "The live basis is TRUNCATED to the 6 newest of up to 25 and reads 33.3%; this row's own note warned 'do NOT read 33.3% as a lifetime rate'. The large-n entry-conditioned basis reads 5.9% - so the truncated recency-biased sample OVERSTATED reachability by roughly 5.6x. The warning was correct.",
+        "live_trade_context": "This is the leg behind real-money trade 4163 (bybit_2), whose M31 telemetry recorded peak_r 3.4179 against cap_r 3.9233 and arm_r 4.49."
       }
     },
     {
@@ -127,6 +174,21 @@
         "oos_n": 40,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
         "note": "SKIPPED, not failed: 21 winner MFEs against a 30 minimum. The harness DECLINED to emit a p80 rather than producing one off a thin sample. Absence of evidence — this leg remains exactly as measured before (inert, n=1)."
+      },
+      "backtest_entry_conditioned_2026_08_16": {
+        "basis": "backtest entry-conditioned |entry-sl|/entry via --emit-trades, config-exact, --tp-cap-pct 0.099, repo venv (relay #9710)",
+        "basis_caveat": "A THIRD basis. NOT the authoritative live order_packages/risk_per_unit population and NOT the unconditional candle screen. Entry-conditioned like the live basis and large-n, but drawn from the BACKTEST book - so it is comparable only when the ERA is held fixed, which is the whole finding.",
+        "memo": "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "measured_at": "2026-08-16",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED - this records a measurement; resolving a queued_tier3 row is the operator's call.",
+        "n": 81,
+        "span": "2007-04-16 -> 2026-05-08",
+        "med_risk_entry_pct": 3.66,
+        "cap_r_at_median": 2.7,
+        "reach_share_pct": 19.8,
+        "reach_count": "16/81",
+        "era_note": "2026: 0/3 (med 3.519%, cap_R 2.81). CONFIRMS the n=1 live verdict at n=81.",
+        "basis_disagreement": "The candle screen read cap_R 2.13; entry-conditioned reads 2.70 - entries select QUIETER bars than the unconditional distribution here, the OPPOSITE direction to xrp, where the screen overstated reach. So the screen's error has no fixed sign either."
       }
     },
     {
@@ -147,6 +209,21 @@
         "oos_n": 33,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
         "note": "SKIPPED, not failed: 14 winner MFEs against a 30 minimum. Still unmeasured; the re-sweep could not resolve it."
+      },
+      "backtest_entry_conditioned_2026_08_16": {
+        "basis": "backtest entry-conditioned |entry-sl|/entry via --emit-trades, config-exact, --tp-cap-pct 0.099, repo venv (relay #9710)",
+        "basis_caveat": "A THIRD basis. NOT the authoritative live order_packages/risk_per_unit population and NOT the unconditional candle screen. Entry-conditioned like the live basis and large-n, but drawn from the BACKTEST book - so it is comparable only when the ERA is held fixed, which is the whole finding.",
+        "memo": "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "measured_at": "2026-08-16",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED - this records a measurement; resolving a queued_tier3 row is the operator's call.",
+        "n": 65,
+        "span": "2010-03-10 -> 2026-06-12",
+        "med_risk_entry_pct": 3.729,
+        "cap_r_at_median": 2.65,
+        "reach_share_pct": 83.1,
+        "reach_count": "54/65",
+        "era_note": "Failures concentrate in high-vol years: 2020 2/6, 2022 1/3, 2026 1/3. Arm 2.00 sits BELOW the median ceiling 2.65, unlike gld and qqq.",
+        "basis_agreement": "Resolves the 'most sensitive to which basis is used' concern recorded in unmeasured_reason: the candle screen read 73.6% and the entry-conditioned population reads 83.1% - both say largely reachable."
       }
     },
     {
