@@ -34,7 +34,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "research"))
 
 from m20_fleet_exit_sweep import (  # noqa: E402
-    FAMILY_HARNESS, FOLDS, base_args, beats, classify, resolve_data, run_cell)
+    FAMILY_HARNESS, FOLDS, base_args, beats, classify, resolve_data, run_cell,
+    tp_geometry_for)
 
 
 def entry_cells(cfg: dict, fam: str) -> list[tuple[str, str, list[str]]]:
@@ -100,6 +101,14 @@ def main(argv: list[str]) -> int:
                     help="restrict to one matrix lever's cells (e.g. "
                          "time_of_day) — round-N reruns skip already-"
                          "verdicted levers")
+    ap.add_argument("--tp-cap-pct", type=float, default=0.099,
+                    help="Take-profit cap as a fraction of entry price. "
+                         "DEFAULTS TO LIVE PARITY (0.099) deliberately: every "
+                         "M21 leg is on a TP-capped family (donchian/pullback, "
+                         "measured 227/227 cells on 2026-08-16), so a 0.0 default "
+                         "would make EVERY run measure a book production does not "
+                         "run. Pass 0.0 only to reproduce a pre-2026-08-16 legacy "
+                         "run, and say so when you quote it.")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args(argv[1:])
 
@@ -130,7 +139,10 @@ def main(argv: list[str]) -> int:
         plan.append({"leg": name, "family": fam, "symbol": sym, "tf": tf,
                      "harness": FAMILY_HARNESS[fam], "data": data,
                      "proxy": proxy,
-                     "base": base_args(name, cfg, fam, data, resample),
+                     "base": base_args(name, cfg, fam, data, resample,
+                                       a.tp_cap_pct),
+                     "tp_geometry": tp_geometry_for({fam}, a.tp_cap_pct),
+                     "tp_cap_pct": a.tp_cap_pct,
                      "cells": cells})
 
     print(f"plan: {len(plan)} legs runnable, {len(skipped)} skipped")
