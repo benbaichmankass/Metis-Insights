@@ -929,6 +929,47 @@ and one had to stop demanding the cleared cells land in `no_live_parity_row`,
 which holds only for a lever that *has* a producer. It asserts conservation of
 the whole distribution instead.
 
+### 23. 🔴 My own guard was rejecting the real input — and only the suite caught it
+
+Running the broad M20 selection after § 22 returned **24 failures**, 21 of them
+from `test_m20_regime_book_provenance`: the foreign-schema guard I added in
+§ 20 was **refusing legitimate fleet-sweep documents**.
+
+**The discriminator was guessed, not derived.** I looked for `cells` /
+`leg_status`. The reader I was guarding branches on **`if "levers" not in v`**,
+then reads `v.get("status")`, and the cell path reads `v.get("base_book")`.
+Worse: my positive-control test used `{"cells": {}}` — a shape I *also*
+invented — so **the guard and its control were wrong together**, and the pair
+proved nothing. A green test file over an invented schema is the exact failure
+mode this repo's "show the probe can find a positive" rule exists for, and I
+wrote one while quoting that rule.
+
+**This was worse than the defect it was added for.** The original bug
+mis-flattened a file nobody points the extractor at by accident; my guard broke
+extraction outright.
+
+Markers are now taken from the reader (`levers` / `base_book` / `status`), a
+test pins them against the reader's own branch so the two cannot drift again,
+and the positive control uses the shape the sweep actually writes — lifted from
+the suite that caught me, not composed.
+
+**Residual, now in the docstring rather than papered over:** the flip sweep also
+writes `{"status": "data_missing"}` for a leg it could not run, so a flip file
+whose legs *all* failed carries a fleet marker and passes. Those entries hold no
+measurement — they flatten to `leg_status` rows either way — so the wrong-answer
+risk does not arise from them.
+
+The other 3 failures were `test_rollup_geometry_cutover_never` asserting
+`regime_flip_exit` **is** at the sentinel — a production fact § 22 correctly
+changed. Same lesson as the two tests in § 22: it now injects a probe lever, and
+separately pins the *condition* that justified removal (the flip harness passing
+the cap), so a regression there says to restore the entry.
+
+**563 M20-selection tests pass, 0 failures.** The lesson I am taking: I ran a
+narrow, targeted test selection after each change all night and it was enough
+every time until it wasn't. The broad selection is cheap (~33 s) and it is what
+found this.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
