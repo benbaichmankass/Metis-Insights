@@ -793,6 +793,102 @@ def cells(matrix: dict[str, Any], live_only: bool = True):
             yield row, col, status
 
 
+# One name, one place. Referenced in an error message a human acts on, so it
+# must resolve — and a backlog id that only ever appears as a wrapped string
+# literal is exactly the fragment artifact-validity-guard exists to reject.
+_GEOMETRY_BACKLOG_ROW = (
+    "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
+)
+
+
+def tp_geometry_legend_values(matrix: dict[str, Any]) -> set[str]:
+    """The DEFINED `tp_geometry` values, read from the matrix's own legend.
+
+    Read, never hardcoded. A guard carrying its own copy of the vocabulary is
+    free to drift from the legend a human reads, and then the two disagree
+    about what a cell means while both look authoritative. Keys starting with
+    `_` are the legend's prose (`_field`, `_why_it_exists`, `ABSENT_means_…`),
+    not values.
+    """
+    leg = matrix.get("tp_geometry_legend") or {}
+    return {k for k in leg if not k.startswith("_") and k != "ABSENT_means_unrecorded"}
+
+
+def _validate_tp_geometry(matrix: dict[str, Any]) -> list[str]:
+    """Criterion (3) of BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING.
+
+    TWO CHECKS, and the split is the whole design.
+
+    (a) **Every PRESENT value must be a legend value.** Cheap, always-on, and
+        it catches the failure that `status: null` already demonstrated on this
+        same file: a value that is not in the legend cannot be graded by
+        anything, yet wears a graded value's shape.
+
+    (b) **The unstamped count may not GROW.** This is what makes "a new cell
+        cannot be added silent" enforceable TODAY. 210 of 376 live cells carry
+        no `tp_geometry`, so an "every cell must carry one" assertion would
+        fail on the current file and could only ship by being switched off —
+        a guard nobody can turn on is worth less than no guard. A ratchet
+        grandfathers the existing absences (which
+        `BL-20260814-…-SO-ABSENCE-CANNOT-MEAN-ANYTHING` owns, and which must NOT
+        be guessed from dates) while making any NEW silent cell a CI failure.
+
+    THE CEILING LIVES IN THE MATRIX, next to the legend it bounds, so a PR that
+    stamps cells lowers it deliberately and a PR that adds a silent cell has to
+    raise it in the diff where a reviewer sees it. A ceiling stored in this
+    script would be a number nobody reads next to the data it describes.
+
+    ⚠️ THE CEILING IS NOT A TARGET. It is an upper bound on a known-bad
+    population, and the row that owns stamping is still open. Do not read a
+    passing ratchet as "geometry coverage is fine" — read
+    `geometry_coverage()`'s fraction for that, which is the honest number.
+    """
+    problems: list[str] = []
+    defined = tp_geometry_legend_values(matrix)
+    if not defined:
+        # NOT silently skipped. An unreadable legend means we could not check,
+        # which is a different statement from "every value is valid" — the
+        # collapsed-state shape this file guards for elsewhere.
+        return ["tp_geometry_legend is missing or defines no values — "
+                "tp_geometry NOT validated (this is 'unchecked', not 'clean')"]
+
+    unstamped = 0
+    for row, col, _status in cells(matrix, live_only=True):
+        cell = row.get(col)
+        if not isinstance(cell, dict):
+            continue
+        if "tp_geometry" not in cell or cell.get("tp_geometry") is None:
+            unstamped += 1
+            continue
+        geom = cell.get("tp_geometry")
+        if geom not in defined:
+            problems.append(
+                f"{row.get('strategy')}/{row.get('symbol')}/{row.get('tf')}/{col}: "
+                f"tp_geometry={geom!r} is not a defined value {sorted(defined)} — "
+                "nothing can grade which geometry this verdict rests on")
+
+    leg = matrix.get("tp_geometry_legend") or {}
+    ceiling = leg.get("_unstamped_ceiling")
+    if not isinstance(ceiling, int):
+        problems.append(
+            "tp_geometry_legend._unstamped_ceiling is missing or not an int — "
+            "the ratchet that stops a new silent cell cannot be evaluated "
+            f"(currently {unstamped} live cells carry no tp_geometry)")
+    elif unstamped > ceiling:
+        problems.append(
+            f"{unstamped} live cells carry no tp_geometry, above the recorded "
+            f"ceiling of {ceiling}. A cell was added or un-stamped without "
+            "recording which TP geometry its verdict rests on. Either stamp it "
+            "(live_parity / no_take_profit — NEVER guessed from the date, see "
+            # The id is kept WHOLE on one line on purpose: splitting it across a
+            # string concat is how this very message first shipped, and
+            # artifact-validity-guard correctly read the fragment as a reference
+            # resolving to nothing.
+            f"{_GEOMETRY_BACKLOG_ROW}) or raise the ceiling in the diff so a "
+            "reviewer sees the population growing.")
+    return problems
+
+
 def validate(matrix: dict[str, Any]) -> list[str]:
     """Structural checks. Runs over EVERY row, live or not.
 
@@ -804,6 +900,8 @@ def validate(matrix: dict[str, Any]) -> list[str]:
     legend = set(matrix.get("legend") or {})
     if not legend:
         problems.append("legend is empty — cannot validate statuses")
+
+    problems += _validate_tp_geometry(matrix)
 
     # EVERY LIVE LEG MUST RESOLVE IN config/strategies.yaml.
     #
