@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -68,6 +69,59 @@ def _capped_families() -> set:
         return set(LIVE_TP_CAPPED_FAMILIES)
     except Exception:
         return set(FALLBACK_CAPPED_FAMILIES)
+
+
+_BUILDERS_SRC = REPO / "src" / "runtime" / "strategy_signal_builders.py"
+_UNITS_DIR = REPO / "src" / "units" / "strategies"
+
+
+def cap_applies(strategy: str) -> tuple:
+    """(capped: bool|None, basis: str) — does this leg's live unit clamp TP?
+
+    THREE outcomes, never two. `None` means "we could not establish it", which
+    is NOT "uncapped" — an unproven absence would let a genuinely inert lever
+    grade as un-checkable and drop out of the finding.
+
+    Two resolution paths, both MEASURED:
+
+    * ``family`` — the leg's family string is in `LIVE_TP_CAPPED_FAMILIES`.
+    * ``builder_unit`` — the family string does not resolve (the equity legs are
+      named `qqq_trend_long_1d`, `scha_trend_long_1d`, …), so read which unit
+      module the leg's signal builder actually imports `order_package` from and
+      check whether THAT module defines `_TP_SENTINEL_CAP_PCT`. Verified 2026-08-16:
+      `qqq_trend_long_1d_signal_builder` imports it from
+      `src.units.strategies.trend_donchian`, which clamps — so those legs are
+      capped and the family-only test was under-claiming on all of them.
+
+    Source-text resolution, deliberately: importing `strategy_signal_builders`
+    pulls the live runtime into an ops script. A parse miss falls to `None`.
+    """
+    fam = _family_of(strategy)
+    if fam in _capped_families():
+        return True, "family"
+    try:
+        src = _BUILDERS_SRC.read_text()
+    except OSError:
+        return None, "builders_unreadable"
+    m = re.search(rf"^def {re.escape(strategy)}_signal_builder\b", src, re.M)
+    if not m:
+        return None, "no_builder_found"
+    # Scope to this function: up to the next top-level `def`.
+    nxt = re.search(r"^def ", src[m.end():], re.M)
+    span = src[m.start(): m.end() + (nxt.start() if nxt else len(src))]
+    units = re.findall(
+        r"from src\.units\.strategies\.([A-Za-z0-9_]+) import[^\n]*order_package",
+        span)
+    if not units:
+        return None, "no_unit_import"
+    for unit in units:
+        path = _UNITS_DIR / f"{unit}.py"
+        try:
+            if "_TP_SENTINEL_CAP_PCT" in path.read_text():
+                return True, f"builder_unit:{unit}"
+        except OSError:
+            return None, "unit_unreadable"
+    return None, f"unit_has_no_cap_constant:{units[0]}"
 
 
 def _family_of(strategy: str) -> str:
@@ -168,7 +222,7 @@ def grade_leg(name: str, cfg: dict, rows: Optional[List[dict]] = None,
       * ``inert``       — every observed trade's cap_R sits BELOW arm_r.
     """
     fam = _family_of(name)
-    capped = fam in _capped_families()
+    capped, cap_basis = cap_applies(name)
     obs = observed_risk_ratios(rows or [], name)
     caps = [c for c in (cap_r(o["ratio"], cap_pct) for o in obs) if c is not None]
     # Report the basis MIX, not just a count. A leg measured entirely off the
@@ -188,7 +242,7 @@ def grade_leg(name: str, cfg: dict, rows: Optional[List[dict]] = None,
         need = required_risk_pct(arm, cap_pct)
         rec: Dict[str, Any] = {
             "strategy": name, "family": fam, "lever": key, "arm_r": arm,
-            "cap_applies": capped,
+            "cap_applies": capped, "cap_basis": cap_basis,
             "required_risk_pct": None if need is None else round(need * 100, 4),
             "atr_stop_mult": cfg.get("atr_stop_mult"),
             "tp_r": cfg.get("tp_r"),
@@ -198,7 +252,7 @@ def grade_leg(name: str, cfg: dict, rows: Optional[List[dict]] = None,
             "cap_r_p10": None, "cap_r_p50": None, "cap_r_p90": None,
             "reach_share_pct": None,
         }
-        if not capped:
+        if capped is not True:
             rec["reachability"] = "cap_unknown"
         elif not caps:
             rec["reachability"] = "unmeasured"

@@ -16,8 +16,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts" / "ops"))
 
 from lever_reachability_audit import (  # noqa: E402
-    LIVE_TP_CAP_PCT, audit, cap_r, grade_leg, observed_risk_ratios,
-    required_risk_pct)
+    LIVE_TP_CAP_PCT, audit, cap_applies, cap_r, grade_leg,
+    observed_risk_ratios, required_risk_pct)
 
 
 def _cfg(arm_r=4.49, **kw):
@@ -137,9 +137,13 @@ class TestVerdictsAreNeverCollapsed:
         assert recs[0]["reachability"] == "unmeasured"
         assert recs[0]["reach_share_pct"] is None
 
-    def test_unknown_family_is_cap_unknown_not_reachable(self):
-        recs = grade_leg("qqq_trend_long_1d", _cfg(), rows=[])
+    def test_an_unresolvable_leg_is_cap_unknown_not_reachable(self):
+        """No family match AND no signal builder => we cannot establish a cap.
+        That is NOT 'uncapped', and must never grade as reachable."""
+        recs = grade_leg("mystery_leg_9000", _cfg(), rows=[])
         assert recs[0]["reachability"] == "cap_unknown"
+        assert recs[0]["cap_applies"] is None
+        assert recs[0]["cap_basis"] == "no_builder_found"
 
     def test_inert_when_every_observed_trade_caps_below_the_arm(self):
         rows = [_row() for _ in range(20)]  # cap_R 3.92 < arm 4.49
@@ -158,7 +162,7 @@ class TestVerdictsAreNeverCollapsed:
     def test_the_four_states_are_distinguishable(self):
         got = {
             grade_leg("xrp_pullback_2h", _cfg(), rows=[])[0]["reachability"],
-            grade_leg("qqq_trend_long_1d", _cfg(), rows=[])[0]["reachability"],
+            grade_leg("mystery_leg_9000", _cfg(), rows=[])[0]["reachability"],
             grade_leg("xrp_pullback_2h", _cfg(),
                       rows=[_row()] * 5)[0]["reachability"],
             grade_leg("xrp_pullback_2h", _cfg(),
@@ -186,6 +190,27 @@ class TestAuditScope:
         direction. Grading it against the cap would be a category error."""
         cfg = {"enabled": True, "execution": "live", "stale_exit_below_r": 0.5}
         assert grade_leg("x_pullback_2h", cfg, rows=[]) == []
+
+
+class TestCapResolution:
+    """The family string is not the only evidence a leg is capped."""
+
+    def test_family_match_resolves_capped(self):
+        capped, basis = cap_applies("xrp_pullback_2h")
+        assert capped is True and basis == "family"
+
+    def test_an_equity_leg_resolves_through_its_builders_unit(self):
+        """`qqq_trend_long_1d` matches no family tag, but its signal builder
+        imports `order_package` from `trend_donchian`, which clamps. Verified
+        2026-08-16 — a family-only test under-claimed on every equity leg."""
+        capped, basis = cap_applies("qqq_trend_long_1d")
+        assert capped is True
+        assert basis == "builder_unit:trend_donchian"
+
+    def test_an_unknown_leg_resolves_to_none_not_false(self):
+        capped, basis = cap_applies("mystery_leg_9000")
+        assert capped is None, "unproven absence must not read as 'uncapped'"
+        assert basis == "no_builder_found"
 
 
 class TestConstantsDoNotDrift:
