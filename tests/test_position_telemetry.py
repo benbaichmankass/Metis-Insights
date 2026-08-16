@@ -237,3 +237,90 @@ class TestVocabularyIsPinned:
             assert f'"peak_state": "{literal}"' in src or \
                    f'out["peak_state"] = "{literal}"' in src, (
                        f"producer does not emit the literal {literal!r}")
+
+
+class TestAccountIdIsResolvedNotAccepted:
+    """`account_id` must come from `trades`, because nothing else can supply it.
+
+    Measured on the live VM 2026-08-16 — the FIRST post-deploy read of this
+    table — all 12 rows had `account_id: null`, and no row could ever have had
+    anything else: `order_packages` has no `account_id` column and
+    `monitor(cfg, candles_df, open_pkg)` has no account in scope to pass one.
+    A column that is structurally unpopulatable reads, to a consumer, exactly
+    like "this position has no account".
+    """
+
+    def _db(self, tmp):
+        path = str(Path(tmp) / "j.db")
+        with sqlite3.connect(path) as c:
+            c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT)")
+            c.execute("INSERT INTO trades (id, account_id) VALUES (4574, 'bybit_1')")
+            c.execute(f"""CREATE TABLE {pt.TABLE} (
+                order_package_id TEXT PRIMARY KEY, trade_id TEXT, strategy TEXT,
+                symbol TEXT, account_id TEXT, direction TEXT, entry REAL,
+                risk_per_unit REAL, last_price REAL, open_r REAL, peak_r REAL,
+                peak_state TEXT, giveback_r REAL, bars_held INTEGER,
+                bars_since_peak INTEGER, cap_r REAL, pct_of_cap REAL,
+                r_to_stop REAL, r_to_target REAL, rr_from_here REAL,
+                peak_provenance TEXT, levers TEXT, updated_at TEXT)""")
+        return path
+
+    def _row(self, **over):
+        r = {k: None for k in (
+            "order_package_id trade_id strategy symbol account_id direction entry "
+            "risk_per_unit last_price open_r peak_r peak_state giveback_r bars_held "
+            "bars_since_peak cap_r pct_of_cap r_to_stop r_to_target rr_from_here "
+            "peak_provenance levers updated_at").split()}
+        r.update(order_package_id="pkg-1", trade_id="4574", updated_at="t0")
+        r.update(over)
+        return r
+
+    def _account(self, db, pkg="pkg-1"):
+        with sqlite3.connect(db) as c:
+            return c.execute(
+                f"SELECT account_id FROM {pt.TABLE} WHERE order_package_id=?",
+                (pkg,)).fetchone()[0]
+
+    def test_insert_resolves_the_account_from_trades(self):
+        """`trades.id` is INTEGER and `trade_id` is stored TEXT — without the
+        CAST this join silently matches nothing and the column stays NULL."""
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            pt.write_record(self._row(), db_path=db)
+            assert self._account(db) == "bybit_1"
+
+    def test_update_backfills_a_row_already_written_as_null(self):
+        """Every row written before this fix carries NULL, and the upsert path
+        is the only one a live open position takes after its first pass."""
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            pt.write_record(self._row(), db_path=db)
+            with sqlite3.connect(db) as c:
+                c.execute(f"UPDATE {pt.TABLE} SET account_id=NULL")
+            pt.write_record(self._row(updated_at="t1"), db_path=db)
+            assert self._account(db) == "bybit_1"
+
+    def test_an_unknown_trade_stays_null_rather_than_fabricating(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            pt.write_record(
+                self._row(order_package_id="pkg-2", trade_id="99999"), db_path=db)
+            assert self._account(db, "pkg-2") is None
+
+    def test_a_resolved_account_is_never_overwritten_by_a_null(self):
+        """COALESCE order is load-bearing: a later pass whose lookup misses
+        must not wipe an account we already established."""
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            pt.write_record(self._row(), db_path=db)
+            with sqlite3.connect(db) as c:      # the trade row disappears
+                c.execute("DELETE FROM trades")
+            pt.write_record(self._row(updated_at="t2"), db_path=db)
+            assert self._account(db) == "bybit_1"
+
+    def test_an_explicit_caller_value_still_wins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            pt.write_record(
+                self._row(order_package_id="pkg-3", account_id="explicit"), db_path=db)
+            assert self._account(db, "pkg-3") == "explicit"
