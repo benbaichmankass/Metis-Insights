@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T14:20:00+00:00",
+  "updated_at": "2026-08-16T15:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17858,6 +17858,13 @@
         "BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
         "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS",
         "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-16T15:25:00+00:00",
+          "by": "claude (exit-eval-interval session, self check-in)",
+          "note": "EVIDENCE THAT SHIFTS THE DIAGNOSIS AWAY FROM MY CODE, measured 15:20:17Z (relay #9736, read_state 'orders_read').\n\nTWO orders on ib_paper/MGC are now stuck in PendingCancel, cancelled by TWO DIFFERENT clients via TWO DIFFERENT code paths:\n  * order 378, client_id 9927 — cancelled by MY `_cancel_own_close_order` (#9663) at ~12:30Z. Pending ~2h50m.\n  * order 6,   client_id 9974 — cancelled by the OTHER session's dedicated `cancel-ib-order` system-action (#9700/#9723) between 14:13Z and 15:20Z. It read `PreSubmitted` at 14:13Z and `PendingCancel` at 15:20Z, so their apply WAS accepted.\n\nTwo independent cancels, two clients, two implementations, both accepted, neither completing. That is a strong argument that the non-completion is a PROPERTY OF THE VENUE OR GATEWAY, not a defect specific to `_cancel_own_close_order` — and it raises the prior on the open question this row already recorded: that a DAY market order simply cannot be cancelled while COMEX is shut, which would make PendingCancel correct broker behaviour.\n\nWHAT THIS DOES **NOT** DO IS EXONERATE THE REPORTING DEFECT, and the distinction is the whole point of the row. Even if the venue is the reason nothing clears, `_cancel_own_close_order` still returns the literal 'cancelled' the instant `ib.cancelOrder` does not raise, and the close's retMsg still tells a reader that nothing of ours rests. That claim was false for 2h50m and would have been false regardless of the cause. The fix (a bounded post-cancel confirm + a `cancel_pending` state) is unchanged by this finding; what changes is the EXPECTED OUTCOME of that confirm — outside session it should routinely land on `cancel_pending`, not on 'cancelled'.\n\nALTERNATIVE NOT RULED OUT: an IB gateway / socat-relay condition affecting cancels generally. I have no evidence separating that from the venue-shut hypothesis. The decisive observation is cheap and requires no action — if BOTH orders clear at the COMEX open without anyone touching them, the venue hypothesis holds; if they persist into an open session, it does not."
+        }
       ]
     },
     {
@@ -17943,6 +17950,27 @@
         "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER"
       ],
       "updated_at": "2026-08-16T13:50:00+00:00"
+    },
+    {
+      "id": "BL-20260816-DIAG-VERSION-REPORTS-DISK-HEAD-NOT-RUNNING-CODE",
+      "opened_at": "2026-08-16T15:35:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, found by relying on it and then checking)",
+      "severity": "high",
+      "tier": "2 (changes whether a deploy can fail)",
+      "status": "open",
+      "area": "deploy-verification",
+      "title": "/api/diag/version reports the WORKING TREE's HEAD, not the running process's code -- so the post-deploy assertion that exists to catch stale-code deploys is a tautology that cannot fail",
+      "detail": "FOUND BY USING IT AND THEN CHECKING. I read /api/diag/version at 15:20:17Z, got git_sha '7da0842b', and reported that the #9693 deploy had landed on the trader. That conclusion is NOT supported by the value, and the endpoint cannot support it.\n\nTHE MECHANISM. `src/web/runtime_status.py::_resolve_git_sha` shells out to `git rev-parse --short HEAD` with `cwd=_REPO_ROOT` **at request time**. It reads the WORKING TREE. A `git pull` advances the tree immediately, BEFORE any service restart, so the endpoint returns the new SHA whether or not a single process reloaded.\n\nTHE LABEL SAYS OTHERWISE, IN ITS OWN DOCSTRING: 'git SHA + captured timestamp of **the running web-api process**' and 'Used by scripts/deploy_pull_restart.sh to assert that a post-deploy restart actually rolled the running code forward (the 2026-05-09 24h-stale-code incident shipped because nothing in the deploy chain confirmed the running web-api had rebooted)'. That is exactly the one thing it cannot do.\n\nTHE ASSERTION IS A TAUTOLOGY. `scripts/deploy_pull_restart.sh` (~line 499-547) compares the endpoint's `git_sha` against `POST_SYNC_HEAD` -- the SHA it just pulled to -- and the endpoint computes that same tree's HEAD. So it compares POST_SYNC_HEAD to POST_SYNC_HEAD. It passes on a process running 24h-stale code, which is verbatim the incident class the comment names. A gate that cannot fail is not a gate, and this one has been reported as PASSING, which is worse than absent: `docs/CLAUDE-RULES-CANONICAL.md` calls a green that checked nothing the same sin as a red that checked nothing.\n\nCLASS: `UNPROVENANCED DIAGNOSTIC OUTPUT`, sub-class A (semantic substitution) per CLAUDE.md 'Diagnostic provenance' -- the label names quantity Q (SHA of the RUNNING process), the code called accessor f() (`rev-parse HEAD` on disk), and f() != Q. It sits in `scripts/`-adjacent + `src/web/`, and `diagnostic-provenance-guard` scopes to `scripts/{ml,research,ops,macro,reports}/` plus the guard scripts, so this file is outside its sweep -- which is why a repo that has a guard for exactly this class still shipped it.\n\nTHE ENV FALLBACK IS THE SHAPE OF THE FIX, ALREADY HALF-PRESENT: `_resolve_git_sha` falls back to `os.environ.get('GIT_SHA', 'unknown')`, which WOULD be process-scoped if set at exec time. The live git call wins over it, so the process-scoped path is dead in practice.\n\nSEPARATE, SMALLER: `runtime_logs/runtime_status.json::git_sha` uses the same resolver, but there the value is WRITTEN by the trader tick, so it is process-scoped by construction. The endpoint is the broken consumer, not the helper.",
+      "resolution_criteria": "1. Resolve the SHA ONCE at import/process start into a module global and serve that, so a stale process reports its OWN stale SHA. Then the deploy assertion becomes real.\n2. EXPECT THAT TO START FAILING DEPLOYS, and treat that as the finding rather than as a regression -- it is the first time the gate can say no. Decide deliberately whether a mismatch is hard-fail or loud-warn before shipping, which is why this is Tier-2 and not a drive-by fix.\n3. Report BOTH: `process_git_sha` (what is running) and `disk_git_sha` (what is checked out). The gap between them IS the stale-deploy signal, and collapsing them into one field is what hid it.\n4. Consider widening `diagnostic-provenance-guard`'s scope to `src/web/api/routers/` -- a diagnostic route is precisely where an unprovenanced label does the most damage, because its consumers cannot see the query they got.\n5. Re-check anything that concluded 'the deploy landed' from this endpoint, including my own 2026-08-16 report on the #9693 deploy.",
+      "refs": [
+        "src/web/runtime_status.py::_resolve_git_sha (rev-parse at request time, cwd=_REPO_ROOT)",
+        "src/web/api/routers/diag.py::version (the docstring making the running-process claim)",
+        "scripts/deploy_pull_restart.sh ~499-547 (the tautological assertion)",
+        "relay #9736 (the read I drew the wrong conclusion from)"
+      ],
+      "related": [
+        "BL-20260714-DEPLOY-STALE-ON-OOB-SYNC"
+      ]
     }
   ]
 }
