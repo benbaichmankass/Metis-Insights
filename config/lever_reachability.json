@@ -154,6 +154,30 @@
         "era_note": "Flat across eras, no rescue: 2023 2/51, 2024 6/56, 2025 1/63, 2026 3/34.",
         "truncation_resolved": "The live basis is TRUNCATED to the 6 newest of up to 25 and reads 33.3%; this row's own note warned 'do NOT read 33.3% as a lifetime rate'. The large-n entry-conditioned basis reads 5.9% - so the truncated recency-biased sample OVERSTATED reachability by roughly 5.6x. The warning was correct.",
         "live_trade_context": "This is the leg behind real-money trade 4163 (bybit_2), whose M31 telemetry recorded peak_r 3.4179 against cap_r 3.9233 and arm_r 4.49."
+      },
+      "live_entry_conditioned_2026_08_16": {
+        "basis": "live order_packages/risk_per_unit -- the AUTHORITATIVE population. cap_R read from the bot's own exit_plan_state.targets[].reach_r, cross-checked against 0.099/(risk_per_unit/entry) with 0 mismatches on all 24 rows carrying it. Relay pages #9760/#9761/#9762 (12 rows each, all three TRUNCATED mid-row) + #9763 (offset=36, 1 row, full envelope).",
+        "measured_at": "2026-08-16",
+        "envelope_total": 37,
+        "filter_state": "applied",
+        "n_recovered": 27,
+        "n_lost_to_truncation": 10,
+        "row_self_check": "every one of the 27 recovered rows was verified inline on its own strategy_name field (0 failures). Necessary because the three bulk pages were truncated past filter_state/total, so the envelope could not certify them -- BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE.",
+        "cap_r_min": 1.84,
+        "cap_r_median": 2.96,
+        "cap_r_max": 4.46,
+        "reach_count": "0/27",
+        "reach_share_pct": 0.0,
+        "reach_share_bounds_pct": [
+          0.0,
+          27.0
+        ],
+        "bounds_reasoning": "10 of 37 rows were not recovered. Even if EVERY unrecovered row cleared the arm the ceiling is 10/37 = 27.0%; the floor is the measured 0/27. The true lifetime live rate lies in that interval.",
+        "by_status": "closed 0/8 (max 4.01) | rejected 0/14 (max 4.46) | orphaned 0/3 (max 4.35) | open 0/1 (3.92, trade 4163). The executed-vs-unexecuted population split is MOOT on this leg: every stratum is 0.",
+        "corrects_this_row": "The sibling fields cap_r_max=8.38 and reach_share_pct=33.3 on this entry do NOT reproduce. Across 33 distinct live observations (these 27 plus the earlier 6) the maximum cap_R is 4.4573 and 8.38 appears in none. The derived 33.3% is arithmetically impossible on this population: 33.3% of 37 is 12.3 rows while only 10 rows are unaccounted for, so the ceiling is 10/37 = 27.0%. Those two fields are LEFT IN PLACE rather than edited -- they are the record of what the truncated 6-row read reported, and this block is the correction. Read this block, not them.",
+        "arm_declared_in_only_2_of_27": "trail_decay_arm_r appears in the signal_logic of only 2 of the 27 rows (2026-07-15, 2026-07-29) over a span starting 2026-06-19: the lever was declared mid-July. cap_R is pure entry geometry and is unaffected by the declare, but 'how often would it have armed' and 'how often did it fail to arm' are therefore different questions on this leg.",
+        "agreement_with_backtest_basis": "Consistent with backtest_entry_conditioned_2026_08_16 (5.9%, 12/204) in direction. 0 hits in 27 draws at a 5.9% base rate is unremarkable (P ~ 0.19), so the two bases do not conflict -- but they are different populations and neither substitutes for the other.",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED. The operator's 2026-08-16 instruction was 'widen the sample FIRST' -- widening it is not deciding it. Resolving a queued_tier3 row is the operator's call."
       }
     },
     {
