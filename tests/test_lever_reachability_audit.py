@@ -61,7 +61,73 @@ class TestObservationsAreNeverFabricated:
         long_row = _row(entry=100.0, sl=98.0)
         short_row = _row(entry=100.0, sl=102.0)
         got = observed_risk_ratios([long_row, short_row], "xrp_pullback_2h")
-        assert got == [0.02, 0.02]
+        assert [o["ratio"] for o in got] == [0.02, 0.02]
+
+
+class TestRiskBasis:
+    """`entry - stop_loss` is NOT reliably the entry risk — a stop is trailed.
+
+    Measured on the live fleet 2026-08-16 (diag #9587): gld/qqq packages agreed
+    with `risk_per_unit` to 1.00, xrp's ratio was 0.71, one trend_donchian
+    package read 5.7x tighter than its own recorded risk. The error runs the
+    dangerous way — understated risk inflates cap_R and makes an inert lever
+    look reachable — so the sized value must win and the basis must be visible.
+    """
+
+    def _rpu_row(self, entry=1.0806, rpu=0.02726786, sl=1.04193571):
+        return {"strategy": "xrp_pullback_2h", "entry": entry, "sl": sl,
+                "signalLogic": {"risk_per_unit": rpu}}
+
+    def test_risk_per_unit_wins_over_a_trailed_stop(self):
+        got = observed_risk_ratios([self._rpu_row()], "xrp_pullback_2h")
+        assert got[0]["basis"] == "risk_per_unit"
+        # the trailed stop would have given 3.578%, the sized risk gives 2.523%
+        assert abs(got[0]["ratio"] - 0.025233) < 1e-5
+
+    def test_the_fallback_error_has_no_fixed_SIGN(self):
+        """Why the sized value must win rather than be bias-corrected.
+
+        A stop trailed INTO profit sits closer to the exit than to entry, so
+        `|entry - stop|` OVERSTATES risk and DEFLATES cap_R (the live xrp short:
+        3.578% vs a sized 2.523%, cap_R 2.77R vs 3.92R). A stop amended TIGHTER
+        than the sizer's understates risk and INFLATES cap_R (the trend_donchian
+        package, 5.7x). Same field, opposite errors — so there is no correction
+        factor, only the right field.
+        """
+        sized = observed_risk_ratios([self._rpu_row()], "xrp_pullback_2h")[0]
+        assert abs(cap_r(sized["ratio"]) - 3.923) < 0.01
+
+        trailed_into_profit = self._rpu_row()
+        trailed_into_profit.pop("signalLogic")
+        deflated = observed_risk_ratios(
+            [trailed_into_profit], "xrp_pullback_2h")[0]
+        assert cap_r(deflated["ratio"]) < cap_r(sized["ratio"])
+
+        amended_tighter = self._rpu_row(sl=1.0806 - 0.0048)
+        amended_tighter.pop("signalLogic")
+        inflated = observed_risk_ratios(
+            [amended_tighter], "xrp_pullback_2h")[0]
+        assert cap_r(inflated["ratio"]) > cap_r(sized["ratio"])
+
+        # BOTH verdicts would be wrong, in opposite directions, against arm 4.49
+        assert cap_r(inflated["ratio"]) > 4.49 > cap_r(sized["ratio"])
+
+    def test_fallback_is_used_and_labelled_when_risk_per_unit_is_absent(self):
+        got = observed_risk_ratios([_row()], "xrp_pullback_2h")
+        assert got[0]["basis"] == "entry_minus_stop"
+
+    def test_a_non_positive_risk_per_unit_falls_back_rather_than_dropping(self):
+        row = self._rpu_row()
+        row["signalLogic"] = {"risk_per_unit": 0.0}
+        got = observed_risk_ratios([row], "xrp_pullback_2h")
+        assert len(got) == 1 and got[0]["basis"] == "entry_minus_stop"
+
+    def test_the_basis_mix_is_reported_per_leg(self):
+        rows = [self._rpu_row(), self._rpu_row(), _row()]
+        rec = grade_leg("xrp_pullback_2h", _cfg(), rows=rows)[0]
+        assert rec["risk_basis_risk_per_unit"] == 2
+        assert rec["risk_basis_entry_minus_stop"] == 1
+        assert rec["observations"] == 3
 
 
 class TestVerdictsAreNeverCollapsed:

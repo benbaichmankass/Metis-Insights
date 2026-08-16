@@ -100,26 +100,59 @@ def cap_r(risk_over_entry: float, cap_pct: float = LIVE_TP_CAP_PCT) -> Optional[
     return cap_pct / risk_over_entry
 
 
-def observed_risk_ratios(rows: Iterable[dict], strategy: str) -> List[float]:
-    """risk/entry for every row of ``strategy`` that carries BOTH prices.
+def observed_risk_ratios(rows: Iterable[dict],
+                         strategy: str) -> List[Dict[str, Any]]:
+    """DECISION-TIME risk/entry per row, each stamped with the field it came from.
 
-    A row missing either price is DROPPED, never defaulted — a fabricated 0
-    risk would make every lever look reachable.
+    ⚠️ **`entry - stop_loss` IS NOT RELIABLY THE ENTRY RISK.** A stop is trailed
+    and amended over a trade's life, and both the journal `trades.stop_loss` and
+    the `order_packages.sl` a consumer reads back can be the CURRENT stop, not the
+    one the sizer used. Measured on the live fleet 2026-08-16 (diag #9587): for
+    `gld_pullback_1d` and `qqq_trend_long_1d` the two agree to 1.00, for
+    `xrp_pullback_2h` the ratio is 0.71, and one `trend_donchian` package read
+    5.7x tighter than its own recorded risk. Nothing distinguishes the agreeing
+    rows from the diverging ones without checking, and the error runs the
+    DANGEROUS way — an understated risk inflates cap_R and makes an inert lever
+    look reachable.
+
+    So prefer ``signalLogic.risk_per_unit``, the value the strategy actually
+    sized with, and fall back to the price difference only when it is absent —
+    recording WHICH on every observation (`basis`), never averaging the two
+    silently. A row with neither is DROPPED, never defaulted: a fabricated 0
+    risk makes every cap_R infinite and every lever look fine.
     """
-    out: List[float] = []
+    out: List[Dict[str, Any]] = []
     for r in rows or []:
         if (r.get("strategy_name") or r.get("strategy")) != strategy:
             continue
         try:
-            entry = float(r.get("entry_price"))
-            sl = float(r.get("stop_loss"))
+            entry = float(r.get("entry_price") if r.get("entry_price") is not None
+                          else r.get("entry"))
         except (TypeError, ValueError):
             continue
-        if entry <= 0 or sl <= 0:
+        if entry <= 0:
             continue
-        ratio = abs(entry - sl) / entry
-        if ratio > 0:
-            out.append(ratio)
+
+        risk, basis = None, None
+        logic = r.get("signalLogic") or r.get("signal_logic") or {}
+        if isinstance(logic, dict):
+            try:
+                rpu = float(logic.get("risk_per_unit"))
+                if rpu > 0:
+                    risk, basis = rpu, "risk_per_unit"
+            except (TypeError, ValueError):
+                pass
+        if risk is None:
+            try:
+                sl = float(r.get("stop_loss") if r.get("stop_loss") is not None
+                           else r.get("sl"))
+                if sl > 0 and abs(entry - sl) > 0:
+                    risk, basis = abs(entry - sl), "entry_minus_stop"
+            except (TypeError, ValueError):
+                pass
+        if risk is None:
+            continue
+        out.append({"ratio": risk / entry, "basis": basis})
     return out
 
 
@@ -136,8 +169,12 @@ def grade_leg(name: str, cfg: dict, rows: Optional[List[dict]] = None,
     """
     fam = _family_of(name)
     capped = fam in _capped_families()
-    ratios = observed_risk_ratios(rows or [], name)
-    caps = [c for c in (cap_r(x, cap_pct) for x in ratios) if c is not None]
+    obs = observed_risk_ratios(rows or [], name)
+    caps = [c for c in (cap_r(o["ratio"], cap_pct) for o in obs) if c is not None]
+    # Report the basis MIX, not just a count. A leg measured entirely off the
+    # `entry_minus_stop` fallback is a weaker claim than one off `risk_per_unit`
+    # (see observed_risk_ratios) and must not read identically.
+    n_authoritative = sum(1 for o in obs if o["basis"] == "risk_per_unit")
 
     recs: List[Dict[str, Any]] = []
     for key in REACH_GATE_KEYS:
@@ -156,6 +193,8 @@ def grade_leg(name: str, cfg: dict, rows: Optional[List[dict]] = None,
             "atr_stop_mult": cfg.get("atr_stop_mult"),
             "tp_r": cfg.get("tp_r"),
             "observations": len(caps),
+            "risk_basis_risk_per_unit": n_authoritative,
+            "risk_basis_entry_minus_stop": len(obs) - n_authoritative,
             "cap_r_p10": None, "cap_r_p50": None, "cap_r_p90": None,
             "reach_share_pct": None,
         }
@@ -200,8 +239,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(REPO / "config" / "strategies.yaml"))
     ap.add_argument("--journal-json", default=None,
-                    help="/api/diag/journal?table=trades payload (list, or an "
-                         "envelope carrying `rows`/`trades`)")
+                    help="a rows payload — PREFER /api/bot/order-packages "
+                         "(carries signalLogic.risk_per_unit, the decision-time "
+                         "risk); /api/diag/journal?table=trades also works but "
+                         "its stop_loss may be the TRAILED stop. List, or an "
+                         "envelope carrying `rows`/`trades`.")
     ap.add_argument("--cap-pct", type=float, default=LIVE_TP_CAP_PCT)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
@@ -224,16 +266,23 @@ def main(argv: Optional[List[str]] = None) -> int:
           f"({len(recs)} declared levers on live+enabled legs; "
           f"{len(rows)} journal rows supplied)\n")
     hdr = (f"{'leg':30} {'lever':22} {'arm_R':>6} {'need risk%':>10} "
-           f"{'obs':>4} {'capR p50':>9} {'reach%':>7}  verdict")
+           f"{'obs':>4} {'basis':>9} {'capR p50':>9} {'reach%':>7}  verdict")
     print(hdr)
     print("-" * len(hdr))
     for r in recs:
         p50 = "—" if r["cap_r_p50"] is None else format(r["cap_r_p50"], ".2f")
         reach = "—" if r["reach_share_pct"] is None else format(r["reach_share_pct"], ".0f")
         need = 0.0 if r["required_risk_pct"] is None else r["required_risk_pct"]
+        # "rpu/fallback" — a leg measured wholly off the fallback is a weaker
+        # claim and must not print identically to one off the sized risk.
+        basis = (f"{r['risk_basis_risk_per_unit']}/"
+                 f"{r['risk_basis_entry_minus_stop']}")
         print(f"{r['strategy'][:30]:30} {r['lever'][:22]:22} {r['arm_r']:>6.2f} "
-              f"{need:>10.3f} {r['observations']:>4} {p50:>9} {reach:>7}"
+              f"{need:>10.3f} {r['observations']:>4} {basis:>9} {p50:>9} {reach:>7}"
               f"  {r['reachability']}")
+    print("\nbasis = risk_per_unit / entry_minus_stop  (the fallback can be a "
+          "TRAILED or AMENDED stop; its error has no fixed sign, so it can "
+          "inflate OR deflate capR — prefer risk_per_unit)")
     inert = [r for r in recs if r["reachability"] == "inert"]
     unmeasured = [r for r in recs if r["reachability"] in ("unmeasured", "cap_unknown")]
     print(f"\ninert: {len(inert)}   ungraded: {len(unmeasured)} "
