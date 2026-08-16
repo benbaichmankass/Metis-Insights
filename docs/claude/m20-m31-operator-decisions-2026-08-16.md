@@ -359,14 +359,143 @@ read the pair as a trend.
 
 ---
 
-## 7. Two infrastructure gaps filed, not fixed
+## 7. Two infrastructure gaps — FIXED (PR #9704), not filed
 
-- **`trainer-vm-heavy-request` triggers no workflow.** Created, guard-enforced,
-  consumed by nothing. A heavy job dispatched as the skill instructs is
-  silently discarded — cost ~50 min of trainer time here, and I had already
-  reported the work as done.
-- **The diag relay double-prefixes a slashless `api/diag/…` path**, returning a
-  bare 404 indistinguishable from a missing route.
+⚠️ **This section previously read "filed, not fixed", and that disposition was
+overruled.** Operator, 2026-08-16: *"those are not small things to be brushed
+over. Those are serious failures of the system that we even got to this point
+with those gaps, and we need to fix them immediately."* The reasoning below for
+filing rather than fixing — *"shared infrastructure with live sessions
+dispatching against them"* — is preserved because it was wrong in an
+instructive way: a shared relay that is **silently broken** is more dangerous to
+a concurrent session than one being edited under them, and every hour it stays
+filed is another session waiting on a dispatch that will never run.
 
-Both are shared infrastructure with live sessions dispatching against them, so
-they are filed with exact remedies rather than edited under someone.
+- **`trainer-vm-heavy-request` triggered no workflow.** Created
+  (`bootstrap-labels.yml:335`), guard-enforced (`.claude/hooks/vm_lane_guard.sh`),
+  named as *the* required label for heavy work (`session-coordination/SKILL.md`
+  §2b) — and consumed by nothing. A heavy job dispatched exactly as the skill
+  instructs was silently discarded; cost ~50 min here (issue #9638), and I had
+  already reported that work as done. **Two backlog rows already existed from
+  two prior sessions**, which is the finding underneath the finding: observed
+  twice, fixed zero times.
+  **Fixed** by ORing the label into `trainer-vm-diag.yml`'s job condition. The
+  lane-claim guard is unchanged.
+- **The diag relay double-prefixed a slashless `api/diag/…` path**, returning a
+  bare 404 indistinguishable from a missing route. **There were TWO resolvers** —
+  the shell one on the `workflow_dispatch` path, and the Python `resolve_one` on
+  the *issues* path, which is the one every session actually uses. Fixing only
+  the first would have been **worse than fixing neither**, because it would have
+  been reported closed. Both now strip the slashless form and carry a
+  doubled-prefix backstop that hard-errors with the offending resolved path.
+
+**Verified by falsification, not by reading the diff:** `resolve_one` was
+extracted from the YAML and executed over 6 cases (all pass), then the strip was
+deleted to simulate the pre-fix state — the backstop raised
+`doubled upstream prefix: resolved '/api/diag/api/diag/status' from input 'api/diag/status'`,
+proving the two layers are independent rather than one guard counted twice.
+`scripts/ci/run_guards.py` → PASS 15 · FAIL 0.
+
+---
+
+## 8. What happens next, what it should produce, and what says it isn't working
+
+**Why this section exists** (operator, 2026-08-16): *"this session cannot just
+end open ended… we need to know what the expectations are, the performance of
+the work that was done, and what the next work that we're gonna do is based on
+what we see happen. Like, this can just end open ended, and then we don't do
+anything until… for two months and then get surprised when things still aren't
+working."*
+
+So every open item below carries three things it did not carry before: **what it
+should produce**, **when we would know**, and **the signal that says it is not
+working**. An item with no failure signal is an item that will still be open in
+two months, because nothing will ever tell us to look at it.
+
+### 8.1 The honest performance read on what shipped
+
+**M20's exit levers, as a live intervention, have not yet been shown to do
+anything.** They have fired **13 times ever** against **1,142 closed trades** —
+`stale_stop` 10, `exit_head` 2, `giveback_stop` 1, and that last one on a paper
+account. The correct conclusion is **not** "they don't work"; it is that the
+live journal **cannot answer the question at n=2 and n=1**, and any claim in
+either direction from this data would be manufactured.
+
+That is the single most important number this session produced, because it
+changes what the next work *is*. Firing counts will not reach significance by
+waiting — a lever that fires ~13 times in a quarter needs years. **The effect
+has to be measured as a counterfactual on every trade, not as an outcome on the
+13.** That is exactly what M31 position telemetry was built for, and it is why
+M31 P3 (the readers) is the highest-value next item rather than more sweeping.
+
+**What the session's own work is worth, stated at its real strength:**
+
+| shipped | what it is worth | how strong |
+|---|---|---|
+| M31 P2 `account_id` (#9660) | telemetry rows are now attributable to an account | **live-verified** — 12/12 rows, 5 accounts, backfill observed working |
+| `exit-mechanism-coverage-guard` (#9679) | an orphan declare can no longer land | **CI-enforced**, and it found 0 orphans over 46/47 legs |
+| arm-above-cap mechanism (§1) | 3 declared levers proven inert | **measured**, one over complete history |
+| `gld_pullback_1d` population (§3) | the 3.86R arm proven un-shippable | **measured**, n=112, two independent derivations agree |
+| Path B re-sweep (§3) | 2 Path A PASSes on `sol_pullback_2h` | **measured**, but on a leg that cannot run the lever |
+| relay fixes (§7) | two silent-dispatch failures closed | **falsification-tested**, not diff-read |
+
+⚠️ **Not one of these changed a live trading outcome, and none was supposed
+to.** They changed what is *measurable* and what can *silently land*. Judge them
+on that, and if in three months nothing downstream has used them, the honest
+read is that the measurement layer was built and never consumed — which is the
+`exit_price_source` failure this repo has already had once.
+
+### 8.2 The seven Tier-3 items — with what a decision buys
+
+Five registry entries (`config/lever_reachability.json`) + two harness defaults.
+**Three are decisions; two are measurement; two are defaults.**
+
+| # | item | expectation if decided | failure signal |
+|---|---|---|---|
+| 1 | `gld_pullback_1d` arm 5.06 | **Record `inert`.** 0/8 over complete history, and the re-swept 3.86 is *also* unreachable (0/8 live) — so there is no third number to find. Buys: the coverage matrix stops counting a dead lever as shipped. | If anyone proposes a *new* arm without first showing `risk/entry ≤ 0.099/(2.0 × arm)` holds on live entries, the same error is recurring. |
+| 2 | `qqq_trend_long_1d` arm 3.56 | **Record `inert`** (cap_R 2.13, two bases agree exactly). n=1 is thin — the corroboration is what carries it. | A later entry with `risk/entry` materially below 4.6% would falsify it; that single observation should reopen the item. |
+| 3 | `xrp_pullback_2h` arm 4.49 | **A real choice, not a cleanup** — 33.3% reachable on a truncated, recency-biased sample. Expect to *widen the sample first*, not decide now. | If it is decided on the 6-row sample, the decision is being made on the same unstated-denominator basis this memo exists to stop. |
+| 4–5 | the two `unmeasured` entries | Measurement, **not** a decision. Expect a number, then they join rows 1–3. | Still `unmeasured` in a month = the queue is a parking lot, not a queue. |
+| 6 | `--tp-cap-pct` default → 0.099 | Every future sweep measures the book production runs. Buys: the class of error in §1 becomes unreachable by default. | Any sweep result quoted without the flag, after the flip, means the default did not take. |
+| 7 | `--split-target-oos` default | It currently equals `MIN_OOS_TRADES` (25), so **the target IS the floor** and any boundary loss → `insufficient_base` on every cell. Expect a separated value. | A sweep returning `insufficient_base` on a leg with hundreds of lifetime trades — the exact tell that surfaced this (`htf_pullback_trend_2h` at 407). |
+
+### 8.3 The next work, ranked, with expectations
+
+**1 — M31 P3: the telemetry readers.** *Unblocked as of #9660; nothing else
+gates it.* **Expect:** per-trade counterfactual R for each declared lever, so a
+lever's value is answerable at n=1,142 instead of n=13. **Know by:** the first
+read over a week of accrued rows. **Failure signal:** rows accruing with no
+consumer — if `position_telemetry` reaches a month of data and nothing reads it,
+it has become another written-and-never-read field, and the honest move is to
+say so rather than keep writing.
+
+**2 — `sol_pullback_2h`: implement, or drop the result.** The session's best
+measured result (2 Path A PASSes, `ok/ok` both windows, IS=175/OOS=49) sits on
+`htf_pullback_trend_2h`, **which implements no giveback lever** — the harness
+applied it in-engine (`backtest_pullback.py:536-539`). **Expect:** a Tier-3
+decision to *implement* it in the unit module. **Failure signal:** if it is
+neither implemented nor explicitly dropped within a review cycle, a future
+session will re-derive the same two PASSes and be equally unable to use them —
+and that is precisely the two-month rot this section exists to prevent. ⚠️ The
+declare path is **not** available as a shortcut: #9679 now fails CI on it.
+
+**3 — Why the live book enters ~1.4× wider than the backtest.** §3 resolved
+*that* it does and left *why* open. **A concurrent session (`session_01Xk2ozj`,
+branch `claude/m31-tier3-gld-live-u2djba`) picked this up at 13:41Z** and has
+already refuted the sizing-path hypothesis from code alone (`sl` is fixed at
+signal time, before sizing runs), leaving the era/regime hypothesis. **Expect:**
+if recent-era backtest entries land in the live band, this is a **methodology
+finding for every arm sweep**, not a gld fact. **Failure signal:** if it lands
+as a gld-only note, the generalisation was missed.
+
+**4 — Tick cost, cause not established.** 83.9 s → 137.6 s, persisting across a
+restart, a **tail not a uniform slowdown** (three timeframes unchanged, four at
+2.3–8.4×), cache hit rate 45.6% — **so raising the cache cap is not the
+answer** and must not be tried again as one. **Failure signal:** a proposed fix
+that does not first explain why exactly three timeframes are unaffected.
+
+**5 — `squeeze_breakout_4h` implements 0 of 4 mechanisms; `htf_pullback_trend_2h`
+(18 of 47 live legs) implements 1 of 4.** Not a bug — a coverage gap, now
+visible. **Expect:** a deliberate decision per family, not per leg. **Failure
+signal:** the matrix reporting the same distribution next quarter means it was
+read as a report rather than a work list.

@@ -255,3 +255,82 @@ either at face value is how a second inert arm ships wearing a PASS badge.
 - [x] Roadmap checked (M31 already recorded by the prior sprint)
 - [x] Contradictions recorded, **including my own three**
 - [x] Unknowns stated rather than smoothed over — see *Gaps not yet verified*
+
+---
+
+## Addendum — written AFTER the log above, because two of its claims went stale
+
+A sprint log describes verified reality at the moment of writing. Three things
+changed within the same session, and leaving the log as-is would make it wrong
+in the direction that matters (it would send the next session to do work that is
+already done).
+
+### 1. "Next Recommended Sprint" named a question that is now ANSWERED
+
+The section above says the `gld_pullback_1d` population question *"is the one
+that decides whether the re-sweep's numbers can be used at all"* and treats it
+as open. **It was answered before this session closed.** Config-exact
+`backtest_pullback.py` on GLD 1d with `--tp-cap-pct 0.099 --emit-trades`,
+**n=112**:
+
+| population | risk/entry | implied `cap_R` |
+|---|--:|--:|
+| backtest MEDIAN | **2.301%** | 4.30 |
+| backtest p75 | 3.014% | 3.28 |
+| **live band (n=8)** | **3.294–4.506%** | **3.01–2.20** |
+
+The backtest median sits **below the live minimum**; only 16/112 backtest trades
+fall inside the live band at all. The proposed **3.86R** needs `risk/entry ≤
+2.565%` — met by **71/112 backtest (63.4%)** and **0/8 live (0.0%)**.
+
+**Verdict: 3.86R must not be shipped.** It is reachable in the backtest book and
+unreachable in the book that trades. The consistency check that makes it
+trustworthy: the live band independently implies `cap_R` **2.20–3.01**, which is
+*exactly* the band measured from the order packages by a different route.
+
+⚠️ **What is still open is a narrower question than the log implies:** *why* the
+live book enters ~1.4× wider. A concurrent session (`session_01Xk2ozj`) picked
+that up and has already refuted the sizing-path hypothesis from code alone —
+`sl` is fixed at signal time, before sizing runs, so sizing cannot move
+`risk/entry`.
+
+**The general lesson, which outlives gld:** a p80 over one population and a
+ceiling over another are not comparable just because both are expressed in R.
+Both measurements were correct all along; the splice between them was not.
+
+### 2. Two infrastructure gaps were FILED in the log, and that disposition was overruled
+
+The log records them as filed with exact remedies, reasoning that shared
+infrastructure should not be edited under live sessions. Operator, same session:
+*"those are not small things to be brushed over. Those are serious failures of
+the system that we even got to this point with those gaps, and we need to fix
+them immediately."*
+
+Fixed in **PR #9704**. The filing reasoning was wrong in a specific way worth
+keeping: **a shared relay that is silently broken is more dangerous to a
+concurrent session than one being edited under them.** `trainer-vm-heavy-request`
+was created, guard-enforced, named as *the* required label — and consumed by
+nothing, so every heavy dispatch under it was silently discarded. Two backlog
+rows already existed from two prior sessions: observed twice, fixed zero times.
+
+Notable in the second gap: there were **TWO** path resolvers, and the one every
+session actually uses (the Python `resolve_one` on the issues path) was not the
+obvious one. Fixing only the shell resolver would have been **worse than fixing
+neither**, because it would have been reported closed.
+
+### 3. The forward plan now carries falsifiers — the log did not
+
+*"Deferred Items"* and *"Next Recommended Sprint"* above list what comes next but
+never say **what would tell us it is not working**. Operator, same session:
+*"this can just end open ended, and then we don't do anything until… for two
+months and then get surprised when things still aren't working."*
+
+[`docs/claude/m20-m31-operator-decisions-2026-08-16.md` § 8](../claude/m20-m31-operator-decisions-2026-08-16.md)
+now gives each open item an expectation, a when-we-would-know, and a failure
+signal. The number that drives its ranking, and the most important thing this
+session measured: **the M20 exit levers have fired 13 times, ever** (`stale_stop`
+10 · `exit_head` 2 · `giveback_stop` 1, that one on paper) against **1,142
+closed trades**. That is not evidence they fail — it is that the live journal
+**cannot grade them at n=2 and n=1**, and at ~13 firings a quarter, waiting will
+never fix it. Which is why M31 P3 **counterfactual** readers outrank more
+sweeping: a change of direction the firing count earned, not a preference.
