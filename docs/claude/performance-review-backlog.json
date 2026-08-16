@@ -3385,13 +3385,13 @@
       "opened_by": "claude (session_01Xk2ozj, M20 harness<->live population parity)",
       "severity": "medium",
       "tier": "1 (tooling/reporting change; the arm VALUES it informs stay Tier-3)",
-      "status": "open",
+      "status": "resolved (both halves shipped + verified on real artefacts)",
       "area": "research-methodology/exit-levers",
       "title": "A p80 exit arm swept over a pooled multi-era population encodes a volatility mix the live book does not sample",
       "summary": "MEASURED, not argued. risk/entry is exactly atr_stop_mult x ATR/close on both the live modules and both harnesses (identical formulas; byte-identical _atr), so cap_R = 0.099/(atr_stop_mult x ATR/close) -- i.e. a declared arm A on a leg with stop-mult M can only fire while ATR/close <= 0.099/(M*A). Reachability is therefore a function of the VOLATILITY REGIME at entry, not a property of the leg.\n\nRelay #9710, config-exact, --tp-cap-pct 0.099, entry-conditioned: gld_pullback_1d arm 5.06 is reachable on 42/112 (37.5%) POOLED over 2010-2026 -- but 7/7 in 2018 and 1/7 across 2025-2026, against a live basis of 0/8. The pooled number describes no regime in particular. The effect is regime-CLUSTERED, not a trend: 2010-2013, 2020 and 2025-2026 are high-vol clusters separated by quiet 2014-2019 and 2022-2024.\n\nThis is what made the live-vs-backtest 'population splice' look irreconcilable. Held at fixed era the two populations AGREE (14.3% backtest vs 0% live, n=7 and n=8).",
       "detail": "Root of the arm-above-cap class, and it is mechanical rather than per-leg bad luck. The six shipped p80 arms (BTC 6.49, xrp 4.49, avax 4.86, sol_4h 5.57, qqq 3.56, gld 5.06) were produced 2026-07-12/13 (S-M20-EXIT-REFINEMENT-2026-07-12.md:534). The harness first gained --tp-cap-pct on 2026-08-10 (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP; m20_corpus_relabel_tp_cap.py dates the bracketing runs to 22:23Z/22:31Z that day). So all six are p80s of an UNCAPPED MFE distribution applied to a CAPPED live book, derived ~4 weeks before the harness could model the cap at all.\n\nThe theory predicts which legs break -- those whose uncapped p80 exceeds their own median ceiling -- and it holds 3/3 on the legs measured: gld 5.06 > 4.30 (37.5% reachable), qqq 3.56 > 2.70 (19.8%), scha 2.00 < 2.65 (83.1% reachable, and scha's 2.00 is NOT one of the six uncapped p80 arms).\n\nNOT proposing any arm value here. Two remedies, either sufficient, both reporting-side.",
       "suggested_action": "(1) Have the sweep report each proposed arm's implied ATR/close ceiling (0.099/(atr_stop_mult*arm)) beside the arm, so a reader can check it against the current regime without re-deriving the identity; and/or (2) report the p80 PER ERA, or sweep on the recent era, so a pooled figure is never the only one quoted. Both are changes to m20_fleet_exit_sweep.py output, not to any config value.",
-      "resolution_criteria": "TWO REMEDIES, BOTH REQUIRED; the row stays open until both are done and each is verified on a REAL artefact rather than a merged writer.\n(1) REACHABILITY REPORTING — DONE and verified 2026-08-16 (#9730 / relay #9734): verdicts.json carries p80_arm_reach with arm_reach_verdict, the measured TP-reach numbers, and the implied ATR/close ceiling; both verdict branches observed on two legs. Note its MEASURED limitation above: it grades against the backtest ceiling only.\n(2) PER-ERA p80 — NOT DONE. The sweep must report either a per-era p80 breakdown or an explicit recent-era p80, verified by reading a verdicts.json produced after that change on a leg whose pooled and recent-era figures DIFFER. Until a real run shows both figures with differing values, this half stays open: a writer that emits the key on a leg where the two coincide has demonstrated nothing.",
+      "resolution_criteria": "TWO REMEDIES, BOTH REQUIRED; the row stays open until both are done and each is verified on a REAL artefact rather than a merged writer.\n(1) REACHABILITY REPORTING — DONE and verified 2026-08-16 (#9730 / relay #9734): verdicts.json carries p80_arm_reach with arm_reach_verdict, the measured TP-reach numbers, and the implied ATR/close ceiling; both verdict branches observed on two legs. Note its MEASURED limitation above: it grades against the backtest ceiling only.\n(2) PER-ERA p80 — DONE and verified on a REAL artefact 2026-08-16 (#9789 `d8db5c59`; verdicts.json read in relay #9794). ORIGINAL TEXT, kept because the bar it set is the reason this closes: \"NOT DONE. The sweep must report either a per-era p80 breakdown or an explicit recent-era p80, verified by reading a verdicts.json produced after that change on a leg whose pooled and recent-era figures DIFFER. Until a real run shows both figures with differing values, this half stays open: a writer that emits the key on a leg where the two coincide has demonstrated nothing.\"  — SATISFIED: both verification legs DIFFER, so the \"a writer that emits the key on a leg where the two coincide has demonstrated nothing\" clause is met rather than dodged. trend_donchian pooled 5.5R (n=95) vs recent-era 6.35R (n=17, span 2025), delta +0.85R. gld_pullback_1d — the discriminating leg session_01Xk2ozj named — pooled 3.86R (n=40) vs recent-era 4.96R (n=10, span 2017-2020), delta +1.10R.",
       "refs": [
         "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
         "config/lever_reachability.json",
@@ -3400,7 +3400,76 @@
         "relay #9710"
       ],
       "first_half_shipped_and_verified_2026_08_16": "SHIPPED #9730 (7da0842) and VERIFIED against a real verdicts.json produced after the change (relay #9734, freshness-gated so a pre-change artefact could not be mistaken for this run's output). Both branches exercised on two legs, so one constant could not have satisfied both: trend_donchian_sol_4h p80 1.5R vs measured median TP reach 1.324R -> above_measured_median_ceiling (loud warning fired); gld_pullback_1d p80 3.86R vs 4.781R -> within_measured_median_ceiling. Printed ceilings reproduce the helper exactly (2.640% and 1.282%).",
-      "measured_limitation_the_verification_exposed": "⚠️ THE SHIPPED CHECK CATCHES HALF THE CLASS, AND MISSES THE MOTIVATING CASE. It compares the proposed arm to the BACKTEST's measured ceiling. gld_pullback_1d's p80 3.86R is WITHIN its backtest median (4.781R) and so passes silently — while its LIVE cap_R is 2.20-3.01, i.e. 3.86R is unreachable on the book that trades (0 of 8 live entries). That is the population gap this whole row is about, so the check cannot close it by construction. An earlier description of the change called it 'the check that would have caught the whole arm-above-cap class' — that was an OVERCLAIM, discovered by verifying my own output rather than trusting the tests, and the code comment has been corrected. Closing the remaining half needs a LIVE-population input the sweep does not have; M31 P4 (backtest<->live MFE parity) is the piece that would supply it. A within_measured_median_ceiling verdict must NOT be read as 'reachable in production'."
+      "measured_limitation_the_verification_exposed": "⚠️ THE SHIPPED CHECK CATCHES HALF THE CLASS, AND MISSES THE MOTIVATING CASE. It compares the proposed arm to the BACKTEST's measured ceiling. gld_pullback_1d's p80 3.86R is WITHIN its backtest median (4.781R) and so passes silently — while its LIVE cap_R is 2.20-3.01, i.e. 3.86R is unreachable on the book that trades (0 of 8 live entries). That is the population gap this whole row is about, so the check cannot close it by construction. An earlier description of the change called it 'the check that would have caught the whole arm-above-cap class' — that was an OVERCLAIM, discovered by verifying my own output rather than trusting the tests, and the code comment has been corrected. Closing the remaining half needs a LIVE-population input the sweep does not have; M31 P4 (backtest<->live MFE parity) is the piece that would supply it. A within_measured_median_ceiling verdict must NOT be read as 'reachable in production'.",
+      "second_half_shipped_and_verified_2026_08_16": {
+        "what_shipped": "winner_mfe_p80 returns a dict: ['p80'] is the same pooled scalar and stays the ONLY value that becomes an arm, plus `by_era` (per-calendar-year census) and `recent_era` (an explicit trailing window that widens to a sample-size target and publishes its span). One harness run, two cuts — no extra invocation, so the breakdown can never be the reason a sweep is skipped for time.",
+        "verified_on": "verdicts.json from a post-merge sweep at d8db5c59 (--only gld_pullback_1d,trend_donchian --p80-only), relay #9794",
+        "trend_donchian": {
+          "pooled_p80": 5.5,
+          "pooled_n": 95,
+          "recent_era_p80": 6.35,
+          "recent_era_n": 17,
+          "recent_era_years": [
+            "2025"
+          ],
+          "delta": 0.85,
+          "by_era_states": "5/5 computed (n 11-28)",
+          "per_year_p80_range": "3.87 (2021) to 6.35 (2025)"
+        },
+        "gld_pullback_1d": {
+          "pooled_p80": 3.86,
+          "pooled_n": 40,
+          "recent_era_p80": 4.96,
+          "recent_era_n": 10,
+          "recent_era_years": [
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ],
+          "delta": 1.1,
+          "by_era_states": "11/11 THIN (n 1-6) — no single year on this leg can support a p80"
+        },
+        "the_dispersion_is_the_finding": "trend_donchian's per-year p80 swings 3.87 -> 6.35 across five years, a 64% spread. That is this row's thesis measured on one leg: the pooled 5.5R describes no regime in particular, and nothing in the artifact said so before.",
+        "floor_is_measured_not_picked": "_ERA_MIN_WINNERS = 10, set from per-year winner counts across all eight arm-declaring legs (relay #9788) and recorded in the constant's own comment. At 30 every bucket on every leg is thin and the report proves nothing. gld's 11/11 thin is that floor working, not failing: it refuses a percentile over n=1-6 while the widening window still answers at n=10.",
+        "A_PREDICTION_I_GOT_WRONG_AND_WHY_IT_MATTERS": "I predicted gld's recent-era span would be 2023-2025. It is 2017-2020, because resolve_split gives that leg a PER-LEG split of 2020-03-03 while my probe had used the default 2025-07-01 — so IS ends in 2020 and the newest year within IS is 2020, not 2025. The field is self-documenting and said so (era_basis: calendar_year_within_IS, span published), which is exactly why 'recent' was never labelled plain 'recent'. Had it been, this artifact would read as a claim about 2023-2025 that it does not make.",
+        "states_never_collapsed": "per-year computed / thin / undated; recent_era adds all_years so 'recent == pooled because the leg is short' stays distinct from 'because volatility was stable'. A year with no winners has NO row rather than a fabricated n=0. Every bucket ships its n.",
+        "changes_nothing_live": "Reporting only. No arm value, verdict, or disposition moved; the era figures are never fed to --trail-decay-arm-r (pinned by test_era_block_never_feeds_the_arm)."
+      },
+      "the_mechanism_is_now_measured_not_inferred_2026_08_16": {
+        "claim": "This row states the six shipped arms are p80s of an UNCAPPED book, inferred from dates (swept 2026-07-12/13; the harness gained --tp-cap-pct 2026-08-10). That is now MEASURED.",
+        "method": "relay #9790 — same probe, same split, same data, same code, run TWICE per leg at tp_cap_pct=0.099 vs 0.0, asserting --tp-cap-pct actually landed in each arm's base args so a silent no-op could not read as a null result. The naive comparison (today's capped p80 vs the shipped arm) was NOT used: it conflates cap, split, data vintage and code drift.",
+        "result_uncapped_vs_shipped": {
+          "xrp_pullback_2h": {
+            "shipped": 4.49,
+            "uncapped_p80": 4.49,
+            "delta": 0.0,
+            "capped_p80": 2.17
+          },
+          "trend_donchian": {
+            "shipped": 6.49,
+            "uncapped_p80": 6.56,
+            "delta": 0.07,
+            "capped_p80": 5.24
+          },
+          "gld_pullback_1d": {
+            "shipped": 5.06,
+            "uncapped_p80": 4.96,
+            "delta": -0.1,
+            "capped_p80": 3.87
+          },
+          "trend_donchian_sol_4h": {
+            "shipped": 5.57,
+            "uncapped_p80": 5.23,
+            "delta": -0.34,
+            "capped_p80": 1.52
+          }
+        },
+        "reading": "Four of seven legs reproduce the shipped arm from the UNCAPPED book within 0.35R and xrp_pullback_2h is exact. The arms were not chosen against the book that trades.",
+        "CAVEAT_THE_TWO_ARMS_ARE_DIFFERENT_POPULATIONS": "Winner counts differ between arms (sol_4h 69 capped vs 41 uncapped; xrp 90 vs 67) because the cap acts as a take-profit and banks winners that would otherwise round-trip. So the -15% to -71% 'cap effect' is TWO BOOKS, not the same trades re-measured. Direction is unambiguous; the magnitude is not a per-trade delta.",
+        "uso_trend_1h_is_not_a_gap": "It shows no trail_decay_arm_r in strategies.yaml against an arm_r 1.0 registry row. Checked, not assumed: its registry row carries lever=giveback_min_mfe_r. The registry's arm_r column spans two lever families and the `lever` field is what disambiguates it.",
+        "still_tier_3": "No arm value is proposed. Re-deriving one needs a walk-forward, not a percentile swap."
+      }
     },
     {
       "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
@@ -3445,5 +3514,5 @@
       "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session"
     }
   ],
-  "updated_at": "2026-08-16T20:05:00+00:00"
+  "updated_at": "2026-08-16"
 }
