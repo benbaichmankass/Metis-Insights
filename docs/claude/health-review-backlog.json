@@ -17365,13 +17365,19 @@
       "severity": "high",
       "trigger_condition": "An issue labelled `trainer-vm-heavy-request` receives no workflow comment within the relay's normal turnaround.",
       "resolution_criteria": "(1) `trainer-vm-heavy-request` appears in the label filter of a workflow that actually runs it (adding it to trainer-vm-diag.yml's `contains(...)` condition is sufficient — the relay already does what a heavy job needs); (2) a heavy-labelled issue is dispatched end-to-end and comments back; (3) EITHER that, or the label and its hook-enforcement are removed together and the skill text updated, so the protocol never again names a path with no consumer.",
-      "status": "kept_open",
+      "status": "fix_landed_pending_ci",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Confirmed: `grep -rn 'trainer-vm-heavy-request' .github/workflows/*.yml .claude/hooks/*.sh` returns only bootstrap-labels.yml:335 (which CREATES the label) and .claude/hooks/vm_lane_guard.sh:14,45,60 (which ENFORCES a VM-lane claim before an issue may carry it). No workflow's label filter contains it, so a correctly-filed heavy job opens an issue nothing picks up and nothing fails. — Tier-1 tooling. Worse than an ordinary dead path because the hook enforcement in front of it makes it read as load-bearing and silence is indistinguishable from queued."
+        }
+      ],
+      "notes": [
+        {
+          "at": "2026-08-16T13:45:00+00:00",
+          "note": "[FIXED 2026-08-16, operator-directed] trainer-vm-diag.yml's job condition now fires on trainer-vm-heavy-request as well as trainer-vm-diag-request (resolution option (a) of this row's own criteria). The VM-lane FIFO is a BOARD convention, not a workflow feature, so the two labels need no behavioural difference — the heavy one exists to trip the vm_lane_guard claim check, and it must still RUN. Verified: yaml parses and the condition contains both labels. STILL OPEN, deliberately, is the GENERAL half this row also names: a labelled issue that no workflow picks up is still indistinguishable from one that succeeded. That needs a sweep that comments on any relay-labelled issue with no run attached after N minutes -- filed separately rather than marked done here."
         }
       ]
     },
@@ -17544,7 +17550,7 @@
       "opened_by": "claude (overnight M20 session)",
       "severity": "high",
       "tier": "1",
-      "status": "open",
+      "status": "fix_landed_pending_ci",
       "area": "tooling",
       "title": "trainer-vm-heavy-request is created, GUARD-ENFORCED, and consumed by no workflow - a heavy trainer job dispatched exactly as the skill instructs is silently discarded",
       "detail": "session-coordination/SKILL.md 2b instructs that a HEAVY trainer job 'uses that label + claims first', and .claude/hooks/vm_lane_guard.sh ENFORCES it by denying an issue_write carrying trainer-vm-heavy-request unless a fresh /tmp/.claude-vm-lane-claim-<sid> marker exists. But trainer-vm-diag.yml triggers on exactly one label - contains(github.event.issue.labels.*.name, 'trainer-vm-diag-request') - and `grep -rl trainer-vm-heavy-request .github/workflows/` returns bootstrap-labels.yml AND NOTHING ELSE. The label is created and never consumed.\n\nMEASURED COST, not hypothetical: issue #9638 (stop the broad M20 fleet sweep, launch the operator-approved narrow arm_r re-sweep) opened cleanly at 10:28Z, returned an issue id, and sat there. No run, no comment, no failure. The trainer spent a further ~50 minutes on legs that appear in NONE of the operator's queued Tier-3 decisions, and the session had already reported the re-prioritisation as done on the coordination board. Re-fired as #9662 with trainer-vm-diag-request and it executed immediately (PID 1597177).\n\nTHIS IS THE SILENT-SUCCESS SHAPE, which is worse than an error: the guard PASSING reads as confirmation that the dispatch was well-formed. Every other member of this relay family (vm-diag-snapshot, prop-report, system-actions) comments back on BOTH success and failure - which is why a 404 and a path-charset rejection were each diagnosable in one round the same day.",
@@ -17557,6 +17563,12 @@
         ".github/workflows/bootstrap-labels.yml",
         "#9638",
         "#9662"
+      ],
+      "notes": [
+        {
+          "at": "2026-08-16T13:45:00+00:00",
+          "note": "[FIXED 2026-08-16, operator-directed] trainer-vm-diag.yml's job condition now fires on trainer-vm-heavy-request as well as trainer-vm-diag-request (resolution option (a) of this row's own criteria). The VM-lane FIFO is a BOARD convention, not a workflow feature, so the two labels need no behavioural difference — the heavy one exists to trip the vm_lane_guard claim check, and it must still RUN. Verified: yaml parses and the condition contains both labels. STILL OPEN, deliberately, is the GENERAL half this row also names: a labelled issue that no workflow picks up is still indistinguishable from one that succeeded. That needs a sweep that comments on any relay-labelled issue with no run attached after N minutes -- filed separately rather than marked done here."
+        }
       ]
     },
     {
@@ -17565,7 +17577,7 @@
       "opened_by": "claude (overnight M20 session)",
       "severity": "medium",
       "tier": "1",
-      "status": "open",
+      "status": "fix_landed_pending_ci",
       "area": "tooling",
       "title": "vm-diag-snapshot strips a leading-slash /api/diag/ prefix but not a slashless api/diag/, silently producing /api/diag/api/diag/<path> and a bare 404 that is indistinguishable from a missing route",
       "detail": "resolve_one() in vm-diag-snapshot.yml strips only the leading-slash form:\n    if path.startswith('/api/diag/'): path = path[len('/api/diag/'):]\nso 'api/diag/status' falls through and is re-prefixed to '/api/diag/api/diag/status' -> HTTP 404. Meanwhile 'api/bot/...' DOES work slashless (a different branch handles it), so the convention is inconsistent between the two families, which is how a caller gets it wrong.\n\nThe failure payload reports {error, stage, http_code, curl_exit} and NEVER the resolved URL, so a mangled path looks exactly like a route the server does not have. Measured 2026-08-16: four diag paths returned 404 together and the session's first hypothesis was 'the entire /api/diag/* surface is down'. What refuted it was putting a POSITIVE CONTROL in the same relay run (#9630: api/bot/db/tables returned real data while all four diag paths 404'd) - worth adopting as the default shape for any 'is X down?' probe. Cost two relay round-trips and nearly a false outage report.\n\nSub-class A of the repo's own unprovenanced-diagnostic-output rule: the output names a cause (404 = no such route) that no code path tested.",
@@ -17576,6 +17588,12 @@
         "#9630",
         "#9631",
         "docs/CLAUDE-RULES-CANONICAL.md (unprovenanced diagnostic output, sub-class A)"
+      ],
+      "notes": [
+        {
+          "at": "2026-08-16T13:45:00+00:00",
+          "note": "[FIXED 2026-08-16, operator-directed] Both resolvers patched -- the shell one for workflow_dispatch AND the Python resolve_one for the issues path, which is the one every session actually uses. Fixing only the shell half would have been worse than not fixing it, since it would have been reported closed. Each now strips the SLASHLESS 'api/diag/' spelling, and each carries a doubled-prefix BACKSTOP that checks the CONSTRUCTED url for /api/(diag|bot)/api/ and fails with a named error. Falsified, not assumed: with the strip removed the backstop raises \"doubled upstream prefix: resolved '/api/diag/api/diag/status'\" instead of returning a bare 404 -- so a malformed request can no longer be reported in the vocabulary of a broken server."
+        }
       ]
     },
     {
