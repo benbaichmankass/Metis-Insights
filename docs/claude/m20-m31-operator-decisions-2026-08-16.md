@@ -157,13 +157,46 @@ can disagree with.
 
 ---
 
-## 4. `--tp-cap-pct` default flip (Tier-3, carried over)
+## 4. TWO sweep defaults, both Tier-3, both changing what every future run measures
+
+### 4a. `--tp-cap-pct` (carried over)
 
 The sweep harness defaults to a cap that is not live parity, so a sweep run
 without `--tp-cap-pct 0.099` measures a book production does not run. Every
 measurement in this memo passes it explicitly. Flipping the **default** is
 yours: it changes what every future sweep measures, including reruns of past
 work whose numbers are already recorded.
+
+### 4b. `--split-target-oos` — the default equals the floor (added 2026-08-16)
+
+```
+MIN_OOS_TRADES = 25                                     # the floor a cell must clear
+ap.add_argument("--split-target-oos", default=MIN_OOS_TRADES)   # the target
+```
+
+**The derived split targets EXACTLY the floor**, so any boundary loss puts the
+window under it and the cell refuses with `insufficient_base`. Already filed as
+`BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`,
+and the sweep's own `insufficient_base_reason` docstring records it measured on
+`htf_pullback_trend_2h`: **refused at n=24 under the derived split, graded at
+n=95 under the corpus-standard one — same config, same day.**
+
+**I hit this tonight and it nearly produced a confident wrong negative.** The
+pullback re-sweep at the default refused **every cell on every leg**; at
+`--split-target-oos 50` the `insufficient_base` count is **0** and real verdicts
+appear. What saved it was not a check — it was `htf_pullback_trend_2h` reporting
+insufficient at **407 lifetime trades**, which is implausible on its face. A leg
+with a genuinely thin history would have produced the same output and been
+believed.
+
+**Why it is a decision and not a fix I should have made:** a table of
+`insufficient_base` reads as *"no lever helps this family"*. Changing the default
+changes what every future sweep measures **and** what already-recorded numbers
+mean — the same property as 4a, which is why they belong together.
+
+**My recommendation, labelled as one:** raise the default above the floor. I did
+not, because past sweep results were produced under it and re-interpreting them
+is yours to authorise.
 
 ---
 
