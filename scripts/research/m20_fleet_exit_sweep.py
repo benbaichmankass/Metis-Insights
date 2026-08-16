@@ -99,6 +99,30 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # it must not be read as "fade is being measured today".
 LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 
+# The live TP clamp, and the DEFAULT for --tp-cap-pct since 2026-08-16 (Tier-3,
+# operator decision). It defaulted to 0.0, so a sweep run without the flag
+# measured an UNCAPPED book production does not run -- the class behind six arms
+# shipping inert, because a p80 arm derived from uncapped winner MFEs can sit
+# above the capped book's reachable ceiling. Defaulting to parity makes that
+# error unreachable-by-default; `--tp-cap-pct 0` is now the explicit opt-out and
+# is REQUIRED to reproduce any verdict recorded before 2026-08-10.
+#
+# ⚠️ NOT imported, and that is a known wart rather than a choice: the live value
+# is declared SEPARATELY in at least `src/runtime/position_telemetry.py:72` and
+# `src/units/strategies/trend_donchian.py:133`, both as a bare
+# `_TP_SENTINEL_CAP_PCT = 0.099`, so there is no single owner to import FROM --
+# importing one would just pick a winner arbitrarily, and this script imports
+# nothing from `src/` at all. Filed as
+# BL-20260816-TP-SENTINEL-CAP-DECLARED-IN-MULTIPLE-MODULES.
+#
+# ⚠️ **NOTHING CHECKS THAT THIS STILL MATCHES THE LIVE VALUE.** There is no
+# guard, no test, and no import binding them -- stated plainly because the
+# tempting version of this comment ("the guard will catch it") would describe
+# machinery that does not exist, which is the failure this repo files under
+# unprovenanced diagnostic output. If the live constant moves, this silently
+# keeps measuring the OLD book, and the sweep will look correct while doing it.
+LIVE_TP_CAP_PCT = 0.099
+
 
 def tp_geometry_for(families, tp_cap_pct: float) -> str:
     """The geometry a run ACTUALLY produced, from the families it actually ran.
@@ -546,6 +570,31 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
 # floor 50 keeps 20 legs / 7 passes. 10->25 is free (two legs, zero passes) and
 # 25->50 is the cliff. Full rationale + the honest limit at the enforcement site.
 MIN_OOS_TRADES = 25
+
+# The boundary TARGET, deliberately ABOVE the floor above (Tier-3, operator
+# decision 2026-08-16). These are two different questions and sharing one number
+# was the bug: `--split-target-oos` used to default to MIN_OOS_TRADES, so the
+# boundary aimed at EXACTLY the count a verdict requires and ANY loss crossing it
+# -- a filtered trade, an off-by-one, a leg whose stamps do not divide evenly --
+# dropped the cell to `insufficient_base`. The tell was `htf_pullback_trend_2h`
+# reporting insufficient at 407 lifetime trades, which is implausible on its face
+# and is what surfaced the collapse (`BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`).
+#
+# 50 is not a fresh guess: it is the value every sweep in the 2026-08-16 session
+# passed explicitly, including the 76-cell pullback run, so it is the target with
+# measured runs behind it rather than a number chosen here.
+#
+# A target ABOVE the floor is safe because resolve_split already CLAMPS per leg:
+# a leg that cannot seat 2*target falls back to `len(stamps)//2` and records
+# `split_target_clamped_{from,to}` in the verdict, refusing only below
+# MIN_OOS_TRADES. So a thin leg still grades at its own best boundary instead of
+# being refused -- the clamp is the reason target and floor CAN differ.
+#
+# Do NOT re-couple these to one constant. The floor answers "is this cell
+# gradeable?"; the target answers "where do we cut?". The 25->50 cliff noted
+# above is about the FLOOR (raising it to 50 would drop 32 legs to 20) and is
+# NOT an argument against a 50 target, which drops nothing.
+DEFAULT_SPLIT_TARGET_OOS = 50
 
 REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
 
@@ -1642,11 +1691,18 @@ def main(argv: list[str]) -> int:
                          "--split-target-oos trades in OOS, so a "
                          "low-frequency leg is gradeable; `date` is the legacy "
                          "fixed calendar split. See resolve_split().")
-    ap.add_argument("--split-target-oos", type=int, default=MIN_OOS_TRADES,
+    ap.add_argument("--split-target-oos", type=int,
+                    default=DEFAULT_SPLIT_TARGET_OOS,
                     help="Trades to TARGET in the OOS window under "
-                         "--split-mode=oos-trades. Defaults to the floor a "
-                         "cell is judged against, so the boundary aims at "
-                         "exactly what the verdict requires.")
+                         "--split-mode=oos-trades. Defaults to 50, "
+                         "DELIBERATELY ABOVE the MIN_OOS_TRADES=25 floor a cell "
+                         "is judged against (Tier-3, operator 2026-08-16). It "
+                         "used to default to the floor itself, so the boundary "
+                         "aimed at exactly what the verdict requires and any "
+                         "boundary loss dropped the cell to insufficient_base. "
+                         "A thin leg is NOT refused by the higher target: "
+                         "resolve_split clamps to len(stamps)//2 and records "
+                         "split_target_clamped_from/to.")
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m20_fleet"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
@@ -1706,15 +1762,20 @@ def main(argv: list[str]) -> int:
                          "(trend_donchian_eth, trend_donchian_eth_prop); the run "
                          "warns and every row records which other levers were "
                          "absent, so this is never silent.")
-    ap.add_argument("--tp-cap-pct", type=float, default=0.0,
+    ap.add_argument("--tp-cap-pct", type=float, default=LIVE_TP_CAP_PCT,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
-                         "clamp on the 50R sentinel). Applied ONLY to families "
-                         "whose live unit carries the clamp "
+                         "clamp on the 50R sentinel). **DEFAULTS TO LIVE PARITY "
+                         "(0.099) since 2026-08-16** (Tier-3, operator): it "
+                         "defaulted to 0.0, so a sweep run WITHOUT this flag "
+                         "measured a book production does not run, and that is "
+                         "the class behind six arms shipping inert. Applied "
+                         "ONLY to families whose live unit carries the clamp "
                          "(LIVE_TP_CAPPED_FAMILIES); applying it elsewhere "
                          "would manufacture a parity break rather than "
-                         "reproduce one. 0 = off, the geometry every verdict "
-                         "before 2026-08-10 was measured on.")
+                         "reproduce one. Pass 0 explicitly for the UNCAPPED "
+                         "geometry every verdict before 2026-08-10 was measured "
+                         "on -- required to reproduce those recorded numbers.")
     ap.add_argument("--census", action="store_true",
                     help="MEASURE-FIRST pass (operator-directed 2026-08-10): run "
                          "each leg's config-exact base ONLY and report the exit-capture "

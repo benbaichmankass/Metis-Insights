@@ -1,10 +1,46 @@
 # Operator decision memo — M20 / M31, overnight session 2026-08-16
 
+> ## ✅ FOUR OF THESE WERE DECIDED — 2026-08-16, operator, in-conversation
+>
+> **This memo was written as a queue. It is now partly a RECORD.** Read this
+> block before § 1 and § 4, whose bodies below describe the state *before* the
+> decision and are preserved as the reasoning that produced it.
+>
+> | item | decision | landed as |
+> |---|---|---|
+> | `gld_pullback_1d` 5.06R | **record inert** | `disposition: recorded_inert` |
+> | `qqq_trend_long_1d` 3.56R | **record inert** | `disposition: recorded_inert` |
+> | `xrp_pullback_2h` 4.49R | **widen the sample first — NO disposition change** | stays `queued_tier3`, reasoning written into the row |
+> | `--tp-cap-pct` default | **flip to live parity** | `default=LIVE_TP_CAP_PCT` (0.099) |
+> | `--split-target-oos` default | **separate from the floor** | `default=DEFAULT_SPLIT_TARGET_OOS` (50), floor stays 25 |
+>
+> **The registry could not express two of them.** `disposition` had exactly three
+> values and all three are wrong for "record inert": `ok` asserts the lever is
+> FINE (the guard refuses it for an inert verdict, correctly), `queued_tier3` says
+> a decision is still PENDING, and `accepted_risk` says the arm was knowingly LEFT
+> AS-IS — the *opposite* disposition, what you record when you decline to act.
+> Filing the operator's decision as `accepted_risk` would have inverted it. So
+> `recorded_inert` was added, with the invariant that keeps it honest: it requires
+> `verdict='inert'`, because a `vol_conditional` lever arms on SOME entries and
+> recording it inert asserts more than was measured. Falsified, not assumed —
+> setting it on `xrp_pullback_2h` makes the guard exit 1.
+>
+> **STILL QUEUED — and they need MEASUREMENT, not a decision:**
+> `trend_donchian_sol_4h` and `scha_trend_long_1d`, both `unmeasured`, both
+> `skipped_thin` on the re-sweep at 14 and 21 winner MFEs against a 30 minimum.
+> Asking the operator to decide these would be asking them to rule on absent
+> evidence.
+>
+> ⚠️ **`--tp-cap-pct 0` is now the explicit opt-out and is REQUIRED to reproduce
+> any verdict recorded before 2026-08-10.** Those numbers were measured on the
+> uncapped geometry; re-running them on the new default silently compares two
+> different books.
+
 **Purpose:** one place for every decision this session queued, so the morning
 does not start by reading a night of coordination-board comments. Written by
 the session that queued them.
 
-**Nothing in here was acted on.** Every item is Tier-3 or needs a judgement
+**Nothing in here was acted on *when it was written*** — four items have since been decided (see the block above); the rest is Tier-3 or needs a judgement
 call that is not mine. Where I had an opinion I say so and label it as one.
 
 ---

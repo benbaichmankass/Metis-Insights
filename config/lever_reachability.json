@@ -11,7 +11,8 @@
   "disposition_legend": {
     "ok": "the lever is fine as declared",
     "queued_tier3": "a correction is proposed and awaiting the operator; `opened_at` required",
-    "accepted_risk": "knowingly left as-is; `opened_at` required"
+    "accepted_risk": "knowingly left as-is; `opened_at` required",
+    "recorded_inert": "measured inert AND adjudicated by the operator: the arm cannot fire, this is recorded, and the item is CLOSED rather than awaiting anyone. Requires verdict='inert' and `opened_at`. Distinct from `accepted_risk`, which is the opposite disposition -- that one records a lever knowingly LEFT as-is without acting; this one records that acting was unnecessary because the lever provably cannot arm."
   },
   "basis_note": "`order_packages/risk_per_unit` is the AUTHORITATIVE basis — the sized risk the strategy actually used. `entry - stop_loss` is NOT the entry risk (a stop is trailed and amended, and the error has no fixed sign: measured 2026-08-16 the two agreed at 1.00 on gld/qqq, 0.71 on xrp, and 5.66x on one trend_donchian package). `candles/atr` is a cheap unconditional screen and is NOT a bound in either direction — on xrp it overstated reachability 90.5% vs 33.3% because entries are filter-selected.",
   "levers": [
@@ -79,7 +80,7 @@
       "lever": "trail_decay_arm_r",
       "arm_r": 5.06,
       "verdict": "inert",
-      "disposition": "queued_tier3",
+      "disposition": "recorded_inert",
       "opened_at": "2026-08-16",
       "observations": 8,
       "basis": "order_packages/risk_per_unit — COMPLETE history (server count:8, untruncated)",
@@ -87,7 +88,7 @@
       "cap_r_max": 3.01,
       "reach_share_pct": 0.0,
       "measured_at": "2026-08-16",
-      "note": "THE DECIDABLE ONE. Not one entry in the leg's entire life could have reached its own declared arm; risk/entry ran 3.294-4.506% against the 1.956% the arm needs. atr_stop_mult is 2.0 here, not 2.5. Either re-sweep the arm at live parity and take the corrected value, or record the lever as inert so the coverage matrix stops counting it as shipped — Tier-3, operator's call.",
+      "note": "THE DECIDABLE ONE. Not one entry in the leg's entire life could have reached its own declared arm; risk/entry ran 3.294-4.506% against the 1.956% the arm needs. atr_stop_mult is 2.0 here, not 2.5. Either re-sweep the arm at live parity and take the corrected value, or record the lever as inert so the coverage matrix stops counting it as shipped — Tier-3, operator's call. | OPERATOR DECISION 2026-08-16 (Tier-3, in-conversation): RECORD INERT. 0 of 8 entries over the leg's COMPLETE live history could reach the declared 5.06R (cap_R 2.20-3.01). The re-sweep's proposed 3.86R is ALSO unreachable on this leg's own entries -- it needs risk/entry <= 2.565%, met by 71/112 backtest trades and 0/8 live -- so there was no third number to find and 'lower the arm' was not an available answer. Closed, not parked: the coverage matrix stops counting a dead lever as shipped. The arm VALUE in config/strategies.yaml is untouched; this records that it cannot fire, it does not change what fires.",
       "live_parity_p80_resweep_2026_08_16": {
         "p80_arm_r": 3.86,
         "verdict": "pass_wf_5_of_6",
@@ -111,7 +112,9 @@
         "reach_count": "42/112",
         "era_note": "2025: 1/5 (med 3.452%, cap_R 2.87) - 2026: 0/2 (med 7.396%, cap_R 1.34); 2025+2026 = 1/7 = 14.3% against the live basis's 0/8. Best era 2018 7/7 (med 1.805%, cap_R 5.48). Reachability is regime-clustered, NOT a monotone trend: 2011 (3.327%) and 2013 (3.169%) also sit in the live band.",
         "live_band_overlap": "16/112 inside live risk/entry band 3.294-4.506%; 21/112 at or above the live minimum"
-      }
+      },
+      "decided_at": "2026-08-16",
+      "decided_by": "operator"
     },
     {
       "strategy": "xrp_pullback_2h",
@@ -126,7 +129,7 @@
       "cap_r_max": 8.38,
       "reach_share_pct": 33.3,
       "measured_at": "2026-08-16",
-      "note": "Neither inert nor reachable: 4 of the 6 newest entries could not have armed it. Do NOT read 33.3% as a lifetime rate — the sample is truncated and recency-biased. The live 18-day short (trade 4163) sits at cap_R 3.92, i.e. in the unreachable part of the distribution, which is why its trail ran at base mult the whole time. The candle screen said 90.5% and was wrong.",
+      "note": "Neither inert nor reachable: 4 of the 6 newest entries could not have armed it. Do NOT read 33.3% as a lifetime rate — the sample is truncated and recency-biased. The live 18-day short (trade 4163) sits at cap_R 3.92, i.e. in the unreachable part of the distribution, which is why its trail ran at base mult the whole time. The candle screen said 90.5% and was wrong. | OPERATOR DECISION 2026-08-16 (Tier-3, in-conversation): NO DISPOSITION CHANGE -- widen the sample FIRST. Stays queued_tier3 deliberately. The 33.3% reach share is over 6 entries TRUNCATED by the relay byte budget and recency-biased, so it is NOT a lifetime rate and deciding on it would repeat the unstated-denominator error. Already ruled out: the re-swept 2.17R WOULD be reachable (cap_R 3.92-8.38) and STILL fails OOS, so 'lower the arm' is not the answer here either. NEXT ACTION is a MEASUREMENT, not a decision: pull the full entry history for this leg, then re-grade.",
       "live_parity_p80_resweep_2026_08_16": {
         "p80_arm_r": 2.17,
         "verdict": "is_oos_fail",
@@ -158,14 +161,14 @@
       "lever": "trail_decay_arm_r",
       "arm_r": 3.56,
       "verdict": "inert",
-      "disposition": "queued_tier3",
+      "disposition": "recorded_inert",
       "opened_at": "2026-08-16",
       "observations": 1,
       "basis": "order_packages/risk_per_unit (n=1) + candles/atr(14) 1d QQQ (n=105)",
       "cap_r_p50": 2.13,
       "reach_share_pct": 0.0,
       "measured_at": "2026-08-16",
-      "note": "THIN (n=1 entry-conditioned) but the two independent bases agree exactly at cap_R 2.13 against arm 3.56. Capped via builder_unit:trend_donchian, not by family string — a family-only test under-claimed here.",
+      "note": "THIN (n=1 entry-conditioned) but the two independent bases agree exactly at cap_R 2.13 against arm 3.56. Capped via builder_unit:trend_donchian, not by family string — a family-only test under-claimed here. | OPERATOR DECISION 2026-08-16 (Tier-3, in-conversation): RECORD INERT. Declared 3.56R against a measured cap_R of 2.13. Entry-conditioned n=1, which is thin and is not hidden -- what carries it past a single observation is that TWO INDEPENDENT bases (order-packages and candle ATR) agree EXACTLY at 2.13. The re-sweep declined to propose a replacement (skipped_thin: 21 winner MFEs against a 30 minimum), which is absence of evidence, not evidence the arm is fine. FALSIFIER, recorded so this can be reopened rather than assumed settled: a later entry with risk/entry materially below 4.6% would contradict cap_R 2.13 and should reopen this item.",
       "live_parity_p80_resweep_2026_08_16": {
         "p80_arm_r": null,
         "verdict": "skipped_thin",
@@ -189,7 +192,9 @@
         "reach_count": "16/81",
         "era_note": "2026: 0/3 (med 3.519%, cap_R 2.81). CONFIRMS the n=1 live verdict at n=81.",
         "basis_disagreement": "The candle screen read cap_R 2.13; entry-conditioned reads 2.70 - entries select QUIETER bars than the unconditional distribution here, the OPPOSITE direction to xrp, where the screen overstated reach. So the screen's error has no fixed sign either."
-      }
+      },
+      "decided_at": "2026-08-16",
+      "decided_by": "operator"
     },
     {
       "strategy": "scha_trend_long_1d",
