@@ -142,13 +142,17 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
     # 5427/2211), verified against the committed artifacts. They are now regular registered
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
-    "comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json": {
-        "backlog": "BL-20260730-PRODUCER-VACUITY-GUARD",
-        "until": "2026-08-15",
-        "why": "A zero-row FMP capture, consistent with the FMP free-tier NO-BUILD "
-               "finding (#7888). Either prune the dead capture or stop writing "
-               "empty ones.",
-    },
+    # REMOVED 2026-08-16 (the entry's own contract again — "the fix landed → remove
+    # the entry"): the zero-row FMP capture US-20260729T073711Z.fmp.json is PRUNED.
+    # Its entry expired 2026-08-15 and the guard correctly hard-failed on 08-16, which
+    # is the expiry doing its job rather than a new fault. Evidence that the debt was
+    # genuinely dead rather than merely old: the file carried `"rows": []`, NOTHING in
+    # the repo referenced it, it was the ONLY *.fmp.json in the capture dir (every
+    # later capture is *.fxstreet.json — the producer had already switched source, so
+    # the entry's "stop writing empty ones" branch had in fact happened), and the
+    # owning row BL-20260730-PRODUCER-VACUITY-GUARD was already `resolved`.
+    # The list is intentionally EMPTY. That is the healthy state, not a missing entry —
+    # re-adding anything here needs a backlog id and an `until`, per the contract above.
 }
 
 
