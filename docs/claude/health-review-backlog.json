@@ -15769,6 +15769,10 @@
         {
           "at": "2026-08-16",
           "note": "Corrected the day-of-week: the read is SUNDAY 2026-08-16 and the 72.3s baseline is FRIDAY 2026-08-14. Earlier text said 'today is a Saturday'. Numbers, conclusion and resolution criterion are unchanged; the weekend-vs-weekday contrast is now stated accurately rather than approximately."
+        },
+        {
+          "at": "2026-08-16",
+          "note": "PARTIAL TEST OF THE VENUE-CLOSURE HYPOTHESIS, from data already in hand rather than waiting for the weekday read. Joined the tick_cost per-timeframe fetch means to the coverage matrix's authoritative strategy->symbol->tf mapping (NOT a hand heuristic -- my first attempt classified via config/strategies.yaml and returned 0 crypto for every timeframe, because strategies carry no `symbol` field; symbols come from account routing). Result, live legs only: 1d 100% equity/futures -> 14,226ms; 1h 55% -> 5,055ms; 15m 25% -> 2,745ms; 5m 0% -> 1,522ms; 2h 0% -> 221ms; 4h 0% -> 199ms. Monotonic in the equity/futures share across 1d/1h/15m, and the two cheapest frames are pure crypto -- consistent with closed venues driving the cost. ⚠️ IT DOES NOT SETTLE IT, and the counter-example is in the same table: 5m is ALSO pure crypto yet costs 1,522ms, ~7x the pure-crypto 2h/4h. So venue class cannot be the whole story and at least one other factor is present. More fundamentally, timeframe is CONFOUNDED with venue class here by construction -- every 1d leg is an equity/ETF -- so this data cannot separate '1d is slow because its venues are shut' from '1d fetches are inherently expensive'. The weekday read remains the discriminator; this only raises the prior."
         }
       ]
     }
