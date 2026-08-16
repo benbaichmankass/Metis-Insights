@@ -1242,6 +1242,27 @@ def beats(cell: dict, base: dict) -> bool:
     see the axis. Path B (§ P2 of the exit-refinement skill) exists for exactly
     that population; its two thresholds are UNSET pending the distribution this
     sweep now reports, so nothing here grades against them.
+
+    ⚠️ **THOSE 2026-07-12 PULLBACK NEGATIVES PREDATE THE PATH B WALK-FORWARD
+    ROUTING — do not read them as measurements of the lever.** The gate gap was
+    found on **2026-08-10** (see ``main()``'s verdict block), so on 2026-07-12 a
+    Path B candidate short-circuited to ``is_oos_fail`` with no walk-forward at
+    all. Re-grading them needs a **re-run**, not a re-read.
+
+    Measured 2026-08-16, pullback family, ``--split-target-oos 50
+    --tp-cap-pct 0.099``: cells that this gate refuses do surface as
+    ``path_b_wf_pass`` once the routing runs — ``htf_pullback_trend_2h``
+    ``gb1R_afterMFE2R`` wf 5/6, ``mhg_pullback_1d`` ``stale8_lt0R`` wf 4/6,
+    ``tlt_pullback_1d`` ``gb1R_afterMFE2R`` wf 4/6.
+
+    **That is a prerequisite, NOT a promotion**, and the sentence above stays
+    true: both Path B thresholds remain unset, ``drawdown_exchange_rate`` is
+    *reported, not enforced*, and ``path_b_wf_pass`` says only that the net_R
+    gain generalises across folds. Read ``path_b_rate_ok`` beside it — at fleet
+    scale 6 of 18 ``path_b_wf_pass`` rows failed that rate. A reader scanning a
+    column of ``path_b_wf_pass`` and stopping there is the exact misreading this
+    note exists to prevent, and one session on 2026-08-16 briefly concluded from
+    the routing's existence that the thresholds must be set. They are not.
     """
     try:
         cn, bn = float(cell["net_total_r"]), float(base["net_total_r"])
