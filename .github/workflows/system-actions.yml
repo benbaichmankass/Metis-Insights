@@ -1177,6 +1177,9 @@ jobs:
           if [ "${ACTION}" = "send-prop-test-ping" ]; then
             REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
           fi
+          if [ "${ACTION}" = "cancel-ib-order" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_ORDER_ID=$(printf '%q' "${ACTION_ORDER_ID:-}") ACTION_PERM_ID=$(printf '%q' "${ACTION_PERM_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
           if [ "${ACTION}" = "flatten-ib-position" ] || [ "${ACTION}" = "flatten-bybit-position" ] || [ "${ACTION}" = "flatten-alpaca-position" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
