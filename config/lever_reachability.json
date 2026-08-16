@@ -105,6 +105,21 @@
       "basis": null,
       "measured_at": null,
       "note": "Capped via builder_unit:trend_donchian. Disposition 'ok' is permitted because the verdict is `unmeasured`, not `inert`/`vol_conditional`; the guard requires an explicit disposition only for the two measured-bad verdicts."
+    },
+    {
+      "strategy": "trend_donchian_xrp_4h",
+      "lever": "trail_decay_arm_r",
+      "arm_r": 2.0,
+      "verdict": "reachable",
+      "disposition": "ok",
+      "observations": 6,
+      "basis": "order_packages/risk_per_unit — TRUNCATED (6 newest of up to 25; relay #9624)",
+      "cap_r_min": 1.97,
+      "cap_r_p50": 3.18,
+      "cap_r_max": 4.1,
+      "reach_share_pct": 83.3,
+      "measured_at": "2026-08-16",
+      "note": "Measured BECAUSE this guard demanded it: PR #9549 declares this arm on a real-money leg (bybit_2) and had no reachability record, so the guard would have failed it — the first live catch, within the hour. The measurement SUPPORTS the PR: 5 of 6 recent entries clear arm 2.0, risk/entry 2.416-5.021%. The one miss is marginal (risk/entry 5.021% -> cap_R 1.97 vs arm 2.00), so a high-vol entry can still land just under the arm; that is a real characteristic of the leg, not a defect, and it is why the verdict is `reachable` rather than a claim that it always arms. Sample is truncated and recency-biased (55KB relay budget) — not a lifetime rate. Entry added ahead of #9549 merging so the two PRs are mergeable in either order."
     }
   ]
 }
