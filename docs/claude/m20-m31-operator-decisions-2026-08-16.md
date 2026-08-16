@@ -187,10 +187,62 @@ measurements were correct all along; only the splice between them was wrong.
 
 **What I am NOT claiming.** The live side is **n=8** — enough to show the
 direction (its entire range sits above the backtest median) but not to
-characterise the live distribution. And **why** the live book enters at wider
-risk is untested: candidate causes are the ATR regime at those eight entry times
-versus a 2010–2026 backtest average, or a sizing-path difference. That is the
-next question, and it is not answered here.
+characterise the live distribution.
+
+### ✅ The "why" is now ANSWERED — it is the ERA, and the sizing candidate is dead
+
+*Added 2026-08-16 by the follow-on session. This paragraph used to end "that is
+the next question, and it is not answered here"; it now is. Full working:*
+[`m20-arm-reachability-is-a-vol-threshold-2026-08-16.md`](../research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md).
+
+**Of the two candidates named above, one is refuted by code and the other is
+measured.** Live and both harnesses compute `sl = entry ∓ atr_stop_mult*atr`
+with **byte-identical** `_atr` helpers, so `risk/entry ≡ atr_stop_mult ×
+(ATR/close)`. `sl` is fixed at signal time, *before* sizing runs — `RiskManager`
+sets quantity, never stop distance. So **"a sizing-path difference" cannot be
+the cause**, and an ATR-definition skew (which would have made this a parity
+*bug*, not a regime fact) is ruled out too.
+
+That leaves the ATR regime, and the by-year cut confirms it. `gld_pullback_1d`
+arm 5.06 reachability, entry-conditioned, n=112:
+
+| era | median `risk/entry` | `cap_R` @med | arm reachable |
+|---|--:|--:|--:|
+| 2018 | 1.805% | 5.48 | **7/7** |
+| 2025 | 3.452% | 2.87 | 1/5 |
+| 2026 | 7.396% | 1.34 | 0/2 |
+
+**2025–2026 combined: 1 of 7, against the live basis's 0 of 8.** So the two
+populations **agree once the era is held fixed** — the pooled 37.5% describes no
+regime in particular. **It was never a population conflict; it was an unstated
+era.**
+
+⚠️ Regime-**clustered**, not a trend: 2011 (3.327%) and 2013 (3.169%) also sit
+in the live band. *"Gold got more volatile recently"* is the wrong summary.
+
+**Two consequences that change how you should read § 1 and § 3.**
+
+1. **`gld_pullback_1d` is not inert as a property of the leg** — it was
+   reachable **7/7 in 2018**. Every arm is a vol threshold: arm `A` on a leg
+   with stop-mult `M` fires only while `ATR/close ≤ 0.099/(M·A)`.
+2. **The whole arm-above-cap class is mechanical.** The six p80 arms shipped
+   2026-07-12/13; the harness first gained `--tp-cap-pct` on 2026-08-10. They
+   are p80s of an **uncapped** MFE distribution applied to a **capped** live
+   book — so `BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP` is a
+   downstream symptom of `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`,
+   and it predicts which legs break (holds 3/3).
+
+**§ 2's two unmeasured entries are also affected:** `scha_trend_long_1d` now has
+a large-n basis (n=65, **83.1% reachable** — its arm 2.00 sits *below* its
+ceiling 2.65, and both bases now agree), so on this evidence its row looks
+closable as `ok`. `qqq_trend_long_1d`'s n=1 verdict is confirmed at n=81
+(19.8%). **Dispositions left untouched — closing a queued row is yours.**
+
+⚠️ **And a new Tier-3 item this surfaced, filed not acted on**
+(`PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS`): the 9.9% cap is
+documented as a **Bybit** `ErrCode 10001` workaround, applied as a module
+constant with no venue branch — and **no Bybit account carries GLD, QQQ or
+SCHA**. Whether Alpaca/IBKR would accept a farther take-profit is **untested**.
 
 **`xrp_pullback_2h` closes the other escape:** its proposed **2.17R would be
 reachable** (`cap_R` 3.92–8.38) and the cell **still fails OOS**. So lowering
