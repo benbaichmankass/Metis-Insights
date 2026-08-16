@@ -17819,6 +17819,30 @@
         "/api/diag/ib_open_orders",
         "scripts/ops/attach_ib_target.py"
       ]
+    },
+    {
+      "id": "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+      "opened_at": "2026-08-16T14:52:00+00:00",
+      "opened_by": "claude (sysrev-0816)",
+      "severity": "critical",
+      "tier": "2 (order path)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "ib_paper MES holds 30 contracts of STOP against a 15 long in TWO DISJOINT OCA groups -- either stop firing flattens the position and leaves the other resting, which SELLS AGAIN into a naked short",
+      "detail": "MEASURED, /api/diag/ib_open_orders?account_id=ib_paper at 2026-08-16T14:37:53Z, read_state 'orders_read' (a confirmed clean account-wide read, not a could-not-look). Position: MES 15 LONG @ 7630.872. Resting stops:\n  order 338 -- STP SELL 15 @ 7516.50, oca_group 'oca-protect-336', client_id 497, GTC\n  order 375 -- STP SELL 15 @ 7533.75, oca_group 'oca-protect-373', client_id 597, GTC\nTotal stop quantity 30 against a position of 15, in TWO SEPARATE OCA groups.\n\nTHE FAILURE IS NOT 'redundant protection'. ocaType=1 cancels the rest of the SAME group when one leg fills; it says nothing about a different group. So the sequence is: stop 375 fires -> sells 15 -> MES is FLAT -> order 338 is still resting -> it fires -> sells 15 more -> the account is SHORT 15 MES that no strategy asked for, with no stop of its own. The same shape as the stranded MGC market orders, reached by a different route.\n\nWHY NOTHING CAUGHT IT. `_check_broker_naked_ib_positions` asks whether coverage is SUFFICIENT; 30 >= 15 passes with room to spare. There is no upper bound anywhere on the IB path. Bybit already has the corresponding detector -- `_bybit_position_protection` emits a detect-only `over_covered` signal at >1.5x -- so this is a KNOWN class that was implemented for one venue and never ported to the other, not a novel discovery. That gap is the finding.\n\nINTERACTION WITH THE TARGET ATTACH (ordering is load-bearing). A take-profit can only join ONE OCA group, so attaching it to oca-protect-373 leaves 338 outside and the naked-short path fully intact. `scripts/ops/attach_ib_target.py` already REFUSES when it sees more than one stop OCA group, and that refusal is correct -- the redundant stop must be cancelled first. Collapsing 30 -> 15 leaves the position exactly covered at every instant, so there is no window where MES is unprotected.\n\nWHICH STOP IS THE STRAY is NOT yet established and must not be guessed: read the journal's declared stop_loss for the open MES trade and cancel the leg that does not match it. Cancelling either one is a protective cancel (`--force-protective` on cancel-ib-order) and is Tier-2.",
+      "resolution_criteria": [
+        "Establish from the journal which of 338 / 375 matches the open MES trade's declared stop_loss -- documented, not inferred from order id ordering.",
+        "Cancel the non-matching leg so total stop quantity equals position size, confirmed by a follow-up read_state 'orders_read'.",
+        "Port an upper-bound over-coverage detector to the IB naked sweep, matching the detect-only `over_covered` signal `_bybit_position_protection` already emits -- a venue-specific detector for a venue-independent failure is the actual gap.",
+        "A regression test pinning that stops in DISJOINT OCA groups are NOT treated as mutually cancelling, since that assumption is what makes 30-vs-15 read as safe."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+        "order_monitor._check_broker_naked_ib_positions",
+        "order_monitor._bybit_position_protection",
+        "scripts/ops/attach_ib_target.py"
+      ]
     }
   ]
 }
