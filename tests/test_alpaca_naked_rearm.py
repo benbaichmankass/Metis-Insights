@@ -159,12 +159,25 @@ def _insert(db, **kw):
 
 
 class _FakeAlpaca:
-    def __init__(self, protected):
+    def __init__(self, protected, target=None):
         self._protected = protected
+        # The sweep grades SIDES since BL-20260816-COVERAGE-IS-ONE-SIDED. The
+        # default mirrors the stop side so every pre-existing case keeps its
+        # original meaning: `protected=False` is a fully naked book (no stop,
+        # no target), `protected=True` a fully bracketed one. A stop-only book
+        # — the case the old any-leg boolean could not express, and the whole
+        # point of the fix — is `protected=True, target=False`.
+        self._target = protected if target is None else target
         self.rearmed = []
 
     def has_protective_orders(self, symbol):
         return self._protected
+
+    def protection_state(self, symbol):
+        if self._protected is None:
+            return None  # read failure must stay distinguishable from "no legs"
+        return {"stop": bool(self._protected), "target": bool(self._target),
+                "legs": int(bool(self._protected)) + int(bool(self._target))}
 
     def place_protective(self, order):
         self.rearmed.append(order)
@@ -268,3 +281,74 @@ def test_broker_naked_sweep_skips_on_read_failure(tmp_path, monkeypatch):
     summary = om._check_broker_naked_equity_positions(db)
     assert summary["broker_naked"] == 0
     assert summary["rearmed"] == 0
+
+
+def test_stop_only_book_alerts_target_naked_and_does_NOT_rearm(tmp_path, monkeypatch):
+    """The case the old any-leg boolean could not express.
+
+    A position holding a stop and NO take-profit answered `has_protective_orders
+    -> True`, so the sweep skipped it entirely and the missing target was
+    invisible (BL-20260816-COVERAGE-IS-ONE-SIDED; measured live on IB, and this
+    venue had 13 open positions under the same grading).
+
+    Two assertions, and the second matters as much as the first: it must ALERT,
+    and it must NOT re-arm. A missing stop is a safety gap worth closing blind;
+    a take-profit is decision-time geometry a repair must read rather than
+    invent, and placing one is an order the strategy did not ask for now.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="alpaca_paper", symbol="QQQ", direction="long",
+            position_size=24, stop_loss=700.0, take_profit_1=760.0,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    monkeypatch.setattr(om, "datetime", __import__("datetime").datetime)
+    monkeypatch.setattr(
+        "src.bot.data_loaders.list_accounts",
+        lambda: [{"account_id": "alpaca_paper", "exchange": "alpaca"}],
+    )
+    fake = _FakeAlpaca(protected=True, target=False)   # stop rests, no target
+    monkeypatch.setattr(
+        "src.units.accounts.clients.alpaca_client_for", lambda acc: fake
+    )
+    alerts = []
+    monkeypatch.setattr(
+        om, "_emit_target_naked_alert",
+        lambda **kw: alerts.append(kw) or True,
+    )
+
+    summary = om._check_broker_naked_equity_positions(db)
+    assert summary["checked"] == 1
+    assert summary["target_naked"] == 1, "a stop-only book must be reported"
+    assert summary["broker_naked"] == 0, "the STOP side is armed — not stop-naked"
+    assert summary["rearmed"] == 0 and not fake.rearmed, (
+        "the target side must ALERT, never re-arm — placing a take-profit is "
+        "not a blind safety action"
+    )
+    assert alerts and alerts[0]["symbol"] == "QQQ"
+    assert alerts[0]["venue"] == "alpaca", (
+        "an Alpaca condition must not report under an `ib_` event name"
+    )
+    assert alerts[0]["declared_tp"] == 760.0
+
+
+def test_fully_bracketed_book_is_silent(tmp_path, monkeypatch):
+    """The guard must not cry wolf — a noisy alert gets walked past, which is
+    the desensitized-alarm P1 this repo treats as a bug in its own right."""
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="alpaca_paper", symbol="SPY", direction="long",
+            position_size=11, stop_loss=700.0, take_profit_1=800.0,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    monkeypatch.setattr(om, "datetime", __import__("datetime").datetime)
+    monkeypatch.setattr(
+        "src.bot.data_loaders.list_accounts",
+        lambda: [{"account_id": "alpaca_paper", "exchange": "alpaca"}],
+    )
+    fake = _FakeAlpaca(protected=True, target=True)
+    monkeypatch.setattr(
+        "src.units.accounts.clients.alpaca_client_for", lambda acc: fake
+    )
+    alerts = []
+    monkeypatch.setattr(om, "_emit_target_naked_alert",
+                        lambda **kw: alerts.append(kw) or True)
+    summary = om._check_broker_naked_equity_positions(db)
+    assert summary["target_naked"] == 0 and not alerts
+    assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
