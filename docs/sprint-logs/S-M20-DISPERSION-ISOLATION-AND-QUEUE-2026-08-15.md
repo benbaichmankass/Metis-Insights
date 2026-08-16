@@ -849,6 +849,21 @@ patched.
   ship**: Path-B only, 3 of 6 folds inert, OOS net_R gain +0.001. Recorded as a
   decision because the matrix now carries the counter-evidence either way.
 
+**Nothing in §§ 17–19 is Tier-3** — all of it is research tooling and
+re-measurement, and **no cell status was flipped**. Two consequences for the
+morning, though, both about what the queue is *about to* look like:
+
+- **The `regime_flip_exit` re-sweep may add new adjudications.** All 38 of that
+  column's live cells are `honest_negative` today, and they are being re-measured
+  on a live-parity book for the first time (§ 18). Any cell that now returns a
+  floor-clearing `PASS` becomes a corpus disagreement to adjudicate, exactly like
+  the 16 already queued. It cannot *lose* anything: a lever that was never
+  shipped cannot be un-shipped by better evidence.
+- **Read the new verdicts against `walkforward_real`, not `walkforward`** (§ 19).
+  A `PASS` at `flip_pct: 0.0` was a tautology and is now `INERT_NEVER_FLIPPED`;
+  a run mixing inert and real folds still reports both numbers, and only the
+  `_real` one bears on whether the lever works.
+
 ## Next Recommended Sprint
 
 ~~Read the four arms when they land, run the consolidator + rate script over the
