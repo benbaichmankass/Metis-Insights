@@ -70,9 +70,15 @@ certification fields intact, so this is the whole population, not a bounded
 interval.
 
 ```
-cap_R   min 2.9837 · median 4.2924 · max 7.5639        arm 1.0 -> 30/30 (100%)
+OPERATIVE ceiling  min 2.9837 · median 4.2924 · max 5.0000   arm 1.0 -> 30/30 (100%)
+  (= targets[].reach_r = min(venue_cap_R, DEFAULT_MAX_REACH_R 5.0); clamp binds on 7/30)
+venue TP cap       min 2.9837 · median 4.2924 · max 7.5639   secondary, NOT the ceiling
 by status: rejected 23/23 | closed 7/7
 ```
+
+The operative ceiling is the one to read — see Contradictions (1); an earlier
+draft of this log reported the venue cap as the headline and was corrected before
+merge. The grade is identical under either basis.
 
 The **worst** entry in the entire population clears the arm by **2.98×**. Arm 1.0
 needs `risk/entry <= 9.9%` (`ATR/close <= 3.960%` on a 1h bar); observed
@@ -118,24 +124,44 @@ method.
 
 ## Contradictions or Drift Found
 
-**1. `exit_plan_state.targets[].reach_r` is `min(cap_R, 5.0)`, not `cap_R`.**
-`exit_plan_realism.py:44` sets `DEFAULT_MAX_REACH_R = 5.0`; `clamp_exit_plan()`
-rewrites any fixed final target beyond it and parks the pre-clamp value in
-`realism_notes[].reach_r`. **7 of these 30 rows are clamped** — reading the
-stored field reports a max of `5.0000` against a true `7.5639`.
+**1. I filed a finding with its direction INVERTED, and a concurrent session
+landed the correct reading the same hour.** I recorded that
+`exit_plan_state.targets[].reach_r` is `min(cap_R, 5.0)` — true — and concluded
+that reading it **under**-reports the ceiling and manufactures false `inert`
+verdicts, with the identity `0.099/(risk_per_unit/entry)` as authoritative.
+**Both halves are backwards.**
 
-The direction is why it is filed rather than noted: it **UNDER**-reports the
-ceiling, so it makes a lever look **less** reachable than it is and manufactures
-false `inert` / `vol_conditional` verdicts — this registry's own failure class
-running backwards. It is invisible on any leg whose `cap_R` never exceeds 5.
+Reachability asks whether an arm can be reached *before the trade's exit closes
+it*. The TP the bot actually places is the **clamped** one, and that TP fills and
+ends the trade — so the operative ceiling is `min(venue_cap_R, 5.0)`, which is
+exactly `targets[].reach_r`. The identity ignores the clamp, so where
+`cap_R > 5.0` it **over**-reports and would grade a 6R arm `reachable` on a row
+whose placed target is 5.0R. The canonical statement is the concurrent session's
+`read_the_right_field` note (PR #9779, merged `58799055`), with the worked
+example `pkg-639da91607cc46d3`: original 8.3837R clamped to 5.0000R.
 
-**The three rows landed today are unaffected, and this was checked rather than
-assumed** — `sol_4h` max 4.32, `xrp` max 4.46, both below the clamp, so no stored
-value there was rewritten and their recorded numbers stand. The overnight
-session's method also self-protects: it cross-checked `reach_r` against the
-identity and reported 0 mismatches, and a clamped row would have surfaced *as* a
-mismatch. Fixed in the shared `basis_note`; **their two rows' wording was left to
-them.** `position_telemetry.py::cap_r` computes the value directly and is correct.
+**Caught before merging, and only because their correction touched a claim in
+this PR** — I read their landed row while checking my own "xrp max 4.46,
+unaffected" line before claiming the merge slot. Had the `basis_note` merged as
+written, `config/lever_reachability.json` would have carried **two contradictory
+instructions**: mine at file level saying trust the identity, theirs in the xrp
+row saying read `targets[].reach_r`. That is worse than the gap it tried to
+close.
+
+**The `uso_trend_1h` verdict is basis-independent and unchanged.** On the
+operative basis: min 2.9837 · median 4.2924 · **max 5.0000** (was 7.5639), clamp
+binding on **7/30**, still **30/30** clearing arm 1.0 at a tightest margin of
+2.98×. Arm 1.0 sits far below even the clamp, so min and median are identical
+under both readings and only the reported max moves. That is *why the error was
+survivable here* — and it would not have been on a leg with a high arm, which is
+the part worth remembering.
+
+**What survives as an open item** is narrower than what I filed:
+`src/runtime/position_telemetry.py::cap_r` computes the venue cap and does not
+model the clamp. Correct as a record of the venue constraint; wrong if any
+consumer reads it as the ceiling. Rewritten as
+`PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R` with that scope, kept as a row rather
+than deleted so the inverted rule is not re-derived.
 
 **2. My own memo was wrong on its own page.** It called `trend_donchian_sol_4h`
 "the last entry recorded `unmeasured`" while describing `scha_trend_long_1d` as
@@ -163,9 +189,13 @@ and the mistake was mine.
 
 ## Risks and Follow-Ups
 
-- `PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R` — **open.** The shared note is fixed;
-  the two per-row `basis` strings that present `reach_r` as the source are the
-  overnight session's call.
+- `PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R` — **open, and rewritten** (see
+  Contradictions 1). Its original resolution criterion asked for the concurrent
+  session's rows to be reworded to name the identity as the source; that criterion
+  was **itself the inverted rule** and would have propagated the error into their
+  work. Withdrawn. The row's remaining scope is `position_telemetry.cap_r`, which
+  computes the venue cap and does not model the clamp — a docstring/consumer
+  question, not a runtime proposal.
 - **TWO rows still carry `verdict: unmeasured`** — `trend_donchian_sol_4h` and
   `scha_trend_long_1d`. A draft of this log claimed the registry now holds "zero
   `unmeasured` rows"; that is **false**, and it was checked against the file
@@ -201,7 +231,7 @@ in production."
 - [x] Roadmap checked — M31's status cell already records P4 as the binding
       blocker (set in the prior sprint); this sprint changes nothing there, so it
       was deliberately not edited.
-- [x] Contradictions were recorded — including three of this session's own and one
+- [x] Contradictions were recorded — including FOUR of this session's own and one
       relay mistake.
 - [x] Remaining unknowns stated: the clamp's effect on any future leg whose
       `cap_R` exceeds 5, and the two per-row `basis` strings left to their owner.
