@@ -142,13 +142,16 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
     # 5427/2211), verified against the committed artifacts. They are now regular registered
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
-    "comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json": {
-        "backlog": "BL-20260730-PRODUCER-VACUITY-GUARD",
-        "until": "2026-08-15",
-        "why": "A zero-row FMP capture, consistent with the FMP free-tier NO-BUILD "
-               "finding (#7888). Either prune the dead capture or stop writing "
-               "empty ones.",
-    },
+    # REMOVED 2026-08-16 (the entry's own contract, taking the first of the two
+    # remedies it named — "prune the dead capture"): the zero-row FMP capture
+    # US-20260729T073711Z.fmp.json is DELETED. It was the ONLY *.fmp.json in
+    # comms/macro/econ_calendar_captures/ and nothing newer was ever written, so
+    # the producer is not still emitting empties — FMP was abandoned after the
+    # free-tier NO-BUILD finding (#7888) and this file is its last residue. Its
+    # only reference repo-wide was this registry entry (grep, not assumption), so
+    # no consumer loses an input. Deleting the artifact and the entry together is
+    # the point: an expired grandfather whose date is simply pushed forward is the
+    # "it was already like that" survival path this list exists to close.
 }
 
 
