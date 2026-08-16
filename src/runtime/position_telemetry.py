@@ -227,6 +227,11 @@ INSERT INTO {TABLE} (
 )
 ON CONFLICT(order_package_id) DO UPDATE SET
     trade_id=excluded.trade_id, last_price=excluded.last_price,
+    -- Backfill on UPDATE too: every row written before the resolver existed
+    -- carries NULL, and the upsert is the only path a live open position takes
+    -- after its first pass. COALESCE order is load-bearing — a later pass whose
+    -- lookup misses must never wipe an account already established.
+    account_id=COALESCE(excluded.account_id, {TABLE}.account_id),
     open_r=excluded.open_r, peak_r=MAX(COALESCE({TABLE}.peak_r, -1e18),
                                        COALESCE(excluded.peak_r, -1e18)),
     peak_state=excluded.peak_state, giveback_r=excluded.giveback_r,
@@ -236,6 +241,44 @@ ON CONFLICT(order_package_id) DO UPDATE SET
     rr_from_here=excluded.rr_from_here, levers=excluded.levers,
     updated_at=excluded.updated_at
 """
+
+
+def _resolve_account_id(conn: sqlite3.Connection,
+                        record: Dict[str, Any]) -> Optional[str]:
+    """The account for this row, looked up from ``trades`` via ``trade_id``.
+
+    **Why a lookup rather than a caller argument.** Measured on the live VM
+    2026-08-16, the FIRST post-deploy read of this table: all 12 rows carried
+    ``account_id: null``, and no row could ever have carried anything else —
+    ``order_packages`` has no ``account_id`` column, and the monitor signature
+    ``monitor(cfg, candles_df, open_pkg)`` has no account in scope to pass one.
+    A structurally unpopulatable column reads, to a consumer, exactly like
+    *"this position has no account"*.
+
+    **Why it is resolved HERE and not inside the upsert SQL.** The first
+    attempt put a correlated subquery in the INSERT, which made the whole
+    telemetry write fail when ``trades`` was absent — two existing persistence
+    tests caught it immediately. This module is observe-only and must never
+    break the monitor, so a best-effort enrichment may not become a hard
+    dependency of the write it enriches. A failed lookup returns ``None`` and
+    the row still lands.
+
+    ``trades.id`` is INTEGER while ``trade_id`` is stored TEXT, so the int()
+    coercion is load-bearing, not decoration.
+    """
+    existing = record.get("account_id")
+    if existing:
+        return str(existing)
+    trade_id = record.get("trade_id")
+    if trade_id in (None, ""):
+        return None
+    try:
+        row = conn.execute(
+            "SELECT account_id FROM trades WHERE id = ?", (int(trade_id),)
+        ).fetchone()
+    except (sqlite3.Error, TypeError, ValueError):
+        return None  # allow-silent: enrichment only — the row still writes
+    return row[0] if row and row[0] else None
 
 
 def write_record(record: Dict[str, Any], db_path: Optional[str] = None) -> bool:
@@ -253,6 +296,8 @@ def write_record(record: Dict[str, Any], db_path: Optional[str] = None) -> bool:
         from src.utils.paths import trade_journal_db_path
         path = db_path or str(trade_journal_db_path())
         with sqlite3.connect(path, timeout=5.0) as conn:
+            record = dict(record)
+            record["account_id"] = _resolve_account_id(conn, record)
             conn.execute(_UPSERT, record)
         return True
     except Exception:  # noqa: BLE001 — never raise into the monitor
