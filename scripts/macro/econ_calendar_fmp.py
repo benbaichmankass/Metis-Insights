@@ -227,8 +227,24 @@ def write_capture(
     to = (today + _dt.timedelta(days=days_forward)).isoformat()
     rows = fetch_economic_calendar(frm, to, api_key=api_key, urlopen=urlopen, timeout=timeout)
     out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     label = "-".join(c.upper() for c in countries) or "US"
+    base = {"observed_at": now, "window": [frm, to],
+            "countries": [c.upper() for c in countries], "fetched_rows": len(rows)}
+    # A ZERO-ROW WINDOW IS A FAILED FETCH, NOT A QUIET "no events" (2026-08-16).
+    # A ~60-day US window with no economic events is not a real reading, so writing
+    # the capture anyway produced a fresh, well-formed, entirely vacuous artifact that
+    # the producer then globbed into the PIT ledger contributing nothing — the Class-B
+    # vacuity shape (BL-20260730-PRODUCER-VACUITY-GUARD). Exactly one such capture was
+    # ever written (US-20260729T073711Z.fmp.json, the FMP free-tier NO-BUILD probe
+    # #7888); it was pruned and its KNOWN_VACUOUS grandfather entry removed, so this
+    # refusal is what stops the same artifact being re-seeded. We decline to write and
+    # SAY SO — "we looked and the feed returned nothing" is reported, never disguised
+    # as a capture that exists.
+    if not rows:
+        return {**base, "path": None, "wrote": False,
+                "reason": "fetch returned zero rows — refusing to write a vacuous "
+                          "capture (see BL-20260730-PRODUCER-VACUITY-GUARD)"}
+    out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{label}-{_compact(now)}.fmp.json"
     path.write_text(json.dumps({
         "source": "fmp",
@@ -237,8 +253,7 @@ def write_capture(
         "window": {"from": frm, "to": to},
         "rows": rows,
     }, indent=2, default=str), encoding="utf-8")
-    return {"path": str(path), "observed_at": now, "window": [frm, to],
-            "fetched_rows": len(rows), "countries": [c.upper() for c in countries]}
+    return {**base, "path": str(path), "wrote": True, "reason": None}
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -261,10 +276,15 @@ def main(argv: Optional[list] = None) -> int:
     print(f"observed_at : {summary['observed_at']}")
     print(f"window      : {summary['window'][0]} … {summary['window'][1]}")
     print(f"countries   : {summary['countries']}")
-    print(f"fetched     : {summary['fetched_rows']} rows → {summary['path']}")
+    if summary.get("wrote"):
+        print(f"fetched     : {summary['fetched_rows']} rows → {summary['path']}")
+    else:
+        print(f"fetched     : {summary['fetched_rows']} rows — NO CAPTURE WRITTEN")
+        print(f"reason      : {summary['reason']}")
     if args.json:
         Path(args.json).write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
-    return 0
+    # Exit non-zero on the refusal so a caller cannot read a green run as a capture.
+    return 0 if summary.get("wrote") else 1
 
 
 if __name__ == "__main__":

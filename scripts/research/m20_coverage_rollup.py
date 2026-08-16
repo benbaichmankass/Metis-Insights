@@ -165,15 +165,66 @@ TP_PARITY_AFFECTED_FAMILIES = frozenset({"donchian", "pullback", "squeeze"})
 # A lever absent from this map falls back to `GEOMETRY_CUTOVER` — the default is
 # the common case, and a new lever cannot silently acquire a later bar than its
 # evidence deserves.
+# A DATE CANNOT SAY "NEVER", AND ONE LEVER NEEDS IT TO (2026-08-14).
+#
+# This map's contract is "the date THIS lever's harness started modelling the
+# live TP". For `regime_flip_exit` that harness — `m20_flip_replay_sweep.py` —
+# HAS NOT STARTED: it still calls `base_args(name, cfg, fam, data, resample)`
+# with no `tp_cap_pct`, which defaults to 0.0, and `base_args` then appends
+# neither `--tp-cap-pct` NOR `--tp-r` for a capped family. Demonstrated on
+# `trend_donchian_eth_4h` (family `donchian`): the positional call yields both
+# flags absent, the explicit call yields both present.
+#
+# Falling back to the default date was therefore an ANSWER SHAPED LIKE A RIGHT
+# ONE for the second time in this file: it asserts that column's evidence became
+# live-parity on 2026-08-10, so any cell dated after that reads `post_cutover`.
+# Measured against the committed matrix, 42 of the 43 `regime_flip_exit`
+# negatives are capped-family legs (donchian 22, pullback 19, squeeze 1) — i.e.
+# essentially the whole negative column was graded on a book with no take-profit
+# and was scoring as clean on a date test.
+#
+# `NEVER` is the honest value: no cell in such a column can be post-cutover,
+# whatever its date, until the harness is fixed. Removing the entry is what
+# marks the fix — not editing a date.
+GEOMETRY_CUTOVER_NEVER = "NEVER"
+
 LEVER_GEOMETRY_CUTOVER = {
     # the day `m20_exit_head_round.py` gained `--tp-cap-pct` (live parity as the
     # DEFAULT) and began stamping `_round_meta.tp_geometry` into round_report.json
     "exit_head_ml": "2026-08-14",
+    # `regime_flip_exit` HELD THIS SENTINEL AND NO LONGER DOES (2026-08-16).
+    #
+    # The entry read: "`m20_flip_replay_sweep.py` still calls base_args
+    # positionally — its books model NO take-profit for every
+    # donchian/pullback/fade/squeeze leg, and it stamps no geometry at all, so
+    # there is not even a field to check."
+    # (BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING)
+    #
+    # Both halves are now false, and REMOVING THE ENTRY IS HOW THAT IS MARKED —
+    # the comment above says so explicitly, and it is deliberately not an edit
+    # to a date. Two conditions, both met and both verifiable:
+    #   1. the harness passes the cap (`base_args(..., a.tp_cap_pct)`, default
+    #      0.099) and stamps `tp_geometry` per leg and run-level; and
+    #   2. a real sweep LANDED on that harness — 42 legs at
+    #      `tp_geometry: live_parity_capped`, 30 fail / 12
+    #      INERT_NEVER_FLIPPED / 0 PASS (relay #9536, read #9540/#9541) — and
+    #      its 41 matching matrix cells now carry both the measurement in
+    #      their `ref` and an explicit `tp_geometry: live_parity`.
+    # Condition 2 is why this was NOT removed in the same commit as the
+    # harness fix: a fixed harness with no evidence behind it still leaves
+    # every cell measured on the old book.
 }
 
 
 def cutover_for(lever: str) -> str:
-    """The date THIS lever's harness started modelling the live TP."""
+    """The date THIS lever's harness started modelling the live TP.
+
+    May return `GEOMETRY_CUTOVER_NEVER` — the harness has not been fixed, so no
+    date can clear a cell in that column. Callers must handle that explicitly
+    rather than comparing it as a date: `max(dates) < "NEVER"` is True for every
+    ISO date by string order, which would accidentally give the right answer for
+    the wrong reason and break silently the day the sentinel changed.
+    """
     return LEVER_GEOMETRY_CUTOVER.get(lever, GEOMETRY_CUTOVER)
 
 
@@ -302,6 +353,121 @@ def _declared_legs() -> dict[str, dict[str, Any]] | None:
     return {name: (body or {}) for name, body in strategies.items()}
 
 
+def _funding_by_leg() -> dict[str, str] | None:
+    """LEG NAME -> funding class of the accounts that declare it, or None.
+
+    ⚠️ RENAMED from `_funding_by_symbol` 2026-08-15, and the rename IS the fix's
+    second half. The first version keyed on symbols; after re-keying on each
+    account's `strategies` list the old name described a mapping the function no
+    longer returned — the exact "label does not describe what it computes" class
+    this module exists to police, left inside the correction for it.
+
+    THREE STATES, NEVER COLLAPSED — `real_money` / `paper` / `unresolved`.
+    Added 2026-08-15 because the ⛔ stale-DECISIONS banner asserted a stale
+    `shipped` cell "changes exit behaviour on a real-money leg now" for EVERY
+    row, while nothing in this script had ever read `config/accounts.yaml`.
+    Measured against the field the same day, that label was wrong for 3 of the
+    4 rows it was printed over: `mes_trend_long_1d` and `mhg_pullback_1d` route
+    to `ib_paper` (paper) and `ib_live` (real_money but `mode: dry_run`), while
+    only `htf_pullback_trend_2h` (BTCUSDT -> `bybit_2`) is money-at-risk. That
+    is CLAUDE.md § "Diagnostic provenance" sub-class **A** — the label names a
+    quantity the code never computed — in the very tool written to stop that
+    class, which is why it is fixed here rather than reworded.
+
+    `real_money` requires **both** gates the runtime requires: an account whose
+    `account_class` is `real_money` AND whose `mode` is `live`. `ib_live` is
+    `real_money` at `mode: dry_run`, so it places no live order and must not
+    make a leg read as money-at-risk.
+
+    None on an unreadable config — the same third state as `_declared_legs`.
+    The caller renders that as `unresolved`, which is emphatically NOT `paper`:
+    "we could not look" and "we looked and it is paper" are opposite claims,
+    and defaulting the unknown to the safe-sounding one is the exact shape
+    § "Collapsed states" exists to forbid.
+
+    Reads through the CANONICAL `src.config.accounts_loader.load_accounts_dict`,
+    not a hand-rolled `yaml.safe_load` — `canonical-config-loaders` caught my
+    first version doing the latter, correctly: eight hand-rolled parsers of this
+    file once existed and one of them iterated the wrong shape and silently
+    returned nothing on every live run.
+
+    ⚠️ The canonical loader returns `{}` on a read/parse failure, which COLLAPSES
+    "could not read" into "no accounts" — the very distinction this function
+    exists to preserve. It takes an `errors` list for exactly that reason, so a
+    captured error maps back to `None` here rather than to an empty mapping that
+    would render every leg `unresolved` *without saying why*.
+    """
+    sys.path.insert(0, str(REPO))
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+    except ImportError:
+        return None
+    errors: list[dict[str, Any]] = []
+    accounts = load_accounts_dict(REPO / "config" / "accounts.yaml", errors=errors)
+    if errors or not isinstance(accounts, dict) or not accounts:
+        return None
+    # KEYED ON THE ACCOUNT'S `strategies` LIST, NOT ON `symbols`.
+    #
+    # The first version of this keyed on symbols and was UNSOUND, caught
+    # 2026-08-15 while prioritising the stale population: `eth_pullback_prop_2h`
+    # and `eth_pullback_2h` both trade ETHUSDT, so a symbol map graded BOTH
+    # `real_money` -- but only the latter is declared by `bybit_2`; the prop leg
+    # is declared solely by `breakout_1`. A symbol map answers "does some live
+    # real-money account trade this instrument", which is NOT the question. Every
+    # account declares `strategies` explicitly, so the leg->account edge is
+    # available and exact; there is no reason to infer it.
+    #
+    # FOUR states, because `account_class` has THREE values in the field --
+    # measured, not assumed: paper x7, real_money x3, **prop x1**
+    # (`breakout_1`, mode live, a $5k funded account). Prop is a distinct
+    # funding class this repo never blends into real-money or paper KPIs, and
+    # folding it into either would be the same collapse this module exists to
+    # stop. Precedence real_money > prop > paper: a leg routed to both reads as
+    # the strongest money-at-risk claim.
+    out: dict[str, str] = {}
+    rank = {"real_money": 3, "prop": 2, "paper": 1}
+    for body in accounts.values():
+        if not isinstance(body, dict):
+            continue
+        cls = body.get("account_class")
+        live = body.get("mode") == "live"
+        # A dry_run account places no order, so it cannot make a leg
+        # money-at-risk whatever its class (`ib_live` is real_money at dry_run).
+        grade = cls if (live and cls in ("real_money", "prop")) else "paper"
+        for leg in (body.get("strategies") or []):
+            if rank[grade] > rank.get(out.get(leg, "paper"), 0) or leg not in out:
+                out[leg] = grade if rank[grade] > rank.get(out.get(leg), 0) else out[leg]
+    return out
+
+
+def _leg_funding(leg: str | None, routing: dict[str, str] | None) -> str:
+    """`real_money` / `prop` / `paper` / `unresolved` for one leg NAME.
+
+    `unresolved` means the config was unreadable OR no account declares this
+    leg -- deliberately NOT folded into `paper`. "We could not look" and "we
+    looked and it is paper" are opposite claims.
+    """
+    if routing is None or not leg:
+        return "unresolved"
+    return routing.get(leg, "unresolved")
+
+
+def _stale_decision_funding(dec: list) -> dict[str, int]:
+    """Counts of `real_money` / `paper` / `unresolved` over stale decisions.
+
+    Resolved at PRINT time rather than folded into the `stale_decisions` tuple,
+    so the vintage computation stays a pure function of the matrix and the
+    tuple shape stays stable for its existing consumers in
+    `tests/test_exit_head_per_leg.py`.
+    """
+    by_leg = _funding_by_leg()
+    out: dict[str, int] = {}
+    for leg, *_rest in dec:
+        k = _leg_funding(leg, by_leg)
+        out[k] = out.get(k, 0) + 1
+    return out
+
+
 def _effective_execution(body: dict[str, Any]) -> str:
     """The leg's EFFECTIVE state — `live` | `shadow` | `disabled`.
 
@@ -420,13 +586,38 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             # harness whose TP fix landed four days later (see the map above).
             cut = cutover_for(col)
             geom = cell.get("tp_geometry")
+            # WHY a cell is stale, not just THAT it is. Four different
+            # conditions set `stale` below and only ONE of them is "the
+            # evidence predates the cutover" — yet that was the only reason the
+            # printed header stated. Surfaced 2026-08-15 by the first row where
+            # the two diverge: `htf_pullback_trend_2h`/`trail_geometry` gained a
+            # 2026-08-15 live-parity re-sweep and so prints `newest-ref
+            # 2026-08-15` under a cutover of 2026-08-10 — a row dated AFTER the
+            # bar, sitting in a list whose header says everything in it is
+            # older. It is held stale by its declared `no_take_profit` geometry,
+            # which the date cannot overrule, and a reader had no way to see
+            # that from the output. Sub-class A: the label named a quantity the
+            # code did not compute.
+            why = None
             if geom == GEOMETRY_NO_TP:
                 stale = True          # measured; the date cannot overrule it
+                why = "geometry=no_take_profit (declared; date cannot clear it)"
             elif geom == GEOMETRY_LIVE_PARITY:
                 stale = False         # declared by the round itself
+            elif cut == GEOMETRY_CUTOVER_NEVER:
+                # The harness never started modelling the live TP, so the date
+                # test cannot clear this cell. Counted as undeclared too: we
+                # still did not look at THIS cell's geometry, we merely know its
+                # producer could not have got it right.
+                out["geometry_undeclared"] += 1
+                stale = True
+                why = "harness never modelled the live TP (cutover=never)"
             else:
                 out["geometry_undeclared"] += 1
                 stale = (not dates) or max(dates) < cut
+                if stale:
+                    why = ("undated" if not dates
+                           else f"evidence {max(dates)} predates cutover {cut}")
             if not dates:
                 out["undated"] += 1
             elif stale:
@@ -443,7 +634,7 @@ def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
             if stale and base(cell.get("status")) != "honest_negative":
                 out["stale_decisions"].append(
                     (row["strategy"], col, cell.get("status"),
-                     max(dates) if dates else None, cut))
+                     max(dates) if dates else None, cut, why))
     return out
 
 
@@ -463,6 +654,56 @@ CORPUS_NO_ROW = "no_live_parity_row"       # nothing newer — a re-run IS the r
 CORPUS_AGREES = "live_parity_agrees"       # newer evidence exists and matches
 CORPUS_DISAGREES = "live_parity_disagrees"  # newer evidence exists and contradicts
 CORPUS_UNAVAILABLE = "corpus_unavailable"   # we could not look — NOT "no row"
+# …AND THE ONE WHERE A RE-RUN IS NOT THE REMEDY (2026-08-16).
+#
+# `CORPUS_NO_ROW`'s comment prescribes an action, which is the useful thing
+# about it and also the thing that made it wrong for a third of its rows. A
+# lever pinned at `GEOMETRY_CUTOVER_NEVER` has a harness that does not model
+# the live TP, so a re-run of it produces ANOTHER stale row: the remedy is to
+# fix the harness, and only then sweep. Measured on the committed matrix the
+# day this was added: of 99 `no_live_parity_row` cells, **38 were
+# `regime_flip_exit`** — every one labelled with the expensive action instead
+# of the correct one, and it is the largest single block in the backlog.
+#
+# This is self-clearing by construction: the state is derived from
+# `cutover_for(lever)`, so deleting a lever's `LEVER_GEOMETRY_CUTOVER` entry
+# (which is how a harness fix is marked) returns its cells to `CORPUS_NO_ROW`
+# with no edit here. A hardcoded lever list would have to be remembered.
+CORPUS_HARNESS_UNFIXED = "harness_never_modelled_the_tp"
+# …AND THE ONE WHERE THERE IS NOTHING TO RE-RUN AT ALL (2026-08-16).
+#
+# The second time the same prescription was wrong, found by breaking the
+# remainder down instead of quoting it. `exit_ladder` is 29 of the 61 cells
+# left after the NEVER split, and **no backtest driver produces that column**:
+# `m20_fleet_exit_sweep.cells_for` emits cells for 5 of the 8 lever columns,
+# and the three it does not are `exit_head_ml` (own driver,
+# `m20_exit_head_round`), `regime_flip_exit` (own driver,
+# `m20_flip_replay_sweep`) and `exit_ladder` (**none**). Its cells cite the
+# 2026-07-12 memo's 20-cell banking study; `m20_exit_analysis.py` reads the
+# LIVE `exit_ladder_soak.jsonl`, which is an observer, not a producer of matrix
+# cells.
+#
+# So "a re-run IS the remedy" was pointing at a sweep that cannot emit the
+# column. Building a producer (or re-doing the study) is the remedy, and that
+# is a different kind of work with a different cost — which is the whole reason
+# to say it rather than let someone discover it at the console.
+COLUMNS_WITH_A_SWEEP_PRODUCER = frozenset({
+    "stale_stop", "giveback_stop", "trail_decay", "vol_trail",
+    "trail_geometry",
+})
+# Declared rather than introspected, because regexing `cells_for`'s source for
+# lever literals is a probe adjacent to the question. Kept honest by a test
+# that CALLS `cells_for` over real configs and compares what it actually emits
+# against this set, so the two cannot drift silently.
+CORPUS_NO_PRODUCER = "no_sweep_driver_emits_this_column"
+# Columns the FLEET sweep does not emit but which have a producer of their own,
+# so "no driver" would be false for them. Named separately from the set above
+# because the two facts are different: one is "the fleet sweep covers it", the
+# other is "something covers it".
+_COLUMNS_WITH_THEIR_OWN_DRIVER = frozenset({
+    "exit_head_ml",       # scripts/research/m20_exit_head_round.py
+    "regime_flip_exit",   # scripts/research/m20_flip_replay_sweep.py
+})
 
 
 def _corpus_resolver():
@@ -508,7 +749,19 @@ def stale_corpus_state(matrix: dict[str, Any]) -> dict[str, Any]:
                      if r["strategy"] == leg), {})
         status = cell.get("status")
         if hit is None:
-            state = CORPUS_NO_ROW
+            # Checked BEFORE `CORPUS_NO_ROW`, because both are "nothing newer
+            # exists" and only one of them can be answered by sweeping.
+            # Order matters and is not arbitrary: a BROKEN producer is a more
+            # specific finding than a MISSING one, and `regime_flip_exit` has
+            # a producer (its own driver), so it must not fall through to
+            # "nothing emits this column".
+            if cutover_for(lever) == GEOMETRY_CUTOVER_NEVER:
+                state = CORPUS_HARNESS_UNFIXED
+            elif lever not in COLUMNS_WITH_A_SWEEP_PRODUCER \
+                    and lever not in _COLUMNS_WITH_THEIR_OWN_DRIVER:
+                state = CORPUS_NO_PRODUCER
+            else:
+                state = CORPUS_NO_ROW
         elif base(status) in mod.NEGATIVE_STATUSES:
             state = CORPUS_DISAGREES
         else:
@@ -714,6 +967,59 @@ def validate(matrix: dict[str, Any]) -> list[str]:
     return problems
 
 
+# The E1 fold block size. SINGLE-HOMED here as a named constant so the printed
+# bound and the code that produces it cannot drift apart in prose; the value is
+# `train_exit_head.py`'s `--min-fold-trades` default (50), derived in
+# docs/research/M20-E1-block-size-derivation-2026-08-13.md and NOT a knob to
+# tune for reachability (that doc forbids it: P_detect is not monotonic in b).
+_E1_BLOCK = 50
+
+
+def usable_folds(n_trades: int, block: int = _E1_BLOCK) -> int:
+    """`u` for a leg with `n_trades` lifetime harness trades.
+
+    Mirrors `train_exit_head.fold_blocks`: `range(block, len(ordered)-block+1,
+    block)`. Deliberately the same arithmetic rather than a closed form, so a
+    change to the fold construction shows up here as a diff rather than as a
+    silently stale formula.
+    """
+    return len(range(block, n_trades - block + 1, block))
+
+
+def fold_reachability(matrix: dict[str, Any]) -> list[dict[str, Any]]:
+    """Per blocked `exit_head_ml` cell: is the block arithmetic, or data?
+
+    READS the `lifetime_trades` field. It exists because that number lived only
+    in ref PROSE, so nothing could recompute the bound and two different
+    arithmetics coexisted in one lever column for a day — three cells reasoned
+    from the LEVER sweep's date split and named an "earlier split" route the
+    fold code forecloses. A field that is written and never read is worse than
+    a missing one, so this is the reader.
+
+    A cell with the blocked status and NO `lifetime_trades` is REPORTED as
+    ungraded rather than skipped — silently dropping it would report a
+    denominator this never measured.
+    """
+    out: list[dict[str, Any]] = []
+    for row in matrix.get("rows") or []:
+        cell = row.get("exit_head_ml")
+        if not isinstance(cell, dict):
+            continue
+        if not str(cell.get("status") or "").startswith("blocked:insufficient_lifetime"):
+            continue
+        n = cell.get("lifetime_trades")
+        if not isinstance(n, int):
+            out.append({"strategy": row.get("strategy"), "lifetime_trades": None,
+                        "usable_folds": None, "short_by": None,
+                        "ungraded_why": "cell carries no `lifetime_trades` field"})
+            continue
+        u = usable_folds(n)
+        out.append({"strategy": row.get("strategy"), "lifetime_trades": n,
+                    "usable_folds": u, "short_by": max(0, 3 * _E1_BLOCK - n)})
+    out.sort(key=lambda x: (x["lifetime_trades"] is None, x["lifetime_trades"] or 0))
+    return out
+
+
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
     per_status: Counter[str] = Counter()
     per_lever: dict[str, Counter[str]] = defaultdict(Counter)
@@ -723,6 +1029,16 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         for r in matrix["rows"] if r.get("execution") == "live"
     }
 
+    # WHY the sub-status is kept. `base()` collapses
+    # `blocked:insufficient_lifetime_trades` and `blocked:native-history-thin`
+    # into one `blocked`, which is right for the headline arithmetic and wrong
+    # for the reader: those two are different problems with different remedies,
+    # and the aggregate invites "12 blocked, revisit later" over a set where
+    # most will not clear on any window. The reason is already ON the cell --
+    # this stops dropping it. Structural: it reports the status string the
+    # matrix carries, never a claim about whether a cell can clear.
+    per_lever_reason: dict[str, Counter[str]] = defaultdict(Counter)
+
     for row, col, status in cells(matrix):
         b = base(status) or "MISSING"
         per_status[b] += 1
@@ -730,6 +1046,9 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         if b in OPEN_STATUSES:
             open_cells[b].append(
                 (row["strategy"], row["symbol"], row["tf"], col))
+            # Sub-status only where one exists; a bare `blocked` records itself
+            # as `blocked` rather than inventing a reason it does not state.
+            per_lever_reason[col][status if isinstance(status, str) else str(status)] += 1
 
     total = sum(per_status.values())
     counts = {
@@ -743,6 +1062,8 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "total_cells": total,
         "per_status": dict(per_status),
         "per_lever": {k: dict(v) for k, v in per_lever.items()},
+        "per_lever_reason": {k: dict(v) for k, v in per_lever_reason.items()},
+        "fold_reachability": fold_reachability(matrix),
         "counts": counts,
         "headline_pct": round(100 * counts["headline"] / total, 1) if total else 0.0,
         "cells_to_done": per_status["pending"] + per_status["blocked"],
@@ -825,6 +1146,27 @@ def render(r: dict[str, Any]) -> str:
         "      open for the done-condition, deliberately.",
         "",
     ]
+    # HOW MANY OF THOSE BLOCKERS CANNOT BE CLOSED BY DOING MORE WORK.
+    # A done-condition that counts arithmetically-impossible cells alongside
+    # runnable ones invites the reading "keep sweeping and it converges". It
+    # does not: a leg with 31 lifetime trades cannot reach u>=2 (N>=150) by
+    # being re-run, only by TRADING more, which is a strategy question and not
+    # an M20 one. Stated here so the remaining work is legible as two different
+    # kinds of remaining.
+    _unreach = [x for x in (r.get("fold_reachability") or [])
+                if x.get("usable_folds") == 0]
+    if _unreach:
+        _blocked = r["per_status"].get("blocked", 0)
+        out += [
+            f"    OF THE {_blocked} BLOCKED: {len(_unreach)} are exit_head_ml cells "
+            f"at u=0 — ARITHMETICALLY unreachable, not un-run.",
+            "      They close only if the leg trades more (a strategy question), or if",
+            "      the E1 protocol changes. Re-running the sweep cannot move them, so",
+            "      read the done-condition as "
+            f"{r['cells_to_done'] - len(_unreach)} actionable "
+            f"+ {len(_unreach)} arithmetic.",
+            "",
+        ]
     g = r.get("geometry_coverage") or {}
     if g.get("total_cells"):
         # Reported like rCoverage/pnlCoverage: the DENOMINATOR ships with the
@@ -885,9 +1227,10 @@ def render(r: dict[str, Any]) -> str:
         dec = v.get("stale_decisions") or []
         if dec:
             by_status: dict[str, int] = {}
-            for _leg, _lev, status, _dt, _cut in dec:
+            for _leg, _lev, status, *_rest in dec:
                 k = base(status) or "?"
                 by_status[k] = by_status.get(k, 0) + 1
+            fund = _stale_decision_funding(dec)
             block += [
                 "",
                 f"      ⛔ {len(dec)} of those stale cells are NOT negatives —"
@@ -895,10 +1238,18 @@ def render(r: dict[str, Any]) -> str:
                 "         " + " · ".join(
                     f"{s_} {n_}" for s_, n_ in
                     sorted(by_status.items(), key=lambda kv: -kv[1])),
+                "         routing: " + " · ".join(
+                    f"{k} {n_}" for k, n_ in sorted(fund.items())),
                 "         A stale NEGATIVE costs knowledge (the lever might have"
                 " passed and we would not know).",
-                "         A stale SHIPPED costs MONEY — it changes exit behaviour"
-                " on a real-money leg now, on a",
+                "         A stale SHIPPED costs MONEY ONLY WHERE THE LEG IS"
+                " ROUTED TO A LIVE REAL-MONEY ACCOUNT —",
+                "         read the per-row `routing` column, not this count."
+                " Until 2026-08-15 this banner asserted",
+                "         'a real-money leg' for EVERY row while nothing here"
+                " had read accounts.yaml; it was",
+                "         wrong for 3 of 4. `unresolved` means we could not"
+                " look — it is NOT 'paper'.",
                 "         number never reproduced under the geometry the bot"
                 " actually places.",
                 "         Read the re-sweep base rate from the CORPUS, not from"
@@ -917,6 +1268,39 @@ def render(r: dict[str, Any]) -> str:
             detail = " ".join(
                 f"{s}={counts[s]}" for s in OPEN_STATUSES if counts.get(s))
             out.append(f"    {lever:<20} {opened:>3}   ({detail})")
+            # The declared reason, where the cell states one. Printed only when
+            # it says more than the base status already did — a lever whose
+            # cells carry no sub-status prints nothing extra rather than a
+            # decorative echo.
+            reasons = r.get("per_lever_reason", {}).get(lever, {})
+            extra = {k: v for k, v in reasons.items() if ":" in k}
+            for k, v in sorted(extra.items(), key=lambda kv: -kv[1]):
+                out.append(f"        {v:>3} × {k}")
+    reach = r.get("fold_reachability") or []
+    if reach:
+        out += ["", "exit_head_ml — is the block ARITHMETIC or is it waiting on data?",
+                f"    Derived from each cell's `lifetime_trades` field against "
+                f"`train_exit_head.fold_blocks`: folds are fixed blocks of "
+                f"b={_E1_BLOCK} over the sorted trade list starting one block in, so "
+                f"u = len(range(b, N-b+1, b)). The E1 gate needs u >= 2, i.e. "
+                f"N >= 3b = {3 * _E1_BLOCK}; even ONE fold needs N >= {2 * _E1_BLOCK}.",
+                "    THERE IS NO DATE SPLIT ON THIS LEVER — MIN_OOS_TRADES and the "
+                "IS/OOS cut belong to the LEVER sweep. Moving a split cannot create "
+                "folds a leg has no trades for. Tracked by",
+                # KEPT ON ONE LINE. A tracking id wrapped across a string-literal
+                # break reads to `check_backlog_refs` as the truncated prefix, which
+                # resolves to nothing and fails the guard — correctly, since a doc
+                # citing a half-id is citing a row that does not exist. This is the
+                # SECOND time this session; the fix is never to wrap an id, not to
+                # loosen the guard.
+                "    BL-20260815-EXIT-HEAD-MATRIX-REFS-USE-THE-LEVER-SWEEPS-ARITHMETIC."]
+        for row in reach:
+            out.append(f"      {row['strategy']:<26} N={row['lifetime_trades']:>4}  "
+                       f"u={row['usable_folds']}  needs {row['short_by']} more trade(s) "
+                       f"for u>=2")
+        unreachable = sum(1 for x in reach if x["usable_folds"] == 0)
+        out.append(f"    {unreachable} of {len(reach)} cannot form a SINGLE fold — for "
+                   f"those the block is arithmetic, not data availability.")
     return "\n".join(out)
 
 
@@ -984,8 +1368,11 @@ def main(argv: list[str]) -> int:
             # diagnostic-provenance-guard on my own diff.
             stale_n = v.get("pre_cutover", 0) + v.get("undated", 0)
             print(f"\nstale DECISIONS ({len(dec)} of {stale_n} stale cells) — "
-                  f"closed, not negative, evidence older than the cutover for "
-                  f"THAT lever (printed per row; default {v['cutover']}):")
+                  f"closed, not negative, and NOT REPRODUCED under the live TP "
+                  f"geometry. Each row states WHY: a date older than the "
+                  f"cutover is only one of the reasons, and a row can be newer "
+                  f"than the cutover and still stale (default cutover "
+                  f"{v['cutover']}; per-lever printed per row):")
             if not v.get("classifier_available", True):
                 print("  NOT COMPUTED — the family classifier could not be "
                       "imported. This is not 'no stale decisions found'.")
@@ -995,9 +1382,14 @@ def main(argv: list[str]) -> int:
             elif not dec:
                 print(f"  (0 of {stale_n} stale cells is a non-negative — every "
                       "one is an honest_negative)")
-            for leg, lever, status, dt, cut in sorted(dec):
+            _by_leg = _funding_by_leg()
+            for leg, lever, status, dt, cut, why in sorted(
+                    dec, key=lambda d: (d[0], d[1])):
+                routing = _leg_funding(leg, _by_leg)
                 print(f"    {leg:<26} {lever:<16} {str(status):<22} "
-                      f"newest-ref {dt or '(undated)'}  (cutover {cut})")
+                      f"newest-ref {dt or '(undated)'}  (cutover {cut})  "
+                      f"routing={routing}")
+                print(f"      why: {why or '(reason not recorded)'}")
         if a.stale_corpus_state:
             cs = stale_corpus_state(matrix)
             if not cs["available"]:
@@ -1012,6 +1404,32 @@ def main(argv: list[str]) -> int:
                       f"newer live-parity evidence already exist?")
                 print(f"  {CORPUS_NO_ROW:<26} {c.get(CORPUS_NO_ROW, 0):>4}  "
                       f"— nothing newer; a re-run IS the remedy")
+                n_unfixed = c.get(CORPUS_HARNESS_UNFIXED, 0)
+                if n_unfixed:
+                    unfixed_levers = sorted({
+                        r["lever"] for r in cs["rows"]
+                        if r["state"] == CORPUS_HARNESS_UNFIXED})
+                    print(f"  {CORPUS_HARNESS_UNFIXED:<26} {n_unfixed:>4}  "
+                          f"— ⛔ A RE-RUN IS **NOT** THE REMEDY. These sit in a "
+                          f"lever whose harness never modelled the live TP "
+                          f"({', '.join(unfixed_levers)}), so sweeping them "
+                          f"again just writes another stale row. Fix the "
+                          f"harness, THEN sweep. Deleting the lever's "
+                          f"LEVER_GEOMETRY_CUTOVER entry is what marks it "
+                          f"fixed, and these cells return to "
+                          f"{CORPUS_NO_ROW} on their own.")
+                n_noprod = c.get(CORPUS_NO_PRODUCER, 0)
+                if n_noprod:
+                    noprod_levers = sorted({
+                        r["lever"] for r in cs["rows"]
+                        if r["state"] == CORPUS_NO_PRODUCER})
+                    print(f"  {CORPUS_NO_PRODUCER:<26} {n_noprod:>4}  "
+                          f"— ⛔ THERE IS NOTHING TO RE-RUN. No backtest driver "
+                          f"emits {', '.join(noprod_levers)}; the fleet sweep "
+                          f"covers 5 of the 8 lever columns and this is not "
+                          f"one of them. Building a producer (or re-doing the "
+                          f"study its cells cite) is the remedy — a different "
+                          f"kind of work from a sweep.")
                 print(f"  {CORPUS_AGREES:<26} {c.get(CORPUS_AGREES, 0):>4}  "
                       f"— newer evidence exists and matches the status")
                 print(f"  {CORPUS_DISAGREES:<26} {c.get(CORPUS_DISAGREES, 0):>4}  "

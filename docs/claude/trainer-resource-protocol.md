@@ -44,7 +44,50 @@ re-acquisition instead of self-deadlocking. Fail-open on any lock-infra error
 (training is never blocked by a lock bug); a clean queue-timeout on a bare run
 exits `75` and tells you to retry later or use the GPU burst. Using
 `trainer_run.sh` (or the timers) is still the clean path; the CLI enforcement is
-the backstop so nothing can slip past.
+the backstop for the **`python -m ml` path specifically**.
+
+### ⚠️ What the CLI backstop does NOT cover — the research entrypoints
+
+**The sentence above used to end "the backstop so nothing can slip past." That
+was wrong, and it was wrong in the direction that matters: it invited every
+reader to assume the queue was universal.** It is not. There are now **three**
+enforcement paths, and the third exists because a whole family of heavy jobs sat
+outside the first two (`BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE`):
+
+| path | what it covers | how |
+|---|---|---|
+| shell timer wrappers | `run_training_cycle.sh`, `run_promotion_readiness.sh`, `run_drift_retrain.sh`, `trainer_run.sh` | take the flock themselves |
+| `ml` CLI backstop | `python -m ml train` / `build-dataset` | `src/utils/trainer_heavy_lock.py`, wired in `ml/cli.py` |
+| **research entrypoints** | `scripts/ml/train_exit_head.py`, `train_entry_head.py`, `build_exit_head_dataset.py`, `spike_a_pooled_labels.py` | `scripts/ml/_heavy_queue.py`, called at each entrypoint |
+
+A **research script shelling out to another research script** is none of the
+first two — it is not a wrapper and it never imports the CLI. Measured
+2026-08-15: **6 of 7** in-scope scripts took the queue nowhere. The cost was not
+theoretical — an unqueued 4.08 GB `replay_pregate_fleet.py` drove the box to
+4.4 GB of swap and tripled a screen's arm times (7.9 → 25.8 min on four arms
+whose work was *identical* and so cannot differ in duration).
+
+**Locking is at the ENTRYPOINT, not at the callers.** `train_exit_head.py` alone
+has five in-repo callers plus every ad-hoc `trainer-vm-diag` relay invocation,
+and the direct `python scripts/ml/train_exit_head.py …` path is how most relays
+run it — so locking callers would leave the common path open and would have to
+be redone for the next caller.
+
+**Enforced by `trainer-heavy-lock-guard`**
+([`scripts/ci/check_trainer_heavy_lock.py`](../../scripts/ci/check_trainer_heavy_lock.py)),
+same family as `canonical-db-resolver` / `collapsed-state-guard`. It resolves an
+actual **call node** via AST — a comment or a string mentioning the helper
+fails, per the `new-table-wiring-guard` lesson that a guard cheaper to lie to
+than to satisfy is worse than none — and its second pass **classifies** every
+runnable script under `scripts/{ml,research}/` that imports a heavy ML library,
+so a new trainer must be declared heavy (and locked) or light (with a reason).
+That drift pass immediately found one script the hand enumeration had missed.
+
+**Still outside the queue:** `scripts/ml/replay_pregate_fleet.py` and its three
+`replay_pregate*` siblings. They are heavy by footprint but are not
+train/build entrypoints, so closing them needs a definition of "heavy" that
+covers replay/eval jobs — **not yet written**, and stated here rather than left
+as an implied "everything is covered".
 
 **Coordination flag.** Whoever holds the queue writes
 `runtime_logs/trainer/heavy_lock_holder.json` (`{pid, label, since_utc}`), so a

@@ -1,15 +1,29 @@
-"""Keep `matrix-config-agreement` alive while it waits to be registered.
+"""`matrix-config-agreement` — the guard, and the reason its scope is what it is.
 
-The guard is deliberately NOT in `run_guards.py` yet: it fails on the current
-tree because the six cells it found are real and unreconciled, and reconciling
-them is an operator-gated judgement call rather than a mechanical sync (see the
-guard's module docstring). A guard sitting unregistered is a guard that quietly
-stops working — its imports drift, the sweep's key sets move, and nobody
-notices until the day it is switched on and reports a clean pass over nothing.
+It asserts one thing in both directions: the set of levers `config/strategies.yaml`
+ARMS and the set the coverage matrix acknowledges as armed must be the same set.
+Config is the field the trader loads; the matrix is prose about it, so a
+disagreement is always a stale RECORD — never a reason to touch a declare.
 
-So pytest runs its self-test. That keeps the mechanism honest without making CI
-red on unrelated PRs, and it means the registration change is a one-liner rather
-than a debugging session.
+Registered in `run_guards.py` on 2026-08-14, in the SAME change as the
+reconciliation it demanded (operator decision (j)). That ordering was
+deliberate: a guard whose first CI run is red teaches everyone to skip it.
+
+TWO THINGS THIS FILE PINS, both of which were wrong in a first draft of the
+guard and found by USING it rather than reading it:
+
+  1. `shipped_gate_failed` counts as ARMED. The legend defines it as *"LIVE in
+     config, but a LATER re-sweep failed its gate and the operator chose to
+     HOLD"* — so it asserts the lever runs, exactly as `shipped` does; they
+     differ on whether the VALIDATION stands. The first version accepted only
+     `shipped`, so it demanded a status that would OVERCLAIM 'validated + live'
+     on precisely the five cells the operator had just correctly moved to
+     `shipped_gate_failed`. It would have punished the right answer.
+
+  2. The lever key sets are IMPORTED from the sweep, never restated. A second
+     copy would drift from the one that actually decides which levers a leg
+     arms, and the failure that produces — grading a lever the sweep does not
+     recognise — is indistinguishable from a real finding.
 """
 
 from __future__ import annotations
