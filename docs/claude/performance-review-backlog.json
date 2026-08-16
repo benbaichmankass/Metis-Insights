@@ -3422,7 +3422,26 @@
         "config/accounts.yaml"
       ],
       "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it."
+    },
+    {
+      "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+      "opened_at": "2026-08-16T20:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, uso_trend_1h reachability measurement)",
+      "severity": "medium",
+      "tier": "1 (a reader/method correction; no runtime behaviour changes and the clamp itself is correct)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "exit_plan_state.targets[].reach_r is min(cap_R, 5.0), not cap_R -- and reading it as cap_R biases toward FALSE `inert` verdicts",
+      "summary": "MEASURED on the complete live uso_trend_1h population (30/30 order_packages, relay #9778/#9780/#9781/#9782/#9783, filter_state applied on every page). 7 of the 30 rows store `targets[].reach_r: 5.0` while their true cap_R is 5.0028 / 6.3143 / 6.5062 / 7.0858 / 7.1864 / 7.4213 / 7.5639. Cause, read in code not inferred: src/runtime/exit_plan_realism.py:44 sets DEFAULT_MAX_REACH_R = 5.0, and clamp_exit_plan() rewrites any fixed final target beyond that ceiling, recording the PRE-clamp value in exit_plan_state.realism_notes[].reach_r. So the stored target field is min(cap_R, 5.0).\n\nWHY IT MATTERS RATHER THAN BEING A CURIOSITY. Reachability work reads that field as the venue TP ceiling. On this leg, doing so reports a max cap_R of 5.0000 against a true 7.5639. The error is one-directional: it UNDER-reports the ceiling, which makes a lever look LESS reachable than it is -- i.e. it manufactures false `inert`/`vol_conditional` verdicts, the exact class the reachability registry exists to detect, running backwards.\n\nTHE THREE ROWS ALREADY LANDED ARE NOT AFFECTED, and I checked rather than assumed: trend_donchian_sol_4h (max 4.32), xrp_pullback_2h (max 4.46) and the gld/qqq work all sit under 5.0, so no stored value there was clamped and their recorded numbers stand unchanged. The overnight M20 session's stated method also SELF-PROTECTS -- it cross-checked reach_r against 0.099/(risk_per_unit/entry) and reported 0 mismatches, and a clamped row would have shown up as a mismatch. The trap is only live for a future reader who takes reach_r alone.\n\nTHE SHIPPED TELEMETRY IS CORRECT AND IS NOT THE BUG: src/runtime/position_telemetry.py::cap_r computes cap_pct*entry/risk directly and never consults the exit plan. This is about ad-hoc readers of exit_plan_state, and about the registry's own basis wording, which presents reach_r as the source and the identity as the cross-check. Safe framing is the reverse: the IDENTITY is authoritative, reach_r is the cross-check, and a divergence means the realism clamp fired -- not that something is wrong.",
+      "resolution_criteria": "Either (a) the two registry rows whose `basis` string says cap_R was 'read from the bot's own exit_plan_state.targets[].reach_r' (trend_donchian_sol_4h, xrp_pullback_2h) are reworded so the identity 0.099/(risk_per_unit/entry) is named as the source and reach_r as the cross-check; or (b) a note is added to config/lever_reachability.json's basis_note stating that reach_r is min(cap_R, DEFAULT_MAX_REACH_R) and must not be read as cap_R above 5.0R. Verifiable either way by grepping the registry for 'reach_r' and confirming no basis string presents it as the primary source. Closing WITHOUT one of those is only correct if a measurement shows DEFAULT_MAX_REACH_R no longer clamps any live row -- which would need re-reading the population, since 7 of uso_trend_1h's 30 rows clamp today.",
+      "evidence": {
+        "code": "src/runtime/exit_plan_realism.py:44 (DEFAULT_MAX_REACH_R = 5.0), clamp_exit_plan(); src/runtime/exit_plan_materializer.py:157",
+        "population": "uso_trend_1h live order_packages, n=30 COMPLETE, span 2026-07-07 -> 2026-08-07",
+        "clamped_rows": "7/30",
+        "stored_max_vs_true_max": "5.0000 vs 7.5639",
+        "unaffected_rows_checked": "trend_donchian_sol_4h max 4.32, xrp_pullback_2h max 4.46 -- both below the clamp, recorded values stand"
+      }
     }
   ],
-  "updated_at": "2026-08-16"
+  "updated_at": "2026-08-16T20:05:00+00:00"
 }
