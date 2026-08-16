@@ -2539,3 +2539,1693 @@ why the count is three and not one.
 The durable fix is mechanical, not attentional: **commit, then run guards,
 then read the exit code** (`> file 2>&1; echo $?`), never `| tail`. Both are
 now habits in this session's remaining commands.
+
+### Eleventh instance — and the mechanical fix above was NOT sufficient
+
+**2026-08-14.** I followed the durable fix to the letter: committed first, ran
+`run_guards.py` with `> file 2>&1; echo $?`, read `rc=0` and
+`PASS 38 · FAIL 0`, pushed. CI then failed `diagnostic-provenance-guard` on
+that commit — **same guard, same command, same file path, opposite result.**
+
+So the conclusion the previous section reached was incomplete, and the incident
+that proves it is the eleventh in the sequence rather than a new class.
+
+**The actual root cause, measured rather than inferred.** Eight of the 38
+guards take `{pr_diff}` and scan **only that file**. CI builds it in a separate
+`guards.yml` step (`git diff origin/<base>...HEAD > /tmp/pr.diff`, line 93) and
+exports `GUARDS_PR_DIFF`. `run_guards.py` **never wrote that file** — it only
+read `--pr-diff`, whose default is the fixed path `/tmp/pr.diff`. Locally,
+nothing generated it, so every run rescanned whatever a previous run had left
+there. A file absent from that stale diff is never scanned at all, and the
+harness prints *"All relevant guards passed."*
+
+That is why three consecutive local runs reported
+`--- diagnostic-provenance-guard: PASS (0.2s)` while CI failed it: the
+finding was real (two sub-class-C universal claims with no denominator in
+`m20_exit_head_denominator.py`), and the local harness could not see the file.
+Overwriting `/tmp/pr.diff` by hand with `git diff origin/main...HEAD` and
+re-running reproduced the failure immediately.
+
+**Note what this does to the earlier diagnosis.** Instances eight through ten
+were attributed to *running diff-scoped guards on uncommitted work*. That was
+true of those runs but it was not the whole cause: the harness could not see
+the change on **any** local run, committed or not. Committing first was
+necessary and never sufficient. And the failure mode is the worse of the two
+available — **a stale diff passes where a missing one errors** — so it
+presented as a false green every time rather than as a crash, which is why ten
+instances went by without anyone reaching the harness.
+
+It is also, precisely, an **unasserted denominator inside the harness that
+enforces unasserted denominators**.
+
+**The fix is now in the harness, not in a habit.** `run_guards.py` generates
+`{pr_diff}` from `origin/<base_ref>...HEAD` whenever no caller supplied one
+(`GUARDS_PR_DIFF` unset and no `--pr-diff` argument), prints the path and line
+count so the scanned range is visible in the output, and returns `2` rather
+than continuing if the diff cannot be built. CI is untouched — it exports
+`GUARDS_PR_DIFF`, which suppresses generation, so the workflow's own range
+still wins.
+
+Verified three ways: an **empty** planted `/tmp/pr.diff` was regenerated to
+1,070 lines; an explicit `GUARDS_PR_DIFF` was **not** overwritten; and the real
+violation planted behind a stale diff took the run to `rc=1` where it had
+previously passed. Two tests in `tests/test_run_guards_step_scoping.py` pin it,
+both proven load-bearing by removing the fix.
+
+Filed as
+`BL-20260814-RUN-GUARDS-CONSUMES-A-DIFF-IT-NEVER-GENERATES-SO-LOCAL-RUNS-SCAN-A-STALE-FILE`.
+
+## Operator decision (a) — the ETH hypothesis, answered by refuting it twice
+
+**2026-08-14.** Decision (a) was *"test the ETH hypothesis with a denominator —
+run `exit_head_ml` across the other ETH legs AND a matched set of non-ETH
+controls, so it gets a real denominator instead of two positives."*
+
+### The record could not answer it, and that was the first finding
+
+Scoping the question surfaced that **`exit_head_ml` has zero rows in the sweep
+corpus** — positive control: `trail_decay` 278, `vol_trail` 191, `stale_stop`
+190, `giveback_stop` 150, `trail_geometry` 112, `exit_head_ml` **0**; a raw
+`grep -c exit_head` returns 0 against 288 for `trail_decay`. Its rounds run on
+the trainer into a required, ephemeral `--out` and nothing is committed back,
+so all 36 resolved dispositions were parsed out of **prose** in the matrix
+refs. Consequence: operator decision (d) — *"establish the base rate from the
+corpus, per gate"* — **is not executable for this lever.**
+
+That also exposed `matrix-corpus-agreement` reporting *"376 live cell(s)
+checked"* when 3 of its 8 lever columns hold no corpus rows at all: **141 of
+376 (37.5%)** were unreachable by construction, 115 of them carrying an
+explicit `honest_negative`. Fixed (declared exemptions, separate counts, an
+undeclared corpus-less column now fails) and filed as
+`BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED`.
+
+### Two explanations, both refuted
+
+| attempt | claim | outcome |
+|---|---|---|
+| 1 | the SYMBOL — "the head works on ETH" | does not survive a denominator |
+| 2 | BOOK SIZE — `n_oos >= 350` | **refuted out of sample**, and it was mine |
+
+On the 20 mixed-geometry cells stating an `n_oos`, `n_oos >= 350` classified
+the verdict at **90.0%** against **80.0%** for the symbol, so I reported book
+size as the better explanation — *and sent that to the operator*. I then ran a
+matched **2h pullback round at live parity** (7 legs, `--tp-cap-pct 0.099`
+passed explicitly; relays #9271 / #9282), which is genuine **held-out** data
+for a threshold that had been chosen on the sample it was scored on.
+
+It scores **1 of 7 = 14.3%** there. The two largest books FAIL (400, 357) and
+the smallest pass (231) sits below the largest failure. The 90.0% was an
+in-sample artifact — which the original write-up had explicitly flagged
+(*"an upper bound on out-of-sample separation, not an estimate of it"*). That
+caveat is the only part of the first reading that survived, and it is the
+reason the error cost a correction ping rather than a wrong decision.
+
+### Where ETH actually lands
+
+Over both committed live-parity strata (n=12): ETH **4/4**, non-ETH **2/8**,
+Fisher one-sided **p = 0.0303**. But two ETH rows are `_prop` siblings of the
+other two — same symbol, same family, overlapping book — so counting both
+doubles one observation. Dropping every prop sibling (n=9): ETH **2/2**,
+non-ETH **2/7**, **p = 0.1667**. The significance turns entirely on that
+choice, so both are reported rather than one being picked. Two non-ETH legs
+(XRP, ADA) passed at live parity, which is new.
+
+**What is actually binding** is neither: all three 2h negatives fail on
+`beats_hard` while two of them *pass* `beats_actual`, and `sol_pullback_2h`
+carries the stratum's second-highest AUC (0.6330) and still fails. So the
+separating axis is fold consistency against the **cheap lever** — not the
+head's discrimination, not book size — and it is now recorded as unexplained
+rather than misattributed.
+
+### What the round also found, and it matters more than ETH
+
+4 of the 12 live-parity rows **contradict their recorded matrix cell**:
+`eth_pullback_2h`, `eth_pullback_prop_2h`, `xrp_pullback_2h`,
+`ada_pullback_2h` are recorded `honest_negative` and measure **candidate** at
+the geometry production places. The other 8 reproduce, which is the
+consistency check that makes the 4 worth reading. Counter-evidence was written
+into each ref and **no status was flipped** — a passing cell is not a passing
+lever disposition and a live-leg status change is Tier-3.
+
+Sizing the rest: **19 of the 29 negative cells are not known to have been
+measured at live parity at all** (`4h` 5, `1d` 6, `1h` 6, `5m` 1, `15m` 1). Of
+the 10 re-measured so far, 4 did not survive. That rate ships beside its
+denominator and its scope (2 families, 2 timeframes) and is **not** projected
+onto the 19 — it sizes the work, not the outcome.
+
+### Artifacts
+
+- `docs/research/m20-exit-head-rounds.jsonl` — **the first committed exit-head
+  evidence in the repo**, 12 rows, each with its own `tp_geometry` stamp and
+  provenance, every verdict **re-derived from the gate** rather than copied.
+  The re-derivation caught an indexing error of mine (`beats_hard` vs the fold
+  denominator) before it reached disk.
+- `scripts/research/m20_exit_head_denominator.py` — the analysis, shipped as a
+  re-runnable script so the population is restated on every run. Its own
+  docstring had to be corrected once: it still led with the book-size
+  conclusion after the 2h round refuted it, which is the same stale-prose
+  defect this session keeps finding elsewhere.
+
+---
+
+## Second overnight stretch (2026-08-14, ~15:30–17:00 UTC) — post-compaction
+
+Same session, continued past a context compaction. Recorded here rather than in
+a new log because the session never ended; the branch and the objective are
+unchanged.
+
+### (d) — exit-head rounds now leave evidence behind
+
+`m20_exit_head_round.py` writes `rounds.jsonl` beside its report, in the
+committed schema of `docs/research/m20-exit-head-rounds.jsonl`. Until today a
+round left **nothing machine-readable**: `--out` is a required, ephemeral
+trainer directory, so every verdict reached the repo only as prose hand-copied
+into a matrix `ref`. That is *why* 141 matrix cells rest on prose.
+
+Two properties are pinned by tests rather than left to care:
+
+- **It reads the producer's real field names.** I had guessed `n_oos` /
+  `beats_actual`; `train_exit_head.py::per_leg_summary` actually emits
+  `oos_trades` / `mean_auc` / `beats_actual_folds` / `beats_hard_folds` /
+  `usable_folds`. My guess produced `None` for every leg — and a silent `None`
+  in an evidence file is worse than a crash, because it reads as a measurement
+  that was taken.
+- **The emitted `tp_geometry` is the DERIVED stamp**, not the run-level
+  `--tp-cap-pct` flag, since `base_args` withholds the cap from families outside
+  `LIVE_TP_CAPPED_FAMILIES`.
+
+### A defect of mine: a merge that silently un-resolved another session's item
+
+Resolving a conflict in `docs/claude/health-review-backlog.json` earlier in the
+session, I took my side wholesale. That discarded main's edits to **six items I
+had never touched**, including flipping
+`BL-20260814-IB-EVENTLOOP-CONTENTION` from `status: resolved` back to
+`mitigated_fix_in_pr` and clearing its `resolved_at`. Another session had closed
+that item; my merge reopened it, and a reopened item looks exactly like one that
+was never closed.
+
+**Every invariant a careful reader checks still held** — valid JSON, item count
+only grew, no duplicate ids. What was lost was a *status transition*, which
+nothing reads. That is why the filed remedy is a guard on terminal →
+non-terminal transitions and **explicitly not** on item count.
+
+Caught only because I did the next conflict as a three-way classification
+against the merge base instead of by hand: 564 shared items, 8 differing, **zero
+changed by both sides**, and 6 whose divergence I could not account for. Walking
+all 11 of my own non-merge commits touching the file confirmed none had edited
+them. The corrected merge is `122 insertions, 0 deletions` against `origin/main`
+— arithmetic proof it dropped nothing.
+
+I have **not** swept history for earlier instances, so the count of past
+occurrences is *unknown*, not zero.
+
+### BTC 5m: reachable now, and the obvious fix was the wrong one
+
+`ict_scalp_5m` (LIVE) skipped on `data_missing:BTCUSDT`. BTC is the one 5m
+symbol with no canonical `data/<SYM>_5m.csv`; its data is
+`backtest_BTCUSDT_5m.csv` — 647,585 rows, 2020-03-25..2026-05-21, **deeper than
+any canonical alt 5m file**, and already the default feed for all six
+`walkforward_vol_*` scripts, i.e. the series behind the live regime-router OFF
+cells. `resolve_data`'s prefix set is `{btcusdt, btc}`, which
+`backtest_btcusdt_5m.csv` matches neither.
+
+**Creating `data/BTCUSDT_5m.csv` would have worked and been wrong.**
+`DATA_GRAIN` is finest-first and the grain loop takes the first present file at
+or below the leg's timeframe, so every BTC leg at 1h/2h/4h/1d — today falling
+through to `BTCUSDT_15m.csv` (runs to 2026-07-10) — would have taken the 5m file
+(stops 2026-05-21), quietly shortening the book behind verdicts already recorded
+in the matrix. That is the hazard `resolve_data`'s own docstring names, one
+level less visible than the `MGC_1d.csv` incident: there the NAME lied; here the
+name would be honest and only the RANGE dishonest.
+
+Shipped instead: an **exact-timeframe** probe, after the native spelling and
+deliberately not in the grain loop. Measured before touching the resolver
+(trainer-diag #9325) as a wrapper over the unmodified function — 110
+resolutions, **4 changed, all `None` → resolved**. The enumeration corrected my
+own claim: I had said one leg; `vwap` also sits at BTCUSDT 5m, so it is two.
+`backtest_ESF_1h.csv`, the risk I named in advance, is inert (no leg at that
+sym/tf).
+
+### Two CI reds, both mine, both caught by the repo's own guards
+
+**`artifact-validity-guard`** — I truncated a backlog id in a code comment, so it
+resolved to nothing: a comment reading "tracked" while tracked by nobody. Root
+cause was process, not typing: I ran `run_guards` **before committing**, and
+every guard scopes to a commit range (`{pr_diff}` from `origin/main...HEAD`, or
+its own `--base`), so the run never saw the line and still printed "All relevant
+guards passed."
+
+The pre-existing `unchecked` caveat does not cover this, and the reason is
+specific: it reports guards *relevance* skipped, and relevance is a union — a
+guard already made relevant by a committed file runs, passes, is counted, and
+never appears in `unchecked`, having scanned a range without your edits. Any
+uncommitted path now caveats the green line by name.
+
+**My first attempt at that caveat was itself wrong**, and the test pins why: I
+built it as `worktree_files() - changed`, mirroring the existing `dirty`
+variable — which subtracts away exactly the dangerous case (a file both
+committed-changed *and* dirty) and so stayed silent on the very tree that had
+just produced the false green. Caught by testing the behaviour, not by reading
+the code. A second latent bug in the same change: I sampled the worktree at the
+*end* of the run, after guards execute, and two guards write files — the comment
+eight lines above the sibling capture says exactly that. It escaped a false
+positive only because those writes happened to be byte-identical.
+
+This is the converse of the eleven instances in the Postscript. Those were
+"committing first was necessary and never sufficient"; here the commit was
+simply skipped and nothing said so.
+
+**`pytest-run` filter** — my new test reads the committed evidence file, a path
+not in the filter, so a PR touching only that file would short-circuit the suite
+to a ~10s green tick having executed nothing. Instance **five** of the class
+`test_pytest_run_filter.py`'s header enumerates. Instances 1–4 were each found
+by an incident; this one was caught **pre-merge, on the same day the reader was
+written**, by `test_docs_committed_readers_are_all_covered` — the derived check
+added earlier today precisely because hand-enumeration kept failing. The
+mechanism works, so I pointed the stale "exactly FOUR" comment at it rather than
+restating a count that will go stale again.
+
+### (e) — the split margin, measured
+
+Criterion (2) of `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`
+is closed. Memo: `docs/research/m20-split-boundary-loss-2026-08-14.md`. Pure
+read of the committed corpus — no harness run, no VM.
+
+Boundary loss `0,1,1,1,1,1,2,2,4,4,4` — max **4**, ten of eleven are losses,
+**zero gains**. The never-negative half is a *refuted* hypothesis: `[:10]`
+truncates the boundary to a date, so windowing from midnight could plausibly
+sweep in same-day trades sitting *before* the boundary trade and push realized
+above target. It never does.
+
+It tracks **target/lifetime**, not target: the same three legs lose 4 at ratio
+0.55 and 1 at 0.44, while a fixed target of 35 spans 1..4. The three worst come
+from a regime the clamp added today now prevents (`target ≤ lifetime // 2`, so
+ratio ≤ 0.50); every observation at ratio ≤ 0.5 lost ≤ 2.
+
+**Answer: margin 5 → target 30**, which **confirms** the illustrative value
+rather than replacing it.
+
+**The near-miss is the part worth keeping.** Mid-analysis I had a tidy story
+that the illustrative 30 came from mis-counting the three `leg_too_thin` rows,
+whose apparent "loss" is 30/31 — a striking numeric match, and I wrote the
+section header before checking. Wrong: 30 was always the **target** (floor 25 +
+margin 5), never a margin, and those rows are the fixed-date cliff the clamp
+already fixes. Reading the sprint-log line instead of trusting the match is what
+caught it. A confirmation is a duller result than a correction, which is exactly
+when the pull toward the correction should be distrusted.
+
+The independence denominator is stated in the memo rather than quietly used: 18
+corpus rows are **14 boundary events**, not 14 rows (several lever cells share
+one derivation — the same inflation that double-counting `_prop` legs produced
+on decision (a)), minus 3 fallbacks → 11 events across 7 legs, three of which
+are near-identical siblings. Effective independence is nearer **five**.
+
+### Validation
+
+- Guards 38/38 on a clean tree before each push; PR #9257 reached **all four
+  checks green** on `f4825ee9`, `mergeable_state: clean`.
+- New tests: `test_exit_head_round_emits_evidence.py` (4),
+  `test_resolve_data_backtest_prefix.py` (6), 2 appended to
+  `test_run_guards_step_scoping.py`. Every one proven load-bearing by planting
+  the exact regression it exists to catch — the resolver leak tests by moving
+  the probe into the grain loop, the caveat test by re-adding the subtraction.
+- `test_resolve_data_backtest_prefix.py` also asserts `DATA_GRAIN` is still
+  finest-first, because the leak test would pass **vacuously** under a
+  coarsest-first order while the hazard changed shape.
+
+### Gaps not yet verified
+
+- **The 5m round's outcome is unknown.** Last observed 15:47Z (SOL 1,255 trades
+  emitted, XRP in flight); re-poll dispatched as trainer-diag #9333. A round
+  that died mid-XRP and one still running look identical from outside.
+- **`ict_scalp_5m`'s `exit_head_ml` cell is reachable, not re-measured.** When it
+  is, the round must state that BTC's book ends 2026-05-21 while its three 5m
+  siblings run to 2026-06-18 — the OOS window differs for one leg.
+- **Deploy verification is still owed** on PR #9257 after merge; it touches real
+  money.
+- The `--split-target-oos` default is **unchanged** and queued for the operator.
+- Every Tier-1 tooling fix above rides in #9257 behind its Tier-3 approval,
+  including the resolver fix. The trainer runs `main`, so none of it is usable
+  until #9257 merges. Splitting the config change onto its own branch would
+  unblock the rest; not done unilaterally, since it changes what the operator is
+  approving.
+
+---
+
+## Third overnight stretch (2026-08-14, ~22:20–23:50Z)
+
+### Objective
+
+Read out the 1d pullback round against the pre-registration written before it,
+then characterise what the accumulated exit-head corpus actually says.
+
+### Work completed
+
+**The 1d pullback round (relays #9358 launch / #9366 report).** Six legs, all
+re-derived from the E1 gate in `train_exit_head.py` rather than copied from the
+printout. The advance prediction `u = floor(629/50) − 1 = 11` was checked, not
+assumed: observed 11.
+
+| leg | n_oos | auc | beats_actual | beats_hard | u | gate |
+|---|--:|--:|--:|--:|--:|---|
+| `gdx_pullback_1d` | 81 | 0.6337 | 5/7 | 4/7 | 7 | honest_negative |
+| `gld_pullback_1d` | 128 | 0.5277 | 4/11 | 3/11 | 11 | honest_negative |
+| `iaum_pullback_1d` | 30 | 0.5525 | 3/4 | 3/4 | 4 | **candidate** |
+| `ief_pullback_1d` | 67 | 0.5337 | 6/11 | 8/11 | 11 | honest_negative |
+| `slv_pullback_1d` | 160 | 0.4895 | 6/11 | 6/11 | 11 | honest_negative |
+| `tlt_pullback_1d` | 84 | 0.5300 | 6/11 | 4/11 | 11 | honest_negative |
+
+**No status flipped**, per the pre-registration. It bound on `iaum`: the gate
+computes `candidate`, and the entire difference from *yesterday's*
+`honest_negative` on that leg is **one fold** (`beats_actual` 2/4 → 3/4), on
+30 OOS trades present in 4 of 11 folds, at an AUC margin of 0.0025.
+
+The pre-registration also **refuted its own item 4**: `slv`, named in advance as
+"the only one worth a second look" on density grounds (the thickest leg, 15.4
+trades/fold), returned the lowest AUC of the six — 0.4895, below chance. Density
+bounds what a verdict is worth; it predicts nothing about its sign.
+
+**Pooling proven by arithmetic, not by the identical-`u` signature.** Every
+leg's `u` exceeds what its own book could support (`ief`: 67 trades, per-leg `u`
+would be 0, reports 11). This also **refines** the claim recorded on the
+`tlt_pullback_1h` row: identical `u` across legs is a *sufficient* signature of
+pooling, but varying `u` is **not** a counter-signature — a leg thin enough to
+be absent from some folds gets a lower `u` under the same pooled cut.
+
+**Which gate term binds** — new memo,
+[`m20-exit-head-binding-term-2026-08-14.md`](../research/m20-exit-head-binding-term-2026-08-14.md).
+Over all 33 recorded leg-rounds, `beats_hard` fails in 16 (48%) and is the sole
+failing term in **6 of the 7** single-term failures. Those six are the
+highest-AUC legs in the corpus (0.601–0.6337): each clears the AUC bar and beats
+the exit the bot actually takes on ≥ ⅔ of folds.
+
+**The inference that invites was refuted, and the memo records the refuted
+version.** "There is exit alpha here and a simple hard rule captures it" fails
+one lookup: 11 of the 12 `stale_stop`/`giveback_stop` cells on those same legs
+are themselves negatives. `beats_hard` races the head against two **fixed**
+parameter points; the hard-lever cells are verdicts over the **tuned** sweep
+under their own gate — different comparator, different aggregation, so both can
+fail. `ict_scalp_eth_15m` is the sole exception (its `stale_stop` did ship) and
+does not generalise.
+
+**`tp_geometry` was being written where nothing reads it.** The roll-up's
+coverage figure reads a **structured** `cell["tp_geometry"]`, while live parity
+was being recorded in ref prose and in `m20-exit-head-rounds.jsonl`. Sixteen
+cells had been measured at live parity and counted as `unrecorded`.
+
+That fix was then **wrong twice, and both corrections matter more than the fix**:
+
+1. Stamping on **citation** alone put `live_parity` on six cells whose
+   live-parity round *contradicts* the recorded status — declaring "not stale"
+   over exactly the cells that most need to surface.
+2. The revert predicate — string equality between cell status and round verdict
+   — then **over-reverted four correct stamps**. `shipped` beside a `candidate`
+   round is consistent (shipping is downstream of passing); `shipped_gate_failed`
+   beside `honest_negative` is the status the legend defines for that case.
+
+Final predicate is **sign**, not string: `{candidate, shipped, passed_unshipped}`
+vs `{honest_negative, shipped_gate_failed}`. Coverage 11/376 (2.9%) → 28/376
+(7.4%), with **ten** cells deliberately left unstamped because their live-parity
+round contradicts them.
+
+### Validation
+
+- Guards **38/38** on a clean tree before each push (three pushes).
+- Coverage headline re-checked with the canonical
+  `scripts/research/m20_coverage_rollup.py` after every matrix write: **373/376
+  = 99.2%, unchanged**, as pre-registered. An ad-hoc re-derivation of that
+  figure mid-stretch returned 345/380 and was **wrong** — the canonical
+  population is 47 *live* legs, not all 52 rows. Running the producer instead of
+  trusting my own count is what caught it.
+- Every verdict re-derived from the four gate conditions in source; all six
+  matched the printout, and the re-derivation is what made the `iaum` one-fold
+  margin visible.
+
+### Gaps not yet verified
+
+- ~~**CI still is not attaching to PR #9257**~~ — **RESOLVED 00:24Z, and my
+  diagnosis was wrong.** I reported this as a repo-wide outage across seven
+  pushes. A concurrent session had already measured the truth and posted it to
+  coordination board #6927 at 14:30Z: the condition is **intermittent per push**
+  (4 of 6 attached nothing, 2 ran), and **a merge commit or a close/reopen
+  attaches every time**. So zero checks means *this head was skipped and can be
+  re-triggered*, not *CI is down*.
+
+  I had the evidence to reach that myself and drew the wrong conclusion from it:
+  a `workflow_dispatch` passing on the same workflow and branch proves the
+  workflow and branch are fine, and says **nothing** about whether the next push
+  will attach. I read it as "therefore delivery is dead."
+
+  Acting on the board's finding: `PUT /pulls/9257/update-branch` returned **422
+  `merge conflict between base and head`** (8 commits behind, conflicting on
+  `docs/claude/health-review-backlog.json` alone), so the merge was done locally
+  and pushed as `dc393f82`. **All four checks attached immediately** —
+  `guards` ✅, `repo-inventory` ✅, `pytest-collect` ✅, `pytest-run` running.
+  The eight preceding plain pushes to the same branch attached zero each.
+
+  Two findings compose here: the CI re-trigger needs a merge commit, and the
+  merge commit needs the board's backlog-conflict recipe to produce. Confirmed
+  back on the board so the row carries the datum.
+
+  **FINAL: all four GREEN, `mergeable_state: clean`** on head `960047c1`
+  (`pytest-run` 9m59s). #9257 went from unmergeable-across-seven-pushes to
+  clean. It is **still a draft and still NOT merged** — Tier-3 real money.
+
+  ⚠️ **And I made it worse before better, which is the part worth keeping.**
+  After the merge commit went green I pushed three more docs commits, polled,
+  saw **3 of 4** checks with `pytest-run` missing, read that as the
+  partial-attach case, and closed+reopened the PR to re-trigger. `pytest-run`
+  **had already started** — 15 s behind the other three. **Check-run
+  registration is not atomic**, so a short poll returning N < 4 is not evidence
+  a check is absent. My close **cancelled a running `pytest-run`**
+  (`conclusion: cancelled`, 29 s in) and the reopen restarted it from zero:
+  ~10 minutes lost, plus a duplicate `repo-inventory`. Two polls a minute apart
+  both showed 3 and I treated the repetition as confirmation — it was just the
+  same too-early snapshot twice.
+
+  The narrower rule, posted to the board: **prefer the merge commit** (attaches
+  all four, cancels nothing); close/reopen is the fallback for when there is
+  nothing to merge — which is exactly when a still-registering check is most
+  likely to be mistaken for an absent one. Close/reopen also drops auto-merge
+  and queue membership, irrelevant here but not in general.
+- **The backlog merge used a three-way classification, not the published
+  recipe.** The board's rule ("for a row on both sides, your branch wins") is
+  right in the common case but loses the *other* session's in-place edit when
+  both sides touch one row. Classified against the merge base instead: base 565
+  + 12 new mine + 1 new theirs + 2 edited-by-me + 7 edited-by-you = **578**,
+  reconciles exactly, **zero rows changed on both sides**, and a distinctive
+  string from both my edits and theirs was asserted to survive.
+- **#9257 is still NOT merged and must not be** — Tier-3 real-money
+  `config/strategies.yaml`, draft, queued for the operator. CI attaching only
+  removes the "cannot be evaluated" blocker in front of that decision.
+- **The pullback hard-lever re-sweep answered a different question than it was
+  launched for** (relays #9367 / #9368). It was launched because the
+  `beats_hard` finding needed those columns' live-parity numbers. At the default
+  `--split-target-oos 25` it returned **68 of 76 cells `insufficient_base`
+  (89.5%) and zero gradeable passes**, across 19 legs carrying up to 527
+  lifetime trades — so it produced almost no hard-lever numbers, and instead
+  measured the *consequence* of the split-target question that had been sitting
+  queued on a margin argument. A matched second arm at target 30 was launched
+  (the same family, levers and `0.099` cap; only the target differs) and at 5/19
+  legs `insufficient_base` had disappeared entirely with every cell graded on
+  its merits. Written up in
+  [`m20-split-boundary-loss-2026-08-14.md`](../research/m20-split-boundary-loss-2026-08-14.md)
+  § "Confirmed at scale". **The hard-lever numbers the `beats_hard` finding
+  wanted are still not measured** — they need the target-30 arm, or a re-run.
+- **The target-30 arm was incomplete at 5 of 19 legs** when last read, so the
+  two arms are not yet matched populations; readout dispatched as #9370.
+- **The AUC-dispersion measurement is specified but not run**, and the obvious
+  implementation is a trap: there is no fold-seed flag, and the only knob that
+  moves fold boundaries (`--min-fold-trades`) carries an explicit comment
+  forbidding this use — `P_detect` is not monotonic in `b` and "maximising power
+  over `b` selects the settings easiest to pass BY CHANCE". The correct form is
+  a new `--fold-offset k` at fixed `b`; it does not exist yet.
+- The ten cells whose live-parity evidence contradicts their recorded status are
+  **listed, not re-graded** — that is the operator's queued question.
+
+---
+
+## Fourth overnight stretch (2026-08-15, ~00:20–02:05Z)
+
+### Objective
+
+Run the AUC-dispersion measurement the previous stretch specified but could not
+execute, against a pre-registration written first. Then act on whatever it found.
+
+### Work completed
+
+**The measurement, and it lands on its own threshold.** `--fold-offset` (shipped
+last stretch) drove ten arms over the 1d pullback family — same pool, same
+`0.099` live-parity geometry, only the fold boundary moving. Seven are pure
+boundary shifts; offsets 30 and 40 also drop a fold, because
+`u = floor((N−k)/b) − 1` holds `u = 11` only for `k <= 29` at `N = 629, b = 50`.
+
+- The pre-registration's stop condition **did not fire**: offset 0 reproduced all
+  six recorded `mean_auc` values exactly, on both independent runs.
+- **Median per-leg spread 0.0515, max 0.0658.** The pre-registered top band is
+  `> 0.05`, so it clears by **0.0015** — and dropping `gdx`, the one leg whose
+  usable-fold count is not constant across arms, gives **0.0496**, below. Written
+  up as *"lands ON the threshold and the measurement cannot resolve which side"*
+  rather than resolved by choosing a leg set.
+- The independent 3-arm cross-check (0.0333) **reconciles**: it sits on the
+  median (0.0326) of all ten 3-arm subsets of the primary. So the two runs agree
+  and the gap is purely arm count — which also means the pre-registration fixed
+  thresholds on a statistic that is **not invariant to the number of arms**
+  without saying so. Recorded as a gap in that document.
+
+**A conclusion of mine, falsified within the hour and withdrawn.** From AUC
+values alone I wrote that the dispersion *"bites on the `candidate` side and
+essentially not at all on the negative side"*. Per-arm **verdicts** falsify it:
+`gdx_pullback_1d`, a recorded `honest_negative`, reads `candidate` on **2 of 7**
+pure boundary draws. Withdrawn explicitly in the memo, not softened — the second
+time this session a claim written from a partial read had to be retracted rather
+than qualified, and both retractions are in the artifact.
+
+**The verdict grid is the sharper result, and is labelled post-hoc.** The
+complete 6 legs × 7 offsets grid, no selection: four legs unanimous across every
+draw; `iaum` (recorded `candidate`) survives 1 of 7; `gdx` flips 2 of 7. **The
+two that move are exactly the two on a single-term margin, and they move in
+opposite directions.** So boundary placement shifts the fold-majority terms, not
+only AUC — and stability tracks **margin, not book size** (`slv` unanimous at 160
+OOS trades; `gdx` flips at 81).
+
+**A qualifier the arms forced onto an earlier finding.** Across the 60 arms the
+sole failing term is `beats_actual` 4× / `auc` 2× / `beats_hard` 2×, and
+`beats_actual` fails most often overall. The binding-term memo measured
+`beats_hard` as the sole failure in 6 of 7 single-term failures across 33 rounds
+of many families. Both are correct: **the binding term is family-dependent**, and
+that sentence now travels with the earlier finding.
+
+**Exposure sized the same night, pure read.** Of the 33 committed rounds, 19 are
+`honest_negative`; **7 (37%) fail on exactly one gate term**, six of them
+`beats_hard`. That reconciles *exactly* with the binding-term memo's 6-of-7 — so
+that memo had already sized this population, and what is new is that one of its
+members has been shown to flip.
+
+**Two provenance defects of mine, caught before commit.**
+
+- An emit wrote `beats_actual: null` where the value exists under
+  `beats_actual_folds` — committing it would have put *"we did not look"* and
+  *"absent"* into one field, in the artifact whose entire job is provenance.
+- The verbatim re-emit was **silently truncated at 34 of 60 rows** by GitHub's
+  comment cap, *including its own `reconciles=` line*. Caught only because the
+  row count was asserted independently. The emitter now prints a sha256, and the
+  committed 60 rows were verified **byte-exact** against it.
+
+**Consumer hardening.** `m20-exit-head-rounds.jsonl` is read by a leg-keyed dict
+(last-wins) and by a pooled flip rate; appending dispersion arms would silently
+change which measurement each leg is judged against and inflate the denominator,
+and neither consumer would raise. The schema had carried `fold_offset` since the
+flag shipped and **no consumer read it** — written and never read.
+`_load_graded_rounds` is the read: excludes non-zero offsets, announces which
+rows it dropped, silent on a clean file. Seven tests, each proven load-bearing by
+planting its own regression (filter removed, filter inverted, announcement
+removed, announcement always-on); every plant failed exactly its own tests.
+
+**A screen that ran empty and said DONE.** The first unanimity-screen launch
+"finished" 12 arms in 45 s — every one `exit=1`, `data_missing:GLD`, because
+`--data-dir` defaults to `REPO/"data"`, which inside a worktree is empty. Had the
+progress file recorded completion without exit codes, twelve empty arms would
+have read as *"no leg flipped"* — the null result the screen exists to
+distinguish from a real one. Relaunched with an explicit data dir, a pre-flight
+that aborts on a missing feed, and `skips=` on every progress row.
+
+**`pkill` on a driver orphans its children — a self-inflicted contention.** The
+screen was relaunched twice (wrong data dir, then wrong leg sets), and each
+relaunch `pkill`-ed the superseded run's `driver.sh`. That killed the *shell* and
+left its child `m20_exit_head_round.py` running. A liveness probe caught two
+processes executing the **same** `ict_scalp_eth_15m` backtest — one from the
+superseded run, one from the live one — on a 1-OCPU box at load 2.13, with the
+live run's log frozen at 475 bytes across a 30 s window.
+
+The relaunch printed *"stopped the wrong-leg-set run"*, which was **false** — it
+stopped the driver, not the work.
+
+**How it actually resolved, stated because it is not what I predicted:** by the
+time the cleanup ran, the orphan had **finished on its own** and the kill matched
+nothing. Load was back to 1.02 and `15m off0` had completed `exit=0 skips=0`. So
+the contention was real and transient, and my remediation was a no-op. Recording
+that rather than the tidier "diagnosed and fixed it".
+
+**My own probe had the defect it was hunting.** Its growth check measured
+`15m_off0/round.log` — an arm that had by then **completed** — so it reported
+`STILL-NO-GROWTH` on a perfectly healthy run. A finished arm's log never grows,
+and a probe that cannot tell "done" from "stuck" reports the same string for both.
+That is sub-class A of `diagnostic-provenance-guard` in a throwaway probe: the
+value was real, the label described a different condition.
+
+
+**Backlog.**
+`BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
+closed on its own criteria (spread measured and recorded; gate unchanged).
+Opened `BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS`, already
+SIZED, with the unanimity screen as its remaining item.
+
+**CI, corrected.** My earlier board claim implied a merge commit fixes *that
+push*. Measured over `guards.yml` runs on this branch: **nine consecutive plain
+pushes since the merge commit, nine attached**, against zero across the preceding
+run. The merge commit clears a **branch** state — a one-time cost per episode,
+not a merge commit per push. Also corrected my own denominator: I reported "seven
+plain pushes skipped" but can only substantiate *a ~7-hour window in which no
+push attached* (26 commits, unknown push count).
+
+### Validation
+
+- Guards **38/38** on every commit; `ruff` clean (one unused import caught and
+  removed).
+- 19 tests across `test_fold_offset.py` + `test_rounds_exclude_dispersion_arms.py`.
+- Committed arms verified **byte-exact** against the trainer's sha256
+  (`41c34c75`, 18758 chars, 60 rows).
+- Recomputing the four E1 gate terms reproduces **all 60 arm verdicts** and **all
+  33 committed round verdicts**, zero disagreements — an independent check on both
+  artifacts and on this reading of the gate.
+- Coverage re-run through `m20_coverage_rollup.py` (the producer, not a hand
+  count): **373/376 = 99.2%**, unchanged.
+
+### Gaps not yet verified
+
+- **The unanimity screen on the six untested single-term negatives is still
+  running** (relay #9384). Nothing is claimed about those legs.
+- **`u` constancy for that screen is unverified** — offsets 0/5/10 were chosen to
+  be small, not proven inside the band. It is checked at readout; any arm whose
+  fold count moved will be reported separately, not pooled.
+- **The dispersion result is one thin family** (`u` 4–11 against 26 for
+  `pullback_1h`), so it is an upper bound on what a well-powered family shows.
+- **The arms do not score identical trade sets** — per-leg `n_oos` swings 2–13%
+  across offsets. Intrinsic to shifting a boundary at fixed block size, but
+  "same pool" oversold it, and it surfaced only from the emitted rows.
+- **No matrix status flipped and no gate changed.** `iaum` and `gdx` are queued
+  for the operator as questions.
+- **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
+  Deploy verification is owed *after* merge.
+
+## Fifth overnight stretch (2026-08-15, ~04:15–05:15Z)
+
+### Objective
+
+Read out the 15m candidate screen, close the one open item the fourth stretch
+left (`eth_denom_2h`: 3 of 7 legs reproduce, 4 do not), and keep the operator
+queue accurate. The open item turned into the session's main finding.
+
+### Work completed
+
+**A root cause for the control failures — and it is a harness defect, not a
+data one.** `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER` (high).
+An E1 verdict depends on the ORDER the legs were typed on the command line:
+`m20_exit_head_round.py:157` iterates `a.legs.split(",")` → `emits` order →
+`rows.jsonl` row order (`build_exit_head_dataset.py:583,634,730`) → the tie-break
+in a **stable** sort over `bars[0]["bar_t"]` (`train_exit_head.py:518`). On a 2h
+family every leg entering on the same bar shares that timestamp, so the tie groups
+span every pooled leg.
+
+Measured (relays #9403, #9406): same 7 legs, two orders → identical
+`harness_trades` 2220, identical 71199 rows, identical 43×50 fold shape, yet **8
+of 43 folds differ** (first divergence fold 21, 1378 vs 1370 rows), AUC moved up
+to **0.0331**, and two legs **lost a usable fold** (43→42, 43→41). That is ~2/3
+of the 0.0515 median dispersion the study was built to measure.
+
+**Four candidate causes were measured and excluded before this one**, including
+my own leading hypotheses: data growth (`n_oos` identical), training
+non-determinism (5/5 byte-identical), edited evidence (`git show`), a differing
+leg **set** (#9398 — the roster is identical), and a differing parameter set
+(#9401/#9402 — the arm ran the same `fold_mode`/`target`/floors).
+
+**Isolated by a controlled pair, found in #9412.** The determinism run
+(alphabetical, vs its own re-run — same order) reproduced 5/5 byte-identically;
+the 4h control (alphabetical, vs `eth_denom_4h`'s hand-typed
+`eth,sol,xrp,ada,avax`) mismatched. Same code, same data, same flags, same legs;
+order is the only variable. It also retires an apparent tension in the earlier
+write-up — the determinism result and the unexplained mismatches were answering
+different questions, not contradicting each other.
+
+**The primary measurement survives, and the control is why.** A permuted order
+cannot reproduce six of six AUCs exactly, so the pre-registered off0 control
+*passing* is proof the 1d arms and their recorded round shared a leg order. The
+control caught a failure mode nobody had named — the argument for pre-registering
+a stop condition whose failure modes you cannot yet enumerate.
+
+**Exposure quantified from committed data:** 27 of 33 rows sit in multi-leg
+`family_pooled` rounds (exposed); 6 `per_leg` rows are structurally immune. That
+partition predicts the observed control results with no free parameters, and is
+being confirmed live by the 15m screen (single-leg arms, control exact).
+
+**Shipped fix (c) only, deliberately.** `pooled_legs_ordered` is now stamped on
+every emitted round row (+5 tests, regression planted and confirmed failing).
+It changes no numbers and makes two rows differing by order *detectable*, which
+they were not. **Fix (a) — a total sort key — is NOT taken**: it rewrites
+recorded verdicts across the corpus, so it is queued as an operator decision with
+its cost stated.
+
+**A second, unrelated live finding.**
+`BL-20260815-EXIT-LOOP-MAX-PASS-NEAR-THE-60S-ASK-AND-NOTHING-WATCHES-IT` (high).
+Read `exit_loop_health` (#9410) to confirm the other session's
+`EXIT_LOOP_DECOUPLE_DISABLED` tail had completed — it had (`fresh`, 625 passes).
+But `max_pass_ms` is **58.9 s** against the operator's 60 s ask, a **1.8% margin**,
+versus the 43.2% the decouple sprint recorded at n=55. Lowering
+`EXIT_LOOP_INTERVAL_SECONDS` cannot help — the interval is `max(floor, pass)` and
+the pass binds. And nothing alerts: `exit_loop_health` thresholds *staleness*
+only, so the loop reads `fresh` while approaching a breach of the ask it exists
+to satisfy.
+
+**Also fixed:** the trainer-diag relay executed my issue body's trailing prose as
+bash (#9400 returned `Three: command not found`) — a recurrence of
+`BL-20260731-TRAINERDIAG-TRAILING-PROSE`, whose fix ends the block only at a
+closing fence or the next `key:`. An unfenced `cmd: |` whose trailing prose is an
+ordinary sentence matched neither. Now ends at the first dedent, per YAML's own
+rule for block scalars; +2 tests, both written failing first.
+
+**Operator queue kept current:** item 1 corrected (#9257 is a 30-file PR, not the
+two-line merge the item described; `src/runtime/regime_flip_exit.py` is new but
+imported by nothing under `src/`), item 6 added (the root cause, as a
+which-fix decision), and the exit-cadence margin added as a coda.
+
+### Validation performed
+
+- 38/38 guards green on every pushed commit; the push is now gated on a captured
+  `rc` rather than piped through `tail` (which had let one red push through —
+  the same mistake fixed earlier in `bb960eaa`, repeated and re-fixed here).
+- New tests: 5 (`pooled_legs_ordered`) + 2 (relay parser) — each written failing
+  first, with a planted regression confirmed to fail, then passing.
+- Coverage re-run through `m20_coverage_rollup.py`: **373/376 = 99.2%**,
+  unchanged.
+- The backlog's `ensure_ascii=False` convention was determined by **exact
+  round-trip against the `origin/main` blob**, after my own `json.dumps` default
+  re-encoded 1889 lines and made ~580 pre-existing rows read as "added" to the
+  diff-scoped guards.
+
+### Gaps not yet verified
+
+- **The 15m screen is still running** — 3 of 8 arms. `ict_scalp_sol_15m` holds
+  `candidate` across offsets 0/4/8 with `u = 9` constant and a spread of 0.0079,
+  but `ict_scalp_xrp_15m`'s four arms have not started. Nothing is claimed yet.
+- **Whether the 58.9 s exit pass is a rare tail or a thickening distribution is
+  unknown.** A max over 625 passes is one order statistic and the writer keeps no
+  percentiles, so p95 is not recoverable from the artifact.
+- **The leg-order defect's effect on the corpus is bounded, not measured.** 27 of
+  33 rows are *exposed*; how many of their verdicts would actually move under a
+  total sort key is unmeasured, and measuring it means re-running them.
+- **Fix (a) is not applied**, so every future `family_pooled` round still inherits
+  the confound unless its leg order is matched by hand.
+- **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
+  Deploy verification is owed *after* merge.
+
+---
+
+## Sixth overnight stretch (2026-08-15, ~06:45–07:10Z)
+
+### Work completed
+
+1. **Fixed the `pytest-run` filter failure on my own HEAD** (`fc71372` →
+   `518b1e3c`). `test_docs_committed_readers_are_all_covered` reported
+   `{'docs/research': [test_exit_head_corpus_exemption_is_honest.py]}`. A genuine
+   find by that guard, but the reported path was a **scanner artifact**: the
+   derived check scans `tests/` line by line for a docs path joined onto the repo
+   root, and my matrix read was wrapped across two lines, so it saw
+   `REPO / "docs" / "research"` and truncated to the directory. Both files the
+   test actually reads were already in `COVERED` **and** matched by the grep. Fix
+   was to hoist the path to a one-line constant — **not** to widen the grep to the
+   tree, which would have broken `test_deliberate_exclusions_stay_excluded`
+   (`exit-refinement-notes.md` is a pinned deliberate exclusion). Recorded in the
+   test file that the truncation is fail-**SAFE** (a directory never matches the
+   filename-scoped grep, so it errs strict), so a future session does not read the
+   failure as "add the tree".
+
+2. **The stale-decisions banner asserted routing it never computed.**
+   `m20_coverage_rollup.py` printed *"it changes exit behaviour on a real-money
+   leg now"* over every stale non-negative cell while nothing in the script had
+   ever read `config/accounts.yaml`. Measured: **wrong for 3 of 4 rows** —
+   `mes_trend_long_1d` and `mhg_pullback_1d` route to `ib_paper`, and `ib_live` is
+   `real_money` at `mode: dry_run`. Sub-class **A** inside the tool written to
+   stop that class, so it was fixed rather than reworded. Three states
+   (`real_money` / `paper` / `unresolved`), `real_money` requiring **both** gates.
+   Reads through the canonical `src.config.accounts_loader.load_accounts_dict` —
+   `canonical-config-loaders` caught my first hand-rolled `yaml.safe_load`, and
+   the canonical loader's `{}`-on-failure return is mapped back to `None` via its
+   `errors` list so "could not read" is not collapsed into "no accounts".
+
+3. **The 15m screen COMPLETED and refuted a conclusion I had already written.**
+   `ict_scalp_xrp_15m` off4 → `honest_negative` (`beats_hard` 6 → 5), against
+   `candidate` on the other three draws. I recomputed E1 over all 8 arms and it
+   reproduces every recorded verdict. **The flip is not monotone in AUC** — off4
+   fails at 0.5800 while the passing control sits at 0.5681.
+
+4. **Item 7 raised, measured, and resolved in one stretch.** Found via
+   `--stale-decisions`: `htf_pullback_trend_2h / trail_geometry` is `shipped` on
+   2026-07-12 evidence against a 2026-08-10 cutover, on a leg routed to `bybit_2`
+   (real money, live). Re-swept at `--tp-cap-pct 0.099` on both split targets.
+   **Both neighbours lose to the live `trail_mult: 4.0`** (`trail3` worse on
+   everything; `trail5` the IS-only overfit shape). Staleness retired, no Tier-3
+   decision needed.
+
+### Validation performed
+
+- 71 tests across the touched files; guards **38 PASS / 0 FAIL** re-run *after*
+  committing each time, because the guard's own footer states it scans only
+  committed paths.
+- The routing resolver was **mutation-checked**: collapsing `unresolved`→`paper`
+  fails 2 tests; dropping the `mode: live` gate fails exactly the `ib_live` test.
+  Restore verified byte-identical.
+- Item 7's reading was **pre-committed in the queue before the number existed**,
+  so the conclusion could not be fitted to the result.
+
+### Contradictions or drift found (in my own work)
+
+- **I stated a causal claim over two data points and it was refuted within the
+  hour.** "Both movers are 1d, so sample size predicts instability" — `xrp_15m`
+  then moved at `u = 9`, `n_oos = 450`. Struck rather than deleted in both
+  documents. The corrected reading claims only what 12 legs can carry: of two
+  slack-0 cells at equal depth, one moved and one did not.
+- **I conflated measuring with acting.** Item 7 first said I had not run the
+  re-sweep "because it is Tier-3 and yours". Measuring is Tier-1; only changing
+  the lever is gated. Withholding the measurement handed the operator an item
+  asking permission to *look*.
+- **I asserted a CI anomaly without checking the clock.** I twice reported
+  `pytest-run` as running 26 and 35 minutes against a 6.6-minute baseline and
+  began treating it as a pattern. The actual elapsed time was **2.2 minutes** —
+  I had been tracking elapsed time by turn count. Nothing was wrong with CI.
+  Caught before it reached a backlog row, but only just.
+- **Fifth wrong-accessor readout**, now filed as
+  `BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES` with
+  observable resolution criteria. Two relays (#9423, #9424) were spent learning a
+  shape that `grep -n round_report.json scripts/research/m20_exit_head_round.py`
+  answers locally in under a second. The data is remote; the **shape** is not.
+
+### Gaps not yet verified
+
+- **The `htf_pullback_trend_2h` re-sweep tests `4.0 ± 1` only.** No neighbour
+  beats the shipped value; that is not evidence 4.0 is optimal.
+- **Its absolute net_R figures are not the live book's** — `verdicts.json` reports
+  `regime_router: off` with `regime_gate_delta: narrower_live`, so live trades a
+  narrower book. The *delta* is sound (base and cells share the book); the levels
+  are not.
+- **The matrix cell for that lever has NOT been re-stamped** to this run. That is
+  Tier-1 bookkeeping, deliberately left for a session that is not also the one
+  that produced the evidence.
+- **The three paper stale decisions are untouched.**
+- **`trend_donchian 1h` and `scalp_5m` second-pass rounds were never launched** —
+  the trainer was busy with the 15m screen, then the item-7 sweep took the idle
+  window.
+
+## Seventh overnight stretch (2026-08-15, ~09:15–09:50Z)
+
+### Objective
+
+Read the donchian-1h fold-dispersion screen against its two pre-committed gates,
+then keep the screen queue moving. Secondary: whatever the read turns up.
+
+### Work completed
+
+**1. The donchian-1h screen (relay #9435) — both gates passed, and the leg moved.**
+
+Gates were fixed in the launch issue (#9431) *before* any number existed, which
+is the only reason the result is interpretable — the trainer resets to
+`origin/main` every ~15 min and `--fold-offset` is branch-only
+(`BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH`):
+
+- **Gate 1** — one sha256 pair (`b197e75b…` / `64126139…`) repeated across all
+  four arms, pinned `f28348c8`. No arm silently reverted.
+- **Gate 2** — off0 reproduced `auc 0.6079 / u 23 / candidate` exactly.
+
+`trend_donchian_eth` **moved**: 3 of 4 draws `candidate`, off4 →
+`honest_negative` on `beats_hard` (13 against a bar of 16 at `u = 23`). I
+recomputed E1 over all **twelve** rows of the round independently; it reproduces
+every recorded verdict, so the flip is the gate working.
+
+Two readings worth more than the flip itself:
+
+- **AUC spread carries no information about verdict stability.** The flipping
+  arm's AUC is `0.6077` against a control of `0.6079` — flat to three decimals —
+  while the verdict moves. Four-draw spread `0.0086`; `ict_scalp_sol_15m`, which
+  did **not** move, spreads `0.0088`. The two tightest-AUC legs in the corpus
+  split one-and-one. Any triage that ranked this population by "how much does the
+  headline wobble" is now measured and does not work.
+- **The mover is the deepest leg screened** (`u = 23`, `n_oos = 566`). That is a
+  second and stronger refutation of the sample-size cause I retracted at 07:00Z —
+  not merely "a mover can be thick" but "the thickest book screened moved while
+  thinner ones held".
+
+The pooled round returned two more legs free, both `honest_negative` on all four
+draws. `trend_donchian_sol` is the notable one: slack **−1**, a **fragile
+NEGATIVE** one fold from reading `candidate` — the first negative-side cell
+actually tested, and it held.
+
+Tally **4 of 15**. New at this base size, stated positively rather than as a
+caveat: **every leg that moved was flagged, and no unflagged leg has moved** —
+0 false negatives, 11/15 false positives.
+
+Written into `docs/research/m20-fold-dispersion-2026-08-15.md` and folded into
+operator-queue item 5, whose **recommendation is unchanged for the second time**.
+That is the property worth recording: it has now survived two screens that each
+refuted a *different* explanation I had attached to it, because it never rested
+on either.
+
+**2. A corpus data defect, found while planning the next screen — 10 of 33 rows.**
+
+Every `trend_donchian*` row in `docs/research/m20-exit-head-rounds.jsonl`
+recorded `family: "trend_donchian"`. The driver writes `classify(leg)`, which
+returns **`"donchian"`** — `classify` matches the SUBSTRING
+(`m20_fleet_exit_sweep.py:134`), so the leg id and the family name are different
+strings and transcribing the former produced the latter's near-miss. All ten
+carry a hand-transcription provenance (`"relays #NNNN …"`); every driver-emitted
+donchian row says `"donchian"`.
+
+**No verdict or number is wrong.** The cap is decided at RUN time from the live
+`classify()` call inside `base_args`, never from this file, and relay #9156's
+geometry probe gated that launch on the cap actually being forwarded. The damage
+is to the reader: `LIVE_TP_CAPPED_FAMILIES` is `{donchian, pullback, fade,
+squeeze}`, so filtering the corpus by that set to ask *"which rounds ran at
+live-parity TP"* returned **NO for every donchian row** — ten correctly-capped
+rounds reading as `NO_TAKE_PROFIT` books, a geometry production does not run.
+CLAUDE.md § "Diagnostic provenance" sub-class **A**.
+
+It caught me first, which is why it is written up rather than quietly patched:
+planning #9436 I read `family: "trend_donchian"`, saw it absent from
+`LIVE_TP_CAPPED_FAMILIES`, and briefly concluded that round had run **uncapped**.
+I avoided publishing that only by reading `classify()` instead of trusting the
+record — the same "read the field, not the prose about it" move that RULE ONE
+asks for, arriving one step later than it should have.
+
+Fixed **surgically, not by re-serializing**: a `json.dumps` round-trip is *not*
+byte-identical on this file (one row was written with `ensure_ascii=True` and
+carries a literal `—` where its siblings carry the raw character), so a
+rewrite would have silently changed a row this commit is not about. The replace
+asserts exactly 10 occurrences, then re-parses every line to prove key order held
+and no field other than `family` moved.
+
+Guarded by `tests/test_rounds_family_matches_classify.py` — **written first,
+observed to FAIL on exactly those 10 rows**, with two positive controls so a
+comparison that stopped comparing cannot read as a clean corpus. It pins the
+consequence (`LIVE_TP_CAPPED_FAMILIES` membership) as well as the rule, because
+the next hand-transcribed row is one relay away.
+
+**3. `trend_donchian_eth_prop` screen launched (#9436), readout fired (#9438).**
+
+The last slack-0 1h candidate: `u = 24`, `ba 20`, `bh 16` ⇒ slack
+`min(12, 0) = 0`, binding on `beats_hard` **exactly** at the bar. A different
+round from `trend_donchian_eth`, so it needs its own control.
+
+Leg order `trend_donchian_sol_prop,trend_donchian_eth_prop` (**sol first**) was
+read out of launch relay #9156's own `--legs` argument — not memory, and not
+inferred from the corpus, whose `pooled_legs_ordered` is `None` for that round
+(the field postdates it). Gate 2 requires **both** rows to reproduce, stricter
+than #9435's single-row gate, because on a pooled round a wrong leg order can
+still land one row right by luck.
+
+Not passing `--tp-cap-pct`: the original ran at the driver default, and that
+default *is* `0.099` (`m20_exit_head_round.py:111`). Passing it explicitly would
+be the same value under a different provenance claim.
+
+### Validation performed
+
+- 38 guards PASS / 0 FAIL, re-run **after committing** each change — the guards
+  are scoped to a commit range and print an explicit warning when uncommitted
+  paths were not scanned, which is what makes a green meaningful here.
+- New test observed failing on the real defect (10 rows) before the fix, passing
+  after; its two positive controls pass in both states.
+- The four sibling corpus tests (`…corpus_exemption_is_honest`,
+  `…round_emits_evidence`, `…exclude_dispersion_arms`, `…round_geometry_stamp`)
+  plus `test_pytest_run_filter`: 39 passed.
+- Coverage roll-up re-run: **373/376 = 99.2%**, unchanged.
+- PR #9257 CI on `3ed8d9d1`: `repo-inventory`, `guards`, `pytest-collect` green;
+  `pytest-run` still in flight at write time (started 09:32:14Z).
+- Coordination board: no open PR other than #9257, and PR #8815 (the tick-chain
+  session, `01Gvmm6…`) **merged 2026-08-12** — no live contention.
+
+### Contradictions or drift found
+
+- The corpus `family` defect above (mine to the extent I read it wrongly first,
+  not mine in origin — it predates this session).
+- `docs/research/m20-exit-head-rounds.jsonl` mixes `ensure_ascii` conventions
+  across rows. Left alone deliberately: harmless, and normalising it would touch
+  evidence rows for cosmetics. Recorded here so the next session that runs a
+  round-trip check is not surprised by it.
+
+### Gaps not yet verified
+
+- **#9436's gates are not yet read.** If either fails the screen is void and the
+  `trend_donchian_eth_prop` cell keeps its single unreplicated measurement.
+- **`scalp_5m` second-pass round** still not launched — deliberately queued
+  rather than run concurrently, since the trainer is 1 OCPU and the 2026-08-15
+  thrashing incident came from overlapping jobs.
+- **The three paper stale decisions** (`mes_trend_long_1d` trail_geometry,
+  `mhg_pullback_1d` stale_stop + trail_geometry) are untouched. All three are
+  PAPER — confirmed by routing, after the 07:25Z retraction — so none is a
+  money-at-risk exposure; they are stale knowledge.
+- The claim "no unflagged leg has moved" is read off my own tally table. It is
+  checkable from that table, but the table is the only record of it.
+
+## Eighth overnight stretch (2026-08-15, ~09:50–10:05Z) — the flag itself was refuted
+
+### Objective
+
+Screen the remaining fragile cells. What actually happened is that the screen
+refuted the criterion the whole study had been using to choose its targets.
+
+### Work completed
+
+**1. `trend_donchian_eth_prop` (#9436/#9438) — unanimous, and the first inversion.**
+
+Both gates passed, gate 2 in a stricter **two-row** form: off0 reproduced
+`eth_prop 0.6138/u24/candidate` **and** `sol_prop 0.5635/u23/honest_negative`,
+both exact. On a pooled round one row can land right by luck and two cannot, so
+this is what pins the leg order (`sol` first, recovered from #9156's argv).
+
+`trend_donchian_eth_prop` is **unanimous `candidate` across four draws while
+sitting at slack 0** — literally at the bar. Its API sibling
+`trend_donchian_eth`, at slack **+2**, moved. Same family, timeframe, symbol.
+
+Also surfaced a mechanism that is arithmetic rather than a story: **`u` varies
+across arms** (24, 24, 23, 23), and the gate bar is `2u`, so the **bar moves**
+(48 → 46). A leg can change verdict with its `beats_*` unchanged. Every arm must
+be read against its own bar.
+
+**2. The 4h donchian round (#9439/#9440) — 4 of 5 legs moved, and it REFUTED the fragility flag.**
+
+Strongest control run of the study: one sha256 pair across four arms, and off0
+reproduced **all five** recorded rows exactly at `u 16`. All 20 verdicts
+recomputed independently and reproduced.
+
+| leg | control slack | flagged? | moved? |
+|---|--:|:--:|:--:|
+| `trend_donchian_ada_4h` | **+7** | **NO** | **YES** |
+| `trend_donchian_avax_4h` | −2 | yes | **YES** |
+| `trend_donchian_eth_4h` | **−5** | **NO** | **YES** |
+| `trend_donchian_sol_4h` | −2 | yes | **YES** |
+| `trend_donchian_xrp_4h` | +1 | yes | no |
+
+**🔴 This refutes what I published at 09:20Z and repeated to the operator** —
+*"every leg that moved was flagged, and no unflagged leg has moved; zero false
+negatives in 17."* Two unflagged legs moved, one from slack **+7**, while the
+flagged leg was the one that held. Struck rather than deleted at all three sites
+(dispersion doc header, dispersion doc body, operator-queue item 5), because it
+had been quoted to the operator before it was refuted.
+
+Restated over the 15 screened legs with a nameable control slack: flagged
+**6/11** moved, unflagged **2/4** — 55% vs 50%, one-sided Fisher **p = 0.66**.
+**No separation.**
+
+**Why, which is the part worth keeping:** slack measures distance from ONE fold
+flipping inside a **fixed** partition; this screen **re-draws every fold**.
+`eth_4h`'s `beats_hard` moves 9 → 12 between arms — three folds' worth — which no
+one-flip margin can anticipate. I had been using one quantity as a proxy for the
+other without ever checking that it was one. The flag is not *wrong* about what
+it states (a slack-0 cell **is** one fold from a different answer, by
+arithmetic); it is wrong as a **predictor of boundary sensitivity**, which is the
+thing this study measures.
+
+**What stands:** **8 of 15 screened legs (53%) changed verdict under
+re-partitioning, and margin does not tell you which.** Stated with its caveat:
+that 53% is **not** an unbiased fleet rate, because I chose the screened set to
+be flag-enriched — the reason to still weigh it is that the enrichment provably
+did not work, and the clean measurement is a screen selected **without reference
+to slack**, which is now the higher-value use of trainer time than finishing the
+flagged list.
+
+Three heuristics have now been measured and refuted overnight — sample size
+(07:00Z), AUC spread (09:20Z), margin/slack (09:45Z). **No fourth is proposed.**
+
+**3. Flagged, deliberately as a question and not a claim:** PR #9257's evidence
+is a **walk-forward** `wf 5/6`, a different harness and a different lever from
+anything measured here — but it shares the *structure* that proved
+boundary-sensitive (a majority-of-folds vote over a chosen partition). **I have
+not measured whether walk-forward verdicts move under re-partitioning, and this
+is not a reason to hold that merge.** Recorded in queue item 5 so it cannot later
+be discovered and mistaken for something I knew and did not say.
+
+**4. Filed `BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE`.**
+
+The guard fails on an already-annotated claim when the file has uncommitted
+edits, and reports a line number that does not hold the claim — it errored at
+line 688 for a claim at line 750, a 62-line offset exactly matching an
+uncommitted block inserted earlier in the file. Committing that block with no
+other change flipped the same invocation from 1 finding to 0. Cost me a cycle
+twice tonight. Not a CI correctness bug (CI runs a clean checkout), which is
+exactly why it survives — it is invisible to the surface that would catch it.
+
+### Validation performed
+
+- 38 guards PASS / 0 FAIL on the **committed** tree after each change.
+- All 20 rows of the 4h round and all 8 of the prop round re-derived through E1
+  independently; every recorded verdict reproduced.
+- The flag's predictive value computed with a **stated denominator** (15 legs
+  whose control slack I can name; the 1d study's 7 other clean-control legs
+  deliberately excluded rather than assumed), with a Fisher exact rather than an
+  eyeballed comparison.
+- CI independently reported the `guards` failure on `6a71ff82` that my local run
+  had also caught — fixed forward in `49c6170c`.
+
+### Contradictions or drift found (in my own work)
+
+- **The 09:20Z zero-false-negatives claim** — published, quoted to the operator,
+  refuted 25 minutes later. Retracted at three sites.
+- **The backlog row about the guard failed the guard**, by writing the bare
+  annotation token while describing it. The guard was right; fixed by naming a
+  real path and recording how the behaviour was established.
+
+### Gaps not yet verified
+
+- **The unbiased-rate screen has not been run.** Every leg screened so far was
+  chosen with reference to slack, so `53%` carries a selection caveat that only a
+  slack-blind sample can remove.
+- **Walk-forward re-partitioning is unmeasured** (see item 3 above).
+- **`ict_scalp_sol_5m`** (slack +2) is the one remaining nameable fragile cell
+  never screened. Lower priority now that the flag has stopped being a reason to
+  prefer it.
+- The three paper stale decisions remain untouched; all three are PAPER, so none
+  is a money-at-risk exposure.
+
+## Ninth overnight stretch (2026-08-15, ~10:05–10:20Z) — the slack-blind screen, and three corrections to my own work
+
+### Objective
+
+Run the measurement my own 09:45Z result said to run next: a dispersion screen
+selected **without reference to slack**, to find out whether the 53% move rate
+was a selection artifact.
+
+### Work completed
+
+**1. The slack-blind 2h pullback screen (#9441/#9444).** Chosen by a stated
+margin-blind rule — *largest wholly-unscreened round* — and **0 of its 7 legs are
+flagged**. Both competing predictions were written into the launch issue before
+it ran: *flag-has-value ⇒ ≈0 movers; broad-sensitivity ⇒ ≈3–4.* Gate 2 passed on
+**all seven** off0 rows exactly. **Result: 1 of 7 moved.**
+
+**2. 🔴 CORRECTION — my 09:45Z "the flag is REFUTED" was overstated, and the flaw
+was mine.** That analysis pooled legs measured at **different numbers of draws**
+(7 for `gdx`/`iaum`, 4 for the rest); more draws is more chances to move, so
+"moved" was not comparable across them, and the unflagged denominator was **4**.
+Redone at matched draws (off0/4/8, **17 legs**): flagged **3/6 = 50%**, unflagged
+**3/11 = 27%**, Fisher **p = 0.34**. The direction the flag predicts, **not
+established**. The slack-blind round supplied the missing unflagged sample —
+which is exactly what it was designed for. Corrected in the doc header, the doc
+body, and the operator-queue lead box.
+
+**3. The one mover flipped on a term the flag never measured.** `eth_pullback_2h`
+failed the **AUC** bar (`0.5427` vs `0.55`), not a fold bar — and its control
+clears that bar by **+0.0006**, already recorded in queue item 5 as the corpus's
+thinnest margin. The gate has two independent failure terms; my flag measured
+one. I tested the two-term repair (`|slack| ≤ 2 OR |auc−0.55| ≤ 0.01`): it
+explains that case and **does not improve prediction** (p 0.34 → 0.37, flagging 3
+more legs to catch 1 more mover). Recorded as an untested post-hoc hypothesis and
+**explicitly not adopted** — three such stories have already been advanced and
+retracted tonight.
+
+**4. 🔴 A defect in my own gate, and then a second one in my own readout.**
+
+The off12 arm produced no rows: the trainer's ~15-min reset removed the
+branch-only `--fold-offset` between the driver's `git checkout` and its training
+call. **Gate 1 passed anyway**, because it hashes at *arm start* — **a matching
+hash proves the file was correct when hashed, not that the arm ran that code.**
+I had been quoting it as the latter on every screen tonight; the others differed
+only in timing luck.
+
+Then I wrote *"the arm never ran"* and had to correct that too. Verified against
+the box (#9447): the arm **ran** — all seven backtests emitted, the dataset built
+72,725 rows — and **only the training step** was rejected, after which the driver
+wrote a **0-row** `rounds.jsonl` and printed `round done`.
+
+**That empty file then broke two of my own diagnostics**, in the class I had
+documented three times the same night: my readout loop tests `[ -f ]` then `sed`s
+the file, so the `else` never fires and `sed` over an empty file prints nothing —
+the arm vanished from the report with **no line at all**, and I read the silence
+as "directory absent". Sub-class **C**, the unasserted denominator, committed
+inside the diagnostic I was using to police it. The same `[ -f ]` test then made
+my re-run guard **refuse to re-run the arm**.
+
+**The scientific conclusion never changed** — off12 contributed no rows either
+way, the round is genuinely 3 draws, every number stands. What nearly happened is
+that I corrected a *right* answer on the strength of two broken reads of my own,
+and the only thing that stopped it was going to look at the file's mtime.
+
+**5. Filed** `BL-20260815-EXIT-HEAD-ROUND-EXITS-ZERO-WHEN-TRAINING-SUBPROCESS-FAILS`
+(high) — the driver returns 0 and writes an empty evidence file, so a dead arm
+passes an existence check — with the measured downstream damage and a criterion
+that **existence must imply rows**. Re-run relaunched (#9448) with a capability
+pre-flight, before/after hashes, and a **row-count** assertion.
+
+### Validation performed
+
+- All 21 verdicts of the 2h round recomputed independently through E1 and
+  reproduced; gate 2 matched all seven off0 rows exactly.
+- The flag comparison redone at **matched draw counts** with a Fisher exact,
+  rather than the pooled-draw comparison that produced the 09:45Z error.
+- The off12 question settled by **reading the file's mtime and row count on the
+  box**, not by choosing between two contradictory earlier reads.
+- 38 guards PASS on the committed tree after each change.
+
+### Contradictions or drift found (all in my own work, this stretch)
+
+- 09:45Z "the flag is refuted" — overstated; corrected at three sites.
+- "the off12 arm never ran" — wrong; it ran and wrote a 0-row file.
+- My readout loop and my re-run guard both treated an empty evidence file as a
+  present one.
+
+### Gaps not yet verified
+
+- **#9448's outcome is unread.** If it lands, the 2h round becomes 4 draws and
+  every rate in this stretch needs recomputing at 4 draws for that round.
+- **The two genuine false negatives** (`ada_4h` slack +7, `eth_4h` −5) remain
+  unexplained, deliberately.
+- **The other screens tonight were never re-verified** against the
+  hash-after-run standard; they passed a gate now known to be insufficient. Their
+  controls DID reproduce exactly, which is independent evidence they ran the
+  right code — but that is an inference, not the check I claimed to be making.
+
+## Tenth overnight stretch (2026-08-15, ~10:20–10:45Z) — a pre-registered prediction, and it failed
+
+### Objective
+
+Stop generating post-hoc explanations and test one. Three had already been
+advanced and retracted overnight; the fourth — that the E1 gate has **two**
+failure terms and my fragility flag reads only one — was the first to make a
+falsifiable prediction, so I ran it.
+
+### Work completed
+
+**1. The pre-registered 1h pullback test (#9449/#9452) — prediction FAILED.**
+
+Chosen because that family sits *below* the AUC bar and separates the two
+criteria cleanly. Predictions and a falsification condition went into the launch
+issue **before** the run: *AUC binds ⇒ `tlt_pullback_1h` moves* (slack +5, so the
+slack flag misses it; AUC margin −0.0050, inside the two-term band); falsified by
+*`tlt` stable while `qqq`/`spy` move, or nothing moving at all*.
+
+All four arms clean under the corrected gate — `preflight=OK`, `exit=0`,
+`rows=4` each — and off0 reproduced all four recorded rows exactly.
+**Result: 0 of 4 moved. The second falsification branch is what happened, and I
+scored it as a failed prediction rather than reframing it.**
+
+**2. The MECHANISM claim was confirmed regardless, and does not depend on
+movement.** Per-arm failure decomposition for `tlt_pullback_1h` (bar `2u = 52`):
+
+| arm | AUC | 3·ba | 3·bh | fails on |
+|---|--:|--:|--:|---|
+| off0 | 0.5450 | **57** | **57** | **AUC only** |
+| off4 | 0.5399 | **60** | **60** | **AUC only** |
+| off8 | 0.5444 | 54 | 51 | AUC + bh |
+| off12 | 0.5404 | **57** | **57** | **AUC only** |
+
+In three of four arms the fold terms clear comfortably and **only** the AUC bar
+holds the leg negative. A slack-only reading calls `tlt` a comfortable negative
+at `+5`; it is one AUC point from `candidate`, and its arm-to-arm AUC spread
+(`0.0051`) is the same size as its margin (`0.0050`). Genuinely on the edge — it
+simply did not cross in four draws.
+
+The other three legs behaved as the framework says they should, which matters
+because a test that passes only on its headline is weak evidence.
+`gld_pullback_1h` is the reverse case (AUC fine, fails on **fold** terms,
+slack-flagged at −1) and **did not move, consistent with its earlier independent
+4-draw screen**. `qqq`/`spy` fail on **all three** terms in most arms — correct
+negative controls.
+
+**3. Numbers, at the cut that is valid.** 29 screened legs, **10 movers (34%)**.
+Uniform 4-arm exposure (23 legs): two-term **`p = 0.195`** vs slack-only
+`0.367`. The pooled-29 cut reaches `p = 0.033` and **I am still declining to
+quote it**, because it mixes 9-arm and 4-arm legs — the exact error I corrected
+at 10:05Z when it ran *against* the flag. `tlt` is now the two-term criterion's
+**first false positive**: the honest cost of having run the test.
+
+**4. Complement launched (#9454)** on the 5m scalp family, which sits far
+**above** the AUC bar (margins +0.049 to +0.068) so the **fold** terms bind — the
+mirror image. Pre-registered: *if anything moves it is `ict_scalp_sol_5m`*
+(slack +2); `xrp`/`avax` at slack +13/+14 are five fold flips away. Falsified by
+either of those moving while `sol` does not. Passing the original **four**-leg
+`--legs` including the one that burned on `data_missing:BTCUSDT`, because
+dropping a leg from a pooled round changes the pool.
+
+### Validation performed
+
+- All 16 rows of the 1h round recomputed through E1 independently; every recorded
+  verdict reproduced, and off0 matched all four controls exactly.
+- Gate integrity read per arm rather than assumed — preflight, exit code, row
+  count — after the previous stretch showed the old gate passing over a dead arm.
+- 38 guards PASS on the committed tree after each change; CI green on `guards`,
+  `pytest-collect` and `repo-inventory` for the latest push.
+- Coverage roll-up re-verified: **373/376 = 99.2%**.
+
+### Contradictions or drift found
+
+- ⚠️ **My own launcher's `sha_before_*` came back EMPTY** in #9449 (a nested
+  `cut -d" "` did not survive the `bash -c`), so that gate would have compared
+  two blanks and reported agreement. Caught only because the relay echoed
+  `versions.txt`. Recorded as a third instance on the existing backlog row, with
+  the general lesson: **a verification step must be able to say "I could not
+  measure" distinctly from "I measured and they agree"** — an empty-equals-empty
+  pass is the collapsed-state defect occurring inside the check itself. Fixed in
+  #9454 by printing the hash raw and unparsed.
+- The Bash working directory reset from the repo to `/home/user` mid-stretch and
+  an append silently failed on a relative path. No partial write (the redirect
+  never opened); re-done with an absolute path. Noted because a *partial* append
+  to a sprint log would have been much harder to spot.
+
+### Gaps not yet verified
+
+- **#9454's result is unread.**
+- The **two false negatives** (`ada_4h` slack +7, `eth_4h` −5) resist every
+  criterion tried and remain unexplained. Deliberately.
+- **Four heuristics tested, none established.** The honest state of the
+  fragility question is unresolved, and the operator box says exactly that.
+
+---
+
+## Eleventh overnight stretch (2026-08-15, ~13:20–15:00Z) — the arms were not unlucky, they were unqueued
+
+### Objective
+
+Land the deferred fix for the driver that reported success on dead arms, then
+find out why the arms kept dying at all. The second half turned out to be the
+real work: the answer was not in my harness, it was a binding protocol this
+whole research path had never been wired into.
+
+### Work completed
+
+**1. The silent-failure fix (commit `8b5fc789`), deferred since the screen was
+mid-flight.** `m20_exit_head_round.py` checked the DATASET-BUILD subprocess's
+returncode at line 266 and not the TRAINING one; control fell through to
+`if e1.exists():`, so a dead training run left `report` empty, the driver wrote
+a **zero-row** `rounds.jsonl`, and `main` returned **0**. Three properties now
+hold, matching the backlog row's criteria:
+
+- the training returncode is checked, and *exited-0-but-wrote-no-report* is
+  caught as a **distinct third state**. Deliberately not `return 1` on the first
+  failure the way the build step does — a 3-leg round whose second leg dies
+  should still train the third, and the partial evidence is wanted. What must
+  not happen is reporting success;
+- `main()` returns **2** naming the failed families and the row count, so a
+  wrapper reading `exit=$?` need not parse stdout;
+- **existence now implies rows** — a zero-row round writes `rounds.EMPTY`
+  carrying the failures, the families that did train, and the geometry. The
+  empty file was the artifact that fooled the most checks: created, so `[ -f ]`
+  passes; empty, so a `sed` readout prints nothing and the arm reads as ABSENT
+  rather than FAILED. That is precisely the loop I wrote at 10:04Z, and it is
+  why the off12 arm vanished with no line at all.
+
+`round_report.json`'s `_round_meta` additionally carries `train_failures` (an
+**empty list** on a clean round, so "no failures" is stated rather than implied
+by absence) and `families_trained`.
+
+**2. A capability pre-flight (commit `23a0fdf6`).** The round now asks the
+trainer whether it accepts the flags it intends to forward *before* the emit
+loop. Scoped to flags actually forwarded, so `--fold-offset 0` — never passed,
+because `if a.fold_offset:` treats 0 as falsy — does not block a control arm.
+Verified four ways against the real driver: flag present → proceeds; offset 0 →
+no probe at all; flag renamed → `PRE-FLIGHT FAILED`, exit 3; argument removed →
+`--help` itself fails and the returncode branch catches it, exit 3.
+
+**3. The root cause (commit `4cc4c552`) — and it is not what I had recorded.**
+The "~15-min `Reset to origin/main`" that voided two 73-minute arms is not an
+ambient force of nature. It is `git checkout --force -B main origin/main` at
+`scripts/ops/run_training_cycle.sh:138`, and that line runs **inside the trainer
+heavy-job queue**: the cycle calls `take_trainer_heavy_lock()` first and
+**skips its entire cycle** if the queue stays held past the wait. An arm holding
+the lock does not get warned about the reset — it *prevents* it.
+
+The M20 exit-head path took that queue **nowhere**. Measured: `grep -c
+heavy_lock` returns 0 for `m20_exit_head_round.py`, `scripts/ml/train_exit_head.py`
+and `m20_fleet_exit_sweep.py`. The `ml` CLI's enforced backstop
+(`src/utils/trainer_heavy_lock.py`, wired in `ml/cli.py`) cannot cover them
+either — it fires for `python -m ml train|build-dataset`, and this driver shells
+out to a research script that never imports the CLI. Both halves of an
+enforcement `docs/claude/trainer-resource-protocol.md` describes as binding miss
+this entire family. **Every voided arm was voided by a mechanism the repo
+already had the primitive to stop, and the reason it did not was that this path
+never asked for it.**
+
+It also explains the 05:32:50Z slowdown (trainer-diag #9419): an unqueued
+`replay_pregate_fleet.py` at 4.08 GB RSS on a 6 GB box drove 4.4 GB into swap
+while four arms — identical work differing only in `--fold-offset`, which cannot
+cost time — ran 7.9 / 15.9 / 20.5 / 25.8+ min in launch order. Arms that cannot
+differ in duration did. Both sides of that collision were unqueued.
+
+Driver now acquires the lock, ordered **after** the pre-flight (a missing flag
+should fail in two seconds, not after an hour in a queue).
+
+**4. Live-state reads, prompted by the coordination board.** The board header
+recorded `EXIT_LOOP_DECOUPLE_DISABLED` as set with an intent to clear it, and no
+comment after 05:33Z confirmed the clear — so I read it rather than assuming
+either way. Both halves agree it is OFF: `exit_loop_health` `state: "fresh"`,
+703 passes over 6.62 h = **33.9 s per exit evaluation**, `offloop_hooks`
+populated; and `get-env` returns `process: '0'` / `declared: '0'` with no
+`pending_restart`. Reported to the board so the stale header can be struck.
+
+### Validation performed
+
+- 10 structural tests in `tests/test_exit_head_round_fails_loudly.py`, **each
+  proven load-bearing by planting the exact defect it guards**: removing the
+  training returncode check → 2 fail; making the `rounds.jsonl` write
+  unconditional → 1 fails; degrading the boundary match to a substring → 1
+  fails; removing the lock call → 1 fails. All restored → 10 pass.
+- The heavy lock verified four ways off-box: inert without the role marker (no
+  lock file created), acquires under `TRAINER_HEAVY_LOCK_FORCE=1`, queues then
+  exits **75** when contended, re-acquires on release.
+- `run_guards.py --base main` → **38 PASS / 0 FAIL**, with the changed paths
+  confirmed present in the scanned `/tmp/pr.diff`. This mattered: the previous
+  run's green had **not** scanned them, because they were uncommitted and every
+  guard is scoped to a commit range.
+- `check_backlog_refs` caught an abbreviated id (`BL-…-EXITS-ZERO-…`) in my own
+  correction text that resolved to nothing. Expanded and re-run clean.
+
+### Contradictions or drift found (mine, this stretch)
+
+- **🔴 A conclusion wrong in KIND, not in detail.** I had recorded the missing
+  piece for the screen harness as *"a sound gate hashes AFTER the run"*. That is
+  a **detection** fix where a **prevention** fix existed: an after-hash tells
+  you an hour was wasted, the lock stops the hour being wasted. I reached for a
+  better gauge when the available move was to remove the cause. Corrected in the
+  backlog rather than quietly rewritten, and the reasoning error recorded, not
+  just the corrected answer.
+- **My own probe could not fail.** The pre-flight's first version tested
+  `flag in help_text`. Its own negative test renamed the trainer's argument to
+  `--fold-offset-REMOVED-BY-SIMULATED-RESET` and the probe printed
+  "pre-flight OK" — because the flag is a substring of the rename. Sub-class A
+  committed inside the guard whose purpose is to stop sub-class A. Now a
+  word-boundary match.
+- **A test locator that prose could move.** `test_the_emitted_geometry_is_the_
+  derived_one_not_the_flag` anchored on the first *mention* of `rounds.jsonl`
+  and looked 3000 chars back. My comment naming the file in prose moved the
+  index ~250 lines and failed the test against untouched code; widening the
+  window only deferred it, since the next comment pushed the stamp out of a
+  correct window too. Now bounded by `rows.append({` … the literal write site.
+- **I measured the wrong thing once.** Reading the queue-timeout exit as
+  `exit=0` — that was `grep`'s status through a pipeline, not python's. Measured
+  directly: **75**. The same shape as the `[ -f ]` and empty-hash failures this
+  stretch is about, committed while writing about them.
+
+### Gaps not yet verified
+
+- **The class is not fixed, only one script is.** `train_exit_head.py`,
+  `m20_fleet_exit_sweep.py` and `replay_pregate_fleet.py` still take the queue
+  nowhere, and **the enumeration has not been done** — I do not know how many
+  heavy research entrypoints bypass it, only that at least four do. Filed as
+  `BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE` (open, high) with
+  criteria requiring the enumeration *and* a real CI guard, explicitly not a
+  presence-only marker.
+- The tests are **structural** (asserting on source), not behavioural. A
+  behavioural test needs a fake trainer and a fake harness; worth building, not
+  done. What is claimed is that the properties are pinned against regression,
+  **not** that a failing round was observed end-to-end.
+- The 5m screen is still **VOID and not re-run**. The fix makes a re-run
+  survivable; it does not make the earlier result exist.
+- ⚠️ **Flagged to the tick-chain session, not diagnosed by me:** the live tick
+  measured **144.8 s mean / 202.0 s max** (n=115), against the 69.3 s post-
+  decouple and 83.9 s pre-decouple readings in CLAUDE.md — i.e. slower than the
+  pre-decouple baseline. Cache hit rate (44.5 %) and `fetch.1d` request rate
+  (3.01/tick vs 3.02 recorded) are both **unchanged**; what moved is per-fetch
+  latency, 14.9 s against a recorded 2.4–3.6 s. Board comment on #6927. One
+  consequence for M20: the decouple is now buying **4.3×** (144.8 → 33.9 s)
+  rather than the 3.2× measured at go-live, so setting
+  `EXIT_LOOP_DECOUPLE_DISABLED` as a rollback costs materially more than the
+  08-12 numbers imply.
+
+---
+
+## Twelfth overnight stretch (2026-08-15, ~15:00–15:30Z) — the headline was 22% machine-readable
+
+### Objective
+
+Relaunch the voided 5m screen now that the queue fix exists, then work threads
+that do not need the trainer while it holds the lock. The second half turned
+into the more important finding.
+
+### Work completed
+
+**1. The 5m screen is running, and for the first time it holds the queue.**
+Launched 14:47:56Z at sha `6340a012`, `{"status": "heavy_lock_acquired"}`
+confirmed in the arm log. Box idle apart from it (load 1.02 against 3.65 during
+the 05:33Z thrash). Per-arm re-checkout, hashes printed raw, row counts asserted
+rather than `[ -f ]`. Queue hold flagged on the coordination board with its
+timer impact spelled out, so nobody reads a queued job as a wedged box.
+
+Two launch attempts failed first, both the same way: the relay preserves the
+`cmd:` block's indentation, so a heredoc terminator at column 0 never closed.
+I hit it with a shell heredoc (#9470), fixed it with base64, then **hit it again
+with a Python heredoc one tool over** (#9478). Base64 both times now, with a
+sha256 checked on the box before the script runs.
+
+**2. Matrix bookkeeping + a labelling defect it exposed.** Recorded the
+`htf_pullback_trend_2h` / `trail_geometry` re-sweep in full, deliberately
+**without** touching `status` or `tp_geometry`: the verdict exists only at split
+target 30, which is the operator's open item 2, so stamping `live_parity` would
+retire the cell's staleness on a configuration nobody approved. Both branches of
+item 2 are now spelled out so the follow-up needs no re-derivation.
+
+That surfaced a defect worse than the row it came from. The stale-decisions list
+is headed *"evidence older than the cutover"*, but four conditions set `stale`
+and only one is that. Each row now prints its own `why:` — and **all four are
+held by the geometry field, none by a date**, so the header was wrong for 100 %
+of the rows it described.
+
+**3. The exit_head_ml blocked-cell fleet view.** Verified the gate needs
+`N >= 3b = 150` by enumerating `fold_blocks`' loop; measured that **zero of the
+seven equity 1d legs** reaches it even on full available history (`spy`, with 33
+years, estimates to ~121). The three futures legs pose a different question and
+`mhg`/`mgc` may be rebuild-reachable — flagged as **not measured** rather than
+guessed.
+
+**4. The consolidation — the stretch's real result.** Re-deriving the
+pre-registered baseline from committed data revealed it could not be done:
+`m20-fold-dispersion-arms.jsonl` held **6 legs** against a screened denominator
+of **27**, so **78 %** of the night's headline existed only as prose tables.
+Same defect `rounds.jsonl` was built to prevent.
+
+`docs/research/m20-fold-dispersion-arms-consolidated.jsonl` now holds **234 rows
+/ 61 arm files / 60 screens / 33 legs** — a 3.9× increase — with `fold_offset`
+recovered from each `_round_meta` (61 of 61, zero mismatches against the
+directory names) and the transfer sha256-verified. Then
+`scripts/research/m20_dispersion_rate.py` + a 6-test guard pinning its output
+against the prose.
+
+### Validation performed
+
+- 6 new tests in `test_dispersion_rate_matches_the_doc.py`, **each proven
+  load-bearing by planting the defect it guards**.
+- `run_guards.py --base main` → 38 PASS / 0 FAIL, changed paths confirmed in the
+  scanned diff.
+- Consolidation integrity: sha256 over the uncompressed file matched the box's,
+  234/234 rows, `offset_source: round_meta` on every row, 0 defaulted.
+
+### Contradictions or drift found (mine, this stretch)
+
+- **🔴 One of my own new tests failed its planted-defect proof and was
+  rewritten.** `test_the_disagreeing_legs_are_NAMED_in_the_doc` searched the
+  whole document for leg names that appear in a dozen other tables, so it passed
+  with the section it guards gutted. Scoped to the section, re-planted, now
+  fails. The module argues that a guard which cannot fail is not a guard; it had
+  exempted itself.
+- **The pre-registration I wrote two hours earlier is invalidated by its own
+  data.** `per_leg` is **3 legs, not 2** — `ict_scalp_eth_15m` was screened in
+  `unanimity2` and I never counted it. So the test is 3→6, one mover is already
+  banked, and **no reachable outcome reaches p < 0.05**. Recorded before the 5m
+  rows land.
+- **A "systematic 2×–26× error across 8 matrix cells" that does not exist.** My
+  regex read the *first* stated gap in each ref, which is the superseded one;
+  all eight already carry the correction. I expected staleness in that direction
+  and my parse obligingly produced it.
+- **Two findings that were already known.** The full-history result and the
+  block-size proposal were both already in
+  `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`, the second on stronger grounds
+  (powered *and* specific, not just `u >= 2`). I verified my arithmetic
+  carefully and my novelty not at all.
+- **A negative I nearly published.** An inventory scoped to `/tmp` found no
+  surviving arm logs; a deeper search **with a positive control** found all 61
+  under `runtime_logs/`. A search returning nothing is not proof of absence.
+- **My pings carried invented timestamps** — two labelled 15:40Z and 16:45Z were
+  sent ~15:16Z and ~15:20Z. I was estimating elapsed time rather than reading
+  it. Corrected in the next ping; relay-stamped times from here.
+
+### Gaps not yet verified
+
+- The 5m screen is **arm 1 of 4**; no rows yet, and its verdicts are unread.
+- `fold_offset` is still absent from emitted rows
+  (`BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET`, open). **Deliberately
+  not fixed mid-screen** — the trainer re-checks out per arm, so it would change
+  code between arms. Attribution for this screen is recoverable from each round
+  report.
+- The queue-bypass class is **one script fixed of at least four**; the
+  enumeration is not done (`BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE`).
+- **A second-order result nobody has acted on:** 2 of 22 multi-screen legs have
+  a *mover verdict* that disagrees across screens (~9 %). Every rate in the
+  study is one draw of a statistic with its own dispersion, and no analysis
+  currently accounts for that.
+
+---
+
+## Thirteenth overnight stretch (2026-08-15, ~15:35–15:50Z) — ref resolvability, and a pattern in my own errors
+
+### Work completed
+
+**1. The roll-up now says WHY a cell is blocked.** `base()` collapses
+`blocked:insufficient_lifetime_trades` and `blocked:native-history-thin` into
+one `blocked` — right for the headline arithmetic, wrong for the reader, since
+"exit_head_ml 12 (blocked=12)" invites *"revisit later"* over a set where most
+will not clear on any window. The sub-status is already on the cell; the tool
+stopped dropping it. **Structural** — it prints the status string the matrix
+carries and computes nothing about whether a cell can clear, deliberately,
+because a reachability number baked into printed text is exactly what went stale
+in this file before. Reason rows reconcile exactly against open counts on all
+five levers (2/2, 4/4, 12/12, 1/1, 6/6).
+
+**2. 19 refs cited a document nobody named.** The structural validator reports
+*"all closed live cells carry a ref"* — true, and silent on whether a ref
+**resolves**. Measured: 19 cells cite `memo §5/§6/§6.2/§7.2/§7.3/§8` and not one
+names the document, while the legend uses "memo" generically. The refs are
+correct and were unresolvable without tribal knowledge. The document is
+`docs/research/M20-exit-refinement-2026-07-12.md`; **every cited section was
+verified to exist with a title matching the lever citing it** before anything
+was qualified. Minimal edit — only the first bare `memo §X` per ref gains the
+path, because repeating a 48-character path five times in one ref buries the
+evidence it points at.
+
+**3. A full ref-resolvability sweep over all 413 refs — and it is CLEAN.**
+Recorded so nobody re-runs it: **17 of 17** `BL-`/`MB-` ids cited anywhere in
+the matrix resolve to a filed backlog row; **0** cells carry an unknown
+`tp_geometry`; **0** cited repo paths are missing. The 44 refs carrying no
+pointer of any kind are overwhelmingly `n/a` cells whose ref *is* the reasoning
+("lever not applicable — `fvg_range` has no trail in its exit structure"), which
+is the right shape for that status.
+
+### 🔴 The pattern worth naming: four phantom defects, all mine, all regex
+
+This stretch produced two findings that did not exist, and they were the third
+and fourth of the night:
+
+| # | the "finding" | what it actually was |
+|---|---|---|
+| 1 | 8 of 11 matrix cells state a gap against the wrong bar (2×–26× optimistic) | my regex took the **first** stated gap; all eight carry the correction further down the same ref |
+| 2 | 43 of 49 scripts bypass the trainer queue | matched anything mentioning `LightGBM` / `.fit(` / `python -m ml` — including everything the CLI backstop **already covers**. True answer: 6 of 7 |
+| 3 | 2 cited repo paths do not exist | `(md\|json\|jsonl)` alternates left-to-right, so `.json` matched **inside** `.jsonl` and truncated the path. True answer: 0 missing |
+| 4 | the corpus records `fold_offset: None` on all 33 rows | `.get()` on an **absent** key. The field is never written at all |
+
+**Every one of them pointed the same way — toward a defect — and every one was
+mine.** That is not coincidence: I write the probe *after* forming the
+hypothesis, so a loose pattern finds what I am looking for. Two of the four
+(#1, #2) would have been published as systematic failures of other people's work
+had I not re-checked; #2 would have sent someone to lock scripts already locked
+one layer down.
+
+The habit that caught all four was the same one each time — **re-derive the
+positive before trusting the negative, and re-read the raw field rather than the
+parse**. It is the guard I keep writing into other people's code, and the four
+misses are the argument for applying it to my own probes by default, not after a
+result looks tidy.
+
+### Gaps not yet verified
+
+- The 5m screen is still **arm 1 of 4** (54 min in at 15:42Z, load 1.07,
+  on track for ~16:01Z). No rows yet.
+- The `blocked:` sub-status surfacing has **no test**; it is a display change
+  whose counts I reconciled by hand this session and nothing pins.
+- The 44 pointer-less refs were classified by **reading a sample**, not
+  exhaustively — I checked the shape of a dozen and generalised.
+
+### Addendum (15:55Z) — CI caught a hole in the test I had just written
+
+`pytest-run` failed on `1a3a74f7`, and it was not a flake:
+
+```
+FAILED test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered
+these docs/ files are read as COMMITTED by the suite but would SHORT-CIRCUIT
+pytest-run: m20-fold-dispersion-2026-08-15.md,
+            m20-fold-dispersion-arms-consolidated.jsonl
+```
+
+`test_dispersion_rate_matches_the_doc.py` asserts over those two files as
+committed data, but `pytest-run` short-circuits on a docs-only diff. So a PR
+editing **just the dispersion doc or the arms record** would skip the suite and
+report a green tick having executed nothing — the guard's own docstring records
+that as how PR #9208 merged and left `main` red. **My new drift-guard would have
+been silently unenforceable on exactly the changes it exists to police.**
+
+One-line fix (both paths added to the workflow's relevance grep), proven by
+reverting it and watching the guard fail again.
+
+**Why I missed it locally, since the guard existed and I did run it:** I ran
+`test_pytest_run_filter.py` *before* creating the new test module and never
+re-ran it after. That guard derives its expectation **from the tests on every
+run**, so it cannot catch a new reader until the reader exists. The rule that
+follows: adding a test that reads committed `docs/` means re-running *that*
+guard, not just the new test.
+
+It is the same shape as the four phantom defects above, inverted — there I
+trusted a probe that was too loose; here I trusted a probe result that was
+**stale**. Both are "the check ran" standing in for "the check covered this".

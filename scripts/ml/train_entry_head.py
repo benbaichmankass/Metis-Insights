@@ -65,6 +65,11 @@ EMBARGO_S = 7 * 86400
 TAUS = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
 
 
+_HEAVY_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_HEAVY_REPO / "scripts" / "ml"))
+from _heavy_queue import take_heavy_queue  # noqa: E402
+
+
 def load_entries(path: Path) -> List[dict]:
     """One record per trade: the age_bars==0 row + the trade's last bar_t
     (the purge boundary) and its source/final_r."""
@@ -169,6 +174,11 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--features", choices=["signal_bar", "signal_bar_v2", "age0"],
                     default="signal_bar")
     a = ap.parse_args(argv[1:])
+    # Trainer heavy-job queue, taken at the ENTRYPOINT so every caller
+    # (incl. a direct relay invocation) is covered — see scripts/ml/
+    # _heavy_queue.py. Bound to a name: the flock releases when the fd
+    # closes, so letting this be collected would silently unlock.
+    _heavy_lock = take_heavy_queue("train_entry_head")  # noqa: F841
     global TARGET, FEATURES
     TARGET = a.target
     if a.features == "age0":

@@ -99,6 +99,54 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # it must not be read as "fade is being measured today".
 LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 
+
+def tp_geometry_for(families, tp_cap_pct: float) -> str:
+    """The geometry a run ACTUALLY produced, from the families it actually ran.
+
+    THE ONE definition, so a second driver cannot drift from it. It lived
+    inline in `m20_exit_head_round.py` and was the only producer of the
+    `tp_geometry` stamp; `m20_flip_replay_sweep.py` becoming the second
+    producer is exactly when a copy would start to rot. This file is the
+    module both already import `base_args`/`LIVE_TP_CAPPED_FAMILIES` from, so
+    it is where the answer belongs.
+
+    Derived, never asserted: `base_args` applies `--tp-cap-pct` only to a
+    family in `LIVE_TP_CAPPED_FAMILIES`, because only those live units carry
+    `_TP_SENTINEL_CAP_PCT`. So a RUN-LEVEL flag does not describe a leg —
+    stamping `live_parity` off the flag alone is how a scalp round would
+    self-report a geometry its harness never received.
+
+    Four states, and the middle two are the point — both ran without a cap,
+    for OPPOSITE reasons:
+
+      ``live_parity_capped``    cap applied; the live unit clamps.
+      ``live_parity_uncapped``  no cap applied AND the live unit does not
+                                clamp, so this IS parity for that unit.
+      ``NO_TAKE_PROFIT``        no cap on a family that DOES clamp live — a
+                                book production does not run.
+      ``MIXED_…``               both kinds in one run; the stamp refuses to
+                                pick one rather than flattering the run.
+
+    `families` is what the run OBSERVED (legs that actually produced trades),
+    never what it was asked for — a skipped leg must not colour the stamp.
+    An EMPTY set is therefore its own state, ``UNOBSERVED``: a run where no leg
+    emitted has no geometry, and answering `live_parity_*` there would let a
+    run that measured nothing carry a parity claim. Unreachable from the
+    original caller (it returns before the stamp when nothing emitted) but not
+    from the flip sweep, which writes its verdicts file either way.
+    """
+    fams = set(families)
+    if not fams:
+        return "UNOBSERVED"
+    capped = {f for f in fams if f in LIVE_TP_CAPPED_FAMILIES}
+    uncapped = fams - capped
+    if tp_cap_pct > 0.0:
+        return ("live_parity_capped" if not uncapped
+                else "live_parity_uncapped" if not capped
+                else "MIXED_capped_and_uncapped_families")
+    return "NO_TAKE_PROFIT" if capped else "live_parity_uncapped"
+
+
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
 TF_MINUTES = {"5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
@@ -148,6 +196,38 @@ def _resolve_one(sym: str, tf: str, data_dir: Path) -> tuple[str | None, str | N
     native = data_dir / f"{sym}_{tf}.csv"
     if native.exists():
         return str(native), None
+    # EXACT-TIMEFRAME ONLY, and deliberately NOT inside the grain loop below
+    # (BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME).
+    # Some series live under a
+    # `backtest_` prefix rather than the canonical spelling — BTC 5m is the
+    # live case: `backtest_BTCUSDT_5m.csv` is 647,585 rows (2020-03-25..
+    # 2026-05-21), deeper than any canonical alt 5m file, and is already the
+    # DEFAULT feed for all six walkforward_vol_* scripts, i.e. the series
+    # behind the live regime-router OFF cells. The prefix glob further down
+    # cannot reach it: its prefixes are {sym.lower()} plus the USDT-stripped
+    # base, and `backtest_btcusdt_5m.csv` starts with neither.
+    #
+    # WHY EXACT-TF AND NOT A GRAIN CANDIDATE. Putting this in the grain loop
+    # would be the harmful version. DATA_GRAIN is FINEST-FIRST, so a BTC
+    # 1h/2h/4h/1d leg — which today falls through to BTCUSDT_15m.csv — would
+    # start taking the 5m file instead, and that file ends 2026-05-21 against
+    # the 15m file's 2026-07-10. Every BTC leg coarser than 15m would quietly
+    # lose ~7 weeks of the most recent history, behind verdicts already
+    # recorded in the coverage matrix. That is this module's own docstring
+    # warning one level less visible than the MGC_1d.csv incident: there the
+    # NAME lied, here the name would be honest and only the RANGE dishonest.
+    # Restricted to the leg's own timeframe, the probe can only fire where
+    # nothing resolves at all, so it cannot move any recorded basis.
+    #
+    # MEASURED, not argued from the shape (trainer-diag #9325): enumerating
+    # every leg x symbol x both prefer_native modes = 110 resolutions, this
+    # changes 4 — ict_scalp_5m (live) and vwap (shadow), each in both modes,
+    # all four `None` -> resolved. Nothing that resolves today moves.
+    # data/backtest_ESF_1h.csv also exists and is inert: no leg sits at
+    # (ESF, 1h). data/backtest_candles.csv does not parse as (sym, tf) at all.
+    prefixed = data_dir / f"backtest_{sym}_{tf}.csv"
+    if prefixed.exists():
+        return str(prefixed), None
     for g in DATA_GRAIN:
         if TF_MINUTES[g] > leg_min:
             break
@@ -955,6 +1035,70 @@ def resolve_split(harness: str, base: list[str], mode: str,
     boundary = stamps[-target_oos][:10]          # YYYY-MM-DD
     meta["split"] = boundary
     return boundary, meta
+
+
+def summary_split_line(leg: str, v: dict) -> str:
+    """The SUMMARY's per-leg `- split (leg): ...` line -- the boundary APPLIED.
+
+    The sibling of the `- geometry (leg): ...` line, written for the same
+    reason and against the same defect one axis over. The boundary is resolved
+    HERE, per leg, by `resolve_split()`; the workflow knows only the `--split`
+    input, which under the default `--split-mode oos-trades` is merely the
+    FALLBACK date and not the boundary at all. So the PR banner's unqualified
+    ``IS/OOS split <SPLIT>`` asserted one shared calendar cut across every leg.
+
+    Measured on the 2026-08-15 pullback re-sweep: 17 comments printed
+    ``IS/OOS split `2025-07-01` `` and SIXTEEN legs had run at a different
+    derived boundary (`sol_pullback_2h` 2025-08-23, `slv_pullback_1d`
+    2022-11-29, `ief_pullback_1d` 2017-01-20, ...). The single leg that really
+    did use 2025-07-01 was `iaum_pullback_1d`, and only because its derivation
+    could not be satisfied -- the one true reading was true by FAILURE. A
+    reader comparing two legs' cells on the banner's stated assumption of a
+    common split is comparing different partitions of different books.
+
+    That is `diagnostic-provenance-guard` sub-class A on the same banner the
+    geometry line was added to fix five days earlier, and this file's own
+    docstring was corrected for it on 2026-08-13 while the emitted line was
+    not -- which is why the remedy is in the OUTPUT, not in more prose.
+
+    THREE STATES, never collapsed, the same discipline `insufficient_base_reason`
+    keeps below:
+
+      * **unknown** -- the leg never reached `resolve_split` (harness error /
+        skipped), so no boundary exists to report. Printing the requested date
+        here would manufacture exactly the claim this function exists to stop.
+      * **fell back** -- the derivation could not be satisfied, so the fixed
+        date was USED but never CHOSEN for this leg. Silently rendering it as a
+        derived boundary invites the reader to blame the leg for the fallback's
+        window.
+      * **derived** -- a real per-leg boundary, which also means legs in one run
+        do not share one.
+
+    Pure and side-effect-free so it can be tested directly -- the SUMMARY block
+    that calls it lives inside `main()` and is not otherwise reachable from a
+    test. It composes a STRING and nothing more; no caller branches on it.
+    """
+    split = v.get("split")
+    if split is None:
+        return (f"- split (`{leg}`): unknown — this leg did not run, so no "
+                f"boundary was resolved")
+    mode = v.get("split_mode")
+    if v.get("split_fallback"):
+        lifetime = v.get("split_lifetime_trades")
+        return (f"- split (`{leg}`): **{split}** — FELL BACK to the `--split` "
+                f"date ({v['split_fallback']}"
+                + (f", lifetime={lifetime} trades" if lifetime is not None else "")
+                + f"); the `{mode}` derivation could not be satisfied, so this "
+                f"boundary was NOT chosen for this leg")
+    if mode != "date":
+        return (f"- split (`{leg}`): **{split}** — DERIVED per leg "
+                f"(split_mode=`{mode}`, targeting {v.get('split_target_oos')} "
+                f"OOS trades; the ACHIEVED count is `base n OOS` below, not "
+                f"this target). Legs in one run do NOT share a boundary — do "
+                f"not compare two legs' cells as though they were cut at the "
+                f"same date")
+    return (f"- split (`{leg}`): **{split}** — fixed calendar date "
+            f"(split_mode=`date`), the same for every leg")
 
 
 def insufficient_base_reason(base_oos_n, floor: int, split: str,
@@ -2205,6 +2349,7 @@ def main(argv: list[str]) -> int:
                     f"quantity does not exist here, which is a different statement "
                     f"from 'the TP is far away' or 'the cap was off'.")
         lines.append(f"- geometry (`{_leg}`): {_geo}")
+        lines.append(summary_split_line(_leg, _v))
     lines.append("")
     for leg, v in verdicts.items():
         if "levers" not in v:

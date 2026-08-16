@@ -152,3 +152,51 @@ def test_multiple_fenced_blocks_only_the_cmd_one_is_taken():
     assert "echo chosen" in out
     assert "not the command" not in out
     assert "echo definitely not" not in out
+
+
+def test_unfenced_block_stops_at_trailing_prose_that_is_not_a_key():
+    """The recurrence, observed live in trainer-diag issue #9400 (2026-08-15).
+
+    The #8157 fix ends the block at a CLOSING FENCE, and BL-20260607-002 ends it
+    at the next top-level `key:`. An unfenced ``cmd: |`` block whose trailing
+    prose is neither — an ordinary sentence — matched no terminator and ran off
+    the end into bash, exactly as #8157 did. #9400's own explanatory paragraph
+    came back as ``Three: command not found`` / ``eth_denom_2h: command not
+    found``.
+
+    Two terminators covering two layouts read as complete until a third layout
+    arrives. YAML itself gives the general rule for the ``|`` form: block-scalar
+    content MUST be indented, so the first non-indented non-empty line ends it,
+    whatever it looks like.
+    """
+    body = (
+        "cmd: |\n"
+        "  set -uo pipefail\n"
+        "  echo hello\n"
+        "\n"
+        "Three questions in one pull, while the screen runs:\n"
+        "\n"
+        "1. **Which** 3 of the 7 legs reproduce.\n"
+        "Read-only.\n"
+    )
+    out = _extract(body)
+    assert "echo hello" in out, out
+    for leaked in ("Three questions", "Which", "Read-only"):
+        assert leaked not in out, (
+            f"trailing prose {leaked!r} leaked into the command — the #9400 "
+            f"recurrence of BL-20260731-TRAINERDIAG-TRAILING-PROSE:\n{out}")
+
+
+def test_the_general_rule_does_not_break_an_indented_continuation():
+    """A blank line INSIDE the block must not end it — only a dedent does."""
+    body = (
+        "cmd: |\n"
+        "  first_command\n"
+        "\n"
+        "  second_command_after_a_blank_line\n"
+        "\n"
+        "Prose.\n"
+    )
+    out = _extract(body)
+    assert "first_command" in out and "second_command_after_a_blank_line" in out, out
+    assert "Prose." not in out, out

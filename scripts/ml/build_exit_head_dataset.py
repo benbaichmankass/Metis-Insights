@@ -46,6 +46,11 @@ CHOP_BAND_R = 0.25
 ENTRY_ATR_PCTL_WINDOW = 200
 
 
+_HEAVY_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_HEAVY_REPO / "scripts" / "ml"))
+from _heavy_queue import take_heavy_queue  # noqa: E402
+
+
 def _f(v: Any) -> Optional[float]:
     try:
         x = float(v)
@@ -570,6 +575,11 @@ def main(argv: List[str]) -> int:
                    help="Native TF to resample candles to (one per build).")
     p.add_argument("--out", required=True, help="Output dataset dir.")
     a = p.parse_args(argv[1:])
+    # Trainer heavy-job queue, taken at the ENTRYPOINT so every caller
+    # (incl. a direct relay invocation) is covered — see scripts/ml/
+    # _heavy_queue.py. Bound to a name: the flock releases when the fd
+    # closes, so letting this be collected would silently unlock.
+    _heavy_lock = take_heavy_queue("build_exit_head_dataset")  # noqa: F841
 
     candle_map: Dict[str, Path] = {}
     for spec in a.candles:
