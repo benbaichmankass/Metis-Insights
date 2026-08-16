@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T11:05:00+00:00",
+  "updated_at": "2026-08-16T11:15:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17530,48 +17530,6 @@
       "related": [
         "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT",
         "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN"
-      ]
-    },
-    {
-      "id": "BL-20260816-IB-COVERAGE-CANNOT-SEE-A-MISSING-TAKE-PROFIT",
-      "opened_at": "2026-08-16T11:05:00+00:00",
-      "opened_by": "claude (exit-eval-interval session, MGC disposition read)",
-      "severity": "high",
-      "tier": "1 (detection); changing the sweep's re-arm behaviour is Tier-2",
-      "status": "open",
-      "area": "exit-coverage",
-      "title": "IB protection_coverage counts STP, LMT and TRAIL interchangeably, so a position holding a STOP and NO take-profit grades 'covered' -- the stripped TP that motivated the whole coverage fix is still invisible to it",
-      "detail": "MEASURED 2026-08-16T10:45:20Z from BROKER TRUTH via GET /api/diag/ib_open_orders?account_id=ib_paper (relay #9646) -- the read surface shipped in #9612 hours earlier. This is the first time IB order state has been readable from a session, and the first thing it shows is that the fix for BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY does not cover the case that opened it.\n\nPOPULATION: ib_paper holds exactly 2 positions (MGC 105 long, MES 15 long) and 3 resting orders. Both positions are affected, one by this defect and one by its sibling (BL-20260816-IB-SWEEP-GRADES-OVER-COVERAGE-AS-COVERED). Small n, stated rather than implied.\n\nTHE READING. Trade 4487 / MGC 105 long has exactly ONE resting leg at IB:\n  order_id 359, perm_id 689621249, STP SELL 105 @ aux_price 4278.8, oca_group 'oca-protect-357', GTC, PreSubmitted, remaining 105.\nThere is NO LMT leg for MGC anywhere in the account-wide read. The declared take-profit (order_packages exit_plan final target 4297.65785714, 1.5R) DOES NOT REST AT THE BROKER. That was the hypothesis of BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY, inferred from the journal; it is now PROVEN from the broker side.\n\nWHY THE METRIC CANNOT SEE IT, verified in code: ib_client.protection_coverage's leg filter is `if not ('STP' in otype or 'LMT' in otype or 'TRAIL' in otype): continue` (src/units/accounts/ib_client.py, in _locked_protection_coverage). Every protective type is summed into ONE covered_qty. The MGC stop alone gives covered_qty 105 against size 105, so order_monitor._check_broker_naked_ib_positions:6638 takes `covered >= size - epsilon` and records summary['covered'] -- fully covered. A position that can only ever stop out, never take profit, is graded identically to one holding both legs.\n\nTHIS IS A DIFFERENT QUESTION FROM THE ONE THE QUANTITY FIX ANSWERED, and that is the whole point. 'How much of the position has SOME protective order behind it' and 'does this position still have the exit it declared' are not the same question, and the incident that prompted the work was the second one. Coverage is a downside-protection measure wearing the name of exit coverage -- the UNPROVENANCED-DIAGNOSTIC-OUTPUT sub-class A shape (the label names quantity Q, the code computed f(), f() != Q), one level up from a stored value.\n\nCONSEQUENCE, concrete: ict_scalp.monitor() has no close path at all (its only verdict is the monitor_breakeven_sl ratchet), so TP enforcement is 100% the broker bracket's job. With no LMT resting and no close path in the strategy, trade 4487 has NO PROFIT EXIT of any kind. It can only stop out at 4278.8 or run indefinitely. Nothing alarms, because coverage says 105/105.",
-      "resolution_criteria": "1. Report coverage PER LEG KIND, not as one scalar -- at minimum stop_covered_qty and target_covered_qty against size, so 'protected against loss' and 'still has its declared exit' are separately answerable. A single covered_qty cannot express the state that matters, which is the collapsed-state shape this repo has a guard for; register the new verdict with collapsed-state-guard.\n2. The sweep must be able to say 'stop present, target ABSENT' as its own outcome, distinct from 'covered' and from 'naked'. Do not overload summary['covered'].\n3. Decide deliberately whether a missing TARGET should trigger a re-arm or only an alert. Re-arming a target is not the same risk as re-arming a stop (a stop failing open loses money; a target failing open does not), so this is NOT automatically the same Tier as the naked-stop path.\n4. Regression test: a position with a resting STP and no LMT must NOT grade 'covered'. Confirm it FAILS against the current implementation before the fix.",
-      "refs": [
-        "src/units/accounts/ib_client.py::protection_coverage",
-        "src/runtime/order_monitor.py:6638",
-        "issue #9646 (diag relay, 2026-08-16T10:45:20Z)"
-      ],
-      "related": [
-        "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
-        "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE"
-      ]
-    },
-    {
-      "id": "BL-20260816-IB-SWEEP-GRADES-OVER-COVERAGE-AS-COVERED",
-      "opened_at": "2026-08-16T11:05:00+00:00",
-      "opened_by": "claude (exit-eval-interval session, MGC disposition read)",
-      "severity": "high",
-      "tier": "1 (detection); any cancellation of a surplus leg is Tier-2",
-      "status": "open",
-      "area": "exit-coverage",
-      "title": "MES on ib_paper is 200% stop-covered by two legs in two non-interacting OCA groups, and the IB sweep grades it 'covered' -- Bybit has a dedicated over_covered signal, IB has none",
-      "detail": "MEASURED 2026-08-16T10:45:20Z from BROKER TRUTH via GET /api/diag/ib_open_orders?account_id=ib_paper (relay #9646). Found while reading trade 4487's protection for the MGC disposition; this is the OTHER ib_paper position, so 2 of 2 positions on the account carry a coverage defect.\n\nTHE READING. Trade 4350 / MES 15 long (broker size 15) has TWO resting protective legs:\n  order_id 338, perm_id 872622665, STP SELL 15 @ 7516.5, oca_group 'oca-protect-336', GTC, PreSubmitted\n  order_id 375, perm_id 166865400, STP SELL 15 @ 7533.75, oca_group 'oca-protect-373', GTC, PreSubmitted\nThe journal's stop_loss for 4350 is 7533.69642857, which matches the SECOND leg. The first is a stale leg from an earlier arming that was never cancelled.\n\nWHY IT GRADES CLEAN, verified in code: protection_coverage takes the MAX within an OCA group precisely so a group's STOP and LIMIT are not double-counted -- correct, and documented. But these legs are in TWO DIFFERENT groups, so they do not merge: covered_qty = 15 + 15 = 30 against size 15. order_monitor._check_broker_naked_ib_positions:6638 then tests `covered >= size - epsilon` and records summary['covered']. 200% and 100% are the same verdict. There is NO over_covered counter in the IB sweep's summary at all -- grep confirms the key exists only in _check_broker_naked_bybit_positions (order_monitor.py:7485, :7706), which ships it as an explicit detect-only signal and fired it live on 2026-07-30 (BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING).\n\nSo the same condition is a named, alerting state on one venue and an unrepresentable one on the other. The asymmetry is not deliberate; the IB coverage work was ported from the Bybit shape and the over-coverage half was not carried across.\n\nTHE HAZARD, with what I did and did not verify. OCA is one-fills-cancels-the-rest WITHIN a group, so these two legs cannot cancel each other. If the position stops out on one, the other remains resting on a now-flat account. VERIFIED: two independent GTC SELL 15 legs exist against a 15-lot long. NOT VERIFIED: whether IB would then fill the survivor into a 15-lot SHORT, or whether some account-level setting prevents it -- I did not test the fill path and am not asserting it. The reason to care regardless is that this is the exact leg-accumulation condition Bybit alarms on, and here nothing can even report it.\n\nNOTE ON AGE: all three groups are named 'oca-protect-<parent order id>', NOT the per-trade 'oca-protect-t<trade_id>' scheme that shipped 2026-08-14 in PR #9331 (ib_client.py:1370). So every resting leg on this account predates that fix and has not been re-armed since -- consistent with order_packages.updated_at for 4487 frozen at 2026-08-07T04:13:28Z. The per-trade group cannot stack with ITSELF, so the fix prevents NEW occurrences; it does not clean up the existing ones, and nothing measures how many there are.",
-      "resolution_criteria": "1. Add an over_covered detect-only counter to _check_broker_naked_ib_positions, mirroring the Bybit sweep. Detection first; cancelling a surplus leg is a separate Tier-2 decision and must not be bundled in (cancelling the wrong leg leaves a position naked).\n2. State the ratio, not a boolean: report covered_qty/size so 200% is distinguishable from 105%.\n3. SWEEP THE EXTENT before deciding on remediation -- this is 1 of 2 positions on one paper account and the count of pre-#9331 legs across all IB accounts is unknown. Do not generalise from n=1; /api/diag/ib_open_orders now makes the sweep possible for the first time.\n4. Regression test: two protective legs of the full size in DIFFERENT OCA groups must not grade 'covered'. Confirm it FAILS against the current implementation.",
-      "refs": [
-        "src/runtime/order_monitor.py:6638,7485,7706",
-        "src/units/accounts/ib_client.py:1370",
-        "issue #9646 (diag relay, 2026-08-16T10:45:20Z)"
-      ],
-      "related": [
-        "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
-        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING"
       ]
     }
   ]
