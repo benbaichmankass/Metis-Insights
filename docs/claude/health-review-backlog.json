@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T08:40:00+00:00",
+  "updated_at": "2026-08-16T09:12:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15958,6 +15958,27 @@
       "resolution_criteria": "1. Add a read surface for runtime_logs/deployed_sha.txt (log_file allowlist entry, or\na field on /api/diag/version). This is the cheap half and it is what a session\nactually needs to answer 'is my change live?'.\n2. Make the field self-describing rather than renaming it silently: /api/diag/version\nand runtime_status should report the on-disk sha AND the deployed sha as SEPARATE\nkeys, so 'checkout is at X' and 'the running processes were started onto Y' can never\nagain be read as one number. X != Y is itself the pending-restart signal.\n3. Fix the assertion in deploy_pull_restart.sh:496-543 to compare against the\ndeployed-sha marker (or a genuine in-process value), or delete it. An assertion that\ncannot fail is worse than none: it is on the deploy path and reads as coverage.\n4. Correct CLAUDE.md's /api/diag/version row, which says it is 'Used by\nscripts/deploy_pull_restart.sh to confirm a post-deploy restart actually rolled the\ncode forward'. It is used there, but it cannot confirm that.\n5. Separately: either file the missing row the deploy script cites three times, or\ncorrect those three comments to state the property directly instead of attaching it to\nan id that does not exist. Do not simply delete the reasoning - it is the only record\nof why the restart gate reads deployed_sha.txt.",
       "related": [
         "BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE"
+      ]
+    },
+    {
+      "id": "BL-20260816-BACKLOG-COUNTER-COUNTS-KEPT-OPEN-AS-RESOLVED",
+      "opened_at": "2026-08-16T09:12:00+00:00",
+      "opened_by": "claude (sysrev-0816, found while running the roll-up this review is graded on)",
+      "severity": "high",
+      "tier": "1 (review tooling; no runtime consumer)",
+      "status": "resolved",
+      "resolved_at": "2026-08-16T09:12:00+00:00",
+      "resolved_by": "claude (sysrev-0816)",
+      "area": "observability/review-governance",
+      "title": "scripts/reports/backlog_counts.py counted 96 genuinely-open items as resolved — including EVERY kept_open, the status the drain protocol itself mandates",
+      "detail": "FOUND BY RUNNING IT. backlog_counts.py is the review-coverage gate's own input: /system-review copies its output straight into consolidated.backlog_summary, and the SKILL forbids hand-entering those numbers precisely so they are trustworthy.\n\nTHE DEFECT: it allowlisted OPEN statuses (`OPEN_STATUSES`) and treated everything unrecognised as RESOLVED — the exact inverse of the policy stated in its own module docstring ('unknown/missing -> open (fail toward \"still needs attention\" rather than silently closing an item)'). Field beats comment normally; here the comment stated the CORRECT policy and the code was wrong, so the code moved.\n\nMEASURED at the moment of the fix, against the three live backlogs: 96 genuinely-open items were reported as resolved — health 47, performance 30, ml 19. The dominant cause is that `kept_open` was absent from the open set, and `kept_open` is the status the three review skills' drain protocol MANDATES for a legitimately-deferred item (soaking / awaiting-data / Tier-3-awaiting-operator). So the one status meaning 'still open, and here is why' counted as CLOSED. This session's own first roll-up read `performance: 0 open` and `ml: 0 open` while 30 and 19 items sat parked — several of them gates MET and awaiting an operator decision (the tlt_pullback_1h trail4 ship, the six passed_unshipped exit_head_ml cells, the mes-regime-15m-lgbm-v2 promotion).\n\nTwo secondary causes the same inversion produced: (a) FREE-TEXT statuses — exact-set membership missed five health items whose status literally starts with 'open' (e.g. 'open — RECURRED 2026-08-14, measured across 3 consecutive pushes'); (b) NOT-ACTUALLY-CLOSED terminals — fix_landed_monitoring (5), resolved_pending_live_verification, likely_already_fixed_unverified, mitigated, root_cause_fixed_backlog_remains. Each names remaining work in its own name.\n\nWHY IT MATTERS BEYOND THE NUMBER: a roll-up that under-reports open work is worse than no roll-up. It is the input to the gate that decides whether a review did its backlog job, so the gate could read '0 open' and pass while the backlog held met-but-unactioned Tier-3 gates. Same family as BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN: a tolerant default that is right to be tolerant and wrong to be silent.",
+      "resolution_criteria": "MET in PR #9612. (1) The polarity is inverted — CLOSED is now the allowlist (`is_open_status`), so anything unrecognised counts as OPEN, matching the declared policy. (2) A status whose leading token looks terminal but whose text carries an open-signal ('resolved (guard); follow-up OPEN, see resolution_criteria (3)') correctly stays open. (3) 34 tests in tests/test_backlog_counts.py, with a CAN-FAIL CONTROL: restoring the old polarity fails 14 of them, so the tests bite rather than merely passing. (4) Post-fix counts: health 240 open / performance 30 / ml 20 (was 189 / 0 / 0).",
+      "updates": [
+        {
+          "at": "2026-08-16T09:12:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "Filed and resolved in the same run; the row exists so the measurement (96 items, and WHY) is recoverable, and so the code comment citing this id resolves to something. Any future session reading a suspiciously clean backlog_summary should re-run the can-fail control first."
+        }
       ]
     }
   ]
