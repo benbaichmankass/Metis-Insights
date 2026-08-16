@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T11:20:00+00:00",
+  "updated_at": "2026-08-16T11:58:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17530,6 +17530,46 @@
       "related": [
         "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT",
         "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN"
+      ]
+    },
+    {
+      "id": "BL-20260816-TRAINER-HEAVY-LABEL-TRIGGERS-NO-WORKFLOW",
+      "opened_at": "2026-08-16T11:18:00+00:00",
+      "opened_by": "claude (overnight M20 session)",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "area": "tooling",
+      "title": "trainer-vm-heavy-request is created, GUARD-ENFORCED, and consumed by no workflow - a heavy trainer job dispatched exactly as the skill instructs is silently discarded",
+      "detail": "session-coordination/SKILL.md 2b instructs that a HEAVY trainer job 'uses that label + claims first', and .claude/hooks/vm_lane_guard.sh ENFORCES it by denying an issue_write carrying trainer-vm-heavy-request unless a fresh /tmp/.claude-vm-lane-claim-<sid> marker exists. But trainer-vm-diag.yml triggers on exactly one label - contains(github.event.issue.labels.*.name, 'trainer-vm-diag-request') - and `grep -rl trainer-vm-heavy-request .github/workflows/` returns bootstrap-labels.yml AND NOTHING ELSE. The label is created and never consumed.\n\nMEASURED COST, not hypothetical: issue #9638 (stop the broad M20 fleet sweep, launch the operator-approved narrow arm_r re-sweep) opened cleanly at 10:28Z, returned an issue id, and sat there. No run, no comment, no failure. The trainer spent a further ~50 minutes on legs that appear in NONE of the operator's queued Tier-3 decisions, and the session had already reported the re-prioritisation as done on the coordination board. Re-fired as #9662 with trainer-vm-diag-request and it executed immediately (PID 1597177).\n\nTHIS IS THE SILENT-SUCCESS SHAPE, which is worse than an error: the guard PASSING reads as confirmation that the dispatch was well-formed. Every other member of this relay family (vm-diag-snapshot, prop-report, system-actions) comments back on BOTH success and failure - which is why a 404 and a path-charset rejection were each diagnosable in one round the same day.",
+      "resolution_criteria": "Pick ONE and make it whole - half-wired is the worst of the three. (a) Add trainer-vm-heavy-request to trainer-vm-diag.yml's trigger condition (it can share the job; the VM-lane FIFO is a board convention, not a workflow feature), OR (b) delete the label from bootstrap-labels.yml and drop the clause from vm_lane_guard.sh, and correct SKILL.md 2b either way. SEPARATELY, and this is the more general half: a labelled issue that no workflow picks up should not be indistinguishable from one that succeeded - consider a scheduled sweep that comments on any relay-labelled issue with no run attached after N minutes. Verify by dispatching a heavy request and confirming a comment returns.",
+      "related": [
+        "docs/claude/vm-resource-management.md",
+        ".claude/skills/session-coordination/SKILL.md",
+        ".claude/hooks/vm_lane_guard.sh",
+        ".github/workflows/trainer-vm-diag.yml",
+        ".github/workflows/bootstrap-labels.yml",
+        "#9638",
+        "#9662"
+      ]
+    },
+    {
+      "id": "BL-20260816-DIAG-RELAY-DOUBLE-PREFIXES-A-SLASHLESS-API-DIAG-PATH",
+      "opened_at": "2026-08-16T11:18:30+00:00",
+      "opened_by": "claude (overnight M20 session)",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "area": "tooling",
+      "title": "vm-diag-snapshot strips a leading-slash /api/diag/ prefix but not a slashless api/diag/, silently producing /api/diag/api/diag/<path> and a bare 404 that is indistinguishable from a missing route",
+      "detail": "resolve_one() in vm-diag-snapshot.yml strips only the leading-slash form:\n    if path.startswith('/api/diag/'): path = path[len('/api/diag/'):]\nso 'api/diag/status' falls through and is re-prefixed to '/api/diag/api/diag/status' -> HTTP 404. Meanwhile 'api/bot/...' DOES work slashless (a different branch handles it), so the convention is inconsistent between the two families, which is how a caller gets it wrong.\n\nThe failure payload reports {error, stage, http_code, curl_exit} and NEVER the resolved URL, so a mangled path looks exactly like a route the server does not have. Measured 2026-08-16: four diag paths returned 404 together and the session's first hypothesis was 'the entire /api/diag/* surface is down'. What refuted it was putting a POSITIVE CONTROL in the same relay run (#9630: api/bot/db/tables returned real data while all four diag paths 404'd) - worth adopting as the default shape for any 'is X down?' probe. Cost two relay round-trips and nearly a false outage report.\n\nSub-class A of the repo's own unprovenanced-diagnostic-output rule: the output names a cause (404 = no such route) that no code path tested.",
+      "resolution_criteria": "Two one-line changes in .github/workflows/vm-diag-snapshot.yml, both paths (the shell single-path resolver ~line 196 and the python multi-path resolver ~line 398): (1) strip BOTH '/api/diag/' and 'api/diag/' prefixes; (2) echo the RESOLVED url (prefix+path) in the fetch_failed payload so a 404 is attributable without a second round-trip - the resolved path is already printed to the run log, just not into the comment a relay-bound session can read. Verify by requesting 'api/diag/status' and confirming it returns data rather than 404.",
+      "related": [
+        ".github/workflows/vm-diag-snapshot.yml",
+        "#9629",
+        "#9630",
+        "#9631",
+        "docs/CLAUDE-RULES-CANONICAL.md (unprovenanced diagnostic output, sub-class A)"
       ]
     },
     {
