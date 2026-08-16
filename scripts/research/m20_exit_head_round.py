@@ -35,7 +35,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "research"))
 
 from m20_fleet_exit_sweep import (  # noqa: E402
-    FAMILY_HARNESS, LIVE_TP_CAPPED_FAMILIES, base_args, classify, resolve_data)
+    FAMILY_HARNESS, LIVE_TP_CAPPED_FAMILIES, base_args, classify, resolve_data,
+    tp_geometry_for)
 
 # IMPORTED, never re-implemented. `block_unit` below must answer "what did the
 # BUILD actually group these trades into?", so it has to be the build's own
@@ -577,14 +578,15 @@ def main(argv: list[str]) -> int:
     #                          so this IS parity for that unit
     #   NO_TAKE_PROFIT       — no cap on a family that DOES clamp live: a book
     #                          production does not run
+    #
+    # EXTRACTED 2026-08-16 to `m20_fleet_exit_sweep.tp_geometry_for`, unchanged,
+    # at the moment `m20_flip_replay_sweep.py` needed the same answer. Two
+    # copies of this derivation is the shape that produced the defect the
+    # comment above describes — the fleet sweep was fixed on 2026-08-10 and the
+    # fix never reached this sibling.
     capped_fams = {f for f in fams_seen if f in LIVE_TP_CAPPED_FAMILIES}
     uncapped_fams = {f for f in fams_seen if f not in LIVE_TP_CAPPED_FAMILIES}
-    if a.tp_cap_pct > 0.0:
-        geometry = ("live_parity_capped" if not uncapped_fams
-                    else "live_parity_uncapped" if not capped_fams
-                    else "MIXED_capped_and_uncapped_families")
-    else:
-        geometry = ("NO_TAKE_PROFIT" if capped_fams else "live_parity_uncapped")
+    geometry = tp_geometry_for(fams_seen, a.tp_cap_pct)
     meta = {
         "tf": a.tf,
         "legs": [s.strip() for s in a.legs.split(",") if s.strip()],

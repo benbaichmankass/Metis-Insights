@@ -30,14 +30,24 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 DRIVER = REPO / "scripts" / "research" / "m20_exit_head_round.py"
+# The derivation moved here on 2026-08-16, unchanged, when
+# `m20_flip_replay_sweep.py` needed the same answer — a second copy is precisely
+# how the 2026-08-10 fleet-sweep fix failed to reach this driver in the first
+# place. These grep-shaped assertions had to follow it: a test that pins WHERE
+# the strings live fails on a legitimate extraction, which is what happened. The
+# behavioural coverage is in `tests/test_m20_tp_geometry_stamp.py`, which calls
+# the function instead of reading for it; what stays here is the driver-side
+# half — that this driver still derives from emitted families and still ships
+# the evidence for its label.
+OWNER = REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py"
 
 
 def test_the_stamp_is_derived_from_families_that_actually_emitted() -> None:
     src = DRIVER.read_text()
     assert "fams_seen" in src, "the geometry stamp no longer tracks emitted families"
-    assert "LIVE_TP_CAPPED_FAMILIES" in src, (
-        "the driver no longer consults the capped-family set, so its stamp is "
-        "back to echoing the run-level flag"
+    assert "tp_geometry_for(fams_seen" in src, (
+        "the driver no longer derives its stamp from the families that emitted, "
+        "so it is back to echoing the run-level flag"
     )
     # The label must not be a bare function of the CLI arg any more.
     assert not re.search(
@@ -52,11 +62,24 @@ def test_all_three_geometry_states_exist_and_are_distinct() -> None:
     the other is a book production does not run. Collapsing them re-creates the
     bug in the opposite direction.
     """
-    src = DRIVER.read_text()
+    src = OWNER.read_text()
     for state in ("live_parity_capped", "live_parity_uncapped", "NO_TAKE_PROFIT"):
         assert state in src, f"geometry state missing: {state}"
     assert "MIXED_capped_and_uncapped_families" in src, (
         "a round spanning both kinds of family must say so rather than pick one"
+    )
+
+
+def test_the_derivation_has_exactly_one_home() -> None:
+    """Two copies is the defect that produced this test file."""
+    producers = [
+        p for p in (REPO / "scripts" / "research").glob("*.py")
+        if "MIXED_capped_and_uncapped_families" in p.read_text()
+        and p.name != "m20_fleet_exit_sweep.py"
+    ]
+    assert not producers, (
+        "these files re-derive the geometry label instead of calling "
+        f"m20_fleet_exit_sweep.tp_geometry_for: {[p.name for p in producers]}"
     )
 
 

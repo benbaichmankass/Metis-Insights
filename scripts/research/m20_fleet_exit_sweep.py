@@ -99,6 +99,54 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # it must not be read as "fade is being measured today".
 LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 
+
+def tp_geometry_for(families, tp_cap_pct: float) -> str:
+    """The geometry a run ACTUALLY produced, from the families it actually ran.
+
+    THE ONE definition, so a second driver cannot drift from it. It lived
+    inline in `m20_exit_head_round.py` and was the only producer of the
+    `tp_geometry` stamp; `m20_flip_replay_sweep.py` becoming the second
+    producer is exactly when a copy would start to rot. This file is the
+    module both already import `base_args`/`LIVE_TP_CAPPED_FAMILIES` from, so
+    it is where the answer belongs.
+
+    Derived, never asserted: `base_args` applies `--tp-cap-pct` only to a
+    family in `LIVE_TP_CAPPED_FAMILIES`, because only those live units carry
+    `_TP_SENTINEL_CAP_PCT`. So a RUN-LEVEL flag does not describe a leg —
+    stamping `live_parity` off the flag alone is how a scalp round would
+    self-report a geometry its harness never received.
+
+    Four states, and the middle two are the point — both ran without a cap,
+    for OPPOSITE reasons:
+
+      ``live_parity_capped``    cap applied; the live unit clamps.
+      ``live_parity_uncapped``  no cap applied AND the live unit does not
+                                clamp, so this IS parity for that unit.
+      ``NO_TAKE_PROFIT``        no cap on a family that DOES clamp live — a
+                                book production does not run.
+      ``MIXED_…``               both kinds in one run; the stamp refuses to
+                                pick one rather than flattering the run.
+
+    `families` is what the run OBSERVED (legs that actually produced trades),
+    never what it was asked for — a skipped leg must not colour the stamp.
+    An EMPTY set is therefore its own state, ``UNOBSERVED``: a run where no leg
+    emitted has no geometry, and answering `live_parity_*` there would let a
+    run that measured nothing carry a parity claim. Unreachable from the
+    original caller (it returns before the stamp when nothing emitted) but not
+    from the flip sweep, which writes its verdicts file either way.
+    """
+    fams = set(families)
+    if not fams:
+        return "UNOBSERVED"
+    capped = {f for f in fams if f in LIVE_TP_CAPPED_FAMILIES}
+    uncapped = fams - capped
+    if tp_cap_pct > 0.0:
+        return ("live_parity_capped" if not uncapped
+                else "live_parity_uncapped" if not capped
+                else "MIXED_capped_and_uncapped_families")
+    return "NO_TAKE_PROFIT" if capped else "live_parity_uncapped"
+
+
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
 TF_MINUTES = {"5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
