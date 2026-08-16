@@ -970,6 +970,45 @@ narrow, targeted test selection after each change all night and it was enough
 every time until it wasn't. The broad selection is cheap (~33 s) and it is what
 found this.
 
+### 24. The 32-cell tranche runs straight into an already-filed defect
+
+Dispatched the fleet re-sweep for the 32 genuinely-sweepable cells (19 legs) and
+watched the first leg rather than the finish line. `trend_donchian` came back
+**`insufficient_base` on all five cells**. Checked the *rate* before concluding
+anything — one leg is not a rate — and it is **28 of 28 cells, 100 %, across
+three legs**.
+
+**This is `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`,
+filed two days ago, criterion (1) confirmed and criterion (2) measured.**
+`--split-target-oos` defaults to `MIN_OOS_TRADES` (25) — the boundary is aimed at
+*exactly* what the verdict requires — and the measured boundary-loss distribution
+is min 0 / median 1 / mean 1.91 / **max 4**, ten of eleven losses and **zero
+gains**. So the derived window lands under its own floor and **re-running cannot
+help**, because the split is re-derived to the same target every time.
+
+The third leg in the log is `htf_pullback_trend_2h` — the very leg the item was
+filed on — 375 lifetime trades, boundary derived to 2026-03-30, refused.
+
+**Stopped the run.** Letting it finish would not have been "collecting honest
+evidence": it would have re-run a documented failure for another hour and left 32
+refusals in the corpus. Restarted at **`--split-target-oos 50`**, and the number
+is justified rather than picked — 50 sits an order of magnitude above the
+measured worst-case loss of 4, and it is the value the backlog's own criterion (1)
+used to confirm the mechanism (`htf_pullback_trend_2h` graded at base_oos 95
+under the corpus-standard split vs 24 under the derived one).
+
+⚠️ **Two things stated rather than hoped:** a larger OOS target moves the
+boundary *earlier*, so IS shrinks — a thin leg (`iaum_pullback_1d`, 36 trades)
+cannot reach 50 and hits `resolve_split`'s clamp, which is already recorded per
+row as `split_target_clamped_from`/`_to`, so a clamped leg is auditable rather
+than silent. And these rows key on a different `split`, which is **correct**: a
+different partition is a different measurement, and `measurement_key` includes
+`split`.
+
+**I did not change the default.** That flip is criterion (2)'s outcome and stays
+queued for the operator; passing an explicit value for one research run is not
+the same decision.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
