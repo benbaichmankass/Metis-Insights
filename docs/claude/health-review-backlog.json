@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T15:35:00+00:00",
+  "updated_at": "2026-08-16T15:40:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17478,8 +17478,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The only commit touching this (a0f559b, HEAD-1) changes docs/claude/health-review-backlog.json alone (16 insertions) — it FILED the row, it did not fix it. In the tree: `grep -rn deployed_sha src/ scripts/deploy_pull_restart.sh` finds the marker only in the deploy script (:80,:258,:265) — no read surface on /api/diag/version, no log_file allowlist entry, and src/web/runtime_status.py::_resolve_git_sha still shells `git rev-parse` against the working tree for both surfaces, so the post-deploy assertion still compares on-disk HEAD to on-disk HEAD. — Tier-1 (read surface + doc correction; no runtime behaviour change), but it touches the deploy path, so land it as its own reviewed change rather than inside a triage pass."
+        },
+        {
+          "at": "2026-08-16T15:40:00+00:00",
+          "by": "claude (exit-eval-interval session — the SAME session that filed this row at 08:40Z)",
+          "note": "I STEPPED IN THIS EXACT TRAP AGAIN SEVEN HOURS AFTER FILING THIS ROW, which is a fact about the row's effectiveness and not just about me. At 15:20:17Z I read /api/diag/version, got git_sha '7da0842b', and reported to the operator that the #9693 deploy had landed on the trader. Same endpoint, same wrong inference, same day. Then I re-derived the mechanism from source and started filing it a SECOND time as a new row before the artifact-validity-guard tripped on an unrelated dangling id and led me here. The duplicate has been deleted rather than kept.\n\nWHAT THAT SAYS: the row is correct and it did not protect the next reader, because the defect is in a surface you reach for reflexively while doing something else, and nothing at the point of use says so. A backlog row cannot fix that. The resolution criteria should be read as urgent for that reason -- until the endpoint reports process_git_sha beside disk_git_sha, every reader re-derives this or, more likely, does not.\n\nNEW EVIDENCE, the consumer half: scripts/deploy_pull_restart.sh (~lines 499-547) compares the endpoint's git_sha against POST_SYNC_HEAD -- the sha it just pulled to -- while the endpoint computes that same tree's HEAD at request time. POST_SYNC_HEAD vs POST_SYNC_HEAD. The assertion cannot fail, and it reports PASSING, which CLAUDE-RULES-CANONICAL calls the same sin as a red that checked nothing.\n\nADJACENT, PRE-EXISTING, AND NOT FIXED BY ME: that same script cites a `BL-20260714` deploy-stale-on-out-of-band-sync tracking id THREE times (lines 85, 246, 559) to justify its restart-decision gate, and that id is filed in NO backlog. The deploy path's central correctness argument points at a row that does not exist. artifact-validity-guard misses it because the guard is DIFF-SCOPED -- it flags ids a change introduces, so pre-existing dangling citations are grandfathered; it caught me only because I copied the id into a new row. Running that guard with --all as a standing audit would surface this class. I have not filed the missing row: I do not know what that investigation concluded, and inventing one to silence a guard is the 'cheaper to lie to than to satisfy' failure this repo names."
         }
-      ]
+      ],
+      "updated_at": "2026-08-16T15:40:00+00:00"
     },
     {
       "id": "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
@@ -17950,27 +17956,6 @@
         "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER"
       ],
       "updated_at": "2026-08-16T13:50:00+00:00"
-    },
-    {
-      "id": "BL-20260816-DIAG-VERSION-REPORTS-DISK-HEAD-NOT-RUNNING-CODE",
-      "opened_at": "2026-08-16T15:35:00+00:00",
-      "opened_by": "claude (exit-eval-interval session, found by relying on it and then checking)",
-      "severity": "high",
-      "tier": "2 (changes whether a deploy can fail)",
-      "status": "open",
-      "area": "deploy-verification",
-      "title": "/api/diag/version reports the WORKING TREE's HEAD, not the running process's code -- so the post-deploy assertion that exists to catch stale-code deploys is a tautology that cannot fail",
-      "detail": "FOUND BY USING IT AND THEN CHECKING. I read /api/diag/version at 15:20:17Z, got git_sha '7da0842b', and reported that the #9693 deploy had landed on the trader. That conclusion is NOT supported by the value, and the endpoint cannot support it.\n\nTHE MECHANISM. `src/web/runtime_status.py::_resolve_git_sha` shells out to `git rev-parse --short HEAD` with `cwd=_REPO_ROOT` **at request time**. It reads the WORKING TREE. A `git pull` advances the tree immediately, BEFORE any service restart, so the endpoint returns the new SHA whether or not a single process reloaded.\n\nTHE LABEL SAYS OTHERWISE, IN ITS OWN DOCSTRING: 'git SHA + captured timestamp of **the running web-api process**' and 'Used by scripts/deploy_pull_restart.sh to assert that a post-deploy restart actually rolled the running code forward (the 2026-05-09 24h-stale-code incident shipped because nothing in the deploy chain confirmed the running web-api had rebooted)'. That is exactly the one thing it cannot do.\n\nTHE ASSERTION IS A TAUTOLOGY. `scripts/deploy_pull_restart.sh` (~line 499-547) compares the endpoint's `git_sha` against `POST_SYNC_HEAD` -- the SHA it just pulled to -- and the endpoint computes that same tree's HEAD. So it compares POST_SYNC_HEAD to POST_SYNC_HEAD. It passes on a process running 24h-stale code, which is verbatim the incident class the comment names. A gate that cannot fail is not a gate, and this one has been reported as PASSING, which is worse than absent: `docs/CLAUDE-RULES-CANONICAL.md` calls a green that checked nothing the same sin as a red that checked nothing.\n\nCLASS: `UNPROVENANCED DIAGNOSTIC OUTPUT`, sub-class A (semantic substitution) per CLAUDE.md 'Diagnostic provenance' -- the label names quantity Q (SHA of the RUNNING process), the code called accessor f() (`rev-parse HEAD` on disk), and f() != Q. It sits in `scripts/`-adjacent + `src/web/`, and `diagnostic-provenance-guard` scopes to `scripts/{ml,research,ops,macro,reports}/` plus the guard scripts, so this file is outside its sweep -- which is why a repo that has a guard for exactly this class still shipped it.\n\nTHE ENV FALLBACK IS THE SHAPE OF THE FIX, ALREADY HALF-PRESENT: `_resolve_git_sha` falls back to `os.environ.get('GIT_SHA', 'unknown')`, which WOULD be process-scoped if set at exec time. The live git call wins over it, so the process-scoped path is dead in practice.\n\nSEPARATE, SMALLER: `runtime_logs/runtime_status.json::git_sha` uses the same resolver, but there the value is WRITTEN by the trader tick, so it is process-scoped by construction. The endpoint is the broken consumer, not the helper.",
-      "resolution_criteria": "1. Resolve the SHA ONCE at import/process start into a module global and serve that, so a stale process reports its OWN stale SHA. Then the deploy assertion becomes real.\n2. EXPECT THAT TO START FAILING DEPLOYS, and treat that as the finding rather than as a regression -- it is the first time the gate can say no. Decide deliberately whether a mismatch is hard-fail or loud-warn before shipping, which is why this is Tier-2 and not a drive-by fix.\n3. Report BOTH: `process_git_sha` (what is running) and `disk_git_sha` (what is checked out). The gap between them IS the stale-deploy signal, and collapsing them into one field is what hid it.\n4. Consider widening `diagnostic-provenance-guard`'s scope to `src/web/api/routers/` -- a diagnostic route is precisely where an unprovenanced label does the most damage, because its consumers cannot see the query they got.\n5. Re-check anything that concluded 'the deploy landed' from this endpoint, including my own 2026-08-16 report on the #9693 deploy.",
-      "refs": [
-        "src/web/runtime_status.py::_resolve_git_sha (rev-parse at request time, cwd=_REPO_ROOT)",
-        "src/web/api/routers/diag.py::version (the docstring making the running-process claim)",
-        "scripts/deploy_pull_restart.sh ~499-547 (the tautological assertion)",
-        "relay #9736 (the read I drew the wrong conclusion from)"
-      ],
-      "related": [
-        "BL-20260714-DEPLOY-STALE-ON-OOB-SYNC"
-      ]
     }
   ]
 }
