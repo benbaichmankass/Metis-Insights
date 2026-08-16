@@ -17679,6 +17679,43 @@
         }
       ],
       "updated_at": "2026-08-16T11:50:00+00:00"
+    },
+    {
+      "id": "BL-20260816-TICK-COST-HAS-NO-DURABLE-HALF-SO-A-BUSY-MERGE-DAY-CANNOT-BE-MEASURED",
+      "opened_at": "2026-08-16T12:32:00+00:00",
+      "opened_by": "claude (overnight M20 session)",
+      "severity": "medium",
+      "tier": "1 (observability)",
+      "status": "open",
+      "area": "observability",
+      "title": "/api/diag/tick_cost counters are per-PROCESS with no durable sibling, so on a day with frequent merges every read is small-n and the tick regression cannot be measured at a useful sample size",
+      "detail": "MEASURED 2026-08-16. Asked to re-read tick_cost 'at larger n' and could not, for a structural reason rather than a transient one: the counters reset on every trader restart, the trader redeploys on every merge to main, and this session merged five PRs. FIVE processes were observed in ~80 minutes (11:11:15, 11:49:06, 12:05:46, 12:10:21, 12:27:03). Every tick_cost read available today is ticks_measured: 5 or fewer.\n\nTwo reads I took, both n=5, different processes: mean 121.4s / max 203.5s (proc 11:49:06) and mean 129.8s / max 199.3s (proc 12:10:21). The mean moved +8.5s while the max moved -4.2s -- OPPOSITE directions -- so no direction is supportable, and the largest-n reading on record (138.8s at n=20) is also the HIGHEST. A reader taking any single small-n read as the current state gets a number that is systematically unrepresentative, and which way it is biased is not predictable.\n\nTHIS IS THE SAME DEFECT exit_interval_soak WAS BUILT TO FIX, one surface over. That fix is recorded in CLAUDE.md: 'every field in exit_loop_health lives in a module global that starts empty and is never reloaded, so max_interval_ms is scoped to ONE process ... a max over a short window is systematically LOW, so the in-memory grade reads most reassuring exactly when the system is busiest.' tick_cost has no such durable half. The remedy already exists in-repo as a worked pattern -- append one row per tick to a JSONL, compute the summary over the file rather than the returned page, and stamp process_started_utc so a restart gap is never read as a real interval.\n\nWHY IT MATTERS NOW: the tick regression (83.9s -> ~120-140s) is an OPEN investigation whose cause is not established, and the instrument used to investigate it is blinded by exactly the activity that investigating it requires. Note the asymmetry with the exit loop: a busy day biases the exit-interval max LOW (reassuring), and biases tick_cost in no predictable direction (misleading either way).\n\nchecked: src/runtime/tick_cost.py (no JSONL/append path -- it writes ONE fixed-size state object, as CLAUDE.md documents); checked: src/web/api/routers/diag.py (the log_file allowlist carries exit_interval_soak at L373 but no tick_cost sibling, and /tick_cost L1704 reads tick_cost.read_state, the single object); checked: docs/research/RESEARCH-CAPABILITY-INDEX.md (names /api/diag/tick_cost as the tool, i.e. the same single-state surface). So the gap is the ABSENCE of a durable writer, verified against the three places one would be registered -- not an inference from a quiet grep.",
+      "evidence": [
+        "relay #9673 -> tick_cost proc 11:49:06Z, ticks_measured 5, mean_ms 121384.7, max_ms 203529.2",
+        "relay #9684 -> tick_cost proc 12:10:21Z, ticks_measured 5, mean_ms 129848.8, max_ms 199288.7",
+        "same payloads: attributed_pct 98.8 / 99.0, so the cost is not hiding in an uninstrumented hook",
+        "CLAUDE.md ss EXIT_LOOP_* + /api/diag/log_file exit_interval_soak -- the precedent fix for the identical per-process bias"
+      ],
+      "proposed_remedy": "Add a durable tick_cost sibling on the exit_interval_soak pattern (one row per tick, summary over the file, process_started_utc stamped). Tier-1. Until then, any tick_cost figure MUST be quoted with its ticks_measured, and a single small-n read must not be reported as a trend -- which is what this session did.",
+      "resolution_criteria": "/api/diag/log_file?name=tick_cost_soak (or an equivalent durable surface) returns rows spanning at least TWO distinct process_started_utc values, and its summary max/mean are computed over the whole file rather than the returned page -- verified by a live read taken AFTER a trader restart, with the summary's tick count exceeding the in-memory ticks_measured of the then-current process. Until that read exists the row stays open; a merged writer is not sufficient, for the same reason #9614 shipped an account_id column that no code path could populate and passed its tests."
+    },
+    {
+      "id": "BL-20260816-TWO-SWEEP-DEFAULTS-ARE-TIER3-AND-LIVE-ONLY-IN-A-DATED-MEMO",
+      "opened_at": "2026-08-16T13:28:00+00:00",
+      "opened_by": "claude (overnight M20 session, at session close-out)",
+      "severity": "medium",
+      "tier": "3 (changes what every future sweep measures)",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "m20_fleet_exit_sweep's --tp-cap-pct and --split-target-oos defaults are both Tier-3 proposals recorded ONLY in a dated operator memo, which no review cadence drains",
+      "detail": "Two defaults in scripts/research/m20_fleet_exit_sweep.py were queued for operator decision on 2026-08-16 and written up in docs/claude/m20-m31-operator-decisions-2026-08-16.md section 4. That memo is DATED and belongs to one session; the three review skills drain BACKLOGS, not memos. So without this row the two decisions survive only as long as someone remembers the memo exists.\n\n(a) --tp-cap-pct: the harness default is not live parity. A sweep run without --tp-cap-pct 0.099 measures a book production does not run. Every measurement in the 2026-08-16 memo passes it explicitly.\n\n(b) --split-target-oos: DEFAULTS TO MIN_OOS_TRADES (25) -- the target IS the floor, so any boundary loss puts the OOS window under it and the cell refuses with insufficient_base. Already filed as BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS; THIS row is not a duplicate of it -- that row is the DEFECT, this row is the un-drained TIER-3 DECISION about the default value.\n\nMEASURED CONSEQUENCE 2026-08-16: at the default, the pullback-family re-sweep refused EVERY cell on EVERY leg. At --split-target-oos 50 the same run returned 2 PASS + 3 path_b_wf_pass + 67 is_oos_fail + 4 insufficient_base over 76 cells. What caught it was not a check but htf_pullback_trend_2h reporting insufficient at 407 lifetime trades -- implausible on its face. A leg with a genuinely thin history would have produced the same output and been believed, and a table of insufficient_base reads as 'no lever helps this family'.\n\nWHY IT IS TIER-3 AND NOT A FIX I SHOULD HAVE MADE: changing either default changes what every future sweep measures AND what already-recorded numbers mean. My recommendation, labelled as one: raise --split-target-oos above the floor. I did not, because past sweep results were produced under it and re-interpreting them is the operator's call.",
+      "evidence": [
+        "scripts/research/m20_fleet_exit_sweep.py: MIN_OOS_TRADES = 25 (L548); --split-target-oos default=MIN_OOS_TRADES (L1543)",
+        "insufficient_base_reason docstring: htf_pullback_trend_2h refused at n=24 derived vs graded at n=95 corpus-standard, same config same day",
+        "trainer relays #9681 (default -> all cells refuse) and #9683 (target 50 -> real verdicts)",
+        "docs/claude/m20-m31-operator-decisions-2026-08-16.md section 4 (4a and 4b)"
+      ],
+      "resolution_criteria": "The operator has recorded a decision on EACH default (change it, or keep it with a dated 'keep' rationale), and that decision lives somewhere a review cadence reads -- this row closed, or the value changed in m20_fleet_exit_sweep.py with the memo section 4 updated to match. A merged code change alone does NOT close it: the other half is that already-recorded sweep numbers get re-interpreted or explicitly marked as produced under the old default, which is the part that silently rots otherwise."
     }
   ]
 }
