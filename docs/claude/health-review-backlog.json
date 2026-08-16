@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T13:55:00+00:00",
+  "updated_at": "2026-08-16T14:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17663,6 +17663,11 @@
           "by": "claude (exit-eval-interval session, operator decision recorded)",
           "evidence_based": true,
           "note": "OPERATOR DECISION 2026-08-16, in-conversation: 'let it expire'. Option 3 of the three put to them. The stranded MGC order 6 (MKT SELL 105, tif DAY, placed by system-action #9648's ops client and abandoned when the flatten failed its confirm window) is left to expire at the COMEX session close (~21:00 UTC). NOTHING IS BEING DISPATCHED — this is a decision to take no action, recorded so it is not re-litigated by the next session that reads the order list and treats it as an unhandled anomaly.\n\nWHY IT COULD NOT BE CANCELLED (the reason the other two options existed): IB scopes order cancellation per clientId; flatten_ib_position.py builds its ops client as `9900 + os.getpid() % 90`, a PID-derived id whose session has exited. No `cancel-ib-order` system-action exists (the allowlist has cancel-stale-tpsl-legs, Bybit-only), and reqGlobalCancel would also cancel the stop the operator wanted kept plus both MES stops. The two options not taken were: (1) a gateway Master API client id + a narrow cancel-ib-order action; (2) reqGlobalCancel followed by an immediate re-arm.\n\n⚠️ WHAT THIS DECISION DOES NOT RESOLVE, stated so it is not mistaken for closure. Expiry removes the DOUBLED-SELL hazard (210 contracts of resting sell against a 105 long in two unlinked orders). It returns MGC 4487 to its PRE-FLATTEN state: 105 long, one stop at 4278.80, and NO take-profit at the broker. ict_scalp.monitor() has no close path, so the position still has no profit exit of any kind — it can only stop out or run. That is BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE (sysrev-0816's row, landed in main via PR #9643 at 2026-08-16 ~12:10Z). It remains OPEN and is unaddressed by this decision. Note for the record: when this update was first written the row was still unmerged, so the id resolved to nothing and artifact-validity-guard correctly rejected it; it was cited by PR number until #9643 landed, then restored to the id. Citing another session's in-flight row by PR until it merges is the general rule.\n\nRESIDUAL RISK DURING THE WINDOW (~9h, paper account, no capital at risk): if order 6 transmits and fills before expiry, the position goes flat and stop 359 remains resting on a flat book. Whether IB would then fill it into a short is NOT verified and is not asserted. Criterion 4 (no wire to cancel one IB order) stays OPEN — this decision routes around it once; it does not close it, and the next stranded order will hit the same wall."
+        },
+        {
+          "at": "2026-08-16T14:20:00+00:00",
+          "by": "claude (exit-eval-interval session)",
+          "note": "CORRECTION TO THIS ROW'S OWN VERIFICATION CLAIM. The fix was recorded as live-verified because the apply run emitted `(own close order: cancelled)`. A confirmed broker read at 14:13:09Z (relay #9718) shows order 378 **still resting in PendingCancel, remaining 105**, ~1h43m after the cancel was requested. The LOG LINE was verified; the OUTCOME it asserts was not, and is now refuted. Filed as BL-20260816-IB-CANCEL-REPORTS-CANCELLED-ON-ACCEPTANCE.\n\nThe original finding stands -- the close DID abandon its own order, and cancelling it is the right move. What is wrong is the reporting: acceptance of a cancel request was read as completion, which is the same 'accepted != done' class this whole line of work is about."
         }
       ],
       "updated_at": "2026-08-16T11:50:00+00:00"
@@ -17797,6 +17802,31 @@
         "docs/claude/m20-m31-operator-decisions-2026-08-16.md section 4 (4a and 4b)"
       ],
       "resolution_criteria": "The operator has recorded a decision on EACH default (change it, or keep it with a dated 'keep' rationale), and that decision lives somewhere a review cadence reads -- this row closed, or the value changed in m20_fleet_exit_sweep.py with the memo section 4 updated to match. A merged code change alone does NOT close it: the other half is that already-recorded sweep numbers get re-interpreted or explicitly marked as produced under the old default, which is the part that silently rots otherwise."
+    },
+    {
+      "id": "BL-20260816-IB-CANCEL-REPORTS-CANCELLED-ON-ACCEPTANCE",
+      "opened_at": "2026-08-16T14:20:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, against my own #9663, refuted by live broker read)",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "_cancel_own_close_order returns 'cancelled' when ib.cancelOrder is ACCEPTED, not when the order is GONE -- measured live as an order stuck in PendingCancel for 1h43m while the log said cancelled",
+      "detail": "THIS CORRECTS A CLAIM I MADE EARLIER TODAY. I reported #9663 'verified live' because the apply run produced the predicted wire signature `(own close order: cancelled)`. The signature appeared. The thing it asserts did not happen.\n\nMEASURED, /api/diag/ib_open_orders?account_id=ib_paper at 2026-08-16T14:13:09Z (relay #9718, read_state 'orders_read' -- a CONFIRMED read, not an inference): order 378, MGC MKT SELL 105, tif DAY, perm_id 1529982316, **status 'PendingCancel', filled 0, remaining 105**. It was placed and cancel-requested at roughly 12:30Z. It was still resting 1h43m later.\n\nTHE DEFECT IS THE EXACT CLASS #9663 EXISTS TO FIX, COMMITTED BY #9663. `_locked_close` was already hardened against 'accepted != filled' by IB_CLOSE_CONFIRM_S, which re-reads the live position and refuses to declare a close the broker has not confirmed. The CANCEL I added in the same method has no equivalent: `_cancel_own_close_order` calls `ib.cancelOrder(order)`, sees no exception, and returns the literal 'cancelled'. IBKR accepting a cancel REQUEST is not the order being gone -- `PendingCancel` is a real, durable, documented state, and this repo already carries an instance of it on the other venue (BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL: 'Alpaca's OWN cancel never completes, so a re-issued app-level cancel is a no-op'). I wrote the IB analogue without checking for the analogue of that failure.\n\nWHY THE THREE-STATE DESIGN DID NOT SAVE IT. The states are `cancelled` / `already_filled` / `cancel_failed`, and they partition the RESPONSE TO THE REQUEST, not the STATE OF THE ORDER. There is no state for 'the cancel was accepted and the order is still there', which is precisely the observed outcome -- so the collapse is that `cancelled` silently covers both 'gone' and 'pending cancel indefinitely'. A field that cannot say 'we asked and it did not take' is the same shape as one that cannot say 'we did not look'.\n\nMEASURED CONSEQUENCE, and note the account. ib_paper held MGC long 105 with THREE resting SELLs at the time of the read: order 6 (MKT 105, PreSubmitted, since ~10:56Z), order 378 (MKT 105, PendingCancel), order 359 (STP 105 @ 4278.8, GTC, oca-protect-357). That is up to 315 contracts of sell against a 105 long, in three orders with no OCA tying them together, so none can cancel another. If two fill the account goes 105 short. **ib_paper is a PAPER account, so no real money is at risk here** -- but nothing about the code path is paper-specific, and the same sequence on a funded IB account is a live reversal.\n\nWHAT IS NOT ESTABLISHED: why the cancel is not completing. A DAY market order held outside session may simply not be cancellable until the venue opens, which would make PendingCancel correct broker behaviour and the DEFECT purely the reporting. I have no evidence either way and did not probe further.",
+      "resolution_criteria": "1. Add a bounded post-cancel CONFIRM, the mirror of IB_CLOSE_CONFIRM_S: re-read the order and require it to actually leave the resting set before returning 'cancelled'.\n2. Add the missing state -- something like `cancel_pending` -- for 'accepted, still resting at the deadline'. It must be distinct from `cancelled` and from `cancel_failed`: the request did not fail, and the order is not gone.\n3. The retMsg must carry it, since that string is the only record a monitor retry leaves behind.\n4. Consider whether a still-resting close order should block a retry from placing ANOTHER one -- the measured state (three resting sells against one long) is the accumulation hazard #9663's own comment described, arrived at by a different route than the one that comment anticipated.\n5. Re-read /api/diag/ib_open_orders to establish whether order 378 ever clears, and whether it clears on its own at the session open (which would answer the open question above).",
+      "refs": [
+        "src/units/accounts/ib_client.py::_cancel_own_close_order",
+        "PR #9663 (introduced this)",
+        "relay #9718 (the refuting read: status PendingCancel, remaining 105)",
+        "relay #9716 (the read before it: read_state could_not_look)",
+        "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL (the same state, other venue, already known)"
+      ],
+      "related": [
+        "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
+        "BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
+        "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS",
+        "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL"
+      ]
     }
   ]
 }
