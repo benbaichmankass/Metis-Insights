@@ -1583,6 +1583,62 @@ def account_open_positions(
         return None
 
 
+def account_ib_open_orders(account: Dict[str, Any]) -> Optional[list]:
+    """Resting IB orders for *account*, or ``None`` when we could not look.
+
+    The per-account wrapper around :meth:`IBClient.list_open_orders` — the read
+    surface that closes BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE. It exists
+    because IB exit coverage was verifiable only through two REDUCING reads
+    (a boolean and a covered-quantity), so when a take-profit went missing no
+    session could ask what the broker was actually holding.
+
+    Mirrors :func:`account_open_positions`'s contract exactly:
+
+    * ``None`` — could not look (not an IB account, ``ib_port`` unset, a dry /
+      non-live account we never dial, gateway unreachable, or an SDK error).
+    * ``[]`` — a confirmed clean read: the account holds no resting orders.
+    * ``[{...}, ...]`` — the rows, verbatim from the broker.
+
+    ``None`` and ``[]`` are deliberately NOT interchangeable: "we could not
+    look" and "there are no protective legs" are opposite conclusions about a
+    live position, and collapsing them is the defect class this read exists to
+    make visible. Never raises — a read failure is a ``None``, not an
+    exception into the caller.
+    """
+    if not isinstance(account, dict):
+        return None
+    ex = (account.get("exchange") or "unknown").lower()
+    if ex not in ("interactive_brokers", "ib"):
+        return None
+    # Dry/shelved IB accounts (ib_live) are never dialled from a read path —
+    # same rule as account_open_positions: the live gateway socket stays closed
+    # until promotion, and a false [] would read as "no orders" on an account
+    # we deliberately never contacted.
+    if str(account.get("mode") or "live").lower() != "live":
+        return None
+    client = ib_read_client_for(account)
+    if client is None:
+        return None
+    from src.units.accounts.ib_client import IBConnectionError
+    try:
+        return client.list_open_orders()
+    except IBConnectionError as exc:
+        # A down/evicted Gateway is an expected, recurring state — log only,
+        # never route through report_api_failure (which would ping the operator
+        # on every read of a known-down gateway).
+        logger.warning(
+            "account_ib_open_orders(%s): IB gateway unreachable: %s",
+            account.get("account_id") or "unknown", exc,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the caller's documented degraded state
+        logger.warning(
+            "account_ib_open_orders(%s): read failed: %s",
+            account.get("account_id") or "unknown", exc,
+        )
+        return None
+
+
 # Integrations that expose a cheap, authoritative PER-SYMBOL open/flat check
 # (distinct from the batch ``account_open_positions`` list). Today only Alpaca
 # (``GET /v2/positions/{symbol}`` → 404=flat / 2xx=open). IB/OANDA read the

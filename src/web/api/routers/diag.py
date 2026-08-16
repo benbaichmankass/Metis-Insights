@@ -1334,6 +1334,103 @@ async def get_exchange_positions(
     }
 
 
+@router.get("/ib_open_orders")
+async def get_ib_open_orders(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **IB open orders** per account — what the broker is actually
+    holding, not a verdict derived from it.
+
+    Closes BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE. IB order state had two
+    consumers in the codebase and both REDUCE it before anyone sees it:
+    ``IBClient.has_protective_orders`` → a boolean, ``protection_coverage`` →
+    a covered quantity. Neither can be contradicted from outside, so when the
+    MGC take-profit was silently cancelled the coverage read said "covered"
+    and no session could ask which orders existed. That stripped take-profit
+    sat undetected for seven days. This endpoint reduces nothing.
+
+    Per-account ``orders`` is three-state, never collapsed:
+
+    * ``null``  — **could not look** (non-IB account, gateway unreachable,
+      breaker open, ``ib_port`` unset, or a dry/shelved account we never
+      dial). NOT the same as "no orders".
+    * ``[]``    — a confirmed clean read: the account holds no resting orders.
+    * ``[{...}]`` — the rows: ``symbol``/``local_symbol``/``sec_type``,
+      ``order_id``/``perm_id``, ``order_type``, ``action``,
+      ``total_quantity``, ``aux_price``/``lmt_price``, ``oca_group``, ``tif``,
+      ``parent_id``, ``status``, ``filled``/``remaining``.
+
+    ``read_state`` names WHICH of the three a row is (``orders_read`` /
+    ``could_not_look`` / ``not_ib``) so a consumer never has to infer it from
+    a null, and ``count`` is ``null`` — never ``0`` — when we could not look.
+
+    Reads account-wide via ``reqAllOpenOrders`` (IB order visibility is
+    per-client-session, so a readonly client's own ``openTrades()`` would miss
+    the trader's brackets entirely). Opens a brief read-only client per
+    account and places NO order. Offloaded to the single-worker account-read
+    executor for the same reason ``exchange_positions`` is — the IB branch
+    drives ib_insync's own event loop and is unsafe on this coroutine's thread
+    (BL-20260706-IBCONCURRENCY).
+
+    Tier 1 — read-only, token-gated, best-effort per account.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_ib_open_orders
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_ib_open_orders: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_ib_open_orders: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        ex = ((acc or {}).get("exchange") or "unknown").lower()
+        is_ib = ex in ("interactive_brokers", "ib")
+        orders: Any = None
+        err: str | None = None
+        if is_ib:
+            try:
+                orders = await run_account_read(account_ib_open_orders, acc)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + orders=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_ib_open_orders: %s raised %s", aid, exc)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            # Three states, never collapsed — a null `orders` means we could
+            # not look, and `count` stays null rather than reporting 0 orders
+            # on an account we never reached.
+            "read_state": (
+                "not_ib" if not is_ib
+                else "orders_read" if isinstance(orders, list)
+                else "could_not_look"
+            ),
+            "orders": orders,
+            "count": (len(orders) if isinstance(orders, list) else None),
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "count": len(out),
+        "accounts": out,
+    }
+
+
 @router.get("/broker_account_status")
 def get_broker_account_status(
     request: Request,

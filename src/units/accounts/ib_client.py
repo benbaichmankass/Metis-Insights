@@ -58,7 +58,7 @@ import os
 import threading
 import time
 from datetime import datetime, time as dt_time, timezone
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
 
@@ -1972,6 +1972,90 @@ class IBClient:
             "oca_groups": dict(oca_groups),
             "source": "resting_legs",
         }
+
+    def list_open_orders(self) -> Optional[List[Dict[str, Any]]]:
+        """Every resting IB order this account holds, ACCOUNT-WIDE, as plain rows.
+
+        The **read surface** for IB order state
+        (BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE). Its two siblings both
+        REDUCE the order book to a verdict —
+        :meth:`has_protective_orders` to a boolean, :meth:`protection_coverage`
+        to a covered quantity — so when a verdict looked wrong there was no way
+        to ask *which orders does the broker actually hold?* from any session.
+        That is why a stripped MGC take-profit sat undetected for seven days:
+        the coverage read said "covered" and nothing could contradict it.
+        This method reduces nothing.
+
+        Returns ``None`` on any read failure (breaker open / gateway wedged /
+        not connected) and ``[]`` only on a **confirmed clean** account-wide
+        read holding no orders — the same "could not look" vs "looked and found
+        nothing" split :meth:`positions` and :meth:`has_protective_orders`
+        follow. Never raises.
+
+        Uses the account-wide ``reqAllOpenOrders`` refresh, NOT this client's
+        ``openTrades()`` alone: IB order visibility is per-client-session, so a
+        bracket placed by the trader's exec client is invisible to a readonly
+        diag client that only reads its own session (see
+        :meth:`_req_all_open_orders`). Every field is best-effort per row — one
+        malformed order degrades to nulls in its own row rather than failing
+        the read.
+        """
+        with self._usage_lock:
+            return self._locked_list_open_orders()
+
+    def _locked_list_open_orders(self) -> Optional[List[Dict[str, Any]]]:
+        try:
+            ib = self.connect()
+        except Exception:  # noqa: BLE001 — breaker open / connect failed ⇒ cannot look
+            return None
+        try:
+            trades = self._req_all_open_orders(ib)
+        except Exception:  # noqa: BLE001 — account-wide read failed ⇒ cannot look
+            return None
+
+        def _num(obj: Any, attr: str) -> Optional[float]:
+            try:
+                v = float(getattr(obj, attr))
+            except (AttributeError, TypeError, ValueError):
+                return None
+            return v if v == v else None  # drop NaN
+
+        def _str(obj: Any, attr: str) -> Optional[str]:
+            v = getattr(obj, attr, None)
+            if v is None:
+                return None
+            s = str(v)
+            return s or None
+
+        rows: List[Dict[str, Any]] = []
+        for trade in trades or []:
+            try:
+                contract = getattr(trade, "contract", None)
+                order = getattr(trade, "order", None)
+                status_obj = getattr(trade, "orderStatus", None)
+                rows.append({
+                    "symbol": _str(contract, "symbol"),
+                    "local_symbol": _str(contract, "localSymbol"),
+                    "sec_type": _str(contract, "secType"),
+                    "exchange": _str(contract, "exchange"),
+                    "order_id": _num(order, "orderId"),
+                    "perm_id": _num(order, "permId"),
+                    "order_type": _str(order, "orderType"),
+                    "action": _str(order, "action"),
+                    "total_quantity": _num(order, "totalQuantity"),
+                    "aux_price": _num(order, "auxPrice"),
+                    "lmt_price": _num(order, "lmtPrice"),
+                    "oca_group": _str(order, "ocaGroup"),
+                    "tif": _str(order, "tif"),
+                    "parent_id": _num(order, "parentId"),
+                    "account": _str(order, "account"),
+                    "status": _str(status_obj, "status"),
+                    "filled": _num(status_obj, "filled"),
+                    "remaining": _num(status_obj, "remaining"),
+                })
+            except Exception:  # noqa: BLE001 — one malformed trade never breaks the read
+                continue
+        return rows
 
     def has_protective_orders(self, symbol: Optional[str]) -> Optional[bool]:
         """Does *symbol* have a resting protective leg (a stop OR a limit) open

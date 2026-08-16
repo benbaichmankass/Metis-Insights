@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260816-092500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-16T09:25:00+00:00",
+      "window_start": "2026-08-14T12:20:00+00:00",
+      "window_end": "2026-08-16T09:25:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "A 15-minute scalp has been holding a 105-lot MGC position for 223 hours with its take-profit CROSSED and unfilled \u2014 confirmed two ways (uPnL-implied mark 4398.60 = MGC candle close 4398.60, vs a TP at 4297.66) \u2014 and it is currently monitor-blind on IB breaker flaps. Second consecutive review with this open. Real money took no trades in the window; over 30d it is -$19.23, and ONE leg, eth_pullback_2h, is 90.3% of that. Shipped the IB open-orders read surface that makes this class contradictable at all, and fixed a roll-up that was under-reporting 96 open backlog items.",
+      "html_path": "comms/reports/since-last/20260816T092500Z/report.html",
+      "json_path": "comms/reports/since-last/20260816T092500Z/report.json",
+      "md_path": "comms/reports/since-last/20260816T092500Z/report.md"
+    },
+    {
       "id": "RPT-20260814-122000-since-last",
       "window": "since-last",
       "generated_at": "2026-08-14T12:20:00+00:00",

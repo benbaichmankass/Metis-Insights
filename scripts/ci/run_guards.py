@@ -439,6 +439,21 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
+        "name": "lever-reachability-guard",
+        # The self-test runs on EVERY invocation, same reasoning as
+        # trainer-heavy-lock-guard: this guard's whole design point is that
+        # editing the registry to match a changed arm_r must NOT be free, and
+        # that is only demonstrable by running the negatives.
+        "when": {"globs": ["config/strategies.yaml",
+                           "config/lever_reachability.json",
+                           "scripts/ci/check_lever_reachability.py",
+                           "scripts/ops/lever_reachability_audit.py"]},
+        "steps": [
+            ["python3", "scripts/ci/check_lever_reachability.py", "--self-test"],
+            ["python3", "scripts/ci/check_lever_reachability.py"],
+        ],
+    },
+    {
         "name": "provenance-consumer-guard",
         "when": {"regex": r"\.py$"},
         "steps": [["python3", "scripts/check_provenance_consumers.py", "--verbose"]],
