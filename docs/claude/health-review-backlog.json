@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T11:15:00+00:00",
+  "updated_at": "2026-08-16T11:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17530,6 +17530,30 @@
       "related": [
         "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT",
         "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN"
+      ]
+    },
+    {
+      "id": "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
+      "opened_at": "2026-08-16T11:20:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, operator-directed after the ib_paper/MGC flatten failed)",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "fix_landed_pending_live_verification",
+      "area": "exit-coverage",
+      "title": "IBClient.close ABANDONS the market order it just placed when the flatten is not confirmed flat -- so a failed close leaves MORE resting sell orders than it started with, and every retry adds one",
+      "detail": "OPERATOR-DIRECTED. Found by reading /api/diag/ib_open_orders 48s after system-action #9648 (flatten-ib-position, ib_paper/MGC) returned exit 1.\n\nWHAT close() DOES. `_locked_close`'s not-confirmed-flat branch returns retCode 1 -- correct, it must not claim a close it cannot confirm -- and then WALKS AWAY FROM ITS OWN LIVE ORDER. tif is DAY, nothing cancels it, and the order id exists only inside the retMsg string, so no caller can act on it.\n\nTHE METHOD ARGUES AGAINST ITSELF. Its Step-1 docstring says to cancel resting protective orders first because 'a later fill of one leg would re-open a position in the opposite direction', and that cancelling first is what makes the close 'idempotent and naked-order-free'. That argument applies exactly to its own abandoned order and was never applied to it -- on the failure path, the only path where it matters.\n\nMEASURED STATE (2026-08-16T10:57:23Z, relay #9650, 48s after the failed flatten). ib_paper/MGC, one 105-contract long, held TWO resting sells:\n  order 359  STP SELL 105 @ 4278.80  oca_group 'oca-protect-357'  GTC\n  order   6  MKT SELL 105            oca_group null               DAY\n210 contracts of sell against a 105 long, in two orders with NO linkage, so neither can cancel the other. If the market order fills, the position goes flat and the GTC stop remains resting on a flat book.\n\nCONSEQUENCES, in order: (1) the abandoned order can still fill later, flattening a position nobody expects flat; (2) retries STACK -- IB_CLOSE_RETRY_COOLDOWN_S (300s) bounds the RATE, never the total, so a day against a non-filling venue is up to ~17 resting market sells on one position; (3) one filling while another rests flips the account to a short.\n\nNOT ASSERTED: whether IB would in fact fill the survivor into a reverse position. Two independent GTC/DAY sells against one long is VERIFIED from broker truth; the fill path is not, and is not claimed here.\n\nSIBLING (same PR, see resolution): `_cancel_resting_orders_for_symbol` reads `ib.openTrades()`, which is per-clientId. `scripts/ops/flatten_ib_position.py` builds a PID-salted ops client (`9900 + os.getpid() % 90`), so the flatten could not SEE the trader's legs (clientId 496/497) and Step 1 cancelled ZERO -- reporting exactly like success. That is why the stop survived, which is the only reason the position was never naked. Two defects partially cancelling out is not a safety property. The repo already records the same clientId scoping for reqExecutions ('a separate pull process sees zero of the trader's fills, unless it is the gateway master client').\n\nNOTE ON A DANGLING ID, found by artifact-validity-guard while filing this row: the filed row is BL-20260624-MHG-CLOSE-CONFIRM-VERIFY, but ~8 sites cite it WITHOUT the -VERIFY suffix -- CLAUDE.md's IB_CLOSE_CONFIRM_S and IB_CLOSE_RETRY_COOLDOWN_S rows, order_monitor.py (x3), ib_client.py, reconcile_orphan_history.py, and two test modules. That truncated form resolves to nothing, so those comments read as tracked while being tracked by nobody. Pre-existing and grandfathered by the diff-scoped guard, so it is recorded here rather than swept; correct the suffix next time any of those files is edited for another reason.\n\n(Stated without quoting the truncated id verbatim, because the guard matches the token itself and cannot tell 'citing this id as a tracking reference' from 'reporting that this id is broken' -- so writing it out would trip the guard on a row whose whole point is that it dangles. Worth knowing before anyone tries to document a dangling id again.)",
+      "resolution_criteria": "1. SHIPPED: close() cancels its own order on the not-confirmed path and declares the outcome three ways -- cancelled / already_filled (a fill raced the cancel; nothing rests and the position may now be FLAT) / cancel_failed (an order STILL RESTS). Never collapsed to a boolean.\n2. SHIPPED: the symbol-wide cancel returns {seen, cancelled, failed, account_wide_seen} and WARNs when the account holds more legs than this session can see. account_wide_seen is None when that read failed -- not zero.\n3. NOT DONE, deliberately: the symbol-wide READ is not widened to reqAllOpenOrders. Cancelling is symbol-wide and one IB symbol's legs span several trades, so widening the read before the cancel is TRADE-scoped would let one partial close strip every sibling's protection -- a bigger blast radius than this bug. That is criterion 2/4 of BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY.\n4. OPEN: no wire exists to cancel ONE IB order. The allowlist has cancel-stale-tpsl-legs (Bybit only). Needed for the existing stranded order 6, and blocked on an unverified question -- IB documents cancellation as own-client-only unless the client holds the gateway MASTER client id, and the placing ops session has exited with a PID-derived id. reqGlobalCancel would work but cancels everything including the stop.\n5. LIVE VERIFICATION: after deploy, a failed close must leave ZERO abandoned orders on /api/diag/ib_open_orders. Until that read exists this is untested against a real gateway.",
+      "refs": [
+        "src/units/accounts/ib_client.py::_locked_close",
+        "src/units/accounts/ib_client.py::_cancel_own_close_order",
+        "src/units/accounts/ib_client.py::_cancel_resting_orders_for_symbol",
+        "scripts/ops/flatten_ib_position.py:65",
+        "issue #9648 (failed flatten)",
+        "issue #9650 (post-failure read)"
+      ],
+      "related": [
+        "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
+        "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY"
       ]
     }
   ]

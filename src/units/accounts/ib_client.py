@@ -1665,13 +1665,39 @@ class IBClient:
                 except Exception:  # noqa: BLE001
                     break
             if not flat:
+                # CANCEL OUR OWN ABANDONED ORDER before giving up.
+                #
+                # This method's Step-1 docstring already makes the argument:
+                # a resting order left behind while we walk away "would re-open
+                # a position in the opposite direction" on a later fill, and
+                # cancelling first is what makes the close "idempotent and
+                # naked-order-free". That reasoning was applied to OTHER
+                # people's orders and never to this method's own — so the one
+                # path where it matters (the failure path) left a live DAY
+                # market order resting with its id recorded nowhere but a log
+                # string (BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER).
+                #
+                # Measured 2026-08-16 on ib_paper/MGC: after a failed flatten,
+                # /api/diag/ib_open_orders showed BOTH the 105-lot stop AND an
+                # abandoned `MKT SELL 105 tif DAY` — 210 contracts of resting
+                # sell against a 105 long, in two orders with no OCA linking
+                # them, so neither could cancel the other. Every retry adds one
+                # more (IB_CLOSE_RETRY_COOLDOWN_S bounds the RATE, not the
+                # total), and a fill on one while another rests flips the
+                # account short.
+                #
+                # Cancelling here makes the retry idempotent: each attempt
+                # leaves at most one live order, and a caller that gives up
+                # leaves none.
+                cancel_state = self._cancel_own_close_order(ib, close_trade)
                 return {
                     "retCode": 1,
                     "retMsg": (
                         f"close not confirmed flat: live_qty={last_qty} after "
                         f"~{confirm_s}s — close order {close_order.orderId} was "
                         "accepted but the position is still open; leaving DB row "
-                        "open to re-arm protection and retry next tick"
+                        "open to re-arm protection and retry next tick "
+                        f"(own close order: {cancel_state})"
                     ),
                 }
 
@@ -1680,6 +1706,69 @@ class IBClient:
             "result": {"orderId": str(close_order.orderId)},
             "retMsg": "OK",
         }
+
+    def _cancel_own_close_order(self, ib: Any, close_trade: Any) -> str:
+        """Cancel the close order THIS call placed. Best-effort; never raises.
+
+        Returns a three-state string, deliberately never collapsed, because the
+        three outcomes call for different follow-up and a boolean would hide the
+        middle one:
+
+        - ``"cancelled"``      — the cancel was requested and accepted; nothing
+          of ours rests. The retry is now idempotent.
+        - ``"already_filled"`` — the order filled between the last confirm poll
+          and this cancel. **Nothing rests, but the position may now be FLAT**
+          while we are about to return ``retCode 1`` and leave the DB row open.
+          That is the safe direction (the reconciler's close-on-disappear
+          resolves it); reporting it as ``cancelled`` would be a lie about what
+          the broker did, and reporting it as a failure would send the caller
+          hunting for an order that no longer exists.
+        - ``"cancel_failed: …"`` — we asked and IB refused or the call raised.
+          **A live order still rests and nobody is tracking it.** This is the
+          state that must never be silent: it is the pre-fix behaviour, now at
+          least declared instead of assumed away.
+
+        The distinction matters beyond tidiness: IB scopes order cancellation
+        per client session, so a cancel issued from a session that did not place
+        the order can be refused. Here we are cancelling our OWN order on our own
+        connection, which is the one case with no scope ambiguity — but the
+        refusal path is still reported rather than swallowed, because a silent
+        ``except: continue`` is exactly what let the symbol-wide cancel read as
+        "cancelled everything" while cancelling nothing.
+        """
+        order = getattr(close_trade, "order", None)
+        if order is None:
+            return "cancel_failed: no order handle"
+        # Filled between the last poll and now? Then nothing rests. Read the
+        # status defensively — a stand-in/older ib_insync may not carry it, and
+        # an unreadable status must not be mistaken for "filled".
+        try:
+            status = getattr(close_trade, "orderStatus", None)
+            remaining = getattr(status, "remaining", None)
+            state = str(getattr(status, "status", "") or "")
+            if state == "Filled" or (
+                remaining is not None and float(remaining) <= 0
+            ):
+                return "already_filled"
+        except (TypeError, ValueError):
+            pass  # unreadable status ⇒ fall through and try the cancel anyway
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            ib.cancelOrder(order)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "IBClient.close: could not cancel our own unfilled close order "
+                "%s — it is STILL RESTING at the broker and nothing tracks it: "
+                "%s: %s",
+                getattr(order, "orderId", "?"), type(exc).__name__, exc,
+            )
+            return f"cancel_failed: {type(exc).__name__}: {exc}"
+        try:
+            ib.sleep(0)
+        except Exception:  # noqa: BLE001
+            pass
+        return "cancelled"
 
     def _live_position_qty(self, symbol: str) -> Optional[float]:
         """Absolute open-position size for *symbol* from IB's portfolio.
@@ -1737,7 +1826,9 @@ class IBClient:
             pass
         return cancelled
 
-    def _cancel_resting_orders_for_symbol(self, ib: Any, symbol: str) -> None:
+    def _cancel_resting_orders_for_symbol(
+        self, ib: Any, symbol: str
+    ) -> Dict[str, Any]:
         """Cancel every open (resting) order on *symbol* — best-effort.
 
         Sweeps the protective bracket / OCA legs so a subsequent opposing
@@ -1745,24 +1836,98 @@ class IBClient:
         re-opens a position. Matches by the contract's generic root symbol
         (``contract.symbol``), the same axis the journal + reconciler use.
         Never raises — a cancel failure on one leg must not block the close.
+
+        ⚠️ **THIS READ IS SESSION-SCOPED AND THAT IS NOT ALWAYS ENOUGH.**
+        ``_open_trades`` is ``ib.openTrades()``, which returns only orders THIS
+        clientId placed. The account-wide view is ``_req_all_open_orders``
+        (``reqAllOpenOrders``) — what ``has_protective_orders`` and
+        ``protection_coverage`` already use. So a caller running on a different
+        clientId than the one that armed the bracket sees **nothing** here and
+        this method is a silent no-op.
+
+        That is not hypothetical. ``scripts/ops/flatten_ib_position.py`` builds
+        a PID-salted ops client (``9900 + os.getpid() % 90``), so a
+        ``flatten-ib-position`` run cannot see the trader's legs (placed on
+        clientId 496/497). Measured 2026-08-16 on ``ib_paper``/MGC: a flatten
+        ran, this cancel reported nothing wrong, and the trader's stop was
+        **still resting afterwards** — Step 1 had cancelled zero legs. The same
+        clientId scoping is already recorded for ``reqExecutions`` elsewhere in
+        this repo ("a separate pull process sees zero of the trader's fills,
+        unless it is the gateway master client").
+
+        **The read is deliberately NOT widened here.** Cancelling is
+        symbol-wide, and under IB netting one symbol's legs can belong to
+        several trades across several strategies; widening the READ without
+        first making the CANCEL trade-scoped would let one partial close strip
+        every sibling's protection — a bigger blast radius than the bug being
+        fixed. That is criterion 2/4 of
+        BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY and belongs with the
+        trade-attributable-protection work, not here.
+
+        What IS fixed here is the **silence**: "cancelled every leg" and
+        "could not see a single leg" were the same observable outcome (``None``
+        return, no log). This now reports counts so a caller — and a reader of
+        the logs — can tell them apart. Returns
+        ``{"seen", "cancelled", "failed", "account_wide_seen"}``;
+        ``account_wide_seen`` is ``None`` when that read itself failed, which is
+        NOT the same as zero.
         """
         sym = str(symbol or "").upper()
+        seen = 0
+        cancelled = 0
+        failed = 0
         for trade in self._open_trades(ib):
             try:
                 contract = getattr(trade, "contract", None)
                 trade_sym = str(getattr(contract, "symbol", "") or "").upper()
                 if sym and trade_sym and trade_sym != sym:
                     continue
+                seen += 1
                 ib.cancelOrder(trade.order)
+                cancelled += 1
             except Exception:  # noqa: BLE001
                 # Best-effort: a single un-cancellable leg must not abort
                 # the flatten; the naked-autoprotect / reconciler paths
-                # converge the remainder.
+                # converge the remainder. Counted, not swallowed.
+                failed += 1
                 continue
         try:
             ib.sleep(0)
         except Exception:  # noqa: BLE001
             pass
+
+        # The honest denominator: how many legs exist ACCOUNT-WIDE for this
+        # symbol. If that exceeds what this session could see, legs are resting
+        # that this client cannot cancel — the exact condition that made the
+        # 2026-08-16 flatten look successful while changing nothing.
+        account_wide: Optional[int] = None
+        try:
+            account_wide = sum(
+                1 for t in self._req_all_open_orders(ib)
+                if not sym
+                or str(getattr(getattr(t, "contract", None), "symbol", "")
+                       or "").upper() == sym
+            )
+        except Exception:  # noqa: BLE001
+            account_wide = None  # could not look — NOT zero
+
+        if account_wide is not None and account_wide > seen:
+            logger.warning(
+                "IBClient: symbol-wide cancel on %s is SESSION-SCOPED — this "
+                "client (id=%s) saw %d resting order(s) but the account holds "
+                "%d. %d leg(s) are resting that this session cannot cancel; "
+                "the flatten did NOT clear them.",
+                sym, self.client_id, seen, account_wide, account_wide - seen,
+            )
+        if failed:
+            logger.warning(
+                "IBClient: symbol-wide cancel on %s — %d of %d leg(s) refused "
+                "cancellation and are STILL RESTING.", sym, failed, seen,
+            )
+        return {
+            "seen": seen, "cancelled": cancelled, "failed": failed,
+            "account_wide_seen": account_wide,
+        }
 
     def cancel_resting_protection(self, symbol: Optional[str]) -> Dict[str, Any]:
         """Cancel every resting (working) order for *symbol* — public, best-effort.
