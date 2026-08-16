@@ -1034,6 +1034,114 @@ standing at `honest_negative` — a confirmation, not a null result. Any
 floor-clearing `PASS` that appears becomes a Tier-3 adjudication and is queued,
 never auto-flipped.
 
+### 2026-08-16 overnight continuation (items 25–30)
+
+**25. A repo-wide CI outage, found from the wrong end.** At 05:48Z
+`artifact-validity-guard` went red on **every** PR: the `KNOWN_VACUOUS` entry for
+`comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json` carried
+`until: 2026-08-15`, and past that date the guard hard-fails. It also took out
+`pytest-run` (three tests assert the live list is clean *today*), so both required
+checks were red repo-wide. It surfaced on **#9549**, a one-file
+`config/strategies.yaml` diff touching nothing macro — which is the tell.
+
+The **expiry mechanism worked as designed**: it forced the decision instead of
+letting the debt become permanent. So the disposition cleared the debt rather than
+moving the date. The entry named two remedies and **both** were done, because
+either alone leaves the class open — the capture was pruned (after verifying
+`rows == []`, which matters because `econ_calendar_produce` *globs* that directory,
+so the file **was** a producer input contributing zero rows), and
+`econ_calendar_fmp.write_capture` now refuses to write a zero-row capture at all.
+
+**A genuine collision.** Another session hit the same breakage within ~10 minutes
+and merged **#9550** doing the *prune* half while I did the *refuse* half in
+**#9552**. Neither of us had posted a `START` covering it, because both found it
+**reactively** — as a red check on unrelated work. That is a real gap in how the
+board is used: the protocol covers work you set out to do, not work a failing
+check drags you into. Cost was low only because the halves composed.
+
+**26. The owner of the expired entry was a closed row.** It named
+`BL-20260730-PRODUCER-VACUITY-GUARD`, which had been marked `resolved` on
+2026-08-01 — **15 days before the expiry fired**. `known_vacuous_problems` checks
+that an entry *names* a backlog id, never that the id is still **open**, so the
+debt was owned only syntactically and reached us as a CI outage instead of a
+review item somebody was draining. Filed
+`BL-20260816-KNOWN-VACUOUS-OWNER-MAY-BE-A-CLOSED-ROW`. *(I got this wrong in a
+first draft of the note — I wrote "this row stays open" without checking its
+status. Corrected in place; the error is recorded because it is the same class of
+mistake the row is about.)*
+
+**27. The operator-directed split, and the ordering hazard it created.**
+`config/strategies.yaml` moved onto its own branch (**#9549**, +26/−0), leaving
+**#9257** research-only — verified from `git diff origin/main...HEAD`, per the
+operator's standing rule, not from a commit list. `src/runtime/regime_flip_exit.py`
+(+167, new file) stays on #9257 and is named explicitly: it has **0 importers under
+`src/`**, verified with a positive control (the only two `src/` text hits are inside
+the module itself, and the same probe *does* find its importers under
+`scripts/research/`).
+
+The split then broke `matrix-config-agreement`: the matrix claimed `shipped` for
+`trend_donchian_xrp_4h/trail_decay` while config on that branch armed nothing. The
+guard's rule is that **the record yields to the config**, so the cell went to
+`passed_unshipped` — honest for a branch with no declare. #9257 also **registers**
+that guard (it had been deliberately unregistered over six unreconciled cells) and
+reconciles the six, so after it merged the pair became CI-enforced in both
+directions, and #9549 then failed until its cell was restored to `shipped`. Both
+states were correct for their branch; the Tier-3 approval never changed.
+
+**28. The target-50 re-sweep completed and is unusable.** 19 legs, 252/252 cells,
+OOS landing 47–50 — and its own `SUMMARY.md` reports **`legacy (no TP cap)` on every
+leg**, because `m20_fleet_exit_sweep.py:1463` declares `--tp-cap-pct` with
+`default=0.0` and the launch omitted it. **A re-sweep whose entire purpose was to
+replace stale no-take-profit evidence was itself measured on a no-take-profit
+book.** Its verdicts cannot re-grade anything; the split-target half worked, which
+is what makes it dangerous — the run looks successful and its headline numbers are
+real. Relaunched at live parity into a **new** directory so the legacy run is
+preserved rather than overwritten. Filed
+`BL-20260816-TP-CAP-PCT-DEFAULTS-TO-LEGACY-GEOMETRY`; the default flip itself is
+**queued for the operator**, because it re-points what every future run means.
+
+This is the **third** instance of one root cause. The first two were code bugs
+(`m20_flip_replay_sweep`, then both M21 drivers, all calling `base_args` with five
+positionals); this one is a forgotten CLI flag. What they share is that **0.0 makes
+the wrong book the one you get by forgetting**.
+
+**29. M21, fixed with a measured denominator.** Both entry drivers now pass
+`tp_cap_pct` and stamp geometry through the shared `tp_geometry_for()`. Using
+**M21's own `entry_cells()`**: **227 sweepable cells across 42 legs, 100% on
+TP-capped families** (donchian 147 + pullback 80) — no leg escaped. The flag
+defaults to **live parity** here, where there was no prior default to re-point.
+
+**Deliberately not claimed:** a per-leg split of the 68 *decided* M21 cells. Those
+15 matrix rows are **aggregate labels** (`"equities 1d fleet (spy/qqq/… trend;
+gld/… pullback)"`) and `classify()` on a label picks one family from a row holding
+several. That would be an estimate wearing a measurement's clothes.
+
+**30. Two more defects, both of the written-but-never-read family.**
+- `trainer-vm-heavy-request` is **declared** (`bootstrap-labels.yml:335`) and
+  **hook-enforced** (`vm_lane_guard.sh`), and **no workflow triggers on it** —
+  enumerated every issues-triggered workflow's label filter. A heavy job filed per
+  the documented VM-lane protocol never runs *and never fails*, so the skill's own
+  "treat a failure comment as terminal" safeguard cannot fire: silence is
+  indistinguishable from queued.
+- **7 blocked matrix cells name a count-based block reason while recording no
+  count** — two read `insufficient_lifetime_trades` with `lifetime_trades: None`,
+  on legs whose *sibling* cell carries the number. `lifetime_trades` is present on
+  **11 of 416** cells, and those 11 are exactly the ones the roll-up can grade.
+  (`ict_scalp_mgc_15m/exit_head_ml` is correctly exempt: `native-history-thin` is a
+  *source*-shaped block, not a volume one.)
+
+**Corrections to my own reporting this cycle**, recorded because the operator asked
+for scope claims to be verified rather than remembered:
+- Evidence vintage is **22.9% (66 of 288)**, not the 23.3%/67 I had been quoting.
+- `exit_ladder` has **4 open cells**, not the "29, largest block" I told the
+  operator. The largest is `exit_head_ml` at 12, of which **11 are arithmetically
+  unreachable** (needing 70–119 more trades each). The approved producer decision
+  still stands, but on the real reason: `exit_ladder` is the **only** lever with
+  **0 of 46** closed cells carrying a geometry stamp.
+- I told the operator #9257's `pytest-run` was "possibly stuck at ~17 min". **It
+  was not** — 10m08s against 9m52s for the prior run on the same branch. Actions
+  was healthy throughout (a `send-ping` issue was processed in 25s).
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
