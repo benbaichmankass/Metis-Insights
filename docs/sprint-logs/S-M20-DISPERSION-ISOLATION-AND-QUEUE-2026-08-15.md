@@ -975,8 +975,15 @@ found this.
 Dispatched the fleet re-sweep for the 32 genuinely-sweepable cells (19 legs) and
 watched the first leg rather than the finish line. `trend_donchian` came back
 **`insufficient_base` on all five cells**. Checked the *rate* before concluding
-anything — one leg is not a rate — and it is **28 of 28 cells, 100 %, across
+anything — one leg is not a rate — and it is **28 of 28 cells refused, across
 three legs**.
+
+⚠️ **The n is 3, not 28.** A leg's cells all share ONE split derivation, so 28
+cells are **three** independent boundary events — the same denominator
+discipline the boundary-loss memo applied to itself (*"18 rows … are 14 distinct
+boundary EVENTS — not 14 rows; counting rows would inflate n"*). Three of three
+derivations failing is still decisive enough to stop the run; quoting 28 as the
+sample size would not be.
 
 **This is `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`,
 filed two days ago, criterion (1) confirmed and criterion (2) measured.**
