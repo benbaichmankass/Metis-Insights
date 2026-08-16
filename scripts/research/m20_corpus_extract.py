@@ -149,8 +149,62 @@ def measurement_key(row: dict) -> tuple:
             tuple(sorted(_dropped)) if isinstance(_dropped, list) else ())
 
 
+class ForeignVerdictsSchema(ValueError):
+    """This `verdicts.json` was not written by the FLEET sweep."""
+
+
+def _assert_fleet_schema(doc: dict, run_id: str) -> None:
+    """Refuse a `verdicts.json` this extractor cannot read. LOUDLY.
+
+    TWO SWEEPS WRITE A FILE CALLED `verdicts.json` AND THE SCHEMAS ARE
+    UNRELATED. `m20_fleet_exit_sweep` writes per-cell measurements
+    (`cells`, `d_net_r_IS`, `wf_folds`, …); `m20_flip_replay_sweep` writes
+    per-leg flip results (`flip_pct`, `walkforward`, `actual_net_r`,
+    `flip_net_r`). `find_verdicts` is an `rglob("verdicts.json")`, and both
+    sweeps write under `runtime_logs/`, so `--in runtime_logs/` picks up both.
+
+    MEASURED 2026-08-16, on a real flip-sweep payload: this function did not
+    exist, the flip file was ACCEPTED, and it produced a row asserting
+    `leg_status: "no_levers"` — "this leg has no levers to sweep" — about a leg
+    whose source file records a lever that fired on 43.9 % of trades and
+    returned `fail`. A confident row stating the opposite of its own input,
+    keyed into the durable corpus, where `matrix-corpus-agreement` and the
+    coverage roll-up both read it.
+
+    The discriminator is the FLEET shape's own marker, not the flip shape's:
+    asking "does it look like a flip file?" would pass any third schema that
+    appears later, which is the unasserted-denominator failure. A fleet leg
+    entry carries `cells` (or an explicit `leg_status`); a flip leg entry
+    carries neither.
+    """
+    v = doc.get("verdicts")
+    if not isinstance(v, dict) or not v:
+        return  # an empty run is a real, separate state; leave it to the caller
+    bodies = [b for b in v.values() if isinstance(b, dict)]
+    if not bodies:
+        return
+    fleet = [b for b in bodies if "cells" in b or "leg_status" in b]
+    if fleet:
+        return
+    flip_like = sorted({k for b in bodies for k in b
+                        if k in {"flip_pct", "walkforward", "flip_net_r",
+                                 "actual_net_r"}})
+    raise ForeignVerdictsSchema(
+        f"{run_id}: no leg entry carries `cells` or `leg_status`, so this is "
+        f"not a fleet-sweep verdicts.json"
+        + (f" — the entries carry {flip_like}, which is the "
+           f"m20_flip_replay_sweep schema (a DIFFERENT sweep that writes the "
+           f"same filename). Extract it with a flip-aware reader, or point "
+           f"--in at the fleet sweep's own output dir."
+           if flip_like else
+           ". Refusing rather than emitting rows about a file this extractor "
+           "cannot read.")
+    )
+
+
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     """One row per (leg, cell), plus one per leg that produced no cells."""
+    _assert_fleet_schema(doc, run_id)
     out: list[dict] = []
     gen = doc.get("generated_at")
     # THE RUN-LEVEL split, which is now only the LEGACY location.
@@ -475,7 +529,16 @@ def main(argv: list[str]) -> int:
             return 1
         rid = run_id_for(f, doc)
         runs.add(rid)
-        fresh.extend(rows_from_verdicts(doc, rid))
+        try:
+            fresh.extend(rows_from_verdicts(doc, rid))
+        except ForeignVerdictsSchema as exc:
+            # FAIL THE RUN, do not skip the file. Skipping would extract the
+            # other files and report success over a population quietly missing
+            # one — and the operator's next move (point --in somewhere
+            # narrower) depends on knowing this file was there at all. Same
+            # disposition as the unreadable-file branch above.
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
 
     corpus = Path(a.corpus)
     kept: list[dict] = []

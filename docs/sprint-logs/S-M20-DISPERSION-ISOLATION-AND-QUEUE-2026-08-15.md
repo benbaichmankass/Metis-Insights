@@ -711,11 +711,25 @@ Verified as mechanism, not inferred: the `no_flip` branch and its `r = actual_r`
 were read at `m20_regime_flip_replay.py:116`, and a test asserts the equality
 directly rather than trusting the comment.
 
-Left alone this lands in the corpus as a **floor-clearing PASS contradicting a
-live cell** — precisely what `matrix-corpus-agreement` escalates. It is the same
-class as the inert walk-forward folds the acknowledgement drafter reports
-(item 14), one level worse: there inertness was 3 of 6 folds; here it can be the
-**entire verdict**.
+It is the same class as the inert walk-forward folds the acknowledgement drafter
+reports (item 14), one level worse: there inertness was 3 of 6 folds; here it
+can be the **entire verdict**.
+
+⚠️ **Correction to my own justification, published in the commit for this fix
+and in an earlier draft of this item.** I wrote that an inert PASS *"lands in
+the corpus as a floor-clearing PASS contradicting a live cell — precisely what
+`matrix-corpus-agreement` escalates."* **That path does not exist.** Measured
+after the fact: `m20-sweep-corpus.jsonl` holds **1,264 rows across exactly the
+five levers the fleet sweep emits** (`stale_stop` 222, `giveback_stop` 182,
+`trail_geometry` 170, `trail_decay` 411, `vol_trail` 278, +1 null) and **zero**
+`regime_flip_exit`, `exit_ladder` or `exit_head_ml` rows. Nothing routes
+flip-sweep verdicts into the corpus, so the guard never sees them.
+
+The fix stands on its own merits — a tautological PASS is wrong wherever it is
+read, and the reader it actually misled was **me**, for the minute between the
+liveness probe and checking `flip_pct`. But the mechanism I claimed was not
+verified before I asserted it, and a future session could act on the belief that
+the guard covers this column. It does not.
 
 - **Three verdicts, never two** — `INERT_NEVER_FLIPPED` when `flipped == 0`,
   checked **before** the win ratio (or a 6/6 of free wins reaches `PASS` first).
@@ -754,6 +768,46 @@ flip% 100.0 taking net_R 30.13 → −0.54, `avax_pullback_2h` 98.9 % taking
 fires on essentially every trade and destroys the book is a finding the old
 no-take-profit evidence agreed with; what changes is that it is now measured
 against the right baseline.
+
+### 20. Chasing that correction found a worse defect one file over
+
+Checking whether flip verdicts reach the corpus (they do not — § 19) meant
+reading the extractor, and **`m20_corpus_extract.py` accepts a flip-sweep file**.
+
+Both sweeps write a file named **`verdicts.json`**, both under `runtime_logs/`,
+and `find_verdicts` is an `rglob("verdicts.json")` — so `--in runtime_logs/`
+reaches both. The schemas are unrelated: fleet writes per-cell measurements
+(`cells`, `d_net_r_IS`, `wf_folds`), flip writes per-leg results (`flip_pct`,
+`walkforward`, `actual_net_r`).
+
+**Measured, on the real #9534 payload, before the guard existed** — it did not
+error. It emitted a row asserting:
+
+```
+leg_status: "no_levers"      # "this leg has no levers to sweep"
+```
+
+about `trend_donchian_eth_4h`, whose own source file records a lever that fired
+on **43.9 %** of trades and returned `fail`. A confident row stating the opposite
+of its input, keyed into the durable corpus that both `matrix-corpus-agreement`
+and the coverage roll-up read.
+
+Now refused, and the refusal names what it saw and who owns the schema. Three
+choices worth stating:
+
+- **The discriminator is the FLEET marker, not the flip one.** Asking *"does
+  this look like a flip file?"* would wave through any third schema that appears
+  later — the unasserted-denominator shape.
+- **The run FAILS; the file is not skipped.** Skipping would extract the others
+  and report success over a population quietly missing one, and the operator's
+  next move (narrow `--in`) depends on knowing the file was there.
+- **A degenerate doc does not raise.** An empty run is a real, separate state.
+
+Verified end to end: the CLI exits 1, names `m20_flip_replay_sweep`, and leaves
+the corpus **byte-identical**. 6 tests, plant-proven (removing the assertion
+fails 3), including a positive control — a fleet-shaped doc still extracts, and
+a `leg_status`-only entry is still recognised as the legitimate no-cells fleet
+row.
 
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
