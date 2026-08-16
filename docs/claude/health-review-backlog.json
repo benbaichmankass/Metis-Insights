@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-15T21:23:06+00:00",
+  "updated_at": "2026-08-16",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -15774,6 +15774,28 @@
           "at": "2026-08-16",
           "note": "PARTIAL TEST OF THE VENUE-CLOSURE HYPOTHESIS, from data already in hand rather than waiting for the weekday read. Joined the tick_cost per-timeframe fetch means to the coverage matrix's authoritative strategy->symbol->tf mapping (NOT a hand heuristic -- my first attempt classified via config/strategies.yaml and returned 0 crypto for every timeframe, because strategies carry no `symbol` field; symbols come from account routing). Result, live legs only: 1d 100% equity/futures -> 14,226ms; 1h 55% -> 5,055ms; 15m 25% -> 2,745ms; 5m 0% -> 1,522ms; 2h 0% -> 221ms; 4h 0% -> 199ms. Monotonic in the equity/futures share across 1d/1h/15m, and the two cheapest frames are pure crypto -- consistent with closed venues driving the cost. ⚠️ IT DOES NOT SETTLE IT, and the counter-example is in the same table: 5m is ALSO pure crypto yet costs 1,522ms, ~7x the pure-crypto 2h/4h. So venue class cannot be the whole story and at least one other factor is present. More fundamentally, timeframe is CONFOUNDED with venue class here by construction -- every 1d leg is an equity/ETF -- so this data cannot separate '1d is slow because its venues are shut' from '1d fetches are inherently expensive'. The weekday read remains the discriminator; this only raises the prior."
         }
+      ]
+    },
+    {
+      "id": "BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY",
+      "title": "Both M21 entry sweeps drop the live TP cap; the M21 matrix has 27 DECISION cells and no geometry tracking",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened_at": "2026-08-16",
+      "opened_by": "session_01WekhceSkxLeuDLuXJMionS (M20 overnight)",
+      "source": "grep over scripts/research/*.py + docs/research/entry-refinement-coverage.json, read this session",
+      "why_it_matters": "VERIFIED: scripts/research/m21_entry_sweep.py:133 and scripts/research/m21_entry_head_round.py:125 both call base_args(name, cfg, fam, data, resample) POSITIONALLY, so tp_cap_pct defaults to 0.0 and base_args appends neither --tp-cap-pct nor --tp-r for a family in LIVE_TP_CAPPED_FAMILIES. That is the identical defect this session just fixed in m20_flip_replay_sweep.py, and all three are the 'THREE SIBLING SWEEPS' of BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING; the M20 one is now done and these two are what remains of it. WHY IT IS WORSE HERE THAN IT WAS IN M20: the regime_flip_exit column that motivated the M20 fix is 38 cells and ALL 38 are honest_negative, so its stale evidence costs knowledge only. docs/research/entry-refinement-coverage.json carries 23 'shipped' and 4 'passed_unshipped' -- 27 DECISION cells -- and many of its rows plainly name donchian and pullback legs, which ARE capped families. A shipped entry decision taken on a book with no take-profit is the money-adjacent version of this defect. AND M21 HAS NO GEOMETRY TRACKING AT ALL: the matrix has no tp_geometry field and there is no m21 equivalent of m20_coverage_rollup's evidence_vintage / LEVER_GEOMETRY_CUTOVER, so nothing anywhere reports that this column's evidence is conditioned on the wrong geometry -- the M20 side at least SAYS so via its NEVER sentinel.",
+      "not_established": "I did NOT establish how many of the 27 decision cells sit on capped families, and an earlier draft of this note said 25 -- that figure was WRONG and is recorded here so it is not re-quoted. It came from running m20_fleet_exit_sweep.classify() over the matrix's `strategy` values, but 5 of the 15 M21 rows are COMPOSITE labels covering many legs at once (e.g. 'equities 1d fleet (spy/qqq/... trend; gld/tlt/... pullback)', which mixes both families in one row), so classify() was substring-guessing on strings it was never designed for. A real count needs M21's own row->leg mapping, which I did not read. Separately noticed while listing the rows: 'xauusd_trend_1h' appears as its own row AND inside 'xauusd_trend_1h / mgc_trend_1h', so at least one leg is double-counted -- its own small defect, unmeasured here.",
+      "next_action": "(1) Apply the M20 fix to both files: add --tp-cap-pct defaulting to 0.099 and pass it as the 6th positional to base_args. The geometry-stamp derivation is now a shared function, m20_fleet_exit_sweep.tp_geometry_for (extracted 2026-08-16), so both should stamp via that rather than re-deriving -- a third copy is how the 2026-08-10 fleet-sweep fix failed to reach its siblings in the first place. (2) Establish the real capped-family denominator over the 27 decision cells using M21's own row->leg mapping, and split the composite rows if that mapping does not exist. (3) Decide whether M21 needs an evidence-vintage surface; today nothing reports that these cells are conditioned on a no-take-profit book. None of this is Tier-3: the sweeps are research tooling and the remedy is re-measurement, not a config change. But re-measurement may move a 'shipped' entry cell, and THAT adjudication is the operator's.",
+      "refs": [
+        "scripts/research/m21_entry_sweep.py:133",
+        "scripts/research/m21_entry_head_round.py:125",
+        "scripts/research/m20_flip_replay_sweep.py (the fixed sibling, commit 57533c1d)",
+        "scripts/research/m20_fleet_exit_sweep.py::tp_geometry_for",
+        "docs/research/entry-refinement-coverage.json",
+        "BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING",
+        "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP"
       ]
     }
   ]
