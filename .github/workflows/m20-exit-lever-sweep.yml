@@ -488,6 +488,36 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # PRESERVE THE EXTRACTOR THIS RUN WAS DISPATCHED WITH, before any git
+          # operation below can revert it.
+          #
+          # `rebase_onto_target`'s conflict path does `git reset --hard
+          # origin/$TARGET` and then re-runs the extractor. That reset reverts
+          # the ENTIRE worktree — including `m20_corpus_extract.py` itself — to
+          # the corpus branch's copy, so the re-derive runs the TARGET BRANCH's
+          # extractor, not this run's. Every field added to the extractor since
+          # that branch last moved is then silently absent from the rows, and
+          # nothing says so: the job is green, the summary reports the full row
+          # count, and the rows look complete.
+          #
+          # MEASURED (2026-08-16, run 31976325152): the conflict path fired, the
+          # reset landed on 9a085926 — 123 commits behind main — and all 52 rows
+          # came back missing the eight `live_tp_reach_r_*` keys #9037 added.
+          # The verdicts were unaffected (those are computed upstream, in
+          # verdicts.json); the loss is confined to the corpus row schema.
+          #
+          # This is NOT a rare concurrency edge. The corpus branch never merges
+          # main, so a main-dispatched run rebases main's whole history onto a
+          # long-diverged branch and takes add/add conflicts across dozens of
+          # unrelated files EVERY time. The conflict path is the normal path,
+          # which is exactly why the downgrade went unnoticed.
+          #
+          # The extractor is stdlib-only and imports nothing from the repo
+          # (verified: argparse/json/sys/pathlib), so running it from outside
+          # the worktree is safe. Copied rather than `git checkout`-ed so it
+          # never enters the index — the corpus branch must receive the JSONL,
+          # not a scripts change.
+          cp scripts/research/m20_corpus_extract.py "$RUNNER_TEMP/extract_dispatched.py"
           # The extractor FAILS on zero verdicts files, so reaching this step
           # means rows were produced. If the file is nonetheless absent, the
           # extractor and this step disagree about where it writes — a wiring
@@ -609,7 +639,12 @@ jobs:
             git rebase --abort || true
             git fetch origin "$TARGET"
             git reset --hard "origin/$TARGET"
-            python3 scripts/research/m20_corpus_extract.py \
+            # THE DISPATCHED extractor, not the one the reset just restored.
+            # See the cp at the top of this step for why: re-deriving with
+            # `scripts/research/m20_corpus_extract.py` here reads the corpus
+            # branch's long-stale copy and silently drops every field added
+            # since, producing rows that look complete and are not.
+            python3 "$RUNNER_TEMP/extract_dispatched.py" \
               --in sweep_out \
               --corpus docs/research/m20-sweep-corpus.jsonl | tee extract.out
             git add docs/research/m20-sweep-corpus.jsonl
