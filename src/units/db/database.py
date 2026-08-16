@@ -614,6 +614,51 @@ class Database:
             )
         ''')
 
+        # M31 P2 — position telemetry: the missing state between entry and exit.
+        # One row per order package, upserted on each exit-loop pass, carrying
+        # the trajectory the system already computes and used to discard
+        # (`trail_decay.since_entry_peak` -> MFE in R, collapsed to one boolean
+        # and thrown away). OBSERVE-ONLY: nothing reads this back to change an
+        # exit; a lever that does is M31 P5 and Tier-3.
+        # `peak_state` is never collapsed — `unanchored` / `thin_window` /
+        # `no_risk` say WHY MFE is absent rather than fabricating 0.0.
+        # data-wiring: keyed to order_packages.order_package_id (1:1 with the
+        # live decision) and carrying trades.linked_trade_id where the package
+        # has filled — an ENRICHMENT sidecar, not a projection: no upstream
+        # holds `peak_r`, so history begins at first write and there is nothing
+        # to backfill from. Sole writer: src/runtime/position_telemetry.py
+        # (called from the donchian/pullback monitors); readers are M31 P3.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS position_telemetry (
+                order_package_id TEXT PRIMARY KEY,
+                trade_id TEXT,
+                strategy TEXT,
+                symbol TEXT,
+                account_id TEXT,
+                direction TEXT,
+                entry REAL,
+                risk_per_unit REAL,
+                last_price REAL,
+                open_r REAL,
+                peak_r REAL,
+                peak_state TEXT,
+                giveback_r REAL,
+                bars_held INTEGER,
+                bars_since_peak INTEGER,
+                cap_r REAL,
+                pct_of_cap REAL,
+                r_to_stop REAL,
+                r_to_target REAL,
+                rr_from_here REAL,
+                peak_provenance TEXT,
+                levers TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_position_telemetry_strategy "
+            "ON position_telemetry(strategy, updated_at)")
+
         # AI Analyst — per-run history (M13 S1).
         # Every generator cycle appends one row per refreshed endpoint
         # so the dashboard can render "what did the analyst say

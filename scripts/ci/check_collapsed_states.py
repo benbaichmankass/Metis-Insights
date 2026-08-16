@@ -64,6 +64,24 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "position_telemetry.peak_state",
+        "producer": "src/runtime/trail_decay.py",
+        "producer_field": "peak_state",
+        "consumer_token": r"\bpeak_state\b|\bPEAK_MEASURED\b|\bsince_entry_peak\b",
+        "states": ["measured", "unanchored", "thin_window", "no_risk"],
+        "why": (
+            "MFE in R is the quantity every exit lever is tuned on, and three "
+            "distinct conditions make it unavailable: the window is not "
+            "anchored to entry (a full-frame fallback FAKES the peak), the "
+            "window is under 2 bars (no excursion is observable), or risk is "
+            "missing so R is undefined. Collapsing any of them into "
+            "`peak_r = 0.0` fabricates a FLAT TRADE — the same class as a "
+            "fabricated exit price, and worse here because a flat MFE reads as "
+            "'this lever correctly never armed' rather than 'we could not "
+            "look'. M31 P2, docs/design/position-telemetry-DESIGN.md § 4.1."
+        ),
+    },
+    {
         "name": "db_explorer.filter_state",
         "producer": "src/web/api/routers/db_explorer.py",
         "producer_field": "filter_state",

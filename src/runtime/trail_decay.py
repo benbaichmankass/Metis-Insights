@@ -45,6 +45,78 @@ def _f(v: Any) -> Optional[float]:
         return None
 
 
+# The since-entry peak, as ONE definition (M31 P2).
+#
+# `resolve_trail_mult` below and `src/runtime/position_telemetry.py` both need
+# the same quantity — the since-entry favourable extreme in R, i.e. MFE. Before
+# M31 this math existed twice already (here and
+# `trend_donchian._giveback_verdict`), computed on every pass and discarded, and
+# adding a third copy for telemetry is exactly how `_regime_score_semantics.py`
+# had to be written: two probes independently re-derived "what is the shadow
+# log's score?" and BOTH got it wrong on the same day.
+#
+# FOUR states, never collapsed. Three of them mean "we could not measure" and
+# they are NOT interchangeable — a caller that treats `thin_window` as
+# `peak_r = 0.0` has fabricated a flat trade out of a short frame.
+# The assignment sites below emit these LITERALS rather than the constants, so
+# a reader of the producer sees every state it can return without chasing a
+# name (and `collapsed-state-guard`'s producer check can see them too). The
+# constants remain the vocabulary consumers import; a test pins the two equal.
+PEAK_MEASURED = "measured"
+PEAK_UNANCHORED = "unanchored"      # no entry_time — the window is not since-entry
+PEAK_THIN_WINDOW = "thin_window"    # < 2 bars: no excursion is observable
+PEAK_NO_RISK = "no_risk"            # risk missing/non-positive: R is undefined
+
+
+def since_entry_peak(window, entry, risk, direction, anchored: bool = True) -> Dict[str, Any]:
+    """MFE in R over the since-entry window, with the reason when it is absent.
+
+    ``anchored`` is the caller's assertion that ``window`` really is the
+    since-entry frame (i.e. ``meta['entry_time']`` was present). A full-frame
+    fallback fakes the peak, so it is reported as `unanchored` rather than
+    silently measured — the same fail-safe `resolve_trail_mult` has always
+    applied, now named instead of implicit.
+
+    Never raises: a malformed frame returns a state, not an exception.
+    """
+    out: Dict[str, Any] = {"peak_state": "no_risk", "peak": None, "peak_r": None,
+                           "bars_since_peak": None, "bars": 0}
+    e, r = _f(entry), _f(risk)
+    if e is None or r is None or r <= 0:
+        return out
+    if not anchored:
+        out["peak_state"] = "unanchored"
+        return out
+    try:
+        n = len(window) if window is not None else 0
+    except TypeError:
+        n = 0
+    out["bars"] = int(n)
+    if n < 2:
+        out["peak_state"] = "thin_window"
+        return out
+    try:
+        if direction == "long":
+            arr = window["high"].astype(float).to_numpy()
+            peak = float(arr.max())
+            peak_idx = int(arr.argmax())
+            peak_r = (peak - e) / r
+        else:
+            arr = window["low"].astype(float).to_numpy()
+            peak = float(arr.min())
+            peak_idx = int(arr.argmin())
+            peak_r = (e - peak) / r
+    except (KeyError, ValueError, TypeError, AttributeError):
+        out["peak_state"] = "thin_window"
+        return out
+    if not math.isfinite(peak_r):
+        out["peak_state"] = "no_risk"
+        return out
+    out.update({"peak_state": "measured", "peak": peak,
+                "peak_r": peak_r, "bars_since_peak": (n - 1) - peak_idx})
+    return out
+
+
 def resolve_trail_mult(
     meta: Dict[str, Any],
     cfg_dict: Dict[str, Any],
@@ -85,18 +157,16 @@ def resolve_trail_mult(
         if window is None or len(window) < 2:
             return base_mult
 
-        is_long = direction == "long"
-        highs = window["high"].astype(float).to_numpy()
-        lows = window["low"].astype(float).to_numpy()
-        if is_long:
-            peak = float(highs.max())
-            peak_idx = int(highs.argmax())
-            peak_r = (peak - entry) / risk
-        else:
-            peak = float(lows.min())
-            peak_idx = int(lows.argmin())
-            peak_r = (entry - peak) / risk
-        bars_since_peak = (len(window) - 1) - peak_idx
+        # ONE definition of the since-entry peak (see `since_entry_peak` above).
+        # The guards this replaces are unchanged: the `entry_time` and
+        # `len(window) < 2` checks already returned `base_mult` before reaching
+        # here, so a non-`measured` state cannot occur on this path — it is
+        # handled anyway rather than assumed away.
+        peak_res = since_entry_peak(window, entry, risk, direction)
+        if peak_res["peak_state"] != PEAK_MEASURED:
+            return base_mult
+        peak_r = float(peak_res["peak_r"])
+        bars_since_peak = int(peak_res["bars_since_peak"])
 
         if declared:
             armed = ((arm_r > 0 and peak_r >= arm_r)

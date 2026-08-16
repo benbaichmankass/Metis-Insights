@@ -527,6 +527,21 @@ def monitor(cfg, candles_df, open_pkg):
                                             open_pkg=open_pkg)
     except Exception:  # noqa: BLE001 — the lever must never break the trail
         pass
+    # M31 P2 — position telemetry (observe-only); see trend_donchian.monitor
+    # for the contract. Hooked here because `window` is already the since-entry
+    # frame and the peak recorded is the same one the lever armed on.
+    try:
+        from src.runtime.position_telemetry import record_position_telemetry
+
+        record_position_telemetry(
+            open_pkg=open_pkg, meta=meta, window=window, direction=direction,
+            current_price=current_price, stop=sl,
+            target=_coerce_float(open_pkg.get("tp")),
+            strategy=str(meta.get("strategy_label")
+                         or open_pkg.get("strategy_name") or "") or None,
+        )
+    except Exception:  # noqa: BLE001 — telemetry must never break the trail
+        pass
     try:
         if direction == "long":
             ext = float(window["high"].max())
