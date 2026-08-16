@@ -667,13 +667,43 @@ the test — otherwise a future merge adding nothing would pass.
   decision because the matrix now carries the counter-evidence either way.
 
 ## Next Recommended Sprint
-Read the four arms when they land, run
-`scripts/research/m20_consolidate_dispersion_arms.py` + `m20_dispersion_rate.py`
-over the extended corpus, and update the dispersion headline **from the script,
-not by hand**. Required verification: the `per_leg` denominator moves 3 → 6 and
-the pre-registered comparison is read *as pre-registered* — note that its own
-data already invalidated the original power calculation, so **no outcome of that
-comparison reaches p < 0.05**.
+
+~~Read the four arms when they land, run the consolidator + rate script over the
+extended corpus, and update the dispersion headline **from the script**.
+Required verification: the `per_leg` denominator moves 3 → 6…~~
+**✅ COMPLETED IN THIS SESSION** (§ 16). The arms landed, the record went
+234 → 246, the denominator moved **3 → 6** as required, and the pre-registered
+comparison resolved at **p = 1.0000** — which is one of the outcomes the
+pre-registration had already declared unable to reach significance. Left struck
+through rather than deleted, because "the recommendation was carried out" and
+"the recommendation is pending" are different states and a reader needs to see
+which.
+
+**The actual next sprint is an OPERATOR-DECISION sprint, not a measurement one.**
+This session's measuring is done; what is left needs judgement I am not
+authorised to apply:
+
+1. **Adjudicate the 16 acknowledged corpus disagreements** (§ 10, § 14). Every
+   one is a live cell whose recorded `honest_negative` is contradicted by
+   live-parity evidence. **Read the split, not the count:** exactly **two** are
+   the strong shape (Path-A PASS, zero inert folds) — `sol_pullback_2h /
+   trail_decay` and `ada_pullback_2h / trail_decay`; **8 of 14** in the second
+   batch are Path B; and three carry inert folds, with
+   `mhg_pullback_1d / vol_trail` reading `wf=5/6` while being **one** real win.
+   A flip is Tier-3 per cell.
+2. **`sol_pullback_2h` is the one leg to look at first** — it now passes across
+   **three** levers (giveback, trail_decay, vol_trail) with drawdown improving
+   on both windows, which no other leg does.
+3. **One weekday `/api/diag/tick_cost` read at n ≥ 40**
+   (`BL-20260816-TICK-MEAN-DOUBLED-SINCE-0814`). Tick mean is 72.3 s → 140.0 s
+   like-for-like; the venue-closure explanation is well-supported but
+   **confounded and unsettled**, and one weekday sample discriminates.
+
+**Required verification for whatever ships:** any lever flipped out of this must
+be checked against the *first* live decision it produces, not merely deployed —
+and the `grant%` figures above 100 % (`tlt_pullback_1h/trail4` 179 %,
+`tlt_pullback_1d/decay_stall6_t2.5` 199 %) must stay excluded from candidacy
+regardless of their verdict strings.
 
 ## Wrap-Up Check
 - [x] Code inspected directly (not inferred from docs)
