@@ -17560,7 +17560,16 @@
       "related": [
         "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
         "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-16T11:50:00+00:00",
+          "by": "claude (exit-eval-interval session, operator decision recorded)",
+          "evidence_based": true,
+          "note": "OPERATOR DECISION 2026-08-16, in-conversation: 'let it expire'. Option 3 of the three put to them. The stranded MGC order 6 (MKT SELL 105, tif DAY, placed by system-action #9648's ops client and abandoned when the flatten failed its confirm window) is left to expire at the COMEX session close (~21:00 UTC). NOTHING IS BEING DISPATCHED — this is a decision to take no action, recorded so it is not re-litigated by the next session that reads the order list and treats it as an unhandled anomaly.\n\nWHY IT COULD NOT BE CANCELLED (the reason the other two options existed): IB scopes order cancellation per clientId; flatten_ib_position.py builds its ops client as `9900 + os.getpid() % 90`, a PID-derived id whose session has exited. No `cancel-ib-order` system-action exists (the allowlist has cancel-stale-tpsl-legs, Bybit-only), and reqGlobalCancel would also cancel the stop the operator wanted kept plus both MES stops. The two options not taken were: (1) a gateway Master API client id + a narrow cancel-ib-order action; (2) reqGlobalCancel followed by an immediate re-arm.\n\n⚠️ WHAT THIS DECISION DOES NOT RESOLVE, stated so it is not mistaken for closure. Expiry removes the DOUBLED-SELL hazard (210 contracts of resting sell against a 105 long in two unlinked orders). It returns MGC 4487 to its PRE-FLATTEN state: 105 long, one stop at 4278.80, and NO take-profit at the broker. ict_scalp.monitor() has no close path, so the position still has no profit exit of any kind — it can only stop out or run. That is sysrev-0816's stripped-take-profit row, filed in PR #9643 and NOT YET MERGED at the time of writing (checked against origin/main, not assumed), which is why it is named by its PR here rather than by its id -- citing an id that does not yet resolve is the dangling-reference shape artifact-validity-guard exists to catch. It remains open and is unaddressed by this decision.\n\nRESIDUAL RISK DURING THE WINDOW (~9h, paper account, no capital at risk): if order 6 transmits and fills before expiry, the position goes flat and stop 359 remains resting on a flat book. Whether IB would then fill it into a short is NOT verified and is not asserted. Criterion 4 (no wire to cancel one IB order) stays OPEN — this decision routes around it once; it does not close it, and the next stranded order will hit the same wall."
+        }
+      ],
+      "updated_at": "2026-08-16T11:50:00+00:00"
     }
   ]
 }
