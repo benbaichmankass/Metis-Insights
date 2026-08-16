@@ -73,6 +73,27 @@
         "era_note": "ZERO in EVERY year: 2023 0/36, 2024 0/36, 2025 0/38, 2026 0/17. Unlike gld_pullback_1d this is NOT an era effect - the leg never clears its own ceiling in any regime. arm 5.57 needs risk/entry <= 1.777%; the backtest p25 is 4.845%.",
         "screen_disagreement": "The candle screen recorded in unmeasured_reason read 2.8% reach; the entry-conditioned population reads 0.0%. The screen OVERSTATED again, the same direction it overstated xrp - which is exactly why unmeasured_reason declined to record it as a verdict.",
         "supports": "An `inert` verdict, on a 3.4x gap (cap_R 1.64 vs arm 5.57) at n=127 over the leg's complete backtest span. NOT recorded as one here: the authoritative live basis is still absent, and every verdict in this file was left untouched this session for consistency."
+      },
+      "live_entry_conditioned_2026_08_16": {
+        "basis": "live order_packages/risk_per_unit -- the AUTHORITATIVE population. cap_R read from the bot's own exit_plan_state.targets[].reach_r, cross-checked against 0.099/(risk_per_unit/entry) with 0 mismatches. Relay pages #9768/#9769/#9770 (limit=6), denominator probe #9766.",
+        "measured_at": "2026-08-16",
+        "envelope_total": 16,
+        "filter_state": "applied",
+        "n_recovered": 16,
+        "n_lost_to_truncation": 0,
+        "population_complete": true,
+        "population_note": "COMPLETE -- unlike xrp_pullback_2h, every page came back inside the relay byte budget with its certification fields intact, so this is the whole live population and not a bounded interval.",
+        "cap_r_min": 1.1237,
+        "cap_r_median": 1.781,
+        "cap_r_max": 4.3193,
+        "reach_count": "0/16",
+        "reach_share_pct": 0.0,
+        "by_status": "closed 0/10 (max 3.65) | rejected 0/6 (max 4.32)",
+        "headroom_note": "The arm 5.57 requires risk/entry <= 1.777%. The BEST (lowest-vol) entry this leg has ever taken is 2.292%, and the median is 5.559%. The arm is 1.29x the best ceiling ever observed -- it is not near-miss, it is out of range.",
+        "agreement_with_backtest_basis": "Agrees with the backtest entry-conditioned basis (0/127, 0.0% in EVERY year: 2023 0/36, 2024 0/36, 2025 0/38, 2026 0/17). Two independent populations, both zero.",
+        "resolves_unmeasured": "This entry's verdict was 'unmeasured' because the p80 sweep was skipped_thin (14 winner MFEs vs a 30 minimum). Reachability does NOT depend on that sweep: cap_R is entry geometry and is measurable on every entry the leg ever took, thin winners or not. The skipped sweep blocked a REPLACEMENT arm, never the reachability verdict.",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED. Recording a measurement is not making a decision; an inert verdict + recorded_inert disposition is the operator's call (Tier-3).",
+        "operator_decision_ready": "Both available bases now read 0.0% on a complete/large-n population. This is the same evidential position that supported the operator's 2026-08-16 recorded_inert decisions on gld_pullback_1d and qqq_trend_long_1d."
       }
     },
     {
