@@ -217,6 +217,47 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "ib_venue_session.state",
+        "producer": "src/runtime/ib_trading_hours.py",
+        # Deliberately NARROW. The first cut used `\bvenue_session\b|
+        # \bsession_state\b`, which fired on tests/test_exposure_soak.py — whose
+        # `venue_session="closed"` is an UNRELATED field (the US-equity
+        # rth/extended/closed stamp) that merely shares a name. That is the
+        # coincidence-firing this guard's own docstring warns produces routinely
+        # overridden alarms.
+        "consumer_token": r"\bib_trading_hours\b|\b_venue_session\b|\bIB_SESSION_CHECK_DISABLED\b",
+        "states": ["open", "closed", "unknown"],
+        "why": (
+            "open = a session covers this instant; closed = the string covers "
+            "this instant and no session does; unknown = WE COULD NOT LOOK — "
+            "an unparseable string, an unresolvable timezone, or an instant "
+            "OUTSIDE the week IBKR sent. That last one is the collapse a "
+            "two-state design makes: an instant outside the covered span "
+            "matches no range, which is byte-identical to a real closure, so "
+            "a stale cached string would report `closed` and DEFER EVERY "
+            "CLOSE on a fully open venue. The consequence runs the other way "
+            "too: `unknown` must never read as `closed`, because refusing to "
+            "flatten a live position on a failed contract lookup converts an "
+            "observability defect into money at risk. `unknown` therefore "
+            "proceeds like `open` — and is logged WARNING at the close path "
+            "precisely so the two are distinguishable in the record, since "
+            "US/Eastern and US/Central are tzdata legacy links absent from "
+            "slim installs and COMEX/CME report exactly those: a host whose "
+            "tz database regressed would disable the gate for every futures "
+            "contract we trade and, without that log, announce nothing. "
+            "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS. "
+            "COVERAGE CAVEAT, stated rather than papered over: the production "
+            "consumer (src/units/accounts/ib_client.py) branches via the "
+            "module CONSTANTS (ib_trading_hours.CLOSED / .UNKNOWN), not quoted "
+            "literals, so `_states_in` cannot see it and the state coverage "
+            "above is satisfied by the TESTS. Constants are the better "
+            "practice — a typo'd attribute raises where a typo'd literal is "
+            "silent — so the right reading is that this guard's evidence "
+            "mechanism does not fit a constants-based API, not that the "
+            "production branch is missing."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

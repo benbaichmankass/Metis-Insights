@@ -17,10 +17,10 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 93 of 93 routes documented (100%).**
+> **Coverage, computed rather than counted: 94 of 94 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
-> route table (`app.routes`): the enumerator finds exactly those 93 with no
+> route table (`app.routes`): the enumerator finds exactly those 94 with no
 > false positives, and the only live routes it does not cover are the five
 > defined outside `routers/` — `GET /api/health` (`main.py`) and FastAPI's
 > four built-in docs routes.*
@@ -53,7 +53,7 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **69 of the 93 routes**;
+Endpoints a consumer hits directly without a JWT. **70 of the 94 routes**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
 
@@ -94,6 +94,7 @@ stale and read as current.
 | `POST /api/bot/devices/register` | `routers/devices.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert a device by its FCM token; idempotent on token. **No gate** (`_check_admin_token` is not called here): a device must be able to enrol itself before it holds any credential. The raw token is never echoed back — only `token_suffix` (last 8 chars). Unknown subscription kinds → 400. |
 | `GET /api/bot/exit-ladder/soak` | `routers/exit_ladder.py` | ExitPlan laddered-vs-single-target shadow soak (dynamic-take-profit P3). Observe-only — nothing reads it back to drive an exit. |
 | `GET /api/bot/exposure/soak` | `routers/exposure.py` | **Added 2026-08-09 (#8684).** Gross-exposure observation soak + a per-account `max_multiple` roll-up (read it beside `measured_n`). Observe-only; connection-free. |
+| `GET /api/bot/exit-interval/soak` | `routers/exit_interval.py` | **Added 2026-08-16.** The M20 exit-loop's **cross-process** inter-evaluation intervals — `summary.max_interval_ms` beside `intervals_measured` **and** `processes_seen`. Exists because `exit_loop_health`'s max lives in a module global that resets every deploy, so a max over one process is systematically LOW (measured 2026-08-16: 50044.3 ms across 5 processes vs 40648.6 ms on the newest alone — a 15.7 pp understatement). `processes_seen == 1` means you are reading the per-process number again under a cross-process label. Observe-only; reads a file the exit loop appends. |
 | `GET /api/bot/fc-geometry/soak` | `routers/fc_geometry.py` | M19 D1 fc-geometry soak: placed SL/TP beside the decision-time quantile-forecast snapshot. Observe-only. |
 | `GET /api/bot/gpu/spend` | `routers/gpu_spend.py` | M19 spot-GPU burst spend vs the $10/month cap, from the committed `comms/gpu_spend_ledger.json`. Best-effort: missing/garbled ledger → zeroed envelope, never a 5xx. |
 | `GET /api/bot/health/latest` | `routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Most recent `artifacts/health/latest.json`, as `{present, path, snapshot}`. |
@@ -239,7 +240,7 @@ These will require:
   signed action token), AND
 - An audit log entry per call with the caller's email + IP.
 
-**No route on the API is Tier 3 today** — re-verified 2026-08-16 across all 93
+**No route on the API is Tier 3 today** — re-verified 2026-08-16 across all 94
 routes. S-065 will land the first one (halt). Until then, every mutating
 operator action goes through the `system-actions.yml` GitHub workflow, whose
 allowlist is the real Tier-3 surface.
