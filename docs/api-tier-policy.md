@@ -17,10 +17,10 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 92 of 92 routes documented (100%).**
+> **Coverage, computed rather than counted: 93 of 93 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
-> route table (`app.routes`): the enumerator finds exactly those 92 with no
+> route table (`app.routes`): the enumerator finds exactly those 93 with no
 > false positives, and the only live routes it does not cover are the five
 > defined outside `routers/` — `GET /api/health` (`main.py`) and FastAPI's
 > four built-in docs routes.*
@@ -53,7 +53,7 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **69 of the 92 routes**;
+Endpoints a consumer hits directly without a JWT. **69 of the 93 routes**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
 
@@ -239,7 +239,7 @@ These will require:
   signed action token), AND
 - An audit log entry per call with the caller's email + IP.
 
-**No route on the API is Tier 3 today** — verified 2026-08-09 across all 92
+**No route on the API is Tier 3 today** — re-verified 2026-08-16 across all 93
 routes. S-065 will land the first one (halt). Until then, every mutating
 operator action goes through the `system-actions.yml` GitHub workflow, whose
 allowlist is the real Tier-3 surface.
