@@ -18,7 +18,7 @@ arm_r corrections". **That was imprecise, and the split is the useful part:**
 | | count | what it needs from you |
 |---|--:|---|
 | **Measured, verdict is bad** | **3** | a DECISION — the evidence is in |
-| **Unmeasured** | **2** | MEASUREMENT, not a decision — a re-sweep is running now |
+| **Unmeasured** | **2** | MEASUREMENT, not a decision — the re-sweep has since RUN; see § 2 for what it did and did not settle |
 
 An `unmeasured` entry is queued because a declared arm with no measurement
 behind it should not sit unflagged, **not** because I am asking you to change
@@ -66,19 +66,33 @@ This is the leg behind the 18-day XRP short. Its `cap_R` at entry was 3.92,
 i.e. in the *unreachable* part of its own distribution, which is why the trail
 ran at base mult for the whole hold.
 
-**Three options, no default smuggled in:**
+**Three options, no default smuggled in — and option 1 is now CLOSED for two of
+the three legs. Read § 3 before choosing.**
 
-1. **Re-sweep the arm at live parity and take the corrected value** — the
-   narrow re-sweep is running now (§ 3); this is the option that has evidence
-   coming.
+1. ~~**Re-sweep the arm at live parity and take the corrected value.**~~
+   **ELIMINATED by evidence for `gld_pullback_1d` and `xrp_pullback_2h`** (§ 3).
+   An earlier draft called this *"the option that has evidence coming"* — it
+   came, and it closed the option rather than filling it in:
+   - `gld_pullback_1d` → the re-sweep returns **3.86R**, which is **itself above
+     that leg's live `cap_R`** (2.20–3.01). The population test then showed why:
+     the p80 is computed over a book whose `risk/entry` is ~1.4× tighter than
+     the live one. **Taking that value would ship a second inert arm wearing a
+     PASS badge.**
+   - `xrp_pullback_2h` → its re-swept **2.17R would** be reachable, and the cell
+     **still fails OOS**. So lowering the arm is not the answer there either.
+   - `qqq_trend_long_1d` → **skipped, thin** (21 < 30 winner MFEs). Still
+     untested, so option 1 is neither open nor closed for it — that is *absence
+     of evidence*, not a verdict.
 2. **Record the lever as `inert`** so the coverage matrix stops counting it as
-   shipped. Honest, and cheaper than (1).
+   shipped. Honest, cheap, and — on the evidence now in — **the only one of the
+   three that is actually available for `gld_pullback_1d`.** Labelled as my
+   reading, not a decision.
 3. **Leave it and accept the risk**, recorded as `accepted_risk` with a date so
    no future session re-discovers it as an anomaly.
 
-⚠️ **A note on option 1 that the first re-sweep result already complicates** —
-see § 3. A live-parity re-sweep can return an arm that *also* fails its gate,
-in which case the answer is not a new number.
+⚠️ **The larger question § 3 raises:** for four of six re-swept legs the answer
+may be *"none — the lever should not be declared on this leg at all"*, which is
+bigger than any value choice and is yours.
 
 ---
 
@@ -89,7 +103,16 @@ in which case the answer is not a new number.
 | `trend_donchian_sol_4h` | 5.57 | candle screen reads 2.8% reach — points at near-inert, but that basis **overstated xrp by 2.7×** and is not a bound. Not recorded as a verdict. |
 | `scha_trend_long_1d` | 2.00 | screen reads 73.6%; the arm sits just below the median ceiling, making this the leg **most sensitive to which basis is used** and least safe to grade off a screen. |
 
-Both are in the running re-sweep.
+**The re-sweep has since RUN, and it settled only one of these two** (§ 3):
+
+- `trend_donchian_sol_4h` → re-swept p80 **1.50R**, and the cell **fails OOS**.
+  So this leg is no longer "unmeasured" — but the measurement says *the lever
+  does not earn its place*, which is not the same as a corrected arm value.
+- `scha_trend_long_1d` → **skipped, thin** (14 < 30 winner MFEs). The harness
+  **declined to emit a p80** rather than producing one off a thin sample, which
+  is the right behaviour. **This leg remains exactly as unmeasured as before** —
+  absence of evidence, not evidence of failure, and it still needs measurement
+  rather than a decision.
 
 ---
 
