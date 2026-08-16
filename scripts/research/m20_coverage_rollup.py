@@ -192,11 +192,27 @@ LEVER_GEOMETRY_CUTOVER = {
     # the day `m20_exit_head_round.py` gained `--tp-cap-pct` (live parity as the
     # DEFAULT) and began stamping `_round_meta.tp_geometry` into round_report.json
     "exit_head_ml": "2026-08-14",
-    # `m20_flip_replay_sweep.py` still calls base_args positionally — its books
-    # model NO take-profit for every donchian/pullback/fade/squeeze leg, and it
-    # stamps no geometry at all, so there is not even a field to check.
-    # BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING
-    "regime_flip_exit": GEOMETRY_CUTOVER_NEVER,
+    # `regime_flip_exit` HELD THIS SENTINEL AND NO LONGER DOES (2026-08-16).
+    #
+    # The entry read: "`m20_flip_replay_sweep.py` still calls base_args
+    # positionally — its books model NO take-profit for every
+    # donchian/pullback/fade/squeeze leg, and it stamps no geometry at all, so
+    # there is not even a field to check."
+    # (BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING)
+    #
+    # Both halves are now false, and REMOVING THE ENTRY IS HOW THAT IS MARKED —
+    # the comment above says so explicitly, and it is deliberately not an edit
+    # to a date. Two conditions, both met and both verifiable:
+    #   1. the harness passes the cap (`base_args(..., a.tp_cap_pct)`, default
+    #      0.099) and stamps `tp_geometry` per leg and run-level; and
+    #   2. a real sweep LANDED on that harness — 42 legs at
+    #      `tp_geometry: live_parity_capped`, 30 fail / 12
+    #      INERT_NEVER_FLIPPED / 0 PASS (relay #9536, read #9540/#9541) — and
+    #      its 41 matching matrix cells now carry both the measurement in
+    #      their `ref` and an explicit `tp_geometry: live_parity`.
+    # Condition 2 is why this was NOT removed in the same commit as the
+    # harness fix: a fixed harness with no evidence behind it still leaves
+    # every cell measured on the old book.
 }
 
 

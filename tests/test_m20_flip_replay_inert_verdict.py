@@ -122,3 +122,24 @@ def test_it_still_runs() -> None:
                        capture_output=True, text=True, timeout=120)
     assert p.returncode == 0, p.stderr[-400:]
     assert "--policy-key" in p.stdout
+
+
+# --------------------------- the correction must reach the file readers open
+
+def test_the_sweep_propagates_the_correction_fields() -> None:
+    """Computing them is not enough; `verdicts.json` is what anyone opens.
+
+    MEASURED on the 2026-08-16 v2 sweep: all 42 legs came back with
+    `walkforward_real: null` and `inert_folds: null`, because the sweep's
+    per-leg dict copied a FIXED field list that predated them. The per-leg
+    `<leg>_flip.json` had the correction; the roll-up every reader and every
+    downstream tool opens did not. A wholly-inert leg survives that (its
+    VERDICT says so) — a leg with SOME inert folds does not.
+    """
+    src = (REPO / "scripts/research/m20_flip_replay_sweep.py").read_text()
+    for key in ('"walkforward_real": r.get("walkforward_real")',
+                '"inert_folds": r.get("inert_folds")'):
+        assert key in src, f"the sweep drops {key.split(chr(34))[1]}"
+    # `.get`, not `[...]` — a pre-fix report must degrade to null, not crash.
+    assert 'r["walkforward_real"]' not in src
+    assert 'r["inert_folds"]' not in src

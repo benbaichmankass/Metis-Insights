@@ -45,20 +45,55 @@ def test_the_two_no_newer_evidence_states_are_distinct() -> None:
     assert RU.CORPUS_HARNESS_UNFIXED != RU.CORPUS_NO_ROW
 
 
+def _pin_never(lever: str):
+    """Context-manager-ish helper: pin a lever at NEVER, yielding the restore."""
+    saved = dict(RU.LEVER_GEOMETRY_CUTOVER)
+    RU.LEVER_GEOMETRY_CUTOVER[lever] = RU.GEOMETRY_CUTOVER_NEVER
+
+    def restore():
+        RU.LEVER_GEOMETRY_CUTOVER.clear()
+        RU.LEVER_GEOMETRY_CUTOVER.update(saved)
+    return restore
+
+
 def test_a_never_lever_is_not_labelled_re_runnable() -> None:
-    """The whole finding, on the live matrix."""
+    """The finding itself — exercised, not observed.
+
+    This used to assert that some lever was pinned at NEVER on the live config
+    and then check those cells. That made the test a function of production
+    state, and on 2026-08-16 it did what such a test always eventually does:
+    `regime_flip_exit`'s entry was legitimately REMOVED (harness fixed, sweep
+    landed) and the test failed on a correct change, with a message about a
+    missing positive case rather than about the logic.
+
+    So the NEVER lever is now INJECTED. The behaviour under test is the state
+    machine, not today's `LEVER_GEOMETRY_CUTOVER` contents, and this keeps
+    testing after every future harness fix.
+    """
     st = RU.stale_corpus_state(MATRIX)
     if not st.get("available"):
         import pytest
         pytest.skip(f"corpus unavailable: {st.get('why')}")
-    never = {lv for lv in MATRIX["lever_columns"]
-             if RU.cutover_for(lv) == RU.GEOMETRY_CUTOVER_NEVER}
-    assert never, "no lever is pinned at NEVER — this test has no positive case"
-    mislabelled = [r for r in st["rows"]
-                   if r["lever"] in never and r["state"] == RU.CORPUS_NO_ROW]
-    assert not mislabelled, (
-        f"{len(mislabelled)} cell(s) in a NEVER lever are labelled re-runnable: "
-        f"{sorted({(r['leg'], r['lever']) for r in mislabelled})[:5]}")
+    # Pick a lever that actually HAS stale cells, so the injection has bite.
+    from collections import Counter
+    counts = Counter(r["lever"] for r in st["rows"])
+    assert counts, "no stale cells at all — nothing to classify"
+    lever = counts.most_common(1)[0][0]
+
+    restore = _pin_never(lever)
+    try:
+        after = RU.stale_corpus_state(MATRIX)
+        mislabelled = [r for r in after["rows"]
+                       if r["lever"] == lever and r["state"] == RU.CORPUS_NO_ROW]
+        assert not mislabelled, (
+            f"{len(mislabelled)} cell(s) in the pinned-NEVER lever `{lever}` "
+            f"are still labelled re-runnable")
+        assert after["counts"].get(RU.CORPUS_HARNESS_UNFIXED, 0) >= 1, (
+            f"pinning `{lever}` at NEVER produced no harness-unfixed cells")
+    finally:
+        restore()
+    assert RU.stale_corpus_state(MATRIX)["counts"] == st["counts"], (
+        "the injection leaked — later tests would run against a mutated map")
 
 
 def test_the_unfixed_state_is_ONLY_used_for_never_levers() -> None:
@@ -92,22 +127,39 @@ def test_fixing_a_harness_clears_the_caveat_with_no_edit_here() -> None:
     if not st.get("available"):
         import pytest
         pytest.skip("corpus unavailable")
-    before = st["counts"].get(RU.CORPUS_HARNESS_UNFIXED, 0)
-    assert before > 0, "no NEVER-lever cells today — nothing to clear"
-
+    from collections import Counter
+    counts = Counter(r["lever"] for r in st["rows"])
+    assert counts, "no stale cells at all — nothing to clear"
+    # Same injection as above: pin a lever, confirm it is held stale, then
+    # remove the entry (which is how a harness fix is marked) and confirm the
+    # cells return on their own. Injected rather than read off the live config
+    # for the reason recorded on `test_a_never_lever_is_not_labelled_re_runnable`.
+    lever = counts.most_common(1)[0][0]
     saved = dict(RU.LEVER_GEOMETRY_CUTOVER)
     try:
-        for lv, v in list(RU.LEVER_GEOMETRY_CUTOVER.items()):
-            if v == RU.GEOMETRY_CUTOVER_NEVER:
-                del RU.LEVER_GEOMETRY_CUTOVER[lv]
+        RU.LEVER_GEOMETRY_CUTOVER[lever] = RU.GEOMETRY_CUTOVER_NEVER
+        held = RU.stale_corpus_state(MATRIX)["counts"]
+        before = held.get(RU.CORPUS_HARNESS_UNFIXED, 0)
+        assert before > 0, f"pinning `{lever}` held nothing stale"
+
+        del RU.LEVER_GEOMETRY_CUTOVER[lever]
         after = RU.stale_corpus_state(MATRIX)["counts"]
     finally:
         RU.LEVER_GEOMETRY_CUTOVER.clear()
         RU.LEVER_GEOMETRY_CUTOVER.update(saved)
 
-    assert after.get(RU.CORPUS_HARNESS_UNFIXED, 0) == 0
-    assert after.get(RU.CORPUS_NO_ROW, 0) >= before, (
-        "the cells did not return to the re-runnable bucket")
+    assert after.get(RU.CORPUS_HARNESS_UNFIXED, 0) == 0, (
+        "removing the entry left cells held as harness-unfixed")
+    # RESTORED EXACTLY, not "returned to the re-runnable bucket". The earlier
+    # assertion demanded the cells land in `no_live_parity_row`, which is true
+    # only for a lever that HAS a producer; the most-stale lever today is
+    # `exit_ladder`, which correctly returns to
+    # `no_sweep_driver_emits_this_column` instead. Conservation is the real
+    # self-clearing property and it holds for either kind.
+    assert after == st["counts"], (
+        f"the state distribution did not return to its starting shape: "
+        f"{after} vs {st['counts']}")
+    assert before > 0  # the injection did something, so the restore proves something
     # And the mutation really was undone.
     assert RU.LEVER_GEOMETRY_CUTOVER == saved
 

@@ -120,6 +120,19 @@ def main(argv: list[str]) -> int:
             "tp_cap_pct": a.tp_cap_pct,
             "proxy": proxy, "trades": r["trades"],
             "flip_pct": r["flip_pct"], "walkforward": r["walkforward"],
+            # THE CORRECTION MUST TRAVEL WITH THE NUMBER IT CORRECTS.
+            # `m20_regime_flip_replay` computes these, and this dict copied a
+            # FIXED field list that predated them — so the per-leg
+            # `<leg>_flip.json` carried the correction while `verdicts.json`,
+            # the file every reader and every downstream tool actually opens,
+            # returned null for all 42 legs (measured on the 2026-08-16 v2
+            # sweep). A wholly-inert leg still reads correctly because its
+            # VERDICT says so, but a leg with SOME inert folds reported
+            # `walkforward: 4/6` with no way to learn that two of those wins
+            # were free. `.get`, not `[...]`: a report from before the fields
+            # existed must degrade to null, not crash the sweep.
+            "walkforward_real": r.get("walkforward_real"),
+            "inert_folds": r.get("inert_folds"),
             "verdict": r["verdict"],
             "actual_net_r": r["overall_actual"]["net_total_r"],
             "flip_net_r": r["overall_flip"]["net_total_r"],
