@@ -218,6 +218,18 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    attach-ib-target)
+        # 2026-08-16: attach the declared TP to a target-naked IB position by
+        # joining the stop's existing OCA group. Cancels nothing.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (dry-run preview, target placed+verified, already had one, or none declared)"; priority="normal" ;;
+            1) result="place FAILED or target did not appear — position still TARGET-NAKED"; priority="urgent" ;;
+            3) result="COULD NOT LOOK or unconfirmed — NOT evidence either way; re-run the dry-run"; priority="high" ;;
+            4) result="refused by a safety guard (stray order, 2+ stop groups, or qty mismatch)"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     cancel-ib-order)
         # 2026-08-16: cancel ONE resting IB order by id (dry-run unless
         # apply:true). BL-20260816-NO-PER-ORDER-IB-CANCEL. The exit codes are

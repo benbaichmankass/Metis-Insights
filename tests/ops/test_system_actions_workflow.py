@@ -183,6 +183,12 @@ EXPECTED_ACTIONS = {
     # the owning client; it refuses a protective leg and a trader-band
     # clientId unless explicitly forced.
     "cancel-ib-order": "cancel_ib_order_action.sh",
+    # 2026-08-16 — attach the DECLARED take-profit to a target-naked IB
+    # position by joining the stop's existing OCA group, so the stop is
+    # cancelled by IBKR when the target fills instead of surviving onto a
+    # flat book. Cancels nothing; refuses on a stray order, 2+ stop groups,
+    # or a qty mismatch (BL-20260816-COVERAGE-IS-ONE-SIDED).
+    "attach-ib-target": "attach_ib_target_action.sh",
     # 2026-06-29 — Bybit sibling of flatten-ib-position: one-shot guarded
     # reduce-only flatten of a single Bybit exchange position (close an
     # account before a different-account key rotation).
@@ -323,6 +329,7 @@ TIER_2_ACTIONS = {
     "purge-vm-runner",
     "flatten-ib-position",
     "cancel-ib-order",
+    "attach-ib-target",
     "flatten-bybit-position",
     "flatten-alpaca-position",
     "close-stranded-journal-row",
