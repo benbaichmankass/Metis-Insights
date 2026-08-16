@@ -1142,6 +1142,105 @@ for scope claims to be verified rather than remembered:
   was not** — 10m08s against 9m52s for the prior run on the same branch. Actions
   was healthy throughout (a `send-ping` issue was processed in 25s).
 
+### 31. The operator's XRP question turned into a live-config defect
+
+The operator asked why the live XRPUSDT short had run ~18 days through chop with
+nothing tightening. Reading the live row against the leg's YAML answered it, and
+the answer generalises.
+
+**First, a correction I owed:** I had told the operator that trade was "the same
+leg as the #9549 `trail_decay` declare". It is not — it is **`xrp_pullback_2h`**
+(2h pullback), not `trend_donchian_xrp_4h` (4h donchian). I asserted that from the
+description instead of the data. `#9549` is unaffected by everything below: its
+arm is 2.0R (needs risk/entry ≤ 4.95%), and its evidence was measured at
+`tp_cap_pct 0.099` explicitly.
+
+**The defect.** `trail_decay` arms when since-entry favourable extreme reaches
+`trail_decay_arm_r` R. The capped units clamp TP to
+`min(entry*(1+0.099), entry + tp_r*risk)`, so with `tp_r: 50.0` the cap always
+binds and the reachable ceiling is `cap_R = 0.099 / (risk/entry)`. A trade cannot
+exceed `cap_R` in MFE without its TP filling. **`arm_r > cap_R` ⇒ the lever cannot
+arm** — declared, Tier-3-approved, visible in YAML, and inert. Nothing in the repo
+asserts the relationship, so an inert lever is indistinguishable from an armed one
+that has simply not triggered.
+
+**Measured across the 6 live legs declaring an arm** (candle ATR, 120 bars at each
+leg's own timeframe, diag #9592/#9593):
+
+| leg | arm_R | cap_R p50 | reach% | read |
+|---|---|---|---|---|
+| `trend_donchian` (BTC 1h) | 6.49 | 11.91 | 100.0 | reachable |
+| `trend_donchian_sol_4h` | 5.57 | 3.56 | **2.8** | near-inert |
+| `gld_pullback_1d` | 5.06 | 2.63 | **0.0** | INERT |
+| `xrp_pullback_2h` | 4.49 | 5.83 | 90.5 | vol-conditional |
+| `qqq_trend_long_1d` | 3.56 | 2.13 | **0.0** | INERT |
+| `scha_trend_long_1d` | 2.00 | 2.22 | 73.6 | reachable |
+
+`gld` and `qqq` are the strong findings — the candle basis and the independent
+order-package basis **agree** there (2.63 vs 3.01; 2.13 vs 2.13).
+
+**XRP is where the two bases disagree, and that disagreement is the result, not a
+wrinkle.** Candle ATR is unconditional; entries are filter-selected and need not
+sample the same vol. The one measured XRP entry sat at 1.009% ATR/entry
+(cap_R 3.92, inert) against a 0.680% median (cap_R 5.83, reachable) — 49% apart,
+with the entry-conditioned reading the more pessimistic one. So the honest claim
+is **vol-conditional**, not inert: unreachable at the vol its live trade was
+entered in, reachable at recent median vol. Nothing in the config or the sweep
+records that a lever's reachability depends on entry-time vol. **The
+entry-conditioned basis is authoritative**; the candle sample is a cheap wide
+proxy that can be biased either way, so its reach% is not a verdict.
+
+Root cause is the tp-cap family one step downstream: `tp_cap_pct` first appears
+anywhere under `scripts/` on **2026-08-10**, while these arms are winner-MFE p80
+cells from July sweeps on uncapped books. A p80 over a book with no TP is a
+threshold from a distribution production cannot produce. **The fix path is
+structurally complete for future arms**: `base_args` appends `--tp-cap-pct` for
+capped families and `winner_mfe_p80` runs the harness on that same `base`, so a
+live-parity arm is bounded by `cap_R` by construction — leaving only the 6
+existing values to re-derive. Filed
+`BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP` (tier 3);
+PR **#9588** ships `scripts/ops/lever_reachability_audit.py` + 24 tests and
+changes no config.
+
+### 32. Two measurement defects the same investigation exposed
+
+**`entry − stop_loss` is not the entry risk, and its error has no fixed sign.**
+The first live data showed the field I was reading is not the field I needed — a
+stop is trailed and amended, and both `trades.stop_loss` and `order_packages.sl`
+can be the *current* stop. Measured: `gld_pullback_1d` and `qqq_trend_long_1d`
+agree with `signalLogic.risk_per_unit` to **1.00**, `xrp_pullback_2h` reads
+**0.71**, one `trend_donchian` package reads **5.66× tighter** than its own
+recorded risk. Nothing distinguishes the agreeing rows from the diverging ones
+without checking, and a stop trailed into profit **deflates** cap_R while one
+amended tighter **inflates** it — so there is no bias to correct for, only the
+right field. On the live XRP short against arm 4.49R the three readings are 3.92R
+(sized, correct), 2.77R (trailed — right answer, wrong reason) and >4.49R
+(tightened — a `reachable` verdict on a lever that cannot fire). Worth flagging to
+other sessions: any code reading `entry - sl` as risk is wrong in an unknown
+direction.
+
+**A family-membership test under-claims capped-ness on every equity leg.**
+`qqq_trend_long_1d` / `scha_trend_long_1d` / `uso_trend_1h` match no
+`LIVE_TP_CAPPED_FAMILIES` tag, but their signal builders import `order_package`
+from `src.units.strategies.trend_donchian` (`strategy_signal_builders.py:3370`),
+which carries `_TP_SENTINEL_CAP_PCT`. The audit now resolves capped-ness through
+the builder's unit when the family string does not, and records which basis it
+used; all 7 declared reach-gates resolve **capped** (4 by family, 3 by builder
+unit). This is the direction that hides a finding — `qqq` would have graded
+`cap_unknown` while measuring 0.0% reach.
+
+### 33. I clobbered the coordination board's issue body
+
+Posting the merge-slot claim for #9584 I called `issue_write method=update` with a
+`body`, which **replaces the issue description** rather than adding a comment. All
+818 comments on #6927 survived; only the description was overwritten. Restored
+within a minute from `docs/claude/coordination-board.md` and flagged in-place as a
+reconstruction, with a pointer to GitHub's own edit history (the "edited" dropdown)
+for the original wording — the operator can restore it in one click and delete the
+notice. Recorded here because the trap is cheap to repeat: on this MCP the return
+value of a body-overwrite is **indistinguishable** from a successful comment, and
+`add_issue_comment` is the tool that was wanted.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
@@ -1278,6 +1377,19 @@ for scope claims to be verified rather than remembered:
 - `slv_pullback_1d` / **stale_stop**: `path_b_wf_pass` — my read is **do not
   ship**: Path-B only, 3 of 6 folds inert, OOS net_R gain +0.001. Recorded as a
   decision because the matrix now carries the counter-evidence either way.
+
+- **`trail_decay_arm_r` on up to 3 legs may be unreachable** (§ 31, new
+  2026-08-16). `gld_pullback_1d` (arm 5.06 vs cap_R p50 2.63) and
+  `qqq_trend_long_1d` (3.56 vs 2.13) measure **0.0% reachable** on two
+  independent bases that agree; `trend_donchian_sol_4h` measures 2.8%.
+  `xrp_pullback_2h` is **vol-conditional**, not inert — unreachable at its live
+  trade's entry vol, reachable at recent median vol. The decision is per leg:
+  **re-sweep the arm at live parity (`--tp-cap-pct 0.099`) and take the corrected
+  value, or record the lever as inert so the coverage matrix stops counting it as
+  shipped.** Doing neither leaves a `shipped` cell over a lever that cannot fire.
+  Nothing was flipped; PR #9588 ships only the audit. A live-parity re-sweep
+  cannot re-emit an unreachable arm (`winner_mfe_p80` runs on the capped `base`),
+  so this is a one-time re-derivation of 6 values, not a recurring exposure.
 
 **Nothing in §§ 17–19 is Tier-3** — all of it is research tooling and
 re-measurement, and **no cell status was flipped**. Two consequences for the
