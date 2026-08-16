@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T20:10:00+00:00",
+  "updated_at": "2026-08-16T13:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17709,7 +17709,7 @@
       ],
       "updates": [
         {
-          "at": "2026-08-16T20:10:00+00:00",
+          "at": "2026-08-16T13:35:00+00:00",
           "by": "claude (exit-eval-interval session, operator: 'let's fix the market hours gap for IB')",
           "note": "FIX WRITTEN. Resolution criteria 1-3 addressed; 4 is now moot (the gate refuses the order rather than letting it be held); 5 is DEFERRED and re-filed as its own row rather than folded in silently.\n\nWHAT SHIPPED:\n* `src/runtime/ib_trading_hours.py` -- a PURE parser (no IB import, unit-testable without a gateway) for IBKR's `tradingHours`/`liquidHours` + `timeZoneId`, per criterion 2: ask the broker, do not hardcode a COMEX calendar. Parses BOTH shipped formats (full `YYYYMMDD:HHMM-YYYYMMDD:HHMM` and legacy `YYYYMMDD:HHMM-HHMM`), since which one arrives depends on the gateway's API version.\n* `IBClient._venue_session` / `.venue_session` -- bounded (`IB_CONTRACT_DETAILS_TIMEOUT_S`, default 5s, async-under-wait_for with the blocking call as fallback, mirroring `_req_all_open_orders`) and cached (`IB_SESSION_CACHE_S`, default 900s). THE CACHE HOLDS THE RAW HOURS STRING, NEVER THE VERDICT: a cached verdict is wrong at exactly the boundary the gate exists for -- a `closed` graded at 17:59 ET would keep reading closed past the 18:00 reopen and strand every close for the rest of the window.\n* `_locked_close` consults it BEFORE Step 1. Ordering is load-bearing: Step 1 cancels the protective bracket, and cancelling it to then place nothing is strictly the worst outcome available (unfillable close AND unprotected position). A dedicated falsification test moves the gate after the cancel and fails.\n* The defer message CONTAINS 'exit deferred' because `order_monitor._apply_update` detects a defer by STRING-MATCHING the message, not by the retCode. A test asserts the phrase in BOTH the message and order_monitor's own source, so drift on either side fails.\n* `outsideRth=True` on the close order (criterion 3), knobbed separately as `IB_CLOSE_OUTSIDE_RTH`. Not cosmetic: IBKR's `outsideRth` keys on LIQUID hours, so gating on `tradingHours` while transmitting `outsideRth=False` would be a verdict about a venue state the order does not act on. Scoped to the CLOSE -- entries are untouched, since declining to open into a thin overnight book is defensible and widening it is a separate decision with a separate risk profile.\n\nTHREE STATES, and one of them was a defect in my own first draft. `open`/`closed`/`unknown`, registered with `collapsed-state-guard` as `ib_venue_session.state`. `unknown` covers an unparseable string, an unresolvable timezone, AND an instant outside the covered span -- that last is the collapse a two-state design makes, since 'no range matched' is byte-identical to a real closure. `unknown` proceeds (fail-permissive) but is now LOGGED WARNING, which the first draft did not do: without it a permanently-unknown gate reads exactly like a working gate on an open venue. That is not hypothetical -- `US/Eastern` and `US/Central` are tzdata LEGACY links absent from slim installs (MEASURED: zoneinfo raises for both in this repo's own sandbox while `America/New_York` resolves) and COMEX/CME report precisely those, so the resolver tries zoneinfo raw -> zoneinfo alias -> pytz raw -> pytz alias, and dropping the alias map fails 12 of 16 parser tests here.\n\nVALIDATION: 16 new parser tests + 10 new close-wiring tests, 53 passing in test_p3_close_wiring.py. Each load-bearing property FALSIFIED: removing the gate fails 3; moving it after the cancel fails the bracket-left-armed assertion; dropping `outsideRth` fails 1; caching the verdict instead of the string fails 1; collapsing unknown-outside-span into closed fails the headline parser test. Guards clean (collapsed-state, env-gate, silent-empty, diagnostic-provenance, api-tier, soak-doctrine, provenance-consumer, writer-conformance, timestamp, claim-basis).\n\nNOT YET VERIFIED LIVE. Everything above is code + unit tests against a fake gateway; NO live IB gateway has served a real `reqContractDetails` through this path yet. The specific things a live check must establish, because a fake cannot: that the gateway returns a non-empty `tradingHours`, that its `timeZoneId` resolves ON THE VM (the sandbox cannot resolve `US/Eastern`), and that the verdict is not silently `unknown` -- which is why the WARNING log exists and is the first thing to grep for.\n\nALSO: this does NOT establish that market hours explain the 2026-08-16 MGC non-fill. The unresolved detail recorded above stands -- order 6 was still `PreSubmitted` at 08:26 ET, which does not fit cleanly with an 08:20 open. The GAP is real and independently worth closing; the INCIDENT's cause is still open."
         }
@@ -17717,7 +17717,7 @@
     },
     {
       "id": "BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH",
-      "opened_at": "2026-08-16T20:10:00+00:00",
+      "opened_at": "2026-08-16T13:35:00+00:00",
       "opened_by": "claude (exit-eval-interval session, found while fixing the IB close market-hours gap)",
       "severity": "high",
       "tier": "3 (changes WHEN a live stop can trigger)",
@@ -17738,7 +17738,7 @@
     },
     {
       "id": "BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
-      "opened_at": "2026-08-16T20:10:00+00:00",
+      "opened_at": "2026-08-16T13:35:00+00:00",
       "opened_by": "claude (exit-eval-interval session, against my own #9663)",
       "severity": "medium",
       "tier": "2 (order path)",
