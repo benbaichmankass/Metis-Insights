@@ -690,6 +690,54 @@ which was **wrong** — it ran `classify()` over the matrix's `strategy` labels,
 5 of which are *composite* rows covering many legs and mixing both families.
 Recorded so the figure is not re-quoted.
 
+### 19. The re-sweep's very first leg returned a PASS that measured nothing
+
+Caught **mid-sweep**, in the 45-second liveness probe of #9535 — which is the
+argument for the probe:
+
+```
+trend_donchian (BTCUSDT 1h): PASS wf=6/6 flip%=0.0 net 37.3918 -> 37.3918
+```
+
+A perfect six-of-six walk-forward over a lever that **never once acted**, on a
+leg whose matrix cell is `honest_negative`. It is a **tautology by
+construction**: `m20_regime_flip_replay.replay` sets `flip_r = actual_r` on a
+`no_flip` row, so a fold with zero flips holds the two series identical and its
+`beats` test — `flip_net >= actual_net and flip_dd <= actual_dd` — passes with
+equality. **Every inert fold was a free win**, and nothing in the output
+separated that from a lever that genuinely helped six times.
+
+Verified as mechanism, not inferred: the `no_flip` branch and its `r = actual_r`
+were read at `m20_regime_flip_replay.py:116`, and a test asserts the equality
+directly rather than trusting the comment.
+
+Left alone this lands in the corpus as a **floor-clearing PASS contradicting a
+live cell** — precisely what `matrix-corpus-agreement` escalates. It is the same
+class as the inert walk-forward folds the acknowledgement drafter reports
+(item 14), one level worse: there inertness was 3 of 6 folds; here it can be the
+**entire verdict**.
+
+- **Three verdicts, never two** — `INERT_NEVER_FLIPPED` when `flipped == 0`,
+  checked **before** the win ratio (or a 6/6 of free wins reaches `PASS` first).
+  *"the lever fired and lost"* and *"the lever never fired"* are opposite
+  findings and only one is evidence about the lever.
+- **`PASS` now decided on `real_wins`**, a win that is not inert.
+- Per-fold `flips` + `inert`, and `walkforward_real` / `inert_folds` beside the
+  legacy string — so the correction is one field away from anyone who only ever
+  sees the summary line.
+- `wins` / `walkforward` keep their exact old values, so an existing consumer
+  reads the same number.
+- `INERT_NEVER_FLIPPED` is **not** in `check_matrix_corpus_agreement.PASS_VERDICTS`,
+  so it cannot be read as counter-evidence — asserted in a test that checks
+  `PASS` **is** in the set in the same breath, so the probe is shown able to find
+  a positive.
+
+⚠️ **The #9535 sweep predates this fix.** Its *books* are correct (the TP-cap fix
+was in the worktree it ran from, `0b10227b`) and only the verdict LABEL is
+affected — but the old code records no per-fold flip count, so partial inertness
+is not recoverable from its output. Re-run on the fixed commit rather than
+patched.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
