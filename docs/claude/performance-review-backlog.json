@@ -3512,6 +3512,29 @@
       },
       "my_error_recorded": "Filed 2026-08-16 with the hazard direction inverted. Kept as a row rather than deleted so the inverted rule is not re-derived by a future session reading only the corrected text.",
       "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session"
+    },
+    {
+      "id": "PB-20260816-M31-P4-PARITY-PRECONDITIONS",
+      "opened_at": "2026-08-16T21:14:00+00:00",
+      "opened_by": "claude (overnight M20 session)",
+      "severity": "medium",
+      "tier": "1 (measurement + a reporting script; the arm VALUES it would inform stay Tier-3)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "M31 P4 (backtest<->live MFE parity) preconditions: the quantities ARE comparable, the soak population is EMPTY (0 closed rows), and finality is only knowable via a join nothing enforces",
+      "summary": "MEASURED 2026-08-16, not argued. P4 is gated in the design on 'P2 soak depth'. Three preconditions were checked before treating depth as the only gate; two pass and one is a real constraint on how P4 must be written.\n\n(a) COMPARABLE — live `trail_decay.since_entry_peak` computes (max(window.high) - entry)/risk and the harness `_ratchet` computes max(mfe, (ext - entry)/risk) over bar highs. Same numerator, same denominator, same bar-extreme basis. P4 is well-posed.\n\n(b) EMPTY, not shallow — /api/bot/db/table/position_telemetry returns total: 12, filter_state: not_requested, and ALL TWELVE are open positions. There are ZERO closed-trade rows, so P4 has no terminal MFE to compare against. Expected (P2 shipped the same day) but 'needs more depth' and 'has nothing in it' are different statements.\n\n(c) FINALITY NEEDS A JOIN — the table has NO status/closed_at/is_final column, so a row cannot say whether its peak_r is final or still accruing, and an open trade's peak_r is a LOWER BOUND. trade_id is populated 12/12 so position_telemetry.trade_id -> trades.status works, but nothing enforces it.",
+      "detail": "WHY (c) IS THE ONE THAT BITES. A parity check that pools open and closed trades would systematically understate the live side -- not by a modelling error but by averaging unfinished trades against finished ones. It would look like a real backtest-optimism finding and be an artifact of the population. This is the unstated-population class the repo already has a top-level rule for.\n\nA HAZARD CHECKED AND REFUTED, so nobody re-derives it: the fleet sweep warns that a bar spanning from below the stop to far above the target 'books a -1R loss AND records a huge MFE' (ict_scalp_avax_5m, 182.34R over four trades). If the harness ratcheted MFE on the stopping bar, backtest MFE would exceed anything live could observe by convention alone. It does NOT for this family: backtest_pullback evaluates _stop_or_target BEFORE _ratchet and breaks on a hit (:592-601), and arm C does the same per sub-bar (:579-585). The 182.34R case is the ict_scalp harness, a DIFFERENT one -- so the hazard is real but scoped, and the donchian/pullback family (where every telemetry row with a declared arm lives) is clean.\n\nTHE RESIDUAL ASYMMETRY RUNS THE OTHER WAY and is unquantified: the backtest excludes the exit bar entirely, while live peak_r includes however much of the terminal bar had formed at the last monitor pass. Bounded and small, but it biases live HIGH, which is the opposite of the naive expectation -- so a small positive live-minus-backtest gap is NOT automatically evidence of backtest optimism.\n\nCOLLATERAL CORROBORATION (recorded because it came from a different data path than the registry): both telemetry rows carrying a declared trail_decay_arm_r show the arm ABOVE the live cap_r -- xrp_pullback_2h arm 4.49 vs cap_r 3.9233 on bybit_2 (REAL MONEY), qqq_trend_long_1d arm 3.56 vs cap_r 2.1258 on alpaca_paper. Both agree with config/lever_reachability.json's verdicts (vol_conditional / inert), which were derived from order_packages/risk_per_unit rather than from this table.",
+      "suggested_action": "When the soak has closed rows: (1) write the parity script to JOIN trades.status and restrict to finished trades, reporting the closed-row count as its denominator the way rCoverage/pnlCoverage do; (2) report per-leg, since the harness convention differs by FAMILY (pullback/donchian stop-first vs ict_scalp) and a fleet aggregate would mix two conventions; (3) quantify the terminal-bar asymmetry once rather than assuming it away. Consider whether P2 should stamp a terminal snapshot flag so finality stops depending on a join no consumer is obliged to make -- that is a P2 change, not a P4 one.",
+      "resolution_criteria": "Closes when a parity run exists that (a) states its closed-trade denominator, (b) is restricted to finished trades via trades.status, and (c) reports per-leg or per-family rather than one fleet number. A run that reports a single pooled figure over a population including open trades does NOT close this row -- that is the artifact this row exists to prevent.",
+      "refs": [
+        "docs/design/position-telemetry-DESIGN.md",
+        "src/runtime/position_telemetry.py",
+        "src/runtime/trail_decay.py",
+        "scripts/backtest_pullback.py",
+        "scripts/exit_capture.py",
+        "config/lever_reachability.json",
+        "PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS"
+      ]
     }
   ],
   "updated_at": "2026-08-16"
