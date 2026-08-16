@@ -1164,3 +1164,90 @@ def test_venue_session_reports_all_three_states(monkeypatch):
 
     blind = _ib_client_with(_ib_serving_hours(_long_mgc(), fail=True))
     assert blind.venue_session("MGC")[0] == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# The FUTURES / EQUITY split. ib_paper mixes both on one clientId, and the two
+# want OPPOSITE treatment outside RTH:
+#   * a FUTURE's electronic session IS the market -> outsideRth=True, grade
+#     tradingHours;
+#   * an EQUITY's extended book is thin -> keep outsideRth=False and grade
+#     liquidHours, so the close DEFERS instead of firing a market order
+#     pre/post-market. That is exactly what Alpaca's _close_extended_hours
+#     avoids by using a marketable LIMIT, and this change cites that path as
+#     its own precedent, so contradicting it would be incoherent.
+# ---------------------------------------------------------------------------
+
+_EQ_TRADING = "20260817:0400-20260817:2000;20260818:0400-20260818:2000"
+# MGC's RTH/pit window inside the electronic session `_HOURS` above.
+_MGC_LIQUID = ("20260815:CLOSED;20260816:CLOSED;"
+               "20260817:0820-20260817:1330;20260818:0820-20260818:1330")
+_EQ_LIQUID = "20260817:0930-20260817:1600;20260818:0930-20260818:1600"
+
+
+class _FakeSplitDetails:
+    def __init__(self, trading, liquid, tz=_TZ):
+        self.tradingHours = trading
+        self.liquidHours = liquid
+        self.timeZoneId = tz
+
+
+def _ib_serving_split(fake_ib, trading, liquid):
+    fake_ib.detail_calls = []
+
+    def _req(contract):
+        fake_ib.detail_calls.append(contract)
+        return [_FakeSplitDetails(trading, liquid)]
+
+    fake_ib.reqContractDetails = _req
+    return fake_ib
+
+
+def _long_qqq(**kw):
+    return FakeIB(
+        portfolio_items=[_FakePortfolioItem("QQQ", 10, account="DUQ1")],
+        open_trades=[_FakeTrade(MagicMock(orderId=20), _FakeContract(symbol="QQQ"))],
+        **kw,
+    )
+
+
+def test_equity_close_outside_rth_defers_instead_of_firing(monkeypatch):
+    """08:00 ET is inside an equity's tradingHours (pre-market) and OUTSIDE its
+    liquidHours. Grading tradingHours would call the venue open and then send an
+    order IBKR holds — a verdict about a state the order does not act on."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 8))
+    fake_ib = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
+    client = _ib_client_with(fake_ib, symbol="QQQ")
+
+    res = client.close(symbol="QQQ", side="long", qty=10)
+
+    assert res["retCode"] == 2, res
+    assert "exit deferred" in res["retMsg"].lower()
+    assert fake_ib.placed == []
+    assert fake_ib.cancelled == []
+
+
+def test_equity_close_in_rth_proceeds_without_outside_rth(monkeypatch):
+    _freeze(monkeypatch, _et(2026, 8, 17, 11))          # 11:00 ET, inside RTH
+    fake_ib = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
+    res = _ib_client_with(fake_ib, symbol="QQQ").close(symbol="QQQ", side="long", qty=10)
+
+    assert res["retCode"] == 0, res
+    _, order = fake_ib.placed[0]
+    assert getattr(order, "outsideRth", None) is not True, (
+        "an equity market close must not be sent with outsideRth=True — that is "
+        "the thin-extended-book fill Alpaca's marketable-limit path exists to avoid"
+    )
+
+
+def test_futures_close_at_the_same_instant_does_the_opposite(monkeypatch):
+    """The split is the point: same clock, opposite correct answers."""
+    _freeze(monkeypatch, _et(2026, 8, 18, 3))           # 03:00 ET
+    fut = _ib_serving_split(_long_mgc(), _HOURS, _MGC_LIQUID)
+    res = _ib_client_with(fut, symbol="MGC").close(symbol="MGC", side="long", qty=3)
+    assert res["retCode"] == 0, res
+    assert getattr(fut.placed[0][1], "outsideRth", False) is True
+
+    eq = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
+    assert _ib_client_with(eq, symbol="QQQ").close(
+        symbol="QQQ", side="long", qty=10)["retCode"] == 2

@@ -400,7 +400,7 @@ class IBClient:
         self._contract: Any = None
         # Venue-session cache: symbol -> (expiry_monotonic, hours_str, tz_id).
         # The raw STRINGS are cached, never the verdict — see _venue_session.
-        self._session_hours: Dict[str, Tuple[float, Optional[str], Optional[str]]] = {}
+        self._session_hours: Dict[str, Tuple[float, Optional[str], Optional[str], Optional[str]]] = {}
         self._loop: Any = None  # persistent asyncio loop the IB binds to
         # Circuit-breaker state (restart-loop incident, 2026-06-05). While
         # monotonic() < _breaker_open_until, connect() fast-fails without
@@ -1497,8 +1497,42 @@ class IBClient:
     # Venue session — "can this venue fill an order right now?"
     # ------------------------------------------------------------------
 
-    def _contract_hours(self, ib: Any, sym: str) -> Tuple[Optional[str], Optional[str]]:
-        """Fetch ``(tradingHours, timeZoneId)`` for *sym*, or ``(None, None)``.
+    @staticmethod
+    def _close_wants_outside_rth(sym: str) -> bool:
+        """Should this symbol's CLOSE transmit ``outsideRth=True``?
+
+        **Futures yes, equities no** — and the session gate grades each on the
+        matching field, so the verdict always describes the state the order acts
+        on (see :meth:`_venue_session`).
+
+        For a FUTURE the electronic session IS the market: MGC trades ~23h and
+        its RTH window is a few hours, so `outsideRth=False` means a close
+        placed at 03:00 ET is HELD until the next RTH open. Wanting a
+        risk-reducing order to fill there is the point of this whole change.
+
+        For an EQUITY the opposite holds, and the Alpaca precedent says so
+        explicitly: `_close_extended_hours` does NOT send a market order
+        pre/post-market, it sends a **marketable LIMIT**, because an equity
+        market order into a thin extended book is exactly the fill you do not
+        want. Setting `outsideRth=True` on an IB equity market close would
+        contradict the reasoning this change cites as its own precedent. So a
+        STK close keeps the library default and is instead graded on
+        ``liquidHours`` — outside RTH it DEFERS (bracket left armed) rather
+        than transmitting an order that would be held or filled badly.
+
+        An unresolvable symbol falls back to the futures answer, matching
+        ``ib_instrument_spec``'s own legacy default and this client's futures
+        origin; the gate is fail-permissive either way.
+        """
+        try:
+            return ib_instrument_spec(sym).sec_type != "STK"
+        except Exception:  # noqa: BLE001
+            return True
+
+    def _contract_hours(
+        self, ib: Any, sym: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Fetch ``(tradingHours, liquidHours, timeZoneId)``, or all ``None``.
 
         Bounded exactly like :meth:`_req_all_open_orders` — prefer the async
         variant under an explicit timeout on this client's owned, idle loop,
@@ -1507,8 +1541,12 @@ class IBClient:
         wedged Gateway is the shape of both June 2026 wedges: a call that is
         individually cheap on a healthy gateway and unbounded on a sick one.
 
-        Never raises. A failure returns ``(None, None)``, which the caller
-        grades as ``unknown`` — *we could not look* — and therefore proceeds.
+        Both hours fields are returned because which one is AUTHORITATIVE
+        depends on the instrument (see :meth:`_close_wants_outside_rth`), and
+        fetching once for both is strictly cheaper than two lookups.
+
+        Never raises. A failure returns all ``None``, which the caller grades as
+        ``unknown`` — *we could not look* — and therefore proceeds.
         """
         timeout = _env_float("IB_CONTRACT_DETAILS_TIMEOUT_S", 5.0)
         if timeout <= 0:
@@ -1517,7 +1555,7 @@ class IBClient:
             contract = self._build_contract(sym)
         except Exception as exc:  # noqa: BLE001
             logger.debug("IBClient: session check could not build %s: %s", sym, exc)
-            return None, None
+            return None, None, None
 
         details = None
         req_async = getattr(ib, "reqContractDetailsAsync", None)
@@ -1538,18 +1576,19 @@ class IBClient:
                     logger.debug(
                         "IBClient: reqContractDetailsAsync(%s) failed: %s", sym, exc
                     )
-                    return None, None
+                    return None, None, None
         if details is None:
             try:
                 details = ib.reqContractDetails(contract)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("IBClient: reqContractDetails(%s) failed: %s", sym, exc)
-                return None, None
+                return None, None, None
         if not details:
-            return None, None
+            return None, None, None
         first = details[0]
         return (
             getattr(first, "tradingHours", None),
+            getattr(first, "liquidHours", None),
             getattr(first, "timeZoneId", None),
         )
 
@@ -1581,16 +1620,26 @@ class IBClient:
         now_mono = time.monotonic()
         hit = self._session_hours.get(sym)
         if hit is not None and now_mono < hit[0]:
-            hours, tz_id = hit[1], hit[2]
+            trading, liquid, tz_id = hit[1], hit[2], hit[3]
         else:
-            hours, tz_id = self._contract_hours(ib, sym)
+            trading, liquid, tz_id = self._contract_hours(ib, sym)
             if ttl > 0:
-                good = bool(hours) and bool(tz_id)
+                good = bool(trading or liquid) and bool(tz_id)
                 expiry = now_mono + (ttl if good else min(ttl, 60.0))
-                self._session_hours[sym] = (expiry, hours, tz_id)
+                self._session_hours[sym] = (expiry, trading, liquid, tz_id)
 
+        # GRADE THE FIELD THE ORDER WILL ACT ON. A future transmits
+        # outsideRth=True, which makes the ELECTRONIC session the binding one;
+        # an equity keeps outsideRth=False, which makes RTH binding. Grading
+        # tradingHours for an equity would call a venue "open" at 04:00 and then
+        # send an order IBKR holds — a verdict about a state the order does not
+        # act on, which is the semantic substitution this gate exists to avoid.
+        if self._close_wants_outside_rth(sym):
+            hours, which = (trading or liquid), "tradingHours"
+        else:
+            hours, which = (liquid or trading), "liquidHours"
         state, reason = ib_trading_hours.session_state(hours, tz_id)
-        return state, reason
+        return state, f"{which}: {reason}"
 
     def venue_session(self, symbol: Optional[str]) -> Tuple[str, str]:
         """Public, lock-taking wrapper over :meth:`_venue_session`.
@@ -1818,7 +1867,8 @@ class IBClient:
             # and widening this to the entry path is a separate decision with a
             # separate risk profile. ``IB_CLOSE_OUTSIDE_RTH=false`` reverts just
             # this half without losing the session gate.
-            if _env_bool("IB_CLOSE_OUTSIDE_RTH", True):
+            if _env_bool("IB_CLOSE_OUTSIDE_RTH", True) and \
+                    self._close_wants_outside_rth(sym):
                 close_order.outsideRth = True
             if self.account:
                 close_order.account = self.account
