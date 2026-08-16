@@ -252,6 +252,7 @@ _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 # Exit-loop liveness state (M20 decouple, #8778). NOT a .jsonl — a single
 # small JSON object rewritten atomically by exit_loop_health.write_state_file.
 _EXIT_LOOP_HEALTH_STATE = runtime_logs_dir() / EXIT_LOOP_HEALTH_STATE_FILE
+_EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -354,6 +355,22 @@ _LOG_FILES: dict[str, Path] = {
     # says "for the diag surface" while the only surface a relay can reach did
     # not serve it, the written-but-not-readable shape of #8665's exposure block.
     "exit_loop_health": _EXIT_LOOP_HEALTH_STATE,
+    # The DURABLE half of the above, and the reason it had to exist: every field
+    # in `exit_loop_health` lives in module globals that start empty and are
+    # never reloaded, so `max_interval_ms` is scoped to ONE process -- and the
+    # trader redeploys off `main` via `ict-git-sync` (FIVE observed processes in
+    # ~10h, measured 2026-08-16 from `process_started_utc` -- counting merges
+    # instead over-counted it by one, since a merge does not promptly restart
+    # the trader). A max over a short window is systematically LOW, so the
+    # in-memory grade reads most reassuring exactly when the system is busiest;
+    # the only reading that ever approached the 60s requirement came from the
+    # one process that survived a quiet overnight window (n=694, 98.2%). This
+    # append-only log makes the max a property of the DATA, not of a process's
+    # lifetime. One row per completed pass -- `interval_ms: null` marks the
+    # first pass of a process (no prior completion to measure from), which is a
+    # different fact from an interval of zero and is what makes the process
+    # boundary visible instead of being mistaken for a real interval.
+    "exit_interval_soak": _EXIT_INTERVAL_SOAK_LOG,
     # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
     # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
     # which accounts / whether the trainer are currently latched down —
