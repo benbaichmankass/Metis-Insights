@@ -1094,6 +1094,35 @@ and the `grant%` figures above 100 % (`tlt_pullback_1h/trail4` 179 %,
 `tlt_pullback_1d/decay_stall6_t2.5` 199 %) must stay excluded from candidacy
 regardless of their verdict strings.
 
+### …and the measurement backlog, re-sized (§§ 18–22)
+
+The number to plan against is **not 99**. Breaking the "no fresher evidence"
+bucket down by *what remedy would actually work* — rather than quoting its
+size — split it three ways, and one third of it was pointed at hours of trainer
+time that could not have cleared it:
+
+| what it needs | cells | state |
+|---|---|---|
+| a sweep — the remedy as advertised | **33** | `no_live_parity_row` |
+| **a producer built** (no driver emits `exit_ladder`) | **29** | `no_sweep_driver_emits_this_column` |
+| ~~a harness fixed first~~ | ~~38~~ **0** | ✅ done this session |
+
+So the sweepable backlog is **33**, and the largest remaining item is not a
+sweep at all — it is that **`exit_ladder` has no backtest producer**, its cells
+resting on the 2026-07-12 memo's banking study. Deciding whether to build one is
+a scoping call, not a measurement.
+
+Two things a next session should NOT re-derive:
+
+- **`regime_flip_exit` is closed.** 42 legs, 0 PASS, all 38 live cells confirmed
+  `honest_negative` on a live-parity book. Do not re-sweep it looking for a
+  disagreement; there is none, and the 12 inert legs are a *coverage* question
+  (the flip condition never fires for them), not a result to re-measure.
+- **The M21 entry sweeps carry the same defect and it is worse there**
+  (`BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY`): 27
+  **decision** cells, no geometry tracking at all. That is the highest-value
+  unclaimed item this session found and did not take, because it is M21 scope.
+
 ## Wrap-Up Check
 - [x] Code inspected directly (not inferred from docs)
 - [x] Canonical docs reviewed and updated
