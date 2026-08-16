@@ -3422,7 +3422,28 @@
         "config/accounts.yaml"
       ],
       "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it."
+    },
+    {
+      "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+      "opened_at": "2026-08-16T20:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, uso_trend_1h reachability measurement)",
+      "severity": "low",
+      "tier": "1 (a docstring/consumer question; the clamp itself is correct and no runtime behaviour is proposed)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "position_telemetry.cap_r computes the VENUE TP cap and calls it the ceiling; the realism clamp binds first on low-ATR rows and it does not model that",
+      "summary": "⚠️ THIS ROW WAS FILED WITH ITS DIRECTION INVERTED AND IS REWRITTEN, NOT RE-WORDED. The original claimed `exit_plan_state.targets[].reach_r` UNDER-reports the ceiling and manufactures false `inert` verdicts, and that the identity 0.099/(risk_per_unit/entry) was authoritative. BOTH WERE BACKWARDS, and the correct reading was landed independently the same hour by a concurrent session: xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), whose `read_the_right_field` note is canonical.\n\nWHY IT IS BACKWARDS. Reachability asks whether an arm can be reached BEFORE the trade's exit closes it. The TP the bot actually places is the CLAMPED one (`src/runtime/exit_plan_realism.py:44`, DEFAULT_MAX_REACH_R = 5.0), and that TP fills and ends the trade — so the operative ceiling is `min(venue_cap_R, 5.0)` = exactly `targets[].reach_r`. The identity ignores the clamp, so where cap_R > 5.0 it OVER-reports and would grade a 6R arm `reachable` on a row whose placed target is 5.0R. Worked example (theirs): pkg-639da91607cc46d3, original 8.3837R clamped to 5.0000R.\n\nWHAT SURVIVES, and why this row stays open rather than being closed as a duplicate: `src/runtime/position_telemetry.py::cap_r` computes `cap_pct * entry / risk` — the VENUE cap — and nothing in it models the realism clamp. On a low-ATR row it therefore reports a ceiling the bot's own placed target does not honour. That is a live writer, not a research script, and it was shipped as M31 P1/P2. Whether it is a defect depends on what its consumers do with the value: as a record of the VENUE constraint it is correct and correctly named; as 'the ceiling a lever must clear' it is wrong on exactly the clamped rows. Measured 2026-08-16: 7 of uso_trend_1h's 30 live rows are clamped (venue max 7.5639 vs operative 5.0000); both of xrp_pullback_2h's two reaching rows are clamped ones.",
+      "resolution_criteria": "Determine what reads `position_telemetry.cap_r` and whether any consumer treats it as the reachability ceiling rather than as the venue cap. Then EITHER (a) leave it and document at the definition that it is the venue constraint and NOT the operative ceiling when `cap_r > DEFAULT_MAX_REACH_R`, naming `targets[].reach_r` as the operative one; OR (b) if a consumer does treat it as the ceiling, have that consumer take `min(cap_r, DEFAULT_MAX_REACH_R)` and import the constant rather than re-declaring 5.0. Verifiable by grepping `cap_r` consumers and confirming each either does not need the ceiling or takes the min. Closing on the grounds that 'the registry now documents it' is NOT sufficient — the registry's basis_note is guidance for humans; this item is about a shipped writer. Population for the numbers above: uso_trend_1h live order_packages n=30 COMPLETE (2026-07-07 -> 2026-08-07), xrp_pullback_2h n=37 COMPLETE.",
+      "evidence": {
+        "code": "src/runtime/exit_plan_realism.py:44 (DEFAULT_MAX_REACH_R = 5.0), clamp_exit_plan(); src/runtime/exit_plan_materializer.py:157",
+        "population": "uso_trend_1h live order_packages, n=30 COMPLETE, span 2026-07-07 -> 2026-08-07",
+        "clamped_rows": "7/30",
+        "stored_max_vs_true_max": "5.0000 vs 7.5639",
+        "unaffected_rows_checked": "trend_donchian_sol_4h max 4.32, xrp_pullback_2h max 4.46 -- both below the clamp, recorded values stand"
+      },
+      "my_error_recorded": "Filed 2026-08-16 with the hazard direction inverted. Kept as a row rather than deleted so the inverted rule is not re-derived by a future session reading only the corrected text.",
+      "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session"
     }
   ],
-  "updated_at": "2026-08-16"
+  "updated_at": "2026-08-16T20:05:00+00:00"
 }
