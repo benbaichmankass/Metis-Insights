@@ -1341,3 +1341,62 @@ def test_era_block_never_feeds_the_arm():
         assert f"str(p80_detail[{era_key}" not in code
     assert "--trail-decay-arm-r', str(p80_detail" not in code, \
         "an era-derived percentile is being fed to the live arm flag"
+
+
+def test_winner_mfe_p80_end_to_end_against_a_stub_harness(tmp_path, monkeypatch):
+    """Exercise the REAL function, not just its pure helpers.
+
+    Everything above tests `_era_report` / `_recent_era_p80` / `_percentile_80`
+    in isolation, which cannot catch the assembly: a wrong key in the returned
+    dict, losers leaking into a bucket, or undated rows reaching the recency
+    window. `winner_mfe_p80` shells out to a harness, so the harness is stubbed
+    -- the stub emits the schema `--emit-trades` really writes.
+    """
+    harness = tmp_path / "stub_harness.py"
+    harness.write_text(
+        "import argparse, json, pathlib\n"
+        "p = argparse.ArgumentParser()\n"
+        "p.add_argument('--emit-trades'); p.add_argument('--json')\n"
+        "p.add_argument('--end')\n"
+        "a, _ = p.parse_known_args()\n"
+        "rows = []\n"
+        # Quiet early years, hot recent year -> pooled must not equal recent.
+        # THE HOT YEAR IS DELIBERATELY UNDER 20% OF THE SAMPLE. At 20/81 the
+        # pooled p80 lands INSIDE the hot year and the two figures coincide --
+        # which is not a bug, it is the effect being reported: whether a pooled
+        # percentile describes the recent regime depends on that regime's SHARE
+        # of the pooled window. Here the hot year is 12/73, so the pooled p80
+        # sits in the quiet regime and describes a book the recent era is not.
+        "for yr, mfe, n in (('2021', 1.5, 20), ('2022', 1.5, 20),\n"
+        "                   ('2023', 1.5, 20), ('2025', 9.0, 12)):\n"
+        "    for i in range(n):\n"
+        "        rows.append({'entry_time': yr + '-03-01 00:00:00',\n"
+        "                     'net_r': 1.0, 'mfe_r': mfe})\n"
+        # A LOSER with a huge MFE: must never reach any bucket.
+        "rows.append({'entry_time': '2025-04-01 00:00:00',\n"
+        "             'net_r': -1.0, 'mfe_r': 99.0})\n"
+        # An UNDATED winner: counted, bucketed, but not orderable in time.
+        "rows.append({'entry_time': 'not-a-date', 'net_r': 1.0, 'mfe_r': 5.5})\n"
+        "pathlib.Path(a.emit_trades).write_text("
+        "'\\n'.join(json.dumps(r) for r in rows))\n"
+        "if a.json: pathlib.Path(a.json).write_text('{}')\n")
+    monkeypatch.setattr(_mod, "REPO", tmp_path)
+
+    out = _mod.winner_mfe_p80("stub_harness.py", [], "2026-01-01")
+    assert out is not None, "the stub emitted 73 winners and the arm abstained"
+
+    # 72 dated winners + 1 undated; the loser is excluded from BOTH the pooled
+    # count and every bucket, however large its MFE.
+    assert out["n"] == 73, out["n"]
+    assert 99.0 not in [b["p80"] for b in out["by_era"].values()]
+    assert out["by_era"]["2025"]["n"] == 12, \
+        "a losing trade leaked into a per-era bucket"
+
+    assert out["by_era"]["undated"]["state"] == "undated"
+    assert out["recent_era"]["years"] == ["2025"], out["recent_era"]
+    assert "undated" not in out["recent_era"]["years"]
+
+    # The whole point: pooled and recent-era must be able to disagree.
+    assert out["recent_era"]["p80"] != out["p80"], \
+        "pooled and recent-era coincided on a population built to differ"
+    assert out["recent_era"]["delta_vs_pooled"] is not None
