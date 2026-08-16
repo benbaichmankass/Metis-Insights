@@ -820,6 +820,65 @@ fails 3), including a positive control — a fleet-shaped doc still extracts, an
 a `leg_status`-only entry is still recognised as the legitimate no-cells fleet
 row.
 
+### 21. The re-sweep landed: 42 legs, zero PASS — and it caught 12 false positives
+
+The full `regime_flip_exit` re-sweep completed (#9536 → read via #9540; the
+first two reads died on the relay's indentation trap — see below). **A complete
+population: 42 legs, zero `data_missing` / `harness_error` / timeout rows**, at
+`tp_geometry: live_parity_capped`, `tp_cap_pct: 0.099`, families
+`['donchian', 'pullback']`.
+
+| verdict | legs |
+|---|---|
+| `fail` | 30 |
+| `INERT_NEVER_FLIPPED` | **12** |
+| `PASS` | **0** |
+
+**No new adjudications.** All 38 live `regime_flip_exit` cells stay
+`honest_negative` — now for the first time on the geometry production actually
+places. The operator's morning queue does **not** grow.
+
+**And the § 19 fix earned itself in one run.** Every one of those 12 inert legs
+would have been a `PASS` under the old two-state verdict, at these walk-forwards:
+
+```
+qqq_trend_long_1d   20/20     spy_trend_long_1d   17/17     mes_trend_long_1d   11/11
+iwm_trend_long_1d   17/17     splg_trend_long_1d  17/17     qld_trend_long_1d   11/11
+scha_trend_long_1d  17/17     uso_trend_1h        10/10     tqqq_trend_long_1d  11/11
+trend_donchian       6/6      trend_donchian_sol   6/6      trend_donchian_sol_prop 6/6
+```
+
+That is **12 spurious floor-clearing PASSes**, each contradicting a live
+`honest_negative` cell, each carrying the most persuasive-looking walk-forward
+in the run. Caught by a 45-second liveness probe on the *previous* sweep.
+
+**The 30 real fails are emphatic, not marginal** — the lever fires on 95–99 % of
+trades and destroys the book:
+
+```
+qqq_pullback_1h  dR −95.15  flip% 97.5   net  75.43 → −19.72
+spy_pullback_1h  dR −84.33  flip% 96.7   net  70.74 → −13.59
+gld_pullback_1h  dR −81.88  flip% 98.0   net  61.04 → −20.84
+tlt_pullback_1h  dR −72.81  flip% 95.8   net  15.37 → −57.44
+```
+
+⚠️ **The 12 inert legs are a COVERAGE finding, not a result.** For those legs the
+frozen-label flip condition is never met at all, so the sweep has said nothing
+about whether the lever would help them — their `honest_negative` rests on
+*"never tested"*, which is a different claim from *"tested and lost"*. Notably
+they are **every** `*_trend_long_1d` equity leg plus three donchians; a policy
+that never fires across a whole family is worth a look on its own terms, and
+it is now visible rather than hidden behind a 20/20.
+
+⚠️ **Three relay round-trips were burned on a documented trap.**
+`docs/claude/diag-relay.md` § *"Any non-trivial `cmd:` script MUST be base64'd"*
+describes this exactly — the block's first line is dedented and the rest keep
+their indent, so a heredoc terminator never terminates and a multi-line
+`python3 -c` dies on `IndentationError`. A 2026-08-13 session hit it four times;
+I hit it twice more (#9538 heredoc, #9539 `-c`) before following the doc. The
+doc needed no change — **I did**. Recorded because "the doc says so" is not the
+same as having read it.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
