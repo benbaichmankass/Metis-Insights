@@ -13,12 +13,21 @@ process overwrites, not an accumulator it resumes. So the max is scoped to one
 process, and the live trader restarts on **every merge to `main`** via
 ``ict-git-sync``.
 
-Measured 2026-08-16: **six processes in ~10 h** (23:06 → 06:24 → 07:34 → 08:34 →
-09:07 → 09:55), two of them caused by the very session that shipped the field.
-Across those six, the only reading that ever approached the requirement came
-from the one process that ran through a **quiet overnight window** and reached
-n=694 (58940.8 ms, 98.2% of the requirement). Every daytime process reached
-n=4–38 and topped out at 31–79%.
+Measured 2026-08-16: **five OBSERVED processes in ~10 h** (23:06:29 → 06:24:32 →
+07:34:25 → 08:34:15 → 09:07:09), two of them caused by the very session that
+shipped the field. Across those five, the only reading that ever approached the
+requirement came from the one process that ran through a **quiet overnight
+window** and reached n=694 (58940.8 ms, 98.2% of the requirement). Every daytime
+process reached n=4–38 and topped out at 31–79%.
+
+(Five, not six: a sixth was inferred from a merge and the data REFUTES it. A
+merge to `main` does not promptly restart the trader — the deploy rides the
+`ict-git-sync` timer — so restarts must be counted from observed
+`process_started_utc` values, never from merge times. The refuting read is
+`bot_uptime_s: 3895` at 10:11Z, which dates that process to 09:06:38 and so
+makes the 09:07 and the inferred ~09:55 the SAME process. The correction is kept
+here because inferring a restart from a merge is the exact mistake this module's
+own reasoning is vulnerable to.)
 
 That is not merely a gap in coverage — **it is a bias, and it points the wrong
 way.** A maximum over a short window is systematically LOWER than the true

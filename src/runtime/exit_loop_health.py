@@ -183,8 +183,11 @@ def record_pass(duration_ms: float) -> None:
     # failed append loses an observation and nothing else.
     #
     # WHY IT IS SEPARATE FROM THE FIELDS ABOVE: `_max_interval_ms` is scoped to
-    # this process and is reset by every deploy, and the trader redeploys on
-    # every merge to `main` (six processes in ~10h, measured 2026-08-16). A max
+    # this process and is reset by every deploy, and the trader redeploys off
+    # `main` via the `ict-git-sync` timer (five OBSERVED processes in ~10h,
+    # measured 2026-08-16 from `process_started_utc`, NOT from merge times --
+    # a merge does not promptly restart the trader, and counting merges
+    # over-counted this by one). A max
     # over a short window is systematically LOW, so the in-memory grade is most
     # reassuring exactly when the system is busiest. This append is what makes
     # the max a property of the DATA rather than of a process's lifetime.

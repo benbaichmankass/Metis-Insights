@@ -358,8 +358,10 @@ _LOG_FILES: dict[str, Path] = {
     # The DURABLE half of the above, and the reason it had to exist: every field
     # in `exit_loop_health` lives in module globals that start empty and are
     # never reloaded, so `max_interval_ms` is scoped to ONE process -- and the
-    # trader redeploys on every merge to `main` (SIX processes in ~10h, measured
-    # 2026-08-16). A max over a short window is systematically LOW, so the
+    # trader redeploys off `main` via `ict-git-sync` (FIVE observed processes in
+    # ~10h, measured 2026-08-16 from `process_started_utc` -- counting merges
+    # instead over-counted it by one, since a merge does not promptly restart
+    # the trader). A max over a short window is systematically LOW, so the
     # in-memory grade reads most reassuring exactly when the system is busiest;
     # the only reading that ever approached the 60s requirement came from the
     # one process that survived a quiet overnight window (n=694, 98.2%). This

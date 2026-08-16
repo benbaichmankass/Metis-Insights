@@ -1,8 +1,9 @@
 """The DURABLE half of exit-loop observability.
 
 `exit_loop_health`'s `max_interval_ms` lives in a module global that is never
-reloaded, so it is scoped to one process — and the trader redeploys on every
-merge to `main` (six processes in ~10h, measured 2026-08-16). A max over a short
+reloaded, so it is scoped to one process — and the trader redeploys off `main`
+via `ict-git-sync` (five OBSERVED processes in ~10h, measured 2026-08-16 from
+`process_started_utc`, not from merge times). A max over a short
 window is systematically LOW, which makes the in-memory grade most reassuring
 exactly when the system is busiest. These tests pin the properties that fix
 buys, especially the one that motivated it: the record must survive a restart.
