@@ -93,33 +93,67 @@ Both are in the running re-sweep.
 
 ---
 
-## 3. The narrow arm_r re-sweep — running, and its first result is awkward
+## 3. The narrow arm_r re-sweep — COMPLETE, and it inverts § 1's option 1
 
 Live-parity (`--tp-cap-pct 0.099 --split-target-oos 50 --p80-only`) over the six
-legs declaring `trail_decay_arm_r`. It replaced a broad fleet sweep that would
-have taken **~25 hours** to reach `xrp_pullback_2h` (it had covered 7 of 55 legs
-in ~4 h, and none of the queued legs were among them).
+legs declaring `trail_decay_arm_r`. **All six answered in 4 minutes.** It
+replaced a broad fleet sweep that would have taken **~25 hours** to reach
+`xrp_pullback_2h` (it had covered 7 of 55 legs in ~4 h, none of them queued).
 
-**First leg out, and it is worth pausing on:**
+| leg | declared | p80 live-parity arm | verdict | OOS net_R | n |
+|---|--:|--:|---|--:|--:|
+| `trend_donchian` | 6.49 | 5.50 | **fails OOS** | −23.55 | 49 |
+| `trend_donchian_sol_4h` | 5.57 | 1.50 | **fails OOS** | +18.08 | 52 |
+| `qqq_trend_long_1d` | 3.56 | — | **skipped, thin (21 < 30)** | +24.68 | 40 |
+| `gld_pullback_1d` | 5.06 | **3.86** | **PASS wf 5/6** | +20.98 | 50 |
+| `scha_trend_long_1d` | 2.00 | — | **skipped, thin (14 < 30)** | +3.25 | 33 |
+| `xrp_pullback_2h` | 4.49 | 2.17 | **fails OOS** | +12.12 | 53 |
+
+**4 of 6: the lever does not earn its place at live parity.** Three fail OOS;
+two have too few winner MFEs to grade — and the harness **declined to emit a
+p80** rather than producing one off a thin sample, which is the right behaviour.
+
+### ⚠️ The one PASS proposes an arm that is itself unreachable — do not ship 3.86
+
+`gld_pullback_1d` is the leg measured **inert over its COMPLETE history** (0 of
+8; `cap_R` 2.20–3.01; `risk/entry` 3.294–4.506%). The re-sweep proposes
+**3.86R**, which needs `risk/entry ≤ 2.565%`:
 
 ```
-== trend_donchian (BTCUSDT 1h) ==
-   p80 winner-MFE arm = 5.5R
-   decay_p80arm5.5R_t2.5 -> is_oos_fail
+best observed entry -> cap_R 3.01
+proposed arm         3.86  -> exceeds it by 0.85R
+ZERO of 8 live entries could arm it
 ```
 
-Two readings, and the second is the important one:
+**So § 1 option 1 — "re-sweep and take the corrected value" — would have
+replaced one inert arm with a second inert arm carrying a PASS badge.** That is
+worse than the state it fixes, because the badge suppresses the next question.
 
-1. The live-parity arm comes out at **5.5R** against the **6.49** declared.
-2. **That proposed cell then FAILS OOS.**
+**I have not resolved the contradiction, and cannot from here.** The p80 is over
+**backtest winner MFEs** (134 lifetime trades); `cap_R` is over **8 live order
+packages**. Either the live entries are unrepresentative of the leg's vol
+regime, or the backtest population's `risk/entry` differs systematically. Both
+testable; neither tested.
 
-`trend_donchian` is the one leg I graded **`reachable` at 100%** (BTC 1h ATR
-≈0.333% of price; `cap_R` p50 11.91 vs arm 6.49), so this is **not** an
-arm-above-cap failure. It is a separate question — whether the lever earns its
-place on that leg at all — and it means "re-sweep and take the number" is not
-guaranteed to produce a number.
+**`xrp_pullback_2h` closes the other escape:** its proposed **2.17R would be
+reachable** (`cap_R` 3.92–8.38) and the cell **still fails OOS**. So lowering
+the arm is not the answer there either.
 
-**n=1 leg. I am not grading the sweep off its first line.** Full results follow.
+### What this does to § 1
+
+The question I queued was *"what value should these arms be?"*. On this evidence
+the answer for at least four of six is **"none — the lever should not be
+declared on this leg"**. That is a larger call than a value change, and it is
+yours. Nothing was flipped.
+
+**Caveats that cut against my own reading:** one sweep, one split per leg,
+`p80-only` (the fixed cells were verdicted separately and are not re-measured
+here), and the two `skipped` legs are **absence of evidence, not evidence of
+failure** — `qqq` and `scha` remain exactly as unmeasured as before.
+
+Per-leg detail is recorded in `config/lever_reachability.json` under
+`live_parity_p80_resweep_2026_08_16`, next to the reachability measurement it
+can disagree with.
 
 ---
 
@@ -193,9 +227,10 @@ withdrew it.
 | #9588 | lever-reachability audit tool | merged |
 | #9549 | ⚠️ **Tier-3 real money** — `trend_donchian_xrp_4h` trail_decay | merged **and deploy-verified** |
 | #9614 | M31 P1 guard + P2 `position_telemetry` | merged **and live-verified** |
-| #9633 | exit-mechanism coverage probe | green, merging |
-| #9660 | `position_telemetry.account_id` fix | CI running |
-| #9666 | two dispatch-layer backlog rows | CI running |
+| #9633 | exit-mechanism coverage probe | merged `41f9f046` |
+| #9660 | `position_telemetry.account_id` fix | merged `84a2e40f` **and live-verified** |
+| #9666 | two dispatch-layer backlog rows + this memo | merged `c986a70c` |
+| #9671 | the re-sweep record (§ 3) into the registry | **open** at time of writing |
 
 **Deploy verification used `bot_uptime_s`, not `git_sha`** — `git_sha` reads the
 working tree and can report a SHA a running process is not executing.
@@ -208,7 +243,29 @@ on a trade whose MFE was previously not reconstructible at all.
 **A defect I shipped and found on the first post-deploy read:** `account_id` was
 structurally unpopulatable (`order_packages` has no such column; the monitor has
 no account in scope). Fixed in #9660. This is the argument for the verification
-pass in general — the tests could not have caught it.
+pass in general — the tests could not have caught it, because they asserted the
+field round-trips, which it did; only the live journal could show the column was
+never fed.
+
+**#9660 is now live-verified** (12:09Z, after the deploy landed at 12:05):
+**12 of 12** rows carry `account_id` across five accounts (`bybit_1`, `bybit_2`,
+`alpaca_paper`, `alpaca_portfolio`, `ib_paper`), with `order_state: "applied"`
+so the count is trustworthy. The decisive evidence is the **backfill**, not the
+new rows — `pkg-a687f228480e4f96` read `null` at 12:03 and `alpaca_paper` at
+12:09, i.e. the `COALESCE` update path repaired a pre-existing row against the
+live journal rather than a fixture.
+
+And the motivating trade is now fully attributed: `xrp_pullback_2h` / trade 4163
+is on **`bybit_2` — real money** — at `peak_r 3.4179` vs `cap_r 3.9233` and
+`arm_r 4.49`, `bars_held 200`, `rr_from_here 0.6329` (holding for the target
+risks ~1.6× what it stands to make).
+
+⚠️ **The `5.4 ms / n=807` cost figure above is from the first read.** A later,
+independent read gives **6.4 ms mean / 55.1 ms max over n=306** — same
+conclusion (negligible against a ~23.6 s exit pass), different sample. Neither
+supersedes the other; they are two samples on two processes, and the max moved
+*down* while n moved down, which is what a max does with fewer draws. Do not
+read the pair as a trend.
 
 ---
 

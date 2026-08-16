@@ -439,6 +439,33 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
+        "name": "exit-mechanism-coverage-guard",
+        # Catches the ORPHANED DECLARE: a leg declares an exit lever its own
+        # unit module never reads. Silently inert, and INVISIBLE to
+        # lever-reachability-guard below, which only compares arm_r to cap_R
+        # and so cannot see a lever that is not implemented at all.
+        #
+        # It needs a guard rather than a hand-run script because the backtest
+        # harness implements some of these levers IN THE ENGINE
+        # (scripts/backtest_trend.py applies stale_exit_bars directly, not via
+        # the leg's monitor()). So a sweep can return a clean PASS for a lever
+        # the live module cannot run, and the resulting declare would ship
+        # inert wearing that PASS — the arm-above-cap shape, one level up.
+        #
+        # The self-test runs on EVERY invocation, same reasoning as
+        # lever-reachability-guard: a coverage probe that cannot find a known
+        # positive proves nothing, and "no orphans" is exactly the answer a
+        # reader acts on by not looking further.
+        "when": {"globs": ["config/strategies.yaml",
+                           "src/units/strategies/*.py",
+                           "src/runtime/strategy_signal_builders.py",
+                           "scripts/ops/exit_mechanism_coverage.py"]},
+        "steps": [
+            ["python3", "scripts/ops/exit_mechanism_coverage.py", "--self-test"],
+            ["python3", "scripts/ops/exit_mechanism_coverage.py", "--orphans-only"],
+        ],
+    },
+    {
         "name": "lever-reachability-guard",
         # The self-test runs on EVERY invocation, same reasoning as
         # trainer-heavy-lock-guard: this guard's whole design point is that

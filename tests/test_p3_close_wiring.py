@@ -781,3 +781,164 @@ def test_after_flat_helper_handles_no_client(monkeypatch):
     om._cancel_resting_protection_after_flat("x", "MHG")  # no raise
     # Also tolerant of missing args.
     om._cancel_resting_protection_after_flat(None, None)
+
+
+# ---------------------------------------------------------------------------
+# 1d. A failed close must not ABANDON its own order
+#     (BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER)
+#
+# Measured 2026-08-16 on ib_paper/MGC: a flatten failed its confirm window and
+# walked away, leaving `MKT SELL 105 tif DAY` resting NEXT TO the 105-lot stop —
+# 210 contracts of sell against a 105 long, in two orders with no OCA linking
+# them. close()'s own Step-1 docstring already argues a left-behind order "would
+# re-open a position in the opposite direction"; it just never applied that to
+# its own.
+# ---------------------------------------------------------------------------
+
+
+def test_unconfirmed_close_cancels_its_own_order(monkeypatch):
+    """The order the close PLACED must be cancelled when the close gives up.
+
+    Falsifies the pre-fix behaviour: without the cancel, `fake_ib.cancelled` is
+    empty and a live DAY market order rests with its id recorded nowhere but a
+    log string.
+    """
+    monkeypatch.setenv("IB_CLOSE_CONFIRM_S", "0.2")
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 105, account="DUQ1")],
+        flatten_on_close=False,  # accepted, never fills — the live shape
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    res = client.close("MGC", "long", 105)
+
+    assert res["retCode"] == 1, res
+    assert "not confirmed flat" in res["retMsg"]
+    assert len(fake_ib.placed) == 1, "the close was attempted"
+    placed_order = fake_ib.placed[0][1]
+    assert placed_order in fake_ib.cancelled, (
+        "the abandoned close order is still resting at the broker"
+    )
+    # The outcome is DECLARED, not left for the reader to assume.
+    assert "own close order: cancelled" in res["retMsg"], res["retMsg"]
+
+
+def test_repeated_failed_closes_do_not_stack_resting_orders(monkeypatch):
+    """N failed attempts must leave at most ONE live order, not N.
+
+    IB_CLOSE_RETRY_COOLDOWN_S bounds the RATE of retries, never the total, so a
+    day of retries against a non-filling venue was up to ~17 resting market
+    sells on one position. If one fills while another rests, the account flips.
+    """
+    monkeypatch.setenv("IB_CLOSE_CONFIRM_S", "0.05")
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 105, account="DUQ1")],
+        flatten_on_close=False,
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    for _ in range(3):
+        assert client.close("MGC", "long", 105)["retCode"] == 1
+
+    assert len(fake_ib.placed) == 3, "each attempt places its own order"
+    close_orders = [o for _c, o in fake_ib.placed]
+    for order in close_orders:
+        assert order in fake_ib.cancelled, "an attempt left its order resting"
+
+
+def test_own_close_order_already_filled_is_not_reported_as_cancelled():
+    """A fill racing the cancel is its OWN state — never folded into either
+    neighbour.
+
+    "already_filled" means nothing rests AND the position may now be flat, which
+    is a different follow-up from "cancelled" (nothing rests, still open) and
+    from "cancel_failed" (something DOES rest). Reporting it as `cancelled`
+    would misstate what the broker did.
+    """
+    fake_ib = FakeIB()
+    client = _ib_client_with(fake_ib, symbol="MGC")
+    filled = _FakeTrade(MagicMock(orderId=6), _FakeContract(symbol="MGC"),
+                        status="Filled")
+
+    assert client._cancel_own_close_order(fake_ib, filled) == "already_filled"
+    assert fake_ib.cancelled == [], "a filled order must not be cancel-spammed"
+
+
+def test_own_close_order_cancel_failure_is_declared_not_swallowed():
+    """A refused cancel means a live order STILL RESTS — the one state that
+    must never be silent, because it is the pre-fix behaviour."""
+    fake_ib = FakeIB()
+
+    def _boom(_order):
+        raise RuntimeError("Order cancel rejected: not this client's order")
+
+    fake_ib.cancelOrder = _boom  # type: ignore[assignment]
+    client = _ib_client_with(fake_ib, symbol="MGC")
+    resting = _FakeTrade(MagicMock(orderId=6), _FakeContract(symbol="MGC"))
+
+    state = client._cancel_own_close_order(fake_ib, resting)
+
+    assert state.startswith("cancel_failed:"), state
+    assert "not this client's order" in state
+
+
+# ---------------------------------------------------------------------------
+# 1e. The symbol-wide cancel is SESSION-SCOPED — say so instead of reading as
+#     "cancelled everything" (the 2026-08-16 flatten that changed nothing)
+# ---------------------------------------------------------------------------
+
+
+def test_symbol_wide_cancel_reports_counts_rather_than_silence():
+    """"Cancelled every leg" and "could not SEE a single leg" were the same
+    observable outcome (None return, no log). They must now differ."""
+    fake_ib = FakeIB(open_trades=[
+        _FakeTrade(MagicMock(orderId=50), _FakeContract(symbol="MGC")),
+        _FakeTrade(MagicMock(orderId=51), _FakeContract(symbol="MGC")),
+        _FakeTrade(MagicMock(orderId=52), _FakeContract(symbol="MES")),
+    ])
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    out = client._cancel_resting_orders_for_symbol(fake_ib, "MGC")
+
+    assert out["seen"] == 2, out          # MES is a different symbol
+    assert out["cancelled"] == 2, out
+    assert out["failed"] == 0, out
+
+
+def test_symbol_wide_cancel_blind_session_is_distinguishable_from_clean():
+    """The live failure mode: an ops client on its own clientId sees NOTHING,
+    so the cancel is a no-op that previously reported exactly like success."""
+    fake_ib = FakeIB(open_trades=[])  # this session placed nothing
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    out = client._cancel_resting_orders_for_symbol(fake_ib, "MGC")
+
+    assert out["seen"] == 0, out
+    assert out["cancelled"] == 0, out
+    # `account_wide_seen` is None when that read itself failed — which is NOT
+    # the same claim as "the account holds zero orders".
+    assert "account_wide_seen" in out
+
+
+def test_symbol_wide_cancel_counts_refused_legs():
+    """A leg that refuses cancellation is STILL RESTING; it must be counted,
+    not swallowed by the best-effort `except: continue`."""
+    fake_ib = FakeIB(open_trades=[
+        _FakeTrade(MagicMock(orderId=60), _FakeContract(symbol="MGC")),
+        _FakeTrade(MagicMock(orderId=61), _FakeContract(symbol="MGC")),
+    ])
+    calls = {"n": 0}
+
+    def _flaky(_order):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("cancel refused")
+
+    fake_ib.cancelOrder = _flaky  # type: ignore[assignment]
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    out = client._cancel_resting_orders_for_symbol(fake_ib, "MGC")
+
+    assert out["seen"] == 2, out
+    assert out["cancelled"] == 1, out
+    assert out["failed"] == 1, out
