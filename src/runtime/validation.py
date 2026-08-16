@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import os
 
+# stdlib-only module (logging/os/pathlib) — no import cycle with validation.
+from src.runtime.runtime_flags import halt_flag_path
+
 
 def _env(key: str) -> str:
     """Return stripped env-var value or empty string."""
@@ -212,4 +215,25 @@ def build_settings_from_env() -> dict:
         # (MAX_QTY / MAX_POSITION_USD removed 2026-06-24 — no notional/qty cap.)
         "MAX_DAILY_LOSS_USD": _env("MAX_DAILY_LOSS_USD") or None,
         "MAX_OPEN_POSITIONS": _env("MAX_OPEN_POSITIONS") or None,
+        # THE HALT FLAG — the orders layer's kill switch, wired 2026-08-16
+        # (Tier-3, operator-approved; BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY).
+        #
+        # `orders.py::safe_place_order` reads `HALT_FLAG_PATH` out of THIS dict
+        # and, finding it absent, took the `if halt_flag_path and ...` short
+        # circuit on EVERY order. So the order-layer halt check has never fired
+        # in production: `pipeline.py:503` was the ONLY enforcement, and the
+        # design's second, independent halt point did not exist.
+        #
+        # This is the FOURTH consumer of the defect class `runtime_flags.
+        # halt_flag_path`'s own docstring was written to close — three
+        # definitions across two paths, so a readout could say RUNNING while
+        # the pipeline was halted. The other three were reconciled on
+        # 2026-08-13; this one was never wired at all, so it could not even
+        # disagree — it was simply silent. Resolving through the SAME canonical
+        # helper is what keeps a fifth from diverging: never re-read the env
+        # var here, or the two layers can be pointed at different files again.
+        #
+        # Read at call time by the helper, so an env change takes effect
+        # without a redeploy — matching pipeline.py's behaviour exactly.
+        "HALT_FLAG_PATH": halt_flag_path(),
     }

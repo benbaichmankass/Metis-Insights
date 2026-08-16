@@ -66,6 +66,14 @@ def test_build_settings_from_env_keys():
     # from build_settings_from_env. Operator directive 2026-06-24 removed the
     # MAX_QTY / max_qty / MAX_POSITION_USD notional+quantity ceilings — they
     # are no longer in the settings dict. Updated to the current key set.
+    #
+    # HALT_FLAG_PATH added 2026-08-16 (Tier-3, operator-approved;
+    # BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY). This
+    # assertion is the reason the gap survived so long AND the reason it is
+    # now safe: it pins the key set exactly, so the missing key was invisible
+    # (nothing asserts a key that should exist), but a future removal of
+    # HALT_FLAG_PATH will now fail here rather than silently re-disarming the
+    # orders-layer kill switch. Do not relax this to a subset check.
     env = {**BASE_ENV}
     with pytest.MonkeyPatch().context() as mp:
         for k in list(os.environ.keys()):
@@ -77,6 +85,7 @@ def test_build_settings_from_env_keys():
         "exchange", "symbol", "timeframe",
         "risk_per_trade", "log_level", "tick_interval", "loop",
         "MAX_DAILY_LOSS_USD", "MAX_OPEN_POSITIONS",
+        "HALT_FLAG_PATH",
     }
     assert s["exchange"] == "bybit"
     assert s["risk_per_trade"] == 0.01
