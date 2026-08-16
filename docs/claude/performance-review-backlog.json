@@ -1923,12 +1923,22 @@
           "at": "2026-08-16T09:06:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "MEASURED THIS RUN — the PnL half of this row is no longer unmeasured. Population: /api/bot/performance?window=30d TOP-LEVEL block (real-money only; paper rides the separate `demo` sub-block and is never blended). eth_pullback_2h REAL MONEY: n=6, win rate 16.7%, totalPnl -$17.3673, totalPnlMeasured -$17.3673, pnlCoverage 0.833 (5 of 6 MEASURED+ESTIMATED), expectancyR -0.6635, totalR -3.981. The 30d real-money book is -$19.2256 over 19 trades, so this ONE leg is 90.3% of the entire 30-day real-money loss — the largest single real-money bleeder by an order of magnitude (next worst: trend_donchian_xrp_4h at -$1.85). Lifetime real money (/api/bot/strategy/attribution): 11 closed, 36.4% WR, -$15.16 — so the 30d loss EXCEEDS the lifetime total, i.e. the leg was net positive before this window and has given all of it back plus more. Routing CONFIRMED against the field, not a comment: /api/bot/config + the attribution endpoint (real-money-only by contract) both place it on bybit_2. ⚠️ STATE THE POPULATION: n=6 (30d) / n=11 (lifetime) is a THIN sample and this is a flag with a number attached, NOT a walk-forward — the Tier-3 demote/kill decision needs the M7 review packet, which has still never been generated for this leg. What changed is that the row's stated blocker ('the PnL half is unmeasured') is now false; the remaining blocker is the packet + an operator decision."
+        },
+        {
+          "at": "2026-08-16T10:10:00+00:00",
+          "by": "claude (sysrev-0816, operator decision in-conversation)",
+          "note": "OPERATOR DECISION 2026-08-16 (in-conversation): KEEP LIVE ON REAL MONEY, wait for n>=20. The M7 packet was GENERATED this session (the row's 59-day blocker) and returned action=hold with the explicit reason 'insufficient evidence (n_closed=11 < 20) — no KILL/DEMOTE fires at very low n'. READ THAT AS HOLD-BY-FLOOR, NOT HOLD-ON-MERIT: the matrix DECLINED to judge, it did not clear the leg. Packet headline (90d window 2026-05-18 -> 2026-08-16): n_decisions 92, n_filled 11, n_closed 11, fill_rate 12.0%, win_rate 36.4%, pnl_total -15.16, expectancy -1.3782, max_drawdown -25.74. All 11 closes sit in the `trending` cell; chop (19 decisions) and transitional (5) produced ZERO closes; every cell's policy reads `unknown` (no regime cell authored). Execution is NOT the problem: entry slippage -0.97bps (favourable), dispatch latency 1.88s. CAVEAT ON THE POPULATION: strategy_review_packet.py applies NO account filter, yet its headline reconciles EXACTLY with /api/bot/strategy/attribution, which is real-money-only by contract (11 closed / 36.4% / -15.16). So the verdict is effectively about the real-money book; whether paper closes would count toward n=20 is UNVERIFIED and must be checked before anyone proposes a paper-only routing to accrue evidence. COST OF THE DECISION, stated: ~1 close per 8 days x -$1.3782 expectancy = roughly -$5/month for the ~2.5 months to n=20. TRIGGER: n_closed >= 20, then re-run generate-strategy-review-packets and let the matrix fire a real verdict. NEW FINDING from the packet, tracked separately below: fill_rate is 12.0% — 81 of 92 decisions never became a trade."
         }
       ],
       "severity": "high",
       "disposition": "do_now",
       "next_action": "Pull bybit_2 eth_pullback_2h closed trades plus the ADX-gate rejection rows from the audit log and record the real-money read. Filed the evening the cell went live because the market was quiet; 56 days later that is no longer true, and this is a REAL-MONEY cell under watch — leaving it unreviewed is what this item exists to prevent. Review is Tier-1 read-only; any parameter change is the Tier-3 half.",
-      "operator_action_required": true
+      "operator_action_required": false,
+      "operator_decision": {
+        "at": "2026-08-16T10:10:00+00:00",
+        "decision": "keep live on real money; wait for n_closed>=20",
+        "decided_by": "operator"
+      }
     },
     {
       "id": "PB-20260620-001",
@@ -3325,7 +3335,27 @@
         }
       ],
       "operator_action_required": true
+    },
+    {
+      "id": "PB-20260816-ETHPULLBACK-FILL-RATE-12PCT",
+      "opened_at": "2026-08-16T10:12:00+00:00",
+      "opened_by": "claude (sysrev-0816, surfaced by the M7 packet the operator asked for)",
+      "severity": "high",
+      "tier": "2 (diagnosis is read-only; any fix touches sizing or the risk path)",
+      "status": "open",
+      "area": "execution/fill",
+      "title": "eth_pullback_2h fills 11 of 92 decisions (12.0%) — 81 signals never became a trade, and nothing measures why",
+      "detail": "SURFACED BY the M7 review packet generated 2026-08-16 (90d window, runtime_logs/strategy_reviews/2026-08-16/eth_pullback_2h.json): n_decisions 92, n_filled 11, n_closed 11 => fill_rate 12.0%.\n\nThis was invisible to every surface the review had been using. /api/bot/performance and /api/bot/strategy/attribution both aggregate CLOSED TRADES, so they describe the 11 that filled and say nothing about the 81 that did not. The packet is the only artifact that carries the decision denominator, which is exactly why the leg's 59-day-old review row could sit open while looking merely small.\n\nWHY IT CHANGES THE READ ON THIS LEG: the operator's 2026-08-16 decision is to keep it live until n_closed reaches 20. At a 12% fill rate that requires roughly 75 MORE DECISIONS, not 9 more signals — which is the arithmetic behind the ~2.5-month estimate, and it is hostage to whatever is refusing 88% of them. If the refusals are a sizing or margin condition rather than genuine no-fills, the evidence clock may never run.\n\nNOT YET DIAGNOSED — do not assume a cause. The candidates are distinguishable from data already written: (a) risk-refusals (RiskManager per-trade refusal rows carry a logged cause), (b) the netting guard's reentry_suppressed_netting_guard rows, (c) regime hard-gate drops (regime_hard_gate audit rows with enforced:true), (d) genuine non-fills of a limit/pending order. The packet itself reports all three regime cells at policy `unknown`, which makes (c) unlikely but does not exclude it.",
+      "resolution_criteria": "The 81 unfilled decisions are ATTRIBUTED to causes with counts — a breakdown over order_packages.close_reason / the signals audit for strategy_name='eth_pullback_2h' across the same 90d window, summing to 81 with no residual bucket. Then either (i) the dominant cause is a legitimate market condition and the row closes as explained, or (ii) it is a refusal the operator can act on, and it gets its own Tier-2/3 item. The row must NOT be closed on a partial breakdown that leaves an unexplained remainder — an unstated denominator is what hid this in the first place.",
+      "operator_action_required": false,
+      "updates": [
+        {
+          "at": "2026-08-16T10:12:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "Filed rather than fixed: the diagnosis is one audit_query away but the operator's live decision this session was the disposition of the leg, not this. Flagged to them in-conversation as a NEW finding from the packet."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-08-16T09:06:00+00:00"
+  "updated_at": "2026-08-16T10:12:00+00:00"
 }
