@@ -173,9 +173,23 @@ def _assert_fleet_schema(doc: dict, run_id: str) -> None:
 
     The discriminator is the FLEET shape's own marker, not the flip shape's:
     asking "does it look like a flip file?" would pass any third schema that
-    appears later, which is the unasserted-denominator failure. A fleet leg
-    entry carries `cells` (or an explicit `leg_status`); a flip leg entry
-    carries neither.
+    appears later, which is the unasserted-denominator failure.
+
+    THE MARKERS ARE TAKEN FROM THE READER BELOW, not guessed. `rows_from_verdicts`
+    branches on `if "levers" not in v` and then reads `v.get("status")`, and the
+    cell path reads `v.get("base_book")` — so those three keys are what "this
+    extractor can read this entry" actually means. A first version of this guard
+    guessed `cells`/`leg_status` instead and REJECTED legitimate fleet documents;
+    the existing `test_m20_regime_book_provenance` suite caught it immediately,
+    which is the only reason it is not in the repo. A guard that blocks the real
+    input is worse than the defect it was added for.
+
+    RESIDUAL, stated rather than papered over: the flip sweep also writes
+    `{"status": "data_missing"}` / `{"status": "harness_timeout"}` for a leg it
+    could not run, so a flip file in which EVERY leg failed carries a fleet
+    marker and passes this check. Those entries hold no measurement — they
+    flatten to `leg_status` rows either way — so the wrong-answer risk this
+    guard exists for does not arise from them.
     """
     v = doc.get("verdicts")
     if not isinstance(v, dict) or not v:
@@ -183,15 +197,16 @@ def _assert_fleet_schema(doc: dict, run_id: str) -> None:
     bodies = [b for b in v.values() if isinstance(b, dict)]
     if not bodies:
         return
-    fleet = [b for b in bodies if "cells" in b or "leg_status" in b]
+    fleet = [b for b in bodies
+             if "levers" in b or "base_book" in b or "status" in b]
     if fleet:
         return
     flip_like = sorted({k for b in bodies for k in b
                         if k in {"flip_pct", "walkforward", "flip_net_r",
                                  "actual_net_r"}})
     raise ForeignVerdictsSchema(
-        f"{run_id}: no leg entry carries `cells` or `leg_status`, so this is "
-        f"not a fleet-sweep verdicts.json"
+        f"{run_id}: no leg entry carries `levers`, `base_book` or `status`, so "
+        f"this is not a fleet-sweep verdicts.json"
         + (f" — the entries carry {flip_like}, which is the "
            f"m20_flip_replay_sweep schema (a DIFFERENT sweep that writes the "
            f"same filename). Extract it with a flip-aware reader, or point "

@@ -75,16 +75,39 @@ def test_the_refusal_does_not_invent_a_leg_status() -> None:
 
 
 def test_a_fleet_shaped_file_still_extracts() -> None:
-    """The positive control. A guard that refuses everything proves nothing."""
-    doc = {"generated_at": "x", "verdicts": {"leg_a": {"cells": {}}}}
-    assert len(E.rows_from_verdicts(doc, "r")) == 1
+    """The positive control, in the shape the sweep ACTUALLY writes.
 
-
-def test_a_leg_status_only_entry_is_still_fleet() -> None:
-    """`leg_status` without `cells` is the legitimate no-cells fleet row."""
+    An earlier version of this test used `{"cells": {}}` — a shape I invented,
+    which happened to satisfy the equally-invented discriminator it was paired
+    with. Both were wrong together, so the pair proved nothing, and the guard
+    rejected every genuine fleet document. `test_m20_regime_book_provenance`
+    caught it. The shape below is lifted from that suite.
+    """
     doc = {"generated_at": "x",
-           "verdicts": {"leg_a": {"leg_status": "no_levers"}}}
+           "verdicts": {"x": {"base_book": {}, "levers": {"s": [{"cell": "c"}]}}}}
     assert E.rows_from_verdicts(doc, "r")
+
+
+def test_a_status_only_entry_is_still_fleet() -> None:
+    """A leg the fleet sweep could not run: `status`, no `levers`. Legitimate."""
+    doc = {"generated_at": "x",
+           "verdicts": {"leg_a": {"status": "data_missing"}}}
+    rows = E.rows_from_verdicts(doc, "r")
+    assert rows and rows[0]["leg_status"] == "data_missing"
+
+
+def test_the_markers_are_the_ones_the_reader_branches_on() -> None:
+    """The guard must not drift from the code it is guarding.
+
+    `rows_from_verdicts` branches on `"levers" not in v`, then reads
+    `v.get("status")`; the cell path reads `v.get("base_book")`. If the reader
+    starts keying on something else, this guard silently starts rejecting real
+    input again — which is exactly what the first version did.
+    """
+    src = SRC.read_text()
+    assert 'if "levers" not in v' in src
+    for marker in ('"levers" in b', '"base_book" in b', '"status" in b'):
+        assert marker in src, f"the guard no longer accepts {marker}"
 
 
 def test_degenerate_docs_do_not_raise() -> None:

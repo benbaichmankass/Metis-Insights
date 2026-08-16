@@ -12,6 +12,22 @@ Measured: 42 of the 43 `regime_flip_exit` negatives are capped-family legs, and
 6 of them were scoring clean on that date test. `NEVER` is the honest value.
 
 Removing the entry is what marks the harness fixed — not editing a date.
+
+**UPDATE 2026-08-16: `regime_flip_exit` no longer holds the sentinel, and that
+is the documented success path, not a regression.** The harness now passes
+`tp_cap_pct` (default 0.099) and stamps `tp_geometry`; a live-parity sweep
+landed (42 legs, 30 fail / 12 `INERT_NEVER_FLIPPED` / 0 PASS, relay #9536) and
+its 41 matching matrix cells carry both the measurement and an explicit
+`tp_geometry: live_parity`. So the entry was removed, exactly as this file's
+last line prescribes.
+
+The lever-specific assertion below therefore had to go: pinning a test to
+"lever X is currently at NEVER" makes it a function of production state, and it
+fails on the correct change while reporting nothing about the mechanism. What
+this file tests now is the MECHANISM — that the sentinel is honoured, branched
+on explicitly rather than by string ordering, and that a lever placed at NEVER
+behaves as designed — which keeps testing whether or not any lever holds it
+today.
 """
 
 from __future__ import annotations
@@ -27,11 +43,36 @@ rollup = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(rollup)
 
 
-def test_regime_flip_exit_is_marked_never_not_given_a_date() -> None:
-    assert rollup.cutover_for("regime_flip_exit") == rollup.GEOMETRY_CUTOVER_NEVER, (
-        "regime_flip_exit is back on a date cutover; its harness still calls "
-        "base_args positionally, so no date can clear its cells"
-    )
+def test_a_lever_placed_at_never_resolves_to_the_sentinel() -> None:
+    """The mechanism, exercised — not read off whichever lever holds it today.
+
+    Replaces `test_regime_flip_exit_is_marked_never_not_given_a_date`, which
+    asserted a production fact that was CORRECTLY changed on 2026-08-16 (see
+    the module docstring). A lever must still be placeable at NEVER and resolve
+    there, whether or not one currently is.
+    """
+    saved = dict(rollup.LEVER_GEOMETRY_CUTOVER)
+    try:
+        rollup.LEVER_GEOMETRY_CUTOVER["_probe_lever"] = rollup.GEOMETRY_CUTOVER_NEVER
+        assert rollup.cutover_for("_probe_lever") == rollup.GEOMETRY_CUTOVER_NEVER
+    finally:
+        rollup.LEVER_GEOMETRY_CUTOVER.clear()
+        rollup.LEVER_GEOMETRY_CUTOVER.update(saved)
+    assert rollup.LEVER_GEOMETRY_CUTOVER == saved
+
+
+def test_the_flip_harness_that_earned_the_sentinel_now_passes_the_cap() -> None:
+    """Why the entry could be removed. Asserted on the harness, not the map.
+
+    The sentinel's whole justification was that `m20_flip_replay_sweep.py`
+    called `base_args` positionally. If that regresses, the entry has to come
+    back — so the condition is pinned here rather than left as prose.
+    """
+    src = (REPO / "scripts/research/m20_flip_replay_sweep.py").read_text()
+    assert "base_args(name, cfg, fam, data, resample, a.tp_cap_pct)" in src, (
+        "the flip harness is back to a positional base_args call — restore the "
+        "regime_flip_exit GEOMETRY_CUTOVER_NEVER entry")
+    assert '"--tp-cap-pct", type=float, default=0.099' in src
 
 
 def test_the_sentinel_is_not_silently_comparable_as_a_date() -> None:
