@@ -20,7 +20,8 @@ so it runs without the bot venv.
 
 Per backlog it returns:
   total    — every item in the file
-  open     — status in OPEN_STATUSES (open / in_progress / partially-resolved / …)
+  open     — anything is_open_status() does not positively recognise as CLOSED
+             (kept_open / open / in_progress / partially-resolved / free-text / …)
   resolved — total − open
   drained  — items whose ``resolved_at`` falls within [since, now] (0 when --since omitted)
 
@@ -36,21 +37,82 @@ import json
 import sys
 from pathlib import Path
 
-# Statuses that count as still-open (anything not in here is "resolved").
-# Mirrors the statuses the backlog files actually use; unknown/missing → open
-# (fail toward "still needs attention" rather than silently closing an item).
-OPEN_STATUSES = {
-    "open",
-    "in_progress",
-    "in-progress",
-    "partially-resolved",
-    "partially_resolved",
-    "pending",
-    "todo",
-    "new",
-    "snoozed",
-    "",
+# THE POLARITY IS "CLOSED IS THE ALLOWLIST", NOT "OPEN IS THE ALLOWLIST"
+# (corrected 2026-08-16, BL-20260816-BACKLOG-COUNTER-COUNTS-KEPT-OPEN-AS-RESOLVED).
+#
+# This module's docstring has always declared the intended rule — "unknown/
+# missing → open (fail toward 'still needs attention' rather than silently
+# closing an item)" — and the implementation did the exact opposite: it
+# allowlisted OPEN statuses and treated everything unrecognised as RESOLVED.
+# Field beats comment, except here the comment states the correct policy and
+# the code was wrong, so the code moved.
+#
+# Measured on the live backlogs at the moment of the fix: **96 genuinely-open
+# items were being reported as resolved** — health 47, performance 30, ml 19.
+# The dominant cause is that `kept_open` was absent from the open set, and
+# `kept_open` is the status the three review skills' own drain protocol
+# MANDATES for a legitimately-deferred item (soaking / awaiting-data /
+# Tier-3-awaiting-operator). So the one status that means "still open, and
+# here is why" counted as closed. `/system-review` read `performance: 0 open`
+# and `ml: 0 open` while 30 and 19 items sat parked, several of them gates
+# MET and awaiting an operator decision. A roll-up that under-reports open
+# work is worse than no roll-up: it is the review-coverage gate's own input.
+#
+# Two secondary causes the inversion also fixes:
+#   * FREE-TEXT statuses. Exact-set membership missed
+#     `"open — RECURRED 2026-08-14, …"` and `"open (criterion (2) MEASURED …)"`
+#     — five health items whose status literally starts with "open".
+#   * NOT-ACTUALLY-CLOSED terminals: `fix_landed_monitoring`,
+#     `resolved_pending_live_verification`, `likely_already_fixed_unverified`,
+#     `mitigated`, `root_cause_fixed_backlog_remains`. Each names remaining
+#     work in its own name.
+
+# A status is CLOSED only when its leading token is one of these AND the full
+# string carries no open-signal (below). Everything else — including anything
+# unrecognised — is OPEN.
+CLOSED_TOKENS = {
+    "resolved",
+    "resolved_refuted",
+    "resolved_verified_live",
+    "resolved_hold",
+    "superseded",
+    "invalid",
+    "wont_fix",
+    "wontfix",
+    "duplicate",
+    "closed",
+    "fixed",
+    "measured_no_action",
+    "measured_hypothesis_falsified",
 }
+
+# Substrings that keep an item OPEN even when its leading token looks closed —
+# a status that says its own follow-up is outstanding is not a closed item.
+# e.g. "resolved (guard); follow-up OPEN, see resolution_criteria (3)".
+OPEN_SIGNALS = (
+    "open",
+    "pending",
+    "unverified",
+    "monitoring",
+    "remains",
+    "follow-up",
+    "awaiting",
+    "queued",
+)
+
+
+def is_open_status(raw: object) -> bool:
+    """True when *raw* denotes still-open work. Unknown → True, by policy."""
+    status = str(raw if raw is not None else "open").strip().lower()
+    if not status:
+        return True
+    if any(sig in status for sig in OPEN_SIGNALS):
+        return True
+    # Leading token: the part before the first space, paren, em-dash, or ';'.
+    token = status
+    for sep in (" ", "(", "—", "-—", ";", ","):
+        token = token.split(sep)[0]
+    return token.strip() not in CLOSED_TOKENS
 
 BACKLOGS = {
     "health": "docs/claude/health-review-backlog.json",
@@ -118,9 +180,7 @@ def count_one(path: Path, since: _dt.datetime | None, now: _dt.datetime) -> dict
     open_ = 0
     drained = 0
     for it in items:
-        status = str(it.get("status", "open")).strip().lower()
-        is_open = status in OPEN_STATUSES
-        if is_open:
+        if is_open_status(it.get("status", "open")):
             open_ += 1
         elif since is not None and _resolved_in_window(it.get("resolved_at"), since, now):
             drained += 1

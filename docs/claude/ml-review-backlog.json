@@ -144,11 +144,17 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Read the registry stage via `python -m ml list-models` on the trainer relay; if it reads shadow, demote mes-regime-5m-lgbm-yz-v1 to candidate and record the decision. An anti-predictive head (0.17 on ~1460 labeled rows) is worse than a useless one. NOTE the manifest is NOT authoritative here — it declares research_only, but the head was scoreable on live shadow rows, so the REGISTRY may still hold it at shadow (the same manifest/registry drift MB-20260601-002 was about). The trainer registry could not be read from the triage session."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: ml/configs/mes-regime-5m-lgbm-yz-v1.yaml:70 declares `target_deployment_stage: research_only`, but the manifest is NOT authoritative for the REGISTRY stage (the manifest/registry drift class) and the head was scoreable on ~1460 live shadow rows at RG4 AUC 0.17 (strongly inverted), which only a shadow-stage head produces. No registry snapshot exists in this repo (no registry.jsonl on disk) so the live stage cannot be read from the sandbox. The item is self-declared tier 3. — PROPOSED CHANGE (Tier-3 stage flip, operator-gated): DEMOTE mes-regime-5m-lgbm-yz-v1 shadow -> candidate and record the decision. Prerequisite read (Tier-1, trainer relay): `python -m ml list-models` to confirm the registry stage; if it already reads candidate/research_only the item closes as a no-op with that evidence. Rationale to carry to the operator: an anti-predictive head (0.17 on ~1460 labeled rows) pollutes the shadow stream with an INVERTED signal and is worse than a useless one; demotion is observe-only and reversible. The original half of this item (demote the two MES 15m heads) is already RETRACTED — they read trustworthy on fresh candles (0.59/0.64), no action."
         }
       ],
       "severity": "medium",
       "disposition": "do_now",
-      "next_action": "Read the registry stage via `python -m ml list-models` on the trainer relay; if it reads shadow, demote mes-regime-5m-lgbm-yz-v1 to candidate and record the decision. An anti-predictive head (0.17 on ~1460 labeled rows) is worse than a useless one. NOTE the manifest is NOT authoritative here — it declares research_only, but the head was scoreable on live shadow rows, so the REGISTRY may still hold it at shadow (the same manifest/registry drift MB-20260601-002 was about). The trainer registry could not be read from the triage session."
+      "next_action": "Read the registry stage via `python -m ml list-models` on the trainer relay; if it reads shadow, demote mes-regime-5m-lgbm-yz-v1 to candidate and record the decision. An anti-predictive head (0.17 on ~1460 labeled rows) is worse than a useless one. NOTE the manifest is NOT authoritative here — it declares research_only, but the head was scoreable on live shadow rows, so the REGISTRY may still hold it at shadow (the same manifest/registry drift MB-20260601-002 was about). The trainer registry could not be read from the triage session.",
+      "operator_action_required": true
     },
     {
       "id": "MB-20260626-003",
@@ -1029,6 +1035,11 @@
           "evidence_based": true,
           "note": "SNOOZED until 2026-11-01. checked: scripts/micro/microstructure_probe.py\nWHY IT IS BLOCKED (substantiated, not asserted): The probe tool EXISTS (checked: scripts/micro/microstructure_probe.py, alongside src/research/microstructure.py) — so this is NOT a tooling gap. What is absent is the live L2/microstructure FEED itself: the capture path is MB-20260604-002, now promoted to M30/M36-D, and no forward rows exist to re-fit on. The head sits at research_only (pre-shadow) so it influences nothing meanwhile.\nTRIGGER: MB-20260604-002's capture decision lands under M30/M36-D and the microstructure feed has >=90 days accrued — then re-run the purged-CV f1_volatile check. Genuinely data-blocked; the head sits at research_only (pre-shadow) so it influences nothing meanwhile.",
           "checked": "scripts/micro/microstructure_probe.py"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The head's manifest requirement is unchanged: ml/configs/btc-regime-5m-lgbm-flow-v1.yaml declares the ofi/vpin/order_imbalance/spread/microprice side-stream, and the item's own 2026-07-29 correction plus the 2026-08-13 snooze establish the blocker is VOLATILE-REGIME COVERAGE in the captured window (42 volatile 5m bars = 0.27%, all in train, zero in the eval fold), not tooling — scripts/micro/microstructure_probe.py and src/research/microstructure.py both exist on disk. — Blocked on forward data accrual (awaiting-data), snoozed_until 2026-11-01. TRIGGER: the captured microstructure window spans a genuinely volatile regime with enough volatile 5m bars to populate an eval fold (so f1_volatile is not structurally 0), OR MB-20260604-002's capture decision lands under M30/M36-D. Head sits at research_only/pre-shadow so it influences nothing meanwhile. Nothing in this repo advances it."
         }
       ],
       "severity": "low",
@@ -1275,6 +1286,11 @@
           "next_check": "Single-path diag: log_file?name=conviction_sizing&lines=60 ALONE (not batched). Confirm whether c_reg appears and is sane on a cross-asset-covered symbol. Check conviction_arbitration too — c_reg may live there rather than in the sizing row.",
           "at": "2026-08-13T10:05:00+00:00",
           "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The BUILD half is shipped and verified on disk: ml/calibration/regime_alignment.py exists with a `load_regime_alignment` predict-side loader; src/runtime/conviction_inputs.py:29-30 imports it, :91 accepts a `regime_alignment` arg, :140-157 gives c_reg its OWN calibrator family; src/runtime/strategy_signal_builders.py:379-387 calls `load_regime_alignment_cached()` and passes it; src/runtime/conviction.py:31 weights c_reg at 0.15. The fitter is scripts/ml/fit_regime_alignment_calibrators.py. — needs live data: the conviction_sizing soak log (/api/diag/log_file?name=conviction_sizing) showing c_reg POPULATED (not None) and sane on cross-asset-covered symbols. CRITICAL PREREQUISITE the prior attempt missed — conviction_inputs.py:140-157 makes c_reg flow ONLY when a fitted regime-alignment calibrator is present in the calibrators.json artifact (absent -> `_default_normalize` returns None and c_reg is DROPPED byte-for-byte as before). No calibrators.json is committed in this repo (it rides the trainer-mirror path), so the verification must first confirm the fit_regime_alignment_calibrators.py artifact actually shipped, otherwise a null c_reg reading is the DESIGNED default and proves nothing about the wiring."
         }
       ],
       "severity": "low",
@@ -1581,6 +1597,11 @@
           "evidence_based": true,
           "note": "SNOOZED until 2026-09-30. checked: scripts/ml/replay_pregate.py\nWHY IT IS BLOCKED (substantiated, not asserted): The gate tooling EXISTS and is runnable (checked: scripts/ml/replay_pregate.py, with scripts/ml/gate_check_candidates.sh) — running it today is possible and would score a thin soak, which is the failure mode RG4 exists to avoid. What is missing is live shadow ROWS for the retrained ETH head, and CLAUDE.md records ETH's 15m head as still shadow awaiting promotion.\nTRIGGER: The retrained ETH regime head clears RG4 >=0.55 across thresholds (not knife-edge) on a matured soak; then the gated ETH A/B and the Tier-3 advisory proposal. Root-cause + replacement-head halves are DONE 2026-06-28; what is left is soak accrual.",
           "checked": "scripts/ml/replay_pregate.py"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The root-cause + replacement halves are done (build_trainer_datasets.sh generalized to build_bybit_pair with ETHUSDT/1h + SOLUSDT/1h in the daily loop, commit 7a051e5; class-weight recalibration PR #8345). But the resolution criterion — a retrained ETH regime head clearing RG4 >=0.55 robustly then advisory promotion — is unmet: CLAUDE.md § REGIME_ML_VERDICT_MODE records \"ETH's 15m head is still shadow, awaiting its own promotion (MB-20260628-VOLGATE-GOLIVE)\", while its SOL sibling was promoted 2026-08-02 and BTC's 2026-08-04. — Awaiting-data + Tier-3. snoozed_until 2026-09-30. TRIGGER: the retrained ETH head accrues a matured shadow soak, then `scripts/ml/replay_pregate.py` / `scripts/ml/gate_check_candidates.sh` returns RG4 >=0.55 across thresholds (not knife-edge) — at which point the advisory promotion packet is a Tier-3 operator proposal. Running the gate tooling before the soak matures would score a thin sample, which is the exact failure RG4 exists to prevent."
         }
       ],
       "severity": "medium",
@@ -1844,7 +1865,7 @@
       "tier": 3,
       "trigger_condition": "Next /ml-review or /system-review assessing the BTC regime fleet / vol-gate; or any session revisiting config/regime_policy.yaml vol thresholds or retraining btc-regime-15m-lgbm-v2.",
       "resolution_criteria": "A decision on the BTC-15m regime head's operating vol_threshold backed by RG4 live-regime-discrimination + the gate's backtest A/B: either (a) confirm 0.005 is the intended gate semantics and accept the weaker head, or (b) retrain/operate at ~0.004 (better head + the embedding lift comes along) and re-validate the vol-gate. Cross-referenced to the M19 T0.1 threshold-sensitivity evidence (docs/research/T0.1-embedding-followup-evidence-2026-07-01.md § Threshold sensitivity).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "2026-07-01 (trainer-vm-diag #5311/#5320/#5321, purged-CV BTC-15m, base vs base+32 tsfm_emb): vol_threshold sweep — base f1_volatile / (Δmacro_f1 from embeddings): 0.003=0.38/(+0.052), 0.004=0.30/(+0.037), 0.005[shipped]=0.24/(+0.012), 0.006=0.19/(-0.004). The head's own volatile-class quality and the embedding lift both decay monotonically with the volatile base rate; the shipped 0.005 sits in the weak/marginal zone.",
@@ -1867,8 +1888,15 @@
           "at": "2026-07-26T09:49:46+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
           "note": "OPERATOR DECISION 2026-07-26: pursue via SHADOW A/B at vol_threshold~0.004 (not a direct live switch). Plan: build a BTC 15m market_features variant at vol_threshold=0.004 (+ matching trend_threshold), train a shadow-stage regime head on it alongside the 0.005 incumbent, and compare f1_volatile on a soak before ANY live vol-gate change (Tier-3). This is the evidence-first path the operator chose. Next step: dispatch the 0.004 dataset build + shadow manifest on the trainer. Kept open (A/B build pending)."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: docs/research/MB-20260701-gate4-money-AB-2026-07-17.md states verbatim: \"This resolves MB-20260701-001: the vol-gate threshold stays 0.005; the flip is declined on the money evidence.\" The operator-chosen shadow-A/B path was executed in full — the matched-sibling triple ml/configs/btc-regime-15m-lgbm-vt{003,004,005}-pin-v1.yaml was built on one common window differing ONLY in vol_threshold, reproduced the gate-2 curve to the digit (0.004 f1_volatile 0.341 vs 0.005's 0.249), then the walk-forward money A/B over four yearly folds gave 0.005 +$502 vs 0.004 +$425 with 0.004 equal-or-worse maxDD in all four folds — the pre-registered acceptance bar not met. Supporting gates: MB-20260701-mapping-reconcile-2026-07-16.md, MB-20260701-operating-curve-2026-07-16.md, MB-20260701-vt004-evidence-2026-07-16.md. — The item's most recent update (2026-07-26, 'A/B build pending') is STALE by nine days — the A/B had already completed 2026-07-17 with an honest negative. The finding is reusable: classifier lift (f1_volatile +37%) did NOT convert to a money edge as a routing verdict, so a prevalence-sensitive classifier metric is the wrong proxy for a gate decision."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "MB-20260703-001",
@@ -1926,6 +1954,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The trigger has not fired and the track is dormant: both corpus-SSL manifests are RETIRED on disk (ml/configs/retired/corpus-ssl-encoder-mae-v1.yaml, ml/configs/retired/btc-regime-15m-lgbm-corpusemb-pcv-v1.yaml) and no live manifest in ml/configs/ references corpus_emb. The named revival candidate — the M18 cross-sectional ranker — is PARKED per CLAUDE.md § allocator soak (\"P2/P3 (allocator selects) are PARKED pending a proven P_win input\", OOS AUC ~0.51, docs/research/M18-allocator-backtest-findings-2026-06-29.md), and ROADMAP.md:108 marks M21's sibling P_win track DORMANT since 2026-07-14. — Not actionable now — the item is explicitly conditional (\"only pursue if/when such a head is on the table\"). TRIGGER: a daily-clock or cross-asset head becomes an ACTIVE experiment (M18 ranker revival with a proven P_win label, or an M30/M36 daily direction/risk head); then A/B corpus_emb against it and either promote-candidate or close T1.2 as a full negative. The corpus store + ssl_corpus_encoder + parity gate remain built and reusable, so the revival cost is the head, not the representation."
         }
       ]
     },
@@ -1966,6 +1999,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The item's own stated bar — 'a pure offline backtest is NOT sufficient (proven unfaithful here)' — still stands, and the live observe-only soak that replaces it has not matured: the 2026-07-12 M20 check found 23 rows / 7 fc-covered / 85.7% resolver-censored / paired n=1, with re-check set for 2026-08-25 (nine days after today). The soak surface is live and mirrored (src/runtime/fc_geometry_soak.py -> /api/bot/fc-geometry/soak; scripts/ops/sync_trainer_data.sh:284-295 now mirrors fc_geometry_soak.jsonl to the trainer, the gap fixed 2026-07-12), and the trainer-side censoring-aware resolver scripts/ml/fc_geometry_resolve.py exists. — Awaiting-data. needs live data: the current fc_geometry_soak.jsonl row count, fc_present coverage and the resolver's censoring rate. TRIGGER: the 2026-08-25 re-check — if paired n has grown past low-n honesty, run scripts/ml/fc_geometry_resolve.py and record a net-R/maxDD verdict under the account rulesets; a real improvement gates a Tier-3 proposal, no improvement closes the lever. fc's validated use (vol-regime classifier feature at shadow) is unaffected either way."
         }
       ]
     },
@@ -2084,6 +2122,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The specific ask — alt-USDT 15m (or native-TF) side-streams plus an equities/metals daily-bar source in market_raw, then a full-fleet rerun of scripts/research/m20_exit_analysis.py — cannot be confirmed from this checkout: data/market_raw and data/ibkr_datasets are absent from the sandbox (they live on the trainer). What IS on record is adjacent, not the same thing: the M20/M27 sweeps ran on m27_data and data/macro_candles shards, and ROADMAP.md:107 records that market_raw/{MGC,MHG,MES}/1d is yfinance GC=F/HG=F/ES=F rather than native (2,511 of 2,512 closes identical to the proxy) — i.e. one leg of the requested daily coverage exists but carries a provenance its filename overstates (BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL). Latest m20_exit_analysis runs on record are windowed (--since-days 14 / 4d), not fleet-coverage runs. — needs live data: a trainer-relay inventory of data/market_raw shards per symbol/timeframe (alt-USDT 15m present? equities/metals 1d present and NATIVE?), then a full-fleet m20_exit_analysis rerun. TRIGGER: the shard inventory comes back complete, or the missing shards are built via the same Bybit fetch pipeline as BTC/ETH/SOL. Also gates MB-20260717-M23-META-LABEL P2 (label-volume expansion names this item as its dependency)."
         }
       ]
     },
@@ -2125,12 +2168,17 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: ROOT-CAUSED THIS PASS, both halves. (1) The live VM DOES rotate: deploy/ict-shadow-log-rotate.service is enabled+active (live-verified probe #4946) and runs scripts/ops/rotate_shadow_log.py --gzip, which rotates at 100 MiB or 7 days (_DEFAULT_MAX_BYTES/_DEFAULT_MAX_AGE_DAYS, lines 38-39) into `shadow_predictions.<date>[.N].jsonl[.gz]` beside the live log (line ~100). (2) The history DOES exist elsewhere but is NOT synced: scripts/ops/sync_trainer_data.sh:289-293 pulls exactly four literal paths — shadow_predictions.jsonl, shadow_predictions_backfill.jsonl, exit_ladder_soak.jsonl, fc_geometry_soak.jsonl — with no glob for the rotated archives. So a research join on the trainer can never reach past the last rotation (<=7 days), which is precisely the horizon limit this item reported. — Not blocked on data — blocked on a Tier-1 tooling change plus a trainer-side verification of the fix."
         }
       ]
     },
     {
       "id": "MB-20260712-EXIT-HEAD-REMAINING-ROUNDS",
-      "status": "kept_open",
+      "status": "resolved",
       "created": "2026-07-12",
       "title": "Exit-head remaining rounds: equities E0 + MES/MGC/MHG native history",
       "detail": "Rounds 2-3 (4h donchians, 2h alt pullbacks) E1 GATE FAIL — honest negatives (runtime_logs/m20_exit_head/{4h,2h} on trainer; sprint log S-M20-EXIT-REFINEMENT-2026-07-12). Remaining exit_head_ml matrix gaps: equities 1h/1d E0 datasets (yfinance-sourced candles OK — native venue), and MES/MGC/MHG which need native IBKR history (proxy OK for levers, NOT for head training). One command per round: scripts/research/m20_exit_head_round.py.",
@@ -2145,8 +2193,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Both named gaps are now MEASURED in docs/research/exit-refinement-coverage.json (updated_at 2026-08-15): the equities E0 rounds ran — all seven *_trend_long_1d / *_pullback_1d legs carry measured `exit_head_ml` verdicts (E1 re-run 2026-08-13 relay #8963; pullback_1d live-parity re-sweep 2026-08-14 relays #9358/#9366) and the 1h equity legs (gld/spy/qqq/tlt_pullback_1h, slv/uso_trend_1h) are measured honest_negative (relay #8921, n_oos 168-473). MES/MGC/MHG were re-graded 2026-08-14 from `blocked:data_missing` to `blocked:insufficient_lifetime_trades` after MEASURING their fire rate config-exact on the deepest series (ES_F/GC_F/HG_F ~10y, relay #9195): lifetime 33/74/80 trades, OOS 5/7/10 vs MIN_OOS_TRADES=25 — and ROADMAP.md:107 records this is an UPPER bound because native IBKR history is shallower than the proxy. — The premise 'MES/MGC/MHG need native IBKR history for head training' is superseded by measurement: the binding gate is trade VOLUME, not history depth, so native history would not change the verdict. The residual native-history errand (no scheduled job produces MGC/MHG IBKR bars) is now owned separately by BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED, and ict_scalp_mgc_15m/exit_ladder by `blocked:native-history-thin` (46.9% flat bars, relay #9200)."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "MB-20260713-PEAK-HEAD-E3",
@@ -2223,6 +2278,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: ROADMAP.md:111 confirms P1 (net-R label pipeline, #6806) and P2 (net-R re-grade scorecard, #6808) DONE and run over the live journal via the Tier-1 net-r-regrade system-action (#6826, scorecard issue #6829); findings docs/research/M24-net-r-regrade-findings-2026-07-17.md. P3 (cost-aware EV refresh) and P4 (within-tick net-R ranker) remain unbuilt and are gated on the same cost-coverage blocker as MB-20260717-M24-FUNDING-VISIBILITY. — Two compounding gates. (a) awaiting-data: feeding a ~99%-estimate net-R distribution into allocator_ev just re-derives the fixed cost model, so P3/P4 wait on MB-20260717-M24-FUNDING-VISIBILITY closing (bybit_2 funding records > 0 AND cost_source=broker becoming the majority of trades). (b) Tier-3-awaiting-operator: both P3 and P4 are order-routing/sizing-affecting and need a passing sizing-normalized A/B plus operator approval. TRIGGER: broker-truth cost coverage crosses from minority to majority, then re-run the sizing-normalized allocator A/B. Note the one sign-flip found (spy_pullback_1h/SPY gross +1.456R -> net -0.457R) is estimate-driven and must NOT drive a Tier-3 demote until confirmed against broker truth."
         }
       ]
     },
@@ -2256,6 +2316,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: ROADMAP.md:110 records M23 as PROPOSED with 'P1 pipeline DONE (honest thin-signal result)' — the pooled multi-strategy head's edge is base-rate-between-cells, not a within-cell take/skip edge (the M18-ranker failure mode), so P3 is a confirmed NO-GO at current label volume. The stated next lever, label volume, has no landed work: it depends on MB-20260712-EXIT-ANALYSIS-COVERAGE (market_raw fleet coverage, unverified above) and MB-20260530-001 (per-trade backtest rows), and the head trains against M24's net_R label which is itself coverage-blocked. — Awaiting-data and, as the item's own last update concedes, awaiting an OWNER/idea for the P2 label-volume lever. TRIGGER: MB-20260712-EXIT-ANALYSIS-COVERAGE closes (fleet market_raw shards) AND a backtest/live label-parity gate passes before pooling — only then is a per-cell/per-family head (P3) worth building. Do not re-run the pooled head at current n; that result is already an honest negative."
         }
       ]
     },
@@ -2283,6 +2348,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: soaks maturing (15m heads n=500-1900), but powered RG4 readiness packets blocked by the promotion-readiness OOM (MB-20260719-PROMOREADY-OOSEDGE-OOM). Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: P1 is complete (the frozen-MES-base sub-item closed via MB-20260719-MES-BASE-RTH-ONLY, verified holding through the 2026-07-20/21 MES re-cert; docs/research/M25-frozen-dataset-remediation-2026-07-20.md). P2 — the powered-RG4 sweep across the maturing soak roster — is still blocked: scripts/ops/run_promotion_readiness.sh:108-122 documents that the 2026-07-26 subprocess-isolation fix REGRESSED and the default was reverted to PROMOREADY_OOS_EDGE=off on 2026-07-27, so the daily fleet sweep runs WITHOUT --datasets-root and reports oos_edge as insufficient_data. The per-head `gate-check` path does work and has carried the real promotions (docs/research/M25-btc-sol-promotion-packets-2026-07-20.md; CLAUDE.md records SOL fc-pcv-v2 promoted 2026-08-02 and BTC fc-pcv-v2 2026-08-04). — Blocked on MB-20260719-PROMOREADY-OOSEDGE-OOM (see that row — it has REGRESSED, not resolved) and on Tier-3 for every P3 promotion packet. TRIGGER: oos_edge's dataset load is made memory-bounded so a full-registry sweep completes inside MemoryMax=4500M, OR the design is formally changed so oos_edge is per-head-at-gate-check-time only and P2 is re-scoped to that path with the docs updated. P4 (demote/retire sweep for RG4-fails and drift) is unstarted and would pick up MB-20260626-002's proposed mes-yz demote."
         }
       ]
     },
@@ -2311,6 +2381,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh pull; verification watch continues (no adverse signal this window). Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Partial infrastructure progress, neither gate confirmed closed. deploy/ict-exchange-funding-pull.service now runs `scripts/pull_exchange_funding.py --all-bybit-accounts --days 7` on a timer for EVERY live Bybit account, config-driven off config/accounts.yaml::symbols (multi-account rollout rec #7, 2026-07-29; closes BL-20260719-FUNDING-NO-TIMER). But comms/broker_truth_ledger.json holds only a single lifetime AGGREGATE row for bybit_2 (realized -262.52, fees -147.81, funding -0.55, source bybit_um_export_stitched, as_of 2026-07-13) — there is no per-trade funding ledger of the kind this item asks for, and no funding-ledger file exists under comms/. — needs live data: (1) the bybit_2 funding record count in runtime_state/exchange_fills.sqlite since the multi-account puller landed 2026-07-29 — a sub-account key-permission problem would still return 0 despite the timer running; (2) the current broker-truth fee coverage ratio (was 3/814). TRIGGER: both readings improve to non-zero funding for bybit_2 AND cost_source=broker on a majority of trades — that unblocks M24 P3/P4 (MB-20260717-M24-NET-R) and MB-20260629-ALLOC-CORR. If (1) still reads 0, the fix is the DATA-VISIBILITY path (an operator Bybit UM funding export -> a broker_truth-style funding ledger), not a puller code change."
         }
       ]
     },
@@ -2459,7 +2534,7 @@
       "tier": 1,
       "trigger_condition": "Next ML session with capacity after the research-week WS items; or the next /ml-review (propose as the top experiment).",
       "resolution_criteria": "P0 findings doc committed with the quantified bleed + concentration; subsequent phases spawn their own items.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2482,9 +2557,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The item's own resolution_criteria are 'P0 findings doc committed with the quantified bleed + concentration; subsequent phases spawn their own items' — and docs/research/M26-P0-conflict-bleed-findings-2026-07-19.md is committed with exactly that: miner scripts/research/m26_p0_conflict_bleed.py @029f3ae on the synced journal (trainer-diag #6963), 585 hold-suppression rows -> 70 conflict episodes -> 98 measured trade-conflict pairs, real-money tail_held -$19.98 with held-worse-than-close in 77.1% of cases (paper +$1,187 / 74.6%), and the concentration finding that the bleed splits on timeframe-ratio and strategy class. P1 also landed: docs/research/M26-P1-conflict-taxonomy-2026-07-22.md. — Resolved as scoped. The later phases are NOT dropped — they are carried by ROADMAP.md:118 M36 track (A), 'advance M26 regime-transition from observe-only toward a deployable role (P2 soak -> P3 walk-forward arms vs hold, per-strategy-class)'. The P0 doc's honest headline should travel with them: neither blanket policy (always-hold / always-close / always-flip) is right, because the net dollars are dominated by a fat right tail of trend winners that holding preserved."
         }
       ],
-      "updated_at": "2026-07-19T17:05:00+00:00"
+      "updated_at": "2026-07-19T17:05:00+00:00",
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "MB-20260719-M23-HARNESS-DEBUG-QUERY",
@@ -2570,7 +2652,7 @@
       "source": "Two identical thrash episodes on 2026-07-19, BOTH killed: (1) 12:37 launch, killed 14:55 after 2h18m at 4.94GB RSS/D-state with 0-byte cli_stdout.json; (2) 15:31 relaunch on parity-gate code (d068089), killed ~16:35 after >1h at 4.98GB RSS, same 0-byte outputs -- so the regression is NOT the parity code. Inputs are tiny (shadow log 43MB/53k rows, backfill 5.4MB, registry 4.3MB/91 models); the hog is ml/promotion/stage_guard.py::run_stage_guard calling compute_oos_edge(entry, datasets_root=...) INLINE for every shadow-stage entry -- each is a full purged-walk-forward retrain/eval (dataset load + LightGBM folds), all in one long-lived process on the 5.9GB box. Same failure class as BL-20260717-TRAINER-SINGLE-MANIFEST-OOM (fixed for the TRAINING cycle via per-manifest subprocesses + cgroup cap); the readiness sweep never got that treatment, and the roster/dataset growth (91 models; WS-B added ~10 symbols to datasets-out on 07-19) pushed it over the cliff. The 07-19 report was recovered by re-running WITHOUT --datasets-root (shadow models hold on oos_edge insufficient_data -- attribution/drift/stages still report).",
       "description": "Fix shape (mirror the training-cycle memfix): (a) run each compute_oos_edge in a bounded subprocess (fresh interpreter per model, or per-model batches) so peak RSS is one model's working set, not the fleet's accumulation; (b) put MemoryMax + MemorySwapMax=0 on ict-promotion-readiness.service (it has NO cgroup cap today -- only ict-trainer.service does) so a regression fails fast instead of D-state thrashing the whole box for hours; (c) consider making the unit's ExecStart pass --datasets-root only to a scoped oos-edge phase. Interim workaround (documented): run the sweep without --datasets-root for the daily report; oos_edge evidence comes from the single-model gate-check CLI on the head under review (which is where promotion packets are assembled anyway, per the M25 reframe).",
       "resolution_criteria": "A full-registry promotion-readiness sweep WITH --datasets-root completes on the trainer within its timer window at bounded memory (no D-state thrash), OR the sweep is redesigned so oos_edge is only computed per-model at gate-check time and the sweep drops --datasets-root by design (doc updated).",
-      "status": "open",
+      "status": "kept_open",
       "tier": "T1",
       "trigger_condition": "Next ml-review / trainer-unit hardening pass; before the registry grows further.",
       "updated_at": "2026-08-10T05:05:00+00:00",
@@ -2628,8 +2710,14 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: REGRESSED, not resolved — and the file contradicts itself. deploy/trainer/ict-promotion-readiness.service DID land half the fix (MemoryMax=4500M + MemorySwapMax=0, with a comment citing this item). But scripts/ops/run_promotion_readiness.sh:108-122 records that the 2026-07-26 per-model subprocess isolation REGRESSED and the default was reverted to OFF on 2026-07-27: 'Subprocess isolation only bounds fleet ACCUMULATION; it does NOT bound a SINGLE model's footprint' — ml/promotion/oos_edge.compute_oos_edge does `rows = _load_jsonl(data_path)`, materializing a ~2.1e5-row market_features dataset as dicts for ONE head's k-fold CV, which alone exceeds MemoryMax and OOM-kills the subprocess (live-confirmed 2026-07-27: the 04:04Z scheduled and 08:49Z manual runs both OOM-killed at ~5 min producing NO packet, vs ~5 s successful packet writes on 07-25/07-26 with it OFF). Line 127 sets PROMOREADY_OOS_EDGE default 'off'. The item's stated resolution criteria — a full-registry sweep WITH --datasets-root completing at bounded memory, OR a documented redesign — are unmet. — The real fix (a memory-bounded columnar/compact CV load in oos_edge) is Tier-1 offline trainer tooling but needs a trainer-VM run to verify peak RSS under MemoryMax=4500M, which I cannot reach. TRIGGER: compute_oos_edge streams or column-loads its dataset instead of materializing dicts, then one full sweep WITH --datasets-root completes inside the timer window; until then, per-head `python -m ml gate-check` stays the only oos_edge evidence path and MB-20260717-M25-PROMO-CONSOLIDATE P2 stays blocked. Raising severity: the daily promotion-readiness sweep has been running with oos_edge silently absent since 2026-07-27, i.e. the fleet-wide readiness signal is degraded, not merely inconvenient."
         }
-      ]
+      ],
+      "severity": "medium"
     },
     {
       "id": "MB-20260720-LIVE-SERVING-PARITY-SKEW",
@@ -2765,8 +2853,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: mes-regime-15m-lgbm-v2 still shadow (n=1204). 2nd same-symbol advisory-head decision unchanged — awaiting operator direction. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The design question this item parked on IS answered in code: src/runtime/regime/ml_vol_verdict.py:341-368 `_advisory_entry_for_symbol` deterministically ranks a symbol's advisory heads — non-yz first, then the **15m** timeframe (the backtest clock), then shortest tf — and `ml_vol_regime_for_symbol` (line 371) resolves per-SYMBOL, not per-(symbol,timeframe). So multi-timeframe ambiguity has a defined winner. mes-regime-15m-lgbm-v2 is still shadow per the item's own 2026-07-26 re-validation (n=1204) and ml/configs/mes-regime-15m-lgbm-v2.yaml is not an advisory declaration. — PROPOSED CHANGE (Tier-3, operator decides one of two): (a) CLOSE — confirm the operator-pre-approved MES 5m advisory head is sufficient and record that a 2nd same-symbol head is not wanted; or (b) PROMOTE mes-regime-15m-lgbm-v2 shadow->advisory, explicitly accepting that `_advisory_entry_for_symbol`'s 15m preference would make the NEW head — not the operator-approved 5m head — the one that drives MES's live vol label, silently displacing it from the decision path. Option (b) must not be taken without stating that displacement; it is the substantive consequence the 'which-head-wins' question was hiding."
         }
-      ]
+      ],
+      "operator_action_required": true
     },
     {
       "id": "BL-20260723-M28-P4-GATE-FOLLOWUP",
@@ -2778,7 +2872,7 @@
       "tier": 1,
       "trigger_condition": "Step (1) resolved (producer verified unwired). Reopen step (2) — run the P4 gate — only after MB-20260723-M28-VALUATION-PRODUCER-UNWIRED lands and several months of point-in-time snapshots accrue across the seed universe.",
       "resolution_criteria": "The FRED valuation-snapshot producer is confirmed running (or its absence is surfaced as the blocker), AND the P4 backtest has been run on real accrued history with the calibration + net-of-cost + beat-baseline verdict recorded in a findings doc. A PASS unblocks the Tier-3 P5/P6 proposals; a FAIL keeps M28 observe-only.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2791,9 +2885,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Both steps are complete with committed artifacts. Step (1): the soak was verified NOT producing and the cause committed as docs/research/M28-P4-fred-producer-unwired-2026-07-23.md; the producer has since been wired (see MB-20260723-M28-VALUATION-PRODUCER-UNWIRED) and comms/macro/valuation_snapshots.jsonl now carries 225 rows accruing 9/day from 2026-07-23 to 2026-08-16. Step (2): the P4 gate was RUN and recorded — docs/research/M28-P4-value-gate-run-2026-07-27.md (trainer relay #7754) plus comms/macro/thesis_p4_scorecard.json, on the committed 21-year backfill comms/macro/valuation_snapshots_backfill.jsonl (10,125 rows, 2005-01-01 -> 2026-07-18). Verdict: a clean NULL — 1,104 theses over 263 rebalances, win_rate 0.497, calibration_rank -0.0038, edge_vs_baseline -0.0047 (loses to naive all-long). — The gate FAILED, which per the item's own resolution criteria keeps M28 observe-only and leaves the Tier-3 P5/P6 proposals ungated — a completed outcome, not an open one. The reusable lesson recorded in the doc: the 'wait weeks for forward accrual' framing was a stale phantom gate; a committed historical backfill let the gate run in minutes. Follow-on conditioned work lives in docs/research/M28-D4-D5-value-construction-sweep-2026-08-02.md and comms/macro/value_construction_scorecard.json."
         }
       ],
-      "resolved_at": null
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "MB-20260723-M28-VALUATION-PRODUCER-UNWIRED",
@@ -2805,7 +2905,7 @@
       "tier": 1,
       "trigger_condition": "Next M28 session — this is the immediate next buildable step; the P4 gate is dead until it lands.",
       "resolution_criteria": "The producer is scheduled (Actions cron committing point-in-time rows to comms/macro/valuation_snapshots.jsonl) AND the reader reads them AND rows are observed accruing across the seed universe. Unblocks BL-20260723-M28-P4-GATE-FOLLOWUP step (2).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2813,9 +2913,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: All three parts of the recommended build exist and are producing. (1) The entrypoint scripts/macro/valuation_snapshot_produce.py is on disk (plus scripts/macro/valuation_snapshot_backfill.py for the historical reconstruction). (2) The scheduled caller exists: .github/workflows/macro-valuation-snapshot.yml runs it on a hosted runner with ICT_OFFVM_BUILD_HOST=1 and lands the rows on protected main via the commit-to-main auto-merge composite — no SSH to the money box, no live-VM FRED socket, keyless. (3) The reader fallback landed: src/units/strategies/macro_thesis/valuation_store.py:54-67 defines the committed <repo>/comms/macro/valuation_snapshots.jsonl path and prefers it over runtime_logs when it exists. Rows are ACCRUING, not just wired: comms/macro/valuation_snapshots.jsonl holds 225 point-in-time rows, first observed_at 2026-07-23T15:23:32Z, last 2026-08-16T07:50:21Z, at a steady 9 rows/day across the seed universe. — Resolution criteria met on all three clauses (scheduled producer AND reader AND rows observed accruing). It unblocked BL-20260723-M28-P4-GATE-FOLLOWUP step (2), which has since run."
         }
       ],
-      "resolved_at": null
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "MB-20260723-M29-AI-SYSTEM-DYNAMICS",
@@ -2845,6 +2951,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: P1 has advanced past the state recorded in the item's last update: beyond the pure src/sysdyn/ package (P1a), the P1b calibration is committed — docs/research/M29-P1b-gas-seed-calibration.md and M29-P1c-gas-dual-calibration.md with comms/macro/sysdyn_gas_scorecard.json, sysdyn_gas_dual_scorecard.json and sysdyn_mispricing_scorecard.json, backed by scripts/macro/sysdyn_gas_calibrate.py / sysdyn_gas_data.py / sysdyn_mispricing.py. The blocker the trigger named (real point-in-time macro data, shared with the M28 producer) has cleared — that producer is now wired and accruing. But the item's resolution criterion is 'M29 P4 backtest run with a recorded verdict', and no P4 scorecard or findings doc exists. — Not blocked on data any more; blocked on the remaining phase sequence (P2 AI sysID over real fits -> P3 scenario soak -> P4 decisive calibration + net-of-cost backtest vs the M28 baseline). TRIGGER: P4 runs and a verdict is recorded — PASS spawns a Tier-3 c_macro graduation proposal, FAIL closes it as an honest findings doc with the capability staying observe-only. Note the M28 P4 null result raises the bar M29 must clear: the unconditioned value sleeve already lost to naive all-long, so 'beats the M28 baseline' now means beating a baseline that itself failed. Consolidation context: ROADMAP.md:118 M36 track (C) merges M28 and M29 into one macro-intelligence program."
         }
       ],
       "resolved_at": null
@@ -2870,6 +2981,11 @@
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
           "note": "Re-validated 07-27: the dataset-audit guard is actively enforcing — this window's cycle audit-quarantined mes-regime-1d-lgbm-v2 (manifest_audit_skipped_enforced: dead feature/degenerate label). Confirms the range-vol dead-estimator class is real and being caught pre-train. Trainer-side data fix needed (recompute range-vol estimators from OHLC); research follow-up, not order-affecting."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The code half is confirmed correct on disk, so the diagnosis 'stale dataset, not a code bug' holds: ml/datasets/families/setup_candidates.py:642 declares builder_version 'v2' and lines 621-626 emit all four range-vol estimators (parkinson_vol, garman_klass_vol, rogers_satchell_vol, yang_zhang_vol) from each candidate's past-only OHLC window, with the family docstring at lines 111-112 documenting them. The remaining work is the trainer-side rebuild of the on-disk setup-candidates-metalabel-xsym-yz-v1 dataset with --overwrite, which cannot be done or verified from this checkout (data dirs live on the trainer). — Low stakes and correctly parked: the head is research_only/offline, never order-influencing, and is not in the nightly cycle (ICT_BUILD_XSYM=0), so a one-off rebuild would not stay fresh. TRIGGER: the xsym-yz track is next ACTIVATED — then rebuild the dataset on builder v2 with --overwrite and re-audit; if the four columns are STILL dead after a v2 rebuild, the estimator computation is broken and it becomes a code fix. Corroborating signal that the dead-estimator class is real and being caught pre-train: the 2026-07-27 cycle audit-quarantined mes-regime-1d-lgbm-v2 for the same manifest-audit reason."
         }
       ]
     },
@@ -2913,6 +3029,11 @@
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
           "note": "Re-validated 07-27: Bybit open-interest history depth limit unchanged (data-source constraint). open_interest_change reads ~dead over the >=5y frame. Research follow-up; no live-order impact. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: An upstream data-coverage limit with a recorded operator decision, not a repo defect. Bybit's V5 open-interest-history endpoint serves only ~recent months regardless of the `since` cursor, while the funding manifests (ml/configs/btc-regime-1h-lgbm-funding-v1.yaml and its -svble-v1 sibling) train on the rolling >=5y MARKET_START window, so open_interest_change / open_interest_change_zscore read ~0.0 across ~99.6% of rows. funding_rate / _zscore / _abs_z populate correctly and are deliberately left un-silenced; only open_interest_* is silenced, and only on the funding manifest. — Parked by explicit OPERATOR DECISION 2026-07-26: leave silenced. Not actionable now because the funding heads are research_only/offline with zero live-order impact, so the cost of any remedy exceeds the benefit. TRIGGER: a funding head becomes a promotion candidate — at that point pick one of the three recorded options (re-scope the manifest window to the OI-available months at the cost of a much shorter training set; source deeper OI history from another provider; or drop the OI columns and keep funding_rate only). Until then this is a low-priority parked note and should not be re-litigated each review."
         }
       ]
     },
@@ -2924,7 +3045,7 @@
       "title": "M16 conviction A/B: matched-holdout AUC read (both models on identical live rows)",
       "description": "The A/B verdict was NEGATIVE on accuracy (v1-bt 0.5247 <= v1 0.5250, both below the ~0.64-0.66 majority-class baseline); conviction-meta-v1-bt stays candidate/observe-only. The rigorous cut NOT yet run: evaluate BOTH models on the IDENTICAL held-out live rows and compare AUC / log-loss (the metric the conviction stacker is actually used for — ranking/sizing, not 0.5-threshold classification). The current A/B used each model's own time_aware_holdout (n=385 union vs n=80 live-only), so the holdout row sets differ. Method: build the live conviction_meta dataset once (db_path pointed at the pulled trainer journal), take a fixed time-ordered live split, score v1-bt and v1 on the SAME eval rows, report AUC + log-loss + calibration by source. LOW priority + LOW expected value: the promotion verdict is very unlikely to flip (both at/below coin-flip on accuracy; augmentation gave no lift), so this is rigor/completeness, not a live decision — and the real bottleneck is the tiny live label pool (~400 rows), so also revisit only if that grows materially. Parent (resolved): BL-20260727-CONVICTION-UNION-NO-LIVE-ROWS (health-review-backlog). Recipe + verdict: docs/research/m30-to-m16-integration-backbone-DESIGN.md sec 5.4/6.",
       "tier": "Tier-1 (research; any eventual promotion past candidate is Tier-3/operator)",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2939,6 +3060,11 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The rigorous matched-holdout cut has not been run — no AUC/log-loss/calibration-by-source artifact exists for conviction-meta-v1 vs conviction-meta-v1-bt (ml/configs/conviction-meta-v1.yaml, conviction-meta-v1-bt.yaml, conviction-meta-base-btc-v1.yaml are all present but the comparison recipe lives in docs/research/m30-to-m16-integration-backbone-DESIGN.md sec 5.4/6 and its output is not committed). The existing A/B verdict stands as recorded: NEGATIVE on accuracy (v1-bt 0.5247 <= v1 0.5250, both below the ~0.64-0.66 majority-class baseline), computed over DIFFERENT holdout row sets (n=385 union vs n=80 live-only) rather than identical rows. — needs live data: the pulled trainer journal, to rebuild the live conviction_meta dataset once and score both models on a single fixed time-ordered split. Deliberately low priority — the item itself grades expected value LOW because both models sit at or below coin-flip on accuracy and augmentation gave no lift, so the promotion verdict is very unlikely to flip; this is rigor/completeness, not a live decision, and conviction-meta-v1-bt stays candidate/observe-only meanwhile. TRIGGER: the live label pool grows materially past ~400 rows (the real bottleneck), at which point run the matched-holdout AUC + log-loss + calibration-by-source read."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -2951,7 +3077,7 @@
       "title": "Sweep the remaining ict_scalp legs' exit levers on the trainer (harness built + MGC swept honest_negative 2026-07-28)",
       "description": "Family-wide M20 extension. Blocks the stale_stop/giveback_stop/exit_ladder coverage cells for ict_scalp_mgc_15m AND ict_scalp_5m AND ict_scalp_sol/xrp/avax_5m (all currently blocked:no_harness_levers or pending). Trail_geometry/trail_decay/vol_trail/regime_flip_exit are n/a for this fixed-bracket scalp (no primary trailing stop; no MGC regime head) — do NOT build those. Plan: (1) Tier-1 — add --stale-exit-bars/--stale-exit-below-r/--giveback-min-mfe-r/--giveback-r to scripts/backtest_ict_scalp.py mirroring backtest_pullback.py's lever semantics, and register ict_scalp in m20_fleet_exit_sweep.FAMILY_HARNESS. (2) Compute (trainer VM, NOT the sandbox — a single 178k-bar baseline run >120s) — config-exact IS/OOS + yearly walk-forward sweep on data/XAUUSD_15m_deep.csv (178,953 bars, Dukascopy spot-XAU proxy) under MGC economics (--fee-usd-roundtrip 3.0 --contract-value-usd 10.0); gate = beat baseline on net_R AND maxDD in BOTH IS and OOS. Repeat per crypto leg on its own native data. (3) Tier-3 (ONLY if a lever passes) — teach ict_scalp.monitor() to read+enforce the winning lever from cfg, declare on the leg YAML, propose exact diff to operator. Strong M20 prior: trend-oriented levers on a mean-reverting fixed-bracket scalp are usually honest-negatives, so step 3 may never be reached — the sweep is the honest way to confirm. Update docs/research/exit-refinement-coverage.json in the same PR as any verdict.",
       "tier": "Tier-1 (harness/sweep) → Tier-3 only if a lever passes (live monitor enforcement)",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2985,9 +3111,16 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: All three steps landed and are verifiable on disk. (1) Tier-1 harness: scripts/backtest_ict_scalp.py carries --stale-exit-bars / --stale-exit-below-r / --giveback-min-mfe-r / --giveback-r (argparse lines 1021-1027, threaded through lines 168-172, 257-283, 425-514), and 'scalp' is registered in FAMILY_HARNESS (scripts/research/m20_fleet_exit_sweep.py:65-67). (2) Compute: every named leg is swept in docs/research/exit-refinement-coverage.json — ict_scalp_mgc_15m on the 178,953-bar Dukascopy XAU proxy under MGC economics (2026-07-28), and ict_scalp_5m / _sol_5m / _xrp_5m / _avax_5m / _sol_15m / _xrp_15m / _eth_15m via GitHub Actions run 30384837775 (config-exact m27_data, split 2025-07-01), with exit_ladder additionally measured 2026-08-10 (run 31344328313). (3) Tier-3: contrary to the 'may never be reached' prior, ONE lever passed and SHIPPED — ict_scalp_eth_15m stale_stop, live in config/strategies.yaml:745-746 (stale_exit_bars 12, stale_exit_below_r 0.0) with the block comment citing MB-20260728-ICTSCALP-EXIT-LEVERS by name and enforced in src/units/strategies/ict_scalp.py::monitor() via _stale_stop_verdict. — The strong M20 prior was mostly right and honestly reported: every giveback cell and every other stale cell came back honest_negative. The one survivor (stale12 on ETH-15m) beat baseline on net_R AND maxDD in BOTH windows and survived 3 of 4 walk-forward folds; it is Tier-3 operator-approved, PAPER-ONLY (bybit_1 is account_class paper), and the coverage matrix records it. Nothing in the item's scope remains unrun."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "MB-20260716-BUILDPARAMS-IGNORED",
@@ -3059,8 +3192,8 @@
       "id": "MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED",
       "opened_at": "2026-08-14T05:40:00+00:00",
       "opened_by": "claude (M20 overnight session 2026-08-13)",
-      "severity": "medium",
-      "status": "open",
+      "severity": "low",
+      "status": "kept_open",
       "title": "The 'exit_head_ml only works on ict_scalp' read was formed entirely on NO-TAKE-PROFIT books -- the first round run at live-parity TP returned a non-scalp candidate at equal AUC",
       "source": "The standing read, recorded on the ict_scalp_sol_5m coverage cell, is 'all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative'. It is the basis of the operator-queued question 'is exit_head_ml scalp-family-scoped?'.\n\nOn 2026-08-14 m20_exit_head_round.py was found STRUCTURALLY unable to pass a take-profit cap (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP): it called base_args positionally so tp_cap_pct defaulted to 0.0, and its argparse had no --tp-cap-pct at all. Measured: 11 of 13 audited round dirs contain ZERO take-profit exits over full populations (n=100..1992). So EVERY non-scalp honest_negative behind the scalp-scoping read was measured on a book production does not run.\n\nThe first round built after the fix, at live parity, returned trend_donchian_eth_prop as a CANDIDATE -- n_oos=902, auc=0.6138, beats_actual=20/24, beats_hard=16/24 -- against ict_scalp_sol_5m's auc=0.6149 on n_oos=800. That is the first non-scalp E1 candidate.\n\nWHAT THIS IS AND IS NOT. It is NOT a like-for-like counterexample and must not be cited as 'donchian passes too': the two are on different geometries and therefore different populations. What it establishes is that the scalp-scoping read rests on geometry-conditioned evidence and has never been tested at the geometry production actually runs. One leg is not that test.",
       "resolution_criteria": "Observable: the non-scalp legs that returned honest_negative in the pre-fix E1 re-run are re-run at live-parity TP (the driver now DEFAULTS to it, so this is a re-run and not a code change), and the scalp-scoping question is answered against that population -- either 'the read holds at correct geometry' or 'it does not'. The comparison must state its geometry on BOTH sides; a mixed-geometry table would reproduce the exact error this row exists to prevent. Scale note: this is a fleet-wide re-run and the DISPOSITION of anything it promotes is Tier-3. NOT resolution: treating the single trend_donchian_eth_prop candidate as having settled it in either direction.",
@@ -3070,8 +3203,15 @@
         "runtime_logs/m20_exit_head/prop_1h -- first live-parity round, _round_meta.tp_geometry=live_parity, 95 take-profit exits across its two legs",
         "relays #9156 (launch) / #9157 (positive control) / #9158 (full e1_report)"
       ],
-      "tier": "1 (the re-run; any promotion it argues for is Tier-3)"
+      "tier": "1 (the re-run; any promotion it argues for is Tier-3)",
+      "updates": [
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Substantially advanced within two days of opening, but the resolution criterion is not fully met. The driver defect is fixed (live parity is now the DEFAULT with a _round_meta geometry stamp; the first round at that default emitted 95 take-profit exits as the positive control) and 20 non-scalp legs now carry `tp_geometry: live_parity` in docs/research/exit-refinement-coverage.json (updated_at 2026-08-15) from the 2026-08-14/15 re-sweeps: trend_donchian 1h/eth/sol via relay #9206, the 1d pullback fleet via round pullback_1d_20260814T212317Z (relays #9358/#9366), and the 1h equity legs via relay #8921. The scoping question itself is ANSWERED against that population — a non-scalp leg cleared at live parity (trend_donchian_eth_prop passed_unshipped, auc 0.6138, n_oos 902) and trend_donchian_eth reads `shipped`, so 'exit_head_ml only works on ict_scalp' does NOT hold at correct geometry. What remains: SIX non-scalp legs still rest on pre-fix no-TP rounds with tp_geometry null — eth_pullback_2h, xrp_pullback_2h, ada_pullback_2h, eth_pullback_prop_2h (all 2026-07-12/13 round-3 refs) and trend_donchian_xrp_4h, trend_donchian_ada_4h (2026-07-12 round-2 refs), each still graded honest_negative on a book the live system never trades. — Not blocked on a decision — blocked on trainer compute I cannot dispatch from this checkout. TRIGGER: re-run scripts/research/m20_exit_head_round.py (which now defaults to live parity) on those six legs and record the resulting statuses WITH their geometry stamp on both sides of any comparison; a mixed-geometry table would reproduce the exact error this row exists to prevent. Downgrading severity because the load-bearing claim — that the scalp-scoping read is geometry-conditioned — is now demonstrated rather than suspected; what is left is completing the comparison population. NOT resolution: treating the single trend_donchian_eth_prop candidate as settling the question. Note also that the disposition of anything the re-run promotes is Tier-3."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-08-07T14:55:00+00:00"
+  "updated_at": "2026-08-16T09:05:00+00:00"
 }
