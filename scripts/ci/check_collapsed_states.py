@@ -101,6 +101,35 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "exit_loop_health.requirement_state",
+        "producer": "src/runtime/exit_loop_health.py",
+        "producer_field": "requirement_state",
+        # Deliberately NARROW. `\bexit_loop_health\b` would also match `src/main.py`,
+        # `routers/diag.py` and the diag-reachability test, which merely PASS THE
+        # PAYLOAD THROUGH — they never branch on the grade, so demanding they read
+        # every state would only buy three override annotations that assert nothing.
+        # The guard is stronger keyed to the field itself.
+        "consumer_token": r"\brequirement_state\b",
+        "states": ["within", "breached", "not_measured", "unknown"],
+        "why": (
+            "within = every MEASURED interval between exit evaluations was "
+            "inside the 60s requirement; breached = at least one was not, so a "
+            "live trade went unevaluated past it; not_measured = fewer than two "
+            "passes have completed, so NO interval exists yet; unknown = the "
+            "read itself failed. The two that must never collapse into `within` "
+            "are the last two: a process that has evaluated almost nothing, and "
+            "one we could not read, would both report COMPLIANCE with the "
+            "guarantee M20 exists to provide. This field is also deliberately "
+            "NOT `state` — the loop can be `fresh` and `breached` at the same "
+            "time, and that is exactly the condition that was invisible: "
+            "stale_threshold_s is 180s, so a 59s interval and a 179s interval "
+            "both read healthy while the requirement sits at 60s. Measured "
+            "2026-08-16 at a 58940.8ms worst pass (n=694), 1.1s inside the "
+            "requirement, alarming nowhere. "
+            "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT."
+        ),
+    },
+    {
         "name": "exit_anchor.bar_close_at",
         "producer": "src/runtime/exit_anchor.py",
         "consumer_token": r"\bbar_close_at\b|\bexit_anchor\b",
