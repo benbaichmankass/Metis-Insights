@@ -17925,6 +17925,32 @@
         "scripts/ops/bybit_bracket_audit.py",
         "order_monitor._bybit_position_protection"
       ]
+    },
+    {
+      "id": "BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES-VENUE-CLOSED",
+      "opened_at": "2026-08-16T15:02:00+00:00",
+      "opened_by": "claude (sysrev-0816, operator-directed 'cancel order 6')",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "open_cancel_pending_at_venue",
+      "area": "exit-coverage",
+      "title": "IB ACCEPTS cancelOrder (retCode 0 'OK') and the order does NOT go away -- it moves to PendingCancel and stays there while the venue is shut; measured on order 6, and it is the same state order 378 has been stuck in for ~2.5h",
+      "detail": "MEASURED, `cancel-ib-order` APPLY on ib_paper order 6 (issue #9731, run 31954321054, 2026-08-16T15:00:12Z), after a clean dry run (#9729) in which `lookup_state: found`, `owner_client_id: 9974`, and NEITHER safety guard tripped.\n\n  cancel_response: {retCode: 0, retMsg: 'OK', result: {orderId: '6'}}   <- IB ACCEPTED it\n  orders_on_account: 5   ->   orders_on_account_after: 5                <- nothing left\n  order 6 status: PreSubmitted -> **PendingCancel**, still 105 remaining\n  script verdict: action='cancel_not_effective', verify_state='still_present', exit 1\n\nTHE CAPABILITY IS NOT THE PROBLEM. Every layer built for this worked: the workflow forwarded the parameters (the #9723 fix, confirmed live), the account-wide lookup FOUND the order, the protective/clientId guards correctly declined to trip, and the script connected as the owning clientId 9974 and issued the cancel. The script also refused to call an accepted-but-uneffective cancel a success -- it verified the post-state, saw the order still resting, and exited 1. That is the IB_PLACE_CONFIRM_S / IB_CLOSE_CONFIRM_S lesson (an ACCEPT is not an OUTCOME) applied correctly on a third path, and it is why this is a finding rather than a silent no-op reported as done.\n\nIT REPRODUCES, WHICH IS WHAT MAKES IT A CLASS AND NOT AN ODDITY. Order 378 (MGC, MKT SELL 105, client 9927) has been sitting in PendingCancel since ~12:33Z -- roughly 2.5 hours -- after an earlier flatten attempt. Order 6 has now entered the SAME state by the SAME route. Two for two.\n\nLEADING HYPOTHESIS, NOT YET PROVEN: COMEX is CLOSED (Saturday 15:00Z; the reopen is Sunday 22:00Z). A cancel of a resting DAY order at a shut venue appears to be queued by IB and only completed when the session reopens, so PendingCancel is the honest intermediate state rather than a wedge. This is a HYPOTHESIS: it explains both observations and the timing, but it has not been confirmed against IBKR documentation or by observing a reopen, and the alternative -- that these cancels are genuinely stuck and will still be pending after the reopen -- is not excluded. Do NOT record it as fact until a reopen has been observed.\n\nOPERATIONAL CONSEQUENCE, AND IT IS THE SHARP END. Both stray MKT SELL 105 orders are DAY orders that ACTIVATE at the COMEX reopen, and both now carry a cancel that the venue has not yet honoured. At the reopen there is a RACE between the queued cancel and the order becoming eligible to fill. If a stray fills, it flattens the 105-contract long by itself; if it fills AFTER anything else has flattened the position, it opens a naked 105-contract SHORT. This directly gates the pending decision to attach MGC 4487's declared take-profit (4297.66, deeply marketable against a ~4398.70 market), because that target would ALSO execute at the reopen -- so target, stop, and two stray market sells would all become live in the same instant, and `attach_ib_target.py` already refuses while a non-protective order rests on the symbol, which is exactly the right refusal here.\n\nDO NOT RETRY THE CANCEL ON A LOOP. Re-issuing against an order already in PendingCancel adds nothing and is the churn class IB_CLOSE_RETRY_COOLDOWN_S exists to prevent.",
+      "resolution_criteria": [
+        "Observe the COMEX reopen (Sunday 22:00Z) and record what happens to orders 6 and 378: cancelled (hypothesis confirmed), still PendingCancel (hypothesis refuted, genuinely stuck — escalate), or FILLED (worst case — check immediately whether a naked short was opened).",
+        "Confirm or refute the venue-closed hypothesis against IBKR's own documented behaviour for cancelling a resting DAY order outside session hours, so the next session does not re-derive it from two observations.",
+        "If the cancels do complete at the reopen: document the expected latency so a future PendingCancel is not misread as a wedge, and give cancel_ib_order.py a way to say 'accepted, pending at venue' distinctly from 'not effective' — today both land as cancel_not_effective/exit 1, which collapses 'the venue has not got to it yet' into 'this failed'.",
+        "If they do NOT complete: this becomes a stuck-order-path finding needing a different remedy, and the naked-short exposure at every subsequent session open must be reassessed.",
+        "Separately: the ib_insync teardown emits `RuntimeError: Event loop is closed` from IB.__del__ after a successful run. Cosmetic here, but it prints a traceback on a clean path and could mask a real error in a future one."
+      ],
+      "refs": [
+        "BL-20260816-NO-PER-ORDER-IB-CANCEL",
+        "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "scripts/ops/cancel_ib_order.py",
+        "IB_PLACE_CONFIRM_S",
+        "IB_CLOSE_CONFIRM_S"
+      ]
     }
   ]
 }
