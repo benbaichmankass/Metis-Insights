@@ -555,6 +555,66 @@ equally unreachable). Corrected.
 coincides), so the EVERY-screen rate (26.7 % → 27.3 %) is pinned beside it in
 the test — otherwise a future merge adding nothing would pass.
 
+### 17. The last hand-pooled cells re-measured — and the pooling flattered them
+
+Two `exit_head_ml` cells (`slv_trend_1h`, `uso_trend_1h`) were `honest_negative`
+from a 2026-08-13 run whose **own ref warned about how it was produced**: the two
+legs' rows were *concatenated by hand* into one family dir and trained once,
+because "alone this leg clears ZERO folds". A verdict that exists only under a
+manual step is one the pipeline cannot reproduce.
+
+Re-run per leg through the shipped driver (relay #9532; verdicts read from
+`e1_report.json` in **#9533**, not from the log tail — the relay had truncated
+`uso`'s verdict line, and a truncated tail is not a measurement):
+
+| leg | n_oos | folds | beats_actual | beats_hard | mean_auc | verdict |
+|---|---|---|---|---|---|---|
+| `slv_trend_1h` | 250 | 5 | 1/5 | 1/5 | 0.5452 | `honest_negative` |
+| `uso_trend_1h` | 150 | 3 | 1/3 | 1/3 | 0.5421 | `honest_negative` |
+
+**Verdicts unchanged**, so no status moved and no Tier-3 question arose — but two
+claims in the existing refs are now measurably false and were corrected in place:
+
+1. *"alone this leg clears ZERO folds"* — under trade-blocking each leg alone
+   clears **5** and **3** usable folds of 50 trades. Pooling was a workaround for
+   *calendar-year* folds, never a property of the legs.
+2. **The pooled run's per-leg numbers flattered BOTH legs** — `slv` 4/7 → 1/5,
+   `uso` 6/7 → 1/3 `beats_actual`. Both moved the same way, which is the only
+   reason it is worth stating. ⚠️ Recorded as a **direction, not a paired test**:
+   the runs cut different partitions (7 calendar folds vs 5/3 trade blocks) over
+   different n (249/168 vs 250/150), so no fold is comparable across them. The
+   transferable claim is that *a per-leg verdict attributed out of a pooled model
+   is not the same measurement as one trained per leg* — and here it was the more
+   generous of the two.
+
+Swept the matrix for other cells of this class before moving on, since a
+generous-attribution defect matters far more on a **decision** cell than on a
+negative: **exactly 2 cells** carry `CONCATENATED BY HAND`, both of them these.
+The 27 other refs mentioning pooling are ordinary family grouping — the three
+`ict_scalp_*_15m` cells (including the two `passed_unshipped`) were already
+per-leg trade-blocked runs at distinct `n_oos` (350/300/300). **Class closed.**
+
+Vintage: these were the last two `exit_head_ml` cells predating the per-lever
+`2026-08-14` cutover — stale share **36.8 % → 36.1 %** (104 of 288), exactly −2.
+
+**A driver defect surfaced first, and is fixed.** The initial retry (#9531)
+skipped both legs and reported *"could not determine whether `<harness>` supports
+`--strategy-name` … fix the harness probe"*, then *"no emitted trades — nothing to
+build"*. Neither sentence was true. The probe had died on `ModuleNotFoundError:
+pandas` because **I** launched the round with bare `python3` instead of the
+`.venv/bin/python3` its own docstring specifies; since every harness runs under
+`sys.executable`, no leg could ever have run, and nothing had been measured.
+Sub-classes **A** (a message naming an untested cause) and **C** (an empty result
+reading as a clean negative) of the diagnostic-provenance rule, one level apart.
+Fixed by branching on the failure **stage**, not by rewording either label:
+`interpreter_defect()` reads the missing module out of stderr (anchored, so a
+traceback merely passing *through* `pandas/` is not a missing pandas), and
+`empty_round_reason()` separates *no leg reached a harness* from *every harness
+failed* from the one real empty result. The refusals themselves were **correct**
+and are unchanged — an unattributable row is still worse than a missing leg.
+9 tests, plant-proven twice (neutering `interpreter_defect` fails 3; a naive
+substring match plus the collapsed empty message fails 7).
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
