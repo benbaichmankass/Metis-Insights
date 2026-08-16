@@ -26,7 +26,16 @@
       "cap_r_p50": 11.91,
       "reach_share_pct": 100.0,
       "measured_at": "2026-08-16",
-      "note": "BTC 1h ATR is ~0.333% of price, so cap_R sits far above the arm. The order-package cross-check agrees (16.85R)."
+      "note": "BTC 1h ATR is ~0.333% of price, so cap_R sits far above the arm. The order-package cross-check agrees (16.85R).",
+      "live_parity_p80_resweep_2026_08_16": {
+        "p80_arm_r": 5.5,
+        "verdict": "is_oos_fail",
+        "is_net_r": 49.2122,
+        "oos_net_r": -23.5515,
+        "oos_n": 49,
+        "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
+        "note": "NOT an arm-above-cap failure — this is the one leg graded reachable at 100% (cap_R p50 11.91 vs arm 6.49). The live-parity sweep proposes a LOWER arm (5.5) and that cell then fails OOS, which is a different question: whether the lever earns its place on this leg at all."
+      }
     },
     {
       "strategy": "trend_donchian_sol_4h",
@@ -38,7 +47,16 @@
       "unmeasured_reason": "No entry-conditioned pull yet. The candle screen reads cap_R p50 3.56 vs arm 5.57 (2.8% reach), which points at near-inert — but the candle basis overstated xrp by 2.7x and is not a bound, so this is NOT recorded as a verdict.",
       "basis": null,
       "measured_at": null,
-      "note": "Needs its own order-packages pull (one path per relay issue — six paths share one 55KB budget and starved every leg to 1-3 rows)."
+      "note": "Needs its own order-packages pull (one path per relay issue — six paths share one 55KB budget and starved every leg to 1-3 rows).",
+      "live_parity_p80_resweep_2026_08_16": {
+        "p80_arm_r": 1.5,
+        "verdict": "is_oos_fail",
+        "is_net_r": 13.6437,
+        "oos_net_r": 18.0833,
+        "oos_n": 52,
+        "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
+        "note": "Proposes 1.5R — far below the declared 5.57 — and still fails OOS. The candle screen had pointed at near-inert; this neither confirms nor refutes reachability, it says the cell does not clear the gate at any arm it proposes."
+      }
     },
     {
       "strategy": "gld_pullback_1d",
@@ -53,7 +71,16 @@
       "cap_r_max": 3.01,
       "reach_share_pct": 0.0,
       "measured_at": "2026-08-16",
-      "note": "THE DECIDABLE ONE. Not one entry in the leg's entire life could have reached its own declared arm; risk/entry ran 3.294-4.506% against the 1.956% the arm needs. atr_stop_mult is 2.0 here, not 2.5. Either re-sweep the arm at live parity and take the corrected value, or record the lever as inert so the coverage matrix stops counting it as shipped — Tier-3, operator's call."
+      "note": "THE DECIDABLE ONE. Not one entry in the leg's entire life could have reached its own declared arm; risk/entry ran 3.294-4.506% against the 1.956% the arm needs. atr_stop_mult is 2.0 here, not 2.5. Either re-sweep the arm at live parity and take the corrected value, or record the lever as inert so the coverage matrix stops counting it as shipped — Tier-3, operator's call.",
+      "live_parity_p80_resweep_2026_08_16": {
+        "p80_arm_r": 3.86,
+        "verdict": "pass_wf_5_of_6",
+        "is_net_r": 47.3896,
+        "oos_net_r": 20.9844,
+        "oos_n": 50,
+        "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
+        "note": "⚠️ THE PROPOSED ARM IS ITSELF UNREACHABLE ON THIS LEG'S OWN ENTRIES — DO NOT SHIP 3.86. It needs risk/entry <= 2.565%; the 8 live entries (a COMPLETE history) ran 3.294-4.506%, giving cap_R 2.20-3.01. 3.86 exceeds the best observed cap_R by 0.85R, so zero of 8 could arm it. Taking this PASS at face value would replace one inert arm with a SECOND inert arm carrying a pass badge — worse, because the badge suppresses the next question. NOT RESOLVED HERE: the p80 is over backtest winner MFEs (134 lifetime trades) while cap_R is over 8 live order packages; either the live entries are unrepresentative or the backtest risk/entry differs systematically. Both testable, neither tested."
+      }
     },
     {
       "strategy": "xrp_pullback_2h",
@@ -68,7 +95,16 @@
       "cap_r_max": 8.38,
       "reach_share_pct": 33.3,
       "measured_at": "2026-08-16",
-      "note": "Neither inert nor reachable: 4 of the 6 newest entries could not have armed it. Do NOT read 33.3% as a lifetime rate — the sample is truncated and recency-biased. The live 18-day short (trade 4163) sits at cap_R 3.92, i.e. in the unreachable part of the distribution, which is why its trail ran at base mult the whole time. The candle screen said 90.5% and was wrong."
+      "note": "Neither inert nor reachable: 4 of the 6 newest entries could not have armed it. Do NOT read 33.3% as a lifetime rate — the sample is truncated and recency-biased. The live 18-day short (trade 4163) sits at cap_R 3.92, i.e. in the unreachable part of the distribution, which is why its trail ran at base mult the whole time. The candle screen said 90.5% and was wrong.",
+      "live_parity_p80_resweep_2026_08_16": {
+        "p80_arm_r": 2.17,
+        "verdict": "is_oos_fail",
+        "is_net_r": 3.7334,
+        "oos_net_r": 12.1203,
+        "oos_n": 53,
+        "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
+        "note": "The proposed 2.17R WOULD be reachable (observed cap_R 3.92-8.38) and the cell STILL fails OOS — so 'lower the arm' is not the answer on this leg either. That closes the escape the gld row leaves open."
+      }
     },
     {
       "strategy": "qqq_trend_long_1d",
@@ -82,7 +118,16 @@
       "cap_r_p50": 2.13,
       "reach_share_pct": 0.0,
       "measured_at": "2026-08-16",
-      "note": "THIN (n=1 entry-conditioned) but the two independent bases agree exactly at cap_R 2.13 against arm 3.56. Capped via builder_unit:trend_donchian, not by family string — a family-only test under-claimed here."
+      "note": "THIN (n=1 entry-conditioned) but the two independent bases agree exactly at cap_R 2.13 against arm 3.56. Capped via builder_unit:trend_donchian, not by family string — a family-only test under-claimed here.",
+      "live_parity_p80_resweep_2026_08_16": {
+        "p80_arm_r": null,
+        "verdict": "skipped_thin",
+        "winner_mfes": 21,
+        "min_required": 30,
+        "oos_n": 40,
+        "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
+        "note": "SKIPPED, not failed: 21 winner MFEs against a 30 minimum. The harness DECLINED to emit a p80 rather than producing one off a thin sample. Absence of evidence — this leg remains exactly as measured before (inert, n=1)."
+      }
     },
     {
       "strategy": "scha_trend_long_1d",
@@ -93,7 +138,16 @@
       "opened_at": "2026-08-16",
       "unmeasured_reason": "No entry-conditioned pull yet. The candle screen reads cap_R p50 2.22 vs arm 2.00 (73.6% reach) — the arm sits just below the median ceiling, so this is the leg most sensitive to which basis is used and least safe to grade off the screen.",
       "basis": null,
-      "measured_at": null
+      "measured_at": null,
+      "live_parity_p80_resweep_2026_08_16": {
+        "p80_arm_r": null,
+        "verdict": "skipped_thin",
+        "winner_mfes": 14,
+        "min_required": 30,
+        "oos_n": 33,
+        "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
+        "note": "SKIPPED, not failed: 14 winner MFEs against a 30 minimum. Still unmeasured; the re-sweep could not resolve it."
+      }
     },
     {
       "strategy": "uso_trend_1h",
@@ -121,5 +175,6 @@
       "measured_at": "2026-08-16",
       "note": "Measured BECAUSE this guard demanded it: PR #9549 declares this arm on a real-money leg (bybit_2) and had no reachability record, so the guard would have failed it — the first live catch, within the hour. The measurement SUPPORTS the PR: 5 of 6 recent entries clear arm 2.0, risk/entry 2.416-5.021%. The one miss is marginal (risk/entry 5.021% -> cap_R 1.97 vs arm 2.00), so a high-vol entry can still land just under the arm; that is a real characteristic of the leg, not a defect, and it is why the verdict is `reachable` rather than a claim that it always arms. Sample is truncated and recency-biased (55KB relay budget) — not a lifetime rate. Entry added ahead of #9549 merging so the two PRs are mergeable in either order."
     }
-  ]
+  ],
+  "_resweep_note": "config/lever_reachability.json records REACHABILITY (can a declared arm fire under its own TP cap). The live_parity_p80_resweep_2026_08_16 block on each entry records a SEPARATE question answered on 2026-08-16: what arm a live-parity p80 sweep proposes, and whether that cell clears its gate. THE TWO CAN DISAGREE, and on gld_pullback_1d they do — the sweep's PASSING arm (3.86) is itself above that leg's measured cap_R (2.20-3.01). Read both before proposing any arm value. No arm_r was changed; every correction remains Tier-3 and the operator's."
 }

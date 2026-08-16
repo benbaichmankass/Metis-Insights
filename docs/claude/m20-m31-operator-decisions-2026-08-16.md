@@ -93,33 +93,67 @@ Both are in the running re-sweep.
 
 ---
 
-## 3. The narrow arm_r re-sweep — running, and its first result is awkward
+## 3. The narrow arm_r re-sweep — COMPLETE, and it inverts § 1's option 1
 
 Live-parity (`--tp-cap-pct 0.099 --split-target-oos 50 --p80-only`) over the six
-legs declaring `trail_decay_arm_r`. It replaced a broad fleet sweep that would
-have taken **~25 hours** to reach `xrp_pullback_2h` (it had covered 7 of 55 legs
-in ~4 h, and none of the queued legs were among them).
+legs declaring `trail_decay_arm_r`. **All six answered in 4 minutes.** It
+replaced a broad fleet sweep that would have taken **~25 hours** to reach
+`xrp_pullback_2h` (it had covered 7 of 55 legs in ~4 h, none of them queued).
 
-**First leg out, and it is worth pausing on:**
+| leg | declared | p80 live-parity arm | verdict | OOS net_R | n |
+|---|--:|--:|---|--:|--:|
+| `trend_donchian` | 6.49 | 5.50 | **fails OOS** | −23.55 | 49 |
+| `trend_donchian_sol_4h` | 5.57 | 1.50 | **fails OOS** | +18.08 | 52 |
+| `qqq_trend_long_1d` | 3.56 | — | **skipped, thin (21 < 30)** | +24.68 | 40 |
+| `gld_pullback_1d` | 5.06 | **3.86** | **PASS wf 5/6** | +20.98 | 50 |
+| `scha_trend_long_1d` | 2.00 | — | **skipped, thin (14 < 30)** | +3.25 | 33 |
+| `xrp_pullback_2h` | 4.49 | 2.17 | **fails OOS** | +12.12 | 53 |
+
+**4 of 6: the lever does not earn its place at live parity.** Three fail OOS;
+two have too few winner MFEs to grade — and the harness **declined to emit a
+p80** rather than producing one off a thin sample, which is the right behaviour.
+
+### ⚠️ The one PASS proposes an arm that is itself unreachable — do not ship 3.86
+
+`gld_pullback_1d` is the leg measured **inert over its COMPLETE history** (0 of
+8; `cap_R` 2.20–3.01; `risk/entry` 3.294–4.506%). The re-sweep proposes
+**3.86R**, which needs `risk/entry ≤ 2.565%`:
 
 ```
-== trend_donchian (BTCUSDT 1h) ==
-   p80 winner-MFE arm = 5.5R
-   decay_p80arm5.5R_t2.5 -> is_oos_fail
+best observed entry -> cap_R 3.01
+proposed arm         3.86  -> exceeds it by 0.85R
+ZERO of 8 live entries could arm it
 ```
 
-Two readings, and the second is the important one:
+**So § 1 option 1 — "re-sweep and take the corrected value" — would have
+replaced one inert arm with a second inert arm carrying a PASS badge.** That is
+worse than the state it fixes, because the badge suppresses the next question.
 
-1. The live-parity arm comes out at **5.5R** against the **6.49** declared.
-2. **That proposed cell then FAILS OOS.**
+**I have not resolved the contradiction, and cannot from here.** The p80 is over
+**backtest winner MFEs** (134 lifetime trades); `cap_R` is over **8 live order
+packages**. Either the live entries are unrepresentative of the leg's vol
+regime, or the backtest population's `risk/entry` differs systematically. Both
+testable; neither tested.
 
-`trend_donchian` is the one leg I graded **`reachable` at 100%** (BTC 1h ATR
-≈0.333% of price; `cap_R` p50 11.91 vs arm 6.49), so this is **not** an
-arm-above-cap failure. It is a separate question — whether the lever earns its
-place on that leg at all — and it means "re-sweep and take the number" is not
-guaranteed to produce a number.
+**`xrp_pullback_2h` closes the other escape:** its proposed **2.17R would be
+reachable** (`cap_R` 3.92–8.38) and the cell **still fails OOS**. So lowering
+the arm is not the answer there either.
 
-**n=1 leg. I am not grading the sweep off its first line.** Full results follow.
+### What this does to § 1
+
+The question I queued was *"what value should these arms be?"*. On this evidence
+the answer for at least four of six is **"none — the lever should not be
+declared on this leg"**. That is a larger call than a value change, and it is
+yours. Nothing was flipped.
+
+**Caveats that cut against my own reading:** one sweep, one split per leg,
+`p80-only` (the fixed cells were verdicted separately and are not re-measured
+here), and the two `skipped` legs are **absence of evidence, not evidence of
+failure** — `qqq` and `scha` remain exactly as unmeasured as before.
+
+Per-leg detail is recorded in `config/lever_reachability.json` under
+`live_parity_p80_resweep_2026_08_16`, next to the reachability measurement it
+can disagree with.
 
 ---
 
