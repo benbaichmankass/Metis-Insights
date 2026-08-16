@@ -2113,15 +2113,37 @@ def main(argv: list[str]) -> int:
                      ["--trail-decay-arm-r", str(p80),
                       "--trail-decay-tight-mult", str(tight)]))
                 # CHECK THE PROPOSED ARM AGAINST THIS LEG'S OWN MEASURED TP
-                # REACH — the check that would have caught the whole
-                # arm-above-cap class, using data the sweep ALREADY had.
+                # REACH, using data the sweep ALREADY had.
                 #
                 # `live_tp_reach_r` above records `tp_r_effective_*`, the
                 # per-trade cap_R measured on this leg's own base book. Nothing
                 # ever COMPARED the proposed arm to it, so the sweep could
                 # propose an arm above the ceiling of the very book it had just
-                # measured and say nothing. That is how six arms shipped inert
-                # (BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP).
+                # measured and say nothing.
+                #
+                # ⚠️ THIS CATCHES HALF THE CLASS, NOT ALL OF IT — and the half it
+                # MISSES is the motivating case. MEASURED on the verification run
+                # (relay #9734, --only gld_pullback_1d,trend_donchian_sol_4h):
+                #
+                #   trend_donchian_sol_4h  p80 1.5R  vs measured median 1.324R
+                #                          -> above_measured_median_ceiling, CAUGHT
+                #   gld_pullback_1d        p80 3.86R vs measured median 4.781R
+                #                          -> within_measured_median_ceiling, PASSED
+                #
+                # But `gld_pullback_1d`'s LIVE cap_R is 2.20-3.01, so 3.86R is
+                # unreachable on the book that trades — 0 of 8 live entries. The
+                # ceiling this compares against is the BACKTEST's, and the whole
+                # finding is that the two populations differ
+                # (docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md:
+                # the backtest median risk/entry sits BELOW the live minimum).
+                #
+                # So: an arm above its own backtest ceiling is now loud, which is
+                # a real gap closed. An arm inside the backtest ceiling and above
+                # the LIVE one still passes silently, and closing THAT needs a
+                # live-population input the sweep does not have — M31 P4
+                # (backtest<->live MFE parity) is the piece that would supply it.
+                # Do not read a `within_measured_median_ceiling` verdict as
+                # "reachable in production".
                 #
                 # The MEASURED comparison is primary; the derived ATR/close
                 # ceiling rides along as the interpretable form (it says which
