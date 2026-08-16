@@ -801,6 +801,69 @@ def cells_for(cfg: dict, fam: str | None = None,
     return out
 
 
+def flag_value(args: list[str], flag: str) -> float | None:
+    """The float value of ``flag`` in an argv list, or None when absent."""
+    for a, b in zip(args, args[1:]):
+        if a == flag:
+            try:
+                return float(b)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def arm_atr_close_ceiling(base: list[str], arm_r: float | None
+                          ) -> tuple[str, float | None]:
+    """The normalized-volatility ceiling an ``arm_r`` can ever fire under.
+
+    WHY THIS IS REPORTED BESIDE EVERY PROPOSED ARM
+    ----------------------------------------------
+    A leg's take-profit is clamped to ``entry*(1+cap)``, so the highest MFE a
+    trade can print before the TP fills is ``cap_R = cap / (risk/entry)``. And
+    ``risk/entry`` is EXACTLY ``atr_stop_mult * (ATR/close)`` — identical
+    formulas in the live units and both harnesses, with byte-identical ``_atr``
+    helpers. Inverting:
+
+        an arm A on a leg with stop-mult M can only fire while
+            ATR/close <= cap / (M * A)
+
+    So **a declared arm is a volatility threshold in disguise**, and whether it
+    is reachable is a property of the instrument-and-timeframe, not of the leg.
+    Measured 2026-08-16 (memo:
+    ``docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md``):
+    ``trend_donchian`` and ``trend_donchian_sol_4h`` are the SAME family with
+    the SAME ``atr_stop_mult`` and were shipped arms 6.49 and 5.57 — 1.16x
+    apart — against ceilings 11.91 and 1.64, **7.3x apart**. 100% vs 0%
+    reachable. A p80 over an UNCAPPED book produces similar arms across a
+    family because uncapped winner-MFE distributions are similar in R; the
+    capped ceiling, which nothing was computing, is not.
+
+    Reporting the ceiling next to the arm is what makes that checkable without
+    re-deriving it (``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS``).
+
+    THE STATE IS NEVER COLLAPSED
+    ----------------------------
+    ``uncapped`` and ``unknown`` are opposite statements and must not share a
+    null:
+
+    * ``capped``   — a cap IS in this run's base args: the float is the ceiling.
+    * ``uncapped`` — no ``--tp-cap-pct`` in the base args, so the measured book
+      has NO take-profit ceiling and the arm is unbounded. Not a failure to
+      compute. Note ``base_args`` applies the flag only to
+      ``LIVE_TP_CAPPED_FAMILIES``, so this is read from what ACTUALLY ran
+      rather than from ``--tp-cap-pct`` on the command line.
+    * ``unknown``  — ``atr_stop_mult`` or the arm is missing/unparseable: **we
+      could not look.** Never a fabricated number.
+    """
+    cap = flag_value(base, "--tp-cap-pct")
+    if cap is None or cap <= 0.0:
+        return "uncapped", None
+    mult = flag_value(base, "--atr-stop-mult")
+    if not mult or not arm_r or mult <= 0.0 or arm_r <= 0.0:
+        return "unknown", None
+    return "capped", cap / (mult * arm_r)
+
+
 def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
     """P80 of the WINNER-trade MFE distribution over the IS window only
     (M20 P4.4 — the percentile arm is baked from train-window trades so the
@@ -2025,6 +2088,9 @@ def main(argv: list[str]) -> int:
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
         decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
+        # Empty, never absent: a leg that proposed no p80 arm records `{}` so a
+        # consumer can tell "no arm proposed" from "arm proposed, unchecked".
+        arm_ceiling: dict = {}
         if a.p80_only:
             p["cells"] = []  # fixed cells already verdicted; p80 cell only
         # THE LEVER-OFF ARM SUPPRESSES IT. `cells_for` returns only the
@@ -2038,9 +2104,7 @@ def main(argv: list[str]) -> int:
         # not by the tests — which covered `cells_for` and never this hop.
         if (p["family"] in ("donchian", "pullback") and decay_in_scope
                 and not without_levers):
-            tm_val = next((float(x[1]) for x in
-                           zip(p["base"], p["base"][1:])
-                           if x[0] == "--trail-mult"), None)
+            tm_val = flag_value(p["base"], "--trail-mult")
             p80 = winner_mfe_p80(p["harness"], p["base"], leg_split)
             if p80 is not None and p80 > 0.5 and tm_val:
                 tight = max(1.5, round(tm_val / 2.0, 1))
@@ -2048,7 +2112,58 @@ def main(argv: list[str]) -> int:
                     (f"decay_p80arm{p80:g}R_t{tight:g}", "trail_decay",
                      ["--trail-decay-arm-r", str(p80),
                       "--trail-decay-tight-mult", str(tight)]))
-                print(f"   p80 winner-MFE arm = {p80}R", flush=True)
+                # CHECK THE PROPOSED ARM AGAINST THIS LEG'S OWN MEASURED TP
+                # REACH — the check that would have caught the whole
+                # arm-above-cap class, using data the sweep ALREADY had.
+                #
+                # `live_tp_reach_r` above records `tp_r_effective_*`, the
+                # per-trade cap_R measured on this leg's own base book. Nothing
+                # ever COMPARED the proposed arm to it, so the sweep could
+                # propose an arm above the ceiling of the very book it had just
+                # measured and say nothing. That is how six arms shipped inert
+                # (BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP).
+                #
+                # The MEASURED comparison is primary; the derived ATR/close
+                # ceiling rides along as the interpretable form (it says which
+                # vol REGIME the arm needs, which a median cannot).
+                ceil_state, ceil_pct = arm_atr_close_ceiling(p["base"], p80)
+                _reach = leg_v["live_tp_reach_r"]["IS"]
+                tp_med, tp_max = _reach.get("median"), _reach.get("max")
+                if tp_med is None:
+                    reach_verdict = "unmeasured"   # cap off, or no trades
+                elif p80 > tp_med:
+                    reach_verdict = "above_measured_median_ceiling"
+                else:
+                    reach_verdict = "within_measured_median_ceiling"
+                arm_ceiling = {
+                    "p80_arm_r": p80,
+                    "arm_reach_verdict": reach_verdict,
+                    "measured_tp_reach_r_median_IS": tp_med,
+                    "measured_tp_reach_r_max_IS": tp_max,
+                    "arm_ceiling_state": ceil_state,
+                    "arm_atr_close_ceiling_pct": (
+                        None if ceil_pct is None
+                        else round(ceil_pct * 100.0, 4)),
+                }
+                _ceil_txt = (f"needs ATR/close <= {ceil_pct * 100.0:.3f}%"
+                             if ceil_state == "capped" else
+                             "UNCAPPED book — no TP ceiling, so this arm is "
+                             "NOT comparable to a live capped one"
+                             if ceil_state == "uncapped" else
+                             "ceiling UNKNOWN — atr_stop_mult unreadable")
+                if reach_verdict == "above_measured_median_ceiling":
+                    print(f"   ⚠️ p80 winner-MFE arm = {p80}R EXCEEDS this "
+                          f"leg's measured median TP reach {tp_med}R — it "
+                          f"would fire on under half its own trades "
+                          f"({_ceil_txt})", flush=True)
+                elif reach_verdict == "unmeasured":
+                    print(f"   p80 winner-MFE arm = {p80}R  (TP reach "
+                          f"UNMEASURED — cap off or no trades; {_ceil_txt})",
+                          flush=True)
+                else:
+                    print(f"   p80 winner-MFE arm = {p80}R  (within measured "
+                          f"median TP reach {tp_med}R; {_ceil_txt})",
+                          flush=True)
             else:
                 print(f"   p80 cell skipped (p80={p80}, tm={tm_val})",
                       flush=True)
@@ -2275,6 +2390,9 @@ def main(argv: list[str]) -> int:
                 if e.get("verdict") == "path_b_wf_pass"
                 and e.get("path_b_rate_ok") is None),
         }
+        # The proposed arm's reachability check rides in the verdict, so a
+        # downstream reader never has to re-derive it from the run log.
+        leg_v["p80_arm_reach"] = arm_ceiling
         verdicts[leg] = leg_v
 
     # `tp_cap_pct` is part of the MEASUREMENT IDENTITY, not a run detail.
