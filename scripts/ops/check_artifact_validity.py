@@ -142,18 +142,26 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
     # 5427/2211), verified against the committed artifacts. They are now regular registered
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
-    # REMOVED 2026-08-16 (the entry's own contract — "the fix landed → remove the
-    # entry"): the zero-row FMP capture US-20260729T073711Z.fmp.json is PRUNED and
-    # its owner row BL-20260730-PRODUCER-VACUITY-GUARD was already `resolved`, so
-    # only the grandfather entry was left behind — and it EXPIRED on 2026-08-15,
-    # failing this guard for every PR on 08-16 regardless of what the PR touched.
-    # Measured before pruning rather than assumed: of 19 committed captures exactly
-    # ONE was zero-row (that FMP file, the only FMP capture ever written), while the
-    # producer has since written 18 fxstreet captures through 2026-08-14 with zero
-    # empties. So "stop writing empty ones" had already landed and only "prune the
-    # dead capture" remained. The negative itself is not lost — it is recorded in
-    # the FMP free-tier NO-BUILD finding (#7888) and in this comment; the pruned
-    # file carried no rows, so no measurement went with it.
+    # REMOVED 2026-08-16 (the entry's own contract, and its expiry fired on 2026-08-15 —
+    # which is what forced the decision rather than letting the debt go permanent).
+    # THREE sessions converged on this within ~20 minutes, each having found it reactively
+    # as a red check on unrelated work; this comment is the union of what each established:
+    #   * PRUNE — the zero-row capture US-20260729T073711Z.fmp.json is DELETED. It was the
+    #     ONLY *.fmp.json ever written in comms/macro/econ_calendar_captures/, a residue of
+    #     the FMP free-tier NO-BUILD finding (#7888).
+    #   * MEASURED, not assumed — of 19 committed captures exactly ONE was zero-row (that
+    #     file), while the producer has written 18 fxstreet captures through 2026-08-14
+    #     with zero empties. The daily econ-calendar-produce cron runs FXStreet, not FMP.
+    #   * `rows == []` was verified BEFORE deleting, which is the load-bearing check:
+    #     econ_calendar_produce GLOBS this directory including *.fmp.json, so the file WAS
+    #     a producer input — it contributed zero rows, and a non-empty one could not have
+    #     gone silently. (A grep for the filename would not have shown that.)
+    #   * REFUSE (#9552) — econ_calendar_fmp.write_capture now declines to write a zero-row
+    #     capture and says so. Pruning alone rests on FMP STAYING abandoned; this makes
+    #     re-seeding structurally impossible if FMP_API_KEY is ever provisioned.
+    # The negative itself is not lost — it lives in #7888 and in this comment.
+    # An expired grandfather whose date is simply pushed forward is the "it was already
+    # like that" survival path this list exists to close, so the date was never touched.
 }
 
 
