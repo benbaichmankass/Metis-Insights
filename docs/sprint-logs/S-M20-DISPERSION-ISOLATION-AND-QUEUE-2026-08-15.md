@@ -499,6 +499,62 @@ builds no-take-profit books by construction; `grep` for `tp_cap` / `tp_geometry`
 in that file returns nothing, so there is not even a field to check. A clean
 result, recorded with its date so the next session knows when it was last true.
 
+### 14. The tranche sweep landed; acknowledgements are now GENERATED, not written
+
+31 runs, 293 rows, and **14** live cells where live-parity evidence contradicts
+an `honest_negative`. Hand-writing two refs was fine; fourteen within the hour
+was not, so `scripts/research/m20_ack_corpus_disagreements.py` now drafts them.
+It **imports the agreement guard's own `find_disagreements`** rather than
+reimplementing the predicate — a second definition would be free to drift from
+the one CI fails on — writes `ref` prose only (never `status`, never
+`tp_geometry`), and is dry-run by default with the dry-run asserted **on bytes**,
+not on the log line claiming it.
+
+**It paid for itself on the first batch.** `mhg_pullback_1d / vol_trail` reads
+`wf=5/6` and is really **ONE** real win: four of six folds are inert — the lever
+never fired — and an inert fold still counts `ok`. Hand-written, that cell
+enters the matrix as a solid pass. Two more carry the same shape. **8 of 14 are
+Path B**, and exactly **two** are the strong shape (Path-A PASS, no inert fold):
+`sol_pullback_2h/trail_decay` and `ada_pullback_2h/trail_decay`. Saying "14
+cells now pass" would be true and misleading, so the split is what got recorded.
+
+### 15. Second vintage pass — and the cell I refused to stamp
+
+67 more cells declared live-parity (`trail_geometry`, `vol_trail`,
+`trail_decay`), same three checks as § 12. **`squeeze_breakout_4h /
+trail_geometry` was skipped**: it requested the cap and its family carries one —
+two of three checks pass — but both its rows carry **no measured live-TP-reach
+distribution**, which is the check that separates APPLIED from REQUESTED. A
+criterion that never excludes anything is not a criterion.
+
+Vintage **153 → 106** (47), against 67 stamped − 20 already-fresh = 47. It
+reconciles exactly, **but only once the UNDATED bucket is counted** — read
+against `pre_cutover` alone it looks 2 short, which is what I first computed.
+
+### 16. The screen's rows landed, and the pre-registered test RESOLVED
+
+The completed 4-arm screen was still trainer-side only — the committed record
+held `off0` and nothing else for its three legs, i.e. this sprint reproducing
+the "22 % machine-readable" defect the record exists to end. Pulled via relay
+#9522 (consolidator fetched from the branch, not re-implemented), transfer
+sha256-verified, cross-check clean. Record **234 → 246**.
+
+Re-derived **from the script**: `per_leg` denominator **3 → 6** — the
+pre-registered required check. One mover (`ict_scalp_sol_5m`, off12), the
+machine-readable form of the flip pre-registered 44 minutes ahead.
+
+**The comparison resolved: `per_leg` 2/6 = 33.3 % vs `family_pooled` 9/27 =
+33.3 %, Fisher p = 1.0000.** Identical point estimates — and the honest reading
+is the one written down first: at n = 6 no reachable outcome could reach
+p < 0.05, so this settles nothing, and quoting the agreement as a result would
+be the overclaim the pre-registration exists to prevent. Re-checking
+reachability also caught a gap in **my own** table: it omits **5/6** (p = 0.062,
+equally unreachable). Corrected.
+
+⚠️ The ANY-screen headline reads 33.3 % before *and* after (9/27 → 11/33
+coincides), so the EVERY-screen rate (26.7 % → 27.3 %) is pinned beside it in
+the test — otherwise a future merge adding nothing would pass.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running
@@ -569,6 +625,24 @@ result, recorded with its date so the next session knows when it was last true.
   earlier (§ 11). Fixed, not logged.
 - The sprint log's own header still said the 5m screen was running after it had
   finished; corrected in `ec632c3d`.
+- **Mine, and the worst of the session: EIGHT consecutive hourly status pings
+  delivered the single character `|`** (#9495 → #9521, 16:17Z → 23:18Z). The
+  `send-ping` issue-body parser is `grep -m1 '^message:'` — one line — so a
+  `message: |` block truncates to the marker, and the action **exits 0** and
+  closes "completed". The pre-existing non-empty check cannot catch it because
+  `|` is not empty. Roughly seven hours in which the operator's only overnight
+  visibility channel was dead while every available signal said it worked,
+  during a session explicitly instructed to ping hourly. Caught only by checking
+  the action's own log line rather than trusting the ✅. Guard shipped refusing
+  bare block markers; `BL-20260815-SEND-PING-BLOCK-SCALAR-DELIVERS-ONE-CHARACTER`
+  stays **open** because that guard is enumerative and the durable fix is to
+  assert a plausible length or echo the queued body back.
+- **Not mine:** `artifact-validity-guard` began failing **every** PR at 00:00Z
+  on 08-16 when a `KNOWN_VACUOUS` grandfather expired (`until: 2026-08-15`) — by
+  design; the list forbids permanent grandfathering. Its owner row was already
+  `resolved`, so only the entry was left behind. Measured before acting (1 of 19
+  captures zero-row, 18 non-empty since), pruned the dead capture, removed the
+  entry. Did **not** extend the date: that turns a guard into a snooze button.
 
 ## Risks and Follow-Ups
 - **Trainer disk at 90% (4.8 G free)** across every relay this session. Not
