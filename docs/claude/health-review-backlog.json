@@ -17796,6 +17796,29 @@
         "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER"
       ],
       "updated_at": "2026-08-16T13:50:00+00:00"
+    },
+    {
+      "id": "BL-20260816-MGC-4487-CONFIRM-CLOSE-AT-OPEN",
+      "opened_at": "2026-08-16T14:40:00+00:00",
+      "opened_by": "claude (sysrev-0816, operator-requested verbatim: 'make a note in the backlog to see that that trade closes once market's open tomorrow')",
+      "severity": "high",
+      "tier": "1 (verification only -- the placement itself is the operator-approved Tier-2 action)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "CONFIRM at the next CME open that ib_paper MGC trade 4487 actually closed on its attached take-profit -- an attached target is a PLACED order, never a fill",
+      "detail": "FOLLOW-UP TO BL-20260816-COVERAGE-IS-ONE-SIDED. Operator approved placing MGC 4487's DECLARED take-profit ('yes place it', 2026-08-16), knowing the level is already through the market: trades.take_profit_1 = 4297.66 against a last of ~4398.70, so a 105-contract LONG sells into a bid ~101 points ABOVE its target. The expected outcome is that the position closes essentially at the open, favourably relative to the declared plan.\n\nWHY THIS NEEDS A ROW RATHER THAN AN ASSUMPTION. Placing a limit and observing a fill are different facts, and this repo has an incident class built on collapsing them: IB_PLACE_CONFIRM_S exists because placeOrder is async and fire-and-forget reported success on orders IBKR rejected outright (trade #2531), and IB_CLOSE_CONFIRM_S exists because an accepted-but-unfilled close left a REAL position open while the journal row read closed. So 'the target was attached' must not be recorded anywhere as 'the trade closed'.\n\nWHAT TO CHECK, and in this order:\n  1. /api/diag/ib_open_orders?account_id=ib_paper -- read_state MUST be 'orders_read'. A      'could_not_look' answers nothing and is NOT evidence of a fill; re-check later.\n  2. /api/diag/exchange_positions?account_id=ib_paper -- MGC absent from a positions list      that is [] (genuinely flat), never null (could-not-read).\n  3. trade_journal.db trade 4487 -- status closed, and read pnlProvenance: IBKR historical-     candle coverage is 0%, so the realized figure must come from the exchange-fills store      (CommissionReport.realizedPNL via ict-ib-executions-pull.timer, HOURLY), not a mark. A      FABRICATED grade here is its own finding.\n  4. The stop leg. Order 359 (STP @ 4278.8, oca-protect-357) shares the target's OCA group,      so ocaType=1 should cancel it on the fill. If MGC is flat and 359 is STILL RESTING,      that is a naked SHORT-side exposure the moment anything re-enters -- escalate, do not      file quietly.\n\nIF IT DID NOT FILL, that is the more informative outcome and must not be written off as a venue quirk: a marketable limit that does not fill at a liquid open means the order did not reach the book the way we believe it did, which reopens the placement path itself.\n\nTIMING: CME gold (MGC) reopens Sunday 22:00 UTC; the first RTH open is Monday. Do not grade this over a closed venue -- 'no fill' while the market is shut is not an observation.",
+      "resolution_criteria": [
+        "A confirmed clean read (read_state 'orders_read') showing ib_paper MGC flat, with the positions list [] rather than null.",
+        "Journal trade 4487 status=closed with a realized PnL whose provenance is MEASURED (exchange-fills store), or an explicit statement of why it is not.",
+        "Stop order 359 confirmed cancelled by its OCA group -- or, if still resting on a flat book, escalated as a fresh naked-exposure finding rather than closed here.",
+        "If no fill occurred at a genuinely open venue: the placement path is reopened as a defect, not recorded as expected behaviour."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260816-NO-PER-ORDER-IB-CANCEL",
+        "/api/diag/ib_open_orders",
+        "scripts/ops/attach_ib_target.py"
+      ]
     }
   ]
 }
