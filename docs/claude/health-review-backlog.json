@@ -17943,6 +17943,143 @@
         "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER"
       ],
       "updated_at": "2026-08-16T13:50:00+00:00"
+    },
+    {
+      "id": "BL-20260816-MGC-4487-CONFIRM-CLOSE-AT-OPEN",
+      "opened_at": "2026-08-16T14:40:00+00:00",
+      "opened_by": "claude (sysrev-0816, operator-requested verbatim: 'make a note in the backlog to see that that trade closes once market's open tomorrow')",
+      "severity": "high",
+      "tier": "1 (verification only -- the placement itself is the operator-approved Tier-2 action)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "CONFIRM at the next CME open that ib_paper MGC trade 4487 actually closed on its attached take-profit -- an attached target is a PLACED order, never a fill",
+      "detail": "FOLLOW-UP TO BL-20260816-COVERAGE-IS-ONE-SIDED. Operator approved placing MGC 4487's DECLARED take-profit ('yes place it', 2026-08-16), knowing the level is already through the market: trades.take_profit_1 = 4297.66 against a last of ~4398.70, so a 105-contract LONG sells into a bid ~101 points ABOVE its target. The expected outcome is that the position closes essentially at the open, favourably relative to the declared plan.\n\nWHY THIS NEEDS A ROW RATHER THAN AN ASSUMPTION. Placing a limit and observing a fill are different facts, and this repo has an incident class built on collapsing them: IB_PLACE_CONFIRM_S exists because placeOrder is async and fire-and-forget reported success on orders IBKR rejected outright (trade #2531), and IB_CLOSE_CONFIRM_S exists because an accepted-but-unfilled close left a REAL position open while the journal row read closed. So 'the target was attached' must not be recorded anywhere as 'the trade closed'.\n\nWHAT TO CHECK, and in this order:\n  1. /api/diag/ib_open_orders?account_id=ib_paper -- read_state MUST be 'orders_read'. A      'could_not_look' answers nothing and is NOT evidence of a fill; re-check later.\n  2. /api/diag/exchange_positions?account_id=ib_paper -- MGC absent from a positions list      that is [] (genuinely flat), never null (could-not-read).\n  3. trade_journal.db trade 4487 -- status closed, and read pnlProvenance: IBKR historical-     candle coverage is 0%, so the realized figure must come from the exchange-fills store      (CommissionReport.realizedPNL via ict-ib-executions-pull.timer, HOURLY), not a mark. A      FABRICATED grade here is its own finding.\n  4. The stop leg. Order 359 (STP @ 4278.8, oca-protect-357) shares the target's OCA group,      so ocaType=1 should cancel it on the fill. If MGC is flat and 359 is STILL RESTING,      that is a naked SHORT-side exposure the moment anything re-enters -- escalate, do not      file quietly.\n\nIF IT DID NOT FILL, that is the more informative outcome and must not be written off as a venue quirk: a marketable limit that does not fill at a liquid open means the order did not reach the book the way we believe it did, which reopens the placement path itself.\n\nTIMING: CME gold (MGC) reopens Sunday 22:00 UTC; the first RTH open is Monday. Do not grade this over a closed venue -- 'no fill' while the market is shut is not an observation.",
+      "resolution_criteria": [
+        "A confirmed clean read (read_state 'orders_read') showing ib_paper MGC flat, with the positions list [] rather than null.",
+        "Journal trade 4487 status=closed with a realized PnL whose provenance is MEASURED (exchange-fills store), or an explicit statement of why it is not.",
+        "Stop order 359 confirmed cancelled by its OCA group -- or, if still resting on a flat book, escalated as a fresh naked-exposure finding rather than closed here.",
+        "If no fill occurred at a genuinely open venue: the placement path is reopened as a defect, not recorded as expected behaviour."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260816-NO-PER-ORDER-IB-CANCEL",
+        "/api/diag/ib_open_orders",
+        "scripts/ops/attach_ib_target.py"
+      ]
+    },
+    {
+      "id": "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+      "opened_at": "2026-08-16T14:52:00+00:00",
+      "opened_by": "claude (sysrev-0816)",
+      "severity": "critical",
+      "tier": "2 (order path)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "ib_paper MES holds 30 contracts of STOP against a 15 long in TWO DISJOINT OCA groups -- either stop firing flattens the position and leaves the other resting, which SELLS AGAIN into a naked short",
+      "detail": "MEASURED, /api/diag/ib_open_orders?account_id=ib_paper at 2026-08-16T14:37:53Z, read_state 'orders_read' (a confirmed clean account-wide read, not a could-not-look). Position: MES 15 LONG @ 7630.872. Resting stops:\n  order 338 -- STP SELL 15 @ 7516.50, oca_group 'oca-protect-336', client_id 497, GTC\n  order 375 -- STP SELL 15 @ 7533.75, oca_group 'oca-protect-373', client_id 597, GTC\nTotal stop quantity 30 against a position of 15, in TWO SEPARATE OCA groups.\n\nTHE FAILURE IS NOT 'redundant protection'. ocaType=1 cancels the rest of the SAME group when one leg fills; it says nothing about a different group. So the sequence is: stop 375 fires -> sells 15 -> MES is FLAT -> order 338 is still resting -> it fires -> sells 15 more -> the account is SHORT 15 MES that no strategy asked for, with no stop of its own. The same shape as the stranded MGC market orders, reached by a different route.\n\nWHY NOTHING CAUGHT IT. `_check_broker_naked_ib_positions` asks whether coverage is SUFFICIENT; 30 >= 15 passes with room to spare. There is no upper bound anywhere on the IB path. Bybit already has the corresponding detector -- `_bybit_position_protection` emits a detect-only `over_covered` signal at >1.5x -- so this is a KNOWN class that was implemented for one venue and never ported to the other, not a novel discovery. That gap is the finding.\n\nINTERACTION WITH THE TARGET ATTACH (ordering is load-bearing). A take-profit can only join ONE OCA group, so attaching it to oca-protect-373 leaves 338 outside and the naked-short path fully intact. `scripts/ops/attach_ib_target.py` already REFUSES when it sees more than one stop OCA group, and that refusal is correct -- the redundant stop must be cancelled first. Collapsing 30 -> 15 leaves the position exactly covered at every instant, so there is no window where MES is unprotected.\n\nWHICH STOP IS THE STRAY is NOT yet established and must not be guessed: read the journal's declared stop_loss for the open MES trade and cancel the leg that does not match it. Cancelling either one is a protective cancel (`--force-protective` on cancel-ib-order) and is Tier-2.",
+      "resolution_criteria": [
+        "Establish from the journal which of 338 / 375 matches the open MES trade's declared stop_loss -- documented, not inferred from order id ordering.",
+        "Cancel the non-matching leg so total stop quantity equals position size, confirmed by a follow-up read_state 'orders_read'.",
+        "Port an upper-bound over-coverage detector to the IB naked sweep, matching the detect-only `over_covered` signal `_bybit_position_protection` already emits -- a venue-specific detector for a venue-independent failure is the actual gap.",
+        "A regression test pinning that stops in DISJOINT OCA groups are NOT treated as mutually cancelling, since that assumption is what makes 30-vs-15 read as safe."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+        "order_monitor._check_broker_naked_ib_positions",
+        "order_monitor._bybit_position_protection",
+        "scripts/ops/attach_ib_target.py"
+      ]
+    },
+    {
+      "id": "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT",
+      "opened_at": "2026-08-16T15:00:00+00:00",
+      "opened_by": "claude (sysrev-0816, follow-on audit to BL-20260816-COVERAGE-IS-ONE-SIDED)",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "bybit_measured_clean_alpaca_unmeasurable_13_positions",
+      "area": "exit-coverage",
+      "title": "The IB one-sided-coverage fix does NOT generalise: the Alpaca sweep and the Bybit sweep are both stop-only, and bybit_bracket_audit.py COLLECTS the target side but never lets it reach the verdict -- so it prints PROTECTED over a target-naked position",
+      "detail": "SCOPE CHECK after fixing the IB half: do the other two venue sweeps share the blind spot that left both ib_paper positions target-naked? They do. Read from the code, not inferred from the IB case.\n\nALPACA -- `order_monitor._check_broker_naked_equity_positions` decides on `protected = client.has_protective_orders(symbol)` then `if protected is None or protected: continue`. `AlpacaClient.has_protective_orders` returns True on the FIRST leg matching `\"stop\" in otype or otype == \"limit\"` -- one membership test over both sides, the exact shape just removed from IB's coverage path. A stop-only Alpaca position answers 'protected', the sweep skips it, the missing take-profit is invisible. The IB fix deliberately did NOT touch IB's own `has_protective_orders`, which keeps the combined test legitimately because the IB sweep consumes `protection_coverage` instead. Alpaca has no coverage function -- the boolean IS the decision.\n\nBYBIT -- `_bybit_position_protection` is stop-only BY CONSTRUCTION: it reads `pos[\"stopLoss\"]` and sums SL legs into `covered_qty` (`sl_leg_ids`, `unknown_qty_sl_legs`, `source: partial_sl_legs`), and never touches `takeProfit`. So the live sweep cannot fire on target-nakedness.\n\nCORRECTION -- AN EARLIER VERSION OF THIS ROW CLAIMED BYBIT TARGET-NAKEDNESS WAS 'PRESENTLY UNMEASURABLE'. THAT WAS WRONG, and the impossibility-claim-guard caught it before merge (the row asserted an impossibility with no `checked:` annotation naming what was searched). What the check actually found:\n  checked: src/runtime/order_monitor.py:6928 -- `get_open_orders` IS called in-process.\n  checked: src/units/accounts/execute.py:2256 -- and again by `_bybit_open_missing_sl_leg`.\n  checked: scripts/ops/bybit_bracket_audit.py -- a Tier-1 `bybit-bracket-audit` system action exists, is read-only by construction (`get_positions` + `get_open_orders` only), and ALREADY collects `tp_legs` (line 197/199) and `position_takeProfit` (line 159/165).\nSo the Bybit target side is MEASURABLE ON DEMAND today. The capability is not missing.\n\nTHE REAL DEFECT IS SHARPER THAN THE ONE I FIRST FILED. `bybit_bracket_audit.py` collects the target side and then never lets it reach the verdict: `PROTECTED` / `PARTIALLY_NAKED` / `NAKED` is computed from SL coverage ALONE (lines 218-222), and `tp_legs` appears only in the printed detail (lines 406/414). A Bybit position holding a full stop and ZERO take-profit legs is therefore graded **PROTECTED** by the one tool built to answer 'is every open Bybit trade actually protected at the broker right now?'.\n\nThat is UNPROVENANCED DIAGNOSTIC OUTPUT, sub-class A (semantic substitution): the label names the quantity 'this position is protected'; the code computed 'this position is stop-covered'; the two are not the same, and nothing in the output reveals the substitution. It is worse than a silent gap, because a reader who runs the audit gets an explicit green over the exact condition they were checking for. The data needed to be right is already in the same dict.\n\nWHAT IS STILL NOT CLAIMED: that any Alpaca or Bybit position IS currently target-naked. That was measured for ib_paper (zero limit orders account-wide) and is UNMEASURED here -- and now that the tool is known to exist, measuring it is a cheap Tier-1 run rather than a research project. Do not let the IB measurement stand in for the other two venues.",
+      "resolution_criteria": [
+        "An Alpaca counterpart to bybit_bracket_audit.py (read-only, alpaca_client_for + _open_orders_for_symbol), so the 13 measured positions can be graded at all -- this is the blocking step for the Alpaca half.",
+        "With it: a measurement, stated with its population, of how many of those 13 hold a stop and no take-profit. alpaca_live must be reported as could_not_look, never folded in as zero.",
+        "Alpaca's naked sweep decides on a two-sided grade rather than the any-leg boolean; if has_protective_orders is kept, its docstring must forbid naked-detection use the way IB's now does, and the sweep must call something else.",
+        "bybit_bracket_audit.py's verdict accounts for the target side it already collects: a stop-only book must NOT print PROTECTED. Either the verdict becomes two-sided or the label narrows to what it computed (e.g. SL_COVERED).",
+        "Bybit's live protection state reports the target side explicitly (even as a separate field), so 'we did not grade it' is distinguishable from 'it is covered'.",
+        "A test per venue pinning that a STOP-ONLY book does NOT read as protected -- the single assertion that would have caught IB, Alpaca, Bybit and the audit tool alike."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE",
+        "BL-20260629-ALPACA-NAKED-BRACKET",
+        "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
+        "order_monitor._check_broker_naked_equity_positions",
+        "order_monitor._bybit_position_protection",
+        "AlpacaClient.has_protective_orders",
+        "scripts/ops/bybit_bracket_audit.py",
+        "BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA"
+      ],
+      "notes": [
+        {
+          "at": "2026-08-16T14:55:00+00:00",
+          "note": "[MEASURED — THE BYBIT HALF IS REFUTED] Ran the Tier-1 `bybit-bracket-audit` (issue #9725, run 31953868225, 14:50:39Z), which resolution-criterion 1 asked for. RESULT: NO Bybit position is target-naked. Population: 5 non-flat symbols across 4 accounts (bybit_1 ADAUSDT + XRPUSDT, bybit_2 XRPUSDT, bybit_portfolio ETHUSDT + XRPUSDT). EVERY one carries at least one TP leg -- ADAUSDT 2 SL + 2 TP, the other four 1 SL + 1 TP each. So the condition measured on ib_paper (zero limit orders account-wide) does NOT reproduce on Bybit, and the row's refusal to carry the IB measurement across was the right call.\n\nWHAT SURVIVES is strictly the DETECTOR finding, unchanged and still worth fixing: `_bybit_position_protection` is stop-only, so the live sweep could not have told us this, and `bybit_bracket_audit.py`'s verdict still ignores the `tp_legs` it collects. Today those would print PROTECTED over a target-naked book; today there is no target-naked book to print it over. A detector that is only correct because the failure is currently absent is not a working detector -- but the severity of the OPEN condition drops, so this is a latent-gap row, not a live-exposure row.\n\nALPACA REMAINS UNMEASURED -- no live Alpaca position appeared in this audit (it is Bybit-only by construction), so do not read '5/5 clean' as covering it."
+        },
+        {
+          "at": "2026-08-16T15:00:00+00:00",
+          "note": "[ALPACA HALF — THE GAP IS NOW QUANTIFIED, AND IT IS THE BIGGEST OF THE THREE VENUES] /api/diag/exchange_positions at 2026-08-16T14:55:34Z (issue #9728) gives the denominator that was missing:\n  alpaca_paper      6 positions -- GLD 7L, IEF 141S, IWM 124L, QQQ 24L, SPY 11L, TLT 938S\n  alpaca_portfolio  7 positions -- GLD 39L, IEF 152S, IWM 187L, QQQ 3L, SLV 26L, SPY 29L, TLT 1042S\n  alpaca_options_paper  [] -- genuinely flat (count 0, NOT null)\n  alpaca_live       null -- could_not_look, NOT flat (consistent with the known BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE); its position count is unknown and must not be recorded as zero.\nSo **13 live Alpaca positions** have a target-side protection state that NO sweep grades and NO external surface can read -- against 2 on ib_paper, where the same class was found live. That is 6.5x the population of the venue that produced the incident.\n\nIS IT MEASURABLE? Checked properly this time, after getting the Bybit answer wrong:\n  checked: src/units/accounts/alpaca_client.py:767 -- `_open_orders_for_symbol` EXISTS, so the in-process capability is there (it is what `has_protective_orders` already calls).\n  checked: scripts/ops/*.py -- the only alpaca-touching ops scripts are `flatten_alpaca_position.py` (a MUTATION), plus backfill/supersede jobs. There is NO alpaca counterpart to `bybit_bracket_audit.py`.\n  checked: scripts/ops/bybit_bracket_audit.py:334,357 -- it resolves clients via `bybit_client_for`, so it is bybit-only BY CONSTRUCTION and cannot be pointed at Alpaca.\n  checked: src/web/api/routers/diag.py -- the only alpaca surface is `broker_account_status`, which serves authorization FLAGS and lists no orders.\n  checked: docs/research/RESEARCH-CAPABILITY-INDEX.md -- no alpaca entry.\nCONCLUSION, stated precisely: the capability exists in-process; there is no read surface and no audit tool, so a session cannot measure it TODAY. This is NOT the claim I wrongly made about Bybit -- there the tool already existed and I had not looked. The remedy is cheap and known: mirror bybit_bracket_audit.py against `alpaca_client_for` + `_open_orders_for_symbol`, which also lets the Alpaca sweep stop deciding on the any-leg boolean."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260816-BYBIT-PORTFOLIO-ETH-DEAD-LEG-UNBACKED-JOURNAL-QTY",
+      "opened_at": "2026-08-16T14:55:00+00:00",
+      "opened_by": "claude (sysrev-0816, surfaced by the bybit-bracket-audit run for #9725)",
+      "severity": "high",
+      "tier": "2 (order path / journal integrity)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "bybit_portfolio ETHUSDT: journal holds 35.01 against an exchange position of 21.05 with trade #4547's SL leg DEAD -- 13.96 of journal qty is unbacked and unprotected, and the audit ROLL-UP prints '0 naked' over it",
+      "detail": "MEASURED by `bybit-bracket-audit` (issue #9725, run 31953868225, 2026-08-16T14:50:39Z) -- read-only, `get_positions` + `get_open_orders` only.\n\n  bybit_portfolio ETHUSDT -- exchange position size 21.05 Sell, ONE SL leg (21.05 @ 1979.25, id 88c75ff7-1fd) and one TP leg.\n  Journal: TWO open rows summing 35.01.\n    #4135 eth_pullback_2h        short 21.05  journal_sl=1979.25357143  leg=ALIVE 88c75ff7-1fd\n    #4547 trend_donchian_eth_4h  short 13.96  journal_sl=1916.51928571  leg=DEAD  96fbd128-d1e\n  Arithmetic: 21.05 + 13.96 = 35.01, and the exchange size equals #4135's qty EXACTLY. So #4547's entire 13.96 is unbacked by any exchange position, and its tracked stop leg is confirmed dead at the broker.\n\nTWO SEPARATE PROBLEMS IN ONE ROW. (a) A journal row claiming 13.96 of live short exposure that the exchange does not hold -- the `journal_qty_divergent` class, which `_bybit_position_protection` emits as DETECT-ONLY and nothing remediates. (b) That row's protective leg is DEAD, so if the position WERE real it would be unprotected; the netted book hides which of the two is true from every aggregate.\n\nAND THE ROLL-UP SAID IT WAS FINE. The audit's summary line reads: '5/5 audited non-flat symbol(s) SL-covered at the broker within [100%, 100.5%]; 0 naked, 0 over-covered.' That is TRUE and it is measured against the EXCHANGE size (21.05/21.05 = 100%), which is the right denominator for 'is the venue position covered'. It is the wrong denominator for 'is every journal row backed and protected', and the roll-up does not say which question it answered. The dead leg and the 13.96 discrepancy appear only in the per-symbol detail a reader has to scroll past the green summary to reach.\n\nThis is the SECOND unprovenanced-summary defect in the same tool, found in the same run as the `tp_legs`-ignored-by-the-verdict one (BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT). Both have the same shape: the tool COLLECTS the disqualifying evidence and the headline verdict does not consult it.",
+      "resolution_criteria": [
+        "Establish whether #4547 is a phantom row (never really opened / already closed at the venue and not reconciled) or a real position the exchange lost -- from the fills store and order_packages, not by assuming the netted size tells you.",
+        "If phantom: close/supersede it with the correct provenance so it stops counting as live exposure in every aggregate that sums journal position_size.",
+        "The audit roll-up must not print an unqualified '0 naked' when any audited symbol has a DEAD tracked leg or a journal-vs-exchange qty divergence -- either surface a count in the summary or state the denominator the verdict used.",
+        "Confirm whether the detect-only `journal_qty_divergent` signal actually fired for this symbol; if it did and nothing surfaced it, that silence is its own finding."
+      ],
+      "refs": [
+        "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT",
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+        "BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+        "scripts/ops/bybit_bracket_audit.py",
+        "order_monitor._bybit_position_protection"
+      ]
+    },
+    {
+      "id": "BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES-VENUE-CLOSED",
+      "opened_at": "2026-08-16T15:02:00+00:00",
+      "opened_by": "claude (sysrev-0816, operator-directed 'cancel order 6')",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "open_cancel_pending_at_venue",
+      "area": "exit-coverage",
+      "title": "IB ACCEPTS cancelOrder (retCode 0 'OK') and the order does NOT go away -- it moves to PendingCancel and stays there while the venue is shut; measured on order 6, and it is the same state order 378 has been stuck in for ~2.5h",
+      "detail": "MEASURED, `cancel-ib-order` APPLY on ib_paper order 6 (issue #9731, run 31954321054, 2026-08-16T15:00:12Z), after a clean dry run (#9729) in which `lookup_state: found`, `owner_client_id: 9974`, and NEITHER safety guard tripped.\n\n  cancel_response: {retCode: 0, retMsg: 'OK', result: {orderId: '6'}}   <- IB ACCEPTED it\n  orders_on_account: 5   ->   orders_on_account_after: 5                <- nothing left\n  order 6 status: PreSubmitted -> **PendingCancel**, still 105 remaining\n  script verdict: action='cancel_not_effective', verify_state='still_present', exit 1\n\nTHE CAPABILITY IS NOT THE PROBLEM. Every layer built for this worked: the workflow forwarded the parameters (the #9723 fix, confirmed live), the account-wide lookup FOUND the order, the protective/clientId guards correctly declined to trip, and the script connected as the owning clientId 9974 and issued the cancel. The script also refused to call an accepted-but-uneffective cancel a success -- it verified the post-state, saw the order still resting, and exited 1. That is the IB_PLACE_CONFIRM_S / IB_CLOSE_CONFIRM_S lesson (an ACCEPT is not an OUTCOME) applied correctly on a third path, and it is why this is a finding rather than a silent no-op reported as done.\n\nIT REPRODUCES, WHICH IS WHAT MAKES IT A CLASS AND NOT AN ODDITY. Order 378 (MGC, MKT SELL 105, client 9927) has been sitting in PendingCancel since ~12:33Z -- roughly 2.5 hours -- after an earlier flatten attempt. Order 6 has now entered the SAME state by the SAME route. Two for two.\n\nLEADING HYPOTHESIS, NOT YET PROVEN: COMEX is CLOSED (Saturday 15:00Z; the reopen is Sunday 22:00Z). A cancel of a resting DAY order at a shut venue appears to be queued by IB and only completed when the session reopens, so PendingCancel is the honest intermediate state rather than a wedge. This is a HYPOTHESIS: it explains both observations and the timing, but it has not been confirmed against IBKR documentation or by observing a reopen, and the alternative -- that these cancels are genuinely stuck and will still be pending after the reopen -- is not excluded. Do NOT record it as fact until a reopen has been observed.\n\nOPERATIONAL CONSEQUENCE, AND IT IS THE SHARP END. Both stray MKT SELL 105 orders are DAY orders that ACTIVATE at the COMEX reopen, and both now carry a cancel that the venue has not yet honoured. At the reopen there is a RACE between the queued cancel and the order becoming eligible to fill. If a stray fills, it flattens the 105-contract long by itself; if it fills AFTER anything else has flattened the position, it opens a naked 105-contract SHORT. This directly gates the pending decision to attach MGC 4487's declared take-profit (4297.66, deeply marketable against a ~4398.70 market), because that target would ALSO execute at the reopen -- so target, stop, and two stray market sells would all become live in the same instant, and `attach_ib_target.py` already refuses while a non-protective order rests on the symbol, which is exactly the right refusal here.\n\nDO NOT RETRY THE CANCEL ON A LOOP. Re-issuing against an order already in PendingCancel adds nothing and is the churn class IB_CLOSE_RETRY_COOLDOWN_S exists to prevent.",
+      "resolution_criteria": [
+        "Observe the COMEX reopen (Sunday 22:00Z) and record what happens to orders 6 and 378: cancelled (hypothesis confirmed), still PendingCancel (hypothesis refuted, genuinely stuck — escalate), or FILLED (worst case — check immediately whether a naked short was opened).",
+        "Confirm or refute the venue-closed hypothesis against IBKR's own documented behaviour for cancelling a resting DAY order outside session hours, so the next session does not re-derive it from two observations.",
+        "If the cancels do complete at the reopen: document the expected latency so a future PendingCancel is not misread as a wedge, and give cancel_ib_order.py a way to say 'accepted, pending at venue' distinctly from 'not effective' — today both land as cancel_not_effective/exit 1, which collapses 'the venue has not got to it yet' into 'this failed'.",
+        "If they do NOT complete: this becomes a stuck-order-path finding needing a different remedy, and the naked-short exposure at every subsequent session open must be reassessed.",
+        "Separately: the ib_insync teardown emits `RuntimeError: Event loop is closed` from IB.__del__ after a successful run. Cosmetic here, but it prints a traceback on a clean path and could mask a real error in a future one."
+      ],
+      "refs": [
+        "BL-20260816-NO-PER-ORDER-IB-CANCEL",
+        "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "scripts/ops/cancel_ib_order.py",
+        "IB_PLACE_CONFIRM_S",
+        "IB_CLOSE_CONFIRM_S"
+      ]
     }
   ]
 }

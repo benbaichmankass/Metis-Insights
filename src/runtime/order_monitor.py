@@ -6555,21 +6555,35 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     broker-naked (the 2026-07-09 MGC monitor-blind incident: the alert claimed
     "Broker SL/TP backstop still holds" with no way to VERIFY it). This pass
     closes that gap: for each open, past-grace IB position it asks the broker
-    whether a resting protective leg exists (``IBClient.has_protective_orders``,
+    **how much protection actually rests** (``IBClient.protection_coverage``,
     an account-wide ``reqAllOpenOrders`` read) and, when none does, re-arms a
     GTC OCA via :func:`_attempt_naked_autoprotect` (the SAME re-arm path the
     reconciler and DB-naked check use).
+
+    .. note:: This docstring named ``IBClient.has_protective_orders`` until
+       2026-08-16. That is a DIFFERENT accessor — a boolean "does any leg
+       rest?" — and the body has never called it here. The distinction is the
+       whole of ``BL-20260816-COVERAGE-IS-ONE-SIDED``: the boolean answers
+       ``True`` for a stop-only book, so naming it invited exactly the reading
+       that let two live positions sit target-naked. Coverage is a QUANTITY,
+       and since 2026-08-16 a TWO-SIDED one — ``stop_qty`` and ``target_qty``
+       are returned separately, because a stop and a take-profit are not
+       interchangeable.
 
     **Cadence-gated** (build constraint 1): the account-wide IB order read is
     NOT run every monitor tick — it runs at most once per
     ``_ib_broker_naked_check_interval_seconds`` to stay clear of the IB
     tick-latency / pacing wedge class (BL-20260609). A read failure
-    (``has_protective_orders`` → ``None`` — breaker open, gateway wedged,
+    (``protection_coverage`` → ``None`` — breaker open, gateway wedged,
     ambiguous) is skipped: a transient outage must never be read as naked
     (build constraint 3, fail-safe: never PLACE on an unconfirmed read). Never
     raises.
 
-    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped"}``.
+    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped",
+    "partially_naked", "ungradeable", "read_failed", "covered",
+    "target_naked"}``. The last five were previously undocumented; a caller
+    reading the old five-key contract would have missed ``target_naked``
+    entirely, which is the one this sweep exists to surface.
     """
     global _LAST_IB_BROKER_NAKED_CHECK_MONO
     summary: Dict[str, int] = {
