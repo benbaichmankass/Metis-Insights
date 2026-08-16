@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T11:58:00+00:00",
+  "updated_at": "2026-08-16T12:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17661,6 +17661,27 @@
         }
       ],
       "updated_at": "2026-08-16T11:50:00+00:00"
+    },
+    {
+      "id": "BL-20260816-EXIT-INTERVAL-SOAK-SUMMARY-HAS-NO-READ-SURFACE",
+      "opened_at": "2026-08-16T12:35:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, found during live verification of my own PR)",
+      "severity": "high",
+      "tier": "1",
+      "status": "fix_landed_pending_ci",
+      "area": "observability",
+      "title": "exit_interval_soak's summary -- the cross-process max the module exists to produce -- was computed on every read and reachable by NOBODY; #9627 shipped the writer with no HTTP route",
+      "detail": "SELF-INFLICTED, found while live-verifying #9627 and recorded because the shape is the one this repo has a guard family for.\n\nWHAT SHIPPED: #9627 added src/runtime/exit_interval_soak.py (writer + read_soak_records with a `summary` computed over the WHOLE file) and registered the log on /api/diag/log_file?name=exit_interval_soak. That surface returns a raw TAIL of lines. It cannot return `summary`. Every sibling soak has a router -- exposure.py, pairs.py, allocator.py, exit_ladder.py, fc_geometry.py -- and this one had none. So `summary.max_interval_ms`, the cross-process maximum that is the entire reason the module exists, was computed on every call and consumed by nothing outside tests.\n\nTHE REPO ALREADY SAYS NOT TO DO THIS, in the docstring of the router I copied the shape from: exposure.py says 'This route is shipped in the same PR as the writer, deliberately... a signal written and never read is worse than a missing one, because reviewers see the field and assume something acts on it. A soak log with no read surface repeats that exactly.' I read that file while writing the fix and shipped the defect anyway.\n\nHOW IT SURFACED, which is the part worth keeping: #9627's OWN stated verification criterion was 'summary.max_interval_ms spanning more than one process_started_utc' -- a read that could not be performed. Verifying it meant paging the entire 37KB file out through the diag tail and re-implementing the aggregation client-side, which is precisely the reader-side windowing bias read_soak_records computes over the whole file to avoid. A PR whose acceptance test is unrunnable should have been caught at review, not at verification.\n\nTHE VERIFICATION STILL SUCCEEDED, by hand (relay #9686, whole file): 5 processes, 140 rows, 135 intervals, cross-process max 50044.3ms = 83.4% of the 60s requirement, ZERO breaches. The max came from the process that ended at 11:49:41Z, so every read after that restart lost it -- the newest process alone (n=3) shows 40648.6ms = 67.7%. The per-process reset would UNDERSTATE the max by 15.7 percentage points at this moment. That is the bias #9627 was built to remove, now demonstrated on live data rather than argued from first principles.",
+      "resolution_criteria": "1. SHIPPED: src/web/api/routers/exit_interval.py -> GET /api/bot/exit-interval/soak, a thin wrapper over read_soak_records mirroring the five sibling routers, mounted in main.py.\n2. SHIPPED: a mount test that FAILS when the router is written but not wired in (falsified by deleting the include_router line). Deliberately NOT written against the FastAPI app object -- that import needs email-validator, absent here, so such a test would SKIP rather than fail, and a skipped mount test is how a missing route stays invisible.\n3. OPEN, and the reason this row is worth more than the fix: NO sibling soak route has a mount test either. The class question is whether a guard should assert 'every src/runtime/*_soak.py with a read_soak_records has a router that is mounted' -- the same shape as provenance-consumer-guard, which exists because a written-and-never-read signal is worse than a missing one. Five existing routes are correct today by inspection, not by enforcement.\n4. LIVE VERIFY after deploy: GET /api/bot/exit-interval/soak returns summary.processes_seen > 1 without paging the whole file by hand.",
+      "refs": [
+        "src/runtime/exit_interval_soak.py::read_soak_records",
+        "src/web/api/routers/exit_interval.py (NEW)",
+        "src/web/api/routers/exposure.py (the docstring that states the rule)",
+        "issue #9686 (the by-hand verification this made necessary)"
+      ],
+      "related": [
+        "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT"
+      ]
     }
   ]
 }
