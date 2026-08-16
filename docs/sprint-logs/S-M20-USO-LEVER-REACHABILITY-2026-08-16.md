@@ -142,7 +142,20 @@ them.** `position_telemetry.py::cap_r` computes the value directly and is correc
 `unmeasured` two bullets above, and `uso_trend_1h` was a third. Corrected with
 the error named rather than silently overwritten.
 
-**3. A relay request was rejected by my own error, not the relay's.** #9777 put
+**3. I made the SAME "wrong on its own page" error I had just corrected — in
+this log, and on the coordination board.** Both claimed the registry would hold
+"zero `unmeasured` rows" after this merge. It holds **two**
+(`trend_donchian_sol_4h`, `scha_trend_long_1d`). The board comment even printed a
+table showing both rows as `unmeasured` directly under the prose asserting none
+existed — the identical shape as the memo sentence corrected in (2), committed
+minutes after correcting it. Caught by re-deriving the claim from the file, not
+by re-reading the sentence, which is the whole point of *cross-check with
+arithmetic*. The cause is worth naming: the two rows gained a **live basis** in
+their sub-objects from the concurrent session, and I read "has a measurement" as
+"is graded" — a sub-object basis is not a top-level verdict, and treating them as
+one is the collapse this registry exists to prevent.
+
+**4. A relay request was rejected by my own error, not the relay's.** #9777 put
 prose in the body; the relay parses the body as a one-path-per-line list and it
 **wins over the title**, so the first prose line became the "path". Re-dispatched
 with a bare-path body. Worth recording because the failure message was precise
@@ -153,9 +166,17 @@ and the mistake was mine.
 - `PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R` — **open.** The shared note is fixed;
   the two per-row `basis` strings that present `reach_r` as the source are the
   overnight session's call.
-- The registry now holds **zero `unmeasured` rows**, but **three remain
-  `queued_tier3`** (`sol_4h`, `xrp`, `scha`) awaiting the operator. Nothing here
-  decided any of them.
+- **TWO rows still carry `verdict: unmeasured`** — `trend_donchian_sol_4h` and
+  `scha_trend_long_1d`. A draft of this log claimed the registry now holds "zero
+  `unmeasured` rows"; that is **false**, and it was checked against the file
+  rather than caught by reading. Both rows gained a *live basis* in their
+  sub-objects from the concurrent session, but their **top-level verdict was
+  deliberately left pending** — a sub-object measurement is not a graded verdict,
+  and conflating the two is exactly the collapse this registry exists to prevent.
+  This session moved **one** row (`uso_trend_1h`) from `unmeasured` to
+  `reachable`; it did not clear the field.
+- **Three remain `queued_tier3`** (`sol_4h`, `xrp`, `scha`) awaiting the operator.
+  Nothing here decided any of them.
 
 ## Deferred Items
 
@@ -180,7 +201,7 @@ in production."
 - [x] Roadmap checked — M31's status cell already records P4 as the binding
       blocker (set in the prior sprint); this sprint changes nothing there, so it
       was deliberately not edited.
-- [x] Contradictions were recorded — including two of this session's own and one
+- [x] Contradictions were recorded — including three of this session's own and one
       relay mistake.
 - [x] Remaining unknowns stated: the clamp's effect on any future leg whose
       `cap_R` exceeds 5, and the two per-row `basis` strings left to their owner.
