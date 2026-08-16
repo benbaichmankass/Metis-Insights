@@ -15768,7 +15768,7 @@
       "area": "research-tooling",
       "severity": "high",
       "tier": "1",
-      "status": "kept_open",
+      "status": "resolved",
       "title": "m20_fleet_exit_sweep derives the IS/OOS split to target EXACTLY MIN_OOS_TRADES, so ordinary boundary loss lands under the floor and the cell is refused -- and re-running never helps, because the split is re-derived to the same target every time",
       "source": "Found while checking whether the 5 non-exit-head stale live DECISIONS can be re-validated. VERIFIED IN SOURCE, not inferred:\n\n  scripts/research/m20_fleet_exit_sweep.py:1270  --split-mode  default='oos-trades'\n  scripts/research/m20_fleet_exit_sweep.py:1277  --split-target-oos  default=MIN_OOS_TRADES  (=25)\n      help: \"Defaults to the floor a cell is judged against, so the boundary\n             aims at exactly what the verdict requires.\"\n\nand `resolve_split`'s own docstring already warns why aiming at exactly the floor is fragile: \"THE TARGET IS NOT THE ACHIEVED COUNT ... The harness windows CANDLES, not trades, so an OOS run starting at the derived date needs warmup and may produce slightly different trades near the boundary.\"\n\nSo the loop is: derive a split leaving ~25 -> warmup shaves it to 24 -> `_base_oos_n (24) < MIN_OOS_TRADES (25)` -> verdict `insufficient_base`. Re-running CANNOT fix it, because the split is re-derived to target 25 again regardless of how many trades exist.\n\nTHE CASE THAT EXPOSES IT. `htf_pullback_trend_2h` / `trail_geometry` is a SHIPPED real-money cell. Its own ref records a re-sweep run TODAY at live parity (m20-exit-lever-sweep run 31771809102) returning `insufficient_base` on EVERY cell because \"base OOS n (24) is below MIN_OOS_TRADES=25\", and concludes \"THIS CELL IS NOT A TO-DO, IT IS A WAIT -- re-running the sweep before this leg accumulates OOS trades returns exactly this again.\"\n\nThe CONCLUSION is right and the REASON is wrong. Measured today (trainer relay #9209, config-exact, tp_cap_pct=0.099): the leg emits **407 lifetime trades and 97 OOS at the corpus-standard 2025-07-01**, span 2021-07-21..2026-07-10. `tlt_pullback_1h` likewise: **527 lifetime, 60 OOS**. Neither is trade-starved; the derivation chose a window containing 24 out of 97 available and then refused it for being one short.\n\nWHY THIS MATTERS BEYOND ONE CELL: 'wait for trades' is a disposition that makes a cell invisible for months. Two SHIPPED real-money cells currently carry it on a premise that is false for them, at a moment when the stale-decision re-sweep base rate is 3-of-4 NOT reproducing (see BL-20260814 sprint items 56-57) -- i.e. exactly when re-validating a shipped lever matters most.\n\nNOT ALL FIVE BLOCKED CELLS ARE THIS SHAPE, and the distinction is the point: `mes_trend_long_1d` (5 OOS) and `mhg_pullback_1d` (10 OOS) ARE genuinely thin -- measured relay #9195 -- so for them the split-targeting is doing exactly the job it was built for. The defect bites the legs that have PLENTY of trades.",
       "resolution_criteria": "Falsifiable and cheap, in this order:\n\n(1) ESTABLISH THE MECHANISM ON THE REAL CELL. Re-run `htf_pullback_trend_2h` / `trail_geometry` with `--split-mode date --split 2025-07-01` (or `--split-target-oos 50`) and record `base_trades_oos`. If it comes back ~97 (vs the recorded 24) and the cell produces a real verdict instead of `insufficient_base`, the mechanism is confirmed and the cell was never a 'wait'. If it still returns ~24, the cause is something else and THIS ITEM IS WRONG -- say so and close it; I did NOT verify which split mode run 31771809102 actually used, because the cell ref does not record it (see (3)).\n\n(2) FIX THE DEFAULT so a target cannot land under its own floor -- e.g. target `MIN_OOS_TRADES * k` (k>1) or accept `>= target - boundary_slack`. Whatever is chosen must be justified against a measured boundary-loss distribution, not picked; the current value was picked precisely because it looked principled ('aims at exactly what the verdict requires').\n\n(3) MAKE THE VERDICT STATE ITS OWN DERIVATION. `resolve_split` already returns meta with mode AND target, and its docstring says this is 'so a verdict states its own derivation' -- but the coverage-matrix ref for this cell records neither. That is diagnostic-provenance sub-class B (implicit input selection) one level up: a reader cannot tell which split produced the number they are being asked to trust. A cell refused for thin OOS must carry the split mode, target, and achieved count.\n\nDO NOT record a verdict obtained at a non-standard split into the matrix as if it were the standard one. Choosing a split that clears a floor is a decision that must be visible, not a side effect of debugging this item.",
@@ -15820,7 +15820,9 @@
           "by": "claude (M20 overnight session 2026-08-16)",
           "note": "FRESH EVIDENCE FOR THE QUEUED DEFAULT FLIP, from a run that was not looking for it. Dispatched a scoped fleet re-sweep of the 32 stale cells the coverage roll-up labels re-runnable (19 legs, defaults, tp_cap 0.099) and it refused EVERYTHING it reached before I stopped it: 28 of 28 cells graded `insufficient_base` across three legs (trainer relay #9542, progress read #9544).\n\nTHE n IS THREE, NOT 28 — a leg's cells share ONE split derivation, so those 28 cells are three independent boundary events. Stating it because this item's own criterion-(2) memo insisted on exactly that distinction ('18 rows ... are 14 distinct boundary EVENTS — not 14 rows; counting rows would inflate n'), and 28/28 reads far stronger than it is. Three of three is still decisive enough to stop a run.\n\nIt reproduces on the filing leg: htf_pullback_trend_2h, 375 lifetime trades, boundary derived to 2026-03-30 targeting 25, refused — the same leg that graded at base_oos 95 under the corpus-standard split in criterion (1). The other two are trend_donchian (343 lifetime, split 2026-02-25) and squeeze_breakout_4h.\n\nWHAT THIS ADDS beyond criterion (1): that run tested TWO legs chosen BECAUSE they had failed. This one drew 19 legs by a criterion unrelated to the defect (stale + re-runnable) and the first three all failed, which is evidence about the RATE rather than about two known cases. It does not establish the rate over all 19 — I stopped at three.\n\nNOT ACTED ON: the default is unchanged. Re-dispatched that one research run with an explicit --split-target-oos 50 (relay #9545), justified against this item's measured max loss of 4 rather than picked, and the value criterion (1) itself used. The DEFAULT flip is still the operator's call and stays queued."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-16",
+      "resolution_note": "RESOLVED 2026-08-16 by the operator's Tier-3 default flip (in-conversation). `--tp-cap-pct` now defaults to LIVE_TP_CAP_PCT=0.099 and `--split-target-oos` to DEFAULT_SPLIT_TARGET_OOS=50, separated from the MIN_OOS_TRADES=25 floor it used to equal. Passing `--tp-cap-pct 0` is now the explicit opt-out and is REQUIRED to reproduce any verdict recorded before 2026-08-10. Raising the TARGET strands no thin leg: resolve_split already clamps to len(stamps)//2 and RECORDS split_target_clamped_from/to, refusing only below the 25 floor — the clamp is why target and floor can differ at all."
     },
     {
       "id": "BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT",
@@ -17348,7 +17350,7 @@
       "severity": "high",
       "trigger_condition": "A sweep SUMMARY reports `legacy (no TP cap)` for a leg on a TP-capped family (donchian/pullback/fade/squeeze), or a verdict is quoted from such a run.",
       "resolution_criteria": "(1) `--tp-cap-pct` on m20_fleet_exit_sweep either defaults to 0.099 or has no default and errors when omitted; (2) a test asserts that default so it cannot drift back; (3) the 2026-08-16 legacy-geometry run is either re-run at live parity or explicitly marked unusable wherever it is referenced, so no cell is re-graded from it.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -17357,7 +17359,9 @@
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/research/m20_fleet_exit_sweep.py:1607 still declares `--tp-cap-pct` with `default=0.0`, so a bare invocation still measures the legacy no-take-profit book — while its own siblings now default to live parity (m21_entry_sweep.py:104 and m21_entry_head_round.py:96 both default=0.099). No test pins the default either. — Proposed (operator sign-off because it re-points what every bare invocation MEANS): change m20_fleet_exit_sweep's `--tp-cap-pct` default to 0.099 (matching the m21/flip siblings) or make it required so the caller must state the geometry, add a test pinning it, and mark the 2026-08-16 legacy-geometry fleet run unusable wherever it is referenced so no cell is re-graded from it."
         }
       ],
-      "operator_action_required": true
+      "operator_action_required": true,
+      "resolved_at": "2026-08-16",
+      "resolution_note": "RESOLVED 2026-08-16 by the operator's Tier-3 default flip (in-conversation). `--tp-cap-pct` now defaults to LIVE_TP_CAP_PCT=0.099 and `--split-target-oos` to DEFAULT_SPLIT_TARGET_OOS=50, separated from the MIN_OOS_TRADES=25 floor it used to equal. Passing `--tp-cap-pct 0` is now the explicit opt-out and is REQUIRED to reproduce any verdict recorded before 2026-08-10. The default was the whole finding, so flipping it closes this row outright."
     },
     {
       "id": "BL-20260816-TRAINER-HEAVY-LABEL-HAS-NO-CONSUMER",
@@ -18080,6 +18084,22 @@
         "IB_PLACE_CONFIRM_S",
         "IB_CLOSE_CONFIRM_S"
       ]
+    },
+    {
+      "id": "BL-20260816-TP-SENTINEL-CAP-DECLARED-IN-MULTIPLE-MODULES",
+      "opened_at": "2026-08-16",
+      "opened_by": "",
+      "status": "open",
+      "severity": "low",
+      "tier": null,
+      "title": "The 0.099 live TP cap is declared separately in >=3 modules with no single owner",
+      "source": "",
+      "why_it_matters": "",
+      "resolution_criteria": "",
+      "next_action": "",
+      "updates": [],
+      "area": "research-tooling",
+      "detail": "`_TP_SENTINEL_CAP_PCT = 0.099` is declared independently in at least src/runtime/position_telemetry.py:72 and src/units/strategies/trend_donchian.py:133, and scripts/research/m20_fleet_exit_sweep.py now carries a THIRD copy as LIVE_TP_CAP_PCT (added 2026-08-16 when --tp-cap-pct was defaulted to live parity). There is no single owner to import from, so the sweep script could not bind to the live value even in principle -- picking one of the src/ declarations would be arbitrary, and the script imports nothing from src/ at all. WHY IT MATTERS: the sweep's entire purpose after 2026-08-10 is to measure the book production actually runs. If the live constant moves and this copy does not, the sweep silently measures the OLD geometry and every verdict it prints will look correct while being about a different book -- which is precisely the arm-above-cap class (BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP) recurring one level up. NOTHING CHECKS THIS TODAY: no guard, no test, no import. That is stated in the code comment rather than implied, because claiming a guard exists would itself be the unprovenanced-output failure. FIX SHAPE: give the constant one owner (a small module both src/ and scripts/ can import, or a guard asserting the declarations agree). Low severity because the live value has not moved and a change to it would be a deliberate Tier-3 act, not drift."
     }
   ]
 }

@@ -578,7 +578,7 @@ MIN_OOS_TRADES = 25
 # -- a filtered trade, an off-by-one, a leg whose stamps do not divide evenly --
 # dropped the cell to `insufficient_base`. The tell was `htf_pullback_trend_2h`
 # reporting insufficient at 407 lifetime trades, which is implausible on its face
-# and is what surfaced the collapse (`BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR`).
+# and is what surfaced the collapse (`BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`).
 #
 # 50 is not a fresh guess: it is the value every sweep in the 2026-08-16 session
 # passed explicitly, including the 76-cell pullback run, so it is the target with
