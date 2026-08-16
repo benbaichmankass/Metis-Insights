@@ -128,6 +128,7 @@ on:
           - flatten-ib-position
           - flatten-bybit-position
           - flatten-alpaca-position
+          - cancel-ib-order
           - close-stranded-journal-row
           - reconcile-orphan-history
           - supersede-options-adoption-artifacts
@@ -437,6 +438,18 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*service[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ss]ervice[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # cancel-ib-order: which single order to cancel. Accepts an IB
+            # orderId ("order: 6") or, preferred, the account-stable permId
+            # ("perm: 111") -- orderId is unique only per clientId, so the
+            # script refuses an ambiguous orderId rather than guessing.
+            order_id=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*order[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Oo]rder[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            perm_id=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*perm[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Pp]erm[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # flatten-ib-position: apply gates dry-run (default) vs execute.
             apply=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*apply[[:space:]]*:' \
@@ -509,6 +522,8 @@ jobs:
           } >>"$GITHUB_ENV"
           echo "ENV_SERVICE=${service}" >>"$GITHUB_ENV"
           echo "ACTION_APPLY=${apply:-}" >>"$GITHUB_ENV"
+          echo "ACTION_ORDER_ID=${order_id:-}" >>"$GITHUB_ENV"
+          echo "ACTION_PERM_ID=${perm_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_ALLOW_MIRROR=${allow_mirror:-}" >>"$GITHUB_ENV"
           echo "ACTION_IDS=${ids:-}" >>"$GITHUB_ENV"
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
@@ -522,7 +537,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|cancel-ib-order|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -643,6 +658,41 @@ jobs:
               ""|true|false|True|False) ;;
               *)
                 echo "::error::flatten-ib-position apply must be true or false (got '${ACTION_APPLY}')."
+                exit 1
+                ;;
+            esac
+          fi
+          # cancel-ib-order requires account_id + exactly ONE of order/perm.
+          # Both ids are numeric-only: they are interpolated into a python
+          # argv, and a non-numeric value has no legitimate meaning here.
+          # apply (if set) must be true|false; the wrapper DRY-RUNS otherwise.
+          if [ "${ACTION}" = "cancel-ib-order" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::cancel-ib-order requires 'account: <id>' (issue body) or 'account_id' input."
+              exit 1
+            fi
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::cancel-ib-order account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if [ -n "${ACTION_ORDER_ID// }" ] && [ -n "${ACTION_PERM_ID// }" ]; then
+              echo "::error::cancel-ib-order takes 'order:' OR 'perm:', not both."
+              exit 1
+            fi
+            if [ -z "${ACTION_ORDER_ID// }" ] && [ -z "${ACTION_PERM_ID// }" ]; then
+              echo "::error::cancel-ib-order requires 'order: <id>' or 'perm: <id>' (issue body)."
+              exit 1
+            fi
+            for _id in "${ACTION_ORDER_ID}" "${ACTION_PERM_ID}"; do
+              if [ -n "${_id// }" ] && ! printf '%s' "${_id}" | grep -Eq '^[0-9]+$'; then
+                echo "::error::cancel-ib-order id '${_id}' invalid (digits only)."
+                exit 1
+              fi
+            done
+            case "${ACTION_APPLY:-}" in
+              ""|true|false|True|False) ;;
+              *)
+                echo "::error::cancel-ib-order apply must be true or false (got '${ACTION_APPLY}')."
                 exit 1
                 ;;
             esac
@@ -937,6 +987,7 @@ jobs:
             purge-cloudflared)                  SCRIPT="purge_cloudflared.sh" ;;
             purge-vm-runner)                    SCRIPT="purge_vm_runner.sh" ;;
             flatten-ib-position)                SCRIPT="flatten_ib_position_action.sh" ;;
+            cancel-ib-order)                    SCRIPT="cancel_ib_order_action.sh" ;;
             flatten-bybit-position)             SCRIPT="flatten_bybit_position_action.sh" ;;
             flatten-alpaca-position)            SCRIPT="flatten_alpaca_position_action.sh" ;;
             close-stranded-journal-row)         SCRIPT="close_stranded_journal_row_action.sh" ;;

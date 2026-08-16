@@ -174,6 +174,15 @@ EXPECTED_ACTIONS = {
     # 2026-06-19 — one-shot guarded flatten of a single IB exchange position
     # (BL-20260618-RECONCILE-DUP residual: the stranded ib_paper MGC short).
     "flatten-ib-position": "flatten_ib_position_action.sh",
+    # 2026-08-16 — cancel ONE resting IB order by id. NOT a flatten: it places
+    # nothing. Closes BL-20260816-NO-PER-ORDER-IB-CANCEL, where a stranded
+    # ib_paper/MGC market sell was unreachable because the only two options
+    # were flatten-ib-position (which PLACES another order) and
+    # reqGlobalCancel (which strips every protective stop on the account).
+    # IB binds an order to its submitting clientId, so the script connects AS
+    # the owning client; it refuses a protective leg and a trader-band
+    # clientId unless explicitly forced.
+    "cancel-ib-order": "cancel_ib_order_action.sh",
     # 2026-06-29 — Bybit sibling of flatten-ib-position: one-shot guarded
     # reduce-only flatten of a single Bybit exchange position (close an
     # account before a different-account key rotation).
@@ -313,6 +322,7 @@ TIER_2_ACTIONS = {
     "purge-cloudflared",
     "purge-vm-runner",
     "flatten-ib-position",
+    "cancel-ib-order",
     "flatten-bybit-position",
     "flatten-alpaca-position",
     "close-stranded-journal-row",

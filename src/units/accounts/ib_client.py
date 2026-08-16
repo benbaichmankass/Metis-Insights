@@ -296,6 +296,36 @@ def _round_to_tick(price: float, tick: float = MES_TICK_SIZE) -> float:
     return round(round(float(price) / tick) * tick, max(ndigits, 4))
 
 
+def _protective_leg_side(order_type: Optional[str]) -> Optional[str]:
+    """Classify an IB order type as the ``stop`` side, the ``target`` side, or
+    neither — the axis :meth:`IBClient.protection_coverage` was missing.
+
+    Protection is TWO-SIDED and the two sides are not interchangeable: a stop
+    bounds the loss, a target realises the gain. Grading them together (the
+    old ``"STP" in t or "LMT" in t or "TRAIL" in t`` test) made a position
+    holding a full stop and NO take-profit read as fully covered, so the
+    broker-naked sweep never fired on a stripped target — measured on
+    ``ib_paper`` 2026-08-16 with ZERO limit orders on the whole account
+    (BL-20260816-COVERAGE-IS-ONE-SIDED).
+
+    **Order matters: check the stop family FIRST.** ``"STP LMT"`` (a
+    stop-limit) contains the substring ``LMT`` while being a STOP, so a
+    naive ``LMT``-first test would file every stop-limit as a take-profit and
+    report a target that does not exist — the inverse of the bug being fixed
+    and strictly worse, because it would manufacture false coverage.
+
+    Returns ``"stop"`` / ``"target"`` / ``None`` (not a protective leg).
+    """
+    t = str(order_type or "").strip().upper()
+    if not t:
+        return None
+    if "TRAIL" in t or t.startswith("STP") or t in ("STOP", "STOP LIMIT"):
+        return "stop"
+    if "LMT" in t or t == "LIMIT":
+        return "target"
+    return None
+
+
 class IBClient:
     """Minimal Interactive Brokers client surface for MES futures.
 
@@ -2113,6 +2143,19 @@ class IBClient:
         legs = 0
         unknown = 0
         oca_groups: Dict[str, float] = {}
+        # SIDE-AWARE accumulators (2026-08-16, BL-20260816-COVERAGE-IS-ONE-SIDED).
+        # `covered_qty` above answers "is ANY protective leg resting?", which
+        # treats a stop and a take-profit as interchangeable. They are not: a
+        # position with a full stop and NO target can only stop out or run, and
+        # graded on the combined figure it reads FULLY COVERED. Measured on
+        # ib_paper 2026-08-16 — MGC 105 long with STP 359 and no limit, MES 15
+        # long with TWO stops and no limit; zero limit orders on the account,
+        # and the sweep had never once fired. Keep the combined figure for
+        # back-compat and add the two sides beside it.
+        stop_groups: Dict[str, float] = {}
+        target_groups: Dict[str, float] = {}
+        stop_q = 0.0
+        target_q = 0.0
         for trade in trades:
             try:
                 contract = getattr(trade, "contract", None)
@@ -2120,7 +2163,8 @@ class IBClient:
                     continue
                 order = getattr(trade, "order", None)
                 otype = str(getattr(order, "orderType", "") or "").upper()
-                if not ("STP" in otype or "LMT" in otype or "TRAIL" in otype):
+                side = _protective_leg_side(otype)
+                if side is None:
                     continue
                 legs += 1
                 q = self._protective_leg_qty(order)
@@ -2136,12 +2180,28 @@ class IBClient:
                     oca_groups[group] = max(oca_groups.get(group, 0.0), q)
                 else:
                     covered += q
+                # The per-side tallies apply the same within-group max, but
+                # PER SIDE — two stops in one group is still one stop's worth
+                # of stop coverage, and a group holding only a stop
+                # contributes NOTHING to the target side. That is exactly the
+                # state this measures.
+                side_groups = stop_groups if side == "stop" else target_groups
+                if group:
+                    side_groups[group] = max(side_groups.get(group, 0.0), q)
+                elif side == "stop":
+                    stop_q += q
+                else:
+                    target_q += q
             except Exception:  # noqa: BLE001 — one malformed trade never breaks it
                 continue
         covered += sum(oca_groups.values())
+        stop_q += sum(stop_groups.values())
+        target_q += sum(target_groups.values())
         return {
             "size": size,
             "covered_qty": covered,
+            "stop_qty": stop_q,
+            "target_qty": target_q,
             "legs": legs,
             "unknown_qty_legs": unknown,
             "oca_groups": dict(oca_groups),
@@ -2215,6 +2275,18 @@ class IBClient:
                     "exchange": _str(contract, "exchange"),
                     "order_id": _num(order, "orderId"),
                     "perm_id": _num(order, "permId"),
+                    # WHO PLACED IT. Load-bearing, not decorative: IB binds an
+                    # order to its submitting clientId and `cancelOrder` "can
+                    # only be used to cancel an order that was placed
+                    # originally by a client with the same client ID" (TWS API,
+                    # cancel_order). So the owning clientId IS the address you
+                    # must connect as to cancel it, and without this field the
+                    # account-wide read could show you an order it gave you no
+                    # way to act on — which is exactly the wall the stranded
+                    # MGC order 6 hit (BL-20260816-NO-PER-ORDER-IB-CANCEL).
+                    # `None` when IB did not populate it: that means "not
+                    # reported", never "client 0".
+                    "client_id": _num(order, "clientId"),
                     "order_type": _str(order, "orderType"),
                     "action": _str(order, "action"),
                     "total_quantity": _num(order, "totalQuantity"),
