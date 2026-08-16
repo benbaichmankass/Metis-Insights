@@ -144,17 +144,22 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
     # REMOVED 2026-08-16 (the entry's own contract, and its expiry fired on 2026-08-15 —
     # which is what forced the decision rather than letting the debt go permanent; the
-    # mechanism worked as designed). The entry offered two dispositions, "prune the dead
-    # capture OR stop writing empty ones"; BOTH were done, because either alone leaves the
-    # class open:
-    #   * the capture US-20260729T073711Z.fmp.json was PRUNED — verified `rows == []` before
-    #     deleting, so zero rows left the PIT ledger (econ_calendar_produce globs every
-    #     capture in that dir, so a non-empty one could not have been removed silently);
-    #   * econ_calendar_fmp.write_capture now REFUSES to write a zero-row capture and says
-    #     so (`wrote: False` + reason, CLI exits 1), so provisioning FMP_API_KEY later
-    #     cannot re-seed the same vacuous artifact.
-    # It was the only .fmp.json ever written (a one-off from the #7888 free-tier probe);
-    # the daily econ-calendar-produce cron runs FXStreet, not FMP, so nothing regressed.
+    # mechanism worked as designed). Landed by TWO concurrent sessions; this comment is the
+    # union, because each did a different half and both halves matter:
+    #   * PRUNE (#9550) — the zero-row capture US-20260729T073711Z.fmp.json is DELETED. It
+    #     was the ONLY *.fmp.json ever written in comms/macro/econ_calendar_captures/, a
+    #     residue of the FMP free-tier NO-BUILD finding (#7888); the daily
+    #     econ-calendar-produce cron runs FXStreet, not FMP. Verified `rows == []` before
+    #     deleting, which is the load-bearing check: econ_calendar_produce GLOBS every
+    #     capture in that dir including *.fmp.json, so this file WAS a producer input —
+    #     it simply contributed zero rows, and a non-empty one could not have gone silently.
+    #   * REFUSE (#9552) — econ_calendar_fmp.write_capture now declines to write a zero-row
+    #     capture and says so (`wrote: False` + reason; CLI exits 1). Pruning alone rests on
+    #     FMP STAYING abandoned; this makes re-seeding structurally impossible if
+    #     FMP_API_KEY is ever provisioned. A ~60-day US window with no economic events is a
+    #     failed fetch, not a quiet "no events".
+    # An expired grandfather whose date is simply pushed forward is the "it was already like
+    # that" survival path this list exists to close — so the date was never touched.
 }
 
 
