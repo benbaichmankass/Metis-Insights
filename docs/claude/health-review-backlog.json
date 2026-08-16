@@ -17680,6 +17680,24 @@
       ],
       "proposed_remedy": "Add a durable tick_cost sibling on the exit_interval_soak pattern (one row per tick, summary over the file, process_started_utc stamped). Tier-1. Until then, any tick_cost figure MUST be quoted with its ticks_measured, and a single small-n read must not be reported as a trend -- which is what this session did.",
       "resolution_criteria": "/api/diag/log_file?name=tick_cost_soak (or an equivalent durable surface) returns rows spanning at least TWO distinct process_started_utc values, and its summary max/mean are computed over the whole file rather than the returned page -- verified by a live read taken AFTER a trader restart, with the summary's tick count exceeding the in-memory ticks_measured of the then-current process. Until that read exists the row stays open; a merged writer is not sufficient, for the same reason #9614 shipped an account_id column that no code path could populate and passed its tests."
+    },
+    {
+      "id": "BL-20260816-TWO-SWEEP-DEFAULTS-ARE-TIER3-AND-LIVE-ONLY-IN-A-DATED-MEMO",
+      "opened_at": "2026-08-16T13:28:00+00:00",
+      "opened_by": "claude (overnight M20 session, at session close-out)",
+      "severity": "medium",
+      "tier": "3 (changes what every future sweep measures)",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "m20_fleet_exit_sweep's --tp-cap-pct and --split-target-oos defaults are both Tier-3 proposals recorded ONLY in a dated operator memo, which no review cadence drains",
+      "detail": "Two defaults in scripts/research/m20_fleet_exit_sweep.py were queued for operator decision on 2026-08-16 and written up in docs/claude/m20-m31-operator-decisions-2026-08-16.md section 4. That memo is DATED and belongs to one session; the three review skills drain BACKLOGS, not memos. So without this row the two decisions survive only as long as someone remembers the memo exists.\n\n(a) --tp-cap-pct: the harness default is not live parity. A sweep run without --tp-cap-pct 0.099 measures a book production does not run. Every measurement in the 2026-08-16 memo passes it explicitly.\n\n(b) --split-target-oos: DEFAULTS TO MIN_OOS_TRADES (25) -- the target IS the floor, so any boundary loss puts the OOS window under it and the cell refuses with insufficient_base. Already filed as BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS; THIS row is not a duplicate of it -- that row is the DEFECT, this row is the un-drained TIER-3 DECISION about the default value.\n\nMEASURED CONSEQUENCE 2026-08-16: at the default, the pullback-family re-sweep refused EVERY cell on EVERY leg. At --split-target-oos 50 the same run returned 2 PASS + 3 path_b_wf_pass + 67 is_oos_fail + 4 insufficient_base over 76 cells. What caught it was not a check but htf_pullback_trend_2h reporting insufficient at 407 lifetime trades -- implausible on its face. A leg with a genuinely thin history would have produced the same output and been believed, and a table of insufficient_base reads as 'no lever helps this family'.\n\nWHY IT IS TIER-3 AND NOT A FIX I SHOULD HAVE MADE: changing either default changes what every future sweep measures AND what already-recorded numbers mean. My recommendation, labelled as one: raise --split-target-oos above the floor. I did not, because past sweep results were produced under it and re-interpreting them is the operator's call.",
+      "evidence": [
+        "scripts/research/m20_fleet_exit_sweep.py: MIN_OOS_TRADES = 25 (L548); --split-target-oos default=MIN_OOS_TRADES (L1543)",
+        "insufficient_base_reason docstring: htf_pullback_trend_2h refused at n=24 derived vs graded at n=95 corpus-standard, same config same day",
+        "trainer relays #9681 (default -> all cells refuse) and #9683 (target 50 -> real verdicts)",
+        "docs/claude/m20-m31-operator-decisions-2026-08-16.md section 4 (4a and 4b)"
+      ],
+      "resolution_criteria": "The operator has recorded a decision on EACH default (change it, or keep it with a dated 'keep' rationale), and that decision lives somewhere a review cadence reads -- this row closed, or the value changed in m20_fleet_exit_sweep.py with the memo section 4 updated to match. A merged code change alone does NOT close it: the other half is that already-recorded sweep numbers get re-interpreted or explicitly marked as produced under the old default, which is the part that silently rots otherwise."
     }
   ]
 }
