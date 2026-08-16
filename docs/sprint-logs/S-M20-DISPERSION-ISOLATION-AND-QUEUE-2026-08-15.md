@@ -615,6 +615,81 @@ and are unchanged — an unattributable row is still worse than a missing leg.
 9 tests, plant-proven twice (neutering `interpreter_defect` fails 3; a naive
 substring match plus the collapsed empty message fails 7).
 
+### 18. The largest stale block was pointed at a remedy that could not fix it
+
+With the `exit_head_ml` column closed, the remaining backlog is **99 stale cells
+with no fresher corpus row**, which the roll-up labels *"nothing newer; a re-run
+IS the remedy"*. Broke that down before dispatching anything, and the label was
+wrong for the largest single block in it.
+
+**38 of the 99 are `regime_flip_exit`** — a lever pinned at
+`GEOMETRY_CUTOVER_NEVER`, meaning its harness never modelled the live TP. A
+re-run of such a cell writes *another* stale row. Every one of those 38 was
+labelled with hours of trainer time that could not have cleared it. **The
+backlog a sweep can actually address is 61, not 99.**
+
+**Root cause, and it is one line.** `m20_flip_replay_sweep.py` called
+`base_args(name, cfg, fam, data, resample)` **positionally**, so `tp_cap_pct`
+defaulted to `0.0` and neither `--tp-cap-pct` nor `--tp-r` was ever appended —
+and the driver stamped no geometry at all, so *"there is not even a field to
+check"*. Fixed: `--tp-cap-pct` **defaulting to 0.099** (a cap you must remember
+to pass is a cap that will be forgotten), forwarded to `base_args`, with
+`tp_geometry` stamped per leg **and** run-level, always, including the `0` case.
+
+**Proved the fix is material before spending the sweep** (relay #9534, one leg,
+A/B from a worktree pinned to the branch — `main` at `5d5bbb67`, worktree at
+`4d08b3ad`):
+
+| `trend_donchian_eth_4h` | capped (fixed) | uncapped (old) |
+|---|---|---|
+| trades | **196** | 157 |
+| `actual_net_r` | **26.73** | 49.251 |
+| walk-forward | 2/6 | 3/6 |
+| `tp_geometry` | `live_parity_capped` | `NO_TAKE_PROFIT` |
+
+The populations differ (+24.8 % trades — a capped TP closes trades that
+otherwise run on, so it is a *different book*, not the same trades re-scored),
+and the no-take-profit baseline was **1.84×** more profitable than the geometry
+production actually places. ⚠️ **One leg, and the verdict did not flip** (`fail`
+both ways) — this establishes the baseline moves, **not** that any of the 38
+statuses change. The full re-sweep is dispatched (#9535); all 38 cells are
+`honest_negative`, so no live decision rides on the current values.
+
+**The derivation now has one home.** `tp_geometry_for` moved unchanged into
+`m20_fleet_exit_sweep` — it was the *only* producer, living inline in
+`m20_exit_head_round`, and a second copy is exactly how the 2026-08-10
+fleet-sweep fix failed to reach that sibling. Added the state the inline version
+lacked: an empty family set is **`UNOBSERVED`**, not a parity claim (unreachable
+from the old caller, reachable from this one, which writes `verdicts.json` even
+if every leg fails). An existing test caught the extraction by grepping the
+driver for the label strings; it was **pointed at the new home, not weakened**,
+and gained a test that no other file re-derives the label.
+
+**`m20_coverage_rollup` gained the state it was missing**:
+`harness_never_modelled_the_tp`, checked *before* `no_live_parity_row` since both
+mean "nothing newer exists" and only one is answerable by sweeping. Derived from
+`cutover_for(lever)`, never a lever list, so it **self-clears** — deleting a
+lever's `LEVER_GEOMETRY_CUTOVER` entry (how a harness fix is marked) returns its
+cells to the re-runnable bucket with no edit to the state logic. That property is
+itself pinned by a test that simulates the fix and restores the map.
+
+⚠️ **Deliberately did NOT remove the `regime_flip_exit` NEVER entry.** The
+harness can now produce a live-parity book; no committed cell was measured on one
+yet. A landed re-sweep is what marks it fixed.
+
+**The same defect reaches M21, where it is worse** — filed, not fixed
+(`BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY`).
+`m21_entry_sweep.py:133` and `m21_entry_head_round.py:125` still call `base_args`
+positionally; they are the remaining two of BL-20260814's "three sibling sweeps".
+M20's column is 38 cells, **all** `honest_negative`, so its stale evidence costs
+knowledge. `entry-refinement-coverage.json` carries **23 `shipped` + 4
+`passed_unshipped`** — decision cells — and M21 has **no geometry tracking at
+all**, so nothing there reports the condition. ⚠️ The filing carries an explicit
+`not_established`: a draft of it claimed 25 of those sit on capped families,
+which was **wrong** — it ran `classify()` over the matrix's `strategy` labels,
+5 of which are *composite* rows covering many legs and mixing both families.
+Recorded so the figure is not re-quoted.
+
 ## Validation Performed
 - **Tests:** 10,861 passed. The 34 failures in the full run were checked, not
   assumed: **32 are pre-existing sandbox dependency gaps** — proven by running

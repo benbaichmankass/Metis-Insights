@@ -15796,7 +15796,9 @@
         "docs/research/entry-refinement-coverage.json",
         "BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING",
         "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP"
-      ]
+      ],
+      "resolution_criteria": "ALL THREE, each observable: (1) `grep -n 'resample)' scripts/research/m21_entry_sweep.py scripts/research/m21_entry_head_round.py` returns NO base_args call — both pass a 6th positional tp_cap_pct — AND each file's --tp-cap-pct argparse default is 0.099, mirroring m20_flip_replay_sweep.py; (2) an M21 sweep run emits `tp_geometry: live_parity_capped` for a donchian/pullback leg, produced by calling m20_fleet_exit_sweep.tp_geometry_for rather than a re-derived label — the same A/B that verified the M20 fix (relay #9534) shows the capped and uncapped arms differ in TRADE COUNT, not just in verdict, which is what proves the cap reached the harness; (3) the count this row could not establish is established: the number of the 27 M21 decision cells (23 shipped + 4 passed_unshipped) that sit on a LIVE_TP_CAPPED_FAMILIES leg, derived from M21's own row->leg mapping and NOT from classify() over the matrix's composite `strategy` labels. A restated figure with no stated mapping does not close this.",
+      "snoozed_until": null
     }
   ]
 }
