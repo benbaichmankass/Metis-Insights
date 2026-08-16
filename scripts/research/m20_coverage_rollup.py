@@ -654,6 +654,40 @@ CORPUS_UNAVAILABLE = "corpus_unavailable"   # we could not look — NOT "no row"
 # (which is how a harness fix is marked) returns its cells to `CORPUS_NO_ROW`
 # with no edit here. A hardcoded lever list would have to be remembered.
 CORPUS_HARNESS_UNFIXED = "harness_never_modelled_the_tp"
+# …AND THE ONE WHERE THERE IS NOTHING TO RE-RUN AT ALL (2026-08-16).
+#
+# The second time the same prescription was wrong, found by breaking the
+# remainder down instead of quoting it. `exit_ladder` is 29 of the 61 cells
+# left after the NEVER split, and **no backtest driver produces that column**:
+# `m20_fleet_exit_sweep.cells_for` emits cells for 5 of the 8 lever columns,
+# and the three it does not are `exit_head_ml` (own driver,
+# `m20_exit_head_round`), `regime_flip_exit` (own driver,
+# `m20_flip_replay_sweep`) and `exit_ladder` (**none**). Its cells cite the
+# 2026-07-12 memo's 20-cell banking study; `m20_exit_analysis.py` reads the
+# LIVE `exit_ladder_soak.jsonl`, which is an observer, not a producer of matrix
+# cells.
+#
+# So "a re-run IS the remedy" was pointing at a sweep that cannot emit the
+# column. Building a producer (or re-doing the study) is the remedy, and that
+# is a different kind of work with a different cost — which is the whole reason
+# to say it rather than let someone discover it at the console.
+COLUMNS_WITH_A_SWEEP_PRODUCER = frozenset({
+    "stale_stop", "giveback_stop", "trail_decay", "vol_trail",
+    "trail_geometry",
+})
+# Declared rather than introspected, because regexing `cells_for`'s source for
+# lever literals is a probe adjacent to the question. Kept honest by a test
+# that CALLS `cells_for` over real configs and compares what it actually emits
+# against this set, so the two cannot drift silently.
+CORPUS_NO_PRODUCER = "no_sweep_driver_emits_this_column"
+# Columns the FLEET sweep does not emit but which have a producer of their own,
+# so "no driver" would be false for them. Named separately from the set above
+# because the two facts are different: one is "the fleet sweep covers it", the
+# other is "something covers it".
+_COLUMNS_WITH_THEIR_OWN_DRIVER = frozenset({
+    "exit_head_ml",       # scripts/research/m20_exit_head_round.py
+    "regime_flip_exit",   # scripts/research/m20_flip_replay_sweep.py
+})
 
 
 def _corpus_resolver():
@@ -701,9 +735,17 @@ def stale_corpus_state(matrix: dict[str, Any]) -> dict[str, Any]:
         if hit is None:
             # Checked BEFORE `CORPUS_NO_ROW`, because both are "nothing newer
             # exists" and only one of them can be answered by sweeping.
-            state = (CORPUS_HARNESS_UNFIXED
-                     if cutover_for(lever) == GEOMETRY_CUTOVER_NEVER
-                     else CORPUS_NO_ROW)
+            # Order matters and is not arbitrary: a BROKEN producer is a more
+            # specific finding than a MISSING one, and `regime_flip_exit` has
+            # a producer (its own driver), so it must not fall through to
+            # "nothing emits this column".
+            if cutover_for(lever) == GEOMETRY_CUTOVER_NEVER:
+                state = CORPUS_HARNESS_UNFIXED
+            elif lever not in COLUMNS_WITH_A_SWEEP_PRODUCER \
+                    and lever not in _COLUMNS_WITH_THEIR_OWN_DRIVER:
+                state = CORPUS_NO_PRODUCER
+            else:
+                state = CORPUS_NO_ROW
         elif base(status) in mod.NEGATIVE_STATUSES:
             state = CORPUS_DISAGREES
         else:
@@ -1360,6 +1402,18 @@ def main(argv: list[str]) -> int:
                           f"LEVER_GEOMETRY_CUTOVER entry is what marks it "
                           f"fixed, and these cells return to "
                           f"{CORPUS_NO_ROW} on their own.")
+                n_noprod = c.get(CORPUS_NO_PRODUCER, 0)
+                if n_noprod:
+                    noprod_levers = sorted({
+                        r["lever"] for r in cs["rows"]
+                        if r["state"] == CORPUS_NO_PRODUCER})
+                    print(f"  {CORPUS_NO_PRODUCER:<26} {n_noprod:>4}  "
+                          f"— ⛔ THERE IS NOTHING TO RE-RUN. No backtest driver "
+                          f"emits {', '.join(noprod_levers)}; the fleet sweep "
+                          f"covers 5 of the 8 lever columns and this is not "
+                          f"one of them. Building a producer (or re-doing the "
+                          f"study its cells cite) is the remedy — a different "
+                          f"kind of work from a sweep.")
                 print(f"  {CORPUS_AGREES:<26} {c.get(CORPUS_AGREES, 0):>4}  "
                       f"— newer evidence exists and matches the status")
                 print(f"  {CORPUS_DISAGREES:<26} {c.get(CORPUS_DISAGREES, 0):>4}  "

@@ -132,3 +132,69 @@ def test_the_printed_line_says_NOT_the_remedy() -> None:
     assert "A RE-RUN IS **NOT** THE REMEDY" in out
     assert "Fix the harness, THEN sweep" in out
     assert "regime_flip_exit" in out, "the caveat does not name the lever"
+
+
+# ------------------------------------- …and the one with no producer at all
+
+def test_the_declared_producer_set_matches_what_cells_for_ACTUALLY_emits() -> None:
+    """Declared, not introspected — so it must be checked against reality.
+
+    Regexing `cells_for`'s source for lever literals would be a probe adjacent
+    to the question (sub-class A). This CALLS it over every live strategy and
+    compares the levers it really emits, so the declared set cannot drift into
+    a comforting fiction.
+    """
+    import yaml
+    sys.path.insert(0, str(REPO / "scripts" / "research"))
+    import m20_fleet_exit_sweep as S
+
+    cfgs = (yaml.safe_load((REPO / "config/strategies.yaml").read_text())
+            or {}).get("strategies") or {}
+    emitted = set()
+    for name, cfg in cfgs.items():
+        if not isinstance(cfg, dict):
+            continue
+        fam = S.classify(name)
+        if fam is None:
+            continue
+        for _tag, lever, _extra in S.cells_for(cfg, fam):
+            if lever:
+                emitted.add(lever)
+    assert emitted, "cells_for emitted nothing — the probe found no positive"
+    assert emitted == set(RU.COLUMNS_WITH_A_SWEEP_PRODUCER), (
+        f"declared {sorted(RU.COLUMNS_WITH_A_SWEEP_PRODUCER)} but cells_for "
+        f"emits {sorted(emitted)}")
+
+
+def test_every_lever_column_is_accounted_for() -> None:
+    """No column may fall between the two sets — that is how one goes unnoticed."""
+    cols = set(MATRIX["lever_columns"])
+    covered = (set(RU.COLUMNS_WITH_A_SWEEP_PRODUCER)
+               | set(RU._COLUMNS_WITH_THEIR_OWN_DRIVER))
+    orphans = cols - covered
+    assert orphans == {"exit_ladder"}, (
+        f"the set of driverless columns changed: {sorted(orphans)}. If a "
+        f"producer was built, move that column into one of the two sets; if a "
+        f"new column was added, classify it.")
+
+
+def test_a_column_with_its_own_driver_is_not_called_driverless() -> None:
+    """regime_flip_exit HAS a driver; it is broken, which is a different state."""
+    st = RU.stale_corpus_state(MATRIX)
+    if not st.get("available"):
+        import pytest
+        pytest.skip("corpus unavailable")
+    for r in st["rows"]:
+        if r["state"] == RU.CORPUS_NO_PRODUCER:
+            assert r["lever"] not in RU._COLUMNS_WITH_THEIR_OWN_DRIVER, r
+            assert r["lever"] not in RU.COLUMNS_WITH_A_SWEEP_PRODUCER, r
+
+
+def test_the_three_no_newer_evidence_states_partition_cleanly() -> None:
+    st = RU.stale_corpus_state(MATRIX)
+    if not st.get("available"):
+        import pytest
+        pytest.skip("corpus unavailable")
+    trio = {RU.CORPUS_NO_ROW, RU.CORPUS_HARNESS_UNFIXED, RU.CORPUS_NO_PRODUCER}
+    assert len(trio) == 3, "two of the three states collapsed to one string"
+    assert sum(st["counts"].values()) == len(st["rows"])
