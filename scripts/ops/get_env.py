@@ -134,6 +134,10 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "CANDLE_CACHE_TTL_MAX_S",
     "EXIT_LOOP_INTERVAL_SECONDS",
     "EXIT_LOOP_STALE_SECONDS",
+    # The requirement the M20 decouple exists to satisfy, distinct from the
+    # staleness window above (180s liveness vs 60s requirement — a 59s interval
+    # and a 179s one both read `fresh`, which is why they are separate keys).
+    "EXIT_EVAL_MAX_INTERVAL_SECONDS",
     "REGIME_BAR_SCORING_BUDGET_S",
     "ACCOUNT_REACHABILITY_CHECK_SECONDS",
     "TRAINER_HEARTBEAT_CHECK_SECONDS",
@@ -141,6 +145,16 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "IB_BROKER_NAKED_CHECK_SECONDS",
     # --- IB connection knobs (load-bearing during a gateway wedge) ---
     "IB_FETCH_TIMEOUT_S",
+    # Added 2026-08-16. Both are DERIVED from IB_FETCH_TIMEOUT_S when unset
+    # (`* 3 + 5` = 29.0s and `* 3` = 24.0s at the 8.0s default) and both bound a
+    # fetch that the exit loop makes, so they land directly inside the 60s
+    # exit-evaluation requirement — one queue timeout is 48% of that budget. They
+    # shipped overridable and unreadable, the same write-without-a-reader
+    # asymmetry that CANDLE_CACHE_TTL_MAX_S hit above
+    # (BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE). Reading them back is how
+    # a session can tell a derived 29.0s from an overridden one.
+    "IB_FETCH_QUEUE_TIMEOUT_S",
+    "IB_USAGE_LOCK_WAIT_S",
     "IB_PROBE_TIMEOUT_S",
     "IB_ACCOUNT_WARMUP_TIMEOUT_S",
     "IB_PLACE_CONFIRM_S",
