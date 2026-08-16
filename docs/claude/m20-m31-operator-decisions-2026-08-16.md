@@ -227,9 +227,10 @@ withdrew it.
 | #9588 | lever-reachability audit tool | merged |
 | #9549 | ⚠️ **Tier-3 real money** — `trend_donchian_xrp_4h` trail_decay | merged **and deploy-verified** |
 | #9614 | M31 P1 guard + P2 `position_telemetry` | merged **and live-verified** |
-| #9633 | exit-mechanism coverage probe | green, merging |
-| #9660 | `position_telemetry.account_id` fix | CI running |
-| #9666 | two dispatch-layer backlog rows | CI running |
+| #9633 | exit-mechanism coverage probe | merged `41f9f046` |
+| #9660 | `position_telemetry.account_id` fix | merged `84a2e40f` **and live-verified** |
+| #9666 | two dispatch-layer backlog rows + this memo | merged `c986a70c` |
+| #9671 | the re-sweep record (§ 3) into the registry | **open** at time of writing |
 
 **Deploy verification used `bot_uptime_s`, not `git_sha`** — `git_sha` reads the
 working tree and can report a SHA a running process is not executing.
@@ -242,7 +243,29 @@ on a trade whose MFE was previously not reconstructible at all.
 **A defect I shipped and found on the first post-deploy read:** `account_id` was
 structurally unpopulatable (`order_packages` has no such column; the monitor has
 no account in scope). Fixed in #9660. This is the argument for the verification
-pass in general — the tests could not have caught it.
+pass in general — the tests could not have caught it, because they asserted the
+field round-trips, which it did; only the live journal could show the column was
+never fed.
+
+**#9660 is now live-verified** (12:09Z, after the deploy landed at 12:05):
+**12 of 12** rows carry `account_id` across five accounts (`bybit_1`, `bybit_2`,
+`alpaca_paper`, `alpaca_portfolio`, `ib_paper`), with `order_state: "applied"`
+so the count is trustworthy. The decisive evidence is the **backfill**, not the
+new rows — `pkg-a687f228480e4f96` read `null` at 12:03 and `alpaca_paper` at
+12:09, i.e. the `COALESCE` update path repaired a pre-existing row against the
+live journal rather than a fixture.
+
+And the motivating trade is now fully attributed: `xrp_pullback_2h` / trade 4163
+is on **`bybit_2` — real money** — at `peak_r 3.4179` vs `cap_r 3.9233` and
+`arm_r 4.49`, `bars_held 200`, `rr_from_here 0.6329` (holding for the target
+risks ~1.6× what it stands to make).
+
+⚠️ **The `5.4 ms / n=807` cost figure above is from the first read.** A later,
+independent read gives **6.4 ms mean / 55.1 ms max over n=306** — same
+conclusion (negligible against a ~23.6 s exit pass), different sample. Neither
+supersedes the other; they are two samples on two processes, and the max moved
+*down* while n moved down, which is what a max does with fewer draws. Do not
+read the pair as a trend.
 
 ---
 
