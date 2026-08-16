@@ -913,11 +913,188 @@ def arm_atr_close_ceiling(base: list[str], arm_r: float | None
     return "capped", cap / (mult * arm_r)
 
 
-def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
+def _percentile_80(xs: list[float]) -> float | None:
+    """The ONE p80 definition this module uses. Import it; do not re-derive.
+
+    Extracted 2026-08-16 so the pooled figure and every per-era figure are the
+    same function of their input. Two call sites computing "the p80" with
+    independently-written index arithmetic is how a comparison between them
+    becomes a comparison of two estimators — and the whole point of
+    ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS`` half (2) is that pooled and
+    per-era are meant to differ *because the population differs*, not because
+    the maths did.
+    """
+    if not xs:
+        return None
+    s = sorted(xs)
+    return round(s[int(0.8 * (len(s) - 1))], 2)
+
+
+def _era_of(trade: dict) -> str:
+    """The calendar year a trade entered, or ``"undated"``.
+
+    ERAS ARE CALENDAR YEARS, DELIBERATELY NOT A REGIME CALENDAR.
+    ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS`` names the real clusters (2010-2013,
+    2020, 2025-2026 high-vol; 2014-2019, 2022-2024 quiet), and hardcoding those
+    boundaries here would make every reported figure depend on an input a reader
+    cannot check from the artifact — sub-class **B** of the diagnostic-provenance
+    rule (an implicit input selection wearing a confident label). Years are
+    mechanical, and a reader holding the per-year census can re-cluster them
+    into whatever regime calendar they can defend.
+
+    ``undated`` is a REAL bucket, not a drop. A row whose ``entry_time`` does
+    not start with four digits is one we could not place in time; silently
+    discarding it would shrink a denominator without saying so, which is the
+    unasserted-denominator sub-class of the same rule.
+    """
+    raw = str(trade.get("entry_time") or "")
+    head = raw[:4]
+    return head if len(head) == 4 and head.isdigit() else "undated"
+
+
+# Minimum winner-MFEs before a per-era p80 is REPORTED AS A NUMBER.
+#
+# DELIBERATELY LOWER THAN THE POOLED FLOOR OF 30, and the asymmetry is the
+# point: the pooled p80 BECOMES `--trail-decay-arm-r`, a proposed live
+# parameter, so it carries the stricter bar. A per-era figure is REPORTING —
+# nothing reads it back, no cell is built from it, and it exists so a reader
+# can see that the pooled number describes no regime in particular.
+#
+# THE VALUE IS MEASURED, NOT PICKED. Per-year winner-MFE counts across all
+# eight arm-declaring legs (trainer relay #9788, config-exact, --tp-cap-pct
+# 0.099, IS < 2025-07-01):
+#
+#   leg                    winners  per-year winner range
+#   gld_pullback_1d             58  2-6      (16 years)
+#   qqq_trend_long_1d           40  0-5      (19 years)
+#   scha_trend_long_1d          25  0-3      (16 years)
+#   uso_trend_1h                91  6-15     (9 years)
+#   trend_donchian              88  10-28    (5 years)
+#   trend_donchian_sol_4h       69  3-23     (5 years)
+#   xrp_pullback_2h             90  6-25     (5 years)
+#   trend_donchian_xrp_4h       27  4-7      (5 years)
+#
+# So the floor has to sit in a narrow band. At 30 EVERY bucket on EVERY leg is
+# `thin` — the report would emit keys and demonstrate nothing, which the row's
+# own resolution criteria forbid ("a writer that emits the key on a leg where
+# the two coincide has demonstrated nothing"). At 10 the recent-era window
+# resolves on all eight legs, and the per-year census correctly grades the
+# thin-by-nature 1d equity legs `thin` while the 1h/4h crypto legs compute —
+# which is the honest picture, not a tuned one.
+#
+# Every bucket ships its `n` regardless, so a thin-but-reported figure can
+# never be read without its denominator.
+_ERA_MIN_WINNERS = 10
+
+
+def _era_report(by_era: dict[str, list[float]]) -> dict:
+    """Per-year census: every year that traded, with its ``n`` ALWAYS present.
+
+    ``state`` is never collapsed — ``computed`` (n cleared the floor, ``p80`` is
+    a number) / ``thin`` (we looked, too few winners, ``p80`` is null) /
+    ``undated`` (rows we could not place in time). A year with no winners at all
+    simply has no entry, which is a fourth, distinguishable fact: the leg either
+    did not trade or won nothing that year, and inventing a zero-n row would
+    assert we measured something we did not.
+    """
+    out: dict[str, dict] = {}
+    for era in sorted(by_era):
+        xs = by_era[era]
+        if era == "undated":
+            state = "undated"
+        elif len(xs) >= _ERA_MIN_WINNERS:
+            state = "computed"
+        else:
+            state = "thin"
+        out[era] = {"state": state, "n": len(xs),
+                    "p80": _percentile_80(xs) if state == "computed" else None}
+    return out
+
+
+def _recent_era_p80(by_era: dict[str, list[float]], pooled: float | None) -> dict:
+    """The explicit recent-era p80: newest dated years, widened until the sample
+    clears ``_ERA_MIN_WINNERS``, with the span it used published beside it.
+
+    WHY A WIDENING WINDOW RATHER THAN A FIXED N YEARS. A fixed "last 3 years"
+    is a different sample size on every leg — 4h crypto prints hundreds of
+    trades a year and a 1d equity leg prints a handful — so a fixed span would
+    silently be a well-powered estimate on one leg and noise on another, under
+    one column heading. Widening to a sample-size target instead makes the
+    thing held constant the STATISTIC's support, and the varying thing (the
+    span) is reported rather than hidden.
+
+    ``undated`` rows are EXCLUDED from the window — they cannot be ordered in
+    time, so including them would put rows of unknown vintage into a bucket
+    whose entire meaning is vintage. They stay visible in ``by_era``.
+
+    Four states, never collapsed:
+
+    * ``computed``    — the window cleared the floor. ``years`` names its span.
+    * ``all_years``   — every dated year was consumed and it STILL cleared the
+      floor only by taking everything, so recent-era IS pooled. Reported as its
+      own state because "recent == pooled because the leg is short" is a
+      different fact from "recent == pooled because volatility was stable", and
+      a bare equal number cannot tell them apart.
+    * ``thin``        — even all dated years fall under the floor.
+    * ``undated_only``— nothing was datable; no window exists.
+
+    ``delta_vs_pooled`` is signed (recent − pooled) and is the field the row's
+    resolution criterion reads: it must be non-zero on a real leg before this
+    half can close.
+    """
+    dated = {e: xs for e, xs in by_era.items() if e != "undated"}
+    if not dated:
+        return {"state": "undated_only", "years": [], "n": 0,
+                "p80": None, "delta_vs_pooled": None}
+    years, picked = sorted(dated), []
+    span: list[str] = []
+    for era in reversed(years):            # newest first
+        span.insert(0, era)
+        picked.extend(dated[era])
+        if len(picked) >= _ERA_MIN_WINNERS:
+            break
+    if len(picked) < _ERA_MIN_WINNERS:
+        return {"state": "thin", "years": span, "n": len(picked),
+                "p80": None, "delta_vs_pooled": None}
+    p80 = _percentile_80(picked)
+    return {
+        "state": "all_years" if len(span) == len(years) else "computed",
+        "years": span, "n": len(picked), "p80": p80,
+        "delta_vs_pooled": (None if p80 is None or pooled is None
+                            else round(p80 - pooled, 2)),
+    }
+
+
+def winner_mfe_p80(harness: str, base: list[str], split: str) -> dict | None:
     """P80 of the WINNER-trade MFE distribution over the IS window only
     (M20 P4.4 — the percentile arm is baked from train-window trades so the
     OOS verdict never sees test data; the by_year folds inside IS carry the
     one-scalar caveat, recorded in the cell tag). None when < 30 winners.
+
+    RETURNS A DICT, NOT A FLOAT (2026-08-16, ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS``
+    half 2). ``["p80"]`` is the same pooled scalar this used to return and is
+    still the only value that becomes an arm; the rest is the DISTRIBUTION
+    BEHIND IT, so a reader can see which volatility mix produced the number:
+
+    * ``by_era``      — one entry per calendar year, each with its own ``n`` and
+      a ``state`` (never collapsed: ``computed`` / ``thin`` = we looked and there
+      were too few / ``undated`` = we could not place these rows in time).
+    * ``recent_era``  — an EXPLICIT trailing-year window, widened from the newest
+      year backwards until it clears ``_ERA_MIN_WINNERS``, publishing the exact
+      ``years`` it spans. A "recent era" whose definition is invisible in the
+      artifact is the same defect as hardcoding a regime calendar.
+
+    ⚠️ **"RECENT" MEANS RECENT WITHIN THE IS WINDOW, NOT RECENT OVERALL.** This
+    function runs the harness with ``--end split``, so IS is the TRAIN PREFIX and
+    the newest year here is the newest year *before the split* — the OOS tail is
+    deliberately unseen. Reporting it as plain "recent" would name a population
+    the number is not computed over. The key is ``recent_era`` and its
+    ``basis`` field says so; do not re-label it.
+
+    NOTHING HERE PROPOSES AN ARM. The per-era figures are reported beside the
+    pooled one and are never fed to ``--trail-decay-arm-r`` — swapping the arm
+    to a recent-era p80 would be a Tier-3 change to a live parameter, and this
+    row is scoped to reporting.
 
     MFE IS READ VIA `exit_capture.mfe_r_of`, NOT `row["mfe_r"]`. This function
     used to do the top-level read, so for every `ict_scalp` leg — whose harness
@@ -940,6 +1117,7 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             print(f"    p80: harness rc={p.returncode} — no percentile arm")
             return None
         mfes, winners_seen = [], 0
+        by_era: dict[str, list[float]] = {}
         for line in Path(tmp).read_text().splitlines():
             if not line.strip():
                 continue
@@ -950,6 +1128,11 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             m = exit_capture.mfe_r_of(t)
             if m is not None:
                 mfes.append(m)
+                # SAME sample, bucketed a second way — one harness run, two
+                # cuts. The era breakdown costs no extra harness invocation
+                # (a full sweep run is the expensive thing here), so it can
+                # never be the reason a sweep is skipped for time.
+                by_era.setdefault(_era_of(t), []).append(m)
         if winners_seen and not mfes:
             # The distinguishing branch: winners EXIST and none carried a
             # readable MFE. That is a harness/reader shape mismatch, not a
@@ -960,8 +1143,12 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
         if len(mfes) < 30:
             print(f"    p80: {len(mfes)} winner MFEs (< 30) — thin sample")
             return None
-        mfes.sort()
-        return round(mfes[int(0.8 * (len(mfes) - 1))], 2)
+        pooled = _percentile_80(mfes)
+        return {"p80": pooled, "n": len(mfes),
+                "era_basis": "calendar_year_within_IS",
+                "era_min_winners": _ERA_MIN_WINNERS,
+                "by_era": _era_report(by_era),
+                "recent_era": _recent_era_p80(by_era, pooled)}
     except (OSError, json.JSONDecodeError, ValueError, TypeError,
             subprocess.TimeoutExpired) as exc:
         # NARROW deliberately (silent-empty-guard, 2026-08-10). The broad
@@ -2166,7 +2353,12 @@ def main(argv: list[str]) -> int:
         if (p["family"] in ("donchian", "pullback") and decay_in_scope
                 and not without_levers):
             tm_val = flag_value(p["base"], "--trail-mult")
-            p80 = winner_mfe_p80(p["harness"], p["base"], leg_split)
+            # `p80_detail` carries the per-era distribution BEHIND the scalar
+            # (PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS half 2). `p80` stays the
+            # pooled scalar and is still the ONLY value that becomes an arm —
+            # the era block is reported, never fed back into the cell.
+            p80_detail = winner_mfe_p80(p["harness"], p["base"], leg_split)
+            p80 = None if p80_detail is None else p80_detail["p80"]
             if p80 is not None and p80 > 0.5 and tm_val:
                 tight = max(1.5, round(tm_val / 2.0, 1))
                 p["cells"].append(
@@ -2218,8 +2410,24 @@ def main(argv: list[str]) -> int:
                     reach_verdict = "above_measured_median_ceiling"
                 else:
                     reach_verdict = "within_measured_median_ceiling"
+                _era = p80_detail["recent_era"]
                 arm_ceiling = {
                     "p80_arm_r": p80,
+                    # THE POPULATION BEHIND THE SCALAR, so a reader can see the
+                    # pooled arm describes a volatility MIX rather than any
+                    # regime the live book samples. Half (1) of the row gave the
+                    # arm its implied ATR/close ceiling; this is half (2).
+                    "p80_winner_n": p80_detail["n"],
+                    "p80_era_basis": p80_detail["era_basis"],
+                    "p80_era_min_winners": p80_detail["era_min_winners"],
+                    "p80_by_era": p80_detail["by_era"],
+                    "p80_recent_era": _era,
+                    # Hoisted to the top level because it is the field the
+                    # backlog row's resolution criterion is written against, and
+                    # a reader should not have to walk into a sub-object to find
+                    # whether pooled and recent-era actually differ.
+                    "p80_recent_era_r": _era["p80"],
+                    "p80_recent_era_delta": _era["delta_vs_pooled"],
                     "arm_reach_verdict": reach_verdict,
                     "measured_tp_reach_r_median_IS": tp_med,
                     "measured_tp_reach_r_max_IS": tp_max,
@@ -2246,6 +2454,25 @@ def main(argv: list[str]) -> int:
                 else:
                     print(f"   p80 winner-MFE arm = {p80}R  (within measured "
                           f"median TP reach {tp_med}R; {_ceil_txt})",
+                          flush=True)
+                # THE POOLED ARM'S OWN ERA SPREAD, printed beside it. Always
+                # with `n` — a per-era p80 over 11 winners is not the claim the
+                # pooled one over 300 is, and the whole finding this reports is
+                # that reading a percentile without its population is how the
+                # six shipped arms came to be quoted at all.
+                if _era["state"] in ("computed", "all_years"):
+                    _sp = (f"{_era['years'][0]}-{_era['years'][-1]}"
+                           if len(_era["years"]) > 1 else _era["years"][0])
+                    _same = (" — SAME SPAN AS POOLED, so this leg has no era "
+                             "contrast to show" if _era["state"] == "all_years"
+                             else f" vs pooled {p80}R over n={p80_detail['n']} "
+                                  f"(delta {_era['delta_vs_pooled']:+g}R)")
+                    print(f"   p80 recent-era ({_sp}, within IS) = "
+                          f"{_era['p80']}R over n={_era['n']}{_same}",
+                          flush=True)
+                else:
+                    print(f"   p80 recent-era UNAVAILABLE ({_era['state']}, "
+                          f"n={_era['n']}) — pooled arm stands alone",
                           flush=True)
             else:
                 print(f"   p80 cell skipped (p80={p80}, tm={tm_val})",
