@@ -3378,7 +3378,49 @@
           "note": "Filed rather than fixed: the diagnosis is one audit_query away but the operator's live decision this session was the disposition of the leg, not this. Flagged to them in-conversation as a NEW finding from the packet."
         }
       ]
+    },
+    {
+      "id": "PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS",
+      "opened_at": "2026-08-16T14:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, M20 harness<->live population parity)",
+      "severity": "medium",
+      "tier": "1 (tooling/reporting change; the arm VALUES it informs stay Tier-3)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "A p80 exit arm swept over a pooled multi-era population encodes a volatility mix the live book does not sample",
+      "summary": "MEASURED, not argued. risk/entry is exactly atr_stop_mult x ATR/close on both the live modules and both harnesses (identical formulas; byte-identical _atr), so cap_R = 0.099/(atr_stop_mult x ATR/close) -- i.e. a declared arm A on a leg with stop-mult M can only fire while ATR/close <= 0.099/(M*A). Reachability is therefore a function of the VOLATILITY REGIME at entry, not a property of the leg.\n\nRelay #9710, config-exact, --tp-cap-pct 0.099, entry-conditioned: gld_pullback_1d arm 5.06 is reachable on 42/112 (37.5%) POOLED over 2010-2026 -- but 7/7 in 2018 and 1/7 across 2025-2026, against a live basis of 0/8. The pooled number describes no regime in particular. The effect is regime-CLUSTERED, not a trend: 2010-2013, 2020 and 2025-2026 are high-vol clusters separated by quiet 2014-2019 and 2022-2024.\n\nThis is what made the live-vs-backtest 'population splice' look irreconcilable. Held at fixed era the two populations AGREE (14.3% backtest vs 0% live, n=7 and n=8).",
+      "detail": "Root of the arm-above-cap class, and it is mechanical rather than per-leg bad luck. The six shipped p80 arms (BTC 6.49, xrp 4.49, avax 4.86, sol_4h 5.57, qqq 3.56, gld 5.06) were produced 2026-07-12/13 (S-M20-EXIT-REFINEMENT-2026-07-12.md:534). The harness first gained --tp-cap-pct on 2026-08-10 (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP; m20_corpus_relabel_tp_cap.py dates the bracketing runs to 22:23Z/22:31Z that day). So all six are p80s of an UNCAPPED MFE distribution applied to a CAPPED live book, derived ~4 weeks before the harness could model the cap at all.\n\nThe theory predicts which legs break -- those whose uncapped p80 exceeds their own median ceiling -- and it holds 3/3 on the legs measured: gld 5.06 > 4.30 (37.5% reachable), qqq 3.56 > 2.70 (19.8%), scha 2.00 < 2.65 (83.1% reachable, and scha's 2.00 is NOT one of the six uncapped p80 arms).\n\nNOT proposing any arm value here. Two remedies, either sufficient, both reporting-side.",
+      "suggested_action": "(1) Have the sweep report each proposed arm's implied ATR/close ceiling (0.099/(atr_stop_mult*arm)) beside the arm, so a reader can check it against the current regime without re-deriving the identity; and/or (2) report the p80 PER ERA, or sweep on the recent era, so a pooled figure is never the only one quoted. Both are changes to m20_fleet_exit_sweep.py output, not to any config value.",
+      "resolution_criteria": "A sweep run's emitted verdict rows carry, per proposed arm, BOTH the implied ATR/close ceiling AND either a per-era p80 breakdown or an explicit recent-era p80 -- verified by reading an actual verdicts.json produced after the change and confirming the fields are populated (not merely present in the writer), on a leg whose pooled and recent-era p80 differ. Until a real run shows the fields with differing values, the row stays open: a writer that emits the key on a leg where the two happen to coincide has not demonstrated the reporting works.",
+      "refs": [
+        "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "config/lever_reachability.json",
+        "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP",
+        "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+        "relay #9710"
+      ]
+    },
+    {
+      "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+      "opened_at": "2026-08-16T14:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, M20 harness<->live population parity)",
+      "severity": "medium",
+      "tier": "3 (moves where order geometry is resolved, and would change the TP actually placed on live legs)",
+      "status": "open",
+      "area": "order-geometry/venue",
+      "title": "_TP_SENTINEL_CAP_PCT is a Bybit ErrCode 10001 workaround applied unconditionally; on the ALPACA-ONLY legs (GLD, SCHA) no venue is known to require it",
+      "summary": "_TP_SENTINEL_CAP_PCT = 0.099 is documented at trend_donchian.py:125-132 as a Bybit workaround ('Bybit (and most exchanges) reject TP further than ~10% from the reference base price, ErrCode 10001'). It is a module-level constant with NO venue branch, used directly in the tp formula in four strategy modules.\n\nThree legs that declare a trail_decay_arm_r are carried by NO Bybit account (config/accounts.yaml): gld_pullback_1d (GLD -> alpaca_paper/alpaca_portfolio/alpaca_live), qqq_trend_long_1d (QQQ -> ib_paper + the three Alpaca accounts), scha_trend_long_1d (SCHA -> alpaca_paper). The value is not re-derived downstream either: pkg.tp reaches Alpaca verbatim as take_profit.limit_price (alpaca_client.py:189), and that client carries no distance check.\n\nConsequence on those legs: the cap sets a real profit exit at cap_R (gld ~4.3R at median vol, ~1.3R in 2026) rather than acting as the never-filling 50R sentinel it is documented to be -- and it is what makes their declared arms unreachable.",
+      "detail": "NOT ESTABLISHED, and must not be assumed: that Alpaca or IBKR would ACCEPT a farther take-profit. That was not tested and cannot be without placing an order; absence of a distance check in our client is not proof the venue lacks one. Establishing it is the first step, and it is cheap on a paper account.\n\nThe unconditional application also has a real structural reason rather than being simple oversight: tp is computed in the signal builder, which runs BEFORE per-account routing, so no account or venue is in scope at that point. Per-leg the venue set IS knowable from config (a leg's symbols determine which accounts are eligible), so a per-leg resolution is possible -- but it moves where order geometry is decided, which is why this is Tier-3 and not a one-line fix.\n\nInteracts with PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS: if the cap should not bind on these legs, then --tp-cap-pct 0.099 is the correct LIVE-PARITY setting for the harness today (it faithfully reproduces what the code does) while being the wrong setting for what the code SHOULD do. Do not 'fix' the harness default in response to this row.\n\nSCOPE CORRECTION 2026-08-16 (see scope_correction_2026_08_16): a package fanning out to BOTH Alpaca and IBKR must satisfy the TIGHTER rule, so a venue-aware cap would have to resolve per ROUTE, not per leg. That is materially harder than 'look up the leg's venue' and raises the cost of the Tier-3 change.",
+      "suggested_action": "Step 1 (Tier-1, cheap): establish empirically whether Alpaca and IBKR accept a bracket take-profit further than 10% from entry, on a paper account. If they do, Step 2 (Tier-3): propose resolving the cap per leg from the venues its symbols route to, with the exact diff, and re-sweep the affected arms against the corrected ceiling.",
+      "resolution_criteria": "POPULATION: the 2 ALPACA-ONLY arm-declaring legs — gld_pullback_1d (GLD, n=112) and scha_trend_long_1d (SCHA, n=65), measured entry-conditioned 2010-03-26 to 2026-06-12 (relay #9710). qqq_trend_long_1d is excluded: it also routes to ib_paper, where a ~10% NBBO rule may make the cap correct. Closes on EITHER (a) a recorded paper-account result showing Alpaca REFUSES a take-profit further than 9.9% of entry, which closes this as correct-as-is with the evidence attached; or (b) Alpaca accepts it AND the cap resolution is made route-aware with operator approval, verified by reading a live order package on an Alpaca-routed leg whose tp is no longer clamped to entry*1.099. A code change alone does NOT close it — the check is a real order package with an un-clamped tp, because the clamp lives in a signal builder that runs before per-account routing, so a fix applied at the wrong layer would look correct in diff and change nothing. Reading more documentation does NOT close it either: the open question is an undocumented API validation, which only an order attempt reveals.",
+      "refs": [
+        "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "src/units/strategies/trend_donchian.py:125-132",
+        "src/units/accounts/alpaca_client.py:189",
+        "config/accounts.yaml"
+      ],
+      "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it."
     }
   ],
-  "updated_at": "2026-08-16T10:12:00+00:00"
+  "updated_at": "2026-08-16"
 }
