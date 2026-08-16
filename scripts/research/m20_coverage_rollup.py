@@ -638,6 +638,22 @@ CORPUS_NO_ROW = "no_live_parity_row"       # nothing newer — a re-run IS the r
 CORPUS_AGREES = "live_parity_agrees"       # newer evidence exists and matches
 CORPUS_DISAGREES = "live_parity_disagrees"  # newer evidence exists and contradicts
 CORPUS_UNAVAILABLE = "corpus_unavailable"   # we could not look — NOT "no row"
+# …AND THE ONE WHERE A RE-RUN IS NOT THE REMEDY (2026-08-16).
+#
+# `CORPUS_NO_ROW`'s comment prescribes an action, which is the useful thing
+# about it and also the thing that made it wrong for a third of its rows. A
+# lever pinned at `GEOMETRY_CUTOVER_NEVER` has a harness that does not model
+# the live TP, so a re-run of it produces ANOTHER stale row: the remedy is to
+# fix the harness, and only then sweep. Measured on the committed matrix the
+# day this was added: of 99 `no_live_parity_row` cells, **38 were
+# `regime_flip_exit`** — every one labelled with the expensive action instead
+# of the correct one, and it is the largest single block in the backlog.
+#
+# This is self-clearing by construction: the state is derived from
+# `cutover_for(lever)`, so deleting a lever's `LEVER_GEOMETRY_CUTOVER` entry
+# (which is how a harness fix is marked) returns its cells to `CORPUS_NO_ROW`
+# with no edit here. A hardcoded lever list would have to be remembered.
+CORPUS_HARNESS_UNFIXED = "harness_never_modelled_the_tp"
 
 
 def _corpus_resolver():
@@ -683,7 +699,11 @@ def stale_corpus_state(matrix: dict[str, Any]) -> dict[str, Any]:
                      if r["strategy"] == leg), {})
         status = cell.get("status")
         if hit is None:
-            state = CORPUS_NO_ROW
+            # Checked BEFORE `CORPUS_NO_ROW`, because both are "nothing newer
+            # exists" and only one of them can be answered by sweeping.
+            state = (CORPUS_HARNESS_UNFIXED
+                     if cutover_for(lever) == GEOMETRY_CUTOVER_NEVER
+                     else CORPUS_NO_ROW)
         elif base(status) in mod.NEGATIVE_STATUSES:
             state = CORPUS_DISAGREES
         else:
@@ -1326,6 +1346,20 @@ def main(argv: list[str]) -> int:
                       f"newer live-parity evidence already exist?")
                 print(f"  {CORPUS_NO_ROW:<26} {c.get(CORPUS_NO_ROW, 0):>4}  "
                       f"— nothing newer; a re-run IS the remedy")
+                n_unfixed = c.get(CORPUS_HARNESS_UNFIXED, 0)
+                if n_unfixed:
+                    unfixed_levers = sorted({
+                        r["lever"] for r in cs["rows"]
+                        if r["state"] == CORPUS_HARNESS_UNFIXED})
+                    print(f"  {CORPUS_HARNESS_UNFIXED:<26} {n_unfixed:>4}  "
+                          f"— ⛔ A RE-RUN IS **NOT** THE REMEDY. These sit in a "
+                          f"lever whose harness never modelled the live TP "
+                          f"({', '.join(unfixed_levers)}), so sweeping them "
+                          f"again just writes another stale row. Fix the "
+                          f"harness, THEN sweep. Deleting the lever's "
+                          f"LEVER_GEOMETRY_CUTOVER entry is what marks it "
+                          f"fixed, and these cells return to "
+                          f"{CORPUS_NO_ROW} on their own.")
                 print(f"  {CORPUS_AGREES:<26} {c.get(CORPUS_AGREES, 0):>4}  "
                       f"— newer evidence exists and matches the status")
                 print(f"  {CORPUS_DISAGREES:<26} {c.get(CORPUS_DISAGREES, 0):>4}  "
