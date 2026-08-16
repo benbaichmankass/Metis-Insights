@@ -760,6 +760,17 @@ before:  trend_donchian (BTCUSDT 1h): PASS                wf=6/6 flip%=0.0 net 3
 after:   trend_donchian (BTCUSDT 1h): INERT_NEVER_FLIPPED wf=6/6 flip%=0.0 net 37.3918 -> 37.3918
 ```
 
+…and the same sweep then produced a far sharper instance than the one that
+prompted the fix:
+
+```
+scha_trend_long_1d (SCHA 1d): INERT_NEVER_FLIPPED wf=17/17 flip%=0.0 net 7.4277 -> 7.4277
+```
+
+**Seventeen of seventeen.** Under the old two-state verdict that is the most
+impressive walk-forward anywhere in the sweep, and the lever never fired once.
+A reader ranking legs by `walkforward` would have put it first.
+
 The v1 sweep also completed cleanly at `tp_geometry: live_parity_capped` — the
 first `regime_flip_exit` evidence ever produced on the geometry the live units
 place. Its pullback legs are **real** fails, not inert ones: `ada_pullback_2h`
