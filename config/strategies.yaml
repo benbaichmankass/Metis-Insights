@@ -1990,9 +1990,24 @@ strategies:
   tlt_pullback_1h:
     # TLT INTRADAY (1h) HTF-pullback (bidirectional) — round 2b completing the
     # intraday ETF sleeve (gld_pullback_1h sibling on the long-duration Treasury
-    # bond ETF; frac 0.5, trail 4.0). PROVENANCE: intraday 1h ETF sweep
-    # 2026-06-20 § 0e — TLT pullback trail4 +50.6R / 2x-fee +34R
-    # (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # bond ETF; frac 0.5, trail 3.0 — see the trail_mult note below).
+    # PROVENANCE (rollout): intraday 1h ETF sweep 2026-06-20 § 0e — TLT pullback
+    # trail4 +50.6R / 2x-fee +34R
+    # (see docs/research/expansion-backtesting-research-2026-06-20.md). That
+    # figure is the ORIGINAL ROLLOUT evidence and is SUPERSEDED for trail_mult:
+    # the block shipped at 4.0 on 2026-06-21 (#4069) and was moved to 3.0 on
+    # 2026-07-12 in PR #6229, an operator-approved Tier-3 exit-lever package
+    # whose commit names "mes/mhg/tlt trail3" as one of 8 walk-forward cells
+    # (TLT-1h trail3 PASS, m20_fleet sweep). In that SAME commit mgc/xauusd went
+    # 3.0 -> 4.0, so trail3 here was a per-leg choice, not a blanket.
+    # Comment corrected 2026-08-16 (operator-approved): it had read "trail 4.0"
+    # since the 2026-07-12 flip, and a /system-review session read the stale
+    # prose as drift and nearly reverted an operator-approved cell. FIELD BEATS
+    # COMMENT. trail4 is `passed_unshipped` and deliberately HELD (2026-08-14
+    # operator decision (f), re-confirmed 2026-08-16): it is PATH B
+    # (gate_passed_OOS false, maxdd_worse) over an OOS base book that is
+    # unprofitable on all three splits tested, so it improves a LOSING book.
+    # Revisit only if base_net_r_OOS turns positive — NOT by re-running a sweep.
     # Round 2b completing the intraday ETF sleeve (operator-approved, risk_pct
     # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
     # SL/TP); the builder gates on the US cash session (market_hours us_equity).
