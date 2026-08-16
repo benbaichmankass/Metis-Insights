@@ -129,11 +129,45 @@ ZERO of 8 live entries could arm it
 replaced one inert arm with a second inert arm carrying a PASS badge.** That is
 worse than the state it fixes, because the badge suppresses the next question.
 
-**I have not resolved the contradiction, and cannot from here.** The p80 is over
-**backtest winner MFEs** (134 lifetime trades); `cap_R` is over **8 live order
-packages**. Either the live entries are unrepresentative of the leg's vol
-regime, or the backtest population's `risk/entry` differs systematically. Both
-testable; neither tested.
+### ✅ RESOLVED — the two numbers describe two different books, and 3.86R is about the wrong one
+
+An earlier draft of this section said *"I have not resolved the contradiction,
+and cannot from here … both testable; neither tested."* **It has now been
+tested.** Config-exact `gld_pullback_1d` on GLD 1d with `--tp-cap-pct 0.099`,
+per-trade emit, **n=112**:
+
+| population | risk/entry | implied `cap_R` |
+|---|--:|--:|
+| backtest p25 | 1.848% | 5.36 |
+| **backtest MEDIAN** | **2.301%** | **4.30** |
+| backtest winners median (n=44) | 2.299% | 4.31 |
+| backtest p75 | 3.014% | 3.28 |
+| **live band (n=8)** | **3.294–4.506%** | **3.01–2.20** |
+
+**The backtest MEDIAN sits below the live MINIMUM.** Only **16 of 112** backtest
+trades (14.3%) fall inside the live band at all. The live book enters at roughly
+**1.4× wider risk/entry** than the backtest population — and since
+`cap_R = 0.099 · entry / risk`, wider risk means a *lower* ceiling.
+
+**Consistency check that validates the whole chain:** the live band 3.294–4.506%
+implies `cap_R` **2.20–3.01**, which is exactly the independently measured
+`cap_R` 2.20–3.01 in § 1. Two derivations, same answer.
+
+**So the answer is the second branch, not the first:** the backtest population's
+`risk/entry` differs systematically. The proposed **3.86R needs `risk/entry` ≤
+2.565%** — met by **71 of 112 backtest trades (63.4%)** and by **0 of 8 live
+entries (0.0%)**.
+
+⚠️ **Therefore 3.86R must not be shipped.** It is a reachable arm *in the
+backtest book* and an unreachable one *in the book that trades*. Both
+measurements were correct all along; only the splice between them was wrong.
+
+**What I am NOT claiming.** The live side is **n=8** — enough to show the
+direction (its entire range sits above the backtest median) but not to
+characterise the live distribution. And **why** the live book enters at wider
+risk is untested: candidate causes are the ATR regime at those eight entry times
+versus a 2010–2026 backtest average, or a sizing-path difference. That is the
+next question, and it is not answered here.
 
 **`xrp_pullback_2h` closes the other escape:** its proposed **2.17R would be
 reachable** (`cap_R` 3.92–8.38) and the cell **still fails OOS**. So lowering
