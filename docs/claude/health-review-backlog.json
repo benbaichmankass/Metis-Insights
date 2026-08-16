@@ -17866,9 +17866,9 @@
       "id": "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT",
       "opened_at": "2026-08-16T15:00:00+00:00",
       "opened_by": "claude (sysrev-0816, follow-on audit to BL-20260816-COVERAGE-IS-ONE-SIDED)",
-      "severity": "high",
+      "severity": "medium",
       "tier": "2 (order path)",
-      "status": "open",
+      "status": "bybit_half_measured_clean_detector_gap_open",
       "area": "exit-coverage",
       "title": "The IB one-sided-coverage fix does NOT generalise: the Alpaca sweep and the Bybit sweep are both stop-only, and bybit_bracket_audit.py COLLECTS the target side but never lets it reach the verdict -- so it prints PROTECTED over a target-naked position",
       "detail": "SCOPE CHECK after fixing the IB half: do the other two venue sweeps share the blind spot that left both ib_paper positions target-naked? They do. Read from the code, not inferred from the IB case.\n\nALPACA -- `order_monitor._check_broker_naked_equity_positions` decides on `protected = client.has_protective_orders(symbol)` then `if protected is None or protected: continue`. `AlpacaClient.has_protective_orders` returns True on the FIRST leg matching `\"stop\" in otype or otype == \"limit\"` -- one membership test over both sides, the exact shape just removed from IB's coverage path. A stop-only Alpaca position answers 'protected', the sweep skips it, the missing take-profit is invisible. The IB fix deliberately did NOT touch IB's own `has_protective_orders`, which keeps the combined test legitimately because the IB sweep consumes `protection_coverage` instead. Alpaca has no coverage function -- the boolean IS the decision.\n\nBYBIT -- `_bybit_position_protection` is stop-only BY CONSTRUCTION: it reads `pos[\"stopLoss\"]` and sums SL legs into `covered_qty` (`sl_leg_ids`, `unknown_qty_sl_legs`, `source: partial_sl_legs`), and never touches `takeProfit`. So the live sweep cannot fire on target-nakedness.\n\nCORRECTION -- AN EARLIER VERSION OF THIS ROW CLAIMED BYBIT TARGET-NAKEDNESS WAS 'PRESENTLY UNMEASURABLE'. THAT WAS WRONG, and the impossibility-claim-guard caught it before merge (the row asserted an impossibility with no `checked:` annotation naming what was searched). What the check actually found:\n  checked: src/runtime/order_monitor.py:6928 -- `get_open_orders` IS called in-process.\n  checked: src/units/accounts/execute.py:2256 -- and again by `_bybit_open_missing_sl_leg`.\n  checked: scripts/ops/bybit_bracket_audit.py -- a Tier-1 `bybit-bracket-audit` system action exists, is read-only by construction (`get_positions` + `get_open_orders` only), and ALREADY collects `tp_legs` (line 197/199) and `position_takeProfit` (line 159/165).\nSo the Bybit target side is MEASURABLE ON DEMAND today. The capability is not missing.\n\nTHE REAL DEFECT IS SHARPER THAN THE ONE I FIRST FILED. `bybit_bracket_audit.py` collects the target side and then never lets it reach the verdict: `PROTECTED` / `PARTIALLY_NAKED` / `NAKED` is computed from SL coverage ALONE (lines 218-222), and `tp_legs` appears only in the printed detail (lines 406/414). A Bybit position holding a full stop and ZERO take-profit legs is therefore graded **PROTECTED** by the one tool built to answer 'is every open Bybit trade actually protected at the broker right now?'.\n\nThat is UNPROVENANCED DIAGNOSTIC OUTPUT, sub-class A (semantic substitution): the label names the quantity 'this position is protected'; the code computed 'this position is stop-covered'; the two are not the same, and nothing in the output reveals the substitution. It is worse than a silent gap, because a reader who runs the audit gets an explicit green over the exact condition they were checking for. The data needed to be right is already in the same dict.\n\nWHAT IS STILL NOT CLAIMED: that any Alpaca or Bybit position IS currently target-naked. That was measured for ib_paper (zero limit orders account-wide) and is UNMEASURED here -- and now that the tool is known to exist, measuring it is a cheap Tier-1 run rather than a research project. Do not let the IB measurement stand in for the other two venues.",
@@ -17889,6 +17889,36 @@
         "AlpacaClient.has_protective_orders",
         "scripts/ops/bybit_bracket_audit.py",
         "BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA"
+      ],
+      "notes": [
+        {
+          "at": "2026-08-16T14:55:00+00:00",
+          "note": "[MEASURED — THE BYBIT HALF IS REFUTED] Ran the Tier-1 `bybit-bracket-audit` (issue #9725, run 31953868225, 14:50:39Z), which resolution-criterion 1 asked for. RESULT: NO Bybit position is target-naked. Population: 5 non-flat symbols across 4 accounts (bybit_1 ADAUSDT + XRPUSDT, bybit_2 XRPUSDT, bybit_portfolio ETHUSDT + XRPUSDT). EVERY one carries at least one TP leg -- ADAUSDT 2 SL + 2 TP, the other four 1 SL + 1 TP each. So the condition measured on ib_paper (zero limit orders account-wide) does NOT reproduce on Bybit, and the row's refusal to carry the IB measurement across was the right call.\n\nWHAT SURVIVES is strictly the DETECTOR finding, unchanged and still worth fixing: `_bybit_position_protection` is stop-only, so the live sweep could not have told us this, and `bybit_bracket_audit.py`'s verdict still ignores the `tp_legs` it collects. Today those would print PROTECTED over a target-naked book; today there is no target-naked book to print it over. A detector that is only correct because the failure is currently absent is not a working detector -- but the severity of the OPEN condition drops, so this is a latent-gap row, not a live-exposure row.\n\nALPACA REMAINS UNMEASURED -- no live Alpaca position appeared in this audit (it is Bybit-only by construction), so do not read '5/5 clean' as covering it."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260816-BYBIT-PORTFOLIO-ETH-DEAD-LEG-UNBACKED-JOURNAL-QTY",
+      "opened_at": "2026-08-16T14:55:00+00:00",
+      "opened_by": "claude (sysrev-0816, surfaced by the bybit-bracket-audit run for #9725)",
+      "severity": "high",
+      "tier": "2 (order path / journal integrity)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "bybit_portfolio ETHUSDT: journal holds 35.01 against an exchange position of 21.05 with trade #4547's SL leg DEAD -- 13.96 of journal qty is unbacked and unprotected, and the audit ROLL-UP prints '0 naked' over it",
+      "detail": "MEASURED by `bybit-bracket-audit` (issue #9725, run 31953868225, 2026-08-16T14:50:39Z) -- read-only, `get_positions` + `get_open_orders` only.\n\n  bybit_portfolio ETHUSDT -- exchange position size 21.05 Sell, ONE SL leg (21.05 @ 1979.25, id 88c75ff7-1fd) and one TP leg.\n  Journal: TWO open rows summing 35.01.\n    #4135 eth_pullback_2h        short 21.05  journal_sl=1979.25357143  leg=ALIVE 88c75ff7-1fd\n    #4547 trend_donchian_eth_4h  short 13.96  journal_sl=1916.51928571  leg=DEAD  96fbd128-d1e\n  Arithmetic: 21.05 + 13.96 = 35.01, and the exchange size equals #4135's qty EXACTLY. So #4547's entire 13.96 is unbacked by any exchange position, and its tracked stop leg is confirmed dead at the broker.\n\nTWO SEPARATE PROBLEMS IN ONE ROW. (a) A journal row claiming 13.96 of live short exposure that the exchange does not hold -- the `journal_qty_divergent` class, which `_bybit_position_protection` emits as DETECT-ONLY and nothing remediates. (b) That row's protective leg is DEAD, so if the position WERE real it would be unprotected; the netted book hides which of the two is true from every aggregate.\n\nAND THE ROLL-UP SAID IT WAS FINE. The audit's summary line reads: '5/5 audited non-flat symbol(s) SL-covered at the broker within [100%, 100.5%]; 0 naked, 0 over-covered.' That is TRUE and it is measured against the EXCHANGE size (21.05/21.05 = 100%), which is the right denominator for 'is the venue position covered'. It is the wrong denominator for 'is every journal row backed and protected', and the roll-up does not say which question it answered. The dead leg and the 13.96 discrepancy appear only in the per-symbol detail a reader has to scroll past the green summary to reach.\n\nThis is the SECOND unprovenanced-summary defect in the same tool, found in the same run as the `tp_legs`-ignored-by-the-verdict one (BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT). Both have the same shape: the tool COLLECTS the disqualifying evidence and the headline verdict does not consult it.",
+      "resolution_criteria": [
+        "Establish whether #4547 is a phantom row (never really opened / already closed at the venue and not reconciled) or a real position the exchange lost -- from the fills store and order_packages, not by assuming the netted size tells you.",
+        "If phantom: close/supersede it with the correct provenance so it stops counting as live exposure in every aggregate that sums journal position_size.",
+        "The audit roll-up must not print an unqualified '0 naked' when any audited symbol has a DEAD tracked leg or a journal-vs-exchange qty divergence -- either surface a count in the summary or state the denominator the verdict used.",
+        "Confirm whether the detect-only `journal_qty_divergent` signal actually fired for this symbol; if it did and nothing surfaced it, that silence is its own finding."
+      ],
+      "refs": [
+        "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT",
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+        "BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+        "scripts/ops/bybit_bracket_audit.py",
+        "order_monitor._bybit_position_protection"
       ]
     }
   ]
