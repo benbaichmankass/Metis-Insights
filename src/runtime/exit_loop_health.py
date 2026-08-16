@@ -149,6 +149,7 @@ def record_pass(duration_ms: float) -> None:
     try:
         now_utc = datetime.now(timezone.utc).isoformat()
         now_mono = time.monotonic()
+        soak_interval_ms: Optional[float] = None
         with _lock:
             if _started_utc is None:
                 _started_utc = now_utc
@@ -157,6 +158,7 @@ def record_pass(duration_ms: float) -> None:
             # boot) would be inventing a sample, so it is simply not one.
             if _last_pass_monotonic is not None:
                 interval_ms = (now_mono - _last_pass_monotonic) * 1000.0
+                soak_interval_ms = interval_ms
                 _intervals_measured += 1
                 if _max_interval_ms is None or interval_ms > _max_interval_ms:
                     _max_interval_ms = interval_ms
@@ -171,7 +173,33 @@ def record_pass(duration_ms: float) -> None:
             if _max_pass_ms is None or duration_ms > _max_pass_ms:
                 _max_pass_ms = duration_ms
                 _max_pass_at_utc = now_utc
+            snap_passes, snap_started = _passes, _started_utc
     except Exception:  # noqa: BLE001 — observability must never break the loop
+        return
+
+    # Durable, cross-process record. OUTSIDE the lock on purpose: this does file
+    # I/O, and holding the state lock across it would let a slow disk stall the
+    # exit loop — the one thing this module exists to detect. Best-effort, so a
+    # failed append loses an observation and nothing else.
+    #
+    # WHY IT IS SEPARATE FROM THE FIELDS ABOVE: `_max_interval_ms` is scoped to
+    # this process and is reset by every deploy, and the trader redeploys on
+    # every merge to `main` (six processes in ~10h, measured 2026-08-16). A max
+    # over a short window is systematically LOW, so the in-memory grade is most
+    # reassuring exactly when the system is busiest. This append is what makes
+    # the max a property of the DATA rather than of a process's lifetime.
+    try:
+        from src.runtime.exit_interval_soak import (
+            build_exit_interval_record, record_exit_interval,
+        )
+        record_exit_interval(build_exit_interval_record(
+            interval_ms=soak_interval_ms,
+            pass_ms=duration_ms,
+            requirement_s=requirement_seconds(),
+            process_started_utc=snap_started,
+            passes=snap_passes,
+        ))
+    except Exception:  # noqa: BLE001 — never raise into the exit loop
         return
 
 
