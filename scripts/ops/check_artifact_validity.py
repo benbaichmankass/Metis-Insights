@@ -142,13 +142,18 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
     # 5427/2211), verified against the committed artifacts. They are now regular registered
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
-    "comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json": {
-        "backlog": "BL-20260730-PRODUCER-VACUITY-GUARD",
-        "until": "2026-08-15",
-        "why": "A zero-row FMP capture, consistent with the FMP free-tier NO-BUILD "
-               "finding (#7888). Either prune the dead capture or stop writing "
-               "empty ones.",
-    },
+    # REMOVED 2026-08-16 (the entry's own contract — "the fix landed → remove the
+    # entry"): the zero-row FMP capture US-20260729T073711Z.fmp.json is PRUNED and
+    # its owner row BL-20260730-PRODUCER-VACUITY-GUARD was already `resolved`, so
+    # only the grandfather entry was left behind — and it EXPIRED on 2026-08-15,
+    # failing this guard for every PR on 08-16 regardless of what the PR touched.
+    # Measured before pruning rather than assumed: of 19 committed captures exactly
+    # ONE was zero-row (that FMP file, the only FMP capture ever written), while the
+    # producer has since written 18 fxstreet captures through 2026-08-14 with zero
+    # empties. So "stop writing empty ones" had already landed and only "prune the
+    # dead capture" remained. The negative itself is not lost — it is recorded in
+    # the FMP free-tier NO-BUILD finding (#7888) and in this comment; the pruned
+    # file carried no rows, so no measurement went with it.
 }
 
 

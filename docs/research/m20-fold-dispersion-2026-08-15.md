@@ -2626,6 +2626,31 @@ outcome; at the real n = 6 there is none. **The 5m screen cannot settle
 `per_leg` vs `family_pooled` in either direction, and I am recording that before
 its rows land.**
 
+#### ✅ RESOLVED 2026-08-16 — the rows landed, and it resolved exactly as pre-declared
+
+The screen's 12 rows are now in the committed record (see the update above), so
+the pre-registered comparison can be evaluated instead of anticipated.
+
+**Observed: `per_leg` 2/6 = 33.3 % vs `family_pooled` 9/27 = 33.3 %, two-tailed
+Fisher p = 1.0000.** The point estimates are not merely close — they are the
+same number. Recomputed here from the committed record rather than read off the
+table above; it agrees with the pre-registered `2/6 → 1.000` row exactly.
+
+⚠️ **This is NOT evidence that `block_unit` does not matter.** p = 1.000 at
+n = 6 is what a test with almost no power returns; the pre-registration said in
+advance that *no* reachable outcome could reach significance, and the outcome
+that arrived is one of those. The honest reading is the one declared before the
+data: **this screen cannot settle `per_leg` vs `family_pooled`, and it did not.**
+Quoting "both 33.3 %, p = 1.0" as agreement would be exactly the overclaim the
+pre-registration exists to prevent.
+
+**One correction to my own table above:** it enumerates 1/6, 2/6, 3/6, 4/6 and
+6/6 and silently omits **5/6** (p = 0.062, also not significant). Since one
+mover was already banked across the three pre-existing legs, the three new legs
+could add 0–3, so the reachable set was 1/6–4/6 — 5/6 was unreachable for the
+same reason 6/6 was, and belonged in the table marked ❌. A table that claims to
+enumerate outcomes should enumerate all of them; the conclusion is unchanged.
+
 It is not a reason to stop the screen. The three 5m legs are worth having on
 their own terms — 5m is the thinnest-covered timeframe in the corpus — and the
 run also re-measures whether the VOID screen's `off0` values reproduce.
