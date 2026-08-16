@@ -81,10 +81,10 @@ COVERED = {
         "test_strategy_execution_gate reads config/strategies.yaml",
     ".github/workflows/system-actions.yml":
         "test_system_actions_workflow reads the workflow itself",
-    # The four docs/ files the suite reads AS COMMITTED, found by scanning
+    # The docs/ files the suite reads AS COMMITTED, found by scanning
     # tests/ for a docs/ path joined onto the repo root — not by hand, since
     # hand-enumeration is what produced instances 1-4 above. 19 test files carry
-    # a docs/ path literal; these four are the ones not writing a tmp_path
+    # a docs/ path literal; these are the ones not writing a tmp_path
     # fixture. See test_docs_committed_readers_are_all_covered below, which
     # re-derives this set from the tests on every run so it cannot go stale.
     "docs/research/exit-refinement-coverage.json":
@@ -102,6 +102,13 @@ COVERED = {
         "the LIVE doc has no drift — and the only other check of that property is "
         "the WEEKLY doc-audit-weekly.yml, so without this a docs-only PR can break "
         "it and merge green. Costly (this doc is edited often) and included anyway",
+    "docs/research/m20-exit-head-rounds.jsonl":
+        "test_exit_head_round_emits_evidence::test_the_emitted_schema_matches_the_"
+        "committed_evidence_file reads THE REAL evidence file, so a change to it "
+        "must run the suite that validates its schema. Added 2026-08-14 as the "
+        "FIFTH committed docs/ reader — found by this file's derived check on the "
+        "same day the file was created, which is the mechanism working: instances "
+        "1-4 were each found by an incident instead",
     "src/runtime/order_monitor.py": "python",
     "requirements.txt": "dependency pin",
 }

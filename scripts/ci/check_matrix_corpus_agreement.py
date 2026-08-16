@@ -46,6 +46,38 @@ Sibling of `exit-coverage-matrix-guard` (which validates statuses and refs) and
 of `provenance-consumer-guard` (a signal written and never read). This one is
 the cross-artifact case: two committed files that are each internally valid and
 disagree with each other.
+
+A LEVER THE CORPUS CANNOT SPEAK TO IS NOT A LEVER THAT AGREES
+=============================================================
+Added 2026-08-14 (BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED),
+found by using this guard rather than reading it — the same way its own
+per-cell supersession bug was found.
+
+`find_disagreements` looks up each cell's corpus evidence and, on `hit is None`,
+moves on. That branch cannot distinguish **"corpus rows exist for this lever and
+none contradicts"** from **"this lever has no corpus rows AT ALL"** — and the
+summary then counted every live cell as `checked`. Measured on the committed
+pair: 3 of the 8 lever columns (`exit_ladder`, `exit_head_ml`,
+`regime_flip_exit`) have **ZERO** corpus rows, so the reassuring
+`376 live cell(s) checked against 922 corpus row(s)` covered **235**; the other
+**141 (37.5%)** were unreachable by construction. 115 of those carry an explicit
+`honest_negative` — a stated negative outcome resting on evidence this guard
+implied it had verified.
+
+That is sub-class **C**, an unasserted denominator (`CLAUDE.md` § "Diagnostic
+provenance"), and this file already argued the principle at the INPUT-MISSING
+branch — *"an empty denominator reading as OK is the failure this whole family
+exists for"* — while a whole column slipped through one level down. A missing
+file was guarded; a missing COLUMN was not.
+
+The remedy is the `collapsed-state-guard` CONTRACTS shape, not a blanket fail:
+the three are structural (each is measured by a pipeline that does not write the
+fleet corpus), so failing on them every run would be the desensitized alarm this
+repo calls a P1 in its own right. So they are DECLARED with reasons in
+`CORPUS_EXEMPT_LEVERS`, reported separately from `checked` in every summary
+line, and an **undeclared** lever column with no corpus rows FAILS — which is
+what makes a newly-added column that quietly ships without an evidence store
+distinguishable from these three.
 """
 from __future__ import annotations
 
@@ -77,9 +109,83 @@ NEGATIVE_STATUSES = frozenset({"honest_negative", "is_oos_fail", "wf_fail"})
 # repo that the cheapest way to satisfy a presence-only marker is to lie to it.
 ACK = re.compile(r"LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS", re.I)
 
+# Lever columns the fleet corpus structurally CANNOT speak to, each with the
+# reason. Being here does not make a column checked — it makes it declared, so
+# its cells are reported as UNCHECKABLE instead of silently counted as verified.
+# A lever column absent from both the corpus and this table is a FAILURE: that
+# is a new column shipping with no evidence store, which is precisely the state
+# these three were in before anyone measured it.
+CORPUS_EXEMPT_LEVERS: dict[str, str] = {
+    "exit_head_ml": (
+        "measured by scripts/research/m20_exit_head_round.py on the trainer VM. "
+        "⚠️ THIS EXEMPTION'S ORIGINAL REASON IS NO LONGER TRUE AND IS KEPT ONLY "
+        "AS A STAGING STEP. It read: 'Nothing is committed back, so no "
+        "(leg, lever) row can exist here.' That was correct when written and is "
+        "now false — docs/research/m20-exit-head-rounds.jsonl carries 33 "
+        "committed rows with per-leg verdicts, geometry and provenance. The "
+        "evidence exists; it simply lives in a DIFFERENT file from "
+        "m20-sweep-corpus.jsonl, which is the only file this guard reads. Field "
+        "beats comment, so the comment is corrected here rather than the "
+        "exemption being quietly left to look justified. "
+        "WHAT THE EXEMPTION IS CURRENTLY HIDING, measured 2026-08-15 by running "
+        "the cross-check by hand over those 33 rows: 23 agree with the matrix "
+        "and **10 DISAGREE IN SIGN** — eth/xrp/ada_pullback_2h, "
+        "eth_pullback_prop_2h, trend_donchian_{xrp,ada}_4h, iaum_pullback_1d, "
+        "ict_scalp_{avax_5m,xrp_15m,eth_15m}. Those are exactly the ten cells "
+        "already queued for the operator as decision item 3 in "
+        "docs/research/m20-operator-decision-queue-2026-08-15.md, independently "
+        "reproduced here from committed data rather than from relay output. "
+        "WHY IT IS NOT ENABLED YET: wiring this file in would newly check those "
+        "cells and fail CI on ten known, already-queued disagreements, blocking "
+        "an unrelated Tier-3 merge. Re-grading them is Tier-3 (a status flip), "
+        "so the sequence is operator-decides-then-guard-enforces, not the "
+        "reverse. Enabling it is part of resolving item 3."
+    ),
+    "exit_ladder": (
+        "an observe-only shadow soak (runtime_logs/exit_ladder_soak.jsonl, "
+        "/api/bot/exit-ladder/soak), not a fleet sweep — graduation to a real "
+        "laddered exit is the backtest-gated P4. The fleet harness never emits "
+        "an exit_ladder cell, so the corpus is silent by construction."
+    ),
+    "regime_flip_exit": (
+        "has NO runtime implementation to sweep — only the offline replays "
+        "scripts/research/m20_regime_flip_replay.py + m20_flip_replay_sweep.py. "
+        "Building it as a YAML-declared default-off close path is operator "
+        "decision (c), 2026-08-14; until then there is nothing for the fleet "
+        "sweep to parameterize."
+    ),
+}
+
 
 def _base_status(status: str | None) -> str:
     return (status or "").split(":")[0]
+
+
+def lever_coverage(matrix: dict, rows: list[dict]) -> dict[str, dict]:
+    """Per-lever: how many corpus rows exist, and how many live cells rest on them.
+
+    Split out so the summary can never again report an unreachable cell as
+    checked. `corpus_rows == 0` means every disposition in that column is
+    unreachable by this guard, whatever its status says.
+    """
+    counts: dict[str, int] = {}
+    for r in rows:
+        lv = r.get("lever")
+        if lv:
+            counts[lv] = counts.get(lv, 0) + 1
+    out: dict[str, dict] = {}
+    for lever in matrix.get("lever_columns", []):
+        live_cells = sum(
+            1 for row in matrix.get("rows", [])
+            if row.get("execution") == "live"
+            and (row.get(lever) or {}).get("status")
+        )
+        out[lever] = {
+            "corpus_rows": counts.get(lever, 0),
+            "live_cells": live_cells,
+            "declared_exempt": lever in CORPUS_EXEMPT_LEVERS,
+        }
+    return out
 
 
 def newest_floor_clearing_pass(rows: list[dict], leg: str, lever: str) -> dict | None:
@@ -209,19 +315,95 @@ def main(argv: list[str]) -> int:
         assert len(find_disagreements(sib_matrix, sib)) == 1, (
             "a failing SIBLING cell from the same run wrongly suppressed a "
             "standing pass — supersession must be per-cell, not per-(leg,lever)")
+        # ...and a lever the corpus cannot speak to must be reported as
+        # UNREACHABLE, never folded into the checked count. This is the case
+        # that read as clean for 141 real cells.
+        cov_matrix = {
+            "lever_columns": ["trail_decay", "exit_head_ml"],
+            "rows": [{"strategy": "_cov", "execution": "live",
+                      "trail_decay": {"status": "honest_negative", "ref": "x"},
+                      "exit_head_ml": {"status": "honest_negative", "ref": "x"}}],
+        }
+        cov = lever_coverage(cov_matrix, fake_rows)
+        assert cov["trail_decay"]["corpus_rows"] > 0, cov
+        assert cov["exit_head_ml"]["corpus_rows"] == 0, (
+            "a lever with no corpus rows must report zero, not be omitted")
+        assert cov["exit_head_ml"]["live_cells"] == 1, cov
+        assert cov["exit_head_ml"]["declared_exempt"] is True, (
+            "exit_head_ml must be DECLARED, or its cells fail as undeclared")
+        # ...and an UNDECLARED corpus-less column must be visible as such, which
+        # is what makes a newly-added lever distinguishable from the known three.
+        cov2 = lever_coverage(
+            {"lever_columns": ["_brand_new_lever"],
+             "rows": [{"strategy": "_cov", "execution": "live",
+                       "_brand_new_lever": {"status": "honest_negative"}}]},
+            fake_rows)
+        assert cov2["_brand_new_lever"] == {
+            "corpus_rows": 0, "live_cells": 1, "declared_exempt": False}, cov2
+        # ...and every declared exemption must name a lever that still exists,
+        # or the table is prose about a column nobody has.
+        assert set(CORPUS_EXEMPT_LEVERS) <= set(
+            json.loads(MATRIX.read_text()).get("lever_columns", [])), (
+            "CORPUS_EXEMPT_LEVERS names a lever column the matrix does not have")
         print("[selftest] matrix-corpus-agreement")
         print("self-test OK — catches a planted disagreement, clears on an "
-              "acknowledgement, and honours supersession.")
+              "acknowledgement, honours supersession, and reports a lever with "
+              "no corpus rows as unreachable rather than checked.")
         return 0
 
     bad = find_disagreements(matrix, rows)
-    live_cells = sum(
-        1 for r in matrix.get("rows", []) if r.get("execution") == "live"
-        for lv in matrix.get("lever_columns", []) if (r.get(lv) or {}).get("status")
+    cov = lever_coverage(matrix, rows)
+
+    # A lever column with no corpus rows AND no declared reason is a new column
+    # that shipped without an evidence store. Fail on it — that is the whole
+    # point of declaring the three known ones rather than hardcoding a skip.
+    undeclared = sorted(
+        lv for lv, c in cov.items()
+        if c["corpus_rows"] == 0 and not c["declared_exempt"]
     )
+    if undeclared:
+        print(f"matrix-corpus-agreement: {len(undeclared)} lever column(s) have "
+              f"ZERO corpus rows and are not declared in CORPUS_EXEMPT_LEVERS:",
+              file=sys.stderr)
+        for lv in undeclared:
+            print(f"  {lv}: {cov[lv]['live_cells']} live cell(s) rest on evidence "
+                  f"this guard cannot reach", file=sys.stderr)
+        print(
+            "\nEvery disposition in such a column is unverifiable here, so counting it\n"
+            "as checked would overstate coverage by exactly its size. Either point the\n"
+            "lever's sweep at the corpus, or declare it in CORPUS_EXEMPT_LEVERS with the\n"
+            "reason the corpus cannot speak to it.", file=sys.stderr)
+        return 1
+
+    # The mirror failure: an exemption that outlived its reason. A lever that has
+    # STARTED writing corpus rows is now checkable, and leaving it declared would
+    # keep excusing it from a check it can pass — stale prose beside a changed
+    # field, which this repo resolves in the field's favour every time.
+    graduated = sorted(
+        lv for lv, c in cov.items() if c["declared_exempt"] and c["corpus_rows"]
+    )
+    if graduated:
+        print(f"matrix-corpus-agreement: {len(graduated)} lever(s) are declared in "
+              f"CORPUS_EXEMPT_LEVERS but now HAVE corpus rows:", file=sys.stderr)
+        for lv in graduated:
+            print(f"  {lv}: {cov[lv]['corpus_rows']} corpus row(s) — the exemption's "
+                  f"stated reason no longer holds", file=sys.stderr)
+        print("\nRemove the entry so these cells are actually checked.", file=sys.stderr)
+        return 1
+
+    checkable = sum(c["live_cells"] for c in cov.values() if c["corpus_rows"])
+    unreachable = sum(c["live_cells"] for c in cov.values() if not c["corpus_rows"])
+    exempt = sorted(lv for lv, c in cov.items() if not c["corpus_rows"])
+
     if not bad:
-        print(f"matrix-corpus-agreement: OK — {live_cells} live cell(s) checked "
+        # `checked` and `unreachable` are reported as SEPARATE numbers and never
+        # summed into one reassuring total: the sum is what read as coverage.
+        print(f"matrix-corpus-agreement: OK — {checkable} live cell(s) checked "
               f"against {len(rows)} corpus row(s); no unacknowledged disagreement.")
+        if unreachable:
+            print(f"  NOT CHECKED (no corpus rows for the lever, declared): "
+                  f"{unreachable} live cell(s) across {len(exempt)} column(s) — "
+                  f"{', '.join(exempt)}. These are unverified here, not verified-clean.")
         return 0
 
     print(f"matrix-corpus-agreement: {len(bad)} cell(s) record a NEGATIVE while the "
