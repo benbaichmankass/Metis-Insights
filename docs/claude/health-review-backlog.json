@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T16:50:00+00:00",
+  "updated_at": "2026-08-16",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -16028,7 +16028,15 @@
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Coverage has improved a lot — counted over the current matrix: 167 live_parity + 3 no_take_profit vs 246 absent (the rollup prints 166/376 = 44.1% recorded, 210 unrecorded) — and criterion (4) is met by `geometry_coverage()` (m20_coverage_rollup.py:1077-1102, reported with its denominator). Criteria (1) and (3) are not: the matrix `legend` block holds only the 7 status values (no tp_geometry entry, and `'tp_geometry' in _doc` is False), so absence still has no explicit name, and no guard requires every cell to carry one of the defined values. — Ends when the legend defines tp_geometry incl. an explicit `unrecorded`, and a guard (with a planted-omission self-test) rejects a silent cell."
         }
-      ]
+      ],
+      "measured_again_2026_08_16": {
+        "headline_is_17x_stale": "The title still says 'set on 10 of 416 coverage cells (2.4%)'. MEASURED 2026-08-16 directly off docs/research/exit-refinement-coverage.json: 170 of 416 = 40.9% carry a value (live_parity 167, no_take_profit 3, absent 246). SAME denominator as the original count, so the two are directly comparable — a 17x improvement since 2026-08-14. The row is still correctly OPEN, but a reader acting on '2.4%' would badly misjudge how much work remains, which is why this is recorded rather than left to the title.",
+        "note_on_no_take_profit_going_DOWN": "no_take_profit fell 5 -> 3 over the same period. Not a regression: cells re-swept at live parity flip from no_take_profit to live_parity. Recorded because a shrinking count in a coverage row invites the opposite reading.",
+        "criterion_1_HALF_DONE_2026_08_16": "The DEFINITION half is done: a `tp_geometry_legend` block now sits beside the status `legend` in the matrix, naming live_parity / no_take_profit and stating explicitly that ABSENT means 'we did not look', with the three conditions absence collapses. This is the prerequisite this row's own detail identifies — 'a field with no documented semantics is a field nobody is obliged to fill'. The STAMPING half of (1)/(2) is NOT done.",
+        "why_the_stamping_was_deliberately_NOT_done": "Criterion (2) requires each cell's own `ref` to establish live_parity or no_take_profit, with `unrecorded` stamped only where the ref establishes neither. Blanket-stamping `unrecorded` across the 246 absent cells would be FASTER and WORSE: many carry refs that plainly name a live-parity re-sweep, so it would record 'we did not look' about cells whose evidence does establish the geometry — entrenching a wrong value behind a field that now reads as authoritative. A date must not be used as the proxy either; this row exists because a proxy was trusted.",
+        "consumer_safety_ALREADY_CHECKED_do_not_re_derive": "Both consumers in m20_coverage_rollup.py tolerate a stamped 'unrecorded' string, so the stamping pass does not need a coordinated code change: (a) the stale-grader branches on geom == GEOMETRY_NO_TP / == GEOMETRY_LIVE_PARITY and otherwise falls to an `else` that grades by the date proxy — a stamped string lands in the same branch as None; and (b) geometry_coverage counts counts['unrecorded' if geom is None else str(geom)], whose null-bucket literal is ALREADY the string 'unrecorded', so a stamp merges into that bucket rather than falsely reporting 100% coverage. Checked because the obvious risk of stamping is that it silently satisfies the very metric that exists to measure the gap. It does not.",
+        "measured_by": "claude (overnight M20 session), 2026-08-16"
+      }
     },
     {
       "id": "BL-20260814-IB-EVENTLOOP-CONTENTION",
