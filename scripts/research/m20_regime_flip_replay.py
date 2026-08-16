@@ -160,18 +160,44 @@ def main(argv: List[str]) -> int:
     trades = [json.loads(x) for x in Path(a.trades).read_text().splitlines()]
     rows = replay(trades, candles, adx, policy, a.policy_key)
 
+    # A FOLD WHERE THE LEVER NEVER FIRED CANNOT BE A WIN (2026-08-16).
+    #
+    # `replay` sets `flip_r = actual_r` on a `no_flip` row (line ~117), so a
+    # fold with zero flips has the two series IDENTICAL and `beats` is True by
+    # construction — `>=` and `<=` both hold with equality. The verdict then
+    # counted it toward `wins` exactly as if the lever had helped.
+    #
+    # NOT hypothetical, and caught mid-sweep: the first leg of the 2026-08-16
+    # fleet re-sweep returned `trend_donchian` **PASS wf=6/6 flip%=0.0 net
+    # 37.3918 -> 37.3918** — a perfect walk-forward over a lever that never
+    # once acted, on a leg whose matrix cell is `honest_negative`. Left alone,
+    # that lands in the corpus as a floor-clearing PASS contradicting a live
+    # cell, which is precisely what `matrix-corpus-agreement` escalates.
+    #
+    # Same class as the inert walk-forward folds the exit-head acknowledgement
+    # drafter reports (`m20_ack_corpus_disagreements.fold_quality`), one level
+    # worse: there inertness was 3 of 6 folds, here it can be the WHOLE
+    # verdict. `wins` is kept as-was so an existing consumer reads the same
+    # number, and the PASS criterion moves to `real_wins`.
     years = sorted({r["year"] for r in rows})
     folds = {}
-    wins = usable = 0
+    wins = usable = real_wins = inert_folds = 0
     for y in years:
         yr = [r for r in rows if r["year"] == y]
         act = fold_metrics(yr, "actual_r")
         flp = fold_metrics(yr, "flip_r")
         ok = (flp["net_total_r"] >= act["net_total_r"]
               and flp["max_drawdown_r"] <= act["max_drawdown_r"])
-        folds[y] = {"actual": act, "flip": flp, "beats": ok}
+        n_flips = sum(1 for r in yr if r["flip_reason"] != "no_flip")
+        inert = n_flips == 0
+        folds[y] = {"actual": act, "flip": flp, "beats": ok,
+                    # Stated per fold so a reader can check the roll-up rather
+                    # than trust it.
+                    "flips": n_flips, "inert": inert}
         usable += 1
         wins += 1 if ok else 0
+        inert_folds += 1 if inert else 0
+        real_wins += 1 if (ok and not inert) else 0
     flipped = sum(1 for r in rows if r["flip_reason"] != "no_flip")
     result = {
         "symbol": a.symbol, "timeframe": a.timeframe,
@@ -182,8 +208,20 @@ def main(argv: List[str]) -> int:
         "overall_flip": fold_metrics(rows, "flip_r"),
         "folds": folds,
         "walkforward": f"{wins}/{usable}",
-        "verdict": ("PASS" if usable >= 4 and wins * 3 >= usable * 2
-                    else "fail"),
+        # THE WALK-FORWARD STRING IS NOT A COUNT OF WINS. Published beside it
+        # so no consumer has to re-derive the distinction, and so a reader who
+        # only ever sees `walkforward` in a summary line has the correction one
+        # field away.
+        "walkforward_real": f"{real_wins}/{usable}",
+        "inert_folds": inert_folds,
+        # THREE verdicts, never two. "the lever fired and lost" and "the lever
+        # never fired" are opposite findings and only one of them is evidence
+        # about the lever; collapsing the second into either PASS or fail
+        # asserts something the run did not measure.
+        "verdict": (
+            "INERT_NEVER_FLIPPED" if flipped == 0
+            else "PASS" if usable >= 4 and real_wins * 3 >= usable * 2
+            else "fail"),
     }
     print(json.dumps(result, indent=1))
     if a.json:
