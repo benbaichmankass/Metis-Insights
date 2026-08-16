@@ -17843,6 +17843,33 @@
         "order_monitor._bybit_position_protection",
         "scripts/ops/attach_ib_target.py"
       ]
+    },
+    {
+      "id": "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT",
+      "opened_at": "2026-08-16T15:00:00+00:00",
+      "opened_by": "claude (sysrev-0816, follow-on audit to BL-20260816-COVERAGE-IS-ONE-SIDED)",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "The IB one-sided-coverage fix does NOT generalise: the Alpaca and Bybit naked sweeps are also stop-only, so a target-naked position is undetectable on either -- and on Bybit it is currently UNMEASURABLE, with no broker-side order read surface at all",
+      "detail": "SCOPE CHECK after fixing the IB half. The question asked was whether the other two venue sweeps share the blind spot that left both ib_paper positions target-naked. They do, by two different mechanisms, and BOTH are read from the code -- not inferred from the IB case.\n\nALPACA -- `order_monitor._check_broker_naked_equity_positions` decides on `protected = client.has_protective_orders(symbol)` then `if protected is None or protected: continue`. `AlpacaClient.has_protective_orders` returns True on the FIRST leg matching `\"stop\" in otype or otype == \"limit\"` -- one membership test over both sides, the exact shape just removed from IB's coverage path. A stop-only Alpaca position therefore answers 'protected', the sweep skips it, and the missing take-profit is invisible. Note the IB fix did NOT touch this: IB's own `has_protective_orders` keeps the combined test legitimately (it answers 'does ANY leg rest?') because the IB sweep consumes `protection_coverage` instead. Alpaca has no coverage function -- the boolean IS the decision.\n\nBYBIT -- `_bybit_position_protection` is stop-only BY CONSTRUCTION: it reads `pos[\"stopLoss\"]` and sums SL legs into `covered_qty` (`sl_leg_ids`, `unknown_qty_sl_legs`, `source: partial_sl_legs`). It never looks at `takeProfit` or TP legs anywhere. The naming is honest; the CONSEQUENCE is that the target side is ungraded, so the sweep cannot report it either.\n\nWHAT IS NOT CLAIMED. This is a DETECTOR finding. It is NOT established that any Alpaca or Bybit position is currently target-naked -- that was measured for ib_paper (zero limit orders on the whole account) and is UNMEASURED here. Do not let the IB measurement stand in for the other two venues.\n\nAND ON BYBIT IT IS PRESENTLY UNMEASURABLE, WHICH IS THE SHARPER HALF. There is no diag route serving broker-side Bybit orders: `/api/diag/exchange_positions` returns positions with no legs, and `/api/bot/positions` `takeProfit` comes from the JOURNAL, which is precisely the field that stays populated while the broker leg is gone -- the same reason the DB-driven naked check missed the IB case. So a session asking 'is this Bybit position target-naked?' has no surface that can answer, only surfaces that answer a neighbouring question confidently. That is the identical gap `/api/diag/ib_open_orders` was added to close for IB on 2026-08-16 (BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE), one venue over.\n\nORDER OF WORK: build the read surface first. Grading a venue whose order state cannot be independently read reproduces the original failure -- a reducing verdict that nothing outside can contradict.",
+      "resolution_criteria": [
+        "A broker-side order read surface for Bybit (and confirmation that Alpaca's resting legs are readable the same way), so target-nakedness can be OBSERVED before any detector is trusted to grade it.",
+        "With that surface: an actual measurement of whether any live Alpaca or Bybit position is target-naked, stated with its population -- not an inference carried over from ib_paper.",
+        "Alpaca's naked sweep decides on a two-sided grade rather than the any-leg boolean; if `has_protective_orders` is kept, its docstring must forbid naked-detection use the way IB's now does, and the sweep must call something else.",
+        "Bybit's protection state reports the target side explicitly (even as a separate field), so 'we did not grade it' is distinguishable from 'it is covered'.",
+        "A test per venue pinning that a STOP-ONLY book does NOT read as protected — the single assertion that would have caught all three."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE",
+        "BL-20260629-ALPACA-NAKED-BRACKET",
+        "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
+        "order_monitor._check_broker_naked_equity_positions",
+        "order_monitor._bybit_position_protection",
+        "AlpacaClient.has_protective_orders"
+      ]
     }
   ]
 }
