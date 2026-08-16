@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-16T12:35:00+00:00",
+  "updated_at": "2026-08-16T12:45:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -17681,6 +17681,29 @@
       ],
       "related": [
         "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT"
+      ]
+    },
+    {
+      "id": "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS",
+      "opened_at": "2026-08-16T12:45:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, operator asked why the MGC close will not fill)",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "WHY the IB close does not fill: it fires a MarketOrder into COMEX with outsideRth unset and NOTHING in the system knows whether the venue is in session -- the exact gap Alpaca's close path already closes",
+      "detail": "OPERATOR-ASKED. Three code facts, each grepped rather than inferred:\n\n1. `outsideRth` IS NEVER SET ANYWHERE. `grep -rn 'outsideRth|outside_rth' src/ scripts/` returns NOTHING, so `MarketOrder` in `_locked_close` carries ib_insync's default `outsideRth=False`. IBKR HOLDS such an order rather than routing it when the contract is outside its regular session — status `PreSubmitted`, `filled 0`, which is precisely the observed state.\n\n2. NO IB PATH CHECKS MARKET HOURS. `grep` for is_market_open / us_equity_session / market_hours / liquidHours / tradingHours across `ib_client.py` + `ib_connector.py` returns NOTHING.\n\n3. `src/runtime/market_hours.py` MODELS ONLY `fx`, `us_equity` and `crypto` — its own docstring lists exactly those three. THERE IS NO FUTURES CALENDAR IN THE REPO AT ALL, so no code path could answer 'is COMEX open?' even if one asked.\n\nTHE ASYMMETRY IS THE FINDING. `alpaca_client.py:603-617` calls `us_equity_session()` and routes a close to `_close_extended_hours` (marketable LIMIT + extended_hours) or DEFERS with retCode 2 during closed hours — with a documented rationale (BL-20260716-ALPACA-MARKET-HOURS-EXIT: 'the monitor stops firing doomed market flattens into a closed market every tick'). That is the SAME defect, already diagnosed and fixed on one venue, never ported to IB.\n\nOBSERVED (ib_paper/MGC, 105 long): order 6 placed 2026-08-16T10:56Z = 06:56 ET sat `PreSubmitted` / `filled 0` for 90+ minutes. Order 378 placed ~12:30Z = 08:30 ET did not confirm flat within the 6s window either.\n\n`filled 0` ARGUES FOR 'HELD' AND AGAINST 'THIN BOOK'. A 105-lot MGC market order against insufficient depth would PARTIAL-fill; zero fill across 90 minutes is the signature of an order IB never routed. Stated as the stronger reading, not as proof.\n\nWHAT I HAVE NOT ESTABLISHED, and it matters: the exact COMEX RTH window. I believe GC/MGC regular hours are 08:20-13:30 ET, which would put order 6 ~84 min early — but that is general knowledge, NOT anything in this repo, and it does not fit cleanly: order 6 was still `PreSubmitted` at 12:26Z = 08:26 ET, AFTER that window opens. So either the window differs for this contract, or a second factor is also holding it. The mechanism (no session awareness + outsideRth unset) is established; the precise trigger time is not.\n\nCONSEQUENCE FOR THE FIX JUST SHIPPED (#9663): when the order is being HELD, cancelling it at the 6s confirm deadline is exactly right — it was never going to fill. But if a venue is OPEN and merely slow, that same cancel could kill an order about to fill. `_cancel_own_close_order`'s `already_filled` state covers the clean race; a PARTIAL fill at cancel time is not handled and is worth a look.",
+      "resolution_criteria": "1. Give IB the treatment Alpaca already has: a session check before the close, and DEFER (the retCode-2 shape) rather than firing a market order the venue will hold. A deferred close leaves the protective bracket armed, which is the safe state.\n2. That needs a FUTURES calendar, which does not exist — market_hours.py covers fx / us_equity / crypto only. Prefer asking IB for `contractDetails.tradingHours` / `liquidHours` over hardcoding a window: the broker's own answer cannot drift, and market_hours.py's docstring already concedes it models no holidays and approximates DST.\n3. Decide `outsideRth` deliberately per venue rather than inheriting the library default. For a FLATTEN, `outsideRth=True` plus a marketable limit is arguably the correct posture (Alpaca's extended-hours branch is the precedent); silently inheriting False is not a decision anyone made.\n4. Until then, treat a `PreSubmitted` / `filled 0` IB close as EXPECTED outside session and do not read it as a broker fault.\n5. Separately: handle a PARTIAL fill at cancel time in `_cancel_own_close_order` (today it distinguishes cancelled / already_filled / cancel_failed, with no partial).",
+      "refs": [
+        "src/units/accounts/ib_client.py::_locked_close (MarketOrder, tif=DAY, no outsideRth)",
+        "src/units/accounts/alpaca_client.py:603-617 (the venue that DOES check)",
+        "src/runtime/market_hours.py (fx / us_equity / crypto only)",
+        "issue #9648 (order 6)",
+        "issue #9687 (order 378)"
+      ],
+      "related": [
+        "BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER",
+        "BL-20260716-ALPACA-MARKET-HOURS-EXIT"
       ]
     }
   ]
