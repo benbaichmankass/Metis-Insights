@@ -63,6 +63,21 @@ _DEFAULT_STALE_S = 180.0
 # Measured 2026-08-16 (BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT): the
 # worst pass on one process was 58940.8ms at n=694 — 1.1s inside the requirement,
 # graded `fresh`, alarming nowhere. That is the gap this closes.
+#
+# ⚠️ READ `requirement_state` BESIDE `intervals_measured`, never alone — the same
+# discipline as `max_multiple` beside `measured_n` on the exposure soak. Both the
+# max and the grade are PER-PROCESS and reset on restart, and the live trader
+# restarts often: three processes in ~8.5h on 2026-08-16 (23:06 → 06:24 → 07:34),
+# because `ict-git-sync` auto-deploys every merge to `main`. The tail needs a large
+# n to be drawn at all — the 58940.8 ms observation came from an n=694 process that
+# survived a quiet overnight window, while the two daytime processes reached only
+# n=38 and n=23. So on a busy day `within` can mean "no process lived long enough to
+# draw the tail", NOT "the requirement was met today".
+#
+# Per-process is still the correct SCOPE: a max cannot be pooled across processes
+# without pooling their distributions, and a latch that never reset would go silent
+# forever after the first breach. A cross-process view would need a durable
+# accumulator — a different design, deliberately not this one.
 _REQUIREMENT_ENV = "EXIT_EVAL_MAX_INTERVAL_SECONDS"
 _DEFAULT_REQUIREMENT_S = 60.0
 
