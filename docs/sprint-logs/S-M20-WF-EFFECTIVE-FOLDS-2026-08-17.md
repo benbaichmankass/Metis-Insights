@@ -461,3 +461,43 @@ output" rule earns its place: the first probe's answer was the comfortable one.
 **Not done, deliberately:** `claude/m20-trend-harness-workstream-ipa3ce` is also
 un-merged but is **another session's** branch (8 days old, different suffix).
 Left untouched per the comment-never-edit rule.
+
+### The strandedness was suppressing a CI SIGNAL, not just hiding three rows
+
+This is the part worth carrying forward. Landing the rows made
+**`matrix-corpus-agreement` fail immediately**:
+
+```
+squeeze_breakout_4h / vol_trail: status=honest_negative but corpus
+cell=vt_cold10_t1.8 verdict=path_b_wf_pass run=2026-08-17 wf=4/6 base_OOS=49
+```
+
+The disagreement was **real the whole time** — the matrix has said
+`honest_negative` since #9866 while a `path_b_wf_pass` row existed — but the
+guard reads the corpus **on `main`**, and the row was not there. So an un-merged
+artifact branch did not merely delay data: it **silenced the guard whose entire
+job is to catch a negative status sitting on top of passing evidence**. A green
+`matrix-corpus-agreement` on `main` was, for those hours, a green that had
+nothing to check on this cell — the *"green is not evidence"* shape, arriving
+through a channel nothing was watching: **branch state**.
+
+Resolved the way the guard itself prescribes, which is deliberately **not** a
+status flip (a passing CELL is not a passing LEVER disposition, and a live-leg
+status change is Tier-3). `scripts/research/m20_ack_corpus_disagreements.py
+--apply` appended the acknowledgement to the cell's `ref` — used the drafter
+rather than hand-writing it, because that script exists precisely because
+hand-written refs transcribe numbers wrong and drop the computed caveats. It
+emitted both caveats from the row: **Path-B not Path-A** (`is_oos_pass=False`)
+and **a different partition, not a re-run** (split 2023-09-06, `split_mode=oos-trades`).
+
+Verified after: guard **OK — 235 live cells vs 1379 corpus rows, no
+unacknowledged disagreement**; `status` still `honest_negative` (unflipped, one-line
+diff); ref carries the required phrase. Note the guard also reports **141 live
+cells NOT CHECKED** (`exit_head_ml`, `exit_ladder`, `regime_flip_exit` — no corpus
+rows for those levers) and labels them *"unverified here, not verified-clean"* —
+the right wording, and the same 141 the roll-up counts as a deliberate negative.
+
+**Tier-3 item 6 is unchanged by any of this** — still queued, still the
+operator's call. What changed is that its evidence is now on `main`, the
+contradiction is stated in the ref a reader meets next to the status, and the
+guard can see it.
