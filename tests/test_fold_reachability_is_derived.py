@@ -124,11 +124,28 @@ def test_the_rollup_actually_reads_the_field() -> None:
 
 
 def test_the_done_condition_SPLITS_actionable_from_arithmetic() -> None:
-    """A done-condition that pools both invites "keep sweeping and it converges".
+    """A done-condition that pools kinds invites "keep sweeping and it converges".
 
     It does not. A leg with 31 lifetime trades cannot reach u>=2 (N>=150) by
     being re-run — only by TRADING more, which is a strategy question, not an
-    M20 one. The two kinds of remaining work must be legible as two kinds.
+    M20 one. The kinds of remaining work must be legible as different kinds.
+
+    ⚠️ THIS TEST USED TO ASSERT THE LITERAL STRING
+    `f"{cells_to_done - unreachable} actionable + {unreachable} arithmetic"`,
+    and in doing so it PINNED A DEFECT (2026-08-17,
+    `BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO`). That
+    figure subtracts exactly ONE gate and calls every other gate "actionable":
+    measured, it reported **12 actionable** where about **4** were workable by a
+    session — the rest wait on trade accrual, on candles that do not exist, on a
+    lever the harness cannot express, or on a decision. Because the roll-up
+    EMITTED that number, it reached a roadmap entry and three operator pings.
+
+    The intent above was always right; two kinds were simply not enough. So the
+    assertion is now the stronger one — the full gate partition must RECONCILE
+    to `cells_to_done`, and its `arithmetic` bucket must agree with
+    `fold_reachability` — rather than a string match on a figure that was wrong.
+    Do not restore the old assertion; `tests/test_gate_partition.py` guards the
+    replacement, including that a re-appearing "actionable +" line fails.
     """
     mod = _rollup()
     matrix = json.loads(MATRIX.read_text())
@@ -140,11 +157,18 @@ def test_the_done_condition_SPLITS_actionable_from_arithmetic() -> None:
     assert "ARITHMETICALLY unreachable" in text, (
         "the done-condition no longer separates cells that cannot be closed by "
         "more work from ones that can")
-    # The arithmetic must RECONCILE, not just be printed.
-    actionable = r["cells_to_done"] - len(unreachable)
-    assert f"{actionable} actionable + {len(unreachable)} arithmetic" in text, (
-        f"the split does not reconcile with cells_to_done={r['cells_to_done']} "
-        f"and {len(unreachable)} unreachable")
+
+    # The partition must reconcile, and its arithmetic bucket must be the SAME
+    # set `fold_reachability` names — two derivations of one bound drifting is
+    # the exact defect the rest of this file exists to pin.
+    gp = r["gate_partition"]
+    assert sum(len(v) for v in gp.values()) == r["cells_to_done"], (
+        f"gate partition sums to {sum(len(v) for v in gp.values())} but "
+        f"cells_to_done is {r['cells_to_done']}")
+    assert len(gp.get("arithmetic") or []) == len(unreachable), (
+        f"partition says {len(gp.get('arithmetic') or [])} arithmetic cells but "
+        f"fold_reachability names {len(unreachable)} unreachable legs")
+    assert "DONE-CONDITION BY GATE" in text
 
 
 def test_a_cell_missing_the_count_is_REPORTED_not_skipped() -> None:
