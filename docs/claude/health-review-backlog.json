@@ -18648,6 +18648,24 @@
         "#9896",
         "#9898"
       ]
+    },
+    {
+      "id": "BL-20260817-BACKLOG-REF-GUARD-SKIPS-DOT-CLAUDE-AND-CANNOT-SEE-A-WRAPPED-ID",
+      "opened_at": "2026-08-17",
+      "opened_by": "session 9952b154 (M20 exit-refinement)",
+      "area": "ci-guards",
+      "severity": "low",
+      "status": "open",
+      "tier": 1,
+      "title": "check_backlog_refs does not scan .claude/, and its id regex cannot span a hard-wrapped line — fix the wrap FIRST or adding the dir false-fails a correct skill",
+      "detail": "TWO COUPLED GAPS IN scripts/ops/check_backlog_refs.py, both MEASURED 2026-08-17.\n\n(1) COVERAGE. SEARCH_DIRS = ('docs','scripts','.github','config','src') -- `.claude/` is absent. Skills under .claude/skills/ are BINDING (instruction-hierarchy rank 5, above CLAUDE.md), and they reference tracking ids: 25 distinct ids are cited under .claude/ today, none of them validated by anything. A dangling id in a binding SKILL.md sends its reader to a backlog row that does not exist.\n\n(2) THE TRAP THAT MAKES (1) NOT A ONE-LINER -- and this is the point of the row. The id regex is REF = \\b(?:BL|MB|FU)-\\d{8}-[A-Z0-9]+(?:-[A-Z0-9]+)*\\b, which cannot span a newline. .claude/skills/regime-selectivity/SKILL.md lines 66-67 cite BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA hard-wrapped as '...MISLABELS-\\n  MAXPROBA'. The document is CORRECT -- the full id is present and matches CLAUDE.md -- but the regex sees only the portion before the wrap -- the full id minus its trailing '-MAXPROBA' segment -- which is not a filed id. So naively adding '.claude' to SEARCH_DIRS today turns CI RED on a correct binding document, and the cheapest way out would be to REFLOW ENGLISH PROSE to satisfy a regex -- the same non-fix already recorded against collapsed-state-guard ('remove the quote marks from English prose, which is not a code change in any meaningful sense').\n\nSCOPE OF THE WRAP BLINDNESS, measured across ALL dirs including the ones already scanned: SEVEN hard-wrapped tracking ids exist (6 in src/, 1 in .claude/), and ZERO of them are danglers once un-wrapped. So this is today a LATENT false-negative channel, not an active miss: seven ids are invisible to validation and all seven happen to be valid. That is exactly the condition worth fixing BEFORE it silently swallows a real one -- a guard that cannot see a reference cannot report it dangling.\n\nFOOTNOTE, because it is evidence rather than decoration: the FIRST draft of this row quoted the truncated prefix as a literal example, and check_backlog_refs FAILED THIS VERY ROW for introducing a dangling reference. That is the guard working exactly as intended on the author who was documenting its blind spot. The example is now DESCRIBED rather than written as a matchable id -- the guard was not loosened to accommodate the prose.",
+      "evidence": "SEARCH_DIRS read at scripts/ops/check_backlog_refs.py:53. filed_ids() = 860 ids. Under .claude/: 25 ids referenced, 1 'dangling' -- which un-wraps to the filed BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA, i.e. a false positive of the regex, not a doc defect. Wrap scan over docs/scripts/.github/config/src/.claude: 7 hard-wrapped ids, 0 unfiled once joined. Guard verified to BITE on a genuinely unfiled id (planted probe -> exit 1) before any of this was trusted.",
+      "resolution_criteria": "ORDER MATTERS. First make the id scan wrap-tolerant (join '-\\n\\s*' before matching, or match across the newline) and prove it with BOTH controls: the regime-selectivity SKILL.md wrapped id must read as FILED, and a planted genuinely-unfiled wrapped id must still FAIL. Only then add '.claude' to SEARCH_DIRS. Adding the directory first is a known false-failure and must not be done. Do NOT resolve this by reflowing the SKILL.md prose -- the document is correct; the scanner is the thing that is wrong.",
+      "refs": [
+        "#9898",
+        "#9900",
+        "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN"
+      ]
     }
   ]
 }
