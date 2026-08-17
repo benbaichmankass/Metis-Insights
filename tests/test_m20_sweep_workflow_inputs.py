@@ -231,3 +231,61 @@ def test_the_commitmsg_guard_would_catch_the_regression() -> None:
     after_reset = pre_fix.split('git reset --hard "origin/$TARGET"', 1)[1]
     before_commit = after_reset.split("git commit -F .commitmsg", 1)[0]
     assert "write_commitmsg" not in before_commit
+
+
+def test_the_rederive_unions_the_default_branch_corpus_before_extracting() -> None:
+    """The re-derive must restore what `reset --hard` discarded, BEFORE extracting.
+
+    The reset replaces the worktree corpus with the CORPUS BRANCH's copy, and
+    that branch never merges the default branch. Extracting straight on top of
+    it commits the loss as the new state.
+
+    MEASURED (2026-08-17, before the union existed): default branch 1264 rows,
+    corpus branch 1004, **360 rows on the default branch alone**. PR #9823
+    closed that gap by hand; the next dispatch would have re-opened it, because
+    the divergence is structural rather than a one-off.
+
+    Order is the whole point: unioning AFTER the extract would merge into rows
+    the extractor already wrote against a truncated corpus.
+    """
+    run = _commit_corpus_step(_doc())
+    after_reset = run.split('git reset --hard "origin/$TARGET"', 1)[1]
+
+    assert "union_dispatched.py" in after_reset, (
+        "the conflict path re-derives without unioning the default branch's "
+        "corpus back in, so every row only that branch carries is dropped from "
+        "the corpus branch on each run.")
+
+    union_at = after_reset.index("union_dispatched.py")
+    extract_at = after_reset.index('"$RUNNER_TEMP/extract_dispatched.py"')
+    assert union_at < extract_at, (
+        "the union must run BEFORE the extraction — unioning afterwards merges "
+        "into rows already derived against the truncated corpus.")
+
+
+def test_the_union_script_is_preserved_under_an_importable_extractor_name() -> None:
+    """The union script imports the extractor BY MODULE NAME, so both are copied.
+
+    `measurement_key` is imported rather than re-derived so the union and the
+    extractor can never disagree about what is the same measurement. That makes
+    the union script NOT stdlib-only — unlike the extractor — so the mangled
+    `extract_dispatched.py` copy alone is not importable as
+    `m20_corpus_extract` and the union would fail at import inside the job.
+    """
+    run = _commit_corpus_step(_doc())
+    assert 'cp scripts/research/m20_corpus_extract.py "$RUNNER_TEMP/m20_corpus_extract.py"' in run, (
+        "the extractor must ALSO be preserved under its real module name, or "
+        "the union script cannot import measurement_key after the reset.")
+    assert 'cp scripts/research/m20_corpus_union.py "$RUNNER_TEMP/' in run, (
+        "the union script must be preserved before any git operation can "
+        "revert it — the same reason the extractor is.")
+
+
+def test_the_union_guard_would_catch_the_regression() -> None:
+    """Negative control: the pre-union shape must fail the ordering predicate."""
+    pre_fix = (
+        'git reset --hard "origin/$TARGET"\n'
+        'python3 "$RUNNER_TEMP/extract_dispatched.py" --in sweep_out\n'
+    )
+    after_reset = pre_fix.split('git reset --hard "origin/$TARGET"', 1)[1]
+    assert "union_dispatched.py" not in after_reset
