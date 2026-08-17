@@ -18443,6 +18443,36 @@
       "resolution_criteria": "OBSERVABLE: `m20_coverage_rollup.py --done-condition` prints the done-condition set PARTITIONED BY GATE KIND with a count per kind, and names which kinds are workable-by-a-session, so no consumer has to re-derive it by reading 23 refs. The row closes when the rollup itself emits the partition — not when a doc states the number, because a number in prose goes stale silently and this one already did.",
       "proposed_action": "Extend the rollup to classify each done-condition cell by its block reason into {arithmetic, accrual, data, parked, decision-queued, harness-gap, never-attempted} and print the per-kind counts beside the total, the same 'state the population' discipline the headline-vs-done-condition split already follows. Until then, quote the partition explicitly rather than a single 'actionable' number.",
       "not_a_finding_about": "This is NOT a claim that any cell's STATUS is wrong — every status and ref I read is accurate and well-evidenced. The defect is purely in the roll-up framing that collapses six different gates into one word."
+    },
+    {
+      "id": "BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — research record. No live path. ⚠️ BUT the fix MOVES A REPORTED HEADLINE — see why_not_fixed_in_session.",
+      "title": "trend_donchian_eth_prop/regime_flip_exit is statused `pending` (never attempted) but scripts/backtest_trend.py has NO regime/flip flag at all — it is blocked:no_harness_levers by the established precedent",
+      "source": "Checking whether the 3 `pending` cells were actually RUNNABLE before picking them up as the next work item — a check I had explicitly flagged as not-yet-done rather than assumed.",
+      "evidence": "AST over the harness CLI (the same method the existing `blocked:no_harness_levers` verdicts on `squeeze_breakout_4h`/`vol_trail` and `ict_scalp`/`exit_ladder` used — NOT a grep). `scripts/backtest_trend.py` declares 46 CLI flags. Matching 'regime' -> NONE; matching 'flip' -> NONE. For contrast the SAME scan finds the levers that ARE expressible: exit_ladder via `--bank-frac`/`--bank-at-r`, trail_decay via `--trail-decay-arm-r`, stale_stop via `--stale-exit-bars`, giveback_stop via `--giveback-min-mfe-r`, vol_trail via `--trail-vol-above-pctl`. So the probe demonstrably finds positives — the negative is real, not an empty-search artifact.",
+      "why_it_matters": "The cell reads as 'work nobody has done yet', which is what makes it a candidate for the next session to pick up; it is in fact work no session CAN do without first adding harness support. That is the exact confusion `blocked:no_harness_levers` exists to prevent, and the precedent for using it on this evidence is already set twice in this matrix.",
+      "why_not_fixed_in_session": "⚠️ DELIBERATELY NOT FLIPPED TONIGHT. `pending` and `blocked` both count toward the done-condition (so 23 is unchanged either way), but the PROGRESS HEADLINE counts `blocked` as CLOSED — so this flip moves the headline 373/376 -> 374/376. I am an autonomous overnight session that has just spent this hour WITHDRAWING an over-optimistic figure of my own ('12 actionable'), and a status flip that happens to improve the reported number is precisely the change that should not be made unreviewed at 08:00 with the operator asleep. The evidence is complete and precedent-matched; the disposition is a five-second edit for a review session that agrees.",
+      "resolution_criteria": "OBSERVABLE: a reviewer either (a) sets the cell to `blocked:no_harness_levers` with this AST evidence in its ref and accepts the headline moving to 374/376, or (b) states why `pending` is the right status despite the harness having no such flag. Either closes it; leaving it `pending` with no note does not.",
+      "not_a_finding_about": "NOT a claim that the lever is worthless — only that this harness cannot currently express it, so the cell cannot be swept as-is."
+    },
+    {
+      "id": "BL-20260817-M20-REMAINING-WORK-IS-EFFECTIVELY-FULLY-GATED",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — analysis/reporting. No live path.",
+      "title": "After partitioning the 23 done-condition cells by gate, the only session-runnable work left in M20 is 2 prop exit_ladder cells whose lever is parked milestone-wide and 42/42 negative elsewhere",
+      "source": "Follow-on from BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO: having partitioned the 23 by gate kind, I checked what the residual 'workable' set actually consists of.",
+      "evidence": "`exit_ladder` across the 47 LIVE legs: **42 honest_negative**, 2 pending (the prop cells), 1 blocked:no_harness_levers, 1 blocked:native-history-thin, 1 passed_unshipped. **33 refs explicitly cite a PARK** — 'banking parked', memo docs/research/M20-exit-refinement-2026-07-12.md §6.2, the M20 finding that banking underperformed run-the-winner. Separately, AST over `scripts/backtest_trend.py` shows `exit_ladder` IS expressible there (`--bank-frac`/`--bank-at-r`), so the 2 prop cells are genuinely runnable — the gate on them is the PARKED LEVER, not the harness. The third pending cell is harness-blocked (see BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT).",
+      "why_it_matters": "M20's done-condition is 23 and reads like a backlog of work. It is not: 11 arithmetic + 4 accrual + 2 data + 1 parked + 1 Tier-3-queued + 1 harness-gap + 1 more harness-gap (the regime_flip_exit row) leaves TWO runnable cells, on a lever that is parked and has returned honest_negative on 42 of 42 legs measured. A session planning 'work the M20 backlog down' will find almost nothing it can move, and running the 2 cells would most likely produce the 43rd and 44th negative. That is worth knowing BEFORE dispatching sweeps, and it reframes the milestone's remaining state as 'waiting on trade accrual', not 'waiting on effort'.",
+      "resolution_criteria": "OBSERVABLE: a decision is recorded for the 2 prop `exit_ladder` cells — either swept (accepting a likely 43rd/44th honest_negative, which does close them) or dispositioned as parked-with-the-lever like the squeeze row, with the reasoning in their refs. The row closes when neither cell is `pending` without a stated basis.",
+      "proposed_action": "Operator/review call, since it is a question of whether completeness is worth the runs. Cheap either way; the value is that the choice is made explicitly rather than a session repeatedly picking these up as 'the actionable ones'.",
+      "not_a_finding_about": "NOT a claim that M20 is finished or that the remaining cells should be closed — the done-condition is legitimately 23 and legitimately open."
     }
   ]
 }
