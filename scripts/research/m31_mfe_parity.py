@@ -237,38 +237,72 @@ def check_distribution(
     *,
     harness_tp_cap_pct: Optional[float],
     min_final_n: int = DEFAULT_MIN_FINAL_N,
+    harness_dist: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     live_by_leg: Dict[str, List[Dict[str, Any]]] = {}
     for r in live_rows:
         live_by_leg.setdefault(r.get("strategy") or "(unattributed)", []).append(r)
 
-    harness_by_leg: Dict[str, List[float]] = {}
-    for h in harness_rows:
-        v = _f(h.get("mfe_r"))
-        if v is not None:
-            harness_by_leg.setdefault(h.get("strategy") or "(unattributed)", []).append(v)
+    # The harness side arrives as EITHER raw emit rows OR a committed per-leg
+    # distribution (`m31_harness_mfe_dist.py`). Both are reduced to the same
+    # per-leg stats here so the comparison below has ONE shape — and `source`
+    # travels with them, because "a fresh sweep" and "a committed artifact" are
+    # different provenance for the same claim and a reader must be able to tell.
+    harness_stats: Dict[str, Dict[str, Any]] = {}
+    if harness_dist:
+        for leg, rec_d in harness_dist.items():
+            n = int(rec_d.get("n") or 0)
+            harness_stats[leg] = {
+                "n": n,
+                "p50": _f(rec_d.get("p50")), "p80": _f(rec_d.get("p80")),
+                "max": _f(rec_d.get("max")),
+                # Per-leg, NOT the global flag: a committed artifact can hold
+                # legs swept under different settings, and one uncapped leg
+                # must not condemn (or be excused by) its neighbours.
+                "tp_cap_pct": _f(rec_d.get("tp_cap_pct")),
+                "symbol": rec_d.get("symbol"),
+                "timeframe": rec_d.get("timeframe"),
+                "source": "committed_dist",
+            }
+    else:
+        raw: Dict[str, List[float]] = {}
+        for h in harness_rows:
+            v = _f(h.get("mfe_r"))
+            if v is not None:
+                raw.setdefault(h.get("strategy") or "(unattributed)", []).append(v)
+        for leg, hv in raw.items():
+            harness_stats[leg] = {
+                "n": len(hv), "p50": _pct(hv, 0.50), "p80": _pct(hv, 0.80),
+                "max": max(hv), "tp_cap_pct": harness_tp_cap_pct,
+                "symbol": None, "timeframe": None, "source": "emit_rows",
+            }
 
     out: Dict[str, Any] = {}
-    for leg in sorted(set(live_by_leg) | set(harness_by_leg)):
+    for leg in sorted(set(live_by_leg) | set(harness_stats)):
         rows = live_by_leg.get(leg, [])
-        hv = harness_by_leg.get(leg, [])
+        hs = harness_stats.get(leg)
         rec: Dict[str, Any] = {
             "live_rows": len(rows),
-            "harness_n": len(hv),
+            "harness_n": (hs["n"] if hs else 0),
+            "harness_source": (hs["source"] if hs else None),
             # ALWAYS stamped: the last telemetry write precedes the close, so a
             # closed row's peak_r is a floor on that trade's true MFE.
             "live_peak_is_lower_bound": True,
         }
+        if hs and hs.get("symbol"):
+            rec["harness_symbol"] = hs["symbol"]
+            rec["harness_timeframe"] = hs["timeframe"]
 
         # Harness gate first — an uncapped book is not comparable at all.
-        if harness_tp_cap_pct is not None and harness_tp_cap_pct <= 0.0:
+        leg_cap = hs["tp_cap_pct"] if hs else harness_tp_cap_pct
+        if leg_cap is not None and leg_cap <= 0.0:
             rec["parity_state"] = "harness_uncapped"
             rec["why"] = ("harness swept with tp_cap_pct<=0: no take-profit exit "
                           "path, so mfe_r runs past the venue ceiling by "
                           "construction")
             out[leg] = rec
             continue
-        if not hv:
+        if not hs or hs["n"] <= 0:
             rec["parity_state"] = "harness_absent"
             out[leg] = rec
             continue
@@ -302,8 +336,8 @@ def check_distribution(
             "parity_state": "compared",
             "live_p50": _pct(final, 0.50), "live_p80": _pct(final, 0.80),
             "live_max": max(final),
-            "harness_p50": _pct(hv, 0.50), "harness_p80": _pct(hv, 0.80),
-            "harness_max": max(hv),
+            "harness_p50": hs["p50"], "harness_p80": hs["p80"],
+            "harness_max": hs["max"],
         })
         # DIRECTIONAL, because the live figure is a lower bound: live coming in
         # BELOW the harness is expected and not gradeable. Live ABOVE the
@@ -314,12 +348,14 @@ def check_distribution(
     return out
 
 
-def run(live_rows, harness_rows, trades_rows, harness_tp_cap_pct, min_final_n):
+def run(live_rows, harness_rows, trades_rows, harness_tp_cap_pct, min_final_n,
+        harness_dist=None):
     closed = _closed_trade_ids(trades_rows)
     ceiling = check_ceiling(live_rows)
     dist = check_distribution(
         live_rows, harness_rows, closed,
-        harness_tp_cap_pct=harness_tp_cap_pct, min_final_n=min_final_n)
+        harness_tp_cap_pct=harness_tp_cap_pct, min_final_n=min_final_n,
+        harness_dist=harness_dist)
     breaches = sum(b["above_cap"] for b in ceiling.values())
     compared = sum(1 for r in dist.values() if r.get("parity_state") == "compared")
     divergent = sum(1 for r in dist.values() if r.get("parity") == "divergent")
@@ -330,6 +366,11 @@ def run(live_rows, harness_rows, trades_rows, harness_tp_cap_pct, min_final_n):
         "lifecycle_known": closed is not None,
         "closed_trade_ids_seen": (len(closed) if closed is not None else None),
         "harness_tp_cap_pct": harness_tp_cap_pct,
+        # Which harness half served this run. A committed distribution and a
+        # fresh sweep are different provenance for the same claim.
+        "harness_side": ("committed_dist" if harness_dist else
+                         ("emit_rows" if harness_rows else "absent")),
+        "harness_dist_legs": (len(harness_dist) if harness_dist else 0),
         "ceiling": ceiling,
         "distribution": dist,
         "summary": {
@@ -422,6 +463,39 @@ def self_test() -> int:
           all(v.get("live_peak_is_lower_bound") is True
               for v in r["distribution"].values()))
 
+    # 11-14 — the COMMITTED-distribution harness half
+    # (PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE). Same verdicts as raw
+    # emit rows, plus the two refusals a committed artifact makes possible.
+    dist_ok = {"leg_a": {"leg": "leg_a", "symbol": "SOLUSDT", "timeframe": "4h",
+                         "tp_cap_pct": 0.099, "n": 50, "p50": 3.0, "p80": 3.0,
+                         "max": 3.0}}
+    r = run(live, [], trades_all, 0.099, 8, harness_dist=dist_ok)
+    d = r["distribution"]["leg_a"]
+    check("11 a committed distribution compares like emit rows",
+          d["parity_state"] == "compared" and d["harness_max"] == 3.0
+          and d["harness_source"] == "committed_dist"
+          and r["harness_side"] == "committed_dist")
+
+    # The instrument identity must SURVIVE into the report, or a reader cannot
+    # tell a 4h SOL distribution from a 1m BTC one.
+    check("12 the distribution's symbol/timeframe reach the report",
+          d.get("harness_symbol") == "SOLUSDT"
+          and d.get("harness_timeframe") == "4h")
+
+    # PER-LEG cap, not the global flag: an uncapped leg is refused on its own
+    # even while the run's global cap says the live value.
+    dist_uncapped = {"leg_a": dict(dist_ok["leg_a"], tp_cap_pct=0.0)}
+    r = run(live, [], trades_all, 0.099, 8, harness_dist=dist_uncapped)
+    check("13 an uncapped LEG is refused even when the global cap is live",
+          r["distribution"]["leg_a"]["parity_state"] == "harness_uncapped")
+
+    # A leg present in the artifact with n=0 is ABSENT, never a comparison
+    # against an empty distribution.
+    dist_empty = {"leg_a": dict(dist_ok["leg_a"], n=0)}
+    r = run(live, [], trades_all, 0.099, 8, harness_dist=dist_empty)
+    check("14 a zero-n leg is harness_absent, not compared",
+          r["distribution"]["leg_a"]["parity_state"] == "harness_absent")
+
     print("SELF-TEST", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -433,6 +507,13 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--trades-json", help="trades rows (id+status) for the lifecycle join")
     ap.add_argument("--harness-emit", nargs="*", default=[],
                     help="backtest_trend.py --emit-trades JSONL file(s)")
+    ap.add_argument("--harness-dist", default=None,
+                    help="COMMITTED per-leg mfe_r distribution written by "
+                         "m31_harness_mfe_dist.py (percentiles + n, not raw "
+                         "rows). Mutually exclusive with --harness-emit: two "
+                         "harness sources at once is ambiguous, and silently "
+                         "preferring one would make the report's provenance a "
+                         "function of argument order.")
     ap.add_argument("--harness-tp-cap-pct", type=float, default=LIVE_TP_CAP_PCT,
                     help=("tp_cap_pct the harness rows were swept with. <=0 means "
                           "the book had NO take-profit and is not comparable "
@@ -447,12 +528,29 @@ def main(argv: List[str]) -> int:
         return self_test()
     if not args.live_json:
         ap.error("--live-json is required (or --self-test)")
+    if args.harness_dist and args.harness_emit:
+        ap.error("--harness-dist and --harness-emit are mutually exclusive; "
+                 "pass exactly one harness source so the report's provenance "
+                 "is unambiguous")
 
     live = _rows(load_json(args.live_json))
     trades = _rows(load_json(args.trades_json)) if args.trades_json else []
     harness = load_jsonl(args.harness_emit) if args.harness_emit else []
+    hdist = None
+    if args.harness_dist:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from m31_harness_mfe_dist import load_dist  # noqa: PLC0415
 
-    rep = run(live, harness, trades, args.harness_tp_cap_pct, args.min_final_n)
+        hdist = load_dist(Path(args.harness_dist))
+        if not hdist:
+            print(f"ERROR: --harness-dist {args.harness_dist} held no legs. "
+                  "That is 'we read an empty artifact', not 'the harness has "
+                  "no MFE' -- generate it with m31_harness_mfe_dist.py.",
+                  file=sys.stderr)
+            return 2
+
+    rep = run(live, harness, trades, args.harness_tp_cap_pct, args.min_final_n,
+              harness_dist=hdist)
 
     if args.json:
         print(json.dumps(rep, indent=2, sort_keys=True))

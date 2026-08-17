@@ -618,8 +618,19 @@ GUARDS: List[Dict[str, Any]] = [
         # lifecycle is unknown. The abstention states protect the conclusion;
         # this guard protects their ability to fire.
         "name": "mfe-parity-instrument-guard",
-        "when": {"globs": ["scripts/research/m31_mfe_parity.py"]},
-        "steps": [["python3", "scripts/research/m31_mfe_parity.py", "--self-test"]],
+        # BOTH halves of Check B's instrumentation. The aggregator that WRITES
+        # the committed harness distribution is registered here beside the
+        # checker that reads it, and its own glob is listed, so editing either
+        # file runs both self-tests. A control that is written and never
+        # invoked is the defect this repo hit twice on 2026-08-17
+        # (BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED);
+        # the aggregator's refusals are exactly the kind of control that would
+        # rot silently, because nothing else fails when they stop firing.
+        "when": {"globs": ["scripts/research/m31_mfe_parity.py",
+                           "scripts/research/m31_harness_mfe_dist.py"]},
+        "steps": [["python3", "scripts/research/m31_mfe_parity.py", "--self-test"],
+                  ["python3", "scripts/research/m31_harness_mfe_dist.py",
+                   "--self-test"]],
     },
     {
         "name": "writer-conformance-guard",
