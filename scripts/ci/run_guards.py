@@ -436,7 +436,20 @@ GUARDS: List[Dict[str, Any]] = [
     {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
-        "steps": [["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
+        # Self-test FIRST, so a guard that silently stopped matching cannot read
+        # as a clean pass. This step was MISSING until 2026-08-17:
+        # `selftest_collapsed_state` had been registered in
+        # `guard_selftests.py::SELFTESTS` and nothing ever invoked it — the
+        # dispatcher takes a name (there is an `--all`, but no caller anywhere
+        # passes it), and `check_collapsed_states.py` has no `--self-test` of its
+        # own, so unlike `matrix-corpus-agreement` there was no second path
+        # covering it. A registered-and-never-executed control is exactly the
+        # written-and-never-read shape this guard family exists to catch, one
+        # level up: the guard was real, its self-test was real, and the wiring
+        # between them was the gap. It passes and its failure path verifies when
+        # run by hand, so this is a wiring fix, not a behaviour change.
+        "steps": [["python3", "scripts/ci/guard_selftests.py", "collapsed-state"],
+                  ["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
         "name": "exit-mechanism-coverage-guard",
