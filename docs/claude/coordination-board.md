@@ -41,6 +41,24 @@ sub-session (`/health-review`, `/performance-review`, `/ml-review`,
    any open question you can. This tells you whether your intended work collides
    with someone else's *before* you start it.
 
+   ⚠️ **PROVE YOU REACHED THE END — a full page is not the tail**
+   (`BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END`). `get_comments`
+   pages **ascending** with no `is_last` field and no newest-first option, so a page
+   of comments looks **identical** whether or not it is the last one. Request
+   `perPage=N`: getting back **N** items proves *nothing* about reaching the end;
+   a **short page (fewer than N) is the proof**. To find the end at all, probe
+   `perPage=1` at a high `page` for an empty `[]` and bisect down.
+
+   **This is not hypothetical and it is not a matter of being careful.** On
+   2026-08-17 a session read a page whose newest entry was 13:35Z, reported *"no
+   open 🔒"*, and merged inside another session's open 14:13:47Z claim — two
+   comments had landed past its page boundary. Both had edited the same table in
+   the same file. **Demonstrated live minutes later:** `perPage=3, page=345`
+   returned a short page of 2 (valid proof of the end); two comments later the
+   **same query** returned a full page of 3 whose newest was stale. A page number
+   silently stops being the tail. Reading *"the tail"* is not the same as reading
+   the tail — never write *"no open 🔒"* off a page you have not shown to be last.
+
 2. **POST a `▶️ START` comment before your first substantive change** — session
    id, branch, and **specifically which files / subsystems / PRs you're about to
    touch**. This is the claim that lets other sessions steer clear. (You still
