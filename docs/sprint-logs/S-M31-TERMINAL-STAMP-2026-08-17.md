@@ -155,13 +155,37 @@ unblock" would overstate what shipped.
 
 ## Risks and Follow-Ups
 
-- **The hook's live firing is UNVERIFIED as of this log.** It is proven by unit
-  test through `update_trade`; it has not yet been observed stamping a real
-  close on the live trader. The check is cheap and specific: once a
-  telemetry-writing leg closes post-deploy, `by_finality_source` must show a
-  non-zero `stamped`. **If `final_rows` keeps rising while `stamped` stays 0,
-  the hook is not firing** — that is the failure signal, and the split exists so
-  it cannot hide.
+- **DEPLOY VERIFIED 2026-08-17T11:41Z; the STAMP itself is still unexercised.**
+  Post-merge read (relay #9867) against `git_sha` **`6acbaa40`** — main HEAD,
+  past this change's `2c0fa897`:
+
+  ```
+  by_finality_source {not_final: 13, derived_join: 1}   final_rows 1   stamped 0
+  ```
+
+  Three things are now positively established, not merely un-contradicted:
+  1. **The reader deployed** — `by_finality_source` + the `finality_sources`
+     vocabulary are present, where the 11:20Z pre-deploy read (#9864, `git_sha`
+     `ce8a496e`) had neither.
+  2. **The migration ran on the live DB.** `terminal_state` appears on every
+     row. This is positive evidence because the reader *tolerates* a
+     pre-migration table (`SELECT t.*` simply returns fewer columns, which the
+     pre-migration fixture pins), so a failed `ALTER` would show the key
+     **absent** — exactly as it was pre-deploy. Three distinguishable states:
+     key absent (pre-migration) · `null` (migrated, unstamped) · `'final'`
+     (stamped). We are demonstrably in the middle one.
+  3. **The one closed row reads `derived_join`, which is the only correct
+     answer for it.** Trade 4697 closed 04:10Z, hours before deploy, so it can
+     never be `stamped` — and the split is what makes that legible instead of
+     looking like a silent failure.
+
+  **Still unexercised:** no telemetry-writing leg (donchian/pullback only) has
+  closed since deploy, so the write path has not run in production. 13 rows are
+  open, so this resolves itself on the next such close. **The failure signal is
+  narrower than "stamped is 0": it is `final_rows` RISING above 1 while
+  `stamped` stays 0** — a leg closed and the hook did not fire. That needs
+  acting on (read `_stamp_telemetry_terminal` and its `update_trade` call site),
+  not noting.
 - The 13 currently-open live rows will stamp as they close; the 1 already-closed
   row stays `derived_join` forever, correctly.
 
