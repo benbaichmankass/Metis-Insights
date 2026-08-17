@@ -18613,6 +18613,60 @@
         "BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE",
         "docs/CLAUDE-RULES-CANONICAL.md § Collapsed states"
       ]
+    },
+    {
+      "id": "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN",
+      "opened_at": "2026-08-17",
+      "opened_by": "session 9952b154 (M20 exit-refinement)",
+      "area": "ci-guards",
+      "severity": "medium",
+      "status": "open",
+      "tier": 1,
+      "title": "A committed artifact left on an unmerged branch silences every guard that grades against main",
+      "detail": "MEASURED, not hypothetical. `claude/m20-sweep-corpus` held one un-merged commit (538b9f24, bot-pushed 2026-08-17T11:31Z) adding three rows to docs/research/m20-sweep-corpus.jsonl. (leg,lever)=(squeeze_breakout_4h,vol_trail) therefore had ZERO rows on main -- a whole missing evidence block, not a duplicate -- and one of the three rows (vt_cold10_t1.8, path_b_wf_pass, wf 4/6) IS the evidence behind a queued Tier-3 decision (M20 item 6, the squeeze cold-tail).\n\nTHE SECOND-ORDER EFFECT IS THE REASON THIS IS FILED. `matrix-corpus-agreement` reads the corpus ON MAIN. With the row absent it had nothing to compare, so it reported OK for that cell while a real disagreement existed (matrix status=honest_negative vs a passing corpus row) -- a disagreement live since #9866. The instant the rows landed (PR #9896) the guard FAILED, correctly. So an unmerged artifact branch does not merely delay data: it suppresses the CI signal whose entire job is catching a negative status sitting on top of passing evidence. This is the 'green is not evidence' class arriving through a channel nothing watches: BRANCH STATE.\n\nRELATED BLIND SPOT, same cell: `m20_coverage_rollup.py --validate` passed throughout, because it checks that a closed live cell CARRIES a ref -- never that the ref's evidence EXISTS. A guard asking 'is there a ref' cannot catch 'does the ref point at anything readable'.\n\nSCOPE CHECKED AND DELIBERATELY NOT OVERSTATED. I audited every remote branch for the same shape and it is currently a ONE-OFF, not a class: content checks (NOT ancestry) found zero stranded health-review-backlog rows across claude/{bybit-part-a-decision-ready, ib-duplicate-oca-groups, system-review-backlog-xsg81e, m20-trend-harness-workstream-ipa3ce} -- all 0 ids missing from main -- and claude/tickcost-attributed-pct holds a SUPERSEDED alternative implementation (_hook_depth) of a fix main already ships by a different mechanism (name-based, '.' not in n), not a stranded fix.\n\nNOTE FOR WHOEVER PICKS THIS UP: `git merge-base --is-ancestor <branch> main` IS THE WRONG TEST here. This repo squash-merges, so every squash-merged branch reads as 'not merged' by ancestry. Using it produced a list of ~11 'stranded' branches that content checks reduced to ONE. Compare CONTENT.",
+      "evidence": "PR #9896 (merged 0df3c214). check_matrix_corpus_agreement.py failed on landing the rows with 'squeeze_breakout_4h / vol_trail: status=honest_negative but corpus cell=vt_cold10_t1.8 verdict=path_b_wf_pass run=2026-08-17 wf=4/6 base_OOS=49', and passes after the ref acknowledgement (235 live cells vs 1379 corpus rows). Corpus 1376->1379 lines / 1373->1376 cells.",
+      "resolution_criteria": "Something must be able to notice a committed artifact that exists only on an unmerged branch, OR the artifact-producing workflow must not be able to leave one behind. Two candidate shapes, neither chosen here: (a) the sweep-corpus workflow fails loudly if its PR is not merged within N hours instead of pushing and forgetting; (b) a periodic check compares artifact branches' committed artifacts against main by CONTENT and alerts on a non-empty difference. Do NOT implement it as an ancestry check -- see the note in `detail`. Closing this by hand-landing one branch is NOT a resolution; that already happened in #9896 and the mechanism is still unguarded.",
+      "refs": [
+        "#9896",
+        "#9866",
+        "BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS"
+      ]
+    },
+    {
+      "id": "BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED",
+      "opened_at": "2026-08-17",
+      "opened_by": "session 9952b154 (M20 exit-refinement)",
+      "area": "ci-guards",
+      "severity": "high",
+      "status": "open",
+      "tier": 1,
+      "title": "A system-action run can report conclusion=failure AFTER the action succeeded — re-running on that signal double-applies it",
+      "detail": "MEASURED 2026-08-17. system-actions run #7133 (id 32052273815, issue #9899, action=send-ping) reported conclusion=FAILURE. The action had SUCCEEDED: its own log carries '[send_ping_action] Enqueuing low ping to claude bot (2408 chars)', 'send_ping: queued 833199907633-low.json ... bot drains within ~5 s', and 'Wrapper exit code: 0'. The step that failed was the workflow POSTing its confirmation comment back to the issue: POST /repos/.../issues/9899/comments returned GitHub's own 5xx 'No server is currently available to service your request'. So the run is red, the issue stays OPEN with no comment, and BOTH of the signals an operator/session normally reads say 'this did not happen' while it did.\n\nWHY THIS IS FILED AT HIGH RATHER THAN AS A GITHUB BLIP. For send-ping the cost of believing the red is a duplicate ping — annoying, harmless. The same shape on a MUTATING action is not: the system-actions allowlist includes restart-bot-service, reboot-vm, set-account-mode, pull-and-deploy and the prop-report POST. A session that reads conclusion=failure and re-dispatches would DOUBLE-APPLY a live mutation on the money box. Nothing in the current docs warns that the confirmation comment and the action are independently fallible.\n\nTHE OPERATING RULE THIS BREAKS. docs/claude/system-actions.md + the session prompts say to confirm a system-action by READING THE WORKFLOW REPLY COMMENT for exit 0. That is precisely the artifact that cannot exist in this failure mode. The confirmation must come from the RUN LOG's 'Wrapper exit code:' line (get_job_logs with failed_only=true returns it even on a failed run), not from the comment and not from the run conclusion.\n\nThis is the repo's own 'unprovenanced diagnostic output' class, sub-class A: the label (run conclusion) names a quantity it did not measure (whether the action ran).",
+      "evidence": "Run 32052273815 log, job 95454243472: wrapper exit 0 + queued ping filename, then '##[error]Unhandled error: HttpError: No server is currently available to service your request' on the issues/9899/comments POST. Issue #9899 left open with zero comments. Contrast run #7129 (17:02Z, same action) which commented and closed normally.",
+      "resolution_criteria": "Two independent fixes, both wanted. (1) DOC: system-actions.md and the confirmation guidance must state that a run conclusion of failure does NOT mean the action did not run, and that the authoritative signal is the 'Wrapper exit code:' line in the run log — especially before re-dispatching any MUTATING action. (2) WORKFLOW: make the comment-back step resilient (retry on 5xx, and/or continue-on-error so a comment failure cannot mark a successful action red). Do NOT resolve this by making the workflow retry the ACTION on a comment failure — that is the double-apply bug this row exists to prevent.",
+      "refs": [
+        "#9899",
+        "#9896",
+        "#9898"
+      ]
+    },
+    {
+      "id": "BL-20260817-BACKLOG-REF-GUARD-SKIPS-DOT-CLAUDE-AND-CANNOT-SEE-A-WRAPPED-ID",
+      "opened_at": "2026-08-17",
+      "opened_by": "session 9952b154 (M20 exit-refinement)",
+      "area": "ci-guards",
+      "severity": "low",
+      "status": "open",
+      "tier": 1,
+      "title": "check_backlog_refs does not scan .claude/, and its id regex cannot span a hard-wrapped line — fix the wrap FIRST or adding the dir false-fails a correct skill",
+      "detail": "TWO COUPLED GAPS IN scripts/ops/check_backlog_refs.py, both MEASURED 2026-08-17.\n\n(1) COVERAGE. SEARCH_DIRS = ('docs','scripts','.github','config','src') -- `.claude/` is absent. Skills under .claude/skills/ are BINDING (instruction-hierarchy rank 5, above CLAUDE.md), and they reference tracking ids: 25 distinct ids are cited under .claude/ today, none of them validated by anything. A dangling id in a binding SKILL.md sends its reader to a backlog row that does not exist.\n\n(2) THE TRAP THAT MAKES (1) NOT A ONE-LINER -- and this is the point of the row. The id regex is REF = \\b(?:BL|MB|FU)-\\d{8}-[A-Z0-9]+(?:-[A-Z0-9]+)*\\b, which cannot span a newline. .claude/skills/regime-selectivity/SKILL.md lines 66-67 cite BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA hard-wrapped as '...MISLABELS-\\n  MAXPROBA'. The document is CORRECT -- the full id is present and matches CLAUDE.md -- but the regex sees only the portion before the wrap -- the full id minus its trailing '-MAXPROBA' segment -- which is not a filed id. So naively adding '.claude' to SEARCH_DIRS today turns CI RED on a correct binding document, and the cheapest way out would be to REFLOW ENGLISH PROSE to satisfy a regex -- the same non-fix already recorded against collapsed-state-guard ('remove the quote marks from English prose, which is not a code change in any meaningful sense').\n\nSCOPE OF THE WRAP BLINDNESS, measured across ALL dirs including the ones already scanned: SEVEN hard-wrapped tracking ids exist (6 in src/, 1 in .claude/), and ZERO of them are danglers once un-wrapped. So this is today a LATENT false-negative channel, not an active miss: seven ids are invisible to validation and all seven happen to be valid. That is exactly the condition worth fixing BEFORE it silently swallows a real one -- a guard that cannot see a reference cannot report it dangling.\n\nFOOTNOTE, because it is evidence rather than decoration: the FIRST draft of this row quoted the truncated prefix as a literal example, and check_backlog_refs FAILED THIS VERY ROW for introducing a dangling reference. That is the guard working exactly as intended on the author who was documenting its blind spot. The example is now DESCRIBED rather than written as a matchable id -- the guard was not loosened to accommodate the prose.",
+      "evidence": "SEARCH_DIRS read at scripts/ops/check_backlog_refs.py:53. filed_ids() = 860 ids. Under .claude/: 25 ids referenced, 1 'dangling' -- which un-wraps to the filed BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA, i.e. a false positive of the regex, not a doc defect. Wrap scan over docs/scripts/.github/config/src/.claude: 7 hard-wrapped ids, 0 unfiled once joined. Guard verified to BITE on a genuinely unfiled id (planted probe -> exit 1) before any of this was trusted.",
+      "resolution_criteria": "ORDER MATTERS. First make the id scan wrap-tolerant (join '-\\n\\s*' before matching, or match across the newline) and prove it with BOTH controls: the regime-selectivity SKILL.md wrapped id must read as FILED, and a planted genuinely-unfiled wrapped id must still FAIL. Only then add '.claude' to SEARCH_DIRS. Adding the directory first is a known false-failure and must not be done. Do NOT resolve this by reflowing the SKILL.md prose -- the document is correct; the scanner is the thing that is wrong.",
+      "refs": [
+        "#9898",
+        "#9900",
+        "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN"
+      ]
     }
   ]
 }

@@ -352,7 +352,17 @@ not git's: it printed a bogus "PUSH OK" over a failed push.
      real-money `bybit_2`**, records wf 5/6, and is **2/6 EFFECTIVE**. The only
      queued item where money is currently exposed to a number shown to be inflated.
   2. `trend_donchian`/`trail_geometry`/`trail6` at 4/6, verified NOT inert.
-  3. The `splg` enum question.
+  3. The `splg` enum question — **and it is also this finding's LEAD CASE, which
+     the five words above did not say.** `splg_trend_long_1d`/`vol_trail`/
+     `vt_hot80_t2` records `verdict: PASS` at `wf_wins 6` / `wf_folds 6`, and
+     `m20_wf_effective.grade_folds` returns
+     `{folds:6, ok:6, inert:6, effective:0, usable:6}` — **all six folds are
+     literally `d_net_r 0.0, d_max_dd 0.0`** (run_id `2026-08-17T01:23:16Z`).
+     The lever changed nothing in any fold, every fold counted as a win, and the
+     cell reads PASS. The *enum* half is separate and equally real: the matrix
+     records this `(leg, lever)` as **`blocked:insufficient_*`** while the corpus
+     also holds the PASS row above — so "which verdict owns the cell" is the
+     question, and neither answer is currently written down.
   4. `mhg_pullback_1d`/`stale_stop` shipping.
   5. The `pending` → `blocked:no_harness_levers` flip on
      `trend_donchian_eth_prop`/`regime_flip_exit` — deliberately NOT made, because
@@ -398,3 +408,96 @@ not git's: it printed a bogus "PUSH OK" over a failed push.
 - [x] Contradictions were recorded — including three of my own.
 - [x] Remaining unknowns were stated clearly (per-year OOS decomposition
       unmeasured; #9873 CI in flight at hand-over).
+
+## Addendum (17:40Z) — three corpus rows were STRANDED off `main`, and one of them is a queued Tier-3 item
+
+Found while running `session-handoff`'s Step-2 *"no loose ends"* check, which
+asks whether every branch pushed this session carries an open PR. It does not,
+and the gap was not cosmetic.
+
+**`claude/m20-sweep-corpus` held one un-merged commit** (`538b9f24`, *"corpus:
+merge exit-lever sweep run 2026-08-17T11:31Z"*, pushed by `github-actions[bot]`
+~11:31Z) adding **three rows** to `docs/research/m20-sweep-corpus.jsonl` that
+were absent from `main`:
+
+| leg | lever | cell | verdict | wf |
+|---|---|---|---|---|
+| `squeeze_breakout_4h` | `vol_trail` | `vt_hot90_t1.8` | `is_oos_fail` | not run |
+| `squeeze_breakout_4h` | `vol_trail` | `vt_hot80_t1.8` | `is_oos_fail` | not run |
+| `squeeze_breakout_4h` | `vol_trail` | **`vt_cold10_t1.8`** | **`path_b_wf_pass`** | **4/6, all 6 `usable`** |
+
+⚠️ **That third row IS queued Tier-3 item 6** (the squeeze cold-tail). So a
+decision sitting in front of the operator rested on evidence **not present in
+the durable corpus** — readable only by fetching an unmerged branch. Its fold
+detail also independently corroborates item 6's recorded numbers (4 ok / 6
+usable ⇒ zero inert), which is the check that matters: the item was described
+correctly, it simply had no durable substrate.
+
+**`(squeeze_breakout_4h, vol_trail)` had ZERO rows on `main`** — the whole
+`(leg, lever)` evidence block was missing, not a duplicate of something present.
+The matrix nonetheless records that cell as **closed**, so `--validate` passed
+(`all closed live cells carry a ref`) while the ref pointed at rows no one could
+read from `main`. A guard that checks *"is there a ref"* cannot catch *"does the
+ref's evidence exist"*.
+
+**Landed here** by appending the three rows verbatim (1376 → 1379). Verified
+after: every line parses, `--validate` and `--check` both OK, the cell now
+returns its 3 rows, and the **headline is unchanged at 373/376 = 99.2%** — the
+corpus is sweep evidence, not the matrix denominator, so this closes an evidence
+gap without moving coverage. (Confirming that *before* claiming it is the point;
+a corpus edit that silently moved the headline would be the worse outcome.)
+
+**Method note, because two of my probes were wrong first.** The initial
+comparison keyed on `strategy`/`variant` — fields the corpus does **not** have
+(they are `leg`/`lever`/`cell`) — so every row compared as `(None,'vol_trail',None)`
+and three genuinely-missing rows reported as *"already on main, safe to drop"*.
+A second probe filtered `open_cells` on index `1` (the **symbol** column) instead
+of index `3` (the lever) and printed an empty list where `per_lever_reason` said
+four. Both were caught by a positive control and an arithmetic cross-check
+(`4 == 4`), not by re-reading. This is the same class as the six already logged
+above — **a field read as a condition** — and it is why the "verify your own
+output" rule earns its place: the first probe's answer was the comfortable one.
+
+**Not done, deliberately:** `claude/m20-trend-harness-workstream-ipa3ce` is also
+un-merged but is **another session's** branch (8 days old, different suffix).
+Left untouched per the comment-never-edit rule.
+
+### The strandedness was suppressing a CI SIGNAL, not just hiding three rows
+
+This is the part worth carrying forward. Landing the rows made
+**`matrix-corpus-agreement` fail immediately**:
+
+```
+squeeze_breakout_4h / vol_trail: status=honest_negative but corpus
+cell=vt_cold10_t1.8 verdict=path_b_wf_pass run=2026-08-17 wf=4/6 base_OOS=49
+```
+
+The disagreement was **real the whole time** — the matrix has said
+`honest_negative` since #9866 while a `path_b_wf_pass` row existed — but the
+guard reads the corpus **on `main`**, and the row was not there. So an un-merged
+artifact branch did not merely delay data: it **silenced the guard whose entire
+job is to catch a negative status sitting on top of passing evidence**. A green
+`matrix-corpus-agreement` on `main` was, for those hours, a green that had
+nothing to check on this cell — the *"green is not evidence"* shape, arriving
+through a channel nothing was watching: **branch state**.
+
+Resolved the way the guard itself prescribes, which is deliberately **not** a
+status flip (a passing CELL is not a passing LEVER disposition, and a live-leg
+status change is Tier-3). `scripts/research/m20_ack_corpus_disagreements.py
+--apply` appended the acknowledgement to the cell's `ref` — used the drafter
+rather than hand-writing it, because that script exists precisely because
+hand-written refs transcribe numbers wrong and drop the computed caveats. It
+emitted both caveats from the row: **Path-B not Path-A** (`is_oos_pass=False`)
+and **a different partition, not a re-run** (split 2023-09-06, `split_mode=oos-trades`).
+
+Verified after: guard **OK — 235 live cells vs 1379 corpus rows, no
+unacknowledged disagreement**; `status` still `honest_negative` (unflipped, one-line
+diff); ref carries the required phrase. Note the guard also reports **141 live
+cells NOT CHECKED** (`exit_head_ml`, `exit_ladder`, `regime_flip_exit` — no corpus
+rows for those levers) and labels them *"unverified here, not verified-clean"* —
+the right wording, and the same 141 the roll-up counts as a deliberate negative.
+
+**Tier-3 item 6 is unchanged by any of this** — still queued, still the
+operator's call. What changed is that its evidence is now on `main`, the
+contradiction is stated in the ref a reader meets next to the status, and the
+guard can see it.
