@@ -128,23 +128,41 @@ judgement call:
    a harness `mfe_r` distribution for it, and reports `parity: consistent`.
    `insufficient_n` is not a pass.
 3. **A walk-forward on the `rr_from_here` floor CLEARS the do-nothing arm** —
-   not merely beats an alternative lever.
-   ⚠️ **This has an unstated prerequisite: the lever does not exist in the
-   harness** (measured 2026-08-17,
-   `PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS`).
-   `scripts/backtest_trend.py` implements `stale_exit_bars`,
-   `giveback_min_mfe_r`/`giveback_r` and `trail_decay_*` — verified as a
-   **positive control**, the same probe finds all three — and finds nothing for
-   `rr_from_here` / `r_to_target` / `r_to_stop`. The quantity lives in exactly
-   one module repo-wide, `src/runtime/position_telemetry.py`, which is live and
-   observe-only. So this precondition is **implement-then-measure**, not
-   measure, and phrasing it as "run the walk-forward" would be a claim about
-   backtest evidence no artifact could produce — the shape M31 exists to close.
-   The inputs ARE present (the harness carries `tp_cap_pct`/`tp_r` and the stop
-   geometry), so it is tractable, not blocked. This is the standard
-   `BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED` learned the hard way: the
-   live `0.15/4.0` flip override lost to plain `hold` and had run on real money
-   for a day with no walk-forward behind it.
+   not merely beats an alternative lever. This is **two steps, not one**
+   (`PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS`), and phrasing it as
+   "run the walk-forward" would have been a claim about backtest evidence no
+   artifact could produce — the shape M31 exists to close.
+
+   **3a. IMPLEMENT — ✅ DONE 2026-08-17**
+   (`docs/sprint-logs/S-M31-P5-RR-FLOOR-HARNESS-2026-08-17.md`).
+   `scripts/backtest_trend.py` gains `--rr-floor` (default `0.0`,
+   byte-identical, registered in `ALL_LEVERS_AT_DEFAULT` so the per-lever no-op
+   guard covers it). It is **not a second derivation**:
+   `position_telemetry.r_distances` was extracted as the ONE definition of
+   `(r_to_stop, r_to_target, rr_from_here)`, `build_record` routes through it,
+   and the harness imports it. `rr_floor_state`
+   (`off`/`measurable`/`unmeasurable_no_tp_cap`) is registered with
+   `collapsed-state-guard`, and the CLI **refuses** `--rr-floor` without
+   `--tp-cap-pct` rather than recording an inert run as a measured no-op.
+
+   **3b. MEASURE — ❌ NOT DONE**
+   (`PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA`). The only candle
+   file in the repo cannot exercise it. Measured over the whole of
+   `data/backtest_candles.csv` (BTCUSDT **1-minute**, 5,000 bars,
+   median `(high−low)/close` **0.101%**): `tp_r_effective_median`
+   **36.73R** and `rr_min` p10 **21.16** / median **35.88** / p90 **58.36**
+   over 143 trades, with **zero** `take_profit` exits in the whole file. The
+   live legs sit at cap_R **2.13–5.83** and the motivating XRP trade's
+   `rr_from_here` was **0.71** — roughly an order of magnitude apart, and
+   `rr_from_here` scales directly with target distance. So a floor fitted here
+   would have to be ~25–40 to fire at all. **No edge verdict is offered from
+   that fixture**, deliberately: it would be this milestone's own defect class.
+   3b needs per-leg candles at the live timeframes, graded with
+   `m20_wf_effective.py` (precondition 4).
+
+   The standard is `BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED`, learned the
+   hard way: the live `0.15/4.0` flip override lost to plain `hold` and had run
+   on real money for a day with no walk-forward behind it.
 4. **Inert folds are excluded from the win count** — a fold where the lever
    changed nothing counts as neither win nor loss
    (`BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS`; measured at **75 of
@@ -181,9 +199,15 @@ precondition 1); **precondition 2 is the binding one and it is a data-accrual
 problem the writer does not solve** — it makes future closes gradeable without a
 join, but it creates no closed trades, and the fleet-wide final population is
 still n=1. So: let the soak reach Check B's floor, run the walk-forward
-(precondition 3 — still the only remaining item that is *work* rather than
-waiting, but **implement-then-measure**: the lever must first exist in the
-harness, per the warning in § 5. A failure there would retire this candidate
-outright, which is worth learning before the soak matures), then bring the exact
-diff for approval. M31's other four phases are complete and the milestone's value —
-making the exit-lever programme *checkable* — is already delivered without P5.
+(precondition **3b** — still the only remaining item that is *work* rather than
+waiting; **3a is now done**, so the lever the walk-forward needs exists and is
+instrumented, which it was not on 2026-08-17 morning. A failure at 3b would
+retire this candidate outright, which is worth learning before the soak
+matures), then bring the exact diff for approval. M31's other four phases are
+complete and the milestone's value — making the exit-lever programme
+*checkable* — is already delivered without P5.
+
+**One thing 3a already bought, independent of whether P5 ever ships:** the
+harness can now say *"this run could not test the lever"* as a state distinct
+from *"the lever changed nothing"*. Every previous lever in that harness could
+only say the second.
