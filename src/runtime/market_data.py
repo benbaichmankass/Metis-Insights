@@ -26,6 +26,7 @@ to react; this module never inspects strategy state.
 """
 from __future__ import annotations
 
+import itertools
 import logging
 import os
 import threading
@@ -388,6 +389,62 @@ def _candle_cache_ttl(timeframe: str) -> float:
     return min(base * frac, cap)
 
 
+_CLIENT_TOKEN_ATTR = "_mkt_candle_cache_token"
+_CLIENT_TOKEN_LOCK = threading.Lock()
+_CLIENT_TOKEN_SEQ = itertools.count(1)
+
+
+def _client_identity_token(client: Any) -> Optional[int]:
+    """Identity that is unique for the object's LIFETIME, not for its address.
+
+    **Why not `id()`** (BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT-WHICH-CPYTHON-RECYCLES).
+    `id()` is unique only among SIMULTANEOUSLY LIVE objects, and the cache
+    stored the integer rather than a reference — so it never kept the client
+    alive and CPython was free to hand the freed address to the next client
+    while the previous client's frame was still inside its TTL. Measured: a
+    2000-iteration allocate-then-drop loop produced 1999 id collisions, the
+    first at iteration 1. Reuse is the NORM for short-lived objects, not an
+    edge case. It surfaced as `test_turtle_soup_flat_market_returns_side_none`
+    returning `buy` on a flat market, having inherited a sibling stub's
+    bullish-sweep frame.
+
+    A monotonic counter never repeats, so two distinct objects can never share
+    a token no matter how the allocator reuses memory. The token is attached to
+    the client, so it dies with it — no reference is retained here.
+
+    ⚠️ **DO NOT "fix" the original by storing the client in the cache entry.**
+    A strong reference would keep exchange sockets and IB clientIds alive past
+    their intended lifetime, trading this correctness bug for the resource bug
+    BL-20260706-IBACCTUPDATES-COLLISION governs.
+
+    Returns ``None`` when no token can be attached (``__slots__``, a frozen or
+    proxied object). The caller then declines to cache — refusing is always
+    safe, and is the same fail-safe posture as the `since=` carve-out.
+    """
+    if client is None:
+        return None
+    try:
+        token = client.__dict__.get(_CLIENT_TOKEN_ATTR)
+    except AttributeError:
+        # No instance __dict__ (``__slots__``). Deliberately NOT falling back to
+        # a class-level getattr: that would read one value shared by EVERY
+        # instance, which is precisely the collision being fixed, wearing a
+        # per-instance name.
+        return None
+    if isinstance(token, int):
+        return token
+    with _CLIENT_TOKEN_LOCK:
+        token = client.__dict__.get(_CLIENT_TOKEN_ATTR)
+        if isinstance(token, int):
+            return token
+        token = next(_CLIENT_TOKEN_SEQ)
+        try:
+            setattr(client, _CLIENT_TOKEN_ATTR, token)
+        except Exception:  # noqa: BLE001 — read-only/proxied client
+            return None
+    return token
+
+
 def _candle_cache_key(client: Any, symbol: str, timeframe: str,
                       limit: int, since: Optional[int]) -> Optional[tuple]:
     """Cache identity. ``since`` requests are NEVER cached.
@@ -403,7 +460,17 @@ def _candle_cache_key(client: Any, symbol: str, timeframe: str,
     # Key on the CLIENT INSTANCE, not the symbol alone: two connectors may be
     # different venues (or testnet vs mainnet) serving the same symbol string,
     # and their candles are not interchangeable.
-    return (id(client), str(symbol), str(timeframe), int(limit))
+    #
+    # ⚠️ NOT `id(client)` — see `_client_identity_token`. `id()` is unique only
+    # among SIMULTANEOUSLY LIVE objects, so it cannot express the guarantee the
+    # paragraph above claims.
+    token = _client_identity_token(client)
+    if token is None:
+        # Could not establish a lifetime-stable identity, so we cannot prove
+        # two clients are the same client. REFUSING to cache is always safe;
+        # guessing is what this fix exists to stop.
+        return None
+    return (token, str(symbol), str(timeframe), int(limit))
 
 
 def _candle_cache_get(key: Optional[tuple]):
