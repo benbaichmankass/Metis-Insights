@@ -97,6 +97,47 @@ def cap_r(entry: Optional[float], risk: Optional[float],
     return cap_pct * e / rk
 
 
+def r_distances(*, price: Optional[float], stop: Optional[float],
+                target: Optional[float], risk: Optional[float],
+                is_long: bool) -> tuple:
+    """The ONE definition of ``(r_to_stop, r_to_target, rr_from_here)``.
+
+    Extracted from ``build_record`` (which now calls it) so that the BACKTEST
+    HARNESS can compute the identical quantity instead of re-deriving it.
+    ``scripts/backtest_trend.py`` imports this for its ``rr_floor`` lever — the
+    M31 P5 candidate — and the sibling of ``src/research/trail_levers.py`` ("the
+    ONE trail-lever rule") and ``src/runtime/execution_costs.py`` ("the ONE
+    shared cost model"), for the same reason those exist.
+
+    A second derivation would be the exact defect M31 was created to close —
+    *the harness measured a book production does not run* — and it would be
+    invisible, because both copies would look correct in isolation.
+
+    ``rr_from_here`` is ``None`` unless BOTH legs sit the correct side of price
+    (``r_to_stop > 0``, ``r_to_target >= 0``). A negative leg means the level is
+    already crossed, so the ratio would be a sign artefact rather than a
+    decision input. ``None`` here is *"not meaningful"*, never 0.0.
+
+    ⚠️ **Unbounded above as ``r_to_stop`` → 0.** Live, the fleet's only closed
+    telemetry row sat 0.0337R from its stop and reported **201.87**, 19.6× the
+    next value across the same 14 rows. Grade a lever on the DECISION it makes;
+    do not fit a floor over the raw ratio's mean/variance/unwinsorised quantile,
+    which near-stop rows dominate
+    (``docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md`` § 3.1).
+    """
+    r_to_stop = r_to_target = rr = None
+    px, stop_f, target_f = _f(price), _f(stop), _f(target)
+    if risk and risk > 0 and px is not None:
+        if stop_f is not None:
+            r_to_stop = ((px - stop_f) if is_long else (stop_f - px)) / risk
+        if target_f is not None:
+            r_to_target = ((target_f - px) if is_long else (px - target_f)) / risk
+        if (r_to_stop is not None and r_to_target is not None
+                and r_to_stop > 0 and r_to_target >= 0):
+            rr = r_to_target / r_to_stop
+    return r_to_stop, r_to_target, rr
+
+
 def build_record(
     *,
     open_pkg: Dict[str, Any],
@@ -145,19 +186,11 @@ def build_record(
             pct_of_cap = 100.0 * open_r / ceiling
 
         # Distances in R from HERE — the quantities a hold/close decision needs.
-        stop_f, target_f = _f(stop), _f(target)
-        r_to_stop = r_to_target = rr_from_here = None
-        if risk and risk > 0 and px is not None:
-            if stop_f is not None:
-                r_to_stop = ((px - stop_f) if is_long else (stop_f - px)) / risk
-            if target_f is not None:
-                r_to_target = ((target_f - px) if is_long else (px - target_f)) / risk
-            # Only meaningful while BOTH sit the correct side of price; a
-            # negative leg means the level is already crossed and the ratio
-            # would be a sign artefact, not a decision input.
-            if (r_to_stop is not None and r_to_target is not None
-                    and r_to_stop > 0 and r_to_target >= 0):
-                rr_from_here = r_to_target / r_to_stop
+        # Delegated to `r_distances` so the backtest harness computes the
+        # IDENTICAL quantity rather than a second derivation of it; see that
+        # function's docstring for why that matters here specifically.
+        r_to_stop, r_to_target, rr_from_here = r_distances(
+            price=px, stop=stop, target=target, risk=risk, is_long=is_long)
 
         giveback_r = None
         if peak_r is not None and open_r is not None:
