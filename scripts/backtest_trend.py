@@ -49,6 +49,11 @@ from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule
     effective_trail_mult,
     vol_trail_armed,
 )
+# The ONE definition of (r_to_stop, r_to_target, rr_from_here) — imported from
+# the LIVE telemetry module that computes it on the trader, so the `rr_floor`
+# lever below measures the same quantity production records rather than a second
+# derivation of it. See src/runtime/position_telemetry.py::r_distances.
+from src.runtime.position_telemetry import r_distances  # noqa: E402
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
@@ -208,6 +213,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_decay_arm_r: float = 0.0,
                  trail_decay_stall_bars: int = 0,
                  trail_decay_tight_mult: float = 0.0,
+                 rr_floor: float = 0.0,
                  confirm_bars: int = 0,
                  skip_hours: str = "",
                  vol_skip_above_pctl: float = 0.0,
@@ -282,11 +288,45 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # `tight_mult <= 0` disables the whole lever (the effective mult stays
     # `trail_mult`, so the trail arithmetic below is unchanged).
     trail_decay_on = trail_decay_tight_mult > 0.0
+    # M31 P5 precondition-3 `rr_floor` lever (PB-20260817-RR-FROM-HERE-LEVER-
+    # ABSENT-FROM-HARNESS). The candidate P5 lever could not be backtested at
+    # all: this harness implements `stale_exit_bars`, `giveback_min_mfe_r` and
+    # `trail_decay_*` — a probe finds all three as a POSITIVE CONTROL — and
+    # nothing for `rr_from_here`. So precondition 3 was implement-then-measure.
+    #
+    # ⚠️ THE LEVER IS STRUCTURALLY UNMEASURABLE WITHOUT A CAPPED TP. `tp_price`
+    # is None when `tp_cap_pct <= 0`, so `r_to_target` does not exist and the
+    # lever CANNOT fire — a run like that returns exactly-zero deltas that are
+    # byte-identical to a lever that was measured and does nothing -- one class
+    # over from this id, which is kept on ONE line because a hyphen-wrapped
+    # tracking id silently becomes a DIFFERENT id resolving to no filed row:
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    # `rr_floor_state` below keeps the two apart and main() refuses the
+    # combination outright.
+    # Written as an explicit branch, not a nested ternary, so EVERY state
+    # literal sits on a line naming the field it belongs to — which is both
+    # what `collapsed-state-guard` requires of a registered contract and how a
+    # reader greps for where a state can come from.
+    rr_floor_on = rr_floor > 0.0
+    if not rr_floor_on:
+        rr_floor_state = "off"
+    elif tp_cap_pct > 0.0:
+        rr_floor_state = "measurable"
+    else:
+        rr_floor_state = "unmeasurable_no_tp_cap"
     trades: List[Trade] = []
     # Per-entry live-TP distance in R. Answers 'does the 9.9% clamp actually
     # BIND on this leg' from the leg's own frame, instead of from an assumed
     # ATR%. Empty when --tp-cap-pct is off.
     _tp_r_effective: List[float] = []
+    # Per-trade MINIMUM `rr_from_here` seen while open. This is the lever's
+    # REACHABILITY diagnostic and it is computed whenever a capped TP exists,
+    # independently of `rr_floor` — a floor F can only ever fire on a trade
+    # whose rr_min < F, so these percentiles say which floors are testable at
+    # all BEFORE a sweep spends a fold on one. Same role `tp_r_effective_*`
+    # plays for the TP clamp, and the same reason: answer it from the leg's own
+    # frame instead of assuming. Empty when --tp-cap-pct is off.
+    _rr_min_per_trade: List[float] = []
     n = len(df)
     # Warm-up start: ensure both the channel/ATR indicators AND (when a band is
     # set) the ADX are defined. ADX needs ~2×period bars to converge from NaN.
@@ -458,6 +498,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         mfe = 0.0
         peak_j = entry_i          # bar of the last NEW favourable extreme
         banked = False            # M20 partial-TP rung filled?
+        rr_min: Optional[float] = None   # lowest rr_from_here seen while open
         for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0 = off, byte-identical): bank
@@ -540,6 +581,41 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     exit_price, exit_idx = bc, j
                     exit_reason = "stale_stop"
                     break
+            # M31 P5 candidate — the `rr_from_here` FLOOR (0 = off,
+            # byte-identical). Close at bar CLOSE once the upside remaining to
+            # the capped TP no longer justifies the give-back at risk to the
+            # CURRENT stop:  rr_from_here = r_to_target / r_to_stop  <  floor.
+            #
+            # `r_distances` is IMPORTED from the live telemetry module, not
+            # re-implemented, so this measures the quantity production records
+            # (`position_telemetry.rr_from_here`) rather than a lookalike.
+            # Live analogues, checked at the call site in
+            # `trend_donchian.monitor()` rather than assumed:
+            #   stop   -> `trail`     (the CURRENT trailed stop, live `stop=sl`)
+            #   target -> `tp_price`  (the VENUE-CAPPED tp, live `open_pkg["tp"]`)
+            #
+            # LAST in the precedence chain (stop -> tp -> giveback -> stale ->
+            # rr_floor), so composing it with an already-declared lever cannot
+            # re-grade that lever's own recorded verdict.
+            #
+            # NOTE the placement AFTER the intrabar stop/TP breaks: a bar that
+            # fills the TP exits above and never records an rr here. That is
+            # deliberate — at the target rr_from_here -> 0, so counting it would
+            # make rr_min ~0 for every TP winner and report every floor as
+            # trivially reachable. rr_min covers bars where a decision existed.
+            if tp_price is not None:
+                _bc = float(df["close"].iloc[j])
+                _, _, _rr = r_distances(price=_bc, stop=trail, target=tp_price,
+                                        risk=risk,
+                                        is_long=(direction == "long"))
+                if _rr is not None:
+                    rr_min = _rr if rr_min is None else min(rr_min, _rr)
+                    if rr_floor_on and _rr < rr_floor:
+                        exit_price, exit_idx = _bc, j
+                        exit_reason = "rr_floor_exit"
+                        break
+        if rr_min is not None:
+            _rr_min_per_trade.append(rr_min)
         if exit_price is None:
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
@@ -649,6 +725,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["trail_decay_arm_r"] = trail_decay_arm_r
         params["trail_decay_stall_bars"] = trail_decay_stall_bars
         params["trail_decay_tight_mult"] = trail_decay_tight_mult
+    if rr_floor_on:
+        params["rr_floor"] = rr_floor
     if confirm_bars:
         params["confirm_bars"] = confirm_bars
     if skip_hour_set:
@@ -663,7 +741,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["trail_vol_tight_mult"] = trail_vol_tight_mult
         params["vol_pctl_window"] = vol_pctl_window
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
-                      tp_r_effective=_tp_r_effective)
+                      tp_r_effective=_tp_r_effective,
+                      rr_min_per_trade=_rr_min_per_trade,
+                      rr_floor_state=rr_floor_state)
 
 
 def _fee_only_r(t: Trade) -> float:
@@ -700,6 +780,8 @@ def _fee_r(t: Trade) -> float:
 
 def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
                tp_r_effective: Optional[List[float]] = None,
+               rr_min_per_trade: Optional[List[float]] = None,
+               rr_floor_state: str = "off",
                symbol: str, params: Dict[str, Any]) -> Dict[str, Any]:
     n = len(trades)
     base: Dict[str, Any] = {
@@ -720,6 +802,29 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     base["tp_r_effective_median"] = (round(_tpe[len(_tpe) // 2], 3) if _tpe else None)
     base["tp_r_effective_min"] = (round(_tpe[0], 3) if _tpe else None)
     base["tp_r_effective_max"] = (round(_tpe[-1], 3) if _tpe else None)
+    # M31 P5 `rr_floor` reachability + measurability.
+    #
+    # `rr_floor_state` is THREE-STATE and must not be collapsed to a boolean:
+    #   off                    - no floor requested
+    #   measurable             - floor requested AND a capped TP exists
+    #   unmeasurable_no_tp_cap - floor requested with NO capped TP, so the lever
+    #                            cannot fire and a zero delta is NOT a
+    #                            measurement of it
+    # The third is the whole point. Without it an inert run is byte-identical to
+    # a measured no-op, which is exactly how a shipped lever re-swept against
+    # itself read as a no-op -- tracking id on its own line, never wrapped:
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    base["rr_floor_state"] = rr_floor_state
+    # Lowest rr_from_here per trade -> which floors are reachable AT ALL. None
+    # (never 0.0) when unmeasured: "we did not look" and "the ratio reached
+    # zero" are opposite statements, and a fabricated 0.0 would report every
+    # floor as reachable.
+    _rrm = sorted(rr_min_per_trade or [])
+    base["rr_min_n"] = len(_rrm)
+    base["rr_min_p10"] = (round(_rrm[int(0.10 * (len(_rrm) - 1))], 3) if _rrm else None)
+    base["rr_min_median"] = (round(_rrm[len(_rrm) // 2], 3) if _rrm else None)
+    base["rr_min_p90"] = (round(_rrm[int(0.90 * (len(_rrm) - 1))], 3) if _rrm else None)
+    base["rr_floor_exits"] = sum(1 for t in trades if t.outcome == "rr_floor_exit")
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
@@ -951,6 +1056,18 @@ def main(argv: List[str]) -> int:
     p.add_argument("--trail-decay-tight-mult", type=float, default=0.0,
                    help="The tightened trail mult once armed (0 disables the "
                         "whole decay lever, byte-identical).")
+    p.add_argument("--rr-floor", type=float, default=0.0,
+                   help="M31 P5 candidate (0=off, byte-identical): close at bar "
+                        "CLOSE once rr_from_here = r_to_target / r_to_stop falls "
+                        "below this -- the remaining upside to the capped TP no "
+                        "longer justifies the give-back to the current stop. "
+                        "REQUIRES --tp-cap-pct > 0: with no capped TP there is "
+                        "no r_to_target, the lever cannot fire, and the run "
+                        "would report a zero delta that is NOT a measurement "
+                        "(main() refuses that combination). Read rr_min_p10 / "
+                        "rr_min_median / rr_min_p90 first -- a floor above "
+                        "rr_min_p90 fires on nearly every trade and one below "
+                        "rr_min_p10 fires on almost none.")
     p.add_argument("--confirm-bars", type=int, default=0,
                    help="M21 E-2 entry lever (0=off): require the close to hold "
                         "beyond the signal bar's channel edge for N further "
@@ -989,6 +1106,20 @@ def main(argv: List[str]) -> int:
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
     args = p.parse_args(argv[1:])
+    # REFUSE the structurally-unmeasurable combination rather than run it. With
+    # no capped TP there is no r_to_target, so `--rr-floor` cannot fire and the
+    # run returns exactly-zero deltas indistinguishable from a lever that was
+    # measured and does nothing. Recording that in a sweep corpus would put a
+    # false `tie_no_improvement` against this lever's name -- the shape of
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    # (kept on ONE line: a wrapped tracking id resolves to no filed row).
+    # Refusing costs one command line; a silent inert row costs a wrong verdict.
+    if args.rr_floor > 0.0 and args.tp_cap_pct <= 0.0:
+        print("ERROR: --rr-floor requires --tp-cap-pct > 0 (production uses "
+              "0.099). Without a capped TP there is no r_to_target, so the "
+              "lever cannot fire and the run would report a zero delta that is "
+              "NOT a measurement of it.", file=sys.stderr)
+        return 2
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     # Mandatory venue-aware cost policy: unset flags resolve to the venue-aware
     # defaults (funding is perp-only → 0 for non-perps); an explicit value
@@ -1024,6 +1155,7 @@ def main(argv: List[str]) -> int:
                      trail_decay_arm_r=args.trail_decay_arm_r,
                      trail_decay_stall_bars=args.trail_decay_stall_bars,
                      trail_decay_tight_mult=args.trail_decay_tight_mult,
+                     rr_floor=args.rr_floor,
                      confirm_bars=args.confirm_bars,
                      skip_hours=args.skip_hours,
                      vol_skip_above_pctl=args.vol_skip_above_pctl,

@@ -137,6 +137,32 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "trend_harness.rr_floor_state",
+        "producer": "scripts/backtest_trend.py",
+        "producer_field": "rr_floor_state",
+        "consumer_token": r"\brr_floor_state\b|\brr_floor\b",
+        "states": ["off", "measurable", "unmeasurable_no_tp_cap"],
+        "why": (
+            "The M31 P5 candidate lever (`rr_from_here` floor) is "
+            "STRUCTURALLY UNMEASURABLE without a capped TP: `tp_price` is None "
+            "when `tp_cap_pct <= 0`, so `r_to_target` does not exist and the "
+            "lever cannot fire however the floor is set. Such a run returns "
+            "exactly-zero deltas that are BYTE-IDENTICAL to a lever that was "
+            "measured and genuinely does nothing — and a sweep corpus would "
+            "record the second meaning against this lever's name. That is not "
+            "hypothetical: it is the shape measured on 2026-08-17, where 10 "
+            "rows read `tie_no_improvement` with the lever already in their "
+            "own baseline while 192 other rows carried the same verdict "
+            "legitimately "
+            "(BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP). "
+            "`off` = no floor requested; `measurable` = a floor AND a capped "
+            "TP, so a zero delta IS a measurement; `unmeasurable_no_tp_cap` = "
+            "we could not look. Collapsing the third into the first two is the "
+            "dangerous direction — it manufactures an honest-looking negative "
+            "for a lever that never ran. PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS."
+        ),
+    },
+    {
         "name": "db_explorer.filter_state",
         "producer": "src/web/api/routers/db_explorer.py",
         "producer_field": "filter_state",
