@@ -1,101 +1,106 @@
 # S-M31-HARNESS-MFE-DIST — the harness half of P5 precondition 2
 
-- **Date:** 2026-08-17
-- **Milestone:** M31 (position telemetry) — P4 Check B / P5 precondition 2
-- **Tier:** 1 (research tooling + CI wiring + docs). No `src/`, no `config/`, no order path.
-- **Backlog:** `PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE` — **still OPEN**, updated.
+## Date Range
+- Start: 2026-08-17
+- End: 2026-08-17
 
 ## Objective
 
 M31 P5's binding blocker is precondition 2: P4 Check B abstains because the live
-final-MFE population is **n=1 fleet-wide**. That is a soak-depth problem nobody
-can hurry.
+final-MFE population is **n=1 fleet-wide**. That is soak depth nobody can hurry.
 
 But Check B needs **two** inputs — a live final-MFE population **and** a harness
 `mfe_r` distribution — and the second was missing for an entirely different
 reason: it was simply never committed. A session waiting only on live depth
 would have reached the floor and *then* discovered the other half absent.
 
-This ships the mechanism for the harness half. It does **not** ship the numbers,
-and the distinction is the whole finding.
+Ship the mechanism for the harness half. Do **not** ship the numbers — the
+distinction is the finding.
 
-## Verified, not inherited
+## Tier
+- Tier: **1** (research tooling + CI wiring + docs)
+- Justification: no `src/`, no `config/`, no order path, no live lever, no
+  Tier-3 decision. **P5 itself remains Tier-3 and withheld.**
 
-The backlog row claimed the corpus carries no per-trade `mfe_r`. Re-measured
-here: a key census over **all 1,376 rows** of `docs/research/m20-sweep-corpus.jsonl`
-finds **zero** keys containing `mfe`. Reproduces exactly.
+## Starting Context
+- Active roadmap items: M31 (position telemetry) — P4 Check B / P5 precondition 2.
+- Prior sprint reference: `S-M31-P4-MFE-PARITY-2026-08-17.md` (which filed this
+  gap), `S-M31-P5-RR-FLOOR-HARNESS-2026-08-17.md` (this session's earlier unit).
+- Known risks at start: the obvious implementation walks into M31's own defect
+  class — generating the distribution from the only committed candle fixture,
+  which is the wrong volatility regime by an order of magnitude.
 
-Two incidental observations while there, both worth the next session's time:
-the corpus keys on **`leg`**, while `--harness-emit` rows key on **`strategy`**;
-and every corpus row does carry `tp_cap_pct`.
+## Repo State Checked
+- Branch or commit reviewed: branched off `main` `6b0fb8e`; merged as `55ba0f3`.
+- Deployment state reviewed: **n/a — nothing here deploys.** No `src/` file is
+  touched, so the live trader is unaffected and no restart or post-state check
+  applies.
+- Canonical docs reviewed: `docs/CLAUDE-RULES-CANONICAL.md`, `ROADMAP.md` § M31,
+  `docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md`, coordination board
+  #6927 (tail read and proven, plus a `list_pull_requests` cross-check).
 
-## What shipped
+## Files and Systems Inspected
+- Code files inspected: `scripts/research/m31_mfe_parity.py`,
+  `scripts/backtest_trend.py`, `scripts/research/m20_fleet_exit_sweep.py`
+  (`resolve_data` only — not modified), `scripts/ops/check_research_index.py`.
+- Config files inspected: `.gitignore` (`data/*.csv`), `ruff.toml`,
+  `requirements-dev.txt` (ruff pin).
+- Deployment files inspected: none.
+- Docs inspected: `RESEARCH-CAPABILITY-INDEX.md`,
+  `docs/claude/performance-review-backlog.json`,
+  `docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`.
+- Services or timers inspected: none.
+- GitHub Actions workflows inspected: `guards.yml` (ruff pin + the diff-scoping
+  step), `scripts/ci/run_guards.py`.
 
-**`scripts/research/m31_harness_mfe_dist.py`** — aggregates a
-`backtest_trend.py --emit-trades` JSONL into a small committed per-leg record
-(percentiles + `n`, never per-trade rows, per the backlog row's own resolution
-criteria: *"it is small, it versions with the corpus, and it does not need a
-sweep to be reproducible"*).
+## Work Completed
 
-**`m31_mfe_parity.py --harness-dist`** — consumes that artifact. Mutually
-exclusive with `--harness-emit`, because two harness sources at once would make
-the report's provenance a function of argument order.
+- **Item 1 — verified the premise rather than inheriting it.** A key census over
+  **all 1,376** rows of `docs/research/m20-sweep-corpus.jsonl` finds **zero**
+  keys containing `mfe`. Reproduces the backlog claim exactly. Two incidentals
+  worth the next session's time: the corpus keys on **`leg`** while
+  `--harness-emit` rows key on **`strategy`**, and every corpus row carries
+  `tp_cap_pct`.
+- **Item 2 — `scripts/research/m31_harness_mfe_dist.py`** (new): aggregates a
+  `backtest_trend.py --emit-trades` JSONL into a small committed per-leg record
+  — percentiles + `n`, never per-trade rows, per the backlog row's own criteria
+  (*"small, versions with the corpus, does not need a sweep to be
+  reproducible"*). Refuses an uncapped sweep; requires `--symbol`/`--timeframe`.
+- **Item 3 — `m31_mfe_parity.py --harness-dist`**: consumes that artifact,
+  mutually exclusive with `--harness-emit`. Three consequences of a *committed*
+  artifact: the **`tp_cap_pct` gate becomes PER-LEG** (an artifact can hold legs
+  swept under different settings, and one uncapped leg must neither condemn nor
+  be excused by its neighbours); `harness_source` travels into every record; and
+  `harness_symbol`/`harness_timeframe` reach the report, which is what makes a
+  wrong-instrument comparison *visible* rather than merely wrong.
+- **Item 4 — one definition.** Percentiles are **imported** from
+  `m31_mfe_parity._pct`, never re-derived — the same rule that made
+  `backtest_trend.py` import `r_distances` from the live telemetry module.
+- **Item 5 — CI wiring + capability index.** `mfe-parity-instrument-guard` runs
+  **both** self-tests and globs both files; the new script is routed in
+  `RESEARCH-CAPABILITY-INDEX.md` (77/77).
 
-Three things follow from having a *committed* artifact rather than raw rows:
+## Validation Performed
 
-- the **`tp_cap_pct` gate becomes PER-LEG** rather than one global flag — an
-  artifact can hold legs swept under different settings, and one uncapped leg
-  must neither condemn nor be excused by its neighbours;
-- `harness_source` (`emit_rows` / `committed_dist`) travels into every record,
-  because a fresh sweep and a committed artifact are different provenance for
-  the same claim;
-- `harness_symbol` / `harness_timeframe` reach the report, which is what makes a
-  wrong-instrument comparison *visible* instead of merely wrong.
-
-Percentiles are **imported** from `m31_mfe_parity._pct`, never re-derived — the
-same rule that made `backtest_trend.py` import `r_distances` from the live
-telemetry module. Pinned by a test that fails even against a byte-identical
-local copy.
-
-## The trap this is built around
-
-`data/*.csv` is **gitignored**, so per-leg candles are not in the repo —
-measured, not assumed: `m20_fleet_exit_sweep.resolve_data` returns
-`(None, False, None)` for all five of `SOLUSDT/4h`, `XRPUSDT/2h`, `BTCUSDT/1h`,
-`ADAUSDT/2h`, `QQQ/1d`.
-
-The only committed candles are `data/backtest_candles.csv` — **BTCUSDT
-1-MINUTE**, 5,000 bars, median `(high−low)/close` **0.101%** — where the 9.9%
-venue cap lands at **~37R**, against live legs measured at cap_R **2.13–5.83**.
-
-So the tempting shortcut (sweep the fixture, commit *that* distribution) would
-write a wrong-regime artifact under the exact name Check B reads, and Check B
-would then grade live 4h legs against a 1-minute BTC distribution. That is
-M31's own defect class — *the harness measured a book production does not run* —
-except authored by us and versioned, which is strictly worse than the honest
-absence it would replace.
-
-Hence: the aggregator **refuses** an uncapped sweep and **requires**
-`--symbol`/`--timeframe`, and the consumer refuses a mismatch. The tooling does
-not make the shortcut easy.
-
-## Validation
-
-- Both self-tests green: parity **14/14** (10 pre-existing + 4 new),
-  aggregator **8/8**.
+- Self-tests: parity **14/14** (10 pre-existing + 4 new), aggregator **8/8**.
 - **End-to-end on a real capped sweep**, not a fixture of a fixture: 144 emit
   rows, **144/144** carrying `mfe_r` → aggregator → artifact → parity returned
   `parity_state: compared`, `harness_side: committed_dist`.
 - **Agreement test**: the committed distribution and the raw emit rows it was
   built from produce identical parity verdicts. If they disagreed, the artifact
   would be a quiet re-measurement rather than a record.
-- 14 pytest cases, every refusal paired with a positive control.
-- 43/43 guards on the committed diff; `ruff check .` clean; research index
-  77/77 routed.
+- 14 pytest cases; every refusal paired with a positive control.
+- **43/43 guards on the COMMITTED diff.** The runner explicitly warned that
+  uncommitted paths are not a clean bill of health, so the suite was re-run
+  after committing. `diagnostic-provenance` + `api-tier-policy` run explicitly
+  against a freshly generated `origin/main...HEAD` diff (per
+  `BL-20260814-RUN-GUARDS-CONSUMES-A-DIFF-IT-NEVER-GENERATES-SO-LOCAL-RUNS-SCAN-A-STALE-FILE`). `ruff check .`
+  clean on the **pinned** `<0.16` ruff — the unpinned install reported 103
+  findings from 0.16's expanded default ruleset, which the repo documents.
+- Post-merge: verified on `main` by **reading the files** and re-running, not by
+  trusting the merge SHA.
 
-### Mutation-tested, and one mutation found a defect in my own test
-
-Planted regressions to prove each control can fail:
+### Mutation-tested — and one mutation found a defect in my own test
 
 | mutation | result |
 |---|---|
@@ -105,40 +110,74 @@ Planted regressions to prove each control can fail:
 | drop the `--symbol`/`--timeframe` requirement | aggregator test 8 FAILS ✅ |
 | **delete the uncapped-sweep refusal** | **PASSED — the test was wrong** ❌ |
 
-That last one is the useful part. The test pointed `--emit` at a nonexistent
+The last is the useful one. The test pointed `--emit` at a nonexistent
 `x.jsonl` and asserted `rc == 2` — and a missing file returns `2` on its own, so
-the assertion held with the guard deleted. **It was passing for a reason it was
-not testing**: an exit code that a different failure also produces. Rewritten
-against a real emit file, with a positive control (*a capped sweep with identity
-IS written*) ahead of the refusals so they cannot pass by refusing everything.
+it held with the guard **deleted**. It was passing for a reason it was not
+testing: **an exit code that a different failure also produces.** Rewritten
+against a real emit file with a positive control (*a capped sweep with identity
+IS written*) ahead of the refusals, so they cannot pass by refusing everything.
 Re-run under the same mutation, it now fails.
 
-A second, smaller one: `test_percentiles_are_the_parity_modules_own` failed on
-first run because the test loaded `m31_mfe_parity` twice under different module
-identities — the assertion was measuring the test's own loading strategy, not
-the production wiring. Fixed by importing the module the aggregator's own
-`from m31_mfe_parity import _pct` resolves to.
+A second: `test_percentiles_are_the_parity_modules_own` failed on first run
+because the test loaded `m31_mfe_parity` twice under different module
+identities — it was measuring the test's own loading strategy, not the
+production wiring. Fixed to hold the module the aggregator's import resolves to.
 
-## CI wiring
+## Documentation Updated
+- `docs/research/RESEARCH-CAPABILITY-INDEX.md` — new row; the sibling
+  `m31_mfe_parity` row's now-stale "both halves are missing" corrected.
+- `docs/claude/performance-review-backlog.json` — `PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE`
+  updated with the measurement and a sharpened `next_action`; **left OPEN**.
+- `ROADMAP.md` § M31 — the split recorded.
+- This log.
 
-`mfe-parity-instrument-guard` now runs **both** self-tests and lists both files
-in its globs, so editing either runs both. The aggregator's refusals are exactly
-the kind of control that rots silently — nothing else fails when they stop
-firing — and *"registered but never invoked"* is the defect this repo hit twice
-on 2026-08-17 (`BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED`).
+## Contradictions or Drift Found
+- The capability-index row for `m31_mfe_parity` claimed *"both halves are
+  missing"* — true when written, stale once the mechanism landed. Corrected in
+  the same PR rather than left to a later sweep.
+- ⚠️ **The first version of this very log carried 7 of the 14 mandatory
+  sections** (`docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`). Caught post-merge and
+  rewritten. My *earlier* log this session had all 14, so this was a regression
+  within one session, not an unfamiliarity with the format.
 
-The `artifact-validity-guard` caught the new script's absence from
-`RESEARCH-CAPABILITY-INDEX.md` before it could ship — the same catch the
-concurrent M20 session recorded hours earlier. Indexed; 77/77 routed.
+## Risks and Follow-Ups
+- **`PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD`** (filed): the sprint-log
+  format is documented as **mandatory** and **nothing enforces it** — searched
+  `scripts/`, `tests/`, `.github/` for `SPRINT-LOG-TEMPLATE-CANONICAL` and found
+  zero references, with the template file itself as the positive control that
+  the probe works. Measured drift on recent logs: 15, 10, 10, and mine at 7.
+- `PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE` stays open pending the
+  artifact.
+- The aggregator will accept a fixture-derived distribution if given the right
+  flags. `--symbol`/`--timeframe` make that visible downstream, but they do not
+  make it impossible; the guard is honesty-of-record, not prevention.
 
-## What is NOT done
+## Deferred Items
+- Generating the artifact: a **capped** (`--tp-cap-pct 0.099`) trainer-side
+  sweep per telemetry-writing leg — `trend_donchian` + `htf_pullback_trend_2h`
+  **only**, since no other leg writes `position_telemetry` and no other leg is
+  comparable — with `--emit-trades`.
+- Deferred because `data/*.csv` is gitignored: measured, not assumed —
+  `m20_fleet_exit_sweep.resolve_data` returns `(None, False, None)` for all of
+  `SOLUSDT/4h`, `XRPUSDT/2h`, `BTCUSDT/1h`, `ADAUSDT/2h`, `QQQ/1d`. The only
+  committed candles are **BTCUSDT 1-MINUTE** (median `(high−low)/close`
+  **0.101%**), where the 9.9% cap lands at **~37R** against live legs at cap_R
+  **2.13–5.83**. Committing that would put a wrong-regime artifact under the
+  exact name Check B reads — M31's own defect class, authored by us and
+  **versioned**, which is worse than the honest absence it replaces.
 
-The artifact itself. Producing it needs a **capped** (`--tp-cap-pct 0.099`)
-trainer-side sweep per telemetry-writing leg — the `trend_donchian` and
-`htf_pullback_trend_2h` families only, since no other leg writes
-`position_telemetry` and no other leg is therefore comparable — with
-`--emit-trades`, fed through the aggregator with each leg's own
-`--symbol`/`--timeframe`.
+## Next Recommended Sprint
+1. The trainer-side capped sweep above → commit `m31-harness-mfe-dist.jsonl`.
+   Precondition 2 then waits only on live soak depth.
+2. `PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA` (precondition 3b) —
+   the same trainer data unblocks both, so they should share one sweep.
+3. The sprint-log template guard, if a review session wants a cheap one.
 
-Precondition 2 then still waits on live soak depth, which nothing here touches.
-**P5 remains Tier-3 and withheld.**
+## Wrap-Up Check
+- [x] All work committed and merged (`55ba0f3`), verified on `main` by reading
+      files and re-running — never by a merge SHA.
+- [x] Backlog updated; the row that is not resolved is **not marked resolved**.
+- [x] Coordination board: START, holding note, claim, release.
+- [x] Telegram ping sent.
+- [x] No live path touched; **P5 remains Tier-3 and withheld**, and precondition
+      2's binding half (live soak depth) is untouched by anything here.
