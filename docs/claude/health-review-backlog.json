@@ -18697,6 +18697,28 @@
       "refs": [
         "BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES-VENUE-CLOSED"
       ]
+    },
+    {
+      "id": "BL-20260817-ATTACH-IB-TARGET-DB-IMPORT-UNEXERCISED",
+      "opened_at": "2026-08-17T22:45:00+00:00",
+      "opened_by": "claude (sysrev-0816, caught by the first live dry-run dispatch)",
+      "severity": "high",
+      "tier": "1 (ops tooling + tests)",
+      "status": "fix_landed_pending_ci",
+      "area": "ops-tooling",
+      "title": "attach_ib_target.py shipped with an import that does not exist, and NO test file — the system-action registry guards proved it was REGISTERED, which executes none of it",
+      "detail": "MEASURED by the first live dispatch (issue #9922, run 32076913860, 2026-08-17T22:38:54Z), a DRY RUN against ib_paper/MGC:\n  ImportError: cannot import name 'get_connection' from 'src.units.db.database'\n`src/units/db/database.py` exports a `Database` class and `get_db()`. `get_connection` has never existed. Fixed to the canonical read pattern already used by scripts/ops/bybit_bracket_audit.py: `src.utils.paths.trade_journal_db_path()` opened `mode=ro` via a URI connection — which also means a REPAIR tool cannot write the money DB, and satisfies the `canonical-db-resolver` guard.\n\nWHY IT SHIPPED GREEN, which is the actual finding. There was NO test file for this script. The only thing referencing it was `tests/ops/test_system_actions_workflow.py`, and every check there is about REGISTRATION — allowlisted, tier-classified, script-mapped, present in notify_run.sh, documented, env forwarded. All five passed. None of them executes a single line of the script. So four safety refusals guarding a LIVE ORDER PATH had zero coverage, and the first thing to run the code was a dispatch against a real broker account.\n\nTHIS IS THE THIRD INSTANCE OF THE SAME AUTHORING CLASS IN ONE SESSION -- calling a symbol that does not exist. The other two were caught cheaply: `_alert_once` by grepping before writing, `_f` by ruff (F821). This one was invisible to both because it sits inside a function body behind a lazy import, so it is not a NameError at module scope and ruff cannot see through the import. Only execution finds it, and nothing executed it.\n\nTHE GENERAL SHAPE: a registered-but-unexercised script is the same defect as a written-but-never-read provenance field -- the surrounding machinery all says 'wired', and the thing itself was never run. `provenance-consumer-guard` exists for the field version; there is no equivalent asking whether an allowlisted system-action's script has ANY test.\n\nFIXED HERE: the import, plus `tests/ops/test_attach_ib_target.py` (8 tests) covering the import resolving for real (deliberately NOT stubbed — stubbing `_open_trade` is exactly what hid this), read-only journal access, all four refusals, could_not_look vs refused, and that no `--tp` argument exists so a repair cannot fat-finger a level. Verified RED-CAPABLE: restoring the broken import fails `test_open_trade_import_resolves_against_the_real_module` and only that test.",
+      "resolution_criteria": [
+        "The dry run reaches a real verdict on ib_paper/MGC rather than an ImportError — i.e. the script's own guards get to speak.",
+        "A guard (or a registry test extension) asserting that every action in EXPECTED_ACTIONS whose wrapper invokes a python script has at least one test importing that script — closing the registered-but-unexercised class rather than this one instance.",
+        "Audit the other ops scripts added recently for the same shape: allowlisted + documented + registry-green, but with no test that executes them. cancel_ib_order.py HAS tests (14); check the rest."
+      ],
+      "refs": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "scripts/ops/attach_ib_target.py",
+        "tests/ops/test_attach_ib_target.py",
+        "scripts/ops/bybit_bracket_audit.py"
+      ]
     }
   ]
 }

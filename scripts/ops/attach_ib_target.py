@@ -99,16 +99,31 @@ def _open_trade(account_id: str, symbol: str) -> Optional[Dict[str, Any]]:
     choosing, because two open rows on a netted contract mean two different
     declared targets and no basis to prefer either.
     """
-    from src.units.db.database import get_connection
+    # Opened READ-ONLY through the canonical resolver — never a CWD-relative
+    # basename (`canonical-db-resolver` guard), and `mode=ro` because a repair
+    # tool has no business being able to write the money DB. Same shape as
+    # scripts/ops/bybit_bracket_audit.py.
+    #
+    # This previously imported a `get_connection` from src.units.db.database
+    # that DOES NOT EXIST — the module exports a `Database` class and
+    # `get_db()`. It shipped green because every test stubs `_open_trade`, so
+    # the import was never executed until the first live dispatch
+    # (BL-20260817-ATTACH-IB-TARGET-DB-IMPORT-UNEXERCISED).
+    import sqlite3
 
-    with get_connection() as conn:
-        conn.row_factory = __import__("sqlite3").Row
+    from src.utils.paths import trade_journal_db_path
+
+    conn = sqlite3.connect("file:%s?mode=ro" % trade_journal_db_path(), uri=True)
+    try:
+        conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT id, symbol, direction, position_size, stop_loss, "
             "take_profit_1 FROM trades WHERE status='open' AND account_id=? "
             "AND UPPER(symbol) LIKE ?",
             (account_id, f"{symbol.upper()}%"),
         ).fetchall()
+    finally:
+        conn.close()
     return dict(rows[0]) if len(rows) == 1 else None
 
 
