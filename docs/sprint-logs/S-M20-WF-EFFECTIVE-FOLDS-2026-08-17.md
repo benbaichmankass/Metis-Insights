@@ -141,6 +141,42 @@
   **zero** `wf_*` fields, and its `wf_summary` (:357) is a display field only —
   no defect. Recorded rather than dressed up as a finding.
 
+- **#9881 — the coordination-board read could not assert it reached the END**
+  (`ba5cf956` → `279edecc`). Both protocol surfaces
+  (`docs/claude/coordination-board.md`, `.claude/skills/session-coordination/SKILL.md`)
+  said *"read the board tail"* and **neither said how to establish you had**.
+  `issue_read get_comments` pages ascending with no `is_last` field and no
+  newest-first option, so **a full page and the real tail are
+  byte-indistinguishable** — and the failure is biased in the dangerous
+  direction: a stale page can only ever HIDE a claim, never invent one, so the
+  error always reads *"slot free"*. Rule shipped: request `perPage=N`; **N items
+  proves nothing, a short page (< N) is the proof**; probe `perPage=1` at a high
+  `page` for `[]` and bisect. `list_pull_requests state=open` is named as the
+  cross-check with no pagination-tail failure mode. Filed
+  `BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END`.
+  **This fixed a protocol violation I had just committed** — see Risks below.
+
+- **#9882 — the roll-up's "movable" count is MEASURED, not implied by a bucket
+  name** (`279edecc` → `ee268e2b`). `gate_partition` keys on each cell's STATUS
+  STRING — correct, it cannot drift from the matrix — and is therefore blind to
+  whether the remedy that status implies EXISTS. `pending` rendered as *"no sweep
+  has been run"*, which invites *"so run it"*. Measured: **all four** cells in the
+  `harness_gap` + `never_attempted` buckets rest on `exit_ladder` (×3) or
+  `regime_flip_exit` (×1), and **neither lever has a sweep arm or a harness
+  flag** — so the honest movable count is **ZERO** against a line that implied
+  four. Three independent sources: `m20_fleet_exit_sweep.py` mentions each lever
+  exactly once (its own absence comment); AST over `backtest_trend.py` +
+  `backtest_squeeze.py` finds no `--exit-ladder`/`--regime-flip` (probe proven
+  non-blind by `--trail-mult`); `scripts/ci/check_matrix_corpus_agreement.py`
+  records `exit_ladder` as an observe-only soak whose graduation is the
+  backtest-gated P4 and `regime_flip_exit` as having no runtime implementation,
+  gated on operator decision (c). `render()` now prints
+  `MOVABLE BY A SESSION: 0 (of 4)` plus each unrunnable cell **and its real
+  route**. `exit_head_ml` is deliberately excluded from the set — it has its own
+  driver and IS swept, so its cells are gated on trade counts. Filed
+  `BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS` (open — the
+  two cells' routes are not Tier-1).
+
 ## Validation Performed
 
 - **Tests run:** 9 new tests in `tests/test_path_b_floor_inert_folds.py`, green.
@@ -166,6 +202,45 @@
 - **Gaps not yet verified:** no OOS delta was decomposed per year for any of the
   5 uncovered-OOS cells, so the effect size on any individual verdict is
   unmeasured. #9873's CI was still in progress at hand-over.
+
+### Five ways a GREEN checked nothing — each cost something tonight
+
+1. **CI caught a real defect and the pre-existing tests were RIGHT.** #9882's
+   first run failed 4 tests because I put an overlapping cut INSIDE
+   `gate_partition`'s returned dict, which is a **strict partition** — 4 cells
+   double-counted, total read **26 against a true 22**. Their own message is the
+   lesson: *"a partition that does not reconcile is worse than none, because it
+   reads as exhaustive."* **The reusable half is the process miss: I ran the
+   roll-up tests I GUESSED were adjacent and never ran
+   `tests/test_gate_partition.py` — the file named after the function I was
+   changing.** Pinned as `test_the_cut_is_NOT_inside_the_partition`.
+2. **A `hasattr` fallback can make a test assert NOTHING.** Two of my new tests
+   guarded on `hasattr(m,"reachability")` / `hasattr(m,"report")`; the real names
+   are `fold_reachability` / `render`, so one silently passed `[]` (leaving the
+   arithmetic reclassification un-exercised) and the other set `text=""` and
+   skipped its asserts — **both while PASSING**. Now called unguarded, with
+   `assert text, "render() produced nothing — the probe is blind"`.
+3. **Diff-scoped guards must run on a COMMIT.** `check_backlog_refs --base` diffs
+   `{base}...HEAD`, so a planted dangling id **PASSED** over uncommitted edits and
+   failed correctly (exit 1, naming file and id) once committed. Nuance worth
+   keeping: `scripts/ci/run_guards.py --all` DOES warn ("NOT a clean bill of
+   health for your change"); an individual guard script invoked directly returns a
+   bare OK.
+4. **A probe run from the wrong directory returns silence, not an answer.** I
+   checked whether `main` already carried the fix by executing its roll-up copy
+   from `/tmp`, which breaks the script's `parents[2]` repo-root resolution; it
+   errored and my own grep filtered the error away. Re-run inside the repo tree it
+   gave the real pre-merge baseline.
+5. **`pull_request_read method=get_status` is the WRONG CI surface here** — it
+   returned `state: "pending"` over **`total_count: 0`**, i.e. pending over zero
+   statuses. These are check-**runs**, not commit statuses; a verdict over a zero
+   denominator is not a verdict. `get_check_runs` with `perPage=1, page=3`
+   isolates `pytest-run` cheaply.
+
+Also: GitHub deletes the remote branch on merge, so the local tracking ref goes
+stale and `--force-with-lease` fails "stale info" — `git remote prune origin` then
+a plain push, never a force. And `if git push … | tail` reads `tail`'s exit status,
+not git's: it printed a bogus "PUSH OK" over a failed push.
 
 ## Documentation Updated
 - Rules doc updates: none needed — this sprint is an instance of rules already
@@ -204,13 +279,24 @@
   backlog row states the ~9× overstatement explicitly so the number is not
   re-inflated later.
 
-- **A count of a FIELD read as a count of a CONDITION — four times.** The
-  124-of-133 near-miss above is one instance; the same shape recurred on
-  **102-vs-61** (`declared_levers_present` contains the lever for 102 rows, but
-  only 61 are measured against a baseline that runs it — 41 had it dropped), and
-  twice more as population conflations on the `wf_pass` rate. Recorded as one
-  class rather than four incidents, because the emitter would otherwise have
-  hardcoded it.
+- **A count of a FIELD read as a count of a CONDITION — SIX times.** Recorded as
+  one class rather than six incidents, because the emitter would otherwise have
+  hardcoded the first one:
+
+  | instance | the field says | the condition is |
+  |---|--:|--:|
+  | fold panel | 124 rows have a pre-split fold | **14** have an IS-*fitted* arm |
+  | self-baseline | 102 rows list the lever in `declared_levers_present` | **61** measured against a baseline running it (41 had it dropped) |
+  | `wf_pass` rate | two population conflations (17/96 · 19/133 · 13/112) | — |
+  | board tail | this PAGE's newest comment | the BOARD's newest comment |
+  | `never_attempted` | status is `pending` ("no sweep has been run") | a run would resolve it — **it would not** |
+
+  **The board-tail instance is what promoted this from "a run of related
+  mistakes" to a class:** it is the same shape in a completely different
+  subsystem — a coordination API, not the exit matrix — and it caused a real
+  protocol violation rather than a near-miss. The `never_attempted` instance then
+  landed *inside the tool written to prevent stale numbers*, whose own header
+  already warns that a number in prose goes stale silently.
 
 - **Two mistakes caught while writing the fold-coverage emitter.** The call first
   read `wf_folds` — the CORPUS field name — where the sweep's key is
@@ -234,6 +320,32 @@
 - **Remaining technical risks:** the fold panel still cannot say what it did not
   grade — an ungraded OOS year reads identically to a graded-and-won one. That is
   the collapsed-state shape, filed but not fixed.
+
+- **⚠️ A MERGE-PROTOCOL VIOLATION I COMMITTED, found and reported by me.** At
+  14:21:22Z I claimed the merge slot for #9875 stating *"no open 🔒"*. False —
+  `m31-p5-rr` had claimed it at **14:13:47Z** and I merged inside their hold. Two
+  comments (ids `5316912016`, `5316983270`) had landed past my page boundary, so
+  my read was **46 minutes stale** and I reported it as the tail. **No harm
+  landed, and that was luck rather than process:** they merged second and absorbed
+  the rebase — but **both PRs edited
+  `scripts/ci/check_collapsed_states.py::CONTRACTS`**, the same table in the same
+  file, which is precisely the concurrent-merge-on-one-hunk case the slot exists
+  to prevent. Cause and fix are in #9881 above; the scope note is that
+  `m31-p5-rr`'s conduct was correct throughout (they claimed properly, checked
+  disjointness, flagged the shared hunk in advance).
+
+- **⚠️ TWO OF MY OWN EARLIER RECORDS WERE WRONG, corrected here.** (a) I described
+  the lone `harness_gap` cell as `squeeze_breakout_4h`/**`vol_trail`**, "AST-verified:
+  `--trail-vol-above-pctl` absent". Both halves are wrong — the cell is the
+  **`exit_ladder`** column, and all three `vol_trail` flags ARE present in
+  `backtest_squeeze.py` (AST-verified `add_argument`s), added by **#9859 /
+  `6acbaa40`** earlier the same night, after which that cell reads
+  `honest_negative` and had already left the open set. #9859 did close the only
+  genuinely-actionable harness gap; my description of what remained did not keep
+  up. (b) The figure **"only 4 movable by a session"** — quoted in four board
+  comments, three operator pings, and **one branch of the operator question open
+  since 12:47Z** — is **ZERO**. That branch of the fork is therefore not
+  actionable, which the 15:13:42Z ping told the operator explicitly.
 
 - **Remaining product decisions (Tier 3) — 8 items, all QUEUED, none decided:**
   1. `trend_donchian_xrp_4h`/`trail_decay`/`decay_arm2R_t2.5` is **SHIPPED on
