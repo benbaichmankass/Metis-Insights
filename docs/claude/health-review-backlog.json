@@ -18171,8 +18171,8 @@
       "id": "BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT-WHICH-CPYTHON-RECYCLES",
       "opened_at": "2026-08-17",
       "opened_by": "overnight M20 session (2026-08-16/17)",
-      "status": "key FIXED; the dead reset_candle_cache() half remains open",
-      "severity": "high",
+      "status": "key FIXED (#9817); the reset half is DOWNGRADED to tidiness, not a hazard",
+      "severity": "low (was high; the correctness half is fixed and the remainder is dead code)",
       "tier": "2 — src/runtime/market_data.py is the live candle path feeding entry geometry AND exit decisions. Filed, NOT fixed in-session.",
       "title": "market_data._candle_cache_key keys on id(client), which CPython recycles the instant an object is freed — so the key cannot do the one thing its own comment says it exists for",
       "source": "Found by root-causing a CI failure that had nothing to do with the PR carrying it: tests/test_s012_pipeline.py::test_turtle_soup_flat_market_returns_side_none returned 'buy' on a flat market (PR #9812, run 31980184993). The test fixture is fully deterministic and the file passes in isolation, so the builder had to be seeing another test's candles.",
@@ -18188,6 +18188,17 @@
           "the_anti_pattern_avoided": "No strong reference is retained — the token dies with the client — so exchange sockets and IB clientIds keep their intended lifetime. Holding the client in the cache entry would have traded this correctness bug for the resource bug BL-20260706-IBACCTUPDATES-COLLISION governs, which is why the filing warned against it before the fix was written.",
           "tests": "tests/test_candle_cache_client_identity.py — 10 tests. The load-bearing one is test_the_old_id_key_would_alias: it reproduces the COLLISION under the old id() scheme on the SAME recycled address the fix is then asked about, so the passing fix test cannot be vacuous. Also pinned: a class-level attribute is never read as a per-instance identity (that would be the very collision being fixed, wearing a per-instance name), tokens are never reused, the `since=` carve-out survives, a __slots__ client is refused rather than guessed, and the same client still hits its own entry (the fix must not defeat the cache it repairs).",
           "still_open": "reset_candle_cache() STILL has zero callers, so reset_exchange_client_cache() continues to drop clients while their frames survive. That half is untouched here and is why this row is not closed."
+        },
+        {
+          "at": "2026-08-17",
+          "by": "overnight M20 session",
+          "what": "SELF-CORRECTION — the second finding in this row is now OVER-STATED, in the alarming direction, and I am the one who over-stated it. It was written before the fix and never re-read against it.",
+          "what_the_row_originally_claimed": "That `reset_candle_cache()` having zero callers was a live hazard: 'a forced reconnect drops every client while their frames survive, keyed on ids that are, at that moment, all free for reuse. That is the sequence most likely to alias two genuinely different clients in production.'",
+          "why_that_no_longer_holds": "That sentence is entirely a property of `id()`. The fix keys on a MONOTONIC counter, so a token is never issued twice; after `reset_exchange_client_cache()` the surviving entries are keyed on tokens no future client can ever be assigned. They are UNREACHABLE, not aliasable.",
+          "measured_2026_08_17": "Reproduced the exact sequence against merged main: client A caches a frame (token 1), A is dropped, `reset_exchange_client_cache()` runs, a fresh client B arrives (token 2). token equal: False. B inherits A's frame: False. Orphaned entry still resident: True.",
+          "what_actually_remains": "Bounded memory retention only — unreachable entries sit in the map until their TTL, inside a map already capped at 512 entries (`_candle_cache_put` clears wholesale above that). That is a tidiness issue, NOT a correctness one, and it should not be carried at the severity the original text implies.",
+          "why_this_correction_is_worth_making": "A backlog row describing a hazard that no longer exists costs a future session a full re-derivation and contributes to the desensitized-alarm failure mode this repo treats as a P1 in its own right. The rule that caught it is 'verify your own output too, hardest when it confirms what you expected' — I wrote the hazard, fixed its cause an hour later, and did not re-read the filing against the fix until now.",
+          "still_genuinely_open": "`reset_candle_cache()` is still dead code: defined, documented 'For tests and for a forced reconnect', called by nothing. A reset nothing invokes cannot be relied on by a runbook. That is the whole of what is left here, and it is LOW severity."
         }
       ],
       "area": "runtime/market-data cache",
