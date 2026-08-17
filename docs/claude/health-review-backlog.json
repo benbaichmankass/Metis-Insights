@@ -18240,7 +18240,7 @@
       "id": "BL-20260817-MATRIX-CORPUS-GUARD-NEVER-CHECKS-BLOCKED-CELLS",
       "opened_at": "2026-08-17",
       "opened_by": "overnight M20 session (2026-08-16/17)",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": "1 — CI guard over research artifacts. No live path.",
       "title": "matrix-corpus-agreement never compares a `blocked:`/`pending` cell against the corpus, so a block the corpus has ALREADY ANSWERED persists silently and the guard still reports OK",
@@ -18258,6 +18258,11 @@
           "at": "2026-08-17",
           "by": "overnight M20 session (2026-08-16/17)",
           "note": "A THIRD STATE THE MATRIX ENUM CANNOT EXPRESS, surfaced by the same sweep and left for the operator. splg_trend_long_1d/vol_trail is measured above the floor at live parity — so its `blocked:insufficient_oos_base_at_derived_split` reason is factually stale — but it CANNOT be graded, because its only passing cell (vt_hot80_t2) passes on `wf_summary: 6/6` with all six folds at `d_net_r == 0.0` (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). Writing `honest_negative` would assert a negative the run did not establish; writing the pass would ship a lever on six no-ops. 'Measured, but the grader is under question' is neither `blocked` (we did not look) nor a verdict. The cell's status was therefore left blocked with its ref corrected to stop claiming we could not look. Whether the enum gains a value or this simply waits on the grader fix is an operator call, not one to take unilaterally — noting it here so the guard work and the enum question are not conflated."
+        },
+        {
+          "at": "2026-08-17",
+          "by": "overnight M20 session (2026-08-16/17)",
+          "note": "FIXED. `find_stale_blocks` now re-examines every live cell whose base status is `blocked` or `pending` against the corpus, sign-agnostically — the question is not whether the cell's answer is right, it is whether the cell still claims nobody has an answer. The predicate reuses the SHARED `_newest_per_cell` filter rather than re-deriving one, so it cannot drift from `newest_floor_clearing_pass` on what counts as admissible evidence: live-parity `tp_cap_pct` AND `base_trades_OOS >= MIN_OOS_TRADES`, with per-cell supersession. Both filters are load-bearing and the measurement in the first update is why — without them the check raises 4 false positives out of 6. `BLOCKED_ACK` is a DIFFERENT phrase from `ACK` and the suite asserts they are not interchangeable, so one ref cannot satisfy the other's check. Verified by RUNNING it, not by a quiet pass: against the real matrix it exited 1 on exactly one cell — `splg_trend_long_1d/vol_trail`, the cell deliberately held — which is the sequencing trap predicted in docs/sprint-logs/S-M20-PULLBACK-STALE-BACKLOG-2026-08-17.md before the fix was written. Resolved via path (b): the block reason is stale, the cell is still ungradeable, so the status stands and the ref now says so. SEPARATELY FIXED while here: the guard's `--self-test` was never registered in scripts/ci/guard_selftests.py, so its planted-failure suite ran only when a human passed the flag by hand — written and never read, the same shape this guard exists to catch. Now registered as `matrix-corpus-agreement`, which is what makes the new false-positive controls actually execute in CI."
         }
       ],
       "area": "research-tooling",

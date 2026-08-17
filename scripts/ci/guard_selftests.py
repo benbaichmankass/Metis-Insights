@@ -422,8 +422,30 @@ def selftest_collapsed_state() -> None:
           "collapsed field's producer evidence")
 
 
+def selftest_matrix_corpus_agreement() -> None:
+    """Run that guard's own planted-failure suite, which nothing was running.
+
+    `check_matrix_corpus_agreement.py --self-test` has existed since the guard
+    shipped and was never registered here, so its planted disagreements were
+    exercised only when a human ran the flag by hand. That is the same shape the
+    guard itself exists to catch — evidence that is written and never read — and
+    it matters more now that the suite covers the blocked-cell check added
+    2026-08-17, whose false-positive controls are the load-bearing half.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_matrix_corpus_agreement.py",
+              "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_matrix_corpus_agreement's own "
+            f"planted-failure suite exited {rc}")
+    print("self-test OK — planted disagreement, planted stale block, and the "
+          "below-floor / legacy-geometry / declined-to-grade false-positive "
+          "controls all behave")
+
+
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
+    "matrix-corpus-agreement": selftest_matrix_corpus_agreement,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
     "claim-basis": selftest_claim_basis,
