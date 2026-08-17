@@ -205,6 +205,18 @@ depth) and 5 (arm reachability) accrue on their own, and a walk-forward that
 fails to clear the do-nothing arm would retire the P5 candidate outright, which
 is worth knowing before the soak matures.
 
+⚠️ **Superseded later the same day — "precondition 2 accrues on its own" was
+wrong, and wrong in the direction that costs a session.** Check B needs BOTH a
+live final-MFE population *and* a harness `mfe_r` distribution; only the first
+is soak depth. The second was missing because it had **never been committed**,
+so a session waiting only on live depth would have reached the floor and then
+found the other half absent. Mechanism shipped in
+`docs/sprint-logs/S-M31-HARNESS-MFE-DIST-2026-08-17.md`; the artifact is still
+absent (`PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE`, open). The split is
+canonical in `docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md` § 5
+precondition 2 (2a harness / 2b live) — read that, not this paragraph. Note
+2a's artifact and 3b's walk-forward need the **same** trainer-side capped sweep.
+
 ⚠️ **Correction to an earlier line in this same sprint:** I described it as
 *"runnable work"*, which understates it. Checked before asserting it a second
 time — and the check found the opposite: **`rr_from_here` does not exist in the
