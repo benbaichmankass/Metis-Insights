@@ -51,13 +51,13 @@ on:
         required: false
         default: '2025-07-01'
       split_mode:
-        description: "How the boundary is placed. oos-trades (default) DERIVES a per-leg date targeting ~25 OOS trades, so a low-frequency leg is gradeable — the `split` input above is then only a fallback. date = the legacy fixed calendar split, and the ONLY way to reproduce or compare against a pre-2026-08-13 row."
+        description: "How the boundary is placed. oos-trades (default) DERIVES a per-leg date targeting DEFAULT_SPLIT_TARGET_OOS (50 since #9748, NOT the 25 floor — see split_target_oos below), so a low-frequency leg is gradeable — the `split` input above is then only a fallback. date = the legacy fixed calendar split, and the ONLY way to reproduce or compare against a pre-2026-08-13 row."
         required: false
         type: choice
         options: ['oos-trades', 'date']
         default: 'oos-trades'
       split_target_oos:
-        description: "How many OOS trades the derived boundary AIMS AT (oos-trades mode only). Empty = the script default, which is MIN_OOS_TRADES itself — i.e. it targets exactly the number the verdict requires, so a shortfall of one trade lands below the floor and the cell returns insufficient_base. Measured 2026-08-14: the lever-OFF arm hit OOS 23/24/24/24/23 on five legs (all ungradeable) and 25 on the one that passed. Set 30-35 to leave the floor a margin. Empty reproduces every pre-2026-08-14 run."
+        description: "How many OOS trades the derived boundary AIMS AT (oos-trades mode only). Empty = the script default DEFAULT_SPLIT_TARGET_OOS, which is 50 (operator Tier-3 decision, #9748, 2026-08-16). The TARGET (where do we cut?) and the FLOOR MIN_OOS_TRADES=25 (is this cell gradeable?) are deliberately two different numbers — do NOT re-couple them. They used to share one value, and that WAS the bug: targeting exactly the floor meant a shortfall of one trade landed below it, and the lever-OFF arm measured OOS 23/24/24/24/23 on five legs (all ungradeable) against 25 on the one that passed (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS). Raising the TARGET to 50 drops nothing; raising the FLOOR to 50 would drop 32 legs to 20, which is a separate question this input cannot reach. ⚠️ Empty NO LONGER reproduces a pre-2026-08-14 run — pass 25 explicitly for that."
         required: false
         default: ''
       fee_bps_roundtrip:

@@ -25,6 +25,7 @@ import argparse
 import contextlib
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -74,6 +75,18 @@ def _planted(path: Path, content: str = ""):
 
 def _rc(argv) -> int:
     return subprocess.run(argv, cwd=REPO).returncode
+
+
+def _rc_out(argv) -> tuple:
+    """(returncode, combined output) — for assertions on WHY a guard failed.
+
+    A bare `rc != 0` proves only that something failed, which is not the claim
+    a planted-failure test makes: it must fail ON THE PLANT. Without the text,
+    a probe that never fired and a staging mistake are indistinguishable, and
+    both read as a passing self-test.
+    """
+    p = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
+    return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
 # ---------------------------------------------------------------------------
@@ -158,15 +171,56 @@ def selftest_impossibility_claim() -> None:
 
 
 def selftest_diag_unit_allowlist() -> None:
-    """A deploy unit missing from the diag allowlist must fail the guard."""
-    probe = REPO / "deploy" / "ict-selftest-unlisted.timer"
-    with _planted(probe):
-        if _rc(["python3", "scripts/check_diag_unit_allowlist.py"]) == 0:
+    """A deploy unit missing from the diag allowlist must fail the guard.
+
+    The probe lands in a THROWAWAY COPY of `deploy/`, never the tracked tree.
+    Planting it in the real directory (as this did until 2026-08-17) is safe
+    only while cleanup runs: a SIGKILL, runner timeout or cancelled workflow
+    strands the file, the next guard run then fails naming a unit nobody added
+    — which reads as a real finding and costs a session time to dismiss — and
+    `deploy/` being tracked put it one `git add -A` from being committed
+    (BL-20260817-GUARD-SELFTESTS-PLANT-PROBE-FILES-IN-THE-LIVE-REPO-TREE).
+
+    The copy is FAITHFUL rather than a bare directory holding one probe,
+    because the guard also fails on stale exemptions and on units listed both
+    ways. Scanning an empty staging dir would fire all 8 exemption-stale errors
+    and still return non-zero — a pass for entirely the wrong reason.
+
+    Hence the CONTROL below, which is the load-bearing half: the staged copy is
+    asserted CLEAN before planting, so the later non-zero is attributable to
+    the probe and not to the staging. `rc != 0` alone cannot tell those apart.
+    """
+    guard = ["python3", "scripts/check_diag_unit_allowlist.py", "--deploy-dir"]
+    with tempfile.TemporaryDirectory() as td:
+        stage = Path(td) / "deploy"
+        stage.mkdir()
+        for src in (REPO / "deploy").iterdir():
+            if src.suffix in (".timer", ".service"):
+                shutil.copy2(src, stage / src.name)
+
+        rc, out = _rc_out(guard + [str(stage)])
+        if rc != 0:
+            raise SystemExit(
+                "::error::SELF-TEST SETUP BROKEN — the staged copy of deploy/ "
+                "failed the guard BEFORE anything was planted, so a later "
+                "failure would prove nothing about the probe. Output:\n" + out)
+
+        probe_name = "ict-selftest-unlisted.timer"
+        (stage / probe_name).write_text("", encoding="utf-8")
+        rc, out = _rc_out(guard + [str(stage)])
+        if rc == 0:
             raise SystemExit(
                 "::error::guard did NOT fail on an unlisted deploy unit — "
-                "the failure path is broken"
-            )
-    print("failure path verified: unlisted unit correctly failed the guard")
+                "the failure path is broken")
+        if probe_name not in out:
+            raise SystemExit(
+                "::error::guard failed, but its output never names the planted "
+                "unit — it failed for some OTHER reason, so the failure path "
+                "for THIS contract is unproven. Output:\n" + out)
+
+    print("failure path verified: unlisted unit correctly failed the guard, "
+          "the pre-plant control was clean, and the probe never touched the "
+          "tracked deploy/ tree")
 
 
 def selftest_diagnostic_provenance() -> None:
@@ -453,6 +507,11 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     # site, found none, and wrongly concluded the suite was unwired; do not
     # repeat that inference. Presence here is not evidence a self-test runs, and
     # absence of a call site is not evidence it does not.
+    #
+    # That reasoning is no longer only prose: this name is declared in
+    # COVERED_BY_CHECKER below, and `check_selftest_wiring.py` now VERIFIES the
+    # covering path on every run — so the claim in this comment is enforced
+    # rather than asserted, and a future session need not re-derive it.
     "matrix-corpus-agreement": selftest_matrix_corpus_agreement,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
@@ -462,6 +521,21 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "diagnostic-provenance": selftest_diagnostic_provenance,
     "harness-lever-coupling": selftest_harness_lever_coupling,
     "timestamp-comparison": selftest_timestamp_comparison,
+}
+
+# The SECOND covering path. A name here is one whose controls reach CI via the
+# checker's OWN `--self-test` rather than via `run_guards.py` invoking this
+# module by name — so `run_guards.py` legitimately has no call site for it, and
+# grepping for one and finding nothing proves nothing.
+#
+# This is a DECLARATION, and `scripts/ci/check_selftest_wiring.py` refuses to
+# take it on trust: it verifies that `run_guards.py` really runs that exact
+# script with `--self-test`, AND that the script really declares the flag in its
+# argparse. Naming a script that cannot self-test FAILS. Keep it that way — a
+# mapping cheaper to fake than to satisfy is worse than none at all
+# (`new-table-wiring-guard`'s presence-only marker is the cautionary case).
+COVERED_BY_CHECKER: Dict[str, str] = {
+    "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
 }
 
 

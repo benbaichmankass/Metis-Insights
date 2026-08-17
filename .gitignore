@@ -138,3 +138,17 @@ scripts/reports/__pycache__/
 
 # M28 backtest candles — regenerated per run by scripts/macro/fetch_macro_candles.py (not committed)
 data/macro_candles/
+
+# Guard self-test probes (scripts/ci/guard_selftests.py). The planted-failure
+# design is deliberate and must not be weakened — a guard nobody has seen fail
+# is indistinguishable from one that cannot fire. What is NOT deliberate is
+# where a probe lands: `_planted` cleans up on normal exit AND on exceptions,
+# but by construction cannot on SIGKILL, a runner timeout, or a cancelled
+# workflow. `selftest_diagnostic_provenance` must write its probe to a path the
+# guard actually scans (it resolves the file from the diff, repo-relative), so
+# unlike the deploy/ probe it cannot simply be moved to a temp dir. Ignoring it
+# closes the remaining hole: a stranded copy is then unstageable by `git add -A`
+# — the idiom this repo's sessions use constantly.
+# Measured 2026-08-17: a stranded copy fails NO guard (run_guards PASS 42), so
+# committing it was the whole risk. BL-20260817-GUARD-SELFTESTS-PLANT-PROBE-FILES-IN-THE-LIVE-REPO-TREE
+scripts/ml/_selftest_probe.py

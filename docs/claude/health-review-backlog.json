@@ -18293,7 +18293,7 @@
       "id": "BL-20260817-SWEEP-WORKFLOW-SPLIT-TARGET-DESC-STALE",
       "opened_at": "2026-08-17",
       "opened_by": "overnight M20 session (2026-08-16/17)",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": "1 — workflow input documentation. No behaviour change; the default itself is correct.",
       "title": "m20-exit-lever-sweep's `split_target_oos` input still documents an empty value as defaulting to MIN_OOS_TRADES (25); the script default has been 50 since #9748",
@@ -18301,7 +18301,13 @@
       "why_it_matters": "Field beats comment, and here the comment is the operator-facing one. The description tells a dispatcher that leaving the input empty 'targets exactly the number the verdict requires, so a shortfall of one trade lands below the floor' and that empty 'reproduces every pre-2026-08-14 run' — both were true and are now false. The concrete risk is misreading EVIDENCE, not just misconfiguring a run: a session reading this description would conclude that any default-configured sweep is pinned to the floor and therefore discount a clean verdict as configured-to-pass, or conversely treat an explicit `--split-target-oos 50` as a non-default override to be distrusted. I made exactly the second error tonight before checking the constant, and it nearly caused a real measurement to be written off.",
       "resolution_criteria": "The input description states the current default (50), says empty no longer reproduces pre-2026-08-14 runs, and keeps the distinction the constant's own comment makes: the FLOOR (MIN_OOS_TRADES, 'is this cell gradeable?') and the TARGET ('where do we cut?') are two different questions that previously shared one number, and that sharing was the bug (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS).",
       "next_action": "One-line doc fix in the workflow input description. Deliberately not bundled into tonight's data-correction PR so the matrix change stays reviewable on its own.",
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-08-17",
+          "by": "overnight M20 session (2026-08-16/17)",
+          "note": "RESOLVED. Verified against the FIELD before editing the prose: `MIN_OOS_TRADES = 25` (:578) and `DEFAULT_SPLIT_TARGET_OOS = 50` (:603).\n\nTWO descriptions were stale, not the one this row named. Besides `split_target_oos`, the `split_mode` input also read 'DERIVES a per-leg date targeting ~25 OOS trades' — same drift, and arguably the more misleading of the two since `split_mode` is the input a dispatcher reads FIRST and it restates the floor as if it were the target. Found by grepping the workflow for the number rather than only patching the line the row cited.\n\nBoth now name the constant by name (so the next drift is greppable), state 50, keep the floor/target distinction the constant's own comment insists on ('Do NOT re-couple these to one constant'), and carry the correction this row called for: empty NO LONGER reproduces a pre-2026-08-14 run — pass 25 explicitly for that. The 25->50 cliff is preserved as being about the FLOOR, so nobody reads it as an argument against the 50 TARGET.\n\nBehaviour unchanged, as the row said: the workflow passes the flag only when set (`${SPLIT_TARGET_OOS:+...}`), so empty already yielded the script default. YAML re-parsed after the edit."
+        }
+      ],
       "area": "research-tooling",
       "detail": "Note the workflow is not WRONG in behaviour: it passes the input through only when set (`${SPLIT_TARGET_OOS:+--split-target-oos ...}`), so an empty input correctly yields the script default. Only the prose describing what that default IS has drifted."
     },
@@ -18309,7 +18315,7 @@
       "id": "BL-20260817-GUARD-SELFTESTS-PLANT-PROBE-FILES-IN-THE-LIVE-REPO-TREE",
       "opened_at": "2026-08-17",
       "opened_by": "overnight M20 session (2026-08-16/17)",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": "1 — CI self-test hygiene. No live path.",
       "title": "guard_selftests.py plants its planted-failure probes into the real working tree (deploy/, scripts/ml/), so a hard kill strands a file that then fails an unrelated guard and is one `git add -A` from being committed",
@@ -18317,7 +18323,13 @@
       "why_it_matters": "The planted-failure design is RIGHT and must not be weakened — `selftest_diag_unit_allowlist` exists precisely because a guard nobody has seen fail is indistinguishable from a probe that cannot fire, which is the same lesson tests/test_m20_tp_geometry_guard.py encodes. The problem is only WHERE the probe lands. `scripts/ci/guard_selftests.py:162` writes `deploy/ict-selftest-unlisted.timer` into the repo, and `selftest_diagnostic_provenance` does the same with `scripts/ml/_selftest_probe.py`; the `_planted` context manager cleans up on normal exit and on exceptions, but by construction cannot on SIGKILL, a runner timeout, or a cancelled workflow. Two consequences, one confusing and one worse: (a) a stranded probe makes the NEXT guard run fail with an error naming a unit nobody added, which reads as a real finding and costs a session time to dismiss; (b) `deploy/` is a tracked directory, so `git add -A` — the idiom used throughout this repo's sessions — would commit the probe, and the diag-allowlist guard would then fail on main until someone noticed. Note the same file's own sibling already does this correctly: `selftest_diagnostic_provenance` writes its DIFF to `tempfile` while still planting its source probe in-tree, so the safer pattern is present in the same function and simply was not applied to the probe itself.",
       "resolution_criteria": "OBSERVABLE: no self-test writes a probe into a tracked directory, OR the guards that scan those directories skip a reserved probe name and a test demonstrates the skip does not also blind them to a real unlisted unit (that demonstration is the load-bearing half — a skip pattern wide enough to swallow real findings would be worse than the current state). A cheap alternative that preserves the design: point the guard at a temp directory via the argument it already takes, so the probe never touches the repo.",
       "next_action": "Not fixed here — filed with the direct observation so it is not re-derived from a confusing error message by a future session. Low severity because the window is small and nothing was actually committed; kept open because the failure mode is a wrong-looking CI failure on main, which is expensive out of proportion to the bug.",
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-08-17",
+          "by": "overnight M20 session (2026-08-16/17)",
+          "note": "RESOLVED, and this row's own proposed fix was WRONG — recording that rather than quietly doing something else. It read 'point the guard at a temp directory via the argument it already takes'. `check_diag_unit_allowlist.py::main()` took NO arguments: there was no argparse at all and `DEPLOY_GLOBS` was a hardcoded module constant. Field beats comment; verified by reading main(), not by trying the flag. The argument now exists because I added it (`--deploy-dir`, defaulting to `deploy` so CI behaviour is byte-identical — confirmed 44 units scanned, 0 failures, exit 0).\n\nTHE TWO PROBES TURNED OUT TO BE DIFFERENT PROBLEMS, measured rather than assumed:\n  * deploy/ probe — fails a guard AND is stageable. Fixed properly: the self-test now stages a FAITHFUL copy of deploy/ in a TemporaryDirectory and plants there, so nothing is ever written to the tracked tree and no cleanup handler is load-bearing.\n  * scripts/ml/_selftest_probe.py — measured: a stranded copy fails NO guard (`run_guards.py --base main` = PASS 42 / FAIL 0 / SKIP 0 with it present), so the confusing-CI-failure half does not apply. It also CANNOT move to a temp dir: `check_diagnostic_provenance.py` resolves the file from the diff, repo-relative, and only scans scripts/{ml,research,ops,macro,reports}/ — a temp path is filtered out and the probe would silently never fire. Remaining risk was purely `git add -A`, so it is now .gitignored. Self-test re-verified: still exits 0 having seen the guard fail closed.\n\nThe staging copy is FAITHFUL, not a bare dir holding one probe: the guard also fails on stale exemptions, so an empty staging dir would fire all 8 exemption-stale errors and still return non-zero — a pass for entirely the wrong reason. Hence the added CONTROL, which is the load-bearing half this row asked for: the staged copy is asserted CLEAN before planting, and the post-plant output must NAME the probe. `rc != 0` alone cannot distinguish 'the probe fired' from 'my staging was broken'.\n\nVerified by planting a break, not by reading: neutering the guard's `uncovered` computation makes the self-test exit 1 ('guard did NOT fail on an unlisted deploy unit'); restoring it returns exit 0."
+        }
+      ],
       "area": "ci-tooling",
       "detail": "Worth noting the near-miss ordering explicitly: the stray file appeared in a guard run, and the very next command in the same session was `git add -A && git commit`. That commit turned out clean (verified by reading `git show --stat`, not by assuming), but only because the probe's cleanup had already run. Reading the commit's file list rather than trusting the guard output is what established it."
     },
@@ -18401,6 +18413,66 @@
       "related": [
         "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL"
       ]
+    },
+    {
+      "id": "BL-20260817-SELFTESTS-DECLARED-BUT-NEVER-RUN-IN-CI",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "low",
+      "tier": "1 — CI wiring / tooling. No live path.",
+      "title": "6 of 14 scripts that declare a `--self-test` are never run with it by run_guards.py — triage which (if any) guard a real invariant",
+      "source": "Measured while building `scripts/ci/check_selftest_wiring.py` (the generalisation of BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED). That guard's scope is deliberately the `guard_selftests.py::SELFTESTS` registry, because registering there IS the claim 'this control runs in CI'. Owning a `--self-test` is not that claim. But the wider set was measured rather than assumed empty, and it is not empty.",
+      "evidence": "AST scan over scripts/**.py for an `add_argument(\"--self-test\")` declaration, intersected with the argv list parsed out of `run_guards.py::GUARDS`. 14 declare the flag; 8 are run with it by run_guards.py; 6 are not: scripts/backtest_pairs.py, scripts/backtest_xsec_momentum.py, scripts/ops/get_env.py, scripts/research/m20_wf_effective.py, scripts/research/pairs_dollar_lots.py, scripts/research/pairs_universe_scan.py. Reproduce with the snippet in the docstring's SCOPE section.",
+      "why_not_fixed_in_session": "Wiring all 6 into CI would be a unilateral judgement about research/ops tooling, made overnight with no operator available, and it adds runtime plus failure surface to every CI run for scripts whose correctness is not a repo invariant — the desensitised-alarm shape this repo has a P1 rule about. The honest disposition is per-script triage, not a blanket sweep.",
+      "proposed_action": "Triage the 6 individually. `ops/get_env.py` is the most likely genuine candidate (it sits on the diag/env read path that BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE made load-bearing); the backtest/research four are probably correct to leave as developer-invoked. For any script judged to guard an invariant, give it a `run_guards.py` entry — `check_selftest_wiring.py` then reports the ratio moving on its own.",
+      "not_a_finding_about": "This is NOT a claim that those 6 self-tests are broken — each passes when invoked by hand. The finding is only that CI does not exercise them, so a future regression in one would not be caught by CI.",
+      "resolution_criteria": "Each of the 6 named scripts has an explicit recorded disposition — either a `run_guards.py` entry running it with `--self-test` (verifiable by re-running the AST scan in `check_selftest_wiring.py`'s SCOPE docstring and seeing the run-with-flag count rise from 8), or a one-line note in this row stating it is developer-invoked by design and why. The row closes when the scan's 'never run with the flag' list contains only scripts carrying such a note — i.e. zero UNTRIAGED entries, not necessarily zero entries."
+    },
+    {
+      "id": "BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — reporting/analysis. No live path.",
+      "title": "M20's '12 actionable' figure counts accrual-, data- and decision-gated cells as workable; only ~4 are workable by a session today",
+      "source": "Measured while picking the next M20 work item: I enumerated the 23 done-condition cells and read each block REF rather than trusting the status string. The '23 = 3 pending + 20 blocked, 11 arithmetic ⇒ 12 actionable' framing (which I put in ROADMAP.md and quoted in three Telegram pings tonight) subtracts only ONE gate — the exit_head_ml fold arithmetic — and silently treats the other nine gates as work.",
+      "evidence": "Full partition of the 23, by reading each cell's ref: (a) 11 exit_head_ml ARITHMETIC (u=0, need 52-118 more trades); (b) 4 ACCRUAL-gated on lifetime — mes_trend_long_1d giveback_stop + vol_trail (lifetime 33, OOS n=4, measured TWICE at two different splits to prove the window was not the binding term), spy_trend_long_1d vol_trail (lifetime 48 against a >=50 requirement), qld_trend_long_1d vol_trail (lifetime 31); (c) 2 DATA-gated — ict_scalp_mgc_15m exit_head_ml + exit_ladder, blocked:native-history-thin; (d) 1 PARKED milestone-wide by a finding — squeeze_breakout_4h exit_ladder, 'partial-TP banking is parked (banking underperformed run-the-winner)'; (e) 1 TIER-3 QUEUED — splg_trend_long_1d vol_trail, whose ref already says 'WE LOOKED - THE BLOCK REASON NO LONGER HOLDS - BUT GRADING IS WITHHELD'; (f) 1 HARNESS CODE GAP — squeeze_breakout_4h vol_trail, AST-verified that scripts/backtest_squeeze.py has --trail-mult but no --trail-vol-above-pctl; (g) 3 pending, the trend_donchian_eth_prop / _sol_prop cells. 11+4+2+1+1+1+3 = 23, reconciles exactly.",
+      "why_it_matters": "The number is used to decide what a session picks up, and it is wrong in the direction that wastes sessions: a reader plans against 12 workable cells and finds 4. Worse, the four accrual-gated rows in (b) are the SAME KIND of block as the 11 already excluded — differing only in which threshold binds (lifetime vs fold count) — so excluding one and not the other is arbitrary rather than principled. Two of those refs also record that a PRIOR ref overstated the leg's lifetime (spy 'said 60, harness measures 48'; qld 'said 57, measured 31'), which is how spy was screened as eligible in the first place: the same over-optimism one level down.",
+      "resolution_criteria": "OBSERVABLE: `m20_coverage_rollup.py --done-condition` prints the done-condition set PARTITIONED BY GATE KIND with a count per kind, and names which kinds are workable-by-a-session, so no consumer has to re-derive it by reading 23 refs. The row closes when the rollup itself emits the partition — not when a doc states the number, because a number in prose goes stale silently and this one already did.",
+      "proposed_action": "Extend the rollup to classify each done-condition cell by its block reason into {arithmetic, accrual, data, parked, decision-queued, harness-gap, never-attempted} and print the per-kind counts beside the total, the same 'state the population' discipline the headline-vs-done-condition split already follows. Until then, quote the partition explicitly rather than a single 'actionable' number.",
+      "not_a_finding_about": "This is NOT a claim that any cell's STATUS is wrong — every status and ref I read is accurate and well-evidenced. The defect is purely in the roll-up framing that collapses six different gates into one word."
+    },
+    {
+      "id": "BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — research record. No live path. ⚠️ BUT the fix MOVES A REPORTED HEADLINE — see why_not_fixed_in_session.",
+      "title": "trend_donchian_eth_prop/regime_flip_exit is statused `pending` (never attempted) but scripts/backtest_trend.py has NO regime/flip flag at all — it is blocked:no_harness_levers by the established precedent",
+      "source": "Checking whether the 3 `pending` cells were actually RUNNABLE before picking them up as the next work item — a check I had explicitly flagged as not-yet-done rather than assumed.",
+      "evidence": "AST over the harness CLI (the same method the existing `blocked:no_harness_levers` verdicts on `squeeze_breakout_4h`/`vol_trail` and `ict_scalp`/`exit_ladder` used — NOT a grep). `scripts/backtest_trend.py` declares 46 CLI flags. Matching 'regime' -> NONE; matching 'flip' -> NONE. For contrast the SAME scan finds the levers that ARE expressible: exit_ladder via `--bank-frac`/`--bank-at-r`, trail_decay via `--trail-decay-arm-r`, stale_stop via `--stale-exit-bars`, giveback_stop via `--giveback-min-mfe-r`, vol_trail via `--trail-vol-above-pctl`. So the probe demonstrably finds positives — the negative is real, not an empty-search artifact.",
+      "why_it_matters": "The cell reads as 'work nobody has done yet', which is what makes it a candidate for the next session to pick up; it is in fact work no session CAN do without first adding harness support. That is the exact confusion `blocked:no_harness_levers` exists to prevent, and the precedent for using it on this evidence is already set twice in this matrix.",
+      "why_not_fixed_in_session": "⚠️ DELIBERATELY NOT FLIPPED TONIGHT. `pending` and `blocked` both count toward the done-condition (so 23 is unchanged either way), but the PROGRESS HEADLINE counts `blocked` as CLOSED — so this flip moves the headline 373/376 -> 374/376. I am an autonomous overnight session that has just spent this hour WITHDRAWING an over-optimistic figure of my own ('12 actionable'), and a status flip that happens to improve the reported number is precisely the change that should not be made unreviewed at 08:00 with the operator asleep. The evidence is complete and precedent-matched; the disposition is a five-second edit for a review session that agrees.",
+      "resolution_criteria": "OBSERVABLE: a reviewer either (a) sets the cell to `blocked:no_harness_levers` with this AST evidence in its ref and accepts the headline moving to 374/376, or (b) states why `pending` is the right status despite the harness having no such flag. Either closes it; leaving it `pending` with no note does not.",
+      "not_a_finding_about": "NOT a claim that the lever is worthless — only that this harness cannot currently express it, so the cell cannot be swept as-is."
+    },
+    {
+      "id": "BL-20260817-M20-REMAINING-WORK-IS-EFFECTIVELY-FULLY-GATED",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — analysis/reporting. No live path.",
+      "title": "After partitioning the 23 done-condition cells by gate, the only session-runnable work left in M20 is 2 prop exit_ladder cells whose lever is parked milestone-wide and 42/42 negative elsewhere",
+      "source": "Follow-on from BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO: having partitioned the 23 by gate kind, I checked what the residual 'workable' set actually consists of.",
+      "evidence": "`exit_ladder` across the 47 LIVE legs: **42 honest_negative**, 2 pending (the prop cells), 1 blocked:no_harness_levers, 1 blocked:native-history-thin, 1 passed_unshipped. **33 refs explicitly cite a PARK** — 'banking parked', memo docs/research/M20-exit-refinement-2026-07-12.md §6.2, the M20 finding that banking underperformed run-the-winner. Separately, AST over `scripts/backtest_trend.py` shows `exit_ladder` IS expressible there (`--bank-frac`/`--bank-at-r`), so the 2 prop cells are genuinely runnable — the gate on them is the PARKED LEVER, not the harness. The third pending cell is harness-blocked (see BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT).",
+      "why_it_matters": "M20's done-condition is 23 and reads like a backlog of work. It is not: 11 arithmetic + 4 accrual + 2 data + 1 parked + 1 Tier-3-queued + 1 harness-gap + 1 more harness-gap (the regime_flip_exit row) leaves TWO runnable cells, on a lever that is parked and has returned honest_negative on 42 of 42 legs measured. A session planning 'work the M20 backlog down' will find almost nothing it can move, and running the 2 cells would most likely produce the 43rd and 44th negative. That is worth knowing BEFORE dispatching sweeps, and it reframes the milestone's remaining state as 'waiting on trade accrual', not 'waiting on effort'.",
+      "resolution_criteria": "OBSERVABLE: a decision is recorded for the 2 prop `exit_ladder` cells — either swept (accepting a likely 43rd/44th honest_negative, which does close them) or dispositioned as parked-with-the-lever like the squeeze row, with the reasoning in their refs. The row closes when neither cell is `pending` without a stated basis.",
+      "proposed_action": "Operator/review call, since it is a question of whether completeness is worth the runs. Cheap either way; the value is that the choice is made explicitly rather than a session repeatedly picking these up as 'the actionable ones'.",
+      "not_a_finding_about": "NOT a claim that M20 is finished or that the remaining cells should be closed — the done-condition is legitimately 23 and legitimately open."
     }
   ]
 }
