@@ -39,12 +39,29 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 
 # Measured 2026-08-17 over the committed corpus. Pinned so a silent change to
 # the predicate shows up as a diff in a number, not as prose nobody re-derives.
+#
+# RE-MEASURED 2026-08-17 17:3xZ when the corpus grew 1373 -> 1376 cells: three
+# stranded `squeeze_breakout_4h`/`vol_trail` rows were landed off the unmerged
+# `claude/m20-sweep-corpus` branch. This assertion did its job — it failed on the
+# count, its message said "re-measure the partition rather than loosening this
+# assertion", and that is what happened: every constant below was recomputed from
+# the corpus, not adjusted until it passed.
+#
+# All three new rows grade `lever_absent_from_baseline`, so the +3 lands entirely
+# in that bucket and the other two are unchanged. That is the CORRECT grade and it
+# cross-checks independently: `squeeze_breakout_4h` does not declare `vol_trail`
+# (no leg does — `vol_trail` is declared by zero of 55 legs in
+# `config/strategies.yaml`), so the lever is genuinely outside the measured
+# baseline and these are real measurements rather than self-baselined no-ops.
+# `EXPECTED_OWN_LEVER_DROPPED` (41) and the ten zero-delta rows are both unmoved,
+# which is the check that the corpus grew without disturbing the finding's
+# own population.
 EXPECTED_PARTITION = {
     "lever_in_baseline": 61,
-    "lever_absent_from_baseline": 471,
+    "lever_absent_from_baseline": 474,
     "unknown": 841,
 }
-EXPECTED_TOTAL = 1373
+EXPECTED_TOTAL = 1376
 # Rows where the row's own lever was DROPPED — the population the naive
 # predicate gets wrong, and the reason `dropped` is consulted first.
 EXPECTED_OWN_LEVER_DROPPED = 41
