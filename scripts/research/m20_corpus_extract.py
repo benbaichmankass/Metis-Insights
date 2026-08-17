@@ -87,6 +87,12 @@ def _win(block: dict | None, window: str) -> dict:
     return got if isinstance(got, dict) else {}
 
 
+# The declared vocabulary for `lever_in_baseline`, in one place so the states
+# are readable without tracing the branches — and so a consumer can assert it
+# recognises all of them rather than assuming three.
+LEVER_IN_BASELINE_STATES = ("lever_in_baseline", "lever_absent_from_baseline", "unknown")
+
+
 def lever_in_baseline(lever: str | None, present, dropped) -> str:
     """Was THIS cell's own lever already in the book the delta was measured against?
 
