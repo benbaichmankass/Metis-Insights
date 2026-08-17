@@ -2,7 +2,7 @@
 
 ## Date Range
 - Start: 2026-08-17 (overnight autonomous session, continuing from 2026-08-16)
-- End: 2026-08-17 12:5xZ (operator awake; Tier-3 items handed over, not decided)
+- End: 2026-08-17 14:2xZ (operator awake; Tier-3 items handed over, not decided)
 
 ## Objective
 - **Primary goal:** close out `BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS`
@@ -101,6 +101,41 @@
   window** (`winner_mfe_p80` derives `decay_p80arm*`/`gb1R_afterMFE*` with
   `--end split`).
 
+- **#9875 → `aa254853` — both findings gained shipped instrumentation, and a
+  third finding fell out of building it.** Three things in one PR because the
+  qualification specifies the predicate the emitter implements, and shipping the
+  spec without the code would leave a window where the row says "use four
+  branches" and nothing does.
+  1. **Qualified the high-severity row: 102 → 61.** "Declared" is not "in the
+     measured baseline" — the lever-OFF arm *removes* a declared lever, and **41**
+     rows are real measurements the naive `lever in present` predicate would
+     suppress as artifacts (one at `d_net_r_IS` **+19.1782**). That is the mirror
+     of the defect itself. Correct partition **61 / 471 / 841**.
+  2. **`lever_in_baseline`** emitted per cell row, reproducing that partition
+     exactly, sited where the fact was already computed and discarded
+     (`base_missing_other_levers` subtracts the row's own lever and emits only the
+     complement). Consumer: `m20_ack_corpus_disagreements.caveats_for` branches
+     all three ways — that drafter's output *is* a `ref` asserting a measurement,
+     so it is the one place that must refuse to.
+  3. **Fold coverage** — `fold_years`, `oos_first_year`, `uncovered_oos_years`,
+     `pre_split_fold_years` — closing the last untouched half of the fold-panel
+     item. Computed in the **extractor, not the sweep**, because all 133
+     fold-carrying rows already carry the inputs: every committed row gains
+     coverage on the next extract instead of waiting on the hours-long re-run.
+
+- **A defect in `collapsed-state-guard`, found by refusing to trust its green.**
+  Registering the new contract, I planted the regression (deleted the consumer) —
+  **and the guard still passed.** Deleted the test file too; still passed. Reading
+  `main()` explains it: the consumer scan skips only the producer, `scripts/ci/`
+  is not in `_SKIP_DIRS`, and every `CONTRACTS` entry names its own states in
+  `states` + `why`. **Registering a contract partly self-satisfies the coverage
+  check.** Measured across all 12 contracts with the registry excluded: exactly
+  **one** really loses coverage — `netting_attribution.anchor_status`, unread
+  state `deferred`. Filed as
+  `BL-20260817-COLLAPSED-STATE-GUARD-REGISTRY-COUNTS-AS-ITS-OWN-CONSUMER`,
+  **not fixed** — the one-line exclusion turns that pre-existing contract red and
+  would block every PR, which is how a guard gets switched off.
+
 - **A clean negative, reported as one.** Audited the remaining raw-`wf_wins`
   consumers. `check_matrix_corpus_agreement.newest_floor_clearing_pass` reads
   **zero** `wf_*` fields, and its `wf_summary` (:357) is a display field only —
@@ -168,6 +203,22 @@
   **14**: for a DECLARED arm a pre-split fold is redundant, not circular. The
   backlog row states the ~9× overstatement explicitly so the number is not
   re-inflated later.
+
+- **A count of a FIELD read as a count of a CONDITION — four times.** The
+  124-of-133 near-miss above is one instance; the same shape recurred on
+  **102-vs-61** (`declared_levers_present` contains the lever for 102 rows, but
+  only 61 are measured against a baseline that runs it — 41 had it dropped), and
+  twice more as population conflations on the `wf_pass` rate. Recorded as one
+  class rather than four incidents, because the emitter would otherwise have
+  hardcoded it.
+
+- **Two mistakes caught while writing the fold-coverage emitter.** The call first
+  read `wf_folds` — the CORPUS field name — where the sweep's key is
+  `walkforward_folds`; every row would have returned all-`None`, the exact
+  write-and-never-read shape the field exists to expose. And
+  `int(str(12345)[:4])` is **1234**, so a nonsense split emitted **787**
+  "uncovered years" — a confident answer from garbage, found by my own test
+  asserting `None` and getting a list. Both are pinned as tests.
 
 - **Populations do not interchange.** One finding produced four correct
   denominators — 17/96 (deduped newest-run-per-cell), 19/133 (all fold-carrying
