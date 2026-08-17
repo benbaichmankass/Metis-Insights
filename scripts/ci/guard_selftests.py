@@ -453,6 +453,11 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     # site, found none, and wrongly concluded the suite was unwired; do not
     # repeat that inference. Presence here is not evidence a self-test runs, and
     # absence of a call site is not evidence it does not.
+    #
+    # That reasoning is no longer only prose: this name is declared in
+    # COVERED_BY_CHECKER below, and `check_selftest_wiring.py` now VERIFIES the
+    # covering path on every run — so the claim in this comment is enforced
+    # rather than asserted, and a future session need not re-derive it.
     "matrix-corpus-agreement": selftest_matrix_corpus_agreement,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
@@ -462,6 +467,21 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "diagnostic-provenance": selftest_diagnostic_provenance,
     "harness-lever-coupling": selftest_harness_lever_coupling,
     "timestamp-comparison": selftest_timestamp_comparison,
+}
+
+# The SECOND covering path. A name here is one whose controls reach CI via the
+# checker's OWN `--self-test` rather than via `run_guards.py` invoking this
+# module by name — so `run_guards.py` legitimately has no call site for it, and
+# grepping for one and finding nothing proves nothing.
+#
+# This is a DECLARATION, and `scripts/ci/check_selftest_wiring.py` refuses to
+# take it on trust: it verifies that `run_guards.py` really runs that exact
+# script with `--self-test`, AND that the script really declares the flag in its
+# argparse. Naming a script that cannot self-test FAILS. Keep it that way — a
+# mapping cheaper to fake than to satisfy is worse than none at all
+# (`new-table-wiring-guard`'s presence-only marker is the cautionary case).
+COVERED_BY_CHECKER: Dict[str, str] = {
+    "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
 }
 
 

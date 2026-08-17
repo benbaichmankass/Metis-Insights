@@ -452,6 +452,23 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
+        # The GENERALISATION of the fix recorded immediately above: that wiring
+        # gap was found by hand, and nothing would have found the next one.
+        # This resolves every registered self-test to a covering path —
+        # invoked-by-name here, or the checker's own `--self-test` declared in
+        # `guard_selftests.py::COVERED_BY_CHECKER` — and VERIFIES that path
+        # (the declared script must really be run with the flag, and must
+        # really declare it), so a mapping cannot be satisfied by naming
+        # something that cannot self-test.
+        "name": "selftest-wiring-guard",
+        # `when: None` — always. A guard that proves other guards' failure
+        # paths execute must not itself be diff-scoped: the whole defect class
+        # is a control that is present but never runs.
+        "when": None,
+        "steps": [["python3", "scripts/ci/check_selftest_wiring.py", "--self-test"],
+                  ["python3", "scripts/ci/check_selftest_wiring.py"]],
+    },
+    {
         "name": "exit-mechanism-coverage-guard",
         # Catches the ORPHANED DECLARE: a leg declares an exit lever its own
         # unit module never reads. Silently inert, and INVISIBLE to

@@ -18401,6 +18401,21 @@
       "related": [
         "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL"
       ]
+    },
+    {
+      "id": "BL-20260817-SELFTESTS-DECLARED-BUT-NEVER-RUN-IN-CI",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "low",
+      "tier": "1 — CI wiring / tooling. No live path.",
+      "title": "6 of 14 scripts that declare a `--self-test` are never run with it by run_guards.py — triage which (if any) guard a real invariant",
+      "source": "Measured while building `scripts/ci/check_selftest_wiring.py` (the generalisation of BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED). That guard's scope is deliberately the `guard_selftests.py::SELFTESTS` registry, because registering there IS the claim 'this control runs in CI'. Owning a `--self-test` is not that claim. But the wider set was measured rather than assumed empty, and it is not empty.",
+      "evidence": "AST scan over scripts/**.py for an `add_argument(\"--self-test\")` declaration, intersected with the argv list parsed out of `run_guards.py::GUARDS`. 14 declare the flag; 8 are run with it by run_guards.py; 6 are not: scripts/backtest_pairs.py, scripts/backtest_xsec_momentum.py, scripts/ops/get_env.py, scripts/research/m20_wf_effective.py, scripts/research/pairs_dollar_lots.py, scripts/research/pairs_universe_scan.py. Reproduce with the snippet in the docstring's SCOPE section.",
+      "why_not_fixed_in_session": "Wiring all 6 into CI would be a unilateral judgement about research/ops tooling, made overnight with no operator available, and it adds runtime plus failure surface to every CI run for scripts whose correctness is not a repo invariant — the desensitised-alarm shape this repo has a P1 rule about. The honest disposition is per-script triage, not a blanket sweep.",
+      "proposed_action": "Triage the 6 individually. `ops/get_env.py` is the most likely genuine candidate (it sits on the diag/env read path that BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE made load-bearing); the backtest/research four are probably correct to leave as developer-invoked. For any script judged to guard an invariant, give it a `run_guards.py` entry — `check_selftest_wiring.py` then reports the ratio moving on its own.",
+      "not_a_finding_about": "This is NOT a claim that those 6 self-tests are broken — each passes when invoked by hand. The finding is only that CI does not exercise them, so a future regression in one would not be caught by CI.",
+      "resolution_criteria": "Each of the 6 named scripts has an explicit recorded disposition — either a `run_guards.py` entry running it with `--self-test` (verifiable by re-running the AST scan in `check_selftest_wiring.py`'s SCOPE docstring and seeing the run-with-flag count rise from 8), or a one-line note in this row stating it is developer-invoked by design and why. The row closes when the scan's 'never run with the flag' list contains only scripts carrying such a note — i.e. zero UNTRIAGED entries, not necessarily zero entries."
     }
   ]
 }
