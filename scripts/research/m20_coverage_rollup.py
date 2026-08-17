@@ -1147,6 +1147,43 @@ GATE_KINDS = {
     "no_harness_levers": "harness_gap",
 }
 
+#: Levers a SESSION cannot produce a verdict for, whatever a cell's status says.
+#:
+#: WHY THIS EXISTS. `gate_partition` keys on the cell's STATUS STRING, which is
+#: the right call (it cannot drift from the matrix) and is also blind to whether
+#: the thing the status implies is POSSIBLE. A `pending` cell reads
+#: "no sweep has been run", which invites "so run it" -- and for these two
+#: levers no run exists to be run. Measured 2026-08-17: all FOUR cells the
+#: partition called movable rest on these two levers, so the honest movable
+#: count was ZERO while the roll-up implied four
+#: (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
+#:
+#: THE THREE FACTS BEHIND EACH ENTRY, each verified rather than inherited:
+#:   * `m20_fleet_exit_sweep.py` defines NO arm -- each lever appears exactly
+#:     once, in the comment saying it is absent.
+#:   * neither `backtest_trend.py` nor `backtest_squeeze.py` exposes a flag
+#:     (`--exit-ladder` / `--regime-flip`: none, AST-checked).
+#:   * `scripts/ci/check_matrix_corpus_agreement.py` states the same, and is
+#:     the authority the corpus-agreement guard already reads.
+#:
+#: NOT a claim the cells are unreachable forever -- both have a named route
+#: (a backtest-gated P4 graduation; an operator decision). It is a claim that
+#: the route is not "a session runs the sweep". `exit_head_ml` is deliberately
+#: ABSENT: it has its own driver and IS swept, so its cells are graded
+#: `arithmetic`/`accrual` on trade counts, which is a different gate.
+LEVERS_WITHOUT_A_SWEEP_PATH: dict[str, str] = {
+    "exit_ladder": (
+        "observe-only shadow soak (runtime_logs/exit_ladder_soak.jsonl); the "
+        "fleet harness never emits an exit_ladder cell, and graduation to a "
+        "real laddered exit is the backtest-gated P4"
+    ),
+    "regime_flip_exit": (
+        "no runtime implementation to sweep -- only the offline replays "
+        "m20_regime_flip_replay.py / m20_flip_replay_sweep.py; building it as "
+        "a YAML-declared default-off close path is operator decision (c)"
+    ),
+}
+
 
 def gate_partition(matrix: dict[str, Any],
                    reach: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1184,7 +1221,20 @@ def gate_partition(matrix: dict[str, Any],
                 and row["strategy"] in arith_legs):
             kind = "arithmetic"
         buckets[kind or "unclassified"].append(ident)
-    return {k: sorted(v) for k, v in buckets.items()}
+    out = {k: sorted(v) for k, v in buckets.items()}
+
+    # THE MOVABLE CUT, measured rather than implied by the bucket name.
+    # `harness_gap` + `never_attempted` are the two buckets whose remedy is
+    # effort rather than waiting -- but only for a lever a session can actually
+    # sweep. Splitting them here (not in the printer) keeps the JSON consumer
+    # and the text report reading one number.
+    movable, no_path = [], []
+    for k in ("harness_gap", "never_attempted"):
+        for ident in out.get(k, []):
+            (no_path if ident[3] in LEVERS_WITHOUT_A_SWEEP_PATH else movable).append(ident)
+    out["_movable"] = sorted(movable)
+    out["_no_sweep_path"] = sorted(no_path)
+    return out
 
 
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
@@ -1353,7 +1403,8 @@ def render(r: dict[str, Any]) -> str:
             "unclassified": "⚠️ status reason not in GATE_KINDS — CLASSIFY IT",
         }
         out += ["    DONE-CONDITION BY GATE (what actually blocks each cell):"]
-        for k in _order + [k for k in sorted(_gp) if k not in _order]:
+        for k in _order + [k for k in sorted(_gp)
+                           if k not in _order and not k.startswith("_")]:
             if _gp.get(k):
                 out.append(f"      {len(_gp[k]):3d}  {k:<16} {_why.get(k, '')}")
         out += [
@@ -1362,10 +1413,31 @@ def render(r: dict[str, Any]) -> str:
             "        or 'measured, grading withheld' — those live in ref PROSE and",
             "        a tool that guessed them would be manufacturing a verdict. A",
             "        hand analysis may use them; the totals reconcile either way.",
-            "      ⚠️ Only `harness_gap` (needs code) and `never_attempted` (needs",
-            "        a run) are movable by a session. `arithmetic`/`accrual`/`data`",
-            "        wait on trades or candles, NOT on effort — do not plan sweeps",
-            "        against them expecting movement.",
+        ]
+        # ⚠️ THE MOVABLE COUNT IS MEASURED, NOT INFERRED FROM THE BUCKET NAME.
+        # `never_attempted` used to read "no sweep has been run", which invites
+        # "so run it"; for a lever with no sweep arm there is no run to make.
+        # All four cells in these two buckets were such levers on 2026-08-17, so
+        # the old wording implied FOUR workable cells over a true count of ZERO
+        # (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
+        _mv, _np = _gp.get("_movable") or [], _gp.get("_no_sweep_path") or []
+        out += [
+            f"      ⚠️ MOVABLE BY A SESSION: {len(_mv)}"
+            f"   (of {len(_mv) + len(_np)} in harness_gap + never_attempted)",
+        ]
+        for _i in _mv:
+            out.append(f"           {_i[0]:<26} {_i[1]:<9} {_i[2]:<4} {_i[3]}")
+        if _np:
+            out.append(f"      ⚠️ NO SWEEP PATH AT ALL: {len(_np)} — a run cannot "
+                       f"move these, whatever the status implies:")
+            for _i in _np:
+                out.append(f"           {_i[0]:<26} {_i[1]:<9} {_i[2]:<4} {_i[3]}"
+                           f"  [{_i[4]}]")
+            for _lv in sorted({_i[3] for _i in _np}):
+                out.append(f"           {_lv}: {LEVERS_WITHOUT_A_SWEEP_PATH[_lv]}")
+        out += [
+            "        `arithmetic`/`accrual`/`data` wait on trades or candles, NOT",
+            "        on effort — do not plan sweeps against them expecting movement.",
             "",
         ]
     g = r.get("geometry_coverage") or {}

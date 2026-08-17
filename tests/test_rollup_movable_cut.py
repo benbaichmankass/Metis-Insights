@@ -1,0 +1,167 @@
+"""The roll-up's "movable by a session" count is MEASURED, not implied by a bucket name.
+
+`BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS`.
+
+`gate_partition` keys on each cell's STATUS STRING. That is the right call — it
+cannot drift from the matrix — and it is also blind to whether the remedy the
+status implies is POSSIBLE. A `pending` cell printed as *"no sweep has been run"*
+invites *"so run it"*, and for `exit_ladder` / `regime_flip_exit` there is no run
+to make: no arm in the fleet sweep, no flag in either harness.
+
+Measured 2026-08-17: **all four** cells in the two "movable" buckets rested on
+those two levers, so the honest movable count was **ZERO** while the roll-up's
+text implied four. That number had already reached three operator pings, several
+board comments, and a scheduled check-in.
+
+WHAT EACH TEST IS FOR — three of these pin the failure mode rather than the
+happy path, and two deliberately re-derive from the source files instead of
+trusting the constant:
+
+1. `test_no_sweep_arm_exists_for_either_lever` — reads `m20_fleet_exit_sweep.py`
+   and asserts each lever appears at most once (its own absence comment). If
+   someone adds a real arm, this fails and the constant must shrink. That is the
+   point: the constant is a claim about other files, so the test checks them.
+2. `test_no_harness_flag_exists_for_either_lever` — AST over both harnesses. A
+   grep would match a docstring; `add_argument` is the surface that decides.
+3. `test_exit_head_ml_is_not_in_the_set` — it HAS its own driver and IS swept, so
+   its cells are gated on trade counts (`arithmetic`/`accrual`). Folding it in
+   here would relabel a measurable-but-thin lever as unmeasurable.
+4. `test_the_two_cuts_partition_the_two_buckets` — the invariant that survives
+   cells resolving: `_movable + _no_sweep_path` is exactly
+   `harness_gap + never_attempted`, with no double-count and nothing dropped.
+5. `test_internal_keys_are_not_printed_as_buckets` — `_movable`/`_no_sweep_path`
+   live in the same dict as the real buckets; printing them as gate kinds would
+   double-count the total in the human report.
+"""
+from __future__ import annotations
+
+import ast
+import importlib.util
+import json
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+ROLLUP = REPO / "scripts" / "research" / "m20_coverage_rollup.py"
+SWEEP = REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py"
+MATRIX = REPO / "docs" / "research" / "exit-refinement-coverage.json"
+HARNESSES = ("scripts/backtest_trend.py", "scripts/backtest_squeeze.py")
+
+
+def _mod():
+    spec = importlib.util.spec_from_file_location("_rollup_probe", ROLLUP)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_rollup_probe"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _partition():
+    """The partition via the SAME inputs `rollup()` uses.
+
+    ⚠️ No `hasattr` fallback here, deliberately. An earlier draft did
+    `m.reachability(matrix) if hasattr(m, "reachability") else []` — and
+    `reachability` does not exist, so every run silently passed `[]`, leaving
+    `arith_legs` empty and the arithmetic reclassification un-exercised. The
+    tests still passed. A fallback that turns a wrong name into an empty input
+    is a green that checked a different function than the one it names; the real
+    entry point is `fold_reachability`, and if it is ever renamed this raises
+    instead of quietly degrading.
+    """
+    m = _mod()
+    matrix = json.loads(MATRIX.read_text())
+    return m, m.gate_partition(matrix, m.fold_reachability(matrix))
+
+
+def _argparse_flags(rel: str) -> set[str]:
+    tree = ast.parse((REPO / rel).read_text())
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "add_argument"):
+            for arg in node.args:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str) \
+                        and arg.value.startswith("--"):
+                    out.add(arg.value)
+    return out
+
+
+def test_no_sweep_arm_exists_for_either_lever():
+    """The constant is a claim about the SWEEP, so check the sweep.
+
+    Each lever may appear at most once — in the comment stating it is absent
+    from `LEVER_DECLARED_KEYS`. A second mention means an arm may now exist and
+    the cell really is runnable.
+    """
+    src = SWEEP.read_text()
+    for lever in _mod().LEVERS_WITHOUT_A_SWEEP_PATH:
+        n = len(re.findall(r"\b" + re.escape(lever) + r"\b", src))
+        assert n <= 1, (
+            f"{lever} now appears {n}x in m20_fleet_exit_sweep.py — if a real "
+            f"sweep arm was added, remove it from LEVERS_WITHOUT_A_SWEEP_PATH")
+
+
+def test_no_harness_flag_exists_for_either_lever():
+    """AST, not grep — `add_argument` is the surface a run actually uses."""
+    flags = set()
+    for rel in HARNESSES:
+        flags |= _argparse_flags(rel)
+    # Sanity: the probe must be able to SEE flags at all, or its silence is empty.
+    assert "--trail-mult" in flags, "AST probe found no known flag — probe is blind"
+    for stem in ("--exit-ladder", "--regime-flip"):
+        offenders = {f for f in flags if f.startswith(stem)}
+        assert not offenders, f"a harness now exposes {offenders}"
+
+
+def test_exit_head_ml_is_not_in_the_set():
+    """It has its own driver and IS swept; its gate is trade counts, not absence."""
+    assert "exit_head_ml" not in _mod().LEVERS_WITHOUT_A_SWEEP_PATH
+
+
+def test_every_no_sweep_path_cell_rests_on_a_declared_lever():
+    m, part = _partition()
+    for ident in part.get("_no_sweep_path", []):
+        assert ident[3] in m.LEVERS_WITHOUT_A_SWEEP_PATH, ident
+
+
+def test_the_two_cuts_partition_the_two_buckets():
+    """Nothing dropped, nothing double-counted — the invariant that outlives today."""
+    _, part = _partition()
+    buckets = sorted(part.get("harness_gap", []) + part.get("never_attempted", []))
+    cuts = sorted(part.get("_movable", []) + part.get("_no_sweep_path", []))
+    assert cuts == buckets
+    assert not (set(part.get("_movable", [])) & set(part.get("_no_sweep_path", [])))
+
+
+def test_measured_state_2026_08_17():
+    """The observation that motivated this, as a dated regression anchor.
+
+    ⚠️ This one is EXPECTED to change as cells resolve — a future session that
+    makes a lever sweepable should update it and say so. It is here because the
+    whole finding is that the count was 4 when it should have read 0, and a test
+    that only checked invariants would not have caught that.
+    """
+    _, part = _partition()
+    assert len(part.get("_movable", [])) == 0
+    assert len(part.get("_no_sweep_path", [])) == 4
+    assert {i[3] for i in part["_no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
+
+
+def test_internal_keys_are_not_printed_as_buckets():
+    """A leading-underscore key must not surface as a gate kind in the report.
+
+    ⚠️ An earlier draft guarded this with `if hasattr(m, "report")` and the
+    function is called `render` — so `text` was `""`, the `if` never ran, and the
+    test PASSED while asserting nothing. Calling `render` unguarded is the point:
+    the renderer is what a human reads, and it is where the misleading count was.
+    """
+    m = _mod()
+    text = m.render(m.rollup(json.loads(MATRIX.read_text())))
+    assert text, "render() produced nothing — the probe is blind"
+    # The internal cuts must not be rendered as gate-kind rows...
+    assert not re.search(r"^\s+\d+\s+_movable\b", text, re.M)
+    assert not re.search(r"^\s+\d+\s+_no_sweep_path\b", text, re.M)
+    # ...while the measured count IS rendered, and reads 0 rather than 4.
+    assert "MOVABLE BY A SESSION: 0" in text
+    assert "NO SWEEP PATH AT ALL: 4" in text
