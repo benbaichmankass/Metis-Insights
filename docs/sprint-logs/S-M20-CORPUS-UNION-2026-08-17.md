@@ -218,6 +218,34 @@
   again does not.
 - Required verification before starting: `#9823` merged, so the corpora start
   reconciled rather than mid-divergence.
+- ✅ **DONE IN-SESSION (`#9827`, merged `5eb2aa11`).** The session continued past
+  this log's first draft and executed its own recommendation rather than
+  deferring it, so the recommendation is recorded as *completed* instead of
+  being left to read as outstanding work.
+  - `scripts/research/m20_corpus_union.py` — union one corpus into another,
+    importing `measurement_key` rather than re-deriving it. Wired into the
+    conflict re-derive **after** the reset and **before** the extract; ordering
+    is guarded, because unioning afterwards merges into rows already derived
+    against a truncated corpus.
+  - **The merge rule is `sweep_generated_at`, not "the side being merged in
+    wins."** That intuitive rule is the extractor's — right for
+    artefacts→corpus, backwards corpus→corpus: on all 19 differing shared keys
+    `main` was the newer and complete side, so a side-wins union re-drops the
+    very schema `#9812` protects. A negative control runs the wrong rule over
+    the same fixtures so the passing guard is not an unproven green.
+  - Where a timestamp cannot order two rows the tie breaks only on a strict
+    superset, and otherwise the union **refuses (exit 2)** rather than picking.
+  - Validation: replaying the real pair reproduces the merged `#9823` artifact
+    **byte-identically**; the workflow's own direction gives the mirror result
+    (19 replaced + 360 appended → the same 1364); the outcome is
+    **order-independent**, so the rule is a resolution rather than an artifact
+    of which branch the job stands on.
+- **Still open, and stated as open:** `#9827` is verified by test and by replay,
+  **not** by a live conflicting run — the same gap `#9812` carries. A sweep was
+  dispatched on `main` at 02:22Z (run `31987769491`, one leg, free runners) to
+  exercise the conflict path for real. The falsifiable check was recorded
+  BEFORE the run so it cannot be judged by impression: the corpus branch was
+  missing **360** main-only measurement keys; after the run that must be **0**.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
