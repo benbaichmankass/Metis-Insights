@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-17T05:55:00+00:00",
+  "updated_at": "2026-08-17T06:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00",
   "items": [
     {
@@ -18336,6 +18336,71 @@
       "updates": [],
       "area": "ci-guards",
       "detail": "scripts/ci/run_guards.py (collapsed-state-guard entry) + scripts/ci/guard_selftests.py::SELFTESTS"
+    },
+    {
+      "id": "RS-20260817-DOES-OUTSIDERTH-FALSE-MAKE-A-FUTURES-STOP-INERT",
+      "opened_at": "2026-08-17T06:05:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, OPERATOR-REQUESTED open-research task)",
+      "severity": "high",
+      "tier": "3 (the answer gates a change to when live protective stops can fire)",
+      "status": "open_research",
+      "area": "exit-coverage",
+      "kind": "research",
+      "title": "RESEARCH: does outsideRth=False make a GTC futures STOP ineligible to TRIGGER outside RTH? Answer this before anyone changes protective-order geometry",
+      "detail": "OPERATOR-REQUESTED, 2026-08-17: an open-research task so the call on BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH can be made on evidence instead of inference. THIS ROW IS THE QUESTION, NOT THE FIX. Do not ship a geometry change from this row; produce an answer, then the fix is decided against it.\n\nTHE QUESTION, precisely. IBKR's `outsideRth` flag keys on a contract's LIQUID hours. Every order this repo places carries the ib_insync default `outsideRth=False` — established by grep, tree-wide, zero hits before 2026-08-16. For a MARKET order the consequence is measured and understood: it is HELD, which is what produced the 2026-08-16 MGC non-fill. **What is NOT known is whether the same flag makes a resting GTC STOP ineligible to TRIGGER outside RTH.** Those are different mechanics — trigger eligibility versus routing eligibility — and IBKR may treat them differently, and may treat FUT differently from STK.\n\nWHY IT MATTERS ENOUGH TO RESEARCH RATHER THAN GUESS. MGC trades electronically roughly 23h a day and its RTH window is a few hours. If a stop cannot trigger outside RTH, then an overnight futures position is effectively unprotected for most of its life — while every surface this repo owns reports it as PROTECTED, because `has_protective_orders` asks whether a leg RESTS and `protection_coverage` asks how much QUANTITY rests. Neither asks whether the leg can FIRE. That is the same shape as BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY one level down: a coverage verdict that cannot be contradicted from outside. If the answer is 'yes, inert', this is a live money-at-risk hole that has been open for the entire life of the IB integration. If the answer is 'no, futures stops trigger on the electronic session regardless', the current code is correct and the row closes with a documented rationale — which is worth just as much, because it stops the next session re-opening it.\n\nWHAT THIS REPO CONTAINS ON THE QUESTION: NOTHING. That is the finding that produced this task. There is no test, no comment, no runbook line, and no incident record bearing on futures-stop trigger eligibility outside RTH. So the answer must come from IBKR's own documentation or from a live experiment, and the researching session must not accept a plausible-sounding inference from the codebase as evidence.",
+      "research_brief": "TWO INDEPENDENT LINES. Do BOTH; agreement between them is the confidence, and disagreement is itself the finding.\n\nLINE A — DOCUMENTARY. Search IBKR's own material: the TWS API guide on order attributes (`outsideRth` / `outsideRTH`), the Order Types and Algos pages for STP and STP LMT, the Trader's Academy notes on RTH vs electronic sessions, and the contract-specific Trading Hours pages for COMEX MGC/GC and CME MES/ES. Quote the passage verbatim with its URL; do not paraphrase into the row. NOTE THE KNOWN OBSTACLE: a 2026-08-16 session recorded that IBKR's pages 403'd from this sandbox and labelled its conclusion unverified as a result — if that recurs, SAY SO and lean on Line B rather than quietly downgrading to a forum post. Third-party forums are a lead, never the answer.\n\nLINE B — LIVE EXPERIMENT on ib_paper, which is a PAPER account and therefore the right venue for this. Design it so the result cannot be ambiguous:\n  1. Open a small futures position (1 contract, MGC or MES) OUTSIDE RTH but INSIDE the electronic session.\n  2. Arm a protective stop with `outsideRth=False` — the current production geometry — placed close enough to the market that it should trigger within the window.\n  3. Observe whether it fires. Read the ORDER STATE, not the position: `/api/diag/ib_open_orders?account_id=ib_paper` shows status/filled/remaining per order.\n  4. Repeat with `outsideRth=True`. The CONTRAST is the evidence; either arm alone is not.\n  5. Record the exact instant, the contract's `liquidHours`/`tradingHours` at that instant (via `IBClient.venue_session` or `reqContractDetails`), and the observed order state.\nONE ARM CANNOT ANSWER THIS. A stop that does not fire outside RTH with the flag False proves nothing on its own — it may simply not have been touched. The paired arm is what separates 'the flag suppressed it' from 'price never reached it'.\n\nSTATE THE POPULATION AND THE INSTRUMENT TYPE. FUT and STK may differ, and the close path already treats them oppositely (see `_close_wants_outside_rth`). An answer that does not say which instrument type it covers is not an answer.",
+      "resolution_criteria": "The row closes when ALL of these hold:\n1. A DIRECT answer for FUT, sourced from IBKR documentation quoted verbatim with a URL, or from a paired live experiment with both arms recorded, or both.\n2. The answer explicitly states whether it covers STK as well, or says it does not.\n3. `BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH` is updated with the finding and moved to either a proposed Tier-3 change (if stops ARE inert) or a documented close (if they are not). A close needs the rationale written down, or the next session re-opens it.\n4. EITHER WAY, `protection_coverage` is assessed against the answer: today it reports RESTING quantity and says nothing about trigger eligibility. If eligibility turns out to be a real axis, that is a collapsed state in the coverage verdict and belongs in the collapsed-state registry.\n5. If neither line produces an answer, say so plainly and record WHICH line failed and why. 'Could not establish' is an acceptable outcome; a confident guess is not.",
+      "refs": [
+        "src/units/accounts/ib_client.py::_locked_place_protective (StopOrder/LimitOrder, tif=GTC, no outsideRth)",
+        "src/units/accounts/ib_client.py::_close_wants_outside_rth (the FUT/STK split shipped for the CLOSE)",
+        "src/units/accounts/ib_client.py::protection_coverage (reports resting qty, not trigger eligibility)",
+        "grep -rn 'outsideRth|outside_rth' src/ -> 0 hits before 2026-08-16"
+      ],
+      "related": [
+        "BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH",
+        "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS",
+        "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
+        "BL-20260816-COVERAGE-IS-ONE-SIDED"
+      ]
+    },
+    {
+      "id": "BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE",
+      "opened_at": "2026-08-17T06:05:00+00:00",
+      "opened_by": "claude (exit-eval-interval session)",
+      "severity": "medium",
+      "tier": "1 (read-only diag route)",
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "IBClient.venue_session is public, cheap and unreachable from outside — so the only way to learn whether the venue gate says UNKNOWN is to wait for a live close",
+      "detail": "The venue-session gate shipped in #9693 is FAIL-PERMISSIVE on `unknown`: it places the order and logs WARNING. That makes a permanently-unknown gate behaviourally identical to a working gate on an open venue, and the WARNING is the ONLY thing separating them.\n\nMeasured 2026-08-17: ~14.5h after deploy the gate had still never run — zero `venue session` lines in an 8h journal window spanning the Globex open, because zero closes were attempted. So the question that matters most about the change (does `timeZoneId` resolve on the live VM?) is unanswerable until some strategy happens to want an exit. That is an arbitrary and possibly long wait for a fact that is one read away.\n\nTHE SPECIFIC RISK IS MEASURED, NOT HYPOTHETICAL: `US/Eastern` and `US/Central` are tzdata LEGACY links absent from slim installs — `zoneinfo` raises for both in this repo's sandbox while `America/New_York` resolves — and COMEX and CME report precisely those. The resolver falls back to `pytz`, which bundles its own database and is a declared requirement, so it SHOULD resolve on the VM. That has never been observed there.\n\n`IBClient.venue_session(symbol)` already exists, is public, takes the usage lock, opens no order path, mutates nothing, and returns the three-state verdict plus a reason string naming which path to `unknown` was taken. It is the natural read and nothing exposes it.",
+      "resolution_criteria": "1. Add `GET /api/diag/venue_session?account_id=&symbol=` (Tier-1, token-gated read) over the existing accessor. Return the state, the reason string, the resolved `timeZoneId`, and whether the tz resolved via zoneinfo or pytz — the LAST of those is the field that actually answers the tzdata question, and omitting it would repeat the mistake of shipping a surface that cannot answer what it was built for.\n2. Three states must survive to the response uncollapsed; the route must not turn `unknown` into an error or an empty body.\n3. Add it to the diag relay allowlist in the SAME change — #9627 shipped a writer whose read surface was never registered, and #9693's route needed a follow-up PR for the same reason.\n4. Then answer the question: read it for MGC and MES on the live VM and record the verdict.",
+      "refs": [
+        "src/units/accounts/ib_client.py::venue_session (public, read-only, unexposed)",
+        "src/runtime/ib_trading_hours.py::resolve_timezone (zoneinfo -> alias -> pytz -> alias)",
+        "BL-20260816-EXIT-INTERVAL-SOAK-SUMMARY-HAS-NO-READ-SURFACE (the same mistake, two days running)"
+      ],
+      "related": [
+        "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS"
+      ]
+    },
+    {
+      "id": "BL-20260817-DEPLOY-SCRIPT-CITES-AN-UNFILED-TRACKING-ID",
+      "opened_at": "2026-08-17T06:05:00+00:00",
+      "opened_by": "claude (exit-eval-interval session, tripped over it)",
+      "severity": "medium",
+      "tier": "1 (docs/tracking hygiene)",
+      "status": "open",
+      "area": "deploy-verification",
+      "title": "scripts/deploy_pull_restart.sh justifies its restart-decision gate by citing a BL-20260714 deploy-stale id three times, and that id is filed in no backlog",
+      "detail": "Lines 85, 246 and 559 of `scripts/deploy_pull_restart.sh` cite a `BL-20260714` deploy-stale-on-out-of-band-sync tracking id, including the one at line 246 that states the gate's central rationale — 'restart when the RUNNING code is stale'. The id is filed in NONE of the three backlogs (checked all of docs/claude/*-backlog.json). The deploy path's stated correctness argument points at a row that does not exist: tracked-looking, tracked by nobody, which is the crack the 2026-07-30 operator directive names.\n\nWHY IT SURVIVED: `artifact-validity-guard` is DIFF-SCOPED. It flags ids a change INTRODUCES, so pre-existing dangling citations are grandfathered. It caught this only because I copied the id into a new backlog row and it became 'introduced'. That default is right for adoption and wrong for finding this class.\n\nNOT FILED BY ME DELIBERATELY: I do not know what that investigation concluded, and inventing a row to satisfy a guard is the 'cheaper to lie to than to satisfy' failure this repo names explicitly. It needs whoever ran it, or a decision to drop the citations.",
+      "resolution_criteria": "1. Either file the missing row with what the 2026-07-14 investigation actually found, or correct the three citations to point at whatever superseded it — not a placeholder row.\n2. Run `scripts/ops/check_backlog_refs.py --all` as a standing audit and record the FULL count of pre-existing dangling ids repo-wide. This one was found by accident; the population is unknown and a count over an unstated denominator is not a count.\n3. Decide whether that standing audit belongs in CI as a non-blocking report.",
+      "refs": [
+        "scripts/deploy_pull_restart.sh lines 85, 246, 559",
+        "scripts/ops/check_backlog_refs.py (diff-scoped by default; --all is the standing audit)"
+      ],
+      "related": [
+        "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL"
+      ]
     }
   ]
 }
