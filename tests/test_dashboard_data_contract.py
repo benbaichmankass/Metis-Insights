@@ -232,6 +232,12 @@ def test_positions_returns_open_trade_against_canonical_schema(
         "accountClass": "real_money",  # account_class convention (2026-06-15)
         "assetClass": "crypto",  # coarse reporting bucket (BTCUSDT → crypto)
         "options": None,  # Slice-5: null for a non-options row
+        # M31 P3: the R-geometry block, joined from position_telemetry by
+        # trade id. `None` here is the ASSERTION, not a placeholder — this
+        # leg writes no telemetry row (only the donchian/pullback monitors
+        # do), and absent must never render as a zeroed block, which would
+        # assert a measured flat trade.
+        "r": None,
     }
 
 

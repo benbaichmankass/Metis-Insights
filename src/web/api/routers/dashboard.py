@@ -725,6 +725,59 @@ def _fetch_open_position_rows(effective_include: bool) -> list:
         return []
 
 
+def _telemetry_map() -> dict[str, Any]:
+    """`trade_id -> enriched telemetry row`. Best-effort; `{}` on any failure."""
+    try:
+        from src.runtime.position_telemetry import telemetry_by_trade_id
+        return telemetry_by_trade_id()
+    # allow-silent: an OBSERVE-ONLY enrichment on a live read route. The
+    # failure is not masked — it degrades each position to `r: null`, a
+    # VISIBLE absent value, not an empty success: a consumer cannot mistake
+    # it for "R geometry measured at zero". Re-raising would let a telemetry
+    # outage take down the positions route itself, the strictly worse
+    # failure. Logged with a stack trace so it is never silent to an
+    # operator either.
+    except Exception:  # noqa: BLE001  # allow-silent: degrades to a VISIBLE `r: null`, not an empty success; logged with a stack trace below
+        logger.warning("positions: telemetry read failed; r-block omitted",
+                       exc_info=True)
+        return {}
+
+
+def _r_block(rec: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The wire shape of one position's R geometry, or ``None`` when absent.
+
+    ``None`` and a zeroed block are opposite claims — the first says this leg
+    writes no telemetry, the second would assert a measured flat trade — so a
+    missing record returns ``None`` and never a filled-in default.
+    """
+    if not rec:
+        return None
+    return {
+        "openR": rec.get("open_r"),
+        "peakR": rec.get("peak_r"),
+        "peakState": rec.get("peak_state"),
+        "peakProvenance": rec.get("peak_provenance"),
+        # Stamped on every block: `peakR` is a floor on true MFE, never the MFE.
+        "peakRIsLowerBound": rec.get("peak_r_is_lower_bound", True),
+        "givebackR": rec.get("giveback_r"),
+        "capR": rec.get("cap_r"),
+        "pctOfCap": rec.get("pct_of_cap"),
+        # How close it EVER got, vs `pctOfCap`'s where-it-is-now. Different
+        # questions; the M31 P4 ceiling check reads this one.
+        "peakPctOfCap": rec.get("peak_pct_of_cap"),
+        "rToStop": rec.get("r_to_stop"),
+        "rToTarget": rec.get("r_to_target"),
+        # upside left vs give-back at risk — the field the operator's
+        # "should we hold this?" question actually needs.
+        "rrFromHere": rec.get("rr_from_here"),
+        "barsHeld": rec.get("bars_held"),
+        "barsSincePeak": rec.get("bars_since_peak"),
+        "armR": rec.get("arm_r"),
+        "armReach": rec.get("arm_reach"),
+        "updatedAt": rec.get("updated_at"),
+    }
+
+
 @router.get("/positions")
 async def get_positions(
     include_paper: bool = Query(False),
@@ -741,6 +794,12 @@ async def get_positions(
     # uvicorn's event loop (this route stays async for the awaited broker read
     # below). RISK-3 / BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB.
     rows = await asyncio.to_thread(_fetch_open_position_rows, effective_include)
+    # M31 P3 reader. ONE read for the whole response, not one per row:
+    # this is a live route and a per-row query would be N+1 on the same
+    # blocking sqlite path the offload above exists to keep off the loop.
+    # Best-effort by contract — a telemetry outage degrades a position to
+    # `r: null`, never breaks the route.
+    telemetry = await asyncio.to_thread(_telemetry_map)
     out: list[dict[str, Any]] = []
     for r in rows:
         # Offloaded to the dedicated single-worker account-read executor
@@ -812,6 +871,17 @@ async def get_positions(
             # fallback. Never null (worst case "unknown").
             "assetClass": asset_class_for_symbol(r[2]),
             "options": options_block,
+            # ``r`` — M31 P3: the R-geometry of this open trade, joined
+            # from ``position_telemetry`` by trade id. **null** when the
+            # leg has no telemetry row (only the donchian/pullback
+            # monitors write one), which is the honest value: absent, not
+            # zero. ``peakR`` is a LOWER BOUND on MFE — the last write
+            # precedes the close by up to one exit pass and a bar extreme
+            # cannot see an intrabar excursion — so the block carries
+            # ``peakRIsLowerBound`` rather than leaving a consumer to
+            # assume otherwise. ``armReach`` says whether this row's
+            # declared lever arm is reachable under its OWN ceiling.
+            "r": _r_block(telemetry.get(str(r[0]))),
         })
     return out
 
