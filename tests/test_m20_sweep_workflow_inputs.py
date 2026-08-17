@@ -135,3 +135,59 @@ def test_the_scan_would_catch_a_planted_unread_input() -> None:
     declared = {"legs", "planted_never_read"}
     referenced = _referenced_inputs("uses ${{ inputs.legs }} only")
     assert sorted(declared - referenced) == ["planted_never_read"]
+
+
+def _commit_corpus_step(doc: dict) -> str:
+    steps = doc["jobs"]["corpus"]["steps"]
+    return next(s["run"] for s in steps if s.get("name") == "Commit the corpus")
+
+
+def test_conflict_rederive_uses_the_dispatched_extractor_not_the_branch_copy() -> None:
+    """The re-derive after `reset --hard` must not run the TARGET branch's extractor.
+
+    `rebase_onto_target`'s conflict path hard-resets the worktree to the corpus
+    branch and then re-runs the extractor. The reset reverts the extractor
+    ITSELF, so re-deriving via the worktree path silently runs whatever copy
+    that long-diverged branch happens to carry — dropping every field added
+    since, while the job stays green and the summary reports the full row count.
+
+    MEASURED (2026-08-16, run 31976325152): the conflict fired, the reset landed
+    123 commits behind main, and all 52 rows came back missing the eight
+    `live_tp_reach_r_*` keys #9037 added. This is not a rare race — the corpus
+    branch never merges main, so a main-dispatched run takes add/add conflicts
+    across dozens of unrelated files every time, making the conflict path the
+    NORMAL path.
+    """
+    run = _commit_corpus_step(_doc())
+
+    assert 'cp scripts/research/m20_corpus_extract.py "$RUNNER_TEMP/' in run, (
+        "the 'Commit the corpus' step must preserve the dispatched extractor "
+        "BEFORE any git operation can revert it; without the copy the conflict "
+        "path has nothing correct left to re-derive with."
+    )
+
+    rederive = run.split('git reset --hard "origin/$TARGET"', 1)
+    assert len(rederive) == 2, (
+        "expected the hard-reset re-derive path to still exist in the step; if "
+        "it was removed, this guard is measuring nothing and must be updated."
+    )
+    after_reset = rederive[1]
+    assert "python3 scripts/research/m20_corpus_extract.py" not in after_reset, (
+        "the re-derive after `git reset --hard` invokes the WORKTREE extractor, "
+        "which the reset just replaced with the corpus branch's stale copy. Row "
+        "fields added since that branch last moved will be silently absent and "
+        "the rows will still look complete. Use the preserved dispatched copy."
+    )
+    assert '"$RUNNER_TEMP/extract_dispatched.py"' in after_reset, (
+        "the re-derive must invoke the preserved dispatched extractor."
+    )
+
+
+def test_the_rederive_guard_would_catch_the_regression_it_exists_for() -> None:
+    """Negative control: the guard must fail on the exact pre-fix shape."""
+    pre_fix = (
+        'git reset --hard "origin/$TARGET"\n'
+        "python3 scripts/research/m20_corpus_extract.py --in sweep_out\n"
+    )
+    after_reset = pre_fix.split('git reset --hard "origin/$TARGET"', 1)[1]
+    assert "python3 scripts/research/m20_corpus_extract.py" in after_reset
