@@ -87,6 +87,49 @@ def _win(block: dict | None, window: str) -> dict:
     return got if isinstance(got, dict) else {}
 
 
+def lever_in_baseline(lever: str | None, present, dropped) -> str:
+    """Was THIS cell's own lever already in the book the delta was measured against?
+
+    `BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP`.
+
+    Once a lever is DECLARED on a leg, the sweep's baseline already runs it, so
+    re-sweeping it returns `d_net_r == 0.0` on both windows under
+    `gate_reason: tie_no_improvement` with `wf_ran: false` — arithmetically
+    correct and byte-identical to a lever that WAS measured and does nothing.
+    Measured on the committed corpus: 10 rows sit in that state while **192**
+    other rows carry the SAME `tie_no_improvement` with the lever genuinely
+    absent from the baseline. One verdict string, two opposite meanings, and the
+    only way to tell them apart was to read `declared_levers_present` and notice
+    the row's own lever inside a list. This field is that distinction, emitted.
+
+    ⚠️ `dropped` IS CONSULTED FIRST, AND THAT ORDER IS THE WHOLE POINT.
+    "Declared" is NOT "in the measured baseline": the lever-OFF arm REMOVES a
+    declared lever, and then the baseline genuinely excludes it and the delta is
+    a REAL measurement. 41 of 1373 corpus rows are in exactly that state (and in
+    all 41 the dropped lever is the row's OWN), so the naive two-field predicate
+    — `lever in present` — mislabels 41 genuine measurements as structurally
+    meaningless, one of them `gld_pullback_1d/shipped_trail_decay_5.06_10_2` at
+    `d_net_r_IS +19.1782`. That is the MIRROR of the defect this field exists to
+    fix: the bug reads an artifact as a measurement, the naive fix reads
+    measurements as artifacts. Correct partition 61 / 471 / 841, not 102 / 430 / 841.
+
+    Three states, never collapsed:
+
+      * ``lever_in_baseline``        — the delta is structurally zero and says
+        NOTHING about the lever's value. Do not read it as evidence either way.
+      * ``lever_absent_from_baseline`` — a real measurement.
+      * ``unknown``                 — the declared set could not be resolved
+        (a row predating the field). **We did not look** — NOT "absent".
+    """
+    if not isinstance(present, list):
+        # `None` is a pre-field row: unknowable, and emphatically not "absent".
+        return "unknown"
+    if isinstance(dropped, list) and lever in dropped:
+        return "lever_absent_from_baseline"
+    return ("lever_in_baseline" if lever in present
+            else "lever_absent_from_baseline")
+
+
 def measurement_key(row: dict) -> tuple:
     """WHAT this row measured — the merge identity. Never includes the run.
 
@@ -457,6 +500,14 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                           else None)
                 row = {**leg_common, "kind": "cell", "lever": lever,
                        "base_missing_other_levers": _other,
+                       # The sibling `base_missing_other_levers` deliberately
+                       # SUBTRACTS this row's own lever, so the fact that the
+                       # row's own lever was dropped was already computed here
+                       # and thrown away. This emits it. See the helper's
+                       # docstring for why `dropped` is consulted FIRST.
+                       "lever_in_baseline": lever_in_baseline(
+                           lever, leg_common.get("declared_levers_present"),
+                           _dl),
                        "cell": e.get("cell"), "verdict": e.get("verdict"),
                        "is_oos_pass": e.get("is_oos_pass"),
                        "path_b_candidate": bool(e.get("path_b_candidate")),
