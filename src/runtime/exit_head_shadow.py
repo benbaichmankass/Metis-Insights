@@ -19,12 +19,41 @@ calls :func:`maybe_score_exit_head`, which
   ``open_r < below_r``), writes one row per bar to
   ``runtime_logs/exit_lever_soak.jsonl`` with ``lever: "exit_head"``.
 
-**Observe-only by construction**: the function returns ``None`` always,
-never raises into the monitor, and nothing reads the logs back. Graduation
-to a real exit influence is E3 — Tier-3, operator-gated, behind this
-shadow's track record. No enable gate: absence of the artifact (mirror not
-yet published, non-donchian VM, dev sandbox) makes every call a cheap no-op,
-which is the honest default-permissive shape (Prime Directive).
+⚠️ **E3 HAS SHIPPED — THIS IS NO LONGER OBSERVE-ONLY** (live 2026-07-12,
+#6211/#6216/#6217; corrected here 2026-08-13, `field beats comment`). Until
+then this paragraph read *"Observe-only by construction: the function returns
+``None`` always … and nothing reads the logs back. Graduation to a real exit
+influence is E3"* — three claims that the code has since falsified, on a live
+money path:
+
+* ``maybe_score_exit_head`` returns the **record dict** on a successful score
+  (``None`` only on the no-op paths), exactly as its own docstring says.
+* ``trend_donchian.monitor`` **reads it** — ``_exit_head_verdict(...)``, and
+  ``if eh_verdict is not None: return eh_verdict``. That return closes a live
+  position.
+* E3 is past tense. ``exit_head_action: close`` is declared on three
+  ``execution: live`` strategies in ``config/strategies.yaml``
+  (``trend_donchian``, ``trend_donchian_sol``, ``trend_donchian_eth``).
+
+What is still true, and is the whole safety story: **this module decides
+nothing.** It scores and logs; the APPLY is in the monitor and is gated on
+(a) the strategy YAML declaring ``exit_head_action``, (b) the mirrored
+artifact sitting at stage ``advisory`` — the operator promotion gate — and
+(c) the conditional policy firing. Rollback is deleting the YAML lines or
+demoting the artifact stage. No enable gate: absence of the artifact (mirror
+not yet published, non-donchian VM, dev sandbox) makes every call a cheap
+no-op, the honest default-permissive shape (Prime Directive).
+
+The module NAME still says ``_shadow`` and now under-describes it. Renaming is
+deliberately not done here — an import-surface change is not a docstring fix,
+and a wrong name a reader can see beats a stale paragraph a reader believes.
+
+Open question on the head this module serves, filed as
+``BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM``: the E1 verdict
+behind the ship was scored as ``max`` over ~7 tau arms on the test fold, and
+that best-arm basis was measured on 2026-08-13 as the source of the entire
+fleet-level edge (+1.217R best-arm vs −0.341R under causal tau selection,
+514 folds). Whether THIS head survives a causal selection is **unmeasured**.
 """
 from __future__ import annotations
 

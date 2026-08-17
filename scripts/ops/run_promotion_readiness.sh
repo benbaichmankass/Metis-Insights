@@ -130,7 +130,7 @@ case "${PROMOREADY_OOS_EDGE,,}" in
     fi
     ;;
   *)
-    log_err "PROMOREADY_OOS_EDGE=off (explicit opt-out): sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data — use 'python -m ml gate-check' per head for oos_edge evidence. Default is now ON (subprocess-isolated, MB-20260719-PROMOREADY-OOSEDGE-OOM resolved 2026-07-26)"
+    log_err "PROMOREADY_OOS_EDGE=off: sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data for EVERY head this run — use 'python -m ml gate-check' per head for oos_edge evidence. OFF is the DEFAULT and the known-good state (the 2026-07-26 subprocess-isolation fix was REVERTED 2026-07-27: isolation bounds fleet accumulation, not one head's dataset load, so the sweep OOM-killed and wrote no packet). MB-20260719-PROMOREADY-OOSEDGE-OOM is OPEN, not resolved — it closes when oos_edge's load is made memory-bounded."
     ;;
 esac
 

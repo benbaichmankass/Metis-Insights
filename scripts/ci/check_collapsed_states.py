@@ -64,6 +64,90 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "position_telemetry.peak_state",
+        "producer": "src/runtime/trail_decay.py",
+        "producer_field": "peak_state",
+        "consumer_token": r"\bpeak_state\b|\bPEAK_MEASURED\b|\bsince_entry_peak\b",
+        "states": ["measured", "unanchored", "thin_window", "no_risk"],
+        "why": (
+            "MFE in R is the quantity every exit lever is tuned on, and three "
+            "distinct conditions make it unavailable: the window is not "
+            "anchored to entry (a full-frame fallback FAKES the peak), the "
+            "window is under 2 bars (no excursion is observable), or risk is "
+            "missing so R is undefined. Collapsing any of them into "
+            "`peak_r = 0.0` fabricates a FLAT TRADE — the same class as a "
+            "fabricated exit price, and worse here because a flat MFE reads as "
+            "'this lever correctly never armed' rather than 'we could not "
+            "look'. M31 P2, docs/design/position-telemetry-DESIGN.md § 4.1."
+        ),
+    },
+    {
+        "name": "db_explorer.filter_state",
+        "producer": "src/web/api/routers/db_explorer.py",
+        "producer_field": "filter_state",
+        "consumer_token": r"\bfilter_state\b|\bdb_table\b|\bdb/table\b",
+        "states": ["applied", "not_requested", "ignored_unknown_column"],
+        "why": (
+            "applied = a WHERE ran and `total` is a FILTERED count; "
+            "not_requested = no filter was sent; ignored_unknown_column = a "
+            "filter WAS sent and DROPPED, so `total` is the WHOLE TABLE. "
+            "Collapsing the last two into the first is not a cosmetic loss: "
+            "measured 2026-08-13 against the live journal, four different "
+            "filters on a misspelled column each returned total 4639 (all of "
+            "`trades`), indistinguishable from a filter that matched every "
+            "row. The route is on the diag-relay allowlist, so its callers "
+            "include analysis sessions that cannot see the query they got. "
+            "BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN."
+        ),
+    },
+    {
+        "name": "db_explorer.order_state",
+        "producer": "src/web/api/routers/db_explorer.py",
+        "producer_field": "order_state",
+        "consumer_token": r"\border_state\b|\bdb_table\b|\bdb/table\b",
+        "states": ["applied", "not_requested", "ignored_unknown_column"],
+        "why": (
+            "The ORDER-side twin of `filter_state`, and it was unguarded "
+            "entirely until 2026-08-14 — which is how it came to be the thing "
+            "that silently satisfied its sibling's evidence under the old "
+            "file-wide producer check. Same three states, same consequence in "
+            "miniature: an unknown `order_by` is IGNORED, so the rows come "
+            "back in the table's natural order while the caller believes they "
+            "are sorted. That is quieter than the filter bug (no count is "
+            "wrong) and therefore easier to build a conclusion on — a caller "
+            "reading 'the newest N rows' is really reading 'some N rows'."
+        ),
+    },
+    {
+        "name": "exit_loop_health.requirement_state",
+        "producer": "src/runtime/exit_loop_health.py",
+        "producer_field": "requirement_state",
+        # Deliberately NARROW. `\bexit_loop_health\b` would also match `src/main.py`,
+        # `routers/diag.py` and the diag-reachability test, which merely PASS THE
+        # PAYLOAD THROUGH — they never branch on the grade, so demanding they read
+        # every state would only buy three override annotations that assert nothing.
+        # The guard is stronger keyed to the field itself.
+        "consumer_token": r"\brequirement_state\b",
+        "states": ["within", "breached", "not_measured", "unknown"],
+        "why": (
+            "within = every MEASURED interval between exit evaluations was "
+            "inside the 60s requirement; breached = at least one was not, so a "
+            "live trade went unevaluated past it; not_measured = fewer than two "
+            "passes have completed, so NO interval exists yet; unknown = the "
+            "read itself failed. The two that must never collapse into `within` "
+            "are the last two: a process that has evaluated almost nothing, and "
+            "one we could not read, would both report COMPLIANCE with the "
+            "guarantee M20 exists to provide. This field is also deliberately "
+            "NOT `state` — the loop can be `fresh` and `breached` at the same "
+            "time, and that is exactly the condition that was invisible: "
+            "stale_threshold_s is 180s, so a 59s interval and a 179s interval "
+            "both read healthy while the requirement sits at 60s. Measured "
+            "2026-08-16 at a 58940.8ms worst pass (n=694), 1.1s inside the "
+            "requirement, alarming nowhere. "
+            "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT."
+        ),
+    },
+    {
         "name": "exit_anchor.bar_close_at",
         "producer": "src/runtime/exit_anchor.py",
         "consumer_token": r"\bbar_close_at\b|\bexit_anchor\b",
@@ -107,10 +191,18 @@ CONTRACTS: List[Dict[str, object]] = [
         "name": "bybit_available.read_state",
         "producer": "src/units/accounts/execute.py",
         "consumer_token": r"\bread_linear_available_balance\b|\bavailable_margin\b|\bAVAILABLE_STATE_",
-        "states": ["venue_available", "deprecated_withdrawable", "unavailable"],
+        "states": ["venue_available", "coin_derived", "deprecated_withdrawable",
+                   "unavailable"],
         "why": (
             "venue_available = the account-level totalAvailableBalance, the "
-            "only measured one; deprecated_withdrawable = a SUBSTITUTE (a "
+            "only broker-labelled one; coin_derived = equity - totalPositionIM "
+            "- totalOrderIM from the USDT coin block, which is where Bybit "
+            "publishes margin for an account whose account-level aggregates "
+            "come back empty (the measured bybit_2 state) — it is OUR "
+            "arithmetic over the venue's fields, not the venue's own "
+            "'available', and collapsing it into venue_available would lose "
+            "exactly the distinction this investigation was about; "
+            "deprecated_withdrawable = a SUBSTITUTE (a "
             "withdrawal-eligibility figure Bybit deprecated for UNIFIED "
             "accounts in 2025-01) standing in for new-order margin; "
             "unavailable = we COULD NOT LOOK, which is not 'the account has "
@@ -122,6 +214,47 @@ CONTRACTS: List[Dict[str, object]] = [
             "could not separate the two non-venue branches. See "
             "BL-20260701-BYBIT-AVAILABLE-FIELD and "
             "BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS."
+        ),
+    },
+    {
+        "name": "ib_venue_session.state",
+        "producer": "src/runtime/ib_trading_hours.py",
+        # Deliberately NARROW. The first cut used `\bvenue_session\b|
+        # \bsession_state\b`, which fired on tests/test_exposure_soak.py — whose
+        # `venue_session="closed"` is an UNRELATED field (the US-equity
+        # rth/extended/closed stamp) that merely shares a name. That is the
+        # coincidence-firing this guard's own docstring warns produces routinely
+        # overridden alarms.
+        "consumer_token": r"\bib_trading_hours\b|\b_venue_session\b|\bIB_SESSION_CHECK_DISABLED\b",
+        "states": ["open", "closed", "unknown"],
+        "why": (
+            "open = a session covers this instant; closed = the string covers "
+            "this instant and no session does; unknown = WE COULD NOT LOOK — "
+            "an unparseable string, an unresolvable timezone, or an instant "
+            "OUTSIDE the week IBKR sent. That last one is the collapse a "
+            "two-state design makes: an instant outside the covered span "
+            "matches no range, which is byte-identical to a real closure, so "
+            "a stale cached string would report `closed` and DEFER EVERY "
+            "CLOSE on a fully open venue. The consequence runs the other way "
+            "too: `unknown` must never read as `closed`, because refusing to "
+            "flatten a live position on a failed contract lookup converts an "
+            "observability defect into money at risk. `unknown` therefore "
+            "proceeds like `open` — and is logged WARNING at the close path "
+            "precisely so the two are distinguishable in the record, since "
+            "US/Eastern and US/Central are tzdata legacy links absent from "
+            "slim installs and COMEX/CME report exactly those: a host whose "
+            "tz database regressed would disable the gate for every futures "
+            "contract we trade and, without that log, announce nothing. "
+            "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS. "
+            "COVERAGE CAVEAT, stated rather than papered over: the production "
+            "consumer (src/units/accounts/ib_client.py) branches via the "
+            "module CONSTANTS (ib_trading_hours.CLOSED / .UNKNOWN), not quoted "
+            "literals, so `_states_in` cannot see it and the state coverage "
+            "above is satisfied by the TESTS. Constants are the better "
+            "practice — a typo'd attribute raises where a typo'd literal is "
+            "silent — so the right reading is that this guard's evidence "
+            "mechanism does not fit a constants-based API, not that the "
+            "production branch is missing."
         ),
     },
     {
@@ -152,13 +285,35 @@ def _py_files() -> List[Path]:
     return out
 
 
-def _states_in(text: str, states: List[str]) -> set:
+def _states_in(text: str, states: List[str], field: str = "") -> set:
     """Which declared states this text references, ignoring override lines.
 
     The annotation is excluded from its own evidence — otherwise writing the
     override would itself satisfy the coverage it is opting out of.
+
+    ``field`` narrows the evidence to LINES THAT ALSO NAME THE FIELD, which is
+    the fix for a file-scoped false negative measured 2026-08-14. Producer
+    integrity searched the whole producer FILE, so when one module carries two
+    contracts whose state vocabularies overlap, either one satisfies the
+    other's evidence. Demonstrated on `db_explorer.py`: collapsing
+    `filter_state` so it could only ever say ``"applied"`` left the guard
+    **clean**, because the sibling `order_state` still contained the literals
+    ``"not_requested"`` and ``"ignored_unknown_column"``. That is the guard's
+    own "cheaper to lie to than to satisfy" failure one level up — not a false
+    annotation, but a *neighbouring field* standing in as evidence.
+
+    Line-scoping (not assignment-parsing) is deliberate: producers in this repo
+    emit states as bare returns (``return close, "anchored"``), tuple returns
+    (``return ("absent", None)``) and module constants
+    (``AVAILABLE_STATE_VENUE = "venue_available"``), so a ``<field> = "<state>"``
+    pattern would match almost none of them. A contract omitting ``producer_field``
+    keeps the file-wide behaviour, so registering the narrower check is opt-in
+    per contract and no existing contract changes meaning.
     """
-    body = "\n".join(ln for ln in text.splitlines() if not _OVERRIDE.search(ln))
+    keep = [ln for ln in text.splitlines() if not _OVERRIDE.search(ln)]
+    if field:
+        keep = [ln for ln in keep if re.search(rf"\b{re.escape(field)}\b", ln)]
+    body = "\n".join(keep)
     return {s for s in states if re.search(rf"[\"']{re.escape(s)}[\"']", body)}
 
 
@@ -183,15 +338,21 @@ def main(argv: List[str]) -> int:
                 f"contract is a dead claim.")
             continue
 
-        # (1) producer integrity
+        # (1) producer integrity. `producer_field`, when declared, requires the
+        # state literal to sit on a line that also names the field — so a
+        # SIBLING field in the same module can no longer stand in as evidence
+        # (measured false negative, 2026-08-14; see `_states_in`).
+        prod_field = str(c.get("producer_field") or "")
         prod_text = prod_path.read_text(encoding="utf-8", errors="replace")
-        emitted = _states_in(prod_text, states)
+        emitted = _states_in(prod_text, states, prod_field)
         missing = [s for s in states if s not in emitted]
         if missing:
+            scope = (f"on any line naming `{prod_field}`" if prod_field
+                     else "anywhere in the file")
             findings.append(
                 f"{name}: producer {c['producer']} never emits "
-                f"{missing} — a contract naming a state its own module does "
-                f"not produce is a dead claim, not a guarantee.")
+                f"{missing} {scope} — a contract naming a state its own module "
+                f"does not produce is a dead claim, not a guarantee.")
 
         # (2)+(3) consumers.
         #

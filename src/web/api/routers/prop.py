@@ -139,15 +139,25 @@ def get_status(account_id: str | None = None) -> dict[str, Any]:
     try:
         snapshot = prop_journal.latest_account_status(acct)
         rule_distance = prop_reconcile.compute_rule_distance(acct, snapshot)
+        # `present` says a row EXISTS; it never said the row was current, and a
+        # cushion computed from a three-week-old snapshot renders identically to
+        # a live one. Age + verdict are lifted onto the envelope so a consumer
+        # that reads only the top level still sees it (they also travel inside
+        # `rule_distance` for one that reads only the panel).
         return {
             "account_id": acct,
             "present": snapshot is not None,
             "status": snapshot,
+            "status_age_hours": rule_distance.get("status_age_hours"),
+            "status_freshness": rule_distance.get("status_freshness"),
             "rule_distance": rule_distance,
         }
     except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
         logger.warning("prop: /status read failed; degrading to present:false", exc_info=True)
+        # `error` is NOT one of compute_rule_distance's four freshness states —
+        # the read itself failed, so we did not reach a snapshot to grade.
         return {"account_id": acct, "present": False, "status": None,
+                "status_age_hours": None, "status_freshness": "error",
                 "rule_distance": None}
 
 

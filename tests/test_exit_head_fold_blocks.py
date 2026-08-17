@@ -129,3 +129,106 @@ def test_both_modes_stay_available(mode):
     it would make the old verdicts unreproducible, which is what makes the
     re-run comparable rather than merely newer."""
     assert _mod().fold_blocks(_low_frequency_pool(), mode, 50, _entry) is not None
+
+
+# ---------------------------------------------------------------------------
+# Hindsight-free tau selection (`_select_tau_holdout`), added 2026-08-13.
+#
+# WHY THIS EXISTS. Every other number a fold reports is max-over-arms, which is
+# the same selection the gate makes and is HINDSIGHT — the arm is chosen using
+# the outcome it is about to be graded on. Measured over 514 folds (relay
+# #9077): best-arm gives the fleet +1.217R with 70.2% of folds positive, while
+# a causal rule gives -0.341R and 54.1%. The edge WAS the selection.
+#
+# So the property under test is not "does it pick a good tau" — it is that the
+# selection never sees the test block, and that being UNABLE to select is a
+# state of its own rather than a quiet fallback to the hindsight figure.
+# ---------------------------------------------------------------------------
+
+class _Args:
+    def __init__(self, min_fold_trades):
+        self.min_fold_trades = min_fold_trades
+
+
+def _linear_trades(n, start_t, step, bars_per_trade=3):
+    """n trades, one every `step` seconds, each `bars_per_trade` bars long."""
+    out = {}
+    for i in range(n):
+        t0 = start_t + i * step
+        out[f"t{i}"] = [
+            {"bar_t": t0 + j * 60, "final_r": 1.0 if i % 2 else -1.0}
+            for j in range(bars_per_trade)
+        ]
+    return out
+
+
+def test_a_thin_training_window_REFUSES_to_select_rather_than_falling_back():
+    """`no_validation_block` must be reachable and must carry tau=None.
+
+    This is the collapsed-state property. If "could not select" resolved to
+    anything other than None, a consumer reading `selected_tau` would silently
+    get the best-arm hindsight value back under an honest-looking key — which
+    is precisely the number this whole mechanism exists to stop reporting.
+    """
+    m = _mod()
+    # 5 trades total against a 50-trade validation block: nothing to carve.
+    trades = _linear_trades(5, 1_600_000_000, 86400)
+    y0 = 1_600_000_000 + 100 * 86400
+    got = m._select_tau_holdout(trades, y0, _Args(50), 60, _entry)
+    assert got["state"] == "no_validation_block"
+    assert got["tau"] is None, (
+        "a refusal must not carry a tau — falling back to best-arm here would "
+        "reintroduce the hindsight the selection exists to remove")
+
+
+def test_the_validation_block_is_held_to_the_SAME_bar_as_a_test_block():
+    """`--min-fold-trades` governs the validation block too.
+
+    Picking tau on a block smaller than we would accept as a test fold means
+    selecting on evidence already declared too thin to grade with. Raising the
+    floor must therefore be able to turn a selectable window unselectable.
+    """
+    m = _mod()
+    trades = _linear_trades(60, 1_600_000_000, 86400)
+    y0 = 1_600_000_000 + 200 * 86400
+    lax = m._select_tau_holdout(trades, y0, _Args(10), 60, _entry)
+    strict = m._select_tau_holdout(trades, y0, _Args(500), 60, _entry)
+    assert strict["state"] == "no_validation_block"
+    # The lax call may still refuse for want of fit ROWS, but it must not
+    # refuse for a REASON the strict call would not also have hit.
+    assert lax["n_val"] >= strict["n_val"]
+
+
+def test_adding_trades_AFTER_the_boundary_cannot_change_the_selection():
+    """The leakage invariant, asserted THROUGH the selector's own return.
+
+    An earlier version of this test recomputed the `y0 - EMBARGO_S` cutoff on
+    the fixture and asserted the arithmetic. That passed with the selector
+    deleted — it exercised nothing. The property that actually matters is
+    behavioural: post-boundary trades are invisible, so appending any number of
+    them must leave the answer bit-identical.
+    """
+    m = _mod()
+    step = 86400
+    start = 1_600_000_000
+    base = _linear_trades(80, start, step)
+    y0 = start + 40 * step
+
+    # Same window, plus 40 more trades entirely on the TEST side of y0.
+    polluted = dict(base)
+    polluted.update({f"post{i}": b for i, b in
+                     enumerate(_linear_trades(40, y0 + step, step).values())})
+    assert len(polluted) == len(base) + 40
+
+    a = _Args(10)
+    clean = m._select_tau_holdout(base, y0, a, 60, _entry)
+    dirty = m._select_tau_holdout(polluted, y0, a, 60, _entry)
+    assert clean == dirty, (
+        "trades at or after the test boundary changed the selection — the "
+        "validation carve is leaking the block it is supposed to be blind to")
+
+    # And the fixture must genuinely straddle the boundary, or the equality
+    # above is vacuous.
+    eligible = {tk: b for tk, b in polluted.items()
+                if b[-1]["bar_t"] < y0 - m.EMBARGO_S}
+    assert 0 < len(eligible) < len(polluted)

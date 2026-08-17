@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "research"))
 
 from m20_fleet_exit_sweep import (  # noqa: E402
-    FAMILY_HARNESS, base_args, classify, resolve_data)
+    FAMILY_HARNESS, base_args, classify, resolve_data, tp_geometry_for)
 
 
 def run(cmd: list[str], timeout: int = 1800) -> tuple[int, str]:
@@ -93,6 +93,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--db", default=None,
                     help="optional trade_journal.db for live validation")
     ap.add_argument("--min-fold-trades", type=int, default=50)
+    ap.add_argument("--tp-cap-pct", type=float, default=0.099,
+                    help="Take-profit cap as a fraction of entry price. "
+                         "DEFAULTS TO LIVE PARITY (0.099) — see the sibling "
+                         "flag on m21_entry_sweep.py for why 0.0 is not a safe "
+                         "default on this fleet.")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args(argv[1:])
 
@@ -122,7 +127,9 @@ def main(argv: list[str]) -> int:
         groups.setdefault((fam, tf), []).append(
             {"leg": name, "symbol": sym, "tf": tf, "proxy": proxy,
              "data": data, "resample": resample,
-             "args": base_args(name, cfg, fam, data, resample)})
+             "args": base_args(name, cfg, fam, data, resample, a.tp_cap_pct),
+             "tp_geometry": tp_geometry_for({fam}, a.tp_cap_pct),
+             "tp_cap_pct": a.tp_cap_pct})
     for legs in groups.values():
         legs.sort(key=lambda p: (p["leg"] not in prio, p["leg"]))
 

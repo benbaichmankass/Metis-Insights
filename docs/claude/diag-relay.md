@@ -173,6 +173,55 @@ Rule of thumb: before opening a diag-relay issue, ask "could this be one
 instead of N single-path issues?" If yes, batch it. See the `diag-data`
 skill for the same guidance framed as the default recommended pattern.
 
+### Any non-trivial `cmd:` script MUST be base64'd (2026-08-13)
+
+**`cmd: |` is a YAML block scalar: it strips the block's common indentation
+but PRESERVES every line's relative indentation.** So a Python snippet written
+across multiple lines arrives at the interpreter indented, and dies on line 1:
+
+```
+File "<string>", line 2
+  import json, glob
+IndentationError: unexpected indent
+```
+
+A heredoc fails the same way for the same reason — the terminator (`PY`,
+`EOF`) is indented too, so it never terminates.
+
+One 2026-08-13 session hit this **four times** (#9063 heredoc, #9064, #9069,
+#9076) and "fixed" it three times by collapsing the script to a single
+physical line. That works and does not scale: a one-liner with nested
+comprehensions is unreviewable, and the fourth failure happened precisely
+because the analysis had outgrown one line.
+
+**The durable form — indentation-immune, arbitrarily long, and reviewable
+because the plaintext is in the issue body above it:**
+
+```
+cmd: |
+  cd /home/ubuntu/ict-trading-bot 2>/dev/null || cd ~; echo '<BASE64>' | base64 -d | python3 -
+```
+
+Build it with `base64 -w0 script.py` (the `-w0` matters — wrapped base64
+reintroduces newlines and the problem), and **`ast.parse` the script locally
+first**: a syntax error costs a full relay round-trip, and the base64 hides it
+from review. Paste the readable source into the issue body so the command
+stays auditable — the encoding is transport, not obfuscation.
+
+### Relay output is CAPPED, and a truncated result parses cleanly
+
+A GitHub comment maxes out around 65 KB, and the relay appends a
+`... (truncated)` marker rather than failing. **A truncated JSONL/line-oriented
+payload still parses** — #9071 returned 241 well-formed rows of a longer set,
+and nothing about those rows says they are partial. Computing a statistic over
+them would have been a silent unasserted-denominator error (sub-class **C** in
+CLAUDE.md § "Diagnostic provenance").
+
+Two habits: **grep the payload for `truncated` before using it**, and prefer
+**aggregating on the trainer** — send the arithmetic to the data and return
+summary rows, rather than returning raw rows and summarising locally. The
+second is what makes the cap a non-issue instead of a trap.
+
 ## TL;DR — fetching diag data from a sandbox session
 
 **Default pattern — batch every path you'll need into ONE issue** (added

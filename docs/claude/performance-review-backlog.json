@@ -32,6 +32,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 (recurring): real-money (bybit_2, the only actively-live real account) had a losing week (-$13.83, PF 0.15, 1/7). No ready-for-live challenger portfolio beats the incumbent this window; benchmark carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Recurring by design — its own resolution_criteria says it is never closed by a single run. This run's re-validation is docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 3-5, which benchmarks the candidate book against the incumbent on measured provenance: alpaca_portfolio 16 rows / 0.750 coverage / zero fabricated / +$2,656.48 vs bybit_2 27 rows / 0.852 coverage / -$28.97, with the real-money surface confirmed as one Bybit account holding $279.89. — Verdict THIS run: the candidate does NOT yet beat the incumbent on a defensible basis — not because it loses, but because 16 closed trades cannot support a funding decision for 16 strategies, and the packet's own finding is that the mirror may never accrue evidence fast enough. Incumbent stays; alpaca_live stays shelved. Trigger for the next run: re-benchmark on each /performance-review; retire the row only if the operator drops the real-money-allocation gate."
         }
       ]
     },
@@ -121,8 +126,14 @@
           "at": "2026-07-26T09:56:02+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
           "note": "OPERATOR APPROVED 2026-07-26: BUILD IBKR equity/ETF (STK) contract support so the Alpaca ETF strategies can also route to ib_paper. Tier-3 live-order-path (new IBClient STK branch) — build + test, operator approves the final diff before deploy. Queued as its own PR. Kept open until built."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: SUBSTANTIALLY BUILT since filing: src/units/accounts/ib_client.py:1057 _build_contract now carries an equity branch constructing Stock(...) with SMART routing and a primaryExchange hint (line 1100), tests/test_ib_instruments.py covers it, and four ETF strategies are already routed to ib_paper (config/accounts.yaml::ib_paper.strategies = spy_trend_long_1d, qqq_trend_long_1d, iwm_trend_long_1d, tlt_pullback_1d). What is missing is the verification half. — Downgrade, do not close: the build item is done, the evidence item is not. Trigger: (a) at least one real ib_paper ETF paper fill journaled end-to-end for one of the four routed cells, and (b) an account_compat_matrix artifact scoring ib_paper for the ETF family — no such artifact exists on disk (only the 2026-06-17 SOLUSDT set). Both are Tier-1 verification; the eventual IBKR real-money ETF route stays Tier-3."
         }
-      ]
+      ],
+      "severity": "low"
     },
     {
       "id": "PB-20260707-IB-METALS-NO-BACKTEST-DATA",
@@ -191,6 +202,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: tqqq_trend_long_1d and qld_trend_long_1d are on alpaca_paper only and are absent from alpaca_live's strategy list (config/accounts.yaml) — the operator's 'let them soak on paper' directive is still honored, no real-money exposure. The compat half is measurably NOT done: the only account_compat artifacts on disk are the 2026-06-17 SOLUSDT perp-validation set (runtime_logs/prop_eval/2026-06-17-perp-validation/solusdt_compat), a gap docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 4 independently reports for the whole ETF family. — Two-part trigger, both still open: (a) >=20-30 clean closed paper trades per cell tracking the backtest (TQQQ +13.8R / QLD +12.7R OOS), with explicit attention to overnight-gap behaviour that a 3x idealized-stop backtest cannot capture; (b) a CURRENT account_compat_matrix ROUTE verdict for alpaca_live via scripts/ops/etf_account_compat.sh. Any promotion is Tier-3. Part (b) is offline-runnable today and does not wait on (a)."
         }
       ]
     },
@@ -225,6 +241,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The stated trigger is UNREACHABLE AS WRITTEN: it requires >=20 real bybit_2 htf_pullback_trend_2h closed trades, but the strategy was demoted off bybit_2 on 2026-07-15 and config/accounts.yaml::bybit_2.strategies no longer lists it — so no real-money row can ever accrue while the demotion stands. The contamination finding itself (June-7 mass reconciliation, 12 concurrent positions swept at one price) remains correct and is the reason the bybit_1 stats must not be read as edge. — Kept open as a standing DO-NOT-JUDGE-ON caveat, but its trigger must be re-scoped or the row merged. Recommend folding it into PRB-20260716-HTF-CROSSBOOK-NEG, which already watches the same strategy on the bybit_1 paper book with a live threshold (>45% over >=15 fresh trades = re-promote candidate; <25% = propose KILL) — that trigger CAN fire. Two rows tracking one strategy with one unreachable trigger between them is exactly the backlog noise the governance rules target."
         }
       ]
     },
@@ -312,7 +333,7 @@
       "tier": 2,
       "trigger_condition": "A performance-review window includes bybit_2 BTCUSDT history, or a data-integrity pass investigates the unreconciled orphan canonicals, or the operator asks why bybit_2 lifetime PnL still looks off.",
       "resolution_criteria": "Each of the 26 unreconciled canonicals is either reconciled+PnL-corrected against its order package/exec history, accepted as best-available with a note, or void-flagged as phantom with evidence — and the item is closed with the disposition recorded.",
-      "status": "kept_open",
+      "status": "resolved_refuted",
       "snoozed_until": null,
       "updates": [
         {
@@ -337,11 +358,29 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Run ONE disposition pass over the 26 reconcile_status='unreconciled' bybit_2 canonicals — reconcile against the order package where possible, else mark fabricated/superseded with evidence — and record the per-row outcome. The machinery now exists (reconcile_status is an explicit queryable terminal state; superseded rows already excluded; provenance.classify_pnl grades each row). Tier 2: money-DB writeback, operator OK on the exact update, back up first, verify counts before/after."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The row's own next_action states Tier 2 (money-DB writeback). The machinery it was waiting on now exists: reconcile_status is an explicit queryable terminal state with 'superseded' already excluded from analytics, and src/runtime/provenance.py::classify_pnl grades each row measured/estimated/fabricated/unverified (CLAUDE.md, Number provenance). No disposition pass has been recorded. — Tier-3/Tier-2 gate: proposed change is a bounded UPDATE over exactly the 26 reconcile_status='unreconciled' bybit_2 canonicals (ids incl. 11,27,54,99,219,243,990,1336) — for each, reconcile against its order package where one matches within tolerance, else set reconcile_status='superseded' with the classify_pnl grade recorded as evidence — preceded by a DB backup and with before/after row counts and /performance totals verified. Needs one operator OK on the exact statement before it runs, because it mutates the money DB and moves reported lifetime PnL."
+        },
+        {
+          "at": "2026-08-16T11:15:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "2026-08-16 (sysrev-0816): MEASURED THE POPULATION BEFORE ACTIONING IT, AND THE PREMISE DOES NOT HOLD. This row says '26 unreconciled bybit_2 orphan canonicals still carry possibly-phantom PnL that counts in analytics'. Read live via /api/bot/db/table/trades?filter_col=reconcile_status&filter_op=eq&filter_val=unreconciled&limit=200&order_by=id (relay #9657), with filter_state ASSERTED as `applied` and total 27 == rows returned 27 (the BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN caveat satisfied, not assumed).\n\nWHAT THE 27 ROWS ACTUALLY ARE:\n  - population is 27, not 26; ids 10,11,24,27,54,99,162,219,243,309,546,570,600,990,1000,1146,1253,1285,1287,1320,1334,1336,1454,2540,2575,2835,4161.\n  - by account: bybit_2 23, ib_paper 3, bybit_1 1 -- so it is not '26 bybit_2 rows' either.\n  - by status: orphaned 16, closed 11. is_backtest 0 for all 27.\n  - **21 of the 27 carry `pnl` NULL.** A NULL cannot contribute to a SUM, so those 21 contaminate no aggregate anywhere, by construction.\n  - only 6 carry a non-null pnl, summing **-18.2916** in total.\n\nTHE REAL-MONEY EXPOSURE IS FOUR ROWS TOTALLING -$0.359: id 1287 -0.63917382, id 1320 +0.20254788, id 1334 +0.3402, id 1336 -0.2632 (all bybit_2 BTCUSDT, all status closed). The remaining two non-null rows are NOT real money and are already excluded from the real-money aggregates by account_class: id 2835 (ib_paper MHG, -17.91 -- the single largest figure in the whole set, and it is PAPER) and id 4161 (bybit_1 LTCUSDT, -0.022).\n\nSO THE APPROVED CHANGE IS ESSENTIALLY A NO-OP. Excluding all 27 from /stats, /performance and /pnl would move the real-money headline by +$0.359. That does not justify a money-DB writeback on a live trading system, and it is not the defect this row describes.\n\nWHAT I HAVE **NOT** ESTABLISHED, stated because it bounds the conclusion: whether those four rows are even INCLUDED in the aggregates today. The 16 orphaned rows are very likely already excluded by status (CLAUDE.md records that /api/pnl's trades_today excludes `orphaned`, and /trades/closed filters to closed), and the canonical aggregates apply exclude_reconciler / exclude_superseded predicates I did not evaluate against these specific ids. If those four are already excluded, the exposure is exactly $0 and the row is fully refuted; if they are not, it is $0.359. Either way it is not a 26-row phantom-PnL contamination.\n\nPROPOSED DISPOSITION (operator's call, and I did NOT act): re-scope this row from 'exclude phantom PnL' to 'confirm the four bybit_2 closed rows are excluded, then close', or close it `resolved_refuted` with these numbers stated. The Tier-2 writeback the row asks for should NOT be run on this evidence. checked: /api/bot/db/table/trades (relay #9657), /api/bot/pnl/broker-truth?account_id=bybit_2 (relay #9655), docs/claude/performance-review-backlog.json."
+        },
+        {
+          "at": "2026-08-16T11:25:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "2026-08-16 FINAL — REFUTED, EXPOSURE IS EXACTLY $0. Operator approved confirming-then-closing. The remaining question from the earlier note was whether the 4 real-money non-null-pnl rows are ALREADY excluded by the canonical predicates. They are, and the field that decides it is `strategy_name`, not `setup_type`: `_clean_trades.exclude_reconciler_predicate` emits `AND COALESCE(strategy_name,'') NOT IN ('orphan_adopt')` (RECONCILER_PSEUDO_STRATEGIES). ALL SIX non-null-pnl rows in the population carry `strategy_name='orphan_adopt'` — ids 1287, 1320, 1334, 1336 (bybit_2 real_money), 2835 (ib_paper), 4161 (bybit_1). So every one is dropped before any aggregate sees it.\n\nAND THE PREDICATE IS APPLIED BY EVERY CONSUMER THIS ROW NAMES: /performance (routers/performance.py:61-64 imports it, line 164 binds `_EXCLUDE_RECONCILER`), /stats (dashboard.py), /api/pnl (pnl.py), /api/pnl/history (pnl_history.py), plus attribution.py and strategies.py. Verified by reading the imports, not inferred from the docstring.\n\nSO THE FULL CHAIN IS: 27 rows total -> 21 carry pnl NULL (cannot contribute to a SUM by construction) -> 6 carry a pnl -> all 6 are orphan_adopt -> all 6 excluded by a predicate every named consumer applies. Net contamination of /stats, /performance and /pnl: **$0.00**. The Tier-2 money-DB writeback this row asks for would change nothing and was NOT run.\n\nWHAT WAS ACTUALLY TRUE WHEN THIS ROW WAS OPENED (2026-06-25) is not re-litigated here — `reconcile_status` became an explicit terminal state and the `orphan_adopt` exclusion landed after it, so the row was plausibly correct when filed and was overtaken by those fixes. Closing it `resolved_refuted` records the measurement, not a criticism of the filing. checked: src/web/api/_clean_trades.py (lines 34-40 the constant, 66-73 the predicate), src/web/api/routers/performance.py, /api/bot/db/table/trades (relay #9657, filter_state `applied`, total 27 == 27 rows)."
         }
       ],
       "severity": "medium",
       "disposition": "do_now",
-      "next_action": "Run ONE disposition pass over the 26 reconcile_status='unreconciled' bybit_2 canonicals — reconcile against the order package where possible, else mark fabricated/superseded with evidence — and record the per-row outcome. The machinery now exists (reconcile_status is an explicit queryable terminal state; superseded rows already excluded; provenance.classify_pnl grades each row). Tier 2: money-DB writeback, operator OK on the exact update, back up first, verify counts before/after."
+      "next_action": "Run ONE disposition pass over the 26 reconcile_status='unreconciled' bybit_2 canonicals — reconcile against the order package where possible, else mark fabricated/superseded with evidence — and record the per-row outcome. The machinery now exists (reconcile_status is an explicit queryable terminal state; superseded rows already excluded; provenance.classify_pnl grades each row). Tier 2: money-DB writeback, operator OK on the exact update, back up first, verify counts before/after.",
+      "operator_action_required": true,
+      "resolved_at": "2026-08-16T11:25:00+00:00",
+      "resolved_by": "claude (sysrev-0816), operator-approved confirm-then-close"
     },
     {
       "id": "PB-20260625-001",
@@ -403,6 +442,11 @@
           "evidence_based": true,
           "note": "SNOOZED until 2026-10-01. checked: src/prop/prop_reconcile.py\nWHY IT IS BLOCKED (substantiated, not asserted): The read path EXISTS (checked: src/prop/prop_reconcile.py, plus GET /api/bot/prop/fills) and can be queried today — the count is simply below the criterion's >=10-20 closed ETH trades. Accrual is intrinsically slow because breakout_1 is a MANUAL BRIDGE with no broker feed: fills enter only via operator report-back, so nothing in a session can speed it up.\nTRIGGER: /api/bot/prop/fills shows >=10 closed ETH trades on breakout_1; compare realised vs the +$603/12mo EV projection and record keep/tune/drop per leg. breakout_1 is a manual-bridge account with no broker feed, so accrual is intrinsically slow and cannot be accelerated from a session.",
           "checked": "src/prop/prop_reconcile.py"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Both ETH prop legs are still routed to the prop account (config/accounts.yaml::breakout_1.strategies contains trend_donchian_eth, eth_pullback_prop_2h and trend_donchian_eth_prop), so the watch is still in force. breakout_1 is a manual bridge with no broker feed (CLAUDE.md, Prop-trading accounts), so both the swap confirmation and the PnL comparison depend on operator report-backs that have not landed. — Trigger unchanged and concrete: (1) an actual swap debit visible on a prop_account_status report-back or a prop fill (the whole gate rides on an unverified 0.033%/day help-centre figure vs a 0.058-0.10%/day break-even), and (2) >=10-20 closed prop ETH trades compared against the EV projection, with a per-leg keep/tune/drop recorded. Note the correlated-drawdown sub-question (two near-identical ETH legs plus SOL against a $150 daily-loss cap) is checkable NOW from config alone and is the cheapest half."
         }
       ],
       "severity": "medium",
@@ -449,6 +493,11 @@
           "evidence_based": true,
           "note": "SNOOZED until 2026-10-15. checked: config/accounts.yaml\nWHY IT IS BLOCKED (substantiated, not asserted): Not a tooling gap — an account-state one, and it is declared in config (checked: config/accounts.yaml, alpaca_live mode: dry_run, 'SHELVED to dry_run 2026-07-15, Tier-3 operator-directed'). tlt_pullback_1d therefore places no real-money order, so the in-sample TLT-only edge (17.60R -> 25.87R) has no live tape to be confirmed or refuted against.\nTRIGGER: alpaca_live re-armed to mode:live (itself gated on the /performance-review portfolio-vs-bybit benchmark named in the account's own comment), plus >=30 TLT closed trades. Criterion is 'once live data accrues' and live TLT data stopped accruing when alpaca_live was shelved 2026-07-15.",
           "checked": "config/accounts.yaml"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Both TLT legs still ship an unfiltered floor: config/strategies.yaml tlt_pullback_1d min_confidence: 0.0 (~line 1804) and tlt_pullback_1h min_confidence: 0.0 (line 1989), so the sleeve remains uniformly ungated and nothing has been changed on the in-sample +8R finding — which is the correct state for an n=49 single-symbol optimum. — Evidence-gated and correctly held. Trigger: >=20-30 closed tlt_pullback_1d rows on alpaca_paper allowing a low- vs high-confidence outcome split, OR a fresh out-of-sample min_confidence sweep confirming the 0.10 optimum is stable. Note the precedent set this month by slv_trend_1h (0.0 -> 0.3, PB-20260801) — a confidence floor IS a shippable shape here, so the only missing ingredient is out-of-sample evidence. Any floor change is Tier-3."
         }
       ],
       "severity": "low",
@@ -659,6 +708,11 @@
           "evidence_based": true,
           "note": "ATTEMPTED TWO WAYS, NOT SETTLED — but the attempt narrowed WHERE the answer lives, which is why this is not just a carry-forward.\n\n1. REPO SIDE — checked first, and it cannot answer the question. src/runtime/regime/vol_detector.py holds NO static edge table. It resolves vol_bucket_labels / vol_bucket_edges out of the REGISTRY regime specs at runtime (_SOURCE = 'vol-bucket-edges'), and adopts edges only from a head whose estimator matches rolling_log_return_vol. So the coverage set is a property of the LIVE REGISTRY, not of checked-in code, and no local enumeration is possible. That also means a head can exist for a pair and still contribute no usable edge — a THIRD state the row's binary framing (has-edges / lacks-edges) does not have a slot for, and which must not be folded into 'no head'.\n\n2. /api/bot/ml/registry (diag #8989) — INSUFFICIENT. The page truncated, and within what returned there were 5 distinct model_ids, ZERO occurrences of the key `vol_bucket_edges`, and zero regime heads. I am NOT reading that as 'no head carries edges': the absence is equally explained by the endpoint not exposing model_state at all, which I did not verify. A zero over an unestablished denominator is not a finding.\n\nSeverity stays LOW and this is explicitly NOT worth more relay round-trips against the higher-value rows in flight — recording the narrowing so the next session starts from the right surface instead of repeating both dead ends.",
           "next_check": "Confirm FIRST whether /api/bot/ml/registry exposes model_state.vol_bucket_edges at all (read the router, not the payload). If it does not, this needs the trainer-vm-diag relay against the registry directly — not the live-VM diag API. Then enumerate three states, not two: head-with-usable-edges / head-without-usable-edges / no-head, and state the per-SYMBOL advisory set separately since ml_vol_regime_for_symbol has a deliberately different coverage shape."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: No vol_bucket edge-coverage audit exists: docs/audits/ has no such doc and grep for vol_bucket across docs/audits returns only s-audit-g/SUMMARY.md and the 2026-06-09 shadow-promotion doc. config/regime_coverage_exemptions.yaml records the adjacent fact per-strategy ('no live regime head is trained for SOLUSDT ... a cell would resolve vol_regime=unknown and silently never fire'), and docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md sec A3 confirms the six 2-D trend_vol cells remain unauditable for exactly this reason. — Bounded Tier-1 audit, not a research question. Trigger that ends it: a committed docs/audits/vol-bucket-coverage-<date>.md enumerating which (symbol, timeframe) pairs carry frozen vol_bucket edges vs which do not, stating which absences are intentional, and noting that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so its coverage shape differs from the frozen detector's."
         }
       ],
       "severity": "low",
@@ -1361,6 +1415,11 @@
           "next_check": "Use /api/bot/performance perStrategy for eth_pullback_2h and read totalPnlMeasured + pnlCoverage + pnlEstimatedCount TOGETHER, not raw totalPnl. If coverage is near zero the honest disposition is that the soak cannot grade this leg yet — which is itself a decidable outcome.",
           "at": "2026-08-13T10:05:00+00:00",
           "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run. checked: docs/research/RESEARCH-CAPABILITY-INDEX.md, src/web/api/routers/performance.py, src/web/api/routers/attribution.py — the capability index was consulted for an existing paged-pull tool (none covers this) and BOTH aggregate routes were read and then queried live via the vm-diag-snapshot relay (issue #9605). This is NOT an untested impossibility claim.\nMEASURED, real-money population (performance.py serves the top-level block real-money-only; paper rides the separate `demo` sub-block): eth_pullback_2h n=6 over 30d, win rate 16.7%, totalPnl -$17.3673, totalPnlMeasured -$17.3673, pnlCoverage 0.833, expectancyR -0.6635. Lifetime real money via attribution.py: 11 closed, 36.4% WR, -$15.16 — so the 30d loss EXCEEDS the lifetime total, and this ONE leg is 90.3% of the entire 30-day real-money loss (-$19.2256 over 19 trades). Routing confirmed against the field (config/accounts.yaml + the real-money-only attribution endpoint), not a comment.\nWHAT IS STILL NOT MEASURED, stated so the row is not read as closed: the full PAPER soak population on bybit_1 since 2026-06-11T16:20Z — the 2026-08-13 attempt returned 13,750 of 182,427 bytes, an unstated-denominator page rather than a measurement. That is a TOOL limitation (the relay's ~55 kB comment budget), NOT accrual: the rows exist. Trigger: one clean paged pull of that population, or the M7 review packet for this leg (never generated)."
         }
       ],
       "tier": 1,
@@ -1456,6 +1515,11 @@
           "next_check": "Compare SUM(position_size) of open ib_paper journal rows per symbol against broker 105 MGC / 15 MES. Reconciles ⇒ close; diverges ⇒ that divergence is the real row.",
           "at": "2026-08-13T10:05:00+00:00",
           "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The 2026-08-13 broker-truth read (/api/diag/exchange_positions?account_id=ib_paper, complete, error:null) returned MGC long 105.0 and MES long 15.0 and NOTHING ELSE — there is no MHG (micro copper) position on ib_paper at all, which answers the original question. Note the 2026-08-13 update text itself mis-transcribes the row's subject as 'the stray THREE-contract MGC position'; this row is about MHG (trade #2539, mhg_pullback_1d), and MGC/MES are different instruments. — CORRECTION worth more than the disposition: the MHG/MGC transcription error made an answerable question look unanswerable-because-netted. Half (1) of the resolution ('the position closes cleanly, churn stops') is positively evidenced — no MHG at the broker. Half (2) (the next adopted-orphan row records symbol=MHG, entry 6.396) is unverified. Trigger: one journal read of ib_paper adopted_orphan rows for MHG confirming symbol/entry recording; the separate MGC/MES journal-vs-broker sum divergence the 08-13 note raised is the netting-divergence track and belongs in its own row, not here."
         }
       ],
       "tier": 1,
@@ -1861,11 +1925,32 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Pull bybit_2 eth_pullback_2h closed trades plus the ADX-gate rejection rows from the audit log and record the real-money read. Filed the evening the cell went live because the market was quiet; 56 days later that is no longer true, and this is a REAL-MONEY cell under watch — leaving it unreviewed is what this item exists to prevent. Review is Tier-1 read-only; any parameter change is the Tier-3 half."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: eth_pullback_2h is still routed to bybit_2 (REAL MONEY) per config/accounts.yaml::bybit_2.strategies. The ADX half of this row is already answered by its own 2026-07-20 measurement (every actionable entry fired at regime=trending, ADX 25-32; adx_min:25 provably blocks below 25) plus the 5y ADX-floor grid showing both legs +EV at the live floor. The real-money PnL half has never been read. — This is a REAL-MONEY cell under watch and the review it exists to force has not happened in 59 days — that is the risk, not the parameter. Trigger: pull bybit_2 eth_pullback_2h closed rows with provenance stated and record the real-money read (keep/tune/drop). Any ADX-floor change (the grid suggests ADA improves at 28 while XRP degrades) is the Tier-3 half and needs the operator; the read itself is Tier-1."
+        },
+        {
+          "at": "2026-08-16T09:06:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "MEASURED THIS RUN — the PnL half of this row is no longer unmeasured. Population: /api/bot/performance?window=30d TOP-LEVEL block (real-money only; paper rides the separate `demo` sub-block and is never blended). eth_pullback_2h REAL MONEY: n=6, win rate 16.7%, totalPnl -$17.3673, totalPnlMeasured -$17.3673, pnlCoverage 0.833 (5 of 6 MEASURED+ESTIMATED), expectancyR -0.6635, totalR -3.981. The 30d real-money book is -$19.2256 over 19 trades, so this ONE leg is 90.3% of the entire 30-day real-money loss — the largest single real-money bleeder by an order of magnitude (next worst: trend_donchian_xrp_4h at -$1.85). Lifetime real money (/api/bot/strategy/attribution): 11 closed, 36.4% WR, -$15.16 — so the 30d loss EXCEEDS the lifetime total, i.e. the leg was net positive before this window and has given all of it back plus more. Routing CONFIRMED against the field, not a comment: /api/bot/config + the attribution endpoint (real-money-only by contract) both place it on bybit_2. ⚠️ STATE THE POPULATION: n=6 (30d) / n=11 (lifetime) is a THIN sample and this is a flag with a number attached, NOT a walk-forward — the Tier-3 demote/kill decision needs the M7 review packet, which has still never been generated for this leg. What changed is that the row's stated blocker ('the PnL half is unmeasured') is now false; the remaining blocker is the packet + an operator decision."
+        },
+        {
+          "at": "2026-08-16T10:10:00+00:00",
+          "by": "claude (sysrev-0816, operator decision in-conversation)",
+          "note": "OPERATOR DECISION 2026-08-16 (in-conversation): KEEP LIVE ON REAL MONEY, wait for n>=20. The M7 packet was GENERATED this session (the row's 59-day blocker) and returned action=hold with the explicit reason 'insufficient evidence (n_closed=11 < 20) — no KILL/DEMOTE fires at very low n'. READ THAT AS HOLD-BY-FLOOR, NOT HOLD-ON-MERIT: the matrix DECLINED to judge, it did not clear the leg. Packet headline (90d window 2026-05-18 -> 2026-08-16): n_decisions 92, n_filled 11, n_closed 11, fill_rate 12.0%, win_rate 36.4%, pnl_total -15.16, expectancy -1.3782, max_drawdown -25.74. All 11 closes sit in the `trending` cell; chop (19 decisions) and transitional (5) produced ZERO closes; every cell's policy reads `unknown` (no regime cell authored). Execution is NOT the problem: entry slippage -0.97bps (favourable), dispatch latency 1.88s. CAVEAT ON THE POPULATION: strategy_review_packet.py applies NO account filter, yet its headline reconciles EXACTLY with /api/bot/strategy/attribution, which is real-money-only by contract (11 closed / 36.4% / -15.16). So the verdict is effectively about the real-money book; whether paper closes would count toward n=20 is UNVERIFIED and must be checked before anyone proposes a paper-only routing to accrue evidence. COST OF THE DECISION, stated: ~1 close per 8 days x -$1.3782 expectancy = roughly -$5/month for the ~2.5 months to n=20. TRIGGER: n_closed >= 20, then re-run generate-strategy-review-packets and let the matrix fire a real verdict. NEW FINDING from the packet, tracked separately below: fill_rate is 12.0% — 81 of 92 decisions never became a trade."
         }
       ],
-      "severity": "medium",
+      "severity": "high",
       "disposition": "do_now",
-      "next_action": "Pull bybit_2 eth_pullback_2h closed trades plus the ADX-gate rejection rows from the audit log and record the real-money read. Filed the evening the cell went live because the market was quiet; 56 days later that is no longer true, and this is a REAL-MONEY cell under watch — leaving it unreviewed is what this item exists to prevent. Review is Tier-1 read-only; any parameter change is the Tier-3 half."
+      "next_action": "Pull bybit_2 eth_pullback_2h closed trades plus the ADX-gate rejection rows from the audit log and record the real-money read. Filed the evening the cell went live because the market was quiet; 56 days later that is no longer true, and this is a REAL-MONEY cell under watch — leaving it unreviewed is what this item exists to prevent. Review is Tier-1 read-only; any parameter change is the Tier-3 half.",
+      "operator_action_required": false,
+      "operator_decision": {
+        "at": "2026-08-16T10:10:00+00:00",
+        "decision": "keep live on real money; wait for n_closed>=20",
+        "decided_by": "operator"
+      }
     },
     {
       "id": "PB-20260620-001",
@@ -1884,7 +1969,7 @@
       "tier": 1,
       "trigger_condition": "Next /performance-review whose window includes a US RTH session with alpaca_paper ETF activity.",
       "resolution_criteria": "At least one intraday ETF cell shows a clean closed-1h-bar entry + bracket fill on alpaca_paper in the journal, with the intraday exit cadence behaving as designed. If entries fire mid-bar or the trail/exit misbehaves, escalate the specific defect to the health-review backlog.",
-      "status": "partially-resolved",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -1923,6 +2008,11 @@
           "next_check": "Confirm broker-side bracket for a filled alpaca_paper ETF row via AlpacaClient.has_protective_orders / diag exchange_positions, OR find a row carrying non-null sl_order_id/tp_order_id. Either closes it.",
           "at": "2026-08-13T10:05:00+00:00",
           "by": "claude (full-system-audit + system-review 2026-08-13), diag #8986"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: All six intraday ETF cells are still routed and live on alpaca_paper (config/accounts.yaml::alpaca_paper.strategies contains gld_pullback_1h, slv_trend_1h, spy_pullback_1h, qqq_pullback_1h, tlt_pullback_1h, uso_trend_1h), so ~57 days of US RTH sessions have passed. docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 3 measures alpaca_paper at 20 closed rows in 30d, so the account fills — but it does not break those rows out by cell, so the three specific checks (closed-1h-bar entry, intraday trail cadence, bracket fill) remain unverified. — Cheap and binary once a journal read is available. Trigger: /api/bot/trades/closed?account_id=alpaca_paper&include_paper=true filtered to the six _1h cells — at least one clean closed-1h-bar entry with a bracket fill closes it; a mid-bar entry or a misbehaving intraday trail is the defect this row exists to catch and escalates to the health backlog."
         }
       ],
       "severity": "low",
@@ -1969,6 +2059,11 @@
           "evidence_based": true,
           "note": "SNOOZED until 2026-11-13. checked: scripts/backtest_funding_carry.py\nWHY IT IS BLOCKED (substantiated, not asserted): The harness EXISTS and has been run (checked: scripts/backtest_funding_carry.py; the funding feed is scripts/ml/fetch_funding_oi.py + scripts/pull_exchange_funding.py) — so the earlier phrasing 'cannot be produced from a session' was WRONG and is corrected here. Re-running it today is entirely possible and would simply re-measure a decayed edge. What cannot be produced from a session is the elevated-funding MARKET REGIME the edge needs; that is a property of the market, not of our tooling.\nTRIGGER: Perp funding z-score sustains an elevated regime (the M28 crypto-funding feature already computes funding z/extremes), then re-run scripts/backtest_funding_carry.py. Regime-dependent by nature — the 2023-24 edge decayed by 2025-26 and no work makes it actionable while funding is compressed.",
           "checked": "scripts/backtest_funding_carry.py"
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: No funding-carry cell exists anywhere in the live config (no carry key in config/strategies.yaml; config/pairs.yaml carries only the four cointegration pairs), so the sleeve is still dormant as filed. The sibling row PB-20260715-MAKER-CARRY independently measured that funding compressed post-2024 (OOS 2025-01+ maker net ETH +0.40R, SOL +0.07R, BNB -0.61R), which re-confirms the dormancy rather than lifting it. — Regime-gated, correctly parked. The gap is that NOTHING WATCHES THE TRIGGER: there is no funding monitor, so 'when funding elevates' cannot fire on its own. Concrete trigger: either a cheap Tier-1 funding-rate tracker that alerts when perp funding returns to the 2023-24 band, or a scheduled re-run of scripts/backtest_funding_carry.py on a fresh window. Merge-candidate with PB-20260715-MAKER-CARRY — the two rows share one trigger."
         }
       ],
       "severity": "low",
@@ -2255,6 +2350,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: low fill rates persist — htf_pullback_trend_2h + several ict_scalp/pullback packages graded this window closed as 'never filled' (reconciler_filled/exchange_flat_reconciled). Fill-rate investigation still open."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: No fill-rate root-cause artifact exists: grep for 'fill rate'/'fill-rate' across docs/research/*.md and docs/audits/*.md returns only three unrelated docs (roadmap-toolbox-assessment, small-tf-directions, trend-donchian-live-anomaly-rootcause). The 2026-07-26 update independently confirms the pattern persists (packages closing as never-filled / exchange_flat_reconciled). — Still the actionable signal on these two cells, and it is a diagnosis, not a decision. Trigger: a decisions-vs-fills breakdown from the audit log for squeeze_breakout_4h and htf_pullback_trend_2h — partitioning the 84/55 decisions into risk/sizing refusals, regime-gate drops, netting-guard suppressions, and placed-but-never-filled — that names the dominant cause. Tier-1 read; needs live audit-log access. NOTE the overlap with PB-20260630-001 and PRB-20260716, which cover the same strategy from the PnL side."
         }
       ]
     },
@@ -2287,6 +2387,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The whole ETH book is still routed as filed — trend_donchian_eth and trend_donchian_eth_4h and eth_pullback_2h on bybit_1, with eth_pullback_2h and trend_donchian_eth_4h also on bybit_2 (config/accounts.yaml) — and the backtest anchor the re-run must cite, docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md, is on disk. No M7 packet re-dispatch has been recorded. — Correctly held: the row's own rule is that the M7 low-n HOLD stands until live n accrues, and acting on the backtest alone (3/4 ungated folds net-negative) is explicitly forbidden by the row. Trigger: >=20 closed trades combined across the three ETH strategies, or any single strategy >=10 closed, then re-dispatch generate-strategy-review-packets with the 2026-07-06 backtest_anchor. Expected outcome if the shape confirms is a Tier-3 demote_shadow proposal for trend_donchian_eth."
         }
       ]
     },
@@ -2321,6 +2426,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Still one in-sample window only: docs/research/ib-intraday-shortlist-backtest-2026-07-07.md is the sole artifact mentioning mgc_pullback_1h, there is no walk-forward findings doc dated after 2026-07-07, and no mgc_pullback_1h key exists in config/strategies.yaml — so nothing was wired on the single-window result, which is correct. — Blocked on a run that has not happened, not on data. Per the operator's 2026-08-11 fast-gate correction this is offline-runnable NOW on a free GitHub runner (research_sweep -> m15_ws_b_fold_report -> classify_strategy_tier at >=2x fees, plus scripts/prop/account_compat_matrix.py for ib_paper). Trigger: that walk-forward lands as a committed findings doc with a PASS or REJECT verdict; a PASS makes the cell a Tier-3 proposal, a REJECT closes this row."
         }
       ]
     },
@@ -2355,6 +2465,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: STALE PREMISE, corrected: the row says 'mgc_trend_1h stays shadow ... No strategies.yaml change until resolved', but config/strategies.yaml:1577-1597 has mgc_trend_1h enabled: true with execution: live on ib_paper, wired as a paper soak (the block's STATUS comment at :1592 says so explicitly). The structural question itself is genuinely un-run: no matched-session GC=F/spot re-pull artifact exists (docs/research/mgc-trend-1h-walkforward-2026-07-07.md is the pre-existing walk-forward, not the re-pull). — Kept open for the structural question only; the 'stays shadow' framing was overtaken by a paper-only wiring (no real money, so no violation of substance, but the row must stop asserting a state the config contradicts — field beats comment). Trigger: a committed matched-session comparison re-pulling GC=F and XAUUSD 1h on the native window bounds under a common session mask, identifying whether the divergence reconciles (native trustworthy) or persists (micro-contract tape is the edge, needing a paper soak rather than a backtest). Real-money promotion stays Tier-3."
         }
       ]
     },
@@ -2388,6 +2503,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: No native per-contract MES shard or re-backtest artifact exists — MES per-contract history appears only in the pre-filing docs (docs/research/ib-intraday-shortlist-backtest-2026-07-07.md, ib-intraday-strategy-survey-2026-07-07.md) and in passing in docs/research/m20-what-remains-2026-08-13.md, and data/ holds no MES shard. Independently, M27 Batch-2 rejected the futures scalp family at 5m AND 15m on genuine liquidity grounds (ROADMAP.md:114), which lowers the prior on this lead. — Tier-1 research, offline-runnable, nobody has run it. Trigger: a per-contract MES pull (PULL_PER_CONTRACT via pull-ibkr-history) -> build_continuous_contract.py -> re-run of the MES pullback 1h and fvg 15m cells on 3y+, with the verdict recorded. Consider explicitly de-prioritising against M27 Batch-2's futures rejection rather than carrying it indefinitely — a documented 'not worth the pull' also closes it."
         }
       ]
     },
@@ -2422,6 +2542,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: SPLG and IAUM are routed on both alpaca_paper and alpaca_live, but alpaca_live is mode: dry_run with a $0.10 balance (config/accounts.yaml; docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md sec 2), so the promotion has not happened. That packet measured the blocking conditions on 2026-08-14: alpaca_portfolio has only 16 closed trades in 30d against 16 routed strategies, the alpaca balance()-returns-None fault is unresolved, the venue-max clamp has not landed, and NO current ETF account_compat artifact exists. — Evidence gate not met — sample, not coverage (alpaca_portfolio reads 0.750 coverage with ZERO fabricated rows, so the record is trustworthy, just thin). Trigger: enough resolved alpaca_portfolio trades for a 16-strategy read plus a current compat ROUTE verdict, then the Tier-3 sizing proposal. Worth surfacing to the operator meanwhile: the packet's sec 5 identifies funding alpaca_live nominally while LEAVING mode: dry_run as the cheapest honest step — it converts 120 zero_balance refusals/30d into observable decisions at no tier flip and no capital at risk."
         }
       ]
     },
@@ -2472,6 +2597,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        "2026-08-14 (M20 overnight session) — CROSS-LINK; this row's own scope is unchanged. TWO M20 COVERAGE CELLS ARE GATED ON THIS EVALUATION: trend_donchian_sol_prop / exit_ladder and trend_donchian_eth_prop / exit_ladder are `pending` and CANNOT be closed by inheriting the fleet banking verdict — memo §6.2 grades banking on net_R and then explicitly carves this case out ('the one venue where this trade could still be RIGHT is the prop ruleset ... survival-weighted EV'), which is the sentence that logged THIS row. So the axis is EV/survival, not net_R. PIECES VERIFIED PRESENT 2026-08-14: the banking lever exists in the harness (--bank-frac/--bank-at-r, m20_exit_sweep.py --phase2, which produced §6.2's own 20 cells); run_ev_montecarlo exists AND has three live callers (scripts/prop/{account_compat_matrix,validate_alt_prop,montecarlo_prop}.py), so 'unused for a month' refers to the EVALUATION and not to a dead function; config/prop_rulesets/breakout.yaml exists. THE ONLY MISSING PIECE IS THE JOIN — montecarlo_prop.py has no banking arm. Chaining two built pieces, not new modelling.",
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Both halves of the tooling exist and are on disk — scripts/backtest_ict_scalp.py takes bank_frac (:173, applied at :230) and emits trade streams, src/prop/montecarlo.py::run_ev_montecarlo is the survival-weighted EV engine (CLAUDE.md, Prop-trading accounts), and config/prop_rulesets/breakout.yaml is the ruleset — but no banking-EV findings artifact exists under docs/research/. — Nothing blocks it except that it has not been run; it needs no live data and no VM-resident state, so it belongs on a free GitHub runner. Trigger: a committed findings doc running run_ev_montecarlo over banked-vs-base harness streams for the prop-routed alt strategies under breakout.yaml, with a verdict. If banking materially raises survival-weighted EV the follow-on is a Tier-3 proposal scoped to the prop ticket ladder ONLY."
         }
       ]
     },
@@ -2522,7 +2653,7 @@
       "title": "NEGATIVE RESULT — a faster multi-TF chop-boundary scalp is not net-positive; do not wire one",
       "detail": "New multi-TF harness (scripts/backtest_chop_scalp.py): HTF range boundaries + LTF (5m) bounce entries. Every tradeable-frequency variant (80-200 trades) is net-negative on BOTH BTC and ETH, IS and OOS, net-of-fee (net_R/pos-day -4 to -15, win 12-27%) — full-range-reversion target + tight boundary stop is poor R:R and 5m fees tax the churn. The only positive cells (FVG-confirmed) are 1-9 trades over 3yr and collapse OOS. The incumbent fvg_range_15m stays the ONLY capital-efficient range play (BTC +1.70 net_R/pos-day OOS, beats cash+buy-hold in the flat OOS window; negative on ETH, matching its docs). Conclusion: keep fvg_range live, do NOT chase a faster cousin — no Tier-3 proposal. Follow-ups (operator-requested, trainer #6483/#6484, PR #6485): (a) 1m rule-out — every 1m config net-negative, fee_R ~= the entire loss, and the tp1r tighter-target STEELMAN is WORSE (churns more), net_R/pos-day -51..-181 → 1m DECISIVELY ruled out; (b) small-TF scan of the whole existing roster at 5m/15m — squeeze/fade/trend/pullback all catastrophically negative (net -168..-7226R, fee-dominated), only fvg_range at its native 15m is positive (+24R) → NO existing strategy has small-TF potential; roster edges are inherently 15m-4h. Book closed on faster/multi-TF range-scalping. Only untested residual: an ETH-specific NEW structure (not a re-clocked existing one) — high bar given all evidence. Reusable tooling (chop_scalp harness + study orchestrator) + a pandas-3 minute-resample fix for squeeze/fade/trend/pullback shipped.",
       "severity": "low",
-      "status": "kept_open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -2534,8 +2665,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: This is a completed NEGATIVE result with its follow-ups already executed and recorded in docs/research/small-tf-directions-2026-07-15.md: every tradeable-frequency multi-TF chop-boundary variant is net-negative IS and OOS on BTC and ETH, the 1m rule-out ran (net_R/pos-day -51..-181, fee_R ~= the entire loss), and the whole-roster 5m/15m scan found only fvg_range positive at its native 15m. The config confirms the conclusion was honoured — grep for chop_scalp/chop_boundary in config/strategies.yaml returns nothing, so no such cell was ever wired. — Closing as a recorded negative: the question is answered, the answer is 'do not wire one', no Tier-3 proposal exists or is wanted, and there is no trigger that would reopen it. The finding stays discoverable in the research doc; carrying it as OPEN is backlog noise that dilutes the rows with live triggers."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PB-20260715-MAKER-CARRY",
@@ -2565,6 +2703,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: No carry cell is wired anywhere (no carry key in config/strategies.yaml; config/pairs.yaml carries only the four cointegration pairs), and the row's own resolved measurement (trainer #6493) is what holds it back: full-history maker net recovers ~70% of gross (ETH +7.72R, SOL +6.46R, BNB +11.03R) but the current-regime OOS 2025-01+ is thin-to-negative (ETH +0.40R, SOL +0.07R, BNB -0.61R) because funding compressed post-2024. — Correctly held as a real-but-regime-gated candidate, not live-now. Trigger: perp funding returns to a 2023-24-comparable regime, at which point the cheap check is a re-run of the neutral-carry OOS maker-net harness on the fresh window; a positive current-regime OOS is what would justify a Tier-3 proposal. Same unwatched-trigger problem as PB-20260620-002 — the two rows share one trigger and should be merged behind one funding monitor."
         }
       ]
     },
@@ -2583,7 +2726,7 @@
       "title": "Market-neutral crypto cointegration PAIRS sleeve — the M22 reliable-tool finding (Tier-3, drafted)",
       "detail": "M22's reliable small-TF tool: market-neutral crypto cointegration pairs at 1h (SOL/BTC, BNB/BTC, ETH/BTC, SOL/ETH). FULLY VALIDATED as research: profitable (3yr +350..+541R), OOS-robust (held-out 2025-26 +158..+177R, NO expectancy decay, 58-60% win, maxDD 6-15R), capital-efficient (~0.8-1.2 net_R/pos-day, OOS 0.93-1.12 — the operator's original PnL-per-time metric, beats scalps+cash), cointegration-STABLE (half-life ~12h, mean-reverting in 100% of 30-day windows over 3yr, no breaks, spread bounded 100%), funding-NEGLIGIBLE (~0.5 bps/trade vs a much larger R-edge), fee-insensitive (spread-stop R dwarfs fees). Sidesteps BOTH small-TF root causes. TIER-3 PROPOSAL DRAFTED (pairs-sleeve-PROPOSAL-2026-07-15.md): the architectural lift is that a pair is a 2-LEG simultaneous-position strategy that does NOT fit the single-symbol intent model -> needs a NEW isolated pairs-executor primitive (place both legs atomically, leg-imbalance guard, spread-exit management) + account_compat_matrix + a phased shadow->demo(bybit_1)->real(bybit_2) rollout. REMAINING before live: (a) $-return-on-2-leg-margin sizing (a proposal/RiskManager choice, not a research number); (b) execution realism (2-leg simultaneous fills + slippage — only a live/paper soak settles it). OPEN OPERATOR DECISIONS: proceed to build the pairs executor + shadow soak (P-A)? which pairs (SOL/BTC+BNB/BTC best, or all 4)? concurrency/sizing caps (pairs share the BTC leg = correlated)? Cheap follow-up: fetch btcusdt_funding.csv to the trainer to confirm the /BTC pairs' funding drag (only SOL/ETH ran; the /BTC pairs are representative-by-analogy). NOTHING wired — operator-gated Tier-3.",
       "severity": "high",
-      "status": "kept_open",
+      "status": "resolved",
       "updated_at": "2026-07-15T15:35:00+00:00",
       "updates": [
         {
@@ -2596,8 +2739,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The sleeve SHIPPED and is running: config/pairs.yaml exists with the four validated pairs, the isolated two-leg executor src.units.strategies.pairs_executor.run_pairs_tick is wired once-per-tick from src/main.py with its own execution gate (CLAUDE.md, The two execution gates), and per-pair economics were decided on the G2 evidence — SOL/ETH and BNB/BTC run execution: live on bybit_1 paper, SOL/BTC and ETH/BTC stay shadow. Both 'remaining before live' items named in the row are answered in-file: sizing is derived from the account risk basis (pairs_risk_fraction, enforced by the pairs-sizing-basis CI guard) and the half-placement risk is closed by the #6591 both-legs-or-nothing gate. — Closing the RESEARCH/PROPOSAL row, which is what it tracked ('Tier-3, drafted'): the architectural lift was built, the proposal shipped to paper, and a soak surface exists (/api/bot/pairs/soak). Real-money graduation is a separate Tier-3 gate and the sleeve's live defects already have their own rows (e.g. the max_hold_bars / half_open findings recorded in CLAUDE.md's pairs soak section) — those, not this row, are where continued tracking belongs."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PRB-20260716-HTF-CROSSBOOK-NEG",
@@ -2628,6 +2778,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The demotion still stands and is verifiable: htf_pullback_trend_2h is absent from config/accounts.yaml::bybit_2.strategies (real money) and present on bybit_1 (paper), exactly as the row describes. The last read (2026-07-22) found n=1 in the priced-closed set — far under the >=15-fresh-trade bar — and no fresh read was possible this pass (no journal in this sandbox). — Live, reachable trigger — the strongest of the htf rows. Trigger: >=15 fresh bybit_1 closed trades since 2026-07-16; win rate >45% makes it a re-promotion candidate (with account_compat_matrix), <25% makes it a Tier-3 KILL proposal (remove from bybit_1 too). Recommend absorbing PB-20260630-001 into this row, since that row's bybit_2 trigger can never fire under the demotion."
         }
       ]
     },
@@ -2661,6 +2816,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The operator's 2026-07-20 decision is still structurally honoured: options expression lives solely on the soak book (config/accounts.yaml::alpaca_options_paper.strategies = slv_trend_1h, slv_pullback_1d, gdx_pullback_1d) and alpaca_live carries no options block at all, so ZERO options strategies are graduated. No options soak grading artifact has been recorded. — Recurring per-review assessment; the wiring needs no change. Trigger: grade the closed options rows on alpaca_options_paper (Slice-4 reconciler-closed, realized PnL from broker activities cash) on n, expectancy net of debit, win rate and expiry/assignment lifecycle health against the promotion bar. Meeting the bar produces a Tier-3 options: block on alpaca_live mirrored to alpaca_portfolio with account_compat_matrix; a thin or negative soak keeps the portfolio options-free."
         }
       ]
     },
@@ -2691,6 +2851,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window — carried for a dedicated session."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: ROADMAP.md:114 still carries M27 as IN PROGRESS with P0 complete across all four batches; the newest artifact on disk is docs/research/M27-GLD-1H-PROMOTION-PACKET-2026-08-14.md (2 days old), and docs/research/M27-P1-15m-findings-2026-07-22.md is the only P1 output — P2 (geometry/cost) and P3 (new archetypes) have no artifact. This is the milestone anchor, not a single-run item. — Not actionable in a triage pass: per the operator's 2026-08-11 correction the blocker is a SWEEP THAT HAS NOT BEEN RUN (P1 1m/15m completion + P2 geometry/cost grids), offline-runnable on a free GitHub runner per docs/claude/vm-resource-management.md, NOT live accrual. Concrete trigger that ends the wait: a committed P2 findings doc under docs/research/ (fee/geometry grids on the P0 passers) or an explicit operator decision to close M27 at P1."
         }
       ]
     },
@@ -2744,6 +2909,11 @@
           "by": "claude (Track-1 continuation session)",
           "action": "corrected_framing_per_soak_doctrine",
           "note": "CORRECTION: the prior update's 'too thin, wait ~2-3 weeks for more soak' framing VIOLATED the binding soak doctrine (CLAUDE-RULES-CANONICAL.md 'Promotion evidence -- offline edge, live mechanics'; now also generalized to strategy legs + CI-guarded by scripts/check_soak_doctrine.py). A paper soak is a MECHANICS check, NOT a performance test -- the edge is decided OFFLINE before the soak. The correct next action is NOT to wait: (1) confirm the 6 legs cleared an adequate OFFLINE live-faithful proof (the M27 k-fold OOS gate + the live-simulator/backfill to our standard) -- if that proof is thin, run it now, don't soak longer; (2) MECHANICS-MATCH check on the ~15 live executions already accrued -- do live entries/fills/fees/SL-TP/whole-unit sizing match what the simulator produced? The early net-negative PnL is VARIANCE at n=1-5/leg and is NOT a demotion signal IF mechanics match; (3) if offline proof is adequate AND mechanics match -> the legs are promotable (a real-money bybit_2 proposal), not blocked on calendar time; if mechanics DIVERGE -> fix that gap. The only legitimate soak blocker is a mechanics divergence, never 'not enough performance data yet'."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: All six alt scalp legs are still routed and live on the bybit_1 paper account (config/accounts.yaml::bybit_1.strategies contains ict_scalp_sol_5m, _xrp_5m, _avax_5m, _xrp_15m, _eth_15m, _sol_15m); the last measurement (2026-08-11) found 0 of 14 paper closes broker-measured (pnlMeasuredCount=0). No journal is reachable from this sandbox (data/ holds only CSV/backtest artifacts), so no fresh read this run. — Blocker is record QUALITY, not time: comparing reconciler_filled/estimated rows to the M27 backtest compares a reconstruction to a simulation. The bybit_1 demo fills puller was fixed 2026-08-07 (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED), so measured rows CAN now accrue. Trigger: >=20 closed rows per leg with pnlProvenance in {measured,estimated} and pnlCoverage stated, compared against docs/research/M27-P0-crypto-findings-2026-07-20.md."
         }
       ]
     },
@@ -2784,8 +2954,14 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: All three corrected premises still hold on disk: XAUUSD stays venue-blocked (config/accounts.yaml::oanda_practice is mode: dry_run with zero strategies), no ict_scalp_gld leg exists (config/strategies.yaml has ict_scalp_mgc_15m but no gld scalp key — docs/research/M27-GLD-1H-PROMOTION-PACKET-2026-08-14.md sec 1 makes the same point explicitly), and the SOL/XRP/AVAX/ETH scalp legs remain bybit_1-only. The 2026-08-14 GLD packet's recommendation is SHADOW-first, not live, on n=18 trades over ~2 years. — Gated on evidence that has not accrued, not on a decision. Trigger: (a) PB-20260721 clears with measured-provenance rows, (b) a native-Bybit 15m confirmation pull for the 15m legs (the P1 sweep resampled 5m shards), (c) an account_compat_matrix run for bybit_2. Separately, the GLD 1h shadow-wiring proposed by the 2026-08-14 packet IS an operator-facing Tier-3 decision that is ready to be taken — it just is not the real-money graduation this row tracks."
         }
-      ]
+      ],
+      "status": "kept_open"
     },
     {
       "id": "SRQ-20260728-FVGRANGE-DEMOTE",
@@ -2821,7 +2997,7 @@
       "tier": "tier-3",
       "trigger_condition": "When the operator decides whether to wire ict_scalp_mgc_15m (or an ict_scalp-gold leg) to ib_paper per M27 findings Option 1.",
       "resolution_criteria": "A Tier-3 decision: EITHER (a) wire ict_scalp-gold to ib_paper at execution:live using the UNGATED (or conf070_fixed) config — NOT the fitted confidence gate — as a mechanics-only paper soak with tempered expectations (+0.09 exp-R, fold-1-type drawdowns expected), per the new-strategy skill (account_compat_matrix + descriptions + regime coverage); OR (b) explicitly hold. Either disposition closes this. Do NOT ship the fitted-conf-gate config.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2836,9 +3012,16 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Resolution option (a) shipped exactly as the row specified: config/strategies.yaml:780-822 wires ict_scalp_mgc_15m enabled: true / execution: live on ib_paper with NO min-confidence filter and no local off_cells/vol_spec gate, and the block's own comment at :796-800 states 'Shipped UNGATED (NO min-confidence filter)' and names this backlog id. config/accounts.yaml::ib_paper.strategies contains ict_scalp_mgc_15m, so it is routed, and the leg is committed on the main lineage. — Closed by positive evidence: the fitted confidence gate was NOT shipped (the row's explicit prohibition), the ungated config was, expectations are tempered in-config (+0.094 exp-R, fold-1-type drawdowns expected), and it is a mechanics-only paper soak with real money left as a separate later Tier-3 gate. Nothing further is owed by this row."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PB-20260729-CRYPTO-PULLBACK-2H-LONG-DRAG",
@@ -2876,7 +3059,7 @@
       "title": "Allocator EV scorer fee term is not venue-aware — over-charges commission-free equities (parallel to the trade_costs fix)",
       "description": "src/runtime/allocator_ev.py::candidate_ev_score computes fee_R with a flat 7.5-bps roundtrip on the entry notional, regardless of venue. For US equities/ETFs on Alpaca (commission-free) this over-charges the EV cost term ~25x — the same bug just fixed on the close-path estimate (trade_costs, via profile_loader.roundtrip_fee_bps_for). HARMLESS TODAY: the M18 allocator is observe-only/parked (P2/P3 selection does not beat dumb priority; graduation is backtest-gated). But when the allocator graduates to actually select/size, its equity candidates would be systematically penalized vs crypto/futures, and decision-time cost would disagree with the logged (venue-aware) close-path cost. FIX: have candidate_ev_score resolve the per-symbol roundtrip bps via profile_loader.roundtrip_fee_bps_for (falling back to DEFAULT_FEE_BPS_ROUNDTRIP) so the two cost models agree.",
       "tier": "Tier-1 (observability; the allocator is parked so no live-routing impact until it graduates — then it becomes part of the Tier-3 graduation gate)",
-      "status": "open",
+      "status": "kept_open",
       "trigger_condition": "Before the M18 allocator graduates past observe-only (P2+ selection/sizing), OR any allocator-EV backtest that includes equity candidates.",
       "resolution_criteria": "candidate_ev_score's fee_R uses the venue-aware per-symbol roundtrip bps (equities → ~0), verified by a test that an equity candidate's EV cost term is ~0 while a crypto candidate's is unchanged.",
       "updates": [
@@ -2892,6 +3075,11 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Still present and unfixed: src/runtime/allocator_ev.py imports the flat DEFAULT_FEE_BPS_ROUNDTRIP (:45), takes it as the default parameter (:68, :104) and computes fee_r = (fee_bps / 1e4) * abs(e) / risk at :86-89 with no per-symbol resolution. The venue-aware resolver it should call already exists and is already used elsewhere — src/core/profile_loader.py:148 roundtrip_fee_bps_for, consumed by src/runtime/trade_costs.py and scripts/research/regime_debt_matrix.py:330. — Harmless today (the M18 allocator is observe-only/parked per CLAUDE.md), which is why it is Tier-1 rather than urgent — but it becomes part of the Tier-3 graduation gate the moment the allocator selects or sizes, and it makes decision-time cost disagree with the logged venue-aware close-path cost. Trigger for closing: the fix below lands with its test."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -2914,7 +3102,7 @@
       "tier": 1,
       "trigger_condition": "T1 (venue-aware research fees) is on main and the regime-debt-matrix + regime-cell-walkforward workflows can be dispatched against it.",
       "resolution_criteria": "A corrected full-roster matrix + the three walk-forward re-runs are landed WITH a diff table vs #7918/#7924 (one row per changed verdict, fee delta attributed), and every changed disposition is recorded — including a Tier-3 draft if the gld cell no longer clears.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2936,10 +3124,16 @@
           "at": "2026-08-02T19:30:00+00:00",
           "by": "claude (wave-1-sweeps-l2kiin, WORK-PLAN-2026-08-02 Wave 1.4/1.7)",
           "note": "FOLLOW-UP #1 (the clean two-arm same-window fee A/B) is now COMPLETE across the ETF roster. #8329 (fee-ab-2026-08-02) ran it for the 6 cell-bearing strategies; this session's #8411 ran the SAME two-arm A/B (0 vs 7.5 bps, identical trade set) across the 17 RESIDUAL commission-free Alpaca ETF/equity debt legs (qqq/spy/splg/scha/iwm/qld/tqqq/qqq_1d/spy_1d/gld_1d/gdx/iaum/ief/slv_1d/tlt_1d/tlt_1h/uso). Result: ALL deltas negative (clean isolation, zero wrong-signed). Over-charge concentrated in the high-frequency 1h legs (tlt_pullback_1h trending -9.62, spy_pullback_1h trending -4.55, qqq_pullback_1h trending -4.44 net-R), per-trade in the predicted 0.04-0.12 band; the daily legs move only -0.02..-0.20. So any OFF cell on the 1h ETF legs must be read at 0 bps, not 7.5. splg_trend_long_1d = no gradeable cells (the vacuity instance, already tracked). Findings: docs/research/wave1-sweeps-2026-08-02.md. NOTE on prediction (b): the gld_pullback_1h trending corrected walk-forward was re-run this session (#8410) and REPRODUCED the 2026-08-01 #8272 result BIT-FOR-BIT (pooled short -12.8889@36, short_stable_drag TRUE, long +37.0874@54) - an independent determinism confirmation, NOT a new measurement (the WORK-PLAN listed 1.7 without reconciling against #8272's prior run). ALSO NEW this session: R2 ADX cut-point sweep (regime_adx_cutpoint_sweep.py, PR #8412) run on gld_pullback_1h trending (#8413) - short_stable_drag robust at 16/16 (chop_max,trend_min) grid pairs, so the gld cell is not fragile to the un-swept 20/25 attribution constants. REMAINING on this item: only the formal diff-table vs #7918/#7924 with per-verdict fee-delta attribution (resolution_criteria); the substantive dispositions and follow-up #1 are settled."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The re-grade landed with the diff table the row demanded: docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md sec 2 tables corrected-vs-over-charged per cell at identical n, and sec 3 records every changed disposition — 3a qqq_pullback_1h trending-short WITHDRAWN (prediction (a) confirmed: -2.99R -> -0.85R at n=41, inside the phantom band), 3b slv_trend_1h stays refuted (prediction (c) confirmed), and sec A1 re-measures gld_pullback_1h and finds the live cell SURVIVES (prediction (b) confirmed), so no Tier-3 revert draft was owed. The confound its own sec 1 flagged was then eliminated by a clean fixed-window A/B, docs/research/regime-debt-matrix-fee-ab-2026-08-02.md: 20 of 20 gradeable cells move the correct direction and the commission-free ETF sleeve lands at 0.044-0.090 R/trade, squarely inside the predicted 0.04-0.12 band. — Closed on positive evidence, with the residual explicitly re-homed rather than dropped: sec A3 states honestly that only 4 of 16 live-affecting cells are re-auditable, and each reason carries its own tracked id (BL-20260730-2D-VOL-CELLS-UNAUDITABLE, BL-20260730-SQUEEZE-NO-HARNESS, BL-20260730-DONCHIAN-APPROX-ONLY, BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS). This row's own scope — re-run the equity/ETF evidence with corrected costs and record every changed disposition — is complete."
         }
       ],
-      "resolved_at": null,
-      "severity": "high"
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "severity": "high",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PB-20260730-SCALP-CAPTURE-STANDING-WATCH",
@@ -2955,7 +3149,7 @@
       "source": "The scalp exit leak (5m bybit scalps closing reconciler_filled after multi-hour holds, giving back MFE) is REAL and quantified, but its root cause is OPEN: BYBIT_TPSL_MODE=partial was already live since ~07-21 (BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE), so partial-vs-full is NOT the fix. The real cause is under investigation by the concurrent 2026-07-30 session (Bybit partial-leg desync / naked-bracket, fixed in PR #8000; leg over-accumulation BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING; NULL exit_price/pnl on reconciler closes BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL).",
       "title": "[exit][capture] Standing watch: track scalp hold-time / roundtrippers / giveback via the new execution_capture review metric as #8000 + follow-ups soak",
       "description": "NOT a re-verify-the-flip item (that premise is disproven). The durable hook: the /system-review execution_capture metric (added PR #7973 -- m20_exit_analysis roundtrippers_pct / mean_giveback_r / hold_h_actual-vs-expected per live strategy, aged across reviews) is now the STANDING measurement for whether bybit ict_scalp capture actually improves as the concurrent session's real fixes (#8000 Bybit broker-naked sweep; the leg-desync + over-accum remediation) land and soak. Each /system-review: confirm post-fix bybit scalp hold-times trend toward minutes and roundtrippers/giveback drop vs the ~9h-avg / 80%-reconciler_filled pre-fix baseline (docs/research/exit-capture-deepdive-2026-07-30.md, read through its top correction banner). If they do NOT improve after the #8000-family soaks, the root cause is still unaddressed -- escalate. Baseline reference for the compare: pre-2026-07-30 bybit ict_scalp -- avg hold 9.05h / median 2.53h, 47/59 reconciler_filled.",
-      "status": "open",
+      "status": "kept_open",
       "tier": "observe (standing review-metric watch; the real fix is the concurrent session's Tier-2 #8000-family, not this item)",
       "updates": [
         {
@@ -2970,6 +3164,11 @@
           "note": "MEASURED this run via m20_exit_analysis on the trainer. Hold times on the sub-hour scalp legs are STILL an order of magnitude over expected: trade 4369 ict_scalp_sol_5m held 102.8h and 4371 ict_scalp_sol_15m held 100.2h (a 5m and a 15m leg holding four days); 4413 ict_scalp_avax_5m held 26.2h for -8.41R. Against that, the 4-day window looks clean (6 trades, roundtrippers_pct 0.0, mean_hold_h 4.6) — but n=6 and ALL PAPER, so the clean read is over a population too thin to clear the anomaly. This is the standing-watch item doing its job; the anomaly is carried forward, not closed.",
           "next_check": "keep measuring each review; the anomaly closes only when a full window of scalp legs holds within its timeframe",
           "evidence_based": true
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The measurement hook is wired and mandatory: .claude/skills/system-review/SKILL.md:123 makes review_coverage.execution_capture a required assessment, :380 names scripts/research/m20_exit_analysis.py --since-days as the producer, :386-388 defines the per-strategy roundtrippers_pct / giveback / hold-time fields, and the script exists at scripts/research/m20_exit_analysis.py. — Standing watch by design — never closed by a single run, and correctly NOT a re-verify-the-flip row (that premise is disproven). Trigger for each /system-review: compare post-fix bybit ict_scalp hold-time, roundtrippers_pct and mean_giveback_r against the pre-2026-07-30 baseline (avg hold 9.05h / median 2.53h / 47 of 59 reconciler_filled). If they have NOT improved after the #8000-family soaks, the root cause is still unaddressed and this row escalates rather than continues."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -2990,15 +3189,22 @@
       "detail": "Population: paper (alpaca_paper/alpaca_portfolio) closed rows across the last 2 review windows; 5 graded entries all should_skip-class, all losses. Strategy is paper-only today so no money at risk, but the signal builder is emitting entries its own confidence says to skip. Proposed exact change (Tier-3, operator-gated): min_confidence floor ~0.3 on slv_trend_1h in config/strategies.yaml, or fold into the PERF-20260601-010 degenerate-confidence workstream. Escalated in the 2026-08-01 weekly report per the reviews_open>=2 rule.",
       "severity": "medium",
       "tier": 3,
-      "status": "awaiting-decision",
+      "status": "resolved",
       "reviews_open": 2,
       "updates": [
         {
           "at": "2026-08-01T12:40:00+00:00",
           "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
           "note": "Operator asked for a recommendation (chat 2026-08-01): regime gate is NOT production-ready for SLV (no SLV advisory regime head in the registry; no authored SLV trend_vol cells in config/regime_policy.yaml; ml_vol_regime_for_symbol would resolve unknown->frozen and the hard gate would drop nothing) - building one is a multi-week soak path. The min_confidence floor IS production-wired (trend_donchian.py min_confidence refusal; slv_trend_1h already carries the field at 0.0). RECOMMENDED + PREPARED: min_confidence 0.0 -> 0.3 on slv_trend_1h, draft PR opened (Tier-3 - merge on operator approval)."
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The exact proposed Tier-3 change shipped: config/strategies.yaml:1884-1889 now sets slv_trend_1h min_confidence: 0.3 (raised from 0.0), with an in-config comment naming this backlog id and its evidence ('2 consecutive reviews of should_skip-grade entries (conf 0.04-0.15), 5 graded entries all losses') and stating the enforcement point (trend_donchian.py::_build_signal min_confidence refusal). — Closed on positive evidence — the floor is live in config, the strategy remains paper-only (alpaca_paper / alpaca_portfolio / alpaca_options_paper; alpaca_live is dry_run), so no real money was ever exposed to the degenerate entries. If a future review finds entries still firing below 0.3 that is a NEW enforcement row, not this one."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R",
@@ -3014,7 +3220,7 @@
       "source": "/system-review 2026-08-07: m20_exit_analysis per-trade dump (trainer-diag #8592) + /api/bot/trades/closed + grade-closed-trades output (#8589). POPULATION: n=10 ict_scalp closes in the window 2026-08-04 to 2026-08-07, all paper, from a total of 15 paper closes the harness returned. The -8.41R figure is ONE trade (4413) of those 10; the family-level statistic over the same n=10 is mean giveback 1.92R and 7 of 10 closed by reconciler rather than by stop or target. 4 of the 15 harness rows carry a clamped hold_h and are excluded from hold conclusions (BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED).",
       "title": "[exit][capture] SUPERSEDED PREMISE — the -8.41R is substantially an EXIT-PRICE RECONSTRUCTION ARTIFACT, not a stop that failed to contain 8x its risk",
       "tier": "Tier-2 to fix (order-monitor / bracket path); Tier-1 to measure",
-      "status": "open",
+      "status": "kept_open",
       "severity": "medium",
       "detail": "*** READ THIS FIRST — 2026-08-08 CORRECTION (session system-review-ma0ava). ***\nThe headline claim below is substantially WRONG and must not drive a Tier-2 order-monitor/bracket fix as written.\n\nMEASURED against Bybit exchange truth, which did not exist when this row was filed (bybit_1 is a demo account and the fills puller had never successfully reached it — BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED, fixed and live-verified 2026-08-07).\n\nPOPULATION: the 3 AVAXUSDT/bybit_1 trades whose fills fall in the 7-day window — 4314, 4361, 4413. The window holds EXACTLY 6 AVAX fills (3 entries + 3 exits), first_exec_time 18:33:23.795Z matches 4314's created_at to the second, and open_qty_signed is 0. The population is closed.\n  journal sum of the 3 rows      -$9,669.41\n  exchange FIFO, net of $233.91  -$5,403.09\n  journal OVERSTATES by          -$4,266.32  (79%)\n\nMECHANISM, confirmed in the timestamps: the last real AVAX fill is 10:00:58.915Z, but the journal closed 4361 at 10:17:15.670 and 4413 at 10:17:17.008 — ~16 minutes AFTER the position was already flat — and stamped BOTH with the same bar close 6.416 despite different entries (6.788 / 6.692) and different stops (6.46475 / 6.6592). That is a detection-time bar anchor, not a fill. So 4413's -$4,254.24 / -8.41R is substantially a reconstruction artifact, and the 'the stop let price run 8x past it' reading is not supported.\n\nNOT ESTABLISHED, and deliberately not asserted: the per-trade split of the $4,266 across 4314/4361/4413. No corrected R is claimed for 4413 specifically. Also unknown whether 4413 was among the 39 rows repaired to MEASURED by the 2026-08-08 backfill-fabricated-exits apply (issue #8628) or among the 28 left as fills_present_but_qty_unreconciled — netted siblings sharing one exchange position are exactly the shape that lands in the latter. CHECK: read trade 4413's notes.backfill and exit_price_source before quoting any R for it.\n\nWHAT SURVIVES THE CORRECTION, and is still worth working:\n  * the ~16-minute detection lag is real and independently confirmed;\n  * 7 of 10 closes by reconciler rather than by stop or target is a per-CLOSE-PATH count, unaffected by exit-price provenance, and remains the strongest signal here;\n  * the hold-time distribution (0.8h..15.8h on a 5m strategy) is timestamp-derived and also unaffected.\n  * the giveback figure (mean 1.92R) is NOT safe — it is computed from realized R, which is exactly the quantity shown to be manufactured. Re-derive it over MEASURED-provenance rows only before quoting it again.\n\nThe qty-scoped-stop-desync hypothesis below is now COMPETING with a simpler measured explanation rather than being the leading one. It is not disproven — the netting divergence is separately real (BL-20260801) — but this trade is no longer evidence for it.\n\n--- ORIGINAL ROW AS FILED 2026-08-07, retained as the record ---\n\nTrade 4413, ict_scalp_avax_5m, AVAXUSDT long, bybit_1 (PAPER — no money at risk, which is the only reason this is not a P0).\n  opened 2026-08-05T08:03:54Z, entry 6.692, sl 6.6592 (a 0.53% / ~1R stop), tp 6.7487\n  closed 2026-08-06T10:17:17Z — hold 15.8h on a FIVE-MINUTE strategy\n  realized -$4,254.24 = -8.41R. MFE +0.73R, MAE -5.0R.\n  closeReason 'reconciler' / exit_reason 'reconciler_filled' — NOT sl_cross.\n  Graded B (entry=optimal, conf 0.83): the DECISION was fine. The execution gave away 8.4x the intended risk.\n\nThe stop did not contain the loss and did not close the trade; the reconciler noticed the position was gone. Realized -8.41R is also worse than the measured MAE of -5.0R, which implies the fill landed beyond anything the candle window saw.\n\nTHIS IS NOT ISOLATED — it is the tail of a pattern this review measured across the window. All 10 ict_scalp closes: holds 0.8/1.0/1.5/1.8/1.8/3.2/3.5/5.0/15.8h (+1 clamped at 24.0, see BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED) against a 5m/15m expected hold of minutes; mean giveback (MFE - realized R) 1.92R; 7 of 10 closed by `reconciler_filled` or `exchange_flat_reconciled` rather than by a stop or target.\n\nMECHANISM (hypothesis, NOT verified — and the honest state is that the mechanism is exactly what is still unknown): bybit_1 runs BYBIT_TPSL_MODE=partial, where qty-scoped SL/TP legs are ADD-only and can desync from a netted one-way position. The same account currently shows journal-vs-exchange qty divergence of 451x on SOLUSDT and 2.45x on BNBUSDT. A qty-scoped stop attached for a qty the position no longer holds would not protect the row. That connects this to BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED and BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING, but I have not proven the link.\n\nAGE: first flagged as a capture concern 2026-07-30 (PB-20260730-SCALP-CAPTURE-STANDING-WATCH, BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED). This is the second consecutive review with it open, which per the /system-review execution-capture rule (reviews_open >= 2) makes it a mandatory standalone escalation rather than a watch item. Escalated to operator_priorities in RPT-20260807-145500-since-last.",
       "recommendation": "Verify per-trade stop coverage on bybit_1 by reading resting SL legs against each open journal row (the _bybit_position_protection covered_qty path), and confirm whether trade 4413 had a resting stop for its own qty at any point. Until then, treat ict_scalp paper R-statistics as execution-contaminated: the entry edge and the realized edge are measuring different things.",
@@ -3027,6 +3233,11 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The premise correction is solid and already recorded in the row: against Bybit exchange truth over a CLOSED population (3 AVAXUSDT/bybit_1 trades, exactly 6 fills, open_qty_signed 0) the journal sums -$9,669.41 vs exchange FIFO -$5,403.09 net of fees, a 79% overstatement, with the mechanism confirmed in timestamps (rows closed ~16 minutes after the position was already flat, both stamped the same 6.416 bar close despite different entries and stops). But the resolution the row asks for — ict_scalp capture statistics re-derived over measured-provenance rows with population and pnlCoverage stated — has not been produced; no such restatement exists under docs/research/. — Kept open for the restatement only; the original Tier-2 order-monitor/bracket fix must NOT be built as written (superseded premise). Trigger: a committed re-derivation of ict_scalp capture stats restricted to measured-provenance rows, stating the population and pnlCoverage — after which either a real capture defect survives and earns its own row with the measured figure, or this closes as an exit-anchor-era artifact. Note the overlap with the NETTING_ATTRIBUTION_MODE soak, which is measuring the same journal-vs-exchange divergence class."
         }
       ],
       "action": "SUPERSEDED as originally scoped. Do NOT open a Tier-2 bracket-path fix on the strength of the -8.41R figure.\n\n1. Re-derive the ict_scalp capture statistics (giveback, realized R) over MEASURED/ESTIMATED-provenance rows ONLY — /api/bot/performance now exposes totalPnlMeasured + pnlCoverage per strategy for exactly this, and /api/bot/trades/closed carries per-row pnlProvenance. A capture claim computed over fabricated exits measures the reconstruction, not the strategy.\n2. The close-PATH finding (7 of 10 by reconciler) is provenance-independent and IS worth chasing on its own terms — that is the surviving lead.\n3. Only after (1) yields a measured giveback should any Tier-3 stop-geometry or Tier-2 bracket change be proposed.",
@@ -3044,14 +3255,23 @@
       "opened_at": "2026-08-11T15:05:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
       "severity": "P2",
-      "status": "open",
+      "status": "resolved",
       "area": "research/gate",
       "title": "[research] The M20 exit-lever gate has NO minimum trade count, and 82% of the cells it passes sit on an OOS base under 50 trades",
       "summary": "Path A's beats() predicate (net_R AND maxDD no worse on BOTH windows, then a yearly walk-forward) has no minimum trade count. Measured over the 603 corpus cells with a readable OOS base: 35.8% have an OOS base under 10 trades, 65.2% under 50 (median 34, mean 50.0, max 358). Of the 40 cells the sweep PASSES (Path A or path_b_wf_pass), 33 (82%) sit on an OOS base under 50 trades and 13 sit on fewer than 10. So a cell clears the gate by improving net_R and maxDD over a book that may contain three trades, and can then post a 6/6 walk-forward over folds that are nearly empty.",
       "evidence": "checked: docs/research/m20-sweep-corpus.jsonl (604 rows / 603 cells / 51 legs, committed) via a distribution over base_trades_OOS. Concrete instances from the PASS list: spy_trend_long_1d vt_hot90_t2 passes on an OOS base of 3 trades (d_net_r_OOS +0.7995, d_max_dd_OOS exactly 0.0, walk-forward 6/6); qqq_trend_long_1d vt_hot90_t2 on 4 trades (d_net_r_OOS +0.1015, d_max_dd_OOS 0.0, wf 6/6); scha_trend_long_1d vt_hot90_t2 on 5 trades. A d_max_dd of exactly 0.0 is the tell that the lever never touched the drawdown path. The single PASS in the corpus on a solid denominator is trend_donchian_1h vt_hot90_t2.5 (OOS base 168) and that leg reads enabled: false + execution: shadow, retired and unshippable.",
       "why_not_fixed": "Setting the floor VALUE is the operator's call, and fitting one from the same corpus it will judge would be the exposure-ceiling mistake (gross-exposure-governance-DESIGN sections 6-7: a ceiling with no distribution behind it silently throttles correct work). The exit-refinement SKILL already prescribes the procedure for an unset threshold: the sweep REPORTS the distribution, the operator sets the value. This item reports it.",
       "caveat": "Unlike the Path B RATE floor answered the same day (`do not set one` -- a rate floor is a PREDICTION claim and both candidate predictors returned no_separation over 604 rows), a minimum trade count is a DENOMINATOR REQUIREMENT, not a fitted threshold, and needs no separation test. The repo already ships this exact shape as research_results_gate.min_trades. Do not conflate the two: one says do not fit a threshold, the other says a missing denominator floor is letting 3-trade books pass.",
-      "suggested_action": "Operator sets a min-OOS-trades floor on the M20 gate (and ideally min-IS too). What the distribution says: a floor of 50 retains 7 of the 40 current passes; a floor of 10 retains 27 of 40. Then re-grade the corpus and re-read docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md section 5, whose PASS list is currently not floored. Blocks PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN, because the floor decides whether those passes are real."
+      "suggested_action": "Operator sets a min-OOS-trades floor on the M20 gate (and ideally min-IS too). What the distribution says: a floor of 50 retains 7 of the 40 current passes; a floor of 10 retains 27 of 40. Then re-grade the corpus and re-read docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md section 5, whose PASS list is currently not floored. Blocks PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN, because the floor decides whether those passes are real.",
+      "updates": [
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: The operator set the floor and it is enforced in code: scripts/research/m20_fleet_exit_sweep.py:548 defines MIN_OOS_TRADES = 25 with the full cost-curve rationale at :2040-2075 (floor 10 keeps 34 legs/27 passes, 25 keeps 32/27, 50 keeps 20/7 — 25 is the last point before coverage is paid for), and scripts/research/m20_corpus_extract.py:115 records it as 'operator decision 2026-08-11, value 25'. The corpus was then re-graded: docs/research/m20-sweep-corpus.jsonl now holds 660 rows carrying min_oos_trades_floor: 25 across sweeps dated 2026-08-11 through 2026-08-15, with insufficient_base as its own verdict on 160 of them (never folded into is_oos_fail). — Closed on positive evidence — the row's suggested_action (operator sets a min-OOS-trades floor, then re-grade the corpus) is done end-to-end, and the implementation preserves the distinction the row cared about ('we did not look at enough trades' vs 'the lever failed'). The honest limit the enforcement site itself records — that a trade-count floor is a proxy for how many trades the LEVER actually fired on, which the corpus does not record — is a genuine residual and should be filed as its own row if it is to be tracked."
+        }
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN",
@@ -3065,14 +3285,23 @@
       "opened_at": "2026-08-11T15:05:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
       "severity": "P3",
-      "status": "open",
+      "status": "resolved",
       "area": "research/exits",
       "title": "[research] Regime-conditioned exit selection passes 8/123 vs 13/480 (6.5% vs 2.7%), Fisher p=0.052 -- suggestive, not established",
       "summary": "vol_trail (vt_hot90 / vt_hot80 / vt_cold10) already IS regime-conditioned exit selection: it keys the trail multiple on a causal ATR percentile rank over a 200-bar window (scripts/backtest_pullback.py:263). Across 41 legs / 123 cells it passes Path A at 6.5% (8/123) vs 2.7% (13/480) for all other exit cells; including path_b_wf_pass, 10.6% vs 5.6%. Fisher exact two-sided p=0.052 (Path A) / 0.065 (either path), BEFORE any correction for the comparison having been chosen after seeing the data. A ~2.4x pass-rate ratio is a lead worth a purpose-built test; it is not a result.",
       "evidence": "checked: docs/research/m20-sweep-corpus.jsonl, partitioning cells on lever == vol_trail (or a vt_ prefixed cell name) and running a stdlib Fisher exact via math.comb. Also checked: an artifact hypothesis of mine was REFUTED. I expected conditioning to thin the population each cell acts on, inflating spurious passes; it does not. Thin OOS bases are fleet-wide, not specific to conditioned cells: median OOS base 32 (vt_*) vs 34 (everything else), 68.3% vs 64.4% under 50 trades; among PASSING cells 29 vs 32 median. So thinness does not explain the gap; it is PB-20260811-M20-GATE-NO-MIN-TRADES-82PCT-THIN, which applies to both arms equally.",
       "why_not_fixed": "Not supported at this n, so there is nothing to build yet. 12 of the 13 vt_* passes sit on an OOS base under 50 trades, so the min-trades floor decides whether any of them are real. Blocked on that item, not on more sweeping.",
       "caveat": "Two designs exist and are NOT interchangeable. (A) condition on realized vol -- what vol_trail already does: self-contained, causal, no ML dependency, implementable in the live monitor from candles, and NO axis-fidelity problem because it is not trying to match the router's axis. (B) condition on the router's regime label (ml_vol_regime_for_symbol -> predict_proba(row)[volatile]): matches the ENTRY gate's axis but inherits the advisory head's per-symbol availability (BTC + SOL only) and carries the full regime-selectivity Rule 3 axis-fidelity burden. Recommendation is NEITHER yet: (A) is already measured and does not clear a significance bar, and (B) would add an ML dependency to the exit path to chase an effect (A) has not established.",
-      "suggested_action": "Park until the min-trades floor is set. If the floor leaves a defensible vt_* population, run a purpose-built test (a pre-registered comparison, not a post-hoc partition of a sweep run for another question) before any Tier-3 exit-conditioning proposal."
+      "suggested_action": "Park until the min-trades floor is set. If the floor leaves a defensible vt_* population, run a purpose-built test (a pre-registered comparison, not a post-hoc partition of a sweep run for another question) before any Tier-3 exit-conditioning proposal.",
+      "updates": [
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: MEASURED THIS RUN on the floored corpus, which is exactly the evidence the row said would decide it. Over the 660 rows in docs/research/m20-sweep-corpus.jsonl carrying min_oos_trades_floor: 25 (sweeps 2026-08-11..08-15), vol_trail/vt_* cells pass Path A at 4/155 = 2.58% vs 14/505 = 2.77% for all other cells (Fisher exact two-sided p = 1.0), and either-path at 10/155 = 6.45% vs 33/505 = 6.53% (p = 1.0). The ~2.4x pass-rate ratio that motivated the row does not survive the min-trades floor it was explicitly blocked on. — Closed as REFUTED at the floor, with the bound stated: the 660 floored rows are newer sweep runs, not a re-grade of the identical 604-row unfloored population, so this rules out the lead at the floor rather than re-scoring the original partition trade-for-trade. That is enough — the row's own recommendation was already NEITHER design, and there is now no separation left to build a purpose-built test around. Reopen only if a pre-registered comparison (not a post-hoc partition) is run and finds otherwise."
+        }
+      ],
+      "resolved_at": "2026-08-16T09:05:00+00:00",
+      "resolved_by": "claude (sysrev-0816)"
     },
     {
       "id": "PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS",
@@ -3090,7 +3319,239 @@
       "resolution": "REFUTED, with a mechanism. The comparison was run the same day (2026-08-11) and it INVERTS the concern rather than merely failing to confirm it. Live real-money record over window=all: 16 trades, 75.0% win rate, totalPnl +$13.53, totalPnlMeasured +$13.53, pnlCoverage 1.00 (16 of 16 rows MEASURED -- zero fabricated, zero unverified), totalR +46.80. It is the BEST real-money leg in the book by PnL (first of 12 in the descending perStrategy list); the 30d window agrees in sign (4 trades, +$3.17, coverage 1.00). The PB-20260807 fabricated-provenance caveat carried on this item does NOT apply to this population -- coverage is perfect. MECHANISM (this is not 'n=16 got lucky'): config/regime_policy.yaml authors TWO fully-off trend_vol cells for this exact leg -- trending/volatile and chop/volatile, both long:false + short:false -- so live it is refused outright in volatile regimes; it trades BTCUSDT, the one symbol where that gate bites (advisory ML vol head resolves the label, trend_vol cells authored, real-money enforce live since 2026-06-28); and the sweep measured it with the gate OFF, because m20_fleet_exit_sweep passes no --regime-router so backtest_system defaults to 'off' and sets REGIME_ROUTER_DISABLED=1. So -48.88R is the UNGATED book, including exactly the volatile-regime trades production refuses, and +46.80R is the gated book the leg actually trades. The gate was authored to remove that losing regime; the live record is what that looks like working. WHAT WAS WRONG WITH THIS ITEM: not the arithmetic (the base figures are correct for what they measured) but the POPULATION -- it compared a live routing decision against a book that routing does not produce. NO TIER-3 ACTION IS WARRANTED; neither remedy should be applied and the leg keeps its real-money routing on this evidence. RESIDUAL, stated honestly: 16 trades is a thin sample, so this refutes the concern rather than establishing the leg as good -- keep it in the /performance-review watch cadence, not as a P1. The general defect (no corpus row recorded which regime book its base was measured on; 6 of 51 legs / 56 of 604 rows affected) is fixed in the same session and written up in docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md section 4c; the section-1 'do not set a floor' verdict was re-measured with the policy-named legs excluded (52->45 cells, 22->20 legs) and both predictors stay at no_separation.",
       "resolved_at": "2026-08-11T14:30:00+00:00",
       "resolved_by": "claude (session_011iUN3roukhbRWwuioX8pRD, same session that filed it)"
+    },
+    {
+      "id": "PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY",
+      "opened_at": "2026-08-14T09:48:00+00:00",
+      "opened_by": "claude (M20 overnight session 2026-08-13)",
+      "severity": "medium",
+      "status": "kept_open",
+      "area": "strategy/performance",
+      "tier": "3 (a trail_mult change is a strategy parameter -- proposal only)",
+      "title": "[strategy] tlt_pullback_1h ships trail3 while trail4 passes the walk-forward at LIVE-PARITY geometry, reproduced across three independent runs",
+      "summary": "tlt_pullback_1h has trail_mult 3 shipped (matrix trail_geometry cell = `shipped`, ref: fleet sweep 2026-07-12, Tier-3 PR #6229). The committed sweep corpus contains a `trail4` cell for the same leg graded at LIVE-PARITY take-profit geometry (tp_cap_pct 0.099) that comes back `path_b_wf_pass` -- and it does so in THREE independent runs (2026-08-10T22:42Z, 2026-08-12T00:55Z, 2026-08-13T01:36Z), so it is not a single-run artifact. Nothing in the matrix cell mentions it.",
+      "evidence": "checked: docs/research/m20-sweep-corpus.jsonl, the 2026-08-13T01:36:06Z row for leg=tlt_pullback_1h cell=trail4 lever=trail_geometry -- tp_cap_pct 0.099, split 2025-07-01, base_trades_IS 468 / base_trades_OOS 56, d_net_r_IS +35.47 / d_net_r_OOS +5.42, d_max_dd_IS -0.69 / d_max_dd_OOS +1.23, wf_ran true, wf 5/6 usable folds won, path_b_candidate true, path_b_rate_ok true. The base book that delta is measured against ALREADY INCLUDES the shipped trail3, so +5.42 OOS net R is the improvement over what is live today, which is the right comparison. base_trades_OOS 56 independently matches a fresh config-exact measurement of the same leg (trainer relay #9211), so the window is real.",
+      "caveats": "STATED BECAUSE THEY BOUND THE CLAIM. (1) It is a PATH B pass, the weaker route -- gate_passed_OOS is false and it qualified via the Path B rate check; it is not a Path A clean pass. (2) OOS n=56 is comfortably above the floor of 25 but is not large. (3) The three runs share a corpus and a split date, so they are re-measurements of the same window, NOT three independent samples of the world -- they rule out a flaky run, not overfit to that window. (4) I did NOT re-run anything here; this is a read of committed corpus rows. (5) One-lever-per-leg is the standing convention, and trail_geometry is that leg's occupied slot, so this is a CHANGE to the shipped value, not an addition.",
+      "resolution_criteria": "Either (a) the operator approves a Tier-3 trail_mult 3 -> 4 change for tlt_pullback_1h, it merges, and the matrix trail_geometry cell records the live-parity evidence and the new shipped value; or (b) a walk-forward on a window that does NOT share the 2025-07-01 split (or a fresh out-of-window fold) fails to reproduce the edge and the row is closed `resolved_refuted` with those numbers stated; or (c) the operator decides the Path B route is too weak a basis for a real-money parameter change and says so, which closes it as a recorded decision rather than an open question.",
+      "source": "M20 overnight session 2026-08-13 -- found while checking whether the stale trail_geometry decisions could be re-swept",
+      "refs": [
+        "docs/research/m20-sweep-corpus.jsonl",
+        "docs/research/exit-refinement-coverage.json",
+        "config/strategies.yaml::tlt_pullback_1h"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-16T09:05:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "[sysrev-0816 2026-08-16] re-validated this run: Confirmed and STRENGTHENED this run. config/strategies.yaml:1986 still ships tlt_pullback_1h trail_mult: 3.0. In docs/research/m20-sweep-corpus.jsonl the leg=tlt_pullback_1h cell=trail4 row now comes back path_b_wf_pass in FIVE runs (2026-08-10, 08-12, 08-13, 08-14, 08-15) at live-parity geometry tp_cap_pct 0.099, wf 5/6 usable folds won every time, d_net_r_OOS +4.12 to +5.82 — and the last four rows carry min_oos_trades_floor: 25, so it clears the trade-count floor set on 2026-08-11 (OOS base 30-56 vs floor 25) rather than predating it. — TIER-3 PROPOSAL: change config/strategies.yaml::tlt_pullback_1h trail_mult from 3.0 to 4.0 (a strategy parameter, so proposal only) and record the live-parity evidence plus the new shipped value in the exit-refinement coverage matrix trail_geometry cell. Bounds the operator should weigh, stated because they limit the claim: it is a PATH B pass (gate_passed_OOS false, qualified via the rate check), OOS n is 30-56 (above the floor, not large), the five runs share a corpus and the 2025-07-01 split so they rule out a flaky run rather than window overfit, and trail_geometry is this leg's one occupied lever slot so this REPLACES the shipped value. The row's own option (c) — operator judges Path B too weak a basis — is an equally valid close."
+        },
+        {
+          "at": "2026-08-16T10:35:00+00:00",
+          "by": "claude (/system-review sysrev-0816)",
+          "note": "2026-08-16 (/system-review sysrev-0816, operator instruction 're-measure before deciding'): THE RE-MEASUREMENT ALREADY EXISTS AND THERE IS NO UN-RUN FRESHER WINDOW. This row's own criterion (b) -- 'a walk-forward on a window that does NOT share the 2025-07-01 split fails to reproduce the edge' -- has now been TESTED TWICE AND DID NOT FAIL: the committed corpus holds FIVE live-parity (tp_cap_pct 0.099) trail4 rows for this leg across THREE distinct splits -- 2025-07-01 (x3, base_OOS 55/56/56), 2025-10-15 (base_OOS 43) and 2025-12-10 (base_OOS 30) -- and trail4 is path_b_wf_pass in ALL FIVE. So caveat (3) (shared split) is closed, and criterion (b) is refuted rather than met. The sibling trail2 is is_oos_fail in four of the five and path_b_wf_fail in the fifth, so the result is trail4-specific, not 'wider trail wins'. WHY THIS STILL DOES NOT SHIP, and it is not the shared-split caveat: TWO disqualifiers reproduce in ALL FIVE runs. (i) gate_passed_OOS is FALSE in every run with gate_reason_OOS `maxdd_worse` -- d_max_dd_OOS +1.227, +1.227, +1.227, +0.800, +0.531, i.e. out-of-sample drawdown is WORSE at trail4 on every window tested (it shrinks as the split moves later but never crosses to <=0). (ii) THE BASE OOS BOOK IS UNPROFITABLE IN EVERY RUN -- base_net_r_OOS -5.477, -5.354, -5.477, -5.451, -2.889 -- against a solidly profitable base IS (+20.899, +12.327, +20.899, +19.509, +20.545). That IS/OOS sign break belongs to the LEG, not the lever, so d_net_r_OOS +4.12..+5.82 is an improvement to a LOSING book on every window -- the same pattern the matrix already cites as discounting the regime_flip PASS. NO FURTHER SPLIT IS AVAILABLE: lifetime is ~518-525 trades, the freshest split already run (2025-12-10) yields base_OOS 30, and MIN_OOS_TRADES is 25 -- so moving the split later than 2025-12-10 drops OOS below the floor. Re-running returns a sixth path_b_wf_pass over a sixth losing base book. THE MATRIX HOLD STANDS AND THIS ROW WAS STALE AGAINST IT: the coverage-matrix trail_geometry cell was set passed_unshipped and deliberately HELD on 2026-08-14 under operator decision (f) with the revisit condition written in -- 'Revisit if the leg's base book turns profitable' -- which this row (opened 2026-08-14T09:48Z, earlier the same day) never picked up. That condition is NOT met on any of the three windows. BLOCKED ON, precisely: base_net_r_OOS > 0 for this leg on a floor-clearing split. Not on another sweep. checked: docs/research/m20-sweep-corpus.jsonl (5 trail4 + 5 trail2 rows, leg=tlt_pullback_1h lever=trail_geometry), docs/research/exit-refinement-coverage.json (tlt_pullback_1h row, trail_geometry cell), config/strategies.yaml (trail_mult: 3.0 live), git log -L on the tlt block."
+        },
+        {
+          "at": "2026-08-16T10:35:00+00:00",
+          "by": "claude (/system-review sysrev-0816)",
+          "note": "2026-08-16 PROVENANCE OF THE SHIPPED VALUE, established because a /system-review session nearly reversed it on a bad trace. trail_mult 3.0 is NOT drift and NOT a birth defect: the block was introduced 2026-06-21 (#4069) with trail_mult 4.0, and 4.0 -> 3.0 was made 2026-07-12 in PR #6229, an operator-approved Tier-3 exit-lever package whose commit message names 'mes/mhg/tlt trail3' as one of 8 walk-forward cells ('Operator-approved 2026-07-12'). In that SAME commit mgc/xauusd went 3.0 -> 4.0, so trail3 for TLT was a per-leg choice, not a blanket. WHAT IS STALE IS THE COMMENT, not the field: the block still reads 'frac 0.5, trail 4.0' and cites the 2026-06-20 sweep, wrong for this field since 2026-07-12 (field beats comment). METHOD NOTE for whoever checks this next: the sandbox clone is SHALLOW by default, and on a shallow clone `git log -S` / `git log -L` over config/strategies.yaml return exactly ONE commit -- the graft boundary -- which reads as 'introduced here, never touched since' and is an ARTIFACT. It named a commit whose own message says 'Docs, matrix and backlog only -- no src/, no config/'. Run `git fetch --unshallow` first; the real count is 100 commits."
+        }
+      ],
+      "operator_action_required": true,
+      "blocked_on": "base_net_r_OOS > 0 for tlt_pullback_1h on a floor-clearing split (currently -2.889..-5.477 across all three splits tested). NOT blocked on another sweep -- no un-run fresher window exists above MIN_OOS_TRADES=25."
+    },
+    {
+      "id": "PB-20260816-ETHPULLBACK-FILL-RATE-12PCT",
+      "opened_at": "2026-08-16T10:12:00+00:00",
+      "opened_by": "claude (sysrev-0816, surfaced by the M7 packet the operator asked for)",
+      "severity": "high",
+      "tier": "2 (diagnosis is read-only; any fix touches sizing or the risk path)",
+      "status": "open",
+      "area": "execution/fill",
+      "title": "eth_pullback_2h fills 11 of 92 decisions (12.0%) — 81 signals never became a trade, and nothing measures why",
+      "detail": "SURFACED BY the M7 review packet generated 2026-08-16 (90d window, runtime_logs/strategy_reviews/2026-08-16/eth_pullback_2h.json): n_decisions 92, n_filled 11, n_closed 11 => fill_rate 12.0%.\n\nThis was invisible to every surface the review had been using. /api/bot/performance and /api/bot/strategy/attribution both aggregate CLOSED TRADES, so they describe the 11 that filled and say nothing about the 81 that did not. The packet is the only artifact that carries the decision denominator, which is exactly why the leg's 59-day-old review row could sit open while looking merely small.\n\nWHY IT CHANGES THE READ ON THIS LEG: the operator's 2026-08-16 decision is to keep it live until n_closed reaches 20. At a 12% fill rate that requires roughly 75 MORE DECISIONS, not 9 more signals — which is the arithmetic behind the ~2.5-month estimate, and it is hostage to whatever is refusing 88% of them. If the refusals are a sizing or margin condition rather than genuine no-fills, the evidence clock may never run.\n\nNOT YET DIAGNOSED — do not assume a cause. The candidates are distinguishable from data already written: (a) risk-refusals (RiskManager per-trade refusal rows carry a logged cause), (b) the netting guard's reentry_suppressed_netting_guard rows, (c) regime hard-gate drops (regime_hard_gate audit rows with enforced:true), (d) genuine non-fills of a limit/pending order. The packet itself reports all three regime cells at policy `unknown`, which makes (c) unlikely but does not exclude it.",
+      "resolution_criteria": "The 81 unfilled decisions are ATTRIBUTED to causes with counts — a breakdown over order_packages.close_reason / the signals audit for strategy_name='eth_pullback_2h' across the same 90d window, summing to 81 with no residual bucket. Then either (i) the dominant cause is a legitimate market condition and the row closes as explained, or (ii) it is a refusal the operator can act on, and it gets its own Tier-2/3 item. The row must NOT be closed on a partial breakdown that leaves an unexplained remainder — an unstated denominator is what hid this in the first place.",
+      "operator_action_required": false,
+      "updates": [
+        {
+          "at": "2026-08-16T10:12:00+00:00",
+          "by": "claude (sysrev-0816)",
+          "note": "Filed rather than fixed: the diagnosis is one audit_query away but the operator's live decision this session was the disposition of the leg, not this. Flagged to them in-conversation as a NEW finding from the packet."
+        }
+      ]
+    },
+    {
+      "id": "PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS",
+      "opened_at": "2026-08-16T14:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, M20 harness<->live population parity)",
+      "severity": "medium",
+      "tier": "1 (tooling/reporting change; the arm VALUES it informs stay Tier-3)",
+      "status": "resolved (both halves shipped + verified on real artefacts)",
+      "area": "research-methodology/exit-levers",
+      "title": "A p80 exit arm swept over a pooled multi-era population encodes a volatility mix the live book does not sample",
+      "summary": "MEASURED, not argued. risk/entry is exactly atr_stop_mult x ATR/close on both the live modules and both harnesses (identical formulas; byte-identical _atr), so cap_R = 0.099/(atr_stop_mult x ATR/close) -- i.e. a declared arm A on a leg with stop-mult M can only fire while ATR/close <= 0.099/(M*A). Reachability is therefore a function of the VOLATILITY REGIME at entry, not a property of the leg.\n\nRelay #9710, config-exact, --tp-cap-pct 0.099, entry-conditioned: gld_pullback_1d arm 5.06 is reachable on 42/112 (37.5%) POOLED over 2010-2026 -- but 7/7 in 2018 and 1/7 across 2025-2026, against a live basis of 0/8. The pooled number describes no regime in particular. The effect is regime-CLUSTERED, not a trend: 2010-2013, 2020 and 2025-2026 are high-vol clusters separated by quiet 2014-2019 and 2022-2024.\n\nThis is what made the live-vs-backtest 'population splice' look irreconcilable. Held at fixed era the two populations AGREE (14.3% backtest vs 0% live, n=7 and n=8).",
+      "detail": "Root of the arm-above-cap class, and it is mechanical rather than per-leg bad luck. The six shipped p80 arms (BTC 6.49, xrp 4.49, avax 4.86, sol_4h 5.57, qqq 3.56, gld 5.06) were produced 2026-07-12/13 (S-M20-EXIT-REFINEMENT-2026-07-12.md:534). The harness first gained --tp-cap-pct on 2026-08-10 (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP; m20_corpus_relabel_tp_cap.py dates the bracketing runs to 22:23Z/22:31Z that day). So all six are p80s of an UNCAPPED MFE distribution applied to a CAPPED live book, derived ~4 weeks before the harness could model the cap at all.\n\nThe theory predicts which legs break -- those whose uncapped p80 exceeds their own median ceiling -- and it holds 3/3 on the legs measured: gld 5.06 > 4.30 (37.5% reachable), qqq 3.56 > 2.70 (19.8%), scha 2.00 < 2.65 (83.1% reachable, and scha's 2.00 is NOT one of the six uncapped p80 arms).\n\nNOT proposing any arm value here. Two remedies, either sufficient, both reporting-side.",
+      "suggested_action": "(1) Have the sweep report each proposed arm's implied ATR/close ceiling (0.099/(atr_stop_mult*arm)) beside the arm, so a reader can check it against the current regime without re-deriving the identity; and/or (2) report the p80 PER ERA, or sweep on the recent era, so a pooled figure is never the only one quoted. Both are changes to m20_fleet_exit_sweep.py output, not to any config value.",
+      "resolution_criteria": "TWO REMEDIES, BOTH REQUIRED; the row stays open until both are done and each is verified on a REAL artefact rather than a merged writer.\n(1) REACHABILITY REPORTING — DONE and verified 2026-08-16 (#9730 / relay #9734): verdicts.json carries p80_arm_reach with arm_reach_verdict, the measured TP-reach numbers, and the implied ATR/close ceiling; both verdict branches observed on two legs. Note its MEASURED limitation above: it grades against the backtest ceiling only.\n(2) PER-ERA p80 — DONE and verified on a REAL artefact 2026-08-16 (#9789 `d8db5c59`; verdicts.json read in relay #9794). ORIGINAL TEXT, kept because the bar it set is the reason this closes: \"NOT DONE. The sweep must report either a per-era p80 breakdown or an explicit recent-era p80, verified by reading a verdicts.json produced after that change on a leg whose pooled and recent-era figures DIFFER. Until a real run shows both figures with differing values, this half stays open: a writer that emits the key on a leg where the two coincide has demonstrated nothing.\"  — SATISFIED: both verification legs DIFFER, so the \"a writer that emits the key on a leg where the two coincide has demonstrated nothing\" clause is met rather than dodged. trend_donchian pooled 5.5R (n=95) vs recent-era 6.35R (n=17, span 2025), delta +0.85R. gld_pullback_1d — the discriminating leg session_01Xk2ozj named — pooled 3.86R (n=40) vs recent-era 4.96R (n=10, span 2017-2020), delta +1.10R.",
+      "refs": [
+        "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "config/lever_reachability.json",
+        "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP",
+        "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+        "relay #9710"
+      ],
+      "first_half_shipped_and_verified_2026_08_16": "SHIPPED #9730 (7da0842) and VERIFIED against a real verdicts.json produced after the change (relay #9734, freshness-gated so a pre-change artefact could not be mistaken for this run's output). Both branches exercised on two legs, so one constant could not have satisfied both: trend_donchian_sol_4h p80 1.5R vs measured median TP reach 1.324R -> above_measured_median_ceiling (loud warning fired); gld_pullback_1d p80 3.86R vs 4.781R -> within_measured_median_ceiling. Printed ceilings reproduce the helper exactly (2.640% and 1.282%).",
+      "measured_limitation_the_verification_exposed": "⚠️ THE SHIPPED CHECK CATCHES HALF THE CLASS, AND MISSES THE MOTIVATING CASE. It compares the proposed arm to the BACKTEST's measured ceiling. gld_pullback_1d's p80 3.86R is WITHIN its backtest median (4.781R) and so passes silently — while its LIVE cap_R is 2.20-3.01, i.e. 3.86R is unreachable on the book that trades (0 of 8 live entries). That is the population gap this whole row is about, so the check cannot close it by construction. An earlier description of the change called it 'the check that would have caught the whole arm-above-cap class' — that was an OVERCLAIM, discovered by verifying my own output rather than trusting the tests, and the code comment has been corrected. Closing the remaining half needs a LIVE-population input the sweep does not have; M31 P4 (backtest<->live MFE parity) is the piece that would supply it. A within_measured_median_ceiling verdict must NOT be read as 'reachable in production'.",
+      "second_half_shipped_and_verified_2026_08_16": {
+        "what_shipped": "winner_mfe_p80 returns a dict: ['p80'] is the same pooled scalar and stays the ONLY value that becomes an arm, plus `by_era` (per-calendar-year census) and `recent_era` (an explicit trailing window that widens to a sample-size target and publishes its span). One harness run, two cuts — no extra invocation, so the breakdown can never be the reason a sweep is skipped for time.",
+        "verified_on": "verdicts.json from a post-merge sweep at d8db5c59 (--only gld_pullback_1d,trend_donchian --p80-only), relay #9794",
+        "trend_donchian": {
+          "pooled_p80": 5.5,
+          "pooled_n": 95,
+          "recent_era_p80": 6.35,
+          "recent_era_n": 17,
+          "recent_era_years": [
+            "2025"
+          ],
+          "delta": 0.85,
+          "by_era_states": "5/5 computed (n 11-28)",
+          "per_year_p80_range": "3.87 (2021) to 6.35 (2025)"
+        },
+        "gld_pullback_1d": {
+          "pooled_p80": 3.86,
+          "pooled_n": 40,
+          "recent_era_p80": 4.96,
+          "recent_era_n": 10,
+          "recent_era_years": [
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ],
+          "delta": 1.1,
+          "by_era_states": "11/11 THIN (n 1-6) — no single year on this leg can support a p80"
+        },
+        "the_dispersion_is_the_finding": "trend_donchian's per-year p80 swings 3.87 -> 6.35 across five years, a 64% spread. That is this row's thesis measured on one leg: the pooled 5.5R describes no regime in particular, and nothing in the artifact said so before.",
+        "floor_is_measured_not_picked": "_ERA_MIN_WINNERS = 10, set from per-year winner counts across all eight arm-declaring legs (relay #9788) and recorded in the constant's own comment. At 30 every bucket on every leg is thin and the report proves nothing. gld's 11/11 thin is that floor working, not failing: it refuses a percentile over n=1-6 while the widening window still answers at n=10.",
+        "A_PREDICTION_I_GOT_WRONG_AND_WHY_IT_MATTERS": "I predicted gld's recent-era span would be 2023-2025. It is 2017-2020, because resolve_split gives that leg a PER-LEG split of 2020-03-03 while my probe had used the default 2025-07-01 — so IS ends in 2020 and the newest year within IS is 2020, not 2025. The field is self-documenting and said so (era_basis: calendar_year_within_IS, span published), which is exactly why 'recent' was never labelled plain 'recent'. Had it been, this artifact would read as a claim about 2023-2025 that it does not make.",
+        "states_never_collapsed": "per-year computed / thin / undated; recent_era adds all_years so 'recent == pooled because the leg is short' stays distinct from 'because volatility was stable'. A year with no winners has NO row rather than a fabricated n=0. Every bucket ships its n.",
+        "changes_nothing_live": "Reporting only. No arm value, verdict, or disposition moved; the era figures are never fed to --trail-decay-arm-r (pinned by test_era_block_never_feeds_the_arm)."
+      },
+      "the_mechanism_is_now_measured_not_inferred_2026_08_16": {
+        "claim": "This row states the six shipped arms are p80s of an UNCAPPED book, inferred from dates (swept 2026-07-12/13; the harness gained --tp-cap-pct 2026-08-10). That is now MEASURED.",
+        "method": "relay #9790 — same probe, same split, same data, same code, run TWICE per leg at tp_cap_pct=0.099 vs 0.0, asserting --tp-cap-pct actually landed in each arm's base args so a silent no-op could not read as a null result. The naive comparison (today's capped p80 vs the shipped arm) was NOT used: it conflates cap, split, data vintage and code drift.",
+        "result_uncapped_vs_shipped": {
+          "xrp_pullback_2h": {
+            "shipped": 4.49,
+            "uncapped_p80": 4.49,
+            "delta": 0.0,
+            "capped_p80": 2.17
+          },
+          "trend_donchian": {
+            "shipped": 6.49,
+            "uncapped_p80": 6.56,
+            "delta": 0.07,
+            "capped_p80": 5.24
+          },
+          "gld_pullback_1d": {
+            "shipped": 5.06,
+            "uncapped_p80": 4.96,
+            "delta": -0.1,
+            "capped_p80": 3.87
+          },
+          "trend_donchian_sol_4h": {
+            "shipped": 5.57,
+            "uncapped_p80": 5.23,
+            "delta": -0.34,
+            "capped_p80": 1.52
+          }
+        },
+        "reading": "Four of seven legs reproduce the shipped arm from the UNCAPPED book within 0.35R and xrp_pullback_2h is exact. The arms were not chosen against the book that trades.",
+        "CAVEAT_THE_TWO_ARMS_ARE_DIFFERENT_POPULATIONS": "Winner counts differ between arms (sol_4h 69 capped vs 41 uncapped; xrp 90 vs 67) because the cap acts as a take-profit and banks winners that would otherwise round-trip. So the -15% to -71% 'cap effect' is TWO BOOKS, not the same trades re-measured. Direction is unambiguous; the magnitude is not a per-trade delta.",
+        "uso_trend_1h_is_not_a_gap": "It shows no trail_decay_arm_r in strategies.yaml against an arm_r 1.0 registry row. Checked, not assumed: its registry row carries lever=giveback_min_mfe_r. The registry's arm_r column spans two lever families and the `lever` field is what disambiguates it.",
+        "still_tier_3": "No arm value is proposed. Re-deriving one needs a walk-forward, not a percentile swap."
+      }
+    },
+    {
+      "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+      "opened_at": "2026-08-16T14:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, M20 harness<->live population parity)",
+      "severity": "medium",
+      "tier": "3 (moves where order geometry is resolved, and would change the TP actually placed on live legs)",
+      "status": "open",
+      "area": "order-geometry/venue",
+      "title": "_TP_SENTINEL_CAP_PCT is a Bybit ErrCode 10001 workaround applied unconditionally; on the ALPACA-ONLY legs (GLD, SCHA) no venue is known to require it",
+      "summary": "_TP_SENTINEL_CAP_PCT = 0.099 is documented at trend_donchian.py:125-132 as a Bybit workaround ('Bybit (and most exchanges) reject TP further than ~10% from the reference base price, ErrCode 10001'). It is a module-level constant with NO venue branch, used directly in the tp formula in four strategy modules.\n\nThree legs that declare a trail_decay_arm_r are carried by NO Bybit account (config/accounts.yaml): gld_pullback_1d (GLD -> alpaca_paper/alpaca_portfolio/alpaca_live), qqq_trend_long_1d (QQQ -> ib_paper + the three Alpaca accounts), scha_trend_long_1d (SCHA -> alpaca_paper). The value is not re-derived downstream either: pkg.tp reaches Alpaca verbatim as take_profit.limit_price (alpaca_client.py:189), and that client carries no distance check.\n\nConsequence on those legs: the cap sets a real profit exit at cap_R (gld ~4.3R at median vol, ~1.3R in 2026) rather than acting as the never-filling 50R sentinel it is documented to be -- and it is what makes their declared arms unreachable.",
+      "detail": "NOT ESTABLISHED, and must not be assumed: that Alpaca or IBKR would ACCEPT a farther take-profit. That was not tested and cannot be without placing an order; absence of a distance check in our client is not proof the venue lacks one. Establishing it is the first step, and it is cheap on a paper account.\n\nThe unconditional application also has a real structural reason rather than being simple oversight: tp is computed in the signal builder, which runs BEFORE per-account routing, so no account or venue is in scope at that point. Per-leg the venue set IS knowable from config (a leg's symbols determine which accounts are eligible), so a per-leg resolution is possible -- but it moves where order geometry is decided, which is why this is Tier-3 and not a one-line fix.\n\nInteracts with PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS: if the cap should not bind on these legs, then --tp-cap-pct 0.099 is the correct LIVE-PARITY setting for the harness today (it faithfully reproduces what the code does) while being the wrong setting for what the code SHOULD do. Do not 'fix' the harness default in response to this row.\n\nSCOPE CORRECTION 2026-08-16 (see scope_correction_2026_08_16): a package fanning out to BOTH Alpaca and IBKR must satisfy the TIGHTER rule, so a venue-aware cap would have to resolve per ROUTE, not per leg. That is materially harder than 'look up the leg's venue' and raises the cost of the Tier-3 change.",
+      "suggested_action": "Step 1 (Tier-1, cheap): establish empirically whether Alpaca and IBKR accept a bracket take-profit further than 10% from entry, on a paper account. If they do, Step 2 (Tier-3): propose resolving the cap per leg from the venues its symbols route to, with the exact diff, and re-sweep the affected arms against the corrected ceiling.",
+      "resolution_criteria": "POPULATION: the 2 ALPACA-ONLY arm-declaring legs — gld_pullback_1d (GLD, n=112) and scha_trend_long_1d (SCHA, n=65), measured entry-conditioned 2010-03-26 to 2026-06-12 (relay #9710). qqq_trend_long_1d is excluded: it also routes to ib_paper, where a ~10% NBBO rule may make the cap correct. Closes on EITHER (a) a recorded paper-account result showing Alpaca REFUSES a take-profit further than 9.9% of entry, which closes this as correct-as-is with the evidence attached; or (b) Alpaca accepts it AND the cap resolution is made route-aware with operator approval, verified by reading a live order package on an Alpaca-routed leg whose tp is no longer clamped to entry*1.099. A code change alone does NOT close it — the check is a real order package with an un-clamped tp, because the clamp lives in a signal builder that runs before per-account routing, so a fix applied at the wrong layer would look correct in diff and change nothing. Reading more documentation does NOT close it either: the open question is an undocumented API validation, which only an order attempt reveals.",
+      "refs": [
+        "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
+        "src/units/strategies/trend_donchian.py:125-132",
+        "src/units/accounts/alpaca_client.py:189",
+        "config/accounts.yaml"
+      ],
+      "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it."
+    },
+    {
+      "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+      "opened_at": "2026-08-16T20:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, uso_trend_1h reachability measurement)",
+      "severity": "low",
+      "tier": "1 (a docstring/consumer question; the clamp itself is correct and no runtime behaviour is proposed)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "position_telemetry.cap_r computes the VENUE TP cap and calls it the ceiling; the realism clamp binds first on low-ATR rows and it does not model that",
+      "summary": "⚠️ THIS ROW WAS FILED WITH ITS DIRECTION INVERTED AND IS REWRITTEN, NOT RE-WORDED. The original claimed `exit_plan_state.targets[].reach_r` UNDER-reports the ceiling and manufactures false `inert` verdicts, and that the identity 0.099/(risk_per_unit/entry) was authoritative. BOTH WERE BACKWARDS, and the correct reading was landed independently the same hour by a concurrent session: xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), whose `read_the_right_field` note is canonical.\n\nWHY IT IS BACKWARDS. Reachability asks whether an arm can be reached BEFORE the trade's exit closes it. The TP the bot actually places is the CLAMPED one (`src/runtime/exit_plan_realism.py:44`, DEFAULT_MAX_REACH_R = 5.0), and that TP fills and ends the trade — so the operative ceiling is `min(venue_cap_R, 5.0)` = exactly `targets[].reach_r`. The identity ignores the clamp, so where cap_R > 5.0 it OVER-reports and would grade a 6R arm `reachable` on a row whose placed target is 5.0R. Worked example (theirs): pkg-639da91607cc46d3, original 8.3837R clamped to 5.0000R.\n\nWHAT SURVIVES, and why this row stays open rather than being closed as a duplicate: `src/runtime/position_telemetry.py::cap_r` computes `cap_pct * entry / risk` — the VENUE cap — and nothing in it models the realism clamp. On a low-ATR row it therefore reports a ceiling the bot's own placed target does not honour. That is a live writer, not a research script, and it was shipped as M31 P1/P2. Whether it is a defect depends on what its consumers do with the value: as a record of the VENUE constraint it is correct and correctly named; as 'the ceiling a lever must clear' it is wrong on exactly the clamped rows. Measured 2026-08-16: 7 of uso_trend_1h's 30 live rows are clamped (venue max 7.5639 vs operative 5.0000); both of xrp_pullback_2h's two reaching rows are clamped ones.",
+      "resolution_criteria": "Determine what reads `position_telemetry.cap_r` and whether any consumer treats it as the reachability ceiling rather than as the venue cap. Then EITHER (a) leave it and document at the definition that it is the venue constraint and NOT the operative ceiling when `cap_r > DEFAULT_MAX_REACH_R`, naming `targets[].reach_r` as the operative one; OR (b) if a consumer does treat it as the ceiling, have that consumer take `min(cap_r, DEFAULT_MAX_REACH_R)` and import the constant rather than re-declaring 5.0. Verifiable by grepping `cap_r` consumers and confirming each either does not need the ceiling or takes the min. Closing on the grounds that 'the registry now documents it' is NOT sufficient — the registry's basis_note is guidance for humans; this item is about a shipped writer. Population for the numbers above: uso_trend_1h live order_packages n=30 COMPLETE (2026-07-07 -> 2026-08-07), xrp_pullback_2h n=37 COMPLETE.",
+      "evidence": {
+        "code": "src/runtime/exit_plan_realism.py:44 (DEFAULT_MAX_REACH_R = 5.0), clamp_exit_plan(); src/runtime/exit_plan_materializer.py:157",
+        "population": "uso_trend_1h live order_packages, n=30 COMPLETE, span 2026-07-07 -> 2026-08-07",
+        "clamped_rows": "7/30",
+        "stored_max_vs_true_max": "5.0000 vs 7.5639",
+        "unaffected_rows_checked": "trend_donchian_sol_4h max 4.32, xrp_pullback_2h max 4.46 -- both below the clamp, recorded values stand"
+      },
+      "my_error_recorded": "Filed 2026-08-16 with the hazard direction inverted. Kept as a row rather than deleted so the inverted rule is not re-derived by a future session reading only the corrected text.",
+      "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session"
+    },
+    {
+      "id": "PB-20260816-M31-P4-PARITY-PRECONDITIONS",
+      "opened_at": "2026-08-16T21:14:00+00:00",
+      "opened_by": "claude (overnight M20 session)",
+      "severity": "medium",
+      "tier": "1 (measurement + a reporting script; the arm VALUES it would inform stay Tier-3)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "M31 P4 (backtest<->live MFE parity) preconditions: the quantities ARE comparable, the soak population is EMPTY (0 closed rows), and finality is only knowable via a join nothing enforces",
+      "summary": "MEASURED 2026-08-16, not argued. P4 is gated in the design on 'P2 soak depth'. Three preconditions were checked before treating depth as the only gate; two pass and one is a real constraint on how P4 must be written.\n\n(a) COMPARABLE — live `trail_decay.since_entry_peak` computes (max(window.high) - entry)/risk and the harness `_ratchet` computes max(mfe, (ext - entry)/risk) over bar highs. Same numerator, same denominator, same bar-extreme basis. P4 is well-posed.\n\n(b) EMPTY, not shallow — /api/bot/db/table/position_telemetry returns total: 12, filter_state: not_requested, and ALL TWELVE are open positions. There are ZERO closed-trade rows, so P4 has no terminal MFE to compare against. Expected (P2 shipped the same day) but 'needs more depth' and 'has nothing in it' are different statements.\n\n(c) FINALITY NEEDS A JOIN — the table has NO status/closed_at/is_final column, so a row cannot say whether its peak_r is final or still accruing, and an open trade's peak_r is a LOWER BOUND. trade_id is populated 12/12 so position_telemetry.trade_id -> trades.status works, but nothing enforces it.",
+      "detail": "WHY (c) IS THE ONE THAT BITES. A parity check that pools open and closed trades would systematically understate the live side -- not by a modelling error but by averaging unfinished trades against finished ones. It would look like a real backtest-optimism finding and be an artifact of the population. This is the unstated-population class the repo already has a top-level rule for.\n\nA HAZARD CHECKED AND REFUTED, so nobody re-derives it: the fleet sweep warns that a bar spanning from below the stop to far above the target 'books a -1R loss AND records a huge MFE' (ict_scalp_avax_5m, 182.34R over four trades). If the harness ratcheted MFE on the stopping bar, backtest MFE would exceed anything live could observe by convention alone. It does NOT for this family: backtest_pullback evaluates _stop_or_target BEFORE _ratchet and breaks on a hit (:592-601), and arm C does the same per sub-bar (:579-585). The 182.34R case is the ict_scalp harness, a DIFFERENT one -- so the hazard is real but scoped, and the donchian/pullback family (where every telemetry row with a declared arm lives) is clean.\n\nTHE RESIDUAL ASYMMETRY RUNS THE OTHER WAY and is unquantified: the backtest excludes the exit bar entirely, while live peak_r includes however much of the terminal bar had formed at the last monitor pass. Bounded and small, but it biases live HIGH, which is the opposite of the naive expectation -- so a small positive live-minus-backtest gap is NOT automatically evidence of backtest optimism.\n\nCOLLATERAL CORROBORATION (recorded because it came from a different data path than the registry): both telemetry rows carrying a declared trail_decay_arm_r show the arm ABOVE the live cap_r -- xrp_pullback_2h arm 4.49 vs cap_r 3.9233 on bybit_2 (REAL MONEY), qqq_trend_long_1d arm 3.56 vs cap_r 2.1258 on alpaca_paper. Both agree with config/lever_reachability.json's verdicts (vol_conditional / inert), which were derived from order_packages/risk_per_unit rather than from this table.",
+      "suggested_action": "When the soak has closed rows: (1) write the parity script to JOIN trades.status and restrict to finished trades, reporting the closed-row count as its denominator the way rCoverage/pnlCoverage do; (2) report per-leg, since the harness convention differs by FAMILY (pullback/donchian stop-first vs ict_scalp) and a fleet aggregate would mix two conventions; (3) quantify the terminal-bar asymmetry once rather than assuming it away. Consider whether P2 should stamp a terminal snapshot flag so finality stops depending on a join no consumer is obliged to make -- that is a P2 change, not a P4 one.",
+      "resolution_criteria": "Closes when a parity run exists that (a) states its closed-trade denominator, (b) is restricted to finished trades via trades.status, and (c) reports per-leg or per-family rather than one fleet number. A run that reports a single pooled figure over a population including open trades does NOT close this row -- that is the artifact this row exists to prevent.",
+      "refs": [
+        "docs/design/position-telemetry-DESIGN.md",
+        "src/runtime/position_telemetry.py",
+        "src/runtime/trail_decay.py",
+        "scripts/backtest_pullback.py",
+        "scripts/exit_capture.py",
+        "config/lever_reachability.json",
+        "PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS"
+      ]
+    },
+    {
+      "id": "PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING",
+      "opened_at": "2026-08-16",
+      "opened_by": "overnight M20 session (2026-08-16)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 to WIRE (a read path over two committed artefacts). Every arm_r verdict it would inform stays Tier-3 and the operator's.",
+      "title": "config/lever_reachability.json has been buying entry-conditioned cap_R one leg at a time via bespoke relays, while m20-sweep-corpus already carries the same measurement for 34 legs and nothing reads it",
+      "source": "Found while tracing why tonight's 52 corpus rows lacked live_tp_reach_r_* (BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR). Chasing the dropped field surfaced that where it DOES survive, it has no consumer.",
+      "why_it_matters": "This is the written-and-never-read shape provenance-consumer-guard exists to catch, and it has a measurable cost rather than being merely untidy: the registry's own basis_note discredits the cheap candle screen ('NOT a bound in either direction — on xrp it overstated reachability 90.5% vs 33.3% because entries are filter-selected') and therefore needs an ENTRY-CONDITIONED population. It has been obtaining exactly that with a bespoke relay run per leg — #9710 for scha_trend_long_1d, #9715 for trend_donchian_sol_4h — while every fleet sweep since #9037 has been writing the same class of number into the corpus for free. Two of the eight registry rows still read `unmeasured`/`queued_tier3`.",
+      "resolution_criteria": "OBSERVABLE: for a leg whose registry row carries NO entry-conditioned basis, the corpus alone yields cap_R median/min/max/n and a reach share against that leg's arm_r, without dispatching a relay. Demonstrate on a leg that currently has none — reproducing a leg that already has a bespoke block proves only that the join works where the answer was already known.",
+      "next_action": "Join docs/research/m20-sweep-corpus.jsonl's live_tp_reach_r_{n,median,min,max}_{IS,OOS} onto config/lever_reachability.json by leg, as a RECORDED SECONDARY basis with the caveat below — never as a verdict flip. The natural home is scripts/ci/check_lever_reachability.py (which today has ZERO references to the field) or the coverage roll-up. Cheapest first step is a read-only report, not a writer.",
+      "updates": [],
+      "area": "M20/M31 exit-lever reachability / research corpus",
+      "detail": "MEASURED 2026-08-16 against merged main.\n\nCOVERAGE. 376 of 1264 corpus rows carry a non-null live_tp_reach_r_n_IS, spanning 34 legs. The registry holds 8 lever rows; 7 of those 8 legs have a corpus measurement (qqq_trend_long_1d is the one with none).\n\nNO CONSUMER. live_tp_reach_r / tp_r_effective appears in the four backtest harnesses (which compute it), m20_fleet_exit_sweep.py (which surfaces it), m20_corpus_extract.py (which writes it), three test files and two sprint logs. scripts/ci/check_lever_reachability.py: 0 references. config/lever_reachability.json: 0 references. Nothing decides anything with it.\n\nIT AGREES WITH THE BESPOKE RELAYS WHERE BOTH EXIST — the check that makes the join trustworthy rather than merely available:\n  * trend_donchian_sol_4h (arm 5.57): bespoke cap_r_at_median 1.64 over n=127 (relay #9715, span 2023-01-09→2026-06-29, reach 0/127 = 0.0%) vs corpus median 1.324 over n=135. The corpus MAX is 3.723 — strictly below the 5.57 arm — so the corpus independently gives 0/135 reachable, reproducing the bespoke zero without the relay.\n  * scha_trend_long_1d (arm 2.00): bespoke cap_r_at_median 2.65 over n=65 (relay #9710, span 2010-03-10→2026-06-12, reach 54/65 = 83.1%) vs corpus medians 2.81/3.058/3.122 over n=60. Arm 2.00 sits below every one, agreeing with 'largely reachable'.\nThe residual gap in the medians is explained by population, not method: the corpus figure is the sweep's IS window at a DERIVED split, the bespoke figure is the leg's complete backtest span.\n\n⚠️ THE CAVEAT MUST TRAVEL WITH THE NUMBER, OR THE JOIN MANUFACTURES FALSE `reachable` VERDICTS. The harnesses place tp = min(entry*1.099, entry + tp_r*risk) and every leg declares the sentinel tp_r = 50.0, so tp_r_effective IS the venue-cap identity 0.099/(risk/entry) — which is quantity (3) in the registry's own basis_note taxonomy, NOT the operative ceiling (1) exit_plan_state.targets[].reach_r. src/runtime/exit_plan_realism.py's DEFAULT_MAX_REACH_R = 5.0 clamps first wherever cap_R > 5.0, so a corpus median above 5.0 OVER-reports the reach a lever actually gets. That bites today: trend_donchian's corpus median is 5.833 and its max 36.439, both past the clamp. So the corpus basis is strictly better than the discredited candle screen (entry-conditioned, large-n) and strictly weaker than the live order_packages/risk_per_unit basis — the same standing the registry already assigns its own backtest_entry_conditioned_* blocks, whose basis_caveat wording should be reused verbatim rather than reinvented.\n\nCHANGES NOTHING TODAY. No verdict, disposition or arm_r moves here. The three queued_tier3 rows (xrp_pullback_2h, trend_donchian_sol_4h, scha_trend_long_1d) remain the operator's call; this records that the evidence for two of them was already sitting in a committed artefact."
     }
   ],
-  "updated_at": "2026-08-07T14:55:00+00:00"
+  "updated_at": "2026-08-16"
 }

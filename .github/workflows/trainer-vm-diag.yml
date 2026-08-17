@@ -14,8 +14,33 @@ name: trainer-vm-diag
 #      cmd input is the bash command to run on the trainer VM.
 #      Result is shown in run logs + uploaded as artifact.
 #
-#   2. issues.opened with label `trainer-vm-diag-request` — the
-#      fully automated path. Issue body must contain a `cmd:` line:
+#   2. issues.opened with label `trainer-vm-diag-request` **OR
+#      `trainer-vm-heavy-request`** — the fully automated path.
+#
+#      BOTH labels run THIS job, deliberately. `trainer-vm-heavy-request`
+#      was created by bootstrap-labels.yml, enforced by
+#      `.claude/hooks/vm_lane_guard.sh` (which DENIES an issue_write
+#      carrying it without a fresh VM-lane claim marker), named by
+#      session-coordination/SKILL.md § 2b as the label a HEAVY trainer
+#      job must use — and consumed by NOTHING. A heavy job dispatched
+#      exactly as the skill instructs opened an issue, returned an id,
+#      and was silently discarded: no run, no comment, no failure.
+#
+#      That is the SILENT-SUCCESS shape, which is worse than an error,
+#      because the guard PASSING reads as confirmation the dispatch was
+#      well-formed. Measured cost (2026-08-16, issue #9638): a trainer
+#      re-prioritisation sat dead for ~50 minutes while the box burned
+#      that time on legs in none of the operator's queued decisions, and
+#      the session had already reported the work as done on the
+#      coordination board. Re-fired under `trainer-vm-diag-request` as
+#      #9662 it ran immediately. Filed TWICE in the health backlog by two
+#      different sessions before it was fixed.
+#
+#      The VM-lane FIFO is a BOARD convention, not a workflow feature, so
+#      the two labels need no behavioural difference here — the heavy one
+#      exists to trip the claim guard, and it must still RUN.
+#
+#      Issue body must contain a `cmd:` line:
 #
 #        cmd: journalctl -u ict-trainer.service -n 100
 #
@@ -89,7 +114,8 @@ jobs:
       (github.event_name == 'issues' &&
        (github.event.issue.user.login == github.repository_owner ||
         github.event.issue.user.login == 'github-actions[bot]') &&
-       contains(github.event.issue.labels.*.name, 'trainer-vm-diag-request'))
+       (contains(github.event.issue.labels.*.name, 'trainer-vm-diag-request') ||
+        contains(github.event.issue.labels.*.name, 'trainer-vm-heavy-request')))
     runs-on: ubuntu-latest
     # 2026-07-28: raised 10 -> 60. A 10-min cap silently killed legitimate heavy
     # trainer reads (a deep multi-year backtest / k-fold, a dataset build) at
@@ -162,7 +188,12 @@ jobs:
               /^cmd:/{
                 found=1
                 sub(/^cmd:[[:space:]]*/,"")
-                if ($0!="" && $0!="|") print
+                # `|`, and the chomping variants `|-` / `|+`, all introduce a
+                # YAML block scalar. Record that, because the terminator rule
+                # below applies ONLY to that form — a single-line `cmd: foo`
+                # keeps its existing semantics untouched.
+                if ($0 ~ /^\|/) { block_scalar=1; next }
+                if ($0!="") print
                 next
               }
               # Stop at the next unindented top-level YAML-ish key
@@ -192,6 +223,21 @@ jobs:
                 if (found && fence == 0) exit
                 next
               }
+              # The GENERAL terminator for a `|` block, and the reason the two
+              # above are not enough. They end the block at a closing fence
+              # (#8157) and at the next top-level `key:` (BL-20260607-002) —
+              # two layouts. An unfenced block whose trailing prose is an
+              # ordinary sentence matched NEITHER and ran off the end into
+              # bash: trainer-diag #9400 executed its own explanatory paragraph
+              # and returned `Three: command not found`, the #8157 shape
+              # recurring 15 days after it was declared fixed.
+              #
+              # YAML already defines the rule: block-scalar content MUST be
+              # indented, so the first non-indented non-empty line ends it,
+              # whatever that line looks like. A blank line does NOT (it is a
+              # legal blank inside the block), and a fence line never reaches
+              # here because the fence rule above consumes it.
+              block_scalar && !fence && /^[^ \t]/ && NF { exit }
               found { print }
             ' )"
           if [ -z "${cmd_raw}" ]; then

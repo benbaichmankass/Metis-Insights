@@ -142,13 +142,24 @@ KNOWN_VACUOUS: dict[str, dict[str, str]] = {
     # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
     # 5427/2211), verified against the committed artifacts. They are now regular registered
     # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
-    "comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json": {
-        "backlog": "BL-20260730-PRODUCER-VACUITY-GUARD",
-        "until": "2026-08-15",
-        "why": "A zero-row FMP capture, consistent with the FMP free-tier NO-BUILD "
-               "finding (#7888). Either prune the dead capture or stop writing "
-               "empty ones.",
-    },
+    # REMOVED 2026-08-16 (the entry's own contract, and its expiry fired on 2026-08-15 —
+    # which is what forced the decision rather than letting the debt go permanent; the
+    # mechanism worked as designed). Landed by TWO concurrent sessions; this comment is the
+    # union, because each did a different half and both halves matter:
+    #   * PRUNE (#9550) — the zero-row capture US-20260729T073711Z.fmp.json is DELETED. It
+    #     was the ONLY *.fmp.json ever written in comms/macro/econ_calendar_captures/, a
+    #     residue of the FMP free-tier NO-BUILD finding (#7888); the daily
+    #     econ-calendar-produce cron runs FXStreet, not FMP. Verified `rows == []` before
+    #     deleting, which is the load-bearing check: econ_calendar_produce GLOBS every
+    #     capture in that dir including *.fmp.json, so this file WAS a producer input —
+    #     it simply contributed zero rows, and a non-empty one could not have gone silently.
+    #   * REFUSE (#9552) — econ_calendar_fmp.write_capture now declines to write a zero-row
+    #     capture and says so (`wrote: False` + reason; CLI exits 1). Pruning alone rests on
+    #     FMP STAYING abandoned; this makes re-seeding structurally impossible if
+    #     FMP_API_KEY is ever provisioned. A ~60-day US window with no economic events is a
+    #     failed fetch, not a quiet "no events".
+    # An expired grandfather whose date is simply pushed forward is the "it was already like
+    # that" survival path this list exists to close — so the date was never touched.
 }
 
 

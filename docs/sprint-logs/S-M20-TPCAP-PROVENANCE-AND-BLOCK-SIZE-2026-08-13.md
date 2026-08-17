@@ -1,0 +1,4231 @@
+# S-M20-TPCAP-PROVENANCE-AND-BLOCK-SIZE-2026-08-13
+
+## Date Range
+
+- **Start:** 2026-08-13 ~13:00 UTC
+- **End:** 2026-08-14 (still in flight; overnight autonomous session, ran past midnight UTC)
+
+## Objective
+
+- **Primary:** advance M20 exit-refinement coverage — grade what the corpus can
+  answer, and work the open cells down.
+- **Secondary:** fix the sweep→corpus provenance defects surfaced along the way,
+  and answer the operator's question of whether E1's fold minimum is derived.
+
+## Tier
+
+**Tier 1** for everything shipped (research tooling, corpus data, matrix
+statuses, docs, tests). One Tier-2-shaped action — the corpus-branch write —
+was explicitly authorised by the operator in-session. **No live lever was
+touched, no Tier-3 change enacted.**
+
+## Starting Context
+
+- M20 headline 362/376, done-condition 36 open (14 pending + 22 blocked).
+- Both prop legs (`trend_donchian_sol_prop`, `trend_donchian_eth_prop`) had
+  entered the denominator on 2026-08-13 with all 8 columns `pending`.
+- Known risk carried in: `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`
+  — the harnesses modelled no take-profit while production clamps to 9.9%.
+
+## Repo State Checked
+
+- Branch `claude/m20-exit-coverage-matrix-8d3he7`; `main` at `ea3dd512` at start.
+- `origin/claude/m20-sweep-corpus` at `0f2c791e` (925 rows).
+- **The working copy's corpus was 42 rows STALE** (883 vs 925) — see
+  *Contradictions*.
+
+## Files and Systems Inspected
+
+- `scripts/research/m20_corpus_extract.py`, `m20_fleet_exit_sweep.py`,
+  `m20_coverage_rollup.py`, `m20_corpus_relabel_tp_cap.py` (new)
+- `scripts/ml/train_exit_head.py` — `fold_blocks`, `per_leg_summary`,
+  `eval_split`, `agg`
+- `scripts/backtest_trend.py` (TP-cap application, lines 461-472)
+- `scripts/ops/build_trainer_datasets.sh` (`EQ_1D_START`, `build_equity_daily`)
+- `.github/workflows/m20-exit-lever-sweep.yml`
+- `docs/research/exit-refinement-coverage.json`, `m20-sweep-corpus.jsonl`
+- Trainer relays #9049 (data spans + block-size grep), #9055 (E1 artifacts),
+  #9063 (per-fold arms — pending at time of writing)
+
+## Work Completed
+
+1. **PR #9037 (merged).** Fixed the `split: null` regression I introduced in
+   #8965 (the boundary moved per-leg; the extractor still read the doc level);
+   added the workflow's missing `split_mode` input; plumbed `live_tp_reach_r`
+   onto every corpus row so a row can state whether the TP cap **bound**, not
+   only which value was requested. 3 tests, can-fail verified.
+2. **Corpus relabel applied** (`dea29fec`, operator-authorised cross-branch
+   write). 140 rows recording `tp_cap_pct: null` were measured **at 0.099**.
+3. **8 prop-leg cells graded** `honest_negative` (PR #9048) — headline
+   **362/376 → 370/376**, done-condition **36 → 28**.
+4. **`--min-fold-trades` audited** at the operator's direction: it is an
+   **undefended default**.
+5. Filed `BL-20260813-TPCAP-REQUESTED-NOT-APPLIED` (resolved) and
+   `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE` (open, reframed twice).
+6. **Block-size derivation landed** (`docs/research/M20-E1-block-size-derivation-2026-08-13.md`)
+   at the operator's direction to derive the value from a stated statistical
+   target and accept whatever it says. It says **keep 50**, and it says the
+   more useful finding is upstream of the block size — filed as
+   `BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT`.
+7. **Both of that row's open measurements are now done** (relays #9071 / #9072 /
+   #9074 / #9075, 31 reports — up from the 21 the derivation used), and both
+   land badly for the exit head. See *Validation* below. The doc gained §§ 6–8
+   and the backlog row was rewritten around the results.
+8. **Hindsight-free τ selection measured** (#9077, 514 folds) — the fleet's
+   entire edge is the best-arm selection. Doc § 9.
+9. **`train_exit_head._select_tau_holdout` shipped** — per-fold nested τ
+   selection on a validation block carved from that fold's own training window,
+   three-state, observe-only, 3 can-fail-verified tests. The gate is untouched.
+10. **Followed the thread to a live lever.** The API twins of the two pending
+    prop legs are `trend_donchian_sol` / `_eth` at 1h, whose `exit_head_ml`
+    cells read `shipped`. Verifying that rather than inheriting it turned up a
+    stale docstring on a money path, a confirmed-open apply gate, and a lever
+    that may never have fired. Filed as
+    `BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM`.
+11. **PR #9099 (merged `92759864`).** Two things: an audit of the **blocked
+    bucket** — seven `*_trend_long_1d` legs read
+    `blocked:insufficient_lifetime_trades` while all seven carry an E1 verdict;
+    the STATUS is defensible (those verdicts are calendar-geometry and
+    `per_leg_note` says the geometries are not comparable evidence) but the
+    **ref never records that the choice was made**, so the next auditor reads
+    it as staleness — and the nested-τ measurement below.
+12. **The nested-τ measurement landed** (relay #9101) — the number § 9 left
+    open. Over the donchian-1h family (3 legs, `trades` geometry, b=50, **21 of
+    22 folds `selected`**, 1 `no_validation_block`, 63 leg-folds): nested
+    holdout τ scores **+0.137R vs actual (57.1% positive)** against the
+    **+2.788R** the gate credits and **−0.367R** for a τ-blind median-arm
+    control. Causal and credited are an order of magnitude apart, and the
+    selector does beat the blind control — so it finds something real that is
+    nowhere near the headline. Doc § 10; backlog item 6 closed for this family.
+    **The finding that decides the cell: no leg beats BOTH the actual exit and
+    the cheap deterministic lever** — BTC −1.118R vs actual / +1.351R vs
+    `stale_8_0`; ETH +0.692 / −0.070; SOL +0.837 / −0.311. The thing that wins
+    on two of three legs is a fixed rule with no model, no training and no τ.
+13. **Self-corrected the same hour.** I first wrote "+0.137R is 4.9% of
+    +2.788R, so ~95% of the edge is hindsight." Arithmetically right, **not a
+    usable statistic** — and the backlog row already said so about "% of edge"
+    ratios. It applies here for a *different* reason: the instability is in the
+    **numerator** (per-leg means span −1.118 to +0.837, so the pooled mean
+    carries ±0.5R at n=63 and the ratio swings through zero). Corrected in the
+    doc and the backlog before it could propagate.
+14. **Scalp nested round launched** (relay #9103, backgrounded on the trainer).
+    Scalp is the ONLY family positive under both causal rules, so it is the one
+    whose nested number could move a decision permissively — and all 7 legs are
+    **single-leg families**, i.e. `n_leg` = b = 50 exactly (§ 6), which makes
+    them the strongest evidence in the fleet rather than the weakest. Each leg
+    runs against a **symlink to the original `rows.jsonl`**, so the comparison
+    isolates the τ-selection change from any dataset rebuild.
+15. **The scalp nested round LANDED, and it splits the verdict by family** (relays
+    #9103 run / #9108 read). All 7 scalp legs, 73 leg-folds (80 folds less exactly
+    one `no_validation_block` per leg — each leg's first fold): nested holdout τ
+    scores **+3.848R vs actual, 79.5% positive**, against **+6.022R** credited and
+    **+3.475R** for the τ-blind median-arm control. **5 of 7 legs pass the
+    two-sided test** (beat actual AND `stale_8_0`) — against **2 of 7** under § 9's
+    PREV rule, which is that section's own prediction confirmed.
+    **The τ-blind control is the sharpest statement of the split:** on scalp the
+    median arm alone scores +3.475R, so τ choice barely matters and the edge is in
+    the head; on donchian it was −0.367R, so what the gate credited there WAS the
+    τ choice. Between-leg SE: scalp is **6.4 SE** from zero, donchian **0.22 SE**.
+    Doc § 11. **Three caveats ride with it and are recorded, not buried:** the
+    aggregate margin over `stale_8_0` is thin (+0.668R, 56.2% — a coin flip with a
+    lean); the two 15m PASSes rest on 5 and 6 leg-folds; and `eth_15m`, the
+    weakest leg, is the one that **already has a shipped stale-stop**, so the cheap
+    lever winning there is coherent with what is deployed.
+16. **PR #9114 (merged).** The seven `*_trend_long_1d` `exit_head_ml` refs now
+    **say** they are declining a verdict they already hold. The status was
+    always right; the ref never recorded that the choice had been made, so the
+    next auditor reads the matrix as stale. Numbers **re-verified from the
+    report** (relays #9112 + #9113) rather than quoted from my own audit note —
+    and the first probe read key `per_leg_summary`, which is the **function**
+    name, not a key. It returned "no entry in any report" for all seven legs,
+    the *opposite* of the truth; its positive control (0 legs found anywhere,
+    while `per_leg_note` resolved fine) is what flagged the probe rather than
+    the data. Both relays carry a positive control for that reason. Internal
+    check recorded with the numbers: the only two `insufficient_base` legs are
+    exactly the two under the floor of 25 (qld 23, tqqq 24). Same PR fixed the
+    CLAUDE.md `db/table` row, which still documented the pre-`filter_state`
+    return shape.
+17. **PR #9115 (merged) — the lever-column sweep #9099 declared as its own gap.**
+    Result is **negative**: across **all 28 open cells on live legs**, every one
+    carries a measured, dated, numeric ref. The `exit_head_ml` 1d bucket was the
+    only instance of that shape. **Denominator stated**, because a clean sweep
+    without one is the unasserted-negative shape: 17 membership + 6 pattern
+    validations, and the count (28) reconciles with `--done-condition` (28).
+    Two shadow-leg cosmetics filed (`BL-20260814-COVERAGE-MATRIX-SHADOW-ROW-METADATA`):
+    `fvg_range_15m/trail_geometry` is `blocked` while its ref describes `n/a`,
+    and `shadow fleet/giveback_stop` has no `ref` key. **Neither moves a
+    published number — checked against `--done-condition`, not assumed.**
+18. **PR #9116 — `collapsed-state-guard` had a real hole, and it was MEASURED.**
+    I registered `db_explorer.filter_state` with that guard earlier in the
+    session and recorded at the time that the registration was weaker than I had
+    claimed. Confirmed: collapsing `filter_state` so it could only ever return
+    `"applied"` left the guard **clean**, because the sibling `order_state` in
+    the same file still carried the other two literals — producer integrity was
+    file-scoped. That is the guard's own *"cheaper to lie to than to satisfy"*
+    failure one level up: not a false annotation, but a **neighbouring field
+    standing in as evidence**. Fixed with an opt-in `producer_field` (line-scoped,
+    because producers here emit states via bare returns, tuple returns and module
+    constants, so an assignment regex would match almost none of them);
+    registered `order_state` as its own contract (it was unguarded entirely,
+    which is how it came to be supplying its sibling's evidence); and added the
+    **self-test this guard never had** — the reason the hole survived its own
+    review.
+19. **The db-explorer fix is LIVE-VERIFIED, not merely merged** (relay #9117) —
+    a change is done when it is active in production. The probe was
+    **discriminating**, since one call returning `ignored_unknown_column` would
+    not prove `applied` is reachable: a bad column returns
+    `ignored_unknown_column` with `total` **4643** (the whole table), a real
+    column returns `applied` with `total` **1109**. *(4643 vs the 4639 measured
+    2026-08-13 is four rows of overnight growth, not a contradiction.)*
+    `BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN` is now
+    fully closed — all six sub-items.
+20. **Two concurrent-merge conflicts, both resolved with invariant assertions**
+    rather than by eye: the sprint log (my own #9104 squash vs item 15) and the
+    backlog (`updated_at` only — items merged cleanly). The backlog resolution
+    asserted item count **529**, **no duplicate ids**, and that *both* sessions'
+    edits survived, because a union merge that silently drops one side is the
+    failure mode a byte-count check would miss.
+
+21. **PR #9123 (merged) — the session's biggest error, corrected.** I applied the
+    §§ 10–11 nested-τ figures to the three SHIPPED donchian-1h cells and told the
+    operator "0 of 3 clear the bar" in two pings, a board post and two PR bodies.
+    The nested read measures τ **selection**; those cells run a **fixed** arm
+    (`model_cond["below_half_r_tau_0.1"]`), a different object. Re-measured on the
+    arm the cells actually run: BTC **−1.801R (FAIL)**, ETH **+1.810R / +1.263R
+    (PASS)**, SOL **+1.589R / +0.603R (PASS)** — two of three supported, not zero.
+    Corrected in the doc (§ 12), the backlog row, the board and the PR bodies.
+    Nearly made it twice: the first re-probe read `model["tau_0.1"]` and produced a
+    plausible publishable table (ETH +2.097R, SOL +2.192R); reading
+    `train_exit_head.py:418` against `:423` before publishing caught it.
+
+22. **PR #9127 — the drawdown axis § 12 declared unmeasured** (relays #9125/#9126,
+    doc § 13). `agg()` (`train_exit_head.py:369`) carries `max_dd_r` and
+    `mean_hold_bars`, so the axis the condition's *own justification* rests on was
+    measurable all along. Per fold, 22 folds/leg, never summed (drawdown is not
+    additive). The condition **holds materially longer** on all three legs (`t`
+    +3.79/+5.75/+6.37) — the mechanism works — but **drawdown is worse with `t > 2`
+    on every leg** and net_R is worse in the typical fold (median negative on all
+    three). Readable at n=22 because the distribution is one-sided: median
+    `Δ maxDD` is **+0.000** on BTC and SOL, so across 22 folds it essentially never
+    *lowered* drawdown — it either did nothing or made it worse.
+
+23. **…and it is conditioning *per se*, not the shape** (#9128, doc § 14). All four
+    `_SHAPES` at the same τ: **all twelve shape×leg cells cost drawdown, all twelve
+    at `t > 2`**, all twelve hold longer, eleven of twelve lose net_R. No shape on
+    this family conditions the head and gets paid for it. The **live** choice
+    `below_half_r` is the **mildest of the four** on every leg — the gentlest
+    available conditioning was picked, which defends the live config against the
+    alternatives but not against *no* conditioning. Also killed the tempting
+    mechanism: `Δ maxDD` does **not** track `Δ hold` (on ETH, `age8` and
+    `below_half_r` buy identical +3.595 bars at +1.131 vs +0.424 drawdown). This
+    removes "try a different shape" from the queued Tier-3 option set.
+
+24. **Recorded a defect in my own probe rather than quietly fixing it.** #9125
+    printed "folds where cond LOWERS maxDD: 63.6/45.5/72.7%" — the complement of
+    `frac > 0`, i.e. it counted **ties as wins**. Label said *lowers*, code computed
+    `<= 0`, and the tied folds are ones where the condition never bound. Sub-class
+    **A** of the UNPROVENANCED-DIAGNOSTIC-OUTPUT family, self-inflicted. Caught only
+    because the apparent mean-vs-majority disagreement was treated as a reason to
+    pull the distribution *before* publishing; had #9126 not been run, "the
+    condition lowers drawdown on most folds" would have gone into the doc and a
+    ping. Filed `BL-20260814-PROBE-COUNTED-TIES-AS-WINS`.
+
+25. **`artifact-validity-guard` caught my own new backlog row** (missing
+    `resolution_criteria`) on PR #9127's first push. A correct catch, and exactly
+    the failure mode that guard exists for — a row nobody can tell is finished never
+    closes. Fixed in `5adef613` with criteria naming an observable decision and two
+    acceptable outcomes (adopt with a demonstrated positive control, or close with a
+    written reason); "be more careful with probe labels" is explicitly excluded.
+
+26. **The penalty is not a donchian artefact** (#9130/#9131, doc § 15). §§ 13–14
+    cover the family whose head has **no** causal edge, leaving the reading
+    "conditioning only looks bad bolted to a weak head". Scalp is the control —
+    the family whose edge *survives* nested τ selection. **All twelve scalp
+    shape×τ cells cost drawdown, all at `t ≥ 3.01`, with 6 or 7 of 7 legs
+    individually agreeing.** And on that family the live-style shape's net_R cost
+    is **larger**, not smaller (`below_half_r` `t` −6.76/−6.47/−4.62 vs
+    −0.50/−0.41/−1.18 on donchian) — the coherent direction, since overriding a
+    head that is right more often is more expensive. **One exception recorded
+    rather than smoothed over:** `age8` does not cost net_R on scalp (positive at
+    all three τ, never significantly), so the universal claim is about
+    **drawdown**, not net_R; `age8` also carries the largest drawdown cost, so it
+    is not a way out.
+
+    **Caught a 1-of-7 sample before quoting it.** The scalp round writes **one
+    report per leg** (7 files) where donchian wrote one combined report. The first
+    probe took `cands[0]` and measured `ict_scalp_5m` alone — a single leg that
+    would have carried a family label. The probe's own discovery block printed all
+    seven paths, which is the only reason the gap was visible; re-run across all
+    seven with the count as an explicit denominator and a per-leg agreement
+    column. Also tightened the write-up so the two 12-cell tables are not summed
+    as 24 interchangeable observations — they are **shape×leg** and **shape×τ**,
+    different units.
+
+27. **PR #9127 merged (`29a5cf85`)** — doc §§ 13–15, sprint items 21–26,
+    `BL-20260814-PROBE-COUNTED-TIES-AS-WINS`. Docs + backlog only. Notable: the
+    first push failed `artifact-validity-guard`, and marking the PR
+    ready-for-review re-fires the whole check suite, so a merge attempted
+    immediately after the conversion 405s on `guards` still in progress — worth
+    knowing rather than re-diagnosing.
+
+28. **PR #9132 merged (`b8e9ab66`) — the matrix itself, with no re-grade.** Two
+    changes to `exit-refinement-coverage.json`, both verified by **diffing
+    `m20_coverage_rollup.py --json` before and after** rather than asserted:
+
+    (a) The three shipped donchian-1h `exit_head_ml` refs carried an **identical
+    July-only ref** with nothing recording that an August re-sweep had been run —
+    the same defect item 11 found in the blocked bucket. Each now carries its own
+    **per-leg** result plus an **inline warning** that the §§ 10–11 nested figures
+    grade τ *selection* and do not describe these cells. That warning exists
+    because I got it wrong (item 21); it means the matrix alone is now sufficient
+    to stop the next reader repeating it, without their having to find the doc.
+    **0 statuses changed across all 52 rows**, asserted by the edit script.
+
+    (b) `fvg_range_15m / trail_geometry` was `blocked` while its own ref read
+    *"lever not applicable … nothing to vary"*. The legend defines `blocked` as
+    "cannot process yet (**reason given**)" and `n/a` as "structurally
+    inapplicable", so this was a **mis-status**, not a judgement call.
+    Re-statused; the only field that moved in the rollup JSON was
+    `matrix_updated_at`.
+
+    Filed `BL-20260814-COVERAGE-MATRIX-BLOCKED-REASON-VOCABULARY` for two defects
+    **not** fixed: `xauusd_trend_1h / exit_head_ml` carries a **bare `blocked`**
+    with no reason suffix and a ref that **begins with the word "same"** — a
+    dangling antecedent left by the 2026-08-09 row explosion — so its reason is
+    genuinely unrecoverable from the file and **was not invented**; and
+    `blocked:native-history-thin` uses hyphens where all five sibling reasons use
+    underscores. The suffix is the only machine-readable statement of *why* a cell
+    is open, and the done-condition can only be driven down by resolving those
+    reasons.
+
+    **Two of my own re-derivations were wrong here and caught by cross-checking
+    the authoritative script.** An ad-hoc scan tested `status == 'blocked'` and
+    silently missed every `blocked:<reason>` variant, returning an empty set that
+    looked like a clean answer — the same shape as the ties-as-wins bug in item
+    24, and the reason the measured status vocabulary (12 distinct values across
+    416 cells) went into the backlog row. `m20_coverage_rollup.py` is the
+    authority on this file's population; hand-iterating it is how you get a
+    confident wrong count.
+
+29. **PR #9134 merged (`7efd3899`) — CORRECTION § 16, and it strengthens § 13.**
+    § 13 listed "why the condition never binds on most folds" as unexplained
+    while its own prose had already answered it, glossing the zero-`Δ maxDD`
+    folds as *"folds where the condition never bound"*. **An inference from a
+    zero, not a measurement, and wrong.** Measured (#9133): no-op share is
+    **13.6% / 0.0% / 9.1%** — the condition is **active on 86–100% of folds**.
+    BTC has ~64% of folds at exactly zero `Δ maxDD` but only 13.6% no-ops, so
+    roughly half its folds are ones where the condition *acted* and the
+    **maximum** drawdown still did not move — ordinary for an extremum. This
+    **strengthens** § 13: restricted to active folds the effect is the same size
+    or slightly larger (+0.198 vs +0.171 BTC). A clean-comparison check came free
+    — trade counts identical on **100%** of active folds, mean `Δ trades` +0.00,
+    so both arms are compared over the **same trade population**, which §§ 13–15
+    had assumed and never checked. The § 13 parenthetical is struck in place and
+    points at § 16.
+
+30. **PR #9135 — the first done-condition movement since the prop legs entered
+    the denominator, and the session's only genuine re-grade.** Headline
+    **370 → 371/376**, done-condition **28 → 27**.
+    `trend_donchian_sol_prop / regime_flip_exit` graded `honest_negative` **by
+    structural derivation, not by a sweep** — the lever *cannot fire* on that
+    leg, so no book and no exit geometry is needed to grade it. Four links, each
+    read from the primary source rather than inherited from a ref:
+    `regime_label` emits only `unknown/chop/transitional/trending`
+    (`detector.py:95-113`); `off_cell` looks those 1-D labels up and **never**
+    consults the 2-D `trend_vol` block (`m20_regime_flip_replay.py:61-65`);
+    `regime_policy.yaml` has `trend_donchian` `long: true` in all three 1-D cells
+    and no per-symbol keys; `strategies.yaml:1187` sets `long_only: true`. So
+    `flip == actual` on every trade — the identical degenerate tie the API twin
+    is already graded for.
+
+    **Why the blanket `pending` reasoning did not reach this lever:** all six
+    prop cells shared one ref saying a parent verdict cannot transfer because the
+    exits are inherited and different. True for `exit_head_ml` and `exit_ladder`,
+    whose outcomes depend on geometry — but whether the *flip fires* is a
+    function of `(1-D label, family key, direction)` only, and there is no
+    outcome for geometry to affect when the trigger never occurs.
+
+    **The conditional is recorded in the ref because it is the part that breaks:**
+    `trend_vol` *does* set `trend_donchian` `long: false` in three 2-D cells, so
+    the grade rests entirely on the replay harness reading 1-D cells only. Extend
+    that harness, or turn off a 1-D donchian long cell, and the cell re-opens.
+
+    **Scope is SOL only.** `trend_donchian_eth_prop` is deliberately two-sided
+    ("ETH's edge is short-side-dependent"), so the flip *can* fire there and its
+    outcome *does* depend on the inherited geometry — that cell stays `pending`.
+
+31. **Established that `m20-exit-lever-sweep` cannot close the remaining five
+    pending cells.** Its `levers` input accepts
+    `stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail` — **none of
+    the three levers that are actually pending**. `exit_head_ml` needs an E1 run
+    on each leg's own book. Read the workflow inputs rather than dispatching and
+    discovering it from a useless run.
+
+32. **The prop-leg flip replays already existed, and `verdict: PASS` is 86%
+    degenerate ties** (relays #9138–#9141, doc § 17). Chasing the E1 path for the
+    remaining pending cells turned up three things:
+
+    (a) **A factual error in the matrix.** Two prop-leg `regime_flip_exit` cells
+    read `pending` because the leg was *"NOT exit-processed on THIS leg's own
+    book"* — false, and false when written:
+    `m20_flip_replay/2026-07-13/` holds both legs' own `_flip.json` **and**
+    `_trades.jsonl`, a month before that ref was authored. Corrected in the refs,
+    scoped to the flip lever only (the clause **is** true for `exit_head_ml` —
+    the `m20_exit_head` tree has no prop-leg directory — and for `exit_ladder`).
+
+    (b) **Item 30's grade survived a falsification test.** The SOL grade was made
+    by structural derivation; the artifact tests it directly and confirms it —
+    `flip_exits: 0`, `flip_pct: 0.0` over 412 trades, `overall_flip` byte-identical
+    to `overall_actual`, all six folds equal to four decimals. Right for the reason
+    it gave.
+
+    (c) **The finding.** The artifacts carry their own `verdict`/`walkforward`
+    fields, which I had *listed and not read* — reading the field instead of
+    re-deriving one from the fold table is what surfaced it. Fleet-wide: **14
+    `PASS` / 28 `fail`, and 12 of the 14 passes have `flip_pct = 0.0`.** The lever
+    never fired, `flip` is identical to `actual`, and the walk-forward reads a
+    perfect **6/6 because every fold is a tie counted as a beat**. `PASS` means
+    "changed nothing" 86% of the time. Same shape as item 24's probe defect, but
+    in **shipped tooling**, so it is durable and re-read by every future session.
+    Filed `BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE`.
+
+    **Left ungraded on purpose:** `trend_donchian_eth_prop / regime_flip_exit` has
+    complete evidence (PASS, 4/6, +19.38R, −21.95R maxDD) and a defensible
+    `honest_negative` case on the fleet ref's own rationale — the improvement lands
+    on a **money-losing book** (−85.76R → −66.38R) and the **two most recent folds
+    are the two failures** (2026 swings −18.8R). But that is an *interpretive
+    override of a recorded `PASS` on a live leg*, unlike the mechanical SOL case,
+    so it goes to the operator. The full argument **and** the fleet context are
+    written into the cell's own ref, so the decision needs no archaeology.
+
+33. **⛔ Every exit-head round on disk was built on a NO-TAKE-PROFIT book** (doc
+    § 18, `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`, **high**). The
+    session's largest-scope finding, and it was found by *launching a round and
+    reading what it actually executed* rather than by reading the code first.
+
+    **`m20_exit_head_round.py` structurally cannot produce a live-parity book:**
+    line 145 calls `base_args` with five positional args so `tp_cap_pct` defaults
+    to `0.0`; `base_args` appends `--tp-r`/`--tp-cap-pct` only when that is
+    `> 0.0` (line 386); and the driver's argparse has **no `--tp-cap-pct` option
+    at all**. Every harness runs at `tp_cap_pct=0.0, tp_r=50.0` — no TP. Visible
+    in my own launch log: `--trail-mult 3.5` present, `--tp-r` **absent**, on a
+    leg declaring `tp_r: 6.0`. Aborted and **quarantined** to
+    `prop_1h.ABORTED-WRONG-GEOMETRY/` + `DO-NOT-USE.txt`.
+
+    **A method I tried first was void, and its own positive control caught it.**
+    Searching `round_report.json` for the flags returned `--trail-mult: False` on
+    *every* round including ones whose logs carry it — that file does not record
+    args at all. **It would have returned exactly the answer I expected.** The
+    conclusive method was independent: exit-reason distributions over 11 of the 13
+    round dirs with a readable `exit_reason` (n=63…977) — `trail_stop`/`stop`/
+    `timeout`/`flip`/`stale_stop`, **zero take-profit exits**, `donchian_1h_nested`
+    included. `scalp_15m`/`scalp_5m` stamp none, so **undetermined, not confirmed**.
+
+    **The self-caveat this forces, stated precisely:** it does **not** invalidate
+    §§ 13–16 — those are *within-book* arm contrasts over identical folds and
+    trades (61 of 66 active leg-folds, counts identical on all). A shared geometry
+    bias cancels in the difference. It **does** condition their transfer to
+    production, where the clamp truncates exactly the long right tail the
+    conditional arm buys, so magnitudes and possibly sign need not carry. **The
+    direction of that error is not known and is not guessed at.**
+
+34. **`claim-basis-guard` caught my own new row** for quoting `100%` and `9.9%`
+    with no parseable denominator — a correct catch, and *"always state the
+    population"* is a rule this session leaned on repeatedly, so failing it was my
+    own inconsistency. Populations now stated in the row.
+
+35. **Fixed the driver, and annotated the eleven rounds it had already spoiled**
+    (PR #9150) — parts **(a)(b)(c)** of
+    `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`, filed only ~40 min
+    earlier in item 33. **Only (d) remains, and it is the operator's.**
+
+    **(a)(b)** `m20_exit_head_round.py` now takes `--tp-cap-pct` **with live
+    parity as the DEFAULT (`0.099`)**. The default is the point: an opt-in is a
+    flag every future caller can forget, and forgetting it is precisely what
+    produced eleven untransferable rounds — the same argument
+    `m20-exit-lever-sweep.yml`'s header makes for its own default. Passing `0`
+    still works, to reproduce a historical no-TP verdict, and the help text says
+    to **declare it when quoting one**. `round_report.json` now also stamps
+    `_round_meta` (`tp_cap_pct`, `tp_geometry`, tf, legs), so a round is
+    self-describing on the one parameter that decides whether its verdict
+    transfers — closing the gap that made my own first audit method void.
+
+    **Four tests, can-fail verified** by reverting both fix points: exactly the
+    two argparse tests fail, and all four pass once restored. The fourth pins the
+    forwarding mechanism itself (at cap 0 *neither* flag is forwarded), so a later
+    edit that re-breaks it fails here rather than passing quietly.
+
+    **(c)** Each affected round now carries a `GEOMETRY-NO-TAKE-PROFIT.txt` with
+    the mechanism, its **own** evidence, and what it does and does not invalidate.
+    Artifacts outlive docs and are read directly, so the doc caveat alone was not
+    sufficient. **The marking pass read every emit file per round** rather than
+    the one-file sample the original audit used — full populations, n=100…1992,
+    and **zero take-profit exits in all eleven**. That is a *stronger*
+    confirmation than the finding it records, not a restatement.
+
+    **`scalp_15m` / `scalp_5m` were deliberately NOT marked** and are listed as
+    undetermined: they stamp no `exit_reason`, and labelling a round I cannot
+    measure would be the same error class the row is about.
+
+36. **The staleness classifier could not see the defect I had just fixed**
+    (same PR #9150) — `BL-20260814-COVERAGE-STALENESS-GRADED-BY-DATE-NOT-GEOMETRY`,
+    found by re-running the roll-up after item 35 rather than by auditing it.
+
+    `--stale-decisions` is the surface that names the CLOSED, non-negative cells
+    resting on unreproduced evidence, and its own output calls a stale SHIPPED
+    cell the expensive kind. It listed five and **read as the complete set**.
+    Three SHIPPED real-money `exit_head_ml` cells were missing from it.
+
+    **Two causes, and the second is the interesting one.**
+
+    (1) **One cutover for two harnesses.** `GEOMETRY_CUTOVER` (2026-08-10) is
+    when the *lever-sweep* harness learned to place the live capped TP.
+    `exit_head_ml` does not ride that harness — it rides the driver item 35 had
+    just fixed, four days later. Twelve cells cleared a bar their evidence never
+    met (stale 174 → 186 of 286 closed).
+
+    (2) **The date is only a proxy, and it failed outright.** The three shipped
+    `trend_donchian*` 1h cells carry a **genuine** `RE-SWEPT 2026-08-14` ref — a
+    real measurement, on that date — which re-read the **existing** round dirs
+    rather than building new ones. So the cell is *fresh by date and stale by
+    geometry at the same time*, and **no choice of cutover date separates
+    those**: the property that decides transfer is not WHEN a cell was measured
+    but WHETHER the round behind it placed the live TP.
+
+    So the fix is not a better date. A per-cell **`tp_geometry`** overrides the
+    date **in both directions** — `no_take_profit` is stale whatever the date
+    says, `live_parity` is not stale whatever the date says — and an absent
+    field falls back to the date while counting into `geometry_undeclared`, so
+    *"we did not look"* stays visible instead of reading as a clean pass. It is
+    a declared **measurement**, not a presence-only marker: the eleven rounds of
+    item 35 are its evidence, each carrying its own on-disk marker.
+
+    `--stale-decisions` now lists **8**, shipped **4 → 7**.
+
+    **Six tests; both fix points can-fail verified independently** (reverting the
+    per-lever map fails exactly 1, reverting the geometry override fails exactly
+    4). One asserts the three cells against the **real** matrix, so a regression
+    fails CI rather than quietly under-reporting.
+
+    **A correction to my own reasoning inside this item.** I expected reverting
+    the per-lever cutover to also break the real-matrix test; it did not, because
+    the `tp_geometry` stamp alone is sufficient for those three. The date is the
+    backstop, not the mechanism — which is the right layering, but I had it
+    backwards until the can-fail run said otherwise.
+
+    **What this does NOT resolve, deliberately:** the disposition of the three
+    cells is part (d) of `BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP`,
+    Tier-3, and is *not* double-counted as this row's remit. This change makes
+    the classifier tell the truth about which cells are affected; it does not
+    decide what to do about them.
+
+37. **Re-swept the other five stale decisions at live parity**
+    (`m20-exit-lever-sweep` run 31771809102) — `htf_pullback_trend_2h`,
+    `mes_trend_long_1d`, `mhg_pullback_1d`, `tlt_pullback_1h` ×
+    `trail_geometry,stale_stop`. These are the stale decisions the *lever-sweep*
+    harness owns, so unlike the `exit_head_ml` three they were runnable
+    immediately — that harness has taken `--tp-cap-pct` since 2026-08-10.
+
+    **Two checks before dispatch, both of which changed what I ran.**
+
+    First, the workflow's own input docs say *"trail_geometry is not offerable:
+    `trail_mult` has no OFF state"*, and I read that as "cannot be graded" — four
+    of the five cells are `trail_geometry`, so that would have made them
+    permanently unmeasurable. It is **not** what it says. "Not offerable" scopes
+    the *lever-off arm*; the ordinary arm sweeps a `trail_mult ± 1.0` grid
+    (`m20_fleet_exit_sweep.py:618-622`), which is a real comparison against the
+    shipped value. The code settled a question the prose left ambiguous, in the
+    direction that meant the work was possible.
+
+    Second, the live cap only applies to `LIVE_TP_CAPPED_FAMILIES`, so a leg
+    classifying outside it would have re-run at the OLD geometry and cleared its
+    stale flag on evidence that had not changed. Checked all four through
+    `classify()` first: `pullback` ×3, `donchian` ×1 — all capped. `tlt_pullback_1h`
+    additionally declares `tp_r: None`, which `base_args` guards
+    (`if tpr is not None`), so it takes the cap without a malformed `--tp-r`.
+
+## SWEEP RESULT (run 31771809102) — the answer is a NEGATIVE, and it is the useful kind
+
+All four legs returned, all four green, **every cell `insufficient_base`**.
+Live parity WAS applied on all four (`capped TP 0.099 APPLIED` on each).
+
+| leg | base n IS | base n OOS | vs floor 25 | cells |
+|---|--:|--:|---|---|
+| htf_pullback_trend_2h | 382 | **24** | −1 | 4/4 insufficient_base |
+| mhg_pullback_1d       |  55 | **24** | −1 | 4/4 insufficient_base |
+| tlt_pullback_1h       | 502 | **22** | −3 | 4/4 insufficient_base |
+| mes_trend_long_1d     |  29 |  **4** | −21 | 4/4 insufficient_base (split fell back: leg_too_thin, lifetime=33) |
+
+`MIN_OOS_TRADES = 25` (m20_fleet_exit_sweep.py:402, operator decision 2026-08-11).
+
+**So none of the five stale `trail_geometry` / `stale_stop` decisions can be
+re-graded today** — and NOT for the reason the stale flag implies. The geometry
+was fixed and applied; the legs simply sit below the operator's own OOS evidence
+floor. Three of the four are short by **1-3 trades**, so they become gradeable
+with a little more live history; `mes_trend_long_1d` (lifetime 33) is nowhere
+near.
+
+This is worth stating precisely because the stale-decision list reads as a
+to-do. For these five it is not: it is a **wait**, and re-running the sweep
+before those legs accumulate OOS trades will return exactly this again.
+
+### Side finding: the warning threshold and the grading floor disagree
+
+`_THIN_OOS_TRADES = 20` (the ⚠️ **THIN OOS** banner) vs `MIN_OOS_TRADES = 25`
+(the gradeability floor). A leg in the **20-24 band is entirely ungradeable and
+gets no banner** — which is exactly where `htf_pullback_trend_2h` (24),
+`mhg_pullback_1d` (24) and `tlt_pullback_1h` (22) landed. Only `mes` (4) was
+flagged.
+
+Stated precisely: this is **legibility, not falsehood.** The per-cell
+`PathA: insufficient_base` column does say it, and the harness even records
+`would_have_been`. But the header is where a reader calibrates, and three legs
+printed a full four-row delta table under no warning at all while nothing in
+them was graded.
+
+38. **Followed a citation, and it did not lead where it said** — filed
+    `BL-20260814-EXIT-LADDER-CELLS-CITED-THE-WRONG-MEMO-SECTION` (resolved
+    same session).
+
+    Seven `exit_ladder` cells cited **memo §7.2** for the partial-TP banking
+    verdict. §7.2 is *"Trail4 walk-forward"* and contains nothing about
+    banking; the verdict is **§6.2** *"Trailing-stop geometry + exit-ladder
+    banking"* — *"partial-TP banking reduced net_R in every one of the 20
+    banking cells"*. No other memo in the repo has a §7.2, so it could not have
+    resolved elsewhere. The claim was right and the pointer was off by one
+    section — which matters because a reader verifying the grade lands on a
+    section about a **different lever**, and §7.2's content is a *PASS*.
+
+    All seven now cite §6.2 with the section title and the verdict sentence
+    inline, so the correction is checkable from the cell rather than by trusting
+    the backlog row. **The corrective note carries no date, deliberately** —
+    five of the seven are `honest_negative` cells the vintage counter buckets,
+    and a date would have flipped them `pre_cutover → post_cutover`, marking
+    pre-cutover evidence as refreshed. That is the same date-proxy hazard item
+    36 exists to fix, and it would have been self-inflicted an hour later.
+
+    **Two counting errors of mine that the asserts caught, both before any
+    write.** I first said *45* cells cited §7.2 — I had extrapolated from a
+    three-row sample, and a regex that read decimals out of data-rich refs as
+    section numbers agreed with me. The real count is 7 (34 of the 45 carry no
+    citation at all). Then my write script asserted "no ref still contains
+    §7.2" and tripped **on its own correction note**, which quotes the wrong
+    section in order to explain it. Neither reached the file.
+
+    **Left stated, not fixed:** 34 of the 45 `honest_negative` `exit_ladder`
+    cells carry no section citation at all. Wider than this row's remit, and
+    folding it in silently would have hidden it.
+
+39. **The two pending prop `exit_ladder` cells have a named path now, and it is
+    not the one the fleet verdict implies.** This is the substantive find of the
+    stretch, and it came out of the wrong-citation chase above.
+
+    Memo §6.2 grades banking on **net_R** and then explicitly carves out this
+    exact case: *"The one venue where this trade could still be RIGHT is the
+    **prop ruleset** (survival-weighted EV, daily-loss/DD breach rules —
+    smoothness is worth net_R there)"*, logging `PB-20260712-PROP-BANKING-EV`.
+
+    So grading the two prop cells `honest_negative` by inheriting §6.2 would
+    **apply a verdict the memo excludes prop from** — and the axis is wrong
+    besides: survival-weighted EV, not net_R. Their `pending` status is correct,
+    but their stated reason (*"not exit-processed on this leg's own book"*) was
+    generic and understated it.
+
+    **What it would take, pieces verified present rather than assumed:** the
+    banking lever exists in the harness (`--bank-frac` / `--bank-at-r`,
+    `m20_exit_sweep.py --phase2`, which produced §6.2's own 20 cells); the prop
+    scorer exists (`run_ev_montecarlo`, already called by three
+    `scripts/prop/*` scripts — so the health-review row's "unused for a month"
+    is about the *evaluation*, not a dead function); `breakout.yaml` exists.
+    **The only missing piece is the join** — `montecarlo_prop.py` has no banking
+    arm. Chaining two built pieces, not new modelling.
+
+    **Deliberately not built tonight.** The output grades a live prop leg's
+    exits, and a harness authored at speed that emits a confident EV verdict is
+    the wrong artifact to leave on disk unattended — the same reasoning that had
+    me quarantine the wrong-geometry round rather than let its numbers stand.
+    The path is written into both cells so the next session does not re-derive it.
+
+40. **Recorded the re-sweep on the five stale-decision cells — and watched the
+    new mechanism do its job.** All five now carry a genuine `2026-08-14` ref
+    date. Under the date-only logic that shipped this morning, that date alone
+    would have dropped every one of them off `--stale-decisions`. They stay
+    correctly flagged because `tp_geometry: no_take_profit` overrides it. The
+    hazard item 36 was written against is not hypothetical: I walked into it
+    within the hour, on cells I was annotating myself.
+
+
+
+41. **Ran the first exit-head round that models the live take-profit — and it
+    closed both remaining runnable cells.** Coverage **371 → 373/376 (99.2%)**,
+    done-condition **27 → 25**.
+
+    Sequence: pulled `main` onto the trainer and **verified the fix was on disk
+    three ways** (#9154) rather than trusting the pull — HEAD == `origin/main`,
+    `--help` lists `--tp-cap-pct` with the `0.099` default, and `base_args` is
+    called with six args. The flag's *absence* was the original defect, so its
+    presence is the direct probe.
+
+    **The first launch attempt (#9155) started nothing, which is what I wanted
+    from a broken launcher.** The relay indents the `cmd:` block, so my indented
+    `<<'PY'` heredocs were swallowed (`delimited by end-of-file`) and every
+    subsequent line was consumed into them. Relaunched heredoc-free via
+    base64 → `python3 -` (#9156), with the **geometry probe as a precondition**:
+    it prints the exact argv and emits `GEOMETRY_PROBE_OK`/`FAILED`, and the
+    launch is skipped unless it passes. #9144 burned compute on a wrong-geometry
+    book precisely because nothing checked the command *before* running it.
+
+    **Launched at the DEFAULT, without passing `--tp-cap-pct`** — live parity
+    being the default *is* the shipped contract, and a run told the right
+    geometry does not test it.
+
+    **The positive control, criterion (b), is satisfied by MEASUREMENT.** The
+    launch log did show `--tp-cap-pct 0.099 --tp-r 6.0` where #9144 showed no
+    `--tp-r` at all — but that is an arg-string observation, and the arg-string
+    method was voided earlier tonight. So the settling evidence is the emitted
+    trades' own `exit_reason` distribution (#9157):
+
+    | leg | trades | take-profit exits |
+    |---|--:|--:|
+    | `trend_donchian_eth_prop` | 984 | **50** (5.1%) |
+    | `trend_donchian_sol_prop` | 310 | **45** (14.5%) |
+
+    **95 take-profit exits where the eleven pre-fix rounds contain zero.** The
+    round also self-reports `_round_meta.tp_geometry: live_parity`, so it needs
+    no marker file to be read correctly.
+
+    **Verdicts** (per-leg matrix-unit line, same shape the `ict_scalp_sol_5m`
+    cell was graded from):
+
+    - `trend_donchian_eth_prop` — n_oos 902, auc 0.6138, beats_actual 20/24,
+      beats_hard 16/24 → **candidate** → `passed_unshipped`.
+    - `trend_donchian_sol_prop` — n_oos 298, auc 0.5635, beats_actual 15/23,
+      beats_hard 11/23 → **honest_negative**.
+
+    `live_trades: 0` is expected and non-blocking per the operator's 2026-08-13
+    decision that the E1→E2 gate's LIVE arm is a wiring check, not the evidence.
+    I pulled the full report (#9158) rather than grading two live-leg cells off
+    a log tail — the truncation trap that bit at #9139.
+
+42. **The first non-scalp E1 candidate — and why it is not the counterexample it
+    looks like.** The standing read, recorded on the `ict_scalp_sol_5m` cell, is
+    *"all 5 surviving candidates are ict_scalp; every non-scalp family in the
+    re-run is honest_negative"*, and it is the basis of the queued operator
+    question *"is `exit_head_ml` scalp-family-scoped?"*. A **donchian** leg just
+    returned candidate at essentially the same AUC (0.6138 vs 0.6149) on a
+    larger OOS sample (902 vs 800).
+
+    **This does not overturn that read, and I am not recording it as if it
+    does.** Every non-scalp `honest_negative` that formed the scalp-scoping
+    hypothesis was measured on a **no-take-profit** book; this cell is the first
+    at live parity. The two are not comparable, so this is not a like-for-like
+    counterexample — it is a result from a different population.
+
+    What it *does* establish is narrower and more useful: the scalp-scoping read
+    rests on evidence now known to be **geometry-conditioned**. Re-running the
+    non-scalp legs at live parity is what would test it, and one leg is not that
+    test. That raises the value of queued item (d) rather than settling it, and
+    the caveat is written into the cell so the next reader cannot take the
+    shortcut I was one step from taking.
+
+    **Not run tonight:** that re-run is fleet-scale and the disposition of what
+    it would find is Tier-3.
+
+
+
+43. **Asked what would actually unblock the 22 blocked cells, and found two
+    waiting on data nothing produces** —
+    `BL-20260814-MGC-MHG-IBKR-HISTORY-NEVER-PULLED`.
+
+    Most of the 22 are volume constraints (10 `insufficient_lifetime_trades`, 3
+    `insufficient_base`, 2 `insufficient_oos_base_at_derived_split`, 1
+    `native-history-thin`) — the same **wait, not to-do** shape as item 37, and 2
+    are structural (`no_harness_levers`). The interesting four were
+    `data_missing`.
+
+    Three of those are IBKR futures legs needing native history for E0
+    (`mes_trend_long_1d`, `mgc_pullback_1d`, `mhg_pullback_1d`). `data_missing`
+    reads as *"the data will arrive"*. **For two of the three, nothing is
+    bringing it.** The only puller in the repo is `pull_mes_ibkr_history.sh`; it
+    *is* symbol-parameterised (`MES_SYMBOL`, default `MES`), but the scheduled
+    unit invokes it with **no override**, so the daily timer is MES-only.
+
+    **And the tool built to fix exactly this already exists.** `pull-ibkr-history`
+    (Tier-2, allowlisted MES/MGC/MHG) says in its own entry that it was *"Added
+    2026-07-07 to backtest the metals sleeve (`mgc_trend_1h` / `mgc_pullback_1d`
+    / `mhg_pullback_1d`) on native IBKR history"* — the same two cells, still
+    blocked five weeks on.
+
+    Measured with the denominator stated: across the window the relay returned
+    (07-30 → 08-05, 44 `pull_start` runs) **44/44 are MES**, zero MGC, zero MHG.
+    I could not see 07-07 → 07-30, so the log alone does not exclude a run there;
+    what makes it unlikely is that both cells still read *"needs native IBKR
+    history"*.
+
+    **A false alarm I did not file, recorded because the trap is reusable.** The
+    truncated 400-line payload's newest visible stamp was **2026-08-05** — nine
+    days stale on a *daily* timer, which reads exactly like a recurrence of
+    `BL-20260626-MES-BASE-STALE` ("the pull … stopped running 2026-06-14,
+    freezing MES 5m/15m"). **It is not.** A small complete read (`lines=12`)
+    shows the pull ran last night, 2026-08-13T23:33 → 23:45, both timeframes
+    `ok` (47,190 and 15,751 rows). The truncation had handed me the *older* part
+    of the 400. **When the question is "what happened most recently", a large
+    truncated read is worse than a small complete one** — and a false alarm about
+    a previously-real incident is the most expensive kind.
+
+    **Not dispatched tonight, and the reason is timing rather than tier** (Tier-2
+    is pre-granted). The pull shares the **live** trading gateway on clientId
+    450 and takes ~27 min; at the time of writing (~05:32Z) we are inside IBKR's
+    own ~03:45–05:45 UTC reset window and ~33 min from the 06:05 UTC gateway
+    reset, so a run started now would span a session being restarted and burn
+    pacing budget for nothing. The two must also run **sequentially** — the
+    wrapper takes a single-instance lock, so a concurrent second invocation
+    exits cleanly and would look like a silent no-op. Both constraints are
+    written into the row's resolution criteria rather than left as folklore.
+
+
+## Validation Performed
+
+- 125 tests pass across the four M20 suites; 58 after the merge resolution.
+- `m20_coverage_rollup.py --validate` OK after every matrix write.
+- All relevant guards pass locally against `main` before each push.
+- **Corpus write verified independently of the script that made it:** 925→925
+  rows, cap distribution `{0.099: 785, null: 140}` → `{0.099: 925}`, exactly
+  140 rows changed and all `null → 0.099`, 0 outside the evidenced window, and
+  every row's **non-cap content byte-identical** (symmetric diff 0 over a
+  dict-compare excluding `tp_cap_pct`).
+- **Positive control for the cap:** `backtest_trend.py` on a 4,000-bar
+  synthetic trending series, identical args but for the cap — 57 trades /
+  net_R 466.37 / `tp_r_effective_n` 0 versus 127 / 347.55 / 127 at median reach
+  4.41R. This is what made the corpus's identical books evidence that *both*
+  arms were capped rather than evidence the flag was inert.
+
+- **The exit head's edge, measured two ways it had not been.** Both from the
+  same 31 `e1_report.json` files, per fold-geometry × family:
+  - **Selection is the effect, not a bias on it.** Scoring the *median* of the
+    7 tau arms instead of the max the gate credits flips the sign in **all six
+    non-scalp groups** (`pullback` b=50 +1.362R → **−1.379R**; `donchian`
+    calendar +0.426R → **−4.399R**), while every scalp group stays positive
+    (`ict_scalp_5m` +6.037R). 23–50% of non-scalp folds are *flips* — the
+    median arm loses to doing nothing while the selected arm wins.
+  - **`beats_hard` fails the 2/3 bar in every fold geometry** (58.3% calendar /
+    62.2% b=15 / 61.8% b=50) while `beats_actual` clears it in two of three.
+    The fixed-rule comparison is the binding condition fleet-wide.
+- **Verdict reconstruction verified against the field.** I derived the
+  `candidate`/`honest_negative`/`insufficient_base` formula from
+  `per_leg_summary` source and reconstructed all 35 leg-rows before pulling the
+  actual `verdict` key; the reconstruction matched **35/35**. (The first pull
+  read the key as `candidate`, which does not exist — it returned null for
+  every row. Caught as a key-name miss, not reported as "no leg is a
+  candidate".)
+
+### Gaps not yet verified
+
+- ~~**The nested tau selection has NOT been run, and it gates the conclusion.**~~
+  **CLOSED later the same session** — items 12/15 (doc §§ 10–11). Kept as written
+  because the reasoning is still the right reasoning; only the status changed.
+  Median-arm is the expected edge of a tau chosen at *random*: it bounds a
+  sensibly-chosen tau from below and a badly-chosen one from above. The
+  deployment truth sits between the median-arm and best-arm columns, and
+  locating it needs tau picked on each fold's TRAINING half and scored on its
+  TEST half. The reports do not contain that. **"Median-arm is negative" must
+  not be read as "the deployed head would be negative"** — it is not that
+  claim, and the distinction is the whole reason item 4 was added to the
+  backlog row's remaining work.
+- The **"% of edge" ratio is not a usable statistic** and is quoted nowhere:
+  it is unstable near a zero denominator (`pullback` b=15 computes to −3421%
+  purely because its edge is −0.027R).
+- `slv_trend_1h` (4 folds) and `uso_trend_1h` (3 folds) are too thin to carry
+  weight and are excluded from every reading above.
+- **Hindsight-free τ selection, 514 folds (#9077).** best-arm **+1.217R /
+  70.2%** of folds positive; expanding-window causal **−0.341R / 54.1%**;
+  previous-fold causal **−0.674R / 50.8%**. The fleet edge is the selection.
+  Every scalp group stays positive under both causal rules; **no** non-scalp
+  group does. Against `stale_8_0`, 2 of 7 scalp legs clear.
+- **The live exit head's three apply conditions, each READ rather than
+  inherited from the July ref:** (a) `exit_head_action: close` on three
+  `execution: live` strategies — confirmed in `config/strategies.yaml`;
+  (b) artifact `exit-head-donchian-1h-v1` at stage **`advisory`**, shape
+  `below_half_r @ tau=0.1` (#9078) — the promotion gate is open, and the
+  sibling `-peak-1h-v1` is at `shadow` and not applying; (c) the per-bar
+  policy. So the head is live and applying.
+- **…and it may never have fired.** In 137 parsed rows of a `lines=400` tail of
+  the 430,743-byte `exit_lever_soak.jsonl` spanning 2026-08-09→08-12 (#9080),
+  the lever counts are `trail_decay` 111, `stale_stop` 26, **`exit_head` 0**.
+  The **positive control** is what makes that zero mean anything: 32 of those
+  rows are donchian-family strategies, so donchian monitors are running and
+  writing to this exact log in this exact window. Three days is not the head's
+  month-long lifetime and the payload was truncated, so this is suggestive, not
+  a lifetime count — recorded as such.
+
+### Gaps not yet verified (continued)
+
+- **Whether the live head has EVER fired is still open, and could not be
+  answered from here.** `/api/diag/log_file` only *tails*; there is no
+  relay-reachable way to count occurrences across a whole live log. So "how
+  many times has this lever fired" is currently unanswerable from a sandbox
+  session for **any** lever, not just this one. That is a read-surface gap, and
+  it matters because the answer flips the urgency completely: an inert lever
+  cannot make bad exits, but a lever that is live in config and has never acted
+  is not what `shipped` = "validated + live" conveys either.
+- **The live VM's published copy of the artifact was not read** — #9078 read the
+  *trainer's* mirror, which is the rsync source. A month-old artifact with
+  continuous publishing makes them almost certainly identical; "almost
+  certainly" is not a reading. Related: exit_head artifacts are absent from the
+  `/api/diag/log_file` allowlist, so the artifact that can close a live position
+  has no live read surface — the same shape as the 2026-08-12
+  `exit_loop_health` omission (writer shipped, allowlist entry not).
+- ~~**`_select_tau_holdout` has not produced a single number yet.**~~ **CLOSED**
+  by the donchian and scalp nested rounds (items 12/15). Every `e1_report.json`
+  *at the time of writing* predated it, so `selected_tau` was absent everywhere;
+  the fresh rounds supplied it and the causal interval now has both ends.
+- **Relay output truncation is a live hazard on this workflow.** #9071's FOLD
+  block hit the comment cap and came back carrying a `... (truncated)` marker;
+  241 of the rows parsed cleanly, which would have read as a complete
+  population had the marker not been checked for. No statistic was computed
+  from it — the aggregates were re-derived on the trainer instead (#9074,
+  #9075) so the arithmetic is never done over a silently-short list. This is
+  sub-class **C** of the diagnostic-provenance rule (unasserted denominator)
+  arriving through the relay rather than through a script.
+- Whether a longer history actually yields the projected trades — the earlier
+  regime need not signal at the recent rate. Every projection here applies a
+  *recent* measured rate to *older* history and is labelled as such.
+- **CI attachment on PR #9048 is intermittent, and I mischaracterised it
+  twice before measuring.** What the run list actually shows: `pull_request`
+  runs fired and passed for the first four commits after the PR opened
+  (`f8f274ba`, `4c84c01c`, `9eee230e`, `74fdbdde`), then stopped from
+  `599885cd` (~19:00Z) onward — five consecutive commits with no
+  `pull_request` run while `get_status` reported `total_count: 0`. So it is a
+  real recurrence of `BL-20260730-PR-CI-NOT-ATTACHING`, but **not** the
+  "never attaches" I reported in two hourly pings, and my earlier reading of
+  "four green checks on a stale SHA" was a *correct* observation given a
+  *wrong* inference — I treated a lag as an absence, dispatched, and the
+  dispatch then looked like the fix. Green evidence on this branch comes from
+  the `workflow_dispatch` runs (`044afec3`, `74fdbdde`, `e43423cc` — all
+  success) plus a full local guard run before every push. The current head is
+  dispatched and not assumed green.
+
+### Gaps not yet verified (added ~03:40Z, items 21–25)
+
+- **Whether BTC's re-sweep failure reproduces off this one book.** The corrected
+  per-cell read (item 21) fails `trend_donchian` on **one** 22-fold book, one
+  family, one block size. A leg-level demotion wants more than a single re-sweep,
+  and this session did not run a second one.
+- **The three donchian legs are not three independent confirmations, and every
+  `t` in items 22–23 inherits that.** One strategy's logic on three correlated
+  crypto majors over the same calendar window and the same 22 folds. Twelve
+  `t > 2` results are one result seen twelve times under shared conditions; they
+  must not be pooled as if independent, and nothing in this log does.
+- **The conditioning finding is scoped to donchian-1h and was not tested on the
+  scalp family**, which is the one family where the head's edge survives causal
+  τ selection (item 15). Whether conditioning is also unearned *there* is
+  unmeasured and is the natural next probe — the same `_SHAPES` columns exist in
+  the scalp nested report.
+- **`Δ maxDD` is a per-fold within-arm comparison and nothing more.** It says the
+  conditional arm's worst intra-fold drawdown is larger; it does **not** translate
+  to a portfolio drawdown figure, and no attempt was made to convert it. Drawdown
+  is not additive across folds and was never summed anywhere in items 22–23.
+- **Why the condition never binds on most folds is not explained.** Median
+  `Δ maxDD` is exactly +0.000 on BTC and SOL — ~64%/~73% of folds where the shape
+  made no difference at all. That could be a rarely-satisfied predicate or a
+  predicate that fires and rarely changes the exit; the report cannot distinguish
+  them, and the difference matters for how much weight the non-zero folds carry.
+
+## Documentation Updated
+
+- `docs/claude/health-review-backlog.json` — two rows (one resolved, one open
+  and twice-reframed).
+- `docs/research/RESEARCH-CAPABILITY-INDEX.md` — routed the new relabel script
+  (caught by `artifact-validity-guard`).
+- `docs/research/exit-refinement-coverage.json` — 8 cells graded, 8 cells
+  annotated then twice corrected in place.
+- This log.
+
+## Contradictions or Drift Found
+
+1. **`tp_cap_pct: null` did not mean "uncapped".** 140 rows were measured at
+   0.099 by a run whose sweep script predated the provenance field. Diagnosed
+   from the **run head SHAs** (`d76643b9` no field, `e6e519d1` field, ~8 min
+   apart on the feature branch) after both runs proved to be `event: push`, so
+   `inputs` was empty and `TP_CAP_PCT` fell to the workflow default.
+2. **A feature branch's corpus goes stale silently.** The sweep commits to
+   `claude/m20-sweep-corpus`; the working copy was 42 rows behind, and a leg
+   appeared to have *no* capped rows when it had seven.
+3. **`--min-fold-trades` is asserted, not derived** — a bare `default=50`
+   forty lines below `_MIN_FOLD_TRAIN_ROWS = 500`, which explains exactly what
+   it floors and why. One of the two numbers gating every E1 verdict is
+   derived; the other is not.
+4. **The E1 bar is 3× the block, not 2×.** `u = floor(N/b) − 1` and the gate
+   requires `u >= 2`, so block 50 needs **150** trades to be graded at all.
+   ⚠️ **This entry originally said the matrix refs and the `fold_blocks`
+   docstring "stated 100" and were wrong. BOTH halves of that were my error,
+   and it is instance SIX of the very pattern this log's postscript catalogues
+   — asserted, in the document about not asserting.** (a) `100` appears
+   NOWHERE in `train_exit_head.py`; the docstring does not reason from a wrong
+   figure, it is SILENT on the trades-mode requirement, which is a gap and not
+   a defect. I claimed a defect in a file without grepping it. (b) The matrix
+   ref's "98 lifetime harness trades vs the 100 needed for a single 50-trade
+   block" is **literally correct** — `N >= 2b` does yield one block. Its error
+   is incompleteness: one fold does not pass a gate requiring `u >= 2`. Saying
+   it "stated the wrong number" overstated a real but different problem.
+   The genuine finding survives — 150, not 100, is what the gate needs — and
+   the docstring gap is now closed rather than a "correction" being applied to
+   text that never made the claim.
+5. **`EQ_1D_START` does not describe the built files.** Declared default
+   `2015-01-01`; measured spans SPY 2010, QQQ 2007, TQQQ/QLD 2016.
+6. **The per-fold vote is cast on `n_leg`, not on the block — my own § 3 was
+   wrong, and it is instance SEVEN of the postscript's pattern.** The
+   derivation models the vote as `P(correct) = Φ(√b · δ)`, substituting the
+   block size for the count the vote is actually computed over. `fold_blocks`
+   cuts blocks over the **family's** pooled trades; `per_leg_summary` casts one
+   vote per **leg** per fold on that leg's own `n_trades`. Measured (#9074):
+   multi-leg families vote at median `n_leg` of **3** (`pullback` b=15, min 1),
+   **5** (`allmix`), and **12** (`pullback` b=50), while every single-leg family
+   sits exactly at 50. So the doc's headline 0.771 per-fold reliability is true
+   only for single-leg families; the 1d equity legs the document is *about*
+   vote at 0.57–0.64. Same shape as the others — I read a value I had assumed
+   (`b`) as the one that was measured (`n_leg`), and it was the reassuring
+   reading. Corrected in § 6; the keep-50 recommendation is **strengthened**,
+   not reversed, because raising `b` in a multi-leg family buys `n_leg` only in
+   proportion to that leg's share.
+8. **`exit_head_shadow.py` said "observe-only by construction" while its output
+   closes live positions.** The module docstring claimed the function *"returns
+   `None` always"*, that *"nothing reads the logs back"*, and that *"graduation
+   to a real exit influence is E3"* — future tense. The field:
+   `trend_donchian.py:909-911` does `eh_verdict = _exit_head_verdict(...)` /
+   `if eh_verdict is not None: return eh_verdict`, and
+   `config/strategies.yaml` declares `exit_head_action: close` on
+   `trend_donchian` (:213), `trend_donchian_sol` (:1102) and
+   `trend_donchian_eth` (:1172), all `execution: live`. The *function*
+   docstring was already correct; only the module header — the one a reader
+   hits first — had gone stale. It was load-bearing in the wrong direction:
+   it did not merely fail to describe the apply path, it argued there wasn't
+   one. Corrected (docstring only, field untouched).
+9. **Verdicts flip across fold geometries, as the report's own note warns.** Of
+   the 8 legs measured under both trade-folds and calendar-folds, 7 agree and
+   `iaum_pullback_1d` disagrees (`honest_negative` under trade-folds,
+   `candidate` under calendar-folds). Low rate, stated rather than smoothed —
+   the `fold_mode` field exists precisely so this is legible.
+
+## Risks and Follow-Ups
+
+- **Open, operator-gated:** `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`.
+  Full-inception history does **not** rescue the seven equity legs at block 50
+  (projected 50–104 lifetime trades against 150 needed, 0 of 7 reach it), so
+  the block size is the binding constraint and is being derived.
+- **`live_tp_reach_r` has the same field-after-behaviour window open right
+  now** that caused the relabel: rows written between the flag and the next
+  sweep will read `null` meaning *unrecorded*. This is the third instance of
+  the class in this repo and deserves a guard rather than a third cleanup.
+- The `fold_blocks` docstring's "100" and the E1 `--min-fold-trades` semantics
+  (one number doing two jobs) both need fixing once the derivation lands.
+
+## Deferred Items
+
+- 6 cells stay `pending` — `exit_ladder` / `exit_head_ml` / `regime_flip_exit`
+  on both prop legs. Not swept by this harness; each needs its own pipeline.
+- `squeeze_breakout_4h` needs 2 more trades at block 50 — but under the
+  corrected 3× bar it needs **52** more, which changes its disposition and is
+  unresolved pending the derivation.
+
+## Next Recommended Sprint
+
+**The measurement this section previously asked for HAS BEEN RUN — do not
+re-run it.** Nested (contemporaneous) τ selection landed 2026-08-14 for both
+decision-relevant families, and the answer is family-dependent:
+
+| family | causal | credited | τ-blind control | from zero | two-sided PASS |
+|---|---:|---:|---:|---|---|
+| **scalp** (7 legs, 73 leg-folds) | **+3.848R** | +6.022R | +3.475R | **6.4 SE** | **5 of 7** |
+| **donchian-1h** (3 legs, 63 leg-folds) | +0.137R | +2.788R | −0.367R | 0.22 SE | 0 of 3 |
+
+**There is no fleet-wide nested figure and none may be quoted.** Doc §§ 10–11.
+
+What is actually next, in order:
+
+1. **The family-scope decision is the whole critical path, and it is the
+   OPERATOR's.** Both halves are now evidenced. Recommendation recorded in
+   `BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT` item 3 and explicitly
+   **not enacted**: scope `exit_head_ml` to the scalp family, and record the
+   trend/pullback cells as a question *answered in the negative* rather than a
+   coverage gap. Two caveats must ride with any such decision — scalp's
+   aggregate margin over `stale_8_0` is thin (+0.668R, 56.2%), and the two 15m
+   PASSes rest on 5 and 6 leg-folds.
+2. **The three live donchian-1h `exit_head_ml` cells — the one item on this list
+   with money attached, and the one whose framing was WRONG until 2026-08-14.**
+   An earlier version of this bullet read *"the nested read says 0 of 3 clear the
+   two-sided bar"*. **That was an error** (item 21, doc § 12): the nested read
+   grades τ *selection*, while these cells run a **fixed** arm. On the arm they
+   actually run, the result is **per-leg, not uniform** — BTC **−1.801R (FAIL)**,
+   ETH **+1.810R / +1.263R (PASS)**, SOL **+1.589R / +0.603R (PASS)**. Two of
+   three are supported. Do not re-derive the old framing from §§ 10–11.
+
+   Tonight's two follow-ups narrow the disposition further (items 22–23,
+   §§ 13–14): the `below_half_r` conditioning **costs** drawdown on all three
+   legs at `t > 2` and buys only hold time, and that holds for **all four**
+   `_SHAPES` — so "try a different shape" is **off the table** for this family.
+   The live shape is nonetheless the mildest of the four. The remaining options
+   are (a) keep as-is, (b) drop the conditioning and run the unconditional head
+   at the same τ, (c) act on BTC alone, which is the only leg failing its own
+   re-sweep. **Tier-3, operator-gated, and not enacted here.**
+3. **Only if (1) lands permissively:** the remaining scalp work is a bigger
+   sample on the `stale_8_0` margin, not another τ rule. The head clearly beats
+   *doing nothing*; whether it beats an eight-bar stale-stop is the close
+   contest, and it is carried by two legs out of seven.
+4. **`pullback` / `allmix` / the 1d legs have no nested read** and are low
+   priority — already negative under *both* causal rules, so a nested read
+   there refines a negative rather than changing a decision. Say so rather than
+   listing it as a gap.
+5. **Do not resolve any of this by moving a threshold.** `beats_hard` failing
+   the 2/3 bar in all three fold geometries is the gate working. Relaxing it
+   would convert a measured negative into a recorded positive.
+
+Required verification for any re-grade: state which `fold_mode` **and** which
+`--min-fold-trades` it was graded under (verdicts differ across both), and
+whether the figure quoted is best-arm, τ-blind, or nested — the three differ by
+an order of magnitude on donchian and by ~1.6× on scalp.
+
+44. **Pulled the missing history — then found the pull could never have
+    worked, because the resolver could not see native data at all** —
+    `BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA`, PR #9180.
+
+    Item 43 established that nothing was pulling MGC/MHG history. I ran the
+    pulls (MGC clean: 5m 32,751 rows, 15m 22,293 rows, `pull_end any_ok:1` at
+    06:38:36Z; MHG dispatched 07:28:49Z) and then, before planning the E1
+    rounds, asked whether the data would actually be *reachable*. It would not.
+
+    `m20_fleet_exit_sweep.resolve_data` opened with
+    `sym = PROXY_DATA.get(symbol, symbol)` — the proxy applied
+    **unconditionally**. So `resolve_data("MGC", "1d", …)` looked for
+    `GC_F_1d.csv` and **never** for `MGC_1d.csv`; the glob fallback too, since
+    its prefixes were built from the proxied spelling (`{'gc_f'}`). And
+    `m20_exit_head_round.py:154` **refuses** a proxied leg ("native history
+    required for head training"). `proxy` was therefore unconditionally `True`
+    for MES/MGC/MHG/XAUUSD, the head round skipped them on every call, and the
+    three `exit_head_ml` cells could not close **whatever was on disk**.
+
+    So the Tier-2 action added 2026-07-07 *for these exact cells* was **inert
+    against this resolver** — five weeks of "still blocked" had two independent
+    causes, and item 43 found only the first. The docstring already said the map
+    is *"for futures without their own file"*; the code never checked that
+    condition. Field beats comment, and here the field was the wrong one.
+
+    **The fix is a caller decision, and the default deliberately did not move.**
+    My first instinct — native-first unconditionally — is a **regression**, and I
+    wrote it before catching it: `GC_F` is the deep COMEX series reaching the
+    full 2021..2026 fold structure while native IBKR intraday history is ~1y, so
+    silently preferring a shallow native file would collapse a 6-fold
+    walk-forward to ~1 fold and quietly invalidate recorded lever verdicts.
+    Depth (levers) and fidelity (head training) are genuinely different needs.
+    `prefer_native=False` default; `m20_exit_head_round` passes `True`. I also
+    removed a native *fallback* I had added to the default path for the same
+    reason — a missing proxy file must keep reading `data_missing` rather than
+    resolving shallow native data into a 1-fold run.
+
+    Can-fail verified: removing the `prefer_native` branch fails **exactly one**
+    of the 7 new tests (`assert True is False`), and only that one — the
+    fallback and no-proxy cases correctly still pass because proxy-first gives
+    the same answer there.
+
+45. **Two corrections to my own 07:28Z ping, both in the over-claiming
+    direction.**
+
+    (a) I told the operator that once MHG landed, "both `mgc_pullback_1d` and
+    `mhg_pullback_1d` `exit_head_ml` cells become runnable via an E1 round …
+    That would take done-condition 25 → 23." **Wrong on the mechanism** — item
+    44 is why, and the resolver fix was a prerequisite I had not yet found.
+
+    (b) The pull I ran was **5m/15m over the script's default 365-day window**
+    (`MES_HIST_START='365 days ago'`), which is the wrong *shape* for a **1d**
+    leg facing a 6-fold 2021..2026 structure and `MIN_OOS_TRADES=25`. The right
+    attempt is a **1d deep pull** — the `pull-mes-ibkr-history-daily` precedent
+    uses `MES_HIST_START=2019-05-06` with `MES_MAX_CONTRACTS=28`, and IBKR's
+    daily-bar retention is far deeper than its intraday retention. I had also
+    been about to accept the matrix's *"IBKR serves only ~1yr"* as a measured
+    ceiling; it is a **claim I would have been inheriting**, and the script says
+    plainly that "depth is ultimately capped by IBKR's per-contract intraday
+    retention" — a bound on *intraday*, which is not the frame these legs need.
+
+    **Coverage is unchanged at 373/376 and no cell status moved.** Reaching a
+    cell is not clearing it: the shard must still reach the trainer
+    (`sync_trainer_data.sh` on the ~00:50 UTC cycle, then
+    `market_raw_to_csv.py`), and whether the OOS floor clears is a measurement
+    still to take.
+
+46. **The eighth instance of the session's own postscript failure — I misread
+    elapsed time from tool-call count, again, after having corrected it once.**
+
+    The status ping filed as issue #9188 is titled *"08:20Z"* and says of CI
+    *"pytest-run in flight … its 23 min is normal not stuck; I checked rather
+    than assumed"*. Both figures are wrong. `date -u` puts the send at
+    **07:56:41Z** (GitHub's `created_at` on #9188 agrees exactly), and
+    `pytest-run` started 07:50:25Z, so it had been running **~6 minutes**, not
+    23. I had earlier in the same hour written the sentence *"I checked rather
+    than assumed"* about a quantity I had in fact assumed.
+
+    **The conclusion survives; the reasoning that reached it does not.** The
+    run genuinely was normal rather than stuck — 10,677 tests collected at a
+    measured local rate of ~4.6/s implies ~39 min, so 6 min is early and 23
+    would also have been fine. Right answer, invented evidence.
+
+    Nothing operational rides on it: no measurement, no verdict, and no cell
+    status depends on those two numbers. What rides on it is the operator's
+    picture of how much wall-clock the night has actually consumed, which a
+    24-minute overstatement distorts — so it is corrected here rather than
+    left to stand, and folded into the next ping rather than sent as its own
+    (a dedicated ping for a timestamp error is noise to a sleeping operator).
+
+    This is the same shape as the seven in the postscript below, and worth
+    stating plainly: the failure recurred **after** being named, documented,
+    and corrected once in this very session. Naming a failure mode does not
+    inoculate against it. The only thing that has ever caught this one is
+    actually running `date -u`.
+
+47. **I nearly shipped a provenance lie, and caught it in the last check
+    before running on it** — `BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL`.
+
+    Item 44 fixed the resolver; the remaining step was converting the trainer's
+    `market_raw/{MGC,MHG,MES}/1d` shards into the `data/<SYM>_1d.csv` the
+    harness reads. I ran it: 2,919 / 2,920 / 2,921 rows spanning
+    2015-01-02..2026-08-13, zero blank closes, sane gold prices. Then, before
+    launching the E1 round, I read what actually BUILDS those shards:
+
+    ```
+    build_trainer_datasets.sh:943   build_equity_daily MGC "GC=F"
+    build_trainer_datasets.sh:944   build_equity_daily MHG "HG=F"
+    ```
+
+    **The shard is keyed by the micro symbol; the content is the full-size
+    contract from yfinance** — the same series `GC_F_1d.csv` already is.
+    Measured rather than assumed (relay #9191): MGC vs GC_F **2,511 of 2,512
+    overlapping closes IDENTICAL**, the lone difference being the proxy's stale
+    final bar; MHG 2,512/2,513; **MES 2,514/2,514, zero differing**.
+
+    So `data/MGC_1d.csv` was a file whose NAME asserted a provenance its
+    CONTENT did not have. Combined with the `prefer_native` fix from item 44,
+    `resolve_data` would have returned `proxy=False`, `m20_exit_head_round`'s
+    *"native history required for head training"* refusal would have **passed**,
+    and three `exit_head_ml` cells would have been graded **native-trained on
+    the exact series that check exists to exclude**. Removed all three within
+    the hour (relay #9192, verified absent; proxies confirmed intact).
+
+    **The near-miss is the point.** Every individual step was clean — the
+    conversion printed real row counts, the data was real market data, the
+    sanity checks (0 blank closes, plausible prices) all passed. Nothing in the
+    output could have revealed it. The only thing that caught it was asking
+    *where does this file come from* rather than *is this file well-formed*.
+
+48. **And it means item 45's "correction" corrected a TRUE statement into a
+    false one.**
+
+    Item 45(b) and the commit before it recorded that "at the 1d frame the
+    native series is DEEPER and fresher than its proxy — MGC 2,919 rows vs
+    GC_F's 2,512". I measured that on `data/MGC_1d.csv` — **a file I had just
+    created myself from GC=F**. I compared the proxy against itself and
+    reported the difference as a native-vs-proxy finding.
+
+    The truth: genuine native is the IBKR **contract** shard,
+    `data/ibkr_datasets/market_raw/MGC/1d/v003` at **940 rows** (2022-09-30..),
+    against the proxy's 2,512 — the **proxy is ~2.7x deeper**, and the original
+    rationale I "corrected" was right all along. Docstring, inline comment, one
+    test name and two test docstrings re-corrected.
+
+    This is `diagnostic-provenance` sub-class **B** — implicit input selection —
+    committed against my own artifact, inside a session whose postscript is
+    about exactly this. The reassuring reading won again: "the native data is
+    deeper" made the blocked cells look one conversion away.
+
+49. **What actually blocks the three cells, measured** — and it is not data.
+
+    `build_trainer_datasets.sh:375` records that **`mes_trend_long_1d` fires
+    ~2.6x/yr — 26 trades over a 10-year config-exact backtest**. The exit-head
+    gate is `MIN_OOS_TRADES = 25` for the **OOS half alone**. No quantity of
+    history reaches that, and the genuine native shards (940 / 1,043 / 677
+    daily rows) are ~3.7y, ~4y and ~2.7y.
+
+    So these are **volume-blocked**, the same *wait, not to-do* shape as the ten
+    `insufficient_lifetime_trades` cells in item 43 — and their matrix note
+    ("needs native IBKR history for E0") names a PREREQUISITE, not the binding
+    gate. **Coverage stays 373/376.** The resolver defect was real and worth
+    fixing on its own terms; it was never what held these three shut.
+
+50. **Measured the fire rate instead of inferring it, and re-graded the three
+    cells off `data_missing`.**
+
+    Item 49 concluded these were volume-blocked from ONE documented figure
+    (`mes_trend_long_1d` ~2.6x/yr). That covered one leg of three; asserting it
+    for MGC/MHG would have been the same inference-from-a-neighbour error I
+    made twice earlier tonight. So I ran all three config-exact on the deepest
+    available series (trainer relay #9195, `tp_cap_pct=0.099`):
+
+    | leg | data | lifetime | OOS @ 2025-07-01 | rate |
+    |---|---|---|---|---|
+    | `mes_trend_long_1d` | ES_F_1d | 33 | **5** | ~3.7/yr |
+    | `mgc_pullback_1d` | GC_F_1d | 74 | **7** | ~7.4/yr |
+    | `mhg_pullback_1d` | HG_F_1d | 80 | **10** | ~8.0/yr |
+
+    Against `MIN_OOS_TRADES = 25`: **5, 7, 10 — all UNREACHABLE**, on ~10 years
+    of the *deepest* series available. Genuine native IBKR contract history is
+    shallower still (940 / 1,043 / 677 daily rows), so these are an UPPER
+    BOUND. (My own measurement puts MES at 33 lifetime where the code comment
+    says 26 over 10y — different span/vintage, same order; I quote mine because
+    I ran it.)
+
+    Re-graded all three `blocked:data_missing` → `blocked:insufficient_lifetime_trades`,
+    the status its ten siblings already carry, with the numbers and the reason
+    the old status misled in the ref. **The prior ref is preserved after a
+    `|| PRIOR REF:` marker** — a re-grade should add evidence, not delete the
+    record it overturns.
+
+    **One judgement flagged rather than made:** for MGC (74) and MHG (80) an
+    EARLIER split could arithmetically reach 25 OOS, at the cost of in-sample.
+    MES's 33 lifetime cannot under any split. I recorded that asymmetry in the
+    cell rather than quietly picking a split that would make the cells gradeable.
+
+    **Coverage stays 373/376** — blocked→blocked moves no number. What changes
+    is that the matrix no longer tells the next session to go get data. That
+    instruction cost me an hour tonight; it should cost the next session
+    nothing.
+
+51. **Verified the DENOMINATOR the whole night's number rests on — both
+    directions — and it is exactly right.**
+
+    I have quoted "373/376" in every ping tonight without once checking that
+    376 is the correct population. Swept the matrix against
+    `config/strategies.yaml`:
+
+    - matrix rows marked `execution: live` = **47**; config `live` + `enabled`
+      = **47**; the two sets are **identical in both directions**.
+    - live+enabled config legs MISSING from the matrix: **0** (an under-count
+      would hide un-processed legs).
+    - matrix rows claiming live that config does not: **0** (an over-count
+      would INFLATE the denominator and flatter the percentage).
+    - duplicate strategy rows: none. symbol/tf drift vs config: **0 of 52 rows**.
+    - 47 x 8 levers = **376**, matching the roll-up exactly.
+
+    One apparent mismatch resolved rather than filed: `xauusd_trend_1h` reads
+    `execution: disabled` in the matrix and `execution: live` in YAML — but the
+    YAML also carries `enabled: False`, so the matrix records the EFFECTIVE
+    state and is correct. A naive `execution`-vs-`execution` comparison would
+    have reported a false positive; the `enabled` flag is what settles it. Its
+    bare `blocked` status therefore escapes the bare-blocked guard legitimately
+    (that guard is scoped to live rows, and this row is not one).
+
+52. **My futures measurement corroborates an existing item rather than
+    competing with it.**
+
+    `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE` already established that the
+    **seven equity 1d legs** cannot reach the E1 block threshold (projected
+    50-104 lifetime trades against 150 needed, 0 of 7 reach it). Item 50
+    measured the **three futures 1d legs** at 33 / 74 / 80 lifetime and 5 / 7 /
+    10 OOS. Those fail BOTH gates — under 150 lifetime AND under
+    `MIN_OOS_TRADES=25` — so the two findings agree and now cover the whole 1d
+    fleet between them. After the re-grade, **10 of the 13 blocked
+    `exit_head_ml` cells are 1d legs carrying one reason**, which is the point:
+    the fleet-wide fact is now readable off the matrix instead of being spread
+    across two backlog items and three differently-worded cells.
+
+53. **Assessment: M20's AUTONOMOUS work is complete. Everything left needs the
+    operator.**
+
+    Stated as an assessment because it is one, and checked against
+    `--done-condition` rather than impression. The 25 cells are:
+
+    - **3 pending, all prop legs** — `trend_donchian_eth_prop`/`exit_ladder`
+      and `trend_donchian_sol_prop`/`exit_ladder` are gated on
+      `PB-20260712-PROP-BANKING-EV` (the fleet banking verdict does NOT
+      transfer: memo §6.2 carves prop out), and
+      `trend_donchian_eth_prop`/`regime_flip_exit` is queued decision (c).
+    - **22 blocked** — 12 `exit_head_ml` (volume/structural, per items 50-52),
+      6 `vol_trail`, 2 `exit_ladder`, 1 `giveback_stop`, 1 `native-history-thin`.
+
+    There is no cell I can move without a Tier-3 call or a gate that is not
+    mine. That is a legitimate stopping point, not a stall — and it is worth
+    saying plainly rather than manufacturing motion to look busy.
+
+### Tier-3 decisions awaiting the operator (consolidated)
+
+Scattered across the night's pings; gathered here so the morning needs one read.
+**Nothing below was acted on.** Rows (a)–(d) are as first raised, with their
+evidence state updated as the night measured more; (e)–(j) accrued later, (i)
+and (j) after 11:00Z.
+
+**If you read one row, read (h)** — it is the only item touching a real-money
+account that is actually live. (i) and (j) are the night's two largest findings
+but both sit on paper/prop legs or on the decision record rather than on money.
+
+| # | decision | evidence state (updated through 11:30Z) |
+|---|---|---|
+| **(a)** | Is `exit_head_ml` **scalp-family-scoped**? | Better informed, still **NOT answered** — and the shape of the answer changed. There are now **two** non-scalp candidates at live parity: `trend_donchian_eth_prop` (auc 0.6138, n_oos 902) and `trend_donchian_eth` (auc 0.6079, n_oos 566). **Both are ETH.** So the evidence weakens *scalp*-scoping while pointing at something narrower nobody has framed — a possible ETH-specific effect. Flagged as a **hypothesis needing a denominator, not a finding**: two legs on one symbol is exactly the sample size that manufactures patterns. |
+| **(b)** | The **three live donchian-1h** `exit_head_ml` cells | **Now measured at live parity** (relay #9206): `trend_donchian` auc 0.5403, beats_actual 14/23 → `honest_negative`; `trend_donchian_eth` auc 0.6079, 16/23 + 16/23 → `candidate`; `trend_donchian_sol` auc 0.6161 but beats_hard **12/23, short 4** → `honest_negative`. **2 of 3 do not reproduce.** All three left at `shipped` — moving a live real-money cell to `shipped_gate_failed` is defined in the legend as *"the operator chose to HOLD"*, so it is this decision, not mine. |
+| **(c)** | `trend_donchian_eth_prop` / `regime_flip_exit` | Evidence **COMPLETE**, unchanged. The disposition is an interpretive override of a recorded PASS, which is why it is yours. Its SOL twin was graded `honest_negative` by structural derivation (the lever cannot fire); the ETH leg is two-sided so the flip CAN fire. |
+| **(d)** | Do cells graded off the **eleven no-TP rounds** need re-running? | **The base rate moved decisively: 1-of-1 → 3-of-4 NOT reproducing** (`trend_donchian`/`trail_decay` earlier, plus BTC and SOL above; ETH holds). 8 stale cells are live DECISIONS, so this costs money rather than knowledge. ⚠️ But see (g): for `trail_geometry` cells a re-sweep is **not possible**, so "re-run them" is not universally available as an answer. |
+| **(e)** | Change the sweep's **default split mode**? (criterion (2) of `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`) | **NEW.** Now has a measured basis and a designed fix, and still moves verdicts fleet-wide. All 4 affected legs measured both ways: `htf` 95→24, `tlt` 56→22 (**shrank** rich windows), `mhg` 7→24 (**enlarged**, still short by **one trade**), `mes` fell back at lifetime 33. Fix the evidence supports: `max(derive(target = floor + margin), fixed_window)` — both terms load-bearing. **The margin value needs a boundary-loss distribution; the illustrative 30 rests on n=4.** Two SHIPPED real-money cells are currently refused as *"waiting for trades"* when they have 407 and 527 lifetime trades. |
+| **(f)** | `tlt_pullback_1h`: **trail3 → trail4**? | **NEW**, `PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY`. The leg ships trail3; its trail4 cell returns `path_b_wf_pass` at live parity — Δnet_R **+35.47 IS / +5.42 OOS**, wf **5/6**, n_oos 56 — across **three** runs. The base already contains trail3, so that is the gain over what is live. **Caveats that bound it:** Path B is the weaker route (`gate_passed_OOS` false), n=56 is not large, and the three runs **share a corpus and split date** — they rule out a flaky run, not overfit to that window. |
+| **(g)** | *(not a decision — a constraint on (b) and (d))* | **4 of the 5 remaining stale live decisions are `trail_geometry`, and no re-sweep can grade them**: the shipped lever IS the base (a normal cell measures base-vs-self) and `trail_geometry` has no OFF arm (`trail_mult` has no OFF state). So for those cells "re-run it" is not an available remedy. `BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`. |
+| **(h)** | **Eleven cells where NEWER evidence disagrees with the recorded status** — one on REAL MONEY | **NEW.** The matrix and the sweep corpus disagree on 11 (leg, lever) pairs: the cell records a negative while the newest floor-clearing live-parity corpus row PASSES. Nine were found by auditing `stale_cells`; **two more** (`uso_trend_1h`/`vol_trail`, `ict_scalp_sol_5m`/`stale_stop`) were found by the new `matrix-corpus-agreement` guard and are **not stale at all** — their refs carry post-cutover dates, so the staleness proxy reads them as current. **Exactly one is on a real-money account that is actually live: `trend_donchian_xrp_4h`/`trail_decay` on `bybit_2`, and it is a full `PASS` (wf 5/6, Δnet_R OOS +1.00, base_OOS 32) — start there.** The three alpaca legs touch a real_money account whose account-level gate is `dry_run` (no live orders); the rest are paper or prop. All 11 are annotated in-cell; **no status was changed** — a passing cell is not a passing lever disposition, and the flip is yours. |
+| **(i)** | **All six SHIPPED levers that had never been graded against their own absence now have been — and all six fail Path A** | **NEW.** `--without-declared-lever` is the only construction that can grade a shipped lever (the shipped lever IS the base of every ordinary cell). It had never run on these six. It has now, and none clears Path A. **The split inside the six matters more than the count.** FOUR are `is_oos_fail` and genuinely mixed: `iwm`/trail_decay (IS −1.37, OOS +6.45), `scha`/trail_decay (IS −4.30, OOS +2.40) and `splg`/trail_decay (IS +7.58, **OOS −0.44**) flip sign between windows, while `trend_donchian_eth_prop`/stale_stop is the one clean negative at **OOS −2.68**. TWO are `wf_fail` and **positive on BOTH windows**, failing only the walk-forward: `eth_prop`/trail_decay (+1.01 / +1.92) and `ict_scalp_eth_15m`/stale_stop (**+7.31 IS, +3.84 OOS, drawdown better on both**, over base IS=350) — that last is the strongest cell in the set and reporting it as "fails" without saying how would misrepresent it. Path A is a SHIPPING gate (net_R AND maxDD in BOTH windows + wf ≥ 4/6), not a profitability test, and the sign-flips sit at n≈31. **None of these legs is on a real-money account that is actually live** (six paper, two prop). `ict_scalp_eth_15m` ran uncapped because the scalp unit carries no TP cap — live parity for that leg, so its figures are not comparable on the cap axis. **No status changed, no config touched** — the disposition is yours. |
+| **(j)** | **Six matrix cells contradict the live config — and the matrix's own legend already names this bug and defines the status to fix it, unused** | **NEW.** Cross-checked all 52 rows against `strategies.yaml` using the sweep's own `LEVER_DECLARED_KEYS`. The reverse direction is **clean** (0 cells claim `shipped` without a declare); every discrepancy runs one way. Five read **`honest_negative`** — *"measured, did not work"* — about a `trail_decay` running live on that leg (`eth_pullback_2h`, `qqq_trend_long_1d`, `trend_donchian_sol_4h`, `xrp_pullback_2h`, plus `avax_pullback_2h` at shadow); the sixth, `trend_donchian_avax_4h`, still says *"AWAITING TIER-3 approval to declare in YAML"* — **the approval landed in #8985 on 08-13**. **The legend's `shipped_gate_failed` describes this exact case** — *"LIVE in config, but a LATER re-sweep failed its gate and the operator chose to HOLD ... `honest_negative` implies NOT live (recording a live lever there is exactly the bug that made trend_donchian's trail_decay read as a closed negative)"* — and it is used **0 times across all 416 cells**. **So the remedy is NOT 'flip them to shipped'.** Five are live legs whose recorded evidence is a negative — `shipped_gate_failed` **if** the hold was deliberate; the sixth passed its gate and is a plain `shipped`. Flipping all six would assert *validated + live* over five cells whose validation does not reproduce, which is the overclaim the legend explicitly warns against. **That turn — was each a deliberate hold? — is yours, which is why I did not do it.** The guard exists and self-tests; it stays unregistered until the reconciliation, so CI is not red in the meantime. |
+
+
+54. **Emptied the `data_missing` bucket — 4 -> 0 on live legs — by measuring
+    every claim in it instead of inheriting one.**
+
+    Item 50 re-graded three. The fourth, `ict_scalp_mgc_15m`/`exit_ladder`,
+    said *"blocked on DATA, not on the harness ... no MGC_* or XAUUSD_* file
+    remains"*. Literally true about the CSV, and misleading about the
+    situation: the shard exists. Measured it (relay #9200) rather than
+    inheriting the sibling cell's "flat-bar contaminated" claim:
+
+    ```
+    data/ibkr_datasets/market_raw/MGC/15m/v002
+      16,530 bars   FLAT (o==h==l==c) = 7,749  = 46.9%
+                    zero-volume               = 31.4%
+      span 2025-10-31 .. 2026-07-20  (8.7 months)
+    ```
+
+    **Nearly half the series has no intra-bar range at all.** A ladder / trail /
+    giveback lever reads high and low; over this series it would be measuring
+    the gaps, not the exit. So the data is not missing — it is UNUSABLE, which
+    is a different disposition and now says so (`blocked:native-history-thin`,
+    adopting the label its own sibling already carries on this leg).
+
+    And it confirms the pull was no help here either: tonight's MGC 15m pull
+    (22,293 rows) came from the SAME IBKR source, so the same contamination is
+    expected. The ref says *do not re-pull to unblock this*.
+
+    **The bucket after tonight** — every live blocked cell now names a MEASURED
+    cause, and none of them is an errand:
+
+    | reason | cells |
+    |---|--:|
+    | `insufficient_lifetime_trades` | 13 |
+    | `insufficient_base` | 3 |
+    | `no_harness_levers` | 2 |
+    | `insufficient_oos_base_at_derived_split` | 2 |
+    | `native-history-thin` | 2 |
+    | **`data_missing`** | **0** |
+
+    That is the real deliverable of the last two hours. Coverage did not move
+    and was never going to; what moved is that **no blocked cell now points at
+    a data errand that does not exist**. The old bucket cost this session an
+    hour of IBKR pulls, shard conversions and a near-miss on training a head
+    against the series it refuses. The next session should not be able to spend
+    that hour, and now it cannot.
+
+55. **Made tonight's near-miss impossible to repeat, on the consumer side.**
+
+    Item 47's near-miss was caught by one human-scale question — *where does
+    this file come from* — which is not a control. `market_raw_to_csv.py` now
+    answers it before writing: if the symbol has a declared proxy and that
+    proxy's CSV exists, it compares overlapping-date closes at 1e-6 and
+    **REFUSES (exit 2) with the measurement** when >= 95% are identical.
+    `--allow-proxy-alias` overrides for deliberately materialising a proxy
+    under its own name.
+
+    **Consumer-side deliberately.** It needs no producer change and no new
+    shard field, so it protects every shard ALREADY on disk. The better long
+    answers — record the fetched ticker IN the shard, or write GC=F under its
+    own key — live in `build_trainer_datasets.sh`, which feeds the trainer's
+    nightly ML builds. That is not a change to make unattended at 08:40 on a
+    night whose lesson was *measure before you act*; both stay open on the
+    backlog item.
+
+    **The threshold moved because a test caught me.** I wrote 0.99 reasoning
+    from the real case (2,511 of 2,512). A 20-bar fixture with one stale bar is
+    0.95 — under the cut — so the guard would have waved through exactly the
+    short-overlap case. The fix was not a bigger fixture: the discriminator is
+    **bimodal**, not a similarity score. At 1e-6, two different instruments
+    share ~0% exactly-identical closes (the low digits differ on essentially
+    every bar); two copies of one series share ~100%. Nothing real lands
+    between, so any cut in 0.5..0.99 gives the same answer on real data — and
+    the looser cut removes a length-dependent blind spot at no cost. That is
+    the reasoning now recorded at the constant, because "0.95" alone would read
+    as a tuned tolerance it is not.
+
+    **Fail-open by construction, and tested as such:** no declared proxy, no
+    proxy CSV, no overlapping dates, or a genuine difference all proceed
+    normally. It can block only on positive evidence the two series are the
+    SAME. 9 tests including a can-fail control — disabling the check fails
+    exactly the two refusal tests and leaves the seven fail-open/override tests
+    passing, which is the selectivity that makes the control meaningful.
+
+56. **Re-swept the three SHIPPED real-money donchian-1h cells at live parity.
+    Two of three do not reproduce.**
+
+    These are the cells my own staleness fix (#9150) added to
+    `--stale-decisions`: `shipped`, changing exit behaviour on real money
+    **today**, on evidence measured against a book with no take-profit. They
+    are the only 3 of the 8 stale live decisions where a re-run is both
+    possible and informative — the other 5 are trail/stale-stop cells whose OOS
+    n is 4–24 against a floor of 25 (item 50 measured `mes_trend_long_1d` at 5
+    and `mhg_pullback_1d` at 10, consistent with that).
+
+    Relay #9206, round self-stamps `tp_geometry: live_parity`, 23 usable folds:
+
+    | leg | n_oos | auc | beats_actual | beats_hard | verdict |
+    |---|--:|--:|--:|--:|---|
+    | `trend_donchian` (BTC) | 311 | 0.5403 | 14/23 | 17/23 | **honest_negative** |
+    | `trend_donchian_eth` | 566 | 0.6079 | 16/23 | 16/23 | candidate |
+    | `trend_donchian_sol` | 273 | 0.6161 | 15/23 | 12/23 | **honest_negative** |
+
+    All three are **gradeable** — n_oos 311/566/273 against the floor of 25 —
+    so unlike the 1d futures legs this is a verdict, not an abstention.
+
+    **I checked the gate arithmetic from source rather than reading the
+    printout, and it corrected me.** `train_exit_head.py:349-352`: candidate
+    needs `u>=2 AND mean_auc>0.55 AND beats_actual*3>=u*2 AND beats_hard*3>=u*2`
+    — at u=23, **≥16 on BOTH**. So:
+
+    - **BTC fails TWO conditions**, not one: auc 0.5403 is *below* 0.55, and
+      beats_actual 14 is short 2. Its beats_hard 17 **passes** — a reader
+      scanning only that column would conclude the opposite.
+    - **SOL is NOT knife-edge.** I had drafted "missed by one fold", which is
+      true only of `beats_actual` (15, short 1); `beats_hard` is 12, **short
+      4**. The reassuring reading again, and again wrong.
+
+    **Status deliberately LEFT `shipped` on all three.** Moving a live
+    real-money cell to `shipped_gate_failed` is the operator's call — the
+    legend defines that status as *"the operator chose to HOLD"* — and it is
+    precisely queued decision (d). The measurement is Tier-1 and is recorded in
+    the refs; the disposition is not mine.
+
+    **What it does to decision (d):** the stale-decision base rate was 1 of 1
+    not reproducing. It is now **3 of 4** (`trend_donchian`/`trail_decay`, plus
+    BTC and SOL). That is no longer a curiosity.
+
+    **What it does to decision (a):** two non-scalp donchian legs are now
+    candidates at live parity — `trend_donchian_eth` (auc 0.6079, n_oos 566)
+    and `trend_donchian_eth_prop` (0.6138, n_oos 902). **Both are ETH.** So the
+    evidence weakens *scalp*-scoping while hinting at something narrower nobody
+    has framed. Flagged as a **hypothesis needing a denominator**, not a
+    finding: two legs on one symbol is exactly the sample size that
+    manufactures patterns.
+
+    **Two limits on the claim, stated because they bound it:**
+    1. Every earlier verdict on these legs was built on a **no-TP book**, so
+       this compares two GEOMETRIES. The honest reading is *"the shipped
+       decision was made on a geometry production does not place, and under the
+       one it does place, two of three fail"* — not *"the model degraded"*.
+    2. I did **not** verify the original rounds resolved the same source CSVs
+       (this run used BTCUSDT_15m / ETHUSDT_5m / SOLUSDT_5m resampled to 1h), so
+       a data-resolution difference is an **unexcluded confounder**. Recorded in
+       the cell refs rather than left for a reader to discover.
+
+57. **Owned: I hit a documented MUST three times tonight.**
+
+    `docs/claude/diag-relay.md:176` says *"Any non-trivial `cmd:` script MUST be
+    base64'd"* and records a 2026-08-13 session hitting the heredoc trap **four
+    times**. I hit it three times (#9190, #9205, and once earlier), each time
+    losing a dispatch to `here-document ... delimited by end-of-file`.
+
+    **This is not a documentation gap and should not be answered with more
+    documentation.** The doc is already emphatic and already carries the
+    incident count. What is missing is mechanical: the failure SILENTLY
+    truncates — the heredoc swallows the rest of the script, so in #9205 the
+    `nohup` launch never ran and the only evidence was a bash warning buried
+    mid-output. A relay that reports success for a script it did not finish
+    reading is the "silent truncation reads as complete" class this repo has a
+    guard family for. Filed as a proposal rather than shipped: the relay
+    workflow is shared infrastructure every session depends on, and breaking it
+    at 08:50 unattended is a worse outcome than a fourth session hitting the
+    trap.
+
+58. **The "wait for more trades" disposition on two SHIPPED cells is false,
+    and the mechanism is that the split targets exactly the floor** —
+    `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`.
+
+    Item 56 raised the stale-decision base rate to 3-of-4 not reproducing,
+    which makes the *un-re-swept* stale decisions the real exposure. I had been
+    repeating all night — inherited, never checked — that the five non-exit-head
+    ones are "a wait, OOS 24/24/22/4 against a floor of 25". Measured the two I
+    had no number for (relay #9209, config-exact, live parity):
+
+    | leg | lifetime | OOS @ 2025-07-01 | span |
+    |---|--:|--:|---|
+    | `htf_pullback_trend_2h` | 407 | **97** | 2021-07-21 .. 2026-07-10 |
+    | `tlt_pullback_1h` | 527 | **60** | 2017-03-30 .. 2026-06-18 |
+
+    Neither is trade-starved. So why was `htf_pullback_trend_2h`/`trail_geometry`
+    refused today with `base OOS n (24)`? From source:
+
+    ```
+    --split-mode        default 'oos-trades'
+    --split-target-oos  default MIN_OOS_TRADES  (= 25)
+        "Defaults to the floor a cell is judged against, so the boundary
+         aims at exactly what the verdict requires."
+    ```
+
+    **Aiming at exactly the floor means any boundary loss fails**, and
+    `resolve_split`'s own docstring already says the loss exists: *"THE TARGET IS
+    NOT THE ACHIEVED COUNT … the harness windows CANDLES, not trades, so an OOS
+    run … needs warmup."* Derive ~25 → warmup shaves to 24 → refuse at 24 < 25.
+    **Re-running can never help**, because the split is re-derived to target 25
+    every time, whatever the leg has accumulated.
+
+    So the cell's recorded conclusion — *"re-running returns exactly this
+    again"* — is **right**, and its reason is **wrong**. It is not waiting for
+    trades; it has 97 and was handed a window containing 24.
+
+    **The distinction is the finding, not "the sweep is broken".** For
+    `mes_trend_long_1d` (5 OOS) and `mhg_pullback_1d` (10 OOS) the same
+    derivation is doing exactly the job it was built for — item 50 measured
+    those. The defect bites the legs with plenty of trades, which is the
+    opposite of where anyone would look.
+
+    **What I did NOT verify, and said so in the item:** whether run
+    31771809102 actually used the default split mode. The cell ref does not
+    record it — which is its own gap, since `resolve_split` deliberately returns
+    mode and target *"so a verdict states its own derivation"*. A cell refused
+    for thin OOS that does not say which split produced the number is
+    diagnostic-provenance sub-class B one level up. Resolution criterion (1) is
+    written to FALSIFY the item if the re-run still returns 24.
+
+    **Deliberately not fixed tonight.** Changing the default changes which
+    verdicts the sweep produces fleet-wide, and picking a new target without a
+    measured boundary-loss distribution would repeat the exact error being
+    reported — the current value was chosen because it *looked* principled
+    ("aims at exactly what the verdict requires"). Filed with a falsifiable
+    first step instead.
+
+59. **Ran item 58's falsification test. It CONFIRMED the item.** Criterion (1)
+    was written to kill the row if a re-run still returned 24 -- the gap item 58
+    honestly flagged was that the cell ref does not record which split mode run
+    31771809102 used, so "the derivation caused it" was inference, not
+    measurement. Relay #9211 ran `base_oos` under **both** modes on both legs,
+    config-exact, `tp_cap_pct=0.099`, `MIN_OOS_TRADES=25`:
+
+    | leg | `--split-mode oos-trades` | `--split-mode date` |
+    |---|---|---|
+    | `htf_pullback_trend_2h` (BTCUSDT 2h) | split=2026-04-03, **n=24** -> `insufficient_base` | split=2025-07-01, **n=95** -> GRADEABLE |
+    | `tlt_pullback_1h` (TLT 1h) | split=2026-02-05, **n=22** -> `insufficient_base` | split=2025-07-01, **n=56** -> GRADEABLE |
+
+    Both SHIPPED real-money cells are gradeable at the corpus-standard split and
+    are refused **only** under the derived one. For `htf` the derivation puts the
+    boundary at 2026-04-03 -- about three months before the data ends
+    (2026-07-10) -- keeps 24 trades, then refuses for 24 < 25.
+
+    These also **cross-check** relay #9209's independent full-history figures
+    (97 and 60 there vs 95 and 56 here). The small gap is the warmup/boundary
+    effect `resolve_split`'s own docstring predicts, so it is further
+    confirmation of the mechanism, not a discrepancy between two measurements.
+
+    **The fix now has a one-sentence form it did not have when the row was
+    filed:** *the derivation should only ever **enlarge** a thin OOS window,
+    never **shrink** a rich one.* `oos-trades` exists to rescue legs sitting at
+    OOS 3-6 on a fixed date -- its docstring says exactly that -- and has no
+    business reducing 95 to 24. Concretely `max(derived_split_window,
+    fixed_corpus_split_window)`, which also makes criterion (2)'s "measured
+    boundary-loss distribution" unnecessary for the common case: a leg that
+    already clears the floor at the standard split never needs the derivation.
+
+    ⚠️ **Corrected in item 63: that fix covers the RICH-leg case only.** Under
+    the derived split the four affected legs recorded base OOS **24 / 24 / 22 /
+    4** — three clustered just under the floor on legs of very different
+    lifetimes, which is the mechanism's own fingerprint. I measured the
+    standard-split counterfactual for **two** of them. A leg whose derivation
+    *enlarged* a thin window and still landed at 24 fails under **both** branches
+    of the max, so the complete fix has to give the target **margin over** the
+    floor rather than equality with it.
+
+    **Still not taken, deliberately:** criterion (2) is the actual default
+    change and moves verdicts fleet-wide; criterion (3) is making a verdict
+    record its own split mode / target / achieved count (the ref that started
+    this records none of the three, which is the diagnostic-provenance
+    sub-class B half of the finding). And **no cell was re-graded** -- these are
+    `shipped` real-money cells whose disposition is queued operator decision (d).
+
+60. **Then shipped criterion (3) -- a thin-OOS refusal now says WHICH WINDOW
+    produced the count.** Item 59 deferred it alongside criterion (2); on
+    reading the code the two are not alike. (2) changes which verdicts the sweep
+    produces fleet-wide and needs the operator. (3) changes only what a refusal
+    *says about itself*, reads no verdict branch, and can move no grade — so
+    there was nothing for it to wait on.
+
+    The defective message was `f"OOS base {n} trades < floor {floor}"` — a COUNT
+    over a window it does not name. One sentence covered two **opposite**
+    conditions:
+
+    | | condition | remedy |
+    |---|---|---|
+    | `htf_pullback_trend_2h` | 407 lifetime, 24-trade window | move the split, re-grade **today** |
+    | `mes_trend_long_1d` | 33 lifetime, 5-trade window | wait for trades, or stop grading it |
+
+    Both printed identically. That is exactly why establishing which kind `htf`
+    was cost a fresh trainer-relay run (#9211) instead of a read.
+
+    **`resolve_split`'s own docstring already promised the cure** — *"Returned
+    meta records target AND mode so a verdict states its own derivation"* — and
+    no verdict ever read the meta. Field beats comment, here in the direction
+    where the comment was an aspiration nothing implemented.
+
+    Shipped: a **pure** `insufficient_base_reason(base_oos_n, floor, split,
+    split_meta)` — extracted rather than inlined *because* the verdict block
+    lives inside `main()` and was not reachable from a test, so an inline fix
+    would have been untestable by construction. The message now carries the
+    split date, mode, target, leg **lifetime**, and any fallback; and **every**
+    cell entry — not only refused ones — records `split` / `split_mode` /
+    `split_target_oos` / `split_lifetime_trades` / `split_fallback`, with the
+    assignments placed **above** the `if _thin:` branch so a cell that PASSES
+    carries the same audit trail as one that is refused.
+
+    **The lifetime is the load-bearing field, not the split date** — it is the
+    only thing that separates the two rows above. So the test that matters
+    asserts the two strings *differ*, and still differ when both legs are given
+    the **same** boundary date, so the discrimination cannot be an artifact of
+    the dates being different.
+
+    Two ways a provenance string lies, both pinned: an absent input is
+    **omitted, never fabricated** (under `--split-mode date` no emit run
+    happens, so the lifetime is unknown — printing `0` would turn *"we did not
+    count"* into *"the leg has no trades"*, which makes a refusal look
+    deserved); and a fallback is never silent.
+
+    **Can-fail verified** (7 tests, `tests/test_m20_split_provenance.py`):
+    reverting the function body to the old one-liner fails **5 of 7**, the
+    discriminator among them. The 2 survivors are the structural wiring tests,
+    which that mutation does not touch — the correct result, not a gap.
+
+    Purely additive; no cell re-graded. Criterion (2) stays queued.
+
+    *(Process note, same class as the postscript below: I destroyed this edit
+    once with a careless `git reset --hard origin/main` run to sync the branch
+    after a merge, while it sat uncommitted. Reproducible, ~2 minutes lost,
+    and the ninth instance tonight of a one-liner run without reading what it
+    would take with it.)*
+
+61. **`main` was RED, my PR #9208 made it so, and CI could not have caught it.**
+    Found by running the neighbouring tests while validating item 60 — not by
+    any check.
+
+    `tests/test_exit_head_per_leg.py::test_the_three_shipped_donchian_1h_cells_are_live_stale_decisions`
+    asserted the three cells **are** in `stale_decisions`. Item 56 re-swept them
+    at live parity and recorded `tp_geometry: "live_parity"`, which is exactly
+    what `evidence_vintage` reads to set `stale = False`. So the re-sweep did
+    the thing "stale" was asking for, and the test still demanded the old state.
+
+    **The fix is not to flip the assertion to `== set()`.** "Not stale" is not
+    "fine" — 2 of the 3 did not reproduce, and all three are still `shipped` on
+    real money pending operator decision (b). The rewritten test asserts they
+    left the stale list by being **measured** rather than deleted, reopened, or
+    marked `n/a`, and that the evidence is still on the cell. Can-fail verified:
+    keeping the flag-silencing `live_parity` declaration while replacing the ref
+    with `"graded 2026-08-10"` — the cheapest possible way to clear a stale
+    decision without doing the sweep — fails it.
+
+    **Why CI was green:** `pytest-run` excludes `docs/`, so #9208 (which changed
+    only the matrix) short-circuited to a **ten-second** green pytest-run
+    (08:51:24 → 08:51:34; a real run is 7–9 min over ~10,677 tests), merged, and
+    left `main` red. Verified from the check-run timings, not inferred.
+
+    **This is the FOURTH instance of a class `tests/test_pytest_run_filter.py`'s
+    own header enumerates** — `config/`, then `.github/workflows/`, then
+    `scripts/` via PR #8994's nine-second green on 2026-08-13. It keeps
+    recurring because the filter is a hand-enumerated allowlist and nothing
+    measures what it misses.
+
+    The root is a premise applied at the wrong granularity. The workflow
+    justifies excluding `docs/` on the grounds that *"the suite's assertions
+    over them are owned by the separate `guards` job"* — **true per-file** for
+    `docs/claude/health-review-backlog.json` (every test touching it writes a
+    `tmp_path` fixture; I checked all four) and **false** for the coverage
+    matrix, which is read as-committed. `guards` does run
+    `exit-coverage-matrix-guard`, but that validates statuses and refs — it
+    cannot run the pytest assertion that broke.
+
+    Shipped: the **narrow proven fix** — that one JSON path added to the grep
+    and to `test_pytest_run_filter.py::COVERED`, scoped to the single file so
+    the documented CI-minutes rationale survives. Filed as
+    `BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT`
+    (medium, Tier-1) with the honest denominator: **39 test files reference
+    `docs/` paths and I checked 2**, so I cannot say whether more real-file
+    reads sit behind the same short-circuit. Its resolution criteria ask for a
+    *mechanical* enumeration and a guard that derives the allowlist from the
+    tests — because hand-enumeration is the failure mode, and a narrow fix that
+    reads as complete is how instance 5 happens.
+
+62. **Did the enumeration instead of leaving it filed — and it corrected my own
+    number, twice over.** Item 61 shipped the narrow fix and filed the general
+    case citing *"39 test files reference `docs/` paths and I checked 2"*. That
+    denominator was **wrong**: 39 counts files *mentioning* `docs/` anywhere,
+    docstrings included. Scanning `tests/` mechanically for a `docs/` path
+    joined onto the repo root:
+
+    - **19** test files carry a `docs/` path *literal*;
+    - **4** read a **committed** `docs/` file — the rest write `tmp_path`
+      fixtures.
+
+    | committed docs/ file | reader | was covered? |
+    |---|---|---|
+    | `docs/research/exit-refinement-coverage.json` | `test_exit_head_per_leg` | fixed in item 61 |
+    | `docs/research/m20-sweep-corpus.jsonl` | `test_m20_regime_book_provenance` | **no** |
+    | `docs/claude/system-actions.md` | `tests/ops/test_system_actions_workflow` | **no** |
+    | `docs/ARCHITECTURE-CANONICAL.md` | `test_audit_verification_checklist` | **no** |
+
+    So the scope was **three more paths, not a project** — which is exactly why
+    it was worth ten minutes rather than a filed row someone reads next month.
+
+    **The `ARCHITECTURE-CANONICAL.md` one nearly escaped, and it is the worst of
+    the three.** `test_live_repo_checklist_clean` asserts the **live** doc has no
+    drift, and the only other check of that property is the **weekly**
+    `doc-audit-weekly.yml`. `arch-doc-guard` *does* list the doc in its globs —
+    which is precisely why it looked covered — but it runs
+    `scripts/arch_doc_guard.py`, a different script that never touches the
+    checklist. Covering it costs a full suite on many docs-only PRs; **included
+    anyway, and the cost stated at the call site rather than slipped in**,
+    because a check a docs PR can silently skip is not a check.
+
+    **Made it self-maintaining** rather than adding three more hand-written
+    rows: `test_docs_committed_readers_are_all_covered` re-derives the set *from
+    the tests* on every run, so a new committed-doc reader fails CI until the
+    filter covers it. It ships with a **negative control** — a scan that
+    silently stopped matching would make the guard vacuously green, which is
+    diagnostic-provenance sub-class C.
+
+    **The finding worth more than the path list:** the class was already filed
+    as `BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED`
+    (severity **high**), whose resolution criterion reads *"pytest-run cannot
+    report a green tick without having executed the suite (or reports a visibly
+    distinct state when it skips)"* — and it is marked **resolved**. That
+    criterion was never met. It was closed by adding the three trees then known,
+    leaving the green-tick ambiguity that **is** the hazard fully intact.
+    Instance 4 arrived four weeks later through the one tree nobody had added.
+
+    **Closing a class-level row on an instance-level fix is itself the
+    recurrence mechanism** — and my own item 61 was about to be the fifth
+    example of it. Recorded in the row (criterion (3), still open) and in the
+    test file's header, so the next reader sees that four fixes have all widened
+    an allowlist and none has made a skipped run distinguishable from a real one.
+
+63. **Went to re-sweep the pullback stale decisions, read the tool's own help
+    text first, and did not run it.** I had the invocation written —
+    `--only htf_pullback_trend_2h,tlt_pullback_1h --levers trail_geometry
+    --split-mode date --tp-cap-pct 0.099` — with the trainer free and the lane
+    clear. Two lines of `m20-exit-lever-sweep.yml`'s `--without-declared-levers`
+    help stopped it:
+
+    > *the shipped lever IS the base, so a normal cell reproducing it measures
+    > the base against itself* … *trail_geometry is not offerable: trail_mult has
+    > no OFF state.*
+
+    So a `trail_geometry` cell on a **shipped** leg cannot be graded either way —
+    a normal cell compares the base to itself (`BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES`
+    records 31 of 860 corpus rows as exactly that, all-zero deltas wearing an
+    `is_oos_fail` label), and the lever-off arm that exists for shipped levers
+    excludes this one. **The run would have produced confident base-vs-base
+    numbers that look like verdicts.**
+
+    **4 of the 5 remaining stale live decisions are `trail_geometry`** — so most
+    of that list asks for a remedy that does not exist for it. That is the
+    desensitized-alarm shape: a flag nobody can clear gets walked past, and it
+    will appear in every future review looking like outstanding work. Filed
+    `BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`, whose
+    criteria ask for a three-state `remedy` field — *not yet re-swept* /
+    *re-swept* / **cannot be re-swept** — since collapsing the third into the
+    first is what produces the walk-past.
+
+    **Then read the corpus instead of running anything, and it paid twice.**
+
+    **(a) A CONTROLLED confirmation of the split finding — from the corpus's own
+    history, not an A/B I constructed.** The committed corpus row for
+    `htf_pullback_trend_2h`/`trail3`, run **2026-08-13T01:36Z**:
+
+    ```
+    tp_cap_pct 0.099 · split 2025-07-01 · min_oos_trades_floor 25
+    base_trades_OOS 95 · verdict is_oos_fail          <- gradeable
+    ```
+
+    The same cell on **2026-08-14** under the derived split: base OOS **24** →
+    `insufficient_base`. **The floor was 25 on both days** — so "the floor is
+    new" cannot explain it. Same leg, same lever, same TP geometry, same floor;
+    the only thing that moved is the split, and it took the window from 95 to 24.
+    That is the cleanest form of the finding on record.
+
+    *(I nearly missed it: a first pass read `base_oos=None` on every corpus row
+    and I briefly took that for "these rows predate the floor", which would have
+    made the comparison uncontrolled. It was my own key-name error —
+    `base_trades_oos` vs the actual `base_trades_OOS`. Checking the field that
+    would have invalidated the claim is what turned it from suggestive into
+    controlled.)*
+
+    **(b) An unsurfaced Tier-3 candidate.** `tlt_pullback_1h` **ships trail3**,
+    and the corpus's `trail4` cell for that leg comes back **`path_b_wf_pass` at
+    live parity** — Δnet_R **+35.47 IS / +5.42 OOS**, walk-forward **5/6**,
+    `base_trades_OOS` **56** — reproduced across **three** runs (08-10, 08-12,
+    08-13). The base that delta is measured against already contains the shipped
+    trail3, so it is the improvement over what is live today. `base_trades_OOS`
+    56 independently matches relay #9211's fresh config-exact measurement, which
+    is what makes the window trustworthy rather than a coincidence.
+
+    Filed to the **performance** backlog (strategy follow-ups do not belong in
+    the health one) as `PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY`,
+    **with the caveats that bound it**: it is a *Path B* pass (the weaker route —
+    `gate_passed_OOS` is false), n=56 is above the floor but not large, and the
+    three runs **share a corpus and a split date** — they rule out a flaky run,
+    not overfit to that window. Tier-3 and proposal-only; I changed nothing.
+
+    The whole item cost one read of a help string and one corpus query, against
+    a trainer run that would have produced a meaningless number. Worth recording
+    as the counterexample to tonight's postscript.
+
+64. **Completed the split measurement to 4 of 4 legs — and the case I warned
+    about two items ago landed.** Relay #9218, config-exact, `tp_cap 0.099`,
+    `MIN_OOS_TRADES=25`:
+
+    | leg | derived (`oos-trades`) | fixed (`date`) | what the derivation did |
+    |---|---|---|---|
+    | `htf_pullback_trend_2h` | 2026-04-03 → **24** | 2025-07-01 → **95** | **shrank** a rich window |
+    | `tlt_pullback_1h` | 2026-02-05 → **22** | 2025-07-01 → **56** | **shrank** a rich window |
+    | `mhg_pullback_1d` | 2023-02-07 → **24** | 2025-07-01 → **7** | **enlarged** 7 → 24 |
+    | `mes_trend_long_1d` | fell back → **4** | 2025-07-01 → **4** | `leg_too_thin`, lifetime 33 |
+
+    **`mhg` is the whole defect in one row.** The derivation *enlarged* its
+    window from 7 to 24 — doing exactly the job `oos-trades` exists for — **and
+    it still fails, short by one trade.** It aimed at exactly 25, executed
+    correctly, and missed by 1.
+
+    **That refutes `max(derived, fixed)` as a complete fix rather than merely
+    caveating it.** On `mhg` the max picks 24 and refuses anyway. Had I shipped
+    it as *the* fix — which is how item 59 first wrote it — `htf` and `tlt` would
+    have been rescued, `mhg` would have stayed silently refused, and the row
+    would have been closed as done.
+
+    **What the evidence supports:** `max(derive(target = floor + margin),
+    fixed_window)`. Both terms are load-bearing and neither covers the other's
+    case — the **margin** rescues the enlarge case, the **max** rescues the
+    shrink case. Worked against all four: `htf` → 95, `tlt` → 56, `mhg` → a
+    target of 30 clears 25 with room and its lifetime supports it, and `mes`
+    (lifetime 33) cannot give 30 to OOS so it falls back and **stays correctly
+    refused at 4** — which is the control proving the fix does not simply make
+    everything gradeable.
+
+    The margin *value* still needs criterion (2)'s boundary-loss distribution;
+    30 is an illustration on n=4, not a proposal. `mes` also confirms the
+    documented `leg_too_thin` fallback fires correctly, so that branch is fine.
+
+    *(Two wasted relays first — #9215 and #9217 — because I launched the harness
+    with a bare `python3` and got `ModuleNotFoundError: pandas`. #9215's output
+    showed both legs at `split=2025-07-01`, which reads exactly like "the
+    derivation fell back because these legs are thin" and would have been a
+    confident wrong answer supporting the opposite conclusion. What stopped it
+    was that I had truncated the traceback to 90 characters and so could not
+    tell what failed — the missing diagnostic forced the follow-up that found
+    the real cause. Same class as item 60's whole subject, committed by me, one
+    hour later.)*
+
+65. **Audited the matrix against the corpus, and over half the stale backlog
+    turns out to be already answered.** Measured across the two committed
+    artifacts:
+
+    | | count |
+    |---|--:|
+    | `stale_cells` | **186** |
+    | …that already have a **live-parity** corpus row | **100** (53.8%) |
+    | …of which the **newest floor-clearing** such row **PASSES** | **9** |
+
+    The nine carry a recorded negative against a live-parity pass — four a full
+    `PASS`, five the weaker `path_b_wf_pass`, with base OOS 29–67; the `tlt`
+    cell (56 OOS) is one of them and is separately filed as (f).
+
+    ⚠️ **It was eleven until I checked, and the correction is downward.** Two —
+    `mhg_pullback_1d`/`stale_stop` and `slv_pullback_1d`/`stale_stop` — passed on
+    **6- and 7-trade** OOS windows on 2026-08-10, *before* `MIN_OOS_TRADES`
+    existed (`min_oos_trades_floor: None` on those rows), and the corpus has
+    **already retracted them**: the same cells re-ran on 08-13 with the floor at
+    25 and returned `insufficient_base`. They are not contradictions — they are
+    the floor working. **My error was the aggregation, not the read:** I counted
+    *any* passing live-parity row instead of the *newest* one, so a superseded
+    pass and a standing one carried equal weight. Caught by collecting the
+    per-cell evidence to write into the refs — by doing the next step, not by
+    re-reading.
+
+    Worked example: `trend_donchian_xrp_4h`/`trail_decay` reads
+    `honest_negative` on a ref dated **2026-07-12/13** (*"eth/sol/xrp 4h all
+    cells is_oos_fail"*), while the corpus holds **two live-parity PASSes from
+    2026-08-10** — `decay_arm2R_t2.5` (wf 5/6, Δnet_R OOS **+1.0043**) and
+    `decay_arm1.5R_stall6_t2.5` (wf 4/6, +0.9204).
+
+    `evidence_vintage`'s own comment says a stale negative *"costs knowledge —
+    the lever might have passed and we would not know."* For these it is not
+    hypothetical: **the lever did pass, the run happened, the row is committed,
+    and the matrix still carries the pre-cutover negative.**
+
+    **So the 186-cell backlog is not 186 re-runs.** Over half is a **join** the
+    roll-up does not perform, and the expensive part is already paid for. Filed
+    `BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY`,
+    whose criteria ask for a three-state report per stale cell (no live-parity
+    row / agrees / **disagrees**) and a guard so it cannot recur.
+
+    **Bounded deliberately:** a passing *cell* is not automatically a passing
+    *lever* disposition (though `tlt` shipped on exactly one); **5 of the 9 are
+    the weaker `path_b_wf_pass`**, 4 a full PASS; I re-ran nothing; and any
+    status change on a live leg is Tier-3.
+
+    *(And the headline was nearly wrong in the alarming direction. My first pass
+    reported these cells as **not flagged** — "invisible". They are all flagged.
+    I had unpacked the `stale_cells` tuple as `(leg, lever, …)` when it is
+    `(leg, symbol, timeframe, lever, …)`, so every lookup compared a lever
+    against a **symbol** and missed. The staleness machinery works fine; what is
+    missing is the join. Checking the tuple shape rather than trusting my own
+    unpacking is the only reason this item says something true — and it would
+    have been the ninth instance of the postscript's pattern, this time
+    inventing a defect rather than dismissing one.)*
+
+66. **Made the nine disagreements visible where a reader will actually meet
+    them — in the matrix cell, not only in a backlog row.** Criterion (2) of the
+    row filed in item 65.
+
+    Each of the nine `ref`s now carries the live-parity counter-evidence: the
+    passing cell name, verdict, run date, walk-forward, Δnet_R IS/OOS, ΔmaxDD
+    OOS, and `base_trades_OOS`, plus how many *other* live-parity cells passed
+    for that lever.
+
+    **Nothing was re-graded.** The diff is **9 changed lines, all `ref`** —
+    verified by grepping the added lines for `"status"` and `"tp_geometry"` and
+    getting **zero**, and by re-running the live status histogram before and
+    after (286 `honest_negative` / 21 `shipped` / 11 `passed_unshipped` / 22
+    `blocked` / 33 `n/a` / 3 `pending`, unchanged).
+
+    Each annotation says explicitly how to read it — *"the newer evidence
+    disagrees and nobody has adjudicated it"*, **not** a verdict — and names the
+    three things that bound it: a passing cell is not a passing lever
+    disposition; whether the row is the weaker `path_b` route or a full `PASS`;
+    and that any status change on a live leg is Tier-3.
+
+    **One nuance the annotations carry per-cell rather than in aggregate.**
+    Eight of the nine come from runs that *predate* `MIN_OOS_TRADES`
+    (`min_oos_trades_floor: null`). Their recorded `base_trades_OOS` is 29–67,
+    so **today's floor would not refuse them** — but that is an inference about
+    the floor dimension only, and each ref says so: *whether other gate logic
+    moved since 2026-08-10 is not established here.* Only the `tlt` row was
+    graded under the floor (its run records `min_oos_trades_floor: 25`).
+
+    The point of putting this in the cell is that the backlog row is read by
+    whoever drains the backlog, while the **cell** is read by whoever is about
+    to trust the status.
+
+67. **Built criterion (3)'s guard — and it immediately found two disagreements
+    my own audit structurally could not reach.** `matrix-corpus-agreement`
+    (`scripts/ci/check_matrix_corpus_agreement.py`, registered in
+    `run_guards.py`).
+
+    It is the **cross-artifact** sibling of `exit-coverage-matrix-guard`: that
+    one validates the matrix against *itself* (legend values, refs present);
+    this one validates it against the **corpus its dispositions rest on**. Both
+    files can be internally valid and disagree with each other, and nothing
+    checked that.
+
+    **First run, on a tree I had just finished auditing by hand, it failed with
+    two cells I had never seen:**
+
+    | leg | lever | status | newest live-parity corpus row |
+    |---|---|---|---|
+    | `uso_trend_1h` | `vol_trail` | honest_negative | `vt_cold10_t2` **path_b_wf_pass**, 2026-08-13, wf 4/6, base_OOS **27** |
+    | `ict_scalp_sol_5m` | `stale_stop` | honest_negative | `be_touch_arm` **path_b_wf_pass**, 2026-08-11, wf 3/4, base_OOS **286** |
+
+    **Neither is in `stale_cells`** — their refs carry post-cutover dates, so the
+    staleness date-proxy reads them as *current* while the **status** rests on an
+    older negative. My item-65 audit scanned the stale list, so it could not
+    have reached these no matter how carefully I looked. That is the difference
+    between an audit and an invariant, and it showed up within a minute of the
+    guard existing. Both are now annotated (the annotations say explicitly that
+    the staleness pass does not cover them).
+
+    **Three design choices, each of which a draft of my own analysis got wrong
+    first** — which is why they are asserted in the self-test rather than left
+    to prose:
+
+    - **newest, not any** — counting *any* passing live-parity row treats a
+      superseded pass as standing evidence, which is precisely how my count
+      reached 11 instead of 9;
+    - **floor-clearing only** — a pass on a window today's `MIN_OOS_TRADES`
+      would refuse is not evidence against anything, and pre-floor rows carry
+      `min_oos_trades_floor: null` so the floor is *applied*, not trusted;
+    - **the remedy is an acknowledgement, not a status flip** — a passing cell
+      is not a passing lever disposition and a live-leg change is Tier-3, so the
+      guard asks only that the disagreement be visible where someone about to
+      trust the status will read it. That keeps the guard Tier-1 while the
+      judgement stays with the operator.
+
+    The self-test runs **first** in the guard's step list and asserts all three:
+    it catches a planted disagreement, clears on an acknowledgement, and honours
+    supersession. A guard that silently stopped matching would otherwise read as
+    a clean pass — sub-class C, on the guard built to prevent sub-class C.
+
+68. **Built the roll-up's three-state report (criterion 1) — and it exposed TWO
+    defects I had just introduced myself, both pre-merge.**
+
+    `m20_coverage_rollup.py --stale-corpus-state` now answers, per stale cell,
+    *does the corpus already answer this?* — `no_live_parity_row` (a re-run **is**
+    the remedy) / `live_parity_agrees` / `live_parity_disagrees`. "Stale" alone
+    sends a reader to re-run a sweep that may already have been run. The resolver
+    is **imported from the guard, not re-implemented**, so the report can never
+    describe a state the guard does not enforce.
+
+    **Defect 1 — my annotations un-staled the cells they annotated.** Writing a
+    note stamps today's date into the `ref`, and the date-proxy read that as the
+    evidence being *renewed*: **8 cells dropped out of `stale_cells` (186 → 178)**
+    purely because I wrote on them. The ones that survived did so only because
+    they carry an explicit `tp_geometry: no_take_profit` overriding the proxy —
+    a cell with `tp_geometry: null` had nothing but the date and was silently
+    laundered. **The matrix's own refs state the rule in prose** — *"a note about
+    the evidence is not the evidence being renewed"* — so it was written down and
+    simply unenforced. Fixed with `evidence_dates()`, which drops annotation
+    segments before extracting dates. Back to 186.
+
+    **Defect 2 — the guard's resolver reduced across CELLS, not runs.** A lever
+    is swept as many cells in one run (`trail4`/`trail6`, `vt_hot90`/`vt_cold10`)
+    — **alternative parameterizations, not successive measurements.** Taking
+    `max(run_id)` across the whole group returned whichever cell fell last in
+    list order within a single 2026-08-10 run, so a **failing sibling masked a
+    standing pass**. Five of the nine read as "superseded" when nothing had
+    superseded them.
+
+    **It failed in the safe-looking direction — fewer contradictions reported —
+    which is the kind nobody re-checks.** Fixed by reducing per **cell** first
+    (that is supersession), then asking whether any surviving cell passes. The
+    self-test now pins the sibling case, because the broken behaviour was
+    invisible from the output.
+
+    **The fix surfaced two more disagreements the bug had masked:**
+    `gld_pullback_1h`/`trail_decay` (base_OOS 31) and `slv_trend_1h`/`trail_decay`
+    (base_OOS 40). Both annotated.
+
+    **Running total: 13 distinct disagreements** — 9 from the stale-cell audit,
+    2 the guard found that were *not stale at all*, and 2 the guard's own bug had
+    hidden. All annotated; **no status changed**.
+
+    Worth stating plainly: within one hour the same finding produced a count that
+    was too high (11, superseded rows counted), then a resolver that made it too
+    low (masked siblings), and both were caught by *building the next thing on
+    top* rather than by re-reading. Neither would have survived contact with a
+    reviewer; both would have survived contact with a proofreader.
+
+69. **Measured the OFF-arm coverage gap — and checked the money-losing direction
+    FIRST, which is what stopped a spurious finding.**
+
+    The matrix holds 21 `shipped` cells, and
+    `BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES` established the
+    sweep is *structurally* unable to grade any of them in a normal run: the
+    shipped lever IS the base, so every cell asks "does this alternative beat
+    it?" and none asks "is it worth anything?". `--without-declared-lever` is the
+    only route, and I wanted to know how much of the shipped surface it has
+    actually covered.
+
+    **First I looked for the finding that would matter — and did not find it.**
+    The dangerous shape is a positive-status cell sitting over live-parity
+    evidence that the lever LOSES. I scanned for it and got 4 cells: positive
+    status, every alternative failing. I nearly filed it. It is the **expected**
+    shape, not a defect — alternatives failing is exactly what "the shipped value
+    is locally best" looks like, because the shipped value is the thing they were
+    measured against. The reverse-direction scan was the right instinct and the
+    wrong reading of its output; the only thing that caught it was asking what
+    the base of those comparisons was.
+
+    So I checked the OFF arm's *actual* results instead of its absence: 22 corpus
+    rows carry `without_declared_levers`, all 2026-08-13, and they are already
+    correctly reflected. `trend_donchian_eth`/`stale_stop` measures
+    `d_net_r_OOS -10.5462` over 117 OOS trades and the cell reads
+    `honest_negative`; `trend_donchian`/`trail_decay` measures **+2.029** and
+    passes. **There is no unrecorded money-losing case.** That is the finding,
+    and it is a negative.
+
+    **The real gap is coverage.** Positive status + offerable lever + no OFF-arm
+    row = **11 matrix cells across 9 legs** (the other 2 are the single
+    `shadow fleet (...)` / `various` / `various` aggregate roll-up row, which is
+    not a leg and cannot be swept as one — stated rather than dropped, because 9
+    and 11 read as inconsistent unless you say which is legs and which is cells):
+
+    | leg | lever | status |
+    |---|---|---|
+    | `ict_scalp_eth_15m` | stale_stop | shipped |
+    | `mhg_pullback_1d` | stale_stop | passed_unshipped |
+    | `trend_donchian_eth_prop` | stale_stop | shipped |
+    | `iwm_trend_long_1d` | trail_decay | shipped |
+    | `scha_trend_long_1d` | trail_decay | shipped |
+    | `splg_trend_long_1d` | trail_decay | shipped |
+    | `trend_donchian_avax_4h` | trail_decay | passed_unshipped |
+    | `trend_donchian_eth_prop` | trail_decay | shipped |
+    | `qqq_trend_long_1d` | vol_trail | passed_unshipped |
+
+    **Scoped honestly, because the severity turns on it: NONE of the nine is on a
+    real-money account that is actually live.** Six are paper, two are the prop
+    bridge (`breakout_1` — real capital, different risk class, manual placement),
+    and the `alpaca_live` appearances are on an account whose account-level gate
+    is `dry_run`, so it places no orders. This is a KNOWLEDGE gap. It must not be
+    reported as "nine shipped levers may be losing money" — that sentence is
+    available, alarming, and unsupported.
+
+    `trail_geometry` is excluded throughout: `trail_mult` is continuous and has
+    no OFF state, so those cells are permanently ungradeable by this route
+    (`BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR`).
+
+    Filed `BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE`
+    (medium), whose resolution criteria include the third state explicitly: a
+    cell whose OFF arm returns `insufficient_base` is recorded as *"we could not
+    grade it"* and must not read as *"the lever is fine"*.
+
+70. **Dispatched the nine-pair OFF-arm sweep** — three `m20-exit-lever-sweep`
+    runs at live parity (`tp_cap_pct 0.099`, `split_mode oos-trades`), one per
+    lever, from `main`:
+
+    - run `31793061293` — `stale_stop` over ict_scalp_eth_15m, mhg_pullback_1d,
+      trend_donchian_eth_prop
+    - run `31793067690` — `trail_decay` over iwm/scha/splg_trend_long_1d,
+      trend_donchian_avax_4h, trend_donchian_eth_prop
+    - run `31793072500` — `vol_trail` over qqq_trend_long_1d
+
+    **One lever per run, deliberately.** The flag drops the lever from the base,
+    so dropping two at once measures each restored lever in a book that still
+    lacks the other — a clean one-lever A/B against a *counterfactual* base
+    rather than the live configuration. `trend_donchian_eth_prop` is the only one
+    of the nine declaring both, so it appears in two runs rather than in one run
+    with two drops.
+
+    Dispatched from `main`, not this branch, on purpose: it makes the new rows
+    directly comparable to the 22 existing OFF-arm rows, which that same code
+    produced. The branch's split-provenance work changes what a row *records*,
+    not what it measures — but "not comparable" is then a claim I would have to
+    defend rather than avoid.
+
+    **Not yet a result.** At the time of writing the three runs are queued /
+    in-progress; nothing below this line reports their output.
+
+71. **THE OFF-ARM RESULT: six of six gradeable shipped levers FAIL Path A —
+    and getting them gradeable at all took finding a second split defect.**
+
+    **Round 1 (target = the default, i.e. the floor).** Six cells measured; the
+    two `passed_unshipped` NO-OPs are covered in item 69. **Five of the six came
+    back `insufficient_base`** at base OOS 23/24/24/24/23 against
+    `MIN_OOS_TRADES=25`. The single leg in the entire dispatch to clear the floor
+    — `trend_donchian_avax_4h` at OOS **25** — returned a **PASS**. Six measured
+    cells, one verdict, and the difference was one or two trades.
+
+    That is `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS` reproducing at 5/6,
+    a far stronger denominator than the 4-leg measurement it was filed on.
+
+    **The workflow could not ask for a margin.** `--split-target-oos` has existed
+    since #8965, but `m20-exit-lever-sweep.yml` never declared the input — so the
+    *autonomous* path was locked to the one value most likely to produce no
+    verdict, and only the relay could reach the knob. Fixed, with a test
+    asserting the exposed set and the used set are the same set in both
+    directions. Verified against `origin/main`'s pre-fix copy: the
+    `--split-target-oos` assertion is the one that fires there, while the
+    declared-but-unread check **passes** — never declaring an input at all is
+    invisible to a consistency check between two sets that both omit it. Recorded
+    in the test, because the opposite is the natural assumption.
+
+    **Round 2 (target 35) went backwards, and that is the second finding.**
+
+    | leg | target 25 | target 35 | target 28 |
+    |---|--:|--:|--:|
+    | `iwm_trend_long_1d` | OOS 24 | OOS **4** | OOS 27 |
+    | `scha_trend_long_1d` | OOS 23 | OOS **5** | OOS 27 |
+    | `splg_trend_long_1d` | OOS 24 | OOS **4** | OOS 27 |
+    | `trend_donchian_eth_prop` | OOS 24 | OOS 33 | — |
+
+    **Asking for more OOS trades returned six times fewer.** Read from the field,
+    not inferred — `resolve_split` does this by construction:
+
+    ```python
+    if len(stamps) < 2 * target_oos:
+        meta.update(split=fixed_split, split_fallback="leg_too_thin")
+        return fixed_split, meta
+    ```
+
+    The *reasoning* is sound and the docstring states it. The **destination** is
+    not: when the derivation gives up it returns the corpus-standard **calendar**
+    date, which for exactly the low-frequency legs that trip the guard is the
+    worst available boundary — 4-5 OOS trades, the very defect the derivation was
+    built to remove. So the fallback lands the caller back on the original bug
+    precisely when they asked for more rigour. It is a **cliff, not a
+    degradation**.
+
+    It also **refutes the `max(derived, fixed_window)` fix a second time.** That
+    shape was already refuted this session by the mhg measurement; here the fixed
+    window is the *bad* one, so a max would select it. Filed as
+    `BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER` with the clamp-to-
+    `floor(lifetime/2)` remedy and a test that drives the three outcomes apart.
+
+    The gradeable band is narrow and nothing announces it: `lifetime >= 2*target`
+    (or the cliff) **and** achieved `>= 25` (or the floor), where achieved runs
+    1-2 under target because the harness windows candles, not trades. For a
+    ~64-trade leg that is roughly `target ∈ [26, 32]`. **28 was predicted from
+    that band and confirmed at OOS 27 on all three legs.**
+
+    **THE RESULT.** Every shipped lever that is now gradeable:
+
+    | leg | cell | verdict | Δnet_R IS | Δnet_R OOS | base OOS | target |
+    |---|---|---|--:|--:|--:|--:|
+    | `splg_trend_long_1d` | shipped_trail_decay_6_2 | `is_oos_fail` | +7.584 | **−0.439** | 31 | 35→32 |
+    | `iwm_trend_long_1d` | shipped_trail_decay_10_2 | `is_oos_fail` | **−1.373** | +6.452 | 31 | 35→32 |
+    | `scha_trend_long_1d` | shipped_trail_decay_2_2 | `is_oos_fail` | **−4.298** | +2.399 | 31 | 35→32 |
+    | `trend_donchian_eth_prop` | shipped_stale_stop_12_0 | `is_oos_fail` | +3.630 | **−2.678** | 33 | 35 |
+    | `trend_donchian_eth_prop` | shipped_trail_decay_10_1.8 | `wf_fail` | +1.015 | +1.924 | 34 | 35 |
+    | `ict_scalp_eth_15m` | shipped_stale_stop_12_0 | `wf_fail` | +7.305 | +3.845 | 34 | 35 |
+
+    **Six of six fail Path A** — every one of the shipped levers that had never
+    been graded against its own absence. Not one clears the gate that would be
+    required to ship it today.
+
+    **But "six of six" is the wrong sentence to stop on, and the split inside it
+    matters more than the count.** The six are two different animals:
+
+    - **Four `is_oos_fail`** — genuinely mixed. Three (`iwm`, `scha`, `splg`)
+      flip sign between windows; one (`eth_prop`/stale_stop) is the clean
+      negative at **−2.678 R OOS**.
+    - **Two `wf_fail`** — **positive on BOTH windows**, failing only the
+      walk-forward. `ict_scalp_eth_15m`/stale_stop is the strongest cell in the
+      whole set: +7.305 IS, +3.845 OOS, and drawdown **improved on both**
+      (−4.065 / −3.066) over base n IS=350. Calling that "fails" without saying
+      *how* would misrepresent it as evidence against the lever when it is
+      evidence the lever helps but does not generalise across folds.
+
+    `ict_scalp_eth_15m` also ran on **different geometry** and the tool said so
+    unprompted: the `scalp` family's unit carries no `_TP_SENTINEL_CAP_PCT`, so
+    the requested cap was **not applied** — which is live parity *for that leg*,
+    and is why its row has no `Live TP reach` table. Its Δ figures are therefore
+    not comparable on the cap axis to the five capped rows.
+
+    **What that does and does not mean — the scoping matters more than the
+    headline.** "Fails Path A" is not "loses money". Path A demands a beat on
+    net_R **and** maxDD in **both** windows plus walk-forward ≥ 4/6, which is a
+    shipping gate, not a profitability test. Three of the five are **mixed-sign
+    across windows** (help one, hurt the other) at n≈27 — which is what noise
+    looks like at that sample size, and is the honest reading rather than five
+    indictments. The two genuinely negative out-of-sample figures are
+    `eth_prop`/stale_stop at **−2.678 R** over 33 and `splg` at −0.357 R over 27.
+    The `wf_fail` row is positive on both windows and fails only the
+    walk-forward. And per item 69, **none of these legs is on a real-money
+    account that is actually live** — six paper, two prop.
+
+    Each row also used its **own** per-leg boundary at a **different** target
+    (28 vs 35), so the target column is printed rather than omitted: these are
+    five separate one-leg measurements, not a five-row comparison on a common
+    basis.
+
+    **Nothing is re-graded here.** No matrix status changed, no config touched.
+    Every disposition is Tier-3 and goes to the operator as decision (i).
+
+72. **Shipped the clamp, and confirmed it against the exact dispatch that
+    exposed the cliff — prediction stated first, then measured.**
+
+    `resolve_split` now clamps an unreachable target to `lifetime // 2` and
+    keeps deriving from the leg's own trades, recording
+    `split_target_clamped_from`/`_to`. `split_target_oos` keeps its
+    REQUESTED-value meaning, so no existing consumer changes meaning underneath
+    itself. The fixed-date fallback survives only where it is actually right —
+    a leg that cannot seat `MIN_OOS_TRADES` on both sides is ungradeable at any
+    boundary. Four states stay distinguishable: derived-as-asked ·
+    derived-CLAMPED · `leg_too_thin` · `harness_rc`/`emit_unreadable`, the last
+    being *we could not look*, which is not thinness.
+
+    **The tests were verified against the pre-fix code rather than assumed.**
+    Running `origin/main`'s `resolve_split` over a synthetic 64-trade leg:
+
+    | target | 25 | 28 | 32 | 35 | 40 |
+    |---|---|---|---|---|---|
+    | pre-fix boundary | 2003-04-15 | 2003-01-15 | 2002-09-15 | **2025-07-01** | **2025-07-01** |
+
+    One trade of extra ambition moves the boundary **twenty-three years
+    forward**. The monotonicity and clamp assertions FAIL on that copy and pass
+    on the fix, so their green is earned.
+
+    **Then the live confirmation.** I re-ran the *identical* dispatch that had
+    produced the cliff — same three legs, same lever, same geometry,
+    `--split-target-oos 35` — and stated the expected result first: clamped to
+    32, deriving OOS ≈ 31.
+
+    | leg | before (target 35) | after (target 35) |
+    |---|--:|--:|
+    | `iwm_trend_long_1d` | OOS **4** | OOS **31** |
+    | `scha_trend_long_1d` | OOS **5** | OOS **31** |
+    | `splg_trend_long_1d` | OOS **4** | OOS **31** |
+
+    **And the verdicts held their sign on the larger window**, which is the part
+    that matters for trusting them — the target-28 read was not an artifact of a
+    lucky boundary:
+
+    | leg | OOS 27 (target 28) | OOS 31 (target 35, clamped) |
+    |---|---|---|
+    | `iwm` | IS −0.527 / OOS +5.606 | IS −1.373 / OOS +6.452 |
+    | `splg` | IS +7.584* / OOS −0.357 | IS +7.584 / OOS −0.439 |
+    | `scha` | IS −3.498 / OOS +1.599 | IS −4.298 / OOS +2.399 |
+
+    Same verdict (`is_oos_fail`) and same sign on both windows across two
+    different boundaries. Item 71's reading stands.
+
+    \* the target-28 IS figure was +6.844; the two runs' IS windows differ
+    (36-37 vs 32-33 trades), so the IS column is **not** a like-for-like
+    comparison and is printed only to show the sign is stable. Stating that
+    rather than letting two adjacent numbers imply a precision they do not have.
+
+73. **Two more defects fixed on the way out, both found by using the tools
+    rather than reading them.**
+
+    **(a) The matrix/config guard.** Criterion (3) of the six-cell finding.
+    `scripts/ci/check_matrix_config_agreement.py` imports the sweep's own
+    `LEVER_DECLARED_KEYS` rather than restating them — a second copy would be
+    free to drift from the one that decides which levers a leg arms, and the
+    failure that produces (grading a lever the sweep does not recognise) looks
+    exactly like a real finding. Its self-test covers **both** directions,
+    including the one that came back clean: a guard that only ever checked the
+    failing direction would report that clean as evidence when it had never
+    looked.
+
+    Running it caught a bug in **itself** — the first version printed *"about a
+    live lever"* over `avax_pullback_2h`, which is `execution: shadow`. A label
+    naming something the code had not checked, in the guard written to catch
+    labels that do not describe what they computed.
+
+    It is **deliberately not registered** in `run_guards.py`: it fails on the
+    current tree, and reconciling those six cells is not a mechanical sync —
+    criterion (2) requires each ref to record *which* evidence supports the
+    shipped value, preserving `tp_geometry` where that evidence predates live
+    parity. So the registration block lands in the same change as the
+    reconciliation. A guard whose first CI run is red teaches everyone to skip
+    it. `tests/test_matrix_config_agreement.py` runs its self-test meanwhile, so
+    it cannot rot while it waits — an unregistered guard is otherwise one whose
+    imports quietly break and nobody notices until the day it is switched on and
+    reports a clean pass over nothing.
+
+    **(b) The refusal now diagnoses.** Criterion (4) of the cliff row. Carrying
+    `leg lifetime` beside the windowed count made the discriminator *available*;
+    it still left every reader to do the arithmetic, and the two conclusions have
+    opposite remedies. The message now states which: **`THE LEG IS
+    TRADE-STARVED`** (lifetime < 2×floor — re-running returns this again) vs
+    **`THE BOUNDARY IS MISPLACED, NOT THE LEG`** (the lifetime could seat a
+    floor-clearing window and this split did not — one flag fixes it), with a
+    third **`UNDIAGNOSED`** for `split_mode=date`, where no emit ran, the
+    lifetime was never counted, and neither diagnosis is supportable. It does not
+    default to one. A test pins the 2×floor boundary at exactly 49 vs 50, because
+    an off-by-one there silently relabels a starved leg as a fixable one and
+    sends the next session re-running a sweep that cannot succeed.
+
+    **Fixing this broke one of my own earlier tests, correctly.**
+    `test_an_uncounted_lifetime_is_omitted_not_fabricated` asserted `"lifetime"
+    not in msg` — a *proxy* for its real intent, which its own docstring states:
+    no lifetime **value** may be invented. The moment the message began saying,
+    accurately, *"leg lifetime was never counted"*, the proxy failed on a change
+    that satisfied the intent. Tightened to `not re.search(r"leg lifetime \d")`
+    plus a positive requirement that the absence be **stated** — because
+    "we did not look" is a claim the reader needs, not one to omit. A test
+    asserting a proxy for its purpose will eventually forbid the right answer.
+
+74. **The roll-up now reports TP-geometry coverage as a fraction — and printing
+    it exposed a stale claim the tool had been asserting to every reader.**
+
+    Criterion (4) of the `tp_geometry` row. Coverage is reported the way
+    `/performance` reports `rCoverage` and `pnlCoverage`: **the denominator ships
+    with the number and `unrecorded` is COUNTED**, never omitted. Current
+    reading: **10/376 = 2.7% recorded, 366 unrecorded** over the live population
+    (the same denominator as the headline — a coverage figure over a *different*
+    denominator is how the 304/311/319 divergence started).
+
+    Note the two figures for the same fact, and which population each is over:
+    **10/416 = 2.4% across all rows** (what the backlog row quotes) and
+    **10/376 = 2.7% live-only** (what the roll-up prints). Both correct. Stating
+    both because an unexplained 2.4-vs-2.7 is exactly the shape that cost time
+    earlier today with 9-vs-11.
+
+    **What printing it turned up.** The vintage banner has been telling every
+    reader:
+
+    > *Base rate so far is 1 of 1: `trend_donchian` `trail_decay` is the only one
+    > re-swept and it did NOT reproduce (now `shipped_gate_failed`).*
+
+    **Both halves are false as of today.** That cell's status is `shipped`;
+    `shipped_gate_failed` appears **zero** times in the matrix; and the lever
+    **PASSES** — because the 2026-08-12 "did not reproduce" reading was itself
+    invalid, measured by a sweep that graded the base against itself
+    (`BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES`). The same
+    claim sat in a source comment too, so it had two copies and no owner.
+
+    **I did not replace it with today's number.** Substituting a fresher rate
+    resets the clock on the identical defect — a rate baked into printed text is
+    a claim nothing re-derives. The banner now points at the corpus, which is the
+    artifact that can answer it.
+
+    **And a correction I owe another session.** My own coordination-board comment
+    at 08:46Z published *"the base rate ... is now 3 of 4"*, counting
+    `trend_donchian`/`trail_decay` as a non-reproduction — after it had already
+    been retracted. I am deliberately **not** publishing a corrected count here,
+    because I have not established one to the standard this log demands: those
+    four cases mix a lever-sweep cell with three `exit_head_ml` cells, which are
+    different measurements under different gates, and pooling them into a single
+    "base rate" may not be a meaningful quantity at all. What I can say is that
+    the published 3 is wrong and the honest source is the corpus. Flagged for the
+    next board post rather than left standing.
+
+## Wrap-Up Check
+
+- [x] Code inspected directly (not inferred from docs) — `fold_blocks`,
+      `per_leg_summary`, `eval_split`, `backtest_trend` TP application.
+- [x] Canonical docs reviewed; CLAUDE.md § provenance rules applied throughout.
+- [ ] TRADE-PIPELINE unchanged — no pipeline stage touched.
+- [x] ROADMAP checked — M20 headline moved 362→370; roadmap row update is a
+      follow-up once the derivation resolves the blocked bucket.
+- [x] Contradictions recorded above, including five of my own.
+- [x] Unknowns stated rather than asserted — the derivation is explicitly
+      incomplete.
+
+## Postscript — the failure mode that recurred all session
+
+**Seven times** this session I read an **absent or assumed** value as a
+**measured** one: a null cap as "uncapped"; my own hand-count as authoritative
+over the canonical roll-up (22 vs 14); a backtest quantity as a live one
+("6–15 years" of waiting); a shell variable as the artifact it configures;
+"100 trades" inherited from a ref instead of derived from the code; a defect
+asserted in `train_exit_head.py` without grepping it, *inside this very
+document*; and the block size `b` standing in for the per-leg vote count
+`n_leg` in a derivation whose entire arithmetic rests on that number. Five were
+caught by checking, one by the operator, one by a later measurement.
+
+The common shape is that each wrong reading was the *reassuring* one — it made
+a problem smaller, closer to solved, or someone else's. The corpus relabel, the
+roll-up tool, and the run-SHA check all exist because earlier sessions made the
+same class of error. That is worth stating plainly in the record: the tooling
+caught what it was built to catch, and the two that got furthest were the ones
+no tool covered.
+
+**An eighth, at 09:52Z, and it is the sharpest instance because the tool warned
+me in advance.** I ran `check_backlog_refs.py --base origin/main` over
+**uncommitted** work, got `OK`, and treated that as validation. The guard diffs
+a **commit range**, so it had compared nothing — a green over an **empty
+denominator**, the exact `unasserted denominator` sub-class this session spent
+the night documenting. CI then caught the real defect: a **truncated backlog id**
+in the Tier-3 table I had just written to make the operator's morning easier, a
+dangling reference in the one artifact meant to be most trustworthy.
+
+What makes it the sharpest: `run_guards.py` prints this warning verbatim —
+*"NOT SELECTED because the work is UNCOMMITTED — guard relevance is computed
+from a COMMIT RANGE … This is NOT a clean bill of health"* — and **I had already
+read it and acted on it earlier the same session**, committing specifically so
+the suite would run against a real range. Then twenty minutes later I ran a
+*single* guard the same wrong way and believed it.
+
+So the lesson is not "read the warning." It is that **knowing a rule does not
+transfer across the shape it arrives in**: the suite-level warning was loud and
+I obeyed it; the identical hazard in a one-line invocation carried no warning
+and I walked straight in. Every guard in this repo that reads `--base` has this
+property. The durable fix is for those scripts to say *"0 files in range"* when
+that is what they scanned — the same remedy this session's own
+`BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT` asks for one
+level up.
+
+**And a NINTH and TENTH, both after 11:00Z, both the SAME instance repeating —
+which is the part worth recording.** The eighth (above) taught the lesson
+explicitly: *guards are diff-scoped over a commit range, so a green over
+uncommitted work compared nothing.* I then did it twice more within the hour.
+
+- **Ninth:** ran the suite before committing the `--split-target-oos` /
+  Tier-3-table work, read `PASS 37 · FAIL 0`, pushed. CI failed on
+  `artifact-validity-guard`: **two more ellipsis-truncated backlog ids**
+  (`BL-...-A-CLIFF-...`, `BL-...-THE-FLOOR-...`) in the sprint log.
+- **Tenth:** same again on the clamp commit. This time the defect was a backlog
+  id I had **line-wrapped inside a code comment** —
+  `...-IS-A-CLIFF-SO-ASKING-` / `FOR-MORE-OOS-RETURNS-FAR-FEWER` — which the
+  guard's regex resolves to nothing. A wrapped id is a dangling reference that
+  *looks* fine to a human reader, which is precisely why a regex owns it.
+
+Three instances, one root cause, and a second root cause underneath it: I kept
+piping the guard runner into `tail`, so the shell reported **`tail`'s** exit
+status and the `&&` chain pushed regardless of the result. A failing guard and
+a passing one produced identical-looking terminal output. That is the same
+defect class as everything else in this postscript — an **unasserted
+denominator**, this time in my own tooling rather than the repo's — and it is
+why the count is three and not one.
+
+The durable fix is mechanical, not attentional: **commit, then run guards,
+then read the exit code** (`> file 2>&1; echo $?`), never `| tail`. Both are
+now habits in this session's remaining commands.
+
+### Eleventh instance — and the mechanical fix above was NOT sufficient
+
+**2026-08-14.** I followed the durable fix to the letter: committed first, ran
+`run_guards.py` with `> file 2>&1; echo $?`, read `rc=0` and
+`PASS 38 · FAIL 0`, pushed. CI then failed `diagnostic-provenance-guard` on
+that commit — **same guard, same command, same file path, opposite result.**
+
+So the conclusion the previous section reached was incomplete, and the incident
+that proves it is the eleventh in the sequence rather than a new class.
+
+**The actual root cause, measured rather than inferred.** Eight of the 38
+guards take `{pr_diff}` and scan **only that file**. CI builds it in a separate
+`guards.yml` step (`git diff origin/<base>...HEAD > /tmp/pr.diff`, line 93) and
+exports `GUARDS_PR_DIFF`. `run_guards.py` **never wrote that file** — it only
+read `--pr-diff`, whose default is the fixed path `/tmp/pr.diff`. Locally,
+nothing generated it, so every run rescanned whatever a previous run had left
+there. A file absent from that stale diff is never scanned at all, and the
+harness prints *"All relevant guards passed."*
+
+That is why three consecutive local runs reported
+`--- diagnostic-provenance-guard: PASS (0.2s)` while CI failed it: the
+finding was real (two sub-class-C universal claims with no denominator in
+`m20_exit_head_denominator.py`), and the local harness could not see the file.
+Overwriting `/tmp/pr.diff` by hand with `git diff origin/main...HEAD` and
+re-running reproduced the failure immediately.
+
+**Note what this does to the earlier diagnosis.** Instances eight through ten
+were attributed to *running diff-scoped guards on uncommitted work*. That was
+true of those runs but it was not the whole cause: the harness could not see
+the change on **any** local run, committed or not. Committing first was
+necessary and never sufficient. And the failure mode is the worse of the two
+available — **a stale diff passes where a missing one errors** — so it
+presented as a false green every time rather than as a crash, which is why ten
+instances went by without anyone reaching the harness.
+
+It is also, precisely, an **unasserted denominator inside the harness that
+enforces unasserted denominators**.
+
+**The fix is now in the harness, not in a habit.** `run_guards.py` generates
+`{pr_diff}` from `origin/<base_ref>...HEAD` whenever no caller supplied one
+(`GUARDS_PR_DIFF` unset and no `--pr-diff` argument), prints the path and line
+count so the scanned range is visible in the output, and returns `2` rather
+than continuing if the diff cannot be built. CI is untouched — it exports
+`GUARDS_PR_DIFF`, which suppresses generation, so the workflow's own range
+still wins.
+
+Verified three ways: an **empty** planted `/tmp/pr.diff` was regenerated to
+1,070 lines; an explicit `GUARDS_PR_DIFF` was **not** overwritten; and the real
+violation planted behind a stale diff took the run to `rc=1` where it had
+previously passed. Two tests in `tests/test_run_guards_step_scoping.py` pin it,
+both proven load-bearing by removing the fix.
+
+Filed as
+`BL-20260814-RUN-GUARDS-CONSUMES-A-DIFF-IT-NEVER-GENERATES-SO-LOCAL-RUNS-SCAN-A-STALE-FILE`.
+
+## Operator decision (a) — the ETH hypothesis, answered by refuting it twice
+
+**2026-08-14.** Decision (a) was *"test the ETH hypothesis with a denominator —
+run `exit_head_ml` across the other ETH legs AND a matched set of non-ETH
+controls, so it gets a real denominator instead of two positives."*
+
+### The record could not answer it, and that was the first finding
+
+Scoping the question surfaced that **`exit_head_ml` has zero rows in the sweep
+corpus** — positive control: `trail_decay` 278, `vol_trail` 191, `stale_stop`
+190, `giveback_stop` 150, `trail_geometry` 112, `exit_head_ml` **0**; a raw
+`grep -c exit_head` returns 0 against 288 for `trail_decay`. Its rounds run on
+the trainer into a required, ephemeral `--out` and nothing is committed back,
+so all 36 resolved dispositions were parsed out of **prose** in the matrix
+refs. Consequence: operator decision (d) — *"establish the base rate from the
+corpus, per gate"* — **is not executable for this lever.**
+
+That also exposed `matrix-corpus-agreement` reporting *"376 live cell(s)
+checked"* when 3 of its 8 lever columns hold no corpus rows at all: **141 of
+376 (37.5%)** were unreachable by construction, 115 of them carrying an
+explicit `honest_negative`. Fixed (declared exemptions, separate counts, an
+undeclared corpus-less column now fails) and filed as
+`BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED`.
+
+### Two explanations, both refuted
+
+| attempt | claim | outcome |
+|---|---|---|
+| 1 | the SYMBOL — "the head works on ETH" | does not survive a denominator |
+| 2 | BOOK SIZE — `n_oos >= 350` | **refuted out of sample**, and it was mine |
+
+On the 20 mixed-geometry cells stating an `n_oos`, `n_oos >= 350` classified
+the verdict at **90.0%** against **80.0%** for the symbol, so I reported book
+size as the better explanation — *and sent that to the operator*. I then ran a
+matched **2h pullback round at live parity** (7 legs, `--tp-cap-pct 0.099`
+passed explicitly; relays #9271 / #9282), which is genuine **held-out** data
+for a threshold that had been chosen on the sample it was scored on.
+
+It scores **1 of 7 = 14.3%** there. The two largest books FAIL (400, 357) and
+the smallest pass (231) sits below the largest failure. The 90.0% was an
+in-sample artifact — which the original write-up had explicitly flagged
+(*"an upper bound on out-of-sample separation, not an estimate of it"*). That
+caveat is the only part of the first reading that survived, and it is the
+reason the error cost a correction ping rather than a wrong decision.
+
+### Where ETH actually lands
+
+Over both committed live-parity strata (n=12): ETH **4/4**, non-ETH **2/8**,
+Fisher one-sided **p = 0.0303**. But two ETH rows are `_prop` siblings of the
+other two — same symbol, same family, overlapping book — so counting both
+doubles one observation. Dropping every prop sibling (n=9): ETH **2/2**,
+non-ETH **2/7**, **p = 0.1667**. The significance turns entirely on that
+choice, so both are reported rather than one being picked. Two non-ETH legs
+(XRP, ADA) passed at live parity, which is new.
+
+**What is actually binding** is neither: all three 2h negatives fail on
+`beats_hard` while two of them *pass* `beats_actual`, and `sol_pullback_2h`
+carries the stratum's second-highest AUC (0.6330) and still fails. So the
+separating axis is fold consistency against the **cheap lever** — not the
+head's discrimination, not book size — and it is now recorded as unexplained
+rather than misattributed.
+
+### What the round also found, and it matters more than ETH
+
+4 of the 12 live-parity rows **contradict their recorded matrix cell**:
+`eth_pullback_2h`, `eth_pullback_prop_2h`, `xrp_pullback_2h`,
+`ada_pullback_2h` are recorded `honest_negative` and measure **candidate** at
+the geometry production places. The other 8 reproduce, which is the
+consistency check that makes the 4 worth reading. Counter-evidence was written
+into each ref and **no status was flipped** — a passing cell is not a passing
+lever disposition and a live-leg status change is Tier-3.
+
+Sizing the rest: **19 of the 29 negative cells are not known to have been
+measured at live parity at all** (`4h` 5, `1d` 6, `1h` 6, `5m` 1, `15m` 1). Of
+the 10 re-measured so far, 4 did not survive. That rate ships beside its
+denominator and its scope (2 families, 2 timeframes) and is **not** projected
+onto the 19 — it sizes the work, not the outcome.
+
+### Artifacts
+
+- `docs/research/m20-exit-head-rounds.jsonl` — **the first committed exit-head
+  evidence in the repo**, 12 rows, each with its own `tp_geometry` stamp and
+  provenance, every verdict **re-derived from the gate** rather than copied.
+  The re-derivation caught an indexing error of mine (`beats_hard` vs the fold
+  denominator) before it reached disk.
+- `scripts/research/m20_exit_head_denominator.py` — the analysis, shipped as a
+  re-runnable script so the population is restated on every run. Its own
+  docstring had to be corrected once: it still led with the book-size
+  conclusion after the 2h round refuted it, which is the same stale-prose
+  defect this session keeps finding elsewhere.
+
+---
+
+## Second overnight stretch (2026-08-14, ~15:30–17:00 UTC) — post-compaction
+
+Same session, continued past a context compaction. Recorded here rather than in
+a new log because the session never ended; the branch and the objective are
+unchanged.
+
+### (d) — exit-head rounds now leave evidence behind
+
+`m20_exit_head_round.py` writes `rounds.jsonl` beside its report, in the
+committed schema of `docs/research/m20-exit-head-rounds.jsonl`. Until today a
+round left **nothing machine-readable**: `--out` is a required, ephemeral
+trainer directory, so every verdict reached the repo only as prose hand-copied
+into a matrix `ref`. That is *why* 141 matrix cells rest on prose.
+
+Two properties are pinned by tests rather than left to care:
+
+- **It reads the producer's real field names.** I had guessed `n_oos` /
+  `beats_actual`; `train_exit_head.py::per_leg_summary` actually emits
+  `oos_trades` / `mean_auc` / `beats_actual_folds` / `beats_hard_folds` /
+  `usable_folds`. My guess produced `None` for every leg — and a silent `None`
+  in an evidence file is worse than a crash, because it reads as a measurement
+  that was taken.
+- **The emitted `tp_geometry` is the DERIVED stamp**, not the run-level
+  `--tp-cap-pct` flag, since `base_args` withholds the cap from families outside
+  `LIVE_TP_CAPPED_FAMILIES`.
+
+### A defect of mine: a merge that silently un-resolved another session's item
+
+Resolving a conflict in `docs/claude/health-review-backlog.json` earlier in the
+session, I took my side wholesale. That discarded main's edits to **six items I
+had never touched**, including flipping
+`BL-20260814-IB-EVENTLOOP-CONTENTION` from `status: resolved` back to
+`mitigated_fix_in_pr` and clearing its `resolved_at`. Another session had closed
+that item; my merge reopened it, and a reopened item looks exactly like one that
+was never closed.
+
+**Every invariant a careful reader checks still held** — valid JSON, item count
+only grew, no duplicate ids. What was lost was a *status transition*, which
+nothing reads. That is why the filed remedy is a guard on terminal →
+non-terminal transitions and **explicitly not** on item count.
+
+Caught only because I did the next conflict as a three-way classification
+against the merge base instead of by hand: 564 shared items, 8 differing, **zero
+changed by both sides**, and 6 whose divergence I could not account for. Walking
+all 11 of my own non-merge commits touching the file confirmed none had edited
+them. The corrected merge is `122 insertions, 0 deletions` against `origin/main`
+— arithmetic proof it dropped nothing.
+
+I have **not** swept history for earlier instances, so the count of past
+occurrences is *unknown*, not zero.
+
+### BTC 5m: reachable now, and the obvious fix was the wrong one
+
+`ict_scalp_5m` (LIVE) skipped on `data_missing:BTCUSDT`. BTC is the one 5m
+symbol with no canonical `data/<SYM>_5m.csv`; its data is
+`backtest_BTCUSDT_5m.csv` — 647,585 rows, 2020-03-25..2026-05-21, **deeper than
+any canonical alt 5m file**, and already the default feed for all six
+`walkforward_vol_*` scripts, i.e. the series behind the live regime-router OFF
+cells. `resolve_data`'s prefix set is `{btcusdt, btc}`, which
+`backtest_btcusdt_5m.csv` matches neither.
+
+**Creating `data/BTCUSDT_5m.csv` would have worked and been wrong.**
+`DATA_GRAIN` is finest-first and the grain loop takes the first present file at
+or below the leg's timeframe, so every BTC leg at 1h/2h/4h/1d — today falling
+through to `BTCUSDT_15m.csv` (runs to 2026-07-10) — would have taken the 5m file
+(stops 2026-05-21), quietly shortening the book behind verdicts already recorded
+in the matrix. That is the hazard `resolve_data`'s own docstring names, one
+level less visible than the `MGC_1d.csv` incident: there the NAME lied; here the
+name would be honest and only the RANGE dishonest.
+
+Shipped instead: an **exact-timeframe** probe, after the native spelling and
+deliberately not in the grain loop. Measured before touching the resolver
+(trainer-diag #9325) as a wrapper over the unmodified function — 110
+resolutions, **4 changed, all `None` → resolved**. The enumeration corrected my
+own claim: I had said one leg; `vwap` also sits at BTCUSDT 5m, so it is two.
+`backtest_ESF_1h.csv`, the risk I named in advance, is inert (no leg at that
+sym/tf).
+
+### Two CI reds, both mine, both caught by the repo's own guards
+
+**`artifact-validity-guard`** — I truncated a backlog id in a code comment, so it
+resolved to nothing: a comment reading "tracked" while tracked by nobody. Root
+cause was process, not typing: I ran `run_guards` **before committing**, and
+every guard scopes to a commit range (`{pr_diff}` from `origin/main...HEAD`, or
+its own `--base`), so the run never saw the line and still printed "All relevant
+guards passed."
+
+The pre-existing `unchecked` caveat does not cover this, and the reason is
+specific: it reports guards *relevance* skipped, and relevance is a union — a
+guard already made relevant by a committed file runs, passes, is counted, and
+never appears in `unchecked`, having scanned a range without your edits. Any
+uncommitted path now caveats the green line by name.
+
+**My first attempt at that caveat was itself wrong**, and the test pins why: I
+built it as `worktree_files() - changed`, mirroring the existing `dirty`
+variable — which subtracts away exactly the dangerous case (a file both
+committed-changed *and* dirty) and so stayed silent on the very tree that had
+just produced the false green. Caught by testing the behaviour, not by reading
+the code. A second latent bug in the same change: I sampled the worktree at the
+*end* of the run, after guards execute, and two guards write files — the comment
+eight lines above the sibling capture says exactly that. It escaped a false
+positive only because those writes happened to be byte-identical.
+
+This is the converse of the eleven instances in the Postscript. Those were
+"committing first was necessary and never sufficient"; here the commit was
+simply skipped and nothing said so.
+
+**`pytest-run` filter** — my new test reads the committed evidence file, a path
+not in the filter, so a PR touching only that file would short-circuit the suite
+to a ~10s green tick having executed nothing. Instance **five** of the class
+`test_pytest_run_filter.py`'s header enumerates. Instances 1–4 were each found
+by an incident; this one was caught **pre-merge, on the same day the reader was
+written**, by `test_docs_committed_readers_are_all_covered` — the derived check
+added earlier today precisely because hand-enumeration kept failing. The
+mechanism works, so I pointed the stale "exactly FOUR" comment at it rather than
+restating a count that will go stale again.
+
+### (e) — the split margin, measured
+
+Criterion (2) of `BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`
+is closed. Memo: `docs/research/m20-split-boundary-loss-2026-08-14.md`. Pure
+read of the committed corpus — no harness run, no VM.
+
+Boundary loss `0,1,1,1,1,1,2,2,4,4,4` — max **4**, ten of eleven are losses,
+**zero gains**. The never-negative half is a *refuted* hypothesis: `[:10]`
+truncates the boundary to a date, so windowing from midnight could plausibly
+sweep in same-day trades sitting *before* the boundary trade and push realized
+above target. It never does.
+
+It tracks **target/lifetime**, not target: the same three legs lose 4 at ratio
+0.55 and 1 at 0.44, while a fixed target of 35 spans 1..4. The three worst come
+from a regime the clamp added today now prevents (`target ≤ lifetime // 2`, so
+ratio ≤ 0.50); every observation at ratio ≤ 0.5 lost ≤ 2.
+
+**Answer: margin 5 → target 30**, which **confirms** the illustrative value
+rather than replacing it.
+
+**The near-miss is the part worth keeping.** Mid-analysis I had a tidy story
+that the illustrative 30 came from mis-counting the three `leg_too_thin` rows,
+whose apparent "loss" is 30/31 — a striking numeric match, and I wrote the
+section header before checking. Wrong: 30 was always the **target** (floor 25 +
+margin 5), never a margin, and those rows are the fixed-date cliff the clamp
+already fixes. Reading the sprint-log line instead of trusting the match is what
+caught it. A confirmation is a duller result than a correction, which is exactly
+when the pull toward the correction should be distrusted.
+
+The independence denominator is stated in the memo rather than quietly used: 18
+corpus rows are **14 boundary events**, not 14 rows (several lever cells share
+one derivation — the same inflation that double-counting `_prop` legs produced
+on decision (a)), minus 3 fallbacks → 11 events across 7 legs, three of which
+are near-identical siblings. Effective independence is nearer **five**.
+
+### Validation
+
+- Guards 38/38 on a clean tree before each push; PR #9257 reached **all four
+  checks green** on `f4825ee9`, `mergeable_state: clean`.
+- New tests: `test_exit_head_round_emits_evidence.py` (4),
+  `test_resolve_data_backtest_prefix.py` (6), 2 appended to
+  `test_run_guards_step_scoping.py`. Every one proven load-bearing by planting
+  the exact regression it exists to catch — the resolver leak tests by moving
+  the probe into the grain loop, the caveat test by re-adding the subtraction.
+- `test_resolve_data_backtest_prefix.py` also asserts `DATA_GRAIN` is still
+  finest-first, because the leak test would pass **vacuously** under a
+  coarsest-first order while the hazard changed shape.
+
+### Gaps not yet verified
+
+- **The 5m round's outcome is unknown.** Last observed 15:47Z (SOL 1,255 trades
+  emitted, XRP in flight); re-poll dispatched as trainer-diag #9333. A round
+  that died mid-XRP and one still running look identical from outside.
+- **`ict_scalp_5m`'s `exit_head_ml` cell is reachable, not re-measured.** When it
+  is, the round must state that BTC's book ends 2026-05-21 while its three 5m
+  siblings run to 2026-06-18 — the OOS window differs for one leg.
+- **Deploy verification is still owed** on PR #9257 after merge; it touches real
+  money.
+- The `--split-target-oos` default is **unchanged** and queued for the operator.
+- Every Tier-1 tooling fix above rides in #9257 behind its Tier-3 approval,
+  including the resolver fix. The trainer runs `main`, so none of it is usable
+  until #9257 merges. Splitting the config change onto its own branch would
+  unblock the rest; not done unilaterally, since it changes what the operator is
+  approving.
+
+---
+
+## Third overnight stretch (2026-08-14, ~22:20–23:50Z)
+
+### Objective
+
+Read out the 1d pullback round against the pre-registration written before it,
+then characterise what the accumulated exit-head corpus actually says.
+
+### Work completed
+
+**The 1d pullback round (relays #9358 launch / #9366 report).** Six legs, all
+re-derived from the E1 gate in `train_exit_head.py` rather than copied from the
+printout. The advance prediction `u = floor(629/50) − 1 = 11` was checked, not
+assumed: observed 11.
+
+| leg | n_oos | auc | beats_actual | beats_hard | u | gate |
+|---|--:|--:|--:|--:|--:|---|
+| `gdx_pullback_1d` | 81 | 0.6337 | 5/7 | 4/7 | 7 | honest_negative |
+| `gld_pullback_1d` | 128 | 0.5277 | 4/11 | 3/11 | 11 | honest_negative |
+| `iaum_pullback_1d` | 30 | 0.5525 | 3/4 | 3/4 | 4 | **candidate** |
+| `ief_pullback_1d` | 67 | 0.5337 | 6/11 | 8/11 | 11 | honest_negative |
+| `slv_pullback_1d` | 160 | 0.4895 | 6/11 | 6/11 | 11 | honest_negative |
+| `tlt_pullback_1d` | 84 | 0.5300 | 6/11 | 4/11 | 11 | honest_negative |
+
+**No status flipped**, per the pre-registration. It bound on `iaum`: the gate
+computes `candidate`, and the entire difference from *yesterday's*
+`honest_negative` on that leg is **one fold** (`beats_actual` 2/4 → 3/4), on
+30 OOS trades present in 4 of 11 folds, at an AUC margin of 0.0025.
+
+The pre-registration also **refuted its own item 4**: `slv`, named in advance as
+"the only one worth a second look" on density grounds (the thickest leg, 15.4
+trades/fold), returned the lowest AUC of the six — 0.4895, below chance. Density
+bounds what a verdict is worth; it predicts nothing about its sign.
+
+**Pooling proven by arithmetic, not by the identical-`u` signature.** Every
+leg's `u` exceeds what its own book could support (`ief`: 67 trades, per-leg `u`
+would be 0, reports 11). This also **refines** the claim recorded on the
+`tlt_pullback_1h` row: identical `u` across legs is a *sufficient* signature of
+pooling, but varying `u` is **not** a counter-signature — a leg thin enough to
+be absent from some folds gets a lower `u` under the same pooled cut.
+
+**Which gate term binds** — new memo,
+[`m20-exit-head-binding-term-2026-08-14.md`](../research/m20-exit-head-binding-term-2026-08-14.md).
+Over all 33 recorded leg-rounds, `beats_hard` fails in 16 (48%) and is the sole
+failing term in **6 of the 7** single-term failures. Those six are the
+highest-AUC legs in the corpus (0.601–0.6337): each clears the AUC bar and beats
+the exit the bot actually takes on ≥ ⅔ of folds.
+
+**The inference that invites was refuted, and the memo records the refuted
+version.** "There is exit alpha here and a simple hard rule captures it" fails
+one lookup: 11 of the 12 `stale_stop`/`giveback_stop` cells on those same legs
+are themselves negatives. `beats_hard` races the head against two **fixed**
+parameter points; the hard-lever cells are verdicts over the **tuned** sweep
+under their own gate — different comparator, different aggregation, so both can
+fail. `ict_scalp_eth_15m` is the sole exception (its `stale_stop` did ship) and
+does not generalise.
+
+**`tp_geometry` was being written where nothing reads it.** The roll-up's
+coverage figure reads a **structured** `cell["tp_geometry"]`, while live parity
+was being recorded in ref prose and in `m20-exit-head-rounds.jsonl`. Sixteen
+cells had been measured at live parity and counted as `unrecorded`.
+
+That fix was then **wrong twice, and both corrections matter more than the fix**:
+
+1. Stamping on **citation** alone put `live_parity` on six cells whose
+   live-parity round *contradicts* the recorded status — declaring "not stale"
+   over exactly the cells that most need to surface.
+2. The revert predicate — string equality between cell status and round verdict
+   — then **over-reverted four correct stamps**. `shipped` beside a `candidate`
+   round is consistent (shipping is downstream of passing); `shipped_gate_failed`
+   beside `honest_negative` is the status the legend defines for that case.
+
+Final predicate is **sign**, not string: `{candidate, shipped, passed_unshipped}`
+vs `{honest_negative, shipped_gate_failed}`. Coverage 11/376 (2.9%) → 28/376
+(7.4%), with **ten** cells deliberately left unstamped because their live-parity
+round contradicts them.
+
+### Validation
+
+- Guards **38/38** on a clean tree before each push (three pushes).
+- Coverage headline re-checked with the canonical
+  `scripts/research/m20_coverage_rollup.py` after every matrix write: **373/376
+  = 99.2%, unchanged**, as pre-registered. An ad-hoc re-derivation of that
+  figure mid-stretch returned 345/380 and was **wrong** — the canonical
+  population is 47 *live* legs, not all 52 rows. Running the producer instead of
+  trusting my own count is what caught it.
+- Every verdict re-derived from the four gate conditions in source; all six
+  matched the printout, and the re-derivation is what made the `iaum` one-fold
+  margin visible.
+
+### Gaps not yet verified
+
+- ~~**CI still is not attaching to PR #9257**~~ — **RESOLVED 00:24Z, and my
+  diagnosis was wrong.** I reported this as a repo-wide outage across seven
+  pushes. A concurrent session had already measured the truth and posted it to
+  coordination board #6927 at 14:30Z: the condition is **intermittent per push**
+  (4 of 6 attached nothing, 2 ran), and **a merge commit or a close/reopen
+  attaches every time**. So zero checks means *this head was skipped and can be
+  re-triggered*, not *CI is down*.
+
+  I had the evidence to reach that myself and drew the wrong conclusion from it:
+  a `workflow_dispatch` passing on the same workflow and branch proves the
+  workflow and branch are fine, and says **nothing** about whether the next push
+  will attach. I read it as "therefore delivery is dead."
+
+  Acting on the board's finding: `PUT /pulls/9257/update-branch` returned **422
+  `merge conflict between base and head`** (8 commits behind, conflicting on
+  `docs/claude/health-review-backlog.json` alone), so the merge was done locally
+  and pushed as `dc393f82`. **All four checks attached immediately** —
+  `guards` ✅, `repo-inventory` ✅, `pytest-collect` ✅, `pytest-run` running.
+  The eight preceding plain pushes to the same branch attached zero each.
+
+  Two findings compose here: the CI re-trigger needs a merge commit, and the
+  merge commit needs the board's backlog-conflict recipe to produce. Confirmed
+  back on the board so the row carries the datum.
+
+  **FINAL: all four GREEN, `mergeable_state: clean`** on head `960047c1`
+  (`pytest-run` 9m59s). #9257 went from unmergeable-across-seven-pushes to
+  clean. It is **still a draft and still NOT merged** — Tier-3 real money.
+
+  ⚠️ **And I made it worse before better, which is the part worth keeping.**
+  After the merge commit went green I pushed three more docs commits, polled,
+  saw **3 of 4** checks with `pytest-run` missing, read that as the
+  partial-attach case, and closed+reopened the PR to re-trigger. `pytest-run`
+  **had already started** — 15 s behind the other three. **Check-run
+  registration is not atomic**, so a short poll returning N < 4 is not evidence
+  a check is absent. My close **cancelled a running `pytest-run`**
+  (`conclusion: cancelled`, 29 s in) and the reopen restarted it from zero:
+  ~10 minutes lost, plus a duplicate `repo-inventory`. Two polls a minute apart
+  both showed 3 and I treated the repetition as confirmation — it was just the
+  same too-early snapshot twice.
+
+  The narrower rule, posted to the board: **prefer the merge commit** (attaches
+  all four, cancels nothing); close/reopen is the fallback for when there is
+  nothing to merge — which is exactly when a still-registering check is most
+  likely to be mistaken for an absent one. Close/reopen also drops auto-merge
+  and queue membership, irrelevant here but not in general.
+- **The backlog merge used a three-way classification, not the published
+  recipe.** The board's rule ("for a row on both sides, your branch wins") is
+  right in the common case but loses the *other* session's in-place edit when
+  both sides touch one row. Classified against the merge base instead: base 565
+  + 12 new mine + 1 new theirs + 2 edited-by-me + 7 edited-by-you = **578**,
+  reconciles exactly, **zero rows changed on both sides**, and a distinctive
+  string from both my edits and theirs was asserted to survive.
+- **#9257 is still NOT merged and must not be** — Tier-3 real-money
+  `config/strategies.yaml`, draft, queued for the operator. CI attaching only
+  removes the "cannot be evaluated" blocker in front of that decision.
+- **The pullback hard-lever re-sweep answered a different question than it was
+  launched for** (relays #9367 / #9368). It was launched because the
+  `beats_hard` finding needed those columns' live-parity numbers. At the default
+  `--split-target-oos 25` it returned **68 of 76 cells `insufficient_base`
+  (89.5%) and zero gradeable passes**, across 19 legs carrying up to 527
+  lifetime trades — so it produced almost no hard-lever numbers, and instead
+  measured the *consequence* of the split-target question that had been sitting
+  queued on a margin argument. A matched second arm at target 30 was launched
+  (the same family, levers and `0.099` cap; only the target differs) and at 5/19
+  legs `insufficient_base` had disappeared entirely with every cell graded on
+  its merits. Written up in
+  [`m20-split-boundary-loss-2026-08-14.md`](../research/m20-split-boundary-loss-2026-08-14.md)
+  § "Confirmed at scale". **The hard-lever numbers the `beats_hard` finding
+  wanted are still not measured** — they need the target-30 arm, or a re-run.
+- **The target-30 arm was incomplete at 5 of 19 legs** when last read, so the
+  two arms are not yet matched populations; readout dispatched as #9370.
+- **The AUC-dispersion measurement is specified but not run**, and the obvious
+  implementation is a trap: there is no fold-seed flag, and the only knob that
+  moves fold boundaries (`--min-fold-trades`) carries an explicit comment
+  forbidding this use — `P_detect` is not monotonic in `b` and "maximising power
+  over `b` selects the settings easiest to pass BY CHANCE". The correct form is
+  a new `--fold-offset k` at fixed `b`; it does not exist yet.
+- The ten cells whose live-parity evidence contradicts their recorded status are
+  **listed, not re-graded** — that is the operator's queued question.
+
+---
+
+## Fourth overnight stretch (2026-08-15, ~00:20–02:05Z)
+
+### Objective
+
+Run the AUC-dispersion measurement the previous stretch specified but could not
+execute, against a pre-registration written first. Then act on whatever it found.
+
+### Work completed
+
+**The measurement, and it lands on its own threshold.** `--fold-offset` (shipped
+last stretch) drove ten arms over the 1d pullback family — same pool, same
+`0.099` live-parity geometry, only the fold boundary moving. Seven are pure
+boundary shifts; offsets 30 and 40 also drop a fold, because
+`u = floor((N−k)/b) − 1` holds `u = 11` only for `k <= 29` at `N = 629, b = 50`.
+
+- The pre-registration's stop condition **did not fire**: offset 0 reproduced all
+  six recorded `mean_auc` values exactly, on both independent runs.
+- **Median per-leg spread 0.0515, max 0.0658.** The pre-registered top band is
+  `> 0.05`, so it clears by **0.0015** — and dropping `gdx`, the one leg whose
+  usable-fold count is not constant across arms, gives **0.0496**, below. Written
+  up as *"lands ON the threshold and the measurement cannot resolve which side"*
+  rather than resolved by choosing a leg set.
+- The independent 3-arm cross-check (0.0333) **reconciles**: it sits on the
+  median (0.0326) of all ten 3-arm subsets of the primary. So the two runs agree
+  and the gap is purely arm count — which also means the pre-registration fixed
+  thresholds on a statistic that is **not invariant to the number of arms**
+  without saying so. Recorded as a gap in that document.
+
+**A conclusion of mine, falsified within the hour and withdrawn.** From AUC
+values alone I wrote that the dispersion *"bites on the `candidate` side and
+essentially not at all on the negative side"*. Per-arm **verdicts** falsify it:
+`gdx_pullback_1d`, a recorded `honest_negative`, reads `candidate` on **2 of 7**
+pure boundary draws. Withdrawn explicitly in the memo, not softened — the second
+time this session a claim written from a partial read had to be retracted rather
+than qualified, and both retractions are in the artifact.
+
+**The verdict grid is the sharper result, and is labelled post-hoc.** The
+complete 6 legs × 7 offsets grid, no selection: four legs unanimous across every
+draw; `iaum` (recorded `candidate`) survives 1 of 7; `gdx` flips 2 of 7. **The
+two that move are exactly the two on a single-term margin, and they move in
+opposite directions.** So boundary placement shifts the fold-majority terms, not
+only AUC — and stability tracks **margin, not book size** (`slv` unanimous at 160
+OOS trades; `gdx` flips at 81).
+
+**A qualifier the arms forced onto an earlier finding.** Across the 60 arms the
+sole failing term is `beats_actual` 4× / `auc` 2× / `beats_hard` 2×, and
+`beats_actual` fails most often overall. The binding-term memo measured
+`beats_hard` as the sole failure in 6 of 7 single-term failures across 33 rounds
+of many families. Both are correct: **the binding term is family-dependent**, and
+that sentence now travels with the earlier finding.
+
+**Exposure sized the same night, pure read.** Of the 33 committed rounds, 19 are
+`honest_negative`; **7 (37%) fail on exactly one gate term**, six of them
+`beats_hard`. That reconciles *exactly* with the binding-term memo's 6-of-7 — so
+that memo had already sized this population, and what is new is that one of its
+members has been shown to flip.
+
+**Two provenance defects of mine, caught before commit.**
+
+- An emit wrote `beats_actual: null` where the value exists under
+  `beats_actual_folds` — committing it would have put *"we did not look"* and
+  *"absent"* into one field, in the artifact whose entire job is provenance.
+- The verbatim re-emit was **silently truncated at 34 of 60 rows** by GitHub's
+  comment cap, *including its own `reconciles=` line*. Caught only because the
+  row count was asserted independently. The emitter now prints a sha256, and the
+  committed 60 rows were verified **byte-exact** against it.
+
+**Consumer hardening.** `m20-exit-head-rounds.jsonl` is read by a leg-keyed dict
+(last-wins) and by a pooled flip rate; appending dispersion arms would silently
+change which measurement each leg is judged against and inflate the denominator,
+and neither consumer would raise. The schema had carried `fold_offset` since the
+flag shipped and **no consumer read it** — written and never read.
+`_load_graded_rounds` is the read: excludes non-zero offsets, announces which
+rows it dropped, silent on a clean file. Seven tests, each proven load-bearing by
+planting its own regression (filter removed, filter inverted, announcement
+removed, announcement always-on); every plant failed exactly its own tests.
+
+**A screen that ran empty and said DONE.** The first unanimity-screen launch
+"finished" 12 arms in 45 s — every one `exit=1`, `data_missing:GLD`, because
+`--data-dir` defaults to `REPO/"data"`, which inside a worktree is empty. Had the
+progress file recorded completion without exit codes, twelve empty arms would
+have read as *"no leg flipped"* — the null result the screen exists to
+distinguish from a real one. Relaunched with an explicit data dir, a pre-flight
+that aborts on a missing feed, and `skips=` on every progress row.
+
+**`pkill` on a driver orphans its children — a self-inflicted contention.** The
+screen was relaunched twice (wrong data dir, then wrong leg sets), and each
+relaunch `pkill`-ed the superseded run's `driver.sh`. That killed the *shell* and
+left its child `m20_exit_head_round.py` running. A liveness probe caught two
+processes executing the **same** `ict_scalp_eth_15m` backtest — one from the
+superseded run, one from the live one — on a 1-OCPU box at load 2.13, with the
+live run's log frozen at 475 bytes across a 30 s window.
+
+The relaunch printed *"stopped the wrong-leg-set run"*, which was **false** — it
+stopped the driver, not the work.
+
+**How it actually resolved, stated because it is not what I predicted:** by the
+time the cleanup ran, the orphan had **finished on its own** and the kill matched
+nothing. Load was back to 1.02 and `15m off0` had completed `exit=0 skips=0`. So
+the contention was real and transient, and my remediation was a no-op. Recording
+that rather than the tidier "diagnosed and fixed it".
+
+**My own probe had the defect it was hunting.** Its growth check measured
+`15m_off0/round.log` — an arm that had by then **completed** — so it reported
+`STILL-NO-GROWTH` on a perfectly healthy run. A finished arm's log never grows,
+and a probe that cannot tell "done" from "stuck" reports the same string for both.
+That is sub-class A of `diagnostic-provenance-guard` in a throwaway probe: the
+value was real, the label described a different condition.
+
+
+**Backlog.**
+`BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT`
+closed on its own criteria (spread measured and recorded; gate unchanged).
+Opened `BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS`, already
+SIZED, with the unanimity screen as its remaining item.
+
+**CI, corrected.** My earlier board claim implied a merge commit fixes *that
+push*. Measured over `guards.yml` runs on this branch: **nine consecutive plain
+pushes since the merge commit, nine attached**, against zero across the preceding
+run. The merge commit clears a **branch** state — a one-time cost per episode,
+not a merge commit per push. Also corrected my own denominator: I reported "seven
+plain pushes skipped" but can only substantiate *a ~7-hour window in which no
+push attached* (26 commits, unknown push count).
+
+### Validation
+
+- Guards **38/38** on every commit; `ruff` clean (one unused import caught and
+  removed).
+- 19 tests across `test_fold_offset.py` + `test_rounds_exclude_dispersion_arms.py`.
+- Committed arms verified **byte-exact** against the trainer's sha256
+  (`41c34c75`, 18758 chars, 60 rows).
+- Recomputing the four E1 gate terms reproduces **all 60 arm verdicts** and **all
+  33 committed round verdicts**, zero disagreements — an independent check on both
+  artifacts and on this reading of the gate.
+- Coverage re-run through `m20_coverage_rollup.py` (the producer, not a hand
+  count): **373/376 = 99.2%**, unchanged.
+
+### Gaps not yet verified
+
+- **The unanimity screen on the six untested single-term negatives is still
+  running** (relay #9384). Nothing is claimed about those legs.
+- **`u` constancy for that screen is unverified** — offsets 0/5/10 were chosen to
+  be small, not proven inside the band. It is checked at readout; any arm whose
+  fold count moved will be reported separately, not pooled.
+- **The dispersion result is one thin family** (`u` 4–11 against 26 for
+  `pullback_1h`), so it is an upper bound on what a well-powered family shows.
+- **The arms do not score identical trade sets** — per-leg `n_oos` swings 2–13%
+  across offsets. Intrinsic to shifting a boundary at fixed block size, but
+  "same pool" oversold it, and it surfaced only from the emitted rows.
+- **No matrix status flipped and no gate changed.** `iaum` and `gdx` are queued
+  for the operator as questions.
+- **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
+  Deploy verification is owed *after* merge.
+
+## Fifth overnight stretch (2026-08-15, ~04:15–05:15Z)
+
+### Objective
+
+Read out the 15m candidate screen, close the one open item the fourth stretch
+left (`eth_denom_2h`: 3 of 7 legs reproduce, 4 do not), and keep the operator
+queue accurate. The open item turned into the session's main finding.
+
+### Work completed
+
+**A root cause for the control failures — and it is a harness defect, not a
+data one.** `BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER` (high).
+An E1 verdict depends on the ORDER the legs were typed on the command line:
+`m20_exit_head_round.py:157` iterates `a.legs.split(",")` → `emits` order →
+`rows.jsonl` row order (`build_exit_head_dataset.py:583,634,730`) → the tie-break
+in a **stable** sort over `bars[0]["bar_t"]` (`train_exit_head.py:518`). On a 2h
+family every leg entering on the same bar shares that timestamp, so the tie groups
+span every pooled leg.
+
+Measured (relays #9403, #9406): same 7 legs, two orders → identical
+`harness_trades` 2220, identical 71199 rows, identical 43×50 fold shape, yet **8
+of 43 folds differ** (first divergence fold 21, 1378 vs 1370 rows), AUC moved up
+to **0.0331**, and two legs **lost a usable fold** (43→42, 43→41). That is ~2/3
+of the 0.0515 median dispersion the study was built to measure.
+
+**Four candidate causes were measured and excluded before this one**, including
+my own leading hypotheses: data growth (`n_oos` identical), training
+non-determinism (5/5 byte-identical), edited evidence (`git show`), a differing
+leg **set** (#9398 — the roster is identical), and a differing parameter set
+(#9401/#9402 — the arm ran the same `fold_mode`/`target`/floors).
+
+**Isolated by a controlled pair, found in #9412.** The determinism run
+(alphabetical, vs its own re-run — same order) reproduced 5/5 byte-identically;
+the 4h control (alphabetical, vs `eth_denom_4h`'s hand-typed
+`eth,sol,xrp,ada,avax`) mismatched. Same code, same data, same flags, same legs;
+order is the only variable. It also retires an apparent tension in the earlier
+write-up — the determinism result and the unexplained mismatches were answering
+different questions, not contradicting each other.
+
+**The primary measurement survives, and the control is why.** A permuted order
+cannot reproduce six of six AUCs exactly, so the pre-registered off0 control
+*passing* is proof the 1d arms and their recorded round shared a leg order. The
+control caught a failure mode nobody had named — the argument for pre-registering
+a stop condition whose failure modes you cannot yet enumerate.
+
+**Exposure quantified from committed data:** 27 of 33 rows sit in multi-leg
+`family_pooled` rounds (exposed); 6 `per_leg` rows are structurally immune. That
+partition predicts the observed control results with no free parameters, and is
+being confirmed live by the 15m screen (single-leg arms, control exact).
+
+**Shipped fix (c) only, deliberately.** `pooled_legs_ordered` is now stamped on
+every emitted round row (+5 tests, regression planted and confirmed failing).
+It changes no numbers and makes two rows differing by order *detectable*, which
+they were not. **Fix (a) — a total sort key — is NOT taken**: it rewrites
+recorded verdicts across the corpus, so it is queued as an operator decision with
+its cost stated.
+
+**A second, unrelated live finding.**
+`BL-20260815-EXIT-LOOP-MAX-PASS-NEAR-THE-60S-ASK-AND-NOTHING-WATCHES-IT` (high).
+Read `exit_loop_health` (#9410) to confirm the other session's
+`EXIT_LOOP_DECOUPLE_DISABLED` tail had completed — it had (`fresh`, 625 passes).
+But `max_pass_ms` is **58.9 s** against the operator's 60 s ask, a **1.8% margin**,
+versus the 43.2% the decouple sprint recorded at n=55. Lowering
+`EXIT_LOOP_INTERVAL_SECONDS` cannot help — the interval is `max(floor, pass)` and
+the pass binds. And nothing alerts: `exit_loop_health` thresholds *staleness*
+only, so the loop reads `fresh` while approaching a breach of the ask it exists
+to satisfy.
+
+**Also fixed:** the trainer-diag relay executed my issue body's trailing prose as
+bash (#9400 returned `Three: command not found`) — a recurrence of
+`BL-20260731-TRAINERDIAG-TRAILING-PROSE`, whose fix ends the block only at a
+closing fence or the next `key:`. An unfenced `cmd: |` whose trailing prose is an
+ordinary sentence matched neither. Now ends at the first dedent, per YAML's own
+rule for block scalars; +2 tests, both written failing first.
+
+**Operator queue kept current:** item 1 corrected (#9257 is a 30-file PR, not the
+two-line merge the item described; `src/runtime/regime_flip_exit.py` is new but
+imported by nothing under `src/`), item 6 added (the root cause, as a
+which-fix decision), and the exit-cadence margin added as a coda.
+
+### Validation performed
+
+- 38/38 guards green on every pushed commit; the push is now gated on a captured
+  `rc` rather than piped through `tail` (which had let one red push through —
+  the same mistake fixed earlier in `bb960eaa`, repeated and re-fixed here).
+- New tests: 5 (`pooled_legs_ordered`) + 2 (relay parser) — each written failing
+  first, with a planted regression confirmed to fail, then passing.
+- Coverage re-run through `m20_coverage_rollup.py`: **373/376 = 99.2%**,
+  unchanged.
+- The backlog's `ensure_ascii=False` convention was determined by **exact
+  round-trip against the `origin/main` blob**, after my own `json.dumps` default
+  re-encoded 1889 lines and made ~580 pre-existing rows read as "added" to the
+  diff-scoped guards.
+
+### Gaps not yet verified
+
+- **The 15m screen is still running** — 3 of 8 arms. `ict_scalp_sol_15m` holds
+  `candidate` across offsets 0/4/8 with `u = 9` constant and a spread of 0.0079,
+  but `ict_scalp_xrp_15m`'s four arms have not started. Nothing is claimed yet.
+- **Whether the 58.9 s exit pass is a rare tail or a thickening distribution is
+  unknown.** A max over 625 passes is one order statistic and the writer keeps no
+  percentiles, so p95 is not recoverable from the artifact.
+- **The leg-order defect's effect on the corpus is bounded, not measured.** 27 of
+  33 rows are *exposed*; how many of their verdicts would actually move under a
+  total sort key is unmeasured, and measuring it means re-running them.
+- **Fix (a) is not applied**, so every future `family_pooled` round still inherits
+  the confound unless its leg order is matched by hand.
+- **#9257 remains an unmerged draft** — Tier-3 real-money `config/strategies.yaml`.
+  Deploy verification is owed *after* merge.
+
+---
+
+## Sixth overnight stretch (2026-08-15, ~06:45–07:10Z)
+
+### Work completed
+
+1. **Fixed the `pytest-run` filter failure on my own HEAD** (`fc71372` →
+   `518b1e3c`). `test_docs_committed_readers_are_all_covered` reported
+   `{'docs/research': [test_exit_head_corpus_exemption_is_honest.py]}`. A genuine
+   find by that guard, but the reported path was a **scanner artifact**: the
+   derived check scans `tests/` line by line for a docs path joined onto the repo
+   root, and my matrix read was wrapped across two lines, so it saw
+   `REPO / "docs" / "research"` and truncated to the directory. Both files the
+   test actually reads were already in `COVERED` **and** matched by the grep. Fix
+   was to hoist the path to a one-line constant — **not** to widen the grep to the
+   tree, which would have broken `test_deliberate_exclusions_stay_excluded`
+   (`exit-refinement-notes.md` is a pinned deliberate exclusion). Recorded in the
+   test file that the truncation is fail-**SAFE** (a directory never matches the
+   filename-scoped grep, so it errs strict), so a future session does not read the
+   failure as "add the tree".
+
+2. **The stale-decisions banner asserted routing it never computed.**
+   `m20_coverage_rollup.py` printed *"it changes exit behaviour on a real-money
+   leg now"* over every stale non-negative cell while nothing in the script had
+   ever read `config/accounts.yaml`. Measured: **wrong for 3 of 4 rows** —
+   `mes_trend_long_1d` and `mhg_pullback_1d` route to `ib_paper`, and `ib_live` is
+   `real_money` at `mode: dry_run`. Sub-class **A** inside the tool written to
+   stop that class, so it was fixed rather than reworded. Three states
+   (`real_money` / `paper` / `unresolved`), `real_money` requiring **both** gates.
+   Reads through the canonical `src.config.accounts_loader.load_accounts_dict` —
+   `canonical-config-loaders` caught my first hand-rolled `yaml.safe_load`, and
+   the canonical loader's `{}`-on-failure return is mapped back to `None` via its
+   `errors` list so "could not read" is not collapsed into "no accounts".
+
+3. **The 15m screen COMPLETED and refuted a conclusion I had already written.**
+   `ict_scalp_xrp_15m` off4 → `honest_negative` (`beats_hard` 6 → 5), against
+   `candidate` on the other three draws. I recomputed E1 over all 8 arms and it
+   reproduces every recorded verdict. **The flip is not monotone in AUC** — off4
+   fails at 0.5800 while the passing control sits at 0.5681.
+
+4. **Item 7 raised, measured, and resolved in one stretch.** Found via
+   `--stale-decisions`: `htf_pullback_trend_2h / trail_geometry` is `shipped` on
+   2026-07-12 evidence against a 2026-08-10 cutover, on a leg routed to `bybit_2`
+   (real money, live). Re-swept at `--tp-cap-pct 0.099` on both split targets.
+   **Both neighbours lose to the live `trail_mult: 4.0`** (`trail3` worse on
+   everything; `trail5` the IS-only overfit shape). Staleness retired, no Tier-3
+   decision needed.
+
+### Validation performed
+
+- 71 tests across the touched files; guards **38 PASS / 0 FAIL** re-run *after*
+  committing each time, because the guard's own footer states it scans only
+  committed paths.
+- The routing resolver was **mutation-checked**: collapsing `unresolved`→`paper`
+  fails 2 tests; dropping the `mode: live` gate fails exactly the `ib_live` test.
+  Restore verified byte-identical.
+- Item 7's reading was **pre-committed in the queue before the number existed**,
+  so the conclusion could not be fitted to the result.
+
+### Contradictions or drift found (in my own work)
+
+- **I stated a causal claim over two data points and it was refuted within the
+  hour.** "Both movers are 1d, so sample size predicts instability" — `xrp_15m`
+  then moved at `u = 9`, `n_oos = 450`. Struck rather than deleted in both
+  documents. The corrected reading claims only what 12 legs can carry: of two
+  slack-0 cells at equal depth, one moved and one did not.
+- **I conflated measuring with acting.** Item 7 first said I had not run the
+  re-sweep "because it is Tier-3 and yours". Measuring is Tier-1; only changing
+  the lever is gated. Withholding the measurement handed the operator an item
+  asking permission to *look*.
+- **I asserted a CI anomaly without checking the clock.** I twice reported
+  `pytest-run` as running 26 and 35 minutes against a 6.6-minute baseline and
+  began treating it as a pattern. The actual elapsed time was **2.2 minutes** —
+  I had been tracking elapsed time by turn count. Nothing was wrong with CI.
+  Caught before it reached a backlog row, but only just.
+- **Fifth wrong-accessor readout**, now filed as
+  `BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES` with
+  observable resolution criteria. Two relays (#9423, #9424) were spent learning a
+  shape that `grep -n round_report.json scripts/research/m20_exit_head_round.py`
+  answers locally in under a second. The data is remote; the **shape** is not.
+
+### Gaps not yet verified
+
+- **The `htf_pullback_trend_2h` re-sweep tests `4.0 ± 1` only.** No neighbour
+  beats the shipped value; that is not evidence 4.0 is optimal.
+- **Its absolute net_R figures are not the live book's** — `verdicts.json` reports
+  `regime_router: off` with `regime_gate_delta: narrower_live`, so live trades a
+  narrower book. The *delta* is sound (base and cells share the book); the levels
+  are not.
+- **The matrix cell for that lever has NOT been re-stamped** to this run. That is
+  Tier-1 bookkeeping, deliberately left for a session that is not also the one
+  that produced the evidence.
+- **The three paper stale decisions are untouched.**
+- **`trend_donchian 1h` and `scalp_5m` second-pass rounds were never launched** —
+  the trainer was busy with the 15m screen, then the item-7 sweep took the idle
+  window.
+
+## Seventh overnight stretch (2026-08-15, ~09:15–09:50Z)
+
+### Objective
+
+Read the donchian-1h fold-dispersion screen against its two pre-committed gates,
+then keep the screen queue moving. Secondary: whatever the read turns up.
+
+### Work completed
+
+**1. The donchian-1h screen (relay #9435) — both gates passed, and the leg moved.**
+
+Gates were fixed in the launch issue (#9431) *before* any number existed, which
+is the only reason the result is interpretable — the trainer resets to
+`origin/main` every ~15 min and `--fold-offset` is branch-only
+(`BL-20260815-FOLD-DISPERSION-EVIDENCE-RUNS-ON-AN-UNMERGED-BRANCH`):
+
+- **Gate 1** — one sha256 pair (`b197e75b…` / `64126139…`) repeated across all
+  four arms, pinned `f28348c8`. No arm silently reverted.
+- **Gate 2** — off0 reproduced `auc 0.6079 / u 23 / candidate` exactly.
+
+`trend_donchian_eth` **moved**: 3 of 4 draws `candidate`, off4 →
+`honest_negative` on `beats_hard` (13 against a bar of 16 at `u = 23`). I
+recomputed E1 over all **twelve** rows of the round independently; it reproduces
+every recorded verdict, so the flip is the gate working.
+
+Two readings worth more than the flip itself:
+
+- **AUC spread carries no information about verdict stability.** The flipping
+  arm's AUC is `0.6077` against a control of `0.6079` — flat to three decimals —
+  while the verdict moves. Four-draw spread `0.0086`; `ict_scalp_sol_15m`, which
+  did **not** move, spreads `0.0088`. The two tightest-AUC legs in the corpus
+  split one-and-one. Any triage that ranked this population by "how much does the
+  headline wobble" is now measured and does not work.
+- **The mover is the deepest leg screened** (`u = 23`, `n_oos = 566`). That is a
+  second and stronger refutation of the sample-size cause I retracted at 07:00Z —
+  not merely "a mover can be thick" but "the thickest book screened moved while
+  thinner ones held".
+
+The pooled round returned two more legs free, both `honest_negative` on all four
+draws. `trend_donchian_sol` is the notable one: slack **−1**, a **fragile
+NEGATIVE** one fold from reading `candidate` — the first negative-side cell
+actually tested, and it held.
+
+Tally **4 of 15**. New at this base size, stated positively rather than as a
+caveat: **every leg that moved was flagged, and no unflagged leg has moved** —
+0 false negatives, 11/15 false positives.
+
+Written into `docs/research/m20-fold-dispersion-2026-08-15.md` and folded into
+operator-queue item 5, whose **recommendation is unchanged for the second time**.
+That is the property worth recording: it has now survived two screens that each
+refuted a *different* explanation I had attached to it, because it never rested
+on either.
+
+**2. A corpus data defect, found while planning the next screen — 10 of 33 rows.**
+
+Every `trend_donchian*` row in `docs/research/m20-exit-head-rounds.jsonl`
+recorded `family: "trend_donchian"`. The driver writes `classify(leg)`, which
+returns **`"donchian"`** — `classify` matches the SUBSTRING
+(`m20_fleet_exit_sweep.py:134`), so the leg id and the family name are different
+strings and transcribing the former produced the latter's near-miss. All ten
+carry a hand-transcription provenance (`"relays #NNNN …"`); every driver-emitted
+donchian row says `"donchian"`.
+
+**No verdict or number is wrong.** The cap is decided at RUN time from the live
+`classify()` call inside `base_args`, never from this file, and relay #9156's
+geometry probe gated that launch on the cap actually being forwarded. The damage
+is to the reader: `LIVE_TP_CAPPED_FAMILIES` is `{donchian, pullback, fade,
+squeeze}`, so filtering the corpus by that set to ask *"which rounds ran at
+live-parity TP"* returned **NO for every donchian row** — ten correctly-capped
+rounds reading as `NO_TAKE_PROFIT` books, a geometry production does not run.
+CLAUDE.md § "Diagnostic provenance" sub-class **A**.
+
+It caught me first, which is why it is written up rather than quietly patched:
+planning #9436 I read `family: "trend_donchian"`, saw it absent from
+`LIVE_TP_CAPPED_FAMILIES`, and briefly concluded that round had run **uncapped**.
+I avoided publishing that only by reading `classify()` instead of trusting the
+record — the same "read the field, not the prose about it" move that RULE ONE
+asks for, arriving one step later than it should have.
+
+Fixed **surgically, not by re-serializing**: a `json.dumps` round-trip is *not*
+byte-identical on this file (one row was written with `ensure_ascii=True` and
+carries a literal `—` where its siblings carry the raw character), so a
+rewrite would have silently changed a row this commit is not about. The replace
+asserts exactly 10 occurrences, then re-parses every line to prove key order held
+and no field other than `family` moved.
+
+Guarded by `tests/test_rounds_family_matches_classify.py` — **written first,
+observed to FAIL on exactly those 10 rows**, with two positive controls so a
+comparison that stopped comparing cannot read as a clean corpus. It pins the
+consequence (`LIVE_TP_CAPPED_FAMILIES` membership) as well as the rule, because
+the next hand-transcribed row is one relay away.
+
+**3. `trend_donchian_eth_prop` screen launched (#9436), readout fired (#9438).**
+
+The last slack-0 1h candidate: `u = 24`, `ba 20`, `bh 16` ⇒ slack
+`min(12, 0) = 0`, binding on `beats_hard` **exactly** at the bar. A different
+round from `trend_donchian_eth`, so it needs its own control.
+
+Leg order `trend_donchian_sol_prop,trend_donchian_eth_prop` (**sol first**) was
+read out of launch relay #9156's own `--legs` argument — not memory, and not
+inferred from the corpus, whose `pooled_legs_ordered` is `None` for that round
+(the field postdates it). Gate 2 requires **both** rows to reproduce, stricter
+than #9435's single-row gate, because on a pooled round a wrong leg order can
+still land one row right by luck.
+
+Not passing `--tp-cap-pct`: the original ran at the driver default, and that
+default *is* `0.099` (`m20_exit_head_round.py:111`). Passing it explicitly would
+be the same value under a different provenance claim.
+
+### Validation performed
+
+- 38 guards PASS / 0 FAIL, re-run **after committing** each change — the guards
+  are scoped to a commit range and print an explicit warning when uncommitted
+  paths were not scanned, which is what makes a green meaningful here.
+- New test observed failing on the real defect (10 rows) before the fix, passing
+  after; its two positive controls pass in both states.
+- The four sibling corpus tests (`…corpus_exemption_is_honest`,
+  `…round_emits_evidence`, `…exclude_dispersion_arms`, `…round_geometry_stamp`)
+  plus `test_pytest_run_filter`: 39 passed.
+- Coverage roll-up re-run: **373/376 = 99.2%**, unchanged.
+- PR #9257 CI on `3ed8d9d1`: `repo-inventory`, `guards`, `pytest-collect` green;
+  `pytest-run` still in flight at write time (started 09:32:14Z).
+- Coordination board: no open PR other than #9257, and PR #8815 (the tick-chain
+  session, `01Gvmm6…`) **merged 2026-08-12** — no live contention.
+
+### Contradictions or drift found
+
+- The corpus `family` defect above (mine to the extent I read it wrongly first,
+  not mine in origin — it predates this session).
+- `docs/research/m20-exit-head-rounds.jsonl` mixes `ensure_ascii` conventions
+  across rows. Left alone deliberately: harmless, and normalising it would touch
+  evidence rows for cosmetics. Recorded here so the next session that runs a
+  round-trip check is not surprised by it.
+
+### Gaps not yet verified
+
+- **#9436's gates are not yet read.** If either fails the screen is void and the
+  `trend_donchian_eth_prop` cell keeps its single unreplicated measurement.
+- **`scalp_5m` second-pass round** still not launched — deliberately queued
+  rather than run concurrently, since the trainer is 1 OCPU and the 2026-08-15
+  thrashing incident came from overlapping jobs.
+- **The three paper stale decisions** (`mes_trend_long_1d` trail_geometry,
+  `mhg_pullback_1d` stale_stop + trail_geometry) are untouched. All three are
+  PAPER — confirmed by routing, after the 07:25Z retraction — so none is a
+  money-at-risk exposure; they are stale knowledge.
+- The claim "no unflagged leg has moved" is read off my own tally table. It is
+  checkable from that table, but the table is the only record of it.
+
+## Eighth overnight stretch (2026-08-15, ~09:50–10:05Z) — the flag itself was refuted
+
+### Objective
+
+Screen the remaining fragile cells. What actually happened is that the screen
+refuted the criterion the whole study had been using to choose its targets.
+
+### Work completed
+
+**1. `trend_donchian_eth_prop` (#9436/#9438) — unanimous, and the first inversion.**
+
+Both gates passed, gate 2 in a stricter **two-row** form: off0 reproduced
+`eth_prop 0.6138/u24/candidate` **and** `sol_prop 0.5635/u23/honest_negative`,
+both exact. On a pooled round one row can land right by luck and two cannot, so
+this is what pins the leg order (`sol` first, recovered from #9156's argv).
+
+`trend_donchian_eth_prop` is **unanimous `candidate` across four draws while
+sitting at slack 0** — literally at the bar. Its API sibling
+`trend_donchian_eth`, at slack **+2**, moved. Same family, timeframe, symbol.
+
+Also surfaced a mechanism that is arithmetic rather than a story: **`u` varies
+across arms** (24, 24, 23, 23), and the gate bar is `2u`, so the **bar moves**
+(48 → 46). A leg can change verdict with its `beats_*` unchanged. Every arm must
+be read against its own bar.
+
+**2. The 4h donchian round (#9439/#9440) — 4 of 5 legs moved, and it REFUTED the fragility flag.**
+
+Strongest control run of the study: one sha256 pair across four arms, and off0
+reproduced **all five** recorded rows exactly at `u 16`. All 20 verdicts
+recomputed independently and reproduced.
+
+| leg | control slack | flagged? | moved? |
+|---|--:|:--:|:--:|
+| `trend_donchian_ada_4h` | **+7** | **NO** | **YES** |
+| `trend_donchian_avax_4h` | −2 | yes | **YES** |
+| `trend_donchian_eth_4h` | **−5** | **NO** | **YES** |
+| `trend_donchian_sol_4h` | −2 | yes | **YES** |
+| `trend_donchian_xrp_4h` | +1 | yes | no |
+
+**🔴 This refutes what I published at 09:20Z and repeated to the operator** —
+*"every leg that moved was flagged, and no unflagged leg has moved; zero false
+negatives in 17."* Two unflagged legs moved, one from slack **+7**, while the
+flagged leg was the one that held. Struck rather than deleted at all three sites
+(dispersion doc header, dispersion doc body, operator-queue item 5), because it
+had been quoted to the operator before it was refuted.
+
+Restated over the 15 screened legs with a nameable control slack: flagged
+**6/11** moved, unflagged **2/4** — 55% vs 50%, one-sided Fisher **p = 0.66**.
+**No separation.**
+
+**Why, which is the part worth keeping:** slack measures distance from ONE fold
+flipping inside a **fixed** partition; this screen **re-draws every fold**.
+`eth_4h`'s `beats_hard` moves 9 → 12 between arms — three folds' worth — which no
+one-flip margin can anticipate. I had been using one quantity as a proxy for the
+other without ever checking that it was one. The flag is not *wrong* about what
+it states (a slack-0 cell **is** one fold from a different answer, by
+arithmetic); it is wrong as a **predictor of boundary sensitivity**, which is the
+thing this study measures.
+
+**What stands:** **8 of 15 screened legs (53%) changed verdict under
+re-partitioning, and margin does not tell you which.** Stated with its caveat:
+that 53% is **not** an unbiased fleet rate, because I chose the screened set to
+be flag-enriched — the reason to still weigh it is that the enrichment provably
+did not work, and the clean measurement is a screen selected **without reference
+to slack**, which is now the higher-value use of trainer time than finishing the
+flagged list.
+
+Three heuristics have now been measured and refuted overnight — sample size
+(07:00Z), AUC spread (09:20Z), margin/slack (09:45Z). **No fourth is proposed.**
+
+**3. Flagged, deliberately as a question and not a claim:** PR #9257's evidence
+is a **walk-forward** `wf 5/6`, a different harness and a different lever from
+anything measured here — but it shares the *structure* that proved
+boundary-sensitive (a majority-of-folds vote over a chosen partition). **I have
+not measured whether walk-forward verdicts move under re-partitioning, and this
+is not a reason to hold that merge.** Recorded in queue item 5 so it cannot later
+be discovered and mistaken for something I knew and did not say.
+
+**4. Filed `BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE`.**
+
+The guard fails on an already-annotated claim when the file has uncommitted
+edits, and reports a line number that does not hold the claim — it errored at
+line 688 for a claim at line 750, a 62-line offset exactly matching an
+uncommitted block inserted earlier in the file. Committing that block with no
+other change flipped the same invocation from 1 finding to 0. Cost me a cycle
+twice tonight. Not a CI correctness bug (CI runs a clean checkout), which is
+exactly why it survives — it is invisible to the surface that would catch it.
+
+### Validation performed
+
+- 38 guards PASS / 0 FAIL on the **committed** tree after each change.
+- All 20 rows of the 4h round and all 8 of the prop round re-derived through E1
+  independently; every recorded verdict reproduced.
+- The flag's predictive value computed with a **stated denominator** (15 legs
+  whose control slack I can name; the 1d study's 7 other clean-control legs
+  deliberately excluded rather than assumed), with a Fisher exact rather than an
+  eyeballed comparison.
+- CI independently reported the `guards` failure on `6a71ff82` that my local run
+  had also caught — fixed forward in `49c6170c`.
+
+### Contradictions or drift found (in my own work)
+
+- **The 09:20Z zero-false-negatives claim** — published, quoted to the operator,
+  refuted 25 minutes later. Retracted at three sites.
+- **The backlog row about the guard failed the guard**, by writing the bare
+  annotation token while describing it. The guard was right; fixed by naming a
+  real path and recording how the behaviour was established.
+
+### Gaps not yet verified
+
+- **The unbiased-rate screen has not been run.** Every leg screened so far was
+  chosen with reference to slack, so `53%` carries a selection caveat that only a
+  slack-blind sample can remove.
+- **Walk-forward re-partitioning is unmeasured** (see item 3 above).
+- **`ict_scalp_sol_5m`** (slack +2) is the one remaining nameable fragile cell
+  never screened. Lower priority now that the flag has stopped being a reason to
+  prefer it.
+- The three paper stale decisions remain untouched; all three are PAPER, so none
+  is a money-at-risk exposure.
+
+## Ninth overnight stretch (2026-08-15, ~10:05–10:20Z) — the slack-blind screen, and three corrections to my own work
+
+### Objective
+
+Run the measurement my own 09:45Z result said to run next: a dispersion screen
+selected **without reference to slack**, to find out whether the 53% move rate
+was a selection artifact.
+
+### Work completed
+
+**1. The slack-blind 2h pullback screen (#9441/#9444).** Chosen by a stated
+margin-blind rule — *largest wholly-unscreened round* — and **0 of its 7 legs are
+flagged**. Both competing predictions were written into the launch issue before
+it ran: *flag-has-value ⇒ ≈0 movers; broad-sensitivity ⇒ ≈3–4.* Gate 2 passed on
+**all seven** off0 rows exactly. **Result: 1 of 7 moved.**
+
+**2. 🔴 CORRECTION — my 09:45Z "the flag is REFUTED" was overstated, and the flaw
+was mine.** That analysis pooled legs measured at **different numbers of draws**
+(7 for `gdx`/`iaum`, 4 for the rest); more draws is more chances to move, so
+"moved" was not comparable across them, and the unflagged denominator was **4**.
+Redone at matched draws (off0/4/8, **17 legs**): flagged **3/6 = 50%**, unflagged
+**3/11 = 27%**, Fisher **p = 0.34**. The direction the flag predicts, **not
+established**. The slack-blind round supplied the missing unflagged sample —
+which is exactly what it was designed for. Corrected in the doc header, the doc
+body, and the operator-queue lead box.
+
+**3. The one mover flipped on a term the flag never measured.** `eth_pullback_2h`
+failed the **AUC** bar (`0.5427` vs `0.55`), not a fold bar — and its control
+clears that bar by **+0.0006**, already recorded in queue item 5 as the corpus's
+thinnest margin. The gate has two independent failure terms; my flag measured
+one. I tested the two-term repair (`|slack| ≤ 2 OR |auc−0.55| ≤ 0.01`): it
+explains that case and **does not improve prediction** (p 0.34 → 0.37, flagging 3
+more legs to catch 1 more mover). Recorded as an untested post-hoc hypothesis and
+**explicitly not adopted** — three such stories have already been advanced and
+retracted tonight.
+
+**4. 🔴 A defect in my own gate, and then a second one in my own readout.**
+
+The off12 arm produced no rows: the trainer's ~15-min reset removed the
+branch-only `--fold-offset` between the driver's `git checkout` and its training
+call. **Gate 1 passed anyway**, because it hashes at *arm start* — **a matching
+hash proves the file was correct when hashed, not that the arm ran that code.**
+I had been quoting it as the latter on every screen tonight; the others differed
+only in timing luck.
+
+Then I wrote *"the arm never ran"* and had to correct that too. Verified against
+the box (#9447): the arm **ran** — all seven backtests emitted, the dataset built
+72,725 rows — and **only the training step** was rejected, after which the driver
+wrote a **0-row** `rounds.jsonl` and printed `round done`.
+
+**That empty file then broke two of my own diagnostics**, in the class I had
+documented three times the same night: my readout loop tests `[ -f ]` then `sed`s
+the file, so the `else` never fires and `sed` over an empty file prints nothing —
+the arm vanished from the report with **no line at all**, and I read the silence
+as "directory absent". Sub-class **C**, the unasserted denominator, committed
+inside the diagnostic I was using to police it. The same `[ -f ]` test then made
+my re-run guard **refuse to re-run the arm**.
+
+**The scientific conclusion never changed** — off12 contributed no rows either
+way, the round is genuinely 3 draws, every number stands. What nearly happened is
+that I corrected a *right* answer on the strength of two broken reads of my own,
+and the only thing that stopped it was going to look at the file's mtime.
+
+**5. Filed** `BL-20260815-EXIT-HEAD-ROUND-EXITS-ZERO-WHEN-TRAINING-SUBPROCESS-FAILS`
+(high) — the driver returns 0 and writes an empty evidence file, so a dead arm
+passes an existence check — with the measured downstream damage and a criterion
+that **existence must imply rows**. Re-run relaunched (#9448) with a capability
+pre-flight, before/after hashes, and a **row-count** assertion.
+
+### Validation performed
+
+- All 21 verdicts of the 2h round recomputed independently through E1 and
+  reproduced; gate 2 matched all seven off0 rows exactly.
+- The flag comparison redone at **matched draw counts** with a Fisher exact,
+  rather than the pooled-draw comparison that produced the 09:45Z error.
+- The off12 question settled by **reading the file's mtime and row count on the
+  box**, not by choosing between two contradictory earlier reads.
+- 38 guards PASS on the committed tree after each change.
+
+### Contradictions or drift found (all in my own work, this stretch)
+
+- 09:45Z "the flag is refuted" — overstated; corrected at three sites.
+- "the off12 arm never ran" — wrong; it ran and wrote a 0-row file.
+- My readout loop and my re-run guard both treated an empty evidence file as a
+  present one.
+
+### Gaps not yet verified
+
+- **#9448's outcome is unread.** If it lands, the 2h round becomes 4 draws and
+  every rate in this stretch needs recomputing at 4 draws for that round.
+- **The two genuine false negatives** (`ada_4h` slack +7, `eth_4h` −5) remain
+  unexplained, deliberately.
+- **The other screens tonight were never re-verified** against the
+  hash-after-run standard; they passed a gate now known to be insufficient. Their
+  controls DID reproduce exactly, which is independent evidence they ran the
+  right code — but that is an inference, not the check I claimed to be making.
+
+## Tenth overnight stretch (2026-08-15, ~10:20–10:45Z) — a pre-registered prediction, and it failed
+
+### Objective
+
+Stop generating post-hoc explanations and test one. Three had already been
+advanced and retracted overnight; the fourth — that the E1 gate has **two**
+failure terms and my fragility flag reads only one — was the first to make a
+falsifiable prediction, so I ran it.
+
+### Work completed
+
+**1. The pre-registered 1h pullback test (#9449/#9452) — prediction FAILED.**
+
+Chosen because that family sits *below* the AUC bar and separates the two
+criteria cleanly. Predictions and a falsification condition went into the launch
+issue **before** the run: *AUC binds ⇒ `tlt_pullback_1h` moves* (slack +5, so the
+slack flag misses it; AUC margin −0.0050, inside the two-term band); falsified by
+*`tlt` stable while `qqq`/`spy` move, or nothing moving at all*.
+
+All four arms clean under the corrected gate — `preflight=OK`, `exit=0`,
+`rows=4` each — and off0 reproduced all four recorded rows exactly.
+**Result: 0 of 4 moved. The second falsification branch is what happened, and I
+scored it as a failed prediction rather than reframing it.**
+
+**2. The MECHANISM claim was confirmed regardless, and does not depend on
+movement.** Per-arm failure decomposition for `tlt_pullback_1h` (bar `2u = 52`):
+
+| arm | AUC | 3·ba | 3·bh | fails on |
+|---|--:|--:|--:|---|
+| off0 | 0.5450 | **57** | **57** | **AUC only** |
+| off4 | 0.5399 | **60** | **60** | **AUC only** |
+| off8 | 0.5444 | 54 | 51 | AUC + bh |
+| off12 | 0.5404 | **57** | **57** | **AUC only** |
+
+In three of four arms the fold terms clear comfortably and **only** the AUC bar
+holds the leg negative. A slack-only reading calls `tlt` a comfortable negative
+at `+5`; it is one AUC point from `candidate`, and its arm-to-arm AUC spread
+(`0.0051`) is the same size as its margin (`0.0050`). Genuinely on the edge — it
+simply did not cross in four draws.
+
+The other three legs behaved as the framework says they should, which matters
+because a test that passes only on its headline is weak evidence.
+`gld_pullback_1h` is the reverse case (AUC fine, fails on **fold** terms,
+slack-flagged at −1) and **did not move, consistent with its earlier independent
+4-draw screen**. `qqq`/`spy` fail on **all three** terms in most arms — correct
+negative controls.
+
+**3. Numbers, at the cut that is valid.** 29 screened legs, **10 movers (34%)**.
+Uniform 4-arm exposure (23 legs): two-term **`p = 0.195`** vs slack-only
+`0.367`. The pooled-29 cut reaches `p = 0.033` and **I am still declining to
+quote it**, because it mixes 9-arm and 4-arm legs — the exact error I corrected
+at 10:05Z when it ran *against* the flag. `tlt` is now the two-term criterion's
+**first false positive**: the honest cost of having run the test.
+
+**4. Complement launched (#9454)** on the 5m scalp family, which sits far
+**above** the AUC bar (margins +0.049 to +0.068) so the **fold** terms bind — the
+mirror image. Pre-registered: *if anything moves it is `ict_scalp_sol_5m`*
+(slack +2); `xrp`/`avax` at slack +13/+14 are five fold flips away. Falsified by
+either of those moving while `sol` does not. Passing the original **four**-leg
+`--legs` including the one that burned on `data_missing:BTCUSDT`, because
+dropping a leg from a pooled round changes the pool.
+
+### Validation performed
+
+- All 16 rows of the 1h round recomputed through E1 independently; every recorded
+  verdict reproduced, and off0 matched all four controls exactly.
+- Gate integrity read per arm rather than assumed — preflight, exit code, row
+  count — after the previous stretch showed the old gate passing over a dead arm.
+- 38 guards PASS on the committed tree after each change; CI green on `guards`,
+  `pytest-collect` and `repo-inventory` for the latest push.
+- Coverage roll-up re-verified: **373/376 = 99.2%**.
+
+### Contradictions or drift found
+
+- ⚠️ **My own launcher's `sha_before_*` came back EMPTY** in #9449 (a nested
+  `cut -d" "` did not survive the `bash -c`), so that gate would have compared
+  two blanks and reported agreement. Caught only because the relay echoed
+  `versions.txt`. Recorded as a third instance on the existing backlog row, with
+  the general lesson: **a verification step must be able to say "I could not
+  measure" distinctly from "I measured and they agree"** — an empty-equals-empty
+  pass is the collapsed-state defect occurring inside the check itself. Fixed in
+  #9454 by printing the hash raw and unparsed.
+- The Bash working directory reset from the repo to `/home/user` mid-stretch and
+  an append silently failed on a relative path. No partial write (the redirect
+  never opened); re-done with an absolute path. Noted because a *partial* append
+  to a sprint log would have been much harder to spot.
+
+### Gaps not yet verified
+
+- **#9454's result is unread.**
+- The **two false negatives** (`ada_4h` slack +7, `eth_4h` −5) resist every
+  criterion tried and remain unexplained. Deliberately.
+- **Four heuristics tested, none established.** The honest state of the
+  fragility question is unresolved, and the operator box says exactly that.
+
+---
+
+## Eleventh overnight stretch (2026-08-15, ~13:20–15:00Z) — the arms were not unlucky, they were unqueued
+
+### Objective
+
+Land the deferred fix for the driver that reported success on dead arms, then
+find out why the arms kept dying at all. The second half turned out to be the
+real work: the answer was not in my harness, it was a binding protocol this
+whole research path had never been wired into.
+
+### Work completed
+
+**1. The silent-failure fix (commit `8b5fc789`), deferred since the screen was
+mid-flight.** `m20_exit_head_round.py` checked the DATASET-BUILD subprocess's
+returncode at line 266 and not the TRAINING one; control fell through to
+`if e1.exists():`, so a dead training run left `report` empty, the driver wrote
+a **zero-row** `rounds.jsonl`, and `main` returned **0**. Three properties now
+hold, matching the backlog row's criteria:
+
+- the training returncode is checked, and *exited-0-but-wrote-no-report* is
+  caught as a **distinct third state**. Deliberately not `return 1` on the first
+  failure the way the build step does — a 3-leg round whose second leg dies
+  should still train the third, and the partial evidence is wanted. What must
+  not happen is reporting success;
+- `main()` returns **2** naming the failed families and the row count, so a
+  wrapper reading `exit=$?` need not parse stdout;
+- **existence now implies rows** — a zero-row round writes `rounds.EMPTY`
+  carrying the failures, the families that did train, and the geometry. The
+  empty file was the artifact that fooled the most checks: created, so `[ -f ]`
+  passes; empty, so a `sed` readout prints nothing and the arm reads as ABSENT
+  rather than FAILED. That is precisely the loop I wrote at 10:04Z, and it is
+  why the off12 arm vanished with no line at all.
+
+`round_report.json`'s `_round_meta` additionally carries `train_failures` (an
+**empty list** on a clean round, so "no failures" is stated rather than implied
+by absence) and `families_trained`.
+
+**2. A capability pre-flight (commit `23a0fdf6`).** The round now asks the
+trainer whether it accepts the flags it intends to forward *before* the emit
+loop. Scoped to flags actually forwarded, so `--fold-offset 0` — never passed,
+because `if a.fold_offset:` treats 0 as falsy — does not block a control arm.
+Verified four ways against the real driver: flag present → proceeds; offset 0 →
+no probe at all; flag renamed → `PRE-FLIGHT FAILED`, exit 3; argument removed →
+`--help` itself fails and the returncode branch catches it, exit 3.
+
+**3. The root cause (commit `4cc4c552`) — and it is not what I had recorded.**
+The "~15-min `Reset to origin/main`" that voided two 73-minute arms is not an
+ambient force of nature. It is `git checkout --force -B main origin/main` at
+`scripts/ops/run_training_cycle.sh:138`, and that line runs **inside the trainer
+heavy-job queue**: the cycle calls `take_trainer_heavy_lock()` first and
+**skips its entire cycle** if the queue stays held past the wait. An arm holding
+the lock does not get warned about the reset — it *prevents* it.
+
+The M20 exit-head path took that queue **nowhere**. Measured: `grep -c
+heavy_lock` returns 0 for `m20_exit_head_round.py`, `scripts/ml/train_exit_head.py`
+and `m20_fleet_exit_sweep.py`. The `ml` CLI's enforced backstop
+(`src/utils/trainer_heavy_lock.py`, wired in `ml/cli.py`) cannot cover them
+either — it fires for `python -m ml train|build-dataset`, and this driver shells
+out to a research script that never imports the CLI. Both halves of an
+enforcement `docs/claude/trainer-resource-protocol.md` describes as binding miss
+this entire family. **Every voided arm was voided by a mechanism the repo
+already had the primitive to stop, and the reason it did not was that this path
+never asked for it.**
+
+It also explains the 05:32:50Z slowdown (trainer-diag #9419): an unqueued
+`replay_pregate_fleet.py` at 4.08 GB RSS on a 6 GB box drove 4.4 GB into swap
+while four arms — identical work differing only in `--fold-offset`, which cannot
+cost time — ran 7.9 / 15.9 / 20.5 / 25.8+ min in launch order. Arms that cannot
+differ in duration did. Both sides of that collision were unqueued.
+
+Driver now acquires the lock, ordered **after** the pre-flight (a missing flag
+should fail in two seconds, not after an hour in a queue).
+
+**4. Live-state reads, prompted by the coordination board.** The board header
+recorded `EXIT_LOOP_DECOUPLE_DISABLED` as set with an intent to clear it, and no
+comment after 05:33Z confirmed the clear — so I read it rather than assuming
+either way. Both halves agree it is OFF: `exit_loop_health` `state: "fresh"`,
+703 passes over 6.62 h = **33.9 s per exit evaluation**, `offloop_hooks`
+populated; and `get-env` returns `process: '0'` / `declared: '0'` with no
+`pending_restart`. Reported to the board so the stale header can be struck.
+
+### Validation performed
+
+- 10 structural tests in `tests/test_exit_head_round_fails_loudly.py`, **each
+  proven load-bearing by planting the exact defect it guards**: removing the
+  training returncode check → 2 fail; making the `rounds.jsonl` write
+  unconditional → 1 fails; degrading the boundary match to a substring → 1
+  fails; removing the lock call → 1 fails. All restored → 10 pass.
+- The heavy lock verified four ways off-box: inert without the role marker (no
+  lock file created), acquires under `TRAINER_HEAVY_LOCK_FORCE=1`, queues then
+  exits **75** when contended, re-acquires on release.
+- `run_guards.py --base main` → **38 PASS / 0 FAIL**, with the changed paths
+  confirmed present in the scanned `/tmp/pr.diff`. This mattered: the previous
+  run's green had **not** scanned them, because they were uncommitted and every
+  guard is scoped to a commit range.
+- `check_backlog_refs` caught an abbreviated id (`BL-…-EXITS-ZERO-…`) in my own
+  correction text that resolved to nothing. Expanded and re-run clean.
+
+### Contradictions or drift found (mine, this stretch)
+
+- **🔴 A conclusion wrong in KIND, not in detail.** I had recorded the missing
+  piece for the screen harness as *"a sound gate hashes AFTER the run"*. That is
+  a **detection** fix where a **prevention** fix existed: an after-hash tells
+  you an hour was wasted, the lock stops the hour being wasted. I reached for a
+  better gauge when the available move was to remove the cause. Corrected in the
+  backlog rather than quietly rewritten, and the reasoning error recorded, not
+  just the corrected answer.
+- **My own probe could not fail.** The pre-flight's first version tested
+  `flag in help_text`. Its own negative test renamed the trainer's argument to
+  `--fold-offset-REMOVED-BY-SIMULATED-RESET` and the probe printed
+  "pre-flight OK" — because the flag is a substring of the rename. Sub-class A
+  committed inside the guard whose purpose is to stop sub-class A. Now a
+  word-boundary match.
+- **A test locator that prose could move.** `test_the_emitted_geometry_is_the_
+  derived_one_not_the_flag` anchored on the first *mention* of `rounds.jsonl`
+  and looked 3000 chars back. My comment naming the file in prose moved the
+  index ~250 lines and failed the test against untouched code; widening the
+  window only deferred it, since the next comment pushed the stamp out of a
+  correct window too. Now bounded by `rows.append({` … the literal write site.
+- **I measured the wrong thing once.** Reading the queue-timeout exit as
+  `exit=0` — that was `grep`'s status through a pipeline, not python's. Measured
+  directly: **75**. The same shape as the `[ -f ]` and empty-hash failures this
+  stretch is about, committed while writing about them.
+
+### Gaps not yet verified
+
+- **The class is not fixed, only one script is.** `train_exit_head.py`,
+  `m20_fleet_exit_sweep.py` and `replay_pregate_fleet.py` still take the queue
+  nowhere, and **the enumeration has not been done** — I do not know how many
+  heavy research entrypoints bypass it, only that at least four do. Filed as
+  `BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE` (open, high) with
+  criteria requiring the enumeration *and* a real CI guard, explicitly not a
+  presence-only marker.
+- The tests are **structural** (asserting on source), not behavioural. A
+  behavioural test needs a fake trainer and a fake harness; worth building, not
+  done. What is claimed is that the properties are pinned against regression,
+  **not** that a failing round was observed end-to-end.
+- The 5m screen is still **VOID and not re-run**. The fix makes a re-run
+  survivable; it does not make the earlier result exist.
+- ⚠️ **Flagged to the tick-chain session, not diagnosed by me:** the live tick
+  measured **144.8 s mean / 202.0 s max** (n=115), against the 69.3 s post-
+  decouple and 83.9 s pre-decouple readings in CLAUDE.md — i.e. slower than the
+  pre-decouple baseline. Cache hit rate (44.5 %) and `fetch.1d` request rate
+  (3.01/tick vs 3.02 recorded) are both **unchanged**; what moved is per-fetch
+  latency, 14.9 s against a recorded 2.4–3.6 s. Board comment on #6927. One
+  consequence for M20: the decouple is now buying **4.3×** (144.8 → 33.9 s)
+  rather than the 3.2× measured at go-live, so setting
+  `EXIT_LOOP_DECOUPLE_DISABLED` as a rollback costs materially more than the
+  08-12 numbers imply.
+
+---
+
+## Twelfth overnight stretch (2026-08-15, ~15:00–15:30Z) — the headline was 22% machine-readable
+
+### Objective
+
+Relaunch the voided 5m screen now that the queue fix exists, then work threads
+that do not need the trainer while it holds the lock. The second half turned
+into the more important finding.
+
+### Work completed
+
+**1. The 5m screen is running, and for the first time it holds the queue.**
+Launched 14:47:56Z at sha `6340a012`, `{"status": "heavy_lock_acquired"}`
+confirmed in the arm log. Box idle apart from it (load 1.02 against 3.65 during
+the 05:33Z thrash). Per-arm re-checkout, hashes printed raw, row counts asserted
+rather than `[ -f ]`. Queue hold flagged on the coordination board with its
+timer impact spelled out, so nobody reads a queued job as a wedged box.
+
+Two launch attempts failed first, both the same way: the relay preserves the
+`cmd:` block's indentation, so a heredoc terminator at column 0 never closed.
+I hit it with a shell heredoc (#9470), fixed it with base64, then **hit it again
+with a Python heredoc one tool over** (#9478). Base64 both times now, with a
+sha256 checked on the box before the script runs.
+
+**2. Matrix bookkeeping + a labelling defect it exposed.** Recorded the
+`htf_pullback_trend_2h` / `trail_geometry` re-sweep in full, deliberately
+**without** touching `status` or `tp_geometry`: the verdict exists only at split
+target 30, which is the operator's open item 2, so stamping `live_parity` would
+retire the cell's staleness on a configuration nobody approved. Both branches of
+item 2 are now spelled out so the follow-up needs no re-derivation.
+
+That surfaced a defect worse than the row it came from. The stale-decisions list
+is headed *"evidence older than the cutover"*, but four conditions set `stale`
+and only one is that. Each row now prints its own `why:` — and **all four are
+held by the geometry field, none by a date**, so the header was wrong for 100 %
+of the rows it described.
+
+**3. The exit_head_ml blocked-cell fleet view.** Verified the gate needs
+`N >= 3b = 150` by enumerating `fold_blocks`' loop; measured that **zero of the
+seven equity 1d legs** reaches it even on full available history (`spy`, with 33
+years, estimates to ~121). The three futures legs pose a different question and
+`mhg`/`mgc` may be rebuild-reachable — flagged as **not measured** rather than
+guessed.
+
+**4. The consolidation — the stretch's real result.** Re-deriving the
+pre-registered baseline from committed data revealed it could not be done:
+`m20-fold-dispersion-arms.jsonl` held **6 legs** against a screened denominator
+of **27**, so **78 %** of the night's headline existed only as prose tables.
+Same defect `rounds.jsonl` was built to prevent.
+
+`docs/research/m20-fold-dispersion-arms-consolidated.jsonl` now holds **234 rows
+/ 61 arm files / 60 screens / 33 legs** — a 3.9× increase — with `fold_offset`
+recovered from each `_round_meta` (61 of 61, zero mismatches against the
+directory names) and the transfer sha256-verified. Then
+`scripts/research/m20_dispersion_rate.py` + a 6-test guard pinning its output
+against the prose.
+
+### Validation performed
+
+- 6 new tests in `test_dispersion_rate_matches_the_doc.py`, **each proven
+  load-bearing by planting the defect it guards**.
+- `run_guards.py --base main` → 38 PASS / 0 FAIL, changed paths confirmed in the
+  scanned diff.
+- Consolidation integrity: sha256 over the uncompressed file matched the box's,
+  234/234 rows, `offset_source: round_meta` on every row, 0 defaulted.
+
+### Contradictions or drift found (mine, this stretch)
+
+- **🔴 One of my own new tests failed its planted-defect proof and was
+  rewritten.** `test_the_disagreeing_legs_are_NAMED_in_the_doc` searched the
+  whole document for leg names that appear in a dozen other tables, so it passed
+  with the section it guards gutted. Scoped to the section, re-planted, now
+  fails. The module argues that a guard which cannot fail is not a guard; it had
+  exempted itself.
+- **The pre-registration I wrote two hours earlier is invalidated by its own
+  data.** `per_leg` is **3 legs, not 2** — `ict_scalp_eth_15m` was screened in
+  `unanimity2` and I never counted it. So the test is 3→6, one mover is already
+  banked, and **no reachable outcome reaches p < 0.05**. Recorded before the 5m
+  rows land.
+- **A "systematic 2×–26× error across 8 matrix cells" that does not exist.** My
+  regex read the *first* stated gap in each ref, which is the superseded one;
+  all eight already carry the correction. I expected staleness in that direction
+  and my parse obligingly produced it.
+- **Two findings that were already known.** The full-history result and the
+  block-size proposal were both already in
+  `BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE`, the second on stronger grounds
+  (powered *and* specific, not just `u >= 2`). I verified my arithmetic
+  carefully and my novelty not at all.
+- **A negative I nearly published.** An inventory scoped to `/tmp` found no
+  surviving arm logs; a deeper search **with a positive control** found all 61
+  under `runtime_logs/`. A search returning nothing is not proof of absence.
+- **My pings carried invented timestamps** — two labelled 15:40Z and 16:45Z were
+  sent ~15:16Z and ~15:20Z. I was estimating elapsed time rather than reading
+  it. Corrected in the next ping; relay-stamped times from here.
+
+### Gaps not yet verified
+
+- The 5m screen is **arm 1 of 4**; no rows yet, and its verdicts are unread.
+- `fold_offset` is still absent from emitted rows
+  (`BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET`, open). **Deliberately
+  not fixed mid-screen** — the trainer re-checks out per arm, so it would change
+  code between arms. Attribution for this screen is recoverable from each round
+  report.
+- The queue-bypass class is **one script fixed of at least four**; the
+  enumeration is not done (`BL-20260815-RESEARCH-TRAINERS-BYPASS-THE-HEAVY-JOB-QUEUE`).
+- **A second-order result nobody has acted on:** 2 of 22 multi-screen legs have
+  a *mover verdict* that disagrees across screens (~9 %). Every rate in the
+  study is one draw of a statistic with its own dispersion, and no analysis
+  currently accounts for that.
+
+---
+
+## Thirteenth overnight stretch (2026-08-15, ~15:35–15:50Z) — ref resolvability, and a pattern in my own errors
+
+### Work completed
+
+**1. The roll-up now says WHY a cell is blocked.** `base()` collapses
+`blocked:insufficient_lifetime_trades` and `blocked:native-history-thin` into
+one `blocked` — right for the headline arithmetic, wrong for the reader, since
+"exit_head_ml 12 (blocked=12)" invites *"revisit later"* over a set where most
+will not clear on any window. The sub-status is already on the cell; the tool
+stopped dropping it. **Structural** — it prints the status string the matrix
+carries and computes nothing about whether a cell can clear, deliberately,
+because a reachability number baked into printed text is exactly what went stale
+in this file before. Reason rows reconcile exactly against open counts on all
+five levers (2/2, 4/4, 12/12, 1/1, 6/6).
+
+**2. 19 refs cited a document nobody named.** The structural validator reports
+*"all closed live cells carry a ref"* — true, and silent on whether a ref
+**resolves**. Measured: 19 cells cite `memo §5/§6/§6.2/§7.2/§7.3/§8` and not one
+names the document, while the legend uses "memo" generically. The refs are
+correct and were unresolvable without tribal knowledge. The document is
+`docs/research/M20-exit-refinement-2026-07-12.md`; **every cited section was
+verified to exist with a title matching the lever citing it** before anything
+was qualified. Minimal edit — only the first bare `memo §X` per ref gains the
+path, because repeating a 48-character path five times in one ref buries the
+evidence it points at.
+
+**3. A full ref-resolvability sweep over all 413 refs — and it is CLEAN.**
+Recorded so nobody re-runs it: **17 of 17** `BL-`/`MB-` ids cited anywhere in
+the matrix resolve to a filed backlog row; **0** cells carry an unknown
+`tp_geometry`; **0** cited repo paths are missing. The 44 refs carrying no
+pointer of any kind are overwhelmingly `n/a` cells whose ref *is* the reasoning
+("lever not applicable — `fvg_range` has no trail in its exit structure"), which
+is the right shape for that status.
+
+### 🔴 The pattern worth naming: four phantom defects, all mine, all regex
+
+This stretch produced two findings that did not exist, and they were the third
+and fourth of the night:
+
+| # | the "finding" | what it actually was |
+|---|---|---|
+| 1 | 8 of 11 matrix cells state a gap against the wrong bar (2×–26× optimistic) | my regex took the **first** stated gap; all eight carry the correction further down the same ref |
+| 2 | 43 of 49 scripts bypass the trainer queue | matched anything mentioning `LightGBM` / `.fit(` / `python -m ml` — including everything the CLI backstop **already covers**. True answer: 6 of 7 |
+| 3 | 2 cited repo paths do not exist | `(md\|json\|jsonl)` alternates left-to-right, so `.json` matched **inside** `.jsonl` and truncated the path. True answer: 0 missing |
+| 4 | the corpus records `fold_offset: None` on all 33 rows | `.get()` on an **absent** key. The field is never written at all |
+
+**Every one of them pointed the same way — toward a defect — and every one was
+mine.** That is not coincidence: I write the probe *after* forming the
+hypothesis, so a loose pattern finds what I am looking for. Two of the four
+(#1, #2) would have been published as systematic failures of other people's work
+had I not re-checked; #2 would have sent someone to lock scripts already locked
+one layer down.
+
+The habit that caught all four was the same one each time — **re-derive the
+positive before trusting the negative, and re-read the raw field rather than the
+parse**. It is the guard I keep writing into other people's code, and the four
+misses are the argument for applying it to my own probes by default, not after a
+result looks tidy.
+
+### Gaps not yet verified
+
+- The 5m screen is still **arm 1 of 4** (54 min in at 15:42Z, load 1.07,
+  on track for ~16:01Z). No rows yet.
+- The `blocked:` sub-status surfacing has **no test**; it is a display change
+  whose counts I reconciled by hand this session and nothing pins.
+- The 44 pointer-less refs were classified by **reading a sample**, not
+  exhaustively — I checked the shape of a dozen and generalised.
+
+### Addendum (15:55Z) — CI caught a hole in the test I had just written
+
+`pytest-run` failed on `1a3a74f7`, and it was not a flake:
+
+```
+FAILED test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered
+these docs/ files are read as COMMITTED by the suite but would SHORT-CIRCUIT
+pytest-run: m20-fold-dispersion-2026-08-15.md,
+            m20-fold-dispersion-arms-consolidated.jsonl
+```
+
+`test_dispersion_rate_matches_the_doc.py` asserts over those two files as
+committed data, but `pytest-run` short-circuits on a docs-only diff. So a PR
+editing **just the dispersion doc or the arms record** would skip the suite and
+report a green tick having executed nothing — the guard's own docstring records
+that as how PR #9208 merged and left `main` red. **My new drift-guard would have
+been silently unenforceable on exactly the changes it exists to police.**
+
+One-line fix (both paths added to the workflow's relevance grep), proven by
+reverting it and watching the guard fail again.
+
+**Why I missed it locally, since the guard existed and I did run it:** I ran
+`test_pytest_run_filter.py` *before* creating the new test module and never
+re-ran it after. That guard derives its expectation **from the tests on every
+run**, so it cannot catch a new reader until the reader exists. The rule that
+follows: adding a test that reads committed `docs/` means re-running *that*
+guard, not just the new test.
+
+It is the same shape as the four phantom defects above, inverted — there I
+trusted a probe that was too loose; here I trusted a probe result that was
+**stale**. Both are "the check ran" standing in for "the check covered this".

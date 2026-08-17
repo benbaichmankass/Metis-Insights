@@ -174,6 +174,15 @@ EXPECTED_ACTIONS = {
     # 2026-06-19 — one-shot guarded flatten of a single IB exchange position
     # (BL-20260618-RECONCILE-DUP residual: the stranded ib_paper MGC short).
     "flatten-ib-position": "flatten_ib_position_action.sh",
+    # 2026-08-16 — cancel ONE resting IB order by id. NOT a flatten: it places
+    # nothing. Closes BL-20260816-NO-PER-ORDER-IB-CANCEL, where a stranded
+    # ib_paper/MGC market sell was unreachable because the only two options
+    # were flatten-ib-position (which PLACES another order) and
+    # reqGlobalCancel (which strips every protective stop on the account).
+    # IB binds an order to its submitting clientId, so the script connects AS
+    # the owning client; it refuses a protective leg and a trader-band
+    # clientId unless explicitly forced.
+    "cancel-ib-order": "cancel_ib_order_action.sh",
     # 2026-06-29 — Bybit sibling of flatten-ib-position: one-shot guarded
     # reduce-only flatten of a single Bybit exchange position (close an
     # account before a different-account key rotation).
@@ -313,6 +322,7 @@ TIER_2_ACTIONS = {
     "purge-cloudflared",
     "purge-vm-runner",
     "flatten-ib-position",
+    "cancel-ib-order",
     "flatten-bybit-position",
     "flatten-alpaca-position",
     "close-stranded-journal-row",
@@ -687,4 +697,102 @@ def test_every_action_requiring_env_key_also_forwards_it_to_the_vm():
         f"variable UNSET, and it will fail with its own 'requires env_key' "
         f"message — which looks like a bad request rather than a missing wire. "
         f"Add a forwarding branch for it (see the get-env / set-env blocks)."
+    )
+
+
+def _required_env_of_wrapper(script: str) -> set[str]:
+    """Env vars a wrapper declares MANDATORY via ``${VAR:?...}``.
+
+    The wrapper is the ground truth for what the remote shell must receive:
+    ``:?`` is bash's own "unset here is fatal" marker, so a var written that way
+    is, by construction, one the action cannot run without. ``${VAR:-}`` is
+    deliberately NOT matched — an optional var that never arrives degrades, it
+    does not abort.
+    """
+    text = (OPS_DIR / script).read_text()
+    return set(re.findall(r'\$\{([A-Z_][A-Z0-9_]*):\?', text))
+
+
+def _forwarded_env_by_action() -> dict[str, set[str]]:
+    """Vars each action actually prepends onto ``REMOTE_CMD``.
+
+    Parsed from the dispatch step's per-action ``if`` blocks: the condition line
+    names the action(s), the body's ``REMOTE_CMD="VAR=… ${REMOTE_CMD}"``
+    assignments name the vars that cross the SSH boundary.
+    """
+    lines = WORKFLOW.read_text().splitlines()
+    forwarded: dict[str, set[str]] = {}
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if "${ACTION}" in line and re.match(r"\s*(if|elif)\b", line):
+            actions = set(re.findall(r'\$\{ACTION\}"?\s*=\s*"([a-z0-9-]+)"', line))
+            indent = len(line) - len(line.lstrip())
+            j = i + 1
+            while j < len(lines):
+                body = lines[j]
+                if body.strip() == "fi" and (len(body) - len(body.lstrip())) <= indent:
+                    break
+                for m in re.finditer(r'REMOTE_CMD="(.*?)\$\{REMOTE_CMD\}"', body):
+                    for var in re.findall(r"\b([A-Z][A-Z0-9_]*)=", m.group(1)):
+                        for action in actions:
+                            forwarded.setdefault(action, set()).add(var)
+                j += 1
+            i = j
+        i += 1
+    return forwarded
+
+
+def test_every_wrapper_required_env_var_is_forwarded_to_the_vm() -> None:
+    """The GENERAL form of the guard above — derived, not enumerated.
+
+    ``test_every_action_requiring_env_key_also_forwards_it_to_the_vm`` checks
+    exactly one variable name, ``ENV_KEY``, because it was written for the
+    `get-env` incident. That scoping is why it could not catch the recurrence:
+    `cancel-ib-order` (2026-08-16) was allowlisted, tier-classified,
+    script-mapped, validated, registered in EXPECTED_ACTIONS, in notify_run.sh
+    and in the docs — 353 guards green — and its first real dispatch died with
+    ``ACCOUNT_ID: ACCOUNT_ID required``, because no forwarding branch was ever
+    written. Same class, one incident later, one variable name to the left.
+
+    So this asks the WRAPPER what it needs rather than hardcoding a name: any
+    future action whose script declares ``${VAR:?…}`` is covered the moment it
+    is added, with no edit here. The failure it prevents is the nastiest kind of
+    green — the wrapper runs on the VM and aborts with its own usage error,
+    which reads as a caller mistake rather than a wiring gap.
+    """
+    forwarded = _forwarded_env_by_action()
+    assert forwarded, (
+        "parsed no per-action REMOTE_CMD forwarding blocks — did the dispatch "
+        "step change shape? A guard that silently matches nothing is worse "
+        "than no guard."
+    )
+
+    # Positive control: the parse must find a KNOWN-good wiring, so a regex that
+    # quietly matches nothing can never read as 'every action is wired'.
+    assert "ACCOUNT_ID" in forwarded.get("flatten-ib-position", set()), (
+        "parser failed to see flatten-ib-position forwarding ACCOUNT_ID — the "
+        "block-parse is broken, so every 'missing' below would be a false "
+        "negative rather than evidence."
+    )
+
+    checked, missing = 0, {}
+    for action, script in sorted(EXPECTED_ACTIONS.items()):
+        required = _required_env_of_wrapper(script)
+        if not required:
+            continue
+        checked += 1
+        gap = required - forwarded.get(action, set())
+        if gap:
+            missing[action] = sorted(gap)
+
+    assert checked, (
+        "no wrapper declares a `${VAR:?...}` required var — the probe cannot "
+        "find a positive, so its silence proves nothing."
+    )
+    assert not missing, (
+        f"Action(s) declare required env vars their workflow branch never "
+        f"forwards: {missing}. The dispatch will succeed and the wrapper will "
+        f"abort on the VM with its own 'X required' message. Add the var to "
+        f"that action's `REMOTE_CMD=\"…\"` branch in system-actions.yml."
     )

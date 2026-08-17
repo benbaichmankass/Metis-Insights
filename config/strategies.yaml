@@ -1324,6 +1324,32 @@ strategies:
     min_confidence: 0.80
     skip_hours: "0"   # M21 E-2 round 3 skip_h0 (wf 5/6, 2026-07-14) — skip entries triggered on the UTC-midnight 4h bar (daily roll/funding boundary); stacks on the batch-1 depth declare (measured config-exact on top of min_confidence 0.80)
     vol_skip_above_pctl: 0.9   # M21 E-2 round 4 vol_hi90 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the hot-vol top decile (trailing 200-bar pctl); IS net_R 57.2 -> 59.1 (dd 16.6 -> 15.5), OOS 9.2 -> 10.2 (dd 7.3 -> 6.3); measured config-exact on top of min_confidence 0.80 + skip_hours "0". Rollback = delete this line.
+    # M20 trail_decay `decay_arm2R_t2.5` (Tier-3, operator-approved 2026-08-14).
+    # Tighten the trail from 5.0 to 2.5 ATR once the move is 2R-armed.
+    # WHY THESE TWO VALUES: the cell name IS the parameterization —
+    # `--trail-decay-arm-r 2.0` + `--trail-decay-tight-mult 2.5`, where tight is
+    # config-relative (`max(1.5, trail_mult/2)` = 5.0/2 = 2.5). No
+    # `trail_decay_stall_bars`: the arm2R cell declares none, and adding one
+    # would ship a parameterization nothing measured.
+    # EVIDENCE — confirmed on TWO independent windows, the second requested by
+    # the operator before shipping to real money:
+    #   base_OOS 32 (split from the earlier run): PASS, wf 5/6, Δnet_R OOS +1.00
+    #   base_OOS 40 (split 2025-04-12, 2026-08-14): PASS, gate_passed on BOTH
+    #     windows, Δnet_R IS +2.414 / OOS +1.004, ΔmaxDD IS −2.273 / OOS 0.0,
+    #     walk-forward 5/6, tp_cap_pct 0.099 (live parity), non-proxy data.
+    # Measured config-exact ON TOP of the declared stale_stop above
+    # (`declared_levers_present: ['stale_stop']`, nothing dropped, no overrides),
+    # so this is the gain over what is live — not over a bare base.
+    # The sibling `decay_arm1.5R_stall6_t2.5` also passed (wf 4/6) and was NOT
+    # chosen: arm2R generalises better across folds. `decay_stall6_t2.5` and
+    # `decay_stall10_t2.5` both FAIL, so the pass is this parameterization, not
+    # the lever family. OOS base book is profitable (+2.574), so this is not an
+    # improvement-to-a-losing-book case.
+    # ⚠️ REAL MONEY: accounts.yaml routes this leg to bybit_2 (real_money/live)
+    # as well as paper bybit_1/bybit_portfolio.
+    # ROLLBACK: delete these two lines (reverts to the plain 5.0 ATR trail).
+    trail_decay_arm_r: 2.0
+    trail_decay_tight_mult: 2.5
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   trend_donchian_ada_4h:
@@ -1964,9 +1990,24 @@ strategies:
   tlt_pullback_1h:
     # TLT INTRADAY (1h) HTF-pullback (bidirectional) — round 2b completing the
     # intraday ETF sleeve (gld_pullback_1h sibling on the long-duration Treasury
-    # bond ETF; frac 0.5, trail 4.0). PROVENANCE: intraday 1h ETF sweep
-    # 2026-06-20 § 0e — TLT pullback trail4 +50.6R / 2x-fee +34R
-    # (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # bond ETF; frac 0.5, trail 3.0 — see the trail_mult note below).
+    # PROVENANCE (rollout): intraday 1h ETF sweep 2026-06-20 § 0e — TLT pullback
+    # trail4 +50.6R / 2x-fee +34R
+    # (see docs/research/expansion-backtesting-research-2026-06-20.md). That
+    # figure is the ORIGINAL ROLLOUT evidence and is SUPERSEDED for trail_mult:
+    # the block shipped at 4.0 on 2026-06-21 (#4069) and was moved to 3.0 on
+    # 2026-07-12 in PR #6229, an operator-approved Tier-3 exit-lever package
+    # whose commit names "mes/mhg/tlt trail3" as one of 8 walk-forward cells
+    # (TLT-1h trail3 PASS, m20_fleet sweep). In that SAME commit mgc/xauusd went
+    # 3.0 -> 4.0, so trail3 here was a per-leg choice, not a blanket.
+    # Comment corrected 2026-08-16 (operator-approved): it had read "trail 4.0"
+    # since the 2026-07-12 flip, and a /system-review session read the stale
+    # prose as drift and nearly reverted an operator-approved cell. FIELD BEATS
+    # COMMENT. trail4 is `passed_unshipped` and deliberately HELD (2026-08-14
+    # operator decision (f), re-confirmed 2026-08-16): it is PATH B
+    # (gate_passed_OOS false, maxdd_worse) over an OOS base book that is
+    # unprofitable on all three splits tested, so it improves a LOSING book.
+    # Revisit only if base_net_r_OOS turns positive — NOT by re-running a sweep.
     # Round 2b completing the intraday ETF sleeve (operator-approved, risk_pct
     # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
     # SL/TP); the builder gates on the US cash session (market_hours us_equity).

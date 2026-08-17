@@ -1166,3 +1166,237 @@ def test_the_split_is_part_of_the_merge_identity():
         != ce.measurement_key({**base, "split": None})
     assert ce.measurement_key({**base, "split": "2025-07-01"}) \
         == ce.measurement_key({**base, "split": "2025-07-01"})
+
+
+# ---------------------------------------------------------------------------
+# `tp_cap_pct` records what was REQUESTED. Did it BIND?
+# ---------------------------------------------------------------------------
+
+def _tp_doc(leg_extra: dict) -> dict:
+    return {
+        "generated_at": "2026-08-13T12:00:00+00:00",
+        "split_fallback_date": "2025-07-01", "split_mode": "oos-trades",
+        "split_target_oos": 25, "tp_cap_pct": 0.099,
+        "verdicts": {"trend_donchian_eth_prop": {
+            "proxy": False, "split": "2024-11-02", **leg_extra,
+            "levers": {"vol_trail": [{"cell": "vt_hot80_t1.8"}]}}}}
+
+
+def test_the_row_says_how_far_the_capped_tp_actually_SAT():
+    """`tp_cap_pct: 0.099` only establishes that the flag was PASSED.
+
+    `trend_donchian_eth_prop` came back byte-identical at `tp_cap_pct: 0.099`
+    and at `null` — same base book, all seven shared cells to 4dp. Two
+    explanations were proposed and BOTH were refuted (the flag is inert: no,
+    a direct positive control moves 57 trades to 127; `null` just predates the
+    field: no, 464 rows carry 0.099 with earlier timestamps). What survives is
+    that the geometry behind a `null` row is UNDETERMINED from the corpus —
+    see BL-20260813-TPCAP-REQUESTED-NOT-APPLIED. The sweep already measures
+    `tp_r_effective_*`; this hop dropped it, which is why the question had to
+    be argued from run logs and git history instead of read off a row.
+    """
+    ce = _corpus_extract_module()
+    rows = ce.rows_from_verdicts(_tp_doc({"live_tp_reach_r": {
+        "IS": {"n": 245, "median": 1.62, "min": 0.41, "max": 3.90},
+        "OOS": {"n": 65, "median": 1.71, "min": 0.55, "max": 3.10}}}), "run1")
+    assert rows
+    r = rows[0]
+    assert r["live_tp_reach_r_n_IS"] == 245
+    assert r["live_tp_reach_r_median_IS"] == 1.62
+    assert r["live_tp_reach_r_min_OOS"] == 0.55
+    assert r["live_tp_reach_r_max_OOS"] == 3.10
+
+
+def test_reach_zero_and_reach_unknown_are_not_the_same_row():
+    """`n: 0` = the cap was on and reached nothing. `n: None` = we did not look.
+
+    Collapsing them would let a cap that never applied read as a cap that
+    applied and bound on no trade. That distinction is exactly what the
+    eth_prop investigation could not make from the corpus, and why it ended
+    with the geometry undetermined rather than decided either way.
+    """
+    ce = _corpus_extract_module()
+    looked = ce.rows_from_verdicts(_tp_doc({"live_tp_reach_r": {
+        "IS": {"n": 0, "median": None, "min": None, "max": None}}}), "run1")[0]
+    never = ce.rows_from_verdicts(_tp_doc({}), "run1")[0]
+    assert looked["live_tp_reach_r_n_IS"] == 0
+    assert never["live_tp_reach_r_n_IS"] is None
+    assert looked["live_tp_reach_r_n_IS"] != never["live_tp_reach_r_n_IS"]
+    # Both carry the SAME requested cap — which is the whole point: the
+    # requested value cannot tell these two rows apart.
+    assert looked["tp_cap_pct"] == never["tp_cap_pct"] == 0.099
+
+
+def test_the_reach_is_NOT_part_of_the_merge_identity():
+    """It is a measurement OF the row, not a different measurement.
+
+    Two runs of one cell that disagree on how far the TP sat must supersede
+    each other, not accumulate as two rows — the sibling of why
+    `regime_gate_delta` is deliberately outside the key.
+    """
+    ce = _corpus_extract_module()
+    base = {"kind": "cell", "leg": "L", "cell": "c", "split": "2025-07-01",
+            "tp_cap_pct": 0.099}
+    assert ce.measurement_key({**base, "live_tp_reach_r_median_IS": 1.6}) \
+        == ce.measurement_key({**base, "live_tp_reach_r_median_IS": 2.9})
+
+
+# ------------------- the per-era p80 must never print a percentile bare
+def test_era_p80_states_are_never_collapsed():
+    """`PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS` half (2): the sweep reports the
+    p80 PER ERA so a pooled arm is never read as describing a regime the live
+    book samples.
+
+    The failure this pins is the one the row was opened about, one level down:
+    a per-era figure that cannot say *why* it is missing. "we looked and there
+    were too few winners", "we could not date these rows", and "this leg is so
+    short that recent-era IS pooled" are three different facts, and a bare
+    `null` (or worse, a number over an unstated `n`) collapses them into one.
+    """
+    # THIN vs COMPUTED, and `n` present on both.
+    rep = _mod._era_report({"2020": [1.0] * _mod._ERA_MIN_WINNERS,
+                            "2021": [2.0] * (_mod._ERA_MIN_WINNERS - 1),
+                            "undated": [3.0] * 50})
+    assert rep["2020"]["state"] == "computed" and rep["2020"]["p80"] is not None
+    assert rep["2021"]["state"] == "thin" and rep["2021"]["p80"] is None, \
+        "a per-era bucket under the floor printed a percentile anyway"
+    assert rep["undated"]["state"] == "undated", \
+        "undated rows were folded into a calendar year they cannot be placed in"
+    assert all("n" in v for v in rep.values()), \
+        "a per-era p80 shipped without its denominator"
+
+    # A year with no winners has NO row -- inventing an n=0 entry would assert
+    # a measurement that was never taken.
+    assert "2019" not in rep
+
+
+def test_recent_era_reports_its_span_and_distinguishes_all_years():
+    """The recent-era window must publish the years it actually used, and a leg
+    whose window had to swallow every year must say so rather than quietly
+    reporting a number equal to pooled.
+
+    "recent == pooled because the leg is short" and "recent == pooled because
+    volatility was stable" are opposite findings; an equal number alone cannot
+    tell them apart, and the row's resolution criterion is written against
+    exactly this distinction.
+    """
+    n = _mod._ERA_MIN_WINNERS
+    # Newest year alone clears the floor -> a genuine recent-era contrast.
+    hot = {"2020": [1.0] * n, "2021": [1.0] * n, "2025": [9.0] * n}
+    pooled = _mod._percentile_80([v for xs in hot.values() for v in xs])
+    rec = _mod._recent_era_p80(hot, pooled)
+    assert rec["state"] == "computed" and rec["years"] == ["2025"], rec
+    assert rec["n"] == n and rec["p80"] is not None
+    assert rec["delta_vs_pooled"] is not None
+
+    # One short year -> the window consumed everything.
+    only = _mod._recent_era_p80({"2025": [2.0] * n}, 2.0)
+    assert only["state"] == "all_years", \
+        "a leg with a single year reported a 'recent era' contrast it cannot have"
+
+    # Under the floor even after widening, and nothing datable at all.
+    assert _mod._recent_era_p80({"2025": [2.0] * 2}, 2.0)["state"] == "thin"
+    assert _mod._recent_era_p80({"undated": [2.0] * 99}, 2.0)["state"] \
+        == "undated_only", \
+        "undated rows were ordered in time to build a recency window"
+
+
+def test_pooled_and_era_p80_share_one_estimator():
+    """Both figures must come from the same percentile function.
+
+    The report exists so a reader can compare pooled against recent-era. Two
+    independently-written index computations would make that a comparison of
+    two ESTIMATORS rather than of two populations -- the difference would be
+    real-looking and mean nothing.
+    """
+    import ast
+    src = (REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py").read_text()
+    tree = ast.parse(src)
+    for name in ("winner_mfe_p80", "_era_report", "_recent_era_p80"):
+        fn = next(n for n in ast.walk(tree)
+                  if isinstance(n, ast.FunctionDef) and n.name == name)
+        code = ast.unparse(fn)
+        assert "_percentile_80" in code, \
+            f"{name} does not use the shared p80 estimator"
+        assert "0.8 * (len(" not in code, \
+            f"{name} re-derives the percentile index instead of calling it"
+
+
+def test_era_block_never_feeds_the_arm():
+    """The per-era figures are REPORTING. Only the pooled p80 may become an arm.
+
+    Swapping `--trail-decay-arm-r` to a recent-era percentile would be a Tier-3
+    change to a live parameter; this row is scoped to reporting, and the
+    separation has to be visible in the code rather than only in the docstring.
+    """
+    import ast
+    src = (REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py").read_text()
+    tree = ast.parse(src)
+    main_fn = next(n for n in ast.walk(tree)
+                   if isinstance(n, ast.FunctionDef) and n.name == "main")
+    code = ast.unparse(main_fn)
+    assert "'--trail-decay-arm-r', str(p80)" in code, \
+        "the arm is no longer built from the pooled p80 scalar"
+    for era_key in ("recent_era'][", 'recent_era"]['):
+        assert f"str(p80_detail[{era_key}" not in code
+    assert "--trail-decay-arm-r', str(p80_detail" not in code, \
+        "an era-derived percentile is being fed to the live arm flag"
+
+
+def test_winner_mfe_p80_end_to_end_against_a_stub_harness(tmp_path, monkeypatch):
+    """Exercise the REAL function, not just its pure helpers.
+
+    Everything above tests `_era_report` / `_recent_era_p80` / `_percentile_80`
+    in isolation, which cannot catch the assembly: a wrong key in the returned
+    dict, losers leaking into a bucket, or undated rows reaching the recency
+    window. `winner_mfe_p80` shells out to a harness, so the harness is stubbed
+    -- the stub emits the schema `--emit-trades` really writes.
+    """
+    harness = tmp_path / "stub_harness.py"
+    harness.write_text(
+        "import argparse, json, pathlib\n"
+        "p = argparse.ArgumentParser()\n"
+        "p.add_argument('--emit-trades'); p.add_argument('--json')\n"
+        "p.add_argument('--end')\n"
+        "a, _ = p.parse_known_args()\n"
+        "rows = []\n"
+        # Quiet early years, hot recent year -> pooled must not equal recent.
+        # THE HOT YEAR IS DELIBERATELY UNDER 20% OF THE SAMPLE. At 20/81 the
+        # pooled p80 lands INSIDE the hot year and the two figures coincide --
+        # which is not a bug, it is the effect being reported: whether a pooled
+        # percentile describes the recent regime depends on that regime's SHARE
+        # of the pooled window. Here the hot year is 12/73, so the pooled p80
+        # sits in the quiet regime and describes a book the recent era is not.
+        "for yr, mfe, n in (('2021', 1.5, 20), ('2022', 1.5, 20),\n"
+        "                   ('2023', 1.5, 20), ('2025', 9.0, 12)):\n"
+        "    for i in range(n):\n"
+        "        rows.append({'entry_time': yr + '-03-01 00:00:00',\n"
+        "                     'net_r': 1.0, 'mfe_r': mfe})\n"
+        # A LOSER with a huge MFE: must never reach any bucket.
+        "rows.append({'entry_time': '2025-04-01 00:00:00',\n"
+        "             'net_r': -1.0, 'mfe_r': 99.0})\n"
+        # An UNDATED winner: counted, bucketed, but not orderable in time.
+        "rows.append({'entry_time': 'not-a-date', 'net_r': 1.0, 'mfe_r': 5.5})\n"
+        "pathlib.Path(a.emit_trades).write_text("
+        "'\\n'.join(json.dumps(r) for r in rows))\n"
+        "if a.json: pathlib.Path(a.json).write_text('{}')\n")
+    monkeypatch.setattr(_mod, "REPO", tmp_path)
+
+    out = _mod.winner_mfe_p80("stub_harness.py", [], "2026-01-01")
+    assert out is not None, "the stub emitted 73 winners and the arm abstained"
+
+    # 72 dated winners + 1 undated; the loser is excluded from BOTH the pooled
+    # count and every bucket, however large its MFE.
+    assert out["n"] == 73, out["n"]
+    assert 99.0 not in [b["p80"] for b in out["by_era"].values()]
+    assert out["by_era"]["2025"]["n"] == 12, \
+        "a losing trade leaked into a per-era bucket"
+
+    assert out["by_era"]["undated"]["state"] == "undated"
+    assert out["recent_era"]["years"] == ["2025"], out["recent_era"]
+    assert "undated" not in out["recent_era"]["years"]
+
+    # The whole point: pooled and recent-era must be able to disagree.
+    assert out["recent_era"]["p80"] != out["p80"], \
+        "pooled and recent-era coincided on a population built to differ"
+    assert out["recent_era"]["delta_vs_pooled"] is not None

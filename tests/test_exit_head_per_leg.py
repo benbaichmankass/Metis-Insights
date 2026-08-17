@@ -242,3 +242,262 @@ def test_the_vintage_denominator_equals_the_declared_lever_set():
     matrix = json.loads(
         (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
     assert set(matrix["lever_columns"]) <= rollup.GEOMETRY_SENSITIVE_LEVERS
+
+
+# ------------------------------------------- per-lever cutover + tp_geometry
+#
+# ONE CUTOVER DATE WAS A WRONG ANSWER SHAPED LIKE A RIGHT ONE
+# (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP). `GEOMETRY_CUTOVER` is
+# when the LEVER-SWEEP harness learned to place the live capped TP;
+# `exit_head_ml` rides `m20_exit_head_round.py`, whose own fix landed four days
+# later. Grading both against one date cleared twelve cells that were still
+# measured on a no-take-profit book.
+#
+# And the date is only a PROXY. It failed outright on the three SHIPPED
+# `trend_donchian*` 1h cells: their `RE-SWEPT 2026-08-14` ref is a genuine
+# measurement on that date which re-read the EXISTING round dirs, so the cell is
+# fresh by date and stale by geometry simultaneously. No cutover date separates
+# those — hence `tp_geometry`, a declared measurement that overrides the date in
+# both directions.
+
+def _ehm_matrix(rows):
+    return {"lever_columns": ["exit_head_ml"], "legend": {}, "rows": rows}
+
+
+def _ehm_row(strategy, status="shipped", ref="swept 2026-08-11", geom=None):
+    cell = {"status": status, "ref": ref}
+    if geom is not None:
+        cell["tp_geometry"] = geom
+    return {"strategy": strategy, "symbol": "X", "tf": "1h",
+            "execution": "live", "exit_head_ml": cell}
+
+
+def test_exit_head_ml_uses_its_own_later_cutover():
+    """CAN-FAIL CONTROL: the same date, stale on one lever and not the other.
+
+    Pins the mechanism rather than the outcome — if the per-lever map is
+    dropped, this fails instead of the caveat quietly under-reporting.
+    """
+    assert rollup.cutover_for("exit_head_ml") > rollup.cutover_for("stale_stop")
+    date = "swept 2026-08-11"          # after the sweep fix, before the driver fix
+    ehm = rollup.evidence_vintage(_ehm_matrix([_ehm_row("trend_donchian_eth_4h",
+                                                        ref=date)]))
+    other = rollup.evidence_vintage(_matrix([_row("trend_donchian_eth_4h",
+                                                  ref=date)]))
+    assert ehm["pre_cutover"] == 1, "exit_head_ml must grade against its own fix"
+    assert other["post_cutover"] == 1, "the default lever must be unaffected"
+
+
+def test_an_unlisted_lever_falls_back_to_the_default_cutover():
+    """The map is an override list, not the source of truth for every lever."""
+    assert rollup.cutover_for("a_lever_that_does_not_exist") == \
+        rollup.GEOMETRY_CUTOVER
+
+
+def test_declared_no_take_profit_beats_a_fresh_date():
+    """The measured fact overrides the proxy. This is the case a date CANNOT
+    catch: a real re-sweep, dated today, that re-read a no-TP round."""
+    v = rollup.evidence_vintage(_ehm_matrix([
+        _ehm_row("trend_donchian_eth_4h", ref="RE-SWEPT 2026-09-30",
+                 geom=rollup.GEOMETRY_NO_TP)]))
+    assert v["pre_cutover"] == 1
+    assert [d[1] for d in v["stale_decisions"]] == ["exit_head_ml"]
+
+
+def test_declared_live_parity_beats_an_old_date():
+    """Overrides in BOTH directions, or it is a one-way alarm rather than a
+    statement of fact — a round that DID place the live TP is not stale just
+    because it ran before the fix date."""
+    v = rollup.evidence_vintage(_ehm_matrix([
+        _ehm_row("trend_donchian_eth_4h", ref="swept 2026-07-01",
+                 geom=rollup.GEOMETRY_LIVE_PARITY)]))
+    assert v["stale_decisions"] == []
+    assert v["pre_cutover"] == 0
+
+
+def test_an_undeclared_geometry_is_counted_not_assumed_clean():
+    """'We did not look' must stay visible beside the date-graded verdict."""
+    v = rollup.evidence_vintage(_ehm_matrix([_ehm_row("trend_donchian_eth_4h")]))
+    assert v["geometry_undeclared"] == 1
+    v2 = rollup.evidence_vintage(_ehm_matrix([
+        _ehm_row("trend_donchian_eth_4h", geom=rollup.GEOMETRY_NO_TP)]))
+    assert v2["geometry_undeclared"] == 0
+
+
+DONCHIAN_1H_LEGS = ("trend_donchian", "trend_donchian_eth",
+                    "trend_donchian_sol")
+
+# Operator decision (b), 2026-08-14. The live-parity re-sweep (relay #9206)
+# graded these three: `trend_donchian` auc 0.5403 (beats_actual 14/23) and
+# `trend_donchian_sol` beats_hard 12/23 — SHORT BY 4 — did NOT reproduce, while
+# `trend_donchian_eth` (auc 0.6079, 16/23 + 16/23) did.
+#
+# BOTH statuses mean the head is still LIVE on the leg; the operator chose to
+# RECORD the lapse, not to disable anything. `shipped_gate_failed` is the
+# legend's status for "LIVE in config, but a LATER re-sweep failed its gate and
+# the operator chose to HOLD" — `honest_negative` would be wrong (it implies NOT
+# live) and `shipped` overclaims (it asserts a validation that no longer
+# reproduces).
+EXPECTED_DONCHIAN_1H_STATUS = {
+    "trend_donchian": "shipped_gate_failed",
+    "trend_donchian_eth": "shipped",
+    "trend_donchian_sol": "shipped_gate_failed",
+}
+
+
+def test_the_three_shipped_donchian_1h_cells_were_re_swept_not_merely_unflagged():
+    """The real matrix, not a fixture.
+
+    HISTORY, because the assertion INVERTED and an inverted assertion is the
+    easiest place to launder a regression. These three change exit behaviour on
+    real money today, and were graded on a round measured to contain zero
+    take-profit exits; they evaded the stale list for two days because the only
+    test was a date. This test used to assert they WERE stale.
+
+    They were re-swept at live parity on 2026-08-14 (trainer relay #9206), which
+    is precisely the remedy "stale" was asking for — so they are correctly no
+    longer stale, and asserting staleness now would pin a defect as a
+    requirement.
+
+    But **"not stale" is not "fine"**: 2 of the 3 did NOT reproduce at live
+    parity. So the test asserts the two things that could each silently undo the
+    work — that they left the stale list by being MEASURED rather than by being
+    deleted, reopened, or marked n/a; and that the measurement is still recorded
+    on the cell.
+
+    UPDATED 2026-08-14 — operator decision (b) landed, and this test was written
+    while it was still pending. It asserted all three were `shipped`, which was
+    the correct PRE-decision state and became wrong the moment the decision was
+    made: the two that did not reproduce moved to `shipped_gate_failed`, the
+    status the legend defines as *"LIVE in config, but a LATER re-sweep failed
+    its gate and the operator chose to HOLD"*.
+
+    The assertion is now STRONGER, not weaker. It pins the decision itself:
+    `trend_donchian` and `trend_donchian_sol` must be `shipped_gate_failed`
+    (recording the hold) and `trend_donchian_eth` — the one that DID reproduce —
+    must still be `shipped`. Loosening this to "any live-acknowledging status"
+    would let a later edit silently swap which legs are held, which is exactly
+    the substitution this file exists to catch. Both statuses assert the head is
+    still LIVE on the leg; neither means anything was disabled.
+    """
+    matrix = json.loads(
+        (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
+    v = rollup.evidence_vintage(matrix)
+
+    flagged = {leg for leg, lever, *_ in v["stale_decisions"]
+               if lever == "exit_head_ml"}
+    assert flagged.isdisjoint(DONCHIAN_1H_LEGS), flagged
+
+    rows = {r["strategy"]: r for r in matrix["rows"]}
+    for leg in DONCHIAN_1H_LEGS:
+        row = rows.get(leg)
+        assert row is not None, f"{leg} vanished from the matrix"
+        # Still live — the caveat is not resolved by the re-sweep, only
+        # re-based. If this flips, the exemption below stops describing the
+        # same situation and this test must be re-read.
+        assert row.get("execution") == "live", leg
+        cell = row.get("exit_head_ml") or {}
+        # Per-leg, matching operator decision (b): the two that did not
+        # reproduce record the hold; the one that did stays `shipped`. Named
+        # explicitly so a later edit cannot swap WHICH legs are held while
+        # keeping the test green.
+        expected = EXPECTED_DONCHIAN_1H_STATUS[leg]
+        assert rollup.base(cell.get("status")) == expected, (
+            leg, cell.get("status"), f"expected {expected}")
+        # THE LOAD-BEARING PAIR. `live_parity` is what makes `evidence_vintage`
+        # return stale=False, so without the ref it is an unbacked declaration
+        # that silences the flag — the cheapest possible way to clear a stale
+        # decision without doing the sweep.
+        assert cell.get("tp_geometry") == rollup.GEOMETRY_LIVE_PARITY, leg
+        assert "RE-SWEPT AT LIVE PARITY" in (cell.get("ref") or ""), leg
+
+
+# ---------------------------------------------------------------------------
+# resolve_data: the PROXY map must not SHADOW native data for a consumer that
+# refuses proxies (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA). The map is
+# documented as being "for futures without their own file", but it was applied
+# unconditionally — so `m20_exit_head_round`, which SKIPs any proxied leg
+# ("native history required for head training"), could never see a native pull.
+# Depth-vs-fidelity is a real trade-off, so these pin BOTH directions: the
+# lever-sweep default must stay proxy-first (the proxy is the deeper series).
+
+def _sweep():
+    spec = importlib.util.spec_from_file_location(
+        "m20_fleet_exit_sweep",
+        REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+sweep = _sweep()
+
+
+def test_mgc_is_proxied_to_gc_f_so_the_fixture_is_meaningful():
+    """Denominator for the two tests below: if MGC ever stops being proxied
+    they would pass vacuously, testing nothing."""
+    assert sweep.PROXY_DATA.get("MGC") == "GC_F"
+
+
+def test_the_default_still_prefers_the_deeper_proxy_series(tmp_path):
+    """The proxy IS the deeper series, at 1d as well as intraday.
+
+    Measured on the trainer 2026-08-14: genuine native IBKR CONTRACT history
+    is 940 rows (MGC), 1,043 (MHG), 677 (MES) against proxies of 2,512 /
+    2,513 / 2,514 — roughly 2.7x. Preferring native by default would collapse
+    the 2021..2026 fold structure.
+
+    An earlier revision of this test asserted the OPPOSITE, on a 2,919-row
+    `data/MGC_1d.csv` that looked native and was not: it was
+    `datasets-out/market_raw/MGC/1d`, built by `build_equity_daily MGC "GC=F"`
+    from yfinance, with 2,511 of 2,512 overlapping closes IDENTICAL to
+    `GC_F_1d.csv`. The filename asserted a provenance the content lacked."""
+    (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
+    assert proxy is True
+    assert Path(path).name == "GC_F_1d.csv"
+
+
+def test_prefer_native_reaches_a_native_file_the_default_cannot_see(tmp_path):
+    """The head-training path. Without this the refusal below is
+    unconditional for every symbol in PROXY_DATA, whatever is on disk."""
+    (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path, prefer_native=True)
+    assert proxy is False, "native data present but still reported as proxied"
+    assert Path(path).name == "MGC_1d.csv"
+
+
+def test_prefer_native_falls_back_to_the_proxy_when_no_native_exists(tmp_path):
+    """prefer_native is a PREFERENCE, not a requirement — a leg with only
+    proxy data must still resolve (and still be flagged proxied)."""
+    (tmp_path / "GC_F_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path, prefer_native=True)
+    assert proxy is True
+    assert Path(path).name == "GC_F_1d.csv"
+
+
+def test_a_missing_proxy_file_still_reads_data_missing_by_default(tmp_path):
+    """The default must NOT gain a native fallback either: `data_missing` is
+    more honest than silently switching that leg onto a shallower series."""
+    (tmp_path / "MGC_1d.csv").write_text("timestamp,open,high,low,close,volume\n")
+    path, proxy, _ = sweep.resolve_data("MGC", "1d", tmp_path)
+    assert path is None
+    assert proxy is True
+
+
+def test_a_symbol_with_no_proxy_is_unaffected_in_both_modes(tmp_path):
+    """Crypto legs have no PROXY_DATA entry, so neither mode may change them."""
+    (tmp_path / "BTCUSDT_1h.csv").write_text("timestamp,open,high,low,close,volume\n")
+    for kw in ({}, {"prefer_native": True}):
+        path, proxy, resample = sweep.resolve_data("BTCUSDT", "1h", tmp_path, **kw)
+        assert proxy is False and resample is None
+        assert Path(path).name == "BTCUSDT_1h.csv"
+
+
+def test_the_exit_head_round_asks_for_native_first():
+    """The wiring, not just the capability: the refusal and the preference
+    must live in the same call or the cells stay unreachable."""
+    src = (REPO / "scripts" / "research" / "m20_exit_head_round.py").read_text()
+    assert "prefer_native=True" in src

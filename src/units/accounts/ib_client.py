@@ -58,8 +58,9 @@ import os
 import threading
 import time
 from datetime import datetime, time as dt_time, timezone
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from src.runtime import ib_trading_hours
 from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
 
 logger = logging.getLogger(__name__)
@@ -296,6 +297,36 @@ def _round_to_tick(price: float, tick: float = MES_TICK_SIZE) -> float:
     return round(round(float(price) / tick) * tick, max(ndigits, 4))
 
 
+def _protective_leg_side(order_type: Optional[str]) -> Optional[str]:
+    """Classify an IB order type as the ``stop`` side, the ``target`` side, or
+    neither — the axis :meth:`IBClient.protection_coverage` was missing.
+
+    Protection is TWO-SIDED and the two sides are not interchangeable: a stop
+    bounds the loss, a target realises the gain. Grading them together (the
+    old ``"STP" in t or "LMT" in t or "TRAIL" in t`` test) made a position
+    holding a full stop and NO take-profit read as fully covered, so the
+    broker-naked sweep never fired on a stripped target — measured on
+    ``ib_paper`` 2026-08-16 with ZERO limit orders on the whole account
+    (BL-20260816-COVERAGE-IS-ONE-SIDED).
+
+    **Order matters: check the stop family FIRST.** ``"STP LMT"`` (a
+    stop-limit) contains the substring ``LMT`` while being a STOP, so a
+    naive ``LMT``-first test would file every stop-limit as a take-profit and
+    report a target that does not exist — the inverse of the bug being fixed
+    and strictly worse, because it would manufacture false coverage.
+
+    Returns ``"stop"`` / ``"target"`` / ``None`` (not a protective leg).
+    """
+    t = str(order_type or "").strip().upper()
+    if not t:
+        return None
+    if "TRAIL" in t or t.startswith("STP") or t in ("STOP", "STOP LIMIT"):
+        return "stop"
+    if "LMT" in t or t == "LIMIT":
+        return "target"
+    return None
+
+
 class IBClient:
     """Minimal Interactive Brokers client surface for MES futures.
 
@@ -397,6 +428,9 @@ class IBClient:
         self._ib_factory = _ib_factory
         self._ib: Any = None
         self._contract: Any = None
+        # Venue-session cache: symbol -> (expiry_monotonic, hours_str, tz_id).
+        # The raw STRINGS are cached, never the verdict — see _venue_session.
+        self._session_hours: Dict[str, Tuple[float, Optional[str], Optional[str], Optional[str]]] = {}
         self._loop: Any = None  # persistent asyncio loop the IB binds to
         # Circuit-breaker state (restart-loop incident, 2026-06-05). While
         # monotonic() < _breaker_open_until, connect() fast-fails without
@@ -1339,20 +1373,46 @@ class IBClient:
 
         ib = self.connect()
         sym = str(order.get("symbol") or self.symbol or "").upper()
-        # Accumulation guard (BL-20260624-MHG-FLIP). Cancel any resting protective
-        # legs for this symbol BEFORE placing the fresh OCA pair. place_protective
-        # is reached on every re-arm — orphan adopt/reattach
+        # Accumulation guard (BL-20260624-MHG-FLIP). Cancel resting protective
+        # legs BEFORE placing the fresh OCA pair. place_protective is reached on
+        # every re-arm — orphan adopt/reattach
         # (_rearm_broker_protection_after_recovery) and naked-autoprotect — and
-        # each call makes a NEW independent OCA group (oca-protect-<reqId>). Without
-        # a pre-cancel, repeated re-arms across an orphan flap STACK multiple live
-        # OCA brackets on the same position; their stops later fire together and
-        # FLIP a (by-then flat) position into a reverse orphan — the MHG long that
-        # closed clean then reappeared as a short (2026-06-24). This mirrors the
-        # cancel-then-re-arm discipline already in modify_protective(); making
-        # place_protective itself idempotent fixes every direct caller. Best-effort:
-        # a cancel failure must not block arming protection on a live naked position.
+        # without a pre-cancel, repeated re-arms across an orphan flap STACK
+        # multiple live OCA brackets on the same position; their stops later fire
+        # together and FLIP a (by-then flat) position into a reverse orphan — the
+        # MHG long that closed clean then reappeared as a short (2026-06-24).
+        #
+        # SCOPE (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY, 2026-08-14).
+        # This used to cancel EVERY resting order on the symbol root, then arm a
+        # single OCA sized to the CALLING trade's qty. IB nets per contract per
+        # account, so on a contract several strategies trade that silently
+        # DESTROYED the siblings' protection: three MGC trades, one goes naked,
+        # the re-arm wipes the other two trades' take-profit legs and replaces
+        # them with one bracket covering only its own qty. The siblings' TPs then
+        # never fire, and the boolean naked check reported PROTECTED afterwards
+        # because a leg (the new one) existed. That is the mechanism behind a
+        # take-profit that was reached and never executed.
+        #
+        # With a DETERMINISTIC per-trade OCA group (``oca_key``) the accumulation
+        # the pre-cancel exists to prevent cannot happen in the first place — a
+        # re-arm for the same trade reuses the same group name — so cancelling
+        # only THIS trade's group fully serves the original purpose without
+        # touching a sibling's. When no key is supplied the legacy symbol-wide
+        # cancel still runs (a caller with no trade identity cannot scope), and
+        # says so loudly, because that path is the one that can strand a sibling.
+        oca_key = str(order.get("oca_key") or "").strip()
+        oca_group = f"oca-protect-t{oca_key}" if oca_key else None
         try:
-            self._cancel_resting_orders_for_symbol(ib, sym)
+            if oca_group:
+                self._cancel_oca_group_for_symbol(ib, sym, oca_group)
+            else:
+                logger.warning(
+                    "place_protective: no oca_key for %s — falling back to the "
+                    "symbol-wide pre-cancel, which CAN cancel a sibling trade's "
+                    "protective legs on a netted contract "
+                    "(BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY)", sym,
+                )
+                self._cancel_resting_orders_for_symbol(ib, sym)
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "place_protective: pre-cancel of resting %s legs failed "
@@ -1371,7 +1431,12 @@ class IBClient:
         try:
             # OCA group ties the legs together with no parent: when one
             # fills, IBKR cancels the remaining leg (ocaType=1).
-            oca_group = f"oca-protect-{ib.client.getReqId()}"
+            # Deterministic per-trade group when the caller supplied a key, so a
+            # re-arm for the SAME trade reuses the SAME group (idempotent, and
+            # scopeable) instead of minting a fresh one each time. The reqId
+            # fallback preserves the legacy behaviour for keyless callers.
+            if oca_group is None:
+                oca_group = f"oca-protect-{ib.client.getReqId()}"
             legs = []
             if tp_price is not None:
                 tp = LimitOrder(reverse, qty, tp_price)
@@ -1457,6 +1522,172 @@ class IBClient:
         except Exception as exc:  # noqa: BLE001
             return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
         return self.place_protective({**order, "symbol": sym})
+
+    # ------------------------------------------------------------------
+    # Venue session — "can this venue fill an order right now?"
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _close_wants_outside_rth(sym: str) -> bool:
+        """Should this symbol's CLOSE transmit ``outsideRth=True``?
+
+        **Futures yes, equities no** — and the session gate grades each on the
+        matching field, so the verdict always describes the state the order acts
+        on (see :meth:`_venue_session`).
+
+        For a FUTURE the electronic session IS the market: MGC trades ~23h and
+        its RTH window is a few hours, so `outsideRth=False` means a close
+        placed at 03:00 ET is HELD until the next RTH open. Wanting a
+        risk-reducing order to fill there is the point of this whole change.
+
+        For an EQUITY the opposite holds, and the Alpaca precedent says so
+        explicitly: `_close_extended_hours` does NOT send a market order
+        pre/post-market, it sends a **marketable LIMIT**, because an equity
+        market order into a thin extended book is exactly the fill you do not
+        want. Setting `outsideRth=True` on an IB equity market close would
+        contradict the reasoning this change cites as its own precedent. So a
+        STK close keeps the library default and is instead graded on
+        ``liquidHours`` — outside RTH it DEFERS (bracket left armed) rather
+        than transmitting an order that would be held or filled badly.
+
+        An unresolvable symbol falls back to the futures answer, matching
+        ``ib_instrument_spec``'s own legacy default and this client's futures
+        origin; the gate is fail-permissive either way.
+        """
+        try:
+            return ib_instrument_spec(sym).sec_type != "STK"
+        except Exception:  # noqa: BLE001
+            return True
+
+    def _contract_hours(
+        self, ib: Any, sym: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Fetch ``(tradingHours, liquidHours, timeZoneId)``, or all ``None``.
+
+        Bounded exactly like :meth:`_req_all_open_orders` — prefer the async
+        variant under an explicit timeout on this client's owned, idle loop,
+        with the blocking call as the last-resort fallback. This runs on the
+        live close path, and an unbounded ``reqContractDetails`` against a
+        wedged Gateway is the shape of both June 2026 wedges: a call that is
+        individually cheap on a healthy gateway and unbounded on a sick one.
+
+        Both hours fields are returned because which one is AUTHORITATIVE
+        depends on the instrument (see :meth:`_close_wants_outside_rth`), and
+        fetching once for both is strictly cheaper than two lookups.
+
+        Never raises. A failure returns all ``None``, which the caller grades as
+        ``unknown`` — *we could not look* — and therefore proceeds.
+        """
+        timeout = _env_float("IB_CONTRACT_DETAILS_TIMEOUT_S", 5.0)
+        if timeout <= 0:
+            timeout = 5.0
+        try:
+            contract = self._build_contract(sym)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("IBClient: session check could not build %s: %s", sym, exc)
+            return None, None, None
+
+        details = None
+        req_async = getattr(ib, "reqContractDetailsAsync", None)
+        loop = self._loop
+        if req_async is not None and loop is not None and not loop.is_closed():
+            try:
+                running = loop.is_running()
+            except Exception:  # noqa: BLE001
+                running = True
+            if not running:
+                import asyncio
+
+                try:
+                    details = loop.run_until_complete(
+                        asyncio.wait_for(req_async(contract), timeout=timeout)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(
+                        "IBClient: reqContractDetailsAsync(%s) failed: %s", sym, exc
+                    )
+                    return None, None, None
+        if details is None:
+            try:
+                details = ib.reqContractDetails(contract)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("IBClient: reqContractDetails(%s) failed: %s", sym, exc)
+                return None, None, None
+        if not details:
+            return None, None, None
+        first = details[0]
+        return (
+            getattr(first, "tradingHours", None),
+            getattr(first, "liquidHours", None),
+            getattr(first, "timeZoneId", None),
+        )
+
+    def _venue_session(self, ib: Any, sym: str) -> Tuple[str, str]:
+        """Three-state venue session for *sym*: ``open`` / ``closed`` / ``unknown``.
+
+        Asks IBKR rather than modelling the calendar — see
+        :mod:`src.runtime.ib_trading_hours` for why, and for what each state
+        means. ``unknown`` is fail-permissive at every caller: it is *we could
+        not look*, and refusing to flatten a live position because a contract
+        lookup failed would turn an observability defect into money at risk.
+
+        **The CACHE holds the raw hours STRING, never the verdict.** A cached
+        verdict would be wrong at exactly the boundary the gate exists for: a
+        "closed" graded at 17:59 ET and cached for the TTL keeps reading closed
+        after the 18:00 reopen, stranding every close for the rest of the
+        window. The string is stable for a day or more; the verdict is a
+        function of *now*, so it is recomputed on every call.
+
+        A failed fetch is cached too, on a deliberately SHORTER TTL: without a
+        negative entry a persistently unreachable gateway pays a bounded lookup
+        on every close attempt, and with a full-length one a transient blip
+        blinds the gate for the whole window.
+        """
+        if _env_bool("IB_SESSION_CHECK_DISABLED", False):
+            return ib_trading_hours.UNKNOWN, "session check disabled by env"
+
+        ttl = _env_float("IB_SESSION_CACHE_S", 900.0)
+        now_mono = time.monotonic()
+        hit = self._session_hours.get(sym)
+        if hit is not None and now_mono < hit[0]:
+            trading, liquid, tz_id = hit[1], hit[2], hit[3]
+        else:
+            trading, liquid, tz_id = self._contract_hours(ib, sym)
+            if ttl > 0:
+                good = bool(trading or liquid) and bool(tz_id)
+                expiry = now_mono + (ttl if good else min(ttl, 60.0))
+                self._session_hours[sym] = (expiry, trading, liquid, tz_id)
+
+        # GRADE THE FIELD THE ORDER WILL ACT ON. A future transmits
+        # outsideRth=True, which makes the ELECTRONIC session the binding one;
+        # an equity keeps outsideRth=False, which makes RTH binding. Grading
+        # tradingHours for an equity would call a venue "open" at 04:00 and then
+        # send an order IBKR holds — a verdict about a state the order does not
+        # act on, which is the semantic substitution this gate exists to avoid.
+        if self._close_wants_outside_rth(sym):
+            hours, which = (trading or liquid), "tradingHours"
+        else:
+            hours, which = (liquid or trading), "liquidHours"
+        state, reason = ib_trading_hours.session_state(hours, tz_id)
+        return state, f"{which}: {reason}"
+
+    def venue_session(self, symbol: Optional[str]) -> Tuple[str, str]:
+        """Public, lock-taking wrapper over :meth:`_venue_session`.
+
+        Read-only: opens no order path and mutates nothing. Returns
+        ``("unknown", <reason>)`` when the gateway is unreachable, so a caller
+        can never mistake a connection failure for a closed venue.
+        """
+        sym = str(symbol or self.symbol or "").upper()
+        with self._usage_lock:
+            try:
+                ib = self.connect()
+            except Exception as exc:  # noqa: BLE001
+                return (
+                    ib_trading_hours.UNKNOWN,
+                    f"IB unreachable: {type(exc).__name__}: {exc}",
+                )
+            return self._venue_session(ib, sym)
 
     def close(
         self,
@@ -1564,6 +1795,67 @@ class IBClient:
                           "refusing fractional futures close",
             }
 
+        # Step 0b — VENUE SESSION GATE.
+        # BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS — kept on ONE line
+        # deliberately: hyphen-wrapping a backlog id across two comment lines
+        # leaves `artifact-validity-guard` reading a truncated id that resolves
+        # to nothing, i.e. a reference that reads as tracked while being tracked
+        # by nobody. The IB analogue of the Alpaca close's
+        # ``us_equity_session()`` check, which has existed since
+        # BL-20260716-ALPACA-MARKET-HOURS-EXIT while this path had nothing:
+        # ``src/runtime/market_hours.py`` models fx / us_equity / crypto and
+        # futures are in none of them, so every IB close fired a market order at
+        # any hour and read acceptance as placement.
+        #
+        # Measured 2026-08-16 on ib_paper/MGC: a flatten was accepted, sat
+        # ``PreSubmitted`` with ``filled 0``, and the confirm window expired —
+        # ``filled 0`` (rather than a partial) is what argues HELD over a thin
+        # book. The order then had to be cancelled by #9663's own-order cleanup.
+        #
+        # This runs BEFORE Step 1 deliberately. Step 1 cancels the protective
+        # bracket, and cancelling it to then place nothing is strictly the worst
+        # outcome available: an unfillable close AND an unprotected position.
+        # Alpaca's closed branch states the same rule ("leave it armed to exit at
+        # the open if price is through the stop"); ordering the gate after the
+        # cancel would silently lose it.
+        #
+        # ``unknown`` proceeds. A gate bug must never strand a live capability,
+        # and refusing to flatten because a contract lookup failed would convert
+        # an observability defect into money at risk.
+        venue_state, venue_reason = self._venue_session(ib, sym)
+        if venue_state == ib_trading_hours.CLOSED:
+            # retCode 2 = DEFERRED, not failed. ``order_monitor._apply_update``
+            # detects a defer by STRING-MATCHING the message ("exit deferred" /
+            # "deferring" / "market closed") — NOT by the code — so this text
+            # must keep the phrase "exit deferred" or the monitor books a close
+            # FAILURE, increments the streak and raises the "won't flatten"
+            # alarm for a venue that is merely shut.
+            return {
+                "retCode": 2,
+                "retMsg": (
+                    f"IB venue for {sym} is closed — exit deferred to next "
+                    f"session (protective bracket left armed): {venue_reason}"
+                ),
+            }
+        if venue_state == ib_trading_hours.UNKNOWN:
+            # `unknown` proceeds like `open` — but it must not be SILENT like
+            # `open`, or the two are indistinguishable in the record and a gate
+            # that is permanently unknown reads exactly like a working gate on
+            # an open venue. That is not hypothetical: `US/Eastern` and
+            # `US/Central` are tzdata LEGACY links absent from slim installs
+            # (measured — `zoneinfo` raises for both in this repo's sandbox
+            # while `America/New_York` resolves), and COMEX and CME are
+            # precisely the venues that report them. Without this line, a host
+            # whose tz database regressed would disable the gate for every
+            # futures contract we trade and announce nothing.
+            #
+            # The action collapses deliberately; the OBSERVATION must not.
+            logger.warning(
+                "IBClient: venue session for %s is UNKNOWN — proceeding with "
+                "the close (fail-permissive), but the session gate is NOT "
+                "protecting this order: %s", sym, venue_reason,
+            )
+
         # Step 1 — cancel resting protective orders for the symbol so the
         # opposing market order can't leave a naked working order behind.
         self._cancel_resting_orders_for_symbol(ib, sym)
@@ -1580,6 +1872,34 @@ class IBClient:
             close_order.orderId = ib.client.getReqId()
             close_order.transmit = True
             close_order.tif = "DAY"
+            # outsideRth — the half without which the gate above is a lie.
+            #
+            # IBKR's ``outsideRth`` keys on the contract's LIQUID hours, not its
+            # trading hours. For a future those differ by most of the day: MGC
+            # trades electronically ~23h but its RTH window is a few hours, so a
+            # market order with ``outsideRth=False`` (ib_insync's default, and
+            # what every order in this repo has always sent — ``grep -rn
+            # outsideRth src/`` returned ZERO hits before this change) placed at
+            # 03:00 ET is HELD until the next RTH open. It reads as accepted and
+            # fills nothing.
+            #
+            # So gating on ``tradingHours`` while transmitting ``outsideRth=
+            # False`` would produce a verdict about a venue state the order does
+            # not act on — the semantic-substitution class the diagnostic-
+            # provenance rule names: the label names a quantity the code did not
+            # use. The two go together, and either alone is incoherent.
+            #
+            # Scoped to the CLOSE, deliberately. A close is risk-reducing and
+            # wanting it to fill in the electronic session is the point; the
+            # cost is a thinner book than RTH, which is the right trade against
+            # a position that stays open otherwise. ENTRIES are untouched —
+            # declining to open into an illiquid overnight book is defensible,
+            # and widening this to the entry path is a separate decision with a
+            # separate risk profile. ``IB_CLOSE_OUTSIDE_RTH=false`` reverts just
+            # this half without losing the session gate.
+            if _env_bool("IB_CLOSE_OUTSIDE_RTH", True) and \
+                    self._close_wants_outside_rth(sym):
+                close_order.outsideRth = True
             if self.account:
                 close_order.account = self.account
             close_trade = ib.placeOrder(contract, close_order)
@@ -1634,13 +1954,49 @@ class IBClient:
                 except Exception:  # noqa: BLE001
                     break
             if not flat:
+                # CANCEL OUR OWN ABANDONED ORDER before giving up.
+                #
+                # This method's Step-1 docstring already makes the argument:
+                # a resting order left behind while we walk away "would re-open
+                # a position in the opposite direction" on a later fill, and
+                # cancelling first is what makes the close "idempotent and
+                # naked-order-free". That reasoning was applied to OTHER
+                # people's orders and never to this method's own — so the one
+                # path where it matters (the failure path) left a live DAY
+                # market order resting with its id recorded nowhere but a log
+                # string (BL-20260816-IB-CLOSE-ABANDONS-ITS-OWN-ORDER).
+                #
+                # Measured 2026-08-16 on ib_paper/MGC: after a failed flatten,
+                # /api/diag/ib_open_orders showed BOTH the 105-lot stop AND an
+                # abandoned `MKT SELL 105 tif DAY` — 210 contracts of resting
+                # sell against a 105 long, in two orders with no OCA linking
+                # them, so neither could cancel the other. A fill on one while
+                # the other rests flips the account short.
+                #
+                # ON STACKING, stated precisely because the obvious phrasing
+                # overstates it: retries CAN accumulate orders, because
+                # IB_CLOSE_RETRY_COOLDOWN_S bounds the retry RATE and never the
+                # total. But that is a property of the MONITOR's close path
+                # (order_monitor._apply_update), which is what retries. The
+                # 2026-08-16 incident came from a one-shot ops action against a
+                # strategy whose monitor has no close path at all, so exactly
+                # ONE order was abandoned and no stacking was observed — a
+                # re-read at T+23min still showed the same four orders. The
+                # hazard is real for a strategy whose monitor does close against
+                # a non-filling venue; it is not what was measured here.
+                #
+                # Cancelling here makes the retry idempotent: each attempt
+                # leaves at most one live order, and a caller that gives up
+                # leaves none.
+                cancel_state = self._cancel_own_close_order(ib, close_trade)
                 return {
                     "retCode": 1,
                     "retMsg": (
                         f"close not confirmed flat: live_qty={last_qty} after "
                         f"~{confirm_s}s — close order {close_order.orderId} was "
                         "accepted but the position is still open; leaving DB row "
-                        "open to re-arm protection and retry next tick"
+                        "open to re-arm protection and retry next tick "
+                        f"(own close order: {cancel_state})"
                     ),
                 }
 
@@ -1649,6 +2005,69 @@ class IBClient:
             "result": {"orderId": str(close_order.orderId)},
             "retMsg": "OK",
         }
+
+    def _cancel_own_close_order(self, ib: Any, close_trade: Any) -> str:
+        """Cancel the close order THIS call placed. Best-effort; never raises.
+
+        Returns a three-state string, deliberately never collapsed, because the
+        three outcomes call for different follow-up and a boolean would hide the
+        middle one:
+
+        - ``"cancelled"``      — the cancel was requested and accepted; nothing
+          of ours rests. The retry is now idempotent.
+        - ``"already_filled"`` — the order filled between the last confirm poll
+          and this cancel. **Nothing rests, but the position may now be FLAT**
+          while we are about to return ``retCode 1`` and leave the DB row open.
+          That is the safe direction (the reconciler's close-on-disappear
+          resolves it); reporting it as ``cancelled`` would be a lie about what
+          the broker did, and reporting it as a failure would send the caller
+          hunting for an order that no longer exists.
+        - ``"cancel_failed: …"`` — we asked and IB refused or the call raised.
+          **A live order still rests and nobody is tracking it.** This is the
+          state that must never be silent: it is the pre-fix behaviour, now at
+          least declared instead of assumed away.
+
+        The distinction matters beyond tidiness: IB scopes order cancellation
+        per client session, so a cancel issued from a session that did not place
+        the order can be refused. Here we are cancelling our OWN order on our own
+        connection, which is the one case with no scope ambiguity — but the
+        refusal path is still reported rather than swallowed, because a silent
+        ``except: continue`` is exactly what let the symbol-wide cancel read as
+        "cancelled everything" while cancelling nothing.
+        """
+        order = getattr(close_trade, "order", None)
+        if order is None:
+            return "cancel_failed: no order handle"
+        # Filled between the last poll and now? Then nothing rests. Read the
+        # status defensively — a stand-in/older ib_insync may not carry it, and
+        # an unreadable status must not be mistaken for "filled".
+        try:
+            status = getattr(close_trade, "orderStatus", None)
+            remaining = getattr(status, "remaining", None)
+            state = str(getattr(status, "status", "") or "")
+            if state == "Filled" or (
+                remaining is not None and float(remaining) <= 0
+            ):
+                return "already_filled"
+        except (TypeError, ValueError):
+            pass  # unreadable status ⇒ fall through and try the cancel anyway
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            ib.cancelOrder(order)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "IBClient.close: could not cancel our own unfilled close order "
+                "%s — it is STILL RESTING at the broker and nothing tracks it: "
+                "%s: %s",
+                getattr(order, "orderId", "?"), type(exc).__name__, exc,
+            )
+            return f"cancel_failed: {type(exc).__name__}: {exc}"
+        try:
+            ib.sleep(0)
+        except Exception:  # noqa: BLE001
+            pass
+        return "cancelled"
 
     def _live_position_qty(self, symbol: str) -> Optional[float]:
         """Absolute open-position size for *symbol* from IB's portfolio.
@@ -1668,7 +2087,47 @@ class IBClient:
                     return None
         return 0.0
 
-    def _cancel_resting_orders_for_symbol(self, ib: Any, symbol: str) -> None:
+    def _cancel_oca_group_for_symbol(
+        self, ib: Any, symbol: str, oca_group: str
+    ) -> int:
+        """Cancel only the legs of ONE OCA group on *symbol* — best-effort.
+
+        The scoped counterpart of :meth:`_cancel_resting_orders_for_symbol`, and
+        the reason a re-arm no longer strands a sibling trade's take-profit on a
+        netted contract (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). The
+        symbol-wide variant stays as-is because its OTHER callers — :meth:`close`
+        and :meth:`cancel_resting_protection` — are flatten paths that genuinely
+        do want every leg gone.
+
+        Returns the number of legs cancelled. Never raises.
+        """
+        sym = str(symbol or "").upper()
+        group = str(oca_group or "")
+        if not group:
+            return 0
+        cancelled = 0
+        for trade in self._open_trades(ib):
+            try:
+                contract = getattr(trade, "contract", None)
+                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                if sym and trade_sym and trade_sym != sym:
+                    continue
+                order = getattr(trade, "order", None)
+                if str(getattr(order, "ocaGroup", "") or "") != group:
+                    continue
+                ib.cancelOrder(order)
+                cancelled += 1
+            except Exception:  # noqa: BLE001 — one un-cancellable leg never aborts
+                continue
+        try:
+            ib.sleep(0)
+        except Exception:  # noqa: BLE001
+            pass
+        return cancelled
+
+    def _cancel_resting_orders_for_symbol(
+        self, ib: Any, symbol: str
+    ) -> Dict[str, Any]:
         """Cancel every open (resting) order on *symbol* — best-effort.
 
         Sweeps the protective bracket / OCA legs so a subsequent opposing
@@ -1676,24 +2135,98 @@ class IBClient:
         re-opens a position. Matches by the contract's generic root symbol
         (``contract.symbol``), the same axis the journal + reconciler use.
         Never raises — a cancel failure on one leg must not block the close.
+
+        ⚠️ **THIS READ IS SESSION-SCOPED AND THAT IS NOT ALWAYS ENOUGH.**
+        ``_open_trades`` is ``ib.openTrades()``, which returns only orders THIS
+        clientId placed. The account-wide view is ``_req_all_open_orders``
+        (``reqAllOpenOrders``) — what ``has_protective_orders`` and
+        ``protection_coverage`` already use. So a caller running on a different
+        clientId than the one that armed the bracket sees **nothing** here and
+        this method is a silent no-op.
+
+        That is not hypothetical. ``scripts/ops/flatten_ib_position.py`` builds
+        a PID-salted ops client (``9900 + os.getpid() % 90``), so a
+        ``flatten-ib-position`` run cannot see the trader's legs (placed on
+        clientId 496/497). Measured 2026-08-16 on ``ib_paper``/MGC: a flatten
+        ran, this cancel reported nothing wrong, and the trader's stop was
+        **still resting afterwards** — Step 1 had cancelled zero legs. The same
+        clientId scoping is already recorded for ``reqExecutions`` elsewhere in
+        this repo ("a separate pull process sees zero of the trader's fills,
+        unless it is the gateway master client").
+
+        **The read is deliberately NOT widened here.** Cancelling is
+        symbol-wide, and under IB netting one symbol's legs can belong to
+        several trades across several strategies; widening the READ without
+        first making the CANCEL trade-scoped would let one partial close strip
+        every sibling's protection — a bigger blast radius than the bug being
+        fixed. That is criterion 2/4 of
+        BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY and belongs with the
+        trade-attributable-protection work, not here.
+
+        What IS fixed here is the **silence**: "cancelled every leg" and
+        "could not see a single leg" were the same observable outcome (``None``
+        return, no log). This now reports counts so a caller — and a reader of
+        the logs — can tell them apart. Returns
+        ``{"seen", "cancelled", "failed", "account_wide_seen"}``;
+        ``account_wide_seen`` is ``None`` when that read itself failed, which is
+        NOT the same as zero.
         """
         sym = str(symbol or "").upper()
+        seen = 0
+        cancelled = 0
+        failed = 0
         for trade in self._open_trades(ib):
             try:
                 contract = getattr(trade, "contract", None)
                 trade_sym = str(getattr(contract, "symbol", "") or "").upper()
                 if sym and trade_sym and trade_sym != sym:
                     continue
+                seen += 1
                 ib.cancelOrder(trade.order)
+                cancelled += 1
             except Exception:  # noqa: BLE001
                 # Best-effort: a single un-cancellable leg must not abort
                 # the flatten; the naked-autoprotect / reconciler paths
-                # converge the remainder.
+                # converge the remainder. Counted, not swallowed.
+                failed += 1
                 continue
         try:
             ib.sleep(0)
         except Exception:  # noqa: BLE001
             pass
+
+        # The honest denominator: how many legs exist ACCOUNT-WIDE for this
+        # symbol. If that exceeds what this session could see, legs are resting
+        # that this client cannot cancel — the exact condition that made the
+        # 2026-08-16 flatten look successful while changing nothing.
+        account_wide: Optional[int] = None
+        try:
+            account_wide = sum(
+                1 for t in self._req_all_open_orders(ib)
+                if not sym
+                or str(getattr(getattr(t, "contract", None), "symbol", "")
+                       or "").upper() == sym
+            )
+        except Exception:  # noqa: BLE001
+            account_wide = None  # could not look — NOT zero
+
+        if account_wide is not None and account_wide > seen:
+            logger.warning(
+                "IBClient: symbol-wide cancel on %s is SESSION-SCOPED — this "
+                "client (id=%s) saw %d resting order(s) but the account holds "
+                "%d. %d leg(s) are resting that this session cannot cancel; "
+                "the flatten did NOT clear them.",
+                sym, self.client_id, seen, account_wide, account_wide - seen,
+            )
+        if failed:
+            logger.warning(
+                "IBClient: symbol-wide cancel on %s — %d of %d leg(s) refused "
+                "cancellation and are STILL RESTING.", sym, failed, seen,
+            )
+        return {
+            "seen": seen, "cancelled": cancelled, "failed": failed,
+            "account_wide_seen": account_wide,
+        }
 
     def cancel_resting_protection(self, symbol: Optional[str]) -> Dict[str, Any]:
         """Cancel every resting (working) order for *symbol* — public, best-effort.
@@ -1773,6 +2306,263 @@ class IBClient:
             ib.reqAllOpenOrders()
         return self._open_trades(ib)
 
+    @staticmethod
+    def _protective_leg_qty(order: Any):
+        """Qty a resting IB protective leg would close, or ``None`` if unknown.
+
+        An unknown qty must NOT be silently treated as full coverage — the
+        caller counts these and refuses to grade coverage rather than guessing
+        (the same rule :func:`order_monitor._bybit_sl_leg_qty` follows).
+        """
+        for attr in ("totalQuantity", "filledQuantity", "quantity"):
+            try:
+                q = float(getattr(order, attr))
+            except (AttributeError, TypeError, ValueError):
+                # AttributeError matters: an order object that simply lacks the
+                # attribute must fall through to the next candidate and finally
+                # to None (ungradeable), not raise out of the coverage read.
+                continue
+            if q == q and q > 0:  # not NaN, positive
+                return q
+        return None
+
+    def protection_coverage(self, symbol: Optional[str]) -> Optional[Dict[str, Any]]:
+        """How MUCH of *symbol*'s IB position is covered by resting protection?
+
+        Returns ``None`` on any read failure (breaker open / gateway wedged /
+        ambiguous) so the caller SKIPS — never re-arm on an unconfirmed read —
+        else a dict::
+
+            {"size", "covered_qty", "legs", "unknown_qty_legs",
+             "oca_groups", "source"}
+
+        **Why this measures QUANTITY, not a boolean**
+        (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY -- kept on one line: a
+        line-wrapped id resolves to nothing for a grep, a reader, or
+        artifact-validity-guard). IB nets per contract per account: three
+        strategies trading MGC share ONE broker position whose size is the SUM
+        of their journal rows, while each trade's protective OCA is sized to its
+        OWN qty (:meth:`place_protective` takes the calling trade's ``qty``).
+        The predecessor of this method returned ``True`` on the FIRST matching
+        STP/LMT — so one surviving leg made the whole netted position read
+        PROTECTED, and :func:`order_monitor._check_broker_naked_ib_positions`
+        (which caches one verdict per ``(account, symbol)``) skipped every
+        sibling. A position covered for a third of its size was indistinguishable
+        from one covered in full.
+
+        This is the exact defect PR #8000 fixed for Bybit
+        (:func:`order_monitor._bybit_position_protection`) and did not fix for
+        IB, because at the time IB was believed not to net. It does.
+
+        A leg whose qty cannot be parsed is COUNTED in ``unknown_qty_legs``
+        rather than assumed — coverage is then ungradeable and the caller must
+        skip, because a blind re-arm would stamp one trade's geometry over the
+        whole netted position.
+        """
+        with self._usage_lock:
+            return self._locked_protection_coverage(symbol=symbol)
+
+    def _locked_protection_coverage(
+        self, symbol: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        sym = str(symbol or self.symbol or "").upper()
+        if not sym:
+            return None
+        try:
+            ib = self.connect()
+        except Exception:  # noqa: BLE001 — breaker open / connect failed
+            return None
+
+        # (1) The DENOMINATOR: the netted broker position for this root.
+        try:
+            positions = self._req_positions_snapshot(ib)
+        except Exception:  # noqa: BLE001 — could not read ⇒ cannot grade
+            return None
+        size = 0.0
+        for p in positions or []:
+            try:
+                contract = getattr(p, "contract", None)
+                if str(getattr(contract, "symbol", "") or "").upper() != sym:
+                    continue
+                size += abs(float(getattr(p, "position", 0) or 0.0))
+            except Exception:  # noqa: BLE001 — one bad row never breaks the read
+                continue
+        if size <= 0:
+            return {
+                "size": 0.0, "covered_qty": 0.0, "legs": 0,
+                "unknown_qty_legs": 0, "oca_groups": {}, "source": "flat",
+            }
+
+        # (2) The NUMERATOR: resting protective legs, summed by qty.
+        try:
+            trades = self._req_all_open_orders(ib)
+        except Exception:  # noqa: BLE001 — account-wide read failed
+            return None
+        covered = 0.0
+        legs = 0
+        unknown = 0
+        oca_groups: Dict[str, float] = {}
+        # SIDE-AWARE accumulators (2026-08-16, BL-20260816-COVERAGE-IS-ONE-SIDED).
+        # `covered_qty` above answers "is ANY protective leg resting?", which
+        # treats a stop and a take-profit as interchangeable. They are not: a
+        # position with a full stop and NO target can only stop out or run, and
+        # graded on the combined figure it reads FULLY COVERED. Measured on
+        # ib_paper 2026-08-16 — MGC 105 long with STP 359 and no limit, MES 15
+        # long with TWO stops and no limit; zero limit orders on the account,
+        # and the sweep had never once fired. Keep the combined figure for
+        # back-compat and add the two sides beside it.
+        stop_groups: Dict[str, float] = {}
+        target_groups: Dict[str, float] = {}
+        stop_q = 0.0
+        target_q = 0.0
+        for trade in trades:
+            try:
+                contract = getattr(trade, "contract", None)
+                if str(getattr(contract, "symbol", "") or "").upper() != sym:
+                    continue
+                order = getattr(trade, "order", None)
+                otype = str(getattr(order, "orderType", "") or "").upper()
+                side = _protective_leg_side(otype)
+                if side is None:
+                    continue
+                legs += 1
+                q = self._protective_leg_qty(order)
+                if q is None:
+                    unknown += 1
+                    continue
+                group = str(getattr(order, "ocaGroup", "") or "")
+                # An OCA group is one-fills-cancels-the-rest, so its STOP and
+                # LIMIT legs protect the SAME qty — counting both would double
+                # the coverage and hide a genuinely naked remainder. Take the
+                # max within a group; ungrouped legs each stand alone.
+                if group:
+                    oca_groups[group] = max(oca_groups.get(group, 0.0), q)
+                else:
+                    covered += q
+                # The per-side tallies apply the same within-group max, but
+                # PER SIDE — two stops in one group is still one stop's worth
+                # of stop coverage, and a group holding only a stop
+                # contributes NOTHING to the target side. That is exactly the
+                # state this measures.
+                side_groups = stop_groups if side == "stop" else target_groups
+                if group:
+                    side_groups[group] = max(side_groups.get(group, 0.0), q)
+                elif side == "stop":
+                    stop_q += q
+                else:
+                    target_q += q
+            except Exception:  # noqa: BLE001 — one malformed trade never breaks it
+                continue
+        covered += sum(oca_groups.values())
+        stop_q += sum(stop_groups.values())
+        target_q += sum(target_groups.values())
+        return {
+            "size": size,
+            "covered_qty": covered,
+            "stop_qty": stop_q,
+            "target_qty": target_q,
+            "legs": legs,
+            "unknown_qty_legs": unknown,
+            "oca_groups": dict(oca_groups),
+            "source": "resting_legs",
+        }
+
+    def list_open_orders(self) -> Optional[List[Dict[str, Any]]]:
+        """Every resting IB order this account holds, ACCOUNT-WIDE, as plain rows.
+
+        The **read surface** for IB order state
+        (BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE). Its two siblings both
+        REDUCE the order book to a verdict —
+        :meth:`has_protective_orders` to a boolean, :meth:`protection_coverage`
+        to a covered quantity — so when a verdict looked wrong there was no way
+        to ask *which orders does the broker actually hold?* from any session.
+        That is why a stripped MGC take-profit sat undetected for seven days:
+        the coverage read said "covered" and nothing could contradict it.
+        This method reduces nothing.
+
+        Returns ``None`` on any read failure (breaker open / gateway wedged /
+        not connected) and ``[]`` only on a **confirmed clean** account-wide
+        read holding no orders — the same "could not look" vs "looked and found
+        nothing" split :meth:`positions` and :meth:`has_protective_orders`
+        follow. Never raises.
+
+        Uses the account-wide ``reqAllOpenOrders`` refresh, NOT this client's
+        ``openTrades()`` alone: IB order visibility is per-client-session, so a
+        bracket placed by the trader's exec client is invisible to a readonly
+        diag client that only reads its own session (see
+        :meth:`_req_all_open_orders`). Every field is best-effort per row — one
+        malformed order degrades to nulls in its own row rather than failing
+        the read.
+        """
+        with self._usage_lock:
+            return self._locked_list_open_orders()
+
+    def _locked_list_open_orders(self) -> Optional[List[Dict[str, Any]]]:
+        try:
+            ib = self.connect()
+        except Exception:  # noqa: BLE001 — breaker open / connect failed ⇒ cannot look
+            return None
+        try:
+            trades = self._req_all_open_orders(ib)
+        except Exception:  # noqa: BLE001 — account-wide read failed ⇒ cannot look
+            return None
+
+        def _num(obj: Any, attr: str) -> Optional[float]:
+            try:
+                v = float(getattr(obj, attr))
+            except (AttributeError, TypeError, ValueError):
+                return None
+            return v if v == v else None  # drop NaN
+
+        def _str(obj: Any, attr: str) -> Optional[str]:
+            v = getattr(obj, attr, None)
+            if v is None:
+                return None
+            s = str(v)
+            return s or None
+
+        rows: List[Dict[str, Any]] = []
+        for trade in trades or []:
+            try:
+                contract = getattr(trade, "contract", None)
+                order = getattr(trade, "order", None)
+                status_obj = getattr(trade, "orderStatus", None)
+                rows.append({
+                    "symbol": _str(contract, "symbol"),
+                    "local_symbol": _str(contract, "localSymbol"),
+                    "sec_type": _str(contract, "secType"),
+                    "exchange": _str(contract, "exchange"),
+                    "order_id": _num(order, "orderId"),
+                    "perm_id": _num(order, "permId"),
+                    # WHO PLACED IT. Load-bearing, not decorative: IB binds an
+                    # order to its submitting clientId and `cancelOrder` "can
+                    # only be used to cancel an order that was placed
+                    # originally by a client with the same client ID" (TWS API,
+                    # cancel_order). So the owning clientId IS the address you
+                    # must connect as to cancel it, and without this field the
+                    # account-wide read could show you an order it gave you no
+                    # way to act on — which is exactly the wall the stranded
+                    # MGC order 6 hit (BL-20260816-NO-PER-ORDER-IB-CANCEL).
+                    # `None` when IB did not populate it: that means "not
+                    # reported", never "client 0".
+                    "client_id": _num(order, "clientId"),
+                    "order_type": _str(order, "orderType"),
+                    "action": _str(order, "action"),
+                    "total_quantity": _num(order, "totalQuantity"),
+                    "aux_price": _num(order, "auxPrice"),
+                    "lmt_price": _num(order, "lmtPrice"),
+                    "oca_group": _str(order, "ocaGroup"),
+                    "tif": _str(order, "tif"),
+                    "parent_id": _num(order, "parentId"),
+                    "account": _str(order, "account"),
+                    "status": _str(status_obj, "status"),
+                    "filled": _num(status_obj, "filled"),
+                    "remaining": _num(status_obj, "remaining"),
+                })
+            except Exception:  # noqa: BLE001 — one malformed trade never breaks the read
+                continue
+        return rows
+
     def has_protective_orders(self, symbol: Optional[str]) -> Optional[bool]:
         """Does *symbol* have a resting protective leg (a stop OR a limit) open
         at the broker, ACCOUNT-WIDE?
@@ -1786,6 +2576,18 @@ class IBClient:
         broker-naked yet invisible to that check (the MGC monitor-blind incident,
         2026-07-09). This reads the broker's own order state so the sweep can
         detect and re-arm it.
+
+        ⚠️ **This is a LOSSY view — do NOT use it to decide whether a netted
+        position is protected.** It answers "does ANY leg rest?", which on a
+        contract several strategies trade is not the same question as "is the
+        position covered": IB nets per contract per account, so one surviving
+        leg makes a one-third-covered position read exactly like a fully covered
+        one (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Use
+        :meth:`protection_coverage`, which returns the QUANTITY, for any
+        naked-detection or re-arm decision. This method is retained for the
+        cheap "is there anything at all" probe and for parity with
+        :meth:`AlpacaClient.has_protective_orders` (Alpaca does not net, so the
+        boolean is sound there).
 
         Returns ``True`` when at least one resting stop/limit leg exists for the
         symbol, ``False`` when the position is broker-naked (a confirmed clean

@@ -52,6 +52,35 @@ _STALE_ENV = "EXIT_LOOP_STALE_SECONDS"
 # genuine wedge is caught inside a few minutes rather than a few hours.
 _DEFAULT_STALE_S = 180.0
 
+# --- the REQUIREMENT, which is a different question from liveness -------------
+#
+# `_STALE_ENV` answers "is the loop alive". The operator's requirement — the thing
+# M20 was built to guarantee — is that no live trade goes more than 60s without
+# re-evaluation. Those are not the same threshold and must not share one:
+# `stale_seconds()` is 180s, so a 59s interval and a 179s interval BOTH read
+# `fresh`, and the requirement could be missed by 3x without any surface saying so.
+#
+# Measured 2026-08-16 (BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT): the
+# worst pass on one process was 58940.8ms at n=694 — 1.1s inside the requirement,
+# graded `fresh`, alarming nowhere. That is the gap this closes.
+#
+# ⚠️ READ `requirement_state` BESIDE `intervals_measured`, never alone — the same
+# discipline as `max_multiple` beside `measured_n` on the exposure soak. Both the
+# max and the grade are PER-PROCESS and reset on restart, and the live trader
+# restarts often: three processes in ~8.5h on 2026-08-16 (23:06 → 06:24 → 07:34),
+# because `ict-git-sync` auto-deploys every merge to `main`. The tail needs a large
+# n to be drawn at all — the 58940.8 ms observation came from an n=694 process that
+# survived a quiet overnight window, while the two daytime processes reached only
+# n=38 and n=23. So on a busy day `within` can mean "no process lived long enough to
+# draw the tail", NOT "the requirement was met today".
+#
+# Per-process is still the correct SCOPE: a max cannot be pooled across processes
+# without pooling their distributions, and a latch that never reset would go silent
+# forever after the first breach. A cross-process view would need a durable
+# accumulator — a different design, deliberately not this one.
+_REQUIREMENT_ENV = "EXIT_EVAL_MAX_INTERVAL_SECONDS"
+_DEFAULT_REQUIREMENT_S = 60.0
+
 _lock = threading.Lock()
 _passes: int = 0
 _last_pass_monotonic: Optional[float] = None
@@ -60,6 +89,13 @@ _last_pass_ms: Optional[float] = None
 _max_pass_ms: Optional[float] = None
 _max_pass_at_utc: Optional[str] = None
 _started_utc: Optional[str] = None
+# Completion-to-completion gaps. MEASURED, not derived from the pass duration —
+# see `record_pass`.
+_intervals_measured: int = 0
+_max_interval_ms: Optional[float] = None
+_max_interval_at_utc: Optional[str] = None
+_breaches: int = 0
+_last_breach_utc: Optional[str] = None
 
 
 def stale_seconds() -> float:
@@ -77,36 +113,108 @@ def stale_seconds() -> float:
     return v if v > 0 else _DEFAULT_STALE_S
 
 
+def requirement_seconds() -> float:
+    """Resolve the max-interval requirement. Unparseable/non-positive → default.
+
+    Same fail-ON discipline as `stale_seconds`, and for a sharper reason: this is
+    the number the whole M20 decouple exists to satisfy. A typo that silently
+    widened or disabled it would remove the only check on the guarantee.
+    """
+    try:
+        v = float(os.environ.get(_REQUIREMENT_ENV, "") or _DEFAULT_REQUIREMENT_S)
+    except (TypeError, ValueError):
+        return _DEFAULT_REQUIREMENT_S
+    return v if v > 0 else _DEFAULT_REQUIREMENT_S
+
+
 def record_pass(duration_ms: float) -> None:
     """Record one COMPLETED exit-evaluation pass. Never raises.
 
     Called after the pass returns, deliberately — a pass that started and hung
     must NOT refresh liveness, which is the entire condition being detected.
+
+    It also closes out the INTERVAL that just ended. The requirement is written
+    about the gap between two evaluations, and that gap is `sleep + next pass`,
+    so it is measured here as completion-to-completion rather than derived as
+    `max(EXIT_LOOP_INTERVAL_SECONDS, pass_ms)`. The derivation is a model of the
+    loop; this is the loop. They agree only while the loop behaves as designed,
+    which is exactly the assumption a breach would violate — a pass that stalls
+    between the sleep and the next completion shows up here and does not show up
+    in the derivation at all.
     """
     global _passes, _last_pass_monotonic, _last_pass_utc, _last_pass_ms
     global _max_pass_ms, _max_pass_at_utc, _started_utc
+    global _intervals_measured, _max_interval_ms, _max_interval_at_utc
+    global _breaches, _last_breach_utc
     try:
         now_utc = datetime.now(timezone.utc).isoformat()
+        now_mono = time.monotonic()
+        soak_interval_ms: Optional[float] = None
         with _lock:
             if _started_utc is None:
                 _started_utc = now_utc
+            # The first pass of a process closes no interval — there is no prior
+            # completion to measure from. Counting it (as 0, or as the time since
+            # boot) would be inventing a sample, so it is simply not one.
+            if _last_pass_monotonic is not None:
+                interval_ms = (now_mono - _last_pass_monotonic) * 1000.0
+                soak_interval_ms = interval_ms
+                _intervals_measured += 1
+                if _max_interval_ms is None or interval_ms > _max_interval_ms:
+                    _max_interval_ms = interval_ms
+                    _max_interval_at_utc = now_utc
+                if interval_ms > requirement_seconds() * 1000.0:
+                    _breaches += 1
+                    _last_breach_utc = now_utc
             _passes += 1
-            _last_pass_monotonic = time.monotonic()
+            _last_pass_monotonic = now_mono
             _last_pass_utc = now_utc
             _last_pass_ms = duration_ms
             if _max_pass_ms is None or duration_ms > _max_pass_ms:
                 _max_pass_ms = duration_ms
                 _max_pass_at_utc = now_utc
+            snap_passes, snap_started = _passes, _started_utc
     except Exception:  # noqa: BLE001 — observability must never break the loop
+        return
+
+    # Durable, cross-process record. OUTSIDE the lock on purpose: this does file
+    # I/O, and holding the state lock across it would let a slow disk stall the
+    # exit loop — the one thing this module exists to detect. Best-effort, so a
+    # failed append loses an observation and nothing else.
+    #
+    # WHY IT IS SEPARATE FROM THE FIELDS ABOVE: `_max_interval_ms` is scoped to
+    # this process and is reset by every deploy, and the trader redeploys off
+    # `main` via the `ict-git-sync` timer (five OBSERVED processes in ~10h,
+    # measured 2026-08-16 from `process_started_utc`, NOT from merge times --
+    # a merge does not promptly restart the trader, and counting merges
+    # over-counted this by one). A max
+    # over a short window is systematically LOW, so the in-memory grade is most
+    # reassuring exactly when the system is busiest. This append is what makes
+    # the max a property of the DATA rather than of a process's lifetime.
+    try:
+        from src.runtime.exit_interval_soak import (
+            build_exit_interval_record, record_exit_interval,
+        )
+        record_exit_interval(build_exit_interval_record(
+            interval_ms=soak_interval_ms,
+            pass_ms=duration_ms,
+            requirement_s=requirement_seconds(),
+            process_started_utc=snap_started,
+            passes=snap_passes,
+        ))
+    except Exception:  # noqa: BLE001 — never raise into the exit loop
         return
 
 
 def status() -> Dict[str, Any]:
     """Current health. Never raises; every field honest about what it knows."""
     try:
+        requirement_s = requirement_seconds()
         with _lock:
             passes = _passes
             last_mono = _last_pass_monotonic
+            intervals = _intervals_measured
+            max_interval = _max_interval_ms
             snap = {
                 "passes": passes,
                 "last_pass_utc": _last_pass_utc,
@@ -117,7 +225,25 @@ def status() -> Dict[str, Any]:
                 "max_pass_at_utc": _max_pass_at_utc,
                 "process_started_utc": _started_utc,
                 "stale_threshold_s": stale_seconds(),
+                # --- the requirement, graded explicitly ---
+                "requirement_s": requirement_s,
+                "intervals_measured": intervals,
+                "max_interval_ms": (round(max_interval, 1)
+                                    if max_interval is not None else None),
+                "max_interval_at_utc": _max_interval_at_utc,
+                "interval_breaches": _breaches,
+                "last_breach_utc": _last_breach_utc,
             }
+        # FOUR states, never collapsed — the same discipline as `state` above.
+        # `not_measured` is the one that earns its keep: with fewer than two
+        # completed passes there IS no interval, and reporting that as `within`
+        # would let a process that has evaluated nothing read as compliant.
+        if intervals < 1 or max_interval is None:
+            snap["requirement_state"] = "not_measured"
+        elif max_interval > requirement_s * 1000.0:
+            snap["requirement_state"] = "breached"
+        else:
+            snap["requirement_state"] = "within"
         if last_mono is None:
             # NOT stale — nothing has run yet. Collapsing these would make a
             # booting process indistinguishable from a wedged one.
@@ -131,9 +257,13 @@ def status() -> Dict[str, Any]:
         )
         return snap
     except Exception:  # noqa: BLE001
-        # We could not look. Emphatically not "healthy", and not "stale" either.
+        # We could not look. Emphatically not "healthy", and not "stale" either —
+        # and the requirement is likewise UNKNOWN, never "within". A read failure
+        # must not be able to report compliance.
         return {"state": "unknown", "stale": False, "passes": None,
-                "age_seconds": None, "last_pass_utc": None}
+                "age_seconds": None, "last_pass_utc": None,
+                "requirement_state": "unknown", "max_interval_ms": None,
+                "intervals_measured": None}
 
 
 def write_state_file(runtime_dir: Optional[str] = None) -> Optional[str]:
@@ -154,9 +284,93 @@ def write_state_file(runtime_dir: Optional[str] = None) -> Optional[str]:
         return None
 
 
+def write_disabled_state_file(runtime_dir: Optional[str] = None) -> Optional[str]:
+    """Write the state file for a process where the decouple is DISABLED.
+
+    WHY THIS EXISTS (live-verified 2026-08-14, the same day #9233 rolled the
+    decouple back).
+
+    Only `_exit_loop` ever called `write_state_file`, and `run_exit_loop_health_check`
+    only ran inside `if decoupled:`. So with `EXIT_LOOP_DECOUPLE_DISABLED=1`
+    NOTHING rewrote the file and NOTHING re-read it — the payload from the
+    PREVIOUS process survived untouched, and it said `"state": "fresh"`.
+
+    Measured on the live trader: `exit_loop_health.json` carried
+    `generated_at 2026-08-14T11:46:13Z` while the running process had started at
+    `11:46:29Z` — a file stamped 16 seconds BEFORE the process it appeared to
+    describe, reporting a healthy loop that did not exist. Every downstream
+    reader (the diag surface, a session, the operator) saw `fresh`.
+
+    That is precisely the collapse this module's own docstring says it prevents:
+    "we have not looked" and "it ran and is fine" became indistinguishable, in
+    the one surface built to tell them apart. `CLAUDE.md` states that `never_ran`
+    "is also what a set `EXIT_LOOP_DECOUPLE_DISABLED` produces" — a true
+    statement about the vocabulary that the code did not implement, because the
+    producer of that state never ran either.
+
+    The fix keeps the four-state vocabulary rather than inventing a fifth: the
+    loop genuinely HAS NOT RUN in this process, so `never_ran` is the honest
+    grade. `decouple_disabled` says WHY, so a reader can tell a deliberate
+    rollback from a thread that failed to start — which `_start_exit_loop`
+    already treats as two different conditions and which would otherwise
+    re-collapse the moment this file started reporting `never_ran` for both.
+
+    Called every tick on the disabled branch, not once at startup: a
+    `generated_at` that stops advancing is itself a fossil, so refreshing it is
+    what keeps "disabled since boot" distinguishable from "this file is stale".
+    """
+    try:
+        if runtime_dir is None:
+            from src.utils.paths import runtime_logs_dir
+            runtime_dir = str(runtime_logs_dir())
+        os.makedirs(runtime_dir, exist_ok=True)
+        path = os.path.join(runtime_dir, STATE_FILE_NAME)
+        payload = {
+            "state": "never_ran",
+            "stale": False,
+            "decouple_disabled": True,
+            "passes": 0,
+            "age_seconds": None,
+            "last_pass_utc": None,
+            "last_pass_ms": None,
+            "max_pass_ms": None,
+            "max_pass_at_utc": None,
+            "process_started_utc": None,
+            "stale_threshold_s": stale_seconds(),
+            # `not_measured`, NOT `breached` — even though this mode is known not
+            # to meet the target. The grade reports what was MEASURED, and nothing
+            # measured an interval here; the note carries the knowledge. Stamping
+            # a verdict we did not observe would make the field mean two different
+            # things depending on mode.
+            "requirement_s": requirement_seconds(),
+            "requirement_state": "not_measured",
+            "intervals_measured": 0,
+            "max_interval_ms": None,
+            "max_interval_at_utc": None,
+            "interval_breaches": 0,
+            "last_breach_utc": None,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "note": (
+                "EXIT_LOOP_DECOUPLE_DISABLED is set: exit evaluation rides the "
+                "main tick, so there is no decoupled loop to be healthy. This is "
+                "NOT health — the 60s exit-evaluation target is not met in this "
+                "mode."
+            ),
+        }
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=1)
+        os.replace(tmp, path)   # atomic: a reader never sees a half-written file
+        return path
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _reset_for_tests() -> None:
     global _passes, _last_pass_monotonic, _last_pass_utc, _last_pass_ms
     global _max_pass_ms, _max_pass_at_utc, _started_utc
+    global _intervals_measured, _max_interval_ms, _max_interval_at_utc
+    global _breaches, _last_breach_utc
     with _lock:
         _passes = 0
         _last_pass_monotonic = None
@@ -165,6 +379,11 @@ def _reset_for_tests() -> None:
         _max_pass_ms = None
         _max_pass_at_utc = None
         _started_utc = None
+        _intervals_measured = 0
+        _max_interval_ms = None
+        _max_interval_at_utc = None
+        _breaches = 0
+        _last_breach_utc = None
 
 
 # --------------------------------------------------------------------- alerting
@@ -249,7 +468,8 @@ def run_exit_loop_health_check() -> Dict[str, Any]:
         # look, the second that a boot has not finished its first pass. Alerting on
         # either would fire on every restart and teach the operator to ignore this.
         if state not in ("fresh", "stale"):
-            return dict(st, alerted=False, recovered=False)
+            return dict(st, alerted=False, recovered=False,
+                        requirement_alerted=False)
 
         prev = _load_alert_state()
         was_stale = bool(prev.get("stale"))
@@ -272,10 +492,45 @@ def run_exit_loop_health_check() -> Dict[str, Any]:
             )
             recovered = True
 
-        if is_stale != was_stale:
-            _save_alert_state({"stale": is_stale,
-                               "at": datetime.now(timezone.utc).isoformat()})
-        return dict(st, alerted=alerted, recovered=recovered)
+        # --- the REQUIREMENT breach, a separate condition from staleness -------
+        #
+        # Latched per PROCESS, not globally. `max_interval_ms` is a per-process
+        # maximum and resets on restart, so a latch keyed only on "have we alerted"
+        # would go permanently silent after the first breach ever — and the live
+        # trader restarts often enough (three processes in the 2026-08-15/16 window
+        # alone) that this would have suppressed nearly every real breach. Keying
+        # on `process_started_utc` makes a new process's breach new information.
+        #
+        # There is deliberately NO recovery ping: a maximum cannot decrease, so a
+        # breach is a fact about the process, not a condition it can leave. That
+        # also makes the alert inherently once-per-process — no rate limiter needed.
+        breached = st.get("requirement_state") == "breached"
+        proc = st.get("process_started_utc")
+        already = prev.get("requirement_breach_process")
+        requirement_alerted = False
+        if breached and proc is not None and already != proc:
+            _send(
+                "\U0001F534 [ALERT] EXIT-EVAL INTERVAL BREACHED - a live trade "
+                f"went {round((st.get('max_interval_ms') or 0) / 1000.0, 1)}s "
+                f"without re-evaluation (requirement {st.get('requirement_s')}s). "
+                f"{st.get('interval_breaches')} breach(es) this process. The loop "
+                "is ALIVE and reads 'fresh' - this is the requirement, not liveness."
+            )
+            requirement_alerted = True
+
+        if is_stale != was_stale or requirement_alerted:
+            new_state = {"stale": is_stale,
+                         "at": datetime.now(timezone.utc).isoformat()}
+            # Carry the breach latch forward across a stale/recovery write, or a
+            # recovery ping would silently re-arm the breach alert for the same
+            # process and it would fire twice.
+            new_state["requirement_breach_process"] = (
+                proc if requirement_alerted else already
+            )
+            _save_alert_state(new_state)
+        return dict(st, alerted=alerted, recovered=recovered,
+                    requirement_alerted=requirement_alerted)
     except Exception:  # noqa: BLE001
         return {"state": "unknown", "stale": False, "alerted": False,
-                "recovered": False}
+                "recovered": False, "requirement_alerted": False,
+                "requirement_state": "unknown"}

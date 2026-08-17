@@ -125,3 +125,54 @@ def test_write_capture_and_producer_consumes_fmp_json(tmp_path):
     kinds = {json.loads(ln)["kind"] for ln in snap.read_text().splitlines()}
     assert {"eia_natgas_storage", "cpi_yoy", "fomc"} <= kinds
     assert s["resolved_with_surprise"] >= 1
+
+
+def test_write_capture_refuses_zero_row_window(tmp_path):
+    """A zero-row fetch must NOT produce a capture (BL-20260730-PRODUCER-VACUITY-GUARD).
+
+    The single .fmp.json ever written was exactly this: fresh, well-formed, and
+    entirely vacuous. The refusal must be legible, not silent — a caller has to be
+    able to tell "the feed returned nothing" from "a capture exists".
+    """
+    def empty_urlopen(url, timeout=0):
+        class _R:
+            def read(self_):
+                return b"[]"
+            def __enter__(self_):
+                return self_
+            def __exit__(self_, *a):
+                return False
+        return _R()
+
+    caps = tmp_path / "caps"
+    summ = write_capture(
+        out_dir=caps, countries=["US"], observed_at="2026-08-16T06:00:00Z",
+        api_key="K", urlopen=empty_urlopen,
+    )
+    assert summ["wrote"] is False
+    assert summ["path"] is None
+    assert summ["fetched_rows"] == 0
+    assert "vacuous" in (summ["reason"] or "")
+    # nothing on disk — not even an empty dir full of nothing to glob
+    assert not list(caps.glob("*.fmp.json"))
+
+
+def test_write_capture_still_writes_when_rows_present(tmp_path):
+    """The positive control: the refusal must not have broken the normal path."""
+    def fake_urlopen(url, timeout=0):
+        class _R:
+            def read(self_):
+                return json.dumps(FMP_ROWS).encode()
+            def __enter__(self_):
+                return self_
+            def __exit__(self_, *a):
+                return False
+        return _R()
+
+    caps = tmp_path / "caps"
+    summ = write_capture(
+        out_dir=caps, countries=["US"], observed_at="2026-08-16T06:00:00Z",
+        api_key="K", urlopen=fake_urlopen,
+    )
+    assert summ["wrote"] is True and summ["fetched_rows"] == 4
+    assert len(list(caps.glob("*.fmp.json"))) == 1

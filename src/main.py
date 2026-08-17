@@ -836,6 +836,20 @@ def main() -> None:
                     run_exit_loop_health_check()
                 except Exception:  # noqa: BLE001
                     logger.exception("exit_loop_health check failed")
+            else:
+                # The DISABLED branch must still write the state file, or the
+                # previous process's payload survives and keeps reporting
+                # `"state": "fresh"` for a loop that is not running — measured
+                # live on 2026-08-14 after the #9233 rollback, on a file stamped
+                # 16s BEFORE the process it appeared to describe. See
+                # exit_loop_health.write_disabled_state_file for the full account.
+                try:
+                    from src.runtime.exit_loop_health import (
+                        write_disabled_state_file,
+                    )
+                    write_disabled_state_file()
+                except Exception:  # noqa: BLE001
+                    logger.exception("exit_loop_health disabled-state write failed")
 
             # Market-neutral pairs sleeve (M22 D2): an ISOLATED 2-leg executor
             # that does NOT fit the single-symbol intent model, so it runs as
@@ -942,6 +956,22 @@ def main() -> None:
                 run_account_reachability_check()
             except Exception:  # noqa: BLE001
                 logger.exception("account_reachability_check tick failed")
+
+            # The gap the check above CANNOT see: an account whose positions()
+            # answers (so it reads UP) while balance() returns None, refusing
+            # every signal routed to it. Measured 2026-08-14: alpaca_live threw
+            # 120 refusals across 16 days and nothing alerted once. This reads
+            # the journal the trader already wrote — NO broker round-trip, so
+            # the sibling's "no new exchange round-trip" invariant holds.
+            # Latched per (account, cause); internally cadence-gated
+            # (SILENT_REFUSAL_CHECK_SECONDS, default hourly); best-effort.
+            try:
+                from src.runtime.silent_refusal_alert import (
+                    run_silent_refusal_check,
+                )
+                run_silent_refusal_check()
+            except Exception:  # noqa: BLE001
+                logger.exception("silent_refusal_check tick failed")
 
             # Trainer-VM-down alert (operator-requested 2026-07-08): the trainer
             # VM can go SSH-dead / OOM-hung and nothing fires a loud alert. The

@@ -843,8 +843,51 @@ class AlpacaClient:
                 "result": {"orderId": patched[-1], "patched": patched}}
 
     # --------------------------------------------------- naked re-arm (GTC OCO)
+    def protection_state(self, symbol: str) -> Optional[dict]:
+        """Which SIDES of the bracket actually rest on *symbol*, graded apart.
+
+        ``{"stop": bool, "target": bool, "legs": int}``, or ``None`` on a read
+        failure (so the caller refuses to act rather than assume "no legs" —
+        the same rule :meth:`positions` follows).
+
+        Exists because :meth:`has_protective_orders` answers *"does ANY
+        protective leg rest?"* and the naked sweep consumed it as if it meant
+        *"is this position protected?"*. Those differ exactly when a book holds
+        a stop and no take-profit: the boolean says ``True``, the sweep skips,
+        and the missing target is invisible. That is the Alpaca half of
+        BL-20260816-COVERAGE-IS-ONE-SIDED — the IB half was measured live (both
+        `ib_paper` positions stop-covered, ZERO limit orders account-wide), and
+        this venue carried the identical grading with **13 live positions**
+        behind it.
+
+        Side classification mirrors ``IBClient._protective_leg_side``: the STOP
+        family is tested FIRST, because a stop-limit's type string contains
+        ``"limit"`` and an LMT-first test would file every stop-limit as a
+        take-profit — *manufacturing* target coverage that does not exist,
+        which is strictly worse than the bug being fixed.
+        """
+        legs = self._open_orders_for_symbol(symbol)
+        if legs is None:
+            return None
+        stop = target = False
+        for o in legs:
+            otype = str(o.get("type") or o.get("order_type") or "").lower()
+            if "stop" in otype or "trail" in otype:      # incl. "stop_limit"
+                stop = True
+            elif "limit" in otype:
+                target = True
+        return {"stop": stop, "target": target, "legs": len(legs)}
+
     def has_protective_orders(self, symbol: str) -> Optional[bool]:
         """Does *symbol* have a resting protective leg (a stop OR a limit) open?
+
+        .. warning:: **Do NOT use this for naked-position detection.** It
+           answers "does ANY protective leg rest?", so a stop-only book — one
+           that can only stop out or run — answers ``True``. Call
+           :meth:`protection_state` and grade the sides separately. The
+           combined test is kept here deliberately because that IS this
+           method's question (BL-20260816-COVERAGE-IS-ONE-SIDED), mirroring the
+           same carve-out on ``IBClient.has_protective_orders``.
 
         For the naked-position sweep on an EQUITY account: the journal row keeps
         its sl/tp, but the broker-side day-TIF bracket legs are cancelled at the

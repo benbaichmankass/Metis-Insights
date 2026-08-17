@@ -56,6 +56,10 @@ on:
         type: choice
         options: ['oos-trades', 'date']
         default: 'oos-trades'
+      split_target_oos:
+        description: "How many OOS trades the derived boundary AIMS AT (oos-trades mode only). Empty = the script default, which is MIN_OOS_TRADES itself — i.e. it targets exactly the number the verdict requires, so a shortfall of one trade lands below the floor and the cell returns insufficient_base. Measured 2026-08-14: the lever-OFF arm hit OOS 23/24/24/24/23 on five legs (all ungradeable) and 25 on the one that passed. Set 30-35 to leave the floor a margin. Empty reproduces every pre-2026-08-14 run."
+        required: false
+        default: ''
       fee_bps_roundtrip:
         description: "Roundtrip fee in bps. Empty = the harness default (7.5). Set 15 for the fee-SURVIVAL arm — SRQ-20260618-003 rejected the 5m scalp alts because they were +50R at 7.5bps and -38R at 15bps, and the entire corpus is 7.5bps, so that arm was unrunnable until now."
         required: false
@@ -273,6 +277,22 @@ jobs:
           # cell `insufficient_base`. Exposing the mode is what makes a
           # pre-2026-08-13 row reproducible at all.
           SPLIT_MODE: ${{ inputs.split_mode || 'oos-trades' }}
+          # WHY this is plumbed (2026-08-14): the sweep's --split-target-oos
+          # DEFAULTS TO MIN_OOS_TRADES ITSELF, so the derived boundary aims at
+          # exactly the number the verdict requires and any shortfall lands
+          # below the floor. That is not a hypothetical: the nine-pair lever-OFF
+          # arm dispatched this morning returned base OOS 23/24/24/24/23 on the
+          # five legs it could measure -- ALL FIVE `insufficient_base` -- while
+          # the single leg that reached 25 (trend_donchian_avax_4h) returned a
+          # PASS. Six measured cells, one gradeable, and the difference was one
+          # or two trades. Until this input existed the workflow could not ask
+          # for a margin at all: the CLI flag has existed since #8965 and only
+          # the relay path could reach it, so the autonomous path was locked to
+          # the value most likely to produce no verdict.
+          # Empty = the script's own default (the floor), which is what every
+          # pre-2026-08-14 run used -- so an omitted value REPRODUCES history
+          # rather than silently changing it.
+          SPLIT_TARGET_OOS: ${{ inputs.split_target_oos }}
           WITHOUT: ${{ inputs.without_declared_levers }}
         run: |
           set -o pipefail
@@ -296,6 +316,7 @@ jobs:
             --only "${LEG}" \
             --split "${SPLIT}" \
             --split-mode "${SPLIT_MODE}" \
+            ${SPLIT_TARGET_OOS:+--split-target-oos "${SPLIT_TARGET_OOS}"} \
             --tp-cap-pct "${TP_CAP_PCT}" \
             ${FEE_BPS:+--fee-bps-roundtrip "${FEE_BPS}"} \
             ${MIN_CONF:+--min-confidence-override "${MIN_CONF}"} \
@@ -317,6 +338,8 @@ jobs:
           LEG: ${{ matrix.leg.leg }}
           TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
+          SPLIT_MODE: ${{ inputs.split_mode || 'oos-trades' }}
+          SPLIT_TARGET_OOS: ${{ inputs.split_target_oos }}
           FEE_BPS: ${{ inputs.fee_bps_roundtrip }}
           MIN_CONF: ${{ inputs.min_confidence_override }}
         with:
@@ -383,6 +406,24 @@ jobs:
             // "(harness default)" / "(config-exact per leg)" are STATED rather
             // than left blank -- an omitted axis reads as "not applicable", which
             // is a different claim from "not overridden".
+            // SPLIT IS A REQUEST, NOT A BOUNDARY -- the same correction the
+            // geometry line above already carries, applied to the axis next to
+            // it. Under the default `--split-mode oos-trades` the boundary is
+            // resolved PER LEG by `resolve_split()` and `--split` is only the
+            // fallback date, so printing it bare asserted one shared calendar
+            // cut across every leg's comment. Measured on the 2026-08-15
+            // pullback re-sweep: 17 comments said "IS/OOS split `2025-07-01`"
+            // and 16 legs had run at a different derived boundary; the one that
+            // matched did so because its derivation FAILED and fell back.
+            // The APPLIED, per-leg boundary is emitted by the sweep (which is
+            // where resolve_split runs) as a `- split (leg): ...` line in the
+            // SUMMARY embedded below -- same single-source rule as geometry.
+            const splitTxt = (process.env.SPLIT_MODE && process.env.SPLIT_MODE !== 'date')
+              ? `IS/OOS split DERIVED per leg (split_mode \`${process.env.SPLIT_MODE}\``
+                + (process.env.SPLIT_TARGET_OOS ? `, targeting \`${process.env.SPLIT_TARGET_OOS}\` OOS trades` : '')
+                + `; \`${process.env.SPLIT}\` is only the FALLBACK date) — legs do NOT share a boundary, `
+                + `see the per-leg \`split\` line below for what this leg actually cut at`
+              : `IS/OOS split \`${process.env.SPLIT}\` (split_mode \`date\` — the same fixed boundary for every leg)`;
             const feeTxt = process.env.FEE_BPS
               ? `\`${process.env.FEE_BPS}\` bps roundtrip`
               : '`(harness default)`';
@@ -392,7 +433,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: pr.number,
-              body: `### Exit-lever sweep — \`${leg}\`\n\nGeometry: ${geom}. IS/OOS split \`${process.env.SPLIT}\`. `
+              body: `### Exit-lever sweep — \`${leg}\`\n\nGeometry: ${geom}. ${splitTxt}. `
                   + `Fee: ${feeTxt}. Entry selectivity: ${confTxt}. `
                   + `\`net_r_per_capital_day\` is REPORTED for every cell, including Path-A rejects — Path B's thresholds stay unset.\n\n`
                   + `${body}\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`,
@@ -447,6 +488,47 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # PRESERVE THE EXTRACTOR THIS RUN WAS DISPATCHED WITH, before any git
+          # operation below can revert it.
+          #
+          # `rebase_onto_target`'s conflict path does `git reset --hard
+          # origin/$TARGET` and then re-runs the extractor. That reset reverts
+          # the ENTIRE worktree — including `m20_corpus_extract.py` itself — to
+          # the corpus branch's copy, so the re-derive runs the TARGET BRANCH's
+          # extractor, not this run's. Every field added to the extractor since
+          # that branch last moved is then silently absent from the rows, and
+          # nothing says so: the job is green, the summary reports the full row
+          # count, and the rows look complete.
+          #
+          # MEASURED (2026-08-16, run 31976325152): the conflict path fired, the
+          # reset landed on 9a085926 — 123 commits behind main — and all 52 rows
+          # came back missing the eight `live_tp_reach_r_*` keys #9037 added.
+          # The verdicts were unaffected (those are computed upstream, in
+          # verdicts.json); the loss is confined to the corpus row schema.
+          #
+          # This is NOT a rare concurrency edge. The corpus branch never merges
+          # main, so a main-dispatched run rebases main's whole history onto a
+          # long-diverged branch and takes add/add conflicts across dozens of
+          # unrelated files EVERY time. The conflict path is the normal path,
+          # which is exactly why the downgrade went unnoticed.
+          #
+          # The extractor is stdlib-only and imports nothing from the repo
+          # (verified: argparse/json/sys/pathlib), so running it from outside
+          # the worktree is safe. Copied rather than `git checkout`-ed so it
+          # never enters the index — the corpus branch must receive the JSONL,
+          # not a scripts change.
+          cp scripts/research/m20_corpus_extract.py "$RUNNER_TEMP/extract_dispatched.py"
+          # THE UNION SCRIPT IS **NOT** STDLIB-ONLY — it imports
+          # `measurement_key` from the extractor BY NAME, deliberately, so the
+          # two can never disagree about what counts as the same measurement.
+          # That breaks the invariant stated directly above, so the extractor is
+          # ALSO copied under its REAL module name: the union script inserts its
+          # own directory on `sys.path`, and `extract_dispatched.py` is not an
+          # importable `m20_corpus_extract`. Two copies of one small file, each
+          # with a distinct job — the mangled name is what the re-derive CALLS,
+          # the real name is what the union script IMPORTS.
+          cp scripts/research/m20_corpus_extract.py "$RUNNER_TEMP/m20_corpus_extract.py"
+          cp scripts/research/m20_corpus_union.py "$RUNNER_TEMP/union_dispatched.py"
           # The extractor FAILS on zero verdicts files, so reaching this step
           # means rows were produced. If the file is nonetheless absent, the
           # extractor and this step disagree about where it writes — a wiring
@@ -538,17 +620,36 @@ jobs:
           # multi-line, and embedding it inline here breaks out of this block
           # scalar (which is a YAML parse error, not a runtime one — it fails
           # the whole workflow at load).
-          {
-            echo "corpus: merge exit-lever sweep run $(date -u +%Y-%m-%dT%H:%MZ)"
-            echo
-            cat extract.out
-            echo
-            echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-          } > .commitmsg
+          # ONE writer for the message, called again after any re-derive.
+          #
+          # The message must describe the extraction whose output is actually
+          # being committed. It used to be built ONCE here and then REUSED by
+          # the conflict path below, which re-runs the extractor — so every
+          # conflict-path commit carried the counts of a computation whose
+          # result had been discarded by the intervening `reset --hard`.
+          #
+          # MEASURED (2026-08-17, corpus commit 54e9b63e): the message read
+          # `superseded: 0 ... corpus now: 1316 rows` while the file it
+          # committed held 998 rows with 52 rows superseded. Both numbers were
+          # real; only one described the commit. That is the unprovenanced-
+          # diagnostic class — a confident label over a different computation —
+          # and it is the reason verifying that repair had to read the FILE and
+          # could not trust the message.
+          write_commitmsg() {
+            {
+              echo "corpus: merge exit-lever sweep run $(date -u +%Y-%m-%dT%H:%MZ)"
+              echo
+              cat extract.out
+              echo
+              echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+            } > .commitmsg
+          }
+          write_commitmsg
           git commit -F .commitmsg
           # .commitmsg is deliberately NOT removed here — the re-derive path
-          # below reuses it after a hard reset. It is cleaned on the success
-          # exit, and it is untracked either way so it cannot reach a commit.
+          # below rewrites it from ITS OWN extract.out before committing. It is
+          # cleaned on the success exit, and it is untracked either way so it
+          # cannot reach a commit.
           # The branch may have moved while the sweep ran (hours, in the scalp
           # case). Rebase-and-retry rather than force: another session's commits
           # on this branch are not ours to discard.
@@ -568,7 +669,47 @@ jobs:
             git rebase --abort || true
             git fetch origin "$TARGET"
             git reset --hard "origin/$TARGET"
-            python3 scripts/research/m20_corpus_extract.py \
+            # ---- restore what the reset just discarded, BEFORE extracting ----
+            #
+            # The reset above replaced the worktree corpus with the CORPUS
+            # BRANCH's copy. That branch never merges the default branch, so
+            # every row the default branch has and it does not is gone — and
+            # extracting on top of it would commit that loss as the new state.
+            #
+            # MEASURED 2026-08-17, before this union existed: default branch
+            # 1264 rows, corpus branch 1004, with **360 rows on the default
+            # branch alone**. #9823 closed that by hand; without this step the
+            # very next dispatch re-opened it. The hand union is not repeatable
+            # and the divergence is structural, so it is fixed here.
+            #
+            # ⚠️ THE MERGE RULE IS `sweep_generated_at`, NOT "the default branch
+            # wins" and NOT "the corpus branch wins". Measured on that same
+            # pair: 904 shared keys, 19 differ, and on ALL 19 the DEFAULT branch
+            # was newer and complete (8 `live_tp_reach_r_*` keys vs 0). A
+            # side-wins union re-drops exactly the schema the dispatched-extractor
+            # fix above exists to protect. The script refuses (exit 2) rather
+            # than guessing when a timestamp cannot order two rows, and that
+            # exit is deliberately NOT swallowed — a corpus it cannot merge
+            # unambiguously must stop the job, not silently pick.
+            git fetch origin "${DEFAULT_BRANCH:-main}"
+            if git show "origin/${DEFAULT_BRANCH:-main}:docs/research/m20-sweep-corpus.jsonl" \
+                 > "$RUNNER_TEMP/default_corpus.jsonl" 2>/dev/null; then
+              python3 "$RUNNER_TEMP/union_dispatched.py" \
+                --into docs/research/m20-sweep-corpus.jsonl \
+                --from "$RUNNER_TEMP/default_corpus.jsonl"
+            else
+              # The default branch carries no corpus yet (first-ever run). That
+              # is a real state, not a failure — say so rather than letting a
+              # silent skip read as a completed union.
+              echo "::notice::no corpus on ${DEFAULT_BRANCH:-main} to union in "
+              echo "(first run?) — proceeding with the corpus branch's copy."
+            fi
+            # THE DISPATCHED extractor, not the one the reset just restored.
+            # See the cp at the top of this step for why: re-deriving with
+            # `scripts/research/m20_corpus_extract.py` here reads the corpus
+            # branch's long-stale copy and silently drops every field added
+            # since, producing rows that look complete and are not.
+            python3 "$RUNNER_TEMP/extract_dispatched.py" \
               --in sweep_out \
               --corpus docs/research/m20-sweep-corpus.jsonl | tee extract.out
             git add docs/research/m20-sweep-corpus.jsonl
@@ -593,6 +734,10 @@ jobs:
               echo "their copy already contains this run's rows"
               return 0
             fi
+            # REBUILD from THIS re-derive's extract.out. Committing the message
+            # written before the reset would report the discarded extraction's
+            # counts over the rows actually landing here — see write_commitmsg.
+            write_commitmsg
             git commit -F .commitmsg
           }
           # `git commit` consumed .commitmsg above; keep it for the re-derive path.

@@ -190,12 +190,41 @@ non-bugs and taught the board to discount the next real alarm.
 - **The two knob defaults are chosen, not measured.** 30 s interval / 180 s stale
   threshold, bounded by the 22.4 s mean pass and now with one 55-pass distribution
   behind them. A longer-window read turns them into measured values.
+
+  > **SUPERSEDED 2026-08-14 — do not quote the 22.4 s figure as current behaviour.**
+  > After the IB single-thread pin (#9240) and its `_usage_lock` follow-up (#9280),
+  > the warm exit pass measures **mean 27.6 s / max 47.6 s over n=88 passes**
+  > (`exit_loop_health` + `tick_cost.offloop_hooks.monitor_strategy_monitor_loop`,
+  > n=78, process start 13:45:23Z, read 14:29–14:34Z). That is **+23 %** on the
+  > 22.4 s recorded here — not the +82 % an earlier n=5 read on a 3-minute-old
+  > process suggested, which is why that cold reading was never quoted as a
+  > regression. The 47.6 s max landed 2 m 10 s after start, during cache warm-up.
+  > The 30 s interval still binds (last pass 28.0 s, and the loop targets a period
+  > rather than sleeping after), so the effective cadence remains ~30 s and the
+  > operator's 60 s ask keeps roughly 2× margin at the mean.
+  >
+  > **The pass is ~97.2 % fetch wait** (26.8 s of 27.6 s, reconciled two ways: the
+  > per-timeframe sum over off-loop fetches, and the `fetchby.strategy_monitor_loop`
+  > aggregate). Whether the pin's queueing *inflates* that wait is **suggested but
+  > NOT established**: 15m/4h/1d run 1.6–4.4× slower off-loop than on-loop, but 1h
+  > runs **0.34×** — faster. The two consumers fetch different symbol mixes, so the
+  > per-timeframe comparison is confounded; quoting only the ratios that fit the
+  > queueing story would be cherry-picking.
 - **`BL-20260812-WALLCLOCK-TIMEBOMB-TESTS-NO-SOUND-DETECTOR`** (filed, low) — the
   suite is **not** certified clean; the recommended fix is a *static* literal-vs-window
   check, not the dynamic clock shift.
 - **`BL-20260810-TICK-CHAIN-260S-PER-TICK` stays OPEN.** The tick is still mean
   **96.5 s** / max **115.7 s** with `pipeline.signal_build` at **53.7%**. This work
   took exit evaluation *off* the tick; it did not make the tick fast.
+
+  > **WORSE AS OF 2026-08-14, post-pin: mean 148.7 s / max 200.0 s (n=13 warm),
+  > `pipeline.signal_build` 65.5 %.** That is **2.15× the 69.3 s** post-decouple
+  > baseline this sprint recorded. Serialising every IB market-data fetch onto one
+  > thread (#9240/#9280) was necessary for correctness — it fixed a live event-loop
+  > race — but its cost to the TICK was never measured before it shipped. The exit
+  > half is unaffected and still hits its ~30 s cadence; the tick half generates
+  > SIGNALS, so this delays new entries and regime scoring. Tracked as
+  > `BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN`.
 
 ## Deferred Items
 

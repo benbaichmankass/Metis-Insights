@@ -184,6 +184,18 @@ jobs:
           # "snapshot?limit=200" or "/api/diag/snapshot?limit=200".
           path="${DIAG_PATH#/api/diag/}"
           path="${path#/}"
+          # ...and the SLASHLESS form, "api/diag/snapshot"
+          # (BL-20260816-DIAG-RELAY-DOUBLE-PREFIXES-A-SLASHLESS-API-DIAG-PATH).
+          # The two strips above only ever matched the LEADING-SLASH spelling,
+          # so "api/diag/status" survived intact, fell through to the default
+          # upstream prefix, and was requested as "/api/diag/api/diag/status" —
+          # which the API answers with a bare 404, INDISTINGUISHABLE from a
+          # route that does not exist. A session hit this on all four paths of
+          # one batch and came within one step of filing "the entire
+          # /api/diag/* surface is down"; what refuted it was an /api/bot/ path
+          # in the SAME batch returning real data. A malformed request must
+          # never be reported in the vocabulary of a broken server.
+          path="${path#api/diag/}"
 
           # Default upstream is the /api/diag/* surface. A caller may instead
           # target an allowlisted READ-ONLY /api/bot/* Tier-1 GET endpoint —
@@ -220,6 +232,21 @@ jobs:
               esac
               ;;
           esac
+
+          # DOUBLED-PREFIX BACKSTOP. The strip above handles the two spellings
+          # we know about; this asserts the INVARIANT those strips exist to
+          # uphold — the resolved path must never re-contain the upstream
+          # prefix it is about to be joined to. It is deliberately a check on
+          # the CONSTRUCTED url rather than on the input spelling, so a variant
+          # no strip anticipated (`API/diag/`, `api//diag/`, a future
+          # /api/bot/ analogue) fails HERE, loudly and named, instead of
+          # reaching the VM and coming back as a 404 that reads like an outage.
+          # A malformed request and a missing route must not share an error.
+          if printf '%s' "${upstream_prefix}${path}" | grep -qE '/api/(diag|bot)/api/'; then
+            echo "::error::Doubled upstream prefix — resolved '${upstream_prefix}${path}' from input '$DIAG_PATH'. Pass the path WITHOUT the /api/diag/ or /api/bot/ prefix (e.g. 'status', 'tick_cost', 'log_file?name=audit', 'api/bot/performance')."
+            echo "diag_reject_reason=doubled upstream prefix: resolved ${upstream_prefix}${path} from input $DIAG_PATH" >>"$GITHUB_ENV"
+            exit 1
+          fi
 
           # Allowed chars (validate the FINAL path): alphanumeric, slash, query
           # separators (`?` `&` `=`), safe path/symbol chars (`_.-`), ISO-8601
@@ -398,6 +425,19 @@ jobs:
               if path.startswith("/api/diag/"):
                   path = path[len("/api/diag/"):]
               path = path.lstrip("/")
+              # ...and the SLASHLESS spelling, "api/diag/status"
+              # (BL-20260816-DIAG-RELAY-DOUBLE-PREFIXES-A-SLASHLESS-API-DIAG-PATH).
+              # The strip above only ever matched the LEADING-SLASH form, so
+              # "api/diag/status" survived intact and was requested as
+              # "/api/diag/api/diag/status" — answered with a bare 404 that is
+              # INDISTINGUISHABLE from a route that does not exist. A session
+              # hit this on all four paths of one batch and came within a step
+              # of filing "the entire /api/diag/* surface is down"; what
+              # refuted it was an /api/bot/ path in the SAME batch returning
+              # real data. A malformed request must never be reported in the
+              # vocabulary of a broken server.
+              if path.startswith("api/diag/"):
+                  path = path[len("api/diag/"):]
               upstream_prefix = "/api/diag/"
               if path.startswith("api/bot/"):
                   botpath = path[len("api/bot/"):]
@@ -414,6 +454,21 @@ jobs:
                       raise ValueError(
                           f"/api/bot/ path not in the relay read-only allowlist: {botbase}"
                       )
+              # DOUBLED-PREFIX BACKSTOP, mirroring the single-path validator.
+              # This asserts the INVARIANT the strips exist to uphold — the
+              # resolved path must never re-contain the upstream prefix it is
+              # about to be joined to — and it checks the CONSTRUCTED url
+              # rather than the input spelling, so a variant no strip
+              # anticipated ("API/diag/", "api//diag/", a future /api/bot/
+              # analogue) fails HERE, named, instead of reaching the VM and
+              # returning a 404 that reads like an outage.
+              if re.search(r"/api/(diag|bot)/api/", upstream_prefix + path):
+                  raise ValueError(
+                      f"doubled upstream prefix: resolved {upstream_prefix + path!r} "
+                      f"from input {raw!r} — pass the path WITHOUT the /api/diag/ "
+                      f"or /api/bot/ prefix (e.g. 'status', 'tick_cost', "
+                      f"'log_file?name=audit', 'api/bot/performance')"
+                  )
               # Same charset as the single-path validator — nothing relaxed.
               if not PATH_RE.match(path):
                   raise ValueError(f"illegal characters in resolved path: {path}")

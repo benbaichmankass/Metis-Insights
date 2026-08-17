@@ -55,6 +55,8 @@ State persistence (A-1 + self-healing rebuild):
 """
 from __future__ import annotations
 
+import logging
+
 import math
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -74,7 +76,35 @@ _DEFAULT_TEST_QTY = 0.0001
 # math doesn't put us right at the edge where one tick of unrealized PnL
 # would push the resulting position into a margin-call state.
 # 0.9 = use up to 90% of available margin for a new position.
+logger = logging.getLogger(__name__)
+
 _MARGIN_SAFETY_BUFFER = 0.9
+
+#: What the margin pre-flight cap was actually sized FROM. Stamped onto the
+#: journal row so a venue refusal is attributable without a diag round-trip —
+#: establishing this for the 2026-08 bybit_2 rejections took nine diag reads
+#: and a proof by contradiction, because the record said only what qty was
+#: emitted and never what basis produced it
+#: (BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS).
+#:
+#: Ordered best-to-worst. The first two are the venue's own numbers; the third
+#: is a reconstruction; the last two are the account's equity standing in for
+#: available margin, which is what over-permitted in the first place.
+_BASIS_VENUE_AVAILABLE = "venue_available"        # broker's own available figure
+_BASIS_COIN_DERIVED = "coin_derived"              # equity - posIM - orderIM, per-coin
+_BASIS_EQUITY_MINUS_PLEDGED = "equity_minus_pledged"  # ESTIMATED reconstruction
+_BASIS_EQUITY_UNADJUSTED = "equity_unadjusted"    # pledged margin unreadable
+_BASIS_EQUITY_PLEDGED_IMPLAUSIBLE = "equity_pledged_implausible"  # estimate >= equity
+_BASIS_FREE_BALANCE = "free_balance"              # no equity figure either
+
+MARGIN_BASIS_KINDS = (
+    _BASIS_VENUE_AVAILABLE,
+    _BASIS_COIN_DERIVED,
+    _BASIS_EQUITY_MINUS_PLEDGED,
+    _BASIS_EQUITY_UNADJUSTED,
+    _BASIS_EQUITY_PLEDGED_IMPLAUSIBLE,
+    _BASIS_FREE_BALANCE,
+)
 
 # Round-up-to-one-unit overshoot cap (operator directive 2026-06-24). On a
 # whole-SHARE (equity) account the smallest tradeable size is 1 share, so a
@@ -510,6 +540,84 @@ class RiskManager:
             return _exposure.unmeasurable(_exposure.REASON_NO_NOTIONAL)
         return _exposure.measured(notional, float(equity))
 
+    def _open_notional_for_symbol(self, symbol: str) -> Optional[float]:
+        """This account's open notional for ONE symbol, same basis as the total.
+
+        Deliberately mirrors ``_open_gross_notional_from_db``'s query shape and
+        entry-price basis so the two are subtractable. A different filter or a
+        mark-price basis here would make ``total - own`` a difference of two
+        incomparable numbers.
+        """
+        if not self.account_id or not symbol:
+            return None
+        try:
+            import sqlite3
+            uri = "file:%s?mode=ro" % self._risk_db_path()
+            with sqlite3.connect(uri, uri=True, timeout=5) as conn:
+                row = conn.execute(
+                    "SELECT COALESCE(SUM(ABS("
+                    "  COALESCE(position_size, 0) * COALESCE(entry_price, 0)"
+                    ")), 0.0) FROM trades "
+                    "WHERE account_id=? AND status='open' AND symbol=? "
+                    "AND COALESCE(is_backtest, 1) = 0",
+                    (self.account_id, symbol),
+                ).fetchone()
+            return float(row[0]) if row and row[0] is not None else 0.0
+        except Exception:  # noqa: BLE001  # allow-silent: unknown, not zero — the caller branches on None
+            return None
+
+    def _pledged_margin_estimate(
+        self, leverage: int, exclude_symbol: Optional[str] = None
+    ) -> Optional[float]:
+        """Initial margin the account's OTHER open positions have committed.
+
+        ``open_gross_notional / leverage`` — an ESTIMATE, and labelled as one
+        wherever it is stamped. It models cross margin and ignores unrealised
+        PnL and fee reserves.
+
+        Returns **None**, never 0.0, when open notional cannot be read. "We
+        could not look" and "nothing is pledged" are opposite statements, and
+        a fabricated zero here would restore exactly the over-permission this
+        exists to remove — it would tell the sizer the whole equity is free.
+
+        ``exclude_symbol`` REMOVES that symbol's own open notional, and the
+        caller always passes the package's symbol. This is not a refinement, it
+        is required for correctness: ``position_size`` computes a TARGET size,
+        and resizing a position you already hold RELEASES its margin rather than
+        consuming more. Counting the symbol's own position against the budget
+        for that same symbol double-counts it, which shrinks every reduce and
+        every re-size of an existing holding. Sizing a symbol the account does
+        NOT hold — the bybit_2 BTC case this fix was validated on, where the
+        open legs were XRP and ETH — is unaffected either way.
+
+        Reuses ``_open_gross_notional_from_db`` rather than re-deriving open
+        notional, so this and ``observe_exposure`` cannot disagree about what
+        the account is holding; the per-symbol subtraction is applied on top of
+        that single measurement rather than being a second query with its own
+        filters.
+        """
+        if leverage <= 0:
+            return None
+        try:
+            notional = self._open_gross_notional_from_db()
+            if notional is not None and exclude_symbol:
+                own = self._open_notional_for_symbol(exclude_symbol)
+                if own is None:
+                    # We know the total but not this symbol's share, so we cannot
+                    # say what the OTHERS hold. Returning the unadjusted total
+                    # would over-subtract; returning None leaves the basis
+                    # unadjusted, which is the safe direction.
+                    return None
+                notional = max(0.0, notional - own)
+        except Exception:  # noqa: BLE001  # allow-silent: a read failure must degrade to "unknown", never to 0.0 — the caller branches on None
+            return None
+        if notional is None:
+            return None
+        try:
+            return max(0.0, float(notional)) / float(leverage)
+        except (TypeError, ValueError):
+            return None
+
     def exposure_policy(self) -> Optional[float]:
         """The declared ceiling, or ``None`` when none is declared.
 
@@ -781,6 +889,8 @@ class RiskManager:
         available_usd: Optional[float] = None,
         total_account_usd: Optional[float] = None,
         whole_units: bool = False,
+        available_basis_kind: Optional[str] = None,
+        margin_basis_out: Optional[dict] = None,
     ) -> float:
         """Return the qty to trade for *package* given *balance_usd*.
 
@@ -999,9 +1109,12 @@ class RiskManager:
                 # available_usd is already-leveraged broker buying power with
                 # effective_leverage=1, so this only makes the cap slightly
                 # more conservative — never over-permissive.)
-                max_qty_by_margin = (
-                    available_usd * effective_leverage * _MARGIN_SAFETY_BUFFER
-                ) / package.entry
+                _margin_basis = available_usd
+                # The LABEL only. Never branched on — the arithmetic above is
+                # identical whichever reader produced the figure, and making
+                # sizing depend on the label would give the two a way to drift.
+                _basis_kind = available_basis_kind or _BASIS_VENUE_AVAILABLE
+                _basis_detail = None
             else:
                 # Buffer fallback. Prefer total account equity
                 # (``total_account_usd``) over free ``balance_usd`` as the
@@ -1014,9 +1127,108 @@ class RiskManager:
                 _margin_basis = (
                     total_account_usd if total_account_usd is not None else balance_usd
                 )
-                max_qty_by_margin = (
-                    _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
-                ) / package.entry
+                _basis_kind = (
+                    _BASIS_EQUITY_UNADJUSTED if total_account_usd is not None
+                    else _BASIS_FREE_BALANCE
+                )
+                _basis_detail = None
+                # === 2026-08-13, BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS ===
+                # SUBTRACT MARGIN ALREADY PLEDGED. Equity is not free collateral
+                # on an account holding positions — it overstates what the venue
+                # will grant by exactly the initial margin those positions have
+                # committed. Measured on the real-money bybit_2 book: the cap ran
+                # on this branch with a ~$275 equity basis while the venue's true
+                # available was under $230, and every order it sized was refused
+                # 110007 — 9 refusals across 3 strategies, 30% of that account's
+                # orders in the window.
+                #
+                # Reuses ``_open_gross_notional_from_db`` — the SAME measurement
+                # the exposure path uses — rather than a second definition of
+                # "open notional" free to drift from it. Connection-free.
+                #
+                # ESTIMATED, not measured: notional/leverage models cross margin
+                # and ignores unrealised PnL and fee reserves. Validated against
+                # broker truth on 2026-08-13 to 0.05% (and the venue's own
+                # totalPositionIM sat 0.22% from this model), but it stays
+                # labelled as an estimate because that agreement was measured on
+                # one account on one day.
+                #
+                # This is the LAST-RESORT path. The primary is the venue figure,
+                # then the coin-block derivation; both arrive as available_usd
+                # above. This branch only runs when the broker exposed nothing.
+                # SCOPED TO LEVERAGED (linear) ACCOUNTS. "Initial margin already
+                # pledged" is a margin-account concept; on cash spot or equity
+                # there is nothing pledged and subtracting open notional would
+                # just shrink the basis for no reason.
+                _pledged = (
+                    self._pledged_margin_estimate(
+                        effective_leverage,
+                        exclude_symbol=getattr(package, "symbol", None),
+                    )
+                    if market_type == "linear" else None
+                )
+                if _pledged is None:
+                    # Either not applicable (non-linear) or we could not read open
+                    # notional — and the latter is NOT "nothing is pledged". Left
+                    # unadjusted rather than guessed, with the kind saying so, so a
+                    # 110007 traced back here is attributable instead of looking
+                    # like the fixed path misbehaved.
+                    _basis_detail = (
+                        "not a leveraged account; equity NOT adjusted"
+                        if market_type != "linear"
+                        else "open notional unreadable; equity NOT adjusted"
+                    )
+                elif _pledged >= _margin_basis:
+                    # === HALT VECTOR, deliberately not taken ===
+                    # An estimate at-or-above equity is either TRUE (the account
+                    # really is maxed) or the journal is OVER-REPORTING open
+                    # notional — and the journal is known to do exactly that under
+                    # one-way netting, measured at 451x on bybit_1 SOLUSDT
+                    # (BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED).
+                    # From here those are indistinguishable, and "we cannot tell"
+                    # must NOT become a silent fleet-wide refusal: driving the
+                    # basis to 0 clamps every trade to nothing, which is the
+                    # second halt vector docs/design/gross-exposure-governance
+                    # -DESIGN.md records as having been missed once already and
+                    # caught only by a pre-existing test.
+                    #
+                    # So: do not adjust, say so, and let the venue arbitrate — a
+                    # genuinely maxed account is refused by the exchange with a
+                    # logged cause, which is the sanctioned per-trade shape. The
+                    # exposure headroom clamp below is the gradient that governs
+                    # this case on the way up.
+                    _basis_detail = (
+                        f"pledged estimate {_pledged:.2f} >= equity "
+                        f"{_margin_basis:.2f} — IMPLAUSIBLE or maxed; equity NOT "
+                        f"adjusted (refusing to self-halt on an estimate)"
+                    )
+                    _basis_kind = _BASIS_EQUITY_PLEDGED_IMPLAUSIBLE
+                    logger.warning(
+                        "position_size: pledged-margin estimate %.2f >= equity "
+                        "%.2f for %s — leaving the margin basis unadjusted. "
+                        "Either the account is genuinely maxed or the journal is "
+                        "over-reporting open notional (netting divergence).",
+                        _pledged, _margin_basis, getattr(package, "symbol", "?"),
+                    )
+                else:
+                    _basis_detail = (
+                        f"equity {_margin_basis:.2f} less pledged margin "
+                        f"{_pledged:.2f} (ESTIMATED: open notional / {effective_leverage}x)"
+                    )
+                    _margin_basis = _margin_basis - _pledged
+                    _basis_kind = _BASIS_EQUITY_MINUS_PLEDGED
+            max_qty_by_margin = (
+                _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
+            ) / package.entry
+            if margin_basis_out is not None:
+                margin_basis_out.update({
+                    "kind": _basis_kind,
+                    "basis_usd": round(float(_margin_basis), 8),
+                    "leverage": effective_leverage,
+                    "buffer": _MARGIN_SAFETY_BUFFER,
+                    "max_qty_by_margin": max_qty_by_margin,
+                    "detail": _basis_detail,
+                })
             if qty > max_qty_by_margin:
                 # Floor with the EFFECTIVE granularity, not self.qty_precision:
                 # on a whole-unit account (alpaca) the margin cap could otherwise

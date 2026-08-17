@@ -44,6 +44,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -240,6 +241,52 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/research/m20_coverage_rollup.py", "--check"]],
     },
     {
+        # The CROSS-ARTIFACT sibling of the guard above: that one validates the
+        # matrix against ITSELF (legend values, refs present); this one validates
+        # it against the CORPUS the dispositions rest on. Both files can be
+        # internally valid and disagree with each other, and nothing checked
+        # that — measured 2026-08-14, 100 of 186 stale cells already had a
+        # live-parity corpus row and 9 of those PASSED against a recorded
+        # negative (BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY).
+        #
+        # NOT a subset of the staleness pass: the first run of this guard found
+        # TWO disagreements that are NOT in `stale_cells` at all, because their
+        # refs carry post-cutover dates so the date-proxy reads them as current
+        # while the STATUS rests on an older negative. A staleness scan
+        # structurally cannot reach those.
+        "name": "matrix-corpus-agreement",
+        "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "docs/research/m20-sweep-corpus.jsonl",
+                           "scripts/ci/check_matrix_corpus_agreement.py"]},
+        # Self-test FIRST, so a guard that silently stopped matching cannot read
+        # as a clean pass — it proves it catches a planted disagreement, clears
+        # on an acknowledgement, and honours supersession.
+        "steps": [["python3", "scripts/ci/check_matrix_corpus_agreement.py", "--self-test"],
+                  ["python3", "scripts/ci/check_matrix_corpus_agreement.py"]],
+    },
+    {
+        # The sibling of matrix-corpus-agreement, one axis over: that one checks
+        # the matrix against the EVIDENCE, this one against the FIELD. Config is
+        # what the trader loads; the matrix is prose about it, so a disagreement
+        # is always a stale RECORD and never a reason to touch a declare.
+        #
+        # Found six cells on its first run, five reading `honest_negative`
+        # -- "measured, did not work" -- about a trail_decay running live on
+        # that leg. The reverse direction was clean, which is why the guard
+        # checks BOTH: a guard that only ever looked one way would report that
+        # clean as evidence when it had never looked.
+        "name": "matrix-config-agreement",
+        "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "config/strategies.yaml",
+                           "scripts/ci/check_matrix_config_agreement.py",
+                           "scripts/research/m20_fleet_exit_sweep.py"]},
+        # Relevance follows config/strategies.yaml AND the sweep, not just the
+        # matrix: a DECLARE landing in config falsifies a cell without anyone
+        # editing the matrix, which is exactly how these six drifted.
+        "steps": [["python3", "scripts/ci/check_matrix_config_agreement.py", "--self-test"],
+                  ["python3", "scripts/ci/check_matrix_config_agreement.py"]],
+    },
+    {
         "name": "canonical-doc-coherence",
         # The `declared values` check reads .github/workflows/ + src/web/api/
         # sources, so a change THERE can falsify a doc without touching one —
@@ -392,9 +439,64 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
+        "name": "exit-mechanism-coverage-guard",
+        # Catches the ORPHANED DECLARE: a leg declares an exit lever its own
+        # unit module never reads. Silently inert, and INVISIBLE to
+        # lever-reachability-guard below, which only compares arm_r to cap_R
+        # and so cannot see a lever that is not implemented at all.
+        #
+        # It needs a guard rather than a hand-run script because the backtest
+        # harness implements some of these levers IN THE ENGINE
+        # (scripts/backtest_trend.py applies stale_exit_bars directly, not via
+        # the leg's monitor()). So a sweep can return a clean PASS for a lever
+        # the live module cannot run, and the resulting declare would ship
+        # inert wearing that PASS — the arm-above-cap shape, one level up.
+        #
+        # The self-test runs on EVERY invocation, same reasoning as
+        # lever-reachability-guard: a coverage probe that cannot find a known
+        # positive proves nothing, and "no orphans" is exactly the answer a
+        # reader acts on by not looking further.
+        "when": {"globs": ["config/strategies.yaml",
+                           "src/units/strategies/*.py",
+                           "src/runtime/strategy_signal_builders.py",
+                           "scripts/ops/exit_mechanism_coverage.py"]},
+        "steps": [
+            ["python3", "scripts/ops/exit_mechanism_coverage.py", "--self-test"],
+            ["python3", "scripts/ops/exit_mechanism_coverage.py", "--orphans-only"],
+        ],
+    },
+    {
+        "name": "lever-reachability-guard",
+        # The self-test runs on EVERY invocation, same reasoning as
+        # trainer-heavy-lock-guard: this guard's whole design point is that
+        # editing the registry to match a changed arm_r must NOT be free, and
+        # that is only demonstrable by running the negatives.
+        "when": {"globs": ["config/strategies.yaml",
+                           "config/lever_reachability.json",
+                           "scripts/ci/check_lever_reachability.py",
+                           "scripts/ops/lever_reachability_audit.py"]},
+        "steps": [
+            ["python3", "scripts/ci/check_lever_reachability.py", "--self-test"],
+            ["python3", "scripts/ci/check_lever_reachability.py"],
+        ],
+    },
+    {
         "name": "provenance-consumer-guard",
         "when": {"regex": r"\.py$"},
         "steps": [["python3", "scripts/check_provenance_consumers.py", "--verbose"]],
+    },
+    {
+        "name": "trainer-heavy-lock-guard",
+        # The self-test runs on EVERY invocation, same reasoning as
+        # api-tier-policy-guard: a guard whose failure path is never exercised
+        # is indistinguishable from one that always passes — and this guard's
+        # whole design point is that a MENTION of the helper must not satisfy
+        # it, which is only demonstrable by running the negative.
+        "when": {"regex": r"^scripts/(ml|research)/.*\.py$"},
+        "steps": [
+            ["python3", "scripts/ci/check_trainer_heavy_lock.py", "--self-test"],
+            ["python3", "scripts/ci/check_trainer_heavy_lock.py", "--list"],
+        ],
     },
     {
         "name": "qty-legalization-guard",
@@ -727,6 +829,45 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"\n{len(GUARDS)} guards")
         return 0
 
+    # GENERATE THE DIFF WE CONSUME, unless a caller supplied one.
+    #
+    # Eight guards take `{pr_diff}` and scan ONLY that file. CI writes it in a
+    # separate workflow step (`guards.yml`: `git diff origin/<base>...HEAD >
+    # /tmp/pr.diff`) and passes GUARDS_PR_DIFF; nothing wrote it locally, and
+    # the default path is a fixed `/tmp/pr.diff`. So a local run silently
+    # rescanned whatever STALE diff a previous run had left there and printed
+    # "All relevant guards passed" over content that had nothing to do with the
+    # current branch — a file absent from that stale diff is never scanned at
+    # all.
+    #
+    # Measured 2026-08-14: three consecutive local runs reported
+    # diagnostic-provenance-guard PASS on a commit where CI failed it, on the
+    # same command and the same path, because /tmp/pr.diff was stale. This is
+    # the mechanism behind a failure this session had already logged as "guards
+    # were run on uncommitted work" — that diagnosis was incomplete, and a
+    # stale diff is strictly worse than a missing one because an absent file
+    # errors while a stale file passes.
+    #
+    # A guard that cannot see the change it is scoped to is not a guard, so a
+    # failure to produce the diff is a hard error, never a quiet continue.
+    argv_seq = list(sys.argv[1:] if argv is None else argv)
+    explicit_diff = bool(os.environ.get("GUARDS_PR_DIFF")) or any(
+        a == "--pr-diff" or a.startswith("--pr-diff=") for a in argv_seq
+    )
+    if not explicit_diff and args.event_name != "push":
+        rng = f"origin/{args.base_ref}...HEAD"
+        proc = subprocess.run(["git", "diff", rng], cwd=REPO,
+                              capture_output=True, text=True)
+        if proc.returncode != 0:
+            print(f"::error::could not generate the PR diff for {rng}: "
+                  f"{proc.stderr.strip()} — refusing to scan a stale or absent "
+                  f"{args.pr_diff}, which would report a green having checked "
+                  f"nothing.")
+            return 2
+        Path(args.pr_diff).write_text(proc.stdout)
+        print(f"generated {args.pr_diff} from {rng} "
+              f"({len(proc.stdout.splitlines())} lines)")
+
     changed = [] if args.all else changed_files(args.base_ref, args.event_name)
     harness_touched = any(f in HARNESS_PATHS for f in changed)
     force_all = args.all or harness_touched
@@ -736,6 +877,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # uncommitted work. Skipped under force_all, where nothing is relevance-
     # gated and coverage is already complete.
     dirty = [] if force_all else sorted(set(worktree_files()) - set(changed))
+    # Same capture, WITHOUT subtracting `changed`, for the end-of-run caveat.
+    # Two differences from `dirty`, both deliberate:
+    #   * no subtraction — a file both COMMITTED-changed and dirty is the case
+    #     that bites (it reads as covered while the edits on top of the commit
+    #     went unscanned), and subtracting it is exactly what hid it;
+    #   * not gated on force_all — `--all` disables RELEVANCE, not the commit
+    #     range, so diff-scoped guards are equally blind under it.
+    # Captured HERE for the reason the comment above gives: guards WRITE files
+    # (two `--matrix` steps rewrite docs/*-matrix.md), so sampling the tree
+    # after they run would report the harness's own output as the developer's
+    # uncommitted work. My first version of this caveat did sample afterwards
+    # and only escaped a false positive because those writes happened to be
+    # byte-identical that run.
+    tree_dirty_at_start = sorted(worktree_files())
 
     print("=" * 72)
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
@@ -845,6 +1000,36 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # and the reader takes it as a statement about their change. Both routes
     # below end with a guard the reader believes ran and which did not.
     caveats = []
+    # A guard that RAN is not evidence about work that is not committed. Every
+    # guard here is scoped to a COMMIT RANGE — either `{pr_diff}`, generated
+    # above from `origin/<base>...HEAD`, or its own `--base origin/<base>`.
+    # Neither range contains the working tree, so a dirty file is invisible to
+    # a guard that ran, passed, and was counted.
+    #
+    # `unchecked` above does NOT cover this. It reports guards RELEVANCE
+    # skipped, and relevance is a union: if any COMMITTED file already made a
+    # guard relevant, it runs, is counted as passed, and never appears in
+    # `unchecked` — while still having scanned a range without your edits.
+    # That is the hole this closes, and it is not hypothetical: on 2026-08-14
+    # a local run of this script printed "All relevant guards passed" over a
+    # truncated backlog id in an UNCOMMITTED comment; the same commit failed
+    # `artifact-validity-guard` in CI minutes later, because CI necessarily
+    # scans committed code. The sprint log already recorded "committing first
+    # was necessary and never sufficient" — this is the converse half, where
+    # the commit was simply skipped and the harness said green anyway.
+    #
+    # Computed independently of `force_all`: `--all` disables RELEVANCE, not
+    # the commit range, so the diff-scoped guards are just as blind under it.
+    #
+    # Sampled BEFORE any guard ran (see `tree_dirty_at_start` above) — guards
+    # write files, so sampling here would blame the harness's own output on the
+    # developer.
+    tree_dirty = tree_dirty_at_start
+    if tree_dirty:
+        caveats.append(f"{len(tree_dirty)} path(s) are UNCOMMITTED and every "
+                       f"guard is scoped to a commit range, so nothing here "
+                       f"scanned them ({', '.join(tree_dirty[:5])}"
+                       f"{' …' if len(tree_dirty) > 5 else ''})")
     if unchecked:
         caveats.append(f"{len(unchecked)} guard(s) were not selected because "
                        f"your work is uncommitted")

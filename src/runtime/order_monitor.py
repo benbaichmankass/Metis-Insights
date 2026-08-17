@@ -6097,6 +6097,13 @@ _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 # execute.py's ``_SL_LEG_TYPES`` — a divergence here would misgrade coverage.
 _SL_LEG_TYPES_MON = {"stoploss", "partialstoploss"}
 
+# Tolerance when comparing summed protective-leg qty against the netted IB
+# position size (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Futures trade
+# in whole contracts, so anything below one contract is float noise, never a
+# genuine uncovered remainder — without it a 3.0000000000000004 vs 3.0 compare
+# would report a permanently partially-naked position and re-arm every sweep.
+_IB_COVERAGE_EPSILON = 0.5
+
 # Fractional slack when comparing summed leg qty against position size. Bybit
 # echoes leg qty as a string at the instrument's qty step, so a hair of float
 # noise must not be read as a coverage hole. 0.5% of position size.
@@ -6124,6 +6131,70 @@ _BYBIT_QTY_DIVERGENCE_FRAC = 0.10
 # sweep entirely. In-process monotonic latch, reset on a fresh restart.
 _DEFAULT_IB_BROKER_NAKED_CHECK_SECONDS = 300
 _LAST_IB_BROKER_NAKED_CHECK_MONO: float = 0.0
+
+# Rate-limit the target-naked CRITICAL per (account, symbol). The sweep runs
+# on IB_BROKER_NAKED_CHECK_SECONDS (default 300s) and the condition PERSISTS
+# until someone repairs the bracket, so an un-limited alert would fire every
+# five minutes forever — which is the desensitized-alarm P1 this repo treats
+# as its own bug, not diligence. One page per 6h per (account, symbol) keeps
+# it loud without training the operator to scroll past it.
+_TARGET_NAKED_ALERT_COOLDOWN_S: float = 6 * 3600.0
+_LAST_TARGET_NAKED_ALERT_MONO: Dict[tuple, float] = {}
+
+
+def _emit_target_naked_alert(
+    *,
+    account_id: str,
+    symbol: str,
+    size: float,
+    target_qty: float,
+    stop_qty: Any,
+    declared_tp: Any,
+    trade_id: Any,
+    venue: str = "ib",
+) -> bool:
+    """Page the operator that a position has a declared TP and no target at the
+    broker. Rate-limited per (account, symbol). Returns whether it alerted.
+
+    CRITICAL, not WARN: a position that can only stop out or run is the state
+    the operator has ruled unacceptable, and CRITICAL is what reaches Telegram
+    (``outcomes._TELEGRAM_LEVELS``) as well as the ``/api/bot/notifications``
+    banner. Never raises into the sweep.
+    """
+    key = (str(account_id), str(symbol))
+    now = time.monotonic()
+    last = _LAST_TARGET_NAKED_ALERT_MONO.get(key)
+    if last is not None and (now - last) < _TARGET_NAKED_ALERT_COOLDOWN_S:
+        return False
+    _LAST_TARGET_NAKED_ALERT_MONO[key] = now
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report(
+            # Venue-scoped, because an Alpaca condition reported under an
+            # `ib_` event name is the same mislabel class this whole fix is
+            # about. `venue="ib"` preserves the original name exactly.
+            f"{venue}_target_naked",
+            "detected",
+            level=Level.CRITICAL,
+            reason=(
+                f"{account_id}/{symbol}: position {size} has {target_qty} of "
+                f"take-profit coverage against a declared TP of {declared_tp} "
+                f"— the position can only stop out or run"
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            size=size,
+            target_qty=target_qty,
+            stop_qty=stop_qty,
+            declared_tp=declared_tp,
+            trade_id=trade_id,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception(
+            "_emit_target_naked_alert: alert failed for %s/%s", account_id, symbol
+        )
+    return True
 
 
 def _ib_broker_naked_check_interval_seconds() -> float:
@@ -6331,6 +6402,12 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
                 "qty": qty,
                 "sl": sl,
                 "tp": tp,
+                # Scope the re-arm's pre-cancel to THIS trade's own OCA group.
+                # Without it place_protective cancels every resting leg on the
+                # symbol root, which on a netted IB contract destroys the OTHER
+                # strategies' take-profit legs
+                # (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY).
+                "oca_key": str(row["id"]),
             }
         )
         if not resp or resp.get("retCode") != 0:
@@ -6370,6 +6447,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
     """
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0,
+        # Graded SEPARATELY from the stop side, mirroring the IB sweep: a
+        # position can be fully stop-covered and hold no take-profit at all
+        # (BL-20260816-COVERAGE-IS-ONE-SIDED). Alerted, never re-armed.
+        "target_naked": 0,
     }
     try:
         from src.bot import data_loaders
@@ -6433,9 +6514,34 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             client = clients[account_id]
             if client is None:
                 continue
-            protected = client.has_protective_orders(symbol)
-            if protected is None or protected:
-                continue  # read failure (skip) or already protected
+            # Sides graded SEPARATELY. `has_protective_orders` returns True for
+            # a stop-only book, so consuming it here read "protected" over a
+            # position that can only stop out or run — the Alpaca half of
+            # BL-20260816-COVERAGE-IS-ONE-SIDED, over 13 live positions.
+            state = client.protection_state(symbol)
+            if state is None:
+                continue  # read failure — never act on an unconfirmed read
+            if state.get("target") is False and row["take_profit_1"] not in (None, 0):
+                # TARGET-naked while the journal DECLARES a take-profit. Alert,
+                # do NOT re-arm: a missing stop is a safety gap worth closing
+                # blind, but a target is decision-time geometry a repair must
+                # read rather than invent, and placing one is an order the
+                # strategy did not ask for at this instant. Same split the IB
+                # sweep makes; the repair wire is the `attach-ib-target`
+                # action's Alpaca analogue, not this sweep.
+                summary["target_naked"] += 1
+                _emit_target_naked_alert(
+                    account_id=account_id,
+                    symbol=symbol,
+                    size=_safe_float(row["position_size"]) or 0.0,
+                    target_qty=0.0,          # zero TP legs rest on this symbol
+                    stop_qty=None,           # Alpaca grades sides, not qty
+                    declared_tp=row["take_profit_1"],
+                    trade_id=row["id"],
+                    venue="alpaca",
+                )
+            if state.get("stop"):
+                continue  # stop side is armed — nothing for THIS pass to do
             summary["broker_naked"] += 1
             sl = row["stop_loss"]
             tp = row["take_profit_1"]
@@ -6482,25 +6588,43 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     broker-naked (the 2026-07-09 MGC monitor-blind incident: the alert claimed
     "Broker SL/TP backstop still holds" with no way to VERIFY it). This pass
     closes that gap: for each open, past-grace IB position it asks the broker
-    whether a resting protective leg exists (``IBClient.has_protective_orders``,
+    **how much protection actually rests** (``IBClient.protection_coverage``,
     an account-wide ``reqAllOpenOrders`` read) and, when none does, re-arms a
     GTC OCA via :func:`_attempt_naked_autoprotect` (the SAME re-arm path the
     reconciler and DB-naked check use).
+
+    .. note:: This docstring named ``IBClient.has_protective_orders`` until
+       2026-08-16. That is a DIFFERENT accessor — a boolean "does any leg
+       rest?" — and the body has never called it here. The distinction is the
+       whole of ``BL-20260816-COVERAGE-IS-ONE-SIDED``: the boolean answers
+       ``True`` for a stop-only book, so naming it invited exactly the reading
+       that let two live positions sit target-naked. Coverage is a QUANTITY,
+       and since 2026-08-16 a TWO-SIDED one — ``stop_qty`` and ``target_qty``
+       are returned separately, because a stop and a take-profit are not
+       interchangeable.
 
     **Cadence-gated** (build constraint 1): the account-wide IB order read is
     NOT run every monitor tick — it runs at most once per
     ``_ib_broker_naked_check_interval_seconds`` to stay clear of the IB
     tick-latency / pacing wedge class (BL-20260609). A read failure
-    (``has_protective_orders`` → ``None`` — breaker open, gateway wedged,
+    (``protection_coverage`` → ``None`` — breaker open, gateway wedged,
     ambiguous) is skipped: a transient outage must never be read as naked
     (build constraint 3, fail-safe: never PLACE on an unconfirmed read). Never
     raises.
 
-    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped"}``.
+    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped",
+    "partially_naked", "ungradeable", "read_failed", "covered",
+    "target_naked"}``. The last five were previously undocumented; a caller
+    reading the old five-key contract would have missed ``target_naked``
+    entirely, which is the one this sweep exists to surface.
     """
     global _LAST_IB_BROKER_NAKED_CHECK_MONO
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0, "skipped": 0,
+        "partially_naked": 0, "ungradeable": 0, "read_failed": 0, "covered": 0,
+        # Graded SEPARATELY from the stop side: a position can be fully
+        # stop-covered and hold no target at all (BL-20260816-COVERAGE-IS-ONE-SIDED).
+        "target_naked": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
     if interval <= 0:
@@ -6584,12 +6708,99 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 continue
             cache_key = (account_id, protect_symbol)
             if cache_key not in protected_cache:
-                protected_cache[cache_key] = client.has_protective_orders(
+                protected_cache[cache_key] = client.protection_coverage(
                     protect_symbol
                 )
-            protected = protected_cache[cache_key]
-            if protected is None or protected:
-                continue  # read failure (skip, fail-safe) or already protected
+            cov = protected_cache[cache_key]
+            if cov is None:
+                # Fail-safe skip (never re-arm on an unconfirmed read) — but say
+                # so. A bare `continue` here made "the sweep ran and could not
+                # read" indistinguishable from "the sweep never ran", which is
+                # the collapsed-state shape this repo has a guard for, and it
+                # blocked verifying the coverage fix on the 2026-08-14 deploy:
+                # the post-restart breaker was open, every read returned None,
+                # and the logs were silent either way.
+                summary["read_failed"] += 1
+                logger.info(
+                    "_check_broker_naked_ib_positions: %s/%s coverage read "
+                    "unavailable (breaker open / gateway unreachable) — "
+                    "skipping, protection left as-is",
+                    account_id, protect_symbol,
+                )
+                continue
+            size = float(cov.get("size") or 0.0)
+            covered = float(cov.get("covered_qty") or 0.0)
+            if size <= 0:
+                continue  # flat at the broker — nothing to protect
+            if cov.get("unknown_qty_legs"):
+                # Coverage is UNGRADEABLE, not zero. Re-arming here would stamp
+                # this trade's geometry over the whole netted position; skipping
+                # leaves whatever protection exists intact. Mirrors the Bybit
+                # sweep's refusal to guess.
+                summary["ungradeable"] += 1
+                logger.warning(
+                    "_check_broker_naked_ib_positions: %s/%s has %d protective "
+                    "leg(s) with unparseable qty — coverage ungradeable, "
+                    "skipping re-arm rather than guessing",
+                    account_id, protect_symbol, cov["unknown_qty_legs"],
+                )
+                continue
+            # TARGET-side coverage, graded separately (2026-08-16,
+            # BL-20260816-COVERAGE-IS-ONE-SIDED). `covered_qty` counts a stop
+            # and a take-profit as interchangeable, so a position holding a
+            # full stop and NO target grades FULLY COVERED and this sweep has
+            # never once fired on a stripped target. Measured on ib_paper the
+            # same day: MGC 105 long with one stop and no limit, MES 15 long
+            # with TWO stops and no limit — zero limit orders account-wide.
+            #
+            # This ALERTS and does not re-arm, deliberately. `place_protective`
+            # is reached with oca_key=trade_id, so it cancels group
+            # `oca-protect-t<id>` — while the legs actually resting sit in
+            # `oca-protect-<reqId>` groups it will not match. A re-arm would
+            # therefore ADD a stop+TP pair on top of the surviving stop (MGC:
+            # 210 contracts of stop against 105) and, once the new target
+            # filled and cancelled its own OCA sibling, leave the stray stop
+            # resting on a FLAT book — able to fill into a short. Clearing the
+            # stray legs needs a cancel addressed to their owning clientId
+            # (BL-20260816-NO-PER-ORDER-IB-CANCEL); until that repair lands,
+            # alerting is the honest action and silence is not.
+            declared_tp = row["take_profit_1"]
+            tp_declared = declared_tp not in (None, 0) and declared_tp > 0
+            target_q = cov.get("target_qty")
+            if tp_declared and target_q is not None and float(target_q) < size - _IB_COVERAGE_EPSILON:
+                summary["target_naked"] = summary.get("target_naked", 0) + 1
+                _emit_target_naked_alert(
+                    account_id=account_id,
+                    symbol=protect_symbol,
+                    size=size,
+                    target_qty=float(target_q),
+                    stop_qty=cov.get("stop_qty"),
+                    declared_tp=declared_tp,
+                    trade_id=row["id"],
+                )
+                logger.error(
+                    "_check_broker_naked_ib_positions: %s/%s TARGET-NAKED — "
+                    "size=%s target_qty=%s stop_qty=%s declared_tp=%s "
+                    "trade_id=%s (alert only; re-arm blocked on "
+                    "BL-20260816-NO-PER-ORDER-IB-CANCEL)",
+                    account_id, protect_symbol, size, target_q,
+                    cov.get("stop_qty"), declared_tp, row["id"],
+                )
+            if covered >= size - _IB_COVERAGE_EPSILON:
+                summary["covered"] += 1
+                continue  # fully covered (STOP side; see the target check above)
+            # Partially covered is the case the old boolean could not see: a
+            # surviving sibling leg made the whole netted position read
+            # PROTECTED while this trade's own protection was gone.
+            if covered > 0:
+                summary["partially_naked"] += 1
+                logger.warning(
+                    "_check_broker_naked_ib_positions: %s/%s PARTIALLY NAKED — "
+                    "position %s vs %s covered by %d resting leg(s); "
+                    "re-arming trade_id=%s for its own qty",
+                    account_id, protect_symbol, size, covered,
+                    cov.get("legs", 0), row["id"],
+                )
             summary["broker_naked"] += 1
             sl = row["stop_loss"]
             tp = row["take_profit_1"]
@@ -6610,9 +6821,18 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 continue
             if _attempt_naked_autoprotect(row, a_sl, a_tp):
                 summary["rearmed"] += 1
-                # Invalidate the per-symbol cache: this symbol is now protected,
-                # so a sibling trade on it must not re-read "naked" and stack.
-                protected_cache[cache_key] = True
+                # Credit ONLY this trade's qty against the netted position's
+                # coverage — not the whole position. The old code set the cached
+                # verdict to True, which told every sibling on the symbol it was
+                # protected when the re-arm had covered just one trade's share;
+                # that is the boolean defect in miniature. Crediting the qty
+                # keeps a still-uncovered sibling visible on this same sweep.
+                try:
+                    cov["covered_qty"] = float(cov.get("covered_qty") or 0.0) + float(
+                        row["position_size"] or 0.0
+                    )
+                except (TypeError, ValueError):
+                    pass
                 logger.info(
                     "_check_broker_naked_ib_positions: re-armed GTC OCA "
                     "(sl=%s tp=%s) on broker-naked trade_id=%s account=%s "
@@ -6624,6 +6844,20 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 "_check_broker_naked_ib_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
+    if summary["checked"]:
+        # One line per sweep that actually looked at something, so the pass is
+        # observable even when it changes nothing. Without it the ONLY evidence
+        # the sweep runs is a re-arm — i.e. it is visible exactly when something
+        # is wrong and invisible when it is working, which is the wrong way
+        # round for confirming a deploy.
+        logger.info(
+            "_check_broker_naked_ib_positions: swept %d open IB position(s) — "
+            "covered=%d naked=%d partially_naked=%d rearmed=%d "
+            "read_failed=%d ungradeable=%d errors=%d",
+            summary["checked"], summary["covered"], summary["broker_naked"],
+            summary["partially_naked"], summary["rearmed"],
+            summary["read_failed"], summary["ungradeable"], summary["errors"],
+        )
     return summary
 
 

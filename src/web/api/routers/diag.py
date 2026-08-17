@@ -83,6 +83,23 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # Do not re-add it.
     "ict-trader-live.service",
     "ict-web-api.service",
+    # 2026-08-13 (BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED).
+    # The HTTPS front for the Svelte SPA: ict-bot.duckdns.org ->
+    # reverse_proxy localhost:8001 (deploy/caddy/Caddyfile, installed by
+    # scripts/ops/install_caddy.sh). /ws/market streams WSS through it.
+    #
+    # THIS ENTRY IS HAND-MAINTAINED AND NO GUARD PROTECTS IT. Every other
+    # unit here is cross-checked by scripts/check_diag_unit_allowlist.py,
+    # but that guard globs deploy/*.service + deploy/*.timer and caddy
+    # ships NO unit file of ours (it comes from the Caddy apt package), so
+    # caddy.service is outside the guard's scan entirely -- it is neither
+    # flagged as uncovered nor flagged as stale if this line is deleted.
+    # That invisibility is exactly why it went unwatched: a Caddy outage
+    # takes the SPA + WSS down while Streamlit (which calls the API
+    # server-side over plain HTTP) stays green, so nothing else reports it.
+    # Do not remove without giving the SPA transport another liveness
+    # surface first.
+    "caddy.service",
     "ict-telegram-bot.service",
     # NB: the retired daily-digest unit "ict-heartbeat.service" was removed here
     # (2026-07-26 full-system audit, WS-B). The daily operator digest was retired
@@ -235,6 +252,7 @@ _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 # Exit-loop liveness state (M20 decouple, #8778). NOT a .jsonl — a single
 # small JSON object rewritten atomically by exit_loop_health.write_state_file.
 _EXIT_LOOP_HEALTH_STATE = runtime_logs_dir() / EXIT_LOOP_HEALTH_STATE_FILE
+_EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -337,6 +355,22 @@ _LOG_FILES: dict[str, Path] = {
     # says "for the diag surface" while the only surface a relay can reach did
     # not serve it, the written-but-not-readable shape of #8665's exposure block.
     "exit_loop_health": _EXIT_LOOP_HEALTH_STATE,
+    # The DURABLE half of the above, and the reason it had to exist: every field
+    # in `exit_loop_health` lives in module globals that start empty and are
+    # never reloaded, so `max_interval_ms` is scoped to ONE process -- and the
+    # trader redeploys off `main` via `ict-git-sync` (FIVE observed processes in
+    # ~10h, measured 2026-08-16 from `process_started_utc` -- counting merges
+    # instead over-counted it by one, since a merge does not promptly restart
+    # the trader). A max over a short window is systematically LOW, so the
+    # in-memory grade reads most reassuring exactly when the system is busiest;
+    # the only reading that ever approached the 60s requirement came from the
+    # one process that survived a quiet overnight window (n=694, 98.2%). This
+    # append-only log makes the max a property of the DATA, not of a process's
+    # lifetime. One row per completed pass -- `interval_ms: null` marks the
+    # first pass of a process (no prior completion to measure from), which is a
+    # different fact from an interval of zero and is what makes the process
+    # boundary visible instead of being mistaken for a real interval.
+    "exit_interval_soak": _EXIT_INTERVAL_SOAK_LOG,
     # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
     # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
     # which accounts / whether the trainer are currently latched down —
@@ -1300,6 +1334,103 @@ async def get_exchange_positions(
     }
 
 
+@router.get("/ib_open_orders")
+async def get_ib_open_orders(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **IB open orders** per account — what the broker is actually
+    holding, not a verdict derived from it.
+
+    Closes BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE. IB order state had two
+    consumers in the codebase and both REDUCE it before anyone sees it:
+    ``IBClient.has_protective_orders`` → a boolean, ``protection_coverage`` →
+    a covered quantity. Neither can be contradicted from outside, so when the
+    MGC take-profit was silently cancelled the coverage read said "covered"
+    and no session could ask which orders existed. That stripped take-profit
+    sat undetected for seven days. This endpoint reduces nothing.
+
+    Per-account ``orders`` is three-state, never collapsed:
+
+    * ``null``  — **could not look** (non-IB account, gateway unreachable,
+      breaker open, ``ib_port`` unset, or a dry/shelved account we never
+      dial). NOT the same as "no orders".
+    * ``[]``    — a confirmed clean read: the account holds no resting orders.
+    * ``[{...}]`` — the rows: ``symbol``/``local_symbol``/``sec_type``,
+      ``order_id``/``perm_id``, ``order_type``, ``action``,
+      ``total_quantity``, ``aux_price``/``lmt_price``, ``oca_group``, ``tif``,
+      ``parent_id``, ``status``, ``filled``/``remaining``.
+
+    ``read_state`` names WHICH of the three a row is (``orders_read`` /
+    ``could_not_look`` / ``not_ib``) so a consumer never has to infer it from
+    a null, and ``count`` is ``null`` — never ``0`` — when we could not look.
+
+    Reads account-wide via ``reqAllOpenOrders`` (IB order visibility is
+    per-client-session, so a readonly client's own ``openTrades()`` would miss
+    the trader's brackets entirely). Opens a brief read-only client per
+    account and places NO order. Offloaded to the single-worker account-read
+    executor for the same reason ``exchange_positions`` is — the IB branch
+    drives ib_insync's own event loop and is unsafe on this coroutine's thread
+    (BL-20260706-IBCONCURRENCY).
+
+    Tier 1 — read-only, token-gated, best-effort per account.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_ib_open_orders
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_ib_open_orders: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_ib_open_orders: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        ex = ((acc or {}).get("exchange") or "unknown").lower()
+        is_ib = ex in ("interactive_brokers", "ib")
+        orders: Any = None
+        err: str | None = None
+        if is_ib:
+            try:
+                orders = await run_account_read(account_ib_open_orders, acc)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + orders=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_ib_open_orders: %s raised %s", aid, exc)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            # Three states, never collapsed — a null `orders` means we could
+            # not look, and `count` stays null rather than reporting 0 orders
+            # on an account we never reached.
+            "read_state": (
+                "not_ib" if not is_ib
+                else "orders_read" if isinstance(orders, list)
+                else "could_not_look"
+            ),
+            "orders": orders,
+            "count": (len(orders) if isinstance(orders, list) else None),
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "count": len(out),
+        "accounts": out,
+    }
+
+
 @router.get("/broker_account_status")
 def get_broker_account_status(
     request: Request,
@@ -1427,6 +1558,7 @@ def get_broker_account_status(
                 from src.units.accounts.execute import (
                     AVAILABLE_STATE_DEPRECATED,
                     AVAILABLE_STATE_UNAVAILABLE,
+                    AVAILABLE_STATE_COIN_DERIVED,
                     AVAILABLE_STATE_VENUE,
                     read_linear_available_balance,
                     read_linear_margin_fields,
@@ -1442,8 +1574,12 @@ def get_broker_account_status(
                         "available_usd": value,
                         "detail": detail,
                         # Spelled out per state so a reader never has to infer
-                        # the semantics from the enum name alone.
+                        # the semantics from the enum name alone. These four
+                        # PARTITION the read states — adding a state without a
+                        # flag here would make it read as "none of the above",
+                        # which is the collapse this contract exists to stop.
                         "is_broker_truth": read_state == AVAILABLE_STATE_VENUE,
+                        "is_coin_derived": read_state == AVAILABLE_STATE_COIN_DERIVED,
                         "is_substitute": read_state == AVAILABLE_STATE_DEPRECATED,
                         "could_not_look": read_state == AVAILABLE_STATE_UNAVAILABLE,
                     }

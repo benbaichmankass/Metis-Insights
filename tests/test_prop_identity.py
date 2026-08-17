@@ -59,3 +59,61 @@ def test_union_recovers_all_three_old_predicates():
     assert is_prop_account({"account_class": "prop"}) is True
     # journal-only predicate: type==prop
     assert is_prop_account({"type": "prop"}) is True
+
+
+# ── declared_prop_account_ids — the enumeration counterpart ───────────
+
+
+def test_declared_ids_reads_real_config():
+    """Positive control: the enumerator finds the real prop account.
+
+    Without this, an enumerator that returned `[]` for every input would leave
+    the mocked tests below green — a negative with no denominator behind it.
+    """
+    from src.prop.prop_identity import declared_prop_account_ids
+
+    ids = declared_prop_account_ids()
+    assert ids is not None
+    assert "breakout_1" in ids
+
+
+def test_declared_ids_live_only_filters_dry_run(monkeypatch):
+    from src.prop import prop_identity
+
+    monkeypatch.setattr(
+        "src.config.accounts_loader.load_accounts_dict",
+        lambda: {
+            "prop_live": {"account_class": "prop", "mode": "live"},
+            "prop_dry": {"account_class": "prop", "mode": "dry_run"},
+            "not_prop": {"exchange": "bybit", "mode": "live"},
+        },
+    )
+    assert prop_identity.declared_prop_account_ids() == ["prop_live", "prop_dry"]
+    assert prop_identity.declared_prop_account_ids(live_only=True) == ["prop_live"]
+
+
+def test_unreadable_config_is_none_not_empty(monkeypatch):
+    """`None` (we could not look) must never collapse into `[]` (none exist).
+
+    A safety guard that reads a config-load failure as "this system has no prop
+    accounts" stops asking and looks healthy doing it — the dangerous
+    direction. `docs/CLAUDE-RULES-CANONICAL.md` § "Collapsed states".
+    """
+    from src.prop import prop_identity
+
+    def _boom():
+        raise OSError("accounts.yaml unreadable")
+
+    monkeypatch.setattr("src.config.accounts_loader.load_accounts_dict", _boom)
+    assert prop_identity.declared_prop_account_ids() is None
+
+
+def test_no_prop_accounts_is_empty_list_not_none(monkeypatch):
+    """The other half of the same distinction: we looked, there are none."""
+    from src.prop import prop_identity
+
+    monkeypatch.setattr(
+        "src.config.accounts_loader.load_accounts_dict",
+        lambda: {"bybit_2": {"exchange": "bybit", "account_class": "real_money"}},
+    )
+    assert prop_identity.declared_prop_account_ids() == []

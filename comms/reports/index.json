@@ -2,6 +2,42 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260816-092500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-16T09:25:00+00:00",
+      "window_start": "2026-08-14T12:20:00+00:00",
+      "window_end": "2026-08-16T09:25:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "A 15-minute scalp has been holding a 105-lot MGC position for 223 hours with its take-profit CROSSED and unfilled \u2014 confirmed two ways (uPnL-implied mark 4398.60 = MGC candle close 4398.60, vs a TP at 4297.66) \u2014 and it is currently monitor-blind on IB breaker flaps. Second consecutive review with this open. Real money took no trades in the window; over 30d it is -$19.23, and ONE leg, eth_pullback_2h, is 90.3% of that. Shipped the IB open-orders read surface that makes this class contradictable at all, and fixed a roll-up that was under-reporting 96 open backlog items.",
+      "html_path": "comms/reports/since-last/20260816T092500Z/report.html",
+      "json_path": "comms/reports/since-last/20260816T092500Z/report.json",
+      "md_path": "comms/reports/since-last/20260816T092500Z/report.md"
+    },
+    {
+      "id": "RPT-20260814-122000-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-14T12:20:00+00:00",
+      "window_start": "2026-08-07T00:00:00+00:00",
+      "window_end": "2026-08-14T12:20:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Root-caused the operator's MONITOR BLIND alerts to TWO independent IB defects. (1) An event-loop race introduced by the M20 exit-loop decouple - mitigated, fix in PR #9240. (2) The MGC take-profit never fired because IB protection is attributed to a SYMBOL, not a TRADE: any sibling MGC strategy re-arming cancels this trade's legs, and the account-wide boolean protection check then reads 'protected'. No surface exists to observe IB open orders at all. Real money is near-flat (-$1.47 / 3 trades / 7d); ML training has silently stalled for 9 of 76 manifests since 07-26.",
+      "html_path": "comms/reports/since-last/20260814T122000Z/report.html",
+      "json_path": "comms/reports/since-last/20260814T122000Z/report.json",
+      "md_path": "comms/reports/since-last/20260814T122000Z/report.md"
+    },
+    {
+      "id": "AUDIT-20260813",
+      "window": "audit",
+      "generated_at": "2026-08-13T17:30:00+00:00",
+      "window_start": "2026-08-13T00:00:00+00:00",
+      "window_end": "2026-08-13T17:30:00+00:00",
+      "roll_up_grade": "attention",
+      "headline": "Combined /full-system-audit + /system-review. THE FINDING: on bybit_2 (REAL MONEY) Bybit returns every ACCOUNT-level margin aggregate as the empty string, so totalAvailableBalance was unusable and the margin pre-flight cap silently fell back to TOTAL EQUITY \u2014 counting initial margin already pledged to open positions as free. NINE venue refusals (ErrCode 110007) across 3 strategies and 2 symbols = 30% of that account's orders in the window, and LATENT not cleared. Found only by widening a filter from one strategy to the whole account; every prior read was structurally incapable of seeing it. FIXED Tier-3/Tier-2 with explicit operator approval (#9039): available margin now derives from the USDT COIN block (equity - totalPositionIM - totalOrderIM, all broker-reported), the equity fallback subtracts ESTIMATED pledged margin, and every rejection row is stamped with its basis. Validated four ways before shipping (0.05% against an independent journal reconstruction; 0.22% against the venue's own posIM; inside a contradiction bound off Bybit's own refusal; replays the rejection window to 0.008 BTC, the size the account was already filling at). STATUS: DEPLOYED (5bbb3416) BUT LIVE-UNVERIFIED \u2014 bybit_2's newest journal row predates the deploy by two days, so nothing carries a margin_basis stamp yet. ALSO SHIPPED: the AVAX venue-max clamp (filed headline DISPROVED), the VM-runner sudoers purge on a root-verified post-state, a 14-day test time bomb reddening main, and a pytest-run short-circuit that let a PR merge having executed ZERO tests. HONESTY: CI caught 8 failures the session missed, two serious \u2014 an UnboundLocalError on the exact failure path the new stamp exists to record, and a RE-CREATED halt vector that would refuse every trade on an account whose journal over-reports open notional (451x measured under netting). Root cause of the misses: a pytest -k filter that excluded every failing test. NOT DONE: the doc-stale backfills.",
+      "html_path": "comms/reports/audit/20260813T173000Z/report.html",
+      "json_path": "comms/reports/audit/20260813T173000Z/report.json",
+      "md_path": "comms/reports/audit/20260813T173000Z/report.md"
+    },
+    {
       "id": "RPT-20260810-051500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-10T05:15:00+00:00",

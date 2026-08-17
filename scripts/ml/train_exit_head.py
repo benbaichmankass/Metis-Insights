@@ -41,6 +41,8 @@ import numpy as np
 # treats as "cannot grade" — never as a licence to substitute a local default.
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "scripts" / "research"))
+sys.path.insert(0, str(_REPO / "scripts" / "ml"))
+from _heavy_queue import take_heavy_queue  # noqa: E402
 try:  # pragma: no cover - exercised by the import-failure path in tests
     from m20_fleet_exit_sweep import MIN_OOS_TRADES  # noqa: E402
 except Exception:  # noqa: BLE001 - any import failure is the same third state
@@ -428,8 +430,35 @@ def eval_split(model, trades: Dict[str, List[dict]], tf_s: int) -> dict:
     return out
 
 
-def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
+def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry,
+                offset: int = 0, total_sort: bool = False) -> list:
     """Walk-forward test folds as `(label, year, test_dict, cutoff_ts)`.
+
+    `offset` SHIFTS WHERE THE BLOCKING STARTS, AT FIXED `block_n`. It exists for
+    exactly one job: measuring how much a verdict depends on *where the fold
+    boundaries happen to fall*, which nothing could measure before
+    (BL-20260814-EXIT-HEAD-AUC-MOVES-MORE-THAN-ITS-OWN-GATE-MARGIN-ACROSS-A-ONE-DAY-RE-MEASUREMENT:
+    six legs re-measured one day apart moved -0.110 to +0.042 in mean_auc
+    against a gate bar of 0.55, and one leg was graded `candidate` on a 0.0025
+    margin the same night).
+
+    ⚠️ DO NOT MEASURE THAT BY SWEEPING `--min-fold-trades` INSTEAD. That knob's
+    own comment forbids it: P_detect is not monotonic in `b`, and every apparent
+    optimum lands on a `u` where the 2/3 bar is cheap to hit by luck. A b-sweep
+    also changes fold SIZE, so the spread it produced would partly measure "AUC
+    is noisier on smaller folds" — a different quantity, reported under this
+    one's name. Holding `b` fixed and moving only the start is what isolates
+    boundary sensitivity.
+
+    Bounded to `0 <= offset < block_n`: those are the only distinct partitions.
+    An offset of `block_n` is not a new partition, it is the same one with a
+    whole block discarded.
+
+    The skipped head is REPORTED, never silently dropped — the same reason the
+    trailing partial block is announced below. And in `years` mode a non-zero
+    offset RAISES rather than being ignored: a silent no-op would let a
+    dispersion run report five offsets measured when all five were identical,
+    which is the failure this flag exists to detect, inverted.
 
     WHY `trades` IS THE DEFAULT. The original cut was one test fold per CALENDAR
     YEAR, which silently makes a strategy's TRADE FREQUENCY the thing that
@@ -448,8 +477,36 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
     and the embargo are all unchanged — only the definition of a test block
     moves.
 
+    HOW MANY TRADES A LEG NEEDS, stated because this docstring was SILENT on it
+    and the silence cost real time. The loop starts at `block_n` (the first
+    block is training) and steps by `block_n`, so
+
+        u = max(0, floor(N / block_n) - 1)     usable folds
+
+    and `per_leg_summary`'s gate requires `u >= 2`. Therefore a leg needs
+    **N >= 3 * block_n** to be graded at all — 150 trades at the default 50,
+    NOT 100. 100 yields exactly ONE fold, which the gate rejects. A 2026-08-13
+    session read "the 100 needed for a single 50-trade block" off a coverage-
+    matrix ref, took it as the bar, and built a whole remedy on it; the ref was
+    literally true about ONE block and silent about the gate needing two.
+    Anything reasoning about whether a leg CAN be graded belongs against
+    `3 * block_n`.
+
     `years` is kept to reproduce any pre-2026-08-13 result exactly.
     """
+    if offset and mode != "trades":
+        raise ValueError(
+            f"--fold-offset={offset} is meaningless with --fold-mode={mode}; "
+            "it shifts a sequential trade-block boundary and there is none to "
+            "shift in a per-calendar-year cut. Refusing rather than ignoring "
+            "it, so a dispersion run cannot report distinct offsets that were "
+            "all the same partition.")
+    if not 0 <= offset < max(block_n, 1):
+        raise ValueError(
+            f"--fold-offset={offset} out of range: must be 0 <= offset < "
+            f"block_n ({block_n}). Only those give distinct partitions; "
+            f"offset >= block_n repeats one while discarding a whole block.")
+
     if mode == "years":
         years = sorted({r["year"] for tk, b in h_trades.items() for r in b})
         out = []
@@ -460,7 +517,42 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
             out.append((str(ytest), ytest, test, y0))
         return out
 
-    ordered = sorted(h_trades.items(), key=lambda kv: t_entry(kv[1]))
+    # TIE-BREAK. `sorted` is STABLE, so trades sharing an entry `bar_t` keep the
+    # order they appear in `rows.jsonl` — which is the order the LEGS were passed
+    # on the command line (m20_exit_head_round.py:157 ->
+    # build_exit_head_dataset.py:583,634,730). On a 2h family every leg entering
+    # on the same bar carries an IDENTICAL bar_t, so those tie groups span every
+    # pooled leg and the argument order moves fold membership.
+    #
+    # Measured 2026-08-15 (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER):
+    # the same 7 legs in two orders gave identical trade counts (2220), identical
+    # rows (71199) and an identical 43x50 fold shape — yet 8 of 43 folds differed,
+    # AUC moved up to 0.0331, and two legs LOST a usable fold.
+    #
+    # `trade_key` makes the sort TOTAL, so the partition stops depending on
+    # argument order at all. It is OPT-IN and DEFAULT-OFF, and that default is
+    # deliberate rather than timid: switching it changes recorded AUCs across the
+    # committed corpus, so it is a re-measure to be decided and dated, not a
+    # silent drive-by that would leave old and new verdicts pooled in one file
+    # with nothing marking which convention produced them.
+    #
+    # This is a MIGRATION flag, not a permanent gate: the intended end state is
+    # total-by-default once the corpus is re-measured. Do not read the default as
+    # an endorsement of the unstable sort.
+    if total_sort:
+        ordered = sorted(h_trades.items(), key=lambda kv: (t_entry(kv[1]), str(kv[0])))
+        print("  note: --total-sort — ties broken by trade_key, so the partition "
+              "does not depend on --legs order. NOT the recorded-corpus "
+              "convention; verdicts from this run are not comparable to rows "
+              "produced without it.")
+    else:
+        ordered = sorted(h_trades.items(), key=lambda kv: t_entry(kv[1]))
+    if offset:
+        print(f"  note: --fold-offset {offset} — skipping the first {offset} "
+              f"trade(s) before blocking; {len(ordered) - offset} of "
+              f"{len(ordered)} remain. Boundary shifted, block size unchanged "
+              f"at {block_n}.")
+        ordered = ordered[offset:]
     out = []
     # Start at `block_n` so the first test block has a training set behind it —
     # the `years` cut achieved the same thing with `years[1:]`.
@@ -484,12 +576,115 @@ def fold_blocks(h_trades: dict, mode: str, block_n: int, t_entry) -> list:
     return out
 
 
+def _select_tau_holdout(h_trades: dict, y0: float, a, tf_s: int, t_entry) -> dict:
+    """Pick a tau WITHOUT looking at the test block.
+
+    The E1 gate scores `max(net_r over ~7 tau arms)` on the test fold, which
+    selects the arm using the outcome it is about to be graded on. Measured
+    2026-08-13 over 514 folds (relay #9077, recorded in
+    docs/research/M20-E1-block-size-derivation-2026-08-13.md section 9), that
+    hindsight IS the fleet's edge: +1.217R / 70.2% of folds positive with
+    best-arm, versus -0.341R / 54.1% when tau is chosen causally from earlier
+    folds. This function measures the honest upper end of that interval.
+
+    The carve, all of it inside the fold's own training window (`< y0`):
+
+        [ ............ fit ............ ][embargo][ validation ][embargo][ TEST ]
+                                                                          ^ y0
+
+    A selection model is fit on `fit`, every tau arm is replayed on
+    `validation`, and the argmax is returned. The embargo between fit and
+    validation is the SAME `EMBARGO_S` the outer split uses and is not
+    optional: a trade whose hold spans the boundary would leak its `final_r`
+    into the model that scores it, which is the leak the outer purge exists to
+    stop, one level in.
+
+    RETURNS A THREE-STATE RESULT, never a bare tau:
+
+        selected            a tau was chosen on a real validation block
+        no_validation_block the training window could not spare one -- tau is
+                            None, and the caller MUST NOT fall back to
+                            best-arm. "We could not select" and "we selected"
+                            are opposite statements, and collapsing them would
+                            restore the hindsight figure under an honest key.
+
+    The thresholds are deliberately the SAME ones the outer fold uses
+    (`--min-fold-trades` for the validation block, `_MIN_FOLD_TRAIN_ROWS` for
+    the fit rows). A validation block held to a laxer standard than a test
+    block would be picking tau on evidence we have already declared too thin
+    to grade with.
+    """
+    # Trades wholly inside this fold's training window, in entry order.
+    train_trades = {tk: b for tk, b in h_trades.items()
+                    if b[-1]["bar_t"] < y0 - EMBARGO_S}
+    if not train_trades:
+        return {"tau": None, "state": "no_validation_block", "n_val": 0}
+    ordered = sorted(train_trades.items(), key=lambda kv: t_entry(kv[1]))
+
+    n_val = a.min_fold_trades
+    if len(ordered) <= n_val:
+        # Not enough to hold any out and still have something to fit on.
+        return {"tau": None, "state": "no_validation_block", "n_val": 0}
+    val = dict(ordered[-n_val:])
+    val_start = min(t_entry(b) for b in val.values())
+    fit_rows = [r for tk, b in ordered[:-n_val]
+                if b[-1]["bar_t"] < val_start - EMBARGO_S
+                for r in b]
+    if len(fit_rows) < _MIN_FOLD_TRAIN_ROWS:
+        return {"tau": None, "state": "no_validation_block", "n_val": len(val)}
+
+    sel_model = train_model(fit_rows)
+    val_res = eval_split(sel_model, val, tf_s)
+    best = _best_tau(val_res)
+    if not best:
+        return {"tau": None, "state": "no_validation_block", "n_val": len(val)}
+    return {"tau": best[0], "state": "selected", "n_val": len(val)}
+
+
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--family-dir", required=True,
                     help="E0 family dir containing rows.jsonl")
     ap.add_argument("--tf", required=True, choices=sorted(TF_S))
+    # 50 IS DERIVED, not a convention — basis:
+    # docs/research/M20-E1-block-size-derivation-2026-08-13.md (operator
+    # decision 2026-08-13: derive it and accept the answer, including stricter).
+    # Measured over 21 e1_report.json / 262 folds / 15 (family,tf) groups: the
+    # per-trade paired difference d_i = R_best_tau,i - R_actual,i has
+    # sigma_d ~ 0.747R (median) and a standardized effect delta ~ 0.105
+    # (median; FIVE of fifteen groups negative). A fold votes "beats" on
+    # sum(d_i) > 0, so P(correct vote) = Phi(sqrt(b) * delta) and
+    # b = (z_p/delta)^2 puts the 0.75-0.80 reliability band at 41-64 trades.
+    # 50 gives 0.771 and sits inside it.
+    #
+    # DO NOT TUNE THIS TO UNBLOCK LEGS. Modelling the whole gate (which needs
+    # >=2/3 of u folds, and u = floor(N/b)-1 shrinks as b grows) shows P_detect
+    # is NOT monotonic in b, and every apparent optimum lands on a u where 2/3
+    # is cheap to hit by luck -- N=98/b=20, N=200/b=50 and N=300/b=75 all carry
+    # a 50% single-condition false-positive rate. Maximising power over b
+    # therefore selects the settings easiest to pass BY CHANCE. The derivation
+    # also establishes that no b rescues a short leg: at N=98 the only
+    # gradeable options give either 0.49 power or that 50% FP rate.
+    #
+    # The measurement is biased in the model's favour (_best_tau is a max over
+    # ~7 arms), so 41-64 is a LOWER bound and the honest reading is
+    # "delta <= 0.105 typical".
     ap.add_argument("--min-fold-trades", type=int, default=50)
+    ap.add_argument("--fold-offset", type=int, default=0,
+                    help="Shift where trade-blocking starts, at FIXED block "
+                         "size (0 <= k < --min-fold-trades). For measuring how "
+                         "much a verdict depends on where the fold boundaries "
+                         "fall. Do NOT sweep --min-fold-trades for that — see "
+                         "fold_blocks() and that flag's own comment.")
+    ap.add_argument("--total-sort", action="store_true",
+                    help="Break entry-time ties by trade_key, making the fold "
+                         "sort TOTAL so the partition does not depend on the "
+                         "order --legs were passed. DEFAULT OFF: turning it on "
+                         "changes recorded AUCs across the committed corpus, so "
+                         "it is a deliberate re-measure, not a drive-by. A "
+                         "MIGRATION flag — the intended end state is total-by-"
+                         "default once the corpus is re-measured "
+                         "(BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER).")
     ap.add_argument("--fold-mode", choices=["trades", "years"], default="trades",
                     help="How walk-forward TEST folds are cut. `trades` "
                          "(default) slices sequentially by trade count so a "
@@ -504,6 +699,9 @@ def main(argv: List[str]) -> int:
                     help="M20 P4.3: 'extended' adds the exhaustion block "
                          "(needs a post-P4 dataset; missing cols become NaN).")
     a = ap.parse_args(argv[1:])
+    # Bound to a name for the process lifetime: the flock releases when the fd
+    # closes, so letting this be garbage-collected would silently unlock.
+    _heavy_lock = take_heavy_queue("train_exit_head")  # noqa: F841
     global TARGET, FEATURES
     TARGET = a.target
     if a.features == "extended":
@@ -528,7 +726,8 @@ def main(argv: List[str]) -> int:
     def t_entry(bars):  # first bar time as trade entry proxy
         return bars[0]["bar_t"]
     folds = []
-    blocks = fold_blocks(h_trades, a.fold_mode, a.min_fold_trades, t_entry)
+    blocks = fold_blocks(h_trades, a.fold_mode, a.min_fold_trades, t_entry,
+                         offset=a.fold_offset, total_sort=a.total_sort)
     print(f"  fold-mode={a.fold_mode} -> {len(blocks)} candidate fold(s)")
     for label, ytest, test, y0 in blocks:
         # purge on the trade's LAST bar: a hold spanning into the test block
@@ -559,6 +758,32 @@ def main(argv: List[str]) -> int:
             continue
         model = train_model(train_rows)
         res = eval_split(model, test, tf_s)
+        # ---- HINDSIGHT-FREE tau selection (measured 2026-08-13, relay #9077).
+        # Everything else in this fold reports max-over-arms, which is the same
+        # selection the gate makes and is HINDSIGHT: the arm is picked using the
+        # test block's own outcome. Measured over 514 folds, replacing that with
+        # a causal rule moved the fleet from +1.217R (70.2% of folds positive)
+        # to -0.341R (54.1%) -- i.e. the fleet-level edge WAS the hindsight.
+        # Those causal rules picked tau from EARLIER folds, so they also ate
+        # regime drift and are a lower bound. This is the upper end: carve a
+        # validation block off the TAIL of this fold's own training window, fit
+        # a selection model on train-minus-validation (with the same embargo, so
+        # the validation block cannot leak into the model that scores it), pick
+        # tau there, and apply it to the test block using the FULL-train model.
+        # tau is a hyperparameter chosen on held-out data -- never on test.
+        sel = _select_tau_holdout(h_trades, y0, a, tf_s, t_entry)
+        res["selected_tau"] = sel["tau"]
+        # THREE STATES, never collapsed (CLAUDE.md 'Collapsed states'):
+        #   selected            - a tau was picked on a real validation block
+        #   no_validation_block - the training window could not spare one; tau
+        #                         is None and a consumer MUST NOT fall back to
+        #                         best-tau, which is the hindsight this exists
+        #                         to avoid
+        #   absent              - a report predating this field (older runs)
+        # Collapsing 'could not select' into 'selected nothing' would silently
+        # restore the hindsight figure under an honest-looking key.
+        res["selected_tau_state"] = sel["state"]
+        res["selected_tau_val_trades"] = sel["n_val"]
         # `year` stays an int for schema compatibility (per_leg_summary uses
         # it as a display label); `fold_label` carries the real identity, which
         # under trade-folds is a trade-index range, not a calendar year.

@@ -1,5 +1,9 @@
 """The Bybit available-margin read must say WHICH branch it took.
 
+FOUR states since 2026-08-13 (Part A added ``coin_derived``); see
+``read_linear_available_balance`` for the ladder and why the derivation ranks
+above the deprecated field.
+
 BL-20260701-BYBIT-AVAILABLE-FIELD (filed 2026-08-13). The read used to return
 a bare ``Optional[float]`` and log nothing on either non-venue branch, so three
 materially different states arrived at the sizer as one value:
@@ -127,12 +131,19 @@ def test_the_three_states_are_mutually_exclusive_strings():
     ],
 )
 def test_sizer_facing_return_is_byte_for_byte_unchanged(client, expected):
-    """THE NEGATIVE CONTROL.
+    """THE NEGATIVE CONTROL — scope narrowed 2026-08-13 (Part A shipped).
 
-    ``_fetch_linear_available_balance`` is what the coordinator calls and what
-    therefore reaches ``risk.py::position_size``. Making the read three-state is
-    observability; it must not move a single sized quantity. Acting on
-    ``read_state`` is an order-path change and is gated separately.
+    Originally this asserted the read could not move ANY sized quantity, when
+    the three-state split was observability only. That is no longer true:
+    Part A (Tier-3, operator-approved) deliberately inserts a ``coin_derived``
+    rung, so an account whose USDT coin block IS derivable now receives a
+    DIFFERENT and more correct figure than before.
+
+    What this still guards, and what the fixtures below are chosen to cover, is
+    that the OTHER rungs are untouched: a present venue field, a coin block that
+    is not derivable, and the could-not-look paths all return exactly what they
+    always did. If one of these moves, a rung changed that was not supposed to.
+    The coin-derived rung has its own tests below.
     """
     got = _fetch_linear_available_balance(client)
     if expected is None:
@@ -184,11 +195,13 @@ def test_contract_is_registered_with_collapsed_state_guard():
 
     entry = [c for c in mod.CONTRACTS if c["name"] == "bybit_available.read_state"]
     assert entry, "registering the contract is how a three-state field becomes enforced"
+    from src.units.accounts.execute import AVAILABLE_STATE_COIN_DERIVED
     assert set(entry[0]["states"]) == {
         AVAILABLE_STATE_VENUE,
+        AVAILABLE_STATE_COIN_DERIVED,
         AVAILABLE_STATE_DEPRECATED,
         AVAILABLE_STATE_UNAVAILABLE,
-    }, "the registry must name the SAME three strings the producer emits"
+    }, "the registry must name the SAME strings the producer emits"
 
 
 # ── `unavailable` had a residual collapse INSIDE it (2026-08-13) ───────────
@@ -324,10 +337,11 @@ def test_margin_fields_returns_every_declared_field():
     from src.units.accounts.execute import _MARGIN_FIELDS, read_linear_margin_fields
     fields, err = read_linear_margin_fields(_Client(dict(_BYBIT_2_SHAPE)))
     assert err is None
-    assert set(fields) == set(_MARGIN_FIELDS), (
+    assert set(_MARGIN_FIELDS) <= set(fields), (
         "every declared field must appear so a MISSING one is visibly null "
         "rather than silently dropped"
     )
+    assert set(fields) - set(_MARGIN_FIELDS) == {"coin_usdt", "coin_count", "coins_other"}
     assert fields["totalEquity"] == "274.91"
     assert fields["totalInitialMargin"] == "79.39"
     assert fields["totalAvailableBalance"] == ""
@@ -365,3 +379,96 @@ def test_margin_fields_reports_a_retcode_refusal():
     c.get_wallet_balance = lambda accountType: {"retCode": 10003, "result": {}}  # type: ignore[method-assign]
     fields, err = read_linear_margin_fields(c)
     assert fields is None and "retCode=10003" in err
+
+
+# ── the per-coin USDT block is reported WHOLE, not cherry-picked ───────────
+#
+# The 2026-08-13 error this guards against: reading a KEY LIST, seeing
+# `totalInitialMargin` in it, and inferring it carried a value. Every
+# account-level margin aggregate on bybit_2 is the empty string. Selecting
+# fields from the coin block would reproduce that mistake one level down.
+
+def test_usdt_coin_block_is_returned_verbatim():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [
+        {"coin": "BTC", "walletBalance": "0.5"},
+        {"coin": "USDT", "walletBalance": "269.27", "totalPositionIM": "79.39",
+         "totalOrderIM": "0", "equity": "280.07", "availableToWithdraw": ""},
+    ]
+    fields, err = read_linear_margin_fields(_Client(shape))
+    assert err is None
+    block = fields["coin_usdt"]
+    assert block["totalPositionIM"] == "79.39"
+    assert block["availableToWithdraw"] == "", "empty must survive as empty, not vanish"
+    assert set(block) == {"coin", "walletBalance", "totalPositionIM", "totalOrderIM",
+                          "equity", "availableToWithdraw"}, "block must be verbatim"
+    assert fields["coin_count"] == 2
+
+
+def test_usdt_block_is_null_when_absent_and_count_still_reported():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "BTC"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coin_usdt"] is None
+    assert fields["coin_count"] == 1, "a count of 1 with no USDT is a different state from no coins at all"
+
+
+def test_usdt_block_is_bounded():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [dict({"coin": "USDT"}, **{f"f{i:02d}": i for i in range(60)})]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert len(fields["coin_usdt"]) <= 24
+
+
+# ── every OTHER coin, because USDT alone makes the derivation a lower bound ─
+
+def test_other_coins_are_reported_with_their_collateral_flags():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [
+        {"coin": "USDT", "walletBalance": "269.27", "totalPositionIM": "53.93"},
+        {"coin": "BTC", "equity": "0.004", "usdValue": "260.11",
+         "marginCollateral": True, "collateralSwitch": True,
+         "walletBalance": "0.004", "totalPositionIM": "0", "totalOrderIM": "0"},
+    ]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    others = fields["coins_other"]
+    assert [c["coin"] for c in others] == ["BTC"], "USDT must not repeat in coins_other"
+    assert others[0]["usdValue"] == "260.11"
+    assert others[0]["marginCollateral"] is True, (
+        "a collateral-flagged second coin raises the real ceiling — without this "
+        "the derivation is a silent LOWER bound"
+    )
+
+
+def test_other_coins_is_empty_list_not_null_when_usdt_is_the_only_coin():
+    """[] means 'we looked and there are none'. null would mean 'we did not
+    look' — different states."""
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "USDT", "walletBalance": "1"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coins_other"] == []
+    assert fields["coin_count"] == 1
+
+
+def test_other_coins_declares_every_field_even_when_absent():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": "ETH"}]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert fields["coins_other"][0]["marginCollateral"] is None, (
+        "an absent flag must be visibly null, never dropped"
+    )
+
+
+def test_other_coins_is_bounded():
+    from src.units.accounts.execute import read_linear_margin_fields
+    shape = dict(_BYBIT_2_SHAPE)
+    shape["coin"] = [{"coin": f"C{i:02d}"} for i in range(30)]
+    fields, _ = read_linear_margin_fields(_Client(shape))
+    assert len(fields["coins_other"]) <= 8
+    assert fields["coin_count"] == 30, "the COUNT must stay truthful even when the list is capped"

@@ -99,6 +99,78 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # it must not be read as "fade is being measured today".
 LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 
+# The live TP clamp, and the DEFAULT for --tp-cap-pct since 2026-08-16 (Tier-3,
+# operator decision). It defaulted to 0.0, so a sweep run without the flag
+# measured an UNCAPPED book production does not run -- the class behind six arms
+# shipping inert, because a p80 arm derived from uncapped winner MFEs can sit
+# above the capped book's reachable ceiling. Defaulting to parity makes that
+# error unreachable-by-default; `--tp-cap-pct 0` is now the explicit opt-out and
+# is REQUIRED to reproduce any verdict recorded before 2026-08-10.
+#
+# ⚠️ NOT imported, and that is a known wart rather than a choice: the live value
+# is declared SEPARATELY in at least `src/runtime/position_telemetry.py:72` and
+# `src/units/strategies/trend_donchian.py:133`, both as a bare
+# `_TP_SENTINEL_CAP_PCT = 0.099`, so there is no single owner to import FROM --
+# importing one would just pick a winner arbitrarily, and this script imports
+# nothing from `src/` at all. Filed as
+# BL-20260816-TP-SENTINEL-CAP-DECLARED-IN-MULTIPLE-MODULES.
+#
+# ⚠️ **NOTHING CHECKS THAT THIS STILL MATCHES THE LIVE VALUE.** There is no
+# guard, no test, and no import binding them -- stated plainly because the
+# tempting version of this comment ("the guard will catch it") would describe
+# machinery that does not exist, which is the failure this repo files under
+# unprovenanced diagnostic output. If the live constant moves, this silently
+# keeps measuring the OLD book, and the sweep will look correct while doing it.
+LIVE_TP_CAP_PCT = 0.099
+
+
+def tp_geometry_for(families, tp_cap_pct: float) -> str:
+    """The geometry a run ACTUALLY produced, from the families it actually ran.
+
+    THE ONE definition, so a second driver cannot drift from it. It lived
+    inline in `m20_exit_head_round.py` and was the only producer of the
+    `tp_geometry` stamp; `m20_flip_replay_sweep.py` becoming the second
+    producer is exactly when a copy would start to rot. This file is the
+    module both already import `base_args`/`LIVE_TP_CAPPED_FAMILIES` from, so
+    it is where the answer belongs.
+
+    Derived, never asserted: `base_args` applies `--tp-cap-pct` only to a
+    family in `LIVE_TP_CAPPED_FAMILIES`, because only those live units carry
+    `_TP_SENTINEL_CAP_PCT`. So a RUN-LEVEL flag does not describe a leg —
+    stamping `live_parity` off the flag alone is how a scalp round would
+    self-report a geometry its harness never received.
+
+    Four states, and the middle two are the point — both ran without a cap,
+    for OPPOSITE reasons:
+
+      ``live_parity_capped``    cap applied; the live unit clamps.
+      ``live_parity_uncapped``  no cap applied AND the live unit does not
+                                clamp, so this IS parity for that unit.
+      ``NO_TAKE_PROFIT``        no cap on a family that DOES clamp live — a
+                                book production does not run.
+      ``MIXED_…``               both kinds in one run; the stamp refuses to
+                                pick one rather than flattering the run.
+
+    `families` is what the run OBSERVED (legs that actually produced trades),
+    never what it was asked for — a skipped leg must not colour the stamp.
+    An EMPTY set is therefore its own state, ``UNOBSERVED``: a run where no leg
+    emitted has no geometry, and answering `live_parity_*` there would let a
+    run that measured nothing carry a parity claim. Unreachable from the
+    original caller (it returns before the stamp when nothing emitted) but not
+    from the flip sweep, which writes its verdicts file either way.
+    """
+    fams = set(families)
+    if not fams:
+        return "UNOBSERVED"
+    capped = {f for f in fams if f in LIVE_TP_CAPPED_FAMILIES}
+    uncapped = fams - capped
+    if tp_cap_pct > 0.0:
+        return ("live_parity_capped" if not uncapped
+                else "live_parity_uncapped" if not capped
+                else "MIXED_capped_and_uncapped_families")
+    return "NO_TAKE_PROFIT" if capped else "live_parity_uncapped"
+
+
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
 TF_MINUTES = {"5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
@@ -136,29 +208,57 @@ def classify(name: str) -> str | None:
     return None
 
 
-def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool, str | None]:
-    """(path, proxy?, resample) — finest grain <= leg tf; None if nothing.
+def _resolve_one(sym: str, tf: str, data_dir: Path) -> tuple[str | None, str | None]:
+    """(path, resample) for ONE symbol spelling — no proxy substitution.
 
-    Primary convention data/{SYMBOL}_{grain}.csv; fallback is a
-    case-insensitive prefix glob (covers legacy names like
-    btc_1h_multiyear.csv), matching on the symbol and its USDT-stripped
-    base, picking the finest grain token found in the filename.
+    Extracted from `resolve_data` so the native and proxy spellings can be
+    tried in order; the body is unchanged.
     """
-    sym = PROXY_DATA.get(symbol, symbol)
-    proxy = sym != symbol
     leg_min = TF_MINUTES.get(tf, 60)
     # native grain first (a 1d archive usually has YEARS more history than
     # the 1h file it would otherwise be resampled from), then finest
     native = data_dir / f"{sym}_{tf}.csv"
     if native.exists():
-        return str(native), proxy, None
+        return str(native), None
+    # EXACT-TIMEFRAME ONLY, and deliberately NOT inside the grain loop below
+    # (BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME).
+    # Some series live under a
+    # `backtest_` prefix rather than the canonical spelling — BTC 5m is the
+    # live case: `backtest_BTCUSDT_5m.csv` is 647,585 rows (2020-03-25..
+    # 2026-05-21), deeper than any canonical alt 5m file, and is already the
+    # DEFAULT feed for all six walkforward_vol_* scripts, i.e. the series
+    # behind the live regime-router OFF cells. The prefix glob further down
+    # cannot reach it: its prefixes are {sym.lower()} plus the USDT-stripped
+    # base, and `backtest_btcusdt_5m.csv` starts with neither.
+    #
+    # WHY EXACT-TF AND NOT A GRAIN CANDIDATE. Putting this in the grain loop
+    # would be the harmful version. DATA_GRAIN is FINEST-FIRST, so a BTC
+    # 1h/2h/4h/1d leg — which today falls through to BTCUSDT_15m.csv — would
+    # start taking the 5m file instead, and that file ends 2026-05-21 against
+    # the 15m file's 2026-07-10. Every BTC leg coarser than 15m would quietly
+    # lose ~7 weeks of the most recent history, behind verdicts already
+    # recorded in the coverage matrix. That is this module's own docstring
+    # warning one level less visible than the MGC_1d.csv incident: there the
+    # NAME lied, here the name would be honest and only the RANGE dishonest.
+    # Restricted to the leg's own timeframe, the probe can only fire where
+    # nothing resolves at all, so it cannot move any recorded basis.
+    #
+    # MEASURED, not argued from the shape (trainer-diag #9325): enumerating
+    # every leg x symbol x both prefer_native modes = 110 resolutions, this
+    # changes 4 — ict_scalp_5m (live) and vwap (shadow), each in both modes,
+    # all four `None` -> resolved. Nothing that resolves today moves.
+    # data/backtest_ESF_1h.csv also exists and is inert: no leg sits at
+    # (ESF, 1h). data/backtest_candles.csv does not parse as (sym, tf) at all.
+    prefixed = data_dir / f"backtest_{sym}_{tf}.csv"
+    if prefixed.exists():
+        return str(prefixed), None
     for g in DATA_GRAIN:
         if TF_MINUTES[g] > leg_min:
             break
         p = data_dir / f"{sym}_{g}.csv"
         if p.exists():
             resample = tf if TF_MINUTES[g] < leg_min else None
-            return str(p), proxy, resample
+            return str(p), resample
     prefixes = {sym.lower()}
     if sym.upper().endswith("USDT"):
         prefixes.add(sym.lower()[:-4])
@@ -175,8 +275,78 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
             best = (TF_MINUTES[grain], p)
     if best is not None:
         resample = tf if best[0] < leg_min else None
-        return str(best[1]), proxy, resample
-    return None, proxy, None
+        return str(best[1]), resample
+    return None, None
+
+
+def resolve_data(symbol: str, tf: str, data_dir: Path,
+                 prefer_native: bool = False) -> tuple[str | None, bool, str | None]:
+    """(path, proxy?, resample) — finest grain <= leg tf; None if nothing.
+
+    Primary convention data/{SYMBOL}_{grain}.csv; fallback is a
+    case-insensitive prefix glob (covers legacy names like
+    btc_1h_multiyear.csv), matching on the symbol and its USDT-stripped
+    base, picking the finest grain token found in the filename.
+
+    `prefer_native` (BL-20260814-PROXY-MAP-SHADOWS-NATIVE-DATA) decides which
+    spelling is tried FIRST, and the default is deliberately the historical
+    proxy-first order:
+
+    - **False (default)** — `PROXY_DATA` is applied unconditionally, so MGC
+      resolves `GC_F_*.csv` even when `MGC_*.csv` exists. Two reasons, and the
+      first is the load-bearing one: the PROXY IS THE DEEPER SERIES. Measured
+      2026-08-14 on the trainer, genuine native IBKR *contract* history is
+      `market_raw/MGC/1d/v003` at **940 rows** (2022-09-30..) vs the proxy
+      `GC_F_1d.csv` at **2,512** (2016-07-12..) — ~2.7x. MHG 1,043 and MES 677
+      are the same shape. Preferring native by default would collapse the
+      2021..2026 fold structure. Second, independently: flipping which series a
+      RECORDED verdict was measured against must not ride along silently inside
+      a reachability fix.
+
+      ⚠️ **`datasets-out/market_raw/{MGC,MHG,MES}/1d` IS NOT NATIVE** — it is
+      built by `build_trainer_datasets.sh::build_equity_daily MGC "GC=F"`, i.e.
+      yfinance on the FULL-SIZE contract, and it is byte-for-byte the proxy:
+      2,511 of 2,512 overlapping closes identical to `GC_F_1d.csv` (the one
+      difference is the proxy's stale last bar), MES 2,514 of 2,514. Converting
+      it to `data/MGC_1d.csv` produces a file whose NAME asserts a provenance
+      its CONTENT does not have, and `prefer_native` would then report
+      `proxy=False` and let the head round train on exactly the series it
+      refuses. A session did that on 2026-08-14 and removed it the same hour;
+      do not recreate it. Native means the IBKR contract shards under
+      `data/ibkr_datasets/market_raw/`, nothing else.
+    - **True** — try the native spelling first and fall back to the proxy.
+      For a consumer that REFUSES proxied data this is the only way native
+      data is reachable at all: `m20_exit_head_round` skips any leg whose
+      `proxy` is set ("native history required for head training"), and
+      because the proxy was applied unconditionally that skip fired for
+      MES/MGC/MHG no matter what was on disk — so the three `exit_head_ml`
+      cells blocked on native IBKR history could never close, and the Tier-2
+      pull action added 2026-07-07 for exactly those cells was inert against
+      this resolver.
+
+    Depth vs fidelity is a real trade-off, so it is a caller decision rather
+    than one default pretending to serve both.
+    """
+    alt = PROXY_DATA.get(symbol)
+    proxied = alt is not None and alt != symbol
+    # Default order is EXACTLY the historical one (proxy alone when a proxy is
+    # declared) — and deliberately no native fallback either, so a missing
+    # proxy file keeps reading `data_missing` rather than silently switching
+    # that leg onto a different series. Both halves are about NOT changing a
+    # recorded verdict's basis as a side effect. On depth: the PROXY is deeper
+    # at 1d too (940 native rows vs 2,512) — see the docstring, and note that
+    # `datasets-out/market_raw/MGC/1d` is NOT native, it is yfinance GC=F.
+    order = [alt if proxied else symbol]
+    if prefer_native and proxied:
+        order.insert(0, symbol)
+    for cand in order:
+        path, resample = _resolve_one(cand, tf, data_dir)
+        if path is not None:
+            return path, cand != symbol, resample
+    # Nothing found either way. Report whether a proxy WOULD have been used,
+    # preserving the historical not-found contract (every caller checks
+    # `data is None` before reading this flag, but the shape stays stable).
+    return None, proxied, None
 
 
 # WHICH CONFIG KEYS CONSTITUTE EACH DECLARED EXIT LEVER.
@@ -400,6 +570,31 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
 # floor 50 keeps 20 legs / 7 passes. 10->25 is free (two legs, zero passes) and
 # 25->50 is the cliff. Full rationale + the honest limit at the enforcement site.
 MIN_OOS_TRADES = 25
+
+# The boundary TARGET, deliberately ABOVE the floor above (Tier-3, operator
+# decision 2026-08-16). These are two different questions and sharing one number
+# was the bug: `--split-target-oos` used to default to MIN_OOS_TRADES, so the
+# boundary aimed at EXACTLY the count a verdict requires and ANY loss crossing it
+# -- a filtered trade, an off-by-one, a leg whose stamps do not divide evenly --
+# dropped the cell to `insufficient_base`. The tell was `htf_pullback_trend_2h`
+# reporting insufficient at 407 lifetime trades, which is implausible on its face
+# and is what surfaced the collapse (`BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`).
+#
+# 50 is not a fresh guess: it is the value every sweep in the 2026-08-16 session
+# passed explicitly, including the 76-cell pullback run, so it is the target with
+# measured runs behind it rather than a number chosen here.
+#
+# A target ABOVE the floor is safe because resolve_split already CLAMPS per leg:
+# a leg that cannot seat 2*target falls back to `len(stamps)//2` and records
+# `split_target_clamped_{from,to}` in the verdict, refusing only below
+# MIN_OOS_TRADES. So a thin leg still grades at its own best boundary instead of
+# being refused -- the clamp is the reason target and floor CAN differ.
+#
+# Do NOT re-couple these to one constant. The floor answers "is this cell
+# gradeable?"; the target answers "where do we cut?". The 25->50 cliff noted
+# above is about the FLOOR (raising it to 50 would drop 32 legs to 20) and is
+# NOT an argument against a 50 target, which drops nothing.
+DEFAULT_SPLIT_TARGET_OOS = 50
 
 REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
 
@@ -655,11 +850,251 @@ def cells_for(cfg: dict, fam: str | None = None,
     return out
 
 
-def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
+def flag_value(args: list[str], flag: str) -> float | None:
+    """The float value of ``flag`` in an argv list, or None when absent."""
+    for a, b in zip(args, args[1:]):
+        if a == flag:
+            try:
+                return float(b)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def arm_atr_close_ceiling(base: list[str], arm_r: float | None
+                          ) -> tuple[str, float | None]:
+    """The normalized-volatility ceiling an ``arm_r`` can ever fire under.
+
+    WHY THIS IS REPORTED BESIDE EVERY PROPOSED ARM
+    ----------------------------------------------
+    A leg's take-profit is clamped to ``entry*(1+cap)``, so the highest MFE a
+    trade can print before the TP fills is ``cap_R = cap / (risk/entry)``. And
+    ``risk/entry`` is EXACTLY ``atr_stop_mult * (ATR/close)`` — identical
+    formulas in the live units and both harnesses, with byte-identical ``_atr``
+    helpers. Inverting:
+
+        an arm A on a leg with stop-mult M can only fire while
+            ATR/close <= cap / (M * A)
+
+    So **a declared arm is a volatility threshold in disguise**, and whether it
+    is reachable is a property of the instrument-and-timeframe, not of the leg.
+    Measured 2026-08-16 (memo:
+    ``docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md``):
+    ``trend_donchian`` and ``trend_donchian_sol_4h`` are the SAME family with
+    the SAME ``atr_stop_mult`` and were shipped arms 6.49 and 5.57 — 1.16x
+    apart — against ceilings 11.91 and 1.64, **7.3x apart**. 100% vs 0%
+    reachable. A p80 over an UNCAPPED book produces similar arms across a
+    family because uncapped winner-MFE distributions are similar in R; the
+    capped ceiling, which nothing was computing, is not.
+
+    Reporting the ceiling next to the arm is what makes that checkable without
+    re-deriving it (``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS``).
+
+    THE STATE IS NEVER COLLAPSED
+    ----------------------------
+    ``uncapped`` and ``unknown`` are opposite statements and must not share a
+    null:
+
+    * ``capped``   — a cap IS in this run's base args: the float is the ceiling.
+    * ``uncapped`` — no ``--tp-cap-pct`` in the base args, so the measured book
+      has NO take-profit ceiling and the arm is unbounded. Not a failure to
+      compute. Note ``base_args`` applies the flag only to
+      ``LIVE_TP_CAPPED_FAMILIES``, so this is read from what ACTUALLY ran
+      rather than from ``--tp-cap-pct`` on the command line.
+    * ``unknown``  — ``atr_stop_mult`` or the arm is missing/unparseable: **we
+      could not look.** Never a fabricated number.
+    """
+    cap = flag_value(base, "--tp-cap-pct")
+    if cap is None or cap <= 0.0:
+        return "uncapped", None
+    mult = flag_value(base, "--atr-stop-mult")
+    if not mult or not arm_r or mult <= 0.0 or arm_r <= 0.0:
+        return "unknown", None
+    return "capped", cap / (mult * arm_r)
+
+
+def _percentile_80(xs: list[float]) -> float | None:
+    """The ONE p80 definition this module uses. Import it; do not re-derive.
+
+    Extracted 2026-08-16 so the pooled figure and every per-era figure are the
+    same function of their input. Two call sites computing "the p80" with
+    independently-written index arithmetic is how a comparison between them
+    becomes a comparison of two estimators — and the whole point of
+    ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS`` half (2) is that pooled and
+    per-era are meant to differ *because the population differs*, not because
+    the maths did.
+    """
+    if not xs:
+        return None
+    s = sorted(xs)
+    return round(s[int(0.8 * (len(s) - 1))], 2)
+
+
+def _era_of(trade: dict) -> str:
+    """The calendar year a trade entered, or ``"undated"``.
+
+    ERAS ARE CALENDAR YEARS, DELIBERATELY NOT A REGIME CALENDAR.
+    ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS`` names the real clusters (2010-2013,
+    2020, 2025-2026 high-vol; 2014-2019, 2022-2024 quiet), and hardcoding those
+    boundaries here would make every reported figure depend on an input a reader
+    cannot check from the artifact — sub-class **B** of the diagnostic-provenance
+    rule (an implicit input selection wearing a confident label). Years are
+    mechanical, and a reader holding the per-year census can re-cluster them
+    into whatever regime calendar they can defend.
+
+    ``undated`` is a REAL bucket, not a drop. A row whose ``entry_time`` does
+    not start with four digits is one we could not place in time; silently
+    discarding it would shrink a denominator without saying so, which is the
+    unasserted-denominator sub-class of the same rule.
+    """
+    raw = str(trade.get("entry_time") or "")
+    head = raw[:4]
+    return head if len(head) == 4 and head.isdigit() else "undated"
+
+
+# Minimum winner-MFEs before a per-era p80 is REPORTED AS A NUMBER.
+#
+# DELIBERATELY LOWER THAN THE POOLED FLOOR OF 30, and the asymmetry is the
+# point: the pooled p80 BECOMES `--trail-decay-arm-r`, a proposed live
+# parameter, so it carries the stricter bar. A per-era figure is REPORTING —
+# nothing reads it back, no cell is built from it, and it exists so a reader
+# can see that the pooled number describes no regime in particular.
+#
+# THE VALUE IS MEASURED, NOT PICKED. Per-year winner-MFE counts across all
+# eight arm-declaring legs (trainer relay #9788, config-exact, --tp-cap-pct
+# 0.099, IS < 2025-07-01):
+#
+#   leg                    winners  per-year winner range
+#   gld_pullback_1d             58  2-6      (16 years)
+#   qqq_trend_long_1d           40  0-5      (19 years)
+#   scha_trend_long_1d          25  0-3      (16 years)
+#   uso_trend_1h                91  6-15     (9 years)
+#   trend_donchian              88  10-28    (5 years)
+#   trend_donchian_sol_4h       69  3-23     (5 years)
+#   xrp_pullback_2h             90  6-25     (5 years)
+#   trend_donchian_xrp_4h       27  4-7      (5 years)
+#
+# So the floor has to sit in a narrow band. At 30 EVERY bucket on EVERY leg is
+# `thin` — the report would emit keys and demonstrate nothing, which the row's
+# own resolution criteria forbid ("a writer that emits the key on a leg where
+# the two coincide has demonstrated nothing"). At 10 the recent-era window
+# resolves on all eight legs, and the per-year census correctly grades the
+# thin-by-nature 1d equity legs `thin` while the 1h/4h crypto legs compute —
+# which is the honest picture, not a tuned one.
+#
+# Every bucket ships its `n` regardless, so a thin-but-reported figure can
+# never be read without its denominator.
+_ERA_MIN_WINNERS = 10
+
+
+def _era_report(by_era: dict[str, list[float]]) -> dict:
+    """Per-year census: every year that traded, with its ``n`` ALWAYS present.
+
+    ``state`` is never collapsed — ``computed`` (n cleared the floor, ``p80`` is
+    a number) / ``thin`` (we looked, too few winners, ``p80`` is null) /
+    ``undated`` (rows we could not place in time). A year with no winners at all
+    simply has no entry, which is a fourth, distinguishable fact: the leg either
+    did not trade or won nothing that year, and inventing a zero-n row would
+    assert we measured something we did not.
+    """
+    out: dict[str, dict] = {}
+    for era in sorted(by_era):
+        xs = by_era[era]
+        if era == "undated":
+            state = "undated"
+        elif len(xs) >= _ERA_MIN_WINNERS:
+            state = "computed"
+        else:
+            state = "thin"
+        out[era] = {"state": state, "n": len(xs),
+                    "p80": _percentile_80(xs) if state == "computed" else None}
+    return out
+
+
+def _recent_era_p80(by_era: dict[str, list[float]], pooled: float | None) -> dict:
+    """The explicit recent-era p80: newest dated years, widened until the sample
+    clears ``_ERA_MIN_WINNERS``, with the span it used published beside it.
+
+    WHY A WIDENING WINDOW RATHER THAN A FIXED N YEARS. A fixed "last 3 years"
+    is a different sample size on every leg — 4h crypto prints hundreds of
+    trades a year and a 1d equity leg prints a handful — so a fixed span would
+    silently be a well-powered estimate on one leg and noise on another, under
+    one column heading. Widening to a sample-size target instead makes the
+    thing held constant the STATISTIC's support, and the varying thing (the
+    span) is reported rather than hidden.
+
+    ``undated`` rows are EXCLUDED from the window — they cannot be ordered in
+    time, so including them would put rows of unknown vintage into a bucket
+    whose entire meaning is vintage. They stay visible in ``by_era``.
+
+    Four states, never collapsed:
+
+    * ``computed``    — the window cleared the floor. ``years`` names its span.
+    * ``all_years``   — every dated year was consumed and it STILL cleared the
+      floor only by taking everything, so recent-era IS pooled. Reported as its
+      own state because "recent == pooled because the leg is short" is a
+      different fact from "recent == pooled because volatility was stable", and
+      a bare equal number cannot tell them apart.
+    * ``thin``        — even all dated years fall under the floor.
+    * ``undated_only``— nothing was datable; no window exists.
+
+    ``delta_vs_pooled`` is signed (recent − pooled) and is the field the row's
+    resolution criterion reads: it must be non-zero on a real leg before this
+    half can close.
+    """
+    dated = {e: xs for e, xs in by_era.items() if e != "undated"}
+    if not dated:
+        return {"state": "undated_only", "years": [], "n": 0,
+                "p80": None, "delta_vs_pooled": None}
+    years, picked = sorted(dated), []
+    span: list[str] = []
+    for era in reversed(years):            # newest first
+        span.insert(0, era)
+        picked.extend(dated[era])
+        if len(picked) >= _ERA_MIN_WINNERS:
+            break
+    if len(picked) < _ERA_MIN_WINNERS:
+        return {"state": "thin", "years": span, "n": len(picked),
+                "p80": None, "delta_vs_pooled": None}
+    p80 = _percentile_80(picked)
+    return {
+        "state": "all_years" if len(span) == len(years) else "computed",
+        "years": span, "n": len(picked), "p80": p80,
+        "delta_vs_pooled": (None if p80 is None or pooled is None
+                            else round(p80 - pooled, 2)),
+    }
+
+
+def winner_mfe_p80(harness: str, base: list[str], split: str) -> dict | None:
     """P80 of the WINNER-trade MFE distribution over the IS window only
     (M20 P4.4 — the percentile arm is baked from train-window trades so the
     OOS verdict never sees test data; the by_year folds inside IS carry the
     one-scalar caveat, recorded in the cell tag). None when < 30 winners.
+
+    RETURNS A DICT, NOT A FLOAT (2026-08-16, ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS``
+    half 2). ``["p80"]`` is the same pooled scalar this used to return and is
+    still the only value that becomes an arm; the rest is the DISTRIBUTION
+    BEHIND IT, so a reader can see which volatility mix produced the number:
+
+    * ``by_era``      — one entry per calendar year, each with its own ``n`` and
+      a ``state`` (never collapsed: ``computed`` / ``thin`` = we looked and there
+      were too few / ``undated`` = we could not place these rows in time).
+    * ``recent_era``  — an EXPLICIT trailing-year window, widened from the newest
+      year backwards until it clears ``_ERA_MIN_WINNERS``, publishing the exact
+      ``years`` it spans. A "recent era" whose definition is invisible in the
+      artifact is the same defect as hardcoding a regime calendar.
+
+    ⚠️ **"RECENT" MEANS RECENT WITHIN THE IS WINDOW, NOT RECENT OVERALL.** This
+    function runs the harness with ``--end split``, so IS is the TRAIN PREFIX and
+    the newest year here is the newest year *before the split* — the OOS tail is
+    deliberately unseen. Reporting it as plain "recent" would name a population
+    the number is not computed over. The key is ``recent_era`` and its
+    ``basis`` field says so; do not re-label it.
+
+    NOTHING HERE PROPOSES AN ARM. The per-era figures are reported beside the
+    pooled one and are never fed to ``--trail-decay-arm-r`` — swapping the arm
+    to a recent-era p80 would be a Tier-3 change to a live parameter, and this
+    row is scoped to reporting.
 
     MFE IS READ VIA `exit_capture.mfe_r_of`, NOT `row["mfe_r"]`. This function
     used to do the top-level read, so for every `ict_scalp` leg — whose harness
@@ -682,6 +1117,7 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             print(f"    p80: harness rc={p.returncode} — no percentile arm")
             return None
         mfes, winners_seen = [], 0
+        by_era: dict[str, list[float]] = {}
         for line in Path(tmp).read_text().splitlines():
             if not line.strip():
                 continue
@@ -692,6 +1128,11 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             m = exit_capture.mfe_r_of(t)
             if m is not None:
                 mfes.append(m)
+                # SAME sample, bucketed a second way — one harness run, two
+                # cuts. The era breakdown costs no extra harness invocation
+                # (a full sweep run is the expensive thing here), so it can
+                # never be the reason a sweep is skipped for time.
+                by_era.setdefault(_era_of(t), []).append(m)
         if winners_seen and not mfes:
             # The distinguishing branch: winners EXIST and none carried a
             # readable MFE. That is a harness/reader shape mismatch, not a
@@ -702,8 +1143,12 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
         if len(mfes) < 30:
             print(f"    p80: {len(mfes)} winner MFEs (< 30) — thin sample")
             return None
-        mfes.sort()
-        return round(mfes[int(0.8 * (len(mfes) - 1))], 2)
+        pooled = _percentile_80(mfes)
+        return {"p80": pooled, "n": len(mfes),
+                "era_basis": "calendar_year_within_IS",
+                "era_min_winners": _ERA_MIN_WINNERS,
+                "by_era": _era_report(by_era),
+                "recent_era": _recent_era_p80(by_era, pooled)}
     except (OSError, json.JSONDecodeError, ValueError, TypeError,
             subprocess.TimeoutExpired) as exc:
         # NARROW deliberately (silent-empty-guard, 2026-08-10). The broad
@@ -797,9 +1242,25 @@ def resolve_split(harness: str, base: list[str], mode: str,
     places the boundary better. Returned meta records target AND mode so a
     verdict states its own derivation.
 
-    Falls back to the fixed date, WITH A STATED REASON, when the leg cannot
-    support the target (a 33-trade leg giving 25 to OOS leaves 8 for IS, which
-    fits nothing). Never silently returns the fixed date.
+    When the leg cannot support the requested target, the target is CLAMPED to
+    the largest it can support (`lifetime // 2`) and the boundary is still
+    derived from this leg's own trades — recorded as
+    `split_target_clamped_from`/`_to`, never silent, because a verdict must not
+    report a target it did not use.
+
+    Falls back to the fixed date, WITH A STATED REASON, only when the leg
+    cannot seat `MIN_OOS_TRADES` on BOTH sides (a 33-trade leg giving 25 to OOS
+    leaves 8 for IS, which fits nothing) — that leg is ungradeable at any
+    boundary, so there is nothing better to return. Never silently returns the
+    fixed date.
+
+    THE THREE OUTCOMES STAY DISTINGUISHABLE, which is the whole point:
+    `split_fallback` unset + no clamp = derived at the asked-for target ·
+    clamp keys present = derived at a REDUCED target (we looked and the leg is
+    thin) · `split_fallback="leg_too_thin"` = ungradeable at any target ·
+    `split_fallback` in {`harness_rc`, `emit_unreadable`} = **we could not
+    look**, which is a different statement from either and must never be read
+    as thinness.
     """
     meta = {"split_mode": mode, "split_target_oos": target_oos}
     if mode == "date":
@@ -835,13 +1296,183 @@ def resolve_split(harness: str, base: list[str], mode: str,
     # Require IS to be at least as large as OOS. A leg that cannot give both
     # sides `target_oos` trades is genuinely too thin, and moving the date
     # would only trade one unusable window for another.
+    #
+    # BUT "cannot support THIS target" is not "cannot be graded", and until
+    # 2026-08-14 those were the same branch: the guard returned the fixed
+    # CALENDAR date, which for exactly the low-frequency legs that trip it is
+    # the worst available boundary -- the very defect the derivation exists to
+    # remove. Measured on one dispatch pair, same legs, same geometry, target
+    # 25 -> 35:
+    #
+    #     iwm_trend_long_1d   OOS 24 -> 4      scha  OOS 23 -> 5
+    #     splg_trend_long_1d  OOS 24 -> 4      (eth_prop, 900+ trades: 24 -> 33)
+    #
+    # Asking for MORE out-of-sample trades returned six times FEWER. That is a
+    # cliff, not a degradation, and it fires precisely when the caller asks for
+    # more rigour. Tracked as:
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER
+    # (kept on ONE line even though it overruns: artifact-validity-guard
+    # resolves ids by regex, so a wrapped id silently resolves to NOTHING and
+    # the comment claims tracking that does not exist.)
+    #
+    # So CLAMP to the largest target the leg can actually support and keep
+    # deriving from the leg's own trades. The clamp is RECORDED, never silent:
+    # a verdict must not report a target it did not use. The fixed-date
+    # fallback survives for the one case it is right for -- a leg that cannot
+    # seat MIN_OOS_TRADES on both sides is ungradeable at any boundary, and
+    # there is nothing better to return.
     if len(stamps) < 2 * target_oos:
-        meta.update(split=fixed_split, split_fallback="leg_too_thin")
-        return fixed_split, meta
+        supportable = len(stamps) // 2
+        if supportable >= MIN_OOS_TRADES:
+            meta["split_target_clamped_from"] = target_oos
+            meta["split_target_clamped_to"] = supportable
+            target_oos = supportable
+        else:
+            meta.update(split=fixed_split, split_fallback="leg_too_thin")
+            return fixed_split, meta
 
     boundary = stamps[-target_oos][:10]          # YYYY-MM-DD
     meta["split"] = boundary
     return boundary, meta
+
+
+def summary_split_line(leg: str, v: dict) -> str:
+    """The SUMMARY's per-leg `- split (leg): ...` line -- the boundary APPLIED.
+
+    The sibling of the `- geometry (leg): ...` line, written for the same
+    reason and against the same defect one axis over. The boundary is resolved
+    HERE, per leg, by `resolve_split()`; the workflow knows only the `--split`
+    input, which under the default `--split-mode oos-trades` is merely the
+    FALLBACK date and not the boundary at all. So the PR banner's unqualified
+    ``IS/OOS split <SPLIT>`` asserted one shared calendar cut across every leg.
+
+    Measured on the 2026-08-15 pullback re-sweep: 17 comments printed
+    ``IS/OOS split `2025-07-01` `` and SIXTEEN legs had run at a different
+    derived boundary (`sol_pullback_2h` 2025-08-23, `slv_pullback_1d`
+    2022-11-29, `ief_pullback_1d` 2017-01-20, ...). The single leg that really
+    did use 2025-07-01 was `iaum_pullback_1d`, and only because its derivation
+    could not be satisfied -- the one true reading was true by FAILURE. A
+    reader comparing two legs' cells on the banner's stated assumption of a
+    common split is comparing different partitions of different books.
+
+    That is `diagnostic-provenance-guard` sub-class A on the same banner the
+    geometry line was added to fix five days earlier, and this file's own
+    docstring was corrected for it on 2026-08-13 while the emitted line was
+    not -- which is why the remedy is in the OUTPUT, not in more prose.
+
+    THREE STATES, never collapsed, the same discipline `insufficient_base_reason`
+    keeps below:
+
+      * **unknown** -- the leg never reached `resolve_split` (harness error /
+        skipped), so no boundary exists to report. Printing the requested date
+        here would manufacture exactly the claim this function exists to stop.
+      * **fell back** -- the derivation could not be satisfied, so the fixed
+        date was USED but never CHOSEN for this leg. Silently rendering it as a
+        derived boundary invites the reader to blame the leg for the fallback's
+        window.
+      * **derived** -- a real per-leg boundary, which also means legs in one run
+        do not share one.
+
+    Pure and side-effect-free so it can be tested directly -- the SUMMARY block
+    that calls it lives inside `main()` and is not otherwise reachable from a
+    test. It composes a STRING and nothing more; no caller branches on it.
+    """
+    split = v.get("split")
+    if split is None:
+        return (f"- split (`{leg}`): unknown — this leg did not run, so no "
+                f"boundary was resolved")
+    mode = v.get("split_mode")
+    if v.get("split_fallback"):
+        lifetime = v.get("split_lifetime_trades")
+        return (f"- split (`{leg}`): **{split}** — FELL BACK to the `--split` "
+                f"date ({v['split_fallback']}"
+                + (f", lifetime={lifetime} trades" if lifetime is not None else "")
+                + f"); the `{mode}` derivation could not be satisfied, so this "
+                f"boundary was NOT chosen for this leg")
+    if mode != "date":
+        return (f"- split (`{leg}`): **{split}** — DERIVED per leg "
+                f"(split_mode=`{mode}`, targeting {v.get('split_target_oos')} "
+                f"OOS trades; the ACHIEVED count is `base n OOS` below, not "
+                f"this target). Legs in one run do NOT share a boundary — do "
+                f"not compare two legs' cells as though they were cut at the "
+                f"same date")
+    return (f"- split (`{leg}`): **{split}** — fixed calendar date "
+            f"(split_mode=`date`), the same for every leg")
+
+
+def insufficient_base_reason(base_oos_n, floor: int, split: str,
+                             split_meta: dict) -> str:
+    """Why a cell was refused for a thin OOS window -- INCLUDING which window.
+
+    The old message was `f"OOS base {n} trades < floor {floor}"`, which names a
+    COUNT over a window it does not name. That reads as a statement about the
+    LEG ("this strategy has 24 trades") when it can equally be a statement about
+    the BOUNDARY ("the derivation handed this 407-trade leg a 24-trade window").
+    Those are opposite conditions with opposite remedies -- wait for trades, vs
+    move the split -- and both were printing the same sentence.
+
+    Measured 2026-08-14 on the two legs that motivated this
+    (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS):
+    `htf_pullback_trend_2h` refused at n=24 under the derived split and graded
+    at n=95 under the corpus-standard one, same config, same day. Nothing in the
+    refusal said which split produced the 24, so establishing that took a fresh
+    trainer relay run rather than a read.
+
+    Pure and side-effect-free so it can be tested directly -- the verdict block
+    that calls it lives inside `main()` and is not otherwise reachable from a
+    test. It composes a STRING and nothing more; no caller branches on it.
+    """
+    mode = split_meta.get("split_mode")
+    lifetime = split_meta.get("split_lifetime_trades")
+    fallback = split_meta.get("split_fallback")
+    parts = [f"window from {split}", f"split_mode={mode}"]
+    # The target is meaningless under `date` (nothing was targeted), so it is
+    # omitted rather than printed as None -- a None target would read as a
+    # derivation that failed rather than one that never ran.
+    if mode != "date":
+        parts.append(f"targeting {split_meta.get('split_target_oos')}")
+    # `lifetime` is the discriminator the whole message exists for: it is what
+    # separates a trade-starved leg from a badly-placed boundary. It is absent
+    # under `date` (no emit run happened), and absence is reported by OMISSION
+    # rather than a fabricated 0 -- "we did not count the leg's lifetime" and
+    # "the leg has no trades" are opposite claims.
+    if lifetime is not None:
+        parts.append(f"leg lifetime {lifetime}")
+    # A clamp means the caller's target was NOT the one used. Printing only the
+    # requested target beside a refusal invites the reader to compute a band the
+    # run never operated in.
+    if split_meta.get("split_target_clamped_to") is not None:
+        parts.append(f"target CLAMPED {split_meta.get('split_target_clamped_from')}"
+                     f"->{split_meta['split_target_clamped_to']}")
+    if fallback:
+        parts.append(f"FELL BACK: {fallback}")
+
+    # THE DIAGNOSIS, not just the inputs (criterion (4) of
+    # BL-20260814-SPLIT-DERIVATION-FALLBACK-IS-A-CLIFF-SO-ASKING-FOR-MORE-OOS-RETURNS-FAR-FEWER).
+    # Carrying `lifetime` made the discriminator AVAILABLE; it still left every
+    # reader to do the arithmetic, and the two conclusions have opposite
+    # remedies. A leg that cannot seat `floor` on BOTH sides is trade-starved at
+    # ANY boundary -- re-running is wasted. A leg whose lifetime could seat one
+    # and did not got a badly-placed split -- waiting for trades is wasted.
+    # Third state kept distinct on purpose: under `split_mode=date` no emit run
+    # happened, so the lifetime was never counted and the honest answer is that
+    # we cannot tell -- NOT a default to either diagnosis.
+    if lifetime is None:
+        verdict = ("UNDIAGNOSED: leg lifetime was never counted under "
+                   "split_mode=date, so 'thin leg' and 'thin window' are "
+                   "indistinguishable here -- re-run with split_mode=oos-trades "
+                   "to find out")
+    elif lifetime < 2 * floor:
+        verdict = (f"THE LEG IS TRADE-STARVED: {lifetime} lifetime trades cannot "
+                   f"seat {floor} on BOTH sides at any boundary -- re-running "
+                   f"the sweep returns this again; wait for trades")
+    else:
+        verdict = (f"THE BOUNDARY IS MISPLACED, NOT THE LEG: {lifetime} lifetime "
+                   f"trades could seat a floor-clearing window and this split "
+                   f"gave it {base_oos_n} -- re-run with a larger "
+                   f"--split-target-oos")
+    return (f"OOS base {base_oos_n} trades < floor {floor} "
+            f"({', '.join(parts)}) -- {verdict}")
 
 
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
@@ -910,6 +1541,45 @@ def beats(cell: dict, base: dict) -> bool:
     see the axis. Path B (§ P2 of the exit-refinement skill) exists for exactly
     that population; its two thresholds are UNSET pending the distribution this
     sweep now reports, so nothing here grades against them.
+
+    ⚠️ **THOSE 2026-07-12 PULLBACK NEGATIVES PREDATE THE PATH B WALK-FORWARD
+    ROUTING — do not read them as measurements of the lever.** The gate gap was
+    found on **2026-08-10** (see ``main()``'s verdict block), so on 2026-07-12 a
+    Path B candidate short-circuited to ``is_oos_fail`` with no walk-forward at
+    all. Re-grading them needs a **re-run**, not a re-read.
+
+    Measured 2026-08-16, pullback family, ``--split-target-oos 50
+    --tp-cap-pct 0.099``, 76 cells: cells this gate refuses DO surface as
+    ``path_b_wf_pass`` once the routing runs — 3 of them. **And all three fail
+    the drawdown exchange rate**, two of them OUT-OF-SAMPLE:
+
+      ===========================  =================  ==================
+      leg / cell                   verdict            rate ok (IS/OOS)
+      ===========================  =================  ==================
+      mhg_pullback_1d stale8_lt0R  path_b_wf_pass     maxdd_worse / ok
+      htf_pullback_trend_2h gb2R   path_b_wf_pass     ok / maxdd_worse
+      tlt_pullback_1d gb2R         path_b_wf_pass     ok / maxdd_worse
+      ===========================  =================  ==================
+
+    **So `path_b_wf_pass` was, on this run, ZERO-for-three on the rate** — which
+    is the whole point of the sentence above and why it stays unchanged: both
+    Path B thresholds remain unset, ``drawdown_exchange_rate`` is *reported, not
+    enforced*, and this verdict says only that the net_R gain generalises across
+    folds. **NEVER report a `path_b_wf_pass` count without the rate column
+    beside it.** At fleet scale 6 of 18 failed it; here 3 of 3 did.
+
+    The run's actual result is elsewhere and is a **Path A** PASS:
+    ``sol_pullback_2h`` ``gb1R_afterMFE1R`` and ``gb1R_afterMFE2R``, both
+    ``ok / ok`` in BOTH windows (base n IS=175 OOS=49). A session that had read
+    only the partial log led with the three Path B rows and missed it.
+
+    ⚠️ **And that PASS is still not a declare.** ``sol_pullback_2h`` runs on
+    ``htf_pullback_trend_2h``, which implements **no giveback lever at all** —
+    the harness applies ``giveback_r``/``giveback_min_mfe_r`` in its own engine
+    (see ``backtest_pullback.py``), so a passing cell here is evidence to
+    IMPLEMENT the lever in the unit module (Tier-3 code), never to add the key
+    to YAML. A YAML declare would be an orphan: silently inert, and caught by
+    ``exit-mechanism-coverage-guard``.
     """
     try:
         cn, bn = float(cell["net_total_r"]), float(base["net_total_r"])
@@ -1208,11 +1878,18 @@ def main(argv: list[str]) -> int:
                          "--split-target-oos trades in OOS, so a "
                          "low-frequency leg is gradeable; `date` is the legacy "
                          "fixed calendar split. See resolve_split().")
-    ap.add_argument("--split-target-oos", type=int, default=MIN_OOS_TRADES,
+    ap.add_argument("--split-target-oos", type=int,
+                    default=DEFAULT_SPLIT_TARGET_OOS,
                     help="Trades to TARGET in the OOS window under "
-                         "--split-mode=oos-trades. Defaults to the floor a "
-                         "cell is judged against, so the boundary aims at "
-                         "exactly what the verdict requires.")
+                         "--split-mode=oos-trades. Defaults to 50, "
+                         "DELIBERATELY ABOVE the MIN_OOS_TRADES=25 floor a cell "
+                         "is judged against (Tier-3, operator 2026-08-16). It "
+                         "used to default to the floor itself, so the boundary "
+                         "aimed at exactly what the verdict requires and any "
+                         "boundary loss dropped the cell to insufficient_base. "
+                         "A thin leg is NOT refused by the higher target: "
+                         "resolve_split clamps to len(stamps)//2 and records "
+                         "split_target_clamped_from/to.")
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m20_fleet"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
@@ -1272,15 +1949,20 @@ def main(argv: list[str]) -> int:
                          "(trend_donchian_eth, trend_donchian_eth_prop); the run "
                          "warns and every row records which other levers were "
                          "absent, so this is never silent.")
-    ap.add_argument("--tp-cap-pct", type=float, default=0.0,
+    ap.add_argument("--tp-cap-pct", type=float, default=LIVE_TP_CAP_PCT,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
-                         "clamp on the 50R sentinel). Applied ONLY to families "
-                         "whose live unit carries the clamp "
+                         "clamp on the 50R sentinel). **DEFAULTS TO LIVE PARITY "
+                         "(0.099) since 2026-08-16** (Tier-3, operator): it "
+                         "defaulted to 0.0, so a sweep run WITHOUT this flag "
+                         "measured a book production does not run, and that is "
+                         "the class behind six arms shipping inert. Applied "
+                         "ONLY to families whose live unit carries the clamp "
                          "(LIVE_TP_CAPPED_FAMILIES); applying it elsewhere "
                          "would manufacture a parity break rather than "
-                         "reproduce one. 0 = off, the geometry every verdict "
-                         "before 2026-08-10 was measured on.")
+                         "reproduce one. Pass 0 explicitly for the UNCAPPED "
+                         "geometry every verdict before 2026-08-10 was measured "
+                         "on -- required to reproduce those recorded numbers.")
     ap.add_argument("--census", action="store_true",
                     help="MEASURE-FIRST pass (operator-directed 2026-08-10): run "
                          "each leg's config-exact base ONLY and report the exit-capture "
@@ -1654,6 +2336,9 @@ def main(argv: list[str]) -> int:
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
         decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
+        # Empty, never absent: a leg that proposed no p80 arm records `{}` so a
+        # consumer can tell "no arm proposed" from "arm proposed, unchecked".
+        arm_ceiling: dict = {}
         if a.p80_only:
             p["cells"] = []  # fixed cells already verdicted; p80 cell only
         # THE LEVER-OFF ARM SUPPRESSES IT. `cells_for` returns only the
@@ -1667,17 +2352,128 @@ def main(argv: list[str]) -> int:
         # not by the tests — which covered `cells_for` and never this hop.
         if (p["family"] in ("donchian", "pullback") and decay_in_scope
                 and not without_levers):
-            tm_val = next((float(x[1]) for x in
-                           zip(p["base"], p["base"][1:])
-                           if x[0] == "--trail-mult"), None)
-            p80 = winner_mfe_p80(p["harness"], p["base"], leg_split)
+            tm_val = flag_value(p["base"], "--trail-mult")
+            # `p80_detail` carries the per-era distribution BEHIND the scalar
+            # (PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS half 2). `p80` stays the
+            # pooled scalar and is still the ONLY value that becomes an arm —
+            # the era block is reported, never fed back into the cell.
+            p80_detail = winner_mfe_p80(p["harness"], p["base"], leg_split)
+            p80 = None if p80_detail is None else p80_detail["p80"]
             if p80 is not None and p80 > 0.5 and tm_val:
                 tight = max(1.5, round(tm_val / 2.0, 1))
                 p["cells"].append(
                     (f"decay_p80arm{p80:g}R_t{tight:g}", "trail_decay",
                      ["--trail-decay-arm-r", str(p80),
                       "--trail-decay-tight-mult", str(tight)]))
-                print(f"   p80 winner-MFE arm = {p80}R", flush=True)
+                # CHECK THE PROPOSED ARM AGAINST THIS LEG'S OWN MEASURED TP
+                # REACH, using data the sweep ALREADY had.
+                #
+                # `live_tp_reach_r` above records `tp_r_effective_*`, the
+                # per-trade cap_R measured on this leg's own base book. Nothing
+                # ever COMPARED the proposed arm to it, so the sweep could
+                # propose an arm above the ceiling of the very book it had just
+                # measured and say nothing.
+                #
+                # ⚠️ THIS CATCHES HALF THE CLASS, NOT ALL OF IT — and the half it
+                # MISSES is the motivating case. MEASURED on the verification run
+                # (relay #9734, --only gld_pullback_1d,trend_donchian_sol_4h):
+                #
+                #   trend_donchian_sol_4h  p80 1.5R  vs measured median 1.324R
+                #                          -> above_measured_median_ceiling, CAUGHT
+                #   gld_pullback_1d        p80 3.86R vs measured median 4.781R
+                #                          -> within_measured_median_ceiling, PASSED
+                #
+                # But `gld_pullback_1d`'s LIVE cap_R is 2.20-3.01, so 3.86R is
+                # unreachable on the book that trades — 0 of 8 live entries. The
+                # ceiling this compares against is the BACKTEST's, and the whole
+                # finding is that the two populations differ
+                # (docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md:
+                # the backtest median risk/entry sits BELOW the live minimum).
+                #
+                # So: an arm above its own backtest ceiling is now loud, which is
+                # a real gap closed. An arm inside the backtest ceiling and above
+                # the LIVE one still passes silently, and closing THAT needs a
+                # live-population input the sweep does not have — M31 P4
+                # (backtest<->live MFE parity) is the piece that would supply it.
+                # Do not read a `within_measured_median_ceiling` verdict as
+                # "reachable in production".
+                #
+                # The MEASURED comparison is primary; the derived ATR/close
+                # ceiling rides along as the interpretable form (it says which
+                # vol REGIME the arm needs, which a median cannot).
+                ceil_state, ceil_pct = arm_atr_close_ceiling(p["base"], p80)
+                _reach = leg_v["live_tp_reach_r"]["IS"]
+                tp_med, tp_max = _reach.get("median"), _reach.get("max")
+                if tp_med is None:
+                    reach_verdict = "unmeasured"   # cap off, or no trades
+                elif p80 > tp_med:
+                    reach_verdict = "above_measured_median_ceiling"
+                else:
+                    reach_verdict = "within_measured_median_ceiling"
+                _era = p80_detail["recent_era"]
+                arm_ceiling = {
+                    "p80_arm_r": p80,
+                    # THE POPULATION BEHIND THE SCALAR, so a reader can see the
+                    # pooled arm describes a volatility MIX rather than any
+                    # regime the live book samples. Half (1) of the row gave the
+                    # arm its implied ATR/close ceiling; this is half (2).
+                    "p80_winner_n": p80_detail["n"],
+                    "p80_era_basis": p80_detail["era_basis"],
+                    "p80_era_min_winners": p80_detail["era_min_winners"],
+                    "p80_by_era": p80_detail["by_era"],
+                    "p80_recent_era": _era,
+                    # Hoisted to the top level because it is the field the
+                    # backlog row's resolution criterion is written against, and
+                    # a reader should not have to walk into a sub-object to find
+                    # whether pooled and recent-era actually differ.
+                    "p80_recent_era_r": _era["p80"],
+                    "p80_recent_era_delta": _era["delta_vs_pooled"],
+                    "arm_reach_verdict": reach_verdict,
+                    "measured_tp_reach_r_median_IS": tp_med,
+                    "measured_tp_reach_r_max_IS": tp_max,
+                    "arm_ceiling_state": ceil_state,
+                    "arm_atr_close_ceiling_pct": (
+                        None if ceil_pct is None
+                        else round(ceil_pct * 100.0, 4)),
+                }
+                _ceil_txt = (f"needs ATR/close <= {ceil_pct * 100.0:.3f}%"
+                             if ceil_state == "capped" else
+                             "UNCAPPED book — no TP ceiling, so this arm is "
+                             "NOT comparable to a live capped one"
+                             if ceil_state == "uncapped" else
+                             "ceiling UNKNOWN — atr_stop_mult unreadable")
+                if reach_verdict == "above_measured_median_ceiling":
+                    print(f"   ⚠️ p80 winner-MFE arm = {p80}R EXCEEDS this "
+                          f"leg's measured median TP reach {tp_med}R — it "
+                          f"would fire on under half its own trades "
+                          f"({_ceil_txt})", flush=True)
+                elif reach_verdict == "unmeasured":
+                    print(f"   p80 winner-MFE arm = {p80}R  (TP reach "
+                          f"UNMEASURED — cap off or no trades; {_ceil_txt})",
+                          flush=True)
+                else:
+                    print(f"   p80 winner-MFE arm = {p80}R  (within measured "
+                          f"median TP reach {tp_med}R; {_ceil_txt})",
+                          flush=True)
+                # THE POOLED ARM'S OWN ERA SPREAD, printed beside it. Always
+                # with `n` — a per-era p80 over 11 winners is not the claim the
+                # pooled one over 300 is, and the whole finding this reports is
+                # that reading a percentile without its population is how the
+                # six shipped arms came to be quoted at all.
+                if _era["state"] in ("computed", "all_years"):
+                    _sp = (f"{_era['years'][0]}-{_era['years'][-1]}"
+                           if len(_era["years"]) > 1 else _era["years"][0])
+                    _same = (" — SAME SPAN AS POOLED, so this leg has no era "
+                             "contrast to show" if _era["state"] == "all_years"
+                             else f" vs pooled {p80}R over n={p80_detail['n']} "
+                                  f"(delta {_era['delta_vs_pooled']:+g}R)")
+                    print(f"   p80 recent-era ({_sp}, within IS) = "
+                          f"{_era['p80']}R over n={_era['n']}{_same}",
+                          flush=True)
+                else:
+                    print(f"   p80 recent-era UNAVAILABLE ({_era['state']}, "
+                          f"n={_era['n']}) — pooled arm stands alone",
+                          flush=True)
             else:
                 print(f"   p80 cell skipped (p80={p80}, tm={tm_val})",
                       flush=True)
@@ -1746,14 +2542,60 @@ def main(argv: list[str]) -> int:
                      and _base_oos_n < MIN_OOS_TRADES)
             entry["base_trades_oos"] = _base_oos_n
             entry["min_oos_trades_floor"] = MIN_OOS_TRADES
+            # WHERE THE BOUNDARY CAME FROM. `_base_oos_n` is a count over a
+            # window that was CHOSEN, and until 2026-08-14 nothing downstream
+            # recorded the choice -- so a refusal read as "this leg has 24
+            # trades" when the leg has 407 and the DERIVATION handed it 24
+            # (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS,
+            # measured on htf_pullback_trend_2h: 95 OOS at the corpus-standard
+            # split vs 24 at the derived one -- same leg, same day, same
+            # config). That is diagnostic-provenance sub-class B: an implicit
+            # input selection substituted for the declared one, with nothing in
+            # the output revealing it. `resolve_split`'s own docstring already
+            # promised the cure -- "Returned meta records target AND mode so a
+            # verdict states its own derivation" -- and no verdict read the
+            # meta, so the promise was prose about a property that did not
+            # exist. Recorded on EVERY cell, not only refused ones: a boundary
+            # that decides a PASS deserves the same audit trail as one that
+            # decides a refusal.
+            #
+            # PURELY ADDITIVE -- no verdict branch reads these keys, so this
+            # cannot move a grade. `split_target_oos` is the TARGET; the
+            # ACHIEVED count is `base_trades_oos` above, and the two are not
+            # interchangeable (resolve_split's docstring is explicit that the
+            # harness windows CANDLES, not trades).
+            entry["split"] = leg_split
+            entry["split_mode"] = split_meta.get("split_mode")
+            entry["split_target_oos"] = split_meta.get("split_target_oos")
+            entry["split_lifetime_trades"] = split_meta.get(
+                "split_lifetime_trades")
+            entry["split_fallback"] = split_meta.get("split_fallback")
+            # THE CLAMP MUST RIDE WITH THE TARGET OR THE ROW LIES BY OMISSION.
+            # `split_target_oos` above is what the CALLER ASKED FOR; when the
+            # leg could not support it, `resolve_split` clamps and derives at a
+            # smaller one. Without these two keys the corpus row reads
+            # `split_target_oos: 35` for a run that used 32 -- a row reporting a
+            # target it did not use, which is exactly what resolve_split's own
+            # docstring forbids.
+            #
+            # Caught 2026-08-14 by reading back the twelve OFF-arm rows this
+            # session had just produced: the three clamped rows landed with
+            # `split_target_clamped_to: null` while their OOS window had
+            # visibly moved 4 -> 31. The meta carried the clamp, the writer
+            # dropped it, and nothing downstream could tell. Verifying my own
+            # output is what found it; the sweep itself was correct.
+            entry["split_target_clamped_from"] = split_meta.get(
+                "split_target_clamped_from")
+            entry["split_target_clamped_to"] = split_meta.get(
+                "split_target_clamped_to")
             if _thin:
                 # Record what it WOULD have been, so the floor's effect on this
                 # cell is auditable rather than invisible.
                 entry["would_have_been"] = (
                     "is_oos_pass" if candidate else "is_oos_fail")
                 entry["verdict"] = "insufficient_base"
-                entry["insufficient_base_why"] = (
-                    f"OOS base {_base_oos_n} trades < floor {MIN_OOS_TRADES}")
+                entry["insufficient_base_why"] = insufficient_base_reason(
+                    _base_oos_n, MIN_OOS_TRADES, leg_split, split_meta)
             elif candidate:
                 wf = walkforward(p["harness"], p["base"], args, log_result,
                                  leg, tag, require_dd=True)
@@ -1858,6 +2700,9 @@ def main(argv: list[str]) -> int:
                 if e.get("verdict") == "path_b_wf_pass"
                 and e.get("path_b_rate_ok") is None),
         }
+        # The proposed arm's reachability check rides in the verdict, so a
+        # downstream reader never has to re-derive it from the run log.
+        leg_v["p80_arm_reach"] = arm_ceiling
         verdicts[leg] = leg_v
 
     # `tp_cap_pct` is part of the MEASUREMENT IDENTITY, not a run detail.
@@ -1971,6 +2816,7 @@ def main(argv: list[str]) -> int:
                     f"quantity does not exist here, which is a different statement "
                     f"from 'the TP is far away' or 'the cap was off'.")
         lines.append(f"- geometry (`{_leg}`): {_geo}")
+        lines.append(summary_split_line(_leg, _v))
     lines.append("")
     for leg, v in verdicts.items():
         if "levers" not in v:

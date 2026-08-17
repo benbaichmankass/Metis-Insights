@@ -151,3 +151,88 @@ class TestFederation:
         assert federated_client.get(
             "/api/bot/db/table/trades?db=trainer_store"
         ).status_code == 404
+
+
+class TestFilterStateIsDeclared:
+    """A dropped filter must be VISIBLE in the response.
+
+    WHY THIS EXISTS (BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN).
+    An unknown filter column is ignored by design, so a stale UI selection
+    degrades gracefully. The tolerance is right; the SILENCE was the bug. With
+    no WHERE, both the COUNT and the SELECT ran unfiltered and `total` came
+    back as the whole table — identical to "the filter matched every row".
+
+    Measured 2026-08-13 against the live journal: four different filters on a
+    misspelled column each returned `total: 4639`, the entire trades table. The
+    route is on the diag-relay allowlist, so its callers include analysis
+    sessions that cannot see the query they actually got.
+
+    The property is therefore NOT "unknown columns are rejected" — they are
+    still ignored — but "the caller can tell from the response alone".
+    """
+
+    def test_a_dropped_filter_does_not_look_like_a_matching_one(self, client):
+        """The whole bug in one assertion.
+
+        A filter on a column that does not exist returns the full table. That
+        is allowed. What must NOT happen is that it be indistinguishable from a
+        filter that genuinely matched every row.
+        """
+        unfiltered = client.get("/api/bot/db/table/trades").json()
+        dropped = client.get(
+            "/api/bot/db/table/trades",
+            params={"filter_col": "no_such_column", "filter_op": "eq",
+                    "filter_val": "BTCUSDT"},
+        ).json()
+        # The counts ARE the same — that is the documented degradation.
+        assert dropped["total"] == unfiltered["total"] == 3
+        # ...and that is precisely why the states must differ.
+        assert dropped["filter_state"] == "ignored_unknown_column"
+        assert unfiltered["filter_state"] == "not_requested"
+
+    def test_an_applied_filter_says_so_and_the_total_reflects_it(self, client):
+        body = client.get(
+            "/api/bot/db/table/trades",
+            params={"filter_col": "symbol", "filter_op": "eq",
+                    "filter_val": "BTCUSDT"},
+        ).json()
+        assert body["filter_state"] == "applied"
+        assert body["total"] == 2
+        # Echoed back so a caller sees what the SERVER resolved, not what it
+        # believes it sent.
+        assert (body["filter_col"], body["filter_op"], body["filter_val"]) == (
+            "symbol", "eq", "BTCUSDT")
+
+    def test_a_genuine_zero_is_still_reachable_and_labelled_applied(self, client):
+        """`applied` + total 0 is the honest empty answer.
+
+        Without this the fix would be untestable in the direction that matters:
+        "nothing matched" and "nothing was asked" must also be distinct.
+        """
+        body = client.get(
+            "/api/bot/db/table/trades",
+            params={"filter_col": "symbol", "filter_op": "eq",
+                    "filter_val": "NOSUCHSYMBOL"},
+        ).json()
+        assert body["filter_state"] == "applied"
+        assert body["total"] == 0
+        assert body["rows"] == []
+
+    def test_a_bad_operator_is_its_own_state_not_lumped_with_unknown_column(self, client):
+        body = client.get(
+            "/api/bot/db/table/trades",
+            params={"filter_col": "symbol", "filter_op": "drop_table",
+                    "filter_val": "BTCUSDT"},
+        ).json()
+        assert body["filter_state"] == "ignored_bad_op"
+        assert body["total"] == 3
+
+    def test_order_reports_its_fate_too(self, client):
+        good = client.get("/api/bot/db/table/trades",
+                          params={"order_by": "pnl"}).json()
+        bad = client.get("/api/bot/db/table/trades",
+                         params={"order_by": "no_such_column"}).json()
+        none = client.get("/api/bot/db/table/trades").json()
+        assert good["order_state"] == "applied"
+        assert bad["order_state"] == "ignored_unknown_column"
+        assert none["order_state"] == "not_requested"
