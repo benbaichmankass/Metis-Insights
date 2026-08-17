@@ -24,7 +24,7 @@ Three measurements from this milestone, each with its population stated:
 |---|---|---|
 | **P4 Check B (parity)** | **abstains** — live final-MFE population is **n=1** fleet-wide (14 telemetry rows = 13 open + 1 closed, lifecycle join certified `filter_state: applied`, `total: 27`) | there is **no established backtest↔live MFE parity** for a telemetry-reading lever to stand on |
 | **M20 lever firings, lifetime** | **13** (`stale_stop` 10 · `exit_head` 2 · `giveback_stop` 1, that one on paper) against **1,142 closed trades** | the live journal **cannot grade** an exit lever at this n, and waiting does not fix it |
-| **Harness per-trade `mfe_r`** | **not committed anywhere** — key census over all 1,376 corpus rows found cell aggregates only | the backtest half of the gate has no standing artifact either |
+| **Harness per-trade `mfe_r`** | **still not committed** — key census over all 1,376 corpus rows finds cell aggregates only (re-measured 2026-08-17: **zero** keys containing `mfe`) | the backtest half of the gate has no standing artifact — but the **mechanism to produce one now exists**, see § 5 precondition 2 |
 
 A P5 lever shipped today would be tuned on a harness whose agreement with the
 live book **has never been checked**, which is the exact defect family M31 was
@@ -126,7 +126,31 @@ judgement call:
 2. **P4 Check B returns `compared` on at least one leg** — i.e.
    `scripts/research/m31_mfe_parity.py` finds ≥ 8 final live rows for a leg AND
    a harness `mfe_r` distribution for it, and reports `parity: consistent`.
-   `insufficient_n` is not a pass.
+   `insufficient_n` is not a pass. **This precondition has two halves, and only
+   one of them is a waiting problem**
+   (`docs/sprint-logs/S-M31-HARNESS-MFE-DIST-2026-08-17.md`):
+
+   **2a. HARNESS side — MECHANISM ✅ DONE 2026-08-17, ARTIFACT ❌ NOT COMMITTED**
+   (`PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE`, left OPEN).
+   `scripts/research/m31_harness_mfe_dist.py` aggregates a
+   `backtest_trend.py --emit-trades` JSONL into a small committed per-leg
+   record (percentiles + `n`, never per-trade rows), and
+   `m31_mfe_parity.py --harness-dist` consumes it — verified end-to-end on a
+   real capped sweep (144/144 emit rows carrying `mfe_r` → `parity_state:
+   compared`). Percentiles are **imported** from `m31_mfe_parity._pct`, not
+   re-derived. What is still missing is the **numbers**: no artifact is
+   committed, because the only candle file in the repo is BTCUSDT **1-minute**
+   and committing a wrong-regime distribution under the name Check B reads
+   would be M31's own defect class, authored by us and versioned. Same
+   trainer-side sweep unblocks this and 3b.
+
+   **2b. LIVE side — ❌ NOT DONE, and this is the binding blocker.** The
+   fleet-wide final-MFE population is **n=1** (§ 2). Nothing but soak depth
+   fixes it; the terminal writer (precondition 1) makes future closes gradeable
+   without a join but creates no closed trades.
+
+   Before this split was recorded, a session waiting only on live depth would
+   have reached Check B's floor and *then* discovered the harness half absent.
 3. **A walk-forward on the `rr_from_here` floor CLEARS the do-nothing arm** —
    not merely beats an alternative lever. This is **two steps, not one**
    (`PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS`), and phrasing it as
@@ -195,17 +219,26 @@ worse than none: it reads as coverage.
 ## 8. Recommendation
 
 **Do not ship a P5 lever now.** The Tier-2 terminal writer is done (2026-08-17,
-precondition 1); **precondition 2 is the binding one and it is a data-accrual
+precondition 1); **precondition 2b is the binding one and it is a data-accrual
 problem the writer does not solve** — it makes future closes gradeable without a
 join, but it creates no closed trades, and the fleet-wide final population is
-still n=1. So: let the soak reach Check B's floor, run the walk-forward
-(precondition **3b** — still the only remaining item that is *work* rather than
-waiting; **3a is now done**, so the lever the walk-forward needs exists and is
-instrumented, which it was not on 2026-08-17 morning. A failure at 3b would
-retire this candidate outright, which is worth learning before the soak
-matures), then bring the exact diff for approval. M31's other four phases are
-complete and the milestone's value — making the exit-lever programme
-*checkable* — is already delivered without P5.
+still n=1.
+
+**Separate what is WAITING from what is WORK**, because conflating them is how a
+session reaches the soak floor and only then discovers a second gap:
+
+- **Waiting:** 2b (live soak depth). Nothing accelerates it.
+- **Work, and both need the SAME trainer-side capped sweep at the live
+  timeframes:** 2a's committed artifact, and 3b's walk-forward. They should
+  share one sweep rather than being scheduled apart.
+- **Done:** 1 (terminal stamp, with the `peak_r` caveat in § 4), 3a (the lever
+  exists in the harness and is instrumented, which it was not on 2026-08-17
+  morning), 2a's mechanism.
+
+A failure at 3b would retire this candidate outright, which is worth learning
+before the soak matures. Then bring the exact diff for approval. M31's other
+four phases are complete and the milestone's value — making the exit-lever
+programme *checkable* — is already delivered without P5.
 
 **One thing 3a already bought, independent of whether P5 ever ships:** the
 harness can now say *"this run could not test the lever"* as a state distinct
