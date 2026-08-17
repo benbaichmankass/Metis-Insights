@@ -45,6 +45,10 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule)
+    effective_trail_mult,
+    vol_trail_armed,
+)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
@@ -169,41 +173,16 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     return dx.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
 
 
-def _effective_trail_mult(base: float, peak_r: float, bars_since_peak: int,
-                          decay_on: bool, decay_arm_r: float,
-                          decay_stall_bars: int, decay_tight_mult: float,
-                          vol_on: bool, atr_pctl, j: int,
-                          vol_above_pctl: float, vol_below_pctl: float,
-                          vol_tight_mult: float) -> float:
-    """The chandelier trail mult in force on ONE managed bar.
-
-    Two independent tighteners, both **no-ops at their defaults** so the caller's
-    arithmetic is byte-identical to the pre-lever engine when neither is declared:
-
-    * **M20 P4.1 trail-decay** — tighten once the move shows exhaustion, either
-      R-armed (``peak_r >= decay_arm_r``) or stall-armed (``decay_stall_bars`` or
-      more bars since the last new favourable extreme). A new peak re-loosens the
-      MULT; the caller's price ratchet never loosens the STOP.
-    * **M20-X vol-conditional trail** — tighten on a bar whose trailing ATR
-      percentile sits in a gated tail. Conditional, not a ratchet; an undefined
-      percentile (window unfilled) leaves it inert.
-
-    When both fire the TIGHTEST wins, matching the research harness this was
-    ported from — the levers compose by minimum, never by sum.
-    """
-    tm = base
-    if decay_on:
-        armed = ((decay_arm_r > 0.0 and peak_r >= decay_arm_r)
-                 or (decay_stall_bars > 0 and bars_since_peak >= decay_stall_bars))
-        if armed:
-            tm = decay_tight_mult
-    if vol_on and atr_pctl is not None:
-        vp = atr_pctl.iloc[j]
-        if not pd.isna(vp):
-            if ((vol_above_pctl > 0.0 and float(vp) > vol_above_pctl)
-                    or (vol_below_pctl > 0.0 and float(vp) < vol_below_pctl)):
-                tm = min(tm, vol_tight_mult)
-    return tm
+# The trail-lever firing rule lives in ONE place — `src/research/trail_levers.py`
+# — because it had already been written twice (this function, plus an inline copy
+# in backtest_pullback.py) and a third copy was about to be added for
+# backtest_squeeze.py. Two derivations of one bound is the defect
+# tests/test_fold_reachability_is_derived.py exists to pin.
+#
+# The alias keeps the private name resolvable: `m20_trail_attribution.py` loads
+# this module dynamically and refers to `_effective_trail_mult` by name, so
+# removing the name would break a consumer that no import graph would reveal.
+_effective_trail_mult = effective_trail_mult
 
 
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
@@ -292,8 +271,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # bars (causal, includes the bar itself; NaN until the window fills → never
     # fires, fail-permissive). Only computed when a lever consults it, so the
     # default run allocates nothing and stays byte-identical.
-    vol_trail_on = (trail_vol_tight_mult > 0.0
-                    and (trail_vol_above_pctl > 0.0 or trail_vol_below_pctl > 0.0))
+    vol_trail_on = vol_trail_armed(trail_vol_tight_mult,
+                                   trail_vol_above_pctl,
+                                   trail_vol_below_pctl)
     atr_pctl = None
     if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0 or vol_trail_on:
         atr_pctl = df["atr"].rolling(vol_pctl_window,

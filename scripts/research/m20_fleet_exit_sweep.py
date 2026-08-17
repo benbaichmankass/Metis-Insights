@@ -909,10 +909,28 @@ def cells_for(cfg: dict, fam: str | None = None,
         for tag, extra in decay:
             out.append((tag, "trail_decay",
                         extra + ["--trail-decay-tight-mult", str(tight)]))
-        # M20-X vol-conditional trail cells (regime-conditional exits § 1):
-        # tighten the trail on bars whose trailing ATR percentile is in the
-        # gated tail. Same config-relative tight mult as the decay cells.
-        # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+    # M20-X vol-conditional trail cells (regime-conditional exits § 1): tighten
+    # the trail on bars whose trailing ATR percentile is in the gated tail.
+    # Same config-relative tight mult as the decay cells.
+    # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+    #
+    # GATED SEPARATELY FROM trail_decay, and `squeeze` is in THIS list only.
+    # The two levers used to share one `fam in ("donchian", "pullback")` block,
+    # so adding squeeze there would also have emitted four `trail_decay` cells
+    # whose `--trail-decay-*` flags scripts/backtest_squeeze.py does not
+    # declare — argparse would reject the argv and the run would fail, or
+    # (worse, had the harness tolerated unknown flags) grade a lever it never
+    # applied. Two levers, two reachability questions, two gates.
+    #
+    # Squeeze became reachable when backtest_squeeze.py gained the
+    # `--trail-vol-*` flags (2026-08-17), which closed
+    # `blocked:no_harness_levers` on squeeze_breakout_4h/vol_trail. That cell
+    # had been shelved partly on a projection that its derived OOS base would
+    # land in the 25-35 band; the census measured the leg at n=101, which puts
+    # resolve_split at its full 50-trade target (the clamp fires below 100) —
+    # see BL-20260817-SQUEEZE-VOLTRAIL-HARNESS-GAP-DISPOSITION-RESTS-ON-A-FLOOR-VS-TARGET-CONFLATION.
+    if tm is not None and fam in ("donchian", "pullback", "squeeze"):
+        tight = max(1.5, round(float(tm) / 2.0, 1))
         vt = [
             (f"vt_hot90_t{tight:g}", ["--trail-vol-above-pctl", "0.9"]),
             (f"vt_hot80_t{tight:g}", ["--trail-vol-above-pctl", "0.8"]),
