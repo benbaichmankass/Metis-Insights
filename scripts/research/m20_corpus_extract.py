@@ -87,6 +87,74 @@ def _win(block: dict | None, window: str) -> dict:
     return got if isinstance(got, dict) else {}
 
 
+def fold_coverage(split, folds) -> dict:
+    """Which of THIS cell's OOS years the walk-forward panel never examined.
+
+    `BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD`.
+
+    `m20_fleet_exit_sweep.FOLDS` is a module-level literal of six calendar years
+    and `walkforward()` iterates it WITHOUT ever reading the cell's own `split`,
+    so `wf_summary` is a fixed-calendar robustness panel, not an out-of-sample
+    walk-forward relative to this cell's boundary — and nothing in the row said
+    so. Measured over the 133 fold-carrying corpus rows: **5 cells have OOS
+    years no fold examines, and all five PASSED**, the largest
+    `tlt_pullback_1d/decay_stall6_t2.5` at `d_net_r_OOS +8.3159` with 2019-2020
+    ungraded. Canonical case `splg_trend_long_1d/vt_hot80_t2`: OOS opens
+    2019-01-30, folds are 2021..2026, every covered year contributes exactly 0.0,
+    and `d_net_r_OOS` is +0.9596.
+
+    COMPUTED HERE, NOT IN THE SWEEP, DELIBERATELY. All 133 fold-carrying rows
+    already carry both `split` and `wf_folds`, so the extractor gives every
+    COMMITTED row its coverage on the next extract; putting it in the sweep would
+    make the same numbers wait on the hours-long re-run and leave the existing
+    corpus unreadable in the meantime.
+
+    ⚠️ `uncovered_oos_years: []` and `uncovered_oos_years: None` ARE DIFFERENT
+    ANSWERS and must not be conflated: `[]` = we looked and the panel covers the
+    whole OOS span; `None` = the split or the fold labels could not be parsed, so
+    we did not look. A `[]` standing in for the second would assert coverage that
+    was never checked, which is the defect this field exists to expose.
+
+    ⚠️ WHAT THIS DOES **NOT** MEASURE. It reports the years no fold EXAMINED; it
+    does NOT decompose `d_net_r_OOS` per year, so it cannot say how much of the
+    OOS gain originated in the uncovered years. On `splg` the supported reading
+    is that the whole gain sits in 2019-2020 — every covered fold is 0.0 — but
+    that remains a READING, not a measurement, and this field must not be quoted
+    as if it settled it.
+
+    Only years strictly BELOW the earliest fold are counted as uncovered. Years
+    above the latest fold label are deliberately not assessed: the sweep's final
+    fold carries ``end=None`` (open-ended, running to now), so a label alone
+    cannot tell us whether a later year is covered, and guessing would fabricate
+    a gap.
+    """
+    out = {"fold_years": None, "oos_first_year": None,
+           "uncovered_oos_years": None, "pre_split_fold_years": None}
+    if not isinstance(folds, list) or not folds:
+        return out
+    years = sorted({int(f["fold"]) for f in folds
+                    if isinstance(f, dict) and str(f.get("fold", "")).isdigit()})
+    if not years:
+        return out
+    out["fold_years"] = years
+    try:
+        oos_first = int(str(split)[:4])
+    except (TypeError, ValueError):
+        # Folds are readable but the boundary is not — report the panel and keep
+        # the OOS-relative fields None rather than inventing a span.
+        return out
+    if not 1990 <= oos_first <= 2100:
+        # A PLAUSIBILITY bound, not decoration. `int(str(12345)[:4])` is 1234,
+        # which is silently parseable and would emit 787 "uncovered years" — a
+        # confident answer from a nonsense input, worse than declining to answer.
+        # Caught by this module's own test, which asserted None and got a list.
+        return out
+    out["oos_first_year"] = oos_first
+    out["uncovered_oos_years"] = [y for y in range(oos_first, years[0])]
+    out["pre_split_fold_years"] = [y for y in years if y < oos_first]
+    return out
+
+
 # The declared vocabulary for `lever_in_baseline`, in one place so the states
 # are readable without tracing the branches — and so a consumer can assert it
 # recognises all of them rather than assuming three.
@@ -528,6 +596,20 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                        # walk-forward is not a cell that failed one.
                        "wf_ran": wf is not None,
                        "wf_summary": wf, "wf_wins": wins, "wf_usable": usable,
+                       # WHICH OOS YEARS DID NO FOLD EXAMINE? The panel is a
+                       # fixed calendar that never reads `split`, so a delta
+                       # originating in an unexamined year reads as
+                       # walk-forward-confirmed. `[]` (covered) and `None` (could
+                       # not look) are different answers — see fold_coverage().
+                       # NOTE the key is `walkforward_folds` — the sweep's own
+                       # name. `wf_folds` is the CORPUS name, assigned below;
+                       # reading that here returns None for every row and the
+                       # coverage fields would silently come back all-None,
+                       # which is precisely the write-and-never-read shape this
+                       # field exists to expose. Pinned by
+                       # tests/test_corpus_fold_coverage.py.
+                       **fold_coverage(leg_common.get("split"),
+                                       e.get("walkforward_folds")),
                        # The inert-fold split, carried from the sweep rather
                        # than re-derived: `wf_summary` counts a fold where the
                        # lever changed NOTHING as a win, so `wf_wins` alone is
