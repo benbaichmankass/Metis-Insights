@@ -471,6 +471,21 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                        # walk-forward is not a cell that failed one.
                        "wf_ran": wf is not None,
                        "wf_summary": wf, "wf_wins": wins, "wf_usable": usable,
+                       # The inert-fold split, carried from the sweep rather
+                       # than re-derived: `wf_summary` counts a fold where the
+                       # lever changed NOTHING as a win, so `wf_wins` alone is
+                       # not quotable. Tracked by
+                       # BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS
+                       # (kept on ONE line — a wrapped id resolves to nothing,
+                       # which artifact-validity-guard correctly rejects).
+                       # None on rows written before the sweep
+                       # emitted it — correctly, since those runs genuinely
+                       # recorded no such split; a 0 there would assert "no
+                       # inert folds", which is a measurement nobody made.
+                       # Derivable from `wf_folds` for older rows via
+                       # scripts/research/m20_wf_effective.py.
+                       "wf_wins_effective": e.get("walkforward_effective"),
+                       "wf_inert_wins": e.get("walkforward_inert_wins"),
                        "wf_folds": e.get("walkforward_folds")}
                 for tag, g in (("IS", g_is), ("OOS", g_oos)):
                     row[f"d_net_r_{tag}"] = _num(g, "d_net_r")

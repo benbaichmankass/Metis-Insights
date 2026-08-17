@@ -52,6 +52,12 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import exit_capture  # noqa: E402  (the ONE exit-capture definition)
 
+sys.path.insert(0, str(REPO / "scripts" / "research"))
+# The ONE definition of "this fold exercised the lever". Imported rather than
+# restated so the producer and the reader can never drift on what counts as a
+# no-op — the same reasoning as `exit_capture` above.
+from m20_wf_effective import is_inert  # noqa: E402
+
 # families with harness exit-lever support; everything else is reported
 # no_harness_levers (vwap/turtle_soup/fade — pending harness levers).
 # ict_scalp gained stale/giveback lever support 2026-07-28 (M27 follow-up) — the
@@ -1758,7 +1764,7 @@ def walkforward(harness: str, base_args_: list, cell_args: list,
     which is the same discipline `capital_efficiency` and the exposure ceiling
     already follow: measure the axis first, threshold it second.
     """
-    wins = usable = 0
+    wins = usable = inert_wins = 0
     folds = []
     for fname, fs, fe in FOLDS:
         fb = run_cell(harness, base_args_, start=fs, end=fe)
@@ -1779,10 +1785,37 @@ def walkforward(harness: str, base_args_: list, cell_args: list,
             continue
         ok = d_net >= 0 and (d_dd <= 0 or not require_dd)
         wins += 1 if ok else 0
-        folds.append({"fold": fname, "usable": True, "ok": ok,
-                      "d_net_r": round(d_net, 4), "d_max_dd": round(d_dd, 4)})
+        row = {"fold": fname, "usable": True, "ok": ok,
+               "d_net_r": round(d_net, 4), "d_max_dd": round(d_dd, 4)}
+        # A fold in which the lever changed NOTHING satisfies `ok` by
+        # construction (`0 >= 0`, `0 <= 0`) and has been counted as a win since
+        # this function was written. It is not a win, and it is not a loss
+        # either — it is the lever never having been exercised, a third state
+        # `wins/usable` cannot express. Measured 2026-08-17 over the committed
+        # corpus: 75 of 386 `ok` folds (19.4%) across 96 newest-run cells are
+        # inert, reaching SHIPPED levers on the real-money bybit_2 leg —
+        # `trend_donchian_xrp_4h`/`decay_arm2R_t2.5` records 5/6 and is 2/6
+        # effective. BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS.
+        #
+        # `ok` and `summary` are DELIBERATELY unchanged. Re-grading here would
+        # silently move every downstream verdict (`path_b_wf_pass` and the
+        # ~2/3 tally read `wins`), which is a decision about live levers and
+        # therefore the operator's, not a side effect of an observability fix.
+        # The effective figures ship BESIDE the recorded ones so the difference
+        # stays visible instead of being quietly absorbed.
+        if is_inert(row):
+            row["inert"] = True
+            inert_wins += 1
+        folds.append(row)
     return {"wins": wins, "usable": usable, "folds": folds,
-            "summary": f"{wins}/{usable}"}
+            "summary": f"{wins}/{usable}",
+            # Machine-parseable `summary` is left alone on purpose: consumers
+            # int()-split it (the corpus extractor does), so folding a caveat
+            # into the string would break them. The caveat rides as its own
+            # fields instead.
+            "inert_wins": inert_wins,
+            "wins_effective": wins - inert_wins,
+            "summary_effective": f"{wins - inert_wins}/{usable}"}
 
 
 def beats_detail(cell: dict, base: dict) -> dict:
@@ -2601,6 +2634,9 @@ def main(argv: list[str]) -> int:
                                  leg, tag, require_dd=True)
                 entry["walkforward"] = wf["summary"]
                 entry["walkforward_folds"] = wf["folds"]
+                # Beside the recorded summary, never instead of it.
+                entry["walkforward_effective"] = wf["summary_effective"]
+                entry["walkforward_inert_wins"] = wf["inert_wins"]
                 entry["verdict"] = ("PASS" if wf["usable"] >= 4
                                     and wf["wins"] * 3 >= wf["usable"] * 2
                                     else "wf_fail")
@@ -2629,6 +2665,9 @@ def main(argv: list[str]) -> int:
                                  leg, tag, require_dd=False)
                 entry["walkforward"] = wf["summary"]
                 entry["walkforward_folds"] = wf["folds"]
+                # Beside the recorded summary, never instead of it.
+                entry["walkforward_effective"] = wf["summary_effective"]
+                entry["walkforward_inert_wins"] = wf["inert_wins"]
                 entry["path_b_candidate"] = True
                 # THE DERIVED TOLERANCE, per window and per leg. Reported, not
                 # enforced — this is the evidence the operator's Path B decision
