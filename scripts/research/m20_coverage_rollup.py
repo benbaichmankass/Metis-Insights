@@ -1221,20 +1221,33 @@ def gate_partition(matrix: dict[str, Any],
                 and row["strategy"] in arith_legs):
             kind = "arithmetic"
         buckets[kind or "unclassified"].append(ident)
-    out = {k: sorted(v) for k, v in buckets.items()}
+    return {k: sorted(v) for k, v in buckets.items()}
 
-    # THE MOVABLE CUT, measured rather than implied by the bucket name.
-    # `harness_gap` + `never_attempted` are the two buckets whose remedy is
-    # effort rather than waiting -- but only for a lever a session can actually
-    # sweep. Splitting them here (not in the printer) keeps the JSON consumer
-    # and the text report reading one number.
-    movable, no_path = [], []
-    for k in ("harness_gap", "never_attempted"):
-        for ident in out.get(k, []):
-            (no_path if ident[3] in LEVERS_WITHOUT_A_SWEEP_PATH else movable).append(ident)
-    out["_movable"] = sorted(movable)
-    out["_no_sweep_path"] = sorted(no_path)
-    return out
+
+def movable_cut(partition: dict[str, list]) -> dict[str, list]:
+    """Split `harness_gap` + `never_attempted` into what a session can ACTUALLY move.
+
+    ⚠️ RETURNED SEPARATELY, NOT MERGED INTO `gate_partition`. An earlier draft put
+    `_movable` / `_no_sweep_path` inside the partition dict, which broke four
+    pre-existing tests and deserved to: that dict is a STRICT PARTITION of the
+    done-condition (`tests/test_gate_partition.py` asserts it reconciles to
+    `cells_to_done` and that no cell appears in two buckets). These two lists are
+    an OVERLAPPING VIEW of two of its buckets, so adding them double-counted 4
+    cells and made the total read 26 against a true 22. The guard's own words:
+    *"a partition that does not reconcile is worse than none, because it reads as
+    exhaustive."* A cross-cut and a partition are different shapes; keep them in
+    different keys.
+
+    `harness_gap` + `never_attempted` are the two buckets whose remedy is EFFORT
+    rather than waiting -- but only for a lever a session can actually sweep.
+    """
+    movable: list = []
+    no_path: list = []
+    for key in ("harness_gap", "never_attempted"):
+        for ident in partition.get(key, []):
+            target = no_path if ident[3] in LEVERS_WITHOUT_A_SWEEP_PATH else movable
+            target.append(ident)
+    return {"movable": sorted(movable), "no_sweep_path": sorted(no_path)}
 
 
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
@@ -1268,6 +1281,7 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
             per_lever_reason[col][status if isinstance(status, str) else str(status)] += 1
 
     _reach = fold_reachability(matrix)
+    _gate_part = gate_partition(matrix, _reach)
     total = sum(per_status.values())
     counts = {
         "resolved": sum(per_status[s] for s in RESOLVED),
@@ -1288,7 +1302,11 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
         "evidence_vintage": evidence_vintage(matrix),
-        "gate_partition": gate_partition(matrix, _reach),
+        "gate_partition": _gate_part,
+        # A separate key, deliberately -- see `movable_cut`. It is an overlapping
+        # VIEW of two partition buckets, so it must never live inside the
+        # partition dict (which reconciles to `cells_to_done`).
+        "movable_cut": movable_cut(_gate_part),
         "geometry_coverage": geometry_coverage(matrix),
     }
 
@@ -1403,8 +1421,7 @@ def render(r: dict[str, Any]) -> str:
             "unclassified": "⚠️ status reason not in GATE_KINDS — CLASSIFY IT",
         }
         out += ["    DONE-CONDITION BY GATE (what actually blocks each cell):"]
-        for k in _order + [k for k in sorted(_gp)
-                           if k not in _order and not k.startswith("_")]:
+        for k in _order + [k for k in sorted(_gp) if k not in _order]:
             if _gp.get(k):
                 out.append(f"      {len(_gp[k]):3d}  {k:<16} {_why.get(k, '')}")
         out += [
@@ -1420,7 +1437,8 @@ def render(r: dict[str, Any]) -> str:
         # All four cells in these two buckets were such levers on 2026-08-17, so
         # the old wording implied FOUR workable cells over a true count of ZERO
         # (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
-        _mv, _np = _gp.get("_movable") or [], _gp.get("_no_sweep_path") or []
+        _mc = r.get("movable_cut") or {}
+        _mv, _np = _mc.get("movable") or [], _mc.get("no_sweep_path") or []
         out += [
             f"      ⚠️ MOVABLE BY A SESSION: {len(_mv)}"
             f"   (of {len(_mv) + len(_np)} in harness_gap + never_attempted)",

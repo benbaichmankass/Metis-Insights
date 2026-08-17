@@ -27,11 +27,16 @@ trusting the constant:
    its cells are gated on trade counts (`arithmetic`/`accrual`). Folding it in
    here would relabel a measurable-but-thin lever as unmeasurable.
 4. `test_the_two_cuts_partition_the_two_buckets` — the invariant that survives
-   cells resolving: `_movable + _no_sweep_path` is exactly
+   cells resolving: `movable + no_sweep_path` is exactly
    `harness_gap + never_attempted`, with no double-count and nothing dropped.
-5. `test_internal_keys_are_not_printed_as_buckets` — `_movable`/`_no_sweep_path`
-   live in the same dict as the real buckets; printing them as gate kinds would
-   double-count the total in the human report.
+5. `test_internal_keys_are_not_printed_as_buckets` — the cut must not render as a
+   gate kind, which would double-count the total in the human report.
+6. `test_the_cut_is_NOT_inside_the_partition` — the lesson from a real CI failure.
+   The first draft returned the cut INSIDE `gate_partition`'s dict, which is a
+   STRICT PARTITION reconciling to `cells_to_done`; that double-counted 4 cells
+   (total read 26 vs a true 22) and broke four pre-existing tests in
+   `tests/test_gate_partition.py` — the file named after the function being
+   changed, which I had not run. A cross-cut and a partition are different shapes.
 """
 from __future__ import annotations
 
@@ -71,7 +76,8 @@ def _partition():
     """
     m = _mod()
     matrix = json.loads(MATRIX.read_text())
-    return m, m.gate_partition(matrix, m.fold_reachability(matrix))
+    part = m.gate_partition(matrix, m.fold_reachability(matrix))
+    return m, part, m.movable_cut(part)
 
 
 def _argparse_flags(rel: str) -> set[str]:
@@ -120,18 +126,18 @@ def test_exit_head_ml_is_not_in_the_set():
 
 
 def test_every_no_sweep_path_cell_rests_on_a_declared_lever():
-    m, part = _partition()
-    for ident in part.get("_no_sweep_path", []):
+    m, _part, cut = _partition()
+    for ident in cut.get("no_sweep_path", []):
         assert ident[3] in m.LEVERS_WITHOUT_A_SWEEP_PATH, ident
 
 
 def test_the_two_cuts_partition_the_two_buckets():
     """Nothing dropped, nothing double-counted — the invariant that outlives today."""
-    _, part = _partition()
+    _, part, cut = _partition()
     buckets = sorted(part.get("harness_gap", []) + part.get("never_attempted", []))
-    cuts = sorted(part.get("_movable", []) + part.get("_no_sweep_path", []))
+    cuts = sorted(cut.get("movable", []) + cut.get("no_sweep_path", []))
     assert cuts == buckets
-    assert not (set(part.get("_movable", [])) & set(part.get("_no_sweep_path", [])))
+    assert not (set(cut.get("movable", [])) & set(cut.get("no_sweep_path", [])))
 
 
 def test_measured_state_2026_08_17():
@@ -142,10 +148,10 @@ def test_measured_state_2026_08_17():
     whole finding is that the count was 4 when it should have read 0, and a test
     that only checked invariants would not have caught that.
     """
-    _, part = _partition()
-    assert len(part.get("_movable", [])) == 0
-    assert len(part.get("_no_sweep_path", [])) == 4
-    assert {i[3] for i in part["_no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
+    _, _part, cut = _partition()
+    assert len(cut.get("movable", [])) == 0
+    assert len(cut.get("no_sweep_path", [])) == 4
+    assert {i[3] for i in cut["no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
 
 
 def test_internal_keys_are_not_printed_as_buckets():
@@ -159,9 +165,33 @@ def test_internal_keys_are_not_printed_as_buckets():
     m = _mod()
     text = m.render(m.rollup(json.loads(MATRIX.read_text())))
     assert text, "render() produced nothing — the probe is blind"
-    # The internal cuts must not be rendered as gate-kind rows...
-    assert not re.search(r"^\s+\d+\s+_movable\b", text, re.M)
-    assert not re.search(r"^\s+\d+\s+_no_sweep_path\b", text, re.M)
+    # The cut must not be rendered as gate-kind rows...
+    assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
+    assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
     # ...while the measured count IS rendered, and reads 0 rather than 4.
     assert "MOVABLE BY A SESSION: 0" in text
     assert "NO SWEEP PATH AT ALL: 4" in text
+
+
+def test_the_cut_is_NOT_inside_the_partition():
+    """The lesson from breaking four pre-existing tests, pinned so it cannot recur.
+
+    `gate_partition` is a STRICT PARTITION of the done-condition:
+    `tests/test_gate_partition.py` asserts it reconciles to `cells_to_done` and
+    that no cell sits in two buckets. `movable_cut` is an OVERLAPPING VIEW of two
+    of its buckets. An earlier draft returned the cut INSIDE the partition dict,
+    which double-counted 4 cells and made the total read 26 against a true 22 --
+    caught in CI by tests named after the very function being changed, which I
+    had not run. A cross-cut and a partition are different shapes.
+    """
+    m, part, cut = _partition()
+    assert set(part) <= {"arithmetic", "accrual", "data", "harness_gap",
+                         "never_attempted", "unclassified"}, sorted(part)
+    for leaked in ("movable", "no_sweep_path", "_movable", "_no_sweep_path"):
+        assert leaked not in part, f"{leaked} leaked into the partition dict"
+    # And the cut is reachable from rollup() under its own top-level key.
+    r = m.rollup(json.loads(MATRIX.read_text()))
+    assert "movable_cut" in r
+    assert r["movable_cut"] == cut
+    # The partition still reconciles to the done-condition, unchanged by the cut.
+    assert sum(len(v) for v in r["gate_partition"].values()) == r["cells_to_done"]
