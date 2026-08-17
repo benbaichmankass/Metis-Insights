@@ -74,6 +74,33 @@ def _guard():
     return mod
 
 
+def _wf_effective():
+    """The inert-fold reader, imported for its OWN definition of "inert".
+
+    Deliberately imported rather than reimplemented, for the same reason
+    `_guard()` above imports the agreement guard: a second predicate for "did
+    the lever fire on this fold" would be free to drift from the one the audit
+    tool and `m20_path_b_floor`'s gate both grade on, and then this drafter
+    would write a caveat naming a different inert count than the gate used.
+
+    `is_inert` lived inline here TWICE (the `fold_quality` list comprehension
+    and the fold-name join in `caveats_for`) — measured equivalent to the
+    shared predicate across 39 fold shapes before consolidating, so this is a
+    pure dedup with no behaviour change.
+    """
+    path = REPO / "scripts" / "research" / "m20_wf_effective.py"
+    spec = importlib.util.spec_from_file_location("_m20_wf_effective", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_m20_wf_effective"] = mod
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
+
+
+def _inert_folds(row: dict) -> list:
+    """The row's inert folds, via the ONE shared predicate."""
+    return [f for f in (row.get("wf_folds") or []) if _wf_effective().is_inert(f)]
+
+
 def fold_quality(row: dict) -> tuple[int, int, int]:
     """(counted_wins, real_wins, inert) over a row's walk-forward folds.
 
@@ -81,8 +108,7 @@ def fold_quality(row: dict) -> tuple[int, int, int]:
     still counts `ok` upstream, so a win total silently includes it.
     """
     folds = row.get("wf_folds") or []
-    inert = [f for f in folds
-             if f.get("d_net_r") == 0.0 and f.get("d_max_dd") == 0.0]
+    inert = _inert_folds(row)
     wins = [f for f in folds if f.get("ok")]
     real = [f for f in wins if f not in inert]
     return len(wins), len(real), len(inert)
@@ -94,8 +120,7 @@ def caveats_for(row: dict) -> list[str]:
     counted, real, inert = fold_quality(row)
     if inert:
         folds = row.get("wf_folds") or []
-        names = ", ".join(str(f.get("fold")) for f in folds
-                          if f.get("d_net_r") == 0.0 and f.get("d_max_dd") == 0.0)
+        names = ", ".join(str(f.get("fold")) for f in _inert_folds(row))
         out.append(
             f"THE WIN TOTAL IS NOT A COUNT OF WINS: {inert} of {len(folds)} "
             f"walk-forward folds ({names}) are inert — the lever never fired, "
