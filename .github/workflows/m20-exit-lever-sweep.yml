@@ -609,17 +609,36 @@ jobs:
           # multi-line, and embedding it inline here breaks out of this block
           # scalar (which is a YAML parse error, not a runtime one — it fails
           # the whole workflow at load).
-          {
-            echo "corpus: merge exit-lever sweep run $(date -u +%Y-%m-%dT%H:%MZ)"
-            echo
-            cat extract.out
-            echo
-            echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-          } > .commitmsg
+          # ONE writer for the message, called again after any re-derive.
+          #
+          # The message must describe the extraction whose output is actually
+          # being committed. It used to be built ONCE here and then REUSED by
+          # the conflict path below, which re-runs the extractor — so every
+          # conflict-path commit carried the counts of a computation whose
+          # result had been discarded by the intervening `reset --hard`.
+          #
+          # MEASURED (2026-08-17, corpus commit 54e9b63e): the message read
+          # `superseded: 0 ... corpus now: 1316 rows` while the file it
+          # committed held 998 rows with 52 rows superseded. Both numbers were
+          # real; only one described the commit. That is the unprovenanced-
+          # diagnostic class — a confident label over a different computation —
+          # and it is the reason verifying that repair had to read the FILE and
+          # could not trust the message.
+          write_commitmsg() {
+            {
+              echo "corpus: merge exit-lever sweep run $(date -u +%Y-%m-%dT%H:%MZ)"
+              echo
+              cat extract.out
+              echo
+              echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+            } > .commitmsg
+          }
+          write_commitmsg
           git commit -F .commitmsg
           # .commitmsg is deliberately NOT removed here — the re-derive path
-          # below reuses it after a hard reset. It is cleaned on the success
-          # exit, and it is untracked either way so it cannot reach a commit.
+          # below rewrites it from ITS OWN extract.out before committing. It is
+          # cleaned on the success exit, and it is untracked either way so it
+          # cannot reach a commit.
           # The branch may have moved while the sweep ran (hours, in the scalp
           # case). Rebase-and-retry rather than force: another session's commits
           # on this branch are not ours to discard.
@@ -669,6 +688,10 @@ jobs:
               echo "their copy already contains this run's rows"
               return 0
             fi
+            # REBUILD from THIS re-derive's extract.out. Committing the message
+            # written before the reset would report the discarded extraction's
+            # counts over the rows actually landing here — see write_commitmsg.
+            write_commitmsg
             git commit -F .commitmsg
           }
           # `git commit` consumed .commitmsg above; keep it for the re-derive path.

@@ -191,3 +191,43 @@ def test_the_rederive_guard_would_catch_the_regression_it_exists_for() -> None:
     )
     after_reset = pre_fix.split('git reset --hard "origin/$TARGET"', 1)[1]
     assert "python3 scripts/research/m20_corpus_extract.py" in after_reset
+
+
+def test_the_rederive_rebuilds_the_commit_message_from_its_own_extraction() -> None:
+    """The commit message must describe the extraction actually being committed.
+
+    It used to be built ONCE, before the rebase, and REUSED by the conflict
+    path — which re-runs the extractor after `reset --hard`. So a conflict-path
+    commit carried the counts of a computation whose result had been discarded.
+
+    MEASURED (2026-08-17, corpus commit 54e9b63e): the message read
+    `superseded: 0 ... corpus now: 1316 rows` while the file it committed held
+    998 rows with 52 superseded. Both numbers were real; only one described the
+    commit. Verifying that repair therefore had to read the FILE, because the
+    message could not be trusted — the unprovenanced-diagnostic class.
+    """
+    run = _commit_corpus_step(_doc())
+
+    assert "write_commitmsg() {" in run, (
+        "expected ONE writer for the commit message; two inline constructions "
+        "would be free to drift, which is the defect this guards.")
+
+    after_reset = run.split('git reset --hard "origin/$TARGET"', 1)[1]
+    before_commit = after_reset.split("git commit -F .commitmsg", 1)[0]
+    assert "write_commitmsg" in before_commit, (
+        "the conflict path commits without rebuilding the message, so it will "
+        "report the DISCARDED extraction's counts over the rows it actually "
+        "lands. Call write_commitmsg after the re-derive.")
+
+
+def test_the_commitmsg_guard_would_catch_the_regression() -> None:
+    """Negative control: the pre-fix shape must fail the predicate above."""
+    pre_fix = (
+        'git reset --hard "origin/$TARGET"\n'
+        "python3 extract.py | tee extract.out\n"
+        "git add docs/research/m20-sweep-corpus.jsonl\n"
+        "git commit -F .commitmsg\n"
+    )
+    after_reset = pre_fix.split('git reset --hard "origin/$TARGET"', 1)[1]
+    before_commit = after_reset.split("git commit -F .commitmsg", 1)[0]
+    assert "write_commitmsg" not in before_commit
