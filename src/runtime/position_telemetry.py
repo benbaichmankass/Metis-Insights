@@ -369,6 +369,16 @@ LIFECYCLE_STATES = (
     "unknown_trade_absent",   # a trade_id that the trades table does not have
 )
 
+#: WHICH evidence decided finality. A stamped fact and a derived inference must
+#: never be reported as the same thing — a pre-migration row can only ever be
+#: `derived_join`, and reading that as `stamped` would overstate the record.
+FINALITY_SOURCES = (
+    "stamped",        # the close path wrote terminal_state='final' — no join needed
+    "derived_join",   # inferred from trades.status (pre-stamp rows, and backfill gaps)
+    "not_final",      # the trade is open: there is no finality to source
+    "unknown",        # neither available
+)
+
 #: Can the declared arm be reached under this row's own venue ceiling?
 ARM_REACH_STATES = (
     "reachable",         # arm_r <= cap_r on this row
@@ -389,14 +399,30 @@ def enrich_record(row: Dict[str, Any],
     """
     out = dict(row)
 
+    # THE STORED STAMP WINS. `terminal_state='final'` is written by the close
+    # path (`Database._stamp_telemetry_terminal`, M31 P5 precondition 1), so a
+    # stamped row is final WITHOUT the trades join — which is the whole point:
+    # anything reading the table directly (Data Explorer, an ad-hoc query, a
+    # future lever) previously could not tell a closed row from an open one.
+    # `finality_source` says WHICH evidence decided, so a stamped fact and a
+    # derived inference are never reported as the same thing.
+    stamped = str(row.get("terminal_state") or "").strip().lower() == "final"
     tid = row.get("trade_id")
-    if tid is None or str(tid).strip() == "":
+
+    if stamped:
+        out["lifecycle"] = "closed"
+        out["finality_source"] = "stamped"
+    elif tid is None or str(tid).strip() == "":
         out["lifecycle"] = "unknown_no_trade_id"
+        out["finality_source"] = "unknown"
     elif not trade_seen:
         out["lifecycle"] = "unknown_trade_absent"
+        out["finality_source"] = "unknown"
     else:
         st = (trade_status or "").strip().lower()
         out["lifecycle"] = "open" if st == "open" else "closed"
+        # An OPEN trade is not a finality claim at all; only a derived CLOSE is.
+        out["finality_source"] = "derived_join" if st != "open" else "not_final"
 
     # ALWAYS true, on every row, whatever the lifecycle: the last write precedes
     # the close by up to one exit-loop pass, and a bar extreme cannot see an
@@ -450,6 +476,7 @@ def read_records(db_path: Optional[str] = None,
         "present": False, "count": 0, "rows": [],
         "lifecycle_states": list(LIFECYCLE_STATES),
         "arm_reach_states": list(ARM_REACH_STATES),
+        "finality_sources": list(FINALITY_SOURCES),
         "error": None,
     }
     try:
@@ -483,14 +510,20 @@ def read_records(db_path: Optional[str] = None,
 
     counts: Dict[str, int] = {}
     reach: Dict[str, int] = {}
+    finality: Dict[str, int] = {}
     for d in out:
         counts[d["lifecycle"]] = counts.get(d["lifecycle"], 0) + 1
         reach[d["arm_reach"]] = reach.get(d["arm_reach"], 0) + 1
+        finality[d["finality_source"]] = finality.get(d["finality_source"], 0) + 1
     envelope.update({
         "present": True, "count": len(out), "rows": out,
         "summary": {
             "by_lifecycle": counts,
             "by_arm_reach": reach,
+            # Read this beside `final_rows`: a closed count that is entirely
+            # `derived_join` means the stamp is not reaching the close path, and
+            # `final_rows` is then only as good as the join.
+            "by_finality_source": finality,
             # The Check-A invariant, computed here so every consumer reads the
             # same number: a row whose peak EXCEEDED its own venue ceiling.
             "peak_above_cap": sum(

@@ -82,6 +82,33 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "position_telemetry.finality_source",
+        "producer": "src/runtime/position_telemetry.py",
+        "producer_field": "finality_source",
+        "consumer_token": r"\bfinality_source\b|\bfinality_sources\b|\bterminal_state\b",
+        "states": ["stamped", "derived_join", "not_final", "unknown"],
+        "why": (
+            "The sibling of `peak_state` above, one level up: that one asks "
+            "whether MFE was measurable, this asks whether the ROW IS FINAL "
+            "and on what evidence. `position_telemetry` is UPSERT-on-"
+            "order_package_id with no status column, so a closed row was "
+            "byte-shaped like an open one and the only in-table hint was a "
+            "staler `updated_at` — which is not a signal, since a quiet leg "
+            "and a closed leg both go stale (measured 2026-08-17: 14 rows, 13 "
+            "open + 1 closed, the closed one findable only by joining "
+            "`trades`). The Tier-2 terminal writer makes finality a STORED "
+            "fact, and this contract keeps the four evidences apart: "
+            "`stamped` = the close path wrote it; `derived_join` = only the "
+            "join knows, so the row predates the writer; `not_final` = in "
+            "flight; `unknown` = we could not look. Collapsing `derived_join` "
+            "into `stamped` is the dangerous direction — it would report the "
+            "close hook as firing on rows where it never ran, hiding exactly "
+            "the regression the split exists to expose. "
+            "PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT; M31 P5 "
+            "precondition 1."
+        ),
+    },
+    {
         "name": "db_explorer.filter_state",
         "producer": "src/web/api/routers/db_explorer.py",
         "producer_field": "filter_state",
