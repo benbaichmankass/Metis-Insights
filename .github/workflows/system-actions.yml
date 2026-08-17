@@ -129,6 +129,7 @@ on:
           - flatten-bybit-position
           - flatten-alpaca-position
           - cancel-ib-order
+          - attach-ib-target
           - close-stranded-journal-row
           - reconcile-orphan-history
           - supersede-options-adoption-artifacts
@@ -556,7 +557,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|cancel-ib-order|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -656,7 +657,7 @@ jobs:
           # flatten-ib-position requires account_id + symbol; apply (if set)
           # must be true|false. The wrapper defaults to a DRY-RUN unless
           # apply=true, so a missing/blank apply is safe (preview only).
-          if [ "${ACTION}" = "flatten-ib-position" ]; then
+          if [ "${ACTION}" = "attach-ib-target" ] || [ "${ACTION}" = "flatten-ib-position" ]; then
             if [ -z "${ACCOUNT_ID// }" ]; then
               echo "::error::flatten-ib-position requires 'account: <id>' (issue body) or 'account_id' input."
               exit 1
@@ -1025,6 +1026,7 @@ jobs:
             purge-vm-runner)                    SCRIPT="purge_vm_runner.sh" ;;
             flatten-ib-position)                SCRIPT="flatten_ib_position_action.sh" ;;
             cancel-ib-order)                    SCRIPT="cancel_ib_order_action.sh" ;;
+            attach-ib-target)                   SCRIPT="attach_ib_target_action.sh" ;;
             flatten-bybit-position)             SCRIPT="flatten_bybit_position_action.sh" ;;
             flatten-alpaca-position)            SCRIPT="flatten_alpaca_position_action.sh" ;;
             close-stranded-journal-row)         SCRIPT="close_stranded_journal_row_action.sh" ;;
@@ -1213,6 +1215,9 @@ jobs:
           fi
           if [ "${ACTION}" = "send-prop-test-ping" ]; then
             REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "attach-ib-target" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "cancel-ib-order" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_ORDER_ID=$(printf '%q' "${ACTION_ORDER_ID:-}") ACTION_PERM_ID=$(printf '%q' "${ACTION_PERM_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_FORCE_PROTECTIVE=$(printf '%q' "${ACTION_FORCE_PROTECTIVE:-}") ACTION_FORCE_CLIENT_ID=$(printf '%q' "${ACTION_FORCE_CLIENT_ID:-}") ${REMOTE_CMD}"

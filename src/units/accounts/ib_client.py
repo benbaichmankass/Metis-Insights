@@ -1472,6 +1472,101 @@ class IBClient:
             "retMsg": "OK",
         }
 
+    def place_target_in_group(self, order: Dict[str, Any]) -> Dict[str, Any]:
+        """Add a take-profit leg to an **existing** OCA group. Cancels nothing.
+
+        The repair wire for a TARGET-NAKED position — one holding a stop and no
+        take-profit (BL-20260816-COVERAGE-IS-ONE-SIDED; measured on ``ib_paper``
+        2026-08-16 with zero limit orders account-wide).
+
+        **Why this is not :meth:`place_protective`.** That method mints a NEW
+        OCA group and pre-cancels first, so using it here would leave the
+        existing stop resting (its pre-cancel is keyed on a group that does not
+        match) and add a second pair on top — and once the new target filled it
+        would cancel only its OWN sibling, leaving the original stop alive on a
+        FLAT book, able to fill into a reverse position. Joining the group the
+        stop already lives in makes IBKR do the right thing for free: one fills,
+        the other is cancelled (``ocaType=1``).
+
+        **It cancels nothing, deliberately.** The stop stays armed for the whole
+        operation, so there is no window in which the position is unprotected.
+
+        ``order`` keys: ``symbol``, ``direction`` (the **position's** side — the
+        target takes the reverse), ``qty`` (whole contracts), ``tp``,
+        ``oca_group`` (the EXISTING group name, required — this method will not
+        invent one, because inventing one is precisely the unsafe behaviour it
+        exists to avoid). Return envelope mirrors :meth:`place_protective`.
+        """
+        with self._usage_lock:
+            return self._locked_place_target_in_group(order=order)
+
+    def _locked_place_target_in_group(self, order: Dict[str, Any]) -> Dict[str, Any]:
+        if self.readonly:
+            raise IBConnectionError(
+                "IBClient.place_target_in_group: client is read-only — refusing "
+                "to transmit an order. Construct without readonly=True."
+            )
+        group = str(order.get("oca_group") or "").strip()
+        if not group:
+            return {
+                "retCode": 1,
+                "retMsg": "oca_group is required — refusing to mint a new group "
+                          "(an unlinked target can leave the stop resting on a "
+                          "flat book after it fills)",
+            }
+        tp_raw = order.get("tp")
+        if tp_raw in (None, 0) or float(tp_raw) <= 0:
+            return {"retCode": 1, "retMsg": "no tp supplied"}
+
+        direction = str(order.get("direction") or "").lower()
+        if direction not in ("long", "short"):
+            side = str(order.get("side") or "").lower()
+            direction = "long" if side in ("buy", "long") else "short"
+        reverse = "SELL" if direction == "long" else "BUY"
+
+        try:
+            qty = float(order["qty"])
+        except (KeyError, TypeError, ValueError) as exc:
+            return {"retCode": 1, "retMsg": f"invalid qty: {exc}"}
+        whole_qty = math.floor(qty)
+        if whole_qty < 1:
+            return {"retCode": 1, "retMsg": f"qty {qty} below 1 whole contract"}
+        qty = float(whole_qty)
+
+        ib = self.connect()
+        contract = self._build_contract(order.get("symbol"))
+        tick = tick_size_for(order.get("symbol") or self.symbol)
+        tp_price = _round_to_tick(float(tp_raw), tick)
+
+        try:
+            from ib_insync import LimitOrder  # type: ignore
+        except ImportError:
+            from ib_async import LimitOrder  # type: ignore
+
+        try:
+            leg = LimitOrder(reverse, qty, tp_price)
+            leg.orderId = ib.client.getReqId()
+            leg.ocaGroup = group          # JOIN the stop's group, do not mint
+            leg.ocaType = 1               # one fills -> the rest are cancelled
+            leg.tif = "GTC"
+            leg.transmit = True           # single leg: transmit immediately
+            if self.account:
+                leg.account = self.account
+            ib.placeOrder(contract, leg)
+            try:
+                ib.sleep(0)
+            except Exception:  # noqa: BLE001
+                pass
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+
+        return {
+            "retCode": 0,
+            "result": {"orderId": str(leg.orderId), "ocaGroup": group,
+                       "limitPrice": tp_price, "qty": qty},
+            "retMsg": "OK",
+        }
+
     def modify_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Re-arm the GTC OCA protective bracket at new SL/TP levels.
 
