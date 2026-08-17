@@ -17,10 +17,10 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 95 of 95 routes documented (100%).**
+> **Coverage, computed rather than counted: 96 of 96 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
-> route table (`app.routes`): the enumerator finds exactly those 95 with no
+> route table (`app.routes`): the enumerator finds exactly those 96 with no
 > false positives, and the only live routes it does not cover are the five
 > defined outside `routers/` — `GET /api/health` (`main.py`) and FastAPI's
 > four built-in docs routes.*
@@ -53,7 +53,7 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **70 of the 95 routes**;
+Endpoints a consumer hits directly without a JWT. **70 of the 96 routes**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
 
@@ -228,6 +228,7 @@ routes on this router call `_require_diag_token` — no exceptions.
 | `GET /api/diag/position_telemetry` | `routers/diag.py` | **Added 2026-08-17 (M31 P3).** The read half of `position_telemetry` — P2 shipped the writer with no consumer. Adds `lifecycle` (four never-collapsed states via a LEFT join to `trades`; the table itself has no status column, so a closed row is byte-shaped like an open one), `peak_pct_of_cap`, and `arm_reach`. One read-only SQLite connection, no socket, no order path, cannot refuse a trade. A lever that READS this to change an exit is M31 P5 and Tier-3. |
 | `GET /api/diag/tick_cost` | `routers/diag.py` | **Added 2026-08-09 (#8688).** Per-tick wall-clock cost of the trader's hook chain (`max_ms` beside `ticks_measured`). Pure file read. Measurement only — enforces no budget. |
 | `GET /api/diag/ib_open_orders` | `routers/diag.py` | **Added 2026-08-16 (#9612, BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE).** The resting IB orders the broker actually holds, per account. Every other consumer of IB order state REDUCES it before anyone sees it (`has_protective_orders` → a boolean, `protection_coverage` → a covered quantity), so a stripped take-profit could not be contradicted from any session; this reduces nothing. Three states, never collapsed (`read_state` ∈ `not_ib` / `could_not_look` / `orders_read`); `count` is `null`, never `0`, when we could not look. Opens a brief **read-only** client per account and places NO order. |
+| `GET /api/diag/venue_session` | `routers/diag.py` | **Added 2026-08-17 (BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE).** The IB venue-session gate's verdict, per account+symbol. The gate is **fail-permissive on `unknown`**, so `state: "open"` and a permanently-broken gate are indistinguishable from outside — and the plausible break (`US/Eastern` is a tzdata legacy link absent from slim installs, and COMEX/CME report exactly that) is invisible in the verdict alone. **`tz_source` ∈ `zoneinfo` / `pytz` / `unresolved` is the field that answers it**, beside `tz_resolved_name` (the alias that actually worked). Read state three-ways like its `ib_open_orders` sibling (`not_ib` / `could_not_look` / `session_read`). Calls `reqContractDetails` on a brief **read-only** client and places NO order. |
 
 ---
 
@@ -241,7 +242,7 @@ These will require:
   signed action token), AND
 - An audit log entry per call with the caller's email + IP.
 
-**No route on the API is Tier 3 today** — re-verified 2026-08-17 across all 95
+**No route on the API is Tier 3 today** — re-verified 2026-08-17 across all 96
 routes. S-065 will land the first one (halt). Until then, every mutating
 operator action goes through the `system-actions.yml` GitHub workflow, whose
 allowlist is the real Tier-3 surface.

@@ -99,24 +99,38 @@ _TZ_ALIASES = {
 }
 
 
-def resolve_timezone(tz_id: Optional[str]) -> Optional[Any]:
-    """Resolve an IBKR ``timeZoneId`` to a tzinfo, or ``None`` if we cannot.
+TZ_ZONEINFO = "zoneinfo"
+TZ_PYTZ = "pytz"
+TZ_UNRESOLVED = "unresolved"
+TZ_SOURCES = (TZ_ZONEINFO, TZ_PYTZ, TZ_UNRESOLVED)
 
-    ``None`` is the *we could not look* value and must never be silently
-    replaced by UTC — the session strings are wall-clock local, so reading a
-    ``US/Central`` string as UTC shifts every boundary by five or six hours and
-    produces a confident, wrong verdict rather than an honest abstention.
 
-    Tries, in order: ``zoneinfo`` on the raw id, ``zoneinfo`` on the alias,
-    ``pytz`` on the raw id, ``pytz`` on the alias. ``pytz`` is a declared
-    requirement (``requirements.txt``) and bundles its own copy of the tz
-    database, so it resolves the legacy ids on a host whose system tzdata is
-    slim; ``zoneinfo`` is tried first because it is stdlib and needs no import
-    cost when the system database is complete.
+def resolve_timezone_with_source(
+    tz_id: Optional[str],
+) -> Tuple[Optional[Any], str, Optional[str]]:
+    """:func:`resolve_timezone`, plus WHICH library answered and under WHICH name.
+
+    Returns ``(tzinfo, source, resolved_name)`` where *source* is one of
+    :data:`TZ_SOURCES`.
+
+    **This exists because "did it resolve?" is the wrong question.** Both
+    libraries produce a working tzinfo, so a caller checking only for ``None``
+    cannot tell a host with complete system tzdata from one that is silently
+    riding the ``pytz`` fallback — and that distinction is the whole reason the
+    fallback was written. ``US/Eastern`` and ``US/Central`` are tzdata LEGACY
+    links absent from slim installs, and COMEX and CME report precisely those,
+    so on such a host EVERY futures contract resolves through ``pytz`` or not at
+    all. If ``pytz`` were ever dropped from ``requirements.txt`` there, the gate
+    would go permanently ``unknown`` — fail-permissive, and therefore silent
+    apart from a WARNING nobody is reading.
+
+    ``resolved_name`` is the candidate that actually worked (the raw id or its
+    alias), so a reader can see that ``US/Eastern`` was served as
+    ``America/New_York`` rather than assuming the raw id was understood.
     """
     raw = str(tz_id or "").strip()
     if not raw:
-        return None
+        return None, TZ_UNRESOLVED, None
     candidates = [raw]
     alias = _TZ_ALIASES.get(raw.upper())
     if alias and alias != raw:
@@ -129,20 +143,33 @@ def resolve_timezone(tz_id: Optional[str]) -> Optional[Any]:
     if ZoneInfo is not None:
         for cand in candidates:
             try:
-                return ZoneInfo(cand)
-            except Exception:  # noqa: BLE001 - any resolution failure -> next
+                return ZoneInfo(cand), TZ_ZONEINFO, cand
+            except Exception:  # noqa: BLE001
                 continue
 
     try:
         import pytz  # type: ignore
     except ImportError:
-        return None
+        return None, TZ_UNRESOLVED, None
     for cand in candidates:
         try:
-            return pytz.timezone(cand)
+            return pytz.timezone(cand), TZ_PYTZ, cand
         except Exception:  # noqa: BLE001
             continue
-    return None
+    return None, TZ_UNRESOLVED, None
+
+
+def resolve_timezone(tz_id: Optional[str]) -> Optional[Any]:
+    """Resolve an IBKR ``timeZoneId`` to a tzinfo, or ``None`` if we cannot.
+
+    Thin wrapper over :func:`resolve_timezone_with_source` so there is exactly
+    ONE resolution order in this module. ``None`` is the *we could not look*
+    value and must never be silently replaced by UTC — the session strings are
+    wall-clock local, so reading a ``US/Central`` string as UTC shifts every
+    boundary by five or six hours and produces a confident, wrong verdict rather
+    than an honest abstention.
+    """
+    return resolve_timezone_with_source(tz_id)[0]
 
 
 def _parse_stamp(day: str, hhmm: str) -> Optional[datetime]:
