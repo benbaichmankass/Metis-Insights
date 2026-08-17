@@ -1147,6 +1147,43 @@ GATE_KINDS = {
     "no_harness_levers": "harness_gap",
 }
 
+#: Levers a SESSION cannot produce a verdict for, whatever a cell's status says.
+#:
+#: WHY THIS EXISTS. `gate_partition` keys on the cell's STATUS STRING, which is
+#: the right call (it cannot drift from the matrix) and is also blind to whether
+#: the thing the status implies is POSSIBLE. A `pending` cell reads
+#: "no sweep has been run", which invites "so run it" -- and for these two
+#: levers no run exists to be run. Measured 2026-08-17: all FOUR cells the
+#: partition called movable rest on these two levers, so the honest movable
+#: count was ZERO while the roll-up implied four
+#: (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
+#:
+#: THE THREE FACTS BEHIND EACH ENTRY, each verified rather than inherited:
+#:   * `m20_fleet_exit_sweep.py` defines NO arm -- each lever appears exactly
+#:     once, in the comment saying it is absent.
+#:   * neither `backtest_trend.py` nor `backtest_squeeze.py` exposes a flag
+#:     (`--exit-ladder` / `--regime-flip`: none, AST-checked).
+#:   * `scripts/ci/check_matrix_corpus_agreement.py` states the same, and is
+#:     the authority the corpus-agreement guard already reads.
+#:
+#: NOT a claim the cells are unreachable forever -- both have a named route
+#: (a backtest-gated P4 graduation; an operator decision). It is a claim that
+#: the route is not "a session runs the sweep". `exit_head_ml` is deliberately
+#: ABSENT: it has its own driver and IS swept, so its cells are graded
+#: `arithmetic`/`accrual` on trade counts, which is a different gate.
+LEVERS_WITHOUT_A_SWEEP_PATH: dict[str, str] = {
+    "exit_ladder": (
+        "observe-only shadow soak (runtime_logs/exit_ladder_soak.jsonl); the "
+        "fleet harness never emits an exit_ladder cell, and graduation to a "
+        "real laddered exit is the backtest-gated P4"
+    ),
+    "regime_flip_exit": (
+        "no runtime implementation to sweep -- only the offline replays "
+        "m20_regime_flip_replay.py / m20_flip_replay_sweep.py; building it as "
+        "a YAML-declared default-off close path is operator decision (c)"
+    ),
+}
+
 
 def gate_partition(matrix: dict[str, Any],
                    reach: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1187,6 +1224,32 @@ def gate_partition(matrix: dict[str, Any],
     return {k: sorted(v) for k, v in buckets.items()}
 
 
+def movable_cut(partition: dict[str, list]) -> dict[str, list]:
+    """Split `harness_gap` + `never_attempted` into what a session can ACTUALLY move.
+
+    ⚠️ RETURNED SEPARATELY, NOT MERGED INTO `gate_partition`. An earlier draft put
+    `_movable` / `_no_sweep_path` inside the partition dict, which broke four
+    pre-existing tests and deserved to: that dict is a STRICT PARTITION of the
+    done-condition (`tests/test_gate_partition.py` asserts it reconciles to
+    `cells_to_done` and that no cell appears in two buckets). These two lists are
+    an OVERLAPPING VIEW of two of its buckets, so adding them double-counted 4
+    cells and made the total read 26 against a true 22. The guard's own words:
+    *"a partition that does not reconcile is worse than none, because it reads as
+    exhaustive."* A cross-cut and a partition are different shapes; keep them in
+    different keys.
+
+    `harness_gap` + `never_attempted` are the two buckets whose remedy is EFFORT
+    rather than waiting -- but only for a lever a session can actually sweep.
+    """
+    movable: list = []
+    no_path: list = []
+    for key in ("harness_gap", "never_attempted"):
+        for ident in partition.get(key, []):
+            target = no_path if ident[3] in LEVERS_WITHOUT_A_SWEEP_PATH else movable
+            target.append(ident)
+    return {"movable": sorted(movable), "no_sweep_path": sorted(no_path)}
+
+
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
     per_status: Counter[str] = Counter()
     per_lever: dict[str, Counter[str]] = defaultdict(Counter)
@@ -1218,6 +1281,7 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
             per_lever_reason[col][status if isinstance(status, str) else str(status)] += 1
 
     _reach = fold_reachability(matrix)
+    _gate_part = gate_partition(matrix, _reach)
     total = sum(per_status.values())
     counts = {
         "resolved": sum(per_status[s] for s in RESOLVED),
@@ -1238,7 +1302,11 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
         "evidence_vintage": evidence_vintage(matrix),
-        "gate_partition": gate_partition(matrix, _reach),
+        "gate_partition": _gate_part,
+        # A separate key, deliberately -- see `movable_cut`. It is an overlapping
+        # VIEW of two partition buckets, so it must never live inside the
+        # partition dict (which reconciles to `cells_to_done`).
+        "movable_cut": movable_cut(_gate_part),
         "geometry_coverage": geometry_coverage(matrix),
     }
 
@@ -1362,10 +1430,32 @@ def render(r: dict[str, Any]) -> str:
             "        or 'measured, grading withheld' — those live in ref PROSE and",
             "        a tool that guessed them would be manufacturing a verdict. A",
             "        hand analysis may use them; the totals reconcile either way.",
-            "      ⚠️ Only `harness_gap` (needs code) and `never_attempted` (needs",
-            "        a run) are movable by a session. `arithmetic`/`accrual`/`data`",
-            "        wait on trades or candles, NOT on effort — do not plan sweeps",
-            "        against them expecting movement.",
+        ]
+        # ⚠️ THE MOVABLE COUNT IS MEASURED, NOT INFERRED FROM THE BUCKET NAME.
+        # `never_attempted` used to read "no sweep has been run", which invites
+        # "so run it"; for a lever with no sweep arm there is no run to make.
+        # All four cells in these two buckets were such levers on 2026-08-17, so
+        # the old wording implied FOUR workable cells over a true count of ZERO
+        # (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
+        _mc = r.get("movable_cut") or {}
+        _mv, _np = _mc.get("movable") or [], _mc.get("no_sweep_path") or []
+        out += [
+            f"      ⚠️ MOVABLE BY A SESSION: {len(_mv)}"
+            f"   (of {len(_mv) + len(_np)} in harness_gap + never_attempted)",
+        ]
+        for _i in _mv:
+            out.append(f"           {_i[0]:<26} {_i[1]:<9} {_i[2]:<4} {_i[3]}")
+        if _np:
+            out.append(f"      ⚠️ NO SWEEP PATH AT ALL: {len(_np)} — a run cannot "
+                       f"move these, whatever the status implies:")
+            for _i in _np:
+                out.append(f"           {_i[0]:<26} {_i[1]:<9} {_i[2]:<4} {_i[3]}"
+                           f"  [{_i[4]}]")
+            for _lv in sorted({_i[3] for _i in _np}):
+                out.append(f"           {_lv}: {LEVERS_WITHOUT_A_SWEEP_PATH[_lv]}")
+        out += [
+            "        `arithmetic`/`accrual`/`data` wait on trades or candles, NOT",
+            "        on effort — do not plan sweeps against them expecting movement.",
             "",
         ]
     g = r.get("geometry_coverage") or {}
