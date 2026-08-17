@@ -1118,6 +1118,75 @@ def fold_reachability(matrix: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+# The done-condition cells, grouped by WHAT ACTUALLY GATES THEM.
+#
+# WHY: the roll-up used to print `read the done-condition as {N} actionable +
+# {M} arithmetic`, computed as `cells_to_done - len(unreachable)`. That subtracts
+# exactly ONE gate -- the exit_head_ml fold arithmetic -- and silently calls
+# every other gate "actionable". Measured 2026-08-17 it reported 12 actionable
+# where about 4 were workable by a session, and because the line was EMITTED BY
+# THIS SCRIPT the overstatement reached every consumer, a roadmap entry and three
+# operator pings before anyone read the block reasons
+# (BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO).
+#
+# The partition keys on the STATUS STRING the matrix already carries, so it is
+# reproducible and cannot drift from the cell. It deliberately does NOT try to
+# recover "parked milestone-wide" or "measured, grading withheld" -- those live
+# in ref PROSE, are real judgements, and a tool that guessed at them would be
+# manufacturing a classification. A hand analysis may legitimately use them; the
+# totals reconcile either way.
+GATE_KINDS = {
+    # the leg has not traded enough for the protocol's folds/floors
+    "insufficient_lifetime_trades": "accrual",
+    "insufficient_base": "accrual",
+    "insufficient_oos_base_at_derived_split": "accrual",
+    # the candles/history do not exist to sweep against
+    "native-history-thin": "data",
+    "data_missing": "data",
+    # the harness cannot express the lever at all -- needs CODE, not a run
+    "no_harness_levers": "harness_gap",
+}
+
+
+def gate_partition(matrix: dict[str, Any],
+                   reach: list[dict[str, Any]]) -> dict[str, Any]:
+    """Group the open cells by gate kind, reusing `reach` for the arithmetic cut.
+
+    `reach` is passed in rather than recomputed so the arithmetic subset here and
+    the reachability table below can never disagree about which legs are
+    unreachable -- two derivations of one number drifting apart is the defect
+    this file has now hit more than once.
+
+    An `unclassified` bucket is always reported. A new `blocked:<reason>` must
+    surface as unclassified rather than land in a neighbouring bucket, because a
+    silent default would make the partition look complete while mis-stating it --
+    the same collapse the guard family elsewhere in this repo exists to prevent.
+    """
+    arith_legs = {r["strategy"] for r in reach if r.get("usable_folds") == 0}
+    buckets: dict[str, list[tuple[str, str, str, str, str]]] = defaultdict(list)
+    for row, col, status in cells(matrix):
+        if row.get("execution") != "live":
+            continue
+        st = status if isinstance(status, str) else ""
+        if base(st) not in OPEN_STATUSES:
+            continue
+        ident = (row["strategy"], row["symbol"], row["tf"], col, st)
+        if st == "pending":
+            buckets["never_attempted"].append(ident)
+            continue
+        reason = st.split(":", 1)[1] if ":" in st else ""
+        kind = GATE_KINDS.get(reason)
+        # The arithmetic cut is a SUBSET of accrual, not a sibling: the status
+        # says "not enough trades", and `usable_folds == 0` says no re-run can
+        # ever fix it. A leg whose reach is UNGRADED stays `accrual` -- absence
+        # of a graded bound is not evidence of an unreachable one.
+        if (kind == "accrual" and col == "exit_head_ml"
+                and row["strategy"] in arith_legs):
+            kind = "arithmetic"
+        buckets[kind or "unclassified"].append(ident)
+    return {k: sorted(v) for k, v in buckets.items()}
+
+
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
     per_status: Counter[str] = Counter()
     per_lever: dict[str, Counter[str]] = defaultdict(Counter)
@@ -1148,6 +1217,7 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
             # as `blocked` rather than inventing a reason it does not state.
             per_lever_reason[col][status if isinstance(status, str) else str(status)] += 1
 
+    _reach = fold_reachability(matrix)
     total = sum(per_status.values())
     counts = {
         "resolved": sum(per_status[s] for s in RESOLVED),
@@ -1161,13 +1231,14 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "per_status": dict(per_status),
         "per_lever": {k: dict(v) for k, v in per_lever.items()},
         "per_lever_reason": {k: dict(v) for k, v in per_lever_reason.items()},
-        "fold_reachability": fold_reachability(matrix),
+        "fold_reachability": _reach,
         "counts": counts,
         "headline_pct": round(100 * counts["headline"] / total, 1) if total else 0.0,
         "cells_to_done": per_status["pending"] + per_status["blocked"],
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
         "evidence_vintage": evidence_vintage(matrix),
+        "gate_partition": gate_partition(matrix, _reach),
         "geometry_coverage": geometry_coverage(matrix),
     }
 
@@ -1260,9 +1331,41 @@ def render(r: dict[str, Any]) -> str:
             f"at u=0 — ARITHMETICALLY unreachable, not un-run.",
             "      They close only if the leg trades more (a strategy question), or if",
             "      the E1 protocol changes. Re-running the sweep cannot move them, so",
-            "      read the done-condition as "
-            f"{r['cells_to_done'] - len(_unreach)} actionable "
-            f"+ {len(_unreach)} arithmetic.",
+            "      Re-running the sweep cannot move them.",
+            "",
+        ]
+    # THE PARTITION, replacing a single "actionable" number.
+    # This line used to read `{cells_to_done - unreachable} actionable +
+    # {unreachable} arithmetic`, which subtracted ONE gate and called the other
+    # four actionable. It reported 12 where ~4 were workable, and it reached a
+    # roadmap entry and three operator pings before anyone read the block
+    # reasons (BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO).
+    _gp = r.get("gate_partition") or {}
+    if _gp:
+        _order = ["arithmetic", "accrual", "data", "harness_gap",
+                  "never_attempted", "unclassified"]
+        _why = {
+            "arithmetic": "no re-run can move them; the leg must TRADE more",
+            "accrual": "same kind of gate, bound not proven unreachable",
+            "data": "candles/history do not exist to sweep",
+            "harness_gap": "the harness cannot express the lever — needs CODE",
+            "never_attempted": "no sweep has been run",
+            "unclassified": "⚠️ status reason not in GATE_KINDS — CLASSIFY IT",
+        }
+        out += ["    DONE-CONDITION BY GATE (what actually blocks each cell):"]
+        for k in _order + [k for k in sorted(_gp) if k not in _order]:
+            if _gp.get(k):
+                out.append(f"      {len(_gp[k]):3d}  {k:<16} {_why.get(k, '')}")
+        out += [
+            "      ^ Keys on the cell's own STATUS string, so it cannot drift",
+            "        from the matrix. It does NOT recover 'parked milestone-wide'",
+            "        or 'measured, grading withheld' — those live in ref PROSE and",
+            "        a tool that guessed them would be manufacturing a verdict. A",
+            "        hand analysis may use them; the totals reconcile either way.",
+            "      ⚠️ Only `harness_gap` (needs code) and `never_attempted` (needs",
+            "        a run) are movable by a session. `arithmetic`/`accrual`/`data`",
+            "        wait on trades or candles, NOT on effort — do not plan sweeps",
+            "        against them expecting movement.",
             "",
         ]
     g = r.get("geometry_coverage") or {}
