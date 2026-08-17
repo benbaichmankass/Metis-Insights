@@ -140,6 +140,19 @@ first. Run all of these in order — this is the part that stops the retest chur
    `list_pull_requests state=open` (the authoritative real-time signal — a PR
    `mergeable_state: behind`/ready and clearly mid-merge means wait). Not reading
    the board before merging is root-cause (2) of the 07-20 lapse.
+
+   ⚠️ **ASSERT that the page you read IS the last page before concluding "no open
+   🔒"** (`BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END`).
+   `get_comments` pages ascending with no `is_last` field, so a full page and the
+   real tail are **byte-indistinguishable**. Request `perPage=N`; **N items back
+   proves nothing**, a **short page (< N) is the proof**. Find the end by probing
+   `perPage=1` at a high `page` for `[]`, then bisect. A session skipped this on
+   2026-08-17, read a page 46 minutes stale, and merged inside another session's
+   open claim on the same file — see `docs/claude/coordination-board.md` §
+   "The protocol" step 1 for the full account. **`list_pull_requests state=open`
+   has no such failure mode and is the cheap cross-check** — if it shows another
+   session's PR ready-and-green while your board read shows no claim, believe the
+   PR list and re-read the board.
 2. **Post your `🔒 MERGE SLOT CLAIM` comment on #6927** (session id, branch, PR #).
    This board comment is the live claim that reaches other sessions in time; also
    mirror it into `session-board.json::merge_slot` (`{held_by, branch, pr,
