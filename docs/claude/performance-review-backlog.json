@@ -3,6 +3,22 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-TERMINAL-STAMP-2026-08-17",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "m31-position-telemetry / m20-exit-levers",
+      "title": "The M31 P5 candidate lever cannot be backtested \u2014 rr_from_here does not exist in the harness",
+      "source": "docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5, precondition 3",
+      "detail": "P5 precondition 3 reads 'a walk-forward on the rr_from_here floor CLEARS the do-nothing arm'. That is not runnable today: scripts/backtest_trend.py implements stale_exit_bars, giveback_min_mfe_r/giveback_r and trail_decay_* (verified as a POSITIVE CONTROL -- the same probe finds all three at scripts/backtest_trend.py:221-229 and :1038-1046) and finds NOTHING for rr_from_here / r_to_target / r_to_stop / rr_floor. The quantity exists in exactly one module repo-wide: src/runtime/position_telemetry.py, which is LIVE and observe-only. So the harness cannot express the lever whose backtest evidence the precondition asks for.",
+      "why_it_matters": "M31's whole premise is that a lever must be checkable, and P5's gate is 'the same backtest gate as every other lever'. A precondition phrased as 'run the walk-forward' over a lever the harness cannot express is the same shape as the defects this milestone exists to close -- a claim about backtest evidence that no artifact could ever have produced. Sequencing consequence: precondition 3 was described in the S-M31-TERMINAL-STAMP sprint log and the P5 proposal as 'the only remaining item that is runnable work rather than waiting'. That is still true in kind but understates the size: it is IMPLEMENT-then-measure, not measure.",
+      "resolution_criteria": "Either (a) implement an rr_from_here floor in scripts/backtest_trend.py's monitor path and re-word precondition 3 as the two steps it actually is, or (b) if the lever turns out not to be expressible in the harness's bar model, say so explicitly in the proposal and retire the candidate rather than leaving a precondition that cannot be satisfied. Tractability note, so the next session does not re-derive it: the inputs ARE present -- the harness already carries tp_cap_pct/tp_r (a target) and the stop geometry (atr_stop_mult), which is what r_to_target/r_to_stop need.",
+      "next_action": "Before any P5 walk-forward: add the lever to the harness behind its own flag, and grade it with scripts/research/m20_wf_effective.py so inert folds are excluded from the win count (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS -- measured at 75 of 386 ok folds, 19.4%). Tier-1: the harness is not the order path.",
+      "updates": []
+    },
+    {
       "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
       "review_2026_08_11": {
         "reviewed_at": "2026-08-11T17:50:00+00:00",

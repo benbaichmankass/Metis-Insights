@@ -176,10 +176,24 @@ unblock" would overstate what shipped.
 ## Next Recommended Sprint
 
 **P5 precondition 3** — the `rr_from_here` walk-forward. It is the only
-remaining precondition that is *runnable work* rather than waiting: preconditions
-2 (soak depth) and 5 (arm reachability) accrue on their own, and a walk-forward
-that fails to clear the do-nothing arm would retire the P5 candidate outright,
-which is worth knowing before the soak matures.
+remaining precondition that is *work* rather than waiting: preconditions 2 (soak
+depth) and 5 (arm reachability) accrue on their own, and a walk-forward that
+fails to clear the do-nothing arm would retire the P5 candidate outright, which
+is worth knowing before the soak matures.
+
+⚠️ **Correction to an earlier line in this same sprint:** I described it as
+*"runnable work"*, which understates it. Checked before asserting it a second
+time — and the check found the opposite: **`rr_from_here` does not exist in the
+harness at all.** `scripts/backtest_trend.py` implements `stale_exit_bars`,
+`giveback_min_mfe_r`/`giveback_r` and `trail_decay_*` (a **positive control** —
+the same probe finds all three, so the negative has a denominator) and finds
+nothing for `rr_from_here` / `r_to_target` / `r_to_stop`. The quantity lives in
+one module repo-wide: `src/runtime/position_telemetry.py`, live and
+observe-only. So precondition 3 is **implement-then-measure**. Filed
+`PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS` (Tier-1 — the harness is
+not the order path) with the tractability note that the inputs are present
+(`tp_cap_pct`/`tp_r` + the stop geometry), so it is a prerequisite and not a
+blocker.
 
 ## Wrap-Up Check
 

@@ -99,7 +99,20 @@ judgement call:
    a harness `mfe_r` distribution for it, and reports `parity: consistent`.
    `insufficient_n` is not a pass.
 3. **A walk-forward on the `rr_from_here` floor CLEARS the do-nothing arm** —
-   not merely beats an alternative lever. This is the standard
+   not merely beats an alternative lever.
+   ⚠️ **This has an unstated prerequisite: the lever does not exist in the
+   harness** (measured 2026-08-17,
+   `PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS`).
+   `scripts/backtest_trend.py` implements `stale_exit_bars`,
+   `giveback_min_mfe_r`/`giveback_r` and `trail_decay_*` — verified as a
+   **positive control**, the same probe finds all three — and finds nothing for
+   `rr_from_here` / `r_to_target` / `r_to_stop`. The quantity lives in exactly
+   one module repo-wide, `src/runtime/position_telemetry.py`, which is live and
+   observe-only. So this precondition is **implement-then-measure**, not
+   measure, and phrasing it as "run the walk-forward" would be a claim about
+   backtest evidence no artifact could produce — the shape M31 exists to close.
+   The inputs ARE present (the harness carries `tp_cap_pct`/`tp_r` and the stop
+   geometry), so it is tractable, not blocked. This is the standard
    `BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED` learned the hard way: the
    live `0.15/4.0` flip override lost to plain `hold` and had run on real money
    for a day with no walk-forward behind it.
@@ -139,7 +152,9 @@ precondition 1); **precondition 2 is the binding one and it is a data-accrual
 problem the writer does not solve** — it makes future closes gradeable without a
 join, but it creates no closed trades, and the fleet-wide final population is
 still n=1. So: let the soak reach Check B's floor, run the walk-forward
-(precondition 3 — the only remaining item that is *runnable work* rather than
-waiting, and a failure there would retire this candidate outright), then bring
-the exact diff for approval. M31's other four phases are complete and the milestone's value —
+(precondition 3 — still the only remaining item that is *work* rather than
+waiting, but **implement-then-measure**: the lever must first exist in the
+harness, per the warning in § 5. A failure there would retire this candidate
+outright, which is worth learning before the soak matures), then bring the exact
+diff for approval. M31's other four phases are complete and the milestone's value —
 making the exit-lever programme *checkable* — is already delivered without P5.
