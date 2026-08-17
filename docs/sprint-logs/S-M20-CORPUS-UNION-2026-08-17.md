@@ -240,12 +240,35 @@
     (19 replaced + 360 appended → the same 1364); the outcome is
     **order-independent**, so the rule is a resolution rather than an artifact
     of which branch the job stands on.
-- **Still open, and stated as open:** `#9827` is verified by test and by replay,
-  **not** by a live conflicting run — the same gap `#9812` carries. A sweep was
-  dispatched on `main` at 02:22Z (run `31987769491`, one leg, free runners) to
-  exercise the conflict path for real. The falsifiable check was recorded
-  BEFORE the run so it cannot be judged by impression: the corpus branch was
-  missing **360** main-only measurement keys; after the run that must be **0**.
+- ✅ **AND THEN PROVEN END-TO-END** (run `31987769491`, `legs=trend_donchian`,
+  free runners, 02:22Z). `#9827` had shipped with one honest gap — verified by
+  test and by replay, **not** by a live conflicting run, the same gap `#9812`
+  carries. A sweep was dispatched purely to exercise the conflict path, and the
+  falsifiable check was recorded BEFORE the run so it could not be graded by
+  impression: the corpus branch was missing **360** main-only measurement keys;
+  after the run it is **0**, and the branch is a strict superset of `main`.
+  - ⚠️ **THE ROW COUNT ALONE WOULD NOT HAVE PROVEN IT.** The job checks out
+    `main`, so a *cleanly succeeding* rebase would also have produced a
+    superset — the count cannot distinguish "the union ran" from "the rebase
+    happened to succeed". Only the job log separates them, and it is
+    unambiguous: `CONFLICT (add/add)` across dozens of files, the
+    `rebase conflicted … re-deriving the union` notice, the reset to the
+    branch's 1004-row state, and then
+    `corpus union: into 1004 + from 1364 -> 1364 rows; shared keys: 1004,
+    replaced by newer incoming: 19, appended: 360`.
+  - **`19 replaced` and `360 appended` are exactly the figures measured by hand
+    before dispatching** — the prediction and the live run agree to the row.
+  - Both prior regression shapes confirmed fixed on the same run: tp-key counts
+    on the branch are `{0: 927, 8: 447}` with **zero** partial blocks (the
+    `#9812` shape), and the commit message's `corpus now: 1374` matches the
+    committed file's 1374 rows (the `#9820` shape).
+- **Still open, and unchanged by this work:** the retarget cannot open its own
+  PR (`BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR`) — the run's own log
+  warns that the rows are on the branch and *"this job cannot"* open it, because
+  a `GITHUB_TOKEN` push starts no workflows. That needs a credential this
+  workflow does not have and was never what `#9827` set out to fix. What did
+  change is that the branch is now a superset, so the eventual union PR is
+  trivial rather than reconstructive.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
