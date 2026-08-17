@@ -176,10 +176,17 @@ def test_one_malformed_day_does_not_blind_the_rest_of_the_week():
 
 
 # ---------------------------------------------------------------------------
-# WHICH library resolved the timezone. The gate is fail-permissive on `unknown`,
-# so `state: "open"` proves a tz resolved but not THROUGH WHAT — and that
+# WHICH library resolved the timezone. The gate is fail-permissive on an unknown
+# verdict, so an open state proves a tz resolved but not THROUGH WHAT — and that
 # distinction is the whole reason the pytz fallback exists
 # (BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE).
+#
+# The state words above are deliberately UNQUOTED: `collapsed-state-guard`'s
+# `_states_in` scans raw lines, so a quoted state inside a COMMENT counts as a
+# branch. Quoting exactly one of them here made this whole file read as though
+# it branched on that state alone, while every test below asserts against
+# `th.OPEN`/`th.CLOSED`/`th.UNKNOWN` constants the scan cannot see
+# (BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE).
 # ---------------------------------------------------------------------------
 
 
