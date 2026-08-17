@@ -54,6 +54,35 @@ It is the right FIRST P5 lever for three reasons:
    unresolved lower-bound problem (§ 4). A first lever that avoids the weakest
    input is the cheaper thing to get right.
 
+### 3.1 Two measured caveats on the metric itself (live, 2026-08-17)
+
+Taken from the 14-row live table (`/api/diag/position_telemetry`), so these are
+observations, not concerns:
+
+1. **`rr_from_here` is unbounded above as `r_to_stop → 0`.** The fleet's only
+   CLOSED telemetry row — `trend_donchian_sol_4h`, trade 4697 — sits **0.0337R**
+   from its stop and therefore reports **`rr_from_here` = 201.87**, which is
+   **19.6×** the next-largest value across the same 14 rows (10.30). The
+   *verdict* there is still defensible (a trade 0.03R from its stop has almost
+   no downside left, so "hold" is right), so this is **not** a reason to drop
+   the candidate. It is a reason the walk-forward must not fit a floor over raw
+   `rr_from_here`: a mean, a variance or an unwinsorised quantile over this
+   metric is dominated by near-stop rows, and the fleet's single final row is
+   one of them.
+2. **At that tail the published field is not reproducible from its own published
+   inputs.** `r_to_stop` is stored to 4 dp, so recomputing `r_to_target /
+   r_to_stop` for that row gives 201.66 against a stored 201.87 — the rounding
+   of the denominator alone spans roughly 201.36–201.96. Every other row
+   reproduces exactly. A consumer comparing the stored field against its own
+   arithmetic will see a real disagreement **only** where `r_to_stop` is small,
+   and should not read that as a writer bug.
+
+Practical consequence for precondition 3: grade the lever on the **decision**
+(did it exit, and was that better) rather than on distributional statistics of
+`rr_from_here`, or transform the metric (e.g. `r_to_target − r_to_stop`, or a
+capped ratio) before fitting. Whichever is chosen, say which — the untransformed
+ratio has a 200× tail in a 14-row sample.
+
 **Explicitly NOT proposed first:** a giveback/trailing lever driven by stored
 `peak_r`. `giveback_min_mfe_r` already exists computed transiently, and swapping
 its input to a stored lower bound would make the lever fire **late** by an
@@ -64,29 +93,55 @@ unquantified amount (§ 4) while looking like a refactor.
 `position_telemetry.peak_r` is a **LOWER BOUND on true MFE**: the last write
 precedes the close by up to one exit-loop pass, and a bar extreme cannot see an
 intrabar excursion (hence `peak_provenance: estimated`, never `measured`). The
-size of that gap is **unquantified**, and it does not shrink with soak — it
-closes only when a terminal writer exists
-(`PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT`, Tier-2).
+size of that gap is **unquantified**, and it does not shrink with soak.
 
-Related and already mitigated on the read side: the table carries no finality
-marker, so a closed row is byte-shaped like an open one. M31 P3's readers add a
-never-collapsed `lifecycle` via the `trades` join — but a **lever** must not
-depend on a join to know whether the trade it is acting on is still live.
+⚠️ **The terminal writer NARROWED this and did not close it** (shipped
+2026-08-17 — see § 5.1). An earlier draft of this section said the gap "closes
+only when a terminal writer exists", which overstated what that change does: the
+stamp records *when we observed finality*, not a re-measured peak, so
+`peak_r_is_lower_bound` stays `true` on stamped rows too. **Quantifying the
+residual is still open work**, and it remains the reason a `peak_r`-driven
+giveback lever is deliberately not first.
+
+The *other* half of this blocker IS closed: the table now carries an explicit
+finality marker, so a lever no longer has to join `trades` to know whether the
+trade it is acting on is still live.
 
 ## 5. Preconditions — falsifiable, in order
 
 P5 may be proposed for approval when **all** hold. Each is checkable, not a
 judgement call:
 
-1. **`PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT` is closed** (Tier-2), so
-   finality is a stamped fact and `peak_r`'s lower-bound gap is closed or
-   measured.
+1. ✅ **MET 2026-08-17 (partially — read the caveat).**
+   `PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT` is closed: `update_trade`
+   stamps `terminal_state='final'` + `terminal_at` on close, never overwriting
+   an existing stamp and never inserting a row, and readers publish a four-state
+   `finality_source` (`stamped` / `derived_join` / `not_final` / `unknown`)
+   registered with `collapsed-state-guard`. **Finality is now a stamped fact.**
+   ⚠️ The precondition as originally worded also asked for `peak_r`'s
+   lower-bound gap to be *"closed or measured"* — it is **neither**; see § 4.
+   A lever that does not read `peak_r` (the `rr_from_here` floor proposed here)
+   is unaffected; a `peak_r`-driven lever is still blocked on this.
+   Sprint log: `docs/sprint-logs/S-M31-TERMINAL-STAMP-2026-08-17.md`.
 2. **P4 Check B returns `compared` on at least one leg** — i.e.
    `scripts/research/m31_mfe_parity.py` finds ≥ 8 final live rows for a leg AND
    a harness `mfe_r` distribution for it, and reports `parity: consistent`.
    `insufficient_n` is not a pass.
 3. **A walk-forward on the `rr_from_here` floor CLEARS the do-nothing arm** —
-   not merely beats an alternative lever. This is the standard
+   not merely beats an alternative lever.
+   ⚠️ **This has an unstated prerequisite: the lever does not exist in the
+   harness** (measured 2026-08-17,
+   `PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS`).
+   `scripts/backtest_trend.py` implements `stale_exit_bars`,
+   `giveback_min_mfe_r`/`giveback_r` and `trail_decay_*` — verified as a
+   **positive control**, the same probe finds all three — and finds nothing for
+   `rr_from_here` / `r_to_target` / `r_to_stop`. The quantity lives in exactly
+   one module repo-wide, `src/runtime/position_telemetry.py`, which is live and
+   observe-only. So this precondition is **implement-then-measure**, not
+   measure, and phrasing it as "run the walk-forward" would be a claim about
+   backtest evidence no artifact could produce — the shape M31 exists to close.
+   The inputs ARE present (the harness carries `tp_cap_pct`/`tp_r` and the stop
+   geometry), so it is tractable, not blocked. This is the standard
    `BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED` learned the hard way: the
    live `0.15/4.0` flip override lost to plain `hold` and had run on real money
    for a day with no walk-forward behind it.
@@ -121,7 +176,14 @@ worse than none: it reads as coverage.
 
 ## 8. Recommendation
 
-**Do not ship a P5 lever now.** Close the Tier-2 terminal writer, let the soak
-reach Check B's floor, run the walk-forward, then bring the exact diff for
-approval. M31's other four phases are complete and the milestone's value —
+**Do not ship a P5 lever now.** The Tier-2 terminal writer is done (2026-08-17,
+precondition 1); **precondition 2 is the binding one and it is a data-accrual
+problem the writer does not solve** — it makes future closes gradeable without a
+join, but it creates no closed trades, and the fleet-wide final population is
+still n=1. So: let the soak reach Check B's floor, run the walk-forward
+(precondition 3 — still the only remaining item that is *work* rather than
+waiting, but **implement-then-measure**: the lever must first exist in the
+harness, per the warning in § 5. A failure there would retire this candidate
+outright, which is worth learning before the soak matures), then bring the exact
+diff for approval. M31's other four phases are complete and the milestone's value —
 making the exit-lever programme *checkable* — is already delivered without P5.

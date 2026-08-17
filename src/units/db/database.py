@@ -143,6 +143,55 @@ def _migrate_add_closed_at(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_telemetry_terminal(cursor: sqlite3.Cursor) -> bool:
+    """Add ``terminal_state`` + ``terminal_at`` to ``position_telemetry`` if absent.
+
+    **M31 P5 precondition 1** (``PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT``).
+    The table is UPSERT-on-``order_package_id`` with no status: when a trade
+    closes its row simply stops being updated, so a closed row is **byte-shaped
+    like an open one** and the only in-table hint is a staler ``updated_at`` —
+    which is not a signal, because a quiet leg and a closed leg both go stale.
+    Measured live 2026-08-17: 14 rows, 13 open + 1 closed, and the closed one was
+    findable ONLY by joining ``trades``.
+
+    That is the collapsed-state class, in a table shipped after the rule. The M31
+    P3 readers mitigated it with a join, but a JOIN IS NOT A FIX: anything reading
+    the table directly (the Data Explorer, an ad-hoc query, a future lever) still
+    sees a closed row that looks open. These columns make finality a **stored
+    fact**.
+
+    Values — never collapsed:
+
+    * ``NULL``    — no terminal stamp. Pre-migration rows AND genuinely open
+                    trades share this, which is why a reader must still consult
+                    ``finality_source``: NULL means *"not stamped"*, never
+                    *"still open"*.
+    * ``final``   — the close path stamped this row. Its ``peak_r`` is that
+                    trade's MFE up to the last exit pass before the close.
+
+    ``terminal_at`` is the stamp time (the close observer's), deliberately NOT a
+    copy of ``trades.closed_at`` — it records when WE observed finality, so the
+    residual gap between the last telemetry write and the actual close stays
+    visible rather than being papered over.
+
+    Idempotent: returns True only on the run that actually adds the columns.
+    """
+    cursor.execute("PRAGMA table_info(position_telemetry)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if not columns:
+        # An EMPTY ``PRAGMA table_info`` means *no such table*, not *a table
+        # with no columns* (sqlite cannot express the latter). The CREATE
+        # TABLE below in ``__init__`` owns creation and already declares both
+        # columns, so a fresh DB has nothing to migrate — falling through here
+        # would ALTER a table that does not exist and raise.
+        return False
+    if "terminal_state" in columns:
+        return False
+    cursor.execute("ALTER TABLE position_telemetry ADD COLUMN terminal_state TEXT")
+    cursor.execute("ALTER TABLE position_telemetry ADD COLUMN terminal_at TEXT")
+    return True
+
+
 def _migrate_add_reconcile_status(cursor: sqlite3.Cursor) -> bool:
     """Add ``reconcile_status`` column to ``trades`` if absent.
 
@@ -418,6 +467,9 @@ class Database:
         _migrate_add_trade_costs(cursor)
         _migrate_add_broker_order_id(cursor)
         _migrate_add_tpsl_leg_ids(cursor)
+        # NOTE: ``_migrate_add_telemetry_terminal`` is deliberately NOT called
+        # here — this block migrates ``trades``, and ``position_telemetry`` is
+        # not created until further down. It runs immediately after that DDL.
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
@@ -652,9 +704,16 @@ class Database:
                 rr_from_here REAL,
                 peak_provenance TEXT,
                 levers TEXT,
+                terminal_state TEXT,
+                terminal_at TEXT,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Idempotent migration for a pre-existing DB whose telemetry table was
+        # created before the terminal columns existed. Must run AFTER the DDL
+        # above: on a fresh DB the table would not yet exist and the ALTER
+        # would raise.
+        _migrate_add_telemetry_terminal(cursor)
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_position_telemetry_strategy "
             "ON position_telemetry(strategy, updated_at)")
@@ -869,7 +928,54 @@ class Database:
                     self._record_trade_cost_estimate(int(trade_id))
                 except Exception:  # noqa: BLE001  # allow-silent: observe-only cost capture must never propagate into trader close path
                     pass
+            # M31 P5 precondition 1 — stamp the position-telemetry row FINAL.
+            # Its OWN guard, mirroring the cost estimate above, so a telemetry
+            # write failure can never propagate into (or be skipped by) the
+            # close path or the notifier. Observe-only: it records that the row
+            # will not be updated again; it moves no stop and refuses no trade.
+            if status_str == "closed":
+                try:
+                    self._stamp_telemetry_terminal(int(trade_id))
+                except Exception:  # noqa: BLE001  # allow-silent: observe-only terminal stamp must never propagate into trader close path
+                    pass
         return rowcount
+
+    def _stamp_telemetry_terminal(self, trade_id: int) -> None:
+        """Mark this trade's ``position_telemetry`` row FINAL (M31 P5 precond. 1).
+
+        Closes ``PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT``: without this,
+        a closed telemetry row is byte-identical to an open one and finality is
+        obtainable only by joining ``trades`` — which the M31 P3 readers do, but
+        which anything reading the table DIRECTLY (Data Explorer, an ad-hoc
+        query, a future lever) does not.
+
+        **Never overwrites an existing stamp.** A re-close (a reconciler
+        re-flipping a row, a flap) must not move ``terminal_at`` forward — the
+        first observation of finality is the honest one, the same reasoning as
+        the netting reconciler's *anchor at first observation, not "now"*.
+
+        **Stamps nothing when there is no row**, rather than inserting one: a
+        telemetry row exists only for legs whose monitor writes one
+        (donchian/pullback), and manufacturing a row at close would fabricate an
+        entire trajectory that was never measured.
+
+        Best-effort in its own connection — the update's conn is already closed
+        by here, mirroring ``_fire_trade_closed_event`` /
+        ``_record_trade_cost_estimate``.
+        """
+        from datetime import datetime, timezone
+
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "UPDATE position_telemetry SET terminal_state = 'final', "
+                "terminal_at = ? WHERE trade_id = ? AND terminal_state IS NULL",
+                (datetime.now(timezone.utc).isoformat(), str(int(trade_id))),
+            )
+            if cur.rowcount:
+                conn.commit()
+        finally:
+            conn.close()
 
     def _record_trade_cost_estimate(self, trade_id: int) -> None:
         """Stamp a fixed-model round-trip fee estimate on a just-closed trade (M18 P0a).

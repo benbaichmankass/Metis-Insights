@@ -1731,9 +1731,22 @@ def get_position_telemetry(
       ``trend_donchian_sol_4h``) was findable only via this join. Four states,
       never collapsed: ``open`` / ``closed`` / ``unknown_no_trade_id`` (the
       package never filled) / ``unknown_trade_absent`` (a trade id the trades
-      table does not have). The durable fix is a terminal writer
-      (``PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT``, **Tier-2**); this is
-      the read-side mitigation.
+      table does not have).
+    * **``finality_source``** — WHICH evidence decided that, which is a
+      different question from the verdict and must not be folded into it.
+      ``"stamped"`` = the close path wrote ``terminal_state='final'`` on the row
+      itself (the Tier-2 terminal writer, 2026-08-17, closing
+      ``PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT``) · ``"derived_join"`` =
+      finality came only from the ``trades`` join, so the row PREDATES the
+      writer · ``"not_final"`` = still in flight · ``"unknown"`` = we could not
+      look (no trade id, or a trade id ``trades`` does not have).
+      **Read ``summary.by_finality_source`` beside ``final_rows``:** a
+      ``final_rows`` count that is entirely ``derived_join`` on rows closed
+      AFTER the writer deployed means the close hook is not firing — a
+      condition the split makes visible and a bare count hides. A consumer
+      reading the table DIRECTLY (Data Explorer, an ad-hoc query, a future
+      lever) sees only the stamp, never the join, which is exactly why the
+      stamp had to exist.
     * **``peak_pct_of_cap``** — how close the trade EVER got to its venue
       ceiling. The stored ``pct_of_cap`` is computed from ``open_r``, i.e. where
       it is NOW. Both are right for what they name; only this one answers "was
