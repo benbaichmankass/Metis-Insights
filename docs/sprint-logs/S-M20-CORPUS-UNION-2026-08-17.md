@@ -79,8 +79,9 @@
   the address. Replaced with a lifetime-unique token that **refuses to cache**
   when it cannot be attached.
 - **#9822 — `BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS`**, filed
-  with a cross-reference so it and `BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-
-  DEGENERATE` read as a pattern rather than two isolated cases.
+  with a cross-reference to
+  `BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE`
+  so the two read as a pattern rather than two isolated cases.
 - **#9823 — the union (1264 + 100 = 1364) and the two disagreements it
   surfaced.** Detail below; it is the substantive result of the session.
 - **#9819 — a correction to my own earlier filing** (severity high → low), made
@@ -169,6 +170,17 @@
 - **My own severity rating contradicted by my own later fix** (`#9819`) — I
   filed `reset_candle_cache()`'s dead-code state as a high-severity hazard, then
   removed its cause an hour later without re-reading the filing.
+- **A backlog id wrapped across a line break, for the THIRD time in one
+  session** — this file's own first draft split
+  `BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE`, so
+  `artifact-validity-guard` resolved the prefix to nothing and failed `#9826`.
+  Caught by the guard all three times, which is the guard working; but three
+  occurrences in one night is not three accidents, it is the line-wrapping
+  habit meeting an identifier that must not be wrapped. The earlier two were in
+  Python and were fixed by hoisting the id to a named constant with a comment
+  saying why it stays unwrapped. **Prose has no such hoist**, so the only
+  remedy here is to break the line before the id rather than inside it — which
+  is what this file now does in all three places it names one.
 
 ## Risks and Follow-Ups
 - **The union does not fix the divergence mechanism.** The sweep workflow still
