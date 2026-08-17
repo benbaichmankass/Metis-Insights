@@ -450,6 +450,23 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*perm[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Pp]erm[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # cancel-ib-order: the two guard overrides. Parsed here so they are
+            # REACHABLE; the guards themselves are unchanged and still default
+            # to refusing. Before this the wrapper passed neither flag, so the
+            # action could not cancel the one class of order it was built for
+            # (BL-20260816-NO-PER-ORDER-IB-CANCEL was itself a protective,
+            # trader-owned stop) -- an escape hatch documented but not wired.
+            # Absent => off. Each is a SEPARATE key because they answer
+            # different questions: force_protective says "yes, strip this
+            # exit"; force_client_id says "yes, connect as a trader-band id".
+            force_protective=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*force_protective[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ff]orce_protective[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            force_client_id=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*force_client_id[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ff]orce_client_id[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # flatten-ib-position: apply gates dry-run (default) vs execute.
             apply=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*apply[[:space:]]*:' \
@@ -524,6 +541,8 @@ jobs:
           echo "ACTION_APPLY=${apply:-}" >>"$GITHUB_ENV"
           echo "ACTION_ORDER_ID=${order_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_PERM_ID=${perm_id:-}" >>"$GITHUB_ENV"
+          echo "ACTION_FORCE_PROTECTIVE=${force_protective:-}" >>"$GITHUB_ENV"
+          echo "ACTION_FORCE_CLIENT_ID=${force_client_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_ALLOW_MIRROR=${allow_mirror:-}" >>"$GITHUB_ENV"
           echo "ACTION_IDS=${ids:-}" >>"$GITHUB_ENV"
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
@@ -696,6 +715,24 @@ jobs:
                 exit 1
                 ;;
             esac
+            # The overrides are validated the same way as apply -- a typo'd
+            # value must FAIL rather than silently read as off. A silent-off
+            # here is the worse direction for the operator (the run refuses,
+            # they re-issue with the flag, and nothing is stripped), but it is
+            # the dishonest direction for the OUTPUT: "refused" would be
+            # reported for a request that did ask to force.
+            for _force_kv in "force_protective=${ACTION_FORCE_PROTECTIVE:-}" \
+                             "force_client_id=${ACTION_FORCE_CLIENT_ID:-}"; do
+              _force_key="${_force_kv%%=*}"
+              _force_val="${_force_kv#*=}"
+              case "${_force_val}" in
+                ""|true|false|True|False) ;;
+                *)
+                  echo "::error::cancel-ib-order ${_force_key} must be true or false (got '${_force_val}')."
+                  exit 1
+                  ;;
+              esac
+            done
           fi
           # flatten-bybit-position: same contract as flatten-ib-position
           # (account_id + symbol required; apply gates dry-run-vs-execute). The
@@ -1178,7 +1215,7 @@ jobs:
             REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "cancel-ib-order" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_ORDER_ID=$(printf '%q' "${ACTION_ORDER_ID:-}") ACTION_PERM_ID=$(printf '%q' "${ACTION_PERM_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_ORDER_ID=$(printf '%q' "${ACTION_ORDER_ID:-}") ACTION_PERM_ID=$(printf '%q' "${ACTION_PERM_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_FORCE_PROTECTIVE=$(printf '%q' "${ACTION_FORCE_PROTECTIVE:-}") ACTION_FORCE_CLIENT_ID=$(printf '%q' "${ACTION_FORCE_CLIENT_ID:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "flatten-ib-position" ] || [ "${ACTION}" = "flatten-bybit-position" ] || [ "${ACTION}" = "flatten-alpaca-position" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
