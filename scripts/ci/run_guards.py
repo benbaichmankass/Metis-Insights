@@ -590,6 +590,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # M31 P4. THE SELF-TEST IS THE GUARD — deliberately NOT the parity run.
+        # Running the real check in CI would green on `harness_absent` /
+        # `live_no_final_rows` (the live table is ~1 day old and holds no
+        # closed rows yet), i.e. a pass that checked nothing — the exact
+        # anti-pattern `docs/CLAUDE-RULES-CANONICAL.md` § "Green is not
+        # evidence" names. What CI can honestly protect is the INSTRUMENT: the
+        # 10 cases assert the probe still flags a ceiling breach, still refuses
+        # an uncapped harness, and still abstains rather than passing when the
+        # lifecycle is unknown. The abstention states protect the conclusion;
+        # this guard protects their ability to fire.
+        "name": "mfe-parity-instrument-guard",
+        "when": {"globs": ["scripts/research/m31_mfe_parity.py"]},
+        "steps": [["python3", "scripts/research/m31_mfe_parity.py", "--self-test"]],
+    },
+    {
         "name": "writer-conformance-guard",
         "when": {"globs": ["**/*.py", "**/*.sql"]},
         "steps": [["python3", "scripts/check_writer_conformance.py", "{pr_diff}"]],

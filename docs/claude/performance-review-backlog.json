@@ -3551,7 +3551,39 @@
       "updates": [],
       "area": "M20/M31 exit-lever reachability / research corpus",
       "detail": "MEASURED 2026-08-16 against merged main.\n\nCOVERAGE. 376 of 1264 corpus rows carry a non-null live_tp_reach_r_n_IS, spanning 34 legs. The registry holds 8 lever rows; 7 of those 8 legs have a corpus measurement (qqq_trend_long_1d is the one with none).\n\nNO CONSUMER. live_tp_reach_r / tp_r_effective appears in the four backtest harnesses (which compute it), m20_fleet_exit_sweep.py (which surfaces it), m20_corpus_extract.py (which writes it), three test files and two sprint logs. scripts/ci/check_lever_reachability.py: 0 references. config/lever_reachability.json: 0 references. Nothing decides anything with it.\n\nIT AGREES WITH THE BESPOKE RELAYS WHERE BOTH EXIST — the check that makes the join trustworthy rather than merely available:\n  * trend_donchian_sol_4h (arm 5.57): bespoke cap_r_at_median 1.64 over n=127 (relay #9715, span 2023-01-09→2026-06-29, reach 0/127 = 0.0%) vs corpus median 1.324 over n=135. The corpus MAX is 3.723 — strictly below the 5.57 arm — so the corpus independently gives 0/135 reachable, reproducing the bespoke zero without the relay.\n  * scha_trend_long_1d (arm 2.00): bespoke cap_r_at_median 2.65 over n=65 (relay #9710, span 2010-03-10→2026-06-12, reach 54/65 = 83.1%) vs corpus medians 2.81/3.058/3.122 over n=60. Arm 2.00 sits below every one, agreeing with 'largely reachable'.\nThe residual gap in the medians is explained by population, not method: the corpus figure is the sweep's IS window at a DERIVED split, the bespoke figure is the leg's complete backtest span.\n\n⚠️ THE CAVEAT MUST TRAVEL WITH THE NUMBER, OR THE JOIN MANUFACTURES FALSE `reachable` VERDICTS. The harnesses place tp = min(entry*1.099, entry + tp_r*risk) and every leg declares the sentinel tp_r = 50.0, so tp_r_effective IS the venue-cap identity 0.099/(risk/entry) — which is quantity (3) in the registry's own basis_note taxonomy, NOT the operative ceiling (1) exit_plan_state.targets[].reach_r. src/runtime/exit_plan_realism.py's DEFAULT_MAX_REACH_R = 5.0 clamps first wherever cap_R > 5.0, so a corpus median above 5.0 OVER-reports the reach a lever actually gets. That bites today: trend_donchian's corpus median is 5.833 and its max 36.439, both past the clamp. So the corpus basis is strictly better than the discredited candle screen (entry-conditioned, large-n) and strictly weaker than the live order_packages/risk_per_unit basis — the same standing the registry already assigns its own backtest_entry_conditioned_* blocks, whose basis_caveat wording should be reused verbatim rather than reinvented.\n\nCHANGES NOTHING TODAY. No verdict, disposition or arm_r moves here. The three queued_tier3 rows (xrp_pullback_2h, trend_donchian_sol_4h, scha_trend_long_1d) remain the operator's call; this records that the evidence for two of them was already sitting in a committed artefact."
+    },
+    {
+      "id": "PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-P4-MFE-PARITY-2026-08-17",
+      "status": "open",
+      "severity": "medium",
+      "tier": 2,
+      "area": "m31-position-telemetry",
+      "title": "position_telemetry has no terminal snapshot and no finality marker — M31 P4's blocking half",
+      "source": "docs/sprint-logs/S-M31-P4-MFE-PARITY-2026-08-17.md",
+      "detail": "docs/design/position-telemetry-DESIGN.md section 7.2 recommends 'live row + a terminal snapshot written at close', explicitly so P4 gets 'one honest per-trade MFE without per-bar volume'. The live row shipped in P2; the terminal snapshot did not. Verified by reading src/runtime/position_telemetry.py (write_record is an UPSERT on order_package_id, no close path) and its only two callers, src/units/strategies/trend_donchian.py:967 and htf_pullback_trend_2h.py:534, both on the OPEN-position monitor path. Two consequences: (a) a closed trade's peak_r is the value at the LAST EXIT PASS BEFORE the close, so every live MFE is a lower bound of unquantified size; (b) the table carries no status/closed_at/terminal marker, so a closed row is byte-shaped like an open one and finality is only obtainable via a trade_id -> trades.status join. Measured 2026-08-17: 14 telemetry rows, 13 open and 1 closed (trade 4697, trend_donchian_sol_4h), where the closed row's only in-table hint was a staler updated_at — which is not a signal, since a quiet leg and a closed leg both go stale.",
+      "why_it_matters": "This is the collapsed-state class the repo has a canonical rule and a CI guard for (docs/CLAUDE-RULES-CANONICAL.md section 'Collapsed states'), in a table shipped after that rule: 'we did not look' and 'we looked and it is final' are indistinguishable. It is also the concrete blocker on M31 P4 Check B, which is the named binding blocker for the arm-reachability programme — the fleet sweep grades p80_arm_reach only against the BACKTEST ceiling, and gld_pullback_1d passes that at 3.86R while being unreachable live (0 of 8).",
+      "resolution_criteria": "A terminal write at close (Tier-2, on the close path) that stamps finality explicitly, so a consumer can distinguish final from in-flight WITHOUT the trades join; and the lower bound either closed or quantified. Registering the finality field with collapsed-state-guard is what makes it enforced rather than merely present.",
+      "next_action": "Propose the terminal-snapshot writer as a Tier-2 change (operator OK needed — it touches the live close path). Until then scripts/research/m31_mfe_parity.py refuses to grade without --trades-json, so nothing silently reads an open row as final.",
+      "updates": []
+    },
+    {
+      "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-P4-MFE-PARITY-2026-08-17",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "m20-exit-refinement",
+      "title": "The committed sweep corpus carries no per-trade mfe_r, so P4's harness side needs a sweep re-run",
+      "source": "docs/sprint-logs/S-M31-P4-MFE-PARITY-2026-08-17.md",
+      "detail": "scripts/backtest_trend.py computes Trade.mfe_r (:75, accumulated :514/:533) and writes it into the --emit-trades JSONL (:638), and reports max_mfe_r in the run summary (:787). But docs/research/m20-sweep-corpus.jsonl holds CELL-LEVEL aggregates only — verified by a key census over all 1,376 rows, which found no mfe_r key on any row — and the emit JSONL is not committed anywhere. So the harness half of the M31 P4 parity check has no standing artifact and must be regenerated per comparison.",
+      "why_it_matters": "P4 Check B needs BOTH halves. Live soak depth is the widely-known blocker; this one is not, and a session that waits only for live depth will find the harness side still missing when the depth arrives. Cheap to fix, and cheap to be surprised by.",
+      "resolution_criteria": "Either a committed per-leg mfe_r distribution (percentiles + n, not raw rows — the corpus should not carry per-trade volume), or a documented one-command sweep re-run with --emit-trades that m31_mfe_parity.py consumes directly.",
+      "next_action": "Decide which, when P4 Check B is next attempted. Prefer the committed distribution: it is small, it versions with the corpus, and it does not need a sweep to be reproducible.",
+      "updates": []
     }
   ],
-  "updated_at": "2026-08-16"
+  "updated_at": "2026-08-17"
 }
