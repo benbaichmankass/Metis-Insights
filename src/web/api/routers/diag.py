@@ -1701,6 +1701,76 @@ def get_exposure(
     }
 
 
+@router.get("/position_telemetry")
+def get_position_telemetry(
+    request: Request,
+    limit: int = 500,
+    strategy: str | None = None,
+) -> dict[str, Any]:
+    """M31 **P3** — the read half of the position-telemetry record.
+
+    P2 shipped the writer and NOTHING read it back. That is the
+    ``exit_price_source`` shape this repo already paid for (written in 12 files,
+    branched on in one, and it produced a "-$6,358 exit leak" that did not
+    exist), and §8 of the M31 decisions doc names it as P3's own failure signal:
+    *"rows accruing a month with no consumer."* This route is the first
+    consumer.
+
+    It is deliberately **not** a second copy of
+    ``/api/bot/db/table/position_telemetry`` — that already dumps the rows. It
+    adds the three things the TABLE CANNOT SAY, resolved through
+    ``src.runtime.position_telemetry`` so this surface and ``/api/bot/positions``
+    can never drift into two answers:
+
+    * **``lifecycle``** — is this row FINAL? The table is UPSERT-on-
+      ``order_package_id`` with **no status column**: when a trade closes its row
+      simply stops being updated, so a closed row is byte-shaped like an open
+      one. The only in-table hint is a staler ``updated_at``, which is **not a
+      signal** — a quiet leg and a closed leg both go stale. Measured 2026-08-17:
+      14 rows, **13 open + 1 closed**, and the closed one (trade 4697,
+      ``trend_donchian_sol_4h``) was findable only via this join. Four states,
+      never collapsed: ``open`` / ``closed`` / ``unknown_no_trade_id`` (the
+      package never filled) / ``unknown_trade_absent`` (a trade id the trades
+      table does not have). The durable fix is a terminal writer
+      (``PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT``, **Tier-2**); this is
+      the read-side mitigation.
+    * **``peak_pct_of_cap``** — how close the trade EVER got to its venue
+      ceiling. The stored ``pct_of_cap`` is computed from ``open_r``, i.e. where
+      it is NOW. Both are right for what they name; only this one answers "was
+      the ceiling ever approached", which is the M31 P4 Check-A quantity.
+    * **``arm_reach``** — can this row's declared lever arm be reached under
+      this row's own ceiling at all? ``arm_r > cap_r`` means the lever cannot
+      fire on this trade however it goes
+      (``BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP``). Four
+      states: ``reachable`` / ``unreachable`` / ``no_arm_declared`` /
+      ``unmeasured``.
+
+    ⚠️ **``peak_r`` is a LOWER BOUND on true MFE, on every row** — the last
+    write precedes the close by up to one exit-loop pass, and a bar extreme
+    cannot see an intrabar excursion (hence ``peak_provenance: estimated``,
+    never ``measured``). ``peak_r_is_lower_bound: true`` is stamped on every row
+    so a consumer cannot average or gate on it without meeting that fact.
+
+    Read ``summary.final_rows`` beside any distribution claim — the
+    ``max_multiple``/``measured_n`` discipline. A statistic over closed rows is
+    not a statistic over the fleet.
+
+    **Observe-only.** Reads one read-only SQLite connection, opens no socket,
+    places no order, and cannot refuse a trade. A lever that READS this to
+    change an exit is **M31 P5 and Tier-3**. Tier 1, token-gated.
+    """
+    _require_diag_token(request)
+    try:
+        from src.runtime.position_telemetry import read_records
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503
+        logger.warning("get_position_telemetry: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "telemetry_unavailable", "detail": str(exc)},
+        ) from exc
+    return read_records(limit=limit, strategy=strategy)
+
+
 @router.get("/tick_cost")
 def get_tick_cost(request: Request) -> dict[str, Any]:
     """Per-tick wall-clock cost of the trader's hook chain (2026-08-09).
