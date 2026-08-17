@@ -18630,6 +18630,24 @@
         "#9866",
         "BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS"
       ]
+    },
+    {
+      "id": "BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED",
+      "opened_at": "2026-08-17",
+      "opened_by": "session 9952b154 (M20 exit-refinement)",
+      "area": "ci-guards",
+      "severity": "high",
+      "status": "open",
+      "tier": 1,
+      "title": "A system-action run can report conclusion=failure AFTER the action succeeded — re-running on that signal double-applies it",
+      "detail": "MEASURED 2026-08-17. system-actions run #7133 (id 32052273815, issue #9899, action=send-ping) reported conclusion=FAILURE. The action had SUCCEEDED: its own log carries '[send_ping_action] Enqueuing low ping to claude bot (2408 chars)', 'send_ping: queued 833199907633-low.json ... bot drains within ~5 s', and 'Wrapper exit code: 0'. The step that failed was the workflow POSTing its confirmation comment back to the issue: POST /repos/.../issues/9899/comments returned GitHub's own 5xx 'No server is currently available to service your request'. So the run is red, the issue stays OPEN with no comment, and BOTH of the signals an operator/session normally reads say 'this did not happen' while it did.\n\nWHY THIS IS FILED AT HIGH RATHER THAN AS A GITHUB BLIP. For send-ping the cost of believing the red is a duplicate ping — annoying, harmless. The same shape on a MUTATING action is not: the system-actions allowlist includes restart-bot-service, reboot-vm, set-account-mode, pull-and-deploy and the prop-report POST. A session that reads conclusion=failure and re-dispatches would DOUBLE-APPLY a live mutation on the money box. Nothing in the current docs warns that the confirmation comment and the action are independently fallible.\n\nTHE OPERATING RULE THIS BREAKS. docs/claude/system-actions.md + the session prompts say to confirm a system-action by READING THE WORKFLOW REPLY COMMENT for exit 0. That is precisely the artifact that cannot exist in this failure mode. The confirmation must come from the RUN LOG's 'Wrapper exit code:' line (get_job_logs with failed_only=true returns it even on a failed run), not from the comment and not from the run conclusion.\n\nThis is the repo's own 'unprovenanced diagnostic output' class, sub-class A: the label (run conclusion) names a quantity it did not measure (whether the action ran).",
+      "evidence": "Run 32052273815 log, job 95454243472: wrapper exit 0 + queued ping filename, then '##[error]Unhandled error: HttpError: No server is currently available to service your request' on the issues/9899/comments POST. Issue #9899 left open with zero comments. Contrast run #7129 (17:02Z, same action) which commented and closed normally.",
+      "resolution_criteria": "Two independent fixes, both wanted. (1) DOC: system-actions.md and the confirmation guidance must state that a run conclusion of failure does NOT mean the action did not run, and that the authoritative signal is the 'Wrapper exit code:' line in the run log — especially before re-dispatching any MUTATING action. (2) WORKFLOW: make the comment-back step resilient (retry on 5xx, and/or continue-on-error so a comment failure cannot mark a successful action red). Do NOT resolve this by making the workflow retry the ACTION on a comment failure — that is the double-apply bug this row exists to prevent.",
+      "refs": [
+        "#9899",
+        "#9896",
+        "#9898"
+      ]
     }
   ]
 }
