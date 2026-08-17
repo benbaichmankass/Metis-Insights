@@ -64,6 +64,34 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "m20_corpus.lever_in_baseline",
+        "producer": "scripts/research/m20_corpus_extract.py",
+        "producer_field": "lever_in_baseline",
+        "consumer_token": r"\blever_in_baseline\b|\blever_absent_from_baseline\b",
+        "states": ["lever_in_baseline", "lever_absent_from_baseline", "unknown"],
+        "why": (
+            "Once an exit lever is DECLARED on a leg, the fleet sweep's "
+            "baseline already runs it, so re-sweeping that lever returns "
+            "d_net_r == 0.0 on both windows under gate_reason "
+            "'tie_no_improvement' with wf_ran false. That is arithmetically "
+            "correct and byte-identical to a lever that WAS measured and does "
+            "nothing: 10 rows sit in the structural state while 192 OTHER rows "
+            "carry the SAME verdict string as genuine measured no-ops. Found "
+            "the dangerous way round — the newest live-parity row for "
+            "trend_donchian_xrp_4h/trail_decay, SHIPPED on real-money bybit_2, "
+            "reads is_oos_fail with every delta 0.0 on a healthy 108/34-trade "
+            "run, one query short of being reported as counter-evidence "
+            "against a live lever. `unknown` is a row predating "
+            "declared_levers_present and is NOT 'absent' — the baseline's "
+            "composition was never recorded, which is a different fact from "
+            "knowing the lever was out of it. The consumer branches all three "
+            "ways in m20_ack_corpus_disagreements.caveats_for, which is the "
+            "one place that writes a `ref` ASSERTING a measurement and so the "
+            "one place that must refuse to. "
+            "BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP."
+        ),
+    },
+    {
         "name": "position_telemetry.peak_state",
         "producer": "src/runtime/trail_decay.py",
         "producer_field": "peak_state",
