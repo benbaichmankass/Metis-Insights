@@ -73,15 +73,29 @@ def test_newer_incumbent_survives_a_stale_challenger():
 def test_the_incoming_always_wins_rule_would_drop_the_schema():
     """THE DEFECT, reproduced — this is what makes the test above meaningful.
 
-    Applying the extractor's artefacts→corpus rule (incoming supersedes) to the
-    same fixtures loses the eight measured keys.
+    Applies the extractor's artefacts→corpus rule (incoming supersedes,
+    unconditionally) to the SAME fixtures the real rule is asked about, and
+    asserts the eight measured keys are lost. A green suite for `union_rows`
+    proves nothing unless the wrong rule is shown to be wrong on these inputs.
     """
     incumbent = _row(stamp="2026-08-15T22:24:18Z", tp=True)
     challenger = _row(stamp="2026-08-13T01:23:57Z")
-    naive = {"x": challenger}  # "the side I am merging in wins"
-    assert _tp_count(naive["x"]) == 0, (
-        "expected the naive rule to yield the schema-less row; if it does not, "
-        "this fixture is not exercising the defect and the guard is unproven")
+
+    def _naive_union(into, incoming):
+        """`m20_corpus_extract.main`'s rule: every incoming key supersedes."""
+        from m20_corpus_extract import measurement_key
+        incoming_keys = {measurement_key(r) for r in incoming}
+        kept = [r for r in into if measurement_key(r) not in incoming_keys]
+        return kept + list(incoming)
+
+    naive = _naive_union([incumbent], [challenger])
+    real, _ = union_rows([incumbent], [challenger])
+
+    assert len(naive) == 1 and _tp_count(naive[0]) == 0, (
+        "expected the naive rule to drop the eight live_tp_reach_r_* keys; if "
+        "it does not, this fixture is not exercising the defect and the guard "
+        "above is unproven")
+    assert _tp_count(real[0]) == 8, "the real rule must keep them"
 
 
 def test_newer_challenger_does_win():
