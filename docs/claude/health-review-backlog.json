@@ -18293,7 +18293,7 @@
       "id": "BL-20260817-SWEEP-WORKFLOW-SPLIT-TARGET-DESC-STALE",
       "opened_at": "2026-08-17",
       "opened_by": "overnight M20 session (2026-08-16/17)",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": "1 — workflow input documentation. No behaviour change; the default itself is correct.",
       "title": "m20-exit-lever-sweep's `split_target_oos` input still documents an empty value as defaulting to MIN_OOS_TRADES (25); the script default has been 50 since #9748",
@@ -18301,7 +18301,13 @@
       "why_it_matters": "Field beats comment, and here the comment is the operator-facing one. The description tells a dispatcher that leaving the input empty 'targets exactly the number the verdict requires, so a shortfall of one trade lands below the floor' and that empty 'reproduces every pre-2026-08-14 run' — both were true and are now false. The concrete risk is misreading EVIDENCE, not just misconfiguring a run: a session reading this description would conclude that any default-configured sweep is pinned to the floor and therefore discount a clean verdict as configured-to-pass, or conversely treat an explicit `--split-target-oos 50` as a non-default override to be distrusted. I made exactly the second error tonight before checking the constant, and it nearly caused a real measurement to be written off.",
       "resolution_criteria": "The input description states the current default (50), says empty no longer reproduces pre-2026-08-14 runs, and keeps the distinction the constant's own comment makes: the FLOOR (MIN_OOS_TRADES, 'is this cell gradeable?') and the TARGET ('where do we cut?') are two different questions that previously shared one number, and that sharing was the bug (BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS).",
       "next_action": "One-line doc fix in the workflow input description. Deliberately not bundled into tonight's data-correction PR so the matrix change stays reviewable on its own.",
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-08-17",
+          "by": "overnight M20 session (2026-08-16/17)",
+          "note": "RESOLVED. Verified against the FIELD before editing the prose: `MIN_OOS_TRADES = 25` (:578) and `DEFAULT_SPLIT_TARGET_OOS = 50` (:603).\n\nTWO descriptions were stale, not the one this row named. Besides `split_target_oos`, the `split_mode` input also read 'DERIVES a per-leg date targeting ~25 OOS trades' — same drift, and arguably the more misleading of the two since `split_mode` is the input a dispatcher reads FIRST and it restates the floor as if it were the target. Found by grepping the workflow for the number rather than only patching the line the row cited.\n\nBoth now name the constant by name (so the next drift is greppable), state 50, keep the floor/target distinction the constant's own comment insists on ('Do NOT re-couple these to one constant'), and carry the correction this row called for: empty NO LONGER reproduces a pre-2026-08-14 run — pass 25 explicitly for that. The 25->50 cliff is preserved as being about the FLOOR, so nobody reads it as an argument against the 50 TARGET.\n\nBehaviour unchanged, as the row said: the workflow passes the flag only when set (`${SPLIT_TARGET_OOS:+...}`), so empty already yielded the script default. YAML re-parsed after the edit."
+        }
+      ],
       "area": "research-tooling",
       "detail": "Note the workflow is not WRONG in behaviour: it passes the input through only when set (`${SPLIT_TARGET_OOS:+--split-target-oos ...}`), so an empty input correctly yields the script default. Only the prose describing what that default IS has drifted."
     },
