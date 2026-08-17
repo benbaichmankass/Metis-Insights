@@ -16027,6 +16027,17 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Coverage has improved a lot — counted over the current matrix: 167 live_parity + 3 no_take_profit vs 246 absent (the rollup prints 166/376 = 44.1% recorded, 210 unrecorded) — and criterion (4) is met by `geometry_coverage()` (m20_coverage_rollup.py:1077-1102, reported with its denominator). Criteria (1) and (3) are not: the matrix `legend` block holds only the 7 status values (no tp_geometry entry, and `'tp_geometry' in _doc` is False), so absence still has no explicit name, and no guard requires every cell to carry one of the defined values. — Ends when the legend defines tp_geometry incl. an explicit `unrecorded`, and a guard (with a planted-omission self-test) rejects a silent cell."
+        },
+        {
+          "at": "2026-08-16",
+          "by": "overnight M20 session",
+          "what": "THREE OF THE FOUR CRITERIA ARE NOW MET. Recorded here so the next session reads the row's remaining scope instead of re-deriving it — the row's next_action was None while three quarters of it had quietly been done.",
+          "criterion_1_DONE": "`tp_geometry` is defined in the matrix, with absence explicitly named. Shipped in cb8bc5a2 (#9801) as the top-level `tp_geometry_legend` block: `_field`, `_why_it_exists`, `live_parity`, `no_take_profit`, and `ABSENT_means_unrecorded`. ⚠️ It is a TOP-LEVEL key, NOT inside `legend` — a probe looking in `legend` returns a confident false negative, which is exactly what mine did before I checked the denominator.",
+          "criterion_2_OPEN": "Stamping the cells is NOT done and is the whole remaining scope. 210 of 376 live cells carry no value. It must not be guessed from dates — that is the proxy-trusting error this row exists for.",
+          "criterion_3_DONE": "A guard now asserts it, with the planted-omission self-test the criterion demands. `m20_coverage_rollup._validate_tp_geometry`, run by the existing `exit-coverage-matrix-guard` (`--check`), does two things: every PRESENT value must be a legend value, and the unstamped count may not GROW against `tp_geometry_legend._unstamped_ceiling` (210, measured). The ratchet is what makes the criterion enforceable TODAY — an 'every cell must be stamped' assertion would fail on the current file and could only ship switched off, and a guard nobody can turn on is worth less than no guard. `tests/test_m20_tp_geometry_guard.py`: 8 tests, including un-stamping a cell, a null stamp, an invented value, a missing ceiling, and an unreadable legend — the last two asserting 'unchecked' rather than 'clean'. It also pins that STAMPING a cell does not fail the ratchet, so the guard cannot punish progress.",
+          "criterion_4_DONE": "The roll-up already reports geometry coverage as a fraction with its denominator, the rCoverage/pnlCoverage way: `recorded: 166/376 = 44.1%   unrecorded: 210`.",
+          "denominators_differ_deliberately": "The guard and ceiling count LIVE cells (376); `tp_geometry_legend._coverage_2026_08_16` counts ALL cells (416). Both are correct and neither should be 'harmonised' — state which population before quoting either.",
+          "still_kept_open": "Criterion (2) alone. Do not close this row on the guard: the ratchet bounds a known-bad population, it does not shrink it, and a passing ratchet is NOT evidence that geometry coverage is fine."
         }
       ],
       "measured_again_2026_08_16": {
