@@ -64,23 +64,36 @@ unquantified amount (§ 4) while looking like a refactor.
 `position_telemetry.peak_r` is a **LOWER BOUND on true MFE**: the last write
 precedes the close by up to one exit-loop pass, and a bar extreme cannot see an
 intrabar excursion (hence `peak_provenance: estimated`, never `measured`). The
-size of that gap is **unquantified**, and it does not shrink with soak — it
-closes only when a terminal writer exists
-(`PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT`, Tier-2).
+size of that gap is **unquantified**, and it does not shrink with soak.
 
-Related and already mitigated on the read side: the table carries no finality
-marker, so a closed row is byte-shaped like an open one. M31 P3's readers add a
-never-collapsed `lifecycle` via the `trades` join — but a **lever** must not
-depend on a join to know whether the trade it is acting on is still live.
+⚠️ **The terminal writer NARROWED this and did not close it** (shipped
+2026-08-17 — see § 5.1). An earlier draft of this section said the gap "closes
+only when a terminal writer exists", which overstated what that change does: the
+stamp records *when we observed finality*, not a re-measured peak, so
+`peak_r_is_lower_bound` stays `true` on stamped rows too. **Quantifying the
+residual is still open work**, and it remains the reason a `peak_r`-driven
+giveback lever is deliberately not first.
+
+The *other* half of this blocker IS closed: the table now carries an explicit
+finality marker, so a lever no longer has to join `trades` to know whether the
+trade it is acting on is still live.
 
 ## 5. Preconditions — falsifiable, in order
 
 P5 may be proposed for approval when **all** hold. Each is checkable, not a
 judgement call:
 
-1. **`PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT` is closed** (Tier-2), so
-   finality is a stamped fact and `peak_r`'s lower-bound gap is closed or
-   measured.
+1. ✅ **MET 2026-08-17 (partially — read the caveat).**
+   `PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT` is closed: `update_trade`
+   stamps `terminal_state='final'` + `terminal_at` on close, never overwriting
+   an existing stamp and never inserting a row, and readers publish a four-state
+   `finality_source` (`stamped` / `derived_join` / `not_final` / `unknown`)
+   registered with `collapsed-state-guard`. **Finality is now a stamped fact.**
+   ⚠️ The precondition as originally worded also asked for `peak_r`'s
+   lower-bound gap to be *"closed or measured"* — it is **neither**; see § 4.
+   A lever that does not read `peak_r` (the `rr_from_here` floor proposed here)
+   is unaffected; a `peak_r`-driven lever is still blocked on this.
+   Sprint log: `docs/sprint-logs/S-M31-TERMINAL-STAMP-2026-08-17.md`.
 2. **P4 Check B returns `compared` on at least one leg** — i.e.
    `scripts/research/m31_mfe_parity.py` finds ≥ 8 final live rows for a leg AND
    a harness `mfe_r` distribution for it, and reports `parity: consistent`.
@@ -121,7 +134,12 @@ worse than none: it reads as coverage.
 
 ## 8. Recommendation
 
-**Do not ship a P5 lever now.** Close the Tier-2 terminal writer, let the soak
-reach Check B's floor, run the walk-forward, then bring the exact diff for
-approval. M31's other four phases are complete and the milestone's value —
+**Do not ship a P5 lever now.** The Tier-2 terminal writer is done (2026-08-17,
+precondition 1); **precondition 2 is the binding one and it is a data-accrual
+problem the writer does not solve** — it makes future closes gradeable without a
+join, but it creates no closed trades, and the fleet-wide final population is
+still n=1. So: let the soak reach Check B's floor, run the walk-forward
+(precondition 3 — the only remaining item that is *runnable work* rather than
+waiting, and a failure there would retire this candidate outright), then bring
+the exact diff for approval. M31's other four phases are complete and the milestone's value —
 making the exit-lever programme *checkable* — is already delivered without P5.
