@@ -18278,6 +18278,22 @@
       "updates": [],
       "area": "research-tooling",
       "detail": "Note the workflow is not WRONG in behaviour: it passes the input through only when set (`${SPLIT_TARGET_OOS:+--split-target-oos ...}`), so an empty input correctly yields the script default. Only the prose describing what that default IS has drifted."
+    },
+    {
+      "id": "BL-20260817-GUARD-SELFTESTS-PLANT-PROBE-FILES-IN-THE-LIVE-REPO-TREE",
+      "opened_at": "2026-08-17",
+      "opened_by": "overnight M20 session (2026-08-16/17)",
+      "status": "open",
+      "severity": "low",
+      "tier": "1 — CI self-test hygiene. No live path.",
+      "title": "guard_selftests.py plants its planted-failure probes into the real working tree (deploy/, scripts/ml/), so a hard kill strands a file that then fails an unrelated guard and is one `git add -A` from being committed",
+      "source": "Hit directly on 2026-08-17: a scripts/ci/run_guards.py invocation returned `::error::deploy/ict-selftest-unlisted.timer is neither in _CANONICAL_UNITS nor exempted` while a concurrent pytest run held the probe open. The file was gone seconds later and was never tracked — verified with `git ls-files` and by reading the commit's own --stat — but the next command in that sequence was `git add -A`.",
+      "why_it_matters": "The planted-failure design is RIGHT and must not be weakened — `selftest_diag_unit_allowlist` exists precisely because a guard nobody has seen fail is indistinguishable from a probe that cannot fire, which is the same lesson tests/test_m20_tp_geometry_guard.py encodes. The problem is only WHERE the probe lands. `scripts/ci/guard_selftests.py:162` writes `deploy/ict-selftest-unlisted.timer` into the repo, and `selftest_diagnostic_provenance` does the same with `scripts/ml/_selftest_probe.py`; the `_planted` context manager cleans up on normal exit and on exceptions, but by construction cannot on SIGKILL, a runner timeout, or a cancelled workflow. Two consequences, one confusing and one worse: (a) a stranded probe makes the NEXT guard run fail with an error naming a unit nobody added, which reads as a real finding and costs a session time to dismiss; (b) `deploy/` is a tracked directory, so `git add -A` — the idiom used throughout this repo's sessions — would commit the probe, and the diag-allowlist guard would then fail on main until someone noticed. Note the same file's own sibling already does this correctly: `selftest_diagnostic_provenance` writes its DIFF to `tempfile` while still planting its source probe in-tree, so the safer pattern is present in the same function and simply was not applied to the probe itself.",
+      "resolution_criteria": "OBSERVABLE: no self-test writes a probe into a tracked directory, OR the guards that scan those directories skip a reserved probe name and a test demonstrates the skip does not also blind them to a real unlisted unit (that demonstration is the load-bearing half — a skip pattern wide enough to swallow real findings would be worse than the current state). A cheap alternative that preserves the design: point the guard at a temp directory via the argument it already takes, so the probe never touches the repo.",
+      "next_action": "Not fixed here — filed with the direct observation so it is not re-derived from a confusing error message by a future session. Low severity because the window is small and nothing was actually committed; kept open because the failure mode is a wrong-looking CI failure on main, which is expensive out of proportion to the bug.",
+      "updates": [],
+      "area": "ci-tooling",
+      "detail": "Worth noting the near-miss ordering explicitly: the stray file appeared in a guard run, and the very next command in the same session was `git add -A && git commit`. That commit turned out clean (verified by reading `git show --stat`, not by assuming), but only because the probe's cleanup had already run. Reading the commit's file list rather than trusting the guard output is what established it."
     }
   ]
 }
