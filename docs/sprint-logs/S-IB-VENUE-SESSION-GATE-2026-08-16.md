@@ -155,8 +155,40 @@ one thing about this sprint's own change that remains unverified.
 - Tests + guards green; CI green on every merge. ✅
 - Docs reconciled; `canonical-doc-coherence` and the mechanical scans clean. ✅
 - Every open item filed with severity, tier and resolution criteria. ✅
-- **Not verified live:** the gate has never executed. Stated everywhere it is
-  claimed, and not reported as working. ⚠️
+- ✅ **VERIFIED LIVE 2026-08-17T17:01Z** (superseding this line's earlier
+  "not verified live" caveat, which stood while the gate had never executed).
+  Verification did NOT come from a close — four checks over ~24h found zero
+  closes attempted, which is structural, not bad luck. It came from
+  `GET /api/diag/venue_session`, shipped in #9884 for exactly this purpose,
+  read through the diag relay against the live VM. Verbatim, both IB futures:
+
+  | field | MGC | MES |
+  |---|---|---|
+  | `state` | `open` | `open` |
+  | `tz_source` | `zoneinfo` | `zoneinfo` |
+  | `time_zone_id` / `tz_resolved_name` | `US/Eastern` / `US/Eastern` | `US/Central` / `US/Central` |
+  | `graded_field` | `tradingHours` | `tradingHours` |
+  | `close_would_send_outside_rth` | `true` | `true` |
+  | `read_state` | `session_read` | `session_read` |
+
+  MGC `reason`: `tradingHours: inside 20260816 18:00-20260817 17:00 US/Eastern`.
+
+  ⚠️ **THIS REFUTES A PREMISE STATED THROUGHOUT THIS SPRINT.** The sprint argued
+  the live risk was that `US/Eastern`/`US/Central` are tzdata legacy links absent
+  from slim installs, measured by `zoneinfo` raising for both in the repo's
+  sandbox, with `pytz` expected to carry the VM. On the VM it does not need to:
+  `tz_source` is `zoneinfo` and `tz_resolved_name` equals the RAW id for both, so
+  the **first** rung resolved directly and the pytz fallback was never consulted.
+  The sandbox measurement was correct about the sandbox and was wrongly
+  generalised to the VM. The alias map and the pytz rungs stay — they are
+  defensive, they are load-bearing in the sandbox (dropping the alias map fails
+  12 of 16 parser tests), and a future host may well be slim — but they must not
+  be described as what makes the live gate work. They are not.
+
+  Also confirmed by the same read: the parser handles a real IBKR overnight span
+  (Sunday 18:00 ET → Monday 17:00 ET) against live data, and `graded_field` is
+  `tradingHours` with `outsideRth` true for FUT — each instrument graded on the
+  field its own order acts on. ✅
 - **Nine corrections were issued this session**, three of them caught only because
   a guard or a merge conflict forced a re-read. The durable record is more
   reliable than this session's recall; a successor should brief from the backlog
