@@ -6151,6 +6151,7 @@ def _emit_target_naked_alert(
     stop_qty: Any,
     declared_tp: Any,
     trade_id: Any,
+    venue: str = "ib",
 ) -> bool:
     """Page the operator that a position has a declared TP and no target at the
     broker. Rate-limited per (account, symbol). Returns whether it alerted.
@@ -6170,7 +6171,10 @@ def _emit_target_naked_alert(
         from src.runtime.outcomes import Level, report
 
         report(
-            "ib_target_naked",
+            # Venue-scoped, because an Alpaca condition reported under an
+            # `ib_` event name is the same mislabel class this whole fix is
+            # about. `venue="ib"` preserves the original name exactly.
+            f"{venue}_target_naked",
             "detected",
             level=Level.CRITICAL,
             reason=(
@@ -6443,6 +6447,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
     """
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0,
+        # Graded SEPARATELY from the stop side, mirroring the IB sweep: a
+        # position can be fully stop-covered and hold no take-profit at all
+        # (BL-20260816-COVERAGE-IS-ONE-SIDED). Alerted, never re-armed.
+        "target_naked": 0,
     }
     try:
         from src.bot import data_loaders
@@ -6506,9 +6514,34 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             client = clients[account_id]
             if client is None:
                 continue
-            protected = client.has_protective_orders(symbol)
-            if protected is None or protected:
-                continue  # read failure (skip) or already protected
+            # Sides graded SEPARATELY. `has_protective_orders` returns True for
+            # a stop-only book, so consuming it here read "protected" over a
+            # position that can only stop out or run — the Alpaca half of
+            # BL-20260816-COVERAGE-IS-ONE-SIDED, over 13 live positions.
+            state = client.protection_state(symbol)
+            if state is None:
+                continue  # read failure — never act on an unconfirmed read
+            if state.get("target") is False and row["take_profit_1"] not in (None, 0):
+                # TARGET-naked while the journal DECLARES a take-profit. Alert,
+                # do NOT re-arm: a missing stop is a safety gap worth closing
+                # blind, but a target is decision-time geometry a repair must
+                # read rather than invent, and placing one is an order the
+                # strategy did not ask for at this instant. Same split the IB
+                # sweep makes; the repair wire is the `attach-ib-target`
+                # action's Alpaca analogue, not this sweep.
+                summary["target_naked"] += 1
+                _emit_target_naked_alert(
+                    account_id=account_id,
+                    symbol=symbol,
+                    size=_safe_float(row["position_size"]) or 0.0,
+                    target_qty=0.0,          # zero TP legs rest on this symbol
+                    stop_qty=None,           # Alpaca grades sides, not qty
+                    declared_tp=row["take_profit_1"],
+                    trade_id=row["id"],
+                    venue="alpaca",
+                )
+            if state.get("stop"):
+                continue  # stop side is armed — nothing for THIS pass to do
             summary["broker_naked"] += 1
             sl = row["stop_loss"]
             tp = row["take_profit_1"]
@@ -6555,21 +6588,35 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     broker-naked (the 2026-07-09 MGC monitor-blind incident: the alert claimed
     "Broker SL/TP backstop still holds" with no way to VERIFY it). This pass
     closes that gap: for each open, past-grace IB position it asks the broker
-    whether a resting protective leg exists (``IBClient.has_protective_orders``,
+    **how much protection actually rests** (``IBClient.protection_coverage``,
     an account-wide ``reqAllOpenOrders`` read) and, when none does, re-arms a
     GTC OCA via :func:`_attempt_naked_autoprotect` (the SAME re-arm path the
     reconciler and DB-naked check use).
+
+    .. note:: This docstring named ``IBClient.has_protective_orders`` until
+       2026-08-16. That is a DIFFERENT accessor — a boolean "does any leg
+       rest?" — and the body has never called it here. The distinction is the
+       whole of ``BL-20260816-COVERAGE-IS-ONE-SIDED``: the boolean answers
+       ``True`` for a stop-only book, so naming it invited exactly the reading
+       that let two live positions sit target-naked. Coverage is a QUANTITY,
+       and since 2026-08-16 a TWO-SIDED one — ``stop_qty`` and ``target_qty``
+       are returned separately, because a stop and a take-profit are not
+       interchangeable.
 
     **Cadence-gated** (build constraint 1): the account-wide IB order read is
     NOT run every monitor tick — it runs at most once per
     ``_ib_broker_naked_check_interval_seconds`` to stay clear of the IB
     tick-latency / pacing wedge class (BL-20260609). A read failure
-    (``has_protective_orders`` → ``None`` — breaker open, gateway wedged,
+    (``protection_coverage`` → ``None`` — breaker open, gateway wedged,
     ambiguous) is skipped: a transient outage must never be read as naked
     (build constraint 3, fail-safe: never PLACE on an unconfirmed read). Never
     raises.
 
-    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped"}``.
+    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped",
+    "partially_naked", "ungradeable", "read_failed", "covered",
+    "target_naked"}``. The last five were previously undocumented; a caller
+    reading the old five-key contract would have missed ``target_naked``
+    entirely, which is the one this sweep exists to surface.
     """
     global _LAST_IB_BROKER_NAKED_CHECK_MONO
     summary: Dict[str, int] = {

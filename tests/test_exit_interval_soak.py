@@ -136,3 +136,61 @@ def test_record_is_json_serialisable(_iso, monkeypatch):
     for line in raw:
         obj = json.loads(line)
         assert "logged_at_utc" in obj and "process_started_utc" in obj
+
+
+# ---------------------------------------------------------------------------
+# The READ SURFACE. #9627 shipped the writer + `read_soak_records` and
+# registered only `/api/diag/log_file?name=exit_interval_soak`, which returns a
+# raw TAIL of lines and never the `summary`. So `summary.max_interval_ms` — the
+# cross-process maximum the whole module exists to produce — was computed on
+# every read and reachable by nobody
+# (BL-20260816-EXIT-INTERVAL-SOAK-SUMMARY-HAS-NO-READ-SURFACE).
+#
+# It was caught during live verification: establishing the cross-process max
+# meant paging the entire file out through the diag tail and re-implementing the
+# aggregation by hand — which is exactly the reader-side windowing bias
+# `read_soak_records` computes over the whole file to avoid.
+#
+# No sibling soak route has a mount test either, which is part of why a missing
+# one was invisible. This asserts the mount rather than the handler body.
+# ---------------------------------------------------------------------------
+
+
+def test_exit_interval_soak_route_is_declared_and_mounted():
+    """The summary must be reachable over HTTP, not just computable in-process.
+
+    Asserted in two halves, and deliberately NOT by importing the FastAPI app:
+    that import needs `email-validator`, which is absent in some environments, so
+    a test written against it would SKIP rather than fail — and a skipped mount
+    test is how a missing route stays invisible in the first place. The source
+    check is environment-independent and catches the exact failure mode: a router
+    written and never wired in.
+    """
+    from pathlib import Path
+
+    from src.web.api.routers import exit_interval as route_mod
+
+    declared = {getattr(r, "path", None) for r in route_mod.router.routes}
+    assert "/api/bot/exit-interval/soak" in declared, declared
+
+    main_src = Path("src/web/api/main.py").read_text(encoding="utf-8")
+    assert "exit_interval as exit_interval_router" in main_src, "router not imported"
+    assert "include_router(exit_interval_router.router)" in main_src, "router not mounted"
+
+
+def test_exit_interval_soak_route_returns_the_summary(tmp_path, monkeypatch):
+    """Mounting is not enough: the route must return `summary`, which is the
+    field a `log_file` tail structurally cannot provide."""
+    from src.web.api.routers import exit_interval as route_mod
+
+    for pms, ivms in ((10.0, None), (20.0, 55000.0)):
+        s.record_exit_interval(s.build_exit_interval_record(
+            interval_ms=ivms, pass_ms=pms, requirement_s=60.0,
+            process_started_utc="2026-01-01T00:00:00+00:00",
+        ))
+    out = route_mod.exit_interval_soak(limit=50, breached_only=False)
+
+    assert out["present"] is True
+    assert out["summary"]["max_interval_ms"] == 55000.0
+    assert out["summary"]["intervals_measured"] == 1
+    assert out["summary"]["processes_seen"] == 1

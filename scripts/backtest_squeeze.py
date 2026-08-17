@@ -40,6 +40,10 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule)
+    effective_trail_mult,
+    vol_trail_armed,
+)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
@@ -122,7 +126,11 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                  tp_cap_pct: float = 0.0,
                  tp_r: float = 50.0,
                  giveback_min_mfe_r: float = 0.0,
-                 giveback_r: float = 1.0) -> Dict[str, Any]:
+                 giveback_r: float = 1.0,
+                 vol_pctl_window: int = 200,
+                 trail_vol_above_pctl: float = 0.0,
+                 trail_vol_below_pctl: float = 0.0,
+                 trail_vol_tight_mult: float = 0.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     basis = df["close"].rolling(bb_period).mean()
@@ -137,6 +145,18 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
     df["_sqz_prev"] = sqz_on.shift(1)
     df["_sqz_now"] = sqz_on
     df["_basis"] = basis
+    # M20-X vol-conditional trail. The percentile series is built ONCE and only
+    # when the lever is declared: `min_periods=vol_pctl_window` leaves the
+    # leading window NaN, which `effective_trail_mult` treats as inert rather
+    # than as a percentile of 0 — an unfilled window is "we cannot rank this
+    # bar yet", not "this bar is calm".
+    vol_trail_on = vol_trail_armed(trail_vol_tight_mult,
+                                   trail_vol_above_pctl,
+                                   trail_vol_below_pctl)
+    atr_pctl = None
+    if vol_trail_on:
+        atr_pctl = df["atr"].rolling(vol_pctl_window,
+                                     min_periods=vol_pctl_window).rank(pct=True)
     trades: List[Trade] = []
     # Per-entry live-TP distance in R; empty when the lever is off.
     _tp_r_effective: List[float] = []
@@ -204,7 +224,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     exit_reason = "take_profit"
                     break
                 ext = max(ext, bh)
-                trail = max(trail, ext - trail_mult * atr)
+                trail = max(trail, ext - effective_trail_mult(
+                    trail_mult, 0.0, 0, False, 0.0, 0, 0.0,
+                    vol_trail_on, atr_pctl, j, trail_vol_above_pctl,
+                    trail_vol_below_pctl, trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
             else:
                 if bh >= trail:
@@ -216,7 +239,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     exit_reason = "take_profit"
                     break
                 ext = min(ext, bl)
-                trail = min(trail, ext + trail_mult * atr)
+                trail = min(trail, ext + effective_trail_mult(
+                    trail_mult, 0.0, 0, False, 0.0, 0, 0.0,
+                    vol_trail_on, atr_pctl, j, trail_vol_above_pctl,
+                    trail_vol_below_pctl, trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
             # M20 exit levers (default 0 = off, byte-identical): checked at
             # bar close, never pre-empting the intrabar trail hit above —
@@ -281,7 +307,11 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"bb_period": bb_period, "bb_std": bb_std,
                               "kc_mult": kc_mult, "atr_stop_mult": atr_stop_mult,
-                              "trail_mult": trail_mult, "min_confidence": min_confidence})
+                              "trail_mult": trail_mult, "min_confidence": min_confidence,
+                              "vol_pctl_window": vol_pctl_window,
+                              "trail_vol_above_pctl": trail_vol_above_pctl,
+                              "trail_vol_below_pctl": trail_vol_below_pctl,
+                              "trail_vol_tight_mult": trail_vol_tight_mult})
 
 
 def _fee_only_r(t: Trade) -> float:
@@ -519,6 +549,24 @@ def main(argv):
                    help="M20 giveback-stop: arm once peak open profit reaches this many R (0=off).")
     p.add_argument("--giveback-r", type=float, default=1.0,
                    help="Close at bar close once the trade gives back this many R from its peak.")
+    # M20-X vol-conditional trail. Flag SPELLINGS match backtest_trend.py /
+    # backtest_pullback.py exactly, because m20_fleet_exit_sweep builds one argv
+    # per lever cell and hands it to whichever harness the family maps to — a
+    # divergent spelling here would make the squeeze family silently unreachable
+    # again, which is the `blocked:no_harness_levers` state this closes.
+    p.add_argument("--trail-vol-above-pctl", type=float, default=0.0,
+                   help="M20-X vol trail: tighten on bars whose trailing ATR "
+                        "percentile exceeds this (0=off).")
+    p.add_argument("--trail-vol-below-pctl", type=float, default=0.0,
+                   help="M20-X vol trail: tighten on bars whose trailing ATR "
+                        "percentile falls below this (0=off).")
+    p.add_argument("--trail-vol-tight-mult", type=float, default=0.0,
+                   help="Trail mult in force on a gated bar. Composes with the "
+                        "base trail by MINIMUM — tightest wins. 0=off, so a "
+                        "tail without a tight mult is NOT a declaration.")
+    p.add_argument("--vol-pctl-window", type=int, default=200,
+                   help="Lookback for the ATR-percentile rank. The leading "
+                        "window is left undefined rather than ranked as calm.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None)
     a = p.parse_args(argv[1:])
@@ -547,7 +595,11 @@ def main(argv):
                      stale_exit_below_r=a.stale_exit_below_r,
                      tp_cap_pct=a.tp_cap_pct, tp_r=a.tp_r,
                      giveback_min_mfe_r=a.giveback_min_mfe_r,
-                     giveback_r=a.giveback_r)
+                     giveback_r=a.giveback_r,
+                     vol_pctl_window=a.vol_pctl_window,
+                     trail_vol_above_pctl=a.trail_vol_above_pctl,
+                     trail_vol_below_pctl=a.trail_vol_below_pctl,
+                     trail_vol_tight_mult=a.trail_vol_tight_mult)
     if a.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(a.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))

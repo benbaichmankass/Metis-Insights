@@ -97,6 +97,47 @@ def cap_r(entry: Optional[float], risk: Optional[float],
     return cap_pct * e / rk
 
 
+def r_distances(*, price: Optional[float], stop: Optional[float],
+                target: Optional[float], risk: Optional[float],
+                is_long: bool) -> tuple:
+    """The ONE definition of ``(r_to_stop, r_to_target, rr_from_here)``.
+
+    Extracted from ``build_record`` (which now calls it) so that the BACKTEST
+    HARNESS can compute the identical quantity instead of re-deriving it.
+    ``scripts/backtest_trend.py`` imports this for its ``rr_floor`` lever — the
+    M31 P5 candidate — and the sibling of ``src/research/trail_levers.py`` ("the
+    ONE trail-lever rule") and ``src/runtime/execution_costs.py`` ("the ONE
+    shared cost model"), for the same reason those exist.
+
+    A second derivation would be the exact defect M31 was created to close —
+    *the harness measured a book production does not run* — and it would be
+    invisible, because both copies would look correct in isolation.
+
+    ``rr_from_here`` is ``None`` unless BOTH legs sit the correct side of price
+    (``r_to_stop > 0``, ``r_to_target >= 0``). A negative leg means the level is
+    already crossed, so the ratio would be a sign artefact rather than a
+    decision input. ``None`` here is *"not meaningful"*, never 0.0.
+
+    ⚠️ **Unbounded above as ``r_to_stop`` → 0.** Live, the fleet's only closed
+    telemetry row sat 0.0337R from its stop and reported **201.87**, 19.6× the
+    next value across the same 14 rows. Grade a lever on the DECISION it makes;
+    do not fit a floor over the raw ratio's mean/variance/unwinsorised quantile,
+    which near-stop rows dominate
+    (``docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md`` § 3.1).
+    """
+    r_to_stop = r_to_target = rr = None
+    px, stop_f, target_f = _f(price), _f(stop), _f(target)
+    if risk and risk > 0 and px is not None:
+        if stop_f is not None:
+            r_to_stop = ((px - stop_f) if is_long else (stop_f - px)) / risk
+        if target_f is not None:
+            r_to_target = ((target_f - px) if is_long else (px - target_f)) / risk
+        if (r_to_stop is not None and r_to_target is not None
+                and r_to_stop > 0 and r_to_target >= 0):
+            rr = r_to_target / r_to_stop
+    return r_to_stop, r_to_target, rr
+
+
 def build_record(
     *,
     open_pkg: Dict[str, Any],
@@ -145,19 +186,11 @@ def build_record(
             pct_of_cap = 100.0 * open_r / ceiling
 
         # Distances in R from HERE — the quantities a hold/close decision needs.
-        stop_f, target_f = _f(stop), _f(target)
-        r_to_stop = r_to_target = rr_from_here = None
-        if risk and risk > 0 and px is not None:
-            if stop_f is not None:
-                r_to_stop = ((px - stop_f) if is_long else (stop_f - px)) / risk
-            if target_f is not None:
-                r_to_target = ((target_f - px) if is_long else (px - target_f)) / risk
-            # Only meaningful while BOTH sit the correct side of price; a
-            # negative leg means the level is already crossed and the ratio
-            # would be a sign artefact, not a decision input.
-            if (r_to_stop is not None and r_to_target is not None
-                    and r_to_stop > 0 and r_to_target >= 0):
-                rr_from_here = r_to_target / r_to_stop
+        # Delegated to `r_distances` so the backtest harness computes the
+        # IDENTICAL quantity rather than a second derivation of it; see that
+        # function's docstring for why that matters here specifically.
+        r_to_stop, r_to_target, rr_from_here = r_distances(
+            price=px, stop=stop, target=target, risk=risk, is_long=is_long)
 
         giveback_r = None
         if peak_r is not None and open_r is not None:
@@ -323,3 +356,228 @@ def record_position_telemetry(**kwargs) -> Optional[Dict[str, Any]]:
         if rec is not None:
             write_record(rec, db_path=db_path)
         return rec
+
+
+# ---------------------------------------------------------------------------
+# M31 P3 — THE READ HALF.
+#
+# P2 shipped the writer and nothing read it back, which is the `exit_price_source`
+# shape this repo already paid for once (written in 12 files, branched on in one).
+# These helpers are the single owner of "what does a telemetry row MEAN", so the
+# diag surface and `/api/bot/positions` cannot drift into two answers.
+#
+# They add the three things the TABLE CANNOT SAY:
+#
+#   1. `lifecycle` — whether the row is FINAL. The table is UPSERT-on-
+#      `order_package_id` with no status: when a trade closes the row simply
+#      stops being updated, so a closed row is byte-shaped like an open one and
+#      the only in-table hint is a staler `updated_at`, which is NOT a signal
+#      (a quiet leg and a closed leg both go stale). Measured 2026-08-17: 14
+#      rows, 13 open + 1 closed, and the closed one was findable only by this
+#      join. The durable fix is a terminal writer
+#      (`PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT`, Tier-2); this is the
+#      read-side mitigation, and it is why every consumer must ask here rather
+#      than eyeball `updated_at`.
+#   2. `peak_pct_of_cap` — how close the trade EVER got to its venue ceiling.
+#      The stored `pct_of_cap` is computed from `open_r`, i.e. where it is NOW.
+#      Both are correct for what they name; only one answers "was the ceiling
+#      ever approached", which is the M31 P4 Check-A quantity.
+#   3. `arm_reach` — whether this row's declared lever arm is even reachable
+#      under this row's own ceiling. `arm_r > cap_r` means the lever cannot fire
+#      on this trade however it goes. Tracking id on its own line, NEVER
+#      wrapped — a line-broken id resolves to nothing and reads as tracked
+#      while being tracked by nobody (artifact-validity-guard caught exactly
+#      that on this file's first commit):
+#      BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP
+#
+# Still observe-only: a lever that READS any of this to change an exit is P5
+# and Tier-3.
+# ---------------------------------------------------------------------------
+
+#: Is this row FINAL? Never collapsed — "we could not tell" is not "still open".
+LIFECYCLE_STATES = (
+    "open",                   # the joined trade is open: peak_r is a PARTIAL
+    "closed",                 # the joined trade is closed: peak_r is final-ish
+    "unknown_no_trade_id",    # the package never filled / carries no trade id
+    "unknown_trade_absent",   # a trade_id that the trades table does not have
+)
+
+#: WHICH evidence decided finality. A stamped fact and a derived inference must
+#: never be reported as the same thing — a pre-migration row can only ever be
+#: `derived_join`, and reading that as `stamped` would overstate the record.
+FINALITY_SOURCES = (
+    "stamped",        # the close path wrote terminal_state='final' — no join needed
+    "derived_join",   # inferred from trades.status (pre-stamp rows, and backfill gaps)
+    "not_final",      # the trade is open: there is no finality to source
+    "unknown",        # neither available
+)
+
+#: Can the declared arm be reached under this row's own venue ceiling?
+ARM_REACH_STATES = (
+    "reachable",         # arm_r <= cap_r on this row
+    "unreachable",       # arm_r  > cap_r — the lever cannot fire on this trade
+    "no_arm_declared",   # the row declares no R-threshold lever
+    "unmeasured",        # arm or cap missing: we could not look
+)
+
+
+def enrich_record(row: Dict[str, Any],
+                  trade_status: Optional[str],
+                  trade_seen: bool) -> Dict[str, Any]:
+    """Annotate one telemetry row. Pure; never raises.
+
+    ``trade_seen`` is passed separately from ``trade_status`` on purpose: a
+    missing status and an absent trade are different facts, and folding them
+    into one nullable string is the collapse this function exists to avoid.
+    """
+    out = dict(row)
+
+    # THE STORED STAMP WINS. `terminal_state='final'` is written by the close
+    # path (`Database._stamp_telemetry_terminal`, M31 P5 precondition 1), so a
+    # stamped row is final WITHOUT the trades join — which is the whole point:
+    # anything reading the table directly (Data Explorer, an ad-hoc query, a
+    # future lever) previously could not tell a closed row from an open one.
+    # `finality_source` says WHICH evidence decided, so a stamped fact and a
+    # derived inference are never reported as the same thing.
+    stamped = str(row.get("terminal_state") or "").strip().lower() == "final"
+    tid = row.get("trade_id")
+
+    if stamped:
+        out["lifecycle"] = "closed"
+        out["finality_source"] = "stamped"
+    elif tid is None or str(tid).strip() == "":
+        out["lifecycle"] = "unknown_no_trade_id"
+        out["finality_source"] = "unknown"
+    elif not trade_seen:
+        out["lifecycle"] = "unknown_trade_absent"
+        out["finality_source"] = "unknown"
+    else:
+        st = (trade_status or "").strip().lower()
+        out["lifecycle"] = "open" if st == "open" else "closed"
+        # An OPEN trade is not a finality claim at all; only a derived CLOSE is.
+        out["finality_source"] = "derived_join" if st != "open" else "not_final"
+
+    # ALWAYS true, on every row, whatever the lifecycle: the last write precedes
+    # the close by up to one exit-loop pass, and a bar extreme cannot see an
+    # intrabar excursion. Consumers that average or gate on peak_r must know it
+    # is a floor, not the MFE.
+    out["peak_r_is_lower_bound"] = True
+
+    peak, cap = _f(row.get("peak_r")), _f(row.get("cap_r"))
+    out["peak_pct_of_cap"] = (
+        _r(100.0 * peak / cap, 2) if (peak is not None and cap and cap > 0) else None)
+
+    arm = None
+    try:
+        levers = row.get("levers")
+        if isinstance(levers, str) and levers.strip():
+            levers = json.loads(levers)
+        if isinstance(levers, dict):
+            # The largest declared arm is the binding one: if the highest arm is
+            # unreachable the lever chain is capped there regardless of any
+            # lower rung.
+            arms = [_f(v) for v in levers.values()]
+            arms = [a for a in arms if a is not None]
+            arm = max(arms) if arms else None
+    except (ValueError, TypeError):
+        arm = None
+    out["arm_r"] = _r(arm)
+
+    if arm is None:
+        out["arm_reach"] = "no_arm_declared"
+    elif cap is None or cap <= 0:
+        out["arm_reach"] = "unmeasured"
+    else:
+        out["arm_reach"] = "reachable" if arm <= cap else "unreachable"
+    return out
+
+
+def read_records(db_path: Optional[str] = None,
+                 limit: int = 500,
+                 strategy: Optional[str] = None) -> Dict[str, Any]:
+    """Telemetry rows LEFT JOINed to `trades` for finality, newest-first.
+
+    A LEFT JOIN, not an inner one: a row whose trade is absent must still be
+    RETURNED and graded ``unknown_trade_absent``, because dropping it would
+    make an unattributable row look like a row that does not exist.
+
+    Returns an envelope, never a bare list — ``present: false`` distinguishes
+    "the table has not been created yet" from "the table is empty", which is the
+    same distinction ``/api/diag/journal`` was fixed to stop collapsing.
+    """
+    envelope: Dict[str, Any] = {
+        "present": False, "count": 0, "rows": [],
+        "lifecycle_states": list(LIFECYCLE_STATES),
+        "arm_reach_states": list(ARM_REACH_STATES),
+        "finality_sources": list(FINALITY_SOURCES),
+        "error": None,
+    }
+    try:
+        from src.utils.paths import trade_journal_db_path
+        path = db_path or str(trade_journal_db_path())
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            conn.row_factory = sqlite3.Row
+            sql = (f"SELECT t.*, tr.status AS _trade_status, "
+                   f"tr.id AS _trade_seen FROM {TABLE} t "
+                   f"LEFT JOIN trades tr ON tr.id = CAST(t.trade_id AS INTEGER) ")
+            params: list[Any] = []
+            if strategy:
+                sql += "WHERE t.strategy = ? "
+                params.append(strategy)
+            sql += "ORDER BY t.updated_at DESC LIMIT ?"
+            params.append(max(1, min(int(limit), 1000)))
+            rows = conn.execute(sql, params).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        envelope["error"] = str(exc)
+        return envelope
+
+    out = []
+    for r in rows:
+        d = dict(r)
+        status_val = d.pop("_trade_status", None)
+        seen = d.pop("_trade_seen", None) is not None
+        out.append(enrich_record(d, status_val, seen))
+
+    counts: Dict[str, int] = {}
+    reach: Dict[str, int] = {}
+    finality: Dict[str, int] = {}
+    for d in out:
+        counts[d["lifecycle"]] = counts.get(d["lifecycle"], 0) + 1
+        reach[d["arm_reach"]] = reach.get(d["arm_reach"], 0) + 1
+        finality[d["finality_source"]] = finality.get(d["finality_source"], 0) + 1
+    envelope.update({
+        "present": True, "count": len(out), "rows": out,
+        "summary": {
+            "by_lifecycle": counts,
+            "by_arm_reach": reach,
+            # Read this beside `final_rows`: a closed count that is entirely
+            # `derived_join` means the stamp is not reaching the close path, and
+            # `final_rows` is then only as good as the join.
+            "by_finality_source": finality,
+            # The Check-A invariant, computed here so every consumer reads the
+            # same number: a row whose peak EXCEEDED its own venue ceiling.
+            "peak_above_cap": sum(
+                1 for d in out
+                if (d.get("peak_pct_of_cap") or 0) > 100.0),
+            "final_rows": counts.get("closed", 0),
+        },
+    })
+    return envelope
+
+
+def telemetry_by_trade_id(db_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """`trade_id -> enriched row`, for consumers that already hold a trade id.
+
+    Best-effort: any failure returns ``{}`` so a telemetry outage degrades a
+    read route to "no R block" rather than breaking it.
+    """
+    try:
+        env = read_records(db_path=db_path, limit=1000)
+        return {str(d["trade_id"]): d for d in env.get("rows", [])
+                if d.get("trade_id") is not None}
+    except Exception:  # noqa: BLE001 — a reader must never break its caller
+        logger.debug("position_telemetry: by-trade-id read failed", exc_info=True)
+        return {}

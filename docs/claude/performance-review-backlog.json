@@ -3,6 +3,25 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-TERMINAL-STAMP-2026-08-17",
+      "status": "resolved",
+      "severity": "medium",
+      "tier": 1,
+      "area": "m31-position-telemetry / m20-exit-levers",
+      "title": "The M31 P5 candidate lever cannot be backtested — rr_from_here does not exist in the harness",
+      "source": "docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5, precondition 3",
+      "detail": "P5 precondition 3 reads 'a walk-forward on the rr_from_here floor CLEARS the do-nothing arm'. That is not runnable today: scripts/backtest_trend.py implements stale_exit_bars, giveback_min_mfe_r/giveback_r and trail_decay_* (verified as a POSITIVE CONTROL -- the same probe finds all three at scripts/backtest_trend.py:221-229 and :1038-1046) and finds NOTHING for rr_from_here / r_to_target / r_to_stop / rr_floor. The quantity exists in exactly one module repo-wide: src/runtime/position_telemetry.py, which is LIVE and observe-only. So the harness cannot express the lever whose backtest evidence the precondition asks for.",
+      "why_it_matters": "M31's whole premise is that a lever must be checkable, and P5's gate is 'the same backtest gate as every other lever'. A precondition phrased as 'run the walk-forward' over a lever the harness cannot express is the same shape as the defects this milestone exists to close -- a claim about backtest evidence that no artifact could ever have produced. Sequencing consequence: precondition 3 was described in the S-M31-TERMINAL-STAMP sprint log and the P5 proposal as 'the only remaining item that is runnable work rather than waiting'. That is still true in kind but understates the size: it is IMPLEMENT-then-measure, not measure.",
+      "resolution_criteria": "Either (a) implement an rr_from_here floor in scripts/backtest_trend.py's monitor path and re-word precondition 3 as the two steps it actually is, or (b) if the lever turns out not to be expressible in the harness's bar model, say so explicitly in the proposal and retire the candidate rather than leaving a precondition that cannot be satisfied. Tractability note, so the next session does not re-derive it: the inputs ARE present -- the harness already carries tp_cap_pct/tp_r (a target) and the stop geometry (atr_stop_mult), which is what r_to_target/r_to_stop need.",
+      "next_action": "Before any P5 walk-forward: add the lever to the harness behind its own flag, and grade it with scripts/research/m20_wf_effective.py so inert folds are excluded from the win count (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS -- measured at 75 of 386 ok folds, 19.4%). Tier-1: the harness is not the order path.",
+      "updates": [],
+      "resolved_at": "2026-08-17",
+      "resolved_by": "S-M31-P5-RR-FLOOR-HARNESS-2026-08-17",
+      "resolution": "Resolution (a): the lever is implemented. scripts/backtest_trend.py gains --rr-floor (default 0.0, byte-identical; registered in ALL_LEVERS_AT_DEFAULT so the per-lever no-op guard covers it). It is NOT a second derivation: src/runtime/position_telemetry.py::r_distances was extracted as the ONE definition of (r_to_stop, r_to_target, rr_from_here), build_record now routes through it, and the harness IMPORTS it -- pinned by object identity plus a source check that the live writer still calls it. Positive control on the bundled fixture: floors 10/25/40/100 fire 1/50/176/315 times, monotone, so the lever is demonstrably not wired to nothing. Precondition 3 is re-worded in the proposal as the two steps it actually is. THE MEASURE HALF IS NOT DONE -- see PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA."
+    },
+    {
       "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
       "review_2026_08_11": {
         "reviewed_at": "2026-08-11T17:50:00+00:00",
@@ -3385,20 +3404,91 @@
       "opened_by": "claude (session_01Xk2ozj, M20 harness<->live population parity)",
       "severity": "medium",
       "tier": "1 (tooling/reporting change; the arm VALUES it informs stay Tier-3)",
-      "status": "open",
+      "status": "resolved (both halves shipped + verified on real artefacts)",
       "area": "research-methodology/exit-levers",
       "title": "A p80 exit arm swept over a pooled multi-era population encodes a volatility mix the live book does not sample",
       "summary": "MEASURED, not argued. risk/entry is exactly atr_stop_mult x ATR/close on both the live modules and both harnesses (identical formulas; byte-identical _atr), so cap_R = 0.099/(atr_stop_mult x ATR/close) -- i.e. a declared arm A on a leg with stop-mult M can only fire while ATR/close <= 0.099/(M*A). Reachability is therefore a function of the VOLATILITY REGIME at entry, not a property of the leg.\n\nRelay #9710, config-exact, --tp-cap-pct 0.099, entry-conditioned: gld_pullback_1d arm 5.06 is reachable on 42/112 (37.5%) POOLED over 2010-2026 -- but 7/7 in 2018 and 1/7 across 2025-2026, against a live basis of 0/8. The pooled number describes no regime in particular. The effect is regime-CLUSTERED, not a trend: 2010-2013, 2020 and 2025-2026 are high-vol clusters separated by quiet 2014-2019 and 2022-2024.\n\nThis is what made the live-vs-backtest 'population splice' look irreconcilable. Held at fixed era the two populations AGREE (14.3% backtest vs 0% live, n=7 and n=8).",
       "detail": "Root of the arm-above-cap class, and it is mechanical rather than per-leg bad luck. The six shipped p80 arms (BTC 6.49, xrp 4.49, avax 4.86, sol_4h 5.57, qqq 3.56, gld 5.06) were produced 2026-07-12/13 (S-M20-EXIT-REFINEMENT-2026-07-12.md:534). The harness first gained --tp-cap-pct on 2026-08-10 (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP; m20_corpus_relabel_tp_cap.py dates the bracketing runs to 22:23Z/22:31Z that day). So all six are p80s of an UNCAPPED MFE distribution applied to a CAPPED live book, derived ~4 weeks before the harness could model the cap at all.\n\nThe theory predicts which legs break -- those whose uncapped p80 exceeds their own median ceiling -- and it holds 3/3 on the legs measured: gld 5.06 > 4.30 (37.5% reachable), qqq 3.56 > 2.70 (19.8%), scha 2.00 < 2.65 (83.1% reachable, and scha's 2.00 is NOT one of the six uncapped p80 arms).\n\nNOT proposing any arm value here. Two remedies, either sufficient, both reporting-side.",
       "suggested_action": "(1) Have the sweep report each proposed arm's implied ATR/close ceiling (0.099/(atr_stop_mult*arm)) beside the arm, so a reader can check it against the current regime without re-deriving the identity; and/or (2) report the p80 PER ERA, or sweep on the recent era, so a pooled figure is never the only one quoted. Both are changes to m20_fleet_exit_sweep.py output, not to any config value.",
-      "resolution_criteria": "A sweep run's emitted verdict rows carry, per proposed arm, BOTH the implied ATR/close ceiling AND either a per-era p80 breakdown or an explicit recent-era p80 -- verified by reading an actual verdicts.json produced after the change and confirming the fields are populated (not merely present in the writer), on a leg whose pooled and recent-era p80 differ. Until a real run shows the fields with differing values, the row stays open: a writer that emits the key on a leg where the two happen to coincide has not demonstrated the reporting works.",
+      "resolution_criteria": "TWO REMEDIES, BOTH REQUIRED; the row stays open until both are done and each is verified on a REAL artefact rather than a merged writer.\n(1) REACHABILITY REPORTING — DONE and verified 2026-08-16 (#9730 / relay #9734): verdicts.json carries p80_arm_reach with arm_reach_verdict, the measured TP-reach numbers, and the implied ATR/close ceiling; both verdict branches observed on two legs. Note its MEASURED limitation above: it grades against the backtest ceiling only.\n(2) PER-ERA p80 — DONE and verified on a REAL artefact 2026-08-16 (#9789 `d8db5c59`; verdicts.json read in relay #9794). ORIGINAL TEXT, kept because the bar it set is the reason this closes: \"NOT DONE. The sweep must report either a per-era p80 breakdown or an explicit recent-era p80, verified by reading a verdicts.json produced after that change on a leg whose pooled and recent-era figures DIFFER. Until a real run shows both figures with differing values, this half stays open: a writer that emits the key on a leg where the two coincide has demonstrated nothing.\"  — SATISFIED: both verification legs DIFFER, so the \"a writer that emits the key on a leg where the two coincide has demonstrated nothing\" clause is met rather than dodged. trend_donchian pooled 5.5R (n=95) vs recent-era 6.35R (n=17, span 2025), delta +0.85R. gld_pullback_1d — the discriminating leg session_01Xk2ozj named — pooled 3.86R (n=40) vs recent-era 4.96R (n=10, span 2017-2020), delta +1.10R.",
       "refs": [
         "docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md",
         "config/lever_reachability.json",
         "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP",
         "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
         "relay #9710"
-      ]
+      ],
+      "first_half_shipped_and_verified_2026_08_16": "SHIPPED #9730 (7da0842) and VERIFIED against a real verdicts.json produced after the change (relay #9734, freshness-gated so a pre-change artefact could not be mistaken for this run's output). Both branches exercised on two legs, so one constant could not have satisfied both: trend_donchian_sol_4h p80 1.5R vs measured median TP reach 1.324R -> above_measured_median_ceiling (loud warning fired); gld_pullback_1d p80 3.86R vs 4.781R -> within_measured_median_ceiling. Printed ceilings reproduce the helper exactly (2.640% and 1.282%).",
+      "measured_limitation_the_verification_exposed": "⚠️ THE SHIPPED CHECK CATCHES HALF THE CLASS, AND MISSES THE MOTIVATING CASE. It compares the proposed arm to the BACKTEST's measured ceiling. gld_pullback_1d's p80 3.86R is WITHIN its backtest median (4.781R) and so passes silently — while its LIVE cap_R is 2.20-3.01, i.e. 3.86R is unreachable on the book that trades (0 of 8 live entries). That is the population gap this whole row is about, so the check cannot close it by construction. An earlier description of the change called it 'the check that would have caught the whole arm-above-cap class' — that was an OVERCLAIM, discovered by verifying my own output rather than trusting the tests, and the code comment has been corrected. Closing the remaining half needs a LIVE-population input the sweep does not have; M31 P4 (backtest<->live MFE parity) is the piece that would supply it. A within_measured_median_ceiling verdict must NOT be read as 'reachable in production'.",
+      "second_half_shipped_and_verified_2026_08_16": {
+        "what_shipped": "winner_mfe_p80 returns a dict: ['p80'] is the same pooled scalar and stays the ONLY value that becomes an arm, plus `by_era` (per-calendar-year census) and `recent_era` (an explicit trailing window that widens to a sample-size target and publishes its span). One harness run, two cuts — no extra invocation, so the breakdown can never be the reason a sweep is skipped for time.",
+        "verified_on": "verdicts.json from a post-merge sweep at d8db5c59 (--only gld_pullback_1d,trend_donchian --p80-only), relay #9794",
+        "trend_donchian": {
+          "pooled_p80": 5.5,
+          "pooled_n": 95,
+          "recent_era_p80": 6.35,
+          "recent_era_n": 17,
+          "recent_era_years": [
+            "2025"
+          ],
+          "delta": 0.85,
+          "by_era_states": "5/5 computed (n 11-28)",
+          "per_year_p80_range": "3.87 (2021) to 6.35 (2025)"
+        },
+        "gld_pullback_1d": {
+          "pooled_p80": 3.86,
+          "pooled_n": 40,
+          "recent_era_p80": 4.96,
+          "recent_era_n": 10,
+          "recent_era_years": [
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ],
+          "delta": 1.1,
+          "by_era_states": "11/11 THIN (n 1-6) — no single year on this leg can support a p80"
+        },
+        "the_dispersion_is_the_finding": "trend_donchian's per-year p80 swings 3.87 -> 6.35 across five years, a 64% spread. That is this row's thesis measured on one leg: the pooled 5.5R describes no regime in particular, and nothing in the artifact said so before.",
+        "floor_is_measured_not_picked": "_ERA_MIN_WINNERS = 10, set from per-year winner counts across all eight arm-declaring legs (relay #9788) and recorded in the constant's own comment. At 30 every bucket on every leg is thin and the report proves nothing. gld's 11/11 thin is that floor working, not failing: it refuses a percentile over n=1-6 while the widening window still answers at n=10.",
+        "A_PREDICTION_I_GOT_WRONG_AND_WHY_IT_MATTERS": "I predicted gld's recent-era span would be 2023-2025. It is 2017-2020, because resolve_split gives that leg a PER-LEG split of 2020-03-03 while my probe had used the default 2025-07-01 — so IS ends in 2020 and the newest year within IS is 2020, not 2025. The field is self-documenting and said so (era_basis: calendar_year_within_IS, span published), which is exactly why 'recent' was never labelled plain 'recent'. Had it been, this artifact would read as a claim about 2023-2025 that it does not make.",
+        "states_never_collapsed": "per-year computed / thin / undated; recent_era adds all_years so 'recent == pooled because the leg is short' stays distinct from 'because volatility was stable'. A year with no winners has NO row rather than a fabricated n=0. Every bucket ships its n.",
+        "changes_nothing_live": "Reporting only. No arm value, verdict, or disposition moved; the era figures are never fed to --trail-decay-arm-r (pinned by test_era_block_never_feeds_the_arm)."
+      },
+      "the_mechanism_is_now_measured_not_inferred_2026_08_16": {
+        "claim": "This row states the six shipped arms are p80s of an UNCAPPED book, inferred from dates (swept 2026-07-12/13; the harness gained --tp-cap-pct 2026-08-10). That is now MEASURED.",
+        "method": "relay #9790 — same probe, same split, same data, same code, run TWICE per leg at tp_cap_pct=0.099 vs 0.0, asserting --tp-cap-pct actually landed in each arm's base args so a silent no-op could not read as a null result. The naive comparison (today's capped p80 vs the shipped arm) was NOT used: it conflates cap, split, data vintage and code drift.",
+        "result_uncapped_vs_shipped": {
+          "xrp_pullback_2h": {
+            "shipped": 4.49,
+            "uncapped_p80": 4.49,
+            "delta": 0.0,
+            "capped_p80": 2.17
+          },
+          "trend_donchian": {
+            "shipped": 6.49,
+            "uncapped_p80": 6.56,
+            "delta": 0.07,
+            "capped_p80": 5.24
+          },
+          "gld_pullback_1d": {
+            "shipped": 5.06,
+            "uncapped_p80": 4.96,
+            "delta": -0.1,
+            "capped_p80": 3.87
+          },
+          "trend_donchian_sol_4h": {
+            "shipped": 5.57,
+            "uncapped_p80": 5.23,
+            "delta": -0.34,
+            "capped_p80": 1.52
+          }
+        },
+        "reading": "Four of seven legs reproduce the shipped arm from the UNCAPPED book within 0.35R and xrp_pullback_2h is exact. The arms were not chosen against the book that trades.",
+        "CAVEAT_THE_TWO_ARMS_ARE_DIFFERENT_POPULATIONS": "Winner counts differ between arms (sol_4h 69 capped vs 41 uncapped; xrp 90 vs 67) because the cap acts as a take-profit and banks winners that would otherwise round-trip. So the -15% to -71% 'cap effect' is TWO BOOKS, not the same trades re-measured. Direction is unambiguous; the magnitude is not a per-trade delta.",
+        "uso_trend_1h_is_not_a_gap": "It shows no trail_decay_arm_r in strategies.yaml against an arm_r 1.0 registry row. Checked, not assumed: its registry row carries lever=giveback_min_mfe_r. The registry's arm_r column spans two lever families and the `lever` field is what disambiguates it.",
+        "still_tier_3": "No arm value is proposed. Re-deriving one needs a walk-forward, not a percentile swap."
+      }
     },
     {
       "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
@@ -3420,7 +3510,157 @@
         "config/accounts.yaml"
       ],
       "scope_correction_2026_08_16": "NARROWED after checking the venues' own rules — the row's ID still says 'AND-IB-LEGS' and is kept as a stable handle, but the IB half does NOT hold. Alpaca's public docs document NO maximum take-profit distance (only a $0.01 minimum stop offset and take_profit.limit_price better than stop_loss.stop_price) — read 2026-08-16. IBKR is REPORTED to reject stock orders priced more than ~10% from NBBO (20% options), which would make the 9.9% cap approximately CORRECT on that route; that figure is a search summary and NOT verified — both IBKR primary pages returned HTTP 403 to the fetcher. So the finding holds for the Alpaca-only legs gld_pullback_1d and scha_trend_long_1d, and qqq_trend_long_1d is NOT a clean instance because it also routes to ib_paper. The code comment's parenthetical 'Bybit (AND MOST EXCHANGES)' was more accurate than the original reading of it."
+    },
+    {
+      "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+      "opened_at": "2026-08-16T20:05:00+00:00",
+      "opened_by": "claude (session_01Xk2ozj, uso_trend_1h reachability measurement)",
+      "severity": "low",
+      "tier": "1 (a docstring/consumer question; the clamp itself is correct and no runtime behaviour is proposed)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "exit_plan_state.targets[].reach_r is an OBSERVE-ONLY clamped counterfactual; reading it as the reachability ceiling manufactures false `inert` on any arm above 5.0R",
+      "summary": "SETTLED BY READING THE PLACEMENT PATH, after this row was filed with its direction inverted AND then 'corrected' in the wrong direction. The operative ceiling is the VENUE TP cap, 0.099/(risk_per_unit/entry) -- the value `order_packages.tp` encodes and the broker is sent: `execute.py:391` builds `\"tp\": pkg.tp`; `:703`/`:1467` send `kwargs[\"takeProfit\"] = quantize_price(order[\"tp\"], tick)`; `:1875`/`:1912` journal `take_profit_1 = float(pkg.tp)`.\n\n`exit_plan_state.targets[].reach_r` is `min(venue_cap_R, DEFAULT_MAX_REACH_R=5.0)` from the ExitPlan ladder, which is OBSERVE-ONLY and never placed: the sole exit-plan reference in `execute.py` is the soak block at `:630-648` (\"nothing reads it back\"), and `exit_plan_state` appears nowhere else in `src/` except the materializer and DB serialization. So reading it UNDER-reports and manufactures false `inert`.\n\nBLAST RADIUS: it caps every observation at 5.0, so the three arms ABOVE the clamp -- trend_donchian 6.49, trend_donchian_sol_4h 5.57, gld_pullback_1d 5.06 -- would grade a blanket false `inert` (trend_donchian flips from reachable-at-100% to inert). Arms BELOW 5.0 are provably unaffected: min(x,5) >= arm iff x >= arm when arm < 5, which is why xrp_pullback_2h's 2/37 (arm 4.49) is correct as recorded.\n\nNO LANDED VERDICT IS WRONG, checked individually rather than assumed: trend_donchian's p50 11.91 came from `scripts/ops/lever_reachability_audit.py`, which computes `cap_pct / risk_over_entry` (the venue cap) directly; gld's live rows were 2.20-3.01, all below the clamp; uso is basis-independent at arm 1.0; xrp is preserved by the inequality above. What WAS wrong is guidance, now corrected in this file's basis_note.\n\nWHAT REMAINS OPEN: `src/runtime/position_telemetry.py::cap_r` computes the venue cap and is therefore CORRECT for reachability -- the earlier claim in this row that it needed a min() against the clamp was a consequence of the inverted reading and is withdrawn. The residual is a DOCSTRING question: `lever_reachability_audit.py::cap_r` says 'the highest MFE in R a trade can print before its capped TP fills', which is right, while the observe-only ladder carries a field that looks like the same quantity and is not. Nothing enforces that a future reader picks the right one.",
+      "resolution_criteria": "Add a docstring note at `src/runtime/exit_plan_realism.py::clamp_exit_plan` (and/or the `exit_plan_state` column comment in `src/units/db/database.py`) stating that the clamped target is OBSERVE-ONLY and must not be read as the reachability ceiling, naming the venue cap as the operative one. Verifiable by grepping `DEFAULT_MAX_REACH_R` and confirming the observe-only status is stated where the value is produced, not only in the registry's basis_note (which a code-side reader never opens). Closing on 'the registry documents it' is NOT sufficient -- that is the surface that already had it and still produced two inverted revisions in one session.",
+      "evidence": {
+        "code": "src/runtime/exit_plan_realism.py:44 (DEFAULT_MAX_REACH_R = 5.0), clamp_exit_plan(); src/runtime/exit_plan_materializer.py:157",
+        "population": "uso_trend_1h live order_packages, n=30 COMPLETE, span 2026-07-07 -> 2026-08-07",
+        "clamped_rows": "7/30",
+        "stored_max_vs_true_max": "5.0000 vs 7.5639",
+        "unaffected_rows_checked": "trend_donchian_sol_4h max 4.32, xrp_pullback_2h max 4.46 -- both below the clamp, recorded values stand"
+      },
+      "my_error_recorded": "Filed inverted, then re-inverted, then settled by reading which value reaches kwargs['takeProfit']. Kept as a row so neither wrong direction is re-derived from a corrected summary alone.",
+      "corrected_by": "xrp_pullback_2h.live_entry_conditioned_COMPLETE_2026_08_16 (PR #9779), concurrent session"
+    },
+    {
+      "id": "PB-20260816-M31-P4-PARITY-PRECONDITIONS",
+      "opened_at": "2026-08-16T21:14:00+00:00",
+      "opened_by": "claude (overnight M20 session)",
+      "severity": "medium",
+      "tier": "1 (measurement + a reporting script; the arm VALUES it would inform stay Tier-3)",
+      "status": "open",
+      "area": "research-methodology/exit-levers",
+      "title": "M31 P4 (backtest<->live MFE parity) preconditions: the quantities ARE comparable, the soak population is EMPTY (0 closed rows), and finality is only knowable via a join nothing enforces",
+      "summary": "MEASURED 2026-08-16, not argued. P4 is gated in the design on 'P2 soak depth'. Three preconditions were checked before treating depth as the only gate; two pass and one is a real constraint on how P4 must be written.\n\n(a) COMPARABLE — live `trail_decay.since_entry_peak` computes (max(window.high) - entry)/risk and the harness `_ratchet` computes max(mfe, (ext - entry)/risk) over bar highs. Same numerator, same denominator, same bar-extreme basis. P4 is well-posed.\n\n(b) EMPTY, not shallow — /api/bot/db/table/position_telemetry returns total: 12, filter_state: not_requested, and ALL TWELVE are open positions. There are ZERO closed-trade rows, so P4 has no terminal MFE to compare against. Expected (P2 shipped the same day) but 'needs more depth' and 'has nothing in it' are different statements.\n\n(c) FINALITY NEEDS A JOIN — the table has NO status/closed_at/is_final column, so a row cannot say whether its peak_r is final or still accruing, and an open trade's peak_r is a LOWER BOUND. trade_id is populated 12/12 so position_telemetry.trade_id -> trades.status works, but nothing enforces it.",
+      "detail": "WHY (c) IS THE ONE THAT BITES. A parity check that pools open and closed trades would systematically understate the live side -- not by a modelling error but by averaging unfinished trades against finished ones. It would look like a real backtest-optimism finding and be an artifact of the population. This is the unstated-population class the repo already has a top-level rule for.\n\nA HAZARD CHECKED AND REFUTED, so nobody re-derives it: the fleet sweep warns that a bar spanning from below the stop to far above the target 'books a -1R loss AND records a huge MFE' (ict_scalp_avax_5m, 182.34R over four trades). If the harness ratcheted MFE on the stopping bar, backtest MFE would exceed anything live could observe by convention alone. It does NOT for this family: backtest_pullback evaluates _stop_or_target BEFORE _ratchet and breaks on a hit (:592-601), and arm C does the same per sub-bar (:579-585). The 182.34R case is the ict_scalp harness, a DIFFERENT one -- so the hazard is real but scoped, and the donchian/pullback family (where every telemetry row with a declared arm lives) is clean.\n\nTHE RESIDUAL ASYMMETRY RUNS THE OTHER WAY and is unquantified: the backtest excludes the exit bar entirely, while live peak_r includes however much of the terminal bar had formed at the last monitor pass. Bounded and small, but it biases live HIGH, which is the opposite of the naive expectation -- so a small positive live-minus-backtest gap is NOT automatically evidence of backtest optimism.\n\nCOLLATERAL CORROBORATION (recorded because it came from a different data path than the registry): both telemetry rows carrying a declared trail_decay_arm_r show the arm ABOVE the live cap_r -- xrp_pullback_2h arm 4.49 vs cap_r 3.9233 on bybit_2 (REAL MONEY), qqq_trend_long_1d arm 3.56 vs cap_r 2.1258 on alpaca_paper. Both agree with config/lever_reachability.json's verdicts (vol_conditional / inert), which were derived from order_packages/risk_per_unit rather than from this table.",
+      "suggested_action": "When the soak has closed rows: (1) write the parity script to JOIN trades.status and restrict to finished trades, reporting the closed-row count as its denominator the way rCoverage/pnlCoverage do; (2) report per-leg, since the harness convention differs by FAMILY (pullback/donchian stop-first vs ict_scalp) and a fleet aggregate would mix two conventions; (3) quantify the terminal-bar asymmetry once rather than assuming it away. Consider whether P2 should stamp a terminal snapshot flag so finality stops depending on a join no consumer is obliged to make -- that is a P2 change, not a P4 one.",
+      "resolution_criteria": "Closes when a parity run exists that (a) states its closed-trade denominator, (b) is restricted to finished trades via trades.status, and (c) reports per-leg or per-family rather than one fleet number. A run that reports a single pooled figure over a population including open trades does NOT close this row -- that is the artifact this row exists to prevent.",
+      "refs": [
+        "docs/design/position-telemetry-DESIGN.md",
+        "src/runtime/position_telemetry.py",
+        "src/runtime/trail_decay.py",
+        "scripts/backtest_pullback.py",
+        "scripts/exit_capture.py",
+        "config/lever_reachability.json",
+        "PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS"
+      ]
+    },
+    {
+      "id": "PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING",
+      "opened_at": "2026-08-16",
+      "opened_by": "overnight M20 session (2026-08-16)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 to WIRE (a read path over two committed artefacts). Every arm_r verdict it would inform stays Tier-3 and the operator's.",
+      "title": "config/lever_reachability.json has been buying entry-conditioned cap_R one leg at a time via bespoke relays, while m20-sweep-corpus already carries the same measurement for 34 legs and nothing reads it",
+      "source": "Found while tracing why tonight's 52 corpus rows lacked live_tp_reach_r_* (BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR). Chasing the dropped field surfaced that where it DOES survive, it has no consumer.",
+      "why_it_matters": "This is the written-and-never-read shape provenance-consumer-guard exists to catch, and it has a measurable cost rather than being merely untidy: the registry's own basis_note discredits the cheap candle screen ('NOT a bound in either direction — on xrp it overstated reachability 90.5% vs 33.3% because entries are filter-selected') and therefore needs an ENTRY-CONDITIONED population. It has been obtaining exactly that with a bespoke relay run per leg — #9710 for scha_trend_long_1d, #9715 for trend_donchian_sol_4h — while every fleet sweep since #9037 has been writing the same class of number into the corpus for free. Two of the eight registry rows still read `unmeasured`/`queued_tier3`.",
+      "resolution_criteria": "OBSERVABLE: for a leg whose registry row carries NO entry-conditioned basis, the corpus alone yields cap_R median/min/max/n and a reach share against that leg's arm_r, without dispatching a relay. Demonstrate on a leg that currently has none — reproducing a leg that already has a bespoke block proves only that the join works where the answer was already known.",
+      "next_action": "Join docs/research/m20-sweep-corpus.jsonl's live_tp_reach_r_{n,median,min,max}_{IS,OOS} onto config/lever_reachability.json by leg, as a RECORDED SECONDARY basis with the caveat below — never as a verdict flip. The natural home is scripts/ci/check_lever_reachability.py (which today has ZERO references to the field) or the coverage roll-up. Cheapest first step is a read-only report, not a writer.",
+      "updates": [],
+      "area": "M20/M31 exit-lever reachability / research corpus",
+      "detail": "MEASURED 2026-08-16 against merged main.\n\nCOVERAGE. 376 of 1264 corpus rows carry a non-null live_tp_reach_r_n_IS, spanning 34 legs. The registry holds 8 lever rows; 7 of those 8 legs have a corpus measurement (qqq_trend_long_1d is the one with none).\n\nNO CONSUMER. live_tp_reach_r / tp_r_effective appears in the four backtest harnesses (which compute it), m20_fleet_exit_sweep.py (which surfaces it), m20_corpus_extract.py (which writes it), three test files and two sprint logs. scripts/ci/check_lever_reachability.py: 0 references. config/lever_reachability.json: 0 references. Nothing decides anything with it.\n\nIT AGREES WITH THE BESPOKE RELAYS WHERE BOTH EXIST — the check that makes the join trustworthy rather than merely available:\n  * trend_donchian_sol_4h (arm 5.57): bespoke cap_r_at_median 1.64 over n=127 (relay #9715, span 2023-01-09→2026-06-29, reach 0/127 = 0.0%) vs corpus median 1.324 over n=135. The corpus MAX is 3.723 — strictly below the 5.57 arm — so the corpus independently gives 0/135 reachable, reproducing the bespoke zero without the relay.\n  * scha_trend_long_1d (arm 2.00): bespoke cap_r_at_median 2.65 over n=65 (relay #9710, span 2010-03-10→2026-06-12, reach 54/65 = 83.1%) vs corpus medians 2.81/3.058/3.122 over n=60. Arm 2.00 sits below every one, agreeing with 'largely reachable'.\nThe residual gap in the medians is explained by population, not method: the corpus figure is the sweep's IS window at a DERIVED split, the bespoke figure is the leg's complete backtest span.\n\n⚠️ THE CAVEAT MUST TRAVEL WITH THE NUMBER, OR THE JOIN MANUFACTURES FALSE `reachable` VERDICTS. The harnesses place tp = min(entry*1.099, entry + tp_r*risk) and every leg declares the sentinel tp_r = 50.0, so tp_r_effective IS the venue-cap identity 0.099/(risk/entry) — which is quantity (3) in the registry's own basis_note taxonomy, NOT the operative ceiling (1) exit_plan_state.targets[].reach_r. src/runtime/exit_plan_realism.py's DEFAULT_MAX_REACH_R = 5.0 clamps first wherever cap_R > 5.0, so a corpus median above 5.0 OVER-reports the reach a lever actually gets. That bites today: trend_donchian's corpus median is 5.833 and its max 36.439, both past the clamp. So the corpus basis is strictly better than the discredited candle screen (entry-conditioned, large-n) and strictly weaker than the live order_packages/risk_per_unit basis — the same standing the registry already assigns its own backtest_entry_conditioned_* blocks, whose basis_caveat wording should be reused verbatim rather than reinvented.\n\nCHANGES NOTHING TODAY. No verdict, disposition or arm_r moves here. The three queued_tier3 rows (xrp_pullback_2h, trend_donchian_sol_4h, scha_trend_long_1d) remain the operator's call; this records that the evidence for two of them was already sitting in a committed artefact."
+    },
+    {
+      "id": "PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-P4-MFE-PARITY-2026-08-17",
+      "status": "resolved",
+      "severity": "medium",
+      "tier": 2,
+      "area": "m31-position-telemetry",
+      "title": "position_telemetry has no terminal snapshot and no finality marker — M31 P4's blocking half",
+      "source": "docs/sprint-logs/S-M31-P4-MFE-PARITY-2026-08-17.md",
+      "detail": "docs/design/position-telemetry-DESIGN.md section 7.2 recommends 'live row + a terminal snapshot written at close', explicitly so P4 gets 'one honest per-trade MFE without per-bar volume'. The live row shipped in P2; the terminal snapshot did not. Verified by reading src/runtime/position_telemetry.py (write_record is an UPSERT on order_package_id, no close path) and its only two callers, src/units/strategies/trend_donchian.py:967 and htf_pullback_trend_2h.py:534, both on the OPEN-position monitor path. Two consequences: (a) a closed trade's peak_r is the value at the LAST EXIT PASS BEFORE the close, so every live MFE is a lower bound of unquantified size; (b) the table carries no status/closed_at/terminal marker, so a closed row is byte-shaped like an open one and finality is only obtainable via a trade_id -> trades.status join. Measured 2026-08-17: 14 telemetry rows, 13 open and 1 closed (trade 4697, trend_donchian_sol_4h), where the closed row's only in-table hint was a staler updated_at — which is not a signal, since a quiet leg and a closed leg both go stale.",
+      "why_it_matters": "This is the collapsed-state class the repo has a canonical rule and a CI guard for (docs/CLAUDE-RULES-CANONICAL.md section 'Collapsed states'), in a table shipped after that rule: 'we did not look' and 'we looked and it is final' are indistinguishable. It is also the concrete blocker on M31 P4 Check B, which is the named binding blocker for the arm-reachability programme — the fleet sweep grades p80_arm_reach only against the BACKTEST ceiling, and gld_pullback_1d passes that at 3.86R while being unreachable live (0 of 8).",
+      "resolution_criteria": "A terminal write at close (Tier-2, on the close path) that stamps finality explicitly, so a consumer can distinguish final from in-flight WITHOUT the trades join; and the lower bound either closed or quantified. Registering the finality field with collapsed-state-guard is what makes it enforced rather than merely present.",
+      "next_action": "Propose the terminal-snapshot writer as a Tier-2 change (operator OK needed — it touches the live close path). Until then scripts/research/m31_mfe_parity.py refuses to grade without --trades-json, so nothing silently reads an open row as final.",
+      "updates": [
+        {
+          "at": "2026-08-17",
+          "by": "S-M31-TERMINAL-STAMP-2026-08-17",
+          "note": "RESOLVED (Tier-2, operator-approved in-conversation). Database.update_trade now stamps position_telemetry.terminal_state='final' + terminal_at when a row transitions to closed, in its own guard mirroring _record_trade_cost_estimate so a telemetry write failure can neither propagate into nor be skipped by the trader close path. Never overwrites an existing stamp (a re-close must not move terminal_at forward -- first observation is the honest one, the netting reconciler's anchor rule) and never INSERTS a row (manufacturing one at close would fabricate a trajectory that was never measured). Readers publish a four-state finality_source -- stamped / derived_join / not_final / unknown -- so a row that predates the writer can never read as one the close hook stamped; registered with collapsed-state-guard as position_telemetry.finality_source per this item's own resolution criteria, and mutation-tested (collapsing derived_join into stamped makes the guard fire). Idempotent migration for pre-existing DBs, placed AFTER the telemetry DDL -- an empty PRAGMA table_info means no such table, so the original placement in the trades migration block raised on every fresh DB."
+        }
+      ],
+      "resolved_at": "2026-08-17",
+      "resolved_by": "S-M31-TERMINAL-STAMP-2026-08-17",
+      "residual": "The peak_r LOWER BOUND is NARROWED, not eliminated. The stamp marks the row final at the close observation, but peak_r is still the value from the last exit pass BEFORE the close, and a bar extreme cannot see an intrabar excursion. So peak_r_is_lower_bound stays true on every row, including stamped ones. Quantifying that residual gap is separate work and is why M31 P5 does not propose a peak_r-driven giveback lever first."
+    },
+    {
+      "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-P4-MFE-PARITY-2026-08-17",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "m20-exit-refinement",
+      "title": "The committed sweep corpus carries no per-trade mfe_r, so P4's harness side needs a sweep re-run",
+      "source": "docs/sprint-logs/S-M31-P4-MFE-PARITY-2026-08-17.md",
+      "detail": "scripts/backtest_trend.py computes Trade.mfe_r (:75, accumulated :514/:533) and writes it into the --emit-trades JSONL (:638), and reports max_mfe_r in the run summary (:787). But docs/research/m20-sweep-corpus.jsonl holds CELL-LEVEL aggregates only — verified by a key census over all 1,376 rows, which found no mfe_r key on any row — and the emit JSONL is not committed anywhere. So the harness half of the M31 P4 parity check has no standing artifact and must be regenerated per comparison.",
+      "why_it_matters": "P4 Check B needs BOTH halves. Live soak depth is the widely-known blocker; this one is not, and a session that waits only for live depth will find the harness side still missing when the depth arrives. Cheap to fix, and cheap to be surprised by.",
+      "resolution_criteria": "Either a committed per-leg mfe_r distribution (percentiles + n, not raw rows — the corpus should not carry per-trade volume), or a documented one-command sweep re-run with --emit-trades that m31_mfe_parity.py consumes directly.",
+      "next_action": "Run a CAPPED (--tp-cap-pct 0.099) trainer-side sweep per telemetry-writing leg (trend_donchian + htf_pullback_trend_2h families only -- no other leg writes position_telemetry, so no other leg is comparable) with --emit-trades, feed each emit file to scripts/research/m31_harness_mfe_dist.py with its own --symbol/--timeframe, and commit docs/research/m31-harness-mfe-dist.jsonl. Then Check B needs only live soak depth. Do NOT generate it from data/backtest_candles.csv -- that is BTCUSDT 1-minute and ~10x out of the live cap_R regime; the aggregator will accept it if you pass the right flags, and the resulting artifact would be wrong in a way only --symbol/--timeframe would reveal.",
+      "updates": [
+        {
+          "at": "2026-08-17T15:30:00+00:00",
+          "by": "session m31-p5-rr (M31 P5 precondition 2, harness half)",
+          "note": "MECHANISM SHIPPED; THE ARTIFACT ITSELF IS STILL ABSENT -- the row stays OPEN and the distinction is the point. Verified the original claim rather than inheriting it: a key census over all 1,376 rows of docs/research/m20-sweep-corpus.jsonl finds ZERO keys containing 'mfe'. Reproduces exactly. (Also noted: the corpus keys on `leg`, while --harness-emit rows key on `strategy`.) SHIPPED: scripts/research/m31_harness_mfe_dist.py aggregates a --emit-trades JSONL into a small committed per-leg record (percentiles + n, never per-trade rows, per this row's own resolution criteria), and m31_mfe_parity.py gained --harness-dist to consume it. Percentiles are IMPORTED from m31_mfe_parity._pct, never re-derived -- pinned by a test that fails even against a byte-identical local copy. With a committed artifact the tp_cap_pct gate becomes PER-LEG rather than one global flag, and harness_source/harness_symbol/harness_timeframe travel into every parity record. WHY IT IS NOT RESOLVED: producing the real distribution needs per-leg 1h-1d candles, and data/*.csv is GITIGNORED -- measured, not assumed: m20_fleet_exit_sweep.resolve_data returns (None, False, None) for all of SOLUSDT/4h, XRPUSDT/2h, BTCUSDT/1h, ADAUSDT/2h, QQQ/1d. The only committed candles are data/backtest_candles.csv = BTCUSDT 1-MINUTE (5,000 bars, median (high-low)/close 0.101%), where the 9.9% cap lands at ~37R against live legs at cap_R 2.13-5.83. Committing a distribution from THAT fixture would put a wrong-regime artifact under the name Check B reads -- M31's own defect class, authored by us and versioned. So the aggregator REFUSES an uncapped sweep and REQUIRES --symbol/--timeframe, and the consumer refuses a mismatch, rather than the tooling making the fixture shortcut easy. END-TO-END VERIFIED on a real capped sweep: 144 emit rows, 144/144 carrying mfe_r -> aggregator -> artifact -> parity returned parity_state 'compared' with harness_side 'committed_dist'. Every refusal is mutation-tested; the FIRST version of the uncapped-refusal test passed with the guard DELETED (a nonexistent --emit path returned the same exit code), so it was rewritten against a real file with a positive control ahead of it."
+        },
+        {
+          "at": "2026-08-17T16:40:00+00:00",
+          "by": "session m31-p5-rr (doc-freshness close-out)",
+          "note": "SHARED-SWEEP CROSS-REFERENCE (doc-freshness sweep, session m31-p5-rr). This row and PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA need the SAME artifact: a CAPPED (--tp-cap-pct 0.099) trainer-side sweep on per-leg candles at the live timeframes, restricted to the telemetry-writing legs (trend_donchian + htf_pullback_trend_2h families). Neither row said so, and scheduling them apart would pay for the candle pull twice and risk grading the two halves of P5's gate on different data. Run one sweep with --emit-trades and BOTH --rr-floor arms; feed the emit files to m31_harness_mfe_dist.py for this half. Canonical split: docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5 preconditions 2a/2b and 3a/3b."
+        }
+      ]
+    },
+    {
+      "id": "PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
+      "opened_at": "2026-08-17",
+      "opened_by": "S-M31-P5-RR-FLOOR-HARNESS-2026-08-17",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "m31-position-telemetry / m20-exit-levers",
+      "title": "The rr_floor lever now runs, but has not been measured on data in the live cap_R regime",
+      "source": "docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5, precondition 3 (measure half)",
+      "detail": "The lever exists now (PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS, resolved) but the only candle file in the repo cannot exercise it. MEASURED 2026-08-17 on data/backtest_candles.csv (population: the whole file -- BTCUSDT 1-MINUTE bars, 5000 rows, 2022-07-23 to 2022-07-27, median (high-low)/close = 0.101%): with --tp-cap-pct 0.099 the harness reports tp_r_effective_median 36.73R (min 10.825, max 50.0 -- at 50.0 the tp_r SENTINEL binds, i.e. even 50R is nearer than 9.9%), and rr_min p10 21.162 / median 35.88 / p90 58.362 over 143 measured trades. by_outcome carries ZERO take_profit exits in 5000 bars, independently confirming the target is unreachably far in this frame. The arithmetic reconciles: risk = 2.5 x ATR ~ 0.25% of entry, so the 9.9% venue cap sits near 0.099/0.0025 = 39.6R against a measured median of 36.73R (~8% apart using median true range as an ATR proxy). The LIVE legs measured in M31 P3/P4 sit at cap_R 2.1258 (qqq_trend_long_1d), 3.9233 (xrp_pullback_2h) and 5.8294 (trend_donchian_sol_4h), and the motivating XRP trade's rr_from_here was 0.71. So the fixture's regime is roughly an order of magnitude off the live one.",
+      "why_it_matters": "rr_from_here scales directly with how far the target sits, so a floor fitted on this fixture would have to be ~25-40 to fire at all -- meaningless against a live book where the quantity runs 0.71 to ~10. Reporting the fixture's numbers as a verdict on the lever's EDGE would be precisely the M31 defect class (the harness measured a book production does not run), which is why NO edge verdict is offered: net_total_r does worsen monotonically with the floor on this fixture (-82.65 baseline to -150.25 at floor 100), but over a net-negative book at absurd floors, so it grades nothing. This is a scope note about THIS repo checkout, NOT a defect in the recorded sweep corpus: m20_fleet_exit_sweep.py resolves per-(symbol, timeframe) files from --data-dir and backtest_candles.csv does not parse as (sym, tf) at all, so real sweeps already use real per-leg candles.",
+      "resolution_criteria": "Run the rr_floor walk-forward on per-leg candles at the live timeframes (1h-1d) for legs whose cap_R sits in the 2-6R band, and grade it with scripts/research/m20_wf_effective.py so inert folds are excluded from the win count (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, measured 75/386 = 19.4%). Read rr_min_p10/median/p90 from a lever-OFF run FIRST to pick floors that can fire at all; a floor below rr_min_p10 is a real no-op and a floor above rr_min_p90 fires on nearly every trade. Assert rr_floor_state == 'measurable' on every recorded row. Precondition 3 is met only if the lever CLEARS the do-nothing arm; a loss retires the candidate, which is a legitimate and useful outcome.",
+      "next_action": "Pull per-leg candles via the trainer relay (or point --data-dir at a populated store) and run the sweep. Do NOT fit a floor over raw rr_from_here: live it hit 201.87 on the fleet's only closed telemetry row (0.0337R from stop), 19.6x the next value across the same 14 rows, so any mean/variance/unwinsorised quantile is dominated by near-stop rows (proposal section 3.1). Grade the DECISION, not the distribution.",
+      "updates": [
+        {
+          "at": "2026-08-17T16:40:00+00:00",
+          "by": "session m31-p5-rr (doc-freshness close-out)",
+          "note": "SHARED-SWEEP CROSS-REFERENCE (doc-freshness sweep, session m31-p5-rr). This row and PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE need the SAME artifact: a CAPPED (--tp-cap-pct 0.099) trainer-side sweep on per-leg candles at the live timeframes, restricted to the telemetry-writing legs (trend_donchian + htf_pullback_trend_2h families). Neither row said so, and scheduling them apart would pay for the candle pull twice and risk grading the two halves of P5's gate on different data. Run one sweep with --emit-trades and BOTH --rr-floor arms; feed the emit files to m31_harness_mfe_dist.py for this half. Canonical split: docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md section 5 preconditions 2a/2b and 3a/3b."
+        }
+      ]
+    },
+    {
+      "id": "PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD",
+      "opened_at": "2026-08-17",
+      "opened_by": "session m31-p5-rr (found by non-compliance in my own log)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "session-discipline",
+      "title": "The sprint-log format is documented as MANDATORY and nothing enforces it",
+      "source": "docs/sprint-logs/S-M31-HARNESS-MFE-DIST-2026-08-17.md",
+      "detail": "CLAUDE.md's instruction hierarchy names docs/SPRINT-LOG-TEMPLATE-CANONICAL.md as the 'mandatory sprint-log format' (14 '## ' sections). NOTHING checks it. Probe: grep -rl 'SPRINT-LOG-TEMPLATE-CANONICAL' over scripts/, tests/ and .github/ returns ZERO files. The probe is not blind -- the template itself is findable at docs/SPRINT-LOG-TEMPLATE-CANONICAL.md, and the same grep finds the canonical-doc-coherence and artifact-validity guards for the docs they DO cover, so a zero here is absence rather than a broken search. MEASURED DRIFT on logs written 2026-08-17: S-M20-WF-EFFECTIVE-FOLDS 15 sections, S-M31-TERMINAL-STAMP 10, S-M31-P4-MFE-PARITY 10, and the first version of S-M31-HARNESS-MFE-DIST (mine) 7. Note 15 > 14 is not itself a defect (extra sections are fine); the finding is the SHORTFALLS, and the count alone cannot distinguish the two -- a guard must check section NAMES, not a total.",
+      "why_it_matters": "The sections that go missing are the ones a later session reads to decide whether to trust the log: 'Repo State Checked', 'Contradictions or Drift Found', 'Deferred Items', 'Wrap-Up Check'. A log missing 'Deferred Items' reads as a completed unit of work when it may have deferred the load-bearing half -- which is exactly the shape of this session's own work, where the mechanism shipped and the artifact did not. This is the same family as BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED: a control that is declared and never executed. Here the 'control' is a documented mandatory format.",
+      "resolution_criteria": "Either (a) a CI check that every file added under docs/sprint-logs/ carries all 14 '## ' section names from the template -- diff-scoped so the ~200 existing logs are grandfathered, the same shape as diagnostic-provenance-guard -- with a self-test proving it FAILS on a log missing a section (not merely passes on a good one); or (b) an explicit decision, recorded in CLAUDE.md, that the template is advisory rather than mandatory, so the hierarchy stops claiming an enforcement that does not exist. Either resolves it; the current state -- 'mandatory' with zero enforcement and measured drift -- is the one that should not persist.",
+      "next_action": "A review session picks (a) or (b). If (a): grandfather by diff scope, and check NAMES not a count. Cheap either way; the measurement above is the whole investigation.",
+      "updates": []
     }
   ],
-  "updated_at": "2026-08-16"
+  "updated_at": "2026-08-17"
 }

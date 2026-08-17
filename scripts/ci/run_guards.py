@@ -436,7 +436,37 @@ GUARDS: List[Dict[str, Any]] = [
     {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
-        "steps": [["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
+        # Self-test FIRST, so a guard that silently stopped matching cannot read
+        # as a clean pass. This step was MISSING until 2026-08-17:
+        # `selftest_collapsed_state` had been registered in
+        # `guard_selftests.py::SELFTESTS` and nothing ever invoked it — the
+        # dispatcher takes a name (there is an `--all`, but no caller anywhere
+        # passes it), and `check_collapsed_states.py` has no `--self-test` of its
+        # own, so unlike `matrix-corpus-agreement` there was no second path
+        # covering it. A registered-and-never-executed control is exactly the
+        # written-and-never-read shape this guard family exists to catch, one
+        # level up: the guard was real, its self-test was real, and the wiring
+        # between them was the gap. It passes and its failure path verifies when
+        # run by hand, so this is a wiring fix, not a behaviour change.
+        "steps": [["python3", "scripts/ci/guard_selftests.py", "collapsed-state"],
+                  ["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
+    },
+    {
+        # The GENERALISATION of the fix recorded immediately above: that wiring
+        # gap was found by hand, and nothing would have found the next one.
+        # This resolves every registered self-test to a covering path —
+        # invoked-by-name here, or the checker's own `--self-test` declared in
+        # `guard_selftests.py::COVERED_BY_CHECKER` — and VERIFIES that path
+        # (the declared script must really be run with the flag, and must
+        # really declare it), so a mapping cannot be satisfied by naming
+        # something that cannot self-test.
+        "name": "selftest-wiring-guard",
+        # `when: None` — always. A guard that proves other guards' failure
+        # paths execute must not itself be diff-scoped: the whole defect class
+        # is a control that is present but never runs.
+        "when": None,
+        "steps": [["python3", "scripts/ci/check_selftest_wiring.py", "--self-test"],
+                  ["python3", "scripts/ci/check_selftest_wiring.py"]],
     },
     {
         "name": "exit-mechanism-coverage-guard",
@@ -575,6 +605,32 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/trend_harness_divergence.py", "--self-test"],
             ["python3", "scripts/research/trend_harness_divergence.py"],
         ],
+    },
+    {
+        # M31 P4. THE SELF-TEST IS THE GUARD — deliberately NOT the parity run.
+        # Running the real check in CI would green on `harness_absent` /
+        # `live_no_final_rows` (the live table is ~1 day old and holds no
+        # closed rows yet), i.e. a pass that checked nothing — the exact
+        # anti-pattern `docs/CLAUDE-RULES-CANONICAL.md` § "Green is not
+        # evidence" names. What CI can honestly protect is the INSTRUMENT: the
+        # 10 cases assert the probe still flags a ceiling breach, still refuses
+        # an uncapped harness, and still abstains rather than passing when the
+        # lifecycle is unknown. The abstention states protect the conclusion;
+        # this guard protects their ability to fire.
+        "name": "mfe-parity-instrument-guard",
+        # BOTH halves of Check B's instrumentation. The aggregator that WRITES
+        # the committed harness distribution is registered here beside the
+        # checker that reads it, and its own glob is listed, so editing either
+        # file runs both self-tests. A control that is written and never
+        # invoked is the defect this repo hit twice on 2026-08-17
+        # (BL-20260817-COLLAPSED-STATE-SELFTEST-REGISTERED-BUT-NEVER-INVOKED);
+        # the aggregator's refusals are exactly the kind of control that would
+        # rot silently, because nothing else fails when they stop firing.
+        "when": {"globs": ["scripts/research/m31_mfe_parity.py",
+                           "scripts/research/m31_harness_mfe_dist.py"]},
+        "steps": [["python3", "scripts/research/m31_mfe_parity.py", "--self-test"],
+                  ["python3", "scripts/research/m31_harness_mfe_dist.py",
+                   "--self-test"]],
     },
     {
         "name": "writer-conformance-guard",

@@ -48,10 +48,33 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import math
 import sys
 from pathlib import Path
+
+
+def _load_wf_effective():
+    """Import `grade_folds` from the sibling reader rather than re-deriving it.
+
+    `is_inert` has ONE definition (`m20_wf_effective.is_inert`), and a second
+    copy here would be exactly the defect this file is being fixed for: the
+    inert-fold split is the whole point, so two derivations of "did the lever
+    fire?" could disagree about a fold and make the gate and the audit tool
+    report different verdicts on the same row.
+
+    Sibling scripts are not a package, so this resolves by path.
+    """
+    path = Path(__file__).resolve().parent / "m20_wf_effective.py"
+    spec = importlib.util.spec_from_file_location("_m20_wf_effective", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_m20_wf_effective"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_WFE = _load_wf_effective()
 
 CORPUS_DEFAULT = "docs/research/m20-sweep-corpus.jsonl"
 # The sweep's own promotion rule, restated in ONE place so a drift in either
@@ -140,19 +163,88 @@ def axis_value(row: dict, axis: str):
     return fn(row) if fn else row.get(axis)
 
 
+def _wf_inequality(wins, usable) -> bool | None:
+    """The sweep's promotion rule, applied to whichever win count is passed.
+
+    Extracted so the recorded and effective verdicts are provably the SAME
+    inequality over a different numerator — a second inline copy is how the
+    two could drift into disagreeing for a reason other than inert folds.
+    """
+    if wins is None or usable is None:
+        return None
+    return usable >= WF_MIN_USABLE and wins * WF_WIN_DEN >= usable * WF_WIN_NUM
+
+
+def wf_basis(row: dict) -> str:
+    """WHICH evidence graded this row — never inferred from the verdict.
+
+    Three states, never collapsed:
+
+    * ``ungraded``  — no walk-forward ran. Not a failure; an absence.
+    * ``effective`` — the row carries ``wf_folds``, so inert folds could be
+      separated out and the verdict is graded on folds the lever actually
+      fired in.
+    * ``raw_only``  — a walk-forward ran but the row carries NO per-fold
+      detail, so the inert split is **unmeasurable here**. The verdict falls
+      back to the recorded count, and this state says so rather than letting
+      a fallback read as a clean effective grade.
+
+    ``raw_only`` is deliberately NOT graded as zero-effective: absent fold
+    detail is *"we could not look"*, and scoring it 0 would manufacture a
+    failure out of a missing record (the `exit_anchor` deferred/no_anchor
+    distinction, one level over).
+    """
+    if not row.get("wf_ran"):
+        return "ungraded"
+    folds = row.get("wf_folds")
+    if isinstance(folds, list) and folds:
+        return "effective"
+    return "raw_only"
+
+
 def wf_pass(row: dict) -> bool | None:
-    """The sweep's fold verdict for a row. None when no walk-forward ran.
+    """The fold verdict for a row, graded on EFFECTIVE wins. None when ungraded.
 
     None is not False. A cell that never reached a walk-forward carries no
     evidence about generalisation, and folding it into the failures would
     manufacture a negative out of an absence.
+
+    ⚠️ **A fold in which the lever changed NOTHING is not a win.** The sweep's
+    recorded `wf_wins` counts a fold as won whenever the gate returned `ok`,
+    and the gate returns `ok` for a fold with `d_net_r == 0.0` AND
+    `d_max_dd == 0.0` — the lever never having been exercised. Measured over
+    the committed corpus 2026-08-17: **17 of 96 deduped cells** (19 of 133
+    undeduped fold-carrying rows) pass on the recorded count and FAIL this
+    same inequality on effective wins, five of them at 0/6 — every "win" a
+    no-op. `BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS`.
+
+    This matters here specifically because `wf_pass` is not a label: it is the
+    pass/fail signal the floor calibration is computed over, so an inflated
+    count would bias which floor gets recommended.
+
+    `wf_pass_as_recorded` keeps the sweep's own figure, and `analyse` reports
+    BOTH rates — the recorded number is evidence about the sweep and is never
+    silently replaced.
+    """
+    basis = wf_basis(row)
+    if basis == "ungraded":
+        return None
+    if basis == "raw_only":
+        # We could not look at the folds; fall back rather than invent a zero.
+        return _wf_inequality(row.get("wf_wins"), row.get("wf_usable"))
+    g = _WFE.grade_folds(row["wf_folds"])
+    return _wf_inequality(g["effective"], g["usable"])
+
+
+def wf_pass_as_recorded(row: dict) -> bool | None:
+    """The verdict the SWEEP recorded — inert folds counted as wins.
+
+    Kept so the divergence stays reportable. Do NOT use this to gate anything;
+    it exists to be compared against `wf_pass`.
     """
     if not row.get("wf_ran"):
         return None
-    w, u = row.get("wf_wins"), row.get("wf_usable")
-    if w is None or u is None:
-        return None
-    return u >= WF_MIN_USABLE and w * WF_WIN_DEN >= u * WF_WIN_NUM
+    return _wf_inequality(row.get("wf_wins"), row.get("wf_usable"))
 
 
 def fisher_exact_greater(a: int, b: int, c: int, d: int) -> float:
@@ -268,12 +360,38 @@ def analyse(rows: list[dict], axis: str, direction: str = "floor") -> dict:
         return out
 
     vals = sorted({round(x, 4) for _, _, x in usable})
+    # BOTH RATES SHIP, and the divergence is counted.
+    #
+    # `overall_wf_pass_rate` is graded on EFFECTIVE wins (see `wf_pass`).
+    # `overall_wf_pass_rate_as_recorded` is the sweep's own figure, which
+    # counts a fold the lever never fired in as a win. Publishing only the
+    # corrected rate would silently replace a recorded number that appears in
+    # committed artifacts and prior roadmap entries, leaving no way to see that
+    # the two differ — and the SIZE of the gap is itself the finding
+    # (measured 2026-08-17: 0.6875 recorded vs 0.5714 effective, 11.6pp).
+    n_rec = sum(1 for r, _, _ in usable if wf_pass_as_recorded(r))
+    n_eff = sum(1 for _, v, _ in usable if v)
+    inflated = sum(1 for r, v, _ in usable
+                   if wf_pass_as_recorded(r) is True and v is False)
+    bases: dict = {}
+    for r, _, _ in usable:
+        b = wf_basis(r)
+        bases[b] = bases.get(b, 0) + 1
     out["axis_distribution"] = {
         "n": len(usable), "min": vals[0], "max": vals[-1],
         "median": vals[len(vals) // 2],
         "n_distinct": len(vals),
-        "overall_wf_pass_rate": round(
-            sum(1 for _, v, _ in usable if v) / len(usable), 4),
+        "overall_wf_pass_rate": round(n_eff / len(usable), 4),
+        "overall_wf_pass_rate_as_recorded": round(n_rec / len(usable), 4),
+        # Cells that pass on the recorded count and fail on effective wins.
+        # Read this beside the two rates: it is the population the gap is made
+        # of, so a rate difference can never be read without its denominator.
+        "cells_inflated_by_inert_folds": inflated,
+        # WHICH evidence graded each row. `raw_only` rows are graded on the
+        # recorded count because their folds are unrecorded — so a large
+        # `raw_only` count means the corrected rate is itself only partly
+        # corrected, and saying so is the point.
+        "wf_basis_counts": bases,
     }
     # THE RATE'S OWN DENOMINATOR. A base rate is net_R/maxDD over the leg's base
     # book, and that book can be 800 trades or 4. Quoting "the lowest rate is

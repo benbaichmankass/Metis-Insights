@@ -87,6 +87,123 @@ def _win(block: dict | None, window: str) -> dict:
     return got if isinstance(got, dict) else {}
 
 
+def fold_coverage(split, folds) -> dict:
+    """Which of THIS cell's OOS years the walk-forward panel never examined.
+
+    `BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD`.
+
+    `m20_fleet_exit_sweep.FOLDS` is a module-level literal of six calendar years
+    and `walkforward()` iterates it WITHOUT ever reading the cell's own `split`,
+    so `wf_summary` is a fixed-calendar robustness panel, not an out-of-sample
+    walk-forward relative to this cell's boundary — and nothing in the row said
+    so. Measured over the 133 fold-carrying corpus rows: **5 cells have OOS
+    years no fold examines, and all five PASSED**, the largest
+    `tlt_pullback_1d/decay_stall6_t2.5` at `d_net_r_OOS +8.3159` with 2019-2020
+    ungraded. Canonical case `splg_trend_long_1d/vt_hot80_t2`: OOS opens
+    2019-01-30, folds are 2021..2026, every covered year contributes exactly 0.0,
+    and `d_net_r_OOS` is +0.9596.
+
+    COMPUTED HERE, NOT IN THE SWEEP, DELIBERATELY. All 133 fold-carrying rows
+    already carry both `split` and `wf_folds`, so the extractor gives every
+    COMMITTED row its coverage on the next extract; putting it in the sweep would
+    make the same numbers wait on the hours-long re-run and leave the existing
+    corpus unreadable in the meantime.
+
+    ⚠️ `uncovered_oos_years: []` and `uncovered_oos_years: None` ARE DIFFERENT
+    ANSWERS and must not be conflated: `[]` = we looked and the panel covers the
+    whole OOS span; `None` = the split or the fold labels could not be parsed, so
+    we did not look. A `[]` standing in for the second would assert coverage that
+    was never checked, which is the defect this field exists to expose.
+
+    ⚠️ WHAT THIS DOES **NOT** MEASURE. It reports the years no fold EXAMINED; it
+    does NOT decompose `d_net_r_OOS` per year, so it cannot say how much of the
+    OOS gain originated in the uncovered years. On `splg` the supported reading
+    is that the whole gain sits in 2019-2020 — every covered fold is 0.0 — but
+    that remains a READING, not a measurement, and this field must not be quoted
+    as if it settled it.
+
+    Only years strictly BELOW the earliest fold are counted as uncovered. Years
+    above the latest fold label are deliberately not assessed: the sweep's final
+    fold carries ``end=None`` (open-ended, running to now), so a label alone
+    cannot tell us whether a later year is covered, and guessing would fabricate
+    a gap.
+    """
+    out = {"fold_years": None, "oos_first_year": None,
+           "uncovered_oos_years": None, "pre_split_fold_years": None}
+    if not isinstance(folds, list) or not folds:
+        return out
+    years = sorted({int(f["fold"]) for f in folds
+                    if isinstance(f, dict) and str(f.get("fold", "")).isdigit()})
+    if not years:
+        return out
+    out["fold_years"] = years
+    try:
+        oos_first = int(str(split)[:4])
+    except (TypeError, ValueError):
+        # Folds are readable but the boundary is not — report the panel and keep
+        # the OOS-relative fields None rather than inventing a span.
+        return out
+    if not 1990 <= oos_first <= 2100:
+        # A PLAUSIBILITY bound, not decoration. `int(str(12345)[:4])` is 1234,
+        # which is silently parseable and would emit 787 "uncovered years" — a
+        # confident answer from a nonsense input, worse than declining to answer.
+        # Caught by this module's own test, which asserted None and got a list.
+        return out
+    out["oos_first_year"] = oos_first
+    out["uncovered_oos_years"] = [y for y in range(oos_first, years[0])]
+    out["pre_split_fold_years"] = [y for y in years if y < oos_first]
+    return out
+
+
+# The declared vocabulary for `lever_in_baseline`, in one place so the states
+# are readable without tracing the branches — and so a consumer can assert it
+# recognises all of them rather than assuming three.
+LEVER_IN_BASELINE_STATES = ("lever_in_baseline", "lever_absent_from_baseline", "unknown")
+
+
+def lever_in_baseline(lever: str | None, present, dropped) -> str:
+    """Was THIS cell's own lever already in the book the delta was measured against?
+
+    `BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP`.
+
+    Once a lever is DECLARED on a leg, the sweep's baseline already runs it, so
+    re-sweeping it returns `d_net_r == 0.0` on both windows under
+    `gate_reason: tie_no_improvement` with `wf_ran: false` — arithmetically
+    correct and byte-identical to a lever that WAS measured and does nothing.
+    Measured on the committed corpus: 10 rows sit in that state while **192**
+    other rows carry the SAME `tie_no_improvement` with the lever genuinely
+    absent from the baseline. One verdict string, two opposite meanings, and the
+    only way to tell them apart was to read `declared_levers_present` and notice
+    the row's own lever inside a list. This field is that distinction, emitted.
+
+    ⚠️ `dropped` IS CONSULTED FIRST, AND THAT ORDER IS THE WHOLE POINT.
+    "Declared" is NOT "in the measured baseline": the lever-OFF arm REMOVES a
+    declared lever, and then the baseline genuinely excludes it and the delta is
+    a REAL measurement. 41 of 1373 corpus rows are in exactly that state (and in
+    all 41 the dropped lever is the row's OWN), so the naive two-field predicate
+    — `lever in present` — mislabels 41 genuine measurements as structurally
+    meaningless, one of them `gld_pullback_1d/shipped_trail_decay_5.06_10_2` at
+    `d_net_r_IS +19.1782`. That is the MIRROR of the defect this field exists to
+    fix: the bug reads an artifact as a measurement, the naive fix reads
+    measurements as artifacts. Correct partition 61 / 471 / 841, not 102 / 430 / 841.
+
+    Three states, never collapsed:
+
+      * ``lever_in_baseline``        — the delta is structurally zero and says
+        NOTHING about the lever's value. Do not read it as evidence either way.
+      * ``lever_absent_from_baseline`` — a real measurement.
+      * ``unknown``                 — the declared set could not be resolved
+        (a row predating the field). **We did not look** — NOT "absent".
+    """
+    if not isinstance(present, list):
+        # `None` is a pre-field row: unknowable, and emphatically not "absent".
+        return "unknown"
+    if isinstance(dropped, list) and lever in dropped:
+        return "lever_absent_from_baseline"
+    return ("lever_in_baseline" if lever in present
+            else "lever_absent_from_baseline")
+
+
 def measurement_key(row: dict) -> tuple:
     """WHAT this row measured — the merge identity. Never includes the run.
 
@@ -457,6 +574,14 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                           else None)
                 row = {**leg_common, "kind": "cell", "lever": lever,
                        "base_missing_other_levers": _other,
+                       # The sibling `base_missing_other_levers` deliberately
+                       # SUBTRACTS this row's own lever, so the fact that the
+                       # row's own lever was dropped was already computed here
+                       # and thrown away. This emits it. See the helper's
+                       # docstring for why `dropped` is consulted FIRST.
+                       "lever_in_baseline": lever_in_baseline(
+                           lever, leg_common.get("declared_levers_present"),
+                           _dl),
                        "cell": e.get("cell"), "verdict": e.get("verdict"),
                        "is_oos_pass": e.get("is_oos_pass"),
                        "path_b_candidate": bool(e.get("path_b_candidate")),
@@ -471,6 +596,35 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                        # walk-forward is not a cell that failed one.
                        "wf_ran": wf is not None,
                        "wf_summary": wf, "wf_wins": wins, "wf_usable": usable,
+                       # WHICH OOS YEARS DID NO FOLD EXAMINE? The panel is a
+                       # fixed calendar that never reads `split`, so a delta
+                       # originating in an unexamined year reads as
+                       # walk-forward-confirmed. `[]` (covered) and `None` (could
+                       # not look) are different answers — see fold_coverage().
+                       # NOTE the key is `walkforward_folds` — the sweep's own
+                       # name. `wf_folds` is the CORPUS name, assigned below;
+                       # reading that here returns None for every row and the
+                       # coverage fields would silently come back all-None,
+                       # which is precisely the write-and-never-read shape this
+                       # field exists to expose. Pinned by
+                       # tests/test_corpus_fold_coverage.py.
+                       **fold_coverage(leg_common.get("split"),
+                                       e.get("walkforward_folds")),
+                       # The inert-fold split, carried from the sweep rather
+                       # than re-derived: `wf_summary` counts a fold where the
+                       # lever changed NOTHING as a win, so `wf_wins` alone is
+                       # not quotable. Tracked by
+                       # BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS
+                       # (kept on ONE line — a wrapped id resolves to nothing,
+                       # which artifact-validity-guard correctly rejects).
+                       # None on rows written before the sweep
+                       # emitted it — correctly, since those runs genuinely
+                       # recorded no such split; a 0 there would assert "no
+                       # inert folds", which is a measurement nobody made.
+                       # Derivable from `wf_folds` for older rows via
+                       # scripts/research/m20_wf_effective.py.
+                       "wf_wins_effective": e.get("walkforward_effective"),
+                       "wf_inert_wins": e.get("walkforward_inert_wins"),
                        "wf_folds": e.get("walkforward_folds")}
                 for tag, g in (("IS", g_is), ("OOS", g_oos)):
                     row[f"d_net_r_{tag}"] = _num(g, "d_net_r")

@@ -942,3 +942,373 @@ def test_symbol_wide_cancel_counts_refused_legs():
     assert out["seen"] == 2, out
     assert out["cancelled"] == 1, out
     assert out["failed"] == 1, out
+
+
+# ---------------------------------------------------------------------------
+# 6. The VENUE SESSION GATE (BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS)
+#
+# Alpaca's close has had `us_equity_session()` since BL-20260716; the IB close
+# had nothing, because `market_hours.py` models fx / us_equity / crypto and
+# futures are in none of them. So every IB close fired a market order at any
+# hour and read acceptance as placement — measured 2026-08-16 on ib_paper/MGC as
+# an order sitting `PreSubmitted` with `filled 0`.
+# ---------------------------------------------------------------------------
+
+# A COMEX week as IBKR reports it. Sunday 18:00 ET -> Friday 17:00 ET, with a
+# daily 17:00-18:00 break, and Saturday closed.
+_HOURS = (
+    "20260815:CLOSED;"
+    "20260816:1800-20260817:1700;"
+    "20260817:1800-20260818:1700"
+)
+_TZ = "US/Eastern"
+
+
+def _et(y, mo, d, h, mi=0):
+    from datetime import datetime, timedelta, timezone
+    return datetime(y, mo, d, tzinfo=timezone.utc) + timedelta(hours=h + 4, minutes=mi)
+
+
+class _FakeDetails:
+    def __init__(self, hours=_HOURS, tz=_TZ):
+        self.tradingHours = hours
+        self.liquidHours = hours
+        self.timeZoneId = tz
+
+
+def _ib_serving_hours(fake_ib, hours=_HOURS, tz=_TZ, fail=False):
+    """Give the fake IB a reqContractDetails, counting calls (for the cache)."""
+    calls = []
+
+    def _req(contract):
+        calls.append(contract)
+        if fail:
+            raise RuntimeError("gateway wedged")
+        return [_FakeDetails(hours, tz)]
+
+    fake_ib.reqContractDetails = _req
+    fake_ib.detail_calls = calls
+    return fake_ib
+
+
+def _long_mgc(**kw):
+    return FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 3, account="DUQ1")],
+        open_trades=[
+            _FakeTrade(MagicMock(orderId=10), _FakeContract(symbol="MGC")),
+        ],
+        **kw,
+    )
+
+
+def _freeze(monkeypatch, when):
+    """Pin `datetime.now(timezone.utc)` inside the hours parser."""
+    from datetime import datetime as _dt
+    from src.runtime import ib_trading_hours as th
+
+    class _Now(_dt):
+        @classmethod
+        def now(cls, tz=None):
+            return when if tz is None else when.astimezone(tz)
+
+    monkeypatch.setattr(th, "datetime", _Now)
+
+
+def test_close_defers_when_the_venue_is_closed(monkeypatch):
+    """Nothing placed, and — the part that matters — the protective bracket is
+    NOT cancelled. Cancelling it and then placing nothing is strictly the worst
+    outcome available: an unfillable close AND an unprotected position."""
+    _freeze(monkeypatch, _et(2026, 8, 15, 12))          # Saturday
+    fake_ib = _ib_serving_hours(_long_mgc())
+    client = _ib_client_with(fake_ib)
+
+    res = client.close(symbol="MGC", side="long", qty=3)
+
+    assert res["retCode"] == 2, res
+    assert fake_ib.placed == [], "placed a doomed order into a closed venue"
+    assert fake_ib.cancelled == [], "cancelled the bracket, then placed nothing"
+
+
+def test_defer_message_satisfies_the_monitors_actual_string_match(monkeypatch):
+    """order_monitor._apply_update detects a defer by STRING-MATCHING the
+    message, not by the retCode. A retCode 2 whose text lacks the phrase is
+    booked as a close FAILURE — streak, alarm, "won't flatten" spam — for a
+    venue that is merely shut. Asserted against order_monitor's own source so
+    drift on EITHER side fails: the message losing the phrase, or the monitor
+    dropping it from its match set."""
+    from pathlib import Path
+
+    _freeze(monkeypatch, _et(2026, 8, 15, 12))
+    fake_ib = _ib_serving_hours(_long_mgc())
+    res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    monitor_src = Path("src/runtime/order_monitor.py").read_text(encoding="utf-8")
+    assert '"exit deferred" in err_str.lower()' in monitor_src, (
+        "order_monitor no longer matches 'exit deferred' — the IB defer message "
+        "must be updated to whatever it matches now"
+    )
+    assert "exit deferred" in res["retMsg"].lower(), res
+
+
+def test_close_proceeds_when_the_venue_is_open(monkeypatch):
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))           # inside the overnight
+    fake_ib = _ib_serving_hours(_long_mgc())
+    res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    assert res["retCode"] == 0, res
+    assert len(fake_ib.placed) == 1
+
+
+def test_unknown_session_proceeds_rather_than_stranding_the_close(monkeypatch):
+    """`unknown` is *we could not look*. Refusing to flatten a live position
+    because a contract lookup failed would convert an observability defect into
+    money at risk — so it must place, not defer."""
+    _freeze(monkeypatch, _et(2026, 8, 15, 12))          # would be CLOSED if known
+    fake_ib = _ib_serving_hours(_long_mgc(), fail=True)
+    res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    assert res["retCode"] == 0, res
+    assert len(fake_ib.placed) == 1
+
+
+def test_close_order_is_marked_outside_rth(monkeypatch):
+    """Without this the gate above is a lie: IBKR's outsideRth keys on LIQUID
+    hours, so a market order placed inside tradingHours but outside RTH is HELD.
+    Gating on one field and transmitting the other is a verdict about a venue
+    state the order does not act on."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc())
+    _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    _, order = fake_ib.placed[0]
+    assert getattr(order, "outsideRth", False) is True
+
+
+def test_outside_rth_is_separately_revertible(monkeypatch):
+    """The order-semantics half is the riskier one (a thinner overnight book),
+    so reverting it must not also lose the session gate."""
+    monkeypatch.setenv("IB_CLOSE_OUTSIDE_RTH", "false")
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc())
+    res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    _, order = fake_ib.placed[0]
+    assert getattr(order, "outsideRth", None) is not True
+    assert res["retCode"] == 0
+
+    # ...and the gate still fires.
+    _freeze(monkeypatch, _et(2026, 8, 15, 12))
+    fake2 = _ib_serving_hours(_long_mgc())
+    assert _ib_client_with(fake2).close(symbol="MGC", side="long", qty=3)["retCode"] == 2
+
+
+def test_session_gate_has_a_one_env_flip_rollback(monkeypatch):
+    monkeypatch.setenv("IB_SESSION_CHECK_DISABLED", "1")
+    _freeze(monkeypatch, _et(2026, 8, 15, 12))          # Saturday
+    fake_ib = _ib_serving_hours(_long_mgc())
+    res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    assert res["retCode"] == 0, res
+    assert fake_ib.detail_calls == [], "disabled gate still hit the gateway"
+
+
+def test_cache_holds_the_hours_string_not_the_verdict(monkeypatch):
+    """A cached VERDICT is wrong at exactly the boundary the gate exists for: a
+    'closed' graded at 17:59 ET and cached for the TTL keeps reading closed
+    after the 18:00 reopen, stranding every close for the rest of the window.
+    One fetch, two different verdicts."""
+    fake_ib = _ib_serving_hours(_long_mgc(flatten_on_close=False))
+    client = _ib_client_with(fake_ib)
+
+    _freeze(monkeypatch, _et(2026, 8, 17, 17, 30))      # the daily break
+    assert client._venue_session(fake_ib, "MGC")[0] == "closed"
+    _freeze(monkeypatch, _et(2026, 8, 17, 18, 30))      # after the reopen
+    assert client._venue_session(fake_ib, "MGC")[0] == "open"
+
+    assert len(fake_ib.detail_calls) == 1, fake_ib.detail_calls
+
+
+def test_unknown_session_is_not_silent(monkeypatch, caplog):
+    """`unknown` proceeds like `open` — but it must not be SILENT like `open`.
+
+    A gate that is permanently unknown otherwise reads exactly like a working
+    gate on an open venue. `US/Eastern` and `US/Central` are tzdata LEGACY links
+    absent from slim installs and COMEX/CME report precisely those, so a host
+    whose tz database regressed would disable the gate for every futures
+    contract we trade and announce nothing.
+    """
+    import logging
+
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc(), fail=True)      # -> "unknown"
+    with caplog.at_level(logging.WARNING):
+        res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
+
+    assert res["retCode"] == 0
+    assert any("UNKNOWN" in r.getMessage() for r in caplog.records), (
+        [r.getMessage() for r in caplog.records]
+    )
+
+
+def test_venue_session_reports_all_three_states(monkeypatch):
+    """The public read surface must be able to say "open", "closed" AND
+    "unknown" — a caller that can only ever see two of them is reading a
+    collapsed field whatever the producer emits."""
+    fake_ib = _ib_serving_hours(_long_mgc(flatten_on_close=False))
+    client = _ib_client_with(fake_ib)
+
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    assert client.venue_session("MGC")[0] == "open"
+    _freeze(monkeypatch, _et(2026, 8, 15, 12))
+    assert client.venue_session("MGC")[0] == "closed"
+
+    blind = _ib_client_with(_ib_serving_hours(_long_mgc(), fail=True))
+    assert blind.venue_session("MGC")[0] == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# The FUTURES / EQUITY split. ib_paper mixes both on one clientId, and the two
+# want OPPOSITE treatment outside RTH:
+#   * a FUTURE's electronic session IS the market -> outsideRth=True, grade
+#     tradingHours;
+#   * an EQUITY's extended book is thin -> keep outsideRth=False and grade
+#     liquidHours, so the close DEFERS instead of firing a market order
+#     pre/post-market. That is exactly what Alpaca's _close_extended_hours
+#     avoids by using a marketable LIMIT, and this change cites that path as
+#     its own precedent, so contradicting it would be incoherent.
+# ---------------------------------------------------------------------------
+
+_EQ_TRADING = "20260817:0400-20260817:2000;20260818:0400-20260818:2000"
+# MGC's RTH/pit window inside the electronic session `_HOURS` above.
+_MGC_LIQUID = ("20260815:CLOSED;20260816:CLOSED;"
+               "20260817:0820-20260817:1330;20260818:0820-20260818:1330")
+_EQ_LIQUID = "20260817:0930-20260817:1600;20260818:0930-20260818:1600"
+
+
+class _FakeSplitDetails:
+    def __init__(self, trading, liquid, tz=_TZ):
+        self.tradingHours = trading
+        self.liquidHours = liquid
+        self.timeZoneId = tz
+
+
+def _ib_serving_split(fake_ib, trading, liquid):
+    fake_ib.detail_calls = []
+
+    def _req(contract):
+        fake_ib.detail_calls.append(contract)
+        return [_FakeSplitDetails(trading, liquid)]
+
+    fake_ib.reqContractDetails = _req
+    return fake_ib
+
+
+def _long_qqq(**kw):
+    return FakeIB(
+        portfolio_items=[_FakePortfolioItem("QQQ", 10, account="DUQ1")],
+        open_trades=[_FakeTrade(MagicMock(orderId=20), _FakeContract(symbol="QQQ"))],
+        **kw,
+    )
+
+
+def test_equity_close_outside_rth_defers_instead_of_firing(monkeypatch):
+    """08:00 ET is inside an equity's tradingHours (pre-market) and OUTSIDE its
+    liquidHours. Grading tradingHours would call the venue open and then send an
+    order IBKR holds — a verdict about a state the order does not act on."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 8))
+    fake_ib = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
+    client = _ib_client_with(fake_ib, symbol="QQQ")
+
+    res = client.close(symbol="QQQ", side="long", qty=10)
+
+    assert res["retCode"] == 2, res
+    assert "exit deferred" in res["retMsg"].lower()
+    assert fake_ib.placed == []
+    assert fake_ib.cancelled == []
+
+
+def test_equity_close_in_rth_proceeds_without_outside_rth(monkeypatch):
+    _freeze(monkeypatch, _et(2026, 8, 17, 11))          # 11:00 ET, inside RTH
+    fake_ib = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
+    res = _ib_client_with(fake_ib, symbol="QQQ").close(symbol="QQQ", side="long", qty=10)
+
+    assert res["retCode"] == 0, res
+    _, order = fake_ib.placed[0]
+    assert getattr(order, "outsideRth", None) is not True, (
+        "an equity market close must not be sent with outsideRth=True — that is "
+        "the thin-extended-book fill Alpaca's marketable-limit path exists to avoid"
+    )
+
+
+def test_futures_close_at_the_same_instant_does_the_opposite(monkeypatch):
+    """The split is the point: same clock, opposite correct answers."""
+    _freeze(monkeypatch, _et(2026, 8, 18, 3))           # 03:00 ET
+    fut = _ib_serving_split(_long_mgc(), _HOURS, _MGC_LIQUID)
+    res = _ib_client_with(fut, symbol="MGC").close(symbol="MGC", side="long", qty=3)
+    assert res["retCode"] == 0, res
+    assert getattr(fut.placed[0][1], "outsideRth", False) is True
+
+    eq = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
+    assert _ib_client_with(eq, symbol="QQQ").close(
+        symbol="QQQ", side="long", qty=10)["retCode"] == 2
+
+
+# ---------------------------------------------------------------------------
+# venue_session_detail — the READ surface. The gate only runs on a CLOSE and is
+# fail-permissive on `unknown`, so a permanently-unknown gate is behaviourally
+# identical to a working one; measured 2026-08-17 as ~24h deployed and never
+# once executed. BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE.
+# ---------------------------------------------------------------------------
+
+
+def test_venue_session_detail_reports_which_library_resolved_the_tz(monkeypatch):
+    """`tz_source` is the field the route exists for: both zoneinfo and pytz
+    yield a working tzinfo, so an `open` verdict proves a tz resolved but not
+    through what — and COMEX/CME report exactly the legacy links that are absent
+    from slim installs."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc(flatten_on_close=False))
+    out = _ib_client_with(fake_ib, symbol="MGC").venue_session_detail("MGC")
+
+    assert out["state"] == "open", out
+    assert out["tz_source"] in ("zoneinfo", "pytz"), out
+    assert out["tz_resolved_name"], out
+    assert out["time_zone_id"] == _TZ
+    assert out["hours_present"] is True
+
+
+def test_venue_session_detail_exposes_the_fut_stk_split(monkeypatch):
+    """The verdict must be checkable against the flag the order actually
+    carries — grading one field while transmitting the other is the defect the
+    gate was built to avoid."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fut = _ib_client_with(_ib_serving_hours(_long_mgc()), symbol="MGC")
+    out = fut.venue_session_detail("MGC")
+    assert out["graded_field"] == "tradingHours"
+    assert out["close_would_send_outside_rth"] is True
+
+    eq = _ib_client_with(_ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID),
+                         symbol="QQQ")
+    out = eq.venue_session_detail("QQQ")
+    assert out["graded_field"] == "liquidHours"
+    assert out["close_would_send_outside_rth"] is False
+
+
+def test_venue_session_detail_is_honest_when_it_could_not_look(monkeypatch):
+    """An unreachable gateway must yield `unknown` + hours_present False — never
+    an empty-looking success that reads as a clean verdict."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    blind = _ib_client_with(_ib_serving_hours(_long_mgc(), fail=True), symbol="MGC")
+    out = blind.venue_session_detail("MGC")
+
+    assert out["state"] == "unknown"
+    assert out["hours_present"] is False
+    assert out["tz_source"] == "unresolved"
+    assert out["reason"]
+
+
+def test_venue_session_detail_opens_no_order_path(monkeypatch):
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc(flatten_on_close=False))
+    _ib_client_with(fake_ib, symbol="MGC").venue_session_detail("MGC")
+    assert fake_ib.placed == [] and fake_ib.cancelled == []

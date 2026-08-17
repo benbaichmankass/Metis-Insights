@@ -21,6 +21,7 @@ us the coverage that matters.
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -803,3 +804,89 @@ def test_every_wrapper_required_env_var_is_forwarded_to_the_vm() -> None:
         f"abort on the VM with its own 'X required' message. Add the var to "
         f"that action's `REMOTE_CMD=\"…\"` branch in system-actions.yml."
     )
+
+
+# ---------------------------------------------------------------------------
+# cancel-ib-order guard overrides (2026-08-17).
+#
+# The python script documents two overrides and the wrapper passed NEITHER, so
+# the action could not cancel the one class of order it exists for: a stranded
+# PROTECTIVE, TRADER-OWNED stop trips both guards at once. Live-confirmed on a
+# duplicate MES stop (perm 166865400, clientId 597) -> `action: refused`, with
+# no reachable way forward.
+#
+# These tests EXECUTE the wrapper's flag logic rather than grepping for the
+# strings. A grep passes just as happily on a flag appended unconditionally,
+# which would silently disarm both guards for every invocation -- the exact
+# failure this change must not introduce.
+# ---------------------------------------------------------------------------
+
+CANCEL_WRAPPER = OPS_DIR / "cancel_ib_order_action.sh"
+
+
+def _wrapper_force_args(force_protective: str, force_client_id: str) -> list:
+    """Run ONLY the wrapper's two force `case` blocks and return the args.
+
+    Extracted by slicing the real file between its own markers, so the test
+    reads what ships rather than a copy that can drift. The values are passed
+    through the ENVIRONMENT rather than interpolated into the script text --
+    interpolating them was this helper's own first bug, and it would also stop
+    the test from covering values containing quotes or spaces.
+    """
+    src = CANCEL_WRAPPER.read_text()
+    start = src.index('case "${ACTION_FORCE_PROTECTIVE}"')
+    end = src.index('exec "${PY}"')
+    block = src[start:end]
+
+    script = "set -u\nARGS=()\n" + block + '\nprintf "%s\\n" "${ARGS[@]:-}"\n'
+    out = subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "ACTION_FORCE_PROTECTIVE": force_protective,
+            "ACTION_FORCE_CLIENT_ID": force_client_id,
+        },
+    )
+    assert out.returncode == 0, out.stderr
+    return [ln for ln in out.stdout.splitlines() if ln.startswith("--")]
+
+
+def test_force_flags_absent_by_default_so_guards_still_refuse():
+    """The whole point of the guards. Absent env => neither flag passed."""
+    assert _wrapper_force_args("", "") == []
+
+
+def test_force_flags_are_independent_not_one_switch():
+    """Two guards answer different questions -- 'strip this exit' vs 'connect
+    as a trader-band id'. One key enabling both would waive a refusal nobody
+    asked to waive."""
+    assert _wrapper_force_args("true", "") == ["--force-protective"]
+    assert _wrapper_force_args("", "true") == ["--force-client-id"]
+
+
+def test_force_flags_both_settable_for_the_motivating_case():
+    both = _wrapper_force_args("true", "true")
+    assert sorted(both) == ["--force-client-id", "--force-protective"]
+
+
+def test_unrecognised_force_value_does_not_silently_force():
+    """A typo must not read as true. It resolves to off here; the workflow's
+    validation rejects it outright before we ever reach the wrapper."""
+    for bogus in ("yes", "1", "TRUE ", "on", "false"):
+        assert _wrapper_force_args(bogus, bogus) == [], bogus
+
+
+def test_workflow_parses_and_forwards_both_force_keys():
+    """Parsed + exported + FORWARDED OVER SSH. The third is the one that bites:
+    a var parsed and validated but missing from REMOTE_CMD is dropped silently
+    at the SSH boundary, and the run reports a refusal for a forced request."""
+    wf = WORKFLOW.read_text()
+    for key, env in (
+        ("force_protective", "ACTION_FORCE_PROTECTIVE"),
+        ("force_client_id", "ACTION_FORCE_CLIENT_ID"),
+    ):
+        assert f"'^[[:space:]]*{key}[[:space:]]*:'" in wf, f"{key} not parsed"
+        assert f'echo "{env}=' in wf, f"{env} not exported to GITHUB_ENV"
+        assert f"{env}=$(printf '%q'" in wf, f"{env} not forwarded in REMOTE_CMD"

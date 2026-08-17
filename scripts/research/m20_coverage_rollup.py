@@ -793,6 +793,102 @@ def cells(matrix: dict[str, Any], live_only: bool = True):
             yield row, col, status
 
 
+# One name, one place. Referenced in an error message a human acts on, so it
+# must resolve — and a backlog id that only ever appears as a wrapped string
+# literal is exactly the fragment artifact-validity-guard exists to reject.
+_GEOMETRY_BACKLOG_ROW = (
+    "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
+)
+
+
+def tp_geometry_legend_values(matrix: dict[str, Any]) -> set[str]:
+    """The DEFINED `tp_geometry` values, read from the matrix's own legend.
+
+    Read, never hardcoded. A guard carrying its own copy of the vocabulary is
+    free to drift from the legend a human reads, and then the two disagree
+    about what a cell means while both look authoritative. Keys starting with
+    `_` are the legend's prose (`_field`, `_why_it_exists`, `ABSENT_means_…`),
+    not values.
+    """
+    leg = matrix.get("tp_geometry_legend") or {}
+    return {k for k in leg if not k.startswith("_") and k != "ABSENT_means_unrecorded"}
+
+
+def _validate_tp_geometry(matrix: dict[str, Any]) -> list[str]:
+    """Criterion (3) of BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING.
+
+    TWO CHECKS, and the split is the whole design.
+
+    (a) **Every PRESENT value must be a legend value.** Cheap, always-on, and
+        it catches the failure that `status: null` already demonstrated on this
+        same file: a value that is not in the legend cannot be graded by
+        anything, yet wears a graded value's shape.
+
+    (b) **The unstamped count may not GROW.** This is what makes "a new cell
+        cannot be added silent" enforceable TODAY. 210 of 376 live cells carry
+        no `tp_geometry`, so an "every cell must carry one" assertion would
+        fail on the current file and could only ship by being switched off —
+        a guard nobody can turn on is worth less than no guard. A ratchet
+        grandfathers the existing absences (which
+        `BL-20260814-…-SO-ABSENCE-CANNOT-MEAN-ANYTHING` owns, and which must NOT
+        be guessed from dates) while making any NEW silent cell a CI failure.
+
+    THE CEILING LIVES IN THE MATRIX, next to the legend it bounds, so a PR that
+    stamps cells lowers it deliberately and a PR that adds a silent cell has to
+    raise it in the diff where a reviewer sees it. A ceiling stored in this
+    script would be a number nobody reads next to the data it describes.
+
+    ⚠️ THE CEILING IS NOT A TARGET. It is an upper bound on a known-bad
+    population, and the row that owns stamping is still open. Do not read a
+    passing ratchet as "geometry coverage is fine" — read
+    `geometry_coverage()`'s fraction for that, which is the honest number.
+    """
+    problems: list[str] = []
+    defined = tp_geometry_legend_values(matrix)
+    if not defined:
+        # NOT silently skipped. An unreadable legend means we could not check,
+        # which is a different statement from "every value is valid" — the
+        # collapsed-state shape this file guards for elsewhere.
+        return ["tp_geometry_legend is missing or defines no values — "
+                "tp_geometry NOT validated (this is 'unchecked', not 'clean')"]
+
+    unstamped = 0
+    for row, col, _status in cells(matrix, live_only=True):
+        cell = row.get(col)
+        if not isinstance(cell, dict):
+            continue
+        if "tp_geometry" not in cell or cell.get("tp_geometry") is None:
+            unstamped += 1
+            continue
+        geom = cell.get("tp_geometry")
+        if geom not in defined:
+            problems.append(
+                f"{row.get('strategy')}/{row.get('symbol')}/{row.get('tf')}/{col}: "
+                f"tp_geometry={geom!r} is not a defined value {sorted(defined)} — "
+                "nothing can grade which geometry this verdict rests on")
+
+    leg = matrix.get("tp_geometry_legend") or {}
+    ceiling = leg.get("_unstamped_ceiling")
+    if not isinstance(ceiling, int):
+        problems.append(
+            "tp_geometry_legend._unstamped_ceiling is missing or not an int — "
+            "the ratchet that stops a new silent cell cannot be evaluated "
+            f"(currently {unstamped} live cells carry no tp_geometry)")
+    elif unstamped > ceiling:
+        problems.append(
+            f"{unstamped} live cells carry no tp_geometry, above the recorded "
+            f"ceiling of {ceiling}. A cell was added or un-stamped without "
+            "recording which TP geometry its verdict rests on. Either stamp it "
+            "(live_parity / no_take_profit — NEVER guessed from the date, see "
+            # The id is kept WHOLE on one line on purpose: splitting it across a
+            # string concat is how this very message first shipped, and
+            # artifact-validity-guard correctly read the fragment as a reference
+            # resolving to nothing.
+            f"{_GEOMETRY_BACKLOG_ROW}) or raise the ceiling in the diff so a "
+            "reviewer sees the population growing.")
+    return problems
+
+
 def validate(matrix: dict[str, Any]) -> list[str]:
     """Structural checks. Runs over EVERY row, live or not.
 
@@ -804,6 +900,8 @@ def validate(matrix: dict[str, Any]) -> list[str]:
     legend = set(matrix.get("legend") or {})
     if not legend:
         problems.append("legend is empty — cannot validate statuses")
+
+    problems += _validate_tp_geometry(matrix)
 
     # EVERY LIVE LEG MUST RESOLVE IN config/strategies.yaml.
     #
@@ -1020,6 +1118,138 @@ def fold_reachability(matrix: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+# The done-condition cells, grouped by WHAT ACTUALLY GATES THEM.
+#
+# WHY: the roll-up used to print `read the done-condition as {N} actionable +
+# {M} arithmetic`, computed as `cells_to_done - len(unreachable)`. That subtracts
+# exactly ONE gate -- the exit_head_ml fold arithmetic -- and silently calls
+# every other gate "actionable". Measured 2026-08-17 it reported 12 actionable
+# where about 4 were workable by a session, and because the line was EMITTED BY
+# THIS SCRIPT the overstatement reached every consumer, a roadmap entry and three
+# operator pings before anyone read the block reasons
+# (BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO).
+#
+# The partition keys on the STATUS STRING the matrix already carries, so it is
+# reproducible and cannot drift from the cell. It deliberately does NOT try to
+# recover "parked milestone-wide" or "measured, grading withheld" -- those live
+# in ref PROSE, are real judgements, and a tool that guessed at them would be
+# manufacturing a classification. A hand analysis may legitimately use them; the
+# totals reconcile either way.
+GATE_KINDS = {
+    # the leg has not traded enough for the protocol's folds/floors
+    "insufficient_lifetime_trades": "accrual",
+    "insufficient_base": "accrual",
+    "insufficient_oos_base_at_derived_split": "accrual",
+    # the candles/history do not exist to sweep against
+    "native-history-thin": "data",
+    "data_missing": "data",
+    # the harness cannot express the lever at all -- needs CODE, not a run
+    "no_harness_levers": "harness_gap",
+}
+
+#: Levers a SESSION cannot produce a verdict for, whatever a cell's status says.
+#:
+#: WHY THIS EXISTS. `gate_partition` keys on the cell's STATUS STRING, which is
+#: the right call (it cannot drift from the matrix) and is also blind to whether
+#: the thing the status implies is POSSIBLE. A `pending` cell reads
+#: "no sweep has been run", which invites "so run it" -- and for these two
+#: levers no run exists to be run. Measured 2026-08-17: all FOUR cells the
+#: partition called movable rest on these two levers, so the honest movable
+#: count was ZERO while the roll-up implied four
+#: (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
+#:
+#: THE THREE FACTS BEHIND EACH ENTRY, each verified rather than inherited:
+#:   * `m20_fleet_exit_sweep.py` defines NO arm -- each lever appears exactly
+#:     once, in the comment saying it is absent.
+#:   * neither `backtest_trend.py` nor `backtest_squeeze.py` exposes a flag
+#:     (`--exit-ladder` / `--regime-flip`: none, AST-checked).
+#:   * `scripts/ci/check_matrix_corpus_agreement.py` states the same, and is
+#:     the authority the corpus-agreement guard already reads.
+#:
+#: NOT a claim the cells are unreachable forever -- both have a named route
+#: (a backtest-gated P4 graduation; an operator decision). It is a claim that
+#: the route is not "a session runs the sweep". `exit_head_ml` is deliberately
+#: ABSENT: it has its own driver and IS swept, so its cells are graded
+#: `arithmetic`/`accrual` on trade counts, which is a different gate.
+LEVERS_WITHOUT_A_SWEEP_PATH: dict[str, str] = {
+    "exit_ladder": (
+        "observe-only shadow soak (runtime_logs/exit_ladder_soak.jsonl); the "
+        "fleet harness never emits an exit_ladder cell, and graduation to a "
+        "real laddered exit is the backtest-gated P4"
+    ),
+    "regime_flip_exit": (
+        "no runtime implementation to sweep -- only the offline replays "
+        "m20_regime_flip_replay.py / m20_flip_replay_sweep.py; building it as "
+        "a YAML-declared default-off close path is operator decision (c)"
+    ),
+}
+
+
+def gate_partition(matrix: dict[str, Any],
+                   reach: list[dict[str, Any]]) -> dict[str, Any]:
+    """Group the open cells by gate kind, reusing `reach` for the arithmetic cut.
+
+    `reach` is passed in rather than recomputed so the arithmetic subset here and
+    the reachability table below can never disagree about which legs are
+    unreachable -- two derivations of one number drifting apart is the defect
+    this file has now hit more than once.
+
+    An `unclassified` bucket is always reported. A new `blocked:<reason>` must
+    surface as unclassified rather than land in a neighbouring bucket, because a
+    silent default would make the partition look complete while mis-stating it --
+    the same collapse the guard family elsewhere in this repo exists to prevent.
+    """
+    arith_legs = {r["strategy"] for r in reach if r.get("usable_folds") == 0}
+    buckets: dict[str, list[tuple[str, str, str, str, str]]] = defaultdict(list)
+    for row, col, status in cells(matrix):
+        if row.get("execution") != "live":
+            continue
+        st = status if isinstance(status, str) else ""
+        if base(st) not in OPEN_STATUSES:
+            continue
+        ident = (row["strategy"], row["symbol"], row["tf"], col, st)
+        if st == "pending":
+            buckets["never_attempted"].append(ident)
+            continue
+        reason = st.split(":", 1)[1] if ":" in st else ""
+        kind = GATE_KINDS.get(reason)
+        # The arithmetic cut is a SUBSET of accrual, not a sibling: the status
+        # says "not enough trades", and `usable_folds == 0` says no re-run can
+        # ever fix it. A leg whose reach is UNGRADED stays `accrual` -- absence
+        # of a graded bound is not evidence of an unreachable one.
+        if (kind == "accrual" and col == "exit_head_ml"
+                and row["strategy"] in arith_legs):
+            kind = "arithmetic"
+        buckets[kind or "unclassified"].append(ident)
+    return {k: sorted(v) for k, v in buckets.items()}
+
+
+def movable_cut(partition: dict[str, list]) -> dict[str, list]:
+    """Split `harness_gap` + `never_attempted` into what a session can ACTUALLY move.
+
+    ⚠️ RETURNED SEPARATELY, NOT MERGED INTO `gate_partition`. An earlier draft put
+    `_movable` / `_no_sweep_path` inside the partition dict, which broke four
+    pre-existing tests and deserved to: that dict is a STRICT PARTITION of the
+    done-condition (`tests/test_gate_partition.py` asserts it reconciles to
+    `cells_to_done` and that no cell appears in two buckets). These two lists are
+    an OVERLAPPING VIEW of two of its buckets, so adding them double-counted 4
+    cells and made the total read 26 against a true 22. The guard's own words:
+    *"a partition that does not reconcile is worse than none, because it reads as
+    exhaustive."* A cross-cut and a partition are different shapes; keep them in
+    different keys.
+
+    `harness_gap` + `never_attempted` are the two buckets whose remedy is EFFORT
+    rather than waiting -- but only for a lever a session can actually sweep.
+    """
+    movable: list = []
+    no_path: list = []
+    for key in ("harness_gap", "never_attempted"):
+        for ident in partition.get(key, []):
+            target = no_path if ident[3] in LEVERS_WITHOUT_A_SWEEP_PATH else movable
+            target.append(ident)
+    return {"movable": sorted(movable), "no_sweep_path": sorted(no_path)}
+
+
 def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
     per_status: Counter[str] = Counter()
     per_lever: dict[str, Counter[str]] = defaultdict(Counter)
@@ -1050,6 +1280,8 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
             # as `blocked` rather than inventing a reason it does not state.
             per_lever_reason[col][status if isinstance(status, str) else str(status)] += 1
 
+    _reach = fold_reachability(matrix)
+    _gate_part = gate_partition(matrix, _reach)
     total = sum(per_status.values())
     counts = {
         "resolved": sum(per_status[s] for s in RESOLVED),
@@ -1063,13 +1295,18 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "per_status": dict(per_status),
         "per_lever": {k: dict(v) for k, v in per_lever.items()},
         "per_lever_reason": {k: dict(v) for k, v in per_lever_reason.items()},
-        "fold_reachability": fold_reachability(matrix),
+        "fold_reachability": _reach,
         "counts": counts,
         "headline_pct": round(100 * counts["headline"] / total, 1) if total else 0.0,
         "cells_to_done": per_status["pending"] + per_status["blocked"],
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
         "evidence_vintage": evidence_vintage(matrix),
+        "gate_partition": _gate_part,
+        # A separate key, deliberately -- see `movable_cut`. It is an overlapping
+        # VIEW of two partition buckets, so it must never live inside the
+        # partition dict (which reconciles to `cells_to_done`).
+        "movable_cut": movable_cut(_gate_part),
         "geometry_coverage": geometry_coverage(matrix),
     }
 
@@ -1162,9 +1399,63 @@ def render(r: dict[str, Any]) -> str:
             f"at u=0 — ARITHMETICALLY unreachable, not un-run.",
             "      They close only if the leg trades more (a strategy question), or if",
             "      the E1 protocol changes. Re-running the sweep cannot move them, so",
-            "      read the done-condition as "
-            f"{r['cells_to_done'] - len(_unreach)} actionable "
-            f"+ {len(_unreach)} arithmetic.",
+            "      Re-running the sweep cannot move them.",
+            "",
+        ]
+    # THE PARTITION, replacing a single "actionable" number.
+    # This line used to read `{cells_to_done - unreachable} actionable +
+    # {unreachable} arithmetic`, which subtracted ONE gate and called the other
+    # four actionable. It reported 12 where ~4 were workable, and it reached a
+    # roadmap entry and three operator pings before anyone read the block
+    # reasons (BL-20260817-M20-ACTIONABLE-COUNT-OVERSTATES-WHAT-A-SESSION-CAN-DO).
+    _gp = r.get("gate_partition") or {}
+    if _gp:
+        _order = ["arithmetic", "accrual", "data", "harness_gap",
+                  "never_attempted", "unclassified"]
+        _why = {
+            "arithmetic": "no re-run can move them; the leg must TRADE more",
+            "accrual": "same kind of gate, bound not proven unreachable",
+            "data": "candles/history do not exist to sweep",
+            "harness_gap": "the harness cannot express the lever — needs CODE",
+            "never_attempted": "no sweep has been run",
+            "unclassified": "⚠️ status reason not in GATE_KINDS — CLASSIFY IT",
+        }
+        out += ["    DONE-CONDITION BY GATE (what actually blocks each cell):"]
+        for k in _order + [k for k in sorted(_gp) if k not in _order]:
+            if _gp.get(k):
+                out.append(f"      {len(_gp[k]):3d}  {k:<16} {_why.get(k, '')}")
+        out += [
+            "      ^ Keys on the cell's own STATUS string, so it cannot drift",
+            "        from the matrix. It does NOT recover 'parked milestone-wide'",
+            "        or 'measured, grading withheld' — those live in ref PROSE and",
+            "        a tool that guessed them would be manufacturing a verdict. A",
+            "        hand analysis may use them; the totals reconcile either way.",
+        ]
+        # ⚠️ THE MOVABLE COUNT IS MEASURED, NOT INFERRED FROM THE BUCKET NAME.
+        # `never_attempted` used to read "no sweep has been run", which invites
+        # "so run it"; for a lever with no sweep arm there is no run to make.
+        # All four cells in these two buckets were such levers on 2026-08-17, so
+        # the old wording implied FOUR workable cells over a true count of ZERO
+        # (BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS).
+        _mc = r.get("movable_cut") or {}
+        _mv, _np = _mc.get("movable") or [], _mc.get("no_sweep_path") or []
+        out += [
+            f"      ⚠️ MOVABLE BY A SESSION: {len(_mv)}"
+            f"   (of {len(_mv) + len(_np)} in harness_gap + never_attempted)",
+        ]
+        for _i in _mv:
+            out.append(f"           {_i[0]:<26} {_i[1]:<9} {_i[2]:<4} {_i[3]}")
+        if _np:
+            out.append(f"      ⚠️ NO SWEEP PATH AT ALL: {len(_np)} — a run cannot "
+                       f"move these, whatever the status implies:")
+            for _i in _np:
+                out.append(f"           {_i[0]:<26} {_i[1]:<9} {_i[2]:<4} {_i[3]}"
+                           f"  [{_i[4]}]")
+            for _lv in sorted({_i[3] for _i in _np}):
+                out.append(f"           {_lv}: {LEVERS_WITHOUT_A_SWEEP_PATH[_lv]}")
+        out += [
+            "        `arithmetic`/`accrual`/`data` wait on trades or candles, NOT",
+            "        on effort — do not plan sweeps against them expecting movement.",
             "",
         ]
     g = r.get("geometry_coverage") or {}

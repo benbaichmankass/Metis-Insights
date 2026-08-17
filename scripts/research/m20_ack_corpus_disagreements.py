@@ -74,6 +74,33 @@ def _guard():
     return mod
 
 
+def _wf_effective():
+    """The inert-fold reader, imported for its OWN definition of "inert".
+
+    Deliberately imported rather than reimplemented, for the same reason
+    `_guard()` above imports the agreement guard: a second predicate for "did
+    the lever fire on this fold" would be free to drift from the one the audit
+    tool and `m20_path_b_floor`'s gate both grade on, and then this drafter
+    would write a caveat naming a different inert count than the gate used.
+
+    `is_inert` lived inline here TWICE (the `fold_quality` list comprehension
+    and the fold-name join in `caveats_for`) — measured equivalent to the
+    shared predicate across 39 fold shapes before consolidating, so this is a
+    pure dedup with no behaviour change.
+    """
+    path = REPO / "scripts" / "research" / "m20_wf_effective.py"
+    spec = importlib.util.spec_from_file_location("_m20_wf_effective", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_m20_wf_effective"] = mod
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
+
+
+def _inert_folds(row: dict) -> list:
+    """The row's inert folds, via the ONE shared predicate."""
+    return [f for f in (row.get("wf_folds") or []) if _wf_effective().is_inert(f)]
+
+
 def fold_quality(row: dict) -> tuple[int, int, int]:
     """(counted_wins, real_wins, inert) over a row's walk-forward folds.
 
@@ -81,8 +108,7 @@ def fold_quality(row: dict) -> tuple[int, int, int]:
     still counts `ok` upstream, so a win total silently includes it.
     """
     folds = row.get("wf_folds") or []
-    inert = [f for f in folds
-             if f.get("d_net_r") == 0.0 and f.get("d_max_dd") == 0.0]
+    inert = _inert_folds(row)
     wins = [f for f in folds if f.get("ok")]
     real = [f for f in wins if f not in inert]
     return len(wins), len(real), len(inert)
@@ -94,8 +120,7 @@ def caveats_for(row: dict) -> list[str]:
     counted, real, inert = fold_quality(row)
     if inert:
         folds = row.get("wf_folds") or []
-        names = ", ".join(str(f.get("fold")) for f in folds
-                          if f.get("d_net_r") == 0.0 and f.get("d_max_dd") == 0.0)
+        names = ", ".join(str(f.get("fold")) for f in _inert_folds(row))
         out.append(
             f"THE WIN TOTAL IS NOT A COUNT OF WINS: {inert} of {len(folds)} "
             f"walk-forward folds ({names}) are inert — the lever never fired, "
@@ -108,6 +133,32 @@ def caveats_for(row: dict) -> list[str]:
             + (f" (gate_reason_OOS={row.get('gate_reason_OOS')})"
                if row.get("gate_reason_OOS") else "")
             + f"; OOS net_R gain {row.get('d_net_r_OOS')}")
+    # WAS THIS DELTA MEASURED AGAINST A BOOK THAT ALREADY RAN THE LEVER?
+    # This drafter's whole output is a `ref` asserting a measurement, so it is
+    # the one place that must refuse to assert one. Branches on all three states
+    # deliberately — `lever_absent_from_baseline` emits nothing (a real
+    # measurement needs no caveat), but it is read here so the field cannot
+    # become write-only. Tracked by (kept on ONE line — a wrapped or truncated
+    # id resolves to nothing, which check_backlog_refs correctly rejects):
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    _lib = row.get("lever_in_baseline")
+    if _lib == "lever_in_baseline":
+        out.append(
+            f"THIS IS NOT A MEASUREMENT OF THE LEVER: `{row.get('lever')}` is "
+            f"already DECLARED on this leg and was not dropped, so the baseline "
+            f"the delta was computed against ALREADY RUNS IT "
+            f"(declared_levers_present={row.get('declared_levers_present')}). A "
+            f"zero or near-zero delta here is structural and says NOTHING about "
+            f"the lever's value — do not read it as evidence in either direction")
+    elif _lib == "unknown":
+        out.append(
+            "BASELINE COMPOSITION UNKNOWN: this row predates "
+            "`declared_levers_present`, so whether the measured baseline already "
+            "contained this lever cannot be determined — which is NOT the same "
+            "as knowing it did not")
+    elif _lib != "lever_absent_from_baseline" and _lib is not None:
+        out.append(f"UNRECOGNISED lever_in_baseline state {_lib!r} — treat the "
+                   f"delta as ungraded rather than assuming it is a measurement")
     if row.get("split"):
         out.append(
             f"DIFFERENT PARTITION, NOT A RERUN: split {row['split']}, derived "

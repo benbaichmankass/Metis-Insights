@@ -52,6 +52,12 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import exit_capture  # noqa: E402  (the ONE exit-capture definition)
 
+sys.path.insert(0, str(REPO / "scripts" / "research"))
+# The ONE definition of "this fold exercised the lever". Imported rather than
+# restated so the producer and the reader can never drift on what counts as a
+# no-op — the same reasoning as `exit_capture` above.
+from m20_wf_effective import is_inert  # noqa: E402
+
 # families with harness exit-lever support; everything else is reported
 # no_harness_levers (vwap/turtle_soup/fade — pending harness levers).
 # ict_scalp gained stale/giveback lever support 2026-07-28 (M27 follow-up) — the
@@ -98,6 +104,30 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # day fade is promoted this becomes live rather than something to remember;
 # it must not be read as "fade is being measured today".
 LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
+
+# The live TP clamp, and the DEFAULT for --tp-cap-pct since 2026-08-16 (Tier-3,
+# operator decision). It defaulted to 0.0, so a sweep run without the flag
+# measured an UNCAPPED book production does not run -- the class behind six arms
+# shipping inert, because a p80 arm derived from uncapped winner MFEs can sit
+# above the capped book's reachable ceiling. Defaulting to parity makes that
+# error unreachable-by-default; `--tp-cap-pct 0` is now the explicit opt-out and
+# is REQUIRED to reproduce any verdict recorded before 2026-08-10.
+#
+# ⚠️ NOT imported, and that is a known wart rather than a choice: the live value
+# is declared SEPARATELY in at least `src/runtime/position_telemetry.py:72` and
+# `src/units/strategies/trend_donchian.py:133`, both as a bare
+# `_TP_SENTINEL_CAP_PCT = 0.099`, so there is no single owner to import FROM --
+# importing one would just pick a winner arbitrarily, and this script imports
+# nothing from `src/` at all. Filed as
+# BL-20260816-TP-SENTINEL-CAP-DECLARED-IN-MULTIPLE-MODULES.
+#
+# ⚠️ **NOTHING CHECKS THAT THIS STILL MATCHES THE LIVE VALUE.** There is no
+# guard, no test, and no import binding them -- stated plainly because the
+# tempting version of this comment ("the guard will catch it") would describe
+# machinery that does not exist, which is the failure this repo files under
+# unprovenanced diagnostic output. If the live constant moves, this silently
+# keeps measuring the OLD book, and the sweep will look correct while doing it.
+LIVE_TP_CAP_PCT = 0.099
 
 
 def tp_geometry_for(families, tp_cap_pct: float) -> str:
@@ -547,6 +577,99 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
 # 25->50 is the cliff. Full rationale + the honest limit at the enforcement site.
 MIN_OOS_TRADES = 25
 
+# The boundary TARGET, deliberately ABOVE the floor above (Tier-3, operator
+# decision 2026-08-16). These are two different questions and sharing one number
+# was the bug: `--split-target-oos` used to default to MIN_OOS_TRADES, so the
+# boundary aimed at EXACTLY the count a verdict requires and ANY loss crossing it
+# -- a filtered trade, an off-by-one, a leg whose stamps do not divide evenly --
+# dropped the cell to `insufficient_base`. The tell was `htf_pullback_trend_2h`
+# reporting insufficient at 407 lifetime trades, which is implausible on its face
+# and is what surfaced the collapse (`BL-20260814-SPLIT-TARGETS-EXACTLY-THE-FLOOR-SO-BOUNDARY-LOSS-ALWAYS-FAILS`).
+#
+# 50 is not a fresh guess: it is the value every sweep in the 2026-08-16 session
+# passed explicitly, including the 76-cell pullback run, so it is the target with
+# measured runs behind it rather than a number chosen here.
+#
+# A target ABOVE the floor is safe because resolve_split already CLAMPS per leg:
+# a leg that cannot seat 2*target falls back to `len(stamps)//2` and records
+# `split_target_clamped_{from,to}` in the verdict, refusing only below
+# MIN_OOS_TRADES. So a thin leg still grades at its own best boundary instead of
+# being refused -- the clamp is the reason target and floor CAN differ.
+#
+# Do NOT re-couple these to one constant. The floor answers "is this cell
+# gradeable?"; the target answers "where do we cut?". The 25->50 cliff noted
+# above is about the FLOOR (raising it to 50 would drop 32 legs to 20) and is
+# NOT an argument against a 50 target, which drops nothing.
+DEFAULT_SPLIT_TARGET_OOS = 50
+
+# The census SUMMARY table's columns, in order — ONE source for the header, the
+# alignment row, the error row's width, and the per-leg cell count.
+#
+# It is a named constant because the header and the row drifted apart while
+# they were two independent literals: the header declared 15 columns and the
+# row emitted 13, so every cell from `gb R med` rightward rendered under a
+# neighbouring column's NAME (`tgt hit` displayed an R-sum) and the two
+# rightmost headers rendered nothing at all. Adding a column is now one edit,
+# and a row that does not match this width raises instead of being written.
+CENSUS_COLUMNS = ("leg", "kind", "n", "cap med", "cap w-med", "cap Rwt",
+                  "cap <30%", "gb>=1R", "gb R left", "gb R med", "nm@90%",
+                  "nm pop", "tgt hit", "R left", "R->tgt")
+
+
+def census_row_cells(leg: str, v: dict) -> list:
+    """One cell per `CENSUS_COLUMNS` entry, in that order.
+
+    EXTRACTED SO THE MAPPING IS TESTABLE, not just the width. The defect this
+    replaces was a 13-value f-string under a 15-column header, so every cell
+    from `gb R med` rightward rendered under a NEIGHBOURING column's name and
+    the two rightmost headers rendered nothing:
+
+        `gb R med` <- near_miss_90_pct   ·  `nm@90%` <- near_miss_measured_n
+        `nm pop`   <- target_r_reached_n
+        `tgt hit`  <- near_miss_r_left_on_table   (an R-SUM under a COUNT's name)
+        `R left` / `R->tgt` <- nothing at all
+
+    A width check alone would not have caught that, because the shift and the
+    two dropped values are the SAME defect seen from two ends — pinning
+    column -> accessor is what makes it un-reintroducible.
+
+    `r_left_median` and `near_miss_r_to_target` were COMPUTED by
+    `exit_capture.py`, NAMED in this header, and referenced nowhere in this
+    module (0 greps each, against 3-4 for their siblings) — the
+    written-and-never-read shape, and sub-class A of the diagnostic-provenance
+    rule in CLAUDE.md. It also defeated two guards this table explicitly
+    claims: the "nm@90% ALWAYS ships beside its denominator" rule (the
+    denominator rendered under the RATE's header), and `r_left_median`'s own
+    stated reason for existing ("the MEDIAN ships beside the sum so the skew is
+    visible without opening the artifact"). Worst of all the table's own prose
+    tells the reader to use `R->tgt` INSTEAD of `R left` — and `R->tgt` was the
+    column that never rendered.
+    """
+    kind = v["exit_kind"]
+    if v.get("exit_kind_reason"):
+        kind += f" ({v['exit_kind_reason']}, declared {v.get('target_r_declared')}R)"
+    # The 1R rung, ALWAYS as lost/reached — a bare percentage over an unstated
+    # denominator is the class this census keeps tripping over. Same reason
+    # `nm@90%` ships beside `nm pop`.
+    gb = next((r for r in (v.get("giveback_ladder") or [])
+               if r["mfe_ge_r"] == 1.0), None)
+    gb_cell = (f"{gb['lost_n']}/{gb['mfe_ge_n']}"
+               + (f" ({gb['lost_pct']}%)" if gb["lost_pct"] is not None else "")
+               ) if gb else "—"
+    return [leg, kind, v["n_trades"],
+            v["capture_median"],
+            v.get("capture_winners_median"),
+            v.get("capture_r_weighted"),
+            v["capture_lt_30_pct"],
+            gb_cell,
+            gb["r_left"] if gb else "—",
+            gb["r_left_median"] if gb else "—",
+            v["near_miss_90_pct"],
+            v["near_miss_measured_n"],
+            v.get("target_r_reached_n"),
+            v["near_miss_r_left_on_table"],
+            v.get("near_miss_r_to_target")]
+
 REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
 
 # The three states of "does the LIVE regime gate narrow this leg's book?".
@@ -786,10 +909,28 @@ def cells_for(cfg: dict, fam: str | None = None,
         for tag, extra in decay:
             out.append((tag, "trail_decay",
                         extra + ["--trail-decay-tight-mult", str(tight)]))
-        # M20-X vol-conditional trail cells (regime-conditional exits § 1):
-        # tighten the trail on bars whose trailing ATR percentile is in the
-        # gated tail. Same config-relative tight mult as the decay cells.
-        # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+    # M20-X vol-conditional trail cells (regime-conditional exits § 1): tighten
+    # the trail on bars whose trailing ATR percentile is in the gated tail.
+    # Same config-relative tight mult as the decay cells.
+    # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+    #
+    # GATED SEPARATELY FROM trail_decay, and `squeeze` is in THIS list only.
+    # The two levers used to share one `fam in ("donchian", "pullback")` block,
+    # so adding squeeze there would also have emitted four `trail_decay` cells
+    # whose `--trail-decay-*` flags scripts/backtest_squeeze.py does not
+    # declare — argparse would reject the argv and the run would fail, or
+    # (worse, had the harness tolerated unknown flags) grade a lever it never
+    # applied. Two levers, two reachability questions, two gates.
+    #
+    # Squeeze became reachable when backtest_squeeze.py gained the
+    # `--trail-vol-*` flags (2026-08-17), which closed
+    # `blocked:no_harness_levers` on squeeze_breakout_4h/vol_trail. That cell
+    # had been shelved partly on a projection that its derived OOS base would
+    # land in the 25-35 band; the census measured the leg at n=101, which puts
+    # resolve_split at its full 50-trade target (the clamp fires below 100) —
+    # see BL-20260817-SQUEEZE-VOLTRAIL-HARNESS-GAP-DISPOSITION-RESTS-ON-A-FLOOR-VS-TARGET-CONFLATION.
+    if tm is not None and fam in ("donchian", "pullback", "squeeze"):
+        tight = max(1.5, round(float(tm) / 2.0, 1))
         vt = [
             (f"vt_hot90_t{tight:g}", ["--trail-vol-above-pctl", "0.9"]),
             (f"vt_hot80_t{tight:g}", ["--trail-vol-above-pctl", "0.8"]),
@@ -801,11 +942,251 @@ def cells_for(cfg: dict, fam: str | None = None,
     return out
 
 
-def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
+def flag_value(args: list[str], flag: str) -> float | None:
+    """The float value of ``flag`` in an argv list, or None when absent."""
+    for a, b in zip(args, args[1:]):
+        if a == flag:
+            try:
+                return float(b)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def arm_atr_close_ceiling(base: list[str], arm_r: float | None
+                          ) -> tuple[str, float | None]:
+    """The normalized-volatility ceiling an ``arm_r`` can ever fire under.
+
+    WHY THIS IS REPORTED BESIDE EVERY PROPOSED ARM
+    ----------------------------------------------
+    A leg's take-profit is clamped to ``entry*(1+cap)``, so the highest MFE a
+    trade can print before the TP fills is ``cap_R = cap / (risk/entry)``. And
+    ``risk/entry`` is EXACTLY ``atr_stop_mult * (ATR/close)`` — identical
+    formulas in the live units and both harnesses, with byte-identical ``_atr``
+    helpers. Inverting:
+
+        an arm A on a leg with stop-mult M can only fire while
+            ATR/close <= cap / (M * A)
+
+    So **a declared arm is a volatility threshold in disguise**, and whether it
+    is reachable is a property of the instrument-and-timeframe, not of the leg.
+    Measured 2026-08-16 (memo:
+    ``docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md``):
+    ``trend_donchian`` and ``trend_donchian_sol_4h`` are the SAME family with
+    the SAME ``atr_stop_mult`` and were shipped arms 6.49 and 5.57 — 1.16x
+    apart — against ceilings 11.91 and 1.64, **7.3x apart**. 100% vs 0%
+    reachable. A p80 over an UNCAPPED book produces similar arms across a
+    family because uncapped winner-MFE distributions are similar in R; the
+    capped ceiling, which nothing was computing, is not.
+
+    Reporting the ceiling next to the arm is what makes that checkable without
+    re-deriving it (``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS``).
+
+    THE STATE IS NEVER COLLAPSED
+    ----------------------------
+    ``uncapped`` and ``unknown`` are opposite statements and must not share a
+    null:
+
+    * ``capped``   — a cap IS in this run's base args: the float is the ceiling.
+    * ``uncapped`` — no ``--tp-cap-pct`` in the base args, so the measured book
+      has NO take-profit ceiling and the arm is unbounded. Not a failure to
+      compute. Note ``base_args`` applies the flag only to
+      ``LIVE_TP_CAPPED_FAMILIES``, so this is read from what ACTUALLY ran
+      rather than from ``--tp-cap-pct`` on the command line.
+    * ``unknown``  — ``atr_stop_mult`` or the arm is missing/unparseable: **we
+      could not look.** Never a fabricated number.
+    """
+    cap = flag_value(base, "--tp-cap-pct")
+    if cap is None or cap <= 0.0:
+        return "uncapped", None
+    mult = flag_value(base, "--atr-stop-mult")
+    if not mult or not arm_r or mult <= 0.0 or arm_r <= 0.0:
+        return "unknown", None
+    return "capped", cap / (mult * arm_r)
+
+
+def _percentile_80(xs: list[float]) -> float | None:
+    """The ONE p80 definition this module uses. Import it; do not re-derive.
+
+    Extracted 2026-08-16 so the pooled figure and every per-era figure are the
+    same function of their input. Two call sites computing "the p80" with
+    independently-written index arithmetic is how a comparison between them
+    becomes a comparison of two estimators — and the whole point of
+    ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS`` half (2) is that pooled and
+    per-era are meant to differ *because the population differs*, not because
+    the maths did.
+    """
+    if not xs:
+        return None
+    s = sorted(xs)
+    return round(s[int(0.8 * (len(s) - 1))], 2)
+
+
+def _era_of(trade: dict) -> str:
+    """The calendar year a trade entered, or ``"undated"``.
+
+    ERAS ARE CALENDAR YEARS, DELIBERATELY NOT A REGIME CALENDAR.
+    ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS`` names the real clusters (2010-2013,
+    2020, 2025-2026 high-vol; 2014-2019, 2022-2024 quiet), and hardcoding those
+    boundaries here would make every reported figure depend on an input a reader
+    cannot check from the artifact — sub-class **B** of the diagnostic-provenance
+    rule (an implicit input selection wearing a confident label). Years are
+    mechanical, and a reader holding the per-year census can re-cluster them
+    into whatever regime calendar they can defend.
+
+    ``undated`` is a REAL bucket, not a drop. A row whose ``entry_time`` does
+    not start with four digits is one we could not place in time; silently
+    discarding it would shrink a denominator without saying so, which is the
+    unasserted-denominator sub-class of the same rule.
+    """
+    raw = str(trade.get("entry_time") or "")
+    head = raw[:4]
+    return head if len(head) == 4 and head.isdigit() else "undated"
+
+
+# Minimum winner-MFEs before a per-era p80 is REPORTED AS A NUMBER.
+#
+# DELIBERATELY LOWER THAN THE POOLED FLOOR OF 30, and the asymmetry is the
+# point: the pooled p80 BECOMES `--trail-decay-arm-r`, a proposed live
+# parameter, so it carries the stricter bar. A per-era figure is REPORTING —
+# nothing reads it back, no cell is built from it, and it exists so a reader
+# can see that the pooled number describes no regime in particular.
+#
+# THE VALUE IS MEASURED, NOT PICKED. Per-year winner-MFE counts across all
+# eight arm-declaring legs (trainer relay #9788, config-exact, --tp-cap-pct
+# 0.099, IS < 2025-07-01):
+#
+#   leg                    winners  per-year winner range
+#   gld_pullback_1d             58  2-6      (16 years)
+#   qqq_trend_long_1d           40  0-5      (19 years)
+#   scha_trend_long_1d          25  0-3      (16 years)
+#   uso_trend_1h                91  6-15     (9 years)
+#   trend_donchian              88  10-28    (5 years)
+#   trend_donchian_sol_4h       69  3-23     (5 years)
+#   xrp_pullback_2h             90  6-25     (5 years)
+#   trend_donchian_xrp_4h       27  4-7      (5 years)
+#
+# So the floor has to sit in a narrow band. At 30 EVERY bucket on EVERY leg is
+# `thin` — the report would emit keys and demonstrate nothing, which the row's
+# own resolution criteria forbid ("a writer that emits the key on a leg where
+# the two coincide has demonstrated nothing"). At 10 the recent-era window
+# resolves on all eight legs, and the per-year census correctly grades the
+# thin-by-nature 1d equity legs `thin` while the 1h/4h crypto legs compute —
+# which is the honest picture, not a tuned one.
+#
+# Every bucket ships its `n` regardless, so a thin-but-reported figure can
+# never be read without its denominator.
+_ERA_MIN_WINNERS = 10
+
+
+def _era_report(by_era: dict[str, list[float]]) -> dict:
+    """Per-year census: every year that traded, with its ``n`` ALWAYS present.
+
+    ``state`` is never collapsed — ``computed`` (n cleared the floor, ``p80`` is
+    a number) / ``thin`` (we looked, too few winners, ``p80`` is null) /
+    ``undated`` (rows we could not place in time). A year with no winners at all
+    simply has no entry, which is a fourth, distinguishable fact: the leg either
+    did not trade or won nothing that year, and inventing a zero-n row would
+    assert we measured something we did not.
+    """
+    out: dict[str, dict] = {}
+    for era in sorted(by_era):
+        xs = by_era[era]
+        if era == "undated":
+            state = "undated"
+        elif len(xs) >= _ERA_MIN_WINNERS:
+            state = "computed"
+        else:
+            state = "thin"
+        out[era] = {"state": state, "n": len(xs),
+                    "p80": _percentile_80(xs) if state == "computed" else None}
+    return out
+
+
+def _recent_era_p80(by_era: dict[str, list[float]], pooled: float | None) -> dict:
+    """The explicit recent-era p80: newest dated years, widened until the sample
+    clears ``_ERA_MIN_WINNERS``, with the span it used published beside it.
+
+    WHY A WIDENING WINDOW RATHER THAN A FIXED N YEARS. A fixed "last 3 years"
+    is a different sample size on every leg — 4h crypto prints hundreds of
+    trades a year and a 1d equity leg prints a handful — so a fixed span would
+    silently be a well-powered estimate on one leg and noise on another, under
+    one column heading. Widening to a sample-size target instead makes the
+    thing held constant the STATISTIC's support, and the varying thing (the
+    span) is reported rather than hidden.
+
+    ``undated`` rows are EXCLUDED from the window — they cannot be ordered in
+    time, so including them would put rows of unknown vintage into a bucket
+    whose entire meaning is vintage. They stay visible in ``by_era``.
+
+    Four states, never collapsed:
+
+    * ``computed``    — the window cleared the floor. ``years`` names its span.
+    * ``all_years``   — every dated year was consumed and it STILL cleared the
+      floor only by taking everything, so recent-era IS pooled. Reported as its
+      own state because "recent == pooled because the leg is short" is a
+      different fact from "recent == pooled because volatility was stable", and
+      a bare equal number cannot tell them apart.
+    * ``thin``        — even all dated years fall under the floor.
+    * ``undated_only``— nothing was datable; no window exists.
+
+    ``delta_vs_pooled`` is signed (recent − pooled) and is the field the row's
+    resolution criterion reads: it must be non-zero on a real leg before this
+    half can close.
+    """
+    dated = {e: xs for e, xs in by_era.items() if e != "undated"}
+    if not dated:
+        return {"state": "undated_only", "years": [], "n": 0,
+                "p80": None, "delta_vs_pooled": None}
+    years, picked = sorted(dated), []
+    span: list[str] = []
+    for era in reversed(years):            # newest first
+        span.insert(0, era)
+        picked.extend(dated[era])
+        if len(picked) >= _ERA_MIN_WINNERS:
+            break
+    if len(picked) < _ERA_MIN_WINNERS:
+        return {"state": "thin", "years": span, "n": len(picked),
+                "p80": None, "delta_vs_pooled": None}
+    p80 = _percentile_80(picked)
+    return {
+        "state": "all_years" if len(span) == len(years) else "computed",
+        "years": span, "n": len(picked), "p80": p80,
+        "delta_vs_pooled": (None if p80 is None or pooled is None
+                            else round(p80 - pooled, 2)),
+    }
+
+
+def winner_mfe_p80(harness: str, base: list[str], split: str) -> dict | None:
     """P80 of the WINNER-trade MFE distribution over the IS window only
     (M20 P4.4 — the percentile arm is baked from train-window trades so the
     OOS verdict never sees test data; the by_year folds inside IS carry the
     one-scalar caveat, recorded in the cell tag). None when < 30 winners.
+
+    RETURNS A DICT, NOT A FLOAT (2026-08-16, ``PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS``
+    half 2). ``["p80"]`` is the same pooled scalar this used to return and is
+    still the only value that becomes an arm; the rest is the DISTRIBUTION
+    BEHIND IT, so a reader can see which volatility mix produced the number:
+
+    * ``by_era``      — one entry per calendar year, each with its own ``n`` and
+      a ``state`` (never collapsed: ``computed`` / ``thin`` = we looked and there
+      were too few / ``undated`` = we could not place these rows in time).
+    * ``recent_era``  — an EXPLICIT trailing-year window, widened from the newest
+      year backwards until it clears ``_ERA_MIN_WINNERS``, publishing the exact
+      ``years`` it spans. A "recent era" whose definition is invisible in the
+      artifact is the same defect as hardcoding a regime calendar.
+
+    ⚠️ **"RECENT" MEANS RECENT WITHIN THE IS WINDOW, NOT RECENT OVERALL.** This
+    function runs the harness with ``--end split``, so IS is the TRAIN PREFIX and
+    the newest year here is the newest year *before the split* — the OOS tail is
+    deliberately unseen. Reporting it as plain "recent" would name a population
+    the number is not computed over. The key is ``recent_era`` and its
+    ``basis`` field says so; do not re-label it.
+
+    NOTHING HERE PROPOSES AN ARM. The per-era figures are reported beside the
+    pooled one and are never fed to ``--trail-decay-arm-r`` — swapping the arm
+    to a recent-era p80 would be a Tier-3 change to a live parameter, and this
+    row is scoped to reporting.
 
     MFE IS READ VIA `exit_capture.mfe_r_of`, NOT `row["mfe_r"]`. This function
     used to do the top-level read, so for every `ict_scalp` leg — whose harness
@@ -828,6 +1209,7 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             print(f"    p80: harness rc={p.returncode} — no percentile arm")
             return None
         mfes, winners_seen = [], 0
+        by_era: dict[str, list[float]] = {}
         for line in Path(tmp).read_text().splitlines():
             if not line.strip():
                 continue
@@ -838,6 +1220,11 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             m = exit_capture.mfe_r_of(t)
             if m is not None:
                 mfes.append(m)
+                # SAME sample, bucketed a second way — one harness run, two
+                # cuts. The era breakdown costs no extra harness invocation
+                # (a full sweep run is the expensive thing here), so it can
+                # never be the reason a sweep is skipped for time.
+                by_era.setdefault(_era_of(t), []).append(m)
         if winners_seen and not mfes:
             # The distinguishing branch: winners EXIST and none carried a
             # readable MFE. That is a harness/reader shape mismatch, not a
@@ -848,8 +1235,12 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
         if len(mfes) < 30:
             print(f"    p80: {len(mfes)} winner MFEs (< 30) — thin sample")
             return None
-        mfes.sort()
-        return round(mfes[int(0.8 * (len(mfes) - 1))], 2)
+        pooled = _percentile_80(mfes)
+        return {"p80": pooled, "n": len(mfes),
+                "era_basis": "calendar_year_within_IS",
+                "era_min_winners": _ERA_MIN_WINNERS,
+                "by_era": _era_report(by_era),
+                "recent_era": _recent_era_p80(by_era, pooled)}
     except (OSError, json.JSONDecodeError, ValueError, TypeError,
             subprocess.TimeoutExpired) as exc:
         # NARROW deliberately (silent-empty-guard, 2026-08-10). The broad
@@ -1459,7 +1850,7 @@ def walkforward(harness: str, base_args_: list, cell_args: list,
     which is the same discipline `capital_efficiency` and the exposure ceiling
     already follow: measure the axis first, threshold it second.
     """
-    wins = usable = 0
+    wins = usable = inert_wins = 0
     folds = []
     for fname, fs, fe in FOLDS:
         fb = run_cell(harness, base_args_, start=fs, end=fe)
@@ -1480,10 +1871,37 @@ def walkforward(harness: str, base_args_: list, cell_args: list,
             continue
         ok = d_net >= 0 and (d_dd <= 0 or not require_dd)
         wins += 1 if ok else 0
-        folds.append({"fold": fname, "usable": True, "ok": ok,
-                      "d_net_r": round(d_net, 4), "d_max_dd": round(d_dd, 4)})
+        row = {"fold": fname, "usable": True, "ok": ok,
+               "d_net_r": round(d_net, 4), "d_max_dd": round(d_dd, 4)}
+        # A fold in which the lever changed NOTHING satisfies `ok` by
+        # construction (`0 >= 0`, `0 <= 0`) and has been counted as a win since
+        # this function was written. It is not a win, and it is not a loss
+        # either — it is the lever never having been exercised, a third state
+        # `wins/usable` cannot express. Measured 2026-08-17 over the committed
+        # corpus: 75 of 386 `ok` folds (19.4%) across 96 newest-run cells are
+        # inert, reaching SHIPPED levers on the real-money bybit_2 leg —
+        # `trend_donchian_xrp_4h`/`decay_arm2R_t2.5` records 5/6 and is 2/6
+        # effective. BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS.
+        #
+        # `ok` and `summary` are DELIBERATELY unchanged. Re-grading here would
+        # silently move every downstream verdict (`path_b_wf_pass` and the
+        # ~2/3 tally read `wins`), which is a decision about live levers and
+        # therefore the operator's, not a side effect of an observability fix.
+        # The effective figures ship BESIDE the recorded ones so the difference
+        # stays visible instead of being quietly absorbed.
+        if is_inert(row):
+            row["inert"] = True
+            inert_wins += 1
+        folds.append(row)
     return {"wins": wins, "usable": usable, "folds": folds,
-            "summary": f"{wins}/{usable}"}
+            "summary": f"{wins}/{usable}",
+            # Machine-parseable `summary` is left alone on purpose: consumers
+            # int()-split it (the corpus extractor does), so folding a caveat
+            # into the string would break them. The caveat rides as its own
+            # fields instead.
+            "inert_wins": inert_wins,
+            "wins_effective": wins - inert_wins,
+            "summary_effective": f"{wins - inert_wins}/{usable}"}
 
 
 def beats_detail(cell: dict, base: dict) -> dict:
@@ -1579,11 +1997,18 @@ def main(argv: list[str]) -> int:
                          "--split-target-oos trades in OOS, so a "
                          "low-frequency leg is gradeable; `date` is the legacy "
                          "fixed calendar split. See resolve_split().")
-    ap.add_argument("--split-target-oos", type=int, default=MIN_OOS_TRADES,
+    ap.add_argument("--split-target-oos", type=int,
+                    default=DEFAULT_SPLIT_TARGET_OOS,
                     help="Trades to TARGET in the OOS window under "
-                         "--split-mode=oos-trades. Defaults to the floor a "
-                         "cell is judged against, so the boundary aims at "
-                         "exactly what the verdict requires.")
+                         "--split-mode=oos-trades. Defaults to 50, "
+                         "DELIBERATELY ABOVE the MIN_OOS_TRADES=25 floor a cell "
+                         "is judged against (Tier-3, operator 2026-08-16). It "
+                         "used to default to the floor itself, so the boundary "
+                         "aimed at exactly what the verdict requires and any "
+                         "boundary loss dropped the cell to insufficient_base. "
+                         "A thin leg is NOT refused by the higher target: "
+                         "resolve_split clamps to len(stamps)//2 and records "
+                         "split_target_clamped_from/to.")
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m20_fleet"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
@@ -1643,15 +2068,20 @@ def main(argv: list[str]) -> int:
                          "(trend_donchian_eth, trend_donchian_eth_prop); the run "
                          "warns and every row records which other levers were "
                          "absent, so this is never silent.")
-    ap.add_argument("--tp-cap-pct", type=float, default=0.0,
+    ap.add_argument("--tp-cap-pct", type=float, default=LIVE_TP_CAP_PCT,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
-                         "clamp on the 50R sentinel). Applied ONLY to families "
-                         "whose live unit carries the clamp "
+                         "clamp on the 50R sentinel). **DEFAULTS TO LIVE PARITY "
+                         "(0.099) since 2026-08-16** (Tier-3, operator): it "
+                         "defaulted to 0.0, so a sweep run WITHOUT this flag "
+                         "measured a book production does not run, and that is "
+                         "the class behind six arms shipping inert. Applied "
+                         "ONLY to families whose live unit carries the clamp "
                          "(LIVE_TP_CAPPED_FAMILIES); applying it elsewhere "
                          "would manufacture a parity break rather than "
-                         "reproduce one. 0 = off, the geometry every verdict "
-                         "before 2026-08-10 was measured on.")
+                         "reproduce one. Pass 0 explicitly for the UNCAPPED "
+                         "geometry every verdict before 2026-08-10 was measured "
+                         "on -- required to reproduce those recorded numbers.")
     ap.add_argument("--census", action="store_true",
                     help="MEASURE-FIRST pass (operator-directed 2026-08-10): run "
                          "each leg's config-exact base ONLY and report the exit-capture "
@@ -1878,37 +2308,30 @@ def main(argv: list[str]) -> int:
                  "below the stop to far above the target books a -1R loss AND "
                  "records a huge MFE (measured: `ict_scalp_avax_5m` 182.34R over "
                  "FOUR trades). `gb R med` is the same guard on the ladder.", "",
-                 "| leg | kind | n | cap med | cap w-med | cap Rwt | cap <30% "
-                 "| gb>=1R | gb R left | gb R med | nm@90% | nm pop | tgt hit "
-                 "| R left | R->tgt |",
-                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
+                 "| " + " | ".join(CENSUS_COLUMNS) + " |",
+                 "|" + "|".join(["---", "---"]
+                                + ["--:"] * (len(CENSUS_COLUMNS) - 2)) + "|"]
         for leg, v in sorted(census.items(),
                              key=lambda kv: -(kv[1].get("near_miss_90_pct") or -1)):
             if "error" in v:
-                lines.append(f"| {leg} | — | — | ERROR | {str(v['error'])[:40]} | — | — |")
+                # PADDED TO THE FULL WIDTH. This emitted 7 cells into a
+                # 15-column table, so `ERROR` rendered under `cap med` and the
+                # message under `cap w-med` — a failed leg reporting its
+                # failure text inside a numeric column.
+                lines.append(f"| {leg} | ERROR: {str(v['error'])[:40]} |"
+                             + " — |" * (len(CENSUS_COLUMNS) - 2))
                 continue
-            kind = v['exit_kind']
-            if v.get('exit_kind_reason'):
-                kind += f" ({v['exit_kind_reason']}, declared {v.get('target_r_declared')}R)"
-            # nm@90% ALWAYS ships beside its denominator. "0.0" over three
-            # losers is not the claim "0.0" over three hundred is, and the
-            # first table printed the rate alone.
-            # The 1R rung, ALWAYS as lost/reached — a bare percentage over an
-            # unstated denominator is the class this census keeps tripping over.
-            gb = next((r for r in (v.get("giveback_ladder") or [])
-                       if r["mfe_ge_r"] == 1.0), None)
-            gb_cell = (f"{gb['lost_n']}/{gb['mfe_ge_n']}"
-                       + (f" ({gb['lost_pct']}%)" if gb["lost_pct"] is not None else "")
-                       ) if gb else "—"
-            lines.append(f"| {leg} | {kind} | {v['n_trades']} | "
-                         f"{v['capture_median']} | "
-                         f"{v.get('capture_winners_median')} | "
-                         f"{v.get('capture_r_weighted')} | "
-                         f"{v['capture_lt_30_pct']} | "
-                         f"{gb_cell} | {gb['r_left'] if gb else '—'} | "
-                         f"{v['near_miss_90_pct']} | {v['near_miss_measured_n']} | "
-                         f"{v.get('target_r_reached_n')} | "
-                         f"{v['near_miss_r_left_on_table']} |")
+            cells = census_row_cells(leg, v)
+            # A row that does not match the declared width is a SHIFTED row,
+            # and a shifted row is worse than a missing one: every cell after
+            # the gap reads under a neighbouring column's name. Fail loudly
+            # rather than write it.
+            if len(cells) != len(CENSUS_COLUMNS):
+                raise AssertionError(
+                    f"census row for {leg} has {len(cells)} cells against "
+                    f"{len(CENSUS_COLUMNS)} declared columns — a shifted row "
+                    f"mislabels every cell after the gap")
+            lines.append("| " + " | ".join(str(c) for c in cells) + " |")
         (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
         print("census ->", run_dir)
         return 0
@@ -2025,6 +2448,9 @@ def main(argv: list[str]) -> int:
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
         decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
+        # Empty, never absent: a leg that proposed no p80 arm records `{}` so a
+        # consumer can tell "no arm proposed" from "arm proposed, unchecked".
+        arm_ceiling: dict = {}
         if a.p80_only:
             p["cells"] = []  # fixed cells already verdicted; p80 cell only
         # THE LEVER-OFF ARM SUPPRESSES IT. `cells_for` returns only the
@@ -2038,17 +2464,128 @@ def main(argv: list[str]) -> int:
         # not by the tests — which covered `cells_for` and never this hop.
         if (p["family"] in ("donchian", "pullback") and decay_in_scope
                 and not without_levers):
-            tm_val = next((float(x[1]) for x in
-                           zip(p["base"], p["base"][1:])
-                           if x[0] == "--trail-mult"), None)
-            p80 = winner_mfe_p80(p["harness"], p["base"], leg_split)
+            tm_val = flag_value(p["base"], "--trail-mult")
+            # `p80_detail` carries the per-era distribution BEHIND the scalar
+            # (PB-20260816-ARM-SWEEP-POOLS-VOL-ERAS half 2). `p80` stays the
+            # pooled scalar and is still the ONLY value that becomes an arm —
+            # the era block is reported, never fed back into the cell.
+            p80_detail = winner_mfe_p80(p["harness"], p["base"], leg_split)
+            p80 = None if p80_detail is None else p80_detail["p80"]
             if p80 is not None and p80 > 0.5 and tm_val:
                 tight = max(1.5, round(tm_val / 2.0, 1))
                 p["cells"].append(
                     (f"decay_p80arm{p80:g}R_t{tight:g}", "trail_decay",
                      ["--trail-decay-arm-r", str(p80),
                       "--trail-decay-tight-mult", str(tight)]))
-                print(f"   p80 winner-MFE arm = {p80}R", flush=True)
+                # CHECK THE PROPOSED ARM AGAINST THIS LEG'S OWN MEASURED TP
+                # REACH, using data the sweep ALREADY had.
+                #
+                # `live_tp_reach_r` above records `tp_r_effective_*`, the
+                # per-trade cap_R measured on this leg's own base book. Nothing
+                # ever COMPARED the proposed arm to it, so the sweep could
+                # propose an arm above the ceiling of the very book it had just
+                # measured and say nothing.
+                #
+                # ⚠️ THIS CATCHES HALF THE CLASS, NOT ALL OF IT — and the half it
+                # MISSES is the motivating case. MEASURED on the verification run
+                # (relay #9734, --only gld_pullback_1d,trend_donchian_sol_4h):
+                #
+                #   trend_donchian_sol_4h  p80 1.5R  vs measured median 1.324R
+                #                          -> above_measured_median_ceiling, CAUGHT
+                #   gld_pullback_1d        p80 3.86R vs measured median 4.781R
+                #                          -> within_measured_median_ceiling, PASSED
+                #
+                # But `gld_pullback_1d`'s LIVE cap_R is 2.20-3.01, so 3.86R is
+                # unreachable on the book that trades — 0 of 8 live entries. The
+                # ceiling this compares against is the BACKTEST's, and the whole
+                # finding is that the two populations differ
+                # (docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md:
+                # the backtest median risk/entry sits BELOW the live minimum).
+                #
+                # So: an arm above its own backtest ceiling is now loud, which is
+                # a real gap closed. An arm inside the backtest ceiling and above
+                # the LIVE one still passes silently, and closing THAT needs a
+                # live-population input the sweep does not have — M31 P4
+                # (backtest<->live MFE parity) is the piece that would supply it.
+                # Do not read a `within_measured_median_ceiling` verdict as
+                # "reachable in production".
+                #
+                # The MEASURED comparison is primary; the derived ATR/close
+                # ceiling rides along as the interpretable form (it says which
+                # vol REGIME the arm needs, which a median cannot).
+                ceil_state, ceil_pct = arm_atr_close_ceiling(p["base"], p80)
+                _reach = leg_v["live_tp_reach_r"]["IS"]
+                tp_med, tp_max = _reach.get("median"), _reach.get("max")
+                if tp_med is None:
+                    reach_verdict = "unmeasured"   # cap off, or no trades
+                elif p80 > tp_med:
+                    reach_verdict = "above_measured_median_ceiling"
+                else:
+                    reach_verdict = "within_measured_median_ceiling"
+                _era = p80_detail["recent_era"]
+                arm_ceiling = {
+                    "p80_arm_r": p80,
+                    # THE POPULATION BEHIND THE SCALAR, so a reader can see the
+                    # pooled arm describes a volatility MIX rather than any
+                    # regime the live book samples. Half (1) of the row gave the
+                    # arm its implied ATR/close ceiling; this is half (2).
+                    "p80_winner_n": p80_detail["n"],
+                    "p80_era_basis": p80_detail["era_basis"],
+                    "p80_era_min_winners": p80_detail["era_min_winners"],
+                    "p80_by_era": p80_detail["by_era"],
+                    "p80_recent_era": _era,
+                    # Hoisted to the top level because it is the field the
+                    # backlog row's resolution criterion is written against, and
+                    # a reader should not have to walk into a sub-object to find
+                    # whether pooled and recent-era actually differ.
+                    "p80_recent_era_r": _era["p80"],
+                    "p80_recent_era_delta": _era["delta_vs_pooled"],
+                    "arm_reach_verdict": reach_verdict,
+                    "measured_tp_reach_r_median_IS": tp_med,
+                    "measured_tp_reach_r_max_IS": tp_max,
+                    "arm_ceiling_state": ceil_state,
+                    "arm_atr_close_ceiling_pct": (
+                        None if ceil_pct is None
+                        else round(ceil_pct * 100.0, 4)),
+                }
+                _ceil_txt = (f"needs ATR/close <= {ceil_pct * 100.0:.3f}%"
+                             if ceil_state == "capped" else
+                             "UNCAPPED book — no TP ceiling, so this arm is "
+                             "NOT comparable to a live capped one"
+                             if ceil_state == "uncapped" else
+                             "ceiling UNKNOWN — atr_stop_mult unreadable")
+                if reach_verdict == "above_measured_median_ceiling":
+                    print(f"   ⚠️ p80 winner-MFE arm = {p80}R EXCEEDS this "
+                          f"leg's measured median TP reach {tp_med}R — it "
+                          f"would fire on under half its own trades "
+                          f"({_ceil_txt})", flush=True)
+                elif reach_verdict == "unmeasured":
+                    print(f"   p80 winner-MFE arm = {p80}R  (TP reach "
+                          f"UNMEASURED — cap off or no trades; {_ceil_txt})",
+                          flush=True)
+                else:
+                    print(f"   p80 winner-MFE arm = {p80}R  (within measured "
+                          f"median TP reach {tp_med}R; {_ceil_txt})",
+                          flush=True)
+                # THE POOLED ARM'S OWN ERA SPREAD, printed beside it. Always
+                # with `n` — a per-era p80 over 11 winners is not the claim the
+                # pooled one over 300 is, and the whole finding this reports is
+                # that reading a percentile without its population is how the
+                # six shipped arms came to be quoted at all.
+                if _era["state"] in ("computed", "all_years"):
+                    _sp = (f"{_era['years'][0]}-{_era['years'][-1]}"
+                           if len(_era["years"]) > 1 else _era["years"][0])
+                    _same = (" — SAME SPAN AS POOLED, so this leg has no era "
+                             "contrast to show" if _era["state"] == "all_years"
+                             else f" vs pooled {p80}R over n={p80_detail['n']} "
+                                  f"(delta {_era['delta_vs_pooled']:+g}R)")
+                    print(f"   p80 recent-era ({_sp}, within IS) = "
+                          f"{_era['p80']}R over n={_era['n']}{_same}",
+                          flush=True)
+                else:
+                    print(f"   p80 recent-era UNAVAILABLE ({_era['state']}, "
+                          f"n={_era['n']}) — pooled arm stands alone",
+                          flush=True)
             else:
                 print(f"   p80 cell skipped (p80={p80}, tm={tm_val})",
                       flush=True)
@@ -2176,6 +2713,9 @@ def main(argv: list[str]) -> int:
                                  leg, tag, require_dd=True)
                 entry["walkforward"] = wf["summary"]
                 entry["walkforward_folds"] = wf["folds"]
+                # Beside the recorded summary, never instead of it.
+                entry["walkforward_effective"] = wf["summary_effective"]
+                entry["walkforward_inert_wins"] = wf["inert_wins"]
                 entry["verdict"] = ("PASS" if wf["usable"] >= 4
                                     and wf["wins"] * 3 >= wf["usable"] * 2
                                     else "wf_fail")
@@ -2204,6 +2744,9 @@ def main(argv: list[str]) -> int:
                                  leg, tag, require_dd=False)
                 entry["walkforward"] = wf["summary"]
                 entry["walkforward_folds"] = wf["folds"]
+                # Beside the recorded summary, never instead of it.
+                entry["walkforward_effective"] = wf["summary_effective"]
+                entry["walkforward_inert_wins"] = wf["inert_wins"]
                 entry["path_b_candidate"] = True
                 # THE DERIVED TOLERANCE, per window and per leg. Reported, not
                 # enforced — this is the evidence the operator's Path B decision
@@ -2275,6 +2818,9 @@ def main(argv: list[str]) -> int:
                 if e.get("verdict") == "path_b_wf_pass"
                 and e.get("path_b_rate_ok") is None),
         }
+        # The proposed arm's reachability check rides in the verdict, so a
+        # downstream reader never has to re-derive it from the run log.
+        leg_v["p80_arm_reach"] = arm_ceiling
         verdicts[leg] = leg_v
 
     # `tp_cap_pct` is part of the MEASUREMENT IDENTITY, not a run detail.

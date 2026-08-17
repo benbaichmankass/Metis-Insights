@@ -22,13 +22,31 @@ doesn't); no dependencies beyond stdlib.
 """
 from __future__ import annotations
 
+import argparse
 import ast
 import glob
 import os
 import sys
 
 ROUTER = "src/web/api/routers/diag.py"
-DEPLOY_GLOBS = ("deploy/*.timer", "deploy/*.service")
+DEPLOY_DIR = "deploy"
+UNIT_SUFFIXES = ("*.timer", "*.service")
+
+
+def _deploy_globs(deploy_dir: str = DEPLOY_DIR) -> tuple:
+    """Glob patterns for the unit files, rooted at `deploy_dir`.
+
+    The root is a parameter ONLY so the planted-failure self-test can aim the
+    scan at a throwaway copy instead of writing its probe into the real,
+    TRACKED `deploy/` tree — where a hard kill (SIGKILL, runner timeout,
+    cancelled workflow) strands the file past the cleanup handler, the next
+    guard run fails naming a unit nobody added, and a `git add -A` would commit
+    it (BL-20260817-GUARD-SELFTESTS-PLANT-PROBE-FILES-IN-THE-LIVE-REPO-TREE).
+
+    CI passes nothing, so the default is byte-identical to the previous
+    hardcoded constant.
+    """
+    return tuple(os.path.join(deploy_dir, s) for s in UNIT_SUFFIXES)
 
 # Unit -> reason it is deliberately NOT diag-queryable on the live VM.
 # Adding a unit here is a reviewed decision, not a default.
@@ -66,15 +84,25 @@ def canonical_units(router_path: str) -> set[str] | None:
     return None
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--deploy-dir", default=DEPLOY_DIR,
+                    help="directory holding the unit files (default: deploy). "
+                         "Overridden only by the self-test, which scans a "
+                         "throwaway copy so its probe never lands in the "
+                         "tracked tree.")
+    args = ap.parse_args(argv)
+
     allow = canonical_units(ROUTER)
     if allow is None:
         return 1
-    deploy = {os.path.basename(p) for g in DEPLOY_GLOBS for p in glob.glob(g)}
+    deploy = {os.path.basename(p)
+              for g in _deploy_globs(args.deploy_dir) for p in glob.glob(g)}
     if not deploy:
         # An empty deploy/ means the scan saw nothing — that is an absent
         # result, not a clean one (sub-class C).
-        print("::error::no deploy/*.timer or deploy/*.service found — "
+        print(f"::error::no {args.deploy_dir}/*.timer or "
+              f"{args.deploy_dir}/*.service found — "
               "scanned NOTHING; the deploy dir moved or the guard is "
               "running from the wrong cwd")
         return 1
@@ -83,7 +111,7 @@ def main() -> int:
     uncovered = sorted(u for u in deploy if u not in allow and u not in EXEMPT)
     for u in uncovered:
         failures += 1
-        print(f"::error::deploy/{u} is neither in _CANONICAL_UNITS "
+        print(f"::error::{args.deploy_dir}/{u} is neither in _CANONICAL_UNITS "
               f"({ROUTER}) nor exempted in {os.path.relpath(__file__)} — "
               f"an installed unit invisible to /api/diag/services is the "
               f"silently-skipped-scheduled-job class (3rd recurrence, "
@@ -93,7 +121,7 @@ def main() -> int:
     for u in stale:
         failures += 1
         print(f"::error::exemption for '{u}' is STALE — no such unit under "
-              f"deploy/ anymore; remove the exemption (stale entries are how "
+              f"{args.deploy_dir}/ anymore; remove the exemption (stale entries are how "
               f"allow-lists rot).")
     both = sorted(u for u in EXEMPT if u in allow)
     for u in both:
@@ -101,7 +129,8 @@ def main() -> int:
         print(f"::error::'{u}' is BOTH allowlisted and exempted — pick one; "
               f"the contradiction means one side is stale.")
 
-    print(f"diag-unit-allowlist: {len(deploy)} deploy units scanned, "
+    print(f"diag-unit-allowlist: {len(deploy)} deploy units scanned "
+          f"from {args.deploy_dir}/, "
           f"{len(allow)} allowlisted, {len(EXEMPT)} exempted, "
           f"{failures} failure(s).")
     return 1 if failures else 0

@@ -1334,6 +1334,102 @@ async def get_exchange_positions(
     }
 
 
+@router.get("/venue_session")
+async def get_venue_session(
+    request: Request,
+    account_id: str | None = None,
+    symbol: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **IB venue-session verdict + the evidence behind it**.
+
+    Closes BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE. The venue gate
+    (`src/runtime/ib_trading_hours.py`, shipped #9693) is fail-permissive on
+    ``unknown`` — it PLACES and logs a WARNING — and it runs ONLY on a close.
+    So on a book that is holding rather than exiting it can be permanently
+    unknown while behaving indistinguishably from a working gate on an open
+    venue: measured 2026-08-17 as ~24h deployed with zero closes attempted, so
+    the question that matters most about the change was unanswerable by waiting.
+
+    **``tz_source`` is the field this route exists for.** ``zoneinfo`` and
+    ``pytz`` both yield a working tzinfo, so ``state: "open"`` proves the
+    timezone resolved but not THROUGH WHAT. ``US/Eastern`` and ``US/Central``
+    are tzdata legacy links absent from slim installs — measured raising in this
+    repo's sandbox while ``America/New_York`` resolves — and COMEX/CME report
+    precisely those, so on such a host every futures contract rides the ``pytz``
+    fallback. That is fine today and one dependency prune from the gate going
+    permanently ``unknown``. ``tz_resolved_name`` shows the alias that actually
+    worked, so ``US/Eastern`` served as ``America/New_York`` is visible rather
+    than assumed.
+
+    ``graded_field`` / ``close_would_send_outside_rth`` report the FUT/STK split
+    the close applies (a future is graded on ``tradingHours`` and transmits
+    ``outsideRth=True``; an equity is graded on ``liquidHours`` and does not), so
+    the verdict can be checked against the flag the order actually carries rather
+    than assumed to match.
+
+    Per-account ``session`` is three-state, never collapsed, with ``read_state``
+    naming which: ``not_ib`` (nothing to read) · ``could_not_look``
+    (``session: null`` — gateway unreachable, dry/shelved, breaker open) ·
+    ``session_read`` (a real verdict, itself one of open/closed/unknown).
+    A ``could_not_look`` is NOT a closed venue.
+
+    Opens a brief read-only client, places NO order, and cannot refuse a trade.
+    Offloaded to the single-worker account-read executor for the same reason
+    ``ib_open_orders`` is (BL-20260706-IBCONCURRENCY). Tier 1.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_ib_venue_session
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_venue_session: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_venue_session: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        ex = ((acc or {}).get("exchange") or "unknown").lower()
+        is_ib = ex in ("interactive_brokers", "ib")
+        sess: Any = None
+        err: str | None = None
+        if is_ib:
+            try:
+                sess = await run_account_read(account_ib_venue_session, acc, symbol)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + session=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_venue_session: %s raised %s", aid, exc)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            "read_state": (
+                "not_ib" if not is_ib
+                else "session_read" if isinstance(sess, dict)
+                else "could_not_look"
+            ),
+            "session": sess,
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "requested_symbol": symbol,
+        "count": len(out),
+        "accounts": out,
+    }
+
+
 @router.get("/ib_open_orders")
 async def get_ib_open_orders(
     request: Request,
@@ -1699,6 +1795,89 @@ def get_exposure(
         "count": len(out),
         "accounts": out,
     }
+
+
+@router.get("/position_telemetry")
+def get_position_telemetry(
+    request: Request,
+    limit: int = 500,
+    strategy: str | None = None,
+) -> dict[str, Any]:
+    """M31 **P3** — the read half of the position-telemetry record.
+
+    P2 shipped the writer and NOTHING read it back. That is the
+    ``exit_price_source`` shape this repo already paid for (written in 12 files,
+    branched on in one, and it produced a "-$6,358 exit leak" that did not
+    exist), and §8 of the M31 decisions doc names it as P3's own failure signal:
+    *"rows accruing a month with no consumer."* This route is the first
+    consumer.
+
+    It is deliberately **not** a second copy of
+    ``/api/bot/db/table/position_telemetry`` — that already dumps the rows. It
+    adds the three things the TABLE CANNOT SAY, resolved through
+    ``src.runtime.position_telemetry`` so this surface and ``/api/bot/positions``
+    can never drift into two answers:
+
+    * **``lifecycle``** — is this row FINAL? The table is UPSERT-on-
+      ``order_package_id`` with **no status column**: when a trade closes its row
+      simply stops being updated, so a closed row is byte-shaped like an open
+      one. The only in-table hint is a staler ``updated_at``, which is **not a
+      signal** — a quiet leg and a closed leg both go stale. Measured 2026-08-17:
+      14 rows, **13 open + 1 closed**, and the closed one (trade 4697,
+      ``trend_donchian_sol_4h``) was findable only via this join. Four states,
+      never collapsed: ``open`` / ``closed`` / ``unknown_no_trade_id`` (the
+      package never filled) / ``unknown_trade_absent`` (a trade id the trades
+      table does not have).
+    * **``finality_source``** — WHICH evidence decided that, which is a
+      different question from the verdict and must not be folded into it.
+      ``"stamped"`` = the close path wrote ``terminal_state='final'`` on the row
+      itself (the Tier-2 terminal writer, 2026-08-17, closing
+      ``PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT``) · ``"derived_join"`` =
+      finality came only from the ``trades`` join, so the row PREDATES the
+      writer · ``"not_final"`` = still in flight · ``"unknown"`` = we could not
+      look (no trade id, or a trade id ``trades`` does not have).
+      **Read ``summary.by_finality_source`` beside ``final_rows``:** a
+      ``final_rows`` count that is entirely ``derived_join`` on rows closed
+      AFTER the writer deployed means the close hook is not firing — a
+      condition the split makes visible and a bare count hides. A consumer
+      reading the table DIRECTLY (Data Explorer, an ad-hoc query, a future
+      lever) sees only the stamp, never the join, which is exactly why the
+      stamp had to exist.
+    * **``peak_pct_of_cap``** — how close the trade EVER got to its venue
+      ceiling. The stored ``pct_of_cap`` is computed from ``open_r``, i.e. where
+      it is NOW. Both are right for what they name; only this one answers "was
+      the ceiling ever approached", which is the M31 P4 Check-A quantity.
+    * **``arm_reach``** — can this row's declared lever arm be reached under
+      this row's own ceiling at all? ``arm_r > cap_r`` means the lever cannot
+      fire on this trade however it goes
+      (``BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP``). Four
+      states: ``reachable`` / ``unreachable`` / ``no_arm_declared`` /
+      ``unmeasured``.
+
+    ⚠️ **``peak_r`` is a LOWER BOUND on true MFE, on every row** — the last
+    write precedes the close by up to one exit-loop pass, and a bar extreme
+    cannot see an intrabar excursion (hence ``peak_provenance: estimated``,
+    never ``measured``). ``peak_r_is_lower_bound: true`` is stamped on every row
+    so a consumer cannot average or gate on it without meeting that fact.
+
+    Read ``summary.final_rows`` beside any distribution claim — the
+    ``max_multiple``/``measured_n`` discipline. A statistic over closed rows is
+    not a statistic over the fleet.
+
+    **Observe-only.** Reads one read-only SQLite connection, opens no socket,
+    places no order, and cannot refuse a trade. A lever that READS this to
+    change an exit is **M31 P5 and Tier-3**. Tier 1, token-gated.
+    """
+    _require_diag_token(request)
+    try:
+        from src.runtime.position_telemetry import read_records
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503
+        logger.warning("get_position_telemetry: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "telemetry_unavailable", "detail": str(exc)},
+        ) from exc
+    return read_records(limit=limit, strategy=strategy)
 
 
 @router.get("/tick_cost")

@@ -57,6 +57,9 @@ ALL_LEVERS_AT_DEFAULT = dict(
     bank_frac=0.0, bank_at_r=1.0,
     giveback_min_mfe_r=0.0, giveback_r=1.0,
     trail_decay_arm_r=0.0, trail_decay_stall_bars=0, trail_decay_tight_mult=0.0,
+    # M31 P5 candidate. Registered here so the per-lever no-op guard below
+    # COVERS it — a lever absent from this dict is a lever nothing pins.
+    rr_floor=0.0,
     confirm_bars=0, skip_hours="",
     vol_skip_above_pctl=0.0, vol_skip_below_pctl=0.0, vol_pctl_window=200,
     trail_vol_above_pctl=0.0, trail_vol_below_pctl=0.0, trail_vol_tight_mult=0.0,

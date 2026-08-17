@@ -12,6 +12,23 @@
 #   ACTION_ORDER_ID  - IB orderId to cancel                         [one of]
 #   ACTION_PERM_ID   - IB permId to cancel (account-stable)         [one of]
 #   ACTION_APPLY     - "true" to execute; anything else = dry-run   [optional]
+#   ACTION_FORCE_PROTECTIVE - "true" to pass --force-protective     [optional]
+#   ACTION_FORCE_CLIENT_ID  - "true" to pass --force-client-id      [optional]
+#
+# The two force vars exist because the python script's guards are documented
+# as having explicit overrides, and this wrapper passed NEITHER -- so the
+# action could not cancel the very class of order it was built for. The
+# motivating row (BL-20260816-NO-PER-ORDER-IB-CANCEL) was a stranded MGC stop:
+# protective AND trader-owned, i.e. blocked on both. Live-confirmed again
+# 2026-08-17 on a duplicate MES stop (perm 166865400, clientId 597), which
+# came back `action: refused` with both blockers listed and no way to proceed.
+#
+# THIS CHANGES NO GUARD. Both still default to refusing; the overrides remain
+# opt-in per invocation, are absent unless the issue body asks for them, and
+# each is echoed below so the run log states which refusal was waived. A guard
+# you cannot reach from the only surface that invokes it is not a safe guard --
+# it is an action that cannot do its job, and the pressure it creates is to
+# reach for `flatten-ib-position`, which PLACES an order.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,6 +66,9 @@ else
   TARGET="perm ${ACTION_PERM_ID}"
 fi
 
+ACTION_FORCE_PROTECTIVE="${ACTION_FORCE_PROTECTIVE:-}"
+ACTION_FORCE_CLIENT_ID="${ACTION_FORCE_CLIENT_ID:-}"
+
 case "${ACTION_APPLY}" in
   true|True)
     echo ">>> cancel-ib-order: APPLY mode — will cancel ${TARGET} on ${ACCOUNT_ID}"
@@ -57,6 +77,25 @@ case "${ACTION_APPLY}" in
   *)
     echo ">>> cancel-ib-order: DRY-RUN (set apply: true to execute) for ${TARGET} on ${ACCOUNT_ID}"
     ;;
+esac
+
+# Announce each waived refusal on its OWN line, whether or not it is set, so
+# the run log answers "was this forced?" without the reader having to know the
+# default. A silent absence and a silent presence look identical otherwise.
+case "${ACTION_FORCE_PROTECTIVE}" in
+  true|True)
+    echo ">>> cancel-ib-order: --force-protective SET — this order is an exit; cancelling it strips a live position's protection"
+    ARGS+=(--force-protective)
+    ;;
+  *) echo ">>> cancel-ib-order: --force-protective not set (a protective order will be REFUSED)" ;;
+esac
+
+case "${ACTION_FORCE_CLIENT_ID}" in
+  true|True)
+    echo ">>> cancel-ib-order: --force-client-id SET — will connect as the order's owning clientId; if that id is a LIVE trader session this evicts it"
+    ARGS+=(--force-client-id)
+    ;;
+  *) echo ">>> cancel-ib-order: --force-client-id not set (a trader-band owner will be REFUSED)" ;;
 esac
 
 exec "${PY}" scripts/ops/cancel_ib_order.py "${ARGS[@]}"

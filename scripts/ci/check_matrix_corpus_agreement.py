@@ -104,10 +104,34 @@ PASS_VERDICTS = frozenset({"PASS", "path_b_wf_pass"})
 # so a passing row does not contradict them — it just means someone should look.
 NEGATIVE_STATUSES = frozenset({"honest_negative", "is_oos_fail", "wf_fail"})
 
+# Statuses that assert NO outcome — "we did not look". Checked by
+# `find_stale_blocks` against the corpus, because the status whose entire
+# meaning is PROVISIONAL is the one that most needs revisiting, and until
+# 2026-08-17 it was the one status this guard never re-examined.
+NO_OUTCOME_STATUSES = frozenset({"blocked", "pending"})
+
+# A verdict that GRADED the cell, as opposed to declining to. The split is the
+# whole predicate of `find_stale_blocks`: `insufficient_base` is the sweep
+# saying it could not grade, so a blocked cell carrying only those rows is
+# correctly blocked and must NOT be flagged.
+GRADED_VERDICTS = frozenset(
+    {"PASS", "path_b_wf_pass", "is_oos_fail", "wf_fail", "path_b_wf_fail"})
+# Declared so an UNRECOGNISED verdict string fails the self-test loudly instead
+# of being silently bucketed as "not graded" — a new verdict quietly reading as
+# ungraded would make this check go quiet exactly when the harness changed.
+NON_GRADED_VERDICTS = frozenset({"insufficient_base", "None"})
+
 # What counts as the ref acknowledging the disagreement. Deliberately a phrase a
 # human had to write, not a bare marker: `new-table-wiring-guard` taught this
 # repo that the cheapest way to satisfy a presence-only marker is to lie to it.
 ACK = re.compile(r"LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS", re.I)
+
+# The blocked-cell analogue. DELIBERATELY A DIFFERENT PHRASE: the two say
+# different things, and collapsing them would let one ref satisfy the other's
+# check. `ACK` means "a negative stands beside a passing measurement";
+# `BLOCKED_ACK` means "this cell says we could not look, and we since did".
+BLOCKED_ACK = re.compile(
+    r"LIVE-PARITY EVIDENCE EXISTS FOR THIS BLOCKED CELL", re.I)
 
 # Lever columns the fleet corpus structurally CANNOT speak to, each with the
 # reason. Being here does not make a column checked — it makes it declared, so
@@ -209,26 +233,105 @@ def newest_floor_clearing_pass(rows: list[dict], leg: str, lever: str) -> dict |
     So: reduce to the newest row PER CELL first — that is supersession — then
     ask whether any surviving cell passes.
     """
-    cand = [
-        r for r in rows
-        if r.get("leg") == leg
-        and r.get("lever") == lever
-        and r.get("tp_cap_pct") == LIVE_TP_CAP
-        and isinstance(r.get("base_trades_OOS"), (int, float))
-        and r["base_trades_OOS"] >= MIN_OOS_TRADES
-    ]
-    newest_per_cell: dict[str, dict] = {}
-    for r in cand:
-        key = str(r.get("cell"))
-        prev = newest_per_cell.get(key)
-        if prev is None or (r.get("run_id") or "") > (prev.get("run_id") or ""):
-            newest_per_cell[key] = r
-    passing = [r for r in newest_per_cell.values()
+    passing = [r for r in _newest_per_cell(rows, leg, lever).values()
                if r.get("verdict") in PASS_VERDICTS]
     if not passing:
         return None
     passing.sort(key=lambda r: r.get("run_id") or "")
     return passing[-1]
+
+
+def _newest_per_cell(rows: list[dict], leg: str, lever: str) -> dict[str, dict]:
+    """Floor-clearing live-parity rows for (leg, lever), newest per CELL.
+
+    Factored out so `newest_floor_clearing_pass` and `newest_floor_clearing_grade`
+    cannot drift apart on what counts as admissible evidence. The two filters
+    below are the entire reason the blocked-cell check does not false-positive:
+
+      * `tp_cap_pct == LIVE_TP_CAP` — a row measured on the legacy no-TP
+        geometry describes a book production does not run.
+      * `base_trades_OOS >= MIN_OOS_TRADES` — a verdict emitted on an
+        out-of-sample population below the floor is not a graded answer, and
+        before 2026-08-11 the sweep emitted `is_oos_fail` on OOS as low as 3.
+
+    MEASURED 2026-08-17, which is why both are here rather than one: of the six
+    blocked/pending cells carrying a verdict string, only THREE clear these two
+    filters. A predicate that asked merely "does a verdict exist?" would have
+    raised four false positives out of six findings on its first run — a 67%
+    rate, which is how a new guard becomes the desensitised alarm this repo has
+    a P1 rule about.
+    """
+    newest: dict[str, dict] = {}
+    for r in rows:
+        if (r.get("leg") != leg or r.get("lever") != lever
+                or r.get("tp_cap_pct") != LIVE_TP_CAP):
+            continue
+        oos = r.get("base_trades_OOS")
+        if not isinstance(oos, (int, float)) or oos < MIN_OOS_TRADES:
+            continue
+        key = str(r.get("cell"))
+        prev = newest.get(key)
+        if prev is None or (r.get("run_id") or "") > (prev.get("run_id") or ""):
+            newest[key] = r
+    return newest
+
+
+def newest_floor_clearing_grade(rows: list[dict], leg: str, lever: str) -> dict | None:
+    """Was (leg, lever) GRADED at live parity above the floor — either way?
+
+    The sibling of `newest_floor_clearing_pass`, and deliberately sign-agnostic.
+    That function asks "is a stated NEGATIVE contradicted by a pass?"; this asks
+    "does a cell still claim WE DID NOT LOOK after we looked?" — and the answer
+    to the second does not depend on which way the measurement went.
+
+    Returns the newest graded row, preferring a PASS when one stands, so the
+    reported evidence is the most consequential row rather than an arbitrary one.
+    """
+    graded = [r for r in _newest_per_cell(rows, leg, lever).values()
+              if r.get("verdict") in GRADED_VERDICTS]
+    if not graded:
+        return None
+    graded.sort(key=lambda r: (r.get("verdict") in PASS_VERDICTS,
+                               r.get("run_id") or ""))
+    return graded[-1]
+
+
+def find_stale_blocks(matrix: dict, rows: list[dict]) -> list[dict]:
+    """Live cells still claiming `blocked`/`pending` that the corpus has answered.
+
+    WHY THIS EXISTS. `find_disagreements` returns early for any status outside
+    `NEGATIVE_STATUSES`, on the reasoning — correct for ITS question — that
+    `blocked`/`pending` "claim no outcome, so a passing row does not contradict
+    them". The consequence went unnoticed until 2026-08-17: the one status whose
+    meaning is explicitly PROVISIONAL was the one status never re-examined, so a
+    block the corpus had already answered persisted while this guard printed OK
+    over it. Three real instances were sitting in the matrix at the time.
+
+    This is the collapsed-states family one level up: not "can the field say we
+    did not look?" (it can) but "does anything ever check whether that is still
+    true?".
+    """
+    out = []
+    for row in matrix.get("rows", []):
+        if row.get("execution") != "live":
+            continue
+        for lever in matrix.get("lever_columns", []):
+            cell = row.get(lever) or {}
+            if _base_status(cell.get("status")) not in NO_OUTCOME_STATUSES:
+                continue
+            hit = newest_floor_clearing_grade(rows, row["strategy"], lever)
+            if hit is None:
+                continue
+            if BLOCKED_ACK.search(cell.get("ref") or ""):
+                continue
+            out.append({
+                "leg": row["strategy"], "lever": lever,
+                "status": cell.get("status"),
+                "cell": hit.get("cell"), "verdict": hit.get("verdict"),
+                "run": (hit.get("run_id") or "")[:10],
+                "base_oos": hit.get("base_trades_OOS"),
+            })
+    return out
 
 
 def find_disagreements(matrix: dict, rows: list[dict]) -> list[dict]:
@@ -345,13 +448,78 @@ def main(argv: list[str]) -> int:
         assert set(CORPUS_EXEMPT_LEVERS) <= set(
             json.loads(MATRIX.read_text()).get("lever_columns", [])), (
             "CORPUS_EXEMPT_LEVERS names a lever column the matrix does not have")
+        # ---- the blocked-cell check (2026-08-17) ----
+        # A cell still claiming `blocked` that the corpus has GRADED must be
+        # caught. Planted, because this check shipped over three real instances
+        # the previous version reported as clean.
+        blk_matrix = {
+            "lever_columns": ["vol_trail"],
+            "rows": [{"strategy": "_blk", "execution": "live",
+                      "vol_trail": {"status": "blocked:insufficient_base",
+                                    "ref": "base OOS 7, below the floor"}}],
+        }
+        graded_row = [{"leg": "_blk", "lever": "vol_trail", "cell": "vt_hot80",
+                       "tp_cap_pct": LIVE_TP_CAP, "verdict": "is_oos_fail",
+                       "base_trades_OOS": 36, "run_id": "2026-08-17T00:00:00"}]
+        assert len(find_stale_blocks(blk_matrix, graded_row)) == 1, (
+            "guard failed to catch a blocked cell the corpus has graded")
+        # ...a NEGATIVE verdict must trigger it, not only a pass — the question
+        # is "did we look?", which is sign-agnostic. Covered above (is_oos_fail),
+        # and `pending` must behave identically to `blocked`.
+        blk_matrix["rows"][0]["vol_trail"]["status"] = "pending"
+        assert len(find_stale_blocks(blk_matrix, graded_row)) == 1, (
+            "`pending` must be re-examined on the same footing as `blocked`")
+        blk_matrix["rows"][0]["vol_trail"]["status"] = "blocked:insufficient_base"
+        # ...and the acknowledgement must clear it, or the check is
+        # unsatisfiable for a cell deliberately held (the real `splg` case).
+        blk_matrix["rows"][0]["vol_trail"]["ref"] += (
+            " || LIVE-PARITY EVIDENCE EXISTS FOR THIS BLOCKED CELL: ...")
+        assert not find_stale_blocks(blk_matrix, graded_row), (
+            "the blocked-cell acknowledgement did not clear the finding")
+        # ...and the two acknowledgements must NOT be interchangeable, or one
+        # ref could silently satisfy the other check.
+        blk_matrix["rows"][0]["vol_trail"]["ref"] = (
+            "base OOS 7 || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS: ...")
+        assert len(find_stale_blocks(blk_matrix, graded_row)) == 1, (
+            "the negative-cell acknowledgement wrongly cleared a blocked-cell "
+            "finding — the two phrases must stay distinct")
+        # ---- THE FALSE-POSITIVE CONTROLS, which are the load-bearing half ----
+        # Measured 2026-08-17: 4 of 6 matching cells were CORRECTLY blocked.
+        # Each control below is one of those two real reasons.
+        blk_matrix["rows"][0]["vol_trail"]["ref"] = "base OOS 7"
+        below_floor = [dict(graded_row[0], base_trades_OOS=6)]
+        assert not find_stale_blocks(blk_matrix, below_floor), (
+            "a verdict emitted BELOW the OOS floor is not a graded answer — "
+            "flagging it is the 4-of-6 false-positive class")
+        legacy_geom = [dict(graded_row[0], tp_cap_pct=0.0)]
+        assert not find_stale_blocks(blk_matrix, legacy_geom), (
+            "a row on the legacy no-TP geometry describes a book production "
+            "does not run and must not clear a block")
+        not_graded = [dict(graded_row[0], verdict="insufficient_base")]
+        assert not find_stale_blocks(blk_matrix, not_graded), (
+            "`insufficient_base` is the sweep DECLINING to grade — it must "
+            "never read as evidence the block is stale")
+        # ...and an unrecognised verdict string must not silently read as
+        # ungraded. The corpus's vocabulary is asserted against the declared
+        # sets so a harness change fails here rather than going quiet.
+        seen = {str(r.get("verdict")) for r in rows}
+        unknown = seen - GRADED_VERDICTS - NON_GRADED_VERDICTS
+        assert not unknown, (
+            f"corpus carries verdict string(s) this guard classifies as "
+            f"neither graded nor non-graded: {sorted(unknown)}. Add each to "
+            f"GRADED_VERDICTS or NON_GRADED_VERDICTS — leaving it unclassified "
+            f"makes the blocked-cell check silently skip those rows.")
         print("[selftest] matrix-corpus-agreement")
         print("self-test OK — catches a planted disagreement, clears on an "
-              "acknowledgement, honours supersession, and reports a lever with "
-              "no corpus rows as unreachable rather than checked.")
+              "acknowledgement, honours supersession, reports a lever with "
+              "no corpus rows as unreachable rather than checked, catches a "
+              "blocked cell the corpus has graded, and does NOT fire on the "
+              "below-floor / legacy-geometry / declined-to-grade rows that "
+              "make 4 of 6 real matches correctly blocked.")
         return 0
 
     bad = find_disagreements(matrix, rows)
+    stale_blocks = find_stale_blocks(matrix, rows)
     cov = lever_coverage(matrix, rows)
 
     # A lever column with no corpus rows AND no declared reason is a new column
@@ -395,16 +563,47 @@ def main(argv: list[str]) -> int:
     unreachable = sum(c["live_cells"] for c in cov.values() if not c["corpus_rows"])
     exempt = sorted(lv for lv, c in cov.items() if not c["corpus_rows"])
 
-    if not bad:
+    if not bad and not stale_blocks:
         # `checked` and `unreachable` are reported as SEPARATE numbers and never
         # summed into one reassuring total: the sum is what read as coverage.
         print(f"matrix-corpus-agreement: OK — {checkable} live cell(s) checked "
-              f"against {len(rows)} corpus row(s); no unacknowledged disagreement.")
+              f"against {len(rows)} corpus row(s); no unacknowledged disagreement, "
+              f"and no blocked/pending cell the corpus has already graded.")
         if unreachable:
             print(f"  NOT CHECKED (no corpus rows for the lever, declared): "
                   f"{unreachable} live cell(s) across {len(exempt)} column(s) — "
                   f"{', '.join(exempt)}. These are unverified here, not verified-clean.")
         return 0
+
+    if stale_blocks:
+        print(f"matrix-corpus-agreement: {len(stale_blocks)} cell(s) still claim "
+              f"`blocked`/`pending` — WE DID NOT LOOK — while the corpus holds a "
+              f"floor-clearing live-parity verdict for them:\n", file=sys.stderr)
+        for s in stale_blocks:
+            print(f"  {s['leg']} / {s['lever']}: status={s['status']} but corpus "
+                  f"cell={s['cell']} verdict={s['verdict']} run={s['run']} "
+                  f"base_OOS={s['base_oos']}", file=sys.stderr)
+        print(
+            "\nThe verdict may be of EITHER sign — the question here is not whether the\n"
+            "cell's answer is right, it is whether the cell is still claiming nobody has\n"
+            "an answer. Two honest fixes, and which one applies is a judgement:\n"
+            "  (a) the block is genuinely resolved -> record the measurement and give the\n"
+            "      cell the verdict it earned (a status change on a LIVE leg is Tier-3);\n"
+            "  (b) the block reason is stale but the cell still cannot be graded -> keep\n"
+            "      the status and append to the ref, starting with the phrase\n"
+            "        LIVE-PARITY EVIDENCE EXISTS FOR THIS BLOCKED CELL\n"
+            "      and stating the cell, verdict, run and base_trades_OOS, plus WHY it is\n"
+            "      still ungradeable. That is the real `splg_trend_long_1d/vol_trail`\n"
+            "      case: measured above the floor, but its only passing cell passes on six\n"
+            "      inert folds, so neither a negative nor the pass would be true.\n"
+            "Do NOT silence this by widening NEGATIVE_STATUSES — that set answers a\n"
+            "different question, and adding `blocked` to it would assert an outcome the\n"
+            "cell explicitly does not have.\n"
+            "See BL-20260817-MATRIX-CORPUS-GUARD-NEVER-CHECKS-BLOCKED-CELLS.",
+            file=sys.stderr)
+        if not bad:
+            return 1
+        print("", file=sys.stderr)
 
     print(f"matrix-corpus-agreement: {len(bad)} cell(s) record a NEGATIVE while the "
           f"newest floor-clearing live-parity corpus row PASSES, and the ref does "

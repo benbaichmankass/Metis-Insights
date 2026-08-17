@@ -64,6 +64,34 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "m20_corpus.lever_in_baseline",
+        "producer": "scripts/research/m20_corpus_extract.py",
+        "producer_field": "lever_in_baseline",
+        "consumer_token": r"\blever_in_baseline\b|\blever_absent_from_baseline\b",
+        "states": ["lever_in_baseline", "lever_absent_from_baseline", "unknown"],
+        "why": (
+            "Once an exit lever is DECLARED on a leg, the fleet sweep's "
+            "baseline already runs it, so re-sweeping that lever returns "
+            "d_net_r == 0.0 on both windows under gate_reason "
+            "'tie_no_improvement' with wf_ran false. That is arithmetically "
+            "correct and byte-identical to a lever that WAS measured and does "
+            "nothing: 10 rows sit in the structural state while 192 OTHER rows "
+            "carry the SAME verdict string as genuine measured no-ops. Found "
+            "the dangerous way round — the newest live-parity row for "
+            "trend_donchian_xrp_4h/trail_decay, SHIPPED on real-money bybit_2, "
+            "reads is_oos_fail with every delta 0.0 on a healthy 108/34-trade "
+            "run, one query short of being reported as counter-evidence "
+            "against a live lever. `unknown` is a row predating "
+            "declared_levers_present and is NOT 'absent' — the baseline's "
+            "composition was never recorded, which is a different fact from "
+            "knowing the lever was out of it. The consumer branches all three "
+            "ways in m20_ack_corpus_disagreements.caveats_for, which is the "
+            "one place that writes a `ref` ASSERTING a measurement and so the "
+            "one place that must refuse to. "
+            "BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP."
+        ),
+    },
+    {
         "name": "position_telemetry.peak_state",
         "producer": "src/runtime/trail_decay.py",
         "producer_field": "peak_state",
@@ -79,6 +107,59 @@ CONTRACTS: List[Dict[str, object]] = [
             "fabricated exit price, and worse here because a flat MFE reads as "
             "'this lever correctly never armed' rather than 'we could not "
             "look'. M31 P2, docs/design/position-telemetry-DESIGN.md § 4.1."
+        ),
+    },
+    {
+        "name": "position_telemetry.finality_source",
+        "producer": "src/runtime/position_telemetry.py",
+        "producer_field": "finality_source",
+        "consumer_token": r"\bfinality_source\b|\bfinality_sources\b|\bterminal_state\b",
+        "states": ["stamped", "derived_join", "not_final", "unknown"],
+        "why": (
+            "The sibling of `peak_state` above, one level up: that one asks "
+            "whether MFE was measurable, this asks whether the ROW IS FINAL "
+            "and on what evidence. `position_telemetry` is UPSERT-on-"
+            "order_package_id with no status column, so a closed row was "
+            "byte-shaped like an open one and the only in-table hint was a "
+            "staler `updated_at` — which is not a signal, since a quiet leg "
+            "and a closed leg both go stale (measured 2026-08-17: 14 rows, 13 "
+            "open + 1 closed, the closed one findable only by joining "
+            "`trades`). The Tier-2 terminal writer makes finality a STORED "
+            "fact, and this contract keeps the four evidences apart: "
+            "`stamped` = the close path wrote it; `derived_join` = only the "
+            "join knows, so the row predates the writer; `not_final` = in "
+            "flight; `unknown` = we could not look. Collapsing `derived_join` "
+            "into `stamped` is the dangerous direction — it would report the "
+            "close hook as firing on rows where it never ran, hiding exactly "
+            "the regression the split exists to expose. "
+            "PB-20260817-TELEMETRY-HAS-NO-TERMINAL-SNAPSHOT; M31 P5 "
+            "precondition 1."
+        ),
+    },
+    {
+        "name": "trend_harness.rr_floor_state",
+        "producer": "scripts/backtest_trend.py",
+        "producer_field": "rr_floor_state",
+        "consumer_token": r"\brr_floor_state\b|\brr_floor\b",
+        "states": ["off", "measurable", "unmeasurable_no_tp_cap"],
+        "why": (
+            "The M31 P5 candidate lever (`rr_from_here` floor) is "
+            "STRUCTURALLY UNMEASURABLE without a capped TP: `tp_price` is None "
+            "when `tp_cap_pct <= 0`, so `r_to_target` does not exist and the "
+            "lever cannot fire however the floor is set. Such a run returns "
+            "exactly-zero deltas that are BYTE-IDENTICAL to a lever that was "
+            "measured and genuinely does nothing — and a sweep corpus would "
+            "record the second meaning against this lever's name. That is not "
+            "hypothetical: it is the shape measured on 2026-08-17, where 10 "
+            "rows read `tie_no_improvement` with the lever already in their "
+            "own baseline while 192 other rows carried the same verdict "
+            "legitimately "
+            "(BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP). "
+            "`off` = no floor requested; `measurable` = a floor AND a capped "
+            "TP, so a zero delta IS a measurement; `unmeasurable_no_tp_cap` = "
+            "we could not look. Collapsing the third into the first two is the "
+            "dangerous direction — it manufactures an honest-looking negative "
+            "for a lever that never ran. PB-20260817-RR-FROM-HERE-LEVER-ABSENT-FROM-HARNESS."
         ),
     },
     {
@@ -214,6 +295,47 @@ CONTRACTS: List[Dict[str, object]] = [
             "could not separate the two non-venue branches. See "
             "BL-20260701-BYBIT-AVAILABLE-FIELD and "
             "BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS."
+        ),
+    },
+    {
+        "name": "ib_venue_session.state",
+        "producer": "src/runtime/ib_trading_hours.py",
+        # Deliberately NARROW. The first cut used `\bvenue_session\b|
+        # \bsession_state\b`, which fired on tests/test_exposure_soak.py — whose
+        # `venue_session="closed"` is an UNRELATED field (the US-equity
+        # rth/extended/closed stamp) that merely shares a name. That is the
+        # coincidence-firing this guard's own docstring warns produces routinely
+        # overridden alarms.
+        "consumer_token": r"\bib_trading_hours\b|\b_venue_session\b|\bIB_SESSION_CHECK_DISABLED\b",
+        "states": ["open", "closed", "unknown"],
+        "why": (
+            "open = a session covers this instant; closed = the string covers "
+            "this instant and no session does; unknown = WE COULD NOT LOOK — "
+            "an unparseable string, an unresolvable timezone, or an instant "
+            "OUTSIDE the week IBKR sent. That last one is the collapse a "
+            "two-state design makes: an instant outside the covered span "
+            "matches no range, which is byte-identical to a real closure, so "
+            "a stale cached string would report `closed` and DEFER EVERY "
+            "CLOSE on a fully open venue. The consequence runs the other way "
+            "too: `unknown` must never read as `closed`, because refusing to "
+            "flatten a live position on a failed contract lookup converts an "
+            "observability defect into money at risk. `unknown` therefore "
+            "proceeds like `open` — and is logged WARNING at the close path "
+            "precisely so the two are distinguishable in the record, since "
+            "US/Eastern and US/Central are tzdata legacy links absent from "
+            "slim installs and COMEX/CME report exactly those: a host whose "
+            "tz database regressed would disable the gate for every futures "
+            "contract we trade and, without that log, announce nothing. "
+            "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS. "
+            "COVERAGE CAVEAT, stated rather than papered over: the production "
+            "consumer (src/units/accounts/ib_client.py) branches via the "
+            "module CONSTANTS (ib_trading_hours.CLOSED / .UNKNOWN), not quoted "
+            "literals, so `_states_in` cannot see it and the state coverage "
+            "above is satisfied by the TESTS. Constants are the better "
+            "practice — a typo'd attribute raises where a typo'd literal is "
+            "silent — so the right reading is that this guard's evidence "
+            "mechanism does not fit a constants-based API, not that the "
+            "production branch is missing."
         ),
     },
     {

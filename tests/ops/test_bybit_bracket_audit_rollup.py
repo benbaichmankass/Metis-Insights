@@ -113,3 +113,103 @@ def test_the_all_clear_branch_requires_both_buckets_empty():
                  _sym("XRPUSDT", "PROTECTED", 444.7)))
     assert not (not bad and not over), "all-clear branch would fire on a real anomaly"
     assert audited == 2
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-16 — the SAME class, twice more, in this same function.
+#
+# The 444.7% fix above added ONE bucket. That is why there was a second and a
+# third: a stop-only book and a dead tracked leg with unbacked journal qty both
+# sat in the record while the roll-up printed "0 naked, 0 over-covered". The
+# structural answer is `_ROLLUP_DIMENSIONS` — the all-clear is computed FROM a
+# declared list and names the dimensions it cleared, and the last test here
+# fails if a new concern field is added to the record without being graded.
+# ---------------------------------------------------------------------------
+
+def _rich(symbol, verdict="PROTECTED", pct=100.0, *, target_state="present",
+          dead_legs=0, divergent=False, excess=0.0):
+    """A per-symbol record carrying every dimension the roll-up grades."""
+    return {"symbol": symbol, "verdict": verdict, "coverage_pct": pct,
+            "uncovered_qty": 0.0, "sl_covered_qty": 0.0,
+            "target_state": target_state,
+            "trades_with_tracked_leg_dead": dead_legs,
+            "journal_qty_divergent": divergent, "journal_qty_excess": excess}
+
+
+def test_a_stop_only_book_is_NOT_an_all_clear():
+    """The finding: fully stop-covered, zero take-profit, and it read clean."""
+    found, audited = audit.grade_rollup(_summary(_rich("MGCUSDT", target_state="absent")))
+    assert audited == 1
+    assert found["sl_coverage"] == [] and found["over_coverage"] == []   # stop side IS fine
+    assert len(found["target_present"]) == 1, (
+        "a position with a full stop and no target must be reported — it can "
+        "only stop out or run"
+    )
+    assert not _is_all_clear(found)
+
+
+def test_a_dead_tracked_leg_is_NOT_an_all_clear():
+    found, _ = audit.grade_rollup(_summary(_rich("ETHUSDT", dead_legs=1)))
+    assert len(found["tracked_legs_alive"]) == 1
+    assert not _is_all_clear(found)
+
+
+def test_unbacked_journal_qty_is_NOT_an_all_clear():
+    """bybit_portfolio ETHUSDT: exchange 21.05, journal 35.01, 13.96 unbacked.
+
+    Coverage was 100% — correct against the EXCHANGE size, which is simply a
+    different question from whether every journal row is backed.
+    """
+    found, _ = audit.grade_rollup(
+        _summary(_rich("ETHUSDT", divergent=True, excess=13.96)))
+    assert len(found["journal_qty_backed"]) == 1
+    assert found["journal_qty_backed"][0][3] == 13.96
+    assert not _is_all_clear(found)
+
+
+def test_a_genuinely_clean_symbol_still_clears_every_dimension():
+    """The guard must not cry wolf, or it gets ignored — which is the P1."""
+    found, audited = audit.grade_rollup(_summary(_rich("XRPUSDT")))
+    assert audited == 1
+    assert _is_all_clear(found)
+
+
+def test_flat_symbols_are_still_excluded_from_the_new_dimensions():
+    found, audited = audit.grade_rollup(
+        _summary({"symbol": "BTCUSDT", "verdict": "FLAT"}))
+    assert audited == 0 and _is_all_clear(found)
+
+
+def _is_all_clear(found):
+    return not any(found.values())
+
+
+def test_every_concern_field_is_graded_by_some_dimension():
+    """The guard against a FOURTH recurrence.
+
+    Every prior instance of this bug was a field the record already carried
+    that no bucket read. So the invariant is not "grade these three more
+    things" — it is that a concern field cannot exist ungraded. Adding one to
+    `_audit_symbol` without wiring a dimension fails here, at the moment it is
+    introduced, instead of the next time someone reads a false all-clear.
+    """
+    src = (_ROOT / "scripts" / "ops" / "bybit_bracket_audit.py").read_text()
+    concern_fields = {
+        "target_state": "target_present",
+        "trades_with_tracked_leg_dead": "tracked_legs_alive",
+        "journal_qty_divergent": "journal_qty_backed",
+        "uncovered_qty": "sl_coverage",
+        "coverage_pct": "over_coverage",
+    }
+    graded = {name for name, _ in audit._ROLLUP_DIMENSIONS}
+    for field, dimension in concern_fields.items():
+        assert field in src, f"{field} vanished from the record — update this map"
+        assert dimension in graded, (
+            f"record field {field!r} signals a concern but no roll-up dimension "
+            f"reads it, so a symbol carrying it would still print an all-clear"
+        )
+    # ...and the all-clear must be derived from the declared list, never a
+    # hand-written sentence that can drift from what was actually graded.
+    assert "_ROLLUP_DIMENSIONS" in src.split("ROLL-UP")[-1], (
+        "the roll-up must compute its all-clear from _ROLLUP_DIMENSIONS"
+    )

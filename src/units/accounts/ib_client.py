@@ -60,6 +60,7 @@ import time
 from datetime import datetime, time as dt_time, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from src.runtime import ib_trading_hours
 from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
 
 logger = logging.getLogger(__name__)
@@ -427,6 +428,9 @@ class IBClient:
         self._ib_factory = _ib_factory
         self._ib: Any = None
         self._contract: Any = None
+        # Venue-session cache: symbol -> (expiry_monotonic, hours_str, tz_id).
+        # The raw STRINGS are cached, never the verdict — see _venue_session.
+        self._session_hours: Dict[str, Tuple[float, Optional[str], Optional[str], Optional[str]]] = {}
         self._loop: Any = None  # persistent asyncio loop the IB binds to
         # Circuit-breaker state (restart-loop incident, 2026-06-05). While
         # monotonic() < _breaker_open_until, connect() fast-fails without
@@ -1614,6 +1618,240 @@ class IBClient:
             return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
         return self.place_protective({**order, "symbol": sym})
 
+    # ------------------------------------------------------------------
+    # Venue session — "can this venue fill an order right now?"
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _close_wants_outside_rth(sym: str) -> bool:
+        """Should this symbol's CLOSE transmit ``outsideRth=True``?
+
+        **Futures yes, equities no** — and the session gate grades each on the
+        matching field, so the verdict always describes the state the order acts
+        on (see :meth:`_venue_session`).
+
+        For a FUTURE the electronic session IS the market: MGC trades ~23h and
+        its RTH window is a few hours, so `outsideRth=False` means a close
+        placed at 03:00 ET is HELD until the next RTH open. Wanting a
+        risk-reducing order to fill there is the point of this whole change.
+
+        For an EQUITY the opposite holds, and the Alpaca precedent says so
+        explicitly: `_close_extended_hours` does NOT send a market order
+        pre/post-market, it sends a **marketable LIMIT**, because an equity
+        market order into a thin extended book is exactly the fill you do not
+        want. Setting `outsideRth=True` on an IB equity market close would
+        contradict the reasoning this change cites as its own precedent. So a
+        STK close keeps the library default and is instead graded on
+        ``liquidHours`` — outside RTH it DEFERS (bracket left armed) rather
+        than transmitting an order that would be held or filled badly.
+
+        An unresolvable symbol falls back to the futures answer, matching
+        ``ib_instrument_spec``'s own legacy default and this client's futures
+        origin; the gate is fail-permissive either way.
+        """
+        try:
+            return ib_instrument_spec(sym).sec_type != "STK"
+        except Exception:  # noqa: BLE001
+            return True
+
+    def _contract_hours(
+        self, ib: Any, sym: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Fetch ``(tradingHours, liquidHours, timeZoneId)``, or all ``None``.
+
+        Bounded exactly like :meth:`_req_all_open_orders` — prefer the async
+        variant under an explicit timeout on this client's owned, idle loop,
+        with the blocking call as the last-resort fallback. This runs on the
+        live close path, and an unbounded ``reqContractDetails`` against a
+        wedged Gateway is the shape of both June 2026 wedges: a call that is
+        individually cheap on a healthy gateway and unbounded on a sick one.
+
+        Both hours fields are returned because which one is AUTHORITATIVE
+        depends on the instrument (see :meth:`_close_wants_outside_rth`), and
+        fetching once for both is strictly cheaper than two lookups.
+
+        Never raises. A failure returns all ``None``, which the caller grades as
+        ``unknown`` — *we could not look* — and therefore proceeds.
+        """
+        timeout = _env_float("IB_CONTRACT_DETAILS_TIMEOUT_S", 5.0)
+        if timeout <= 0:
+            timeout = 5.0
+        try:
+            contract = self._build_contract(sym)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("IBClient: session check could not build %s: %s", sym, exc)
+            return None, None, None
+
+        details = None
+        req_async = getattr(ib, "reqContractDetailsAsync", None)
+        loop = self._loop
+        if req_async is not None and loop is not None and not loop.is_closed():
+            try:
+                running = loop.is_running()
+            except Exception:  # noqa: BLE001
+                running = True
+            if not running:
+                import asyncio
+
+                try:
+                    details = loop.run_until_complete(
+                        asyncio.wait_for(req_async(contract), timeout=timeout)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(
+                        "IBClient: reqContractDetailsAsync(%s) failed: %s", sym, exc
+                    )
+                    return None, None, None
+        if details is None:
+            try:
+                details = ib.reqContractDetails(contract)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("IBClient: reqContractDetails(%s) failed: %s", sym, exc)
+                return None, None, None
+        if not details:
+            return None, None, None
+        first = details[0]
+        return (
+            getattr(first, "tradingHours", None),
+            getattr(first, "liquidHours", None),
+            getattr(first, "timeZoneId", None),
+        )
+
+    def _venue_session(self, ib: Any, sym: str) -> Tuple[str, str]:
+        """Three-state venue session for *sym*: ``open`` / ``closed`` / ``unknown``.
+
+        Asks IBKR rather than modelling the calendar — see
+        :mod:`src.runtime.ib_trading_hours` for why, and for what each state
+        means. ``unknown`` is fail-permissive at every caller: it is *we could
+        not look*, and refusing to flatten a live position because a contract
+        lookup failed would turn an observability defect into money at risk.
+
+        **The CACHE holds the raw hours STRING, never the verdict.** A cached
+        verdict would be wrong at exactly the boundary the gate exists for: a
+        "closed" graded at 17:59 ET and cached for the TTL keeps reading closed
+        after the 18:00 reopen, stranding every close for the rest of the
+        window. The string is stable for a day or more; the verdict is a
+        function of *now*, so it is recomputed on every call.
+
+        A failed fetch is cached too, on a deliberately SHORTER TTL: without a
+        negative entry a persistently unreachable gateway pays a bounded lookup
+        on every close attempt, and with a full-length one a transient blip
+        blinds the gate for the whole window.
+        """
+        if _env_bool("IB_SESSION_CHECK_DISABLED", False):
+            return ib_trading_hours.UNKNOWN, "session check disabled by env"
+
+        ttl = _env_float("IB_SESSION_CACHE_S", 900.0)
+        now_mono = time.monotonic()
+        hit = self._session_hours.get(sym)
+        if hit is not None and now_mono < hit[0]:
+            trading, liquid, tz_id = hit[1], hit[2], hit[3]
+        else:
+            trading, liquid, tz_id = self._contract_hours(ib, sym)
+            if ttl > 0:
+                good = bool(trading or liquid) and bool(tz_id)
+                expiry = now_mono + (ttl if good else min(ttl, 60.0))
+                self._session_hours[sym] = (expiry, trading, liquid, tz_id)
+
+        # GRADE THE FIELD THE ORDER WILL ACT ON. A future transmits
+        # outsideRth=True, which makes the ELECTRONIC session the binding one;
+        # an equity keeps outsideRth=False, which makes RTH binding. Grading
+        # tradingHours for an equity would call a venue "open" at 04:00 and then
+        # send an order IBKR holds — a verdict about a state the order does not
+        # act on, which is the semantic substitution this gate exists to avoid.
+        if self._close_wants_outside_rth(sym):
+            hours, which = (trading or liquid), "tradingHours"
+        else:
+            hours, which = (liquid or trading), "liquidHours"
+        state, reason = ib_trading_hours.session_state(hours, tz_id)
+        return state, f"{which}: {reason}"
+
+    def venue_session(self, symbol: Optional[str]) -> Tuple[str, str]:
+        """Public, lock-taking wrapper over :meth:`_venue_session`.
+
+        Read-only: opens no order path and mutates nothing. Returns
+        ``("unknown", <reason>)`` when the gateway is unreachable, so a caller
+        can never mistake a connection failure for a closed venue.
+        """
+        sym = str(symbol or self.symbol or "").upper()
+        with self._usage_lock:
+            try:
+                ib = self.connect()
+            except Exception as exc:  # noqa: BLE001
+                return (
+                    ib_trading_hours.UNKNOWN,
+                    f"IB unreachable: {type(exc).__name__}: {exc}",
+                )
+            return self._venue_session(ib, sym)
+
+    def venue_session_detail(self, symbol: Optional[str]) -> Dict[str, Any]:
+        """The venue verdict PLUS the evidence behind it. Read-only.
+
+        :meth:`venue_session` returns what the CLOSE PATH needs — a state and a
+        reason. This returns what a READER needs, which is a different question:
+        the gate is fail-permissive on ``unknown``, so a permanently-unknown gate
+        behaves exactly like a working gate on an open venue and the state alone
+        cannot distinguish them.
+
+        **``tz_source`` is the field this method exists for.** Both ``zoneinfo``
+        and ``pytz`` yield a working tzinfo, so a verdict of ``open`` proves the
+        timezone resolved but not THROUGH WHAT. ``US/Eastern`` / ``US/Central``
+        are tzdata legacy links absent from slim installs and COMEX/CME report
+        precisely those, so on such a host every futures contract rides the
+        ``pytz`` fallback — fine today, and one dependency prune away from the
+        gate going permanently ``unknown``. Reading ``tz_source`` on the live VM
+        is what answers that; waiting for a close to emit a WARNING is not.
+
+        Never raises, and every field is honest about absence: an unreachable
+        gateway yields ``state="unknown"`` with ``hours_present: False`` rather
+        than an empty-looking success.
+        """
+        sym = str(symbol or self.symbol or "").upper()
+        out: Dict[str, Any] = {
+            "symbol": sym,
+            "sec_type": None,
+            "graded_field": None,
+            "state": ib_trading_hours.UNKNOWN,
+            "reason": None,
+            "time_zone_id": None,
+            "tz_source": ib_trading_hours.TZ_UNRESOLVED,
+            "tz_resolved_name": None,
+            "hours_present": False,
+            "close_would_send_outside_rth": None,
+        }
+        try:
+            out["sec_type"] = ib_instrument_spec(sym).sec_type
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            wants_rth = self._close_wants_outside_rth(sym)
+            out["close_would_send_outside_rth"] = bool(
+                wants_rth and _env_bool("IB_CLOSE_OUTSIDE_RTH", True)
+            )
+            out["graded_field"] = "tradingHours" if wants_rth else "liquidHours"
+        except Exception:  # noqa: BLE001
+            pass
+
+        with self._usage_lock:
+            try:
+                ib = self.connect()
+            except Exception as exc:  # noqa: BLE001
+                out["reason"] = f"IB unreachable: {type(exc).__name__}: {exc}"
+                return out
+            try:
+                state, reason = self._venue_session(ib, sym)
+                out["state"], out["reason"] = state, reason
+                hit = self._session_hours.get(sym)
+                if hit is not None:
+                    trading, liquid, tz_id = hit[1], hit[2], hit[3]
+                    out["time_zone_id"] = tz_id
+                    out["hours_present"] = bool(trading or liquid)
+                    _tz, src, name = ib_trading_hours.resolve_timezone_with_source(tz_id)
+                    out["tz_source"], out["tz_resolved_name"] = src, name
+            except Exception as exc:  # noqa: BLE001
+                out["reason"] = f"{type(exc).__name__}: {exc}"
+        return out
+
     def close(
         self,
         symbol: Optional[str],
@@ -1720,6 +1958,67 @@ class IBClient:
                           "refusing fractional futures close",
             }
 
+        # Step 0b — VENUE SESSION GATE.
+        # BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS — kept on ONE line
+        # deliberately: hyphen-wrapping a backlog id across two comment lines
+        # leaves `artifact-validity-guard` reading a truncated id that resolves
+        # to nothing, i.e. a reference that reads as tracked while being tracked
+        # by nobody. The IB analogue of the Alpaca close's
+        # ``us_equity_session()`` check, which has existed since
+        # BL-20260716-ALPACA-MARKET-HOURS-EXIT while this path had nothing:
+        # ``src/runtime/market_hours.py`` models fx / us_equity / crypto and
+        # futures are in none of them, so every IB close fired a market order at
+        # any hour and read acceptance as placement.
+        #
+        # Measured 2026-08-16 on ib_paper/MGC: a flatten was accepted, sat
+        # ``PreSubmitted`` with ``filled 0``, and the confirm window expired —
+        # ``filled 0`` (rather than a partial) is what argues HELD over a thin
+        # book. The order then had to be cancelled by #9663's own-order cleanup.
+        #
+        # This runs BEFORE Step 1 deliberately. Step 1 cancels the protective
+        # bracket, and cancelling it to then place nothing is strictly the worst
+        # outcome available: an unfillable close AND an unprotected position.
+        # Alpaca's closed branch states the same rule ("leave it armed to exit at
+        # the open if price is through the stop"); ordering the gate after the
+        # cancel would silently lose it.
+        #
+        # ``unknown`` proceeds. A gate bug must never strand a live capability,
+        # and refusing to flatten because a contract lookup failed would convert
+        # an observability defect into money at risk.
+        venue_state, venue_reason = self._venue_session(ib, sym)
+        if venue_state == ib_trading_hours.CLOSED:
+            # retCode 2 = DEFERRED, not failed. ``order_monitor._apply_update``
+            # detects a defer by STRING-MATCHING the message ("exit deferred" /
+            # "deferring" / "market closed") — NOT by the code — so this text
+            # must keep the phrase "exit deferred" or the monitor books a close
+            # FAILURE, increments the streak and raises the "won't flatten"
+            # alarm for a venue that is merely shut.
+            return {
+                "retCode": 2,
+                "retMsg": (
+                    f"IB venue for {sym} is closed — exit deferred to next "
+                    f"session (protective bracket left armed): {venue_reason}"
+                ),
+            }
+        if venue_state == ib_trading_hours.UNKNOWN:
+            # `unknown` proceeds like `open` — but it must not be SILENT like
+            # `open`, or the two are indistinguishable in the record and a gate
+            # that is permanently unknown reads exactly like a working gate on
+            # an open venue. That is not hypothetical: `US/Eastern` and
+            # `US/Central` are tzdata LEGACY links absent from slim installs
+            # (measured — `zoneinfo` raises for both in this repo's sandbox
+            # while `America/New_York` resolves), and COMEX and CME are
+            # precisely the venues that report them. Without this line, a host
+            # whose tz database regressed would disable the gate for every
+            # futures contract we trade and announce nothing.
+            #
+            # The action collapses deliberately; the OBSERVATION must not.
+            logger.warning(
+                "IBClient: venue session for %s is UNKNOWN — proceeding with "
+                "the close (fail-permissive), but the session gate is NOT "
+                "protecting this order: %s", sym, venue_reason,
+            )
+
         # Step 1 — cancel resting protective orders for the symbol so the
         # opposing market order can't leave a naked working order behind.
         self._cancel_resting_orders_for_symbol(ib, sym)
@@ -1736,6 +2035,34 @@ class IBClient:
             close_order.orderId = ib.client.getReqId()
             close_order.transmit = True
             close_order.tif = "DAY"
+            # outsideRth — the half without which the gate above is a lie.
+            #
+            # IBKR's ``outsideRth`` keys on the contract's LIQUID hours, not its
+            # trading hours. For a future those differ by most of the day: MGC
+            # trades electronically ~23h but its RTH window is a few hours, so a
+            # market order with ``outsideRth=False`` (ib_insync's default, and
+            # what every order in this repo has always sent — ``grep -rn
+            # outsideRth src/`` returned ZERO hits before this change) placed at
+            # 03:00 ET is HELD until the next RTH open. It reads as accepted and
+            # fills nothing.
+            #
+            # So gating on ``tradingHours`` while transmitting ``outsideRth=
+            # False`` would produce a verdict about a venue state the order does
+            # not act on — the semantic-substitution class the diagnostic-
+            # provenance rule names: the label names a quantity the code did not
+            # use. The two go together, and either alone is incoherent.
+            #
+            # Scoped to the CLOSE, deliberately. A close is risk-reducing and
+            # wanting it to fill in the electronic session is the point; the
+            # cost is a thinner book than RTH, which is the right trade against
+            # a position that stays open otherwise. ENTRIES are untouched —
+            # declining to open into an illiquid overnight book is defensible,
+            # and widening this to the entry path is a separate decision with a
+            # separate risk profile. ``IB_CLOSE_OUTSIDE_RTH=false`` reverts just
+            # this half without losing the session gate.
+            if _env_bool("IB_CLOSE_OUTSIDE_RTH", True) and \
+                    self._close_wants_outside_rth(sym):
+                close_order.outsideRth = True
             if self.account:
                 close_order.account = self.account
             close_trade = ib.placeOrder(contract, close_order)

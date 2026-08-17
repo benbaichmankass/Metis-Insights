@@ -260,7 +260,11 @@ one except `gld_pullback_1d`, which already had a complete live history:
   concentrated in high-vol years (2020: 2/6, 2022: 1/3, 2026: 1/3). **On this
   evidence its queued item looks closable as `ok` — but that is the operator's
   call and I have left the disposition untouched.**
-- `trend_donchian_sol_4h` — was the last entry recorded `unmeasured`. n=127
+- `trend_donchian_sol_4h` — was one of **three** entries recorded `unmeasured`
+  (with `scha_trend_long_1d` above and the non-queued `uso_trend_1h`); an
+  earlier revision of this line called it *"the last entry recorded
+  `unmeasured`"*, which was wrong on its own page — `scha` is described as
+  `unmeasured` two bullets up. Corrected 2026-08-16. n=127
   reads **0.0%, in every year**. Its `unmeasured_reason` said *"No entry-conditioned
   pull yet"*, which is no longer true, so **that text was corrected** — but the
   `verdict` was not. On a 3.4× gap at n=127 the evidence supports `inert`; I left
