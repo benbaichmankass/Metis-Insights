@@ -602,6 +602,74 @@ MIN_OOS_TRADES = 25
 # NOT an argument against a 50 target, which drops nothing.
 DEFAULT_SPLIT_TARGET_OOS = 50
 
+# The census SUMMARY table's columns, in order — ONE source for the header, the
+# alignment row, the error row's width, and the per-leg cell count.
+#
+# It is a named constant because the header and the row drifted apart while
+# they were two independent literals: the header declared 15 columns and the
+# row emitted 13, so every cell from `gb R med` rightward rendered under a
+# neighbouring column's NAME (`tgt hit` displayed an R-sum) and the two
+# rightmost headers rendered nothing at all. Adding a column is now one edit,
+# and a row that does not match this width raises instead of being written.
+CENSUS_COLUMNS = ("leg", "kind", "n", "cap med", "cap w-med", "cap Rwt",
+                  "cap <30%", "gb>=1R", "gb R left", "gb R med", "nm@90%",
+                  "nm pop", "tgt hit", "R left", "R->tgt")
+
+
+def census_row_cells(leg: str, v: dict) -> list:
+    """One cell per `CENSUS_COLUMNS` entry, in that order.
+
+    EXTRACTED SO THE MAPPING IS TESTABLE, not just the width. The defect this
+    replaces was a 13-value f-string under a 15-column header, so every cell
+    from `gb R med` rightward rendered under a NEIGHBOURING column's name and
+    the two rightmost headers rendered nothing:
+
+        `gb R med` <- near_miss_90_pct   ·  `nm@90%` <- near_miss_measured_n
+        `nm pop`   <- target_r_reached_n
+        `tgt hit`  <- near_miss_r_left_on_table   (an R-SUM under a COUNT's name)
+        `R left` / `R->tgt` <- nothing at all
+
+    A width check alone would not have caught that, because the shift and the
+    two dropped values are the SAME defect seen from two ends — pinning
+    column -> accessor is what makes it un-reintroducible.
+
+    `r_left_median` and `near_miss_r_to_target` were COMPUTED by
+    `exit_capture.py`, NAMED in this header, and referenced nowhere in this
+    module (0 greps each, against 3-4 for their siblings) — the
+    written-and-never-read shape, and sub-class A of the diagnostic-provenance
+    rule in CLAUDE.md. It also defeated two guards this table explicitly
+    claims: the "nm@90% ALWAYS ships beside its denominator" rule (the
+    denominator rendered under the RATE's header), and `r_left_median`'s own
+    stated reason for existing ("the MEDIAN ships beside the sum so the skew is
+    visible without opening the artifact"). Worst of all the table's own prose
+    tells the reader to use `R->tgt` INSTEAD of `R left` — and `R->tgt` was the
+    column that never rendered.
+    """
+    kind = v["exit_kind"]
+    if v.get("exit_kind_reason"):
+        kind += f" ({v['exit_kind_reason']}, declared {v.get('target_r_declared')}R)"
+    # The 1R rung, ALWAYS as lost/reached — a bare percentage over an unstated
+    # denominator is the class this census keeps tripping over. Same reason
+    # `nm@90%` ships beside `nm pop`.
+    gb = next((r for r in (v.get("giveback_ladder") or [])
+               if r["mfe_ge_r"] == 1.0), None)
+    gb_cell = (f"{gb['lost_n']}/{gb['mfe_ge_n']}"
+               + (f" ({gb['lost_pct']}%)" if gb["lost_pct"] is not None else "")
+               ) if gb else "—"
+    return [leg, kind, v["n_trades"],
+            v["capture_median"],
+            v.get("capture_winners_median"),
+            v.get("capture_r_weighted"),
+            v["capture_lt_30_pct"],
+            gb_cell,
+            gb["r_left"] if gb else "—",
+            gb["r_left_median"] if gb else "—",
+            v["near_miss_90_pct"],
+            v["near_miss_measured_n"],
+            v.get("target_r_reached_n"),
+            v["near_miss_r_left_on_table"],
+            v.get("near_miss_r_to_target")]
+
 REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
 
 # The three states of "does the LIVE regime gate narrow this leg's book?".
@@ -2222,37 +2290,30 @@ def main(argv: list[str]) -> int:
                  "below the stop to far above the target books a -1R loss AND "
                  "records a huge MFE (measured: `ict_scalp_avax_5m` 182.34R over "
                  "FOUR trades). `gb R med` is the same guard on the ladder.", "",
-                 "| leg | kind | n | cap med | cap w-med | cap Rwt | cap <30% "
-                 "| gb>=1R | gb R left | gb R med | nm@90% | nm pop | tgt hit "
-                 "| R left | R->tgt |",
-                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
+                 "| " + " | ".join(CENSUS_COLUMNS) + " |",
+                 "|" + "|".join(["---", "---"]
+                                + ["--:"] * (len(CENSUS_COLUMNS) - 2)) + "|"]
         for leg, v in sorted(census.items(),
                              key=lambda kv: -(kv[1].get("near_miss_90_pct") or -1)):
             if "error" in v:
-                lines.append(f"| {leg} | — | — | ERROR | {str(v['error'])[:40]} | — | — |")
+                # PADDED TO THE FULL WIDTH. This emitted 7 cells into a
+                # 15-column table, so `ERROR` rendered under `cap med` and the
+                # message under `cap w-med` — a failed leg reporting its
+                # failure text inside a numeric column.
+                lines.append(f"| {leg} | ERROR: {str(v['error'])[:40]} |"
+                             + " — |" * (len(CENSUS_COLUMNS) - 2))
                 continue
-            kind = v['exit_kind']
-            if v.get('exit_kind_reason'):
-                kind += f" ({v['exit_kind_reason']}, declared {v.get('target_r_declared')}R)"
-            # nm@90% ALWAYS ships beside its denominator. "0.0" over three
-            # losers is not the claim "0.0" over three hundred is, and the
-            # first table printed the rate alone.
-            # The 1R rung, ALWAYS as lost/reached — a bare percentage over an
-            # unstated denominator is the class this census keeps tripping over.
-            gb = next((r for r in (v.get("giveback_ladder") or [])
-                       if r["mfe_ge_r"] == 1.0), None)
-            gb_cell = (f"{gb['lost_n']}/{gb['mfe_ge_n']}"
-                       + (f" ({gb['lost_pct']}%)" if gb["lost_pct"] is not None else "")
-                       ) if gb else "—"
-            lines.append(f"| {leg} | {kind} | {v['n_trades']} | "
-                         f"{v['capture_median']} | "
-                         f"{v.get('capture_winners_median')} | "
-                         f"{v.get('capture_r_weighted')} | "
-                         f"{v['capture_lt_30_pct']} | "
-                         f"{gb_cell} | {gb['r_left'] if gb else '—'} | "
-                         f"{v['near_miss_90_pct']} | {v['near_miss_measured_n']} | "
-                         f"{v.get('target_r_reached_n')} | "
-                         f"{v['near_miss_r_left_on_table']} |")
+            cells = census_row_cells(leg, v)
+            # A row that does not match the declared width is a SHIFTED row,
+            # and a shifted row is worse than a missing one: every cell after
+            # the gap reads under a neighbouring column's name. Fail loudly
+            # rather than write it.
+            if len(cells) != len(CENSUS_COLUMNS):
+                raise AssertionError(
+                    f"census row for {leg} has {len(cells)} cells against "
+                    f"{len(CENSUS_COLUMNS)} declared columns — a shifted row "
+                    f"mislabels every cell after the gap")
+            lines.append("| " + " | ".join(str(c) for c in cells) + " |")
         (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
         print("census ->", run_dir)
         return 0
