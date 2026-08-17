@@ -18612,6 +18612,24 @@
         "BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE",
         "docs/CLAUDE-RULES-CANONICAL.md § Collapsed states"
       ]
+    },
+    {
+      "id": "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN",
+      "opened_at": "2026-08-17",
+      "opened_by": "session 9952b154 (M20 exit-refinement)",
+      "area": "ci-guards",
+      "severity": "medium",
+      "status": "open",
+      "tier": 1,
+      "title": "A committed artifact left on an unmerged branch silences every guard that grades against main",
+      "detail": "MEASURED, not hypothetical. `claude/m20-sweep-corpus` held one un-merged commit (538b9f24, bot-pushed 2026-08-17T11:31Z) adding three rows to docs/research/m20-sweep-corpus.jsonl. (leg,lever)=(squeeze_breakout_4h,vol_trail) therefore had ZERO rows on main -- a whole missing evidence block, not a duplicate -- and one of the three rows (vt_cold10_t1.8, path_b_wf_pass, wf 4/6) IS the evidence behind a queued Tier-3 decision (M20 item 6, the squeeze cold-tail).\n\nTHE SECOND-ORDER EFFECT IS THE REASON THIS IS FILED. `matrix-corpus-agreement` reads the corpus ON MAIN. With the row absent it had nothing to compare, so it reported OK for that cell while a real disagreement existed (matrix status=honest_negative vs a passing corpus row) -- a disagreement live since #9866. The instant the rows landed (PR #9896) the guard FAILED, correctly. So an unmerged artifact branch does not merely delay data: it suppresses the CI signal whose entire job is catching a negative status sitting on top of passing evidence. This is the 'green is not evidence' class arriving through a channel nothing watches: BRANCH STATE.\n\nRELATED BLIND SPOT, same cell: `m20_coverage_rollup.py --validate` passed throughout, because it checks that a closed live cell CARRIES a ref -- never that the ref's evidence EXISTS. A guard asking 'is there a ref' cannot catch 'does the ref point at anything readable'.\n\nSCOPE CHECKED AND DELIBERATELY NOT OVERSTATED. I audited every remote branch for the same shape and it is currently a ONE-OFF, not a class: content checks (NOT ancestry) found zero stranded health-review-backlog rows across claude/{bybit-part-a-decision-ready, ib-duplicate-oca-groups, system-review-backlog-xsg81e, m20-trend-harness-workstream-ipa3ce} -- all 0 ids missing from main -- and claude/tickcost-attributed-pct holds a SUPERSEDED alternative implementation (_hook_depth) of a fix main already ships by a different mechanism (name-based, '.' not in n), not a stranded fix.\n\nNOTE FOR WHOEVER PICKS THIS UP: `git merge-base --is-ancestor <branch> main` IS THE WRONG TEST here. This repo squash-merges, so every squash-merged branch reads as 'not merged' by ancestry. Using it produced a list of ~11 'stranded' branches that content checks reduced to ONE. Compare CONTENT.",
+      "evidence": "PR #9896 (merged 0df3c214). check_matrix_corpus_agreement.py failed on landing the rows with 'squeeze_breakout_4h / vol_trail: status=honest_negative but corpus cell=vt_cold10_t1.8 verdict=path_b_wf_pass run=2026-08-17 wf=4/6 base_OOS=49', and passes after the ref acknowledgement (235 live cells vs 1379 corpus rows). Corpus 1376->1379 lines / 1373->1376 cells.",
+      "resolution_criteria": "Something must be able to notice a committed artifact that exists only on an unmerged branch, OR the artifact-producing workflow must not be able to leave one behind. Two candidate shapes, neither chosen here: (a) the sweep-corpus workflow fails loudly if its PR is not merged within N hours instead of pushing and forgetting; (b) a periodic check compares artifact branches' committed artifacts against main by CONTENT and alerts on a non-empty difference. Do NOT implement it as an ancestry check -- see the note in `detail`. Closing this by hand-landing one branch is NOT a resolution; that already happened in #9896 and the mechanism is still unguarded.",
+      "refs": [
+        "#9896",
+        "#9866",
+        "BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS"
+      ]
     }
   ]
 }
