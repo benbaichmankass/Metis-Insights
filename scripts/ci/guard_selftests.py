@@ -445,6 +445,14 @@ def selftest_matrix_corpus_agreement() -> None:
 
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
+    # REDUNDANT-BY-DESIGN, and the comment is load-bearing: `run_guards.py` does
+    # NOT invoke this name. That guard's entry runs
+    # `check_matrix_corpus_agreement.py --self-test` directly, which is the same
+    # suite, so its controls DO execute in CI — this entry is only a manual
+    # alias. A 2026-08-17 session grepped for the `guard_selftests.py` call
+    # site, found none, and wrongly concluded the suite was unwired; do not
+    # repeat that inference. Presence here is not evidence a self-test runs, and
+    # absence of a call site is not evidence it does not.
     "matrix-corpus-agreement": selftest_matrix_corpus_agreement,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
