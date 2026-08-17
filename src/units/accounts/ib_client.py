@@ -1689,6 +1689,74 @@ class IBClient:
                 )
             return self._venue_session(ib, sym)
 
+    def venue_session_detail(self, symbol: Optional[str]) -> Dict[str, Any]:
+        """The venue verdict PLUS the evidence behind it. Read-only.
+
+        :meth:`venue_session` returns what the CLOSE PATH needs — a state and a
+        reason. This returns what a READER needs, which is a different question:
+        the gate is fail-permissive on ``unknown``, so a permanently-unknown gate
+        behaves exactly like a working gate on an open venue and the state alone
+        cannot distinguish them.
+
+        **``tz_source`` is the field this method exists for.** Both ``zoneinfo``
+        and ``pytz`` yield a working tzinfo, so a verdict of ``open`` proves the
+        timezone resolved but not THROUGH WHAT. ``US/Eastern`` / ``US/Central``
+        are tzdata legacy links absent from slim installs and COMEX/CME report
+        precisely those, so on such a host every futures contract rides the
+        ``pytz`` fallback — fine today, and one dependency prune away from the
+        gate going permanently ``unknown``. Reading ``tz_source`` on the live VM
+        is what answers that; waiting for a close to emit a WARNING is not.
+
+        Never raises, and every field is honest about absence: an unreachable
+        gateway yields ``state="unknown"`` with ``hours_present: False`` rather
+        than an empty-looking success.
+        """
+        sym = str(symbol or self.symbol or "").upper()
+        out: Dict[str, Any] = {
+            "symbol": sym,
+            "sec_type": None,
+            "graded_field": None,
+            "state": ib_trading_hours.UNKNOWN,
+            "reason": None,
+            "time_zone_id": None,
+            "tz_source": ib_trading_hours.TZ_UNRESOLVED,
+            "tz_resolved_name": None,
+            "hours_present": False,
+            "close_would_send_outside_rth": None,
+        }
+        try:
+            out["sec_type"] = ib_instrument_spec(sym).sec_type
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            wants_rth = self._close_wants_outside_rth(sym)
+            out["close_would_send_outside_rth"] = bool(
+                wants_rth and _env_bool("IB_CLOSE_OUTSIDE_RTH", True)
+            )
+            out["graded_field"] = "tradingHours" if wants_rth else "liquidHours"
+        except Exception:  # noqa: BLE001
+            pass
+
+        with self._usage_lock:
+            try:
+                ib = self.connect()
+            except Exception as exc:  # noqa: BLE001
+                out["reason"] = f"IB unreachable: {type(exc).__name__}: {exc}"
+                return out
+            try:
+                state, reason = self._venue_session(ib, sym)
+                out["state"], out["reason"] = state, reason
+                hit = self._session_hours.get(sym)
+                if hit is not None:
+                    trading, liquid, tz_id = hit[1], hit[2], hit[3]
+                    out["time_zone_id"] = tz_id
+                    out["hours_present"] = bool(trading or liquid)
+                    _tz, src, name = ib_trading_hours.resolve_timezone_with_source(tz_id)
+                    out["tz_source"], out["tz_resolved_name"] = src, name
+            except Exception as exc:  # noqa: BLE001
+                out["reason"] = f"{type(exc).__name__}: {exc}"
+        return out
+
     def close(
         self,
         symbol: Optional[str],

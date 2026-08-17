@@ -1251,3 +1251,64 @@ def test_futures_close_at_the_same_instant_does_the_opposite(monkeypatch):
     eq = _ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID)
     assert _ib_client_with(eq, symbol="QQQ").close(
         symbol="QQQ", side="long", qty=10)["retCode"] == 2
+
+
+# ---------------------------------------------------------------------------
+# venue_session_detail — the READ surface. The gate only runs on a CLOSE and is
+# fail-permissive on `unknown`, so a permanently-unknown gate is behaviourally
+# identical to a working one; measured 2026-08-17 as ~24h deployed and never
+# once executed. BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE.
+# ---------------------------------------------------------------------------
+
+
+def test_venue_session_detail_reports_which_library_resolved_the_tz(monkeypatch):
+    """`tz_source` is the field the route exists for: both zoneinfo and pytz
+    yield a working tzinfo, so an `open` verdict proves a tz resolved but not
+    through what — and COMEX/CME report exactly the legacy links that are absent
+    from slim installs."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc(flatten_on_close=False))
+    out = _ib_client_with(fake_ib, symbol="MGC").venue_session_detail("MGC")
+
+    assert out["state"] == "open", out
+    assert out["tz_source"] in ("zoneinfo", "pytz"), out
+    assert out["tz_resolved_name"], out
+    assert out["time_zone_id"] == _TZ
+    assert out["hours_present"] is True
+
+
+def test_venue_session_detail_exposes_the_fut_stk_split(monkeypatch):
+    """The verdict must be checkable against the flag the order actually
+    carries — grading one field while transmitting the other is the defect the
+    gate was built to avoid."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fut = _ib_client_with(_ib_serving_hours(_long_mgc()), symbol="MGC")
+    out = fut.venue_session_detail("MGC")
+    assert out["graded_field"] == "tradingHours"
+    assert out["close_would_send_outside_rth"] is True
+
+    eq = _ib_client_with(_ib_serving_split(_long_qqq(), _EQ_TRADING, _EQ_LIQUID),
+                         symbol="QQQ")
+    out = eq.venue_session_detail("QQQ")
+    assert out["graded_field"] == "liquidHours"
+    assert out["close_would_send_outside_rth"] is False
+
+
+def test_venue_session_detail_is_honest_when_it_could_not_look(monkeypatch):
+    """An unreachable gateway must yield `unknown` + hours_present False — never
+    an empty-looking success that reads as a clean verdict."""
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    blind = _ib_client_with(_ib_serving_hours(_long_mgc(), fail=True), symbol="MGC")
+    out = blind.venue_session_detail("MGC")
+
+    assert out["state"] == "unknown"
+    assert out["hours_present"] is False
+    assert out["tz_source"] == "unresolved"
+    assert out["reason"]
+
+
+def test_venue_session_detail_opens_no_order_path(monkeypatch):
+    _freeze(monkeypatch, _et(2026, 8, 17, 3))
+    fake_ib = _ib_serving_hours(_long_mgc(flatten_on_close=False))
+    _ib_client_with(fake_ib, symbol="MGC").venue_session_detail("MGC")
+    assert fake_ib.placed == [] and fake_ib.cancelled == []

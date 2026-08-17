@@ -173,3 +173,50 @@ def test_one_malformed_day_does_not_blind_the_rest_of_the_week():
     ranges, covered = th.parse_hours(mangled)
     assert len(ranges) == 1 and len(covered) == 2
     assert th.session_state(mangled, ET, now=_et(2026, 8, 18, 20))[0] == th.OPEN
+
+
+# ---------------------------------------------------------------------------
+# WHICH library resolved the timezone. The gate is fail-permissive on an unknown
+# verdict, so an open state proves a tz resolved but not THROUGH WHAT — and that
+# distinction is the whole reason the pytz fallback exists
+# (BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE).
+#
+# The state words above are deliberately UNQUOTED: `collapsed-state-guard`'s
+# `_states_in` scans raw lines, so a quoted state inside a COMMENT counts as a
+# branch. Quoting exactly one of them here made this whole file read as though
+# it branched on that state alone, while every test below asserts against
+# `th.OPEN`/`th.CLOSED`/`th.UNKNOWN` constants the scan cannot see
+# (BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE).
+# ---------------------------------------------------------------------------
+
+
+def test_tz_source_names_which_library_answered():
+    tz, source, name = th.resolve_timezone_with_source("America/New_York")
+    assert tz is not None
+    assert source in th.TZ_SOURCES and source != th.TZ_UNRESOLVED
+    assert name == "America/New_York"
+
+
+def test_tz_source_reports_the_alias_that_actually_worked():
+    """`US/Eastern` served as `America/New_York` must be VISIBLE, not assumed —
+    a reader checking the raw id resolved would draw the wrong conclusion about
+    the host's tzdata."""
+    tz, source, name = th.resolve_timezone_with_source("US/Eastern")
+    assert tz is not None
+    assert source != th.TZ_UNRESOLVED
+    assert name in ("US/Eastern", "America/New_York")
+
+
+def test_unresolvable_tz_reports_unresolved_not_a_silent_none():
+    tz, source, name = th.resolve_timezone_with_source("Middle/Earth")
+    assert tz is None and source == th.TZ_UNRESOLVED and name is None
+
+
+def test_resolve_timezone_delegates_so_there_is_one_resolution_order():
+    """Two resolution paths would be free to drift; the wrapper must agree with
+    the detailed function on every input."""
+    for tz_id in ("US/Eastern", "US/Central", "America/New_York", "GMT",
+                  "Middle/Earth", "", None):
+        assert (th.resolve_timezone(tz_id) is None) == (
+            th.resolve_timezone_with_source(tz_id)[0] is None
+        ), tz_id

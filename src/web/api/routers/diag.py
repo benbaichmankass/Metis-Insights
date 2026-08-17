@@ -1334,6 +1334,102 @@ async def get_exchange_positions(
     }
 
 
+@router.get("/venue_session")
+async def get_venue_session(
+    request: Request,
+    account_id: str | None = None,
+    symbol: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **IB venue-session verdict + the evidence behind it**.
+
+    Closes BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE. The venue gate
+    (`src/runtime/ib_trading_hours.py`, shipped #9693) is fail-permissive on
+    ``unknown`` — it PLACES and logs a WARNING — and it runs ONLY on a close.
+    So on a book that is holding rather than exiting it can be permanently
+    unknown while behaving indistinguishably from a working gate on an open
+    venue: measured 2026-08-17 as ~24h deployed with zero closes attempted, so
+    the question that matters most about the change was unanswerable by waiting.
+
+    **``tz_source`` is the field this route exists for.** ``zoneinfo`` and
+    ``pytz`` both yield a working tzinfo, so ``state: "open"`` proves the
+    timezone resolved but not THROUGH WHAT. ``US/Eastern`` and ``US/Central``
+    are tzdata legacy links absent from slim installs — measured raising in this
+    repo's sandbox while ``America/New_York`` resolves — and COMEX/CME report
+    precisely those, so on such a host every futures contract rides the ``pytz``
+    fallback. That is fine today and one dependency prune from the gate going
+    permanently ``unknown``. ``tz_resolved_name`` shows the alias that actually
+    worked, so ``US/Eastern`` served as ``America/New_York`` is visible rather
+    than assumed.
+
+    ``graded_field`` / ``close_would_send_outside_rth`` report the FUT/STK split
+    the close applies (a future is graded on ``tradingHours`` and transmits
+    ``outsideRth=True``; an equity is graded on ``liquidHours`` and does not), so
+    the verdict can be checked against the flag the order actually carries rather
+    than assumed to match.
+
+    Per-account ``session`` is three-state, never collapsed, with ``read_state``
+    naming which: ``not_ib`` (nothing to read) · ``could_not_look``
+    (``session: null`` — gateway unreachable, dry/shelved, breaker open) ·
+    ``session_read`` (a real verdict, itself one of open/closed/unknown).
+    A ``could_not_look`` is NOT a closed venue.
+
+    Opens a brief read-only client, places NO order, and cannot refuse a trade.
+    Offloaded to the single-worker account-read executor for the same reason
+    ``ib_open_orders`` is (BL-20260706-IBCONCURRENCY). Tier 1.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_ib_venue_session
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_venue_session: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_venue_session: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        ex = ((acc or {}).get("exchange") or "unknown").lower()
+        is_ib = ex in ("interactive_brokers", "ib")
+        sess: Any = None
+        err: str | None = None
+        if is_ib:
+            try:
+                sess = await run_account_read(account_ib_venue_session, acc, symbol)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + session=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_venue_session: %s raised %s", aid, exc)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            "read_state": (
+                "not_ib" if not is_ib
+                else "session_read" if isinstance(sess, dict)
+                else "could_not_look"
+            ),
+            "session": sess,
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "requested_symbol": symbol,
+        "count": len(out),
+        "accounts": out,
+    }
+
+
 @router.get("/ib_open_orders")
 async def get_ib_open_orders(
     request: Request,

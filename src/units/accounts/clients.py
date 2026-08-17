@@ -1639,6 +1639,43 @@ def account_ib_open_orders(account: Dict[str, Any]) -> Optional[list]:
         return None
 
 
+def account_ib_venue_session(
+    account: Dict[str, Any], symbol: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Venue-session verdict + its evidence for *account*/*symbol*, or ``None``.
+
+    Sibling of :func:`account_ib_open_orders`, same three-state contract: ``None``
+    is "we could not look" (not an IB account, dry/shelved, gateway unreachable),
+    never "the venue is shut". The DICT always carries a ``state``, so a caller
+    that receives one is reading a real verdict.
+
+    Exists so the venue gate's own health is READABLE. The gate is
+    fail-permissive on ``unknown`` and only runs on a CLOSE, so on a book with
+    no exits it can be permanently unknown and indistinguishable from working —
+    measured 2026-08-17 as ~24h deployed and never once executed
+    (BL-20260817-VENUE-SESSION-HAS-NO-READ-SURFACE). Opens no order path.
+    """
+    if not isinstance(account, dict):
+        return None
+    ex = (account.get("exchange") or "unknown").lower()
+    if ex not in ("interactive_brokers", "ib"):
+        return None
+    if str(account.get("mode") or "live").lower() != "live":
+        return None
+    client = ib_read_client_for(account)
+    if client is None:
+        return None
+    sym = symbol or (account.get("symbols") or [None])[0] or account.get("symbol")
+    try:
+        return client.venue_session_detail(sym)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the caller's documented degraded state
+        logger.warning(
+            "account_ib_venue_session(%s): read failed: %s",
+            account.get("account_id") or "unknown", exc,
+        )
+        return None
+
+
 # Integrations that expose a cheap, authoritative PER-SYMBOL open/flat check
 # (distinct from the batch ``account_open_positions`` list). Today only Alpaca
 # (``GET /v2/positions/{symbol}`` → 404=flat / 2xx=open). IB/OANDA read the
