@@ -297,10 +297,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # ⚠️ THE LEVER IS STRUCTURALLY UNMEASURABLE WITHOUT A CAPPED TP. `tp_price`
     # is None when `tp_cap_pct <= 0`, so `r_to_target` does not exist and the
     # lever CANNOT fire — a run like that returns exactly-zero deltas that are
-    # byte-identical to a lever that was measured and does nothing. That is
-    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-
-    # NO-OP, one class over. `rr_floor_state` below keeps the two apart and
-    # main() refuses the combination outright.
+    # byte-identical to a lever that was measured and does nothing -- one class
+    # over from this id, which is kept on ONE line because a hyphen-wrapped
+    # tracking id silently becomes a DIFFERENT id resolving to no filed row:
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    # `rr_floor_state` below keeps the two apart and main() refuses the
+    # combination outright.
     # Written as an explicit branch, not a nested ternary, so EVERY state
     # literal sits on a line naming the field it belongs to — which is both
     # what `collapsed-state-guard` requires of a registered contract and how a
@@ -810,8 +812,8 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     #                            measurement of it
     # The third is the whole point. Without it an inert run is byte-identical to
     # a measured no-op, which is exactly how a shipped lever re-swept against
-    # itself read as a no-op (BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-
-    # ITSELF-READS-AS-A-MEASURED-NO-OP).
+    # itself read as a no-op -- tracking id on its own line, never wrapped:
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
     base["rr_floor_state"] = rr_floor_state
     # Lowest rr_from_here per trade -> which floors are reachable AT ALL. None
     # (never 0.0) when unmeasured: "we did not look" and "the ratio reached
