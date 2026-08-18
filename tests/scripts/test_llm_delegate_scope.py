@@ -142,7 +142,7 @@ def test_empty_completion_is_failed_not_completed(repo, monkeypatch):
     monkeypatch.setenv("LLM_DELEGATE_API_KEY", "k")
     monkeypatch.setattr(
         "scripts.llm.delegate.call_model",
-        lambda *a, **k: ({"choices": [{"message": {"content": "   "}}]}, None),
+        lambda *a, **k: ({"choices": [{"message": {"content": "   "}}]}, None, 1),
     )
     res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
     assert res["status"] == "failed", "an empty completion must never read as an answer"
@@ -152,7 +152,7 @@ def test_rate_limit_surfaces_loudly(repo, monkeypatch):
     monkeypatch.setenv("LLM_DELEGATE_API_KEY", "k")
     monkeypatch.setattr(
         "scripts.llm.delegate.call_model",
-        lambda *a, **k: (None, "rate limited / quota exhausted (HTTP 429): ..."),
+        lambda *a, **k: (None, "rate limited / quota exhausted (HTTP 429): ...", 3),
     )
     res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
     assert res["status"] == "failed" and "429" in res["reason"]
@@ -163,7 +163,7 @@ def test_envelope_is_json_serialisable(repo, monkeypatch):
     monkeypatch.setattr(
         "scripts.llm.delegate.call_model",
         lambda *a, **k: ({"choices": [{"message": {"content": "ok"}}],
-                          "usage": {"total_tokens": 5}}, None),
+                          "usage": {"total_tokens": 5}}, None, 1),
     )
     res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
     assert res["status"] == "completed" and res["output"] == "ok"
@@ -178,7 +178,7 @@ def test_truncated_response_is_failed_not_completed(repo, monkeypatch):
         lambda *a, **k: (
             {"choices": [{"message": {"content": "partial ans"}, "finish_reason": "length"}],
              "usage": {"completion_tokens": 47, "prompt_tokens": 1817, "total_tokens": 3013}},
-            None,
+            None, 1,
         ),
     )
     res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
@@ -194,7 +194,62 @@ def test_normal_stop_is_completed_and_records_finish_reason(repo, monkeypatch):
     monkeypatch.setattr(
         "scripts.llm.delegate.call_model",
         lambda *a, **k: ({"choices": [{"message": {"content": "full answer"},
-                                       "finish_reason": "stop"}]}, None),
+                                       "finish_reason": "stop"}]}, None, 1),
     )
     res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
     assert res["status"] == "completed" and res["finish_reason"] == "stop"
+
+
+def _fake_response(status, text='{"e":1}', payload=None):
+    class R:
+        status_code = status
+        def __init__(self): self._p = payload or {}
+        @property
+        def text(self): return text
+        def json(self): return self._p
+    return R()
+
+
+def test_transient_status_is_retried(monkeypatch):
+    """503 is retried up to MAX_ATTEMPTS before being reported."""
+    from scripts.llm import delegate as D
+    calls = {"n": 0}
+
+    def post(*a, **k):
+        calls["n"] += 1
+        return _fake_response(503, "high demand")
+
+    monkeypatch.setattr(D.time, "sleep", lambda *_: None)
+    monkeypatch.setattr("httpx.post", post)
+    payload, err, attempts = D.call_model("p", base_url="http://x", model="m",
+                                          api_key="k", max_tokens=10)
+    assert payload is None
+    assert calls["n"] == D.MAX_ATTEMPTS and attempts == D.MAX_ATTEMPTS
+    assert "after 3 attempts" in err
+
+
+def test_non_retryable_status_fails_on_first_attempt(monkeypatch):
+    """A 402/404 is the request being wrong — retrying burns quota and hides it."""
+    from scripts.llm import delegate as D
+    calls = {"n": 0}
+
+    def post(*a, **k):
+        calls["n"] += 1
+        return _fake_response(402, "payment required")
+
+    monkeypatch.setattr(D.time, "sleep", lambda *_: None)
+    monkeypatch.setattr("httpx.post", post)
+    payload, err, attempts = D.call_model("p", base_url="http://x", model="m",
+                                          api_key="k", max_tokens=10)
+    assert payload is None and calls["n"] == 1 and attempts == 1
+    assert "402" in err
+
+
+def test_transient_then_success(monkeypatch):
+    from scripts.llm import delegate as D
+    seq = [_fake_response(503), _fake_response(200, payload={"choices": [{"message": {"content": "ok"}}]})]
+    monkeypatch.setattr(D.time, "sleep", lambda *_: None)
+    monkeypatch.setattr("httpx.post", lambda *a, **k: seq.pop(0))
+    payload, err, attempts = D.call_model("p", base_url="http://x", model="m",
+                                          api_key="k", max_tokens=10)
+    assert err is None and attempts == 2 and payload["choices"][0]["message"]["content"] == "ok"
