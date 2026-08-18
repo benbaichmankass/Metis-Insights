@@ -33,7 +33,7 @@ from scripts.llm.scope_guard import resolve_paths  # noqa: E402
 
 SCHEMA_VERSION = 1
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 # Backend chosen 2026-08-18 after Cerebras returned HTTP 402 payment_required on
 # this account: the widely-quoted "1M tokens/day free" figure came from
 # third-party blogs, not Cerebras docs, and does not hold here. Gemini is the
