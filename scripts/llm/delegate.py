@@ -44,7 +44,9 @@ DEFAULT_MODEL = "gemini-3.6-flash"
 # same budget BEFORE emitting a visible answer. Measured 2026-08-18: a 1200
 # cap yielded 1149 reasoning tokens and 47 visible ones, truncated mid-word.
 # The default is therefore sized for reasoning + answer, not answer alone.
-DEFAULT_MAX_OUTPUT_TOKENS = 8000
+# Raised 8000 -> 32000 on 2026-08-18: a bug-find over a 10.8 KB file still
+# truncated at 8000, spending 7.7k reasoning tokens for 317 visible ones.
+DEFAULT_MAX_OUTPUT_TOKENS = 32000
 REQUEST_TIMEOUT_S = 120
 
 # Retried ONLY for classes that plausibly resolve on their own. A 4xx that is
@@ -59,7 +61,13 @@ SYSTEM_PROMPT = (
     "read-only excerpts of a public repository and one instruction. Answer only "
     "from the provided files. If the files do not contain enough information to "
     "answer, say so explicitly rather than guessing — a stated gap is useful, a "
-    "confident invention is not. Be concise and concrete."
+    "confident invention is not.\n\n"
+    "CRITICAL: absence of something in the provided files is NOT evidence it "
+    "does not exist. The repository contains many files you have not been "
+    "given. If a claim depends on a file that is not provided, say that the "
+    "file was not provided and that you cannot verify the claim — never "
+    "conclude the claim is false because you cannot see its implementation.\n\n"
+    "Be concise and concrete."
 )
 
 
