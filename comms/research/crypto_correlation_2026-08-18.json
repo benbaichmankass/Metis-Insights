@@ -1,0 +1,62 @@
+{
+  "_provenance": {
+    "measured_at_utc": "2026-08-18",
+    "source": "Bybit public v5 kline, category=linear, interval=D, limit=365, pulled via the trainer-vm-diag relay (issue #9966)",
+    "basis": "Pearson r on DAILY LOG RETURNS of aligned closes",
+    "n_days_365d": 364,
+    "n_days_90d": 90,
+    "symbols": [
+      "ADAUSDT",
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ],
+    "coverage_note": "CRYPTO ONLY. The open book also holds GLD, IEF, IWM, MES, MGC, QLD, QQQ, SCHA, SLV, SPY, TLT, USO -- every pair involving one of those is UNMEASURED, which is NOT the same as uncorrelated. scripts/ops/portfolio_conflict_audit.py reports those pairs explicitly rather than folding them into 'no conflict'. Extending coverage needs an equity/ETF price source, which is the same corpus gap that blocks sweeping the mgc/qqq/tlt/spy exit legs.",
+    "staleness_note": "Correlation is NOT stationary -- the 90d and 365d windows differ by up to 0.14 (ADAUSDT~ETHUSDT: 0.72 vs 0.84). Re-measure before leaning on this; a stale matrix is a confident wrong answer."
+  },
+  "window_90d": {
+    "ADAUSDT|BTCUSDT": 0.703,
+    "ADAUSDT|ETHUSDT": 0.7243,
+    "ADAUSDT|SOLUSDT": 0.7021,
+    "ADAUSDT|XRPUSDT": 0.7591,
+    "BTCUSDT|ADAUSDT": 0.703,
+    "BTCUSDT|ETHUSDT": 0.8826,
+    "BTCUSDT|SOLUSDT": 0.8356,
+    "BTCUSDT|XRPUSDT": 0.8433,
+    "ETHUSDT|ADAUSDT": 0.7243,
+    "ETHUSDT|BTCUSDT": 0.8826,
+    "ETHUSDT|SOLUSDT": 0.8515,
+    "ETHUSDT|XRPUSDT": 0.8763,
+    "SOLUSDT|ADAUSDT": 0.7021,
+    "SOLUSDT|BTCUSDT": 0.8356,
+    "SOLUSDT|ETHUSDT": 0.8515,
+    "SOLUSDT|XRPUSDT": 0.8451,
+    "XRPUSDT|ADAUSDT": 0.7591,
+    "XRPUSDT|BTCUSDT": 0.8433,
+    "XRPUSDT|ETHUSDT": 0.8763,
+    "XRPUSDT|SOLUSDT": 0.8451
+  },
+  "window_365d": {
+    "ADAUSDT|BTCUSDT": 0.7979,
+    "ADAUSDT|ETHUSDT": 0.8382,
+    "ADAUSDT|SOLUSDT": 0.8451,
+    "ADAUSDT|XRPUSDT": 0.8467,
+    "BTCUSDT|ADAUSDT": 0.7979,
+    "BTCUSDT|ETHUSDT": 0.8908,
+    "BTCUSDT|SOLUSDT": 0.8527,
+    "BTCUSDT|XRPUSDT": 0.8636,
+    "ETHUSDT|ADAUSDT": 0.8382,
+    "ETHUSDT|BTCUSDT": 0.8908,
+    "ETHUSDT|SOLUSDT": 0.8907,
+    "ETHUSDT|XRPUSDT": 0.8471,
+    "SOLUSDT|ADAUSDT": 0.8451,
+    "SOLUSDT|BTCUSDT": 0.8527,
+    "SOLUSDT|ETHUSDT": 0.8907,
+    "SOLUSDT|XRPUSDT": 0.8488,
+    "XRPUSDT|ADAUSDT": 0.8467,
+    "XRPUSDT|BTCUSDT": 0.8636,
+    "XRPUSDT|ETHUSDT": 0.8471,
+    "XRPUSDT|SOLUSDT": 0.8488
+  }
+}
