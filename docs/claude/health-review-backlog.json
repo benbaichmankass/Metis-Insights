@@ -19490,6 +19490,27 @@
         "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE"
       ],
       "resolution_criteria": "Basis: 891 config-exact trades across 5 legs, 0 ungradeable, thresholds fixed before the run. The POOLED refutation is conclusive and closes the general hypothesis for this family. RESOLVED when the BTC exception is either (a) settled by a per-bar simulation that prices banking-at-X properly — the upper bound cannot establish a win — or (b) declined on the grounds that htf_pullback_trend_2h's disposition is a strategy question first (it is the family's worst leg). Do NOT close this by declaring a cap-proximity lever on the strength of the `candidate` verdicts: candidate means not established."
+    },
+    {
+      "id": "BL-20260818-HOLDING-BLOCKS-339-SIGNALS-AND-NO-EXIT-STUDY-HAS-A-TIME-AXIS",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (measurement gap); any resulting lever is Tier-3",
+      "status": "measured_open",
+      "area": "exit research / capital utilisation",
+      "title": "339 signals were refused because a position was already open — and every exit study to date compares R, never R per unit of TIME",
+      "detail": "Operator, 2026-08-18: a trade that reaches 75% of cap in days and then grinds weeks for the last 25% blocks new entries that could themselves reach 75% quickly. Correct, and NOT accounted for anywhere. Both the fleet sweep's Path A/B gate and today's peak-banking study (BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING) compare FINAL R against BANKED R. Neither carries a time axis, so both implicitly price the alternative to holding as CASH. It is not cash — it is a refused signal.\n\nMEASURED over trade_journal rows 2026-07-20..2026-08-18 (1000 rows, the window fully covering the live XRP hold). 615 rejected + 32 exchange_rejected = 65% of all rows are refusals. Of those, **339 are OCCUPANCY-DRIVEN** — an existing position blocked a new one:\n   119  intent_noop:hold_to_bracket_reduce_non_derivative\n   137  intent_noop:flip_suppressed_hold_policy (98 long-vs-short, 39 short-vs-long)\n    83  reentry_suppressed_netting_guard:increase\nConcentrated on FOUR legs: mgc_trend_1h 55, qqq_pullback_1h 45, tlt_pullback_1h 40, spy_pullback_1h 38 = 178 of 339. Those legs pay a real, measurable opportunity cost for holding, and nothing has ever priced it.\n\n⚠️ THE MECHANISM DOES NOT APPLY TO THE LIVE XRP TRADE, which is what prompted the question. `xrp_pullback_2h` fired FOUR times in the 29-day window and all four were a five-day burst (2026-07-25, 07-27, 07-28, 07-29); it has produced ZERO signals in the 20 days since 4163 opened. Exactly ONE XRPUSDT occupancy refusal exists in the whole window (2026-08-10, `ict_scalp_xrp_15m`, bybit_1 PAPER — a different strategy on a different account, so 4163 did not cause it). Holding 4163 crowded out nothing. The general instinct is right; this trade is not its instance.\n\n⚠️ AND FREEING CAPITAL ONLY HELPS IF THE REDEPLOYMENT IS POSITIVE-EXPECTANCY. On an OOS-negative book, faster turnover amplifies losses — and every measured crypto pullback leg is OOS-negative (BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE). So 'bank earlier to trade more' is not automatically an improvement; it is an improvement only where the freed slot has an edge.\n\nTHE UNCOMFORTABLE CONVERGENCE: the four legs where occupancy actually binds (mgc, qqq, tlt, spy) are EQUITY/ETF/FUTURES legs, and the trainer holds NO corpus for any of them. The legs where the operator's mechanism bites are exactly the legs no study here can measure.",
+      "evidence": [
+        "trade_journal 2026-07-20..08-18, 1000 rows: 339 occupancy-driven refusals by notes.reason",
+        "xrp_pullback_2h: 4 distinct order packages in 29d, all 2026-07-25..07-29, zero since",
+        "scripts/research/peak_banking_basis.py has no time axis (by construction — summary rows)"
+      ],
+      "related": [
+        "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
+        "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE",
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER"
+      ],
+      "resolution_criteria": "Basis: the 1000-row journal scan above, window verified to cover the live hold, refusal reasons read from notes.reason rather than inferred. RESOLVED when an exit study reports R PER DAY HELD alongside R — specifically time-to-reach-X%-of-cap versus time-from-X-to-exit, which needs the per-bar path the summary emitter does not carry — AND that study covers the four legs where occupancy actually binds, which first requires an equity/ETF corpus on the trainer. Do NOT close this by adding a time column to the crypto-only study: the crypto legs are where the mechanism does NOT bite."
     }
   ]
 }
