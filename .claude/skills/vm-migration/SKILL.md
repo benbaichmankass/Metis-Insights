@@ -5,6 +5,14 @@ description: Migrate or decommission a production OCI VM (live trader, trainer, 
 
 # /vm-migration — move or retire a production VM cleanly
 
+
+> **Before and after any topology change, run `oci-inventory` (`mode=report`).**
+> It diffs live OCI compute against the declared topology in
+> `comms/cloud/expected_topology.json`. This skill's hard lesson is that the
+> *environment contract* breaks rather than the box copy — a migration that
+> does not update that file leaves the next run reporting drift against you,
+> and one that does gives you a before/after check the prose cannot.
+
 Migrating a VM is **not** a box copy. The mechanical part (provision → verify
 wheels → dry-boot → copy data → start) is reliable. **Every** incident in the
 2026-06-14 live→Ampere cutover came from things keyed to the OLD VM's
