@@ -172,11 +172,27 @@ def test_unknown_decision_path_outranks_a_live_price_path():
 
 
 def test_module_that_cannot_emit_a_verdict_grades_not_applicable():
-    """htf_pullback_trend_2h implements no stale_stop — that is `not_applicable`
-    (nothing to declare), not `absent` (a choice someone made)."""
+    """`not_applicable` (nothing to declare) is not `absent` (a choice made).
+
+    Was asserted on stale_stop until 2026-08-18, when that lever was extracted
+    to src/runtime/exit_levers.py and the pullback family gained it. Moved to
+    exit_head, which this family still genuinely lacks — it needs an
+    advisory-stage trained head that does not exist for it, so shipping the
+    plumbing would be a capability that can never fire.
+    """
     r = _assess(_trade())
-    assert r["decision_paths"]["stale_stop"]["state"] == epc.NA
-    assert r["decision_paths"]["stale_stop"]["why"] == "not_implemented"
+    assert r["decision_paths"]["exit_head"]["state"] == epc.NA
+    assert r["decision_paths"]["exit_head"]["why"] == "not_implemented"
+
+
+def test_the_extracted_levers_are_seen_through_the_shared_import():
+    """The companion positive: a source-only grep would answer `not_implemented`
+    for both of these, which is how the extraction nearly degraded this audit
+    into under-reporting coverage on a live-money family."""
+    r = _assess(_trade())
+    for lever in ("stale_stop", "giveback_stop"):
+        assert r["decision_paths"][lever]["state"] != epc.NA
+        assert r["decision_paths"][lever]["why"] == "undeclared"
 
 
 # --------------------------------------------------------------------------

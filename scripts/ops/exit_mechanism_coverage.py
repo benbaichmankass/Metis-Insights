@@ -103,8 +103,30 @@ def unit_of(src: str, strategy: str) -> Tuple[Optional[str], str]:
     return None, "no_builder_found"
 
 
+# A lever whose body lives in `src/runtime/exit_levers.py` is still implemented
+# by every unit that calls it. Grepping the unit's own source was correct while
+# every lever was inline and became a FALSE `not_implemented` the moment
+# `stale_stop`/`giveback_stop` were extracted (2026-08-18) — this audit would
+# have reported BOTH families as having lost mechanisms they still run.
+_SHARED_VERDICT_SYMBOLS = {
+    "stale_stop": "stale_stop_verdict",
+    "giveback_stop": "giveback_verdict",
+}
+
+
 def module_implements(unit_src: str, mechanism: str) -> bool:
-    return any(f'"{k}"' in unit_src for k in MECHANISMS[mechanism])
+    if any(f'"{k}"' in unit_src for k in MECHANISMS[mechanism]):
+        return True
+    sym = _SHARED_VERDICT_SYMBOLS.get(mechanism)
+    if not sym or not re.search(rf"\b{sym}\b", unit_src):
+        return False
+    # The unit calls the shared verdict — confirm the SHARED module actually
+    # reads this mechanism's keys, rather than trusting the call site's name.
+    try:
+        shared = (REPO / "src" / "runtime" / "exit_levers.py").read_text()
+    except OSError:
+        return False
+    return any(f'"{k}"' in shared for k in MECHANISMS[mechanism])
 
 
 def _live_strategies(cfg: dict) -> List[Tuple[str, dict]]:
@@ -171,9 +193,19 @@ def _self_test() -> int:
     checks = [
         ("positive: trend_donchian implements stale_stop",
          module_implements((_UNITS / "trend_donchian.py").read_text(), "stale_stop")),
-        ("negative: htf_pullback_trend_2h does NOT implement stale_stop",
-         not module_implements(
+        # Was a negative until 2026-08-18, when stale_stop was extracted to
+        # the shared module and this family gained it. Kept as the control
+        # that the extraction is DETECTED — the keys are no longer in this
+        # unit's own source, so a source-only grep answers no.
+        ("positive: htf_pullback_trend_2h implements stale_stop via the shared module",
+         module_implements(
              (_UNITS / "htf_pullback_trend_2h.py").read_text(), "stale_stop")),
+        # Replacement NEGATIVE, so the detector is not merely answering yes:
+        # exit_head is deliberately withheld from this family (it needs an
+        # advisory-stage head that does not exist for it).
+        ("negative: htf_pullback_trend_2h does NOT implement exit_head",
+         not module_implements(
+             (_UNITS / "htf_pullback_trend_2h.py").read_text(), "exit_head")),
         ("positive: htf_pullback_trend_2h DOES implement trail_decay",
          module_implements(
              (_UNITS / "htf_pullback_trend_2h.py").read_text(), "trail_decay")),

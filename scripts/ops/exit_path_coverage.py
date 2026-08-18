@@ -125,13 +125,56 @@ _CLOSE_B = re.compile(
     r'"reason"\s*:\s*"([a-z0-9_]+)"\s*,\s*"action"\s*:\s*"close"')
 
 
+# A lever whose body lives in the SHARED module is still a capability of every
+# unit that imports it. Detecting capability by grepping the unit's own source
+# for a close-reason literal was correct while every lever was inline, and
+# became a FALSE NEGATIVE the moment `stale_stop` and `giveback_stop` moved to
+# `src/runtime/exit_levers.py` — the audit would have reported the donchian
+# family, which trades real money, as having LOST two mechanisms it still runs.
+# The self-test's planted positive control is what caught that; without it the
+# refactor would have silently degraded this file's every verdict.
+_SHARED_VERDICTS = {
+    "stale_stop_verdict": "stale_stop",
+    "giveback_verdict": "giveback_stop",
+}
+
+
+def _imported_shared_reasons(unit_src: str) -> List[str]:
+    """Close reasons this unit gains by importing the shared lever module.
+
+    Matched on the imported SYMBOL, not on the module name alone: importing
+    `exit_levers` for `since_entry` is not the same capability as importing
+    `stale_stop_verdict`, and treating them alike would over-report.
+    """
+    return [reason for sym, reason in _SHARED_VERDICTS.items()
+            if re.search(rf"\b{sym}\b", unit_src)]
+
+
 def module_close_reasons(unit_src: str) -> List[str]:
-    """Close verdicts this unit module can actually emit."""
-    return sorted(set(_CLOSE_A.findall(unit_src)) | set(_CLOSE_B.findall(unit_src)))
+    """Close verdicts this unit module can actually emit — inline OR shared."""
+    return sorted(set(_CLOSE_A.findall(unit_src))
+                  | set(_CLOSE_B.findall(unit_src))
+                  | set(_imported_shared_reasons(unit_src)))
 
 
 def module_reads(unit_src: str, keys: Tuple[str, ...]) -> bool:
-    return any(f'"{k}"' in unit_src for k in keys)
+    """Does this unit consult these cfg keys — directly, or via a shared lever?
+
+    The shared verdict functions read the keys themselves, so a unit that calls
+    one reads them transitively. Without this the keyed-mechanism detection
+    below would grade an extracted lever `not_implemented`.
+    """
+    if any(f'"{k}"' in unit_src for k in keys):
+        return True
+    try:
+        shared = (REPO / "src" / "runtime" / "exit_levers.py").read_text()
+    except OSError:
+        return False
+    for sym, _reason in _SHARED_VERDICTS.items():
+        if re.search(rf"\b{sym}\b", unit_src) and any(f'"{k}"' in shared
+                                                       for k in keys):
+            return True
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -496,9 +539,24 @@ def _self_test() -> int:
     checks = [
         ("positive: trend_donchian emits stale_stop",
          "stale_stop" in module_close_reasons(units.get("trend_donchian", ""))),
-        ("negative: htf_pullback_trend_2h emits NO stale_stop",
-         "stale_stop" not in module_close_reasons(
+        # Was a negative ("pullback emits NO stale_stop") until 2026-08-18,
+        # when the lever was extracted to src/runtime/exit_levers.py and BOTH
+        # families gained it. Flipped to a positive rather than deleted,
+        # because it is now the control that the EXTRACTION is detected at all
+        # — the body no longer appears in either unit's own source.
+        ("positive: pullback gained stale_stop via the shared lever module",
+         "stale_stop" in module_close_reasons(
              units.get("htf_pullback_trend_2h", ""))),
+        # The replacement NEGATIVE, so the detector is not just answering yes.
+        # exit_head is deliberately NOT given to this family: it needs an
+        # advisory-stage trained head and the pullback family has none, so
+        # shipping the plumbing would be a capability that can never fire.
+        ("negative: htf_pullback_trend_2h still has NO exit_head",
+         "exit_head" not in module_close_reasons(
+             units.get("htf_pullback_trend_2h", ""))),
+        ("negative: a unit importing only since_entry gains no close reason",
+         module_close_reasons(
+             "from src.runtime.exit_levers import since_entry") == []),
         ("positive: htf_pullback_trend_2h DOES read trail_decay keys",
          module_reads(units.get("htf_pullback_trend_2h", ""),
                       _KEYED_MECHANISMS["trail_decay"])),

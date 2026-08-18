@@ -586,89 +586,19 @@ def _exit_head_verdict(
         return None
 
 
-def _stale_stop_verdict(
-    meta: Dict[str, Any],
-    cfg_dict: Dict[str, Any],
-    open_pkg: Dict[str, Any],
-    candles_df: pd.DataFrame,
-    current_price: float,
-    direction: str,
-) -> Optional[Dict[str, Any]]:
-    """M20 conditional stale-stop — close a position that is ≥ N native bars
-    old and still below the declared open-R threshold at bar close.
+def _stale_stop_verdict(meta, cfg_dict, open_pkg, candles_df,
+                        current_price, direction):
+    """Moved to `src/runtime/exit_levers.py` — see that module for the contract.
 
-    Declared (``stale_exit_bars`` in meta/cfg) ⇒ may return a real
-    ``{"action": "close", "reason": "stale_stop"}`` verdict. Undeclared ⇒
-    evaluates the reference cell (8 bars, < 0R) and writes one observe-only
-    annotate row when it would fire, returning ``None`` (behaviour unchanged).
-    Fail-safe: any missing input (entry_time, frozen risk, entry) skips both
-    paths — never a spurious close. **Never raises.**
+    Kept as a thin delegation rather than deleted: the body is now SHARED with
+    the pullback family, and a shim makes the move reviewable as a move (this
+    module's behaviour is unchanged) instead of as a rewrite.
     """
-    try:
-        declared_bars = _coerce_int(
-            meta.get("stale_exit_bars") if meta.get("stale_exit_bars") is not None
-            else cfg_dict.get("stale_exit_bars")
-        )
-        below_r_raw = (
-            meta.get("stale_exit_below_r")
-            if meta.get("stale_exit_below_r") is not None
-            else cfg_dict.get("stale_exit_below_r")
-        )
-        below_r = _coerce_float(below_r_raw)
-        n_bars = declared_bars if declared_bars is not None else _STALE_REF_BARS
-        threshold = below_r if (declared_bars is not None and below_r is not None) \
-            else (_STALE_REF_BELOW_R if declared_bars is None else 0.0)
+    from src.runtime.exit_levers import stale_stop_verdict
 
-        entry = _coerce_float(open_pkg.get("entry"))
-        risk = _coerce_float(meta.get("risk_per_unit"))
-        if entry is None or risk is None or risk <= 0:
-            return None
-        if not meta.get("entry_time"):
-            return None  # age unknowable — fail-safe skip
-        window = _since_entry(candles_df, open_pkg)
-        # _since_entry falls back to the FULL frame when the entry time can't
-        # be matched; that would fake a huge age, so require a real restriction
-        # (or a genuinely long-lived trade spanning the whole fetch window).
-        if len(window) >= len(candles_df) and len(candles_df) > 0:
-            # Ambiguous: either fallback or a trade older than the fetch
-            # window (limit≈200 bars ≫ any sane stale_exit_bars). Treat a
-            # full-window match as "at least window-length old" ONLY when the
-            # first window bar is at/after the entry time; _since_entry
-            # guarantees that when it actually filtered, so equality here
-            # means fallback — skip (fail-safe).
-            return None
-        age_bars = max(0, len(window) - 1)  # bars strictly after the entry bar
-        if age_bars < n_bars:
-            return None
-        open_r = ((current_price - entry) if direction == "long"
-                  else (entry - current_price)) / risk
-        if open_r >= threshold:
-            return None
-        if declared_bars is not None:
-            return {"action": "close", "reason": "stale_stop",
-                    "exit_price": current_price}
-        # Annotate-only path (undeclared): observe, never act.
-        try:
-            from src.runtime.exit_lever_soak import record_exit_lever_annotation
-
-            record_exit_lever_annotation(
-                lever="stale_stop",
-                strategy=str(meta.get("strategy_label")
-                             or open_pkg.get("strategy_name") or "trend_donchian"),
-                symbol=str(open_pkg.get("symbol") or ""),
-                direction=direction,
-                order_package_id=open_pkg.get("order_package_id"),
-                params={"stale_exit_bars": n_bars,
-                        "stale_exit_below_r": threshold},
-                state={"age_bars": age_bars, "open_r": round(open_r, 4),
-                       "price": current_price, "entry": entry},
-            )
-        except Exception:  # noqa: BLE001 — annotate must never affect the path
-            pass
-        return None
-    except Exception:  # noqa: BLE001 — monitor must never crash on this lever
-        return None
-
+    return stale_stop_verdict(meta, cfg_dict, open_pkg, candles_df,
+                              current_price, direction,
+                              default_label="trend_donchian")
 
 # M20 giveback-stop reference params — the fleet-sweep-validated cell
 # (exit at close once the trade has SEEN >= 1R of open profit and given
@@ -680,127 +610,26 @@ _GIVEBACK_REF_MIN_MFE_R = 1.0
 _GIVEBACK_REF_GIVEBACK_R = 1.0
 
 
-def _giveback_verdict(
-    meta: Dict[str, Any],
-    cfg_dict: Dict[str, Any],
-    open_pkg: Dict[str, Any],
-    candles_df: pd.DataFrame,
-    current_price: float,
-    direction: str,
-) -> Optional[Dict[str, Any]]:
-    """M20 giveback-stop — close a position that has seen at least
-    ``giveback_min_mfe_r`` R of open profit (peak basis, since entry) and
-    has given back at least ``giveback_r`` R from that peak at bar close.
-    An R-based profit lock, distinct from the price/ATR chandelier trail —
-    the harness reference is ``scripts/backtest_trend.py``'s giveback lever
-    (identical peak_r/r_close math; the research copy was retired 2026-08-09).
+def _giveback_verdict(meta, cfg_dict, open_pkg, candles_df,
+                      current_price, direction):
+    """Moved to `src/runtime/exit_levers.py` — see that module for the contract."""
+    from src.runtime.exit_levers import giveback_verdict
 
-    Declared (BOTH ``giveback_min_mfe_r`` AND ``giveback_r`` positive in
-    meta/cfg) ⇒ may return a real ``{"action": "close", "reason":
-    "giveback_stop"}`` verdict. Undeclared ⇒ evaluates the reference cell
-    (1R giveback after 1R MFE) and writes one observe-only annotate row
-    when it would fire, returning ``None`` (behaviour unchanged).
-    Fail-safe: any missing input (entry, frozen risk, entry_time, an
-    unrestrictable candle window whose pre-entry bars would fake the
-    peak) skips both paths — never a spurious close. **Never raises.**
-    """
-    try:
-        declared_min_mfe = _coerce_float(
-            meta.get("giveback_min_mfe_r")
-            if meta.get("giveback_min_mfe_r") is not None
-            else cfg_dict.get("giveback_min_mfe_r")
-        )
-        declared_gb = _coerce_float(
-            meta.get("giveback_r") if meta.get("giveback_r") is not None
-            else cfg_dict.get("giveback_r")
-        )
-        declared = (declared_min_mfe is not None and declared_min_mfe > 0
-                    and declared_gb is not None and declared_gb > 0)
-        min_mfe_r = declared_min_mfe if declared else _GIVEBACK_REF_MIN_MFE_R
-        giveback_r = declared_gb if declared else _GIVEBACK_REF_GIVEBACK_R
-
-        entry = _coerce_float(open_pkg.get("entry"))
-        risk = _coerce_float(meta.get("risk_per_unit"))
-        if entry is None or risk is None or risk <= 0:
-            return None
-        if not meta.get("entry_time"):
-            return None  # peak window unanchorable — fail-safe skip
-        window = _since_entry(candles_df, open_pkg)
-        # Same ambiguity guard as _stale_stop_verdict: a full-frame
-        # "restriction" means _since_entry fell back, and a pre-entry
-        # extreme would fake a peak the trade never actually saw.
-        if len(window) >= len(candles_df) and len(candles_df) > 0:
-            return None
-        if direction == "long":
-            peak = _coerce_float(window["high"].max())
-            if peak is None:
-                return None
-            peak_r = (peak - entry) / risk
-            r_close = (current_price - entry) / risk
-        else:
-            peak = _coerce_float(window["low"].min())
-            if peak is None:
-                return None
-            peak_r = (entry - peak) / risk
-            r_close = (entry - current_price) / risk
-        if not (peak_r >= min_mfe_r and (peak_r - r_close) >= giveback_r):
-            return None
-        if declared:
-            return {"action": "close", "reason": "giveback_stop",
-                    "exit_price": current_price}
-        # Annotate-only path (undeclared): observe, never act.
-        try:
-            from src.runtime.exit_lever_soak import record_exit_lever_annotation
-
-            record_exit_lever_annotation(
-                lever="giveback_stop",
-                strategy=str(meta.get("strategy_label")
-                             or open_pkg.get("strategy_name") or "trend_donchian"),
-                symbol=str(open_pkg.get("symbol") or ""),
-                direction=direction,
-                order_package_id=open_pkg.get("order_package_id"),
-                params={"giveback_min_mfe_r": min_mfe_r,
-                        "giveback_r": giveback_r},
-                state={"peak_r": round(peak_r, 4), "open_r": round(r_close, 4),
-                       "price": current_price, "entry": entry},
-            )
-        except Exception:  # noqa: BLE001 — annotate must never affect the path
-            pass
-        return None
-    except Exception:  # noqa: BLE001 — monitor must never crash on this lever
-        return None
-
+    return giveback_verdict(meta, cfg_dict, open_pkg, candles_df,
+                            current_price, direction,
+                            default_label="trend_donchian")
 
 def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataFrame:
-    """Restrict the candle window to bars at/after the package entry time.
+    """Moved to `src/runtime/exit_levers.py::since_entry` — ONE definition.
 
-    The Chandelier trail tracks the extreme SINCE ENTRY; the fetched
-    window (limit=200) can include pre-entry bars whose extreme would
-    move the trail too far. Falls back to the full frame when the entry
-    time or a timestamp column is unavailable — the caller's
-    correct-side-of-price guard still prevents an instant stop-out in
-    that case.
+    This module and `htf_pullback_trend_2h` each carried a byte-identical copy
+    (docstring aside). Every R measurement in the system depends on this window,
+    so two copies of it is the defect class `_regime_score_semantics.py` exists
+    to prevent.
     """
-    meta = open_pkg.get("meta") or {}
-    if isinstance(meta, str):
-        try:
-            meta = json.loads(meta) if meta else {}
-        except Exception:  # noqa: BLE001
-            meta = {}
-    entry_ts = (meta.get("entry_time") if isinstance(meta, dict) else None) or \
-        open_pkg.get("created_at")
-    if entry_ts is None or "timestamp" not in getattr(candles_df, "columns", []):
-        return candles_df
-    try:
-        ts = pd.to_datetime(candles_df["timestamp"], utc=True, errors="coerce")
-        cutoff = pd.to_datetime(entry_ts, utc=True, errors="coerce")
-        if pd.isna(cutoff):
-            return candles_df
-        filtered = candles_df[ts >= cutoff]
-        return filtered if len(filtered) > 0 else candles_df
-    except Exception:  # noqa: BLE001
-        return candles_df
+    from src.runtime.exit_levers import since_entry
 
+    return since_entry(candles_df, open_pkg)
 
 def monitor(cfg, candles_df, open_pkg):
     """Re-evaluate an open trend_donchian package against fresh candles.

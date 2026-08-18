@@ -19354,6 +19354,43 @@
         "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN"
       ],
       "resolution_criteria": "Basis: the grep above, and the four cell-generator controls run 2026-08-18 (pullback+cap emits 3 cells; pullback without a cap skips with no_tp_cap_in_run; scalp skips with family_has_no_live_tp_cap; donchian+cap emits 3). RESOLVED when the sweep has actually been RUN on xrp_pullback_2h with these cells and a verdict recorded — pass, honest_negative, or path_b_wf_pass with its drawdown-exchange-rate column. Emitting the cells is not the same as grading the lever, and this row must not be closed on the code change alone. MET 2026-08-18: the sweep RAN on xrp_pullback_2h (#9950) and a verdict is recorded above — honest_negative on all three floors, with the cells confirmed measurable rather than cosmetic. The durable generalisation (a guard asking whether a shipped lever has a cell at all, the way provenance-consumer-guard asks it of a field) remains OPEN and is tracked as its own concern, not by this row."
+    },
+    {
+      "id": "BL-20260818-LIVE-DONCHIAN-INVERTS-THE-HARNESS-LEVER-PRECEDENCE",
+      "opened": "2026-08-18",
+      "severity": "medium",
+      "tier": "3 (live-money family exit order)",
+      "status": "latent_measured_open",
+      "area": "exit mechanics / live-vs-train parity",
+      "title": "Live trend_donchian runs stale_stop before giveback_stop; BOTH harnesses run giveback first — and its own comment claims it matches",
+      "detail": "src/units/strategies/trend_donchian.py::monitor evaluates _stale_stop_verdict at step 2.5 and _giveback_verdict at 2.55, under a comment reading 'Checked AFTER stale-stop, matching the harness's exit precedence'. Both harnesses do the opposite. Verified by reading EXECUTION order, not byte offsets: in scripts/backtest_trend.py both live in one per-bar loop, each with its own `break` — giveback at ~line 566, stale at ~582, so giveback wins a bar where both would fire. scripts/backtest_pullback.py::_levers is giveback -> trend_flip -> stale. Field beats comment; the comment is wrong.\n\nIMPACT IS ATTRIBUTION, NOT PnL. Both fire at bar close and exit at the same close price, so R is identical either way; what differs is the recorded exit_reason. That still matters — a per-lever verdict measured in a sweep is attributed to a different lever live, so by_outcome histograms and live exit_reason distributions cannot be reconciled.\n\nLATENT, NOT ACTIVE. The order can only bite when ONE leg declares BOTH keys. Measured 2026-08-18 against config/strategies.yaml over enabled+live legs: stale-only on 3 (ict_scalp_eth_15m, trend_donchian_eth_prop, trend_donchian_xrp_4h), giveback-only on 1 (uso_trend_1h), BOTH on ZERO. So nothing is mis-attributed today, and the first leg to declare both would start it silently.\n\nNOT FIXED HERE deliberately: flipping a live-money family's exit order is Tier-3 and must not ride along inside the shared-lever refactor that found it. The newly-wired pullback family follows ITS OWN harness (giveback then stale), so the two live families now differ — which is the honest state while donchian is the inverted one.",
+      "evidence": [
+        "src/units/strategies/trend_donchian.py::monitor steps 2.5 / 2.55",
+        "scripts/backtest_trend.py per-bar loop: giveback ~566, stale ~582 (both break)",
+        "scripts/backtest_pullback.py::_levers: giveback -> trend_flip -> stale",
+        "config/strategies.yaml scan 2026-08-18: 0 live legs declare both keys"
+      ],
+      "resolution_criteria": "Basis: the execution-order reads and the config scan above, both 2026-08-18. RESOLVED when either (a) the operator approves flipping donchian to giveback-first so live matches both harnesses and the stale comment is corrected, or (b) the operator records that live intentionally differs, and the comment is rewritten to say so rather than claiming a parity it does not have. Either way the false comment must go. Re-check the both-declared count first — if it is no longer zero the row is ACTIVE, not latent."
+    },
+    {
+      "id": "BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (audit tooling)",
+      "status": "fix_landed_for_this_instance",
+      "area": "audit tooling / exit coverage",
+      "title": "Both exit-coverage audits detect capability by grepping ONE module, so extracting a lever to a shared module reads as losing it",
+      "detail": "scripts/ops/exit_mechanism_coverage.py::module_implements and scripts/ops/exit_path_coverage.py::module_close_reasons both decided whether a strategy has a mechanism by grepping THAT UNIT'S OWN SOURCE for a cfg-key literal or a close-reason literal. Correct while every lever was inline; a FALSE NEGATIVE the moment one moves.\n\nDemonstrated 2026-08-18 by doing it: extracting stale_stop and giveback_stop to src/runtime/exit_levers.py made both audits report the DONCHIAN family — which trades real money — as having lost two mechanisms it still runs. The planted positive control in exit_path_coverage's self-test ('trend_donchian emits stale_stop') is what caught it; without that control the refactor would have silently degraded every verdict both files produce, in the direction of under-reporting coverage.\n\nFIXED FOR THIS INSTANCE: both detectors now follow the shared import, matched on the imported SYMBOL rather than the module name (importing exit_levers for since_entry is not the same capability as importing stale_stop_verdict, and treating them alike would over-report), and each confirms the SHARED module actually reads the mechanism's keys rather than trusting the call site's name. A negative control pins that a unit importing only since_entry gains no close reason.\n\nTHE GENERAL SHAPE IS NOT FIXED. Any future extraction to another shared module re-breaks both files, because the fix enumerates exit_levers specifically. This is the same family as BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER (the sweep had no cell for a shipped lever) and BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER: a capability and the thing that is supposed to see it drift apart, and nothing asserts the relationship. provenance-consumer-guard does exactly this for FIELDS; there is no equivalent for LEVERS.",
+      "evidence": [
+        "exit_path_coverage self-test went 7/7 -> 6/7 on the extraction, failing the donchian positive control",
+        "exit_mechanism_coverage reported xrp_pullback_2h stale_stop/giveback as not_implemented after wiring"
+      ],
+      "related": [
+        "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER",
+        "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+        "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN"
+      ],
+      "resolution_criteria": "Basis: the self-test regression above, observed live while performing the extraction on 2026-08-18, plus the audit output before and after. The per-instance fix is verified by both self-tests (9/9 and 6/6) including a negative control. RESOLVED when a guard asserts the general relationship — that a lever a unit can run is visible to the audits and has a cell in the sweep that grades it — rather than each audit enumerating the shared modules it happens to know about. Until then this row stays open with the instance fixed."
     }
   ]
 }
