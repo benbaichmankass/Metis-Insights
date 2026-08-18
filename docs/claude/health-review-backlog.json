@@ -19391,6 +19391,26 @@
         "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN"
       ],
       "resolution_criteria": "Basis: the self-test regression above, observed live while performing the extraction on 2026-08-18, plus the audit output before and after. The per-instance fix is verified by both self-tests (9/9 and 6/6) including a negative control. RESOLVED when a guard asserts the general relationship — that a lever a unit can run is visible to the audits and has a cell in the sweep that grades it — rather than each audit enumerating the shared modules it happens to know about. Until then this row stays open with the instance fixed."
+    },
+    {
+      "id": "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "3 (the disposition is a strategy decision)",
+      "status": "measured_open",
+      "area": "exit mechanics / strategy performance",
+      "title": "xrp_pullback_2h fails ALL THREE decision-exit levers across 7 cells — the leg is the problem, not its exit machinery",
+      "detail": "Two sweeps, trainer relays #9950 and #9954, config-exact base, --tp-cap-pct 0.099, XRPUSDT 2h corpus 13,206 bars 2023-08-14..2026-08-18, split 2025-10-16, base n IS=127 OOS=48 against a min_oos_trades_floor of 25. SEVEN cells, ALL honest negatives, path_a_pass 0 and path_b_candidates 0 in both runs:\n\n  rr_floor   0.5 / 0.75 / 1.0    d_cap/day -0.0215 / +0.0008 / -0.0516\n  stale_stop 8bars / 12bars      d_cap/day -0.0353 / +0.0082\n  giveback   MFE1R / MFE2R       d_cap/day -0.0209 / -0.0254\n\nNo cell is net_R-up on BOTH windows, so none is even a Path B candidate, and no walk-forward was justified on any of them. The two cells with a positive capital delta are both the OOS-ONLY shape the walk-forward exists to catch — stale12 posts IS -10.1113R against OOS +1.1334R, a 11.2R swing between adjacent periods on the same leg.\n\nWHAT THIS MEANS, stated carefully. The levers are not broken and are not inert: reachability was confirmed (rr_min p10 0.134 / median 1.145 / p90 3.54 over n=237; every cell rr_floor_state measurable; inert_cells empty), and they demonstrably DO what they claim — rr_floor at 1.0 cuts mean hold 46.6 -> 21.2 bars and capital_days by 32%. They simply destroy more R than the capital-time they release, ON THIS LEG.\n\nAND THE LEG BARELY MAKES MONEY. Config-exact base is IS +1.779R over 127 trades (+0.014R/trade, essentially zero expectancy) and OOS -0.5915R over 48, with the sweep stamping rate_ungradeable_why: base_unprofitable on the OOS window. A lever cannot rescue a book with no edge, and improving one would not make the leg worth its capital. So the disposition question for xrp_pullback_2h is a STRATEGY question (demote to shadow? retune? kill?), not an exit-mechanics question — which is the opposite of where this investigation started, and worth recording so the next session does not re-open the exits.\n\nNOT a statement about the family. This is one leg of 18; the crypto-leg family sweep is #9955 and the 12 equity/ETF/futures legs have no corpus on the trainer at all.",
+      "evidence": [
+        "trainer relay #9950 + #9952 (rr_floor, 3 cells) and #9954 (stale+giveback, 4 cells)",
+        "config/strategies.yaml xrp_pullback_2h; live real-money trade 4163 on bybit_2",
+        "docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md § measured result"
+      ],
+      "related": [
+        "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+        "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER"
+      ],
+      "resolution_criteria": "Basis: the two sweeps above, 7 cells, config-exact base, n IS=127 OOS=48 over a 13,206-bar corpus. RESOLVED when the operator records a disposition for xrp_pullback_2h as a STRATEGY — demote to shadow, retune, or keep with the near-zero expectancy accepted and stated. Do NOT resolve this by declaring an exit lever: seven cells say none of them pays here. If a future retune materially changes the base, the cells must be RE-RUN, not re-read, because they were measured against this base."
     }
   ]
 }
