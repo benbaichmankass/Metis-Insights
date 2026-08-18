@@ -1,0 +1,128 @@
+name: oci-inventory
+
+# Read-only OCI compute inventory + a diff against the topology this repo
+# DECLARES (comms/cloud/expected_topology.json).
+#
+# Why it exists: the canonical docs describe the VM topology in prose and
+# nothing ever checked it against the cloud. That gap has already cost us once
+# — DIAG_BASE_URL pointed at a micro terminated 2026-06-16 and failed silently
+# for two months. It also became urgent when Oracle halved the Always Free
+# Ampere allowance to 2 OCPU / 12 GB on 2026-06-15, since the documented total
+# is 4/24.
+#
+# Strictly read-only: list_instances only. No provisioning, no termination, no
+# state change of any kind. Contrast provision-*.yml / terminate-instance.yml.
+#
+# Modes:
+#   report         — diff live vs declared, post the report (default)
+#   emit-expected  — print the CURRENT live state in expectations format, for a
+#                    human to review and commit. The diff path NEVER writes the
+#                    expectations file: a checker that rewrites its own baseline
+#                    on drift can never fail.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "report | emit-expected"
+        required: true
+        default: "report"
+        type: choice
+        options: [report, emit-expected]
+      fail_on_drift:
+        description: "Exit non-zero when drift/missing/undeclared is found."
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: oci-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'oci-inventory'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OCI SDK
+        run: pip install --quiet oci
+
+      - name: Run inventory
+        id: run
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
+          MODE: ${{ inputs.mode || 'report' }}
+          FAIL_ON_DRIFT: ${{ inputs.fail_on_drift || 'false' }}
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/oci
+          if [ "$MODE" = "emit-expected" ]; then
+            python3 scripts/ops/oci_inventory.py --emit-expected | tee /tmp/oci/out.txt
+            rc=$?
+          else
+            extra=""
+            [ "$FAIL_ON_DRIFT" = "true" ] && extra="--fail-on-drift"
+            # shellcheck disable=SC2086
+            python3 scripts/ops/oci_inventory.py --markdown $extra | tee /tmp/oci/out.txt
+            rc=${PIPESTATUS[0]}
+          fi
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Post report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode || 'report' }}
+          RC: ${{ steps.run.outputs.rc }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -uo pipefail
+          {
+            printf '## oci-inventory (`%s`)\n\n[run](%s) · exit `%s`\n\n' \
+              "$MODE" "$RUN_URL" "${RC:-unknown}"
+            if [ ! -s /tmp/oci/out.txt ]; then
+              printf '⚠️ No output was produced — the step failed before the '
+              printf 'inventory ran. This is NOT an empty inventory.\n'
+            elif grep -q '<!--MARKDOWN-->' /tmp/oci/out.txt; then
+              sed -n '/<!--MARKDOWN-->/,$p' /tmp/oci/out.txt | tail -n +2
+              printf '\n<details><summary>raw JSON</summary>\n\n```json\n'
+              sed -n '1,/<!--MARKDOWN-->/p' /tmp/oci/out.txt | head -c 40000
+              printf '\n```\n</details>\n'
+            else
+              printf '```json\n%s\n```\n' "$(head -c 50000 /tmp/oci/out.txt)"
+            fi
+          } > /tmp/oci/comment.md
+
+          if [ -n "${ISSUE:-}" ]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file /tmp/oci/comment.md \
+              && echo "posted to issue #$ISSUE" || echo "::warning::comment failed"
+          else
+            cat /tmp/oci/comment.md >> "$GITHUB_STEP_SUMMARY"
+            echo "no issue context — report written to the job summary"
+          fi

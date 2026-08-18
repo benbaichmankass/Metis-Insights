@@ -35,7 +35,7 @@ Claude ──actions_run_trigger(llm-delegate.yml)──▶ runner boots
                           scope_guard.py  ◀───────────┤  fail closed on any
                           (public code + docs only)   │  out-of-scope path
                                                       │
-                          delegate.py ──▶ Cerebras (Groq failover)
+                          delegate.py ──▶ Gemini 3.6 Flash
                                                       │
                           result envelope ────────────┘
                                                       │

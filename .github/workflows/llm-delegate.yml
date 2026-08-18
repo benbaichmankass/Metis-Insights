@@ -43,9 +43,11 @@ on:
         required: false
         default: ""
       max_output_tokens:
-        description: "Output token ceiling for this task."
+        description: "Ceiling for reasoning + answer combined. Reasoning is the
+          larger share on thinking models: a bug-find over a 10 KB file spent
+          ~7.7k reasoning tokens for 317 visible ones and truncated at 8000."
         required: false
-        default: "8000"
+        default: "32000"
       model:
         description: "Backend model id. Blank uses the backend's default."
         required: false
@@ -61,8 +63,14 @@ permissions:
   contents: read
   issues: write
 
+# Per-TASK, not global. A single `llm-delegate` group keeps at most one
+# pending run, so dispatching several tasks in quick succession silently
+# cancelled the queued ones — measured 2026-08-18, a fan-out of 4 produced 2
+# results and no error anywhere. Keying on task_id preserves the intent (never
+# double-run the same task) while letting distinct tasks fan out, which is the
+# entire point of a burst worker.
 concurrency:
-  group: llm-delegate
+  group: llm-delegate-${{ inputs.task_id }}
   cancel-in-progress: false
 
 jobs:
