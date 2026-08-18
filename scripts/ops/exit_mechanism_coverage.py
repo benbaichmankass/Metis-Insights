@@ -14,14 +14,25 @@ Two failure shapes, and they are not the same:
   re-checking whenever a lever moves between modules.
 * **family coverage gap** — the module implements no such lever, so the leg
   cannot use the mechanism however it is configured. Measured 2026-08-16: the
-  `htf_pullback_trend_2h` family (18 of 47 live legs, 38%) implements exactly
-  ONE of the four M20 mechanisms.
+  `htf_pullback_trend_2h` family (18 of 47 live legs, 38%) implemented exactly
+  ONE of the four M20 mechanisms. **CLOSED 2026-08-18** — `stale_stop` and
+  `giveback_stop` were extracted to `src/runtime/exit_levers.py` and the family
+  now runs THREE of four. `exit_head` remains genuinely absent, and
+  deliberately: it needs an advisory-stage trained head that does not exist for
+  this family, so shipping the plumbing would be a capability that can never
+  fire. NOTE this detector had to learn to follow the shared import to see any
+  of that — a source-only grep reported the DONCHIAN family as having LOST two
+  mechanisms it still runs
+  (`BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS`).
 
-Why it matters, concretely: the live XRP short that motivated M31 runs
-`xrp_pullback_2h` → `htf_pullback_trend_2h`, whose only mechanism is
+Why it mattered, concretely: the live XRP short that motivated M31 runs
+`xrp_pullback_2h` → `htf_pullback_trend_2h`, whose only mechanism WAS
 `trail_decay` — and on that leg `trail_decay_arm_r: 4.49` sits above its
 `cap_R 3.92` for most entries. So the trade had **no working M20 exit
-mechanism at all** for 18 days. That is not a mis-declaration (the leg declares
+mechanism at all** for 18 days. The family now has three; whether any is worth
+DECLARING on a given leg is a separate Tier-3 question the fleet sweep answers
+(on xrp_pullback_2h specifically, all seven cells came back honest negatives —
+`BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER`). That is not a mis-declaration (the leg declares
 only what its module reads, so it grades `ok` here); it is a coverage gap, and
 the two are worth telling apart.
 
