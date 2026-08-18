@@ -19411,6 +19411,46 @@
         "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER"
       ],
       "resolution_criteria": "Basis: the two sweeps above, 7 cells, config-exact base, n IS=127 OOS=48 over a 13,206-bar corpus. RESOLVED when the operator records a disposition for xrp_pullback_2h as a STRATEGY — demote to shadow, retune, or keep with the near-zero expectancy accepted and stated. Do NOT resolve this by declaring an exit lever: seven cells say none of them pays here. If a future retune materially changes the base, the cells must be RE-RUN, not re-read, because they were measured against this base."
+    },
+    {
+      "id": "BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "3 (implementing it in the units is live exit-path work)",
+      "status": "measured_open",
+      "area": "exit mechanics",
+      "title": "rr_floor exists in both harnesses and ZERO live units — a passing sweep cell could not have been declared",
+      "detail": "Found by the FIRST run of the new lever-wiring-guard, which is the point of it. Measured 2026-08-18: `rr_floor` / `rr_from_here` appears 23 times in scripts/backtest_trend.py, 23 times in scripts/backtest_pullback.py, and ZERO times across src/units/strategies/*.py and src/runtime/exit_levers.py. It is a backtest-only lever.\n\nCONSEQUENCE FOR THE WORK DONE EARLIER THE SAME DAY: the operator pre-approved an rr_floor walk-forward and it was run (#9950). Worth doing — but a PASS could not have been acted on, because declaring `rr_floor` in a leg's YAML would produce an ORPHANED DECLARE, a key no module reads. That is exactly the condition the stale_stop/giveback extraction fixed for the pullback family hours earlier, still true for this lever. Nothing was lost because the result was negative on all three floors, but the SEQUENCING was wrong: runnable should precede gradeable, and the guard now makes that ordering visible.\n\nNOT FIXED, deliberately. The only leg swept says the lever does not pay there (BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER: 3 floors, all honest negatives, zero Path B candidates), so building a live exit path for it is not justified by current evidence. Recorded in check_lever_wiring.LEVERS as an explicit `runnable_exempt` the guard PRINTS on every run, rather than dropping the lever from the table — a lever missing from that table is invisible to the guard, which is the failure mode the guard exists to prevent.\n\n⚠️ DO NOT clear this by adding rr_floor to exit_mechanism_coverage.MECHANISMS. That would make it *look* visible while still being unrunnable, converting an honest gap into a false positive.\n\nNote it is also out of scope for harness-lever-coupling-guard entirely, since no enabled strategy declares it as a key — which is how it shipped into two harnesses and a sweep with nothing noticing.",
+      "evidence": [
+        "grep: 23 occurrences in each harness, 0 in src/units/strategies/ and src/runtime/exit_levers.py",
+        "scripts/ci/check_lever_wiring.py first run: rr_floor gradeable, units=0"
+      ],
+      "related": [
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+        "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER"
+      ],
+      "resolution_criteria": "Basis: the grep counts above and the guard's first run, both 2026-08-18. RESOLVED when either (a) a sweep on some leg shows rr_floor clearing the gate AND the lever is implemented in the live units so a declare is real, or (b) the operator records that rr_floor stays research-only, in which case the exemption text should say so instead of pointing here as pending work. Removing it from LEVERS is never the resolution."
+    },
+    {
+      "id": "BL-20260818-NO-GUARD-ASSERTED-LEVER-WIRING-UNTIL-TODAY",
+      "opened": "2026-08-18",
+      "severity": "medium",
+      "tier": "1 (CI tooling)",
+      "status": "fix_landed",
+      "area": "CI guards",
+      "title": "Four capability-with-no-consumer findings in one day and nothing asserted the relationship — now lever-wiring-guard does",
+      "detail": "provenance-consumer-guard fails CI when a declared provenance FIELD gains a writer and no reader, on the reasoning that a signal written and never read is worse than a missing one: reviewers see it and assume something acts on it. Four findings on 2026-08-18 were that same shape one level up, about CAPABILITIES rather than fields — the IB broker-PnL reader with zero callers, attach_ib_target never executed, rr_floor shipped with no sweep cell, and both exit-coverage audits blind to a lever moved to a shared module (which made a REAL-MONEY family read as having lost two mechanisms it still runs).\n\nscripts/ci/check_lever_wiring.py asserts three legs per lever and reports WHICH failed, because the remedies differ completely: RUNNABLE (a live unit can execute it — unit work), GRADEABLE (cells_for emits a cell — a sweep cell), VISIBLE (exit_mechanism_coverage sees it — a detector fix). It found a real gap on its first run (rr_floor, units=0).\n\nCOMPLEMENTARY TO harness-lever-coupling-guard, not a duplicate: that one starts from a YAML key and asks whether the debt matrix classifies it; this starts from a lever and asks whether its consumers exist. Opposite directions, and neither subsumes the other.\n\nSCOPE, honestly: EXIT LEVERS only. The other findings of the day — a broker reader with no caller, an allowlisted action whose script never ran — are the same class and remain unguarded. The general 'is this capability consumed by the thing meant to consume it' check does not exist; this is one instance of it.\n\nIt deliberately does NOT check that a lever is DECLARED anywhere. Declaring is a Tier-3 value decision resting on sweep evidence, and a guard demanding one would push exactly the cosmetic declares BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS warns about.",
+      "evidence": [
+        "scripts/ci/check_lever_wiring.py --self-test: 6/6 incl. a planted negative control",
+        "registered in scripts/ci/run_guards.py as lever-wiring-guard"
+      ],
+      "related": [
+        "BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED",
+        "BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS",
+        "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN",
+        "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER"
+      ],
+      "resolution_criteria": "Basis: the guard's self-test (6/6, planted negative control confirms it CAN fail) and its first live run finding rr_floor at units=0. The EXIT-LEVER instance is landed. This row stays open until the sibling classes are covered — an allowlisted system-action's script having any test, and a declared broker-capability having a production caller. Close it when those are guarded or explicitly declined."
     }
   ]
 }
