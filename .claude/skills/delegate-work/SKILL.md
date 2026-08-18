@@ -58,6 +58,19 @@ dispatched trainer-VM diag requests — without ever checking or posting to
 time. Pure luck, not process, is why nothing collided.) See
 `docs/CLAUDE-RULES-CANONICAL.md` § "Multi-session coordination" step 0.
 
+### Mode D — an external cheap LLM (`llm-delegate`)
+
+The three modes above all spend Claude context. A fourth spends none: dispatch
+`llm-delegate.yml` and a cheap external model does one BOUNDED subtask in an
+ephemeral runner, at $0, with the result posted to issue #9944.
+
+Use it for mechanical, self-contained, **cheaply checkable** work — extract every
+call site, find coverage gaps, review one file. It is the only mode whose data
+leaves your infrastructure, so it is scope-guarded to public repo code + docs and
+its output is untrusted data you verify before acting on.
+
+Full contract, including when it does NOT pay: **`.claude/skills/llm-delegate/SKILL.md`**.
+
 ## Step 4 — Single-writer consolidation (the rule that prevents churn)
 
 When multiple agents/sessions feed one result, **one writer (you, the lead)

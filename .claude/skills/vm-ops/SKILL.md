@@ -19,6 +19,28 @@ Service state, heartbeat, journal, journalctl, audit. Live VM via
 `vm-diag-snapshot`/`diag_fetch`; trainer via the `trainer-vm-diag` relay
 (arbitrary bash). Don't ask the operator — pull it.
 
+## Cloud-state reads — the `oci-inventory` workflow
+
+`diag-data` answers *"what is the trader doing?"*. This answers the different
+question **"what does the cloud actually contain, and does it match what we
+say?"** — dispatch `oci-inventory.yml` (`mode=report`).
+
+Read-only: `list_instances` only, no provisioning, no termination. It diffs live
+OCI compute against `comms/cloud/expected_topology.json` (four verdicts —
+`match` / `drift` / `missing` / `undeclared`) and reports Ampere free-tier usage
+against **both** ceilings.
+
+⚠️ **`not_declared` is NOT a pass** — it means no baseline exists to compare
+against, which is a different fact from "everything matches".
+
+⚠️ **The Ampere budget returns no single pass/fail on purpose.** Which ceiling
+binds depends on the tenancy account type, which is visible only in the OCI
+console and is not readable from this API. It reports the evidence; it does not
+assert the answer.
+
+**If you change VM topology, update `expected_topology.json` in the same PR** —
+otherwise the next report reports drift against you.
+
 ## Live-VM mutations — the `system-actions` workflow
 
 Privileged live-VM changes run through `.github/workflows/system-actions.yml`
