@@ -1,8 +1,8 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-18T09:10:00+00:00",
-  "generated_at": "2026-08-18T09:10:00+00:00",
+  "updated_at": "2026-08-18",
+  "generated_at": "2026-08-18T09:25:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -19078,6 +19078,50 @@
       "resolution_criteria": "DIAG_BASE_URL updated to https://ict-bot.duckdns.org (operator action — Claude env var), verified by a diag_fetch.sh call returning JSON. Separately, diag_fetch.sh distinguishes 'host unreachable' from 'empty response' rather than emitting an empty body, and the CLAUDE.md web-session reachability line is corrected.",
       "next_action": "Bundle the diag_fetch.sh three-state fix + the CLAUDE.md correction into the same Tier-1 PR as the two workflow fixes. The env var itself is an operator paste — pair it with the DIAG_READ_TOKEN rotation so both are updated in one sitting.",
       "updates": []
+    },
+    {
+      "id": "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+      "opened_at": "2026-08-18T09:25:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "severity": "critical",
+      "tier": "2 (order-path adjacent: it decides what pnl a closed row records)",
+      "status": "open",
+      "area": "provenance",
+      "title": "exchange_fills_ib.closed_pnl_from_fills has ZERO production callers, so IBKR's own realizedPNL is pulled hourly into the store and never read — 0 of 33 ib_paper closed trades have ever carried a broker-sourced pnl",
+      "detail": "MEASURED 2026-08-18, chasing why MGC 4487 still had pnl null 90 minutes after a confirmed fill.\n\nTHE CHAIN, each link verified:\n  1. `clients.BROKER_PNL_READER_EXCHANGES` is `frozenset({'alpaca','interactive_brokers','bybit'})` — IB IS declared a broker-PnL reader. (The docstring at `exchange_fills_ib.py:25` still says 'today {\"bybit\"}' and is stale.)\n  2. `ict-ib-executions-pull.timer` runs and works. The 09:18:15Z run logged `raw_fills: 35, mapped: 35, realized_pnl_count: 35`, newest exec 2026-08-18T07:49:10Z — i.e. the MGC exit's own 35 fills, each carrying a `CommissionReport.realizedPNL` (854.72, 1923.12, 641.04, 427.36, 213.68, …). The broker truth is IN the store.\n  3. `exchange_fills_ib.closed_pnl_from_fills` exists, is in `__all__`, and has a test file (`tests/test_ib_closed_pnl_readback.py`).\n  4. **It has NO production caller.** Every reference outside its own module is either that test or a single COMMENT in `src/web/api/routers/diag.py:214`. Nothing in `src/runtime/` or `src/units/` calls it.\n\nPROBE VALIDITY (a grep returning nothing is not proof of absence): the same search DOES find positives — the test call sites, and the Bybit analogue `account_closed_pnl_for_trade` with real call sites in `order_monitor`. So the IB reader's zero is a measured zero, not a failed search.\n\nDENOMINATOR: 33 closed `ib_paper` trades. 28 carry a non-null pnl. `pnl_source` splits `(none)` 22 / `local_compute` 7 / `unmeasured` 4. **IB-broker-sourced: 0.** The capability has never fired once.\n\nWHY THE DECLARATION MAKES IT WORSE, not neutral. Being in `BROKER_PNL_READER_EXCHANGES` causes `_sweep_local_pnl_for_unpriced` to DEFER an IB row for `_LOCAL_PNL_BROKER_DEFER_MS` (6h) while it waits for a broker record that nothing will ever fetch. After the defer the local sweep prices it anyway — which is exactly the 7 `local_compute` rows above. So the net effect is not 'no pnl': it is a **provenance downgrade**, a locally-computed mark standing in for a broker figure that was sitting in the store the whole time. CLAUDE.md's 'IBKR is a broker-truth reader now' describes a path that has never executed.\n\nIMMINENT AND CONCRETE: MGC trade 4487 closed 2026-08-18T07:52:52Z (+$155.7k paper on a 105-lot). It reads `pnl: null`, `exit_price: null`, `pnl_source: unmeasured`. At ~13:52Z the 6h defer elapses and the local sweep will price it from a mark rather than from the 35 IBKR realizedPNL records already stored. That is a preventable fabrication on the largest close in the book, and the fix is to read a value we already have.",
+      "resolution_criteria": "Wire `closed_pnl_from_fills` into the close path for IB rows, mirroring how `account_closed_pnl_for_trade` is applied for Bybit — the sweep that fills a deferred row should consult the exchange-fills store for an `interactive_brokers` account BEFORE the local-compute fallback, and stamp `exit_price_source` from the record's own `source` rather than a literal (the BL-20260730 rule). Backfill 4487 and the 7 `local_compute` IB rows from the store where a matching record exists, since the fills are retained. Fix the stale `exchange_fills_ib.py:25` docstring. DONE when a newly-closed IB trade lands with MEASURED provenance from the store, verified on one real close — not when the code merges. Consider extending `provenance-consumer-guard` to cover a declared READER with no caller: it currently catches a provenance KEY written with no consumer, and this is the same defect one level up (a whole reader written with no consumer) which that guard cannot see.",
+      "evidence": {
+        "function": "src/runtime/exchange_fills_ib.py::closed_pnl_from_fills",
+        "production_callers": 0,
+        "non_test_references": [
+          "src/web/api/routers/diag.py:214 (a comment)"
+        ],
+        "reader_set": [
+          "alpaca",
+          "interactive_brokers",
+          "bybit"
+        ],
+        "ib_paper_closed_trades": 33,
+        "ib_broker_sourced_pnl": 0,
+        "pnl_source_split": {
+          "(none)": 22,
+          "local_compute": 7,
+          "unmeasured": 4
+        },
+        "pull_run_0918Z": {
+          "raw_fills": 35,
+          "mapped": 35,
+          "realized_pnl_count": 35,
+          "newest_exec_time": "2026-08-18T07:49:10Z"
+        },
+        "live_instance": {
+          "trade": 4487,
+          "closed_at": "2026-08-18T07:52:52Z",
+          "pnl": null,
+          "pnl_source": "unmeasured",
+          "defer_elapses_approx": "2026-08-18T13:52Z"
+        }
+      }
     }
   ]
 }
