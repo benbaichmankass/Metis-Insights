@@ -973,6 +973,27 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("silent_refusal_check tick failed")
 
+            # Exit-path leg coverage (2026-08-18,
+            # BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG). order_monitor
+            # drives exits per PACKAGE and resolves ONE trade from
+            # linked_trade_id, so a multi-account package's sibling legs are
+            # never trailed and never closed — and once the linked leg closes,
+            # the package flips to `closed` and the loop's status="open" filter
+            # drops the survivors permanently. Neither condition is visible on
+            # any existing surface: a stranded leg renders as a normal open
+            # position and its package as a normal closed package. Reads the
+            # journal only — NO broker round-trip, so the reachability sibling's
+            # "no new exchange call on the tick" invariant holds. Latched per
+            # (package, verdict); internally cadence-gated
+            # (PACKAGE_LEG_CHECK_SECONDS, default hourly); best-effort.
+            try:
+                from src.runtime.package_leg_coverage import (
+                    run_package_leg_check,
+                )
+                run_package_leg_check()
+            except Exception:  # noqa: BLE001
+                logger.exception("package_leg_check tick failed")
+
             # Trainer-VM-down alert (operator-requested 2026-07-08): the trainer
             # VM can go SSH-dead / OOM-hung and nothing fires a loud alert. The
             # trainer rsyncs trainer_status.json into the mirror every ~2 min, so

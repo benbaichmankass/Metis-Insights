@@ -48,7 +48,6 @@ import os
 import sqlite3
 import sys
 import urllib.request
-from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 # --- row loading -----------------------------------------------------------
@@ -136,73 +135,34 @@ def _load_api(base: str, token: Optional[str]) -> tuple[List[Dict], Dict[str, Di
 
 
 def audit(trades: List[Dict], pkgs: Dict[str, Dict]) -> Dict[str, Any]:
-    by_pkg: Dict[Optional[str], List[Dict]] = defaultdict(list)
-    for t in trades:
-        by_pkg[t.get("order_package_id")].append(t)
+    """Delegate the verdict to the ONE assessor the live alert also uses.
 
-    stranded, divergent, at_risk, linked_missing, no_package = [], [], [], [], []
-    trade_ids = {str(t.get("id")) for t in trades}
+    ``src.runtime.package_leg_coverage.assess`` owns what `stranded` /
+    `divergent` / `linked_unresolvable` / `managed` mean. This script must not
+    re-derive them: an offline report and a live alarm that disagree about a
+    package is the failure mode `src/runtime/dead_leg.py` exists to prevent,
+    and it is the reason that module is shared rather than duplicated.
+    """
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from src.runtime.package_leg_coverage import assess, summarize
 
-    for pkg_id, legs in by_pkg.items():
-        if not pkg_id:
-            no_package.extend(legs)
-            continue
-        pkg = pkgs.get(pkg_id)
-        if pkg is None:
-            linked_missing.append({"order_package_id": pkg_id,
-                                   "reason": "package row not found",
-                                   "legs": [t["id"] for t in legs]})
-            continue
-
-        linked = pkg.get("linked_trade_id")
-        entry = {
-            "order_package_id": pkg_id,
-            "strategy": pkg.get("strategy_name"),
-            "symbol": pkg.get("symbol"),
-            "package_status": pkg.get("status"),
-            "package_sl": pkg.get("sl"),
-            "linked_trade_id": linked,
-            "close_reason": pkg.get("close_reason"),
-            "legs": [
-                {"trade_id": t.get("id"), "account": t.get("account_id"),
-                 "qty": t.get("position_size"), "stop_loss": t.get("stop_loss"),
-                 "is_linked": str(t.get("id")) == str(linked)}
-                for t in sorted(legs, key=lambda r: int(r["id"]))
-            ],
-        }
-
-        if str(pkg.get("status")) == "closed":
-            # Every open leg here is out of the loop, linked or not.
-            stranded.append(entry)
-            continue
-
-        if linked is not None and str(linked) not in trade_ids:
-            # The managed leg is gone but the package is still open: we cannot
-            # say the remaining legs are managed. NOT folded into `stranded`.
-            entry["reason"] = "linked_trade_id names no OPEN trade row"
-            linked_missing.append(entry)
-            continue
-
-        if len(legs) > 1:
-            stops = {round(float(t["stop_loss"]), 10)
-                     for t in legs if t.get("stop_loss") is not None}
-            unmeasured = any(t.get("stop_loss") is None for t in legs)
-            entry["stop_values"] = sorted(stops)
-            entry["stop_unmeasured_legs"] = unmeasured
-            (divergent if len(stops) > 1 else at_risk).append(entry)
-
+    verdicts = assess(trades, pkgs)
+    buckets: Dict[str, List[Dict[str, Any]]] = {
+        "stranded": [], "divergent": [], "managed": [], "linked_unresolvable": [],
+    }
+    for pkg_id, row in verdicts.items():
+        buckets.setdefault(row["verdict"], []).append({**row, "order_package_id": pkg_id})
+    # `managed` splits for reporting only — multi-leg-but-agreeing is not a
+    # defect today, and IS the population that becomes `divergent` the moment a
+    # trail first fires. Reporting only the defects would understate exposure by
+    # exactly this set.
+    agreeing = [e for e in buckets["managed"] if int(e.get("leg_count") or 0) > 1]
     return {
-        "population": {
-            "open_trades": len(trades),
-            "packages_with_open_trades": len(by_pkg),
-            "multi_leg_open_packages": len(divergent) + len(at_risk),
-        },
-        "stranded_open_trades": sum(len(e["legs"]) for e in stranded),
-        "stranded_packages": stranded,
-        "divergent_sibling_stops": divergent,
-        "multi_leg_agreeing_now": at_risk,
-        "linked_missing": linked_missing,
-        "trades_without_package": [t.get("id") for t in no_package],
+        "summary": summarize(verdicts),
+        "stranded_packages": buckets["stranded"],
+        "divergent_sibling_stops": buckets["divergent"],
+        "multi_leg_agreeing_now": agreeing,
+        "linked_unresolvable": buckets["linked_unresolvable"],
     }
 
 
@@ -229,14 +189,14 @@ def main() -> int:
         print(json.dumps(res, indent=2, default=str))
         return 0
 
-    p = res["population"]
+    sm = res["summary"]
+    bv = sm["by_verdict"]
     print("EXIT-MECHANICS AUDIT — is every open leg reachable by the exit path?")
-    print(f"  population: {p['open_trades']} open trades across "
-          f"{p['packages_with_open_trades']} packages; "
-          f"{p['multi_leg_open_packages']} multi-leg open packages\n")
+    print(f"  population: {sm['open_legs']} open legs across {sm['packages']} "
+          f"packages  |  by verdict: {bv}\n")
 
-    print(f"[1] STRANDED — open trades under a CLOSED package: "
-          f"{res['stranded_open_trades']} trades in {len(res['stranded_packages'])} packages")
+    print(f"[1] STRANDED — open legs under a CLOSED package: "
+          f"{sm['stranded_legs']} leg(s) in {bv.get('stranded', 0)} package(s)")
     for e in res["stranded_packages"]:
         print(f"    {e['order_package_id']} {e['strategy']} {e['symbol']} "
               f"(closed: {e['close_reason']}, linked={e['linked_trade_id']})")
@@ -244,30 +204,29 @@ def main() -> int:
             print(f"        trade {leg['trade_id']:<6} {str(leg['account']):<18} "
                   f"qty={leg['qty']} SL={leg['stop_loss']}")
 
-    print(f"\n[2] DIVERGENT — multi-leg open packages whose sibling stops disagree: "
-          f"{len(res['divergent_sibling_stops'])}")
+    print(f"\n[2] DIVERGENT — open multi-leg packages whose sibling stops "
+          f"disagree: {sm['divergent_packages']}")
     for e in res["divergent_sibling_stops"]:
         print(f"    {e['order_package_id']} {e['strategy']} {e['symbol']} "
               f"pkg_sl={e['package_sl']}")
         for leg in e["legs"]:
             print(f"        trade {leg['trade_id']:<6} {str(leg['account']):<18} "
-                  f"SL={leg['stop_loss']}{'   <-- linked/managed' if leg['is_linked'] else ''}")
+                  f"SL={leg['stop_loss']}"
+                  f"{'   <-- linked/managed' if leg.get('is_linked') else ''}")
 
     print(f"\n[3] AGREEING NOW — multi-leg open packages not yet diverged: "
           f"{len(res['multi_leg_agreeing_now'])}")
-    print("    (not a defect today; this is the set that diverges when a trail first fires)")
+    print("    (not a defect today; this is the set that diverges when a trail "
+          "first fires)")
     for e in res["multi_leg_agreeing_now"]:
         print(f"    {e['order_package_id']} {e['strategy']} {e['symbol']} "
               f"legs={[g['account'] for g in e['legs']]}")
 
-    if res["linked_missing"]:
-        print(f"\n[!] COULD NOT LOOK — {len(res['linked_missing'])} package(s) whose "
-              f"managed leg could not be resolved (NOT graded clean):")
-        for e in res["linked_missing"]:
+    if res["linked_unresolvable"]:
+        print(f"\n[!] COULD NOT LOOK — {len(res['linked_unresolvable'])} package(s) "
+              f"whose managed leg could not be resolved (NOT graded clean):")
+        for e in res["linked_unresolvable"]:
             print(f"    {e['order_package_id']}: {e.get('reason')}")
-    if res["trades_without_package"]:
-        print(f"\n[!] {len(res['trades_without_package'])} open trade(s) carry no "
-              f"order_package_id: {res['trades_without_package']}")
     return 0
 
 
