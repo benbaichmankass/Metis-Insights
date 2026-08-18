@@ -1,6 +1,27 @@
 # M31 P5 — a lever that READS telemetry. Proposal, and why it does not ship yet.
 
 **Status: PROPOSED, NOT SHIPPED. Tier-3.**
+
+> **OPERATOR PRE-APPROVAL, 2026-08-18 — for the WALK-FORWARD ONLY.** The operator has
+> pre-approved *running* precondition 3's walk-forward once the preconditions are ready,
+> so a session that reaches that point should EXECUTE it rather than stopping to ask.
+> Their words: *"we don't need to relax the gate structurally, but you have preapproval
+> for the walkforward once we're ready."*
+>
+> Read the scope narrowly, because the two halves are easy to conflate:
+> * **Pre-approved:** running the walk-forward, and the measurement work that unblocks it.
+> * **NOT pre-approved and unchanged:** the gate itself — the walk-forward must still
+>   CLEAR the do-nothing arm, not merely beat an alternative lever — and SHIPPING the
+>   lever to an order path, which remains a separate Tier-3 decision on the result.
+>
+> A passing walk-forward is therefore permission to bring a proposal, not permission to
+> merge one.
+>
+> ⚠️ Precondition 3a is NOT met for this document's own motivating leg — see
+> `BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES`. `--rr-floor`
+> exists on `backtest_trend.py`; `xrp_pullback_2h` (trade 4163, the trade § 3 is about)
+> resolves to `backtest_pullback.py`, which does not have it. The data blocker § 5.3b
+> records does not apply to that leg either — the trainer holds `data/XRPUSDT_5m.csv`.
 Written 2026-08-17 at the close of M31 P3/P4. Nothing in this document has been
 merged into an order path, and nothing here should be read as approved.
 

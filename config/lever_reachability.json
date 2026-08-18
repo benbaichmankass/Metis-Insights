@@ -1,7 +1,7 @@
 {
   "_comment": "M31 P1 — reachability of every declared R-threshold exit lever against its own leg's TP cap. A lever arming at `arm_r` R cannot fire when arm_r > cap_R = 0.099/(risk/entry). Enforced by scripts/ci/check_lever_reachability.py: the registry `arm_r` must equal config/strategies.yaml, so changing an arm without re-measuring FAILS CI. Design: docs/design/position-telemetry-DESIGN.md. Finding: BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP (PR #9588). THIS FILE RECORDS MEASUREMENTS AND DISPOSITIONS — it changes no behaviour and no value; every arm_r correction is Tier-3 and the operator's.",
   "schema_version": 1,
-  "updated_at": "2026-08-16",
+  "updated_at": "2026-08-18",
   "verdict_legend": {
     "reachable": "measured; observed cap_R clears arm_r on the large majority of entries",
     "vol_conditional": "measured; SOME entries clear it and some cannot — a real design choice, not a default",
@@ -158,7 +158,7 @@
         "oos_net_r": 12.1203,
         "oos_n": 53,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
-        "note": "The proposed 2.17R WOULD be reachable (observed cap_R 3.92-8.38) and the cell STILL fails OOS — so 'lower the arm' is not the answer on this leg either. That closes the escape the gld row leaves open."
+        "note": "The proposed 2.17R WOULD be reachable (observed cap_R 3.92-8.38) and the cell STILL fails OOS — so 'lower the arm' is not the answer on this leg either. That closes the escape the gld row leaves open. | CAP RANGE IN THIS NOTE IS STALE (2026-08-18): it cites cap_R 3.92-8.38, and the 8.38 was later shown to come from realism_notes[].reach_r — a target a realism clamp DISCARDED — rather than targets[].reach_r. The corrected complete-population range is 1.84-5.00, median 3.03. 2.17R is therefore reachable on MOST live entries but not the lowest-cap ones (min 1.84). The conclusion is unaffected and is now independently supported by gate_detail_computed_2026_08_18."
       },
       "backtest_entry_conditioned_2026_08_16": {
         "basis": "backtest entry-conditioned |entry-sl|/entry via --emit-trades, config-exact, --tp-cap-pct 0.099, 15m source resampled to the leg timeframe, repo venv (relay #9715)",
@@ -220,6 +220,39 @@
         "read_the_right_field": "Any future reachability measurement must read targets[].reach_r. Reading realism_notes[].reach_r overstates the ceiling by the clamp ratio and is what produced the original 8.38/33.3% pair.",
         "agreement_with_backtest_basis": "5.4% live (2/37) vs 5.9% backtest (12/204) -- two independent populations, two independent extraction paths, agreeing to 0.5pp. That agreement is the strongest evidence either basis has.",
         "changes_nothing": "verdict and disposition deliberately UNTOUCHED. Still the operator's Tier-3 call."
+      },
+      "gate_detail_computed_2026_08_18": {
+        "basis": "computed directly from the sweep's own base+cell rows on the trainer (runtime_logs/m20_armr_resweep_lp50/2026-08-16/results.jsonl, 26 rows, relay #9933) by re-applying `beats()` — net_R no-worse AND maxDD no-worse per window. The row previously carried ONLY the collapsed label `is_oos_fail`, which cannot distinguish 'died on IS net_R' from 'died on OOS maxDD' from the Path-A blind spot; beats_detail exists for that and its output was not recorded here.",
+        "measured_at": "2026-08-18",
+        "cell": "decay_p80arm2.17R_t2.5",
+        "IS": {
+          "window": "2021-05-13 -> 2025-08-30",
+          "base_trades": 247,
+          "cell_trades": 253,
+          "base_net_r": 1.3848,
+          "cell_net_r": 3.7334,
+          "d_net_r": 2.3486,
+          "base_max_dd_r": 26.9474,
+          "cell_max_dd_r": 22.5956,
+          "d_max_dd": -4.3518,
+          "verdict": "PASS — better on BOTH axes (+2.35R net, -16.1% drawdown)"
+        },
+        "OOS": {
+          "window": "2025-08-30 -> 2026-06-18",
+          "base_trades": 49,
+          "cell_trades": 53,
+          "base_net_r": 13.1104,
+          "cell_net_r": 12.1203,
+          "d_net_r": -0.9901,
+          "base_max_dd_r": 6.4206,
+          "cell_max_dd_r": 6.4206,
+          "d_max_dd": 0.0,
+          "verdict": "FAIL — net_r_worse by 0.9901R over 53 trades (-0.0187 R/trade, -7.6% of base OOS net). Drawdown IDENTICAL to 4dp."
+        },
+        "why_no_walkforward_ran": "Path A requires no-worse on both axes in both windows; OOS net_R is down, so the cell short-circuits to is_oos_fail BEFORE walkforward(). Path B does not rescue it either: `is_path_b_candidate` requires net_R UP on BOTH windows, and this cell is up only in-sample. Both paths therefore decline it, and they decline it for the SAME reason rather than by omission.",
+        "CONFIRMS_THE_ORIGINAL_CLAIM": "This measurement was taken BECAUSE the collapsed label was suspected of hiding a Path-A blind spot — xrp_pullback_2h is a pullback leg, the named blind-spot population, and the cell reads positive net_R in BOTH windows (IS +3.73 / OOS +12.12) which is the shape the source calls unreadable. The suspicion was reasonable and the answer is NO: those are the cell's ABSOLUTE net_R values, and against its own base the cell is +2.35R in-sample and -0.99R out-of-sample. The sibling row's claim that 2.17R 'STILL fails OOS' is CORRECT, and now correct for a stated reason instead of a label.",
+        "interpretation": "Better in-sample on both axes, marginally worse out-of-sample on net_R — the classic in-sample-fitted shape, and the p80 arm is itself derived from the leg's winner-MFE distribution, so the IS improvement is partly the fit showing up in its own training window. The larger IS sample (247 vs 49) does NOT make the IS result the more trustworthy one here for exactly that reason. `is_path_b_candidate`'s docstring makes the mirror-image argument about a cell positive only OUT-of-sample; the same logic rejects one positive only in-sample.",
+        "changes_nothing": "verdict and disposition deliberately UNTOUCHED — this records a measurement. Resolving a queued_tier3 row is the operator's call."
       }
     },
     {

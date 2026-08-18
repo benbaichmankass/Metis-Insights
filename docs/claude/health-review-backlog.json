@@ -19263,6 +19263,76 @@
         "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT"
       ],
       "resolution_criteria": "Basis: the /api/diag/ib_open_orders read and the audit rollup above, both taken 2026-08-18 over 34 open non-backtest trades. RESOLVED when a diag route serves resting protective orders for bybit and alpaca accounts with the same three-state read_state discipline (not_applicable / could_not_look / orders_read) and exit_path_coverage's broker_observability count for those venues drops to the genuinely-unreadable remainder."
+    },
+    {
+      "id": "BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES",
+      "opened_at": "2026-08-18T08:55:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "severity": "high",
+      "tier": "1 (research harness)",
+      "status": "fix_landed_pending_walkforward",
+      "area": "exit-research",
+      "title": "M31 P5 precondition 3a is recorded DONE on backtest_trend.py, but the leg that MOTIVATED P5 runs on backtest_pullback.py — which has no --rr-floor, so the lever cannot be measured on the trade it was designed for",
+      "detail": "MEASURED 2026-08-18.\n\n`docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md` § 5 precondition 3a reads 'IMPLEMENT — DONE 2026-08-17 … scripts/backtest_trend.py gains --rr-floor'. That is true of `backtest_trend.py`.\n\nBut the proposal's own motivating case — trade 4163, `xrp_pullback_2h`, real money on bybit_2, the trade § 3 quotes `rr_from_here` 0.71 for — does NOT run on that harness. The fleet sweep's own run plan (relay #9934) resolves this leg to:\n    RUN  xrp_pullback_2h   backtest_pullback.py   data/XRPUSDT_5m.csv\nand `scripts/backtest_pullback.py`'s argparse has `--stale-exit-bars`, `--stale-exit-below-r`, `--giveback-r`, `--giveback-min-mfe-r`, `--trail-decay-*`, `--tp-cap-pct`, `--emit-trades` — and NO `--rr-floor`.\n\nSo precondition 3b ('MEASURE') is blocked on this leg by something the proposal attributes to data: it records the blocker as 'the only candle file in the repo cannot exercise it' (BTCUSDT 1-minute). Data is a real blocker for the TREND legs. For the pullback leg there is a second, prior blocker — the flag does not exist in its harness — and the trainer DOES hold `data/XRPUSDT_5m.csv` and `XRPUSDT_15m.csv`, so the data blocker does not even apply here. One stated cause was masking another.\n\nA THIRD related gap, same read: the fleet sweep generates no rr_floor cell at all (`grep -c 'rr_floor\\|rr-floor' scripts/research/m20_fleet_exit_sweep.py` -> 0). So even once the flag exists, `m20_fleet_exit_sweep` will not exercise it — the measurement needs either a new lever family in the sweep or a direct harness invocation.\n\nWHY THIS MATTERS BEYOND BOOKKEEPING. P5's whole justification is the XRP hold-through-churn question, and the operator has since reframed the objective explicitly as capital utilisation: unless the system is confident a position is worth holding, liquidate and free the capital. `rr_from_here` IS that rule expressed as a number (trade 4163 currently reads 0.6252 — risking 1.54R to make 0.96R). A precondition marked DONE that cannot be exercised on the motivating leg means the milestone's central question has no path to an answer, while the phase table shows the implement step complete.",
+      "resolution_criteria": "Port `--rr-floor` to `scripts/backtest_pullback.py` mirroring the trend implementation EXACTLY — importing `position_telemetry.r_distances` as the ONE definition of (r_to_stop, r_to_target, rr_from_here) rather than re-deriving it, registering the flag in that harness's `ALL_LEVERS_AT_DEFAULT` no-op guard, carrying the same three-state `rr_floor_state` (`off` / `measurable` / `unmeasurable_no_tp_cap`) through `collapsed-state-guard`, and keeping the CLI refusal of `--rr-floor` without `--tp-cap-pct` so an inert run is never recorded as a measured no-op. Then add an rr_floor cell family to `m20_fleet_exit_sweep` OR document the direct invocation. DONE when `--rr-floor` runs on `data/XRPUSDT_5m.csv` resampled to 2h and returns a non-inert result, and the P5 proposal's precondition 3a is corrected to say WHICH harnesses have the lever.",
+      "evidence": {
+        "motivating_trade": 4163,
+        "leg": "xrp_pullback_2h",
+        "harness_resolved": "scripts/backtest_pullback.py",
+        "data_available_on_trainer": [
+          "data/XRPUSDT_5m.csv",
+          "data/XRPUSDT_15m.csv"
+        ],
+        "rr_floor_in_pullback_harness": false,
+        "rr_floor_in_trend_harness": true,
+        "rr_floor_cells_in_fleet_sweep": 0,
+        "relay": 9934
+      },
+      "resolution_note": "PORTED 2026-08-18 on claude/exit-path-coverage: scripts/backtest_pullback.py now carries the rr_floor lever, importing r_distances from the LIVE src/runtime/position_telemetry (object identity asserted across both harnesses, so a second derivation cannot appear). Three-state rr_floor_state registered with collapsed-state-guard as pullback_harness.rr_floor_state — registered separately from the trend contract because a contract naming two producers cannot say which one dropped a state, and verified by planting a break. 12 tests including the positive control (a floor above the run's own measured rr_min_p90 must actually fire) and monotonicity. NOT yet resolved: the operator-pre-approved walk-forward has not been RUN, so no verdict on whether any floor value clears the gate. Resolve only on that result."
+    },
+    {
+      "id": "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+      "opened_at": "2026-08-18T09:25:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "severity": "critical",
+      "tier": "2 (order-path adjacent: it decides what pnl a closed row records)",
+      "status": "open",
+      "area": "provenance",
+      "title": "exchange_fills_ib.closed_pnl_from_fills has ZERO production callers, so IBKR's own realizedPNL is pulled hourly into the store and never read — 0 of 33 ib_paper closed trades have ever carried a broker-sourced pnl",
+      "detail": "MEASURED 2026-08-18, chasing why MGC 4487 still had pnl null 90 minutes after a confirmed fill.\n\nTHE CHAIN, each link verified:\n  1. `clients.BROKER_PNL_READER_EXCHANGES` is `frozenset({'alpaca','interactive_brokers','bybit'})` — IB IS declared a broker-PnL reader. (The docstring at `exchange_fills_ib.py:25` still says 'today {\"bybit\"}' and is stale.)\n  2. `ict-ib-executions-pull.timer` runs and works. The 09:18:15Z run logged `raw_fills: 35, mapped: 35, realized_pnl_count: 35`, newest exec 2026-08-18T07:49:10Z — i.e. the MGC exit's own 35 fills, each carrying a `CommissionReport.realizedPNL` (854.72, 1923.12, 641.04, 427.36, 213.68, …). The broker truth is IN the store.\n  3. `exchange_fills_ib.closed_pnl_from_fills` exists, is in `__all__`, and has a test file (`tests/test_ib_closed_pnl_readback.py`).\n  4. **It has NO production caller.** Every reference outside its own module is either that test or a single COMMENT in `src/web/api/routers/diag.py:214`. Nothing in `src/runtime/` or `src/units/` calls it.\n\nPROBE VALIDITY (a grep returning nothing is not proof of absence): the same search DOES find positives — the test call sites, and the Bybit analogue `account_closed_pnl_for_trade` with real call sites in `order_monitor`. So the IB reader's zero is a measured zero, not a failed search.\n\nDENOMINATOR: 33 closed `ib_paper` trades. 28 carry a non-null pnl. `pnl_source` splits `(none)` 22 / `local_compute` 7 / `unmeasured` 4. **IB-broker-sourced: 0.** The capability has never fired once.\n\nWHY THE DECLARATION MAKES IT WORSE, not neutral. Being in `BROKER_PNL_READER_EXCHANGES` causes `_sweep_local_pnl_for_unpriced` to DEFER an IB row for `_LOCAL_PNL_BROKER_DEFER_MS` (6h) while it waits for a broker record that nothing will ever fetch. After the defer the local sweep prices it anyway — which is exactly the 7 `local_compute` rows above. So the net effect is not 'no pnl': it is a **provenance downgrade**, a locally-computed mark standing in for a broker figure that was sitting in the store the whole time. CLAUDE.md's 'IBKR is a broker-truth reader now' describes a path that has never executed.\n\nIMMINENT AND CONCRETE: MGC trade 4487 closed 2026-08-18T07:52:52Z (+$155.7k paper on a 105-lot). It reads `pnl: null`, `exit_price: null`, `pnl_source: unmeasured`. At ~13:52Z the 6h defer elapses and the local sweep will price it from a mark rather than from the 35 IBKR realizedPNL records already stored. That is a preventable fabrication on the largest close in the book, and the fix is to read a value we already have.",
+      "resolution_criteria": "Wire `closed_pnl_from_fills` into the close path for IB rows, mirroring how `account_closed_pnl_for_trade` is applied for Bybit — the sweep that fills a deferred row should consult the exchange-fills store for an `interactive_brokers` account BEFORE the local-compute fallback, and stamp `exit_price_source` from the record's own `source` rather than a literal (the BL-20260730 rule). Backfill 4487 and the 7 `local_compute` IB rows from the store where a matching record exists, since the fills are retained. Fix the stale `exchange_fills_ib.py:25` docstring. DONE when a newly-closed IB trade lands with MEASURED provenance from the store, verified on one real close — not when the code merges. Consider extending `provenance-consumer-guard` to cover a declared READER with no caller: it currently catches a provenance KEY written with no consumer, and this is the same defect one level up (a whole reader written with no consumer) which that guard cannot see.",
+      "evidence": {
+        "function": "src/runtime/exchange_fills_ib.py::closed_pnl_from_fills",
+        "production_callers": 0,
+        "non_test_references": [
+          "src/web/api/routers/diag.py:214 (a comment)"
+        ],
+        "reader_set": [
+          "alpaca",
+          "interactive_brokers",
+          "bybit"
+        ],
+        "ib_paper_closed_trades": 33,
+        "ib_broker_sourced_pnl": 0,
+        "pnl_source_split": {
+          "(none)": 22,
+          "local_compute": 7,
+          "unmeasured": 4
+        },
+        "pull_run_0918Z": {
+          "raw_fills": 35,
+          "mapped": 35,
+          "realized_pnl_count": 35,
+          "newest_exec_time": "2026-08-18T07:49:10Z"
+        },
+        "live_instance": {
+          "trade": 4487,
+          "closed_at": "2026-08-18T07:52:52Z",
+          "pnl": null,
+          "pnl_source": "unmeasured",
+          "defer_elapses_approx": "2026-08-18T13:52Z"
+        }
+      }
     }
   ]
 }
