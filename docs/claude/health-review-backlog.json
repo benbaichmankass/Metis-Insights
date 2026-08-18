@@ -2,7 +2,7 @@
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
   "updated_at": "2026-08-18",
-  "generated_at": "2026-08-18T08:00:00+00:00",
+  "generated_at": "2026-08-18T08:55:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -19015,6 +19015,31 @@
           "operator_warning x3"
         ],
         "target_naked_banner_seen": false
+      }
+    },
+    {
+      "id": "BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES",
+      "opened_at": "2026-08-18T08:55:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "severity": "high",
+      "tier": "1 (research harness)",
+      "status": "open",
+      "area": "exit-research",
+      "title": "M31 P5 precondition 3a is recorded DONE on backtest_trend.py, but the leg that MOTIVATED P5 runs on backtest_pullback.py — which has no --rr-floor, so the lever cannot be measured on the trade it was designed for",
+      "detail": "MEASURED 2026-08-18.\n\n`docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md` § 5 precondition 3a reads 'IMPLEMENT — DONE 2026-08-17 … scripts/backtest_trend.py gains --rr-floor'. That is true of `backtest_trend.py`.\n\nBut the proposal's own motivating case — trade 4163, `xrp_pullback_2h`, real money on bybit_2, the trade § 3 quotes `rr_from_here` 0.71 for — does NOT run on that harness. The fleet sweep's own run plan (relay #9934) resolves this leg to:\n    RUN  xrp_pullback_2h   backtest_pullback.py   data/XRPUSDT_5m.csv\nand `scripts/backtest_pullback.py`'s argparse has `--stale-exit-bars`, `--stale-exit-below-r`, `--giveback-r`, `--giveback-min-mfe-r`, `--trail-decay-*`, `--tp-cap-pct`, `--emit-trades` — and NO `--rr-floor`.\n\nSo precondition 3b ('MEASURE') is blocked on this leg by something the proposal attributes to data: it records the blocker as 'the only candle file in the repo cannot exercise it' (BTCUSDT 1-minute). Data is a real blocker for the TREND legs. For the pullback leg there is a second, prior blocker — the flag does not exist in its harness — and the trainer DOES hold `data/XRPUSDT_5m.csv` and `XRPUSDT_15m.csv`, so the data blocker does not even apply here. One stated cause was masking another.\n\nA THIRD related gap, same read: the fleet sweep generates no rr_floor cell at all (`grep -c 'rr_floor\\|rr-floor' scripts/research/m20_fleet_exit_sweep.py` -> 0). So even once the flag exists, `m20_fleet_exit_sweep` will not exercise it — the measurement needs either a new lever family in the sweep or a direct harness invocation.\n\nWHY THIS MATTERS BEYOND BOOKKEEPING. P5's whole justification is the XRP hold-through-churn question, and the operator has since reframed the objective explicitly as capital utilisation: unless the system is confident a position is worth holding, liquidate and free the capital. `rr_from_here` IS that rule expressed as a number (trade 4163 currently reads 0.6252 — risking 1.54R to make 0.96R). A precondition marked DONE that cannot be exercised on the motivating leg means the milestone's central question has no path to an answer, while the phase table shows the implement step complete.",
+      "resolution_criteria": "Port `--rr-floor` to `scripts/backtest_pullback.py` mirroring the trend implementation EXACTLY — importing `position_telemetry.r_distances` as the ONE definition of (r_to_stop, r_to_target, rr_from_here) rather than re-deriving it, registering the flag in that harness's `ALL_LEVERS_AT_DEFAULT` no-op guard, carrying the same three-state `rr_floor_state` (`off` / `measurable` / `unmeasurable_no_tp_cap`) through `collapsed-state-guard`, and keeping the CLI refusal of `--rr-floor` without `--tp-cap-pct` so an inert run is never recorded as a measured no-op. Then add an rr_floor cell family to `m20_fleet_exit_sweep` OR document the direct invocation. DONE when `--rr-floor` runs on `data/XRPUSDT_5m.csv` resampled to 2h and returns a non-inert result, and the P5 proposal's precondition 3a is corrected to say WHICH harnesses have the lever.",
+      "evidence": {
+        "motivating_trade": 4163,
+        "leg": "xrp_pullback_2h",
+        "harness_resolved": "scripts/backtest_pullback.py",
+        "data_available_on_trainer": [
+          "data/XRPUSDT_5m.csv",
+          "data/XRPUSDT_15m.csv"
+        ],
+        "rr_floor_in_pullback_harness": false,
+        "rr_floor_in_trend_harness": true,
+        "rr_floor_cells_in_fleet_sweep": 0,
+        "relay": 9934
       }
     }
   ]
