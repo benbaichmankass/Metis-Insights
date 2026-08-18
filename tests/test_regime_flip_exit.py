@@ -124,22 +124,70 @@ def test_the_module_is_not_wired_into_the_order_path_yet() -> None:
 
     This is the test that would fail the day someone wires it in, forcing that
     change to be a deliberate, reviewed one rather than a silent import.
+
+    Scans IMPORTS via the AST, not raw file text. The first version matched the
+    substring `regime_flip_exit` anywhere in a file and so tripped on
+    `src/runtime/thesis_decay.py`, whose module docstring cites this module by
+    name while importing nothing from it (2026-08-18). A guard that fires on a
+    reference in prose is cheaper to silence by deleting the explanation than by
+    satisfying it, which is the failure mode `new-table-wiring-guard` already
+    taught this repo -- so the fix is to make the guard precise, never to relax
+    what it forbids.
     """
+    import ast
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[1]
-    callers = [
-        p for p in (repo / "src").rglob("*.py")
-        if p.name != "regime_flip_exit.py"
-        and "regime_flip_exit" in p.read_text()
-    ]
+    callers = []
+    for path in (repo / "src").rglob("*.py"):
+        if path.name == "regime_flip_exit.py":
+            continue
+        text = path.read_text()
+        if "regime_flip_exit" not in text:
+            continue  # cheap pre-filter; the AST walk below is the real test
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:  # pragma: no cover - not this test's business
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""] + [a.name for a in node.names]
+            else:
+                continue
+            if any("regime_flip_exit" in n for n in names):
+                callers.append(str(path.relative_to(repo)))
+                break
+
     assert not callers, (
-        "regime_flip_exit is now imported by "
-        f"{[str(p.relative_to(repo)) for p in callers]}. Wiring it into a live "
+        f"regime_flip_exit is now imported by {callers}. Wiring it into a live "
         "exit path is a separate, tier-gated decision -- update this test in "
         "the same change that does it, so the wiring is never silent."
     )
 
+
+def test_the_wiring_tripwire_actually_detects_a_real_import(tmp_path) -> None:
+    """The guard needs a positive control, or it only proves it is quiet.
+
+    A negative that has never been shown to fire is not evidence of absence.
+    """
+    import ast
+
+    src = "from src.runtime.regime_flip_exit import evaluate\nevaluate\n"
+    tree = ast.parse(src)
+    hits = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.ImportFrom) and "regime_flip_exit" in (n.module or "")
+    ]
+    assert hits, "the AST predicate cannot see an import it is meant to catch"
+
+    # ...and it must NOT see a mere docstring mention.
+    prose = ast.parse('"""mentions regime_flip_exit in prose only."""\n')
+    assert not [
+        n for n in ast.walk(prose)
+        if isinstance(n, (ast.Import, ast.ImportFrom))
+    ]
 
 def test_it_delegates_rather_than_re_reading_the_policy_dict() -> None:
     """A third copy of the cell predicate would defeat the module's purpose."""
