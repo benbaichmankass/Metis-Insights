@@ -5,7 +5,6 @@ Pure functions only — no OCI client is constructed, so these run anywhere.
 
 from __future__ import annotations
 
-import pytest
 
 from scripts.ops.oci_inventory import (
     AMPERE_SHAPE,

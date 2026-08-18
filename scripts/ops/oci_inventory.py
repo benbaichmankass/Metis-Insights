@@ -190,7 +190,7 @@ def to_markdown(report: dict) -> str:
     out = ["## OCI inventory", "", f"region `{report['region']}` · {report['instance_count']} instances", ""]
 
     out += ["### Ampere free-tier budget", "",
-            f"| | OCPU | GB |", "|---|---|---|",
+            "| | OCPU | GB |", "|---|---|---|",
             f"| **in use** (non-terminated) | {b['total_all_non_terminated']['ocpus']} | {b['total_all_non_terminated']['memory_gb']} |",
             f"| ceiling — Always Free (since 2026-06-15) | {b['ceiling_current_always_free']['ocpus']} | {b['ceiling_current_always_free']['memory_gb']} |",
             f"| ceiling — legacy / reportedly PAYG | {b['ceiling_legacy_or_payg']['ocpus']} | {b['ceiling_legacy_or_payg']['memory_gb']} |",
@@ -208,9 +208,11 @@ def to_markdown(report: dict) -> str:
             counts[f["verdict"]] = counts.get(f["verdict"], 0) + 1
         out += [" · ".join(f"**{v}**: {n}" for v, n in sorted(counts.items())), "",
                 "| instance | verdict | expected | actual | state |", "|---|---|---|---|---|"]
+        def fmt(x: dict | None) -> str:
+            return "—" if not x else f"{x['shape']} {x['ocpus']}/{x['memory_gb']}"
+
         for f in d["findings"]:
             e, a = f.get("expected"), f.get("actual")
-            fmt = lambda x: "—" if not x else f"{x['shape']} {x['ocpus']}/{x['memory_gb']}"
             out.append(f"| `{f['display_name']}` | {f['verdict']} | {fmt(e)} | {fmt(a)} "
                        f"| {f.get('lifecycle_state','—')} |")
         out.append("")
