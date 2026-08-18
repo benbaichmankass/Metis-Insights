@@ -99,16 +99,34 @@ def _open_trade(account_id: str, symbol: str) -> Optional[Dict[str, Any]]:
     choosing, because two open rows on a netted contract mean two different
     declared targets and no basis to prefer either.
     """
-    from src.units.db.database import get_connection
+    import sqlite3
 
-    with get_connection() as conn:
-        conn.row_factory = __import__("sqlite3").Row
+    from src.utils.paths import trade_journal_db_path
+
+    # READ-ONLY, and resolved through the single canonical resolver — the
+    # `canonical-db-resolver` guard forbids an inline env-read or a
+    # CWD-relative fallback here, and this function must never be able to
+    # write to the money DB.
+    #
+    # 2026-08-18: this used to `from src.units.db.database import
+    # get_connection`, a symbol that module has never exported (it exposes
+    # `Database`/`Database.connect`/`get_db`). Every invocation of this action
+    # therefore died with ImportError at line 1 of the read — see
+    # BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN. Note also that the old
+    # `with get_connection() as conn:` shape would have been wrong even had the
+    # symbol existed: sqlite3's context manager commits/rolls back a
+    # TRANSACTION, it does not close the connection.
+    conn = sqlite3.connect(f"file:{trade_journal_db_path()}?mode=ro", uri=True)
+    try:
+        conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT id, symbol, direction, position_size, stop_loss, "
             "take_profit_1 FROM trades WHERE status='open' AND account_id=? "
             "AND UPPER(symbol) LIKE ?",
             (account_id, f"{symbol.upper()}%"),
         ).fetchall()
+    finally:
+        conn.close()
     return dict(rows[0]) if len(rows) == 1 else None
 
 
