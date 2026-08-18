@@ -8,7 +8,6 @@ and the cell grading is DELEGATED to the live gate rather than copied.
 import importlib.util
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location(

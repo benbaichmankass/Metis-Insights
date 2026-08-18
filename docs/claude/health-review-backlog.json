@@ -7510,7 +7510,7 @@
     {
       "id": "BL-20260720-TRAINERDIAG-FENCE",
       "date": "2026-07-20",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "title": "trainer-vm-diag cmd extractor executes markdown-fenced bodies via backtick command substitution",
       "detail": "A trainer-vm-diag-request issue whose cmd: block is wrapped in markdown ``` fences is passed to bash WITH the backticks intact — triple-backtick acts as nested command substitution, so the request half-executes and stray output is itself executed as a command (issues #7208/#7209: pgrep's PID line ran as a command, '275311: command not found'). The documented `cmd: |` YAML-block form works (#7211). Fix: in .github/workflows/trainer-vm-diag.yml's extractor, strip leading/trailing ``` fence lines from cmd_raw (the vm-diag-snapshot relay may share the pattern — check both), or reject fenced bodies with a loud comment instead of executing them mangled. Repro: any fenced cmd body.",
@@ -7538,7 +7538,7 @@
     {
       "id": "BL-20260722-PYTESTRUN-DATASETCHECK-FLAKE",
       "date": "2026-07-22",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "title": "RESOLVED: pytest-run CI test_skip_when_dataset_and_manifest_predate_last_run — real glob-order bug in dataset_unchanged_check.py, not test flakiness",
       "detail": "CI run https://github.com/benbaichmankass/ict-trading-bot/actions/runs/29948446729/job/89019758539 (PR #7381, a docs/backlog/report-only /system-review PR) failed this ONE test out of 7976 passed/8 skipped: assert duc.decide(...) == 'SKIP' got 'TRAIN'. The test sets a manifest+dataset mtime to 1 day old (_set_old default 86400s) and a registry run_at 0.5 days old (12h) -- a 12h margin that should not be flaky by itself. Confirmed NOT caused by this PR: scripts/ops/dataset_unchanged_check.py and tests/ops/test_dataset_unchanged_check.py are both unchanged since PR #7082 (well before this branch's merge-base 2a21ed5), and running just this test file in isolation (pytest tests/ops/test_dataset_unchanged_check.py -k test_skip_when_dataset_and_manifest_predate_last_run) PASSES cleanly. This strongly suggests an order-dependent interaction with another test earlier in the ~8000-test full-suite run (e.g. a time.time()/os.utime patch or monkeypatch that leaks past its own test's teardown) -- the same class of issue the pytest-run workflow's own comments cite as the 2026-05-28 time-bomb-test incident. Needs a full local repro of the full test suite (matching CI exactly, ~6-7 min) with a bisection pass to find the offending earlier test, then either fix its teardown or make this test's time reference injectable/mockable so it can't be perturbed by global state. ROOT-CAUSED AND FIXED same session: scripts/ops/dataset_unchanged_check.py::decide() called d.get(\"model_id\") on every glob-matched registry JSON file OUTSIDE the try/except that only guarded json.load() -- the test fixture's own \"not-an-entry.json\" sibling artifact (a JSON list, not a dict) crashes that .get() call with AttributeError when glob.glob() happens to enumerate it before the real dict entry (glob order is filesystem-dependent, not sorted). The AttributeError propagated to the function-level fail-open (except Exception: return \"TRAIN\"), silently flipping the expected SKIP to TRAIN. Confirmed by forcing both glob orderings locally with a monkeypatch -- reproduces 100% of the time when the non-dict sibling glob-sorts first, regardless of environment. Fixed with a one-line isinstance(d, dict) guard (commit pending on PR #7381) + a new regression test (test_skip_regardless_of_glob_order_with_non_dict_sibling) that forces both orderings explicitly so it can never again depend on ambient filesystem behavior. Not a flake, not order-dependent test pollution from another test -- a real latent bug in production code that happened to only manifest under GitHub Actions runner's particular directory-entry order. (Cross-reference: an independent concurrent session, ml-strategies-workplan-nm3xnx, also hit this exact bug on PR #7379 and logged it as BL-20260722-DATASET-UNCHANGED-CHECK-FLAKE, now marked resolved pointing back here.)",
@@ -7551,7 +7551,7 @@
     {
       "id": "BL-20260722-DATASET-UNCHANGED-CHECK-FLAKE",
       "date": "2026-07-22",
-      "severity": "P3",
+      "severity": "low",
       "status": "resolved",
       "title": "CI flake: test_skip_when_dataset_and_manifest_predate_last_run fail-opens to TRAIN",
       "detail": "tests/ops/test_dataset_unchanged_check.py::TestDecide::test_skip_when_dataset_and_manifest_predate_last_run intermittently fails 'assert TRAIN == SKIP' in CI (seen on PR #7379 run 29948106302, HeadSHA c0235198). The setup is deterministic (dataset/manifest mtime 24h old vs registry run_at 12h old, a 12h margin) and reproduces as SKIP locally, so the TRAIN can only come from decide()'s bare-except fail-open (scripts/ops/dataset_unchanged_check.py:77) — i.e. TrainingManifest.from_yaml/path_under raised in CI. The fail-open MASKS the real intermittent exception. Diagnose: replace the bare-except with logging of the exception type, or harden the test to assert no fail-open occurred (distinguish real SKIP from fail-open TRAIN). Not dangerous in prod (fail-open TRAIN = one unnecessary retrain) but it flakes CI and hides an intermittent manifest-load error. Introduced with MB-20260720-FCPCV-RETRAIN-NOOP.",
@@ -13957,7 +13957,7 @@
     {
       "id": "BL-20260810-ICTSCALP-HARNESS-HAS-NO-WINDOW",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "title": "scripts/backtest_ict_scalp.py had no --start/--end, so no ict_scalp verdict was ever IS/OOS split",
       "detail": "The fleet sweep passes --start/--end to every cell because the IS/OOS split is the gate's first stage; this harness rejected both with an argparse usage error, failing all seven scalp legs of the 2026-08-10 dispatch in under three minutes. Implication beyond the dispatch: every ict_scalp verdict on record is full-history, with no window split and therefore no walk-forward (the walk-forward only runs on cells that already cleared both windows). The capture census had passed on the same legs minutes earlier because a census windows nothing. RESOLVED: _date_filter added (tz-robust; a missing timestamp column with a window requested RAISES rather than returning full history under an IS/OOS label; a zero-bar window exits non-zero), main()'s parser extracted to build_parser(), and a test now checks the sweep's own scalp argv against that parser in-process.",
@@ -13966,7 +13966,7 @@
     {
       "id": "BL-20260810-SENTINEL-INTENT-NOT-COMPARED-TO-MATRIX",
       "opened": "2026-08-10",
-      "severity": "P3",
+      "severity": "low",
       "status": "resolved",
       "title": "A push-fired sweep sentinel described a scalp run and dispatched the donchian default",
       "detail": "A push carries no workflow_dispatch inputs, so inputs.legs was empty and the plan job fell through to the ten-leg census DEFAULT while the sentinel file's prose described a scalp-family run in four paragraphs. Nothing in the pipeline compares a sentinel's stated intent to the matrix it produces, so it was caught by cancelling the run, not by the run complaining; the cancelled jobs posted 'no SUMMARY' comments under leg names the sentinel never mentioned. Unprovenanced diagnostic output, sub-class B (implicit input selection). RESOLVED: the sentinel's `legs:` line is read by the plan job and is authoritative for the run it fires; precedence (dispatch input > sentinel > census default) is logged, not inferred.",
@@ -13975,7 +13975,7 @@
     {
       "id": "BL-20260810-INTRABAR-LEVER-EVAL-LOOKAHEAD-TRAP",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "kept_open",
       "title": "A naive intrabar exit-evaluation arm would peek at the future and manufacture an improvement",
       "detail": "scripts/backtest_trend.py::run_backtest advances ext/mfe/trail from the WHOLE leg bar's extreme and THEN evaluates the giveback/stale levers at that bar's close. Sound while the lever is evaluated once per bar. The moment a lever is evaluated at a SUB-BAR close inside that bar, the comparison is against a peak that may be set later in the same bar - the rule appears to exit at the top with uncanny timing, the arm beats baseline, and the result is an artifact. Contract for the build: ext/mfe/trail advance on the SUB-BAR clock; bar-counted params (stale_exit_bars, trail_decay_stall_bars, peak_j) stay on the LEG-BAR clock or every threshold is silently redefined; and run THREE arms (baseline / levers-fine-with-SL-first-at-leg-grain / everything-fine) because a finer grain also converts some SL-first bars into target-first, which would credit the lever for the convention. Applies to the operator's 2026-08-10 intrabar-monitor directive.",
@@ -13991,7 +13991,7 @@
     {
       "id": "BL-20260810-SWEEP-BASE-NOT-CONFIG-EXACT-TRAILVOL",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "research/backtest",
       "summary": "m20_fleet_exit_sweep's `config-exact` base omitted the trail-VOL lever. `base_args::declared_levers()` threaded stale/giveback/trail-DECAY but not `trail_vol_{above,below}_pctl`/`trail_vol_tight_mult`, while both harnesses carried the flags. Exactly two census legs declare an ARMED vol-trail lever - trend_donchian_eth (below 0.1/tight 2.5) and qqq_pullback_1h (above 0.8/tight 2.5) - so their sweep deltas were measured against a baseline missing a lever that is armed in live. Both A/B arms omitted it, so each delta is internally consistent; what is unverified is its transport to the live book, since exit levers interact. Consequence: 2 of the 3 live-leg Path A winners in the 2026-08-10 promotion packet are HELD pending a re-run on the corrected base.",
@@ -14007,7 +14007,7 @@
     {
       "id": "BL-20260810-SCRIPTS-ML-SHADOWS-REPO-ML",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "tooling/ci",
       "summary": "scripts/ml/ is a REGULAR package and shadows the repo's top-level ml/ whenever scripts/ precedes the repo root on sys.path - which is the default, since Python puts a script's own directory at sys.path[0]. backtest_ict_scalp.py / backtest_pullback.py used insert-if-absent, so under PYTHONPATH=<repo root> (how pytest-run.yml runs the suite) the insert was skipped and the harness died on `No module named 'ml.predictors'` before argparse ran.",
@@ -14022,7 +14022,7 @@
     {
       "id": "BL-20260810-SWEEP-READS-NONEXISTENT-ENTRY-KEYS",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "research/backtest",
       "summary": "m20_fleet_exit_sweep::base_args read cfg keys `trend_len` and `pullback_len` that NO strategy has ever declared - the YAML says `trend_lookback` / `pullback_lookback`. `opt()` passes nothing when the key is absent, so the flags were dropped and backtest_pullback substituted its OWN defaults (40 / 10 / 0.5). Unlike the trail-vol gap this is ENTRY geometry: it changes which trades exist at all, not just how they exit.",
@@ -14081,7 +14081,7 @@
       "id": "BL-20260810-PATHA-GATE-HAS-NO-MINIMUM-N",
       "opened_at": "2026-08-10T23:00:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 Path B floor)",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "research/backtest",
       "title": "[exits] the M20 Path A gate has no minimum trade count: 9 of 21 fleet PASSes sit on an OOS base under 20 trades",
@@ -14103,7 +14103,7 @@
       "id": "BL-20260810-SWEEP-DATA-DIR-MISSING-MGC",
       "opened_at": "2026-08-10T23:00:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 scalp sweep)",
-      "severity": "P3",
+      "severity": "low",
       "status": "resolved",
       "area": "research/backtest",
       "title": "[exits] the exit-lever sweep data dir has no 15m MGC candles, so ict_scalp_mgc_15m skips",
@@ -19541,7 +19541,7 @@
     },
     {
       "id": "BL-20260818-REGIME-GATE-GOVERNS-3-OF-47-LEGS",
-      "severity": "P2",
+      "severity": "medium",
       "tier": "Tier-1 (measurement) / Tier-3 (any cell authoring)",
       "opened": "2026-08-18",
       "status": "open",
@@ -19553,7 +19553,7 @@
     },
     {
       "id": "BL-20260818-SAME-STRATEGY-OPPOSITE-DIRECTIONS-SAME-SYMBOL",
-      "severity": "P1",
+      "severity": "high",
       "tier": "Tier-2",
       "opened": "2026-08-18",
       "status": "open",
@@ -19565,7 +19565,7 @@
     },
     {
       "id": "BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS",
-      "severity": "P1",
+      "severity": "high",
       "tier": "Tier-2",
       "opened": "2026-08-18",
       "status": "open",
@@ -19577,7 +19577,7 @@
     },
     {
       "id": "BL-20260818-ENTRY-FILTERS-DO-NOT-DESCRIBE-IN-TRADE-VALIDITY",
-      "severity": "P2",
+      "severity": "medium",
       "tier": "Tier-1",
       "opened": "2026-08-18",
       "status": "open",
@@ -19589,7 +19589,7 @@
     },
     {
       "id": "BL-20260818-TRAINER-RELAY-REINDENTS-HEREDOC-BODIES",
-      "severity": "P3",
+      "severity": "low",
       "tier": "Tier-1",
       "opened": "2026-08-18",
       "status": "open",
