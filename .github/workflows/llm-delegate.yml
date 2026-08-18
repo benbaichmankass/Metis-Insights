@@ -47,9 +47,15 @@ on:
         required: false
         default: "2000"
       model:
-        description: "Backend model id. Blank uses the default; run mode=models to see valid ids."
+        description: "Backend model id. Blank uses the backend's default."
         required: false
         default: ""
+      backend:
+        description: "gemini (free tier, default) | cerebras (payment-gated on this account as of 2026-08-18)"
+        required: false
+        default: "gemini"
+        type: choice
+        options: [gemini, cerebras]
 
 permissions:
   contents: read
@@ -96,20 +102,29 @@ jobs:
       # with model_not_found because the default id was taken from a search
       # result rather than verified here — this step is the fix for the class,
       # not just the instance.
+      # Ask the backend what it actually serves. The first delegate run failed
+      # with model_not_found because the default id came from a search result
+      # rather than from here — this step fixes the class, not the instance.
       - name: List backend models
         if: inputs.mode == 'models'
         env:
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BACKEND: ${{ inputs.backend }}
         run: |
           set -uo pipefail
           python3 - <<'PY'
-          import json, os, httpx
-          key = os.environ.get("CEREBRAS_API_KEY", "")
+          import os, httpx
+          backend = os.environ.get("BACKEND") or "gemini"
+          if backend == "cerebras":
+              url, key = "https://api.cerebras.ai/v1/models", os.environ.get("CEREBRAS_API_KEY", "")
+          else:
+              url, key = ("https://generativelanguage.googleapis.com/v1beta/openai/models",
+                          os.environ.get("GEMINI_API_KEY", ""))
           if not key:
-              raise SystemExit("::error::CEREBRAS_API_KEY is not set")
-          r = httpx.get("https://api.cerebras.ai/v1/models",
-                        headers={"Authorization": f"Bearer {key}"}, timeout=30)
-          print(f"HTTP {r.status_code}")
+              raise SystemExit(f"::error::no API key for backend {backend!r}")
+          r = httpx.get(url, headers={"Authorization": f"Bearer {key}"}, timeout=30)
+          print(f"backend={backend} HTTP {r.status_code}")
           if r.status_code >= 400:
               raise SystemExit(f"::error::models list failed: {r.text[:300]}")
           for m in r.json().get("data", []):
@@ -123,6 +138,8 @@ jobs:
           # Groq as failover. Both are OpenAI-shaped, so only the base URL
           # and model change.
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BACKEND: ${{ inputs.backend }}
           MODEL_IN: ${{ inputs.model }}
           TASK_ID: ${{ inputs.task_id }}
           INSTRUCTION: ${{ inputs.instruction }}
@@ -131,14 +148,25 @@ jobs:
         run: |
           set -uo pipefail
 
-          if [ -z "${CEREBRAS_API_KEY:-}" ]; then
-            echo "::error::CEREBRAS_API_KEY is not set — run mode=preflight"
+          case "${BACKEND:-gemini}" in
+            cerebras)
+              KEY="${CEREBRAS_API_KEY:-}"
+              LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
+              DEF_MODEL="gpt-oss-120b"
+              ;;
+            *)
+              KEY="${GEMINI_API_KEY:-}"
+              LLM_DELEGATE_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
+              DEF_MODEL="gemini-2.5-flash"
+              ;;
+          esac
+          if [ -z "$KEY" ]; then
+            echo "::error::no API key for backend '${BACKEND:-gemini}' — run mode=preflight"
             exit 1
           fi
-          export LLM_DELEGATE_API_KEY="$CEREBRAS_API_KEY"
-          export LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
-          export LLM_DELEGATE_MODEL="${MODEL_IN:-}"
-          [ -z "$LLM_DELEGATE_MODEL" ] && unset LLM_DELEGATE_MODEL
+          export LLM_DELEGATE_API_KEY="$KEY"
+          export LLM_DELEGATE_BASE_URL
+          export LLM_DELEGATE_MODEL="${MODEL_IN:-$DEF_MODEL}"
           echo "backend: $LLM_DELEGATE_BASE_URL  model: ${LLM_DELEGATE_MODEL:-<delegate.py default>}"
 
           # The untrusted inputs ride through env into a JSON builder — never

@@ -32,9 +32,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.llm.scope_guard import resolve_paths  # noqa: E402
 
 SCHEMA_VERSION = 1
-DEFAULT_BASE_URL = "https://api.cerebras.ai/v1"
-DEFAULT_MODEL = "gpt-oss-120b"  # verified via mode=models 2026-08-18; the account
-                                # serves exactly {gpt-oss-120b, gemma-4-31b}
+DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+DEFAULT_MODEL = "gemini-2.5-flash"
+# Backend chosen 2026-08-18 after Cerebras returned HTTP 402 payment_required on
+# this account: the widely-quoted "1M tokens/day free" figure came from
+# third-party blogs, not Cerebras docs, and does not hold here. Gemini is the
+# default because its key is already in use by this repo's course-generation
+# workflows, so it is proven working AND proven free-tier on this account.
+# Cerebras stays selectable via the workflow's `backend` input.
 DEFAULT_MAX_OUTPUT_TOKENS = 2000
 REQUEST_TIMEOUT_S = 120
 
