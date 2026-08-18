@@ -1,0 +1,156 @@
+name: llm-delegate
+
+# Bursty LLM worker for delegated coding/research subtasks.
+#
+# The runner IS the worker: it starts on dispatch, does one bounded subtask,
+# and is destroyed. There is no server to start, health-check, idle out or
+# stop, and nothing can leak past the job — which is why this shape was chosen
+# over a persistent endpoint on the live VM (no Ampere headroom, and the money
+# box must not host a CPU-saturating process; see the two June 2026 wedges).
+#
+# Scope: public repo code + docs only (operator-authorised 2026-08-18),
+# ENFORCED in scripts/llm/scope_guard.py, not by convention. The job fails
+# closed on any path outside it.
+#
+# Modes:
+#   preflight — report which backend secrets are present (NAMES ONLY, never
+#               values). Run this first on a fresh setup.
+#   delegate  — run one subtask from the supplied spec.
+#
+# Reading results: the envelope is printed to the run log, so a Claude session
+# reads it with get_job_logs — no commit, no branch churn, no artifact
+# download. Large outputs also upload as an artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight | delegate"
+        required: true
+        default: "preflight"
+        type: choice
+        options: [preflight, delegate]
+      task_id:
+        description: "Short id for this subtask (audit + artifact name)."
+        required: false
+        default: "adhoc"
+      instruction:
+        description: "What the delegate should do."
+        required: false
+        default: ""
+      paths:
+        description: "Comma-separated repo-relative paths to include."
+        required: false
+        default: ""
+      max_output_tokens:
+        description: "Output token ceiling for this task."
+        required: false
+        default: "2000"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: llm-delegate
+  cancel-in-progress: false
+
+jobs:
+  delegate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet httpx
+
+      # Secrets cannot be enumerated in Actions, so each candidate is probed
+      # explicitly. Only presence is reported — never a value, never a prefix.
+      - name: Preflight — which backend secrets are wired?
+        env:
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_DELEGATE_API_KEY: ${{ secrets.LLM_DELEGATE_API_KEY }}
+        run: |
+          set -uo pipefail
+          echo "=== backend secret presence (names only, never values) ==="
+          for n in CEREBRAS_API_KEY GROQ_API_KEY GEMINI_API_KEY LLM_DELEGATE_API_KEY; do
+            if [ -n "${!n:-}" ]; then
+              echo "  $n: SET"
+            else
+              echo "  $n: unset"
+            fi
+          done
+          echo
+          echo "Scope: public repo code + docs only, enforced by scripts/llm/scope_guard.py"
+
+      - name: Run delegated subtask
+        if: inputs.mode == 'delegate'
+        env:
+          # First non-empty wins; Cerebras preferred (1M tok/day free),
+          # Groq as failover. Both are OpenAI-shaped, so only the base URL
+          # and model change.
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          LLM_DELEGATE_API_KEY: ${{ secrets.LLM_DELEGATE_API_KEY }}
+          TASK_ID: ${{ inputs.task_id }}
+          INSTRUCTION: ${{ inputs.instruction }}
+          PATHS: ${{ inputs.paths }}
+          MAX_OUT: ${{ inputs.max_output_tokens }}
+        run: |
+          set -uo pipefail
+
+          if   [ -n "${LLM_DELEGATE_API_KEY:-}" ]; then
+            LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
+            LLM_DELEGATE_MODEL="llama3.1-8b"
+          elif [ -n "${CEREBRAS_API_KEY:-}" ]; then
+            export LLM_DELEGATE_API_KEY="$CEREBRAS_API_KEY"
+            LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
+            LLM_DELEGATE_MODEL="llama3.1-8b"
+          elif [ -n "${GROQ_API_KEY:-}" ]; then
+            export LLM_DELEGATE_API_KEY="$GROQ_API_KEY"
+            LLM_DELEGATE_BASE_URL="https://api.groq.com/openai/v1"
+            LLM_DELEGATE_MODEL="llama-3.1-8b-instant"
+          else
+            echo "::error::no backend secret is set — run mode=preflight to see which names are wired"
+            exit 1
+          fi
+          export LLM_DELEGATE_BASE_URL LLM_DELEGATE_MODEL
+          echo "backend: $LLM_DELEGATE_BASE_URL  model: $LLM_DELEGATE_MODEL"
+
+          # The untrusted inputs ride through env into a JSON builder — never
+          # inline-interpolated into the shell or the YAML.
+          python3 - <<'PY' > /tmp/spec.json
+          import json, os
+          paths = [p.strip() for p in os.environ.get("PATHS", "").split(",") if p.strip()]
+          json.dump({
+              "task_id": os.environ.get("TASK_ID") or "adhoc",
+              "instruction": os.environ.get("INSTRUCTION", ""),
+              "paths": paths,
+              "max_output_tokens": int(os.environ.get("MAX_OUT") or 2000),
+          }, __import__("sys").stdout, indent=2)
+          PY
+
+          mkdir -p /tmp/out
+          python3 scripts/llm/delegate.py \
+            --spec /tmp/spec.json \
+            --repo-root . \
+            --out "/tmp/out/${TASK_ID}.json"
+          rc=$?
+          echo "delegate exit code: $rc"
+          exit $rc
+
+      - name: Upload result envelope
+        if: inputs.mode == 'delegate' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-delegate-${{ inputs.task_id }}
+          path: /tmp/out/
+          if-no-files-found: warn
+          retention-days: 7
