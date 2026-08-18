@@ -19471,6 +19471,25 @@
         "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
       ],
       "resolution_criteria": "Basis: the six config-exact bases above, each over a 13,206-bar corpus with n stated per window, and the per-cell arithmetic adding each Path-A delta to its own leg's base. RESOLVED when the operator records a disposition per leg — demote to shadow, retune, kill, or keep with the OOS-negative base accepted and stated. Declaring an exit lever does NOT resolve this row: 11 of 13 passing cells leave the leg losing. If a leg is retuned its cells must be RE-RUN, not re-read. Extending the measurement to the 12 uncorpused legs is separate work, not a condition of closing this."
+    },
+    {
+      "id": "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
+      "opened": "2026-08-18",
+      "severity": "medium",
+      "tier": "1 (research finding; any resulting lever would be Tier-3)",
+      "status": "measured_refuted_except_btc",
+      "area": "exit research / peak banking",
+      "title": "Cap-proximity banking is REFUTED pooled and on 4 of 5 crypto pullback legs — BTC is the lone candidate",
+      "detail": "Operator hypothesis (2026-08-18): giving back unrealised profit IS an economic loss, so can the system recognise a peak worth banking? The three swept levers are all peak-banking mechanisms and all failed, but none conditions on where a trade sits against its OWN structural ceiling (cap_R = 0.099*entry/risk). That is pct_of_cap, already in position_telemetry, read by no lever. Well-posed and previously untested.\n\nMEASURED via scripts/research/peak_banking_basis.py (self-test 5/5) over config-exact per-trade paths from all 5 crypto pullback legs, trainer #9962. POPULATION: 891 trades, 891 graded, 0 ungradeable.\n\nPOOLED (n=891) — REFUTED at ALL EIGHT thresholds. Banking's UPPER bound sits below the hold median at 25/40/50/60/70/75/80/90% of cap:\n   X=75%  n=231  hold med 1.666  bank UB 1.558  -> refuted\n   X=80%  n=197  hold med 1.666  bank UB 1.632  -> refuted\nThat is the CONCLUSIVE direction — banking cannot beat holding even at its best case, so no per-bar simulation is needed to rule it out.\n\nPER LEG: xrp refuted 6/8 (candidate only at 75% and 90%, both marginal), sol 7/8, eth 7/8, ada 7/8. **BTC (htf_pullback_trend_2h) is CANDIDATE at ALL EIGHT** and is the only exception — and it is also the worst leg in the family (base IS -9.257 / OOS -14.6089). Its `retained` fraction is the tell: 0.278 / 0.394 / 0.439 / 0.632 at the low thresholds versus ~0.98-1.02 on every other leg. BTC round-trips its peaks; the others do not. A per-bar simulation on BTC alone is the one live follow-up this produces.\n\n⚠️ TWO READING CAVEATS, both of which cut against over-reading a win.\n1. `retained` ~1.0 on four legs means the MEDIAN trade exits AT its peak — take-profit exits dominate (xrp 50 of 177, eth 41 of 174, ada 46 of 154). When the median trade already exits at its maximum, banking is mechanically hard to beat, and the median is doing a lot of work.\n2. `<UB` (share finishing BELOW banking's upper bound) is 45-52% almost everywhere. It is close to a coin flip; the median decides it, not a wide margin. Do not report this as banking being decisively bad — report it as not clearing its own upper bound.\n\nFOR THE LIVE XRP TRADE 4163 specifically: it sits at 76% of cap, and its own leg's 75% row is a marginal candidate (hold med 1.442 vs bank UB 1.507) while the 80% row is refuted (1.659 vs 1.603). Straddling the line is noise, not signal. NOTE the trade is ALSO not typical of that bucket — the bucket's implied median cap_r is 2.01R against 4163's 3.92R, so it has ~1.95x the usual headroom and the bucket's ABSOLUTE R medians are not its comparison.",
+      "evidence": [
+        "trainer relay #9962 (config-exact per-leg emit; #9961 was NOT config-exact and is superseded)",
+        "scripts/research/peak_banking_basis.py --self-test 5/5 with both verdict directions planted"
+      ],
+      "related": [
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+        "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE"
+      ],
+      "resolution_criteria": "Basis: 891 config-exact trades across 5 legs, 0 ungradeable, thresholds fixed before the run. The POOLED refutation is conclusive and closes the general hypothesis for this family. RESOLVED when the BTC exception is either (a) settled by a per-bar simulation that prices banking-at-X properly — the upper bound cannot establish a win — or (b) declined on the grounds that htf_pullback_trend_2h's disposition is a strategy question first (it is the family's worst leg). Do NOT close this by declaring a cap-proximity lever on the strength of the `candidate` verdicts: candidate means not established."
     }
   ]
 }
