@@ -2,7 +2,7 @@
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
   "updated_at": "2026-08-18",
-  "generated_at": "2026-08-18T08:40:00+00:00",
+  "generated_at": "2026-08-18T09:30:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -19016,6 +19016,68 @@
         ],
         "target_naked_banner_seen": false
       }
+    },
+    {
+      "id": "BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED",
+      "opened_at": "2026-08-18T08:45:00+00:00",
+      "opened_by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
+      "status": "open_operator_deprioritized",
+      "severity": "high",
+      "tier": 2,
+      "title": "The live DIAG_READ_TOKEN has been readable in a PUBLIC issue comment since 2026-05-21 and STILL authorizes; an attempted rotation on 2026-08-18 was a NO-OP because the repo secret was never actually changed",
+      "source": "MEASURED 2026-08-18. Chain, each link verified rather than inferred:\n  1. Repo visibility is PUBLIC (GitHub API: private=false, visibility=public).\n  2. Issue #1615 comment 4507810670 (posted 2026-05-21T11:36:56Z by github-actions[bot], from get-diag-token.yml) contains the DIAG_READ_TOKEN value in plaintext inside a fenced block, plus DIAG_BASE_URL=http://158.178.210.252:8001. The issue is CLOSED but NOT deleted; closing does not remove comments, and public issue comments are mirrored by third-party archives.\n  3. The exposed value is still the value in use: SHA-256 fingerprint of the comment's token == fingerprint of this session's DIAG_READ_TOKEN env var (first 12 hex: 9a4b80473d32). Compared by hash so neither value was printed.\n  4. It still authorizes against the LIVE VM over the public Caddy route: GET https://ict-bot.duckdns.org/api/diag/status with that bearer -> HTTP 200, returning live heartbeat + git_sha.\n  5. Rotation attempt: operator updated 'the secret' and set-diag-token.yml was dispatched (run 32117038449, 08:34:05Z, conclusion=success). It genuinely restarted ict-web-api (journal shows PID 4032174 -> 4040432 at 08:34:14-15Z) and printed 'RESULT: ok — authorized with the new token'. The leaked token STILL returned 200 afterwards.\n  6. Discriminating probe AFTER the restart: leaked token -> 200; obvious garbage token -> 401; no token -> 401. Auth IS enforcing. Therefore the repo Actions secret DIAG_READ_TOKEN still holds the OLD value and the rotation changed nothing.",
+      "why_it_matters": "/api/diag/* is read-only (no order path, cannot mutate) which is why the operator triaged it as non-urgent on 2026-08-18 — that call is recorded here, not disputed. But the surface it exposes is the whole business: trade journal + order_packages, signal audit, journalctl, DB schema and contents, exchange positions, per-account exposure/balances, IB open orders. Anyone who reads one public issue comment gets the full trading history and live positions of a money-at-risk system, for as long as the value stands. Discovery risk is currently low (0 stars/forks/watchers) but 'nobody has looked' is not a control, and the exposure window is already ~3 months.\n\nThe compounding hazard is that the rotation LOOKED done: a green workflow run reported success over an unchanged value, so without the A/B/C probe this would have been closed as fixed. See the sibling item BL-20260818-SET-DIAG-TOKEN-REPORTS-NEW-ON-UNCHANGED-VALUE.",
+      "resolution_criteria": "(1) Set a genuinely NEW value on the REPOSITORY Actions secret named DIAG_READ_TOKEN (Settings -> Secrets and variables -> Actions), e.g. `openssl rand -hex 32`. Confirm it is the repo-level Actions secret — the 2026-08-18 attempt failed because the new value went somewhere else (a Claude env var, an environment-scoped secret, or an unsaved edit). (2) Dispatch set-diag-token.yml to propagate + restart. (3) VERIFY with the three-way probe, which is the pass condition: leaked token -> 401, garbage -> 401, no token -> 401, and the NEW token -> 200. A green workflow run is NOT evidence on its own (see step 5 above). (4) Delete issue #1615 (delete, not close). Rotation is what closes the hole; deletion is hygiene only, since mirrors may retain the comment.",
+      "next_action": "Operator originates the new secret value (step 1) — Claude cannot write repo secrets. Steps 2-4 are then autonomous. Operator deprioritized on 2026-08-18 as read-only; re-surface this item on the next /system-review or /health-review until the step-3 probe passes.",
+      "updates": [
+        {
+          "at": "2026-08-18T08:45:00+00:00",
+          "by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
+          "note": "Opened. Operator explicitly deprioritized ('read only so not worth our time right now') and asked that it be logged for future verification. Logging per the 'If you see something, say something' rule, disposition 2 (log it properly). NOT silently dropped, and NOT escalated further against the operator's stated decision."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE",
+      "opened_at": "2026-08-18T08:45:00+00:00",
+      "opened_by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
+      "status": "open",
+      "severity": "high",
+      "tier": 1,
+      "title": "get-diag-token.yml writes a live secret into an issue comment / run artifact, justified by a 'two principals' threat model that only holds on a PRIVATE repo — the repo is public, so the guard and the visibility have silently drifted apart",
+      "source": "READ 2026-08-18 from .github/workflows/get-diag-token.yml. Its header states: 'This repo has exactly two principals (owner + Claude), so the artifact / comment audience is the owner only.' Delivery paths: workflow_dispatch -> upload-artifact 'diag-env'; issues-labelled -> posted as an issue comment, then the issue is closed. Repo visibility measured the same day: private=false. On a public repo, issue comments are world-readable and run artifacts are downloadable unauthenticated. The repo's interaction limit ('Limit to repository collaborators') restricts who may COMMENT, not who may READ — so it does not mitigate this. A narrowed scan of all 66 workflows found this is the ONLY deliberate secret-emitter (the broad first-pass screen was false-positive heavy: workflows that legitimately USE secrets while also commenting).",
+      "why_it_matters": "This is the mechanism that produced BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED. Until it is gated, any future run re-leaks — including a run triggered to deliver the ROTATED token, which would immediately re-expose the fix. The repo has flipped visibility before (public -> private 2026-07-06 -> public 2026-07-07), so a comment asserting privacy is exactly the kind of claim that goes stale silently: 'field beats comment', and here the field is repository.private.",
+      "resolution_criteria": "get-diag-token.yml gates its delivery steps on `github.event.repository.private == true` and FAILS CLOSED (explicit error naming the reason) when the repo is public, rather than falling back to a quieter delivery. The stale 'two principals' rationale in the header is replaced with the actual rule. Verified by a dispatch on the public repo that refuses to emit.",
+      "next_action": "Tier-1 workflow fix; ship alongside the set-diag-token sibling fix in one PR.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260818-SET-DIAG-TOKEN-REPORTS-NEW-ON-UNCHANGED-VALUE",
+      "opened_at": "2026-08-18T08:45:00+00:00",
+      "opened_by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "set-diag-token.yml prints 'authorized with the new token' after testing only that the secret authorizes — it never compares old vs new, so a rotation that changed nothing reports as a successful rotation",
+      "source": "MEASURED 2026-08-18, run 32117038449. The workflow pushed the repo secret to /etc/ict-trader/web-api.env, restarted ict-web-api, curled /api/diag/status with the pushed value, got 200, and printed 'RESULT: ok — web-api active and /api/diag/status authorized with the new token.' The value was NOT new — an independent three-way probe (leaked=200, garbage=401, none=401) proved the secret was unchanged. The run was green and the exposure stayed open.",
+      "why_it_matters": "Textbook unprovenanced diagnostic output, sub-class A (semantic substitution): the label names a quantity ('the new token') the code never computed — it computed 'the token currently in the secret authorizes', which is true of an unchanged value. A reader who trusts the label closes a live security finding as remediated. This is the same class the diagnostic-provenance-guard exists to catch, on a workflow rather than a script, and it is load-bearing precisely because rotation is the one operation where 'did the value actually change?' IS the question.",
+      "resolution_criteria": "The workflow records a fingerprint (e.g. sha256, never the value) of the token the VM served BEFORE the install and of the one it serves AFTER, and reports three distinguishable states rather than one: 'rotated' (fingerprints differ AND the new one authorizes) / 'unchanged' (fingerprints identical — succeed loudly as a NO-OP, never as a rotation) / 'failed'. Registering it with collapsed-state-guard is optional but consistent with the house pattern.",
+      "next_action": "Tier-1 workflow fix; ship with the get-diag-token sibling.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST",
+      "opened_at": "2026-08-18T08:45:00+00:00",
+      "opened_by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "The Claude cloud env var DIAG_BASE_URL points at 158.178.210.252 — the x86 micro TERMINATED 2026-06-16 — and the failure is SILENT: authenticated calls return empty output, not an error",
+      "source": "MEASURED 2026-08-18 in a Claude Code on the web session. DIAG_BASE_URL resolved to http://158.178.210.252:8001, byte-identical to the value in the issue #1615 comment (so the env was pasted from that comment on/after 2026-05-21). Per CLAUDE.md the micro was terminated 2026-06-16 via terminate-instance. Direct probe: curl to that host times out (rc=28) after 15s. Calls made THROUGH it returned an empty body with no error text. Meanwhile the live VM IS reachable from the same session at https://ict-bot.duckdns.org (verified: /api/health -> {\"ok\":true}, /api/bot/stats -> live payload).",
+      "why_it_matters": "CLAUDE.md documents the direct diag path (DIAG_BASE_URL + DIAG_READ_TOKEN + scripts/ops/diag_fetch.sh) as the durable fallback for when the hosted GitHub MCP drops. That fallback has been broken for ~2 months and fails silently, so a session reaching for it during an MCP outage gets nothing back and could reasonably report 'the VM is down' — a cause no code path tested. Secondary finding: CLAUDE.md's claim that a web session cannot reach the VM is only half right — the RAW IP is firewalled (confirmed rc=28 to 141.145.193.91:8001) but the Caddy HTTPS hostname resolves fine for unauthenticated Tier-1 routes, and credentialed diag calls also succeeded. That doc line should be corrected so future sessions do not skip a working path.",
+      "resolution_criteria": "DIAG_BASE_URL updated to https://ict-bot.duckdns.org (operator action — Claude env var), verified by a diag_fetch.sh call returning JSON. Separately, diag_fetch.sh distinguishes 'host unreachable' from 'empty response' rather than emitting an empty body, and the CLAUDE.md web-session reachability line is corrected.",
+      "next_action": "Bundle the diag_fetch.sh three-state fix + the CLAUDE.md correction into the same Tier-1 PR as the two workflow fixes. The env var itself is an operator paste — pair it with the DIAG_READ_TOKEN rotation so both are updated in one sitting.",
+      "updates": []
     },
     {
       "id": "BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG",
