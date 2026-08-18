@@ -1,0 +1,201 @@
+"""Tests for scripts/ops/exit_path_coverage.py.
+
+The load-bearing property is the one this audit exists to protect: it must
+never report `absent` for something it did not look at. A coverage audit that
+launders "we could not read the broker" into "there is no bracket" is worse
+than no audit, because it reads as a clean negative.
+"""
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parents[1]
+_SPEC = importlib.util.spec_from_file_location(
+    "exit_path_coverage", REPO / "scripts" / "ops" / "exit_path_coverage.py")
+epc = importlib.util.module_from_spec(_SPEC)
+sys.modules["exit_path_coverage"] = epc
+_SPEC.loader.exec_module(epc)
+
+
+def _trade(**kw):
+    base = {"id": 1, "status": "open", "is_backtest": 0, "symbol": "XRPUSDT",
+            "account_id": "bybit_1", "account_class": "real_money",
+            "strategy_name": "xrp_pullback_2h", "stop_loss": 1.0,
+            "take_profit_1": 2.0, "timestamp": "2026-07-29T00:00:00Z"}
+    base.update(kw)
+    return base
+
+
+def _assess(trade, *, telemetry=None, broker=None, broker_supplied=False,
+            cfg=None, reach=None):
+    unit_of, src = epc._resolver()
+    return epc.assess_trade(
+        trade, units=epc.load_units(), cfg=cfg if cfg is not None else epc.load_cfg(),
+        reach=reach if reach is not None else epc.load_reachability(),
+        telemetry=telemetry or {}, bidx=epc.broker_index(broker),
+        broker_supplied=broker_supplied, unit_of=unit_of, builders_src=src)
+
+
+# --------------------------------------------------------------------------
+# "we did not look" is never "it is not there"
+# --------------------------------------------------------------------------
+def test_no_broker_payload_yields_unknown_not_absent():
+    r = _assess(_trade())
+    assert r["price_paths"]["broker_stop"] == epc.UNKNOWN
+    assert r["price_paths"]["broker_target"] == epc.UNKNOWN
+    assert r["broker_basis"] == "no_broker_payload"
+
+
+def test_account_absent_from_broker_payload_is_unknown():
+    """/api/diag/ib_open_orders is IB-only; a bybit row is not covered by it."""
+    payload = {"accounts": [{"account_id": "ib_paper",
+                             "read_state": "orders_read", "orders": []}]}
+    r = _assess(_trade(account_id="bybit_1"), broker=payload, broker_supplied=True)
+    assert r["price_paths"]["broker_stop"] == epc.UNKNOWN
+    assert r["broker_basis"] == "account_not_in_payload"
+
+
+def test_could_not_look_account_is_unknown():
+    payload = {"accounts": [{"account_id": "bybit_1",
+                             "read_state": "could_not_look", "orders": None}]}
+    r = _assess(_trade(), broker=payload, broker_supplied=True)
+    assert r["price_paths"]["broker_stop"] == epc.UNKNOWN
+
+
+def test_clean_read_with_no_leg_is_absent():
+    """A confirmed clean read that lists nothing IS evidence of absence."""
+    payload = {"accounts": [{"account_id": "bybit_1",
+                             "read_state": "orders_read", "orders": []}]}
+    r = _assess(_trade(), broker=payload, broker_supplied=True)
+    assert r["price_paths"]["broker_stop"] == epc.ABSENT
+    assert r["price_paths"]["broker_target"] == epc.ABSENT
+
+
+# --------------------------------------------------------------------------
+# leg classification: "STP LMT" contains "LMT"
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("order_type,expect", [
+    ("STP", {"stop": True, "target": False}),
+    ("STP LMT", {"stop": True, "target": False}),
+    ("TRAIL", {"stop": True, "target": False}),
+    ("LMT", {"stop": False, "target": True}),
+])
+def test_stop_family_classified_before_limit(order_type, expect):
+    idx = epc.broker_index({"accounts": [
+        {"account_id": "a", "read_state": "orders_read",
+         "orders": [{"symbol": "MGC", "order_type": order_type}]}]})
+    assert idx["a"]["by_symbol"]["MGC"] == expect
+
+
+def test_a_stop_only_book_is_not_target_covered():
+    payload = {"accounts": [{"account_id": "bybit_1", "read_state": "orders_read",
+                             "orders": [{"symbol": "XRPUSDT",
+                                         "order_type": "STP"}]}]}
+    r = _assess(_trade(), broker=payload, broker_supplied=True)
+    assert r["price_paths"]["broker_stop"] == epc.LIVE
+    assert r["price_paths"]["broker_target"] == epc.ABSENT
+
+
+# --------------------------------------------------------------------------
+# per-trade reachability, not per-leg
+# --------------------------------------------------------------------------
+def test_leg_verdict_alone_does_not_make_a_lever_live():
+    """cap_R = 0.099*entry/risk varies per FILL, so a leg-level `reachable`
+    is not a statement about this trade. Without the trade's own arm_reach the
+    honest answer is unknown."""
+    r2 = _assess(_trade(strategy_name="xrp_pullback_2h"),
+                 cfg={"xrp_pullback_2h": {"trail_decay_arm_r": 4.49}},
+                 reach={"xrp_pullback_2h": {"verdict": "vol_conditional"}})
+    assert r2["decision_paths"]["trail_decay"]["state"] == epc.UNKNOWN
+    assert r2["verdict"] == "unknown"
+
+
+def test_trade_level_unreachable_makes_it_absent():
+    tel = {"1": {"trade_id": "1", "arm_reach": "unreachable", "cap_r": 3.92}}
+    r = _assess(_trade(), telemetry=tel,
+                cfg={"xrp_pullback_2h": {"trail_decay_arm_r": 4.49}},
+                reach={"xrp_pullback_2h": {"verdict": "vol_conditional"}})
+    assert r["decision_paths"]["trail_decay"]["state"] == epc.ABSENT
+    assert r["verdict"] == "price_only"
+
+
+def test_trade_level_reachable_makes_it_live():
+    tel = {"1": {"trade_id": "1", "arm_reach": "reachable", "cap_r": 9.0}}
+    r = _assess(_trade(), telemetry=tel,
+                cfg={"xrp_pullback_2h": {"trail_decay_arm_r": 4.49}},
+                reach={"xrp_pullback_2h": {"verdict": "vol_conditional"}})
+    assert r["decision_paths"]["trail_decay"]["state"] == epc.LIVE
+    assert r["verdict"] == "decision_exit_live"
+
+
+# --------------------------------------------------------------------------
+# the telemetry sentinel must not be rendered as a measurement
+# --------------------------------------------------------------------------
+def test_coalesce_sentinel_is_refused_not_reported():
+    tel = {"1": {"trade_id": "1", "peak_r": -1e18,
+                 "peak_pct_of_cap": -7.6e19, "cap_r": 1.31,
+                 "peak_state": "thin_window", "arm_reach": "no_arm_declared"}}
+    r = _assess(_trade(), telemetry=tel)
+    assert r["telemetry"]["peak_r"] is None
+    assert r["telemetry"]["peak_pct_of_cap"] is None
+    assert r["telemetry"]["sentinel_peak"] is True
+    assert r["telemetry"]["cap_r"] == 1.31  # a real value survives
+
+
+def test_absent_telemetry_is_not_a_sentinel():
+    r = _assess(_trade())
+    assert r["telemetry"] == {"present": False, "sentinel_peak": False}
+
+
+# --------------------------------------------------------------------------
+# verdict precedence
+# --------------------------------------------------------------------------
+def test_unknown_decision_path_outranks_a_live_price_path():
+    """We must not report `price_only` while a decision path might be live —
+    that would overstate the finding."""
+    r = _assess(_trade(strategy_name="xrp_pullback_2h"),
+                cfg={"xrp_pullback_2h": {"trail_decay_arm_r": 4.49}},
+                reach={})
+    assert r["decision_paths"]["trail_decay"]["state"] == epc.UNKNOWN
+    assert r["price_paths"]["monitor_sl_cross"] == epc.LIVE
+    assert r["verdict"] == "unknown"
+
+
+def test_module_that_cannot_emit_a_verdict_grades_not_applicable():
+    """htf_pullback_trend_2h implements no stale_stop — that is `not_applicable`
+    (nothing to declare), not `absent` (a choice someone made)."""
+    r = _assess(_trade())
+    assert r["decision_paths"]["stale_stop"]["state"] == epc.NA
+    assert r["decision_paths"]["stale_stop"]["why"] == "not_implemented"
+
+
+# --------------------------------------------------------------------------
+# population
+# --------------------------------------------------------------------------
+def test_only_open_non_backtest_rows_are_audited():
+    rows = [_trade(id=1), _trade(id=2, status="closed"),
+            _trade(id=3, is_backtest=1)]
+    assert [r["id"] for r in epc._open_rows(rows)] == [1]
+    assert [r["id"] for r in epc._open_rows({"rows": rows})] == [1]
+
+
+def test_cause_rollup_separates_remedies():
+    def mk(whys):
+        return {"verdict": "price_only", "trade_id": "x",
+                "decision_paths": {str(i): {"state": epc.ABSENT, "why": w}
+                                   for i, w in enumerate(whys)}}
+    assert epc.price_only_cause(mk(["undeclared", "undeclared"])) == "all_undeclared"
+    assert epc.price_only_cause(mk(["not_implemented"] * 3)) == "family_not_implemented"
+    assert epc.price_only_cause(
+        mk(["declared_but_unreachable(x)", "undeclared"])) == "declared_but_unreachable"
+    assert epc.price_only_cause(
+        mk(["not_implemented", "undeclared"])) == "mixed"
+
+
+def test_self_test_planted_controls_pass():
+    """A probe that cannot find a known positive proves nothing."""
+    assert epc._self_test() == 0
