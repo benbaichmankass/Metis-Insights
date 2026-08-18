@@ -19511,6 +19511,66 @@
         "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER"
       ],
       "resolution_criteria": "Basis: the 1000-row journal scan above, window verified to cover the live hold, refusal reasons read from notes.reason rather than inferred. RESOLVED when an exit study reports R PER DAY HELD alongside R — specifically time-to-reach-X%-of-cap versus time-from-X-to-exit, which needs the per-bar path the summary emitter does not carry — AND that study covers the four legs where occupancy actually binds, which first requires an equity/ETF corpus on the trainer. Do NOT close this by adding a time column to the crypto-only study: the crypto legs are where the mechanism does NOT bite."
+    },
+    {
+      "id": "BL-20260818-REGIME-GATE-GOVERNS-3-OF-47-LEGS",
+      "severity": "P2",
+      "tier": "Tier-1 (measurement) / Tier-3 (any cell authoring)",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "regime-router",
+      "title": "The regime hard gate can refuse only 3 of 47 live legs, and NOTHING states the denominator",
+      "detail": "Measured 2026-08-18 by scripts/ops/regime_policy_coverage.py: of 47 enabled+live legs, 3 are `governed` (>=1 explicit OFF cell: gld_pullback_1h, htf_pullback_trend_2h, trend_donchian), 1 is `listed_open` (squeeze_breakout_4h), and 43 (91.5%) are `unlisted` -> cell='default-on'. The permissive default is correct and documented; the DENOMINATOR is the finding. Two facts made it unobservable: (a) the table is keyed on leg names and the cells were authored from a BTC-only 2026-06-01 matrix, so every per-symbol leg added since (xrp_pullback_2h, trend_donchian_*_4h, all the equity/ETF legs) is unlisted; (b) BOTH intents.py::_emit_regime_shadow_rows and the hard-gate path `continue` WITHOUT logging when the verdict is permissive, so the audit stream contains the gate's refusals and nothing else. The gate therefore looks like it is working precisely because the only evidence it emits is evidence of it firing. Concrete instance: htf_pullback_trend_2h short is OFF in all three regimes, but live trade 4163 is a SHORT from xrp_pullback_2h, which is unlisted -- so it was never gated. Also 3 orphan policy keys match no live leg (fade_breakout_4h, fvg_range_15m, vwap), which reads as coverage to anyone counting rows in the YAML.",
+      "resolution_criteria": "Either (1) a positive-verdict telemetry row (or a periodic coverage emission) so `assessed and allowed` is distinguishable from `never assessed` at runtime, or (2) an explicit recorded decision that 43 unlisted legs is the intended state, with the coverage number quoted wherever the gate is described as load-bearing. Authoring cells is Tier-3 and needs its own per-leg evidence -- this row does NOT ask for that.",
+      "evidence": "scripts/ops/regime_policy_coverage.py (self-test 9/9); tests/test_regime_policy_coverage.py"
+    },
+    {
+      "id": "BL-20260818-SAME-STRATEGY-OPPOSITE-DIRECTIONS-SAME-SYMBOL",
+      "severity": "P1",
+      "tier": "Tier-2",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "portfolio-state",
+      "title": "Two strategies each hold BOTH a long and a short on ETHUSDT simultaneously, across accounts",
+      "detail": "Measured on the live open book 2026-08-18 (35 open positions). eth_pullback_2h is LONG on bybit_1 (4729, entry 1902.96, opened 08-18) and SHORT on bybit_portfolio (4135, entry 1915.35, opened 07-28). trend_donchian_eth_4h is LONG on bybit_1+bybit_2 (4700/4701, entry 1904.15, opened 08-17) and SHORT on bybit_portfolio (4547, entry 1878.18, opened 08-10). The netting guard is per (account, strategy, symbol), so cross-account opposition is outside what it checks -- and bybit_portfolio is the paper mirror of the live book, so the mirror is not mirroring: it holds the OPPOSITE side of two positions the live accounts hold. Any paper-vs-live performance comparison over these symbols is comparing opposite books. Surfaced by the operator's own observation that the system was short XRP and long ETH at the same time; the same-symbol case is worse than the correlated-symbol case he raised.",
+      "resolution_criteria": "Establish why the portfolio mirror opened the opposite side (a stale position never closed vs a genuinely divergent signal), then either close the stranded mirror legs or document why divergence is expected. A cross-account opposing-position detector on the open book would make this visible without an operator noticing it.",
+      "evidence": "pos.json open-book audit 2026-08-18; ids 4135/4729 and 4547/4700/4701"
+    },
+    {
+      "id": "BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS",
+      "severity": "P1",
+      "tier": "Tier-2",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "order-monitor",
+      "title": "Mirror legs of ONE signal carry different stops -- one trailed into profit, the other at original risk",
+      "detail": "Measured on the live open book 2026-08-18. Four signals opened simultaneously onto two accounts at an IDENTICAL entry now carry different stop-losses: xrp_pullback_2h XRPUSDT short @1.0806 -- bybit_2 (REAL money) SL 1.04193571 (locking +0.0387, ~+1.42R) vs bybit_portfolio SL 1.10786786 (the ORIGINAL stop, still -1.0R); tlt_pullback_1d TLT short @84.1 -- alpaca_paper 83.6825 (locked) vs alpaca_portfolio 85.26875 (original); qqq_pullback_1h QQQ long @713.39 -- alpaca_paper 716.115 (locked) vs alpaca_portfolio 704.3275 (original); spy_trend_long_1d SPY long @755.62 -- paper 744.47714286 vs portfolio 733.91821429 (both below entry, different amounts). Other mirror pairs opened the same way ARE identical (IEF 4194/4195, IWM 4422/4423, QQQ 4652/4653, BTC 4717/4719), so this is not a uniform 'portfolio never trails' -- it is divergence on the OLDER trades, i.e. the trail ran on one leg and not its twin. Direction of harm is not one-sided: the real-money XRP leg is the PROTECTED one here, but the same mechanism could as easily leave the real leg unprotected.",
+      "resolution_criteria": "Determine whether the monitor's trail update is per-account and why it skipped one leg of each divergent pair (candidate causes: the mirror account's monitor not running, a per-account exception swallowed at DEBUG, or the trail keying on a field the mirror row lacks). Then either fix the skip or record why mirrors deliberately do not trail. Add an open-book invariant check: mirror legs of one signal must agree on SL.",
+      "evidence": "pos.json open-book audit 2026-08-18; pairs 4163/4164, 4169/4170, 4468/4469, 4347/4348"
+    },
+    {
+      "id": "BL-20260818-ENTRY-FILTERS-DO-NOT-DESCRIBE-IN-TRADE-VALIDITY",
+      "severity": "P2",
+      "tier": "Tier-1",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "exit-levers",
+      "title": "Entry-thesis decay is real and measurable, and exiting on it would have destroyed 84% of the gain (n=1)",
+      "detail": "src/runtime/thesis_decay.py grades whether a leg's OWN entry filters still hold in-trade -- the first MARKET-side predicate (every prior lever is PATH-based). Measured on live trade 4163 (xrp_pullback_2h short, 240 in-trade 2h bars, indicators reconstructed with the strategy's own _adx and validated against the signal bar 2026-07-29 12:00, which reproduces the entry exactly): the thesis is DECAYED on 149 of 240 bars (62.1%) -- adx_band alone 57, trend_midline alone 28, both 64. The first sustained decay is bar 0, i.e. the bar after entry, at +0.48R. Current R is +3.05R, so +2.57R (84% of the gain) accrued AFTER the thesis broke, and the close-basis peak (+3.30R) occurred while decayed. CONCLUSION: the operator's premise is CORRECT and now measured -- these trades genuinely no longer carry the factors that justified entry -- but the inference that they should therefore be exited is refuted on this trade. ADX>=25 selects a moment to ENTER; it does not describe the condition under which the trade continues to work, and here the profit accrued in the low-ADX drift. Secondary finding: a bare midline-crossing predicate is chattery (11 separate decay runs, five of them 1-3 bars), so any future lever needs a persistence requirement.",
+      "resolution_criteria": "n=1 is not a verdict. Add thesis_decay as a sweep COLUMN to the fleet exit sweep (with a persistence parameter) and grade it over the corpus like every other lever, rather than wiring it live. A live lever reading this verdict is Tier-3.",
+      "evidence": "src/runtime/thesis_decay.py; tests/test_thesis_decay.py (33); /tmp/xrp_thesis.csv"
+    },
+    {
+      "id": "BL-20260818-TRAINER-RELAY-REINDENTS-HEREDOC-BODIES",
+      "severity": "P3",
+      "tier": "Tier-1",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "research-infra",
+      "title": "trainer-vm-diag relay re-indents heredoc bodies, so any embedded python heredoc dies on IndentationError",
+      "detail": "Third distinct mangling mode of the same relay, alongside BL-20260806-TRAINER-RELAY-MANGLES-ANGLE-BRACKETS (HTML-escapes < and >) and BL-20260807-TRAINERDIAG-COLUMN0-PYTHON-KEYWORD-TRUNCATES-CMD (a column-0 keyword truncates the command). This one: a `python3 - <<'PY' ... PY` inside the `cmd: |` block arrives with its body indented to the YAML block level, so python fails with 'IndentationError: unexpected indent' AND bash warns the heredoc was delimited by EOF (the closing PY is also indented). Observed #9963. WORKAROUND that works: a single-line `python3 -c \"...\"` with no heredoc (#9964 succeeded, 1000 rows returned). Filed per the standing directive to log every research-infra obstacle so sessions stop rediscovering them.",
+      "resolution_criteria": "Either strip the block-scalar indentation in the workflow before executing, or document the one-liner form as the required shape in docs/claude/trainer-vm-mode.md so the next session does not lose a round-trip to it.",
+      "evidence": "issues #9963 (failed) and #9964 (one-liner, succeeded)"
     }
   ]
 }
