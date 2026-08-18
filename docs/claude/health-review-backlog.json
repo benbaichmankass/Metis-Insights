@@ -19451,6 +19451,26 @@
         "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER"
       ],
       "resolution_criteria": "Basis: the guard's self-test (6/6, planted negative control confirms it CAN fail) and its first live run finding rr_floor at units=0. The EXIT-LEVER instance is landed. This row stays open until the sibling classes are covered — an allowlisted system-action's script having any test, and a declared broker-capability having a production caller. Close it when those are guarded or explicitly declined."
+    },
+    {
+      "id": "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE",
+      "opened": "2026-08-18",
+      "severity": "critical",
+      "tier": "3 (strategy dispositions)",
+      "status": "measured_open",
+      "area": "strategy performance / pullback family",
+      "title": "All 6 crypto pullback legs are unprofitable out-of-sample — the '13 of 42 cells pass' headline sits on a family with no OOS edge",
+      "detail": "Trainer relay #9955 (sweep) + #9958 (per-leg bases). Config-exact bases, --tp-cap-pct 0.099, per-leg derived splits, fresh 13,206-bar 2h corpora 2023-08-14..2026-08-18. POPULATION: the 6 live CRYPTO pullback legs — the 12 equity/ETF/futures legs have NO corpus on the trainer and are NOT measured here.\n\n  leg                     pathA  IS net_R (n)      OOS net_R (n)\n  htf_pullback_trend_2h     4    -9.257  (210)     -14.6089 (48)\n  eth_pullback_2h           1   +26.8833 (157)      -6.8043 (49)\n  eth_pullback_prop_2h      2   +15.2928 (144)     -11.7846 (49)\n  sol_pullback_2h           4    +3.4821  (87)      -2.5783 (49)\n  xrp_pullback_2h           0    +1.779  (127)      -0.5915 (48)\n  ada_pullback_2h           2    -2.8648  (95)      +3.4926 (49)\n\nFIVE OF SIX ARE OOS-NEGATIVE; the sixth (ada) is OOS-positive and IS-NEGATIVE. The sweep itself stamps rate_ungradeable_why: base_unprofitable on the losing window of every one. path_b_candidates is 0 on all six.\n\nWHY THIS MATTERS MORE THAN THE CELLS. The same run produced 13 Path-A passes, which reads as a strong result until each delta is added to its OWN leg's base. Doing that arithmetic, of the 13:\n  - ONE leaves the leg positive in BOTH windows on a lever that is RUNNABLE live: sol_pullback_2h + stale8_lt0R -> IS +6.97R, OOS +1.17R (maxDD better on both, wf 5/6, d_cap/day +0.0385). sol_pullback_2h routes to bybit_1, account_class PAPER, so a declare there risks no money.\n  - ONE more clears both windows (ada_pullback_2h + rrfloor0.5, IS +3.85 / OOS +4.78) but uses rr_floor, which no live unit implements (BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED) — it CANNOT be declared.\n  - The other 11 leave the leg losing in at least one window, INCLUDING the two largest-looking gains: htf gb1R_afterMFE2R (+16.68/+7.70) still lands at IS +7.42 / OOS -6.91, and htf stale8 (+10.31/+8.38) at +1.06/-6.23.\n\nSo the exit work is not what is wrong with this family. A lever that improves a losing book leaves a losing book, and 11 of the 13 passes are exactly that. The disposition questions are per-leg STRATEGY calls (demote to shadow / retune / kill), the same conclusion already recorded for xrp_pullback_2h and now shown to generalise across the whole crypto half of the family.\n\n⚠️ NOT a claim about the other 12 legs. Whether the equity/ETF/futures pullback legs share this shape is UNMEASURED — the trainer holds no corpus for them at all, which is its own gap.",
+      "evidence": [
+        "trainer relay #9955 (42 cells, 6 legs) and #9958 (per-leg base_book via jq)",
+        "config/accounts.yaml: sol_pullback_2h -> bybit_1, account_class paper"
+      ],
+      "related": [
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+        "BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED",
+        "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
+      ],
+      "resolution_criteria": "Basis: the six config-exact bases above, each over a 13,206-bar corpus with n stated per window, and the per-cell arithmetic adding each Path-A delta to its own leg's base. RESOLVED when the operator records a disposition per leg — demote to shadow, retune, kill, or keep with the OOS-negative base accepted and stated. Declaring an exit lever does NOT resolve this row: 11 of 13 passing cells leave the leg losing. If a leg is retuned its cells must be RE-RUN, not re-read. Extending the measurement to the 12 uncorpused legs is separate work, not a condition of closing this."
     }
   ]
 }
