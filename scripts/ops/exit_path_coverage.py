@@ -278,6 +278,7 @@ def assess_trade(trade: dict, *, units: Dict[str, str], cfg: Dict[str, Any],
             "arm_reach": tel.get("arm_reach"),
             "peak_state": tel.get("peak_state"),
             "bars_held": tel.get("bars_held"),
+            "bars_since_peak": tel.get("bars_since_peak"),
             "sentinel_peak": sentinel,
         }
     else:
@@ -323,6 +324,8 @@ def assess_trade(trade: dict, *, units: Dict[str, str], cfg: Dict[str, Any],
         row["decision_paths"].setdefault(
             "module_verdicts", {"state": UNKNOWN, "why": "unit_unresolved"})
 
+    row["capital"] = capital_view(row, trade.get("timestamp"))
+
     # ---- verdict ----------------------------------------------------------
     dstates = [c["state"] for c in row["decision_paths"].values()]
     pstates = list(row["price_paths"].values())
@@ -364,6 +367,61 @@ def price_only_cause(row: Dict[str, Any]) -> str:
     if undecl == len(whys):
         return "all_undeclared"
     return "mixed"
+
+
+def capital_view(row: Dict[str, Any], opened_at: Optional[str],
+                 now_iso: Optional[str] = None) -> Dict[str, Any]:
+    """The 'should we keep holding THIS?' block, from telemetry the trade already has.
+
+    Three quantities the exit question turns on, none of which any surface
+    computed before:
+
+    * ``r_per_day`` — realised R divided by days of capital locked. The
+      comparison the operator's capital-utilisation framing needs: a trade is
+      not judged on its R, it is judged on its R against the book's other uses
+      of the same capital.
+    * ``upside_left_r = cap_r - open_r`` — the structural ceiling is
+      ``cap_R = 0.099*entry/risk`` (the venue TP sentinel clamp), so a trade at
+      80% of cap has 0.8R of headroom left NO MATTER how long it is held. This
+      is the term that makes "hold for the target" quantifiable rather than
+      hopeful.
+    * ``rr_from_here`` — telemetry's own ``r_to_target / r_to_stop``: upside
+      left against give-back at risk. Below 1.0 the trade risks more than it
+      stands to make FROM HERE, which is compatible with it having been a good
+      trade so far.
+
+    ``stalled_bars`` (bars_since_peak) separates "still working" from "has not
+    made a new extreme in weeks" — a distinction invisible in open_r alone.
+
+    Every field is None when its input is missing. Nothing here is a decision.
+    """
+    t = row.get("telemetry") or {}
+    out: Dict[str, Any] = {"days_held": None, "r_per_day": None,
+                           "upside_left_r": None, "rr_from_here": t.get("rr_from_here"),
+                           "pct_of_cap": t.get("pct_of_cap"),
+                           "stalled_bars": t.get("bars_since_peak"),
+                           "giveback_from_peak_r": None}
+    if not t.get("present"):
+        return out
+    import datetime as _dt
+    days = None
+    if opened_at:
+        try:
+            o = _dt.datetime.fromisoformat(str(opened_at).replace("Z", "+00:00"))
+            n = (_dt.datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
+                 if now_iso else _dt.datetime.now(_dt.timezone.utc))
+            days = (n - o).total_seconds() / 86400.0
+        except (ValueError, TypeError):
+            days = None
+    out["days_held"] = round(days, 2) if days else None
+    o_r, c_r, p_r = t.get("open_r"), t.get("cap_r"), t.get("peak_r")
+    if o_r is not None and days and days > 0:
+        out["r_per_day"] = round(o_r / days, 4)
+    if o_r is not None and c_r is not None:
+        out["upside_left_r"] = round(c_r - o_r, 4)
+    if o_r is not None and p_r is not None:
+        out["giveback_from_peak_r"] = round(p_r - o_r, 4)
+    return out
 
 
 def _open_rows(payload: Any) -> List[dict]:
@@ -503,6 +561,22 @@ def _render(res: Dict[str, Any]) -> None:
               f"{len(s['price_only_trades'])} trade(s) -> "
               f"{', '.join(s['price_only_trades'])}")
         print("  These can close ONLY by price reaching a level fixed at entry.")
+    ranked = [r for r in res["rows"] if r["capital"].get("r_per_day") is not None]
+    if ranked:
+        ranked.sort(key=lambda r: -r["capital"]["r_per_day"])
+        print("\n  capital utilisation — R earned per day of capital locked, best first.")
+        print("  `left` is upside remaining to the structural cap; `rr` below 1.0 means")
+        print("  the trade risks more than it stands to make FROM HERE.")
+        print(f"\n  {'trade':>6} {'strategy':22} {'days':>5} {'openR':>6} {'R/day':>7} "
+              f"{'left':>6} {'rr':>5} {'stall':>5} verdict")
+        for r in ranked:
+            c = r["capital"]
+            f = lambda v, n=2: ("—" if v is None else f"{v:.{n}f}")  # noqa: E731
+            print(f"  {r['trade_id']:>6} {r['strategy'][:22]:22} "
+                  f"{f(c['days_held'], 1):>5} {f(r['telemetry'].get('open_r')):>6} "
+                  f"{f(c['r_per_day'], 3):>7} {f(c['upside_left_r']):>6} "
+                  f"{f(c['rr_from_here']):>5} {('—' if c['stalled_bars'] is None else c['stalled_bars']):>5} "
+                  f"{r['verdict']}")
     if s["price_only_causes"]:
         print("\n  cause breakdown (distinct causes want distinct remedies):")
         for cause, ids in sorted(s["price_only_causes"].items(),
