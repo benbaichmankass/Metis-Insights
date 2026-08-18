@@ -33,7 +33,8 @@ from scripts.llm.scope_guard import resolve_paths  # noqa: E402
 
 SCHEMA_VERSION = 1
 DEFAULT_BASE_URL = "https://api.cerebras.ai/v1"
-DEFAULT_MODEL = "llama3.1-8b"
+DEFAULT_MODEL = "gpt-oss-120b"  # verified via mode=models 2026-08-18; the account
+                                # serves exactly {gpt-oss-120b, gemma-4-31b}
 DEFAULT_MAX_OUTPUT_TOKENS = 2000
 REQUEST_TIMEOUT_S = 120
 
