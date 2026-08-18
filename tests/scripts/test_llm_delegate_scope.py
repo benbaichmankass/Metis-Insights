@@ -168,3 +168,33 @@ def test_envelope_is_json_serialisable(repo, monkeypatch):
     res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
     assert res["status"] == "completed" and res["output"] == "ok"
     json.dumps(res)
+
+
+def test_truncated_response_is_failed_not_completed(repo, monkeypatch):
+    """A mid-sentence truncation must not be reported as a completed answer."""
+    monkeypatch.setenv("LLM_DELEGATE_API_KEY", "k")
+    monkeypatch.setattr(
+        "scripts.llm.delegate.call_model",
+        lambda *a, **k: (
+            {"choices": [{"message": {"content": "partial ans"}, "finish_reason": "length"}],
+             "usage": {"completion_tokens": 47, "prompt_tokens": 1817, "total_tokens": 3013}},
+            None,
+        ),
+    )
+    res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
+    assert res["status"] == "failed"
+    assert "truncated" in res["reason"]
+    # the partial text is preserved rather than discarded
+    assert res["output"] == "partial ans"
+    assert res["finish_reason"] == "length"
+
+
+def test_normal_stop_is_completed_and_records_finish_reason(repo, monkeypatch):
+    monkeypatch.setenv("LLM_DELEGATE_API_KEY", "k")
+    monkeypatch.setattr(
+        "scripts.llm.delegate.call_model",
+        lambda *a, **k: ({"choices": [{"message": {"content": "full answer"},
+                                       "finish_reason": "stop"}]}, None),
+    )
+    res = run({"task_id": "t", "instruction": "go", "paths": ["src/web/main.py"]}, repo)
+    assert res["status"] == "completed" and res["finish_reason"] == "stop"

@@ -45,7 +45,7 @@ on:
       max_output_tokens:
         description: "Output token ceiling for this task."
         required: false
-        default: "2000"
+        default: "8000"
       model:
         description: "Backend model id. Blank uses the backend's default."
         required: false

@@ -40,7 +40,11 @@ DEFAULT_MODEL = "gemini-3.6-flash"
 # default because its key is already in use by this repo's course-generation
 # workflows, so it is proven working AND proven free-tier on this account.
 # Cerebras stays selectable via the workflow's `backend` input.
-DEFAULT_MAX_OUTPUT_TOKENS = 2000
+# Thinking models (Gemini 3.x, gpt-oss) spend reasoning tokens against this
+# same budget BEFORE emitting a visible answer. Measured 2026-08-18: a 1200
+# cap yielded 1149 reasoning tokens and 47 visible ones, truncated mid-word.
+# The default is therefore sized for reasoning + answer, not answer alone.
+DEFAULT_MAX_OUTPUT_TOKENS = 8000
 REQUEST_TIMEOUT_S = 120
 
 SYSTEM_PROMPT = (
@@ -164,7 +168,9 @@ def run(spec: dict, repo_root: Path) -> dict:
                         duration_s=elapsed)
 
     try:
-        output = payload["choices"][0]["message"]["content"]
+        choice = payload["choices"][0]
+        output = choice["message"]["content"]
+        finish_reason = choice.get("finish_reason")
     except (KeyError, IndexError, TypeError):
         return envelope(task_id, "failed",
                         f"backend response missing choices[0].message.content: "
@@ -178,8 +184,27 @@ def run(spec: dict, repo_root: Path) -> dict:
                         backend=backend, scope=scope, duration_s=elapsed,
                         usage=payload.get("usage"))
 
+    usage = payload.get("usage") or {}
+
+    # A response cut off at the token ceiling is NOT a completed answer. Saying
+    # "completed" over a mid-sentence truncation is the same class of error as
+    # an empty completion reading as "found nothing" — the reader cannot tell
+    # the model finished from the model being silenced. The partial text is
+    # still returned so nothing is lost, but the status is honest.
+    if finish_reason == "length":
+        visible = usage.get("completion_tokens")
+        total = usage.get("total_tokens")
+        detail = f" (visible completion_tokens={visible}, total_tokens={total};" \
+                 " a thinking model spends reasoning tokens against the same" \
+                 " budget — raise max_output_tokens)" if visible is not None else ""
+        return envelope(task_id, "failed",
+                        f"response truncated at the token ceiling{detail}",
+                        backend=backend, scope=scope, duration_s=elapsed,
+                        usage=usage, finish_reason=finish_reason, output=output)
+
     return envelope(task_id, "completed", None, backend=backend, scope=scope,
-                    duration_s=elapsed, usage=payload.get("usage"), output=output)
+                    duration_s=elapsed, usage=usage,
+                    finish_reason=finish_reason, output=output)
 
 
 def main() -> int:
