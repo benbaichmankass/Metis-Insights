@@ -45,11 +45,28 @@ DENY_GLOBS: tuple[str, ...] = (
 )
 
 # Permitted when no deny rule matches.
+#
+# ⚠️ These are deliberately ROOT-SCOPED, not bare extension globs. A delegated
+# review of this very file on 2026-08-18 (issue #9944, guard-review-006) found
+# that repo-wide globs like `*.txt` / `*.toml` / `*.ini` / `*.md` admitted
+# `trades.txt`, `settings.toml`, `connections.ini` and `reports/pnl_summary.md`
+# — financial records and account configuration living outside the `config/`
+# and `comms/` deny roots. The deny list cannot enumerate every such location,
+# so the ALLOW side has to be narrow instead. Five of its six findings were
+# valid; each is now a regression test.
 ALLOW_GLOBS: tuple[str, ...] = (
-    "src/*.py", "scripts/*.py", "tests/*.py",
-    "ml/*.py", "webapp/src/*",
-    "docs/*.md", "*.md",
-    "*.txt", "*.toml", "*.cfg", "*.ini",
+    # Source code, under the roots that actually hold source.
+    "src/*.py", "scripts/*.py", "tests/*.py", "ml/*.py",
+    # Web app source — restricted to code/markup extensions, NOT a bare
+    # `webapp/src/*`, which admitted `webapp/src/config/accounts.json`.
+    "webapp/src/*.ts", "webapp/src/*.js", "webapp/src/*.svelte",
+    "webapp/src/*.css", "webapp/src/*.html",
+    # Documentation, under docs/ only, plus the small set of root-level
+    # markdown files that are genuinely project docs.
+    "docs/*.md",
+    "README.md", "CLAUDE.md", "CONTRIBUTING.md", "ROADMAP.md", "ROADMAP_MACRO.md",
+    # Packaging/tooling manifests at the repo root only.
+    "pyproject.toml", "setup.cfg", "pytest.ini", "requirements.txt",
 )
 
 # A single file above this is refused rather than truncated: a silently

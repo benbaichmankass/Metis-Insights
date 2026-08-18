@@ -25,6 +25,7 @@ and is destroyed. There is nothing to stop, nothing to leak, and no idle cost.
 | **Google Colab** | Google disallows SSH/remote-desktop from free runtimes and terminates free sessions used to serve a web endpoint. It also cannot be started headlessly — a human opens a browser tab every session, which defeats the entire goal. |
 | **Persistent tunnelled endpoint from a runner** | Buys interactivity at the price of a public unauthenticated inference URL, tunnel flakiness, and a new idle-shutdown mechanism to get right. Revisit only if batch proves too coarse. |
 | **Direct in-session API calls** | Measured 2026-08-18: the sandbox *can* reach Cerebras/Groq/Gemini, credentialed requests included. Genuinely smoother (seconds, not minutes) — but the key lives in Actions secrets by operator choice, so this path is not available today. Kept as a documented future option. |
+| **Cerebras as the backend** | Rejected after live measurement, not on paper. The key authenticates and lists models, but chat completions return **HTTP 402 `payment_required`**. The widely-quoted "1M tokens/day free, no card" came from third-party blogs, not Cerebras docs. Still selectable via the `backend` input if billing is ever enabled. |
 
 ## Architecture
 
@@ -66,12 +67,34 @@ is a **loud failure**, and a scope refusal is `not_attempted`, never an empty
 success. A scope refusal exits **0** — it is a correct outcome, not a broken
 workflow.
 
+## Backend
+
+**Gemini 3.6 Flash**, via Google's OpenAI-compatibility shim
+(`/v1beta/openai`), so the client stays OpenAI-shaped with no adapter.
+`GEMINI_API_KEY` was already in use by this repo's course-generation
+workflows — so it is *proven* working and *proven* free-tier on this account,
+rather than assumed from a blog. That distinction cost three failed runs to
+learn and is the reason `mode=models` exists: **ask the backend what it
+serves; never ship a model id from memory.** Two were shipped from memory
+anyway (`llama3.1-8b`, `gemini-2.5-flash`), and both failed.
+
 ## Cost
 
-$0. Public-repo standard runners are unmetered; Cerebras free is 1M tokens/day
-with no card (Groq free: 30 RPM / 6k TPM / 14.4k RPD). Groq's 6k *tokens per
-minute* is the binding limit for file-context work, which is why Cerebras is
-preferred and Groq is the failover.
+$0. Public-repo standard runners are unmetered, and Gemini's free tier covers
+the observed usage (~5.7k total tokens per review-sized task).
+
+## Did it pay? — the first real result
+
+The pilot's own success criterion was whether a delegated result is worth more
+than the cost of checking it. Measured once, on `guard-review-006`
+(issue #9944): the worker was asked to find paths `scope_guard.py` would ALLOW
+but that fall outside the authorised scope. It returned six, of which **five
+were valid defects** — bare repo-wide extension globs (`*.txt`, `*.toml`,
+`*.ini`, `*.md`) and a `webapp/src/*` wildcard admitting `accounts.json`. The
+allowlist is now root-scoped and each finding is a regression test.
+
+n=1, so this is an existence proof, not a hit rate. But it is the right shape:
+a bounded question, a checkable answer, and a real fix landed.
 
 ## Open / next
 

@@ -253,3 +253,39 @@ def test_transient_then_success(monkeypatch):
     payload, err, attempts = D.call_model("p", base_url="http://x", model="m",
                                           api_key="k", max_tokens=10)
     assert err is None and attempts == 2 and payload["choices"][0]["message"]["content"] == "ok"
+
+
+# --- regression: gaps found by the delegate reviewing this guard -------------
+# Source: issue #9944, guard-review-006 (2026-08-18). The worker was asked to
+# find paths the filter would ALLOW but that fall outside the authorised scope.
+# Five of its six findings were valid; each is pinned here so the broad
+# extension globs cannot come back.
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "webapp/src/config/accounts.json",  # bare webapp/src/* admitted any type
+        "settings.toml",                    # repo-wide *.toml
+        "trades.txt",                       # repo-wide *.txt
+        "connections.ini",                  # repo-wide *.ini
+        "reports/pnl_summary.md",           # repo-wide *.md outside docs/
+    ],
+)
+def test_delegate_found_gaps_are_now_denied(repo, rel):
+    p = repo / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("x")
+    v = classify(rel, repo)
+    assert v.verdict == "denied", f"{rel} must be denied, got {v.verdict}: {v.reason}"
+
+
+@pytest.mark.parametrize(
+    "rel",
+    ["docs/guide.md", "README.md", "src/web/main.py", "webapp/src/lib/config.ts"],
+)
+def test_tightening_did_not_break_legitimate_paths(repo, rel):
+    """The narrowing must not cost real code + docs — that is the point of the tool."""
+    p = repo / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("x")
+    assert classify(rel, repo).verdict == "allowed", f"{rel} should still be allowed"
