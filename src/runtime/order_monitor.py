@@ -680,6 +680,70 @@ def _full_close_trade_and_package(
         )
 
 
+def _package_open_legs(db, open_pkg: dict) -> tuple:
+    """Every OPEN, non-backtest trade row belonging to this order package.
+
+    Returns ``(legs, read_state)``. ``read_state`` is never collapsed:
+
+    * ``"resolved"``  — a clean read. ``legs`` is the complete set and MAY be
+      empty (a package with no open trade row is a real, meaningful state).
+    * ``"read_failed"`` — we could not look. ``legs`` is empty, and the caller
+      must NOT treat that as "no legs": effectuating on an unconfirmed read is
+      how a close gets sent to a position we never verified.
+
+    The ``linked_trade_id`` leg is placed FIRST so single-leg packages keep
+    byte-identical ordering semantics and the historical "primary" leg is still
+    handled first on a multi-leg one.
+
+    **Why this exists** (BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG).
+    ``Coordinator.multi_account_execute`` fans ONE package out across N
+    accounts, so N trade rows share one ``order_package_id`` while
+    ``linked_trade_id`` names exactly one of them. Both effectuation branches
+    resolved that single id, so N-1 legs were never trailed and never closed.
+    """
+    pkg_id = open_pkg.get("order_package_id")
+    linked = open_pkg.get("linked_trade_id")
+    try:
+        rows = []
+        if pkg_id:
+            rows = [
+                r for r in db.get_trades(
+                    filters={"order_package_id": pkg_id, "status": "open"})
+                if not r.get("is_backtest")
+            ]
+        if not rows:
+            # No package-scoped rows. Preserve the historical single-leg
+            # fallback CONDITIONS exactly — this is not a free-for-all search.
+            #
+            # The old code branched: `if linked_trade_id: resolve by id` ELSE
+            # `_find_trade_by_match(strategy, symbol)`. Falling through to the
+            # strategy+symbol match when a linked id EXISTS but its row is
+            # closed would resurrect a DIFFERENT package's open trade on the
+            # same strategy+symbol and effectuate this package's verdict
+            # against it. So the match is reachable only when the package
+            # names no linked leg at all, exactly as before.
+            if linked:
+                hit = db.get_trades(filters={"id": int(linked)})
+                rows = ([hit[0]] if hit and hit[0].get("status") == "open"
+                        else [])
+            else:
+                m = _find_trade_by_match(
+                    db, strategy=open_pkg.get("strategy_name"),
+                    symbol=open_pkg.get("symbol"),
+                )
+                rows = [m] if m else []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: package-leg lookup failed for pkg=%s: %s",
+            pkg_id, exc,
+        )
+        return [], "read_failed"
+
+    if linked is not None:
+        rows.sort(key=lambda r: str(r.get("id")) != str(linked))
+    return rows, "resolved"
+
+
 def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                   summary: _StrategyTickSummary) -> None:
     """Translate a non-None monitor verdict into DB writes.
@@ -750,24 +814,31 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # directive 2026-05-03) is kept below in the modify branch
         # for history.
 
-        matched_trade: Optional[Dict[str, Any]] = None
-        try:
-            linked_trade_id = open_pkg.get("linked_trade_id")
-            if linked_trade_id:
-                rows = db.get_trades(filters={"id": int(linked_trade_id)})
-                matched_trade = rows[0] if rows else None
-            else:
-                matched_trade = _find_trade_by_match(
-                    db,
-                    strategy=open_pkg.get("strategy_name"),
-                    symbol=open_pkg.get("symbol"),
-                )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "order_monitor: trade lookup failed for pkg=%s: %s",
-                pkg_id, exc,
+        # 2026-08-18 (BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG): resolve
+        # over EVERY open leg of the package, not just `linked_trade_id`. One
+        # package fans out across N accounts; closing the linked leg and then
+        # flipping the PARENT to `closed` dropped the survivors out of the
+        # loop's `status="open"` selection permanently. Measured: 6 of 35 open
+        # trades were stranded that way.
+        #
+        # We still close ONE leg per tick, deliberately. The alternative —
+        # closing all N in this pass — turns one exchange round-trip per
+        # package into N on a loop already breaching its 60s requirement, and
+        # piling concurrent closes onto one shared IB socket is the shape of
+        # both June 2026 wedges. Leaving the package OPEN below when legs
+        # remain makes the next tick pick up the next leg, so the package
+        # drains over N ticks with the per-tick cost unchanged.
+        legs, leg_read_state = _package_open_legs(db, open_pkg)
+        if leg_read_state != "resolved":
+            # An unconfirmed read is NOT "no legs". Never close on it.
+            logger.error(
+                "order_monitor: package-leg read FAILED for pkg=%s — refusing "
+                "to close on an unconfirmed read; retrying next tick.", pkg_id,
             )
-            matched_trade = None
+            summary.error_count += 1
+            summary.errors.append(f"{pkg_id}: leg read failed")
+            return
+        matched_trade = legs[0] if legs else None
 
         # No trade row → nothing to close on the exchange. Still flip
         # the package status so the strategy-monocle gate clears. This
@@ -973,22 +1044,11 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             )
             exit_price_source = "verdict"
 
-        # Now write the DB updates in the original order: package
-        # close → trade close → trade PnL.
-        try:
-            db.update_order_package(pkg_id, {
-                "status": "closed",
-                "close_reason": reason,
-            })
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "order_monitor: order_packages close write failed for %s: %s",
-                pkg_id, exc,
-            )
-            summary.error_count += 1
-            summary.errors.append(f"{pkg_id}: close-write failed")
-            return
-
+        # DB writes. The historical order was package-close → trade-close;
+        # since 2026-08-18 the trade closes FIRST so the remaining-leg check
+        # below sees post-close truth. The exchange call has already succeeded
+        # at this point, so neither order risks a journal that claims a
+        # still-open position is closed.
         try:
             closed_at_iso = datetime.now(timezone.utc).isoformat()
             close_updates: Dict[str, Any] = {
@@ -1032,6 +1092,51 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # gross +$1.03 vs Bybit's net of fees).
         # (Was: ``_compute_close_pnl(matched_trade, actual_exit_price)``
         # followed by ``db.update_trade(trade_id, pnl_updates)``.)
+
+        # Flip the PARENT only when no open leg remains. This is the whole
+        # repair: the loop selects packages by `status="open"`, so flipping it
+        # while a sibling leg is still open removes that leg from the exit path
+        # for good. Re-read rather than deducing from `legs` — the row we just
+        # closed is one of them, and another tick or the reconciler may have
+        # moved a sibling underneath us.
+        remaining, remaining_state = _package_open_legs(db, open_pkg)
+        if remaining_state != "resolved":
+            # We cannot show the package is drained, so we must not say it is.
+            # Leaving it OPEN is the safe direction: the next tick re-reads,
+            # and a package with nothing left simply closes then.
+            logger.warning(
+                "order_monitor: closed trade %s but could not re-read pkg=%s "
+                "legs — leaving the package OPEN; next tick re-checks.",
+                matched_trade.get("id"), pkg_id,
+            )
+            summary.closed_count += 1
+            return
+        if remaining:
+            logger.info(
+                "order_monitor: closed leg %s (%s) for pkg=%s; %d open leg(s) "
+                "remain (%s) — package stays OPEN so the next tick closes the "
+                "next one.",
+                matched_trade.get("id"), matched_trade.get("account_id"),
+                pkg_id, len(remaining),
+                ", ".join(f"{r.get('id')}/{r.get('account_id')}"
+                          for r in remaining),
+            )
+            summary.closed_count += 1
+            return
+
+        try:
+            db.update_order_package(pkg_id, {
+                "status": "closed",
+                "close_reason": reason,
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "order_monitor: order_packages close write failed for %s: %s",
+                pkg_id, exc,
+            )
+            summary.error_count += 1
+            summary.errors.append(f"{pkg_id}: close-write failed")
+            return
 
         summary.closed_count += 1
         return
@@ -1078,24 +1183,27 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
     #   5. On ok=False, log ERROR, leave the DB row untouched, count
     #      an error, and return so the next monitor tick re-attempts.
 
-    matched_trade: Optional[Dict[str, Any]] = None
-    try:
-        linked_trade_id = open_pkg.get("linked_trade_id")
-        if linked_trade_id:
-            rows = db.get_trades(filters={"id": int(linked_trade_id)})
-            matched_trade = rows[0] if rows else None
-        else:
-            matched_trade = _find_trade_by_match(
-                db,
-                strategy=open_pkg.get("strategy_name"),
-                symbol=open_pkg.get("symbol"),
-            )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "order_monitor: modify-path trade lookup failed for pkg=%s: %s",
-            pkg_id, exc,
+    # 2026-08-18 (BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG): a trail /
+    # stale-stop / giveback must reach EVERY leg of the package, not only
+    # `linked_trade_id`. Unlike the close path there is no draining to do here
+    # — a modify is not terminal, so a leg skipped this tick is skipped
+    # forever unless the level happens to move again. Measured: 4 of 8 live
+    # multi-leg packages carried sibling stops that had never moved, in every
+    # case the non-linked leg.
+    #
+    # An amend is idempotent and opens no position, so fanning it out does not
+    # carry the close path's concurrency hazard.
+    legs, leg_read_state = _package_open_legs(db, open_pkg)
+    if leg_read_state != "resolved":
+        logger.error(
+            "order_monitor: package-leg read FAILED for pkg=%s — refusing to "
+            "modify on an unconfirmed read; verdict re-fires next tick.",
+            pkg_id,
         )
-        matched_trade = None
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: leg read failed")
+        return
+    matched_trade = legs[0] if legs else None
 
     if matched_trade is None:
         logger.error(
@@ -1122,20 +1230,27 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         except (TypeError, ValueError):
             return None
 
-    ex_result = _send_modify_to_exchange(
-        matched_trade,
-        sl=updates.get("sl"),
-        tp=updates.get("tp"),
-        side=matched_trade.get("direction"),
-        qty=_coerce_float(matched_trade.get("position_size")),
-        cur_sl=_coerce_float(open_pkg.get("sl")),
-        cur_tp=_coerce_float(open_pkg.get("tp")),
-    )
-    logger.info(
-        "order_monitor: exchange modify for pkg=%s account=%s → %s",
-        pkg_id, matched_trade.get("account_id"), ex_result,
-    )
-    if not ex_result.get("ok"):
+    # Fan the amend out across every open leg. Per-leg outcome is three-state
+    # and never collapsed: `applied` / `failed` / `unsupported` (the
+    # integration has no modify op — a known P2 shortfall, not a live error).
+    leg_outcomes: List[Dict[str, Any]] = []
+    for leg in legs:
+        ex_result = _send_modify_to_exchange(
+            leg,
+            sl=updates.get("sl"),
+            tp=updates.get("tp"),
+            side=leg.get("direction"),
+            qty=_coerce_float(leg.get("position_size")),
+            cur_sl=_coerce_float(open_pkg.get("sl")),
+            cur_tp=_coerce_float(open_pkg.get("tp")),
+        )
+        logger.info(
+            "order_monitor: exchange modify for pkg=%s trade=%s account=%s → %s",
+            pkg_id, leg.get("id"), leg.get("account_id"), ex_result,
+        )
+        if ex_result.get("ok"):
+            leg_outcomes.append({"leg": leg, "outcome": "applied"})
+            continue
         err_str = ex_result.get("error") or "unknown"
         if _is_unsupported_op_error(err_str):
             # P2: integration doesn't implement modify today — log once per
@@ -1143,19 +1258,85 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             # left unchanged (same as a genuine failure); P3 wires the op.
             _note_unsupported_management_op(
                 pkg_id=pkg_id, op="modify",
-                account_id=matched_trade.get("account_id"),
+                account_id=leg.get("account_id"),
                 integration=ex_result.get("integration"), err_str=err_str,
             )
+            leg_outcomes.append({"leg": leg, "outcome": "unsupported",
+                                 "error": err_str})
         else:
             logger.error(
                 "order_monitor: exchange modify failed — leaving DB unchanged. "
-                "pkg=%s account=%s symbol=%s sl=%s tp=%s error=%s",
-                pkg_id, matched_trade.get("account_id"),
-                matched_trade.get("symbol"),
-                updates.get("sl"), updates.get("tp"), err_str,
+                "pkg=%s trade=%s account=%s symbol=%s sl=%s tp=%s error=%s",
+                pkg_id, leg.get("id"), leg.get("account_id"),
+                leg.get("symbol"), updates.get("sl"), updates.get("tp"),
+                err_str,
+            )
+            leg_outcomes.append({"leg": leg, "outcome": "failed",
+                                 "error": err_str})
+
+    applied = [o for o in leg_outcomes if o["outcome"] == "applied"]
+    not_applied = [o for o in leg_outcomes if o["outcome"] != "applied"]
+
+    # Sync `trades.stop_loss`/`take_profit_1` for the legs that ACTUALLY
+    # landed, before deciding the package write. A leg whose amend failed must
+    # keep showing its real venue level — writing the intended level onto it
+    # would put the dashboard back in the exact "SL looks static but the row
+    # says otherwise" state BL-20260722-XRP-SLSPAM part 2 fixed, only inverted.
+    for o in applied:
+        try:
+            trade_id = o["leg"].get("id")
+            if trade_id is not None:
+                trade_sync: Dict[str, Any] = {}
+                if "sl" in updates:
+                    trade_sync["stop_loss"] = updates["sl"]
+                if "tp" in updates:
+                    trade_sync["take_profit_1"] = updates["tp"]
+                if trade_sync:
+                    db.update_trade(int(trade_id), trade_sync)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "order_monitor: trades protective-level sync failed for pkg=%s "
+                "trade_id=%s: %s", pkg_id, o["leg"].get("id"), exc,
+            )
+
+    if not_applied:
+        # Leave `order_packages.sl/tp` UNCHANGED so the verdict is still a
+        # meaningful change next tick and the missed legs are retried. Writing
+        # it here would make the interpreter's `no_meaningful_change` filter
+        # swallow the identical verdict on every later tick, and the missed leg
+        # would keep its entry-time bracket forever — the very bug this change
+        # exists to fix, re-created one level up.
+        #
+        # The accepted cost is that an already-applied leg is re-amended next
+        # tick. That is idempotent at the venue; stranding a leg is not.
+        detail = ", ".join(
+            f"{o['leg'].get('id')}/{o['leg'].get('account_id')}:{o['outcome']}"
+            for o in not_applied)
+        # LOG LEVEL differs by cause; the COUNT does not — matching the
+        # pre-fan-out contract exactly. An integration with no modify op is a
+        # KNOWN P2 shortfall already logged once per (pkg, op) by
+        # `_note_unsupported_management_op`, so an ERROR every tick would be
+        # the desensitized-alarm P1 (pinned by
+        # test_apply_update_modify_unsupported_logs_warning_once_no_error).
+        # It is still counted, because the verdict genuinely did not land.
+        if any(o["outcome"] == "failed" for o in not_applied):
+            logger.error(
+                "order_monitor: modify reached %d/%d legs for pkg=%s (%s) — "
+                "package sl/tp left UNCHANGED so the verdict re-fires and "
+                "retries the rest next tick.",
+                len(applied), len(leg_outcomes), pkg_id, detail,
+            )
+        else:
+            logger.info(
+                "order_monitor: modify reached %d/%d legs for pkg=%s (%s) — "
+                "the rest are unsupported by their integration; package sl/tp "
+                "left unchanged.",
+                len(applied), len(leg_outcomes), pkg_id, detail,
             )
         summary.error_count += 1
-        summary.errors.append(f"{pkg_id}: exchange modify failed: {err_str}")
+        summary.errors.append(
+            f"{pkg_id}: modify reached "
+            f"{len(applied)}/{len(leg_outcomes)} legs")
         return
 
     try:
@@ -1170,35 +1351,15 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.errors.append(f"{pkg_id}: update-write failed")
         return
 
-    # BL-20260722-XRP-SLSPAM (part 2): mirror the confirmed modify onto the
-    # linked ``trades`` row too. Before this fix a modify only ever touched
-    # ``order_packages.sl/tp`` — the dashboard/API's Position.stopLoss reads
-    # ``trades.stop_loss`` (see /api/bot/positions), which never moved after
-    # the first modify. Over trade 3577's 5-day life this let
-    # ``order_packages.sl`` trail from 1.0655 to 1.1116 while every
-    # operator-facing surface kept showing the original 1.0655 — the exact
-    # "SL looks static but I keep getting move pings" symptom report.
-    # Best-effort: a failure here must never affect the modify that already
-    # landed on the exchange + order_packages. Uses ``stop_loss``/
-    # ``take_profit_1`` (the real trades-table column names — NOT ``sl``/
-    # ``tp``, which don't exist on ``trades``) so this deliberately does NOT
-    # trip ``update_trade``'s own ``"sl" in row or "tp" in row`` notify-gate
-    # and cannot double-fire against the ping below.
-    try:
-        trade_id = matched_trade.get("id")
-        if trade_id is not None:
-            trade_sync: Dict[str, Any] = {}
-            if "sl" in updates:
-                trade_sync["stop_loss"] = updates["sl"]
-            if "tp" in updates:
-                trade_sync["take_profit_1"] = updates["tp"]
-            if trade_sync:
-                db.update_trade(int(trade_id), trade_sync)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "order_monitor: trades protective-level sync failed for pkg=%s "
-            "trade_id=%s: %s", pkg_id, matched_trade.get("id"), exc,
-        )
+    # BL-20260722-XRP-SLSPAM (part 2) — mirroring the confirmed modify onto
+    # the ``trades`` row — now happens PER LEG in the loop above, before the
+    # package write, because only the legs whose amend actually landed may have
+    # their stored level moved. (That fix exists because a modify used to touch
+    # only ``order_packages.sl/tp`` while /api/bot/positions reads
+    # ``trades.stop_loss``, so every operator surface kept showing the original
+    # level. It uses ``stop_loss``/``take_profit_1`` — the real column names,
+    # NOT ``sl``/``tp`` — which also keeps it clear of ``update_trade``'s own
+    # notify-gate so it cannot double-fire against the ping below.)
 
     # Trade-lifecycle update ping (SL/TP move, TELEGRAM-SPEC §4.2) —
     # best-effort. The modify already landed; a ping failure can't affect it.
@@ -1210,6 +1371,11 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             changes.append(f"SL → {updates['sl']:g}")
         if "tp" in updates:
             changes.append(f"TP → {updates['tp']:g}")
+        # ONE ping per package, not per leg — N pings for a single trail move
+        # is the desensitized-alarm shape. But say how many legs moved, so a
+        # multi-account package does not read as a single-leg one.
+        if len(applied) > 1:
+            changes.append(f"({len(applied)} legs)")
         enqueue_trade_update(
             symbol=matched_trade.get("symbol") or "?",
             account=matched_trade.get("account_id"),
