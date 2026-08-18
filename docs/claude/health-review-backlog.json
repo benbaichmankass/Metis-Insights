@@ -1,8 +1,8 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-18T09:10:00+00:00",
-  "generated_at": "2026-08-18T09:10:00+00:00",
+  "updated_at": "2026-08-18",
+  "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -19078,6 +19078,134 @@
       "resolution_criteria": "DIAG_BASE_URL updated to https://ict-bot.duckdns.org (operator action — Claude env var), verified by a diag_fetch.sh call returning JSON. Separately, diag_fetch.sh distinguishes 'host unreachable' from 'empty response' rather than emitting an empty body, and the CLAUDE.md web-session reachability line is corrected.",
       "next_action": "Bundle the diag_fetch.sh three-state fix + the CLAUDE.md correction into the same Tier-1 PR as the two workflow fixes. The env var itself is an operator paste — pair it with the DIAG_READ_TOKEN rotation so both are updated in one sitting.",
       "updates": []
+    },
+    {
+      "id": "BL-20260818-SWEEP-REPORTS-DONE-AFTER-MEASURING-ZERO-CELLS",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "m20_fleet_exit_sweep prints `done ->` and writes a verdicts.json after measuring 0 of 0 cells, with exit code 0 — a run that measured nothing is indistinguishable from one that measured everything",
+      "detail": "OBSERVED 2026-08-18, relay #9940. The sweep emitted:\n    split: FELL BACK to 2025-07-01 (harness_rc)\n    capital: 0/0 cells measured\n    done -> runtime_logs/m20_xrp_holdconviction/2026-08-18\nexit code 0, and it WROTE SUMMARY.md, capital_distribution.json, results.jsonl and verdicts.json into a dated output directory. Nothing about the artifact set distinguishes it from a complete run; only the `0/0` in stdout does, and stdout is not what a later session reads.\n\nCost, measured: I read it as a result and reported a conclusion from it before checking the cell count. The correct reading was 'my invocation was broken' (bare python3, no pandas).\n\nThis is `silent-empty-guard`'s class one level up: that guard catches a producer returning [] from a broad except; this is a whole RUN returning an empty artifact set under a success banner. A dated directory of empty verdicts is worse than no directory, because the next session's glob finds it.",
+      "resolution_criteria": "Exit non-zero when `cells_measured == 0`, and make the banner state the count: `done (0 cells measured) ->` rather than `done ->`. Better: refuse to write a verdicts.json at all for a zero-cell run, or write one whose top level carries an explicit `run_state: no_cells_measured` that consumers must branch on. DONE when a deliberately-broken invocation produces a non-zero exit and an artifact a glob-based reader cannot mistake for a measurement.",
+      "evidence": {
+        "relay": 9940,
+        "cells_measured": 0,
+        "exit_code": 0,
+        "artifacts_written": [
+          "SUMMARY.md",
+          "capital_distribution.json",
+          "results.jsonl",
+          "verdicts.json"
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-HARNESS-RC-COLLAPSES-THE-ACTUAL-ERROR",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "the sweep collapses any harness failure to `harness_rc`, so a plain ImportError took a separate relay round-trip to see",
+      "detail": "OBSERVED 2026-08-18. #9940 reported `split: FELL BACK to 2025-07-01 (harness_rc)` and nothing else. The underlying cause, found only by invoking the harness directly in #9941, was:\n    ModuleNotFoundError: No module named 'pandas'\n`run_cell` captures the subprocess output (`return {'error': (p.stderr or p.stdout)[-250:]}`) but the split-resolution path discards it and substitutes the token `harness_rc`.\n\nCost: two extra relay round-trips on a one-line cause. Every relay round-trip is minutes, and a session with a wrong hypothesis spends them in the wrong direction — I briefly treated it as a possible harness defect on the leg.\n\nSame family as BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED: a failure message naming a STAGE rather than a CAUSE, where the cause was captured and thrown away.",
+      "resolution_criteria": "Propagate the harness's captured stderr tail into the split-resolution failure message and into the run log, e.g. `harness_rc: ModuleNotFoundError: No module named 'pandas'`. The 250-char tail already exists in `run_cell`; the split path just needs to keep it. DONE when a deliberately-broken harness invocation names its own cause in the sweep's stdout.",
+      "evidence": {
+        "relays": [
+          9940,
+          9941
+        ],
+        "reported": "harness_rc",
+        "actual": "ModuleNotFoundError: No module named 'pandas'"
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-RESEARCH-HARNESSES-HAVE-NO-VENV-GUARD",
+      "severity": "medium",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "the sweep and every backtest harness require the repo venv and neither state nor check it — bare python3 fails deep, as a swallowed ImportError",
+      "detail": "OBSERVED 2026-08-18. `python3 scripts/research/m20_fleet_exit_sweep.py ...` on the trainer fails because the system interpreter has no pandas; `.venv/bin/python` works (pandas 3.0.3). Nothing in the scripts' `--help`, docstrings, or the skills states this, and the failure does not surface as 'wrong interpreter' — it surfaces as `harness_rc` (see the sibling row) or as a bare ImportError several layers down.\n\nThe knowledge exists but only as prose in artifact provenance strings — `config/lever_reachability.json` basis fields say 'repo venv (relay #9710)'. That records what a past run used; it does not tell the next session what to type, and it is not where anyone looks before running a sweep.",
+      "resolution_criteria": "Add a two-line interpreter guard at the top of the sweep and the backtest harnesses: if the required third-party imports are unavailable, exit non-zero with the exact venv path to use rather than letting the ImportError escape into a subprocess capture. Also state the venv invocation in the `backtesting` and `exit-refinement` skills, which are what a session reads before dispatching one. DONE when a bare-python3 invocation prints the correct command.",
+      "evidence": {
+        "failing": "python3",
+        "working": ".venv/bin/python (pandas 3.0.3)",
+        "relays": [
+          9940,
+          9941,
+          9942
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
+      "severity": "medium",
+      "tier": "1 (ops tooling)",
+      "area": "ops-tooling",
+      "title": "trainer-vm-diag HTML-escapes `<` to `&lt;` and collapses multi-line implicit string concatenation to U+00B7, so any python using format specifiers breaks",
+      "detail": "OBSERVED 2026-08-18, relay #9935. A `cmd:` block containing f-string format specifiers (`{x:<30}`) and multi-line implicit concatenation came back as:\n    bash: gt: command not found\n    SyntaxError: invalid character '·' (U+00B7)\nThe `<` had become `&lt;` and the line joins had become `·`. Rewriting without `<` and without multi-line strings ran clean (#9937).\n\nThis is a silent CORRUPTION of an operator-authored command, not a rejection — the relay ran something different from what was written and reported the resulting syntax error as if the author had typed it. A session debugging that error looks at its own python first.",
+      "resolution_criteria": "Either transport the `cmd:` block without HTML-escaping (base64 the way the prop-report relay already carries its untrusted payload), or detect and refuse a block whose escaped form differs from the source and say so. DONE when a cmd block containing `{x:<30}` and a multi-line f-string executes byte-identically. Until then, note the constraint in docs/claude/diag-relay.md so the next session does not lose a round-trip to it.",
+      "evidence": {
+        "relays": {
+          "broken": 9935,
+          "working": 9937
+        },
+        "corruptions": [
+          "< -> &lt;",
+          "newline-join -> U+00B7"
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-UNGRADED-CELLS-DO-NOT-SURFACE-AT-THE-FLEET-LEVEL",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "a cell that hit the OOS-trades floor reads as measured at the fleet level — xrp's stale/giveback cells sat `insufficient_base` and nothing rolled that up",
+      "detail": "OBSERVED 2026-08-18. `stale8_lt0R` on `xrp_pullback_2h` carried `verdict: insufficient_base`, `would_have_been: is_oos_fail`, OOS base **23** trades against the floor of 25. The per-cell record is exemplary — `insufficient_base_why` even names the remedy verbatim ('THE BOUNDARY IS MISPLACED, NOT THE LEG ... re-run with a larger --split-target-oos'). The problem is that nothing surfaces it ABOVE the per-cell level.\n\nConsequence, measured: this leg's hold-conviction levers had never been graded, and the session-level reading was that they had been tried and had failed. I only found it by dumping raw verdicts.json after two failed structure guesses. Re-running at `--split-target-oos 50` graded all 14 cells (#9942) and gave a genuine answer.\n\n`insufficient_base` is the honest state and must stay — the defect is that it is invisible from the summary, so 'we tested it' and 'we could not test it' read the same at the level anyone actually reads.",
+      "resolution_criteria": "Surface an ungraded count in SUMMARY.md and in the sweep's stdout per leg — e.g. `xrp_pullback_2h: 14 cells, 4 UNGRADED (insufficient_base)` — and carry it in the fleet `selection` block beside `cells_tried`. A leg whose cells are majority-ungraded should not be reportable as assessed. DONE when a run containing an insufficient_base cell says so without opening the JSON.",
+      "evidence": {
+        "leg": "xrp_pullback_2h",
+        "cell": "stale8_lt0R",
+        "oos_base": 23,
+        "floor": 25,
+        "verdict": "insufficient_base",
+        "regraded_in_relay": 9942,
+        "cells_graded_after": 14
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-TEST-FAKES-THAT-DO-NOT-REFLECT-WRITES",
+      "severity": "medium",
+      "tier": "1 (tests)",
+      "area": "tests",
+      "title": "three order_monitor test fakes served a permanently-open row and never reflected update_trade — the class, not just the three instances",
+      "detail": "FOUND 2026-08-18 while making the close path package-wide (#9930). Three fakes (`test_close_retry_cooldown._FakeDB`, `test_strategy_monocle_partial_close_verdict._FakeDB`, and a third via the same shape) returned a trade row unconditionally — one ignored `filters` entirely — and recorded `update_trade` calls without applying them. A row could therefore never be observed to close.\n\nThat fiction was INVISIBLE while the close path resolved one leg by id and never re-read. The moment the code re-read to ask 'are any legs left?', three tests failed for a reason that had nothing to do with the change. One also mutated a module-level dict shared across tests once reflection was added, producing order-dependent failures.\n\nDirectly the pairs-suite lesson recorded in CLAUDE.md — tests that 'passed against a fictional table' — recurring in a different subsystem. Filing the CLASS because fixing three fakes does not stop the fourth.",
+      "resolution_criteria": "Audit the DB fakes across tests/ for two properties: (1) `get_trades` honours the `filters` it is passed, and (2) `update_trade` reflects at least `status` into what `get_trades` subsequently returns. Prefer a single shared in-memory fake over per-file ones — the three fixed here were three independent re-implementations of the same object. Consider a test that asserts the shared fake's `get_trades` respects a `status` filter, so the fake itself is covered. DONE when a new close-path test cannot pass against a row that never closes.",
+      "evidence": {
+        "fixed_in": "#9930",
+        "fakes": 3,
+        "properties_missing": [
+          "filters ignored",
+          "update_trade not reflected",
+          "module-level dict shared across tests"
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
     }
   ]
 }
