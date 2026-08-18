@@ -64,6 +64,63 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "prop_rule_distance.balance_basis",
+        "producer": "src/prop/prop_reconcile.py",
+        "producer_field": "balance_basis",
+        "consumer_token": (r"\bbalance_basis\b|\breconstruct_equity\b|"
+                           r"\bBALANCE_BASIS_STATES\b"),
+        "states": ["snapshot", "snapshot_plus_fills", "unavailable"],
+        "why": (
+            "The prop bridge has no broker feed, so the account-status "
+            "snapshot ages while CLOSED fills keep arriving with realized pnl. "
+            "compute_rule_distance now prefers snapshot+fills for the "
+            "static-DD cushion, and the basis must travel with the number or "
+            "the improvement is silent: `snapshot_plus_fills` is ESTIMATED "
+            "(operator-reported fills, so fees/swap are missing — most of the "
+            "$10 residual measured on breakout_1 2026-08-18) while `snapshot` "
+            "is the operator's own reported figure. `unavailable` is the one "
+            "that must never collapse into `snapshot`: it means the fills "
+            "stream could NOT be read, so the cushion is snapshot-only and may "
+            "be optimistic by an unknown amount — indistinguishable from a "
+            "correct snapshot-only reading unless the state says so. The "
+            "measured stakes: a stale snapshot rendered a $125.61 cushion to "
+            "an account-killer floor where the truth was $47.00."
+        ),
+    },
+    {
+        "name": "package_leg_coverage.verdict",
+        "producer": "src/runtime/package_leg_coverage.py",
+        "producer_field": "verdict",
+        # Scoped to THIS module's own tokens, never to the state words: the
+        # states include generic English ("managed", "divergent", "stranded")
+        # and the first cut matched three unrelated files — order_monitor's
+        # `journal_qty_divergent`, m31_mfe_parity, and a netting test. That is
+        # the exact coincidence-matching failure this guard's own comment below
+        # records from the `deferred`/`anchored` contract.
+        "consumer_token": (r"\bpackage_leg_coverage\b|\brun_package_leg_check\b|"
+                           r"\bpackage_leg_gaps\b"),
+        "states": ["managed", "divergent", "stranded", "linked_unresolvable"],
+        "why": (
+            "order_monitor drives exits per ORDER PACKAGE and resolves ONE "
+            "trade row from linked_trade_id, so a multi-account package's "
+            "sibling legs are unmanaged. The four states are four DIFFERENT "
+            "operator actions and collapsing any two loses the action: "
+            "`divergent` is a live package whose next modify will still miss a "
+            "leg (fixable by the repair); `stranded` is a package already "
+            "flipped to closed, which the loop's status=\"open\" filter can "
+            "never select again (needs a data repair on top of the fix); and "
+            "`linked_unresolvable` is *we could not identify the managed leg* "
+            "— emphatically NOT `managed`, which is the collapse that would "
+            "make an unreadable package read as a healthy one. `managed` "
+            "covers both the single-leg case and the multi-leg case whose "
+            "stops agree. A journal-read failure is NOT a verdict at all: "
+            "run_package_leg_check returns checked=False and latches nothing, "
+            "so an unreadable journal can never present as 'no package has a "
+            "gap'."
+        ),
+    },
+
+    {
         "name": "m20_corpus.lever_in_baseline",
         "producer": "scripts/research/m20_corpus_extract.py",
         "producer_field": "lever_in_baseline",

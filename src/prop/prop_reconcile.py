@@ -213,6 +213,95 @@ def _status_freshness(status: Dict[str, Any]) -> tuple:
     return age, "ok"
 
 
+#: Reconstruction states for the balance the rule-distance is computed from.
+#: NEVER collapsed — `unavailable` is *we could not look for later fills*,
+#: which is a different fact from `snapshot` (*we looked; there are none*).
+#: Registered with `collapsed-state-guard` as `prop_rule_distance.balance_basis`.
+BALANCE_BASIS_STATES = ("snapshot", "snapshot_plus_fills", "unavailable")
+
+
+def reconstruct_equity(
+    account_id: str, status: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Best available equity for the DD-floor distance: snapshot + later fills.
+
+    **Why this exists** (BL-20260818-PROP-RULE-DISTANCE-IGNORES-THE-FILLS-STREAM).
+    The manual bridge has no broker feed, so the account-status snapshot ages —
+    but the journal keeps receiving CLOSED prop fills, each carrying a realized
+    ``pnl``, and the cushion computed from the snapshot alone ignores every one
+    of them. Measured 2026-08-18 on ``breakout_1``: a 694h-old snapshot of
+    4825.61 rendered a $125.61 cushion to the $4700 static floor while two
+    closed fills reported since it (−18.06, −50.55) reconstruct 4757.00 against
+    an operator terminal truth of 4747.00 — the panel was 167% too generous
+    about the distance to an account-killer, and a two-row query in the same DB
+    would have got within $10.
+
+    Grading the snapshot ``stale`` (2026-08-14) was right and is kept; it is
+    just the weaker half. When a better NUMBER is available, the answer is the
+    better number, not a louder caveat on the worse one.
+
+    **Provenance:** the reconstruction is ESTIMATED, never measured — it is the
+    operator's reported snapshot plus the operator's reported fills, so it
+    inherits their gaps (fees and swap are not reported, which is most of the
+    $10 residual above). It is an improvement on a stale snapshot, NOT a
+    substitute for a fresh one, so the status-age nudge must still fire on age.
+
+    **Deliberately scoped to the DD floor, not the daily-loss limit.** The
+    static floor is a CUMULATIVE account-level line, so realized fills
+    accumulate straight into it. "Today" is not reconstructible from a stale
+    snapshot: without knowing where the day boundary falls relative to a
+    three-week-old ``day_start_balance``, summing fills into ``realized_today``
+    would manufacture a number rather than recover one.
+    """
+    equity = status.get("equity")
+    if equity is None:
+        equity = status.get("balance")
+    base = {
+        "balance_basis": "snapshot",
+        "fills_applied": 0,
+        "fills_pnl_usd": 0.0,
+        "equity_used_usd": equity,
+        "equity_provenance": "measured" if equity is not None else None,
+    }
+    snap_at = _parse_iso(status.get("reported_at"))
+    if equity is None or snap_at is None:
+        # Nothing to reconstruct FROM. Not an error, and not `unavailable`
+        # either — we are not failing to look, there is no anchor to look from.
+        return base
+    try:
+        fills = prop_journal.list_fills(account_id=account_id, limit=500)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_reconcile: fills read failed for %s: %s",
+                       account_id, exc)
+        return {**base, "balance_basis": "unavailable",
+                "fills_applied": None, "fills_pnl_usd": None,
+                "equity_provenance": None}
+
+    applied, total = 0, 0.0
+    for f in fills:
+        pnl = f.get("pnl")
+        if pnl is None:
+            continue  # an open/filled report carries no realized pnl
+        at = _parse_iso(f.get("reported_at"))
+        if at is None or at <= snap_at:
+            continue
+        try:
+            total += float(pnl)
+        except (TypeError, ValueError):
+            continue
+        applied += 1
+
+    if applied == 0:
+        return base
+    return {
+        "balance_basis": "snapshot_plus_fills",
+        "fills_applied": applied,
+        "fills_pnl_usd": round(total, 8),
+        "equity_used_usd": round(float(equity) + total, 8),
+        "equity_provenance": "estimated",
+    }
+
+
 def compute_rule_distance(
     account_id: str, status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -273,9 +362,16 @@ def compute_rule_distance(
         if (account_size is not None and max_dd_pct is not None) else None
     )
     equity_now = equity if equity is not None else balance
+    # Prefer snapshot + fills-reported-since over the snapshot alone. The basis
+    # travels in the returned dict so the improvement is never silent — a
+    # consumer must be able to tell an ESTIMATED cushion from a reported one.
+    recon = reconstruct_equity(account_id, status)
+    equity_used = recon.get("equity_used_usd")
+    if equity_used is None:
+        equity_used = equity_now
     distance_to_dd = (
-        equity_now - dd_floor
-        if (equity_now is not None and dd_floor is not None) else None
+        equity_used - dd_floor
+        if (equity_used is not None and dd_floor is not None) else None
     )
 
     return {
@@ -292,6 +388,15 @@ def compute_rule_distance(
         "max_drawdown_pct": max_dd_pct,
         "static_dd_floor_usd": dd_floor,
         "distance_to_dd_floor_usd": distance_to_dd,
+        # WHICH equity the DD distance was computed from, and how good it is.
+        # Read `balance_basis` before quoting the cushion: `snapshot_plus_fills`
+        # is ESTIMATED, and `unavailable` means later fills could not be read at
+        # all — the distance is then snapshot-only and may be optimistic.
+        "balance_basis": recon.get("balance_basis"),
+        "equity_used_usd": recon.get("equity_used_usd"),
+        "equity_provenance": recon.get("equity_provenance"),
+        "fills_applied_since_snapshot": recon.get("fills_applied"),
+        "fills_pnl_since_snapshot_usd": recon.get("fills_pnl_usd"),
         "status_present": bool(status),
         "status_age_hours": age_hours,
         "status_freshness": freshness,
@@ -303,4 +408,6 @@ __all__ = [
     "match_fill_to_ticket",
     "find_unacted_tickets",
     "compute_rule_distance",
+    "reconstruct_equity",
+    "BALANCE_BASIS_STATES",
 ]
