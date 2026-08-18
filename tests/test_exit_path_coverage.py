@@ -135,6 +135,12 @@ def test_trade_level_reachable_makes_it_live():
 # --------------------------------------------------------------------------
 # the telemetry sentinel must not be rendered as a measurement
 # --------------------------------------------------------------------------
+# collapsed-state: thin_window — this test is about the SENTINEL, not the
+# peak_state taxonomy. `thin_window` is named only because it is the state whose
+# rows carry the -1e18 value in production; the audit itself never branches on
+# peak_state at all (it branches on the magnitude of peak_r), so there is no
+# consumer here to collapse. The taxonomy's own coverage is pinned by
+# position_telemetry's tests.
 def test_coalesce_sentinel_is_refused_not_reported():
     tel = {"1": {"trade_id": "1", "peak_r": -1e18,
                  "peak_pct_of_cap": -7.6e19, "cap_r": 1.31,

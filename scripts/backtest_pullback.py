@@ -47,6 +47,13 @@ if str(_REPO_ROOT) in sys.path:
 sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+# The ONE definition of (r_to_stop, r_to_target, rr_from_here) — imported from
+# the LIVE telemetry module that computes it on the trader, so the `rr_floor`
+# lever below measures the same quantity production records rather than a
+# second derivation of it. The same import backtest_trend.py makes,
+# deliberately: two harnesses computing rr_from_here two ways is the defect
+# class _regime_score_semantics.py exists to prevent.
+from src.runtime.position_telemetry import r_distances  # noqa: E402
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
@@ -179,6 +186,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  tp_r: float = 50.0,
                  giveback_min_mfe_r: float = 0.0,
                  giveback_r: float = 1.0,
+                 rr_floor: float = 0.0,
                  trail_decay_arm_r: float = 0.0,
                  trail_decay_stall_bars: int = 0,
                  trail_decay_tight_mult: float = 0.0,
@@ -300,6 +308,36 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     # actually BINDS on this leg, from the leg's own frame. Empty when off.
 
     _tp_r_effective: List[float] = []
+    # M31 P5 precondition-3 `rr_floor` lever, ported from backtest_trend.py so
+    # the pullback family — which carries the live XRP short and 11 of the 22
+    # open trades measured price-only on 2026-08-18 — is testable at all. Its
+    # unit module implements only trail_decay of the four M20 mechanisms, so an
+    # rr_floor is the only decision-driven close its legs could realistically get.
+    #
+    # ⚠️ STRUCTURALLY UNMEASURABLE WITHOUT A CAPPED TP. `tp_price` is None when
+    # `tp_cap_pct <= 0`, so `r_to_target` does not exist and the lever CANNOT
+    # fire — such a run returns exactly-zero deltas byte-identical to a lever
+    # that WAS measured and does nothing. Kept on ONE line, because a
+    # hyphen-wrapped tracking id silently becomes a different id resolving to
+    # no filed row:
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    # `rr_floor_state` keeps the two apart and main() refuses the combination.
+    # Explicit branch, not a nested ternary, so every state literal sits on a
+    # line naming its field — what collapsed-state-guard requires of a
+    # registered contract, and how a reader greps for where a state comes from.
+    rr_floor_on = rr_floor > 0.0
+    if not rr_floor_on:
+        rr_floor_state = "off"
+    elif tp_cap_pct > 0.0:
+        rr_floor_state = "measurable"
+    else:
+        rr_floor_state = "unmeasurable_no_tp_cap"
+    # Per-trade MINIMUM rr_from_here while open — the lever's REACHABILITY
+    # diagnostic, computed whenever a capped TP exists and independently of
+    # `rr_floor`, since a floor F can only ever fire on a trade whose
+    # rr_min < F. These percentiles say which floors are testable at all BEFORE
+    # a sweep spends a fold on one.
+    _rr_min_per_trade: List[float] = []
     n = len(df)
     # Warm-up start: ensure the trend/pullback/ATR indicators AND (when a band
     # is set) the ADX are defined. ADX needs ~2×period bars to converge.
@@ -452,6 +490,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         ext = entry
         ext_j = i
         trail = sl
+        rr_min: Optional[float] = None
         exit_price: Optional[float] = None
         exit_reason = "timeout"
         exit_idx = min(i + timeout_bars, n - 1)
@@ -527,6 +566,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 mfe = max(mfe, (entry - ext) / risk)
 
         def _levers(px: float):
+            nonlocal rr_min
             # Lever exits read a CLOSE — the leg bar's in arm A, the
             # sub-bar's in B/C — and fire only when the stop did not hit
             # first, so stop-first stays intact at whichever grain the arm
@@ -543,6 +583,29 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             if (stale_exit_bars is not None and (j - i) >= stale_exit_bars
                     and o_r < stale_exit_below_r):
                 return px, "stale_stop"
+            # M31 P5 rr_floor. LAST in the precedence chain, so composing it
+            # with an already-declared lever cannot re-grade that lever's own
+            # recorded verdict.
+            #
+            # Live analogues, checked at the call site in
+            # `htf_pullback_trend_2h.monitor()` rather than assumed:
+            #   stop   -> `trail`     (the CURRENT trailed stop, live `stop=sl`)
+            #   target -> `tp_price`  (the VENUE-CAPPED tp, live `open_pkg["tp"]`)
+            #
+            # `rr_min` is recorded HERE rather than on every bar, which places
+            # it after the intrabar stop/TP break: a bar that fills the TP exits
+            # without recording an rr. That is deliberate — at the target
+            # rr_from_here -> 0, so counting it would drive rr_min to ~0 for
+            # every TP winner and report every floor as trivially reachable.
+            # rr_min covers the bars on which a decision actually existed.
+            if tp_price is not None:
+                _, _, _rr = r_distances(price=px, stop=trail, target=tp_price,
+                                        risk=risk,
+                                        is_long=(direction == "long"))
+                if _rr is not None:
+                    rr_min = _rr if rr_min is None else min(rr_min, _rr)
+                    if rr_floor_on and _rr < rr_floor:
+                        return px, "rr_floor_exit"
             return None
 
         for j in range(i + 1, min(i + timeout_bars + 1, n)):
@@ -603,6 +666,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 exit_price, exit_reason = hit[0], hit[1]
                 exit_idx = j
                 break
+        if rr_min is not None:
+            _rr_min_per_trade.append(rr_min)
         if exit_price is None:
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
@@ -680,6 +745,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     if stale_exit_bars is not None:
         params["stale_exit_bars"] = stale_exit_bars
         params["stale_exit_below_r"] = stale_exit_below_r
+    if rr_floor_on:
+        params["rr_floor"] = rr_floor
     if flip_exit_bars is not None:
         params["flip_exit_bars"] = flip_exit_bars
     if bank_frac > 0.0:
@@ -694,7 +761,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
-                      tp_r_effective=_tp_r_effective)
+                      tp_r_effective=_tp_r_effective,
+                      rr_min_per_trade=_rr_min_per_trade,
+                      rr_floor_state=rr_floor_state)
     # The exit grain the numbers above were produced at, plus how much of the
     # leg-bar population the finer frame ACTUALLY covered. A verdict over an
     # unstated denominator is the failure this reports around: an arm that
@@ -736,6 +805,8 @@ def _fee_r(t: Trade) -> float:
 
 def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
                tp_r_effective: Optional[List[float]] = None,
+               rr_min_per_trade: Optional[List[float]] = None,
+               rr_floor_state: str = "off",
                symbol: str, params: Dict[str, Any]) -> Dict[str, Any]:
     n = len(trades)
     base: Dict[str, Any] = {
@@ -755,6 +826,28 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     base["tp_r_effective_median"] = (round(_tpe[len(_tpe) // 2], 3) if _tpe else None)
     base["tp_r_effective_min"] = (round(_tpe[0], 3) if _tpe else None)
     base["tp_r_effective_max"] = (round(_tpe[-1], 3) if _tpe else None)
+    # Three states, never collapsed (collapsed-state-guard: trend_harness.
+    # rr_floor_state — the same contract, since this is the same lever):
+    #   off                    - not requested
+    #   measurable             - requested WITH a capped TP, so it could fire
+    #   unmeasurable_no_tp_cap - requested with NO capped TP, so the lever
+    #                            cannot fire and a zero delta is NOT a
+    #                            measurement of it
+    # The third is the whole point. Without it an inert run is byte-identical
+    # to a measured no-op, which is exactly how a shipped lever re-swept
+    # against itself read as a no-op -- id on its own line, never wrapped:
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    base["rr_floor_state"] = rr_floor_state
+    # Lowest rr_from_here per trade -> which floors are reachable AT ALL. None
+    # (never 0.0) when unmeasured: "we did not look" and "the ratio reached
+    # zero" are opposite statements, and a fabricated 0.0 would report every
+    # floor as reachable.
+    _rrm = sorted(rr_min_per_trade or [])
+    base["rr_min_n"] = len(_rrm)
+    base["rr_min_p10"] = (round(_rrm[int(0.10 * (len(_rrm) - 1))], 3) if _rrm else None)
+    base["rr_min_median"] = (round(_rrm[len(_rrm) // 2], 3) if _rrm else None)
+    base["rr_min_p90"] = (round(_rrm[int(0.90 * (len(_rrm) - 1))], 3) if _rrm else None)
+    base["rr_floor_exits"] = sum(1 for t in trades if t.outcome == "rr_floor_exit")
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
@@ -927,6 +1020,15 @@ def main(argv: List[str]) -> int:
                         "this many R (0=off, legacy behaviour).")
     p.add_argument("--giveback-r", type=float, default=1.0,
                    help="R surrendered from the peak that triggers the exit (default 1.0).")
+    p.add_argument("--rr-floor", type=float, default=0.0,
+                   help="M31 P5 candidate (0=off, byte-identical): close at bar "
+                        "CLOSE once rr_from_here = r_to_target / r_to_stop falls "
+                        "below this -- the remaining upside to the capped TP no "
+                        "longer justifies the give-back to the current stop. "
+                        "REQUIRES --tp-cap-pct > 0 (production uses 0.099); "
+                        "without a capped TP there is no r_to_target and the "
+                        "lever cannot fire. Read rr_min_p10/median/p90 in the "
+                        "summary to see which floors are reachable at all.")
     p.add_argument("--trail-decay-arm-r", type=float, default=0.0,
                    help="M20 P4.1 trail-decay: tighten the trail once peak open profit "
                         "reaches this many R (0=off).")
@@ -989,6 +1091,17 @@ def main(argv: List[str]) -> int:
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
     args = p.parse_args(argv[1:])
+    # Refuse the combination that would produce an INERT run indistinguishable
+    # from a measured no-op — the shape of
+    # BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP
+    # (kept on ONE line: a wrapped tracking id resolves to no filed row).
+    # Refusing costs one command line; a silent inert row costs a wrong verdict.
+    if args.rr_floor > 0.0 and args.tp_cap_pct <= 0.0:
+        print("ERROR: --rr-floor requires --tp-cap-pct > 0 (production uses "
+              "0.099). Without a capped TP there is no r_to_target, so the "
+              "lever cannot fire and the run would report a zero delta that is "
+              "NOT a measurement of it.", file=sys.stderr)
+        return 2
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     # Mandatory venue-aware cost policy (operator directive 2026-08-04): a faithful
     # backtest is net-of-real-cost by default. Unset flags resolve to the venue-aware
@@ -1053,6 +1166,7 @@ def main(argv: List[str]) -> int:
                        tp_cap_pct=args.tp_cap_pct, tp_r=args.tp_r,
                        giveback_min_mfe_r=args.giveback_min_mfe_r,
                        giveback_r=args.giveback_r,
+                       rr_floor=args.rr_floor,
                        trail_decay_arm_r=args.trail_decay_arm_r,
                        trail_decay_stall_bars=args.trail_decay_stall_bars,
                        trail_decay_tight_mult=args.trail_decay_tight_mult,

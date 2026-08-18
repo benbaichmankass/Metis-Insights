@@ -194,6 +194,31 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        # The SAME lever, ported to the pullback harness 2026-08-18. Registered
+        # separately rather than by widening the trend contract's `producer`,
+        # because a contract naming two producers cannot say WHICH one dropped
+        # a state — and the port is precisely where the two are free to
+        # diverge. The pullback family is also the one that needs the lever
+        # most: it carries 11 of the 22 open trades measured with no
+        # decision-driven exit path at all on 2026-08-18, and its unit module
+        # implements exactly one of the four M20 close mechanisms.
+        "name": "pullback_harness.rr_floor_state",
+        "producer": "scripts/backtest_pullback.py",
+        "producer_field": "rr_floor_state",
+        "consumer_token": r"\brr_floor_state\b|\brr_floor\b",
+        "states": ["off", "measurable", "unmeasurable_no_tp_cap"],
+        "why": (
+            "Identical reasoning to trend_harness.rr_floor_state below: with "
+            "`tp_cap_pct <= 0` there is no `r_to_target`, so the lever CANNOT "
+            "fire and the run returns exactly-zero deltas byte-identical to a "
+            "lever that was measured and genuinely does nothing. `off` = no "
+            "floor requested; `measurable` = a floor AND a capped TP, so it "
+            "could fire; `unmeasurable_no_tp_cap` = a floor was asked for and "
+            "the lever could not run — we did not measure it, which is not "
+            "the same as measuring no effect."
+        ),
+    },
+    {
         "name": "trend_harness.rr_floor_state",
         "producer": "scripts/backtest_trend.py",
         "producer_field": "rr_floor_state",
