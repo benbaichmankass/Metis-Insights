@@ -32,10 +32,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.llm.scope_guard import resolve_paths  # noqa: E402
 
 SCHEMA_VERSION = 1
-DEFAULT_BASE_URL = "https://api.cerebras.ai/v1"
-DEFAULT_MODEL = "llama3.1-8b"
-DEFAULT_MAX_OUTPUT_TOKENS = 2000
+DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+DEFAULT_MODEL = "gemini-3.6-flash"
+# Backend chosen 2026-08-18 after Cerebras returned HTTP 402 payment_required on
+# this account: the widely-quoted "1M tokens/day free" figure came from
+# third-party blogs, not Cerebras docs, and does not hold here. Gemini is the
+# default because its key is already in use by this repo's course-generation
+# workflows, so it is proven working AND proven free-tier on this account.
+# Cerebras stays selectable via the workflow's `backend` input.
+# Thinking models (Gemini 3.x, gpt-oss) spend reasoning tokens against this
+# same budget BEFORE emitting a visible answer. Measured 2026-08-18: a 1200
+# cap yielded 1149 reasoning tokens and 47 visible ones, truncated mid-word.
+# The default is therefore sized for reasoning + answer, not answer alone.
+DEFAULT_MAX_OUTPUT_TOKENS = 8000
 REQUEST_TIMEOUT_S = 120
+
+# Retried ONLY for classes that plausibly resolve on their own. A 4xx that is
+# not 429 means the request itself is wrong (bad model id, bad key, payment
+# required) and retrying it just burns quota and hides the cause.
+RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 3
+BACKOFF_S = (2, 6)
 
 SYSTEM_PROMPT = (
     "You are a delegated worker for a software engineering task. You are given "
@@ -71,42 +88,51 @@ def build_prompt(instruction: str, files: list[tuple[str, str]]) -> str:
     return "\n".join(parts)
 
 
-def call_model(prompt: str, *, base_url, model, api_key, max_tokens) -> tuple[dict | None, str | None]:
-    """Returns (payload, error). Exactly one is non-None."""
+def call_model(prompt: str, *, base_url, model, api_key, max_tokens):
+    """Returns (payload, error, attempts). Exactly one of payload/error is None."""
     import httpx
 
-    try:
-        r = httpx.post(
-            f"{base_url.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                "max_tokens": max_tokens,
-                "temperature": 0.2,
-            },
-            timeout=REQUEST_TIMEOUT_S,
-        )
-    except Exception as exc:  # noqa: BLE001 — surface the class, never swallow
-        return None, f"transport error calling {base_url}: {type(exc).__name__}: {exc}"
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": max_tokens,
+        "temperature": 0.2,
+    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    if r.status_code == 429:
-        # Loud on purpose: a quota-exhausted run must never look like an
-        # answered task with nothing to say.
-        return None, f"rate limited / quota exhausted (HTTP 429): {r.text[:400]}"
-    if r.status_code >= 400:
-        return None, f"backend returned HTTP {r.status_code}: {r.text[:400]}"
+    last = "no attempt was made"
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            r = httpx.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 — surface the class, never swallow
+            last = f"transport error calling {base_url}: {type(exc).__name__}: {exc}"
+            if attempt < MAX_ATTEMPTS:
+                time.sleep(BACKOFF_S[attempt - 1])
+                continue
+            return None, f"{last} (after {attempt} attempts)", attempt
 
-    try:
-        return r.json(), None
-    except Exception as exc:  # noqa: BLE001
-        return None, f"backend returned non-JSON: {type(exc).__name__}: {r.text[:200]}"
+        if r.status_code in RETRYABLE_STATUS:
+            kind = "rate limited / quota exhausted" if r.status_code == 429 else "backend unavailable"
+            last = f"{kind} (HTTP {r.status_code}): {r.text[:300]}"
+            if attempt < MAX_ATTEMPTS:
+                time.sleep(BACKOFF_S[attempt - 1])
+                continue
+            return None, f"{last} (after {attempt} attempts)", attempt
+
+        if r.status_code >= 400:
+            # Not retryable: the request itself is wrong. Fail on attempt 1.
+            return None, f"backend returned HTTP {r.status_code}: {r.text[:400]}", attempt
+
+        try:
+            return r.json(), None, attempt
+        except Exception as exc:  # noqa: BLE001
+            return None, f"backend returned non-JSON: {type(exc).__name__}: {r.text[:200]}", attempt
+
+    return None, last, MAX_ATTEMPTS
 
 
 def run(spec: dict, repo_root: Path) -> dict:
@@ -149,21 +175,23 @@ def run(spec: dict, repo_root: Path) -> dict:
     prompt = build_prompt(instruction, files)
 
     t0 = time.monotonic()
-    payload, err = call_model(prompt, base_url=base_url, model=model,
-                              api_key=api_key, max_tokens=max_tokens)
+    payload, err, attempts = call_model(prompt, base_url=base_url, model=model,
+                                        api_key=api_key, max_tokens=max_tokens)
     elapsed = round(time.monotonic() - t0, 2)
 
     if err:
         return envelope(task_id, "failed", err, backend=backend, scope=scope,
-                        duration_s=elapsed)
+                        duration_s=elapsed, attempts=attempts)
 
     try:
-        output = payload["choices"][0]["message"]["content"]
+        choice = payload["choices"][0]
+        output = choice["message"]["content"]
+        finish_reason = choice.get("finish_reason")
     except (KeyError, IndexError, TypeError):
         return envelope(task_id, "failed",
                         f"backend response missing choices[0].message.content: "
                         f"{json.dumps(payload)[:300]}",
-                        backend=backend, scope=scope, duration_s=elapsed)
+                        backend=backend, scope=scope, duration_s=elapsed, attempts=attempts)
 
     if not (output or "").strip():
         # An empty completion is a FAILURE, not an empty answer.
@@ -172,8 +200,28 @@ def run(spec: dict, repo_root: Path) -> dict:
                         backend=backend, scope=scope, duration_s=elapsed,
                         usage=payload.get("usage"))
 
+    usage = payload.get("usage") or {}
+
+    # A response cut off at the token ceiling is NOT a completed answer. Saying
+    # "completed" over a mid-sentence truncation is the same class of error as
+    # an empty completion reading as "found nothing" — the reader cannot tell
+    # the model finished from the model being silenced. The partial text is
+    # still returned so nothing is lost, but the status is honest.
+    if finish_reason == "length":
+        visible = usage.get("completion_tokens")
+        total = usage.get("total_tokens")
+        detail = f" (visible completion_tokens={visible}, total_tokens={total};" \
+                 " a thinking model spends reasoning tokens against the same" \
+                 " budget — raise max_output_tokens)" if visible is not None else ""
+        return envelope(task_id, "failed",
+                        f"response truncated at the token ceiling{detail}",
+                        backend=backend, scope=scope, duration_s=elapsed,
+                        usage=usage, finish_reason=finish_reason,
+                        attempts=attempts, output=output)
+
     return envelope(task_id, "completed", None, backend=backend, scope=scope,
-                    duration_s=elapsed, usage=payload.get("usage"), output=output)
+                    duration_s=elapsed, usage=usage,
+                    finish_reason=finish_reason, attempts=attempts, output=output)
 
 
 def main() -> int:

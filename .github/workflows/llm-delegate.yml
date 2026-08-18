@@ -25,11 +25,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "preflight | delegate"
+        description: "preflight | models | delegate"
         required: true
         default: "preflight"
         type: choice
-        options: [preflight, delegate]
+        options: [preflight, models, delegate]
       task_id:
         description: "Short id for this subtask (audit + artifact name)."
         required: false
@@ -45,10 +45,21 @@ on:
       max_output_tokens:
         description: "Output token ceiling for this task."
         required: false
-        default: "2000"
+        default: "8000"
+      model:
+        description: "Backend model id. Blank uses the backend's default."
+        required: false
+        default: ""
+      backend:
+        description: "gemini (free tier, default) | cerebras (payment-gated on this account as of 2026-08-18)"
+        required: false
+        default: "gemini"
+        type: choice
+        options: [gemini, cerebras]
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: llm-delegate
@@ -74,13 +85,11 @@ jobs:
       - name: Preflight — which backend secrets are wired?
         env:
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          LLM_DELEGATE_API_KEY: ${{ secrets.LLM_DELEGATE_API_KEY }}
         run: |
           set -uo pipefail
           echo "=== backend secret presence (names only, never values) ==="
-          for n in CEREBRAS_API_KEY GROQ_API_KEY GEMINI_API_KEY LLM_DELEGATE_API_KEY; do
+          for n in CEREBRAS_API_KEY GEMINI_API_KEY; do
             if [ -n "${!n:-}" ]; then
               echo "  $n: SET"
             else
@@ -90,6 +99,39 @@ jobs:
           echo
           echo "Scope: public repo code + docs only, enforced by scripts/llm/scope_guard.py"
 
+      # Ask the backend what it actually serves. The first delegate run failed
+      # with model_not_found because the default id was taken from a search
+      # result rather than verified here — this step is the fix for the class,
+      # not just the instance.
+      # Ask the backend what it actually serves. The first delegate run failed
+      # with model_not_found because the default id came from a search result
+      # rather than from here — this step fixes the class, not the instance.
+      - name: List backend models
+        if: inputs.mode == 'models'
+        env:
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BACKEND: ${{ inputs.backend }}
+        run: |
+          set -uo pipefail
+          python3 - <<'PY'
+          import os, httpx
+          backend = os.environ.get("BACKEND") or "gemini"
+          if backend == "cerebras":
+              url, key = "https://api.cerebras.ai/v1/models", os.environ.get("CEREBRAS_API_KEY", "")
+          else:
+              url, key = ("https://generativelanguage.googleapis.com/v1beta/openai/models",
+                          os.environ.get("GEMINI_API_KEY", ""))
+          if not key:
+              raise SystemExit(f"::error::no API key for backend {backend!r}")
+          r = httpx.get(url, headers={"Authorization": f"Bearer {key}"}, timeout=30)
+          print(f"backend={backend} HTTP {r.status_code}")
+          if r.status_code >= 400:
+              raise SystemExit(f"::error::models list failed: {r.text[:300]}")
+          for m in r.json().get("data", []):
+              print("  ", m.get("id"))
+          PY
+
       - name: Run delegated subtask
         if: inputs.mode == 'delegate'
         env:
@@ -97,8 +139,9 @@ jobs:
           # Groq as failover. Both are OpenAI-shaped, so only the base URL
           # and model change.
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          LLM_DELEGATE_API_KEY: ${{ secrets.LLM_DELEGATE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BACKEND: ${{ inputs.backend }}
+          MODEL_IN: ${{ inputs.model }}
           TASK_ID: ${{ inputs.task_id }}
           INSTRUCTION: ${{ inputs.instruction }}
           PATHS: ${{ inputs.paths }}
@@ -106,23 +149,26 @@ jobs:
         run: |
           set -uo pipefail
 
-          if   [ -n "${LLM_DELEGATE_API_KEY:-}" ]; then
-            LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
-            LLM_DELEGATE_MODEL="llama3.1-8b"
-          elif [ -n "${CEREBRAS_API_KEY:-}" ]; then
-            export LLM_DELEGATE_API_KEY="$CEREBRAS_API_KEY"
-            LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
-            LLM_DELEGATE_MODEL="llama3.1-8b"
-          elif [ -n "${GROQ_API_KEY:-}" ]; then
-            export LLM_DELEGATE_API_KEY="$GROQ_API_KEY"
-            LLM_DELEGATE_BASE_URL="https://api.groq.com/openai/v1"
-            LLM_DELEGATE_MODEL="llama-3.1-8b-instant"
-          else
-            echo "::error::no backend secret is set — run mode=preflight to see which names are wired"
+          case "${BACKEND:-gemini}" in
+            cerebras)
+              KEY="${CEREBRAS_API_KEY:-}"
+              LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
+              DEF_MODEL="gpt-oss-120b"
+              ;;
+            *)
+              KEY="${GEMINI_API_KEY:-}"
+              LLM_DELEGATE_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
+              DEF_MODEL="gemini-3.6-flash"
+              ;;
+          esac
+          if [ -z "$KEY" ]; then
+            echo "::error::no API key for backend '${BACKEND:-gemini}' — run mode=preflight"
             exit 1
           fi
-          export LLM_DELEGATE_BASE_URL LLM_DELEGATE_MODEL
-          echo "backend: $LLM_DELEGATE_BASE_URL  model: $LLM_DELEGATE_MODEL"
+          export LLM_DELEGATE_API_KEY="$KEY"
+          export LLM_DELEGATE_BASE_URL
+          export LLM_DELEGATE_MODEL="${MODEL_IN:-$DEF_MODEL}"
+          echo "backend: $LLM_DELEGATE_BASE_URL  model: ${LLM_DELEGATE_MODEL:-<delegate.py default>}"
 
           # The untrusted inputs ride through env into a JSON builder — never
           # inline-interpolated into the shell or the YAML.
@@ -145,6 +191,32 @@ jobs:
           rc=$?
           echo "delegate exit code: $rc"
           exit $rc
+
+      # Post the envelope to the result-log issue (#9944). Reading a run's logs
+      # costs ~10k tokens and needs a run id; an issue comment is one cheap
+      # read. Safe here because delegate output is derived from public code +
+      # docs only — the scope guard refuses anything else before the model is
+      # called.
+      - name: Post result to the result-log issue
+        if: inputs.mode == 'delegate' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK_ID: ${{ inputs.task_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          f="/tmp/out/${TASK_ID}.json"
+          if [ ! -f "$f" ]; then
+            body="⚠️ \`${TASK_ID}\` — no envelope was written. The job died before delegate.py produced one. Run: ${RUN_URL}"
+          else
+            # Truncate defensively: a comment body is capped at 65536 chars.
+            body="$(printf '### \`%s\`\n\n[run](%s)\n\n```json\n%s\n```\n' \
+                    "$TASK_ID" "$RUN_URL" "$(head -c 60000 "$f")")"
+          fi
+          printf '%s\n' "$body" > /tmp/comment.md
+          gh issue comment 9944 --repo "${GITHUB_REPOSITORY}" --body-file /tmp/comment.md \
+            && echo "posted to issue #9944" \
+            || echo "::warning::could not post result comment (the envelope is still in the run log + artifact)"
 
       - name: Upload result envelope
         if: inputs.mode == 'delegate' && always()
