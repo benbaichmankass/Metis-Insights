@@ -25,11 +25,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "preflight | delegate"
+        description: "preflight | models | delegate"
         required: true
         default: "preflight"
         type: choice
-        options: [preflight, delegate]
+        options: [preflight, models, delegate]
       task_id:
         description: "Short id for this subtask (audit + artifact name)."
         required: false
@@ -46,6 +46,10 @@ on:
         description: "Output token ceiling for this task."
         required: false
         default: "2000"
+      model:
+        description: "Backend model id. Blank uses the default; run mode=models to see valid ids."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -74,13 +78,11 @@ jobs:
       - name: Preflight — which backend secrets are wired?
         env:
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          LLM_DELEGATE_API_KEY: ${{ secrets.LLM_DELEGATE_API_KEY }}
         run: |
           set -uo pipefail
           echo "=== backend secret presence (names only, never values) ==="
-          for n in CEREBRAS_API_KEY GROQ_API_KEY GEMINI_API_KEY LLM_DELEGATE_API_KEY; do
+          for n in CEREBRAS_API_KEY GEMINI_API_KEY; do
             if [ -n "${!n:-}" ]; then
               echo "  $n: SET"
             else
@@ -90,6 +92,30 @@ jobs:
           echo
           echo "Scope: public repo code + docs only, enforced by scripts/llm/scope_guard.py"
 
+      # Ask the backend what it actually serves. The first delegate run failed
+      # with model_not_found because the default id was taken from a search
+      # result rather than verified here — this step is the fix for the class,
+      # not just the instance.
+      - name: List backend models
+        if: inputs.mode == 'models'
+        env:
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+        run: |
+          set -uo pipefail
+          python3 - <<'PY'
+          import json, os, httpx
+          key = os.environ.get("CEREBRAS_API_KEY", "")
+          if not key:
+              raise SystemExit("::error::CEREBRAS_API_KEY is not set")
+          r = httpx.get("https://api.cerebras.ai/v1/models",
+                        headers={"Authorization": f"Bearer {key}"}, timeout=30)
+          print(f"HTTP {r.status_code}")
+          if r.status_code >= 400:
+              raise SystemExit(f"::error::models list failed: {r.text[:300]}")
+          for m in r.json().get("data", []):
+              print("  ", m.get("id"))
+          PY
+
       - name: Run delegated subtask
         if: inputs.mode == 'delegate'
         env:
@@ -97,8 +123,7 @@ jobs:
           # Groq as failover. Both are OpenAI-shaped, so only the base URL
           # and model change.
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          LLM_DELEGATE_API_KEY: ${{ secrets.LLM_DELEGATE_API_KEY }}
+          MODEL_IN: ${{ inputs.model }}
           TASK_ID: ${{ inputs.task_id }}
           INSTRUCTION: ${{ inputs.instruction }}
           PATHS: ${{ inputs.paths }}
@@ -106,23 +131,15 @@ jobs:
         run: |
           set -uo pipefail
 
-          if   [ -n "${LLM_DELEGATE_API_KEY:-}" ]; then
-            LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
-            LLM_DELEGATE_MODEL="llama3.1-8b"
-          elif [ -n "${CEREBRAS_API_KEY:-}" ]; then
-            export LLM_DELEGATE_API_KEY="$CEREBRAS_API_KEY"
-            LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
-            LLM_DELEGATE_MODEL="llama3.1-8b"
-          elif [ -n "${GROQ_API_KEY:-}" ]; then
-            export LLM_DELEGATE_API_KEY="$GROQ_API_KEY"
-            LLM_DELEGATE_BASE_URL="https://api.groq.com/openai/v1"
-            LLM_DELEGATE_MODEL="llama-3.1-8b-instant"
-          else
-            echo "::error::no backend secret is set — run mode=preflight to see which names are wired"
+          if [ -z "${CEREBRAS_API_KEY:-}" ]; then
+            echo "::error::CEREBRAS_API_KEY is not set — run mode=preflight"
             exit 1
           fi
-          export LLM_DELEGATE_BASE_URL LLM_DELEGATE_MODEL
-          echo "backend: $LLM_DELEGATE_BASE_URL  model: $LLM_DELEGATE_MODEL"
+          export LLM_DELEGATE_API_KEY="$CEREBRAS_API_KEY"
+          export LLM_DELEGATE_BASE_URL="https://api.cerebras.ai/v1"
+          export LLM_DELEGATE_MODEL="${MODEL_IN:-}"
+          [ -z "$LLM_DELEGATE_MODEL" ] && unset LLM_DELEGATE_MODEL
+          echo "backend: $LLM_DELEGATE_BASE_URL  model: ${LLM_DELEGATE_MODEL:-<delegate.py default>}"
 
           # The untrusted inputs ride through env into a JSON builder — never
           # inline-interpolated into the shell or the YAML.
