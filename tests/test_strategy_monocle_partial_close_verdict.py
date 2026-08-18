@@ -83,6 +83,10 @@ class _FakeTrade:
         self.trade_id = trade_id
         self.position_size = position_size
         self._notes = notes or {}
+        # 2026-08-18: the row now carries the fields the package-leg resolver
+        # filters on. Without a `status` the fake served a permanently-open
+        # row, so a package could never be observed to drain.
+        self.status = "open"
 
     def as_row(self):
         return {
@@ -92,6 +96,9 @@ class _FakeTrade:
             "account_id": "bybit_2",
             "symbol": "BTCUSDT",
             "strategy_name": "vwap",
+            "status": self.status,
+            "order_package_id": "pkg-1",
+            "is_backtest": 0,
         }
 
 
@@ -115,6 +122,11 @@ class _FakeDB:
             for k, v in updates.items():
                 if k == "position_size":
                     self._trade.position_size = v
+                elif k == "status":
+                    # Reflect the close. The old fake recorded the write and
+                    # left the row "open", which was invisible while the close
+                    # path resolved one leg by id and never re-read.
+                    self._trade.status = v
                 elif k == "notes":
                     try:
                         self._trade._notes = json.loads(v) if v else {}
@@ -129,6 +141,9 @@ class _FakeDB:
         if "id" in filt and int(filt["id"]) != self._trade.trade_id:
             return []
         if "status" in filt and filt.get("status") != row.get("status", "open"):
+            return []
+        if ("order_package_id" in filt
+                and filt["order_package_id"] != row.get("order_package_id")):
             return []
         return [row]
 

@@ -63,23 +63,44 @@ class _FakeDB:
     """Minimal db surface used by _apply_update's close branch."""
 
     def __init__(self, trade):
-        self._trade = trade
+        # COPY: update_trade now reflects the close onto this row, and the
+        # callers pass a module-level literal — sharing it would leak a
+        # `status: closed` into every later test in the file.
+        self._trade = dict(trade)
         self.pkg_updates = []
         self.trade_updates = []
 
-    def get_trades(self, filters=None):
-        return [dict(self._trade)]
+    def get_trades(self, filters=None, limit=None):
+        # 2026-08-18: this fake used to return the row unconditionally and
+        # never reflect `update_trade`, so the row was permanently "open" no
+        # matter what the code under test did. That fiction was invisible
+        # while the close path resolved ONE leg by id and never re-read; the
+        # package-wide fix re-reads to decide whether any leg remains, so an
+        # unfaithful fake now reports a package that never drains. Honour the
+        # filters and the recorded status — the pairs-suite lesson about tests
+        # passing against a schema production does not have.
+        if self._trade.get("status") == "closed":
+            return []
+        row = dict(self._trade)
+        for k, v in (filters or {}).items():
+            if str(row.get(k)) != str(v):
+                return []
+        return [row]
 
     def update_order_package(self, pkg_id, updates):
         self.pkg_updates.append((pkg_id, updates))
 
     def update_trade(self, tid, updates):
         self.trade_updates.append((tid, updates))
+        if str(tid) == str(self._trade.get("id")):
+            self._trade.update(updates)
 
 
 _MATCHED = {
     "id": 2832, "account_id": "ib_paper", "symbol": "MHG",
     "direction": "long", "position_size": 3,
+    # Required by the package-leg resolver's filters (2026-08-18).
+    "status": "open", "order_package_id": "pkg-f58a249d", "is_backtest": 0,
 }
 _OPEN_PKG = {
     "order_package_id": "pkg-f58a249d", "linked_trade_id": 2832,
@@ -194,11 +215,27 @@ def test_close_fail_streak_reset_on_success(monkeypatch):
     om._CLOSE_FAIL_STREAK.clear()
     alerts = []
     monkeypatch.setattr(ed, "enqueue_close_failure", lambda **kw: alerts.append(kw))
-    # fail (streak 1) → success (clears) → fail (streak 1) — never reaches 2.
+    # fail (streak 1) → success (clears) → fail on a LATER position (streak 1
+    # again) — never reaches 2.
+    #
+    # Restructured 2026-08-18: this used to drive three calls against one
+    # _FakeDB, which worked only because the fake never reflected the close and
+    # so served a permanently-open row. Now that the close is reflected (the
+    # package-wide path re-reads to decide whether any leg remains), the third
+    # call has to act on a genuinely new position — which is also the property
+    # actually worth pinning: a cleared streak must start FRESH for the next
+    # position on the same (account, symbol, direction), not resume.
     _patch_close(monkeypatch, [_GENERIC_FAIL, _OK, _GENERIC_FAIL])
+    key = ("ib_paper", "MHG", "long")
+
     db = _FakeDB(_MATCHED)
-    for _ in range(3):
-        om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    assert om._CLOSE_FAIL_STREAK[key] == 1
+
+    om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    assert key not in om._CLOSE_FAIL_STREAK, "a confirmed close must clear it"
+
+    db2 = _FakeDB(_MATCHED)  # a later position on the same signature
+    om._apply_update(db2, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
     assert alerts == []
-    assert ("ib_paper", "MHG", "long") in om._CLOSE_FAIL_STREAK
-    assert om._CLOSE_FAIL_STREAK[("ib_paper", "MHG", "long")] == 1
+    assert om._CLOSE_FAIL_STREAK[key] == 1
