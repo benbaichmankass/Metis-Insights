@@ -289,3 +289,35 @@ def test_tightening_did_not_break_legitimate_paths(repo, rel):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("x")
     assert classify(rel, repo).verdict == "allowed", f"{rel} should still be allowed"
+
+
+# --- regression: coverage gaps found by the delegate (issue #9944,
+#     n3-testgap-guard). All five were real gaps in this suite.
+
+def test_resolve_paths_refuses_a_batch_containing_a_missing_file(repo):
+    """classify's `missing` was tested; resolve_paths' branch for it was not."""
+    _, refusal = resolve_paths(["src/web/main.py", "src/nope.py"], repo)
+    assert refusal is not None and "not found" in refusal
+
+
+def test_resolve_paths_enforces_the_batch_byte_ceiling(repo):
+    """Each file under the per-file cap, the batch over the total cap."""
+    from scripts.llm.scope_guard import MAX_FILE_BYTES, MAX_TOTAL_BYTES
+    names = []
+    per = MAX_FILE_BYTES - 1024
+    for i in range((MAX_TOTAL_BYTES // per) + 2):
+        n = f"src/big{i}.py"
+        (repo / n).write_text("x" * per)
+        names.append(n)
+    _, refusal = resolve_paths(names, repo)
+    assert refusal is not None and "MAX_TOTAL_BYTES" in refusal
+
+
+def test_refusal_message_truncates_a_long_denied_list(repo):
+    _, refusal = resolve_paths([f".env{i}" for i in range(15)], repo)
+    assert refusal is not None and "and 5 more" in refusal
+
+
+@pytest.mark.parametrize("rel", ["", "   ", "./", "."])
+def test_empty_or_dot_paths_are_denied(repo, rel):
+    assert classify(rel, repo).verdict == "denied"

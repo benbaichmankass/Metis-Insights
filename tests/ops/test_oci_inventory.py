@@ -119,3 +119,35 @@ def test_markdown_renders_a_row_per_finding():
               "ampere_budget": ampere_budget(live), "diff": diff(live, exp)}
     md = to_markdown(report)
     assert "`live`" in md and "`extra`" in md and "undeclared" in md
+
+
+# --- regression: bugs found by the delegate reviewing this file -------------
+# Source: issue #9944, n3-bugfind-ociinv (2026-08-18). All three were real.
+
+def test_duplicate_display_names_are_flagged_not_silently_dropped():
+    """OCI does not enforce unique display_name; a name-keyed diff loses dupes.
+
+    The silent version rendered two boxes as one and reported clean.
+    """
+    live = [inst("gateway", ocpus=1), inst("gateway", ocpus=2), inst("trader")]
+    exp = [{"display_name": "trader", "shape": AMPERE_SHAPE, "ocpus": 1, "memory_gb": 6}]
+    findings = diff(live, exp)["findings"]
+    amb = [f for f in findings if f["verdict"] == "ambiguous"]
+    assert len(amb) == 1 and amb[0]["display_name"] == "gateway"
+    assert "cannot" in amb[0]["detail"]
+    # the unambiguous instance is still compared normally
+    assert any(f["display_name"] == "trader" and f["verdict"] == "match" for f in findings)
+
+
+def test_none_display_name_does_not_crash_the_sort():
+    """sorted() over mixed None/str keys raised TypeError before the fix."""
+    live = [inst(None), inst("trader")]
+    findings = diff(live, [])["findings"]
+    assert {f["display_name"] for f in findings} == {None, "trader"}
+
+
+def test_duplicate_declared_names_are_flagged_too():
+    exp = [{"display_name": "dup", "shape": AMPERE_SHAPE, "ocpus": 1, "memory_gb": 6},
+           {"display_name": "dup", "shape": AMPERE_SHAPE, "ocpus": 2, "memory_gb": 12}]
+    amb = [f for f in diff([], exp)["findings"] if f["verdict"] == "ambiguous"]
+    assert len(amb) == 1 and "declared" in amb[0]["detail"]

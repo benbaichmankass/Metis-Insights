@@ -112,11 +112,30 @@ def diff(live: list[dict], expected: list[dict] | None) -> dict:
             "findings": [],
         }
 
+    # OCI does not enforce unique display_name. Keying a dict on it drops
+    # duplicates SILENTLY — they appear in neither the compare nor the
+    # undeclared list, so two boxes called "gateway" render as one and the
+    # report looks clean. Detected by the delegate (issue #9944,
+    # n3-bugfind-ociinv) and surfaced as its own finding rather than fixed by
+    # picking a winner: which duplicate is "the" instance is not ours to guess.
+    findings = []
+    for label, rows in (("live", live_alive), ("declared", expected)):
+        seen: dict[str, int] = {}
+        for r in rows:
+            n = r.get("display_name")
+            seen[n] = seen.get(n, 0) + 1
+        for n, count in sorted(seen.items(), key=lambda kv: str(kv[0])):
+            if count > 1:
+                findings.append({"display_name": n, "verdict": "ambiguous",
+                                 "detail": f"{count} {label} instances share this "
+                                           "display_name; a name-keyed diff cannot "
+                                           "distinguish them",
+                                 "expected": None, "actual": None})
+
     by_name_live = {r["display_name"]: r for r in live_alive}
     by_name_exp = {r["display_name"]: r for r in expected}
-    findings = []
 
-    for name, exp in sorted(by_name_exp.items()):
+    for name, exp in sorted(by_name_exp.items(), key=lambda kv: str(kv[0])):
         got = by_name_live.get(name)
         if got is None:
             findings.append({"display_name": name, "verdict": "missing",
@@ -133,7 +152,7 @@ def diff(live: list[dict], expected: list[dict] | None) -> dict:
             **({"deltas": deltas} if deltas else {}),
         })
 
-    for name in sorted(set(by_name_live) - set(by_name_exp)):
+    for name in sorted(set(by_name_live) - set(by_name_exp), key=str):
         got = by_name_live[name]
         findings.append({"display_name": name, "verdict": "undeclared",
                          "expected": None, "actual": _shape_fields(got),
@@ -246,10 +265,19 @@ def main() -> int:
     expected = None
     if EXPECTED_PATH.is_file():
         try:
-            expected = json.loads(EXPECTED_PATH.read_text()).get("instances")
+            parsed = json.loads(EXPECTED_PATH.read_text())
         except (OSError, ValueError) as exc:
             raise SystemExit(f"expectations file unreadable ({exc}) — refusing to "
                              "report a clean diff over a file we could not parse")
+        if not isinstance(parsed, dict) or not isinstance(parsed.get("instances"), list):
+            # Refuse rather than fall through to expected=None, which would
+            # render as `not_declared` and hide a malformed declaration behind
+            # a state that means "none was written".
+            raise SystemExit(
+                f"{EXPECTED_PATH} is malformed: expected a JSON object with an "
+                f"'instances' list, got {type(parsed).__name__}. Refusing to "
+                "report over it.")
+        expected = parsed["instances"]
 
     report = {
         "region": os.environ.get("OCI_CLI_REGION", "unknown"),
@@ -264,7 +292,7 @@ def main() -> int:
         print("\n<!--MARKDOWN-->\n" + to_markdown(report))
 
     if args.fail_on_drift:
-        bad = {"drift", "missing", "undeclared"}
+        bad = {"drift", "missing", "undeclared", "ambiguous"}
         if report["diff"]["declaration_state"] == "not_declared":
             return 1
         if any(f["verdict"] in bad for f in report["diff"]["findings"]):
