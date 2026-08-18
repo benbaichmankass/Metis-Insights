@@ -1,8 +1,8 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-18",
-  "generated_at": "2026-08-18T09:30:00+00:00",
+  "updated_at": "2026-08-18T11:35:00+00:00",
+  "generated_at": "2026-08-18T11:35:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -18885,7 +18885,14 @@
         "terminated_on": "2026-06-16",
         "working_base": "https://ict-bot.duckdns.org",
         "verified_git_sha": "08dc9987"
-      }
+      },
+      "updates": [
+        {
+          "at": "2026-08-18T11:35:00+00:00",
+          "by": "claude (S-LLM-BURST-WORKER session wrap)",
+          "note": "Merged in the independent measurement from BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST (duplicate of this item, filed 1h45m later by a concurrent session and now marked superseded).\n\nADDED EVIDENCE: the env var resolved to http://158.178.210.252:8001, BYTE-IDENTICAL to the value in the public issue #1615 comment — so the session env was pasted from that comment on/after 2026-05-21, which is why it carries a host terminated 2026-06-16. Direct probe: curl to that host times out (rc=28) after 15s; calls made THROUGH it returned an EMPTY body with no error text.\n\nADDED CORRECTION (secondary finding, worth acting on independently): CLAUDE.md's claim that a web session cannot reach the VM is only HALF right. The raw IP is firewalled (confirmed rc=28 to 141.145.193.91:8001) but the Caddy HTTPS hostname resolves fine — https://ict-bot.duckdns.org/api/health returned {\"ok\":true} and /api/bot/stats returned a live payload from a web session, and credentialed /api/diag/* calls succeeded too. Future sessions should not skip a working path on the strength of that doc line.\n\nADDED RESOLUTION DETAIL: point DIAG_BASE_URL at https://ict-bot.duckdns.org; separately make diag_fetch.sh distinguish 'host unreachable' from 'empty response' rather than emitting an empty body, and correct the CLAUDE.md reachability line."
+        }
+      ]
     },
     {
       "id": "BL-20260818-PROP-REPORT-RELAY-REJECTS-A-BODY-WITH-ANY-PROSE",
@@ -19069,7 +19076,7 @@
       "id": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST",
       "opened_at": "2026-08-18T08:45:00+00:00",
       "opened_by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
-      "status": "open",
+      "status": "superseded",
       "severity": "medium",
       "tier": 1,
       "title": "The Claude cloud env var DIAG_BASE_URL points at 158.178.210.252 — the x86 micro TERMINATED 2026-06-16 — and the failure is SILENT: authenticated calls return empty output, not an error",
@@ -19077,7 +19084,13 @@
       "why_it_matters": "CLAUDE.md documents the direct diag path (DIAG_BASE_URL + DIAG_READ_TOKEN + scripts/ops/diag_fetch.sh) as the durable fallback for when the hosted GitHub MCP drops. That fallback has been broken for ~2 months and fails silently, so a session reaching for it during an MCP outage gets nothing back and could reasonably report 'the VM is down' — a cause no code path tested. Secondary finding: CLAUDE.md's claim that a web session cannot reach the VM is only half right — the RAW IP is firewalled (confirmed rc=28 to 141.145.193.91:8001) but the Caddy HTTPS hostname resolves fine for unauthenticated Tier-1 routes, and credentialed diag calls also succeeded. That doc line should be corrected so future sessions do not skip a working path.",
       "resolution_criteria": "DIAG_BASE_URL updated to https://ict-bot.duckdns.org (operator action — Claude env var), verified by a diag_fetch.sh call returning JSON. Separately, diag_fetch.sh distinguishes 'host unreachable' from 'empty response' rather than emitting an empty body, and the CLAUDE.md web-session reachability line is corrected.",
       "next_action": "Bundle the diag_fetch.sh three-state fix + the CLAUDE.md correction into the same Tier-1 PR as the two workflow fixes. The env var itself is an operator paste — pair it with the DIAG_READ_TOKEN rotation so both are updated in one sitting.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-18T11:35:00+00:00",
+          "by": "claude (S-LLM-BURST-WORKER session wrap)",
+          "note": "SUPERSEDED by BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM, which is the same finding filed 1h45m earlier by a concurrent session. All evidence unique to this row has been merged into that one; nothing is lost by closing this. Deduped at session wrap so a single fix does not leave a phantom open row behind — two rows for one defect is how a resolved issue keeps reading as outstanding."
+        }
+      ]
     },
     {
       "id": "BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG",
