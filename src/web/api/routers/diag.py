@@ -252,6 +252,12 @@ _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 # Exit-loop liveness state (M20 decouple, #8778). NOT a .jsonl — a single
 # small JSON object rewritten atomically by exit_loop_health.write_state_file.
 _EXIT_LOOP_HEALTH_STATE = runtime_logs_dir() / EXIT_LOOP_HEALTH_STATE_FILE
+# Exit-path leg-coverage latch (2026-08-18). Also a single small JSON object,
+# not a soak log: one entry per order package whose open legs the monitor
+# cannot reach.
+_PACKAGE_LEG_COVERAGE_STATE = (
+    runtime_logs_dir() / "package_leg_coverage_state.json"
+)
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
@@ -354,6 +360,13 @@ _LOG_FILES: dict[str, Path] = {
     # Shipped WITHOUT this entry in #8778 -- write_state_file's own docstring
     # says "for the diag surface" while the only surface a relay can reach did
     # not serve it, the written-but-not-readable shape of #8665's exposure block.
+    # The exit-path leg-coverage latch (2026-08-18). Not a soak log — a small
+    # JSON object naming every package whose open legs the monitor cannot
+    # manage. Allowlisted in the SAME change that ships the writer: #8778
+    # shipped exit_loop_health's writer with no entry here and the state was
+    # written and unreadable by the only surface a relay-bound session can
+    # reach.
+    "package_leg_coverage": _PACKAGE_LEG_COVERAGE_STATE,
     "exit_loop_health": _EXIT_LOOP_HEALTH_STATE,
     # The DURABLE half of the above, and the reason it had to exist: every field
     # in `exit_loop_health` lives in module globals that start empty and are
