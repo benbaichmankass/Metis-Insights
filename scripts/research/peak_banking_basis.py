@@ -100,6 +100,50 @@ def enrich(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
+def conditional_hit_rate(
+    rows: List[Dict[str, Any]], *, reached: float, target_frac: float = 1.0,
+) -> Dict[str, Any]:
+    """P(reach `target_frac` of cap | already reached `reached` of cap).
+
+    THIS IS THE `observed_p` INPUT `src/runtime/hold_vs_cash.py` REQUIRES and
+    refuses to invent. That module computes the hit rate holding *demands*
+    (`p* = r_to_stop / (r_to_target + r_to_stop)`) and will not grade a position
+    without a MEASURED rate to compare it against. This supplies the measured
+    half, from the same population `analyse` already builds — rather than a
+    second predicate free to drift from it.
+
+    EXACT, not approximate, for the target side: a take-profit is a resting
+    limit and fills on touch, so `mfe_r >= cap_r` is equivalent to the TP having
+    been hit. No fill model is involved.
+
+    ⚠️ **THE COMPLEMENT IS NOT "STOPPED OUT AT TODAY'S STOP".** `1 - p` is the
+    share that never reached the target; where those trades actually ended
+    depends on each one's own trailing stop, which is NOT the stop the live
+    position carries now. So this is a defensible estimate of P(target) and NOT
+    a simulation of the live bracket. Stated here because the number is about to
+    be compared against a breakeven probability, and a reader who takes the
+    complement as "P(hit my current stop)" would be reading a different trade.
+
+    Returns `n` beside `p` always: a rate over a handful of trades is not the
+    claim a rate over a hundred is, and the caller must be able to see which.
+    `p` is `None` — never 0.0 — when the conditioning population is empty.
+    """
+    graded = enrich(rows)
+    pop = [g for g in graded if g["peak_pct_of_cap"] >= reached]
+    if not pop:
+        return {"reached": reached, "target_frac": target_frac, "n": 0,
+                "hits": 0, "p": None, "why": "empty_conditioning_population",
+                "rows_graded": len(graded),
+                "rows_ungradeable": len(rows) - len(graded)}
+    hits = [g for g in pop if g["peak_pct_of_cap"] >= target_frac]
+    return {
+        "reached": reached, "target_frac": target_frac,
+        "n": len(pop), "hits": len(hits), "p": len(hits) / len(pop),
+        "rows_graded": len(graded),
+        "rows_ungradeable": len(rows) - len(graded),
+    }
+
+
 def analyse(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     graded = enrich(rows)
     res: Dict[str, Any] = {"rows_in": len(rows), "rows_graded": len(graded),
@@ -131,6 +175,12 @@ def analyse(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             # an R to a cap FRACTION, which was a units error.
             "pct_finishing_below_bank_ub": round(
                 100.0 * sum(1 for f in finals if f < bank_ub) / len(finals), 1),
+            # P(this population goes on to reach the cap) — the measured
+            # `observed_p` hold_vs_cash needs. Exact for the target side (a TP
+            # is a limit and fills on touch); see conditional_hit_rate on why
+            # its complement is NOT "stopped out at today's stop".
+            "p_reaches_cap": round(
+                sum(1 for g in hit if g["peak_pct_of_cap"] >= 1.0) / len(hit), 4),
             # Only ONE direction is conclusive — see the module docstring.
             "verdict": "refuted" if bank_ub < med else "candidate",
         })
@@ -177,6 +227,31 @@ def _self_test() -> int:
          all(t["verdict"] == "no_sample" for t in analyse(
              [{"entry": 100, "sl": 90, "mfe_r": 0.2, "net_r": 0.1}] * 5)["thresholds"])),
     ]
+
+    # conditional_hit_rate — the `observed_p` supplier for hold_vs_cash.
+    # entry 100 / sl 99 -> risk 1 -> cap_r = 9.9, so peak_pct = mfe / 9.9.
+    mk = lambda mfe, net: {"entry": 100.0, "sl": 99.0, "mfe_r": mfe, "net_r": net}
+    pop = [mk(9.9, 9.9), mk(9.9, 5.0), mk(8.0, 4.0), mk(8.0, 2.0), mk(1.0, -1.0)]
+    c75 = conditional_hit_rate(pop, reached=0.75)     # >= 7.425R -> four rows
+    c99 = conditional_hit_rate(pop, reached=0.99)     # >= 9.801R -> the two caps
+    cnone = conditional_hit_rate(pop, reached=5.0)    # nothing reaches 5x cap
+    czero = conditional_hit_rate(
+        pop + [{"entry": 100.0, "sl": 100.0, "mfe_r": 9.9, "net_r": 1.0}],
+        reached=0.75)
+    checks += [
+        ("conditional population is the reached-X set", c75["n"] == 4),
+        ("conditional hits are the reached-cap subset", c75["hits"] == 2),
+        ("conditional p is hits/n", c75["p"] == 0.5),
+        ("tighter conditioning shrinks the population", c99["n"] == 2),
+        ("...and a population already at cap is all hits", c99["p"] == 1.0),
+        ("empty population -> p is None, NEVER 0.0", cnone["p"] is None),
+        ("empty population states why", cnone["why"] == "empty_conditioning_population"),
+        ("a zero-risk row is dropped, not graded", czero["n"] == 4),
+        ("...and its exclusion is COUNTED, not silent", czero["rows_ungradeable"] == 1),
+        ("n rides with p so a thin rate cannot read as a thick one",
+         "n" in c75 and "n" in cnone),
+    ]
+
     ok = 0
     for label, passed in checks:
         print(f"  {'ok  ' if passed else 'FAIL'} {label}")
