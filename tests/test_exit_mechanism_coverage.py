@@ -39,14 +39,32 @@ class TestTheProbeCanSeeAPositive:
         for mech in emc.MECHANISMS:
             assert emc.module_implements(src, mech), f"{mech} not detected"
 
-    def test_htf_pullback_implements_only_trail_decay(self):
-        """The measured asymmetry the whole finding rests on."""
+    def test_htf_pullback_coverage_is_three_of_four(self):
+        """The measured asymmetry — UPDATED 2026-08-18, and this test is why.
+
+        It previously asserted `only_trail_decay` and carried the message "the
+        coverage finding is stale and the docs quoting it must be re-measured".
+        The shared-lever extraction (src/runtime/exit_levers.py) made that true
+        and this tripwire caught it in CI, which is exactly what it was planted
+        for. The docs it pointed at were re-measured in the same change:
+        exit_mechanism_coverage's own docstring corrected, and the two
+        2026-08-16 records annotated forward rather than rewritten.
+
+        Kept as a REAL tripwire, not softened into "implements at least one":
+        exit_head is still genuinely absent (it needs an advisory-stage trained
+        head this family does not have), so the asymmetry is now 3-of-4 and a
+        future change to EITHER side must come back through here.
+        """
         src = (REPO / "src/units/strategies/htf_pullback_trend_2h.py").read_text()
-        assert emc.module_implements(src, "trail_decay")
-        for mech in ("stale_stop", "giveback_stop", "exit_head"):
-            assert not emc.module_implements(src, mech), (
-                f"htf_pullback_trend_2h now implements {mech} — the coverage "
-                f"finding is stale and the docs quoting it must be re-measured")
+        for mech in ("trail_decay", "stale_stop", "giveback_stop"):
+            assert emc.module_implements(src, mech), (
+                f"htf_pullback_trend_2h LOST {mech} — the shared-lever wiring "
+                f"in src/runtime/exit_levers.py is broken, or the detector "
+                f"stopped following the import")
+        assert not emc.module_implements(src, "exit_head"), (
+            "htf_pullback_trend_2h now implements exit_head — the 3-of-4 "
+            "coverage finding is stale and the docs quoting it must be "
+            "re-measured")
 
     def test_a_module_with_none_of_them_reads_as_none(self):
         assert not any(emc.module_implements("def monitor(): pass", m)

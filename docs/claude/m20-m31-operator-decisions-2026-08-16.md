@@ -385,6 +385,9 @@ is yours to authorise.
 the four. `squeeze_breakout_4h` implements **none**. `trend_donchian` implements
 all four.
 
+> **⚠️ SUPERSEDED 2026-08-18 — the record above stands as what was measured on 2026-08-16; the state it describes no longer holds.** `stale_stop` and `giveback_stop` were extracted to `src/runtime/exit_levers.py` and `htf_pullback_trend_2h` now implements **three of four** M20 mechanisms. `exit_head` is still absent and deliberately so — it needs an advisory-stage trained head this family does not have. Do not quote the "one of four" figure as current. The tripwire that forced this note is `tests/test_exit_mechanism_coverage.py::TestTheProbeCanSeeAPositive::test_htf_pullback_coverage_is_three_of_four`.
+
+
 **Zero orphaned declares** over 46 of 47 resolved legs (`ict_scalp_5m` does not
 resolve and is ungraded — a clean count over an unstated denominator is not a
 clean count). So no leg declares a lever its module cannot read; the unevenness
@@ -608,7 +611,7 @@ answer** and must not be tried again as one. **Failure signal:** a proposed fix
 that does not first explain why exactly three timeframes are unaffected.
 
 **5 — `squeeze_breakout_4h` implements 0 of 4 mechanisms; `htf_pullback_trend_2h`
-(18 of 47 live legs) implements 1 of 4.** Not a bug — a coverage gap, now
+(18 of 47 live legs) implements 1 of 4 [**now 3 of 4 as of 2026-08-18** — see the superseded note above].** Not a bug — a coverage gap, now
 visible. **Expect:** a deliberate decision per family, not per leg. **Failure
 signal:** the matrix reporting the same distribution next quarter means it was
 read as a report rather than a work list.

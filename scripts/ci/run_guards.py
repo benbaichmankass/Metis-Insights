@@ -356,12 +356,34 @@ GUARDS: List[Dict[str, Any]] = [
         "notify": True,
     },
     {
+        # The COMPLEMENT of lever-wiring-guard below, not a duplicate: this
+        # one starts from a YAML key and asks whether the debt matrix
+        # classifies it; that one starts from a lever and asks whether its
+        # consumers exist. rr_floor is out of THIS guard's scope entirely (no
+        # enabled strategy declares it), which is how it shipped unrunnable.
         "name": "harness-lever-coupling-guard",
         "when": None,
         "steps": [
             ["python3", "scripts/check_harness_lever_coupling.py"],
             ["python3", "scripts/ci/guard_selftests.py", "harness-lever-coupling"],
         ],
+    },
+    {
+        # The LEVER analogue of provenance-consumer-guard. That guard fails CI
+        # when a declared provenance FIELD gains a writer and no reader; this
+        # one fails when an exit LEVER can be run but nothing grades it, or is
+        # graded but no unit can run it. Four findings on 2026-08-18 were that
+        # one shape (IB broker-PnL reader with no caller, attach_ib_target
+        # never executed, rr_floor shipped with no sweep cell, both coverage
+        # audits blind to a shared lever) and nothing asserted the relationship.
+        # Found a real gap on its first run: rr_floor, units=0.
+        "name": "lever-wiring-guard",
+        "when": {"globs": ["src/units/strategies/*.py",
+                           "src/runtime/exit_levers.py",
+                           "scripts/research/m20_fleet_exit_sweep.py",
+                           "scripts/ops/exit_mechanism_coverage.py",
+                           "scripts/ci/check_lever_wiring.py"]},
+        "steps": [["python3", "scripts/ci/check_lever_wiring.py"]],
     },
     {
         "name": "json-extract-guard",

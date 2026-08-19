@@ -748,6 +748,29 @@ def regime_gate_delta(leg: str, off_legs: set[str] | None) -> str:
     return GATE_DELTA_NARROWER if leg in off_legs else GATE_DELTA_NONE
 
 
+def inert_rr_floor_reason(fam: str | None, tp_cap_pct: float) -> str | None:
+    """Why an rr_floor cell CANNOT fire on this leg, or None if it can.
+
+    `rr_from_here = r_to_target / r_to_stop` needs a TARGET. Both harnesses
+    leave `tp_price` None when `tp_cap_pct <= 0`, so with no capped TP the
+    lever is a PROVABLE no-op — and, worse than merely inert, it returns
+    exactly-zero deltas that read as `tie_no_improvement`, i.e. "we measured it
+    and it made no difference". It was never measurable. Same cosmetic-cell
+    anti-pattern `inert_giveback_reason` exists for
+    (`BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS`), and the same remedy: return
+    the REASON so "not run" stays distinguishable from "run and flat".
+
+    Two ways to be inert, reported separately because they have different
+    fixes: the RUN did not ask for a cap (pass `--tp-cap-pct`), or the FAMILY
+    has no live TP clamp to mirror (nothing to fix — the lever does not apply).
+    """
+    if fam not in LIVE_TP_CAPPED_FAMILIES:
+        return f"family_has_no_live_tp_cap:{fam}"
+    if tp_cap_pct <= 0.0:
+        return "no_tp_cap_in_run:rr_from_here_undefined_without_a_target"
+    return None
+
+
 def inert_giveback_reason(cfg: dict, min_mfe_r: float) -> str | None:
     """Why a giveback rung CANNOT fire on this leg, or None if it can.
 
@@ -825,6 +848,7 @@ def cells_for(cfg: dict, fam: str | None = None,
               skipped: list | None = None,
               *,
               without_declared_levers: frozenset[str] | None = None,
+              tp_cap_pct: float = 0.0,
               ) -> list[tuple[str, str, list[str]]]:
     """(cell_tag, matrix_lever, extra_args). Config-exact base is implied.
 
@@ -882,6 +906,35 @@ def cells_for(cfg: dict, fam: str | None = None,
     # be_stop for -0.022R, which proves the lever is live and settles nothing.
     if fam == "scalp":
         out.append(("be_touch_arm", "stale_stop", ["--be-arm-on-touch"]))
+    # M31 P5 rr_floor cells — close when the remaining upside to the capped TP
+    # no longer justifies the give-back to the current stop. Added 2026-08-18.
+    #
+    # WHY THIS WAS MISSING AND WHY THAT MATTERED: the lever shipped in
+    # backtest_trend.py (2026-08-17) and was ported to backtest_pullback.py
+    # (2026-08-18), and this sweep — the ONLY thing that applies the Path A/B
+    # gate and the yearly walk-forward — had no cell for it. So the lever was
+    # implemented, measurable, and ungradeable: the third instance this session
+    # of "the thing exists and nothing calls it", after the IB broker-PnL
+    # reader and attach_ib_target. An operator pre-approval to walk-forward it
+    # had nothing to run.
+    #
+    # THE FLOOR VALUES ARE A GRID, NOT A RECOMMENDATION. They bracket the live
+    # reading that motivated the lever: XRP trade 4163 sits at
+    # `rr_from_here` 0.47 with 0.80R of headroom against 1.70R at risk
+    # (`scripts/ops/exit_path_coverage.py`, 2026-08-18), so a floor anywhere in
+    # 0.5-1.0 would have closed it. Read `rr_min_p10/median/p90` in each cell's
+    # summary to see which of these the leg could reach AT ALL before reading
+    # any verdict — a floor below a leg's own rr_min distribution is a real
+    # no-op, and is distinguishable from an inert one only by `rr_floor_state`.
+    _rr_inert = inert_rr_floor_reason(fam, tp_cap_pct)
+    for _f in (0.5, 0.75, 1.0):
+        _tag = f"rrfloor{_f:g}"
+        if _rr_inert:
+            if skipped is not None:
+                skipped.append({"cell": _tag, "lever": "rr_floor",
+                                "reason": _rr_inert})
+            continue
+        out.append((_tag, "rr_floor", ["--rr-floor", f"{_f:g}"]))
     tm = cfg.get("trail_mult")
     if tm is not None:
         t = float(tm)
@@ -1928,12 +1981,32 @@ def beats_detail(cell: dict, base: dict) -> dict:
         # Unreadable is NOT "failed on net_R" — say which.
         return {"passed": False, "reason": "unreadable",
                 "d_net_r": None, "d_max_dd": None}
+    # THE LEVER MUST HAVE BEEN ABLE TO FIRE BEFORE ANY DELTA MEANS ANYTHING.
+    # `rr_floor_state` is the harnesses' own three-state declaration (both
+    # backtest_trend.py and backtest_pullback.py emit it; registered with
+    # collapsed-state-guard as trend_harness/pullback_harness.rr_floor_state).
+    # `unmeasurable_no_tp_cap` says the run asked for a floor with no capped TP,
+    # so `r_to_target` did not exist and the lever COULD NOT fire — the cell
+    # then returns cn == bn and cd == bd and falls straight into
+    # `tie_no_improvement` below, which reads as "we measured it and it made no
+    # difference". It was never measured. Checking the state here is the whole
+    # reason the harnesses publish it; emitting a state nothing reads back is
+    # the written-but-never-read shape `provenance-consumer-guard` exists for.
+    #
+    # `off` needs no branch: a cell that did not request the lever is graded on
+    # whatever it DID change, which is the normal path.
+    cell_rr_state = cell.get("rr_floor_state")
+    if cell_rr_state == "unmeasurable_no_tp_cap":
+        return {"passed": False, "reason": "lever_inert:rr_floor_unmeasurable_no_tp_cap",
+                "d_net_r": None, "d_max_dd": None}
     reasons = []
     if cn < bn:
         reasons.append("net_r_worse")
     if cd > bd:
         reasons.append("maxdd_worse")
     if not reasons and cn == bn and cd == bd:
+        # A REAL no-op, distinguishable from the inert case ONLY by the state
+        # checked above — which is why that check precedes this one.
         reasons.append("tie_no_improvement")
     return {"passed": not reasons, "reason": "+".join(reasons) or None,
             "d_net_r": round(cn - bn, 4), "d_max_dd": round(cd - bd, 4)}
@@ -2141,7 +2214,8 @@ def main(argv: list[str]) -> int:
         harness = FAMILY_HARNESS[fam]
         inert: list = []
         cells = cells_for(cfg, fam, skipped=inert,
-                          without_declared_levers=without_levers)
+                          without_declared_levers=without_levers,
+                          tp_cap_pct=a.tp_cap_pct)
         # WHAT THIS LEG ACTUALLY HAD REMOVED, against what the run asked for.
         # A leg that never declared the requested lever produces a base
         # byte-identical to the config-exact base; recording only the run-level

@@ -1,6 +1,27 @@
 # M31 P5 — a lever that READS telemetry. Proposal, and why it does not ship yet.
 
 **Status: PROPOSED, NOT SHIPPED. Tier-3.**
+
+> **OPERATOR PRE-APPROVAL, 2026-08-18 — for the WALK-FORWARD ONLY.** The operator has
+> pre-approved *running* precondition 3's walk-forward once the preconditions are ready,
+> so a session that reaches that point should EXECUTE it rather than stopping to ask.
+> Their words: *"we don't need to relax the gate structurally, but you have preapproval
+> for the walkforward once we're ready."*
+>
+> Read the scope narrowly, because the two halves are easy to conflate:
+> * **Pre-approved:** running the walk-forward, and the measurement work that unblocks it.
+> * **NOT pre-approved and unchanged:** the gate itself — the walk-forward must still
+>   CLEAR the do-nothing arm, not merely beat an alternative lever — and SHIPPING the
+>   lever to an order path, which remains a separate Tier-3 decision on the result.
+>
+> A passing walk-forward is therefore permission to bring a proposal, not permission to
+> merge one.
+>
+> ⚠️ Precondition 3a is NOT met for this document's own motivating leg — see
+> `BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES`. `--rr-floor`
+> exists on `backtest_trend.py`; `xrp_pullback_2h` (trade 4163, the trade § 3 is about)
+> resolves to `backtest_pullback.py`, which does not have it. The data blocker § 5.3b
+> records does not apply to that leg either — the trainer holds `data/XRPUSDT_5m.csv`.
 Written 2026-08-17 at the close of M31 P3/P4. Nothing in this document has been
 merged into an order path, and nothing here should be read as approved.
 
@@ -244,3 +265,62 @@ programme *checkable* — is already delivered without P5.
 harness can now say *"this run could not test the lever"* as a state distinct
 from *"the lever changed nothing"*. Every previous lever in that harness could
 only say the second.
+
+## Measured result — the `rr_floor` lever on `xrp_pullback_2h` (2026-08-18)
+
+Operator pre-approved a walk-forward. **No walk-forward was run, and that is the
+correct outcome, not a gap** — both routes short-circuit before it and neither
+was reached. Recording that explicitly because "the walk-forward failed" and
+"nothing ever justified spending one" are different statements.
+
+**Provenance.** Trainer relay #9950 / #9952, `/tmp` clone of
+`claude/exit-path-coverage` @ `dbe321a`. XRPUSDT 2h corpus fetched fresh:
+**13,206 bars, 2023-08-14 → 2026-08-18**. Config-exact base from
+`config/strategies.yaml` via `m20_fleet_exit_sweep.py`, `--tp-cap-pct 0.099`,
+split `2025-10-16` (`oos-trades` mode), base **n IS=127, OOS=48** against a
+`min_oos_trades_floor` of 25.
+
+| cell | IS Δnet_R | IS ΔmaxDD | OOS Δnet_R | OOS ΔmaxDD | Δcap/day | Δbars held |
+|---|--:|--:|--:|--:|--:|--:|
+| `rrfloor0.5`  | −5.8796 | +3.5179 | −3.0970 | +1.8597 | **−0.0215** | −8.30 |
+| `rrfloor0.75` | −3.7168 | +1.8967 | **+0.2403** | +0.4231 | **+0.0008** | −15.61 |
+| `rrfloor1`    | −5.5862 | +4.0409 | −5.9225 | +4.1465 | **−0.0516** | −19.24 |
+
+`path_a_pass 0` · `path_b_candidates 0` · `path_b_wf_pass 0` ·
+`cells_withheld_inert 0`.
+
+**The lever works mechanically and still does not pay — that is the finding.**
+It genuinely releases capital: mean hold falls **46.6 → 21.2 bars** at floor
+1.0, and `capital_days` **493.3 → 333.3 (−32%)**. But it destroys more R than
+the capital-time it frees, and that is measured on the capital axis itself:
+`d_net_r_per_capital_day` is negative at 0.5 and 1.0, and **+0.0008** at 0.75 —
+noise. So this is *not* the familiar "Path A cannot see the capital axis"
+objection. Path B looked, on the axis it exists for, and found nothing:
+`net_r_up_both_windows` is false for all three.
+
+**The cells were real, not cosmetic.** The base run's own `rr_min` distribution
+is p10 `0.134` / median `1.145` / p90 `3.54` over n=237, so every tested floor
+sits inside the observed range, each cell reported `rr_floor_state: measurable`,
+and `inert_cells` is empty.
+
+**Untested remainder, and why a wider grid is not the obvious next move.**
+Floors above 1.0 are reachable (p90 3.54) and untested, but the tested sequence
+argues against them — −0.0215 → **+0.0008** → −0.0516, a near-zero peak at 0.75
+with 1.0 clearly worse. There is no direction to push.
+
+**Separate finding from the same run: the leg is weak.** Config-exact base is
+IS **+1.779R over 127 trades** (+0.014R/trade — essentially zero expectancy) and
+OOS **−0.5915R over 48**, with the sweep stamping
+`rate_ungradeable_why: base_unprofitable` on the OOS window. Note this is *not*
+the −15.60R figure quoted in the first relay pass; that run was **not
+config-exact** (it omitted `adx_min: 25`), and the correction is on #9950. The
+honest number is milder — and still not a leg carrying its weight.
+
+**Consequence for M31 P5.** No Tier-3 declare is justified on this leg from this
+evidence. The live `xrp_pullback_2h` trade that motivated the whole line
+(4163, `rr_from_here` 0.47) would have been closed by a 0.5–1.0 floor, and the
+backtest says doing so would have cost more than it saved. **The trade's real
+problem is not the absence of THIS lever** — it is that the leg has no
+decision-driven exit path at all, which is
+`BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT`, and the pullback
+family's one-of-four mechanism coverage is the thing to fix.

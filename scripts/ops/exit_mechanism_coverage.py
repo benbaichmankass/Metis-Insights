@@ -14,14 +14,25 @@ Two failure shapes, and they are not the same:
   re-checking whenever a lever moves between modules.
 * **family coverage gap** — the module implements no such lever, so the leg
   cannot use the mechanism however it is configured. Measured 2026-08-16: the
-  `htf_pullback_trend_2h` family (18 of 47 live legs, 38%) implements exactly
-  ONE of the four M20 mechanisms.
+  `htf_pullback_trend_2h` family (18 of 47 live legs, 38%) implemented exactly
+  ONE of the four M20 mechanisms. **CLOSED 2026-08-18** — `stale_stop` and
+  `giveback_stop` were extracted to `src/runtime/exit_levers.py` and the family
+  now runs THREE of four. `exit_head` remains genuinely absent, and
+  deliberately: it needs an advisory-stage trained head that does not exist for
+  this family, so shipping the plumbing would be a capability that can never
+  fire. NOTE this detector had to learn to follow the shared import to see any
+  of that — a source-only grep reported the DONCHIAN family as having LOST two
+  mechanisms it still runs
+  (`BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS`).
 
-Why it matters, concretely: the live XRP short that motivated M31 runs
-`xrp_pullback_2h` → `htf_pullback_trend_2h`, whose only mechanism is
+Why it mattered, concretely: the live XRP short that motivated M31 runs
+`xrp_pullback_2h` → `htf_pullback_trend_2h`, whose only mechanism WAS
 `trail_decay` — and on that leg `trail_decay_arm_r: 4.49` sits above its
 `cap_R 3.92` for most entries. So the trade had **no working M20 exit
-mechanism at all** for 18 days. That is not a mis-declaration (the leg declares
+mechanism at all** for 18 days. The family now has three; whether any is worth
+DECLARING on a given leg is a separate Tier-3 question the fleet sweep answers
+(on xrp_pullback_2h specifically, all seven cells came back honest negatives —
+`BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER`). That is not a mis-declaration (the leg declares
 only what its module reads, so it grades `ok` here); it is a coverage gap, and
 the two are worth telling apart.
 
@@ -103,8 +114,30 @@ def unit_of(src: str, strategy: str) -> Tuple[Optional[str], str]:
     return None, "no_builder_found"
 
 
+# A lever whose body lives in `src/runtime/exit_levers.py` is still implemented
+# by every unit that calls it. Grepping the unit's own source was correct while
+# every lever was inline and became a FALSE `not_implemented` the moment
+# `stale_stop`/`giveback_stop` were extracted (2026-08-18) — this audit would
+# have reported BOTH families as having lost mechanisms they still run.
+_SHARED_VERDICT_SYMBOLS = {
+    "stale_stop": "stale_stop_verdict",
+    "giveback_stop": "giveback_verdict",
+}
+
+
 def module_implements(unit_src: str, mechanism: str) -> bool:
-    return any(f'"{k}"' in unit_src for k in MECHANISMS[mechanism])
+    if any(f'"{k}"' in unit_src for k in MECHANISMS[mechanism]):
+        return True
+    sym = _SHARED_VERDICT_SYMBOLS.get(mechanism)
+    if not sym or not re.search(rf"\b{sym}\b", unit_src):
+        return False
+    # The unit calls the shared verdict — confirm the SHARED module actually
+    # reads this mechanism's keys, rather than trusting the call site's name.
+    try:
+        shared = (REPO / "src" / "runtime" / "exit_levers.py").read_text()
+    except OSError:
+        return False
+    return any(f'"{k}"' in shared for k in MECHANISMS[mechanism])
 
 
 def _live_strategies(cfg: dict) -> List[Tuple[str, dict]]:
@@ -171,9 +204,19 @@ def _self_test() -> int:
     checks = [
         ("positive: trend_donchian implements stale_stop",
          module_implements((_UNITS / "trend_donchian.py").read_text(), "stale_stop")),
-        ("negative: htf_pullback_trend_2h does NOT implement stale_stop",
-         not module_implements(
+        # Was a negative until 2026-08-18, when stale_stop was extracted to
+        # the shared module and this family gained it. Kept as the control
+        # that the extraction is DETECTED — the keys are no longer in this
+        # unit's own source, so a source-only grep answers no.
+        ("positive: htf_pullback_trend_2h implements stale_stop via the shared module",
+         module_implements(
              (_UNITS / "htf_pullback_trend_2h.py").read_text(), "stale_stop")),
+        # Replacement NEGATIVE, so the detector is not merely answering yes:
+        # exit_head is deliberately withheld from this family (it needs an
+        # advisory-stage head that does not exist for it).
+        ("negative: htf_pullback_trend_2h does NOT implement exit_head",
+         not module_implements(
+             (_UNITS / "htf_pullback_trend_2h.py").read_text(), "exit_head")),
         ("positive: htf_pullback_trend_2h DOES implement trail_decay",
          module_implements(
              (_UNITS / "htf_pullback_trend_2h.py").read_text(), "trail_decay")),

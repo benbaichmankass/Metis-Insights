@@ -1,8 +1,8 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-18T11:35:00+00:00",
-  "generated_at": "2026-08-18T11:35:00+00:00",
+  "updated_at": "2026-08-18",
+  "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
       "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
@@ -7510,7 +7510,7 @@
     {
       "id": "BL-20260720-TRAINERDIAG-FENCE",
       "date": "2026-07-20",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "title": "trainer-vm-diag cmd extractor executes markdown-fenced bodies via backtick command substitution",
       "detail": "A trainer-vm-diag-request issue whose cmd: block is wrapped in markdown ``` fences is passed to bash WITH the backticks intact — triple-backtick acts as nested command substitution, so the request half-executes and stray output is itself executed as a command (issues #7208/#7209: pgrep's PID line ran as a command, '275311: command not found'). The documented `cmd: |` YAML-block form works (#7211). Fix: in .github/workflows/trainer-vm-diag.yml's extractor, strip leading/trailing ``` fence lines from cmd_raw (the vm-diag-snapshot relay may share the pattern — check both), or reject fenced bodies with a loud comment instead of executing them mangled. Repro: any fenced cmd body.",
@@ -7538,7 +7538,7 @@
     {
       "id": "BL-20260722-PYTESTRUN-DATASETCHECK-FLAKE",
       "date": "2026-07-22",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "title": "RESOLVED: pytest-run CI test_skip_when_dataset_and_manifest_predate_last_run — real glob-order bug in dataset_unchanged_check.py, not test flakiness",
       "detail": "CI run https://github.com/benbaichmankass/ict-trading-bot/actions/runs/29948446729/job/89019758539 (PR #7381, a docs/backlog/report-only /system-review PR) failed this ONE test out of 7976 passed/8 skipped: assert duc.decide(...) == 'SKIP' got 'TRAIN'. The test sets a manifest+dataset mtime to 1 day old (_set_old default 86400s) and a registry run_at 0.5 days old (12h) -- a 12h margin that should not be flaky by itself. Confirmed NOT caused by this PR: scripts/ops/dataset_unchanged_check.py and tests/ops/test_dataset_unchanged_check.py are both unchanged since PR #7082 (well before this branch's merge-base 2a21ed5), and running just this test file in isolation (pytest tests/ops/test_dataset_unchanged_check.py -k test_skip_when_dataset_and_manifest_predate_last_run) PASSES cleanly. This strongly suggests an order-dependent interaction with another test earlier in the ~8000-test full-suite run (e.g. a time.time()/os.utime patch or monkeypatch that leaks past its own test's teardown) -- the same class of issue the pytest-run workflow's own comments cite as the 2026-05-28 time-bomb-test incident. Needs a full local repro of the full test suite (matching CI exactly, ~6-7 min) with a bisection pass to find the offending earlier test, then either fix its teardown or make this test's time reference injectable/mockable so it can't be perturbed by global state. ROOT-CAUSED AND FIXED same session: scripts/ops/dataset_unchanged_check.py::decide() called d.get(\"model_id\") on every glob-matched registry JSON file OUTSIDE the try/except that only guarded json.load() -- the test fixture's own \"not-an-entry.json\" sibling artifact (a JSON list, not a dict) crashes that .get() call with AttributeError when glob.glob() happens to enumerate it before the real dict entry (glob order is filesystem-dependent, not sorted). The AttributeError propagated to the function-level fail-open (except Exception: return \"TRAIN\"), silently flipping the expected SKIP to TRAIN. Confirmed by forcing both glob orderings locally with a monkeypatch -- reproduces 100% of the time when the non-dict sibling glob-sorts first, regardless of environment. Fixed with a one-line isinstance(d, dict) guard (commit pending on PR #7381) + a new regression test (test_skip_regardless_of_glob_order_with_non_dict_sibling) that forces both orderings explicitly so it can never again depend on ambient filesystem behavior. Not a flake, not order-dependent test pollution from another test -- a real latent bug in production code that happened to only manifest under GitHub Actions runner's particular directory-entry order. (Cross-reference: an independent concurrent session, ml-strategies-workplan-nm3xnx, also hit this exact bug on PR #7379 and logged it as BL-20260722-DATASET-UNCHANGED-CHECK-FLAKE, now marked resolved pointing back here.)",
@@ -7551,7 +7551,7 @@
     {
       "id": "BL-20260722-DATASET-UNCHANGED-CHECK-FLAKE",
       "date": "2026-07-22",
-      "severity": "P3",
+      "severity": "low",
       "status": "resolved",
       "title": "CI flake: test_skip_when_dataset_and_manifest_predate_last_run fail-opens to TRAIN",
       "detail": "tests/ops/test_dataset_unchanged_check.py::TestDecide::test_skip_when_dataset_and_manifest_predate_last_run intermittently fails 'assert TRAIN == SKIP' in CI (seen on PR #7379 run 29948106302, HeadSHA c0235198). The setup is deterministic (dataset/manifest mtime 24h old vs registry run_at 12h old, a 12h margin) and reproduces as SKIP locally, so the TRAIN can only come from decide()'s bare-except fail-open (scripts/ops/dataset_unchanged_check.py:77) — i.e. TrainingManifest.from_yaml/path_under raised in CI. The fail-open MASKS the real intermittent exception. Diagnose: replace the bare-except with logging of the exception type, or harden the test to assert no fail-open occurred (distinguish real SKIP from fail-open TRAIN). Not dangerous in prod (fail-open TRAIN = one unnecessary retrain) but it flakes CI and hides an intermittent manifest-load error. Introduced with MB-20260720-FCPCV-RETRAIN-NOOP.",
@@ -13957,7 +13957,7 @@
     {
       "id": "BL-20260810-ICTSCALP-HARNESS-HAS-NO-WINDOW",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "title": "scripts/backtest_ict_scalp.py had no --start/--end, so no ict_scalp verdict was ever IS/OOS split",
       "detail": "The fleet sweep passes --start/--end to every cell because the IS/OOS split is the gate's first stage; this harness rejected both with an argparse usage error, failing all seven scalp legs of the 2026-08-10 dispatch in under three minutes. Implication beyond the dispatch: every ict_scalp verdict on record is full-history, with no window split and therefore no walk-forward (the walk-forward only runs on cells that already cleared both windows). The capture census had passed on the same legs minutes earlier because a census windows nothing. RESOLVED: _date_filter added (tz-robust; a missing timestamp column with a window requested RAISES rather than returning full history under an IS/OOS label; a zero-bar window exits non-zero), main()'s parser extracted to build_parser(), and a test now checks the sweep's own scalp argv against that parser in-process.",
@@ -13966,7 +13966,7 @@
     {
       "id": "BL-20260810-SENTINEL-INTENT-NOT-COMPARED-TO-MATRIX",
       "opened": "2026-08-10",
-      "severity": "P3",
+      "severity": "low",
       "status": "resolved",
       "title": "A push-fired sweep sentinel described a scalp run and dispatched the donchian default",
       "detail": "A push carries no workflow_dispatch inputs, so inputs.legs was empty and the plan job fell through to the ten-leg census DEFAULT while the sentinel file's prose described a scalp-family run in four paragraphs. Nothing in the pipeline compares a sentinel's stated intent to the matrix it produces, so it was caught by cancelling the run, not by the run complaining; the cancelled jobs posted 'no SUMMARY' comments under leg names the sentinel never mentioned. Unprovenanced diagnostic output, sub-class B (implicit input selection). RESOLVED: the sentinel's `legs:` line is read by the plan job and is authoritative for the run it fires; precedence (dispatch input > sentinel > census default) is logged, not inferred.",
@@ -13975,7 +13975,7 @@
     {
       "id": "BL-20260810-INTRABAR-LEVER-EVAL-LOOKAHEAD-TRAP",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "kept_open",
       "title": "A naive intrabar exit-evaluation arm would peek at the future and manufacture an improvement",
       "detail": "scripts/backtest_trend.py::run_backtest advances ext/mfe/trail from the WHOLE leg bar's extreme and THEN evaluates the giveback/stale levers at that bar's close. Sound while the lever is evaluated once per bar. The moment a lever is evaluated at a SUB-BAR close inside that bar, the comparison is against a peak that may be set later in the same bar - the rule appears to exit at the top with uncanny timing, the arm beats baseline, and the result is an artifact. Contract for the build: ext/mfe/trail advance on the SUB-BAR clock; bar-counted params (stale_exit_bars, trail_decay_stall_bars, peak_j) stay on the LEG-BAR clock or every threshold is silently redefined; and run THREE arms (baseline / levers-fine-with-SL-first-at-leg-grain / everything-fine) because a finer grain also converts some SL-first bars into target-first, which would credit the lever for the convention. Applies to the operator's 2026-08-10 intrabar-monitor directive.",
@@ -13991,7 +13991,7 @@
     {
       "id": "BL-20260810-SWEEP-BASE-NOT-CONFIG-EXACT-TRAILVOL",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "research/backtest",
       "summary": "m20_fleet_exit_sweep's `config-exact` base omitted the trail-VOL lever. `base_args::declared_levers()` threaded stale/giveback/trail-DECAY but not `trail_vol_{above,below}_pctl`/`trail_vol_tight_mult`, while both harnesses carried the flags. Exactly two census legs declare an ARMED vol-trail lever - trend_donchian_eth (below 0.1/tight 2.5) and qqq_pullback_1h (above 0.8/tight 2.5) - so their sweep deltas were measured against a baseline missing a lever that is armed in live. Both A/B arms omitted it, so each delta is internally consistent; what is unverified is its transport to the live book, since exit levers interact. Consequence: 2 of the 3 live-leg Path A winners in the 2026-08-10 promotion packet are HELD pending a re-run on the corrected base.",
@@ -14007,7 +14007,7 @@
     {
       "id": "BL-20260810-SCRIPTS-ML-SHADOWS-REPO-ML",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "tooling/ci",
       "summary": "scripts/ml/ is a REGULAR package and shadows the repo's top-level ml/ whenever scripts/ precedes the repo root on sys.path - which is the default, since Python puts a script's own directory at sys.path[0]. backtest_ict_scalp.py / backtest_pullback.py used insert-if-absent, so under PYTHONPATH=<repo root> (how pytest-run.yml runs the suite) the insert was skipped and the harness died on `No module named 'ml.predictors'` before argparse ran.",
@@ -14022,7 +14022,7 @@
     {
       "id": "BL-20260810-SWEEP-READS-NONEXISTENT-ENTRY-KEYS",
       "opened": "2026-08-10",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "research/backtest",
       "summary": "m20_fleet_exit_sweep::base_args read cfg keys `trend_len` and `pullback_len` that NO strategy has ever declared - the YAML says `trend_lookback` / `pullback_lookback`. `opt()` passes nothing when the key is absent, so the flags were dropped and backtest_pullback substituted its OWN defaults (40 / 10 / 0.5). Unlike the trail-vol gap this is ENTRY geometry: it changes which trades exist at all, not just how they exit.",
@@ -14081,7 +14081,7 @@
       "id": "BL-20260810-PATHA-GATE-HAS-NO-MINIMUM-N",
       "opened_at": "2026-08-10T23:00:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 Path B floor)",
-      "severity": "P2",
+      "severity": "medium",
       "status": "resolved",
       "area": "research/backtest",
       "title": "[exits] the M20 Path A gate has no minimum trade count: 9 of 21 fleet PASSes sit on an OOS base under 20 trades",
@@ -14103,7 +14103,7 @@
       "id": "BL-20260810-SWEEP-DATA-DIR-MISSING-MGC",
       "opened_at": "2026-08-10T23:00:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 scalp sweep)",
-      "severity": "P3",
+      "severity": "low",
       "status": "resolved",
       "area": "research/backtest",
       "title": "[exits] the exit-lever sweep data dir has no 15m MGC candles, so ict_scalp_mgc_15m skips",
@@ -18767,10 +18767,10 @@
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
       "severity": "critical",
       "tier": "3 (order path — src/runtime/order_monitor.py close+modify effectuation)",
-      "status": "fix_written_awaiting_tier3_approval",
+      "status": "open",
       "area": "exit-path",
       "title": "A multi-account order package is exit-managed on ONE leg only: _apply_update resolves matched_trade from linked_trade_id, so every sibling leg keeps its entry-time bracket forever and a monitor close strands it outside the loop",
-      "detail": "MEASURED 2026-08-18 against the live journal.\n\nMECHANISM (code). src/runtime/order_monitor.py's strategy loop iterates ORDER PACKAGES (`get_order_packages_by_strategy(strategy_name, status=\"open\")`), and BOTH effectuation branches of `_apply_update` resolve a SINGLE trade row:\n    linked_trade_id = open_pkg.get(\"linked_trade_id\")\n    rows = db.get_trades(filters={\"id\": int(linked_trade_id)})\n`Coordinator.multi_account_execute` fans ONE package out to N accounts => N trade rows sharing one `order_package_id`, but `linked_trade_id` names exactly one of them. So:\n  * MODIFY half — `_send_modify_to_exchange(matched_trade, ...)` amends ONE account's bracket, and the `trades` sync writes `stop_loss`/`take_profit_1` on that ONE row. Every other leg keeps its entry-time bracket permanently. Every M20 lever, exit head, trail, stale-stop and giveback therefore reaches ONE leg per package.\n  * CLOSE half — the exchange close is sent for `matched_trade` only, then `update_order_package(pkg_id, {'status':'closed'})` flips the PARENT. Because the loop selects `status=\"open\"`, the package is never revisited: the sibling legs are now permanently outside dynamic-exit management, journal-open, and still open at their venue.\n\n`_cascade_close_netted_siblings` does NOT cover this — its query is scoped `AND account_id=?` (intra-account netting only). No other path closes a cross-account sibling.\n\nPOPULATION AND EVIDENCE (all rows, live journal, 2026-08-18T06:5xZ):\n  * 35 open trades across 26 packages; 9 packages hold >1 open trade.\n  * 4 of those 9 have DIVERGENT sibling stops right now — in every case the moved leg is the `linked_trade_id` leg:\n      pkg-7cb8577792ca4006 xrp_pullback_2h  trade 4163 bybit_2 SL 1.04193571 (trailed, linked) vs trade 4164 bybit_portfolio SL 1.10786786 (entry-time)\n      pkg-1c66870763c34f10 qqq_pullback_1h  4468 alpaca_paper 716.115 (linked) vs 4469 alpaca_portfolio 704.3275\n      pkg-32a5162bbbdd4ef6 spy_trend_long_1d 4347 alpaca_paper 744.47714286 (linked) vs 4348 alpaca_portfolio 733.91821429\n      pkg-a687f228480e4f96 tlt_pullback_1d  4169 alpaca_paper 83.6825 (linked) vs 4170 alpaca_portfolio 85.26875\n    The other 5 agree only because no modify has fired on them yet.\n  * 6 of 35 open trades (17%) sit under a package already flipped to `closed` — permanently unmanaged:\n      4719 bybit_portfolio BTCUSDT / 4717 bybit_1 BTCUSDT (pkg-830fb965b6db48ff, linked 4718, close_reason exit_head)\n      4550 alpaca_portfolio SLV (pkg-84cb11011d584f3e, linked 4549, exchange_flat_reconciled)\n      4547 bybit_portfolio ETHUSDT (pkg-0b2900a5c90d4f08, linked 4546, reconciler_filled)\n      4484 alpaca_portfolio GLD (pkg-5c895576ebe64107, linked 4483, exchange_flat_reconciled)\n      4135 bybit_portfolio ETHUSDT (pkg-e6eac664c2a446a6, linked 4134, sl_cross)\n  * CAUGHT LIVE THIS MORNING: pkg-830fb965b6db48ff (trend_donchian BTCUSDT long) fanned to THREE accounts. The monitor's `exit_head` verdict at 2026-08-18T05:00:17Z closed the linked real-money leg 4718 (bybit_2, qty 0.004, +$0.177) and flipped the package. Legs 4717 (bybit_1, 0.034) and 4719 (bybit_portfolio, 0.609) are still journal-open AND confirmed still open at Bybit via /api/diag/exchange_positions.\n  * INDEPENDENT CONFIRMATION from exit-reason distributions: bybit_portfolio has 24 closed trades and ZERO monitor-driven exits (19 reconciler_filled, 3 intent_reduce_executed, 1 netting_attributed, 1 intent_reduce) — no sl_cross, no tp, no stale_stop, no exit_head, no vwap_cross. Its managed sibling bybit_2 has 15 sl_cross, 10 sl, 10 vwap_cross, 4 tp, 3 exit_head, 3 stale_stop over 171 closes. alpaca_portfolio shows monitor exits ONLY on packages where it is itself the linked leg (single-leg packages such as uso_trend_1h and spy_pullback_1h).\n\nWHAT THIS IS NOT. The sibling is NOT naked: its entry-time bracket rests at the venue (Bybit/Alpaca attach SL/TP atomically), which is why the harm shows up as `reconciler_filled` rather than a runaway. This is a MANAGEMENT defect, not a PROTECTION defect, and it should not be triaged as the naked-position class.\n\nWHY IT MATTERS ANYWAY. (a) The `*_portfolio` books are declared in CLAUDE.md as the paper mirror of the live-traded portfolio and are what the dashboards' \"Paper\" toggle renders — but they run a STATIC exit policy while the book they claim to mirror runs the MANAGED one. The mirror is not a mirror, so its P&L is not comparable to the real book and must not be read as 'what the portfolio would have done'. On Alpaca the assignment is inverted and worse: `alpaca_paper` (the soak book) is consistently the linked/managed leg and `alpaca_portfolio` (the portfolio book) is the unmanaged one. (b) Trade 4135 (bybit_portfolio ETHUSDT short) has run unmanaged since its package closed `sl_cross` and sits at -$350.30; the strategy said stop out, one leg did, the other did not. (c) No real-money leg is stranded TODAY, but that is luck, not design — `linked_trade_id` is whatever the executor recorded, and nothing guarantees it is the real-money leg.\n\n--- FIX WRITTEN 2026-08-18, NOT MERGED (Tier-3 gate) ---\nDeliberately the SMALLEST change that removes the strand, not the largest one that could:\n  * `_package_open_legs(db, open_pkg)` — one resolver, returning every OPEN non-backtest leg of the package with the linked leg FIRST, plus a two-state read verdict. `read_failed` is not an empty leg set: both branches refuse to effectuate on an unconfirmed read.\n  * CLOSE — still closes ONE leg per tick, and flips the PARENT only once a re-read shows no open leg remains. The package therefore DRAINS over N ticks. Closing all N in one pass was rejected on purpose: it turns one exchange round-trip per package into N on a loop already breaching its 60s requirement, and piling concurrent closes onto one shared IB socket is the shape of both June 2026 wedges. The re-read is a fresh query, not a deduction from the list we started with, because a sibling can move underneath us.\n  * MODIFY — fans out to every leg, because a modify is NOT terminal: there is nothing to drain, so a leg skipped this tick is skipped until the level happens to move again. An amend is idempotent and opens no position, so this carries none of the close path's hazard. `order_packages.sl/tp` is written ONLY when every leg landed — writing it on a partial would make the interpreter's `no_meaningful_change` filter swallow the identical verdict next tick and strand the missed leg permanently, re-creating this very bug one level up. The accepted cost is re-amending an already-applied leg next tick, which is idempotent at the venue.\n  * Per-leg outcome is three-state (`applied` / `failed` / `unsupported`) and the LOG LEVEL branches on it while the error COUNT does not — matching the pre-fan-out contract exactly.\n\nTWO BUGS THE TESTS CAUGHT IN MY OWN CHANGE, recorded because they are the interesting part:\n  1. I collapsed `unsupported` into `failed` at the reporting step, which would have logged an ERROR every tick for an integration with no modify op — the desensitized-alarm P1, and exactly what `test_apply_update_modify_unsupported_logs_warning_once_no_error` exists to pin.\n  2. The resolver's fallback ran `_find_trade_by_match(strategy, symbol)` whenever the package query came back empty — INCLUDING when a linked id existed but its row was closed. That would resurrect a DIFFERENT package's open trade on the same strategy+symbol and effectuate this package's verdict against it. The original branched `if linked … else match`; the fallback is now scoped back to that exact condition.\n\nTHREE TEST FAKES WERE UNFAITHFUL and are fixed rather than worked around: they returned a permanently-'open' row and never reflected `update_trade`, which was invisible while the close path resolved one leg by id and never re-read. A package could not be observed to drain against them. This is the pairs-suite lesson (tests passing against a schema production does not have); one of them also shared a module-level dict that my reflection then mutated across tests. `test_close_fail_streak_reset_on_success` was restructured rather than relaxed — it now pins the sharper property, that a cleared streak starts FRESH for the next position on the same signature rather than resuming.\n\nVALIDATION: 947 order-path tests pass (every test file importing `order_monitor`, minus 5 uncollectable locally for missing ccxt/fastapi), plus 11 new ones covering the resolver's states, close-drains-over-ticks, package-flips-only-when-empty, refuse-on-unconfirmed-read, modify-reaches-every-leg, and package-sl-withheld-on-partial.\n\nNOT IN THIS CHANGE, stated so the gap is not assumed closed: `_apply_partial_close` still resolves the single linked leg. A partial close needs per-leg qty arithmetic and the measured evidence is about modify and full close, so it is left alone rather than changed on speculation. See BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG.",
+      "detail": "MEASURED 2026-08-18 against the live journal.\n\nMECHANISM (code). src/runtime/order_monitor.py's strategy loop iterates ORDER PACKAGES (`get_order_packages_by_strategy(strategy_name, status=\"open\")`), and BOTH effectuation branches of `_apply_update` resolve a SINGLE trade row:\n    linked_trade_id = open_pkg.get(\"linked_trade_id\")\n    rows = db.get_trades(filters={\"id\": int(linked_trade_id)})\n`Coordinator.multi_account_execute` fans ONE package out to N accounts => N trade rows sharing one `order_package_id`, but `linked_trade_id` names exactly one of them. So:\n  * MODIFY half — `_send_modify_to_exchange(matched_trade, ...)` amends ONE account's bracket, and the `trades` sync writes `stop_loss`/`take_profit_1` on that ONE row. Every other leg keeps its entry-time bracket permanently. Every M20 lever, exit head, trail, stale-stop and giveback therefore reaches ONE leg per package.\n  * CLOSE half — the exchange close is sent for `matched_trade` only, then `update_order_package(pkg_id, {'status':'closed'})` flips the PARENT. Because the loop selects `status=\"open\"`, the package is never revisited: the sibling legs are now permanently outside dynamic-exit management, journal-open, and still open at their venue.\n\n`_cascade_close_netted_siblings` does NOT cover this — its query is scoped `AND account_id=?` (intra-account netting only). No other path closes a cross-account sibling.\n\nPOPULATION AND EVIDENCE (all rows, live journal, 2026-08-18T06:5xZ):\n  * 35 open trades across 26 packages; 9 packages hold >1 open trade.\n  * 4 of those 9 have DIVERGENT sibling stops right now — in every case the moved leg is the `linked_trade_id` leg:\n      pkg-7cb8577792ca4006 xrp_pullback_2h  trade 4163 bybit_2 SL 1.04193571 (trailed, linked) vs trade 4164 bybit_portfolio SL 1.10786786 (entry-time)\n      pkg-1c66870763c34f10 qqq_pullback_1h  4468 alpaca_paper 716.115 (linked) vs 4469 alpaca_portfolio 704.3275\n      pkg-32a5162bbbdd4ef6 spy_trend_long_1d 4347 alpaca_paper 744.47714286 (linked) vs 4348 alpaca_portfolio 733.91821429\n      pkg-a687f228480e4f96 tlt_pullback_1d  4169 alpaca_paper 83.6825 (linked) vs 4170 alpaca_portfolio 85.26875\n    The other 5 agree only because no modify has fired on them yet.\n  * 6 of 35 open trades (17%) sit under a package already flipped to `closed` — permanently unmanaged:\n      4719 bybit_portfolio BTCUSDT / 4717 bybit_1 BTCUSDT (pkg-830fb965b6db48ff, linked 4718, close_reason exit_head)\n      4550 alpaca_portfolio SLV (pkg-84cb11011d584f3e, linked 4549, exchange_flat_reconciled)\n      4547 bybit_portfolio ETHUSDT (pkg-0b2900a5c90d4f08, linked 4546, reconciler_filled)\n      4484 alpaca_portfolio GLD (pkg-5c895576ebe64107, linked 4483, exchange_flat_reconciled)\n      4135 bybit_portfolio ETHUSDT (pkg-e6eac664c2a446a6, linked 4134, sl_cross)\n  * CAUGHT LIVE THIS MORNING: pkg-830fb965b6db48ff (trend_donchian BTCUSDT long) fanned to THREE accounts. The monitor's `exit_head` verdict at 2026-08-18T05:00:17Z closed the linked real-money leg 4718 (bybit_2, qty 0.004, +$0.177) and flipped the package. Legs 4717 (bybit_1, 0.034) and 4719 (bybit_portfolio, 0.609) are still journal-open AND confirmed still open at Bybit via /api/diag/exchange_positions.\n  * INDEPENDENT CONFIRMATION from exit-reason distributions: bybit_portfolio has 24 closed trades and ZERO monitor-driven exits (19 reconciler_filled, 3 intent_reduce_executed, 1 netting_attributed, 1 intent_reduce) — no sl_cross, no tp, no stale_stop, no exit_head, no vwap_cross. Its managed sibling bybit_2 has 15 sl_cross, 10 sl, 10 vwap_cross, 4 tp, 3 exit_head, 3 stale_stop over 171 closes. alpaca_portfolio shows monitor exits ONLY on packages where it is itself the linked leg (single-leg packages such as uso_trend_1h and spy_pullback_1h).\n\nWHAT THIS IS NOT. The sibling is NOT naked: its entry-time bracket rests at the venue (Bybit/Alpaca attach SL/TP atomically), which is why the harm shows up as `reconciler_filled` rather than a runaway. This is a MANAGEMENT defect, not a PROTECTION defect, and it should not be triaged as the naked-position class.\n\nWHY IT MATTERS ANYWAY. (a) The `*_portfolio` books are declared in CLAUDE.md as the paper mirror of the live-traded portfolio and are what the dashboards' \"Paper\" toggle renders — but they run a STATIC exit policy while the book they claim to mirror runs the MANAGED one. The mirror is not a mirror, so its P&L is not comparable to the real book and must not be read as 'what the portfolio would have done'. On Alpaca the assignment is inverted and worse: `alpaca_paper` (the soak book) is consistently the linked/managed leg and `alpaca_portfolio` (the portfolio book) is the unmanaged one. (b) Trade 4135 (bybit_portfolio ETHUSDT short) has run unmanaged since its package closed `sl_cross` and sits at -$350.30; the strategy said stop out, one leg did, the other did not. (c) No real-money leg is stranded TODAY, but that is luck, not design — `linked_trade_id` is whatever the executor recorded, and nothing guarantees it is the real-money leg.",
       "resolution_criteria": "Tier-3, operator-approved. The fix is to make effectuation package-wide: resolve EVERY open trade row for `order_package_id` and apply the modify/close to each leg on its own account, then flip the package only once every leg is confirmed (partial success must leave the package OPEN so the next tick retries the remainder — the same exchange-first discipline the single-leg path already uses). Per-leg outcomes must be three-state (`applied` / `failed` / `not_attempted`) and never collapsed, so a package that half-applied is distinguishable from one that fully applied. Ship the observability half FIRST (Tier-1): a read surface + count of (i) open trades under a closed package and (ii) sibling stops diverging from their package `sl`, so the repair is verifiable and a regression is visible. DONE when: the two counters read 0 for newly-opened multi-leg packages over a full soak window, and a deliberate modify on a multi-leg package is observed moving every leg's venue bracket.",
       "evidence": {
         "audit_script": "scripts/ops/exit_mechanics_audit.py",
@@ -18885,14 +18885,7 @@
         "terminated_on": "2026-06-16",
         "working_base": "https://ict-bot.duckdns.org",
         "verified_git_sha": "08dc9987"
-      },
-      "updates": [
-        {
-          "at": "2026-08-18T11:35:00+00:00",
-          "by": "claude (S-LLM-BURST-WORKER session wrap)",
-          "note": "Merged in the independent measurement from BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST (duplicate of this item, filed 1h45m later by a concurrent session and now marked superseded).\n\nADDED EVIDENCE: the env var resolved to http://158.178.210.252:8001, BYTE-IDENTICAL to the value in the public issue #1615 comment — so the session env was pasted from that comment on/after 2026-05-21, which is why it carries a host terminated 2026-06-16. Direct probe: curl to that host times out (rc=28) after 15s; calls made THROUGH it returned an EMPTY body with no error text.\n\nADDED CORRECTION (secondary finding, worth acting on independently): CLAUDE.md's claim that a web session cannot reach the VM is only HALF right. The raw IP is firewalled (confirmed rc=28 to 141.145.193.91:8001) but the Caddy HTTPS hostname resolves fine — https://ict-bot.duckdns.org/api/health returned {\"ok\":true} and /api/bot/stats returned a live payload from a web session, and credentialed /api/diag/* calls succeeded too. Future sessions should not skip a working path on the strength of that doc line.\n\nADDED RESOLUTION DETAIL: point DIAG_BASE_URL at https://ict-bot.duckdns.org; separately make diag_fetch.sh distinguish 'host unreachable' from 'empty response' rather than emitting an empty body, and correct the CLAUDE.md reachability line."
-        }
-      ]
+      }
     },
     {
       "id": "BL-20260818-PROP-REPORT-RELAY-REJECTS-A-BODY-WITH-ANY-PROSE",
@@ -19076,7 +19069,7 @@
       "id": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST",
       "opened_at": "2026-08-18T08:45:00+00:00",
       "opened_by": "claude (S-LLM-BURST-WORKER session; found while researching secret-delivery paths for a new API key)",
-      "status": "superseded",
+      "status": "open",
       "severity": "medium",
       "tier": 1,
       "title": "The Claude cloud env var DIAG_BASE_URL points at 158.178.210.252 — the x86 micro TERMINATED 2026-06-16 — and the failure is SILENT: authenticated calls return empty output, not an error",
@@ -19084,13 +19077,7 @@
       "why_it_matters": "CLAUDE.md documents the direct diag path (DIAG_BASE_URL + DIAG_READ_TOKEN + scripts/ops/diag_fetch.sh) as the durable fallback for when the hosted GitHub MCP drops. That fallback has been broken for ~2 months and fails silently, so a session reaching for it during an MCP outage gets nothing back and could reasonably report 'the VM is down' — a cause no code path tested. Secondary finding: CLAUDE.md's claim that a web session cannot reach the VM is only half right — the RAW IP is firewalled (confirmed rc=28 to 141.145.193.91:8001) but the Caddy HTTPS hostname resolves fine for unauthenticated Tier-1 routes, and credentialed diag calls also succeeded. That doc line should be corrected so future sessions do not skip a working path.",
       "resolution_criteria": "DIAG_BASE_URL updated to https://ict-bot.duckdns.org (operator action — Claude env var), verified by a diag_fetch.sh call returning JSON. Separately, diag_fetch.sh distinguishes 'host unreachable' from 'empty response' rather than emitting an empty body, and the CLAUDE.md web-session reachability line is corrected.",
       "next_action": "Bundle the diag_fetch.sh three-state fix + the CLAUDE.md correction into the same Tier-1 PR as the two workflow fixes. The env var itself is an operator paste — pair it with the DIAG_READ_TOKEN rotation so both are updated in one sitting.",
-      "updates": [
-        {
-          "at": "2026-08-18T11:35:00+00:00",
-          "by": "claude (S-LLM-BURST-WORKER session wrap)",
-          "note": "SUPERSEDED by BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM, which is the same finding filed 1h45m earlier by a concurrent session. All evidence unique to this row has been merged into that one; nothing is lost by closing this. Deduped at session wrap so a single fix does not leave a phantom open row behind — two rows for one defect is how a resolved issue keeps reading as outstanding."
-        }
-      ]
+      "updates": []
     },
     {
       "id": "BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG",
@@ -19118,6 +19105,561 @@
         },
         "queued_by": "operator direction 2026-08-18"
       }
+    },
+    {
+      "id": "BL-20260818-SWEEP-REPORTS-DONE-AFTER-MEASURING-ZERO-CELLS",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "m20_fleet_exit_sweep prints `done ->` and writes a verdicts.json after measuring 0 of 0 cells, with exit code 0 — a run that measured nothing is indistinguishable from one that measured everything",
+      "detail": "OBSERVED 2026-08-18, relay #9940. The sweep emitted:\n    split: FELL BACK to 2025-07-01 (harness_rc)\n    capital: 0/0 cells measured\n    done -> runtime_logs/m20_xrp_holdconviction/2026-08-18\nexit code 0, and it WROTE SUMMARY.md, capital_distribution.json, results.jsonl and verdicts.json into a dated output directory. Nothing about the artifact set distinguishes it from a complete run; only the `0/0` in stdout does, and stdout is not what a later session reads.\n\nCost, measured: I read it as a result and reported a conclusion from it before checking the cell count. The correct reading was 'my invocation was broken' (bare python3, no pandas).\n\nThis is `silent-empty-guard`'s class one level up: that guard catches a producer returning [] from a broad except; this is a whole RUN returning an empty artifact set under a success banner. A dated directory of empty verdicts is worse than no directory, because the next session's glob finds it.",
+      "resolution_criteria": "Exit non-zero when `cells_measured == 0`, and make the banner state the count: `done (0 cells measured) ->` rather than `done ->`. Better: refuse to write a verdicts.json at all for a zero-cell run, or write one whose top level carries an explicit `run_state: no_cells_measured` that consumers must branch on. DONE when a deliberately-broken invocation produces a non-zero exit and an artifact a glob-based reader cannot mistake for a measurement.",
+      "evidence": {
+        "relay": 9940,
+        "cells_measured": 0,
+        "exit_code": 0,
+        "artifacts_written": [
+          "SUMMARY.md",
+          "capital_distribution.json",
+          "results.jsonl",
+          "verdicts.json"
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-HARNESS-RC-COLLAPSES-THE-ACTUAL-ERROR",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "the sweep collapses any harness failure to `harness_rc`, so a plain ImportError took a separate relay round-trip to see",
+      "detail": "OBSERVED 2026-08-18. #9940 reported `split: FELL BACK to 2025-07-01 (harness_rc)` and nothing else. The underlying cause, found only by invoking the harness directly in #9941, was:\n    ModuleNotFoundError: No module named 'pandas'\n`run_cell` captures the subprocess output (`return {'error': (p.stderr or p.stdout)[-250:]}`) but the split-resolution path discards it and substitutes the token `harness_rc`.\n\nCost: two extra relay round-trips on a one-line cause. Every relay round-trip is minutes, and a session with a wrong hypothesis spends them in the wrong direction — I briefly treated it as a possible harness defect on the leg.\n\nSame family as BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED: a failure message naming a STAGE rather than a CAUSE, where the cause was captured and thrown away.",
+      "resolution_criteria": "Propagate the harness's captured stderr tail into the split-resolution failure message and into the run log, e.g. `harness_rc: ModuleNotFoundError: No module named 'pandas'`. The 250-char tail already exists in `run_cell`; the split path just needs to keep it. DONE when a deliberately-broken harness invocation names its own cause in the sweep's stdout.",
+      "evidence": {
+        "relays": [
+          9940,
+          9941
+        ],
+        "reported": "harness_rc",
+        "actual": "ModuleNotFoundError: No module named 'pandas'"
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-RESEARCH-HARNESSES-HAVE-NO-VENV-GUARD",
+      "severity": "medium",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "the sweep and every backtest harness require the repo venv and neither state nor check it — bare python3 fails deep, as a swallowed ImportError",
+      "detail": "OBSERVED 2026-08-18. `python3 scripts/research/m20_fleet_exit_sweep.py ...` on the trainer fails because the system interpreter has no pandas; `.venv/bin/python` works (pandas 3.0.3). Nothing in the scripts' `--help`, docstrings, or the skills states this, and the failure does not surface as 'wrong interpreter' — it surfaces as `harness_rc` (see the sibling row) or as a bare ImportError several layers down.\n\nThe knowledge exists but only as prose in artifact provenance strings — `config/lever_reachability.json` basis fields say 'repo venv (relay #9710)'. That records what a past run used; it does not tell the next session what to type, and it is not where anyone looks before running a sweep.",
+      "resolution_criteria": "Add a two-line interpreter guard at the top of the sweep and the backtest harnesses: if the required third-party imports are unavailable, exit non-zero with the exact venv path to use rather than letting the ImportError escape into a subprocess capture. Also state the venv invocation in the `backtesting` and `exit-refinement` skills, which are what a session reads before dispatching one. DONE when a bare-python3 invocation prints the correct command.",
+      "evidence": {
+        "failing": "python3",
+        "working": ".venv/bin/python (pandas 3.0.3)",
+        "relays": [
+          9940,
+          9941,
+          9942
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
+      "severity": "medium",
+      "tier": "1 (ops tooling)",
+      "area": "ops-tooling",
+      "title": "trainer-vm-diag HTML-escapes `<` to `&lt;` and collapses multi-line implicit string concatenation to U+00B7, so any python using format specifiers breaks",
+      "detail": "OBSERVED 2026-08-18, relay #9935. A `cmd:` block containing f-string format specifiers (`{x:<30}`) and multi-line implicit concatenation came back as:\n    bash: gt: command not found\n    SyntaxError: invalid character '·' (U+00B7)\nThe `<` had become `&lt;` and the line joins had become `·`. Rewriting without `<` and without multi-line strings ran clean (#9937).\n\nThis is a silent CORRUPTION of an operator-authored command, not a rejection — the relay ran something different from what was written and reported the resulting syntax error as if the author had typed it. A session debugging that error looks at its own python first.",
+      "resolution_criteria": "Either transport the `cmd:` block without HTML-escaping (base64 the way the prop-report relay already carries its untrusted payload), or detect and refuse a block whose escaped form differs from the source and say so. DONE when a cmd block containing `{x:<30}` and a multi-line f-string executes byte-identically. Until then, note the constraint in docs/claude/diag-relay.md so the next session does not lose a round-trip to it.",
+      "evidence": {
+        "relays": {
+          "broken": 9935,
+          "working": 9937
+        },
+        "corruptions": [
+          "< -> &lt;",
+          "newline-join -> U+00B7"
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-UNGRADED-CELLS-DO-NOT-SURFACE-AT-THE-FLEET-LEVEL",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "area": "exit-research",
+      "title": "a cell that hit the OOS-trades floor reads as measured at the fleet level — xrp's stale/giveback cells sat `insufficient_base` and nothing rolled that up",
+      "detail": "OBSERVED 2026-08-18. `stale8_lt0R` on `xrp_pullback_2h` carried `verdict: insufficient_base`, `would_have_been: is_oos_fail`, OOS base **23** trades against the floor of 25. The per-cell record is exemplary — `insufficient_base_why` even names the remedy verbatim ('THE BOUNDARY IS MISPLACED, NOT THE LEG ... re-run with a larger --split-target-oos'). The problem is that nothing surfaces it ABOVE the per-cell level.\n\nConsequence, measured: this leg's hold-conviction levers had never been graded, and the session-level reading was that they had been tried and had failed. I only found it by dumping raw verdicts.json after two failed structure guesses. Re-running at `--split-target-oos 50` graded all 14 cells (#9942) and gave a genuine answer.\n\n`insufficient_base` is the honest state and must stay — the defect is that it is invisible from the summary, so 'we tested it' and 'we could not test it' read the same at the level anyone actually reads.",
+      "resolution_criteria": "Surface an ungraded count in SUMMARY.md and in the sweep's stdout per leg — e.g. `xrp_pullback_2h: 14 cells, 4 UNGRADED (insufficient_base)` — and carry it in the fleet `selection` block beside `cells_tried`. A leg whose cells are majority-ungraded should not be reportable as assessed. DONE when a run containing an insufficient_base cell says so without opening the JSON.",
+      "evidence": {
+        "leg": "xrp_pullback_2h",
+        "cell": "stale8_lt0R",
+        "oos_base": 23,
+        "floor": 25,
+        "verdict": "insufficient_base",
+        "regraded_in_relay": 9942,
+        "cells_graded_after": 14
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-TEST-FAKES-THAT-DO-NOT-REFLECT-WRITES",
+      "severity": "medium",
+      "tier": "1 (tests)",
+      "area": "tests",
+      "title": "three order_monitor test fakes served a permanently-open row and never reflected update_trade — the class, not just the three instances",
+      "detail": "FOUND 2026-08-18 while making the close path package-wide (#9930). Three fakes (`test_close_retry_cooldown._FakeDB`, `test_strategy_monocle_partial_close_verdict._FakeDB`, and a third via the same shape) returned a trade row unconditionally — one ignored `filters` entirely — and recorded `update_trade` calls without applying them. A row could therefore never be observed to close.\n\nThat fiction was INVISIBLE while the close path resolved one leg by id and never re-read. The moment the code re-read to ask 'are any legs left?', three tests failed for a reason that had nothing to do with the change. One also mutated a module-level dict shared across tests once reflection was added, producing order-dependent failures.\n\nDirectly the pairs-suite lesson recorded in CLAUDE.md — tests that 'passed against a fictional table' — recurring in a different subsystem. Filing the CLASS because fixing three fakes does not stop the fourth.",
+      "resolution_criteria": "Audit the DB fakes across tests/ for two properties: (1) `get_trades` honours the `filters` it is passed, and (2) `update_trade` reflects at least `status` into what `get_trades` subsequently returns. Prefer a single shared in-memory fake over per-file ones — the three fixed here were three independent re-implementations of the same object. Consider a test that asserts the shared fake's `get_trades` respects a `status` filter, so the fake itself is covered. DONE when a new close-path test cannot pass against a row that never closes.",
+      "evidence": {
+        "fixed_in": "#9930",
+        "fakes": 3,
+        "properties_missing": [
+          "filters ignored",
+          "update_trade not reflected",
+          "module-level dict shared across tests"
+        ]
+      },
+      "opened_at": "2026-08-18T09:35:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+      "opened": "2026-08-18",
+      "severity": "critical",
+      "tier": "3 (each new declare is a Tier-3 value; the AUDIT and the cause split are Tier-1 and already landed)",
+      "status": "measured_open",
+      "area": "exit mechanics / live-trade management",
+      "title": "22 of 34 open trades can close ONLY by price reaching a level fixed at entry - no path closes them on anything learned since",
+      "detail": "Measured 2026-08-18 by scripts/ops/exit_path_coverage.py over the live journal (/api/diag/journal?table=trades&limit=1000, open + non-backtest) joined to /api/diag/position_telemetry. POPULATION: 34 open non-backtest trades, 17 with a telemetry row. VERDICTS: decision_exit_live 2, price_only 22, unknown 10, no_exit_path 0. So exactly TWO open positions have a confirmed path that can close them on post-entry evidence; 22 are confirmed to have none, and the remaining 10 are unknown rather than fine.\n\nThe distinction the audit draws: a `price_level` path (broker stop, broker target, monitor sl_cross/tp_cross) fires only when price REACHES a level fixed at entry and cannot act on anything learned since. A `decision` path (stale_stop, giveback_stop, exit_head, trail_decay, time_decay, vwap_cross) fires on accumulated evidence. A trade with price paths and no decision path is un-closeable for any reason other than price arriving somewhere - which is precisely the state the 20-day XRP short (trade 4163) is in, and it is invisible to every pre-existing surface: the leg grades ok on lever_reachability_audit (its arms are honest), ok on exit_mechanism_coverage (it declares only what its module reads), and the trade shows a populated stop_loss and take_profit_1 in the journal.\n\nTHREE DISTINCT CAUSES, each wanting a different remedy - collapsing them into one count is what made this unactionable before:\n  all_undeclared (9): 4711, 4701, 4700, 4574, 4550, 4547, 4350, 4348, 4347. The leg runs trend_donchian, whose module implements ALL FOUR M20 mechanisms, and the leg declares ZERO of them. Pure config gap - a Tier-3 value decision per leg, no engineering.\n  mixed (11): 4619, 4585, 4484, 4480, 4469, 4468, 4195, 4194, 4170, 4169, 4163. The htf_pullback_trend_2h family implements exactly ONE of the four (trail_decay); the other three grade not_implemented. On top of that its one mechanism is either undeclared or unreachable. Engineering work, not a config change.\n  declared_but_unreachable (2): 4653, 4652 (qqq_trend_long_1d) - trail_decay is declared and graded `inert` in config/lever_reachability.json.\n\nNOT a claim that any of these trades SHOULD close. It is the prior question: if the system concluded one should, on 22 of 34 there is no mechanism through which that conclusion could act.",
+      "evidence": [
+        "scripts/ops/exit_path_coverage.py --journal-json <trades> --telemetry-json <pt> --broker-json <ibo>",
+        "config/lever_reachability.json (qqq_trend_long_1d verdict=inert; xrp_pullback_2h verdict=vol_conditional arm_r=4.49)",
+        "src/units/strategies/htf_pullback_trend_2h.py implements trail_decay only"
+      ],
+      "related": [
+        "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+        "BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG"
+      ],
+      "resolution_criteria": "Basis for the counts above: scripts/ops/exit_path_coverage.py run 2026-08-18 against the live journal, 34 open non-backtest rows, self-test 7/7 with planted controls. RESOLVED when either (a) the price_only count is driven down by operator-approved declares plus the pullback-family mechanism work, or (b) the operator records a decision that price-only is the intended posture for a named subset, with that subset carried in the audit as an accepted exclusion rather than a finding. Progress is measurable by re-running the audit: it prints by_verdict and the cause split."
+    },
+    {
+      "id": "BL-20260818-TELEMETRY-PEAK-R-STORES-COALESCE-SENTINEL",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (observe-only table; src/runtime/position_telemetry.py upsert)",
+      "status": "measured_open",
+      "area": "position telemetry / provenance",
+      "title": "position_telemetry stores -1e18 as peak_r when the peak has never been measurable, so a fabricated number reaches every consumer",
+      "detail": "The upsert reads peak_r = MAX(COALESCE(position_telemetry.peak_r, -1e18), COALESCE(excluded.peak_r, -1e18)). The COALESCE default is a sentinel chosen so a real peak always wins the MAX - but when BOTH sides are NULL (a row whose peak_state is `thin_window`, i.e. never measurable) the MAX returns the SENTINEL and it is persisted as though it were a measurement. peak_pct_of_cap then derives from it: measured 2026-08-18 on trade 4711 (qld_trend_long_1d) peak_r = -1e+18, peak_pct_of_cap = -7.620208793720948e+19, cap_r = 1.3123, peak_state = 'thin_window'; and trade 4710 (scha_trend_long_1d) peak_r = -1e+18, peak_pct_of_cap = -3.5994528831617593e+19, peak_state = 'thin_window'. POPULATION: 2 of 20 telemetry rows on the live journal.\n\nThis is the module's OWN declared constraint 3 violated by a different number: 'peak_state carries the reason MFE is absent, never a fabricated 0.0'. The reason IS carried correctly - peak_state says thin_window - but peak_r beside it carries a value, and a consumer reading peak_r without branching on peak_state gets a number never observed. Any MIN or distribution over peak_r is destroyed by it, the same shape as the exposure-soak min-multiple that had to be kept null rather than 0.0.\n\nCorrect behaviour: when both sides are NULL the column must stay NULL. A CASE that returns NULL when both are NULL and the MAX otherwise, or a WHERE-guarded update. scripts/ops/exit_path_coverage.py refuses any |value| >= 1e17 and reports summary.sentinel_peak_rows, so the audit does not launder it - but that is a consumer-side band-aid over a producer-side defect, and every OTHER consumer (including /api/bot/positions' r block and /api/diag/position_telemetry) still sees the sentinel.",
+      "evidence": [
+        "src/runtime/position_telemetry.py::_UPSERT ON CONFLICT ... peak_r=MAX(COALESCE(...,-1e18), COALESCE(...,-1e18))",
+        "/api/diag/position_telemetry?limit=200 rows for trade_id 4710 and 4711 (2026-08-18)"
+      ],
+      "related": [
+        "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
+      ],
+      "resolution_criteria": "Basis: the two rows above read from /api/diag/position_telemetry on 2026-08-18, against 20 rows total. RESOLVED when the upsert leaves peak_r NULL where both sides are NULL, a test pins that a thin_window row stores NULL rather than a sentinel, and the existing sentinel rows are cleaned or allowed to age out - verified by a re-read showing summary.sentinel_peak_rows empty."
+    },
+    {
+      "id": "BL-20260818-NO-BRACKET-READ-SURFACE-FOR-BYBIT-OR-ALPACA",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (a read route; the sibling IB route already exists)",
+      "status": "measured_open",
+      "area": "diag read surfaces / exit coverage verification",
+      "title": "Resting-bracket state is unreadable from any session for 33 of 34 open trades - /api/diag/ib_open_orders is IB-only",
+      "detail": "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE was resolved by adding /api/diag/ib_open_orders, which reduces nothing and lets a session check the boolean/quantity coverage verdicts against actual rows. There is no equivalent for bybit or alpaca. Measured 2026-08-18 via scripts/ops/exit_path_coverage.py: of 34 open non-backtest trades, broker-bracket state is UNOBSERVABLE for 34 - 33 because the account is not an IB account (read_state `not_ib`) and 1 because ib_paper returned `could_not_look`. So the audit can grade zero of them on broker reality and correctly reports `unknown` rather than inventing an answer.\n\nThis is the READ half of BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT, and it is a distinct remedy: that row is about the SWEEP's grading, this is about a session being able to contradict the sweep at all. Both live sweeps (_check_broker_naked_bybit_positions, _check_broker_naked_equity_positions) reduce broker state to a verdict before anyone sees it, which is exactly the condition that let the stripped MGC take-profit sit undetected for seven days on the IB side.\n\nNote the ib_paper `could_not_look` in the same read: the IB gateway was not answering at 2026-08-18T09:4xZ, so even the one venue with a read surface was unreadable at that moment - which the audit reports as unknown, not as absent.",
+      "evidence": [
+        "/api/diag/ib_open_orders 2026-08-18: bybit_1/bybit_2/bybit_portfolio/alpaca_* all read_state=not_ib; ib_paper and ib_live read_state=could_not_look",
+        "scripts/ops/exit_path_coverage.py summary.broker_observability = {not_ib: 33, could_not_look: 1}"
+      ],
+      "related": [
+        "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE",
+        "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT"
+      ],
+      "resolution_criteria": "Basis: the /api/diag/ib_open_orders read and the audit rollup above, both taken 2026-08-18 over 34 open non-backtest trades. RESOLVED when a diag route serves resting protective orders for bybit and alpaca accounts with the same three-state read_state discipline (not_applicable / could_not_look / orders_read) and exit_path_coverage's broker_observability count for those venues drops to the genuinely-unreadable remainder."
+    },
+    {
+      "id": "BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES",
+      "opened_at": "2026-08-18T08:55:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "severity": "high",
+      "tier": "1 (research harness)",
+      "status": "resolved",
+      "area": "exit-research",
+      "title": "M31 P5 precondition 3a is recorded DONE on backtest_trend.py, but the leg that MOTIVATED P5 runs on backtest_pullback.py — which has no --rr-floor, so the lever cannot be measured on the trade it was designed for",
+      "detail": "checked: scripts/backtest_pullback.py — grepped rr_floor / rr-floor / r_to_target, ZERO occurrences on 2026-08-18, against a POSITIVE CONTROL in checked: scripts/backtest_trend.py which carries all of them. Also checked: scripts/research/m20_fleet_exit_sweep.py (zero — the GRADER had no cell either) and checked: docs/research/RESEARCH-CAPABILITY-INDEX.md. ⚠️ THE CLAIM WAS TRUE WHEN FILED AND IS NOW HISTORICAL: the lever was ported the same day (see status), so re-reading this row without this note would report a capability gap that no longer exists.\n\nMEASURED 2026-08-18.\n\n`docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md` § 5 precondition 3a reads 'IMPLEMENT — DONE 2026-08-17 … scripts/backtest_trend.py gains --rr-floor'. That is true of `backtest_trend.py`.\n\nBut the proposal's own motivating case — trade 4163, `xrp_pullback_2h`, real money on bybit_2, the trade § 3 quotes `rr_from_here` 0.71 for — does NOT run on that harness. The fleet sweep's own run plan (relay #9934) resolves this leg to:\n    RUN  xrp_pullback_2h   backtest_pullback.py   data/XRPUSDT_5m.csv\nand `scripts/backtest_pullback.py`'s argparse has `--stale-exit-bars`, `--stale-exit-below-r`, `--giveback-r`, `--giveback-min-mfe-r`, `--trail-decay-*`, `--tp-cap-pct`, `--emit-trades` — and NO `--rr-floor`.\n\nSo precondition 3b ('MEASURE') is blocked on this leg by something the proposal attributes to data: it records the blocker as 'the only candle file in the repo cannot exercise it' (BTCUSDT 1-minute). Data is a real blocker for the TREND legs. For the pullback leg there is a second, prior blocker — the flag does not exist in its harness — and the trainer DOES hold `data/XRPUSDT_5m.csv` and `XRPUSDT_15m.csv`, so the data blocker does not even apply here. One stated cause was masking another.\n\nA THIRD related gap, same read: the fleet sweep generates no rr_floor cell at all (`grep -c 'rr_floor\\|rr-floor' scripts/research/m20_fleet_exit_sweep.py` -> 0). So even once the flag exists, `m20_fleet_exit_sweep` will not exercise it — the measurement needs either a new lever family in the sweep or a direct harness invocation.\n\nWHY THIS MATTERS BEYOND BOOKKEEPING. P5's whole justification is the XRP hold-through-churn question, and the operator has since reframed the objective explicitly as capital utilisation: unless the system is confident a position is worth holding, liquidate and free the capital. `rr_from_here` IS that rule expressed as a number (trade 4163 currently reads 0.6252 — risking 1.54R to make 0.96R). A precondition marked DONE that cannot be exercised on the motivating leg means the milestone's central question has no path to an answer, while the phase table shows the implement step complete.",
+      "resolution_criteria": "Port `--rr-floor` to `scripts/backtest_pullback.py` mirroring the trend implementation EXACTLY — importing `position_telemetry.r_distances` as the ONE definition of (r_to_stop, r_to_target, rr_from_here) rather than re-deriving it, registering the flag in that harness's `ALL_LEVERS_AT_DEFAULT` no-op guard, carrying the same three-state `rr_floor_state` (`off` / `measurable` / `unmeasurable_no_tp_cap`) through `collapsed-state-guard`, and keeping the CLI refusal of `--rr-floor` without `--tp-cap-pct` so an inert run is never recorded as a measured no-op. Then add an rr_floor cell family to `m20_fleet_exit_sweep` OR document the direct invocation. DONE when `--rr-floor` runs on `data/XRPUSDT_5m.csv` resampled to 2h and returns a non-inert result, and the P5 proposal's precondition 3a is corrected to say WHICH harnesses have the lever.",
+      "evidence": {
+        "motivating_trade": 4163,
+        "leg": "xrp_pullback_2h",
+        "harness_resolved": "scripts/backtest_pullback.py",
+        "data_available_on_trainer": [
+          "data/XRPUSDT_5m.csv",
+          "data/XRPUSDT_15m.csv"
+        ],
+        "rr_floor_in_pullback_harness": false,
+        "rr_floor_in_trend_harness": true,
+        "rr_floor_cells_in_fleet_sweep": 0,
+        "relay": 9934
+      },
+      "resolution_note": "PORTED 2026-08-18 on claude/exit-path-coverage: scripts/backtest_pullback.py now carries the rr_floor lever, importing r_distances from the LIVE src/runtime/position_telemetry (object identity asserted across both harnesses, so a second derivation cannot appear). Three-state rr_floor_state registered with collapsed-state-guard as pullback_harness.rr_floor_state — registered separately from the trend contract because a contract naming two producers cannot say which one dropped a state, and verified by planting a break. 12 tests including the positive control (a floor above the run's own measured rr_min_p90 must actually fire) and monotonicity. NOT yet resolved: the operator-pre-approved walk-forward has not been RUN, so no verdict on whether any floor value clears the gate. Resolve only on that result. GRADED 2026-08-18 (#9950/#9952): the port is done AND the lever has now been measured on the leg that motivated it. Honest negative — all three floors fail Path A on both axes in-sample, none qualifies for Path B, and no walk-forward was justified. The lever cuts hold time substantially (-32% capital_days at floor 1.0) and still loses more R than it frees."
+    },
+    {
+      "id": "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+      "opened_at": "2026-08-18T09:25:00+00:00",
+      "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
+      "severity": "critical",
+      "tier": "2 (order-path adjacent: it decides what pnl a closed row records)",
+      "status": "open",
+      "area": "provenance",
+      "title": "exchange_fills_ib.closed_pnl_from_fills has ZERO production callers, so IBKR's own realizedPNL is pulled hourly into the store and never read — 0 of 33 ib_paper closed trades have ever carried a broker-sourced pnl",
+      "detail": "MEASURED 2026-08-18, chasing why MGC 4487 still had pnl null 90 minutes after a confirmed fill.\n\nTHE CHAIN, each link verified:\n  1. `clients.BROKER_PNL_READER_EXCHANGES` is `frozenset({'alpaca','interactive_brokers','bybit'})` — IB IS declared a broker-PnL reader. (The docstring at `exchange_fills_ib.py:25` still says 'today {\"bybit\"}' and is stale.)\n  2. `ict-ib-executions-pull.timer` runs and works. The 09:18:15Z run logged `raw_fills: 35, mapped: 35, realized_pnl_count: 35`, newest exec 2026-08-18T07:49:10Z — i.e. the MGC exit's own 35 fills, each carrying a `CommissionReport.realizedPNL` (854.72, 1923.12, 641.04, 427.36, 213.68, …). The broker truth is IN the store.\n  3. `exchange_fills_ib.closed_pnl_from_fills` exists, is in `__all__`, and has a test file (`tests/test_ib_closed_pnl_readback.py`).\n  4. **It has NO production caller.** Every reference outside its own module is either that test or a single COMMENT in `src/web/api/routers/diag.py:214`. Nothing in `src/runtime/` or `src/units/` calls it.\n\nPROBE VALIDITY (a grep returning nothing is not proof of absence): the same search DOES find positives — the test call sites, and the Bybit analogue `account_closed_pnl_for_trade` with real call sites in `order_monitor`. So the IB reader's zero is a measured zero, not a failed search.\n\nDENOMINATOR: 33 closed `ib_paper` trades. 28 carry a non-null pnl. `pnl_source` splits `(none)` 22 / `local_compute` 7 / `unmeasured` 4. **IB-broker-sourced: 0.** The capability has never fired once.\n\nWHY THE DECLARATION MAKES IT WORSE, not neutral. Being in `BROKER_PNL_READER_EXCHANGES` causes `_sweep_local_pnl_for_unpriced` to DEFER an IB row for `_LOCAL_PNL_BROKER_DEFER_MS` (6h) while it waits for a broker record that nothing will ever fetch. After the defer the local sweep prices it anyway — which is exactly the 7 `local_compute` rows above. So the net effect is not 'no pnl': it is a **provenance downgrade**, a locally-computed mark standing in for a broker figure that was sitting in the store the whole time. CLAUDE.md's 'IBKR is a broker-truth reader now' describes a path that has never executed.\n\nIMMINENT AND CONCRETE: MGC trade 4487 closed 2026-08-18T07:52:52Z (+$155.7k paper on a 105-lot). It reads `pnl: null`, `exit_price: null`, `pnl_source: unmeasured`. At ~13:52Z the 6h defer elapses and the local sweep will price it from a mark rather than from the 35 IBKR realizedPNL records already stored. That is a preventable fabrication on the largest close in the book, and the fix is to read a value we already have.",
+      "resolution_criteria": "Wire `closed_pnl_from_fills` into the close path for IB rows, mirroring how `account_closed_pnl_for_trade` is applied for Bybit — the sweep that fills a deferred row should consult the exchange-fills store for an `interactive_brokers` account BEFORE the local-compute fallback, and stamp `exit_price_source` from the record's own `source` rather than a literal (the BL-20260730 rule). Backfill 4487 and the 7 `local_compute` IB rows from the store where a matching record exists, since the fills are retained. Fix the stale `exchange_fills_ib.py:25` docstring. DONE when a newly-closed IB trade lands with MEASURED provenance from the store, verified on one real close — not when the code merges. Consider extending `provenance-consumer-guard` to cover a declared READER with no caller: it currently catches a provenance KEY written with no consumer, and this is the same defect one level up (a whole reader written with no consumer) which that guard cannot see.",
+      "evidence": {
+        "function": "src/runtime/exchange_fills_ib.py::closed_pnl_from_fills",
+        "production_callers": 0,
+        "non_test_references": [
+          "src/web/api/routers/diag.py:214 (a comment)"
+        ],
+        "reader_set": [
+          "alpaca",
+          "interactive_brokers",
+          "bybit"
+        ],
+        "ib_paper_closed_trades": 33,
+        "ib_broker_sourced_pnl": 0,
+        "pnl_source_split": {
+          "(none)": 22,
+          "local_compute": 7,
+          "unmeasured": 4
+        },
+        "pull_run_0918Z": {
+          "raw_fills": 35,
+          "mapped": 35,
+          "realized_pnl_count": 35,
+          "newest_exec_time": "2026-08-18T07:49:10Z"
+        },
+        "live_instance": {
+          "trade": 4487,
+          "closed_at": "2026-08-18T07:52:52Z",
+          "pnl": null,
+          "pnl_source": "unmeasured",
+          "defer_elapses_approx": "2026-08-18T13:52Z"
+        }
+      }
+    },
+    {
+      "id": "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (research tooling)",
+      "status": "resolved",
+      "area": "research harness / exit-lever grading",
+      "title": "The rr_floor lever shipped in two harnesses and the sweep that grades it had no cell for it — implemented, measurable, ungradeable",
+      "detail": "scripts/research/m20_fleet_exit_sweep.py is the ONLY thing that applies the Path A / Path B gate and the yearly walk-forward to an exit lever. The rr_floor lever shipped in scripts/backtest_trend.py on 2026-08-17 and was ported to scripts/backtest_pullback.py on 2026-08-18, and `cells_for` emitted no rr_floor cell for either. Measured by grep: zero occurrences of `rr_floor` or `rr-floor` in the fleet sweep before this change. So the lever was implemented, measurable in both harnesses, and could not be graded — and an operator pre-approval to walk-forward it had nothing to run.\n\nThis is the THIRD instance of one class in this session: a capability that exists and nothing calls it. The other two are BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER (closed_pnl_from_fills, 0 production callers) and BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN (an allowlisted action whose script had never executed). provenance-consumer-guard catches the field version of this shape; there is no equivalent asking whether a shipped LEVER has a cell in the sweep that grades levers, or whether an allowlisted ACTION's script has any test. That generalisation is the durable fix and is NOT done here.\n\nFIXED for rr_floor specifically: cells_for now emits rrfloor0.5 / 0.75 / 1.0 for the families whose harness carries the lever, gated through inert_rr_floor_reason so a cell that CANNOT fire is recorded as skipped-and-why rather than emitted. That distinction is load-bearing — an rr_floor cell run without --tp-cap-pct returns exactly-zero deltas that read as `tie_no_improvement`, i.e. 'we measured it and it made no difference', when it was never measurable (the cosmetic-cell anti-pattern, BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS). The two inert causes are kept as different strings because they have different fixes: `no_tp_cap_in_run` is fixed by passing the flag, `family_has_no_live_tp_cap` cannot be fixed at all.\n\nThe floor grid 0.5/0.75/1.0 is a GRID, NOT A RECOMMENDATION. It brackets the live reading that motivated the lever: XRP trade 4163 sits at rr_from_here 0.47 with 0.80R of headroom against 1.70R at risk.\n\nMEASURED 2026-08-18 (trainer relay #9950/#9952, /tmp clone of claude/exit-path-coverage @ dbe321a, XRPUSDT 2h corpus fetched fresh: 13,206 bars 2023-08-14..2026-08-18). Config-exact base via the fleet sweep, --tp-cap-pct 0.099, split 2025-10-16 (oos-trades mode), base n IS=127 OOS=48 against a min_oos_trades_floor of 25.\n\nVERDICT: all three floors FAIL. path_a_pass 0, path_b_candidates 0, path_b_wf_pass 0, cells_withheld_inert 0.\n\n  cell        IS d_net_r  IS d_maxDD   OOS d_net_r  OOS d_maxDD   d_cap/day   d_bars_held\n  rrfloor0.5     -5.8796      +3.5179      -3.0970      +1.8597     -0.0215        -8.30\n  rrfloor0.75    -3.7168      +1.8967      +0.2403      +0.4231     +0.0008       -15.61\n  rrfloor1       -5.5862      +4.0409      -5.9225      +4.1465     -0.0516       -19.24\n\n⚠️ NO WALK-FORWARD RAN, and that is the correct outcome rather than a gap. Both routes short-circuit before it: Path A needs net_R AND maxDD no-worse (every cell is worse on both axes in-sample), and Path B needs net_R up in BOTH windows (net_r_up_both_windows is false for all three). The operator's pre-approval was for a walk-forward that the evidence never justified spending. Do not record this as 'the walk-forward failed'.\n\nTHE LEVER WORKS MECHANICALLY AND STILL DOES NOT PAY — which is the finding. It genuinely frees capital: mean hold falls 46.6 -> 21.2 bars at floor 1.0, and capital_days 493.3 -> 333.3 (-32%). But it destroys more R than the capital-time it releases, and that is measured on the operator's OWN axis: d_net_r_per_capital_day is NEGATIVE at 0.5 (-0.0215) and 1.0 (-0.0516), and +0.0008 at 0.75 — noise. So this is not the familiar 'Path A cannot see the capital axis' excuse; Path B looked, on the axis it exists for, and found nothing.\n\nREACHABILITY CONFIRMS THE CELLS WERE REAL, not cosmetic: the base run's own rr_min distribution is p10 0.134 / median 1.145 / p90 3.54 over n=237, so 0.5/0.75/1.0 all sit inside the observed range, and every cell reported rr_floor_state measurable with inert_cells empty.\n\nDIRECTION OF THE UNTESTED REMAINDER: floors above 1.0 are reachable (p90 3.54) and untested, but the tested trend argues against them — 0.5 -0.0215, 0.75 +0.0008, 1.0 -0.0516, i.e. a near-zero peak at 0.75 with 1.0 clearly worse. There is no visible direction to push, so a wider grid is not the obvious next move.\n\nSEPARATE FINDING FROM THE SAME RUN — the config-exact base is a WEAK LEG: IS +1.779R over 127 trades (+0.014R/trade, essentially zero expectancy) and OOS -0.5915R over 48, with the sweep itself stamping rate_ungradeable_why: base_unprofitable on the OOS window. This is NOT the -15.60R figure I first quoted from a non-config-exact run (corrected on #9950); it is milder and it is still not a leg carrying its weight.",
+      "evidence": [
+        "grep -c 'rr_floor' scripts/research/m20_fleet_exit_sweep.py == 0 before 2026-08-18",
+        "tests/test_fleet_sweep_rr_floor_cells.py (8 tests, incl. the positive control)",
+        "scripts/ops/exit_path_coverage.py 2026-08-18: trade 4163 rr_from_here 0.47"
+      ],
+      "related": [
+        "BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES",
+        "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+        "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN"
+      ],
+      "resolution_criteria": "Basis: the grep above, and the four cell-generator controls run 2026-08-18 (pullback+cap emits 3 cells; pullback without a cap skips with no_tp_cap_in_run; scalp skips with family_has_no_live_tp_cap; donchian+cap emits 3). RESOLVED when the sweep has actually been RUN on xrp_pullback_2h with these cells and a verdict recorded — pass, honest_negative, or path_b_wf_pass with its drawdown-exchange-rate column. Emitting the cells is not the same as grading the lever, and this row must not be closed on the code change alone. MET 2026-08-18: the sweep RAN on xrp_pullback_2h (#9950) and a verdict is recorded above — honest_negative on all three floors, with the cells confirmed measurable rather than cosmetic. The durable generalisation (a guard asking whether a shipped lever has a cell at all, the way provenance-consumer-guard asks it of a field) remains OPEN and is tracked as its own concern, not by this row."
+    },
+    {
+      "id": "BL-20260818-LIVE-DONCHIAN-INVERTS-THE-HARNESS-LEVER-PRECEDENCE",
+      "opened": "2026-08-18",
+      "severity": "medium",
+      "tier": "3 (live-money family exit order)",
+      "status": "latent_measured_open",
+      "area": "exit mechanics / live-vs-train parity",
+      "title": "Live trend_donchian runs stale_stop before giveback_stop; BOTH harnesses run giveback first — and its own comment claims it matches",
+      "detail": "src/units/strategies/trend_donchian.py::monitor evaluates _stale_stop_verdict at step 2.5 and _giveback_verdict at 2.55, under a comment reading 'Checked AFTER stale-stop, matching the harness's exit precedence'. Both harnesses do the opposite. Verified by reading EXECUTION order, not byte offsets: in scripts/backtest_trend.py both live in one per-bar loop, each with its own `break` — giveback at ~line 566, stale at ~582, so giveback wins a bar where both would fire. scripts/backtest_pullback.py::_levers is giveback -> trend_flip -> stale. Field beats comment; the comment is wrong.\n\nIMPACT IS ATTRIBUTION, NOT PnL. Both fire at bar close and exit at the same close price, so R is identical either way; what differs is the recorded exit_reason. That still matters — a per-lever verdict measured in a sweep is attributed to a different lever live, so by_outcome histograms and live exit_reason distributions cannot be reconciled.\n\nLATENT, NOT ACTIVE. The order can only bite when ONE leg declares BOTH keys. Measured 2026-08-18 against config/strategies.yaml over enabled+live legs: stale-only on 3 (ict_scalp_eth_15m, trend_donchian_eth_prop, trend_donchian_xrp_4h), giveback-only on 1 (uso_trend_1h), BOTH on ZERO. So nothing is mis-attributed today, and the first leg to declare both would start it silently.\n\nNOT FIXED HERE deliberately: flipping a live-money family's exit order is Tier-3 and must not ride along inside the shared-lever refactor that found it. The newly-wired pullback family follows ITS OWN harness (giveback then stale), so the two live families now differ — which is the honest state while donchian is the inverted one.",
+      "evidence": [
+        "src/units/strategies/trend_donchian.py::monitor steps 2.5 / 2.55",
+        "scripts/backtest_trend.py per-bar loop: giveback ~566, stale ~582 (both break)",
+        "scripts/backtest_pullback.py::_levers: giveback -> trend_flip -> stale",
+        "config/strategies.yaml scan 2026-08-18: 0 live legs declare both keys"
+      ],
+      "resolution_criteria": "Basis: the execution-order reads and the config scan above, both 2026-08-18. RESOLVED when either (a) the operator approves flipping donchian to giveback-first so live matches both harnesses and the stale comment is corrected, or (b) the operator records that live intentionally differs, and the comment is rewritten to say so rather than claiming a parity it does not have. Either way the false comment must go. Re-check the both-declared count first — if it is no longer zero the row is ACTIVE, not latent."
+    },
+    {
+      "id": "BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (audit tooling)",
+      "status": "fix_landed_for_this_instance",
+      "area": "audit tooling / exit coverage",
+      "title": "Both exit-coverage audits detect capability by grepping ONE module, so extracting a lever to a shared module reads as losing it",
+      "detail": "scripts/ops/exit_mechanism_coverage.py::module_implements and scripts/ops/exit_path_coverage.py::module_close_reasons both decided whether a strategy has a mechanism by grepping THAT UNIT'S OWN SOURCE for a cfg-key literal or a close-reason literal. Correct while every lever was inline; a FALSE NEGATIVE the moment one moves.\n\nDemonstrated 2026-08-18 by doing it: extracting stale_stop and giveback_stop to src/runtime/exit_levers.py made both audits report the DONCHIAN family — which trades real money — as having lost two mechanisms it still runs. The planted positive control in exit_path_coverage's self-test ('trend_donchian emits stale_stop') is what caught it; without that control the refactor would have silently degraded every verdict both files produce, in the direction of under-reporting coverage.\n\nFIXED FOR THIS INSTANCE: both detectors now follow the shared import, matched on the imported SYMBOL rather than the module name (importing exit_levers for since_entry is not the same capability as importing stale_stop_verdict, and treating them alike would over-report), and each confirms the SHARED module actually reads the mechanism's keys rather than trusting the call site's name. A negative control pins that a unit importing only since_entry gains no close reason.\n\nTHE GENERAL SHAPE IS NOT FIXED. Any future extraction to another shared module re-breaks both files, because the fix enumerates exit_levers specifically. This is the same family as BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER (the sweep had no cell for a shipped lever) and BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER: a capability and the thing that is supposed to see it drift apart, and nothing asserts the relationship. provenance-consumer-guard does exactly this for FIELDS; there is no equivalent for LEVERS.\n\nFOURTH SITE, found by CI rather than by me. The extraction changed a property FOUR places asserted, and only ONE of them was a test: tests/test_exit_mechanism_coverage.py::test_htf_pullback_implements_only_trail_decay, a deliberate tripwire whose failure message reads 'the coverage finding is stale and the docs quoting it must be re-measured'. It caught the change in CI (1 failed, 11581 passed) and named the remedy. The other three were prose: the live docstring in exit_mechanism_coverage.py (a CURRENT-state claim, corrected) and two 2026-08-16 records (historical, annotated forward rather than rewritten — a record of what was measured then is not wrong, but must not be quoted as current).\n\nPROCESS NOTE, recorded because it is the repeatable part: I ran TARGETED tests after the extraction, not the full suite, so I did not see this locally — the full-suite run in that session predated the wiring. A change that alters a property other modules assert needs the full suite before push, and the tripwire is what covered for the gap.",
+      "evidence": [
+        "exit_path_coverage self-test went 7/7 -> 6/7 on the extraction, failing the donchian positive control",
+        "exit_mechanism_coverage reported xrp_pullback_2h stale_stop/giveback as not_implemented after wiring"
+      ],
+      "related": [
+        "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER",
+        "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+        "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN"
+      ],
+      "resolution_criteria": "Basis: the self-test regression above, observed live while performing the extraction on 2026-08-18, plus the audit output before and after. The per-instance fix is verified by both self-tests (9/9 and 6/6) including a negative control. RESOLVED when a guard asserts the general relationship — that a lever a unit can run is visible to the audits and has a cell in the sweep that grades it — rather than each audit enumerating the shared modules it happens to know about. Until then this row stays open with the instance fixed."
+    },
+    {
+      "id": "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "3 (the disposition is a strategy decision)",
+      "status": "measured_open",
+      "area": "exit mechanics / strategy performance",
+      "title": "xrp_pullback_2h fails ALL THREE decision-exit levers across 7 cells — the leg is the problem, not its exit machinery",
+      "detail": "Two sweeps, trainer relays #9950 and #9954, config-exact base, --tp-cap-pct 0.099, XRPUSDT 2h corpus 13,206 bars 2023-08-14..2026-08-18, split 2025-10-16, base n IS=127 OOS=48 against a min_oos_trades_floor of 25. SEVEN cells, ALL honest negatives, path_a_pass 0 and path_b_candidates 0 in both runs:\n\n  rr_floor   0.5 / 0.75 / 1.0    d_cap/day -0.0215 / +0.0008 / -0.0516\n  stale_stop 8bars / 12bars      d_cap/day -0.0353 / +0.0082\n  giveback   MFE1R / MFE2R       d_cap/day -0.0209 / -0.0254\n\nNo cell is net_R-up on BOTH windows, so none is even a Path B candidate, and no walk-forward was justified on any of them. The two cells with a positive capital delta are both the OOS-ONLY shape the walk-forward exists to catch — stale12 posts IS -10.1113R against OOS +1.1334R, a 11.2R swing between adjacent periods on the same leg.\n\nWHAT THIS MEANS, stated carefully. The levers are not broken and are not inert: reachability was confirmed (rr_min p10 0.134 / median 1.145 / p90 3.54 over n=237; every cell rr_floor_state measurable; inert_cells empty), and they demonstrably DO what they claim — rr_floor at 1.0 cuts mean hold 46.6 -> 21.2 bars and capital_days by 32%. They simply destroy more R than the capital-time they release, ON THIS LEG.\n\nAND THE LEG BARELY MAKES MONEY. Config-exact base is IS +1.779R over 127 trades (+0.014R/trade, essentially zero expectancy) and OOS -0.5915R over 48, with the sweep stamping rate_ungradeable_why: base_unprofitable on the OOS window. A lever cannot rescue a book with no edge, and improving one would not make the leg worth its capital. So the disposition question for xrp_pullback_2h is a STRATEGY question (demote to shadow? retune? kill?), not an exit-mechanics question — which is the opposite of where this investigation started, and worth recording so the next session does not re-open the exits.\n\nNOT a statement about the family. This is one leg of 18; the crypto-leg family sweep is #9955 and the 12 equity/ETF/futures legs have no corpus on the trainer at all.",
+      "evidence": [
+        "trainer relay #9950 + #9952 (rr_floor, 3 cells) and #9954 (stale+giveback, 4 cells)",
+        "config/strategies.yaml xrp_pullback_2h; live real-money trade 4163 on bybit_2",
+        "docs/design/m31-p5-telemetry-reading-lever-PROPOSAL.md § measured result"
+      ],
+      "related": [
+        "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+        "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER"
+      ],
+      "resolution_criteria": "Basis: the two sweeps above, 7 cells, config-exact base, n IS=127 OOS=48 over a 13,206-bar corpus. RESOLVED when the operator records a disposition for xrp_pullback_2h as a STRATEGY — demote to shadow, retune, or keep with the near-zero expectancy accepted and stated. Do NOT resolve this by declaring an exit lever: seven cells say none of them pays here. If a future retune materially changes the base, the cells must be RE-RUN, not re-read, because they were measured against this base."
+    },
+    {
+      "id": "BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "3 (implementing it in the units is live exit-path work)",
+      "status": "measured_open",
+      "area": "exit mechanics",
+      "title": "rr_floor exists in both harnesses and ZERO live units — a passing sweep cell could not have been declared",
+      "detail": "Found by the FIRST run of the new lever-wiring-guard, which is the point of it. Measured 2026-08-18: `rr_floor` / `rr_from_here` appears 23 times in scripts/backtest_trend.py, 23 times in scripts/backtest_pullback.py, and ZERO times across src/units/strategies/*.py and src/runtime/exit_levers.py. It is a backtest-only lever.\n\nCONSEQUENCE FOR THE WORK DONE EARLIER THE SAME DAY: the operator pre-approved an rr_floor walk-forward and it was run (#9950). Worth doing — but a PASS could not have been acted on, because declaring `rr_floor` in a leg's YAML would produce an ORPHANED DECLARE, a key no module reads. That is exactly the condition the stale_stop/giveback extraction fixed for the pullback family hours earlier, still true for this lever. Nothing was lost because the result was negative on all three floors, but the SEQUENCING was wrong: runnable should precede gradeable, and the guard now makes that ordering visible.\n\nNOT FIXED, deliberately. The only leg swept says the lever does not pay there (BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER: 3 floors, all honest negatives, zero Path B candidates), so building a live exit path for it is not justified by current evidence. Recorded in check_lever_wiring.LEVERS as an explicit `runnable_exempt` the guard PRINTS on every run, rather than dropping the lever from the table — a lever missing from that table is invisible to the guard, which is the failure mode the guard exists to prevent.\n\n⚠️ DO NOT clear this by adding rr_floor to exit_mechanism_coverage.MECHANISMS. That would make it *look* visible while still being unrunnable, converting an honest gap into a false positive.\n\nNote it is also out of scope for harness-lever-coupling-guard entirely, since no enabled strategy declares it as a key — which is how it shipped into two harnesses and a sweep with nothing noticing.",
+      "evidence": [
+        "grep: 23 occurrences in each harness, 0 in src/units/strategies/ and src/runtime/exit_levers.py",
+        "scripts/ci/check_lever_wiring.py first run: rr_floor gradeable, units=0"
+      ],
+      "related": [
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+        "BL-20260818-FLEET-SWEEP-CANNOT-GRADE-THE-RR-FLOOR-LEVER"
+      ],
+      "resolution_criteria": "Basis: the grep counts above and the guard's first run, both 2026-08-18. RESOLVED when either (a) a sweep on some leg shows rr_floor clearing the gate AND the lever is implemented in the live units so a declare is real, or (b) the operator records that rr_floor stays research-only, in which case the exemption text should say so instead of pointing here as pending work. Removing it from LEVERS is never the resolution."
+    },
+    {
+      "id": "BL-20260818-NO-GUARD-ASSERTED-LEVER-WIRING-UNTIL-TODAY",
+      "opened": "2026-08-18",
+      "severity": "medium",
+      "tier": "1 (CI tooling)",
+      "status": "fix_landed",
+      "area": "CI guards",
+      "title": "Four capability-with-no-consumer findings in one day and nothing asserted the relationship — now lever-wiring-guard does",
+      "detail": "provenance-consumer-guard fails CI when a declared provenance FIELD gains a writer and no reader, on the reasoning that a signal written and never read is worse than a missing one: reviewers see it and assume something acts on it. Four findings on 2026-08-18 were that same shape one level up, about CAPABILITIES rather than fields — the IB broker-PnL reader with zero callers, attach_ib_target never executed, rr_floor shipped with no sweep cell, and both exit-coverage audits blind to a lever moved to a shared module (which made a REAL-MONEY family read as having lost two mechanisms it still runs).\n\nscripts/ci/check_lever_wiring.py asserts three legs per lever and reports WHICH failed, because the remedies differ completely: RUNNABLE (a live unit can execute it — unit work), GRADEABLE (cells_for emits a cell — a sweep cell), VISIBLE (exit_mechanism_coverage sees it — a detector fix). It found a real gap on its first run (rr_floor, units=0).\n\nCOMPLEMENTARY TO harness-lever-coupling-guard, not a duplicate: that one starts from a YAML key and asks whether the debt matrix classifies it; this starts from a lever and asks whether its consumers exist. Opposite directions, and neither subsumes the other.\n\nSCOPE, honestly: EXIT LEVERS only. The other findings of the day — a broker reader with no caller, an allowlisted action whose script never ran — are the same class and remain unguarded. The general 'is this capability consumed by the thing meant to consume it' check does not exist; this is one instance of it.\n\nIt deliberately does NOT check that a lever is DECLARED anywhere. Declaring is a Tier-3 value decision resting on sweep evidence, and a guard demanding one would push exactly the cosmetic declares BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS warns about.",
+      "evidence": [
+        "scripts/ci/check_lever_wiring.py --self-test: 6/6 incl. a planted negative control",
+        "registered in scripts/ci/run_guards.py as lever-wiring-guard"
+      ],
+      "related": [
+        "BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED",
+        "BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS",
+        "BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN",
+        "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER"
+      ],
+      "resolution_criteria": "Basis: the guard's self-test (6/6, planted negative control confirms it CAN fail) and its first live run finding rr_floor at units=0. The EXIT-LEVER instance is landed. This row stays open until the sibling classes are covered — an allowlisted system-action's script having any test, and a declared broker-capability having a production caller. Close it when those are guarded or explicitly declined."
+    },
+    {
+      "id": "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE",
+      "opened": "2026-08-18",
+      "severity": "critical",
+      "tier": "3 (strategy dispositions)",
+      "status": "measured_open",
+      "area": "strategy performance / pullback family",
+      "title": "All 6 crypto pullback legs are unprofitable out-of-sample — the '13 of 42 cells pass' headline sits on a family with no OOS edge",
+      "detail": "Trainer relay #9955 (sweep) + #9958 (per-leg bases). Config-exact bases, --tp-cap-pct 0.099, per-leg derived splits, fresh 13,206-bar 2h corpora 2023-08-14..2026-08-18. POPULATION: the 6 live CRYPTO pullback legs — the 12 equity/ETF/futures legs have NO corpus on the trainer and are NOT measured here.\n\n  leg                     pathA  IS net_R (n)      OOS net_R (n)\n  htf_pullback_trend_2h     4    -9.257  (210)     -14.6089 (48)\n  eth_pullback_2h           1   +26.8833 (157)      -6.8043 (49)\n  eth_pullback_prop_2h      2   +15.2928 (144)     -11.7846 (49)\n  sol_pullback_2h           4    +3.4821  (87)      -2.5783 (49)\n  xrp_pullback_2h           0    +1.779  (127)      -0.5915 (48)\n  ada_pullback_2h           2    -2.8648  (95)      +3.4926 (49)\n\nFIVE OF SIX ARE OOS-NEGATIVE; the sixth (ada) is OOS-positive and IS-NEGATIVE. The sweep itself stamps rate_ungradeable_why: base_unprofitable on the losing window of every one. path_b_candidates is 0 on all six.\n\nWHY THIS MATTERS MORE THAN THE CELLS. The same run produced 13 Path-A passes, which reads as a strong result until each delta is added to its OWN leg's base. Doing that arithmetic, of the 13:\n  - ONE leaves the leg positive in BOTH windows on a lever that is RUNNABLE live: sol_pullback_2h + stale8_lt0R -> IS +6.97R, OOS +1.17R (maxDD better on both, wf 5/6, d_cap/day +0.0385). sol_pullback_2h routes to bybit_1, account_class PAPER, so a declare there risks no money.\n  - ONE more clears both windows (ada_pullback_2h + rrfloor0.5, IS +3.85 / OOS +4.78) but uses rr_floor, which no live unit implements (BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED) — it CANNOT be declared.\n  - The other 11 leave the leg losing in at least one window, INCLUDING the two largest-looking gains: htf gb1R_afterMFE2R (+16.68/+7.70) still lands at IS +7.42 / OOS -6.91, and htf stale8 (+10.31/+8.38) at +1.06/-6.23.\n\nSo the exit work is not what is wrong with this family. A lever that improves a losing book leaves a losing book, and 11 of the 13 passes are exactly that. The disposition questions are per-leg STRATEGY calls (demote to shadow / retune / kill), the same conclusion already recorded for xrp_pullback_2h and now shown to generalise across the whole crypto half of the family.\n\n⚠️ NOT a claim about the other 12 legs. Whether the equity/ETF/futures pullback legs share this shape is UNMEASURED — the trainer holds no corpus for them at all, which is its own gap.",
+      "evidence": [
+        "trainer relay #9955 (42 cells, 6 legs) and #9958 (per-leg base_book via jq)",
+        "config/accounts.yaml: sol_pullback_2h -> bybit_1, account_class paper"
+      ],
+      "related": [
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+        "BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED",
+        "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
+      ],
+      "resolution_criteria": "Basis: the six config-exact bases above, each over a 13,206-bar corpus with n stated per window, and the per-cell arithmetic adding each Path-A delta to its own leg's base. RESOLVED when the operator records a disposition per leg — demote to shadow, retune, kill, or keep with the OOS-negative base accepted and stated. Declaring an exit lever does NOT resolve this row: 11 of 13 passing cells leave the leg losing. If a leg is retuned its cells must be RE-RUN, not re-read. Extending the measurement to the 12 uncorpused legs is separate work, not a condition of closing this."
+    },
+    {
+      "id": "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
+      "opened": "2026-08-18",
+      "severity": "medium",
+      "tier": "1 (research finding; any resulting lever would be Tier-3)",
+      "status": "measured_refuted_except_btc",
+      "area": "exit research / peak banking",
+      "title": "Cap-proximity banking is REFUTED pooled and on 4 of 5 crypto pullback legs — BTC is the lone candidate",
+      "detail": "Operator hypothesis (2026-08-18): giving back unrealised profit IS an economic loss, so can the system recognise a peak worth banking? The three swept levers are all peak-banking mechanisms and all failed, but none conditions on where a trade sits against its OWN structural ceiling (cap_R = 0.099*entry/risk). That is pct_of_cap, already in position_telemetry, read by no lever. Well-posed and previously untested.\n\nMEASURED via scripts/research/peak_banking_basis.py (self-test 5/5) over config-exact per-trade paths from all 5 crypto pullback legs, trainer #9962. POPULATION: 891 trades, 891 graded, 0 ungradeable.\n\nPOOLED (n=891) — REFUTED at ALL EIGHT thresholds. Banking's UPPER bound sits below the hold median at 25/40/50/60/70/75/80/90% of cap:\n   X=75%  n=231  hold med 1.666  bank UB 1.558  -> refuted\n   X=80%  n=197  hold med 1.666  bank UB 1.632  -> refuted\nThat is the CONCLUSIVE direction — banking cannot beat holding even at its best case, so no per-bar simulation is needed to rule it out.\n\nPER LEG: xrp refuted 6/8 (candidate only at 75% and 90%, both marginal), sol 7/8, eth 7/8, ada 7/8. **BTC (htf_pullback_trend_2h) is CANDIDATE at ALL EIGHT** and is the only exception — and it is also the worst leg in the family (base IS -9.257 / OOS -14.6089). Its `retained` fraction is the tell: 0.278 / 0.394 / 0.439 / 0.632 at the low thresholds versus ~0.98-1.02 on every other leg. BTC round-trips its peaks; the others do not. A per-bar simulation on BTC alone is the one live follow-up this produces.\n\n⚠️ TWO READING CAVEATS, both of which cut against over-reading a win.\n1. `retained` ~1.0 on four legs means the MEDIAN trade exits AT its peak — take-profit exits dominate (xrp 50 of 177, eth 41 of 174, ada 46 of 154). When the median trade already exits at its maximum, banking is mechanically hard to beat, and the median is doing a lot of work.\n2. `<UB` (share finishing BELOW banking's upper bound) is 45-52% almost everywhere. It is close to a coin flip; the median decides it, not a wide margin. Do not report this as banking being decisively bad — report it as not clearing its own upper bound.\n\nFOR THE LIVE XRP TRADE 4163 specifically: it sits at 76% of cap, and its own leg's 75% row is a marginal candidate (hold med 1.442 vs bank UB 1.507) while the 80% row is refuted (1.659 vs 1.603). Straddling the line is noise, not signal. NOTE the trade is ALSO not typical of that bucket — the bucket's implied median cap_r is 2.01R against 4163's 3.92R, so it has ~1.95x the usual headroom and the bucket's ABSOLUTE R medians are not its comparison.",
+      "evidence": [
+        "trainer relay #9962 (config-exact per-leg emit; #9961 was NOT config-exact and is superseded)",
+        "scripts/research/peak_banking_basis.py --self-test 5/5 with both verdict directions planted"
+      ],
+      "related": [
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER",
+        "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE"
+      ],
+      "resolution_criteria": "Basis: 891 config-exact trades across 5 legs, 0 ungradeable, thresholds fixed before the run. The POOLED refutation is conclusive and closes the general hypothesis for this family. RESOLVED when the BTC exception is either (a) settled by a per-bar simulation that prices banking-at-X properly — the upper bound cannot establish a win — or (b) declined on the grounds that htf_pullback_trend_2h's disposition is a strategy question first (it is the family's worst leg). Do NOT close this by declaring a cap-proximity lever on the strength of the `candidate` verdicts: candidate means not established."
+    },
+    {
+      "id": "BL-20260818-HOLDING-BLOCKS-339-SIGNALS-AND-NO-EXIT-STUDY-HAS-A-TIME-AXIS",
+      "opened": "2026-08-18",
+      "severity": "high",
+      "tier": "1 (measurement gap); any resulting lever is Tier-3",
+      "status": "measured_open",
+      "area": "exit research / capital utilisation",
+      "title": "339 signals were refused because a position was already open — and every exit study to date compares R, never R per unit of TIME",
+      "detail": "Operator, 2026-08-18: a trade that reaches 75% of cap in days and then grinds weeks for the last 25% blocks new entries that could themselves reach 75% quickly. Correct, and NOT accounted for anywhere. Both the fleet sweep's Path A/B gate and today's peak-banking study (BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING) compare FINAL R against BANKED R. Neither carries a time axis, so both implicitly price the alternative to holding as CASH. It is not cash — it is a refused signal.\n\nMEASURED over trade_journal rows 2026-07-20..2026-08-18 (1000 rows, the window fully covering the live XRP hold). 615 rejected + 32 exchange_rejected = 65% of all rows are refusals. Of those, **339 are OCCUPANCY-DRIVEN** — an existing position blocked a new one:\n   119  intent_noop:hold_to_bracket_reduce_non_derivative\n   137  intent_noop:flip_suppressed_hold_policy (98 long-vs-short, 39 short-vs-long)\n    83  reentry_suppressed_netting_guard:increase\nConcentrated on FOUR legs: mgc_trend_1h 55, qqq_pullback_1h 45, tlt_pullback_1h 40, spy_pullback_1h 38 = 178 of 339. Those legs pay a real, measurable opportunity cost for holding, and nothing has ever priced it.\n\n⚠️ THE MECHANISM DOES NOT APPLY TO THE LIVE XRP TRADE, which is what prompted the question. `xrp_pullback_2h` fired FOUR times in the 29-day window and all four were a five-day burst (2026-07-25, 07-27, 07-28, 07-29); it has produced ZERO signals in the 20 days since 4163 opened. Exactly ONE XRPUSDT occupancy refusal exists in the whole window (2026-08-10, `ict_scalp_xrp_15m`, bybit_1 PAPER — a different strategy on a different account, so 4163 did not cause it). Holding 4163 crowded out nothing. The general instinct is right; this trade is not its instance.\n\n⚠️ AND FREEING CAPITAL ONLY HELPS IF THE REDEPLOYMENT IS POSITIVE-EXPECTANCY. On an OOS-negative book, faster turnover amplifies losses — and every measured crypto pullback leg is OOS-negative (BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE). So 'bank earlier to trade more' is not automatically an improvement; it is an improvement only where the freed slot has an edge.\n\nTHE UNCOMFORTABLE CONVERGENCE: the four legs where occupancy actually binds (mgc, qqq, tlt, spy) are EQUITY/ETF/FUTURES legs, and the trainer holds NO corpus for any of them. The legs where the operator's mechanism bites are exactly the legs no study here can measure.",
+      "evidence": [
+        "trade_journal 2026-07-20..08-18, 1000 rows: 339 occupancy-driven refusals by notes.reason",
+        "xrp_pullback_2h: 4 distinct order packages in 29d, all 2026-07-25..07-29, zero since",
+        "scripts/research/peak_banking_basis.py has no time axis (by construction — summary rows)"
+      ],
+      "related": [
+        "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
+        "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE",
+        "BL-20260818-XRP-PULLBACK-LEG-REJECTS-EVERY-DECISION-EXIT-LEVER"
+      ],
+      "resolution_criteria": "Basis: the 1000-row journal scan above, window verified to cover the live hold, refusal reasons read from notes.reason rather than inferred. RESOLVED when an exit study reports R PER DAY HELD alongside R — specifically time-to-reach-X%-of-cap versus time-from-X-to-exit, which needs the per-bar path the summary emitter does not carry — AND that study covers the four legs where occupancy actually binds, which first requires an equity/ETF corpus on the trainer. Do NOT close this by adding a time column to the crypto-only study: the crypto legs are where the mechanism does NOT bite."
+    },
+    {
+      "id": "BL-20260818-REGIME-GATE-GOVERNS-3-OF-47-LEGS",
+      "severity": "medium",
+      "tier": "Tier-1 (measurement) / Tier-3 (any cell authoring)",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "regime-router",
+      "title": "The regime hard gate can refuse only 3 of 47 live legs, and NOTHING states the denominator",
+      "detail": "Measured 2026-08-18 by scripts/ops/regime_policy_coverage.py: of 47 enabled+live legs, 3 are `governed` (>=1 explicit OFF cell: gld_pullback_1h, htf_pullback_trend_2h, trend_donchian), 1 is `listed_open` (squeeze_breakout_4h), and 43 (91.5%) are `unlisted` -> cell='default-on'. The permissive default is correct and documented; the DENOMINATOR is the finding. Two facts made it unobservable: (a) the table is keyed on leg names and the cells were authored from a BTC-only 2026-06-01 matrix, so every per-symbol leg added since (xrp_pullback_2h, trend_donchian_*_4h, all the equity/ETF legs) is unlisted; (b) BOTH intents.py::_emit_regime_shadow_rows and the hard-gate path `continue` WITHOUT logging when the verdict is permissive, so the audit stream contains the gate's refusals and nothing else. The gate therefore looks like it is working precisely because the only evidence it emits is evidence of it firing. Concrete instance: htf_pullback_trend_2h short is OFF in all three regimes, but live trade 4163 is a SHORT from xrp_pullback_2h, which is unlisted -- so it was never gated. Also 3 orphan policy keys match no live leg (fade_breakout_4h, fvg_range_15m, vwap), which reads as coverage to anyone counting rows in the YAML.",
+      "resolution_criteria": "Either (1) a positive-verdict telemetry row (or a periodic coverage emission) so `assessed and allowed` is distinguishable from `never assessed` at runtime, or (2) an explicit recorded decision that 43 unlisted legs is the intended state, with the coverage number quoted wherever the gate is described as load-bearing. Authoring cells is Tier-3 and needs its own per-leg evidence -- this row does NOT ask for that.",
+      "evidence": "scripts/ops/regime_policy_coverage.py (self-test 9/9); tests/test_regime_policy_coverage.py"
+    },
+    {
+      "id": "BL-20260818-SAME-STRATEGY-OPPOSITE-DIRECTIONS-SAME-SYMBOL",
+      "severity": "high",
+      "tier": "Tier-2",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "portfolio-state",
+      "title": "Two strategies each hold BOTH a long and a short on ETHUSDT simultaneously, across accounts",
+      "detail": "Measured on the live open book 2026-08-18 (35 open positions). eth_pullback_2h is LONG on bybit_1 (4729, entry 1902.96, opened 08-18) and SHORT on bybit_portfolio (4135, entry 1915.35, opened 07-28). trend_donchian_eth_4h is LONG on bybit_1+bybit_2 (4700/4701, entry 1904.15, opened 08-17) and SHORT on bybit_portfolio (4547, entry 1878.18, opened 08-10). The netting guard is per (account, strategy, symbol), so cross-account opposition is outside what it checks -- and bybit_portfolio is the paper mirror of the live book, so the mirror is not mirroring: it holds the OPPOSITE side of two positions the live accounts hold. Any paper-vs-live performance comparison over these symbols is comparing opposite books. Surfaced by the operator's own observation that the system was short XRP and long ETH at the same time; the same-symbol case is worse than the correlated-symbol case he raised.",
+      "resolution_criteria": "Establish why the portfolio mirror opened the opposite side (a stale position never closed vs a genuinely divergent signal), then either close the stranded mirror legs or document why divergence is expected. A cross-account opposing-position detector on the open book would make this visible without an operator noticing it.",
+      "evidence": "pos.json open-book audit 2026-08-18; ids 4135/4729 and 4547/4700/4701"
+    },
+    {
+      "id": "BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS",
+      "severity": "critical",
+      "tier": "Tier-2",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "order-monitor",
+      "title": "Mirror legs of ONE order package diverge in HOLD DURATION, exit mechanism and PnL measurability — not merely in stop level",
+      "detail": "Measured on the live open book 2026-08-18. Four signals opened simultaneously onto two accounts at an IDENTICAL entry now carry different stop-losses: xrp_pullback_2h XRPUSDT short @1.0806 -- bybit_2 (REAL money) SL 1.04193571 (locking +0.0387, ~+1.42R) vs bybit_portfolio SL 1.10786786 (the ORIGINAL stop, still -1.0R); tlt_pullback_1d TLT short @84.1 -- alpaca_paper 83.6825 (locked) vs alpaca_portfolio 85.26875 (original); qqq_pullback_1h QQQ long @713.39 -- alpaca_paper 716.115 (locked) vs alpaca_portfolio 704.3275 (original); spy_trend_long_1d SPY long @755.62 -- paper 744.47714286 vs portfolio 733.91821429 (both below entry, different amounts). Other mirror pairs opened the same way ARE identical (IEF 4194/4195, IWM 4422/4423, QQQ 4652/4653, BTC 4717/4719), so this is not a uniform 'portfolio never trails' -- it is divergence on the OLDER trades, i.e. the trail ran on one leg and not its twin. Direction of harm is not one-sided: the real-money XRP leg is the PROTECTED one here, but the same mechanism could as easily leave the real leg unprotected. ESCALATED 2026-08-19 to critical on measured evidence, and the original title UNDERSTATED it. Package pkg-7cb8577792ca4006 (xrp_pullback_2h, opened 2026-07-29T12:16Z) has THREE legs and all three closed differently: 4162 bybit_1 paper closed after 12 HOURS via `intent_reduce` at 1.0690 (+$998.79, size 86,102.5, +0.425R); 4163 bybit_2 REAL MONEY closed after 21d 2h via `reconciler_filled` at 1.0419 (+$5.81, size 149.5, +1.425R, exit_price_source=bybit_closed_pnl so this one IS broker truth); 4164 bybit_portfolio paper closed after 21d 8h via `reconciler_filled` with **pnl NULL**. So one signal produced a 12-hour trade and two three-week trades, by three different mechanisms, and only one of the three has a measured PnL. The divergent STOP filed yesterday was a symptom. NOTE THE SIZING TOO: 86,102 / 149.5 / 48,625 units — the real-money leg is 0.17% the size of the bybit_1 paper leg, so any paper-vs-live read on this strategy compares positions ~576x apart.",
+      "resolution_criteria": "Establish why one leg of a single package exits on `intent_reduce` at 12h while its siblings run 21 days (candidate: the intent layer reduced only the bybit_1 leg, so per-account intent resolution is not package-coherent). Then either make package legs exit coherently or record why divergence is intended. Verified by an open-book invariant check that legs of one order_package_id agree on exit mechanism and close within a stated tolerance.",
+      "evidence": "pos.json open-book audit 2026-08-18; pairs 4163/4164, 4169/4170, 4468/4469, 4347/4348"
+    },
+    {
+      "id": "BL-20260818-ENTRY-FILTERS-DO-NOT-DESCRIBE-IN-TRADE-VALIDITY",
+      "severity": "medium",
+      "tier": "Tier-1",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "exit-levers",
+      "title": "Entry-thesis decay is real and measurable, and exiting on it would have destroyed 84% of the gain (n=1)",
+      "detail": "src/runtime/thesis_decay.py grades whether a leg's OWN entry filters still hold in-trade -- the first MARKET-side predicate (every prior lever is PATH-based). Measured on live trade 4163 (xrp_pullback_2h short, 240 in-trade 2h bars, indicators reconstructed with the strategy's own _adx and validated against the signal bar 2026-07-29 12:00, which reproduces the entry exactly): the thesis is DECAYED on 149 of 240 bars (62.1%) -- adx_band alone 57, trend_midline alone 28, both 64. The first sustained decay is bar 0, i.e. the bar after entry, at +0.48R. Current R is +3.05R, so +2.57R (84% of the gain) accrued AFTER the thesis broke, and the close-basis peak (+3.30R) occurred while decayed. CONCLUSION: the operator's premise is CORRECT and now measured -- these trades genuinely no longer carry the factors that justified entry -- but the inference that they should therefore be exited is refuted on this trade. ADX>=25 selects a moment to ENTER; it does not describe the condition under which the trade continues to work, and here the profit accrued in the low-ADX drift. Secondary finding: a bare midline-crossing predicate is chattery (11 separate decay runs, five of them 1-3 bars), so any future lever needs a persistence requirement.",
+      "resolution_criteria": "n=1 is not a verdict. Add thesis_decay as a sweep COLUMN to the fleet exit sweep (with a persistence parameter) and grade it over the corpus like every other lever, rather than wiring it live. A live lever reading this verdict is Tier-3.",
+      "evidence": "src/runtime/thesis_decay.py; tests/test_thesis_decay.py (33); /tmp/xrp_thesis.csv"
+    },
+    {
+      "id": "BL-20260818-TRAINER-RELAY-REINDENTS-HEREDOC-BODIES",
+      "severity": "low",
+      "tier": "Tier-1",
+      "opened": "2026-08-18",
+      "status": "open",
+      "area": "research-infra",
+      "title": "trainer-vm-diag relay indents EVERY line of the cmd block, so any multi-line python (heredoc OR a wrapped `python3 -c`) dies on IndentationError",
+      "detail": "Third distinct mangling mode of the same relay, alongside BL-20260806-TRAINER-RELAY-MANGLES-ANGLE-BRACKETS (HTML-escapes < and >) and BL-20260807-TRAINERDIAG-COLUMN0-PYTHON-KEYWORD-TRUNCATES-CMD (a column-0 keyword truncates the command). This one: a `python3 - <<'PY' ... PY` inside the `cmd: |` block arrives with its body indented to the YAML block level, so python fails with 'IndentationError: unexpected indent' AND bash warns the heredoc was delimited by EOF (the closing PY is also indented). Observed #9963. WORKAROUND that works: a single-line `python3 -c \"...\"` with no heredoc (#9964 succeeded, 1000 rows returned). Filed per the standing directive to log every research-infra obstacle so sessions stop rediscovering them. SECOND INSTANCE, same session (#9965): the documented workaround was written as 'a single-line python3 -c', and a `python3 -c \"...\"` whose STRING spanned several physical lines was mangled identically -- the relay indents continuation lines too. The constraint is not 'avoid heredocs', it is that the entire command must be ONE PHYSICAL LINE. Restating it loosely cost a second round-trip (#9965 -> #9966).",
+      "resolution_criteria": "Either strip the block-scalar indentation in the workflow before executing, or document in docs/claude/trainer-vm-mode.md that a cmd must be one physical line -- stated that precisely, since 'single-line python3 -c' was already written down and was still misread by the session that wrote it.",
+      "evidence": "issues #9963 (failed) and #9964 (one-liner, succeeded)"
+    },
+    {
+      "id": "BL-20260818-SOL-STALE8-MATRIX-DISAGREES-AT-EQUAL-DEPTH",
+      "severity": "medium",
+      "tier": "3 (declare) / 1 (reconciliation)",
+      "opened": "2026-08-18",
+      "status": "resolved",
+      "area": "exit-levers",
+      "title": "sol_pullback_2h stale8: deep-corpus run PASSES the pre-registered rule while the matrix records honest_negative at the SAME depth",
+      "detail": "Re-run at base IS n=189 (21,222 bars from 2021-10-15) vs the coverage matrix's 2026-08-15 n=190 honest_negative. stale8_lt0R now passes Path A AND clears base+delta on both windows -- the only cell of four to do so (base OOS -2.5783 + dOOS 3.7428 = +1.1645; IS 15.9232 + 9.1618 = +25.085). It also cuts mean hold 34.7->13.1 bars, freeing ~62% of capital-days. wf slipped 5/6 -> 4/6. The shallow-corpus objection that opened #9959 is RESOLVED, but a NEW one replaces it: two runs at comparable depth disagree, and 'the newer run wins' is not a reconciliation. Unchecked candidate causes: different split date, different cell parameterisation, or a different lever predicate -- the stale/giveback extraction into src/runtime/exit_levers.py landed on this branch, so the harness may not be running what the matrix run ran. Full numbers: docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md",
+      "resolution_criteria": "Diff this run's split date, cell params and lever predicate against the 2026-08-15 matrix run. If they differ, update the matrix row with the deeper measurement and take the declare to the operator against THESE numbers (the earlier approval was given against n=87 and was reverted). If they are identical and still disagree, the disagreement is itself the finding and neither number ships.",
+      "evidence": "issues #9959 (re-run), #9968 (per-cell deltas)",
+      "resolved": "2026-08-19",
+      "resolution": "Reconciled #9971. The runs differ in split_target_oos (35 vs 50), not in the lever -- the predicate is exonerated (14/14 equivalence tests; both giveback cells held their PASS across runs, which they could not have if the shared code had moved). My 'comparable depth' claim was WRONG: base IS n 189 vs 190 matched by coincidence of an earlier corpus start and an earlier split offsetting, over different WINDOWS (giveback IS delta +12.027 vs +10.1392 on the same cell). Controlled re-run on the SAME corpus and commit at target 35: stale8 base+delta OOS = -1.6908 (FAIL) vs +1.1645 (PASS) at target 50 -- dOOS differs 5.14x on the split choice alone, and gb1R_afterMFE1R flips the same way. Walk-forward folds are byte-identical across both (calendar-year based, split-invariant) at 4/6. NOT SHIPPED and the matrix honest_negative STANDS: a verdict that flips on an arbitrary boundary is not an edge. Pullback family closes at zero shippable lever cells."
+    },
+    {
+      "id": "BL-20260819-SWEEP-VERDICT-NOT-TESTED-FOR-SPLIT-SENSITIVITY",
+      "severity": "high",
+      "tier": "1",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "research-infra",
+      "title": "m20_fleet_exit_sweep reports a binary verdict from ONE split and never states how sensitive that verdict is to the split",
+      "detail": "Measured on sol_pullback_2h 2026-08-19 (#9971): same corpus, same commit 7942a4d, same lever, only split_target_oos changed (50 -> 35). stale8_lt0R base+delta OOS goes +1.1645 (PASS) -> -1.6908 (FAIL); dOOS alone differs 5.14x (+3.7428 vs +0.7277). gb1R_afterMFE1R flips PASS -> is_oos_fail on the same change. The sweep emits `verdict` and `is_oos_pass` per cell with no dispersion measure, so downstream a PASS and a coin-flip are INDISTINGUISHABLE -- which is how a 5.14x swing reached a Tier-3 declare proposal and was only caught because the matrix happened to have used a different target. This is the fold-dispersion problem (BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET, scripts/research/m20_dispersion_rate.py) on the IS/OOS axis instead of the fold axis; that one was found and fixed for folds and the same class was left unmeasured one axis over. Note the walk-forward folds ARE split-invariant (calendar-year based, byte-identical across both runs), so wf is the robust half and the IS/OOS gate is the fragile one.",
+      "resolution_criteria": "The sweep sweeps split_target_oos over a band (e.g. 30/35/40/45/50) and emits the verdict distribution per cell -- at minimum `verdicts_by_split` plus a `split_sensitive` boolean -- so a cell that flips cannot be read as a PASS. A cell marked split_sensitive must not be eligible for a Tier-3 declare. Verified by re-running sol_pullback_2h and seeing stale8_lt0R come back split_sensitive rather than PASS.",
+      "evidence": "issues #9959 #9967 #9968 #9971; docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md"
+    },
+    {
+      "id": "BL-20260819-TRADE-4164-CLOSED-WITH-NULL-PNL",
+      "severity": "high",
+      "tier": "2",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "provenance",
+      "title": "Trade 4164 closed with pnl NULL and exit_price_source='entry_order_avg_price_unreliable' — a close with no measured PnL",
+      "detail": "bybit_portfolio leg of pkg-7cb8577792ca4006, closed 2026-08-19T21:12:07Z by the monitor reconciler with `status: closed`, `exit_price: null`, `pnl: null`, `pnl_percent: null` and `exit_price_source: 'entry_order_avg_price_unreliable'`. The reconciler correctly REFUSED to substitute a price it could not trust — that is the anchoring contract working as designed, and the null is the honest value. The finding is that the row now sits closed with no PnL and nothing re-attempts it or surfaces it. NOT that it is unrecoverable — checked: docs/research/RESEARCH-CAPABILITY-INDEX.md names `scripts/research/exit_reconstruction_validator.py`, which rebuilds a closed trade's exit from 1m klines under the harness's SL-first rule and reports its error in bps against broker truth. So a reconstruction path EXISTS and has a measured accuracy; it has simply never been pointed at this row. Its sibling 4163 closed six hours earlier on the same package WITH broker truth (bybit_closed_pnl), so the data existed on the venue for the package; only this leg failed to recover it. Counting: any aggregate over this package sees 2 of 3 legs, and `/performance`'s pnlCoverage will grade the row UNVERIFIED rather than dropping it, which is right but silent.",
+      "resolution_criteria": "Run `scripts/research/exit_reconstruction_validator.py` against 4164 and record the reconstructed exit WITH its bps error and the ESTIMATED provenance it earns — never stamped as MEASURED, since a reconstruction is not a broker fill. Then either a retry path that does this automatically for a closed row whose exit_price_source is a declared-unreliable marker, or an explicit surface listing closed rows with null pnl so they are visibly outstanding rather than merely absent from sums. Verified by 4164 carrying an ESTIMATED pnl, or appearing on that surface.",
+      "evidence": "issue #9978 (/api/bot/db/table/trades?filter_col=order_package_id&...=pkg-7cb8577792ca4006)"
+    },
+    {
+      "id": "BL-20260819-TELEMETRY-ENTRY-DISAGREES-WITH-JOURNAL",
+      "severity": "medium",
+      "tier": "1",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "provenance",
+      "title": "position_telemetry recorded entry 1.0806 for trade 4163 while the journal row says 1.0799",
+      "detail": "/api/diag/position_telemetry returned `entry: 1.0806` for trade_id 4163; the journal row for 4163 carries `entry_price: 1.0799`. 1.0806 IS the entry of its sibling 4162 (bybit_1) on the same order package, which points at the telemetry writer taking the package's entry rather than the leg's. Small in absolute terms (7 bps) but it propagates: every R figure telemetry publishes for the leg — open_r, peak_r, r_to_stop, r_to_target, pct_of_cap — is computed against that entry, and those are the readings `hold_vs_cash` is designed to consume BECAUSE they are supposed to be the monitor's own numbers. A telemetry entry that is not the leg's entry silently breaks that guarantee.",
+      "resolution_criteria": "Establish whether the telemetry writer keys entry off the package or the trade row, and make it the trade row. Verified by re-reading a multi-leg package's telemetry and finding each leg's `entry` equal to its own journal `entry_price`.",
+      "evidence": "issues #9974 (telemetry) and #9978 (journal) read the same day"
+    },
+    {
+      "id": "BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE",
+      "severity": "high",
+      "tier": "1",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "session-infra",
+      "title": "issue_write method=update REPLACES an issue body — I destroyed the coordination board's description trying to post a merge claim",
+      "detail": "2026-08-19T22:18:14Z, session system-review-trade-mechanics-falsp8. Posting the mandatory `🔒 MERGE SLOT CLAIM` on #6927, I called `mcp__github__issue_write method=update body=<claim>`. That REPLACES the issue body; the comment tool is `add_issue_comment`. The board's original description was overwritten. The 1064 comments were NOT affected — only the body. Recovery exists but not through the MCP: GitHub retains issue-body edit history, viewable via the 'edited' dropdown on the issue, so the pre-22:18:14Z revision can be restored BY HAND. I replaced the body with a faithful reconstruction written from docs/claude/coordination-board.md, explicitly labelled as a reconstruction and asking for the original to be restored and the notice deleted. NOT a tool defect — `issue_write`'s description says 'Create a new or update an existing issue' and the comment tool is separate; I reached for the wrong one. What makes it worth filing rather than just fixing: #6927 is a SHARED artifact every session's mandatory preflight reads, its body is the first thing a new session sees, and a silently-reconstructed body would be indistinguishable from the real protocol to the next reader — which is the same 'confident text that is not what it claims to be' class this session filed twice today in the data layer.",
+      "resolution_criteria": "(1) A human restores the original body from the issue's edit history and deletes the reconstruction notice. (2) Either the session-coordination SKILL or docs/claude/coordination-board.md states explicitly that the claim goes via `add_issue_comment` and that `issue_write method=update` will destroy the board body — the protocol currently says 'post a comment' without naming the tool, which is what left the choice to inference. Verified by the board body matching its pre-2026-08-19 revision and the protocol doc naming the tool.",
+      "evidence": "https://github.com/benbaichmankass/Metis-Insights/issues/6927 (edit history); restoration comment https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5348690898"
     }
   ]
 }

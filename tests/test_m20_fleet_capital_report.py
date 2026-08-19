@@ -387,9 +387,16 @@ def test_a_giveback_rung_at_or_above_the_fixed_tp_is_withheld_with_a_reason():
     cells = mod.cells_for(scalp, "scalp", skipped=inert)
     tags = [c[0] for c in cells]
     assert "gb1R_afterMFE2R" not in tags
-    assert [s["cell"] for s in inert] == ["gb1R_afterMFE2R"]
-    assert "provable_noop" in inert[0]["reason"]
-    assert "tp_at_r=1.5" in inert[0]["reason"]
+    # Scoped to THIS lever. `inert` collects every withheld cell in the grid,
+    # so an unscoped equality would break whenever any other lever gains a
+    # skip reason (it did, when rr_floor cells were added 2026-08-18) — and it
+    # would break for a reason that has nothing to do with what this test is
+    # about. The docstring says the predicate is about the giveback rung.
+    assert [s["cell"] for s in inert if s["lever"] == "giveback_stop"] \
+        == ["gb1R_afterMFE2R"]
+    _gb_inert = [x for x in inert if x["lever"] == "giveback_stop"]
+    assert "provable_noop" in _gb_inert[0]["reason"]
+    assert "tp_at_r=1.5" in _gb_inert[0]["reason"]
     # The 1R rung is BELOW the bracket and stays — it measured non-zero on all
     # three of those legs, so the predicate must not over-reach.
     assert "gb1R_afterMFE1R" in tags
@@ -408,13 +415,17 @@ def test_a_leg_with_no_fixed_bracket_keeps_every_rung():
                            "trail_mult": 3.0}, "donchian", skipped=inert)
     gb = [c[0] for c in cells if c[1] == "giveback_stop"]
     assert gb == ["gb1R_afterMFE1R", "gb1R_afterMFE2R"]
-    assert inert == []
+    # Scoped to the giveback lever — see the note above. Other levers may
+    # legitimately withhold cells here (rr_floor does, since this call passes
+    # no tp_cap_pct and the floor is unmeasurable without a capped TP), and
+    # that is a different statement from "a giveback rung was deleted".
+    assert [x for x in inert if x["lever"] == "giveback_stop"] == []
     # And a wider fixed bracket keeps both too — 2R < 3R is reachable.
     inert2 = []
     cells2 = mod.cells_for({"timeframe": "15m", "symbols": ["X"], "tp_at_r": 3.0},
                            "scalp", skipped=inert2)
     assert "gb1R_afterMFE2R" in [c[0] for c in cells2]
-    assert inert2 == []
+    assert [x for x in inert2 if x["lever"] == "giveback_stop"] == []
 
 
 def test_inert_reason_is_none_when_the_rung_is_reachable():

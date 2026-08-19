@@ -109,6 +109,9 @@ find a known positive proves nothing, so `--self-test` asserts
 `htf_pullback_trend_2h` — **18 of 47 live legs** — implements exactly **one** of
 the four M20 mechanisms. `squeeze_breakout_4h` implements **none**.
 
+> **⚠️ SUPERSEDED 2026-08-18 — the record above stands as what was measured on 2026-08-16; the state it describes no longer holds.** `stale_stop` and `giveback_stop` were extracted to `src/runtime/exit_levers.py` and `htf_pullback_trend_2h` now implements **three of four** M20 mechanisms. `exit_head` is still absent and deliberately so — it needs an advisory-stage trained head this family does not have. Do not quote the "one of four" figure as current. The tripwire that forced this note is `tests/test_exit_mechanism_coverage.py::TestTheProbeCanSeeAPositive::test_htf_pullback_coverage_is_three_of_four`.
+
+
 This explains the live XRP short structurally rather than anecdotally: it runs
 `xrp_pullback_2h` → `htf_pullback_trend_2h`, whose only mechanism is
 `trail_decay`, and on that leg `trail_decay_arm_r: 4.49` sat **above** its

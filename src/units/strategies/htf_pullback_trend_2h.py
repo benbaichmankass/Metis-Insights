@@ -389,7 +389,15 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # trend_donchian's lever threading). Absent = the lever is inert (base mult
     # unchanged). The trail_vol_* keys unlock resolve_vol_trail_mult for the
     # pullback family (qqq_pullback_1h shipped the first cell — #6510 sweep pass).
-    for _key in ("trail_decay_arm_r", "trail_decay_stall_bars",
+    for _key in (# M20 R-based exit levers, threaded 2026-08-18 alongside the
+                 # shared-module wiring in monitor(). The verdicts fall back to
+                 # cfg, so a declared key would reach the monitor either way —
+                 # these are here for the reason donchian threads them: the
+                 # package records the declaration that was in force AT ENTRY,
+                 # so a later YAML edit cannot silently re-grade an open trade.
+                 "stale_exit_bars", "stale_exit_below_r",
+                 "giveback_min_mfe_r", "giveback_r",
+                 "trail_decay_arm_r", "trail_decay_stall_bars",
                  "trail_decay_tight_mult",
                  "trail_vol_above_pctl", "trail_vol_below_pctl",
                  "trail_vol_tight_mult", "vol_pctl_window"):
@@ -425,26 +433,14 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 # monitor() — VERBATIM Chandelier ATR trail (copied from trend_donchian).
 # ---------------------------------------------------------------------------
 def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataFrame:
-    meta = open_pkg.get("meta") or {}
-    if isinstance(meta, str):
-        try:
-            meta = json.loads(meta) if meta else {}
-        except Exception:  # noqa: BLE001
-            meta = {}
-    entry_ts = (meta.get("entry_time") if isinstance(meta, dict) else None) or \
-        open_pkg.get("created_at")
-    if entry_ts is None or "timestamp" not in getattr(candles_df, "columns", []):
-        return candles_df
-    try:
-        ts = pd.to_datetime(candles_df["timestamp"], utc=True, errors="coerce")
-        cutoff = pd.to_datetime(entry_ts, utc=True, errors="coerce")
-        if pd.isna(cutoff):
-            return candles_df
-        filtered = candles_df[ts >= cutoff]
-        return filtered if len(filtered) > 0 else candles_df
-    except Exception:  # noqa: BLE001
-        return candles_df
+    """Moved to `src/runtime/exit_levers.py::since_entry` — ONE definition.
 
+    This module and `trend_donchian` each carried a byte-identical copy
+    (docstring aside), and every R measurement depends on this window.
+    """
+    from src.runtime.exit_levers import since_entry
+
+    return since_entry(candles_df, open_pkg)
 
 def monitor(cfg, candles_df, open_pkg):
     """Identical contract to ``trend_donchian.monitor`` — see that module."""
@@ -483,6 +479,50 @@ def monitor(cfg, candles_df, open_pkg):
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
         if direction == "short" and current_price <= tp:
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
+
+    # M20 R-based exit levers — the SHARED implementations in
+    # src/runtime/exit_levers.py, the same bodies trend_donchian runs. Until
+    # 2026-08-18 this family had NO close mechanism beyond sl_cross/tp_cross,
+    # so a pullback leg could not run stale_stop or giveback_stop however its
+    # YAML was written — while scripts/backtest_pullback.py has modelled BOTH
+    # since M20. The harness simulated a book this module could not execute,
+    # and 11 of the 22 open trades measured with no decision-driven exit path
+    # on 2026-08-18 are this family.
+    #
+    # THE DECLARE IS THE GATE, exactly as on donchian: a leg whose YAML
+    # declares the keys gets a REAL close; an undeclared leg evaluates the
+    # reference cell and writes one observe-only row to
+    # runtime_logs/exit_lever_soak.jsonl, returning None. So this block is
+    # BYTE-IDENTICAL in effect for every leg live today — none declares either
+    # key — and turning one on is the operator's Tier-3 decision.
+    #
+    # ORDER IS GIVEBACK THEN STALE, matching THIS family's own harness
+    # (backtest_pullback._levers: giveback -> trend_flip -> stale). That is the
+    # opposite of live trend_donchian.monitor, which runs stale first under a
+    # comment claiming it matches the harness — it does not; both harnesses run
+    # giveback first (backtest_trend.py, one per-bar loop, giveback at ~line
+    # 566 and stale at ~582). Live/train parity for the family being wired
+    # beats cross-family consistency with a module that is itself inverted.
+    # The donchian inversion is LATENT — no live leg declares both keys, so the
+    # order cannot bite — and is filed as
+    # BL-20260818-LIVE-DONCHIAN-INVERTS-THE-HARNESS-LEVER-PRECEDENCE rather
+    # than flipped here, because changing a live-money family's exit order is
+    # Tier-3 and must not ride along inside a refactor.
+    try:
+        from src.runtime.exit_levers import giveback_verdict, stale_stop_verdict
+
+        _gb = giveback_verdict(meta, cfg_dict, open_pkg, candles_df,
+                               current_price, direction,
+                               default_label="htf_pullback_trend_2h")
+        if _gb is not None:
+            return _gb
+        _st = stale_stop_verdict(meta, cfg_dict, open_pkg, candles_df,
+                                 current_price, direction,
+                                 default_label="htf_pullback_trend_2h")
+        if _st is not None:
+            return _st
+    except Exception:  # noqa: BLE001 — a lever must never break the monitor
+        pass
 
     atr = _coerce_float(meta.get("atr"))
     if atr is None or atr <= 0:
