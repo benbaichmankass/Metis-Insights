@@ -19565,14 +19565,14 @@
     },
     {
       "id": "BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS",
-      "severity": "high",
+      "severity": "critical",
       "tier": "Tier-2",
       "opened": "2026-08-18",
       "status": "open",
       "area": "order-monitor",
-      "title": "Mirror legs of ONE signal carry different stops -- one trailed into profit, the other at original risk",
-      "detail": "Measured on the live open book 2026-08-18. Four signals opened simultaneously onto two accounts at an IDENTICAL entry now carry different stop-losses: xrp_pullback_2h XRPUSDT short @1.0806 -- bybit_2 (REAL money) SL 1.04193571 (locking +0.0387, ~+1.42R) vs bybit_portfolio SL 1.10786786 (the ORIGINAL stop, still -1.0R); tlt_pullback_1d TLT short @84.1 -- alpaca_paper 83.6825 (locked) vs alpaca_portfolio 85.26875 (original); qqq_pullback_1h QQQ long @713.39 -- alpaca_paper 716.115 (locked) vs alpaca_portfolio 704.3275 (original); spy_trend_long_1d SPY long @755.62 -- paper 744.47714286 vs portfolio 733.91821429 (both below entry, different amounts). Other mirror pairs opened the same way ARE identical (IEF 4194/4195, IWM 4422/4423, QQQ 4652/4653, BTC 4717/4719), so this is not a uniform 'portfolio never trails' -- it is divergence on the OLDER trades, i.e. the trail ran on one leg and not its twin. Direction of harm is not one-sided: the real-money XRP leg is the PROTECTED one here, but the same mechanism could as easily leave the real leg unprotected.",
-      "resolution_criteria": "Determine whether the monitor's trail update is per-account and why it skipped one leg of each divergent pair (candidate causes: the mirror account's monitor not running, a per-account exception swallowed at DEBUG, or the trail keying on a field the mirror row lacks). Then either fix the skip or record why mirrors deliberately do not trail. Add an open-book invariant check: mirror legs of one signal must agree on SL.",
+      "title": "Mirror legs of ONE order package diverge in HOLD DURATION, exit mechanism and PnL measurability — not merely in stop level",
+      "detail": "Measured on the live open book 2026-08-18. Four signals opened simultaneously onto two accounts at an IDENTICAL entry now carry different stop-losses: xrp_pullback_2h XRPUSDT short @1.0806 -- bybit_2 (REAL money) SL 1.04193571 (locking +0.0387, ~+1.42R) vs bybit_portfolio SL 1.10786786 (the ORIGINAL stop, still -1.0R); tlt_pullback_1d TLT short @84.1 -- alpaca_paper 83.6825 (locked) vs alpaca_portfolio 85.26875 (original); qqq_pullback_1h QQQ long @713.39 -- alpaca_paper 716.115 (locked) vs alpaca_portfolio 704.3275 (original); spy_trend_long_1d SPY long @755.62 -- paper 744.47714286 vs portfolio 733.91821429 (both below entry, different amounts). Other mirror pairs opened the same way ARE identical (IEF 4194/4195, IWM 4422/4423, QQQ 4652/4653, BTC 4717/4719), so this is not a uniform 'portfolio never trails' -- it is divergence on the OLDER trades, i.e. the trail ran on one leg and not its twin. Direction of harm is not one-sided: the real-money XRP leg is the PROTECTED one here, but the same mechanism could as easily leave the real leg unprotected. ESCALATED 2026-08-19 to critical on measured evidence, and the original title UNDERSTATED it. Package pkg-7cb8577792ca4006 (xrp_pullback_2h, opened 2026-07-29T12:16Z) has THREE legs and all three closed differently: 4162 bybit_1 paper closed after 12 HOURS via `intent_reduce` at 1.0690 (+$998.79, size 86,102.5, +0.425R); 4163 bybit_2 REAL MONEY closed after 21d 2h via `reconciler_filled` at 1.0419 (+$5.81, size 149.5, +1.425R, exit_price_source=bybit_closed_pnl so this one IS broker truth); 4164 bybit_portfolio paper closed after 21d 8h via `reconciler_filled` with **pnl NULL**. So one signal produced a 12-hour trade and two three-week trades, by three different mechanisms, and only one of the three has a measured PnL. The divergent STOP filed yesterday was a symptom. NOTE THE SIZING TOO: 86,102 / 149.5 / 48,625 units — the real-money leg is 0.17% the size of the bybit_1 paper leg, so any paper-vs-live read on this strategy compares positions ~576x apart.",
+      "resolution_criteria": "Establish why one leg of a single package exits on `intent_reduce` at 12h while its siblings run 21 days (candidate: the intent layer reduced only the bybit_1 leg, so per-account intent resolution is not package-coherent). Then either make package legs exit coherently or record why divergence is intended. Verified by an open-book invariant check that legs of one order_package_id agree on exit mechanism and close within a stated tolerance.",
       "evidence": "pos.json open-book audit 2026-08-18; pairs 4163/4164, 4169/4170, 4468/4469, 4347/4348"
     },
     {
@@ -19624,6 +19624,30 @@
       "detail": "Measured on sol_pullback_2h 2026-08-19 (#9971): same corpus, same commit 7942a4d, same lever, only split_target_oos changed (50 -> 35). stale8_lt0R base+delta OOS goes +1.1645 (PASS) -> -1.6908 (FAIL); dOOS alone differs 5.14x (+3.7428 vs +0.7277). gb1R_afterMFE1R flips PASS -> is_oos_fail on the same change. The sweep emits `verdict` and `is_oos_pass` per cell with no dispersion measure, so downstream a PASS and a coin-flip are INDISTINGUISHABLE -- which is how a 5.14x swing reached a Tier-3 declare proposal and was only caught because the matrix happened to have used a different target. This is the fold-dispersion problem (BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET, scripts/research/m20_dispersion_rate.py) on the IS/OOS axis instead of the fold axis; that one was found and fixed for folds and the same class was left unmeasured one axis over. Note the walk-forward folds ARE split-invariant (calendar-year based, byte-identical across both runs), so wf is the robust half and the IS/OOS gate is the fragile one.",
       "resolution_criteria": "The sweep sweeps split_target_oos over a band (e.g. 30/35/40/45/50) and emits the verdict distribution per cell -- at minimum `verdicts_by_split` plus a `split_sensitive` boolean -- so a cell that flips cannot be read as a PASS. A cell marked split_sensitive must not be eligible for a Tier-3 declare. Verified by re-running sol_pullback_2h and seeing stale8_lt0R come back split_sensitive rather than PASS.",
       "evidence": "issues #9959 #9967 #9968 #9971; docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md"
+    },
+    {
+      "id": "BL-20260819-TRADE-4164-CLOSED-WITH-NULL-PNL",
+      "severity": "high",
+      "tier": "2",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "provenance",
+      "title": "Trade 4164 closed with pnl NULL and exit_price_source='entry_order_avg_price_unreliable' — a close with no measured PnL",
+      "detail": "bybit_portfolio leg of pkg-7cb8577792ca4006, closed 2026-08-19T21:12:07Z by the monitor reconciler with `status: closed`, `exit_price: null`, `pnl: null`, `pnl_percent: null` and `exit_price_source: 'entry_order_avg_price_unreliable'`. The reconciler correctly REFUSED to substitute a price it could not trust — that is the anchoring contract working as designed, and the null is the honest value. The finding is that the row now sits closed and permanently unmeasurable, and nothing re-attempts it or surfaces it. Its sibling 4163 closed six hours earlier on the same package WITH broker truth (bybit_closed_pnl), so the data existed on the venue for the package; only this leg failed to recover it. Counting: any aggregate over this package sees 2 of 3 legs, and `/performance`'s pnlCoverage will grade the row UNVERIFIED rather than dropping it, which is right but silent.",
+      "resolution_criteria": "Either a retry path that re-derives the exit for a closed row whose exit_price_source is a declared-unreliable marker, or an explicit surface listing closed rows with null pnl so they are visibly outstanding rather than merely absent from sums. Verified by 4164 either gaining a measured pnl or appearing on that surface.",
+      "evidence": "issue #9978 (/api/bot/db/table/trades?filter_col=order_package_id&...=pkg-7cb8577792ca4006)"
+    },
+    {
+      "id": "BL-20260819-TELEMETRY-ENTRY-DISAGREES-WITH-JOURNAL",
+      "severity": "medium",
+      "tier": "1",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "provenance",
+      "title": "position_telemetry recorded entry 1.0806 for trade 4163 while the journal row says 1.0799",
+      "detail": "/api/diag/position_telemetry returned `entry: 1.0806` for trade_id 4163; the journal row for 4163 carries `entry_price: 1.0799`. 1.0806 IS the entry of its sibling 4162 (bybit_1) on the same order package, which points at the telemetry writer taking the package's entry rather than the leg's. Small in absolute terms (7 bps) but it propagates: every R figure telemetry publishes for the leg — open_r, peak_r, r_to_stop, r_to_target, pct_of_cap — is computed against that entry, and those are the readings `hold_vs_cash` is designed to consume BECAUSE they are supposed to be the monitor's own numbers. A telemetry entry that is not the leg's entry silently breaks that guarantee.",
+      "resolution_criteria": "Establish whether the telemetry writer keys entry off the package or the trade row, and make it the trade row. Verified by re-reading a multi-leg package's telemetry and finding each leg's `entry` equal to its own journal `entry_price`.",
+      "evidence": "issues #9974 (telemetry) and #9978 (journal) read the same day"
     }
   ]
 }

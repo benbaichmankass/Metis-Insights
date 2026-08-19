@@ -136,3 +136,52 @@ how a 5.14× swing in ΔOOS reached a Tier-3 declare proposal. The generalisable
 report a **split-dispersion band** (sweep the split target, report the verdict distribution)
 rather than a single cut, exactly as `m20_dispersion_rate` does for fold offsets. Filed as
 `BL-20260819-SWEEP-VERDICT-NOT-TESTED-FOR-SPLIT-SENSITIVITY`.
+
+---
+
+# POSTSCRIPT 2026-08-19 — XRP 4163 closed, and the give-back was real
+
+The live trade this whole thread was arguing about closed at **2026-08-19T15:07:08Z**,
+stopped out on its trail. Broker truth, not an estimate
+(`exit_price_source: bybit_closed_pnl`):
+
+| | |
+|---|---|
+| realized | **+$5.8097** on 149.5 XRP (~$161 notional, $4.08 risk) = **+1.425R** |
+| peak_r | **+3.4179R** (LOWER bound, `provenance: estimated`) |
+| **gave back** | **−1.99R, 58% of the peak** |
+| exit | `reconciler_filled` — Bybit reports the order filled and the position flat |
+
+**The operator's position was right and mine was wrong.** I reported this trade at
++3.05R with "every lever books less than holding." That was a point estimate on a moving
+position, and the position moved. `gb1R_afterMFE1R` would have exited near +2.42R.
+
+**Three caveats that keep this from being a lever verdict.** `peak_r` is a lower bound, so
+the counterfactual is conservative but not exact. n=1. And the real-money exposure was
+**$161** — the analysis was disproportionate to the money, though the findings are not.
+
+## What the package read actually exposed
+
+Pulling the close surfaced something larger. `pkg-7cb8577792ca4006` has **three legs** and
+they did not merely differ in stop:
+
+| leg | account | class | size | held | exit | realized |
+|---|---|---|--:|--:|---|--:|
+| 4162 | bybit_1 | paper | 86,102.5 | **12h** | `intent_reduce` @1.0690 | +$998.79 (+0.425R) |
+| 4163 | bybit_2 | **real** | 149.5 | **21d 2h** | `reconciler_filled` @1.0419 | +$5.81 (+1.425R) |
+| 4164 | bybit_portfolio | paper | 48,625.8 | **21d 8h** | `reconciler_filled` | **pnl NULL** |
+
+One signal, three exit mechanisms, hold durations differing by **21 days**, and only one
+leg with a measured PnL. Yesterday's `BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS`
+called this a stop divergence; the stop was a symptom. Escalated to **critical**.
+
+Note the sizing as well: the real leg is **0.17%** of the bybit_1 paper leg, so every
+paper-vs-live comparison on this strategy is between positions ~576× apart.
+
+Also filed: `BL-20260819-TRADE-4164-CLOSED-WITH-NULL-PNL` (the reconciler correctly refused
+to substitute an untrusted price — the null is honest — but the row is now closed and
+permanently unmeasurable with nothing surfacing it) and
+`BL-20260819-TELEMETRY-ENTRY-DISAGREES-WITH-JOURNAL` (telemetry published 4163's entry as
+1.0806, which is *4162's* entry; every R it derives for the leg inherits the error, and
+those are exactly the readings `hold_vs_cash` consumes because they are supposed to be the
+monitor's own).
