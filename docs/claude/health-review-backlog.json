@@ -19604,12 +19604,26 @@
       "severity": "medium",
       "tier": "3 (declare) / 1 (reconciliation)",
       "opened": "2026-08-18",
-      "status": "open",
+      "status": "resolved",
       "area": "exit-levers",
       "title": "sol_pullback_2h stale8: deep-corpus run PASSES the pre-registered rule while the matrix records honest_negative at the SAME depth",
       "detail": "Re-run at base IS n=189 (21,222 bars from 2021-10-15) vs the coverage matrix's 2026-08-15 n=190 honest_negative. stale8_lt0R now passes Path A AND clears base+delta on both windows -- the only cell of four to do so (base OOS -2.5783 + dOOS 3.7428 = +1.1645; IS 15.9232 + 9.1618 = +25.085). It also cuts mean hold 34.7->13.1 bars, freeing ~62% of capital-days. wf slipped 5/6 -> 4/6. The shallow-corpus objection that opened #9959 is RESOLVED, but a NEW one replaces it: two runs at comparable depth disagree, and 'the newer run wins' is not a reconciliation. Unchecked candidate causes: different split date, different cell parameterisation, or a different lever predicate -- the stale/giveback extraction into src/runtime/exit_levers.py landed on this branch, so the harness may not be running what the matrix run ran. Full numbers: docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md",
       "resolution_criteria": "Diff this run's split date, cell params and lever predicate against the 2026-08-15 matrix run. If they differ, update the matrix row with the deeper measurement and take the declare to the operator against THESE numbers (the earlier approval was given against n=87 and was reverted). If they are identical and still disagree, the disagreement is itself the finding and neither number ships.",
-      "evidence": "issues #9959 (re-run), #9968 (per-cell deltas)"
+      "evidence": "issues #9959 (re-run), #9968 (per-cell deltas)",
+      "resolved": "2026-08-19",
+      "resolution": "Reconciled #9971. The runs differ in split_target_oos (35 vs 50), not in the lever -- the predicate is exonerated (14/14 equivalence tests; both giveback cells held their PASS across runs, which they could not have if the shared code had moved). My 'comparable depth' claim was WRONG: base IS n 189 vs 190 matched by coincidence of an earlier corpus start and an earlier split offsetting, over different WINDOWS (giveback IS delta +12.027 vs +10.1392 on the same cell). Controlled re-run on the SAME corpus and commit at target 35: stale8 base+delta OOS = -1.6908 (FAIL) vs +1.1645 (PASS) at target 50 -- dOOS differs 5.14x on the split choice alone, and gb1R_afterMFE1R flips the same way. Walk-forward folds are byte-identical across both (calendar-year based, split-invariant) at 4/6. NOT SHIPPED and the matrix honest_negative STANDS: a verdict that flips on an arbitrary boundary is not an edge. Pullback family closes at zero shippable lever cells."
+    },
+    {
+      "id": "BL-20260819-SWEEP-VERDICT-NOT-TESTED-FOR-SPLIT-SENSITIVITY",
+      "severity": "high",
+      "tier": "1",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "research-infra",
+      "title": "m20_fleet_exit_sweep reports a binary verdict from ONE split and never states how sensitive that verdict is to the split",
+      "detail": "Measured on sol_pullback_2h 2026-08-19 (#9971): same corpus, same commit 7942a4d, same lever, only split_target_oos changed (50 -> 35). stale8_lt0R base+delta OOS goes +1.1645 (PASS) -> -1.6908 (FAIL); dOOS alone differs 5.14x (+3.7428 vs +0.7277). gb1R_afterMFE1R flips PASS -> is_oos_fail on the same change. The sweep emits `verdict` and `is_oos_pass` per cell with no dispersion measure, so downstream a PASS and a coin-flip are INDISTINGUISHABLE -- which is how a 5.14x swing reached a Tier-3 declare proposal and was only caught because the matrix happened to have used a different target. This is the fold-dispersion problem (BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET, scripts/research/m20_dispersion_rate.py) on the IS/OOS axis instead of the fold axis; that one was found and fixed for folds and the same class was left unmeasured one axis over. Note the walk-forward folds ARE split-invariant (calendar-year based, byte-identical across both runs), so wf is the robust half and the IS/OOS gate is the fragile one.",
+      "resolution_criteria": "The sweep sweeps split_target_oos over a band (e.g. 30/35/40/45/50) and emits the verdict distribution per cell -- at minimum `verdicts_by_split` plus a `split_sensitive` boolean -- so a cell that flips cannot be read as a PASS. A cell marked split_sensitive must not be eligible for a Tier-3 declare. Verified by re-running sol_pullback_2h and seeing stale8_lt0R come back split_sensitive rather than PASS.",
+      "evidence": "issues #9959 #9967 #9968 #9971; docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md"
     }
   ]
 }

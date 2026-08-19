@@ -60,3 +60,79 @@ Reconcile (1) before anything else — diff this run's split/params/predicate ag
 2026-08-15 matrix run. If they differ, the matrix row needs the newer measurement and the
 declare proceeds to the operator. If they are identical and still disagree, the disagreement
 itself is the finding and neither number should be shipped.
+
+---
+
+# RESOLVED 2026-08-19 — the verdict is split-sensitive, so nothing ships
+
+## What the reconciliation found
+
+The two runs differ in **`split_target_oos`**, not in the lever:
+
+| | matrix 2026-08-15T22:22:59Z | mine 2026-08-18 |
+|---|---|---|
+| `split_target_oos` | 35 | 50 |
+| resolved split | 2025-08-23 | 2025-06-14 |
+| base IS / OOS | 190 / 34 | 189 / 49 |
+| `stale8_lt0R` | `is_oos_fail` | `PASS wf 4/6` |
+
+**The lever predicate is exonerated.** `exit_levers.py` has 14/14 equivalence tests
+passing, and — the stronger evidence — both giveback cells held their PASS across the two
+runs. Had the extraction altered the shared `since_entry`/verdict code, giveback would have
+moved with stale8. It didn't.
+
+## Correcting my own claim from 2026-08-18
+
+I wrote that the deep corpus made the runs "comparable" because base IS n was 189 vs 190.
+**That was wrong.** My corpus starts earlier (2021-10-15) *and* my split lands earlier, and
+the two offset to produce a near-identical IS **count** over a materially different IS
+**window**. The giveback IS deltas prove it: +12.027 (matrix) vs +10.1392 (mine) on the same
+cell. **n matching is not population matching**, and I asserted comparability from a single
+scalar.
+
+## The controlled experiment (#9971)
+
+Re-ran at the matrix's `split_target_oos=35` on the **same** deep corpus, **same** commit
+(`7942a4d`), same day. Note it did **not** reproduce the matrix's date — targeting 35 landed
+on **2025-10-04**, not 2025-08-23, because the underlying trade series differs — so depth and
+split are still not fully isolated *against the matrix*. But the two deep-corpus runs differ
+in **nothing but the split target**, and that is the comparison that decides:
+
+| run | split | IS n | OOS n | base OOS | ΔOOS | base+Δ OOS | rule |
+|---|---|--:|--:|--:|--:|--:|---|
+| target 50 | 2025-06-14 | 189 | 49 | −2.5783 | **+3.7428** | **+1.1645** | PASS |
+| target 35 | 2025-10-04 | 204 | 35 | −2.4185 | **+0.7277** | **−1.6908** | FAIL |
+
+**Same corpus, same code, same lever — ΔOOS differs by 5.14×, and the pre-registered rule
+flips from PASS to FAIL on the choice of split target alone.** `gb1R_afterMFE1R` flips the
+same way (PASS at 50 → `is_oos_fail` at 35), so this is not one unlucky cell.
+
+The walk-forward folds are **byte-identical** across both runs (2021 +2.303 · 2022 −2.8333 ·
+2023 +8.0772 · 2024 −1.1441 · 2025 +4.7968 · 2026 +4.8897) — they are calendar-year based and
+independent of the IS/OOS boundary. So the split-invariant evidence is **4/6**, with both
+failures being full years.
+
+## Verdict: NOT shipped, and the matrix row stands
+
+Neither branch of the pre-registered rule applies. The rule anticipated "they differ → my
+numbers win" or "identical and still disagree → the disagreement is the finding". Reality is
+a third case: they differ in a **methodological choice with no principled preference**, and
+the verdict is a function of that choice. There is no reason to prefer 50 OOS trades over 35.
+
+**A cell whose verdict flips on where an arbitrary boundary falls is not evidence of an
+edge** — it is the fold-dispersion problem this repo already measured
+(`m20_dispersion_rate`, `BL-20260815-EVIDENCE-ROWS-DO-NOT-RECORD-FOLD-OFFSET`), showing up on
+the IS/OOS axis instead of the fold axis. The honest reading is that `sol_pullback_2h`'s OOS
+window (34–49 trades) is too thin for the gate to resolve, and the matrix's `honest_negative`
+should stand unchanged.
+
+**This closes the pullback family at zero shippable lever cells.**
+
+## What this says about the method, not just this leg
+
+The gate reports a binary verdict from one split. Nothing in the sweep records how sensitive
+that verdict is to the split, so a PASS and a coin-flip look identical downstream — which is
+how a 5.14× swing in ΔOOS reached a Tier-3 declare proposal. The generalisable fix is to
+report a **split-dispersion band** (sweep the split target, report the verdict distribution)
+rather than a single cut, exactly as `m20_dispersion_rate` does for fold offsets. Filed as
+`BL-20260819-SWEEP-VERDICT-NOT-TESTED-FOR-SPLIT-SENSITIVITY`.
