@@ -179,8 +179,15 @@ Note the sizing as well: the real leg is **0.17%** of the bybit_1 paper leg, so 
 paper-vs-live comparison on this strategy is between positions ~576× apart.
 
 Also filed: `BL-20260819-TRADE-4164-CLOSED-WITH-NULL-PNL` (the reconciler correctly refused
-to substitute an untrusted price — the null is honest — but the row is now closed and
-permanently unmeasurable with nothing surfacing it) and
+to substitute an untrusted price — the null is honest — but the row is now closed with no PnL
+and nothing re-attempts or surfaces it). My first draft called that row *permanently
+unmeasurable*, and the `impossibility-claim-guard` rejected the commit for asserting an
+impossibility without naming what I had checked. It was right to —
+checked: docs/research/RESEARCH-CAPABILITY-INDEX.md — and
+`scripts/research/exit_reconstruction_validator.py` rebuilds a closed trade's exit from 1m
+klines with the harness's SL-first rule and reports its error in bps against broker truth. A
+reconstruction path exists with a measured accuracy — it has simply never been pointed at this
+row, which is a different and far more fixable finding. Plus
 `BL-20260819-TELEMETRY-ENTRY-DISAGREES-WITH-JOURNAL` (telemetry published 4163's entry as
 1.0806, which is *4162's* entry; every R it derives for the leg inherits the error, and
 those are exactly the readings `hold_vs_cash` consumes because they are supposed to be the
