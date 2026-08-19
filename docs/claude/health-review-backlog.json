@@ -19648,6 +19648,18 @@
       "detail": "/api/diag/position_telemetry returned `entry: 1.0806` for trade_id 4163; the journal row for 4163 carries `entry_price: 1.0799`. 1.0806 IS the entry of its sibling 4162 (bybit_1) on the same order package, which points at the telemetry writer taking the package's entry rather than the leg's. Small in absolute terms (7 bps) but it propagates: every R figure telemetry publishes for the leg — open_r, peak_r, r_to_stop, r_to_target, pct_of_cap — is computed against that entry, and those are the readings `hold_vs_cash` is designed to consume BECAUSE they are supposed to be the monitor's own numbers. A telemetry entry that is not the leg's entry silently breaks that guarantee.",
       "resolution_criteria": "Establish whether the telemetry writer keys entry off the package or the trade row, and make it the trade row. Verified by re-reading a multi-leg package's telemetry and finding each leg's `entry` equal to its own journal `entry_price`.",
       "evidence": "issues #9974 (telemetry) and #9978 (journal) read the same day"
+    },
+    {
+      "id": "BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE",
+      "severity": "high",
+      "tier": "1",
+      "opened": "2026-08-19",
+      "status": "open",
+      "area": "session-infra",
+      "title": "issue_write method=update REPLACES an issue body — I destroyed the coordination board's description trying to post a merge claim",
+      "detail": "2026-08-19T22:18:14Z, session system-review-trade-mechanics-falsp8. Posting the mandatory `🔒 MERGE SLOT CLAIM` on #6927, I called `mcp__github__issue_write method=update body=<claim>`. That REPLACES the issue body; the comment tool is `add_issue_comment`. The board's original description was overwritten. The 1064 comments were NOT affected — only the body. Recovery exists but not through the MCP: GitHub retains issue-body edit history, viewable via the 'edited' dropdown on the issue, so the pre-22:18:14Z revision can be restored BY HAND. I replaced the body with a faithful reconstruction written from docs/claude/coordination-board.md, explicitly labelled as a reconstruction and asking for the original to be restored and the notice deleted. NOT a tool defect — `issue_write`'s description says 'Create a new or update an existing issue' and the comment tool is separate; I reached for the wrong one. What makes it worth filing rather than just fixing: #6927 is a SHARED artifact every session's mandatory preflight reads, its body is the first thing a new session sees, and a silently-reconstructed body would be indistinguishable from the real protocol to the next reader — which is the same 'confident text that is not what it claims to be' class this session filed twice today in the data layer.",
+      "resolution_criteria": "(1) A human restores the original body from the issue's edit history and deletes the reconstruction notice. (2) Either the session-coordination SKILL or docs/claude/coordination-board.md states explicitly that the claim goes via `add_issue_comment` and that `issue_write method=update` will destroy the board body — the protocol currently says 'post a comment' without naming the tool, which is what left the choice to inference. Verified by the board body matching its pre-2026-08-19 revision and the protocol doc naming the tool.",
+      "evidence": "https://github.com/benbaichmankass/Metis-Insights/issues/6927 (edit history); restoration comment https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5348690898"
     }
   ]
 }
