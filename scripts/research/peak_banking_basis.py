@@ -51,7 +51,7 @@ import argparse
 import json
 import statistics
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 #: The live venue TP clamp — the same constant the reachability audit mirrors
 #: from the unit modules' `_TP_SENTINEL_CAP_PCT`.
@@ -100,48 +100,103 @@ def enrich(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
+#: Exit reasons that mean the take-profit filled. The harness records this
+#: directly, so it is EVIDENCE rather than a reconstruction.
+_TP_EXITS = frozenset({"take_profit"})
+
+
+def _tp_hit(row: Dict[str, Any]) -> Optional[bool]:
+    """Did this trade's take-profit fill? `None` when the row does not say."""
+    why = row.get("exit_reason")
+    return None if why is None else str(why).strip().lower() in _TP_EXITS
+
+
 def conditional_hit_rate(
     rows: List[Dict[str, Any]], *, reached: float, target_frac: float = 1.0,
 ) -> Dict[str, Any]:
-    """P(reach `target_frac` of cap | already reached `reached` of cap).
+    """P(the take-profit fills | the trade already reached `reached` of cap).
 
     THIS IS THE `observed_p` INPUT `src/runtime/hold_vs_cash.py` REQUIRES and
     refuses to invent. That module computes the hit rate holding *demands*
     (`p* = r_to_stop / (r_to_target + r_to_stop)`) and will not grade a position
-    without a MEASURED rate to compare it against. This supplies the measured
-    half, from the same population `analyse` already builds — rather than a
-    second predicate free to drift from it.
+    without a MEASURED rate to compare against. This supplies the measured half,
+    over the population `analyse` already builds.
 
-    EXACT, not approximate, for the target side: a take-profit is a resting
-    limit and fills on touch, so `mfe_r >= cap_r` is equivalent to the TP having
-    been hit. No fill model is involved.
+    THE HIT IS READ FROM `exit_reason`, NOT RECONSTRUCTED FROM `mfe_r`
+    -----------------------------------------------------------------
+    The first version of this function asserted that a take-profit is a resting
+    limit filling on touch, so `mfe_r >= cap_r` *is* the TP having been hit, and
+    called that exact rather than approximate. **Measured 2026-08-19 on the
+    284-trade xrp_pullback_2h corpus, it is false**: the harness's `mfe_r`
+    excludes the fill bar, so on `take_profit` rows `net_r ~ cap_r` while
+    `mfe_r` sits BELOW it (entry 1.083: cap_r 3.290, net_r 3.235, mfe_r 2.783).
+    The proxy was therefore UNSATISFIABLE, and the function returned `p: 0.0`
+    at every conditioning level over a corpus containing 85 take-profits.
 
-    ⚠️ **THE COMPLEMENT IS NOT "STOPPED OUT AT TODAY'S STOP".** `1 - p` is the
-    share that never reached the target; where those trades actually ended
-    depends on each one's own trailing stop, which is NOT the stop the live
-    position carries now. So this is a defensible estimate of P(target) and NOT
-    a simulation of the live bracket. Stated here because the number is about to
-    be compared against a breakeven probability, and a reader who takes the
-    complement as "P(hit my current stop)" would be reading a different trade.
+    That failure is the dangerous shape, not a harmless one: `p: 0.0` is a
+    confident number, it is indistinguishable from a real measurement, and fed
+    to `hold_vs_cash` it would have said LIQUIDATE on every position with
+    maximum edge. "My predicate cannot express this" had been rendered as "the
+    market never does this".
 
-    Returns `n` beside `p` always: a rate over a handful of trades is not the
-    claim a rate over a hundred is, and the caller must be able to see which.
-    `p` is `None` — never 0.0 — when the conditioning population is empty.
+    `hit_basis` states which evidence decided, and is never collapsed:
+      ``exit_reason`` — the harness recorded the exit; authoritative.
+      ``mfe_proxy``   — no `exit_reason` on these rows, so the mfe rule stood
+                        in. Carries `proxy_warning`, because the failure above
+                        is exactly what this basis is vulnerable to.
+      ``ungradeable`` — neither available; `p` is None.
+
+    **`proxy_agreement` is the guard that would have caught it.** When rows
+    carry both, it reports the share of `exit_reason` hits the mfe proxy also
+    finds. Near 0 with a non-zero numerator means the proxy is broken for this
+    corpus and its `p` must not be used. A disagreement measure between two
+    ways of computing the same thing is cheap; discovering the mismatch from a
+    downstream verdict is not.
+
+    `n` always rides with `p` — a rate over a handful is not the claim a rate
+    over a hundred is — and an empty conditioning population returns `p: None`,
+    never 0.0.
     """
     graded = enrich(rows)
     pop = [g for g in graded if g["peak_pct_of_cap"] >= reached]
+    base = {"reached": reached, "target_frac": target_frac,
+            "rows_graded": len(graded),
+            "rows_ungradeable": len(rows) - len(graded)}
     if not pop:
-        return {"reached": reached, "target_frac": target_frac, "n": 0,
-                "hits": 0, "p": None, "why": "empty_conditioning_population",
-                "rows_graded": len(graded),
-                "rows_ungradeable": len(rows) - len(graded)}
-    hits = [g for g in pop if g["peak_pct_of_cap"] >= target_frac]
-    return {
-        "reached": reached, "target_frac": target_frac,
-        "n": len(pop), "hits": len(hits), "p": len(hits) / len(pop),
-        "rows_graded": len(graded),
-        "rows_ungradeable": len(rows) - len(graded),
-    }
+        return {**base, "n": 0, "hits": 0, "p": None,
+                "hit_basis": "ungradeable", "why": "empty_conditioning_population"}
+
+    by_reason = [_tp_hit(g) for g in pop]
+    have_reason = [b for b in by_reason if b is not None]
+    proxy = [g["peak_pct_of_cap"] >= target_frac for g in pop]
+
+    # Cross-check the two bases wherever both exist, whichever we end up using.
+    agreement = None
+    if have_reason:
+        tp_idx = [i for i, b in enumerate(by_reason) if b]
+        if tp_idx:
+            agreement = round(
+                sum(1 for i in tp_idx if proxy[i]) / len(tp_idx), 4)
+
+    if len(have_reason) == len(pop):
+        hits = sum(1 for b in by_reason if b)
+        out = {**base, "n": len(pop), "hits": hits, "p": hits / len(pop),
+               "hit_basis": "exit_reason", "proxy_agreement": agreement}
+        if agreement is not None and agreement < 0.5:
+            out["proxy_note"] = (
+                f"the mfe>=cap proxy finds only {agreement:.0%} of the exits "
+                "this corpus RECORDS as take_profit — the proxy is unusable "
+                "here; exit_reason was used")
+        return out
+
+    hits = sum(1 for b in proxy if b)
+    return {**base, "n": len(pop), "hits": hits, "p": hits / len(pop),
+            "hit_basis": "mfe_proxy", "proxy_agreement": agreement,
+            "proxy_warning": (
+                "no exit_reason on these rows; the mfe>=cap rule stood in. It "
+                "is UNSATISFIABLE on any harness whose mfe_r excludes the fill "
+                "bar, which returns a confident p=0.0 — check p against the "
+                "corpus's own take-profit count before using it")}
 
 
 def analyse(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -230,9 +285,13 @@ def _self_test() -> int:
 
     # conditional_hit_rate — the `observed_p` supplier for hold_vs_cash.
     # entry 100 / sl 99 -> risk 1 -> cap_r = 9.9, so peak_pct = mfe / 9.9.
-    def mk(mfe, net):
-        return {"entry": 100.0, "sl": 99.0, "mfe_r": mfe, "net_r": net}
+    def mk(mfe, net, why=None):
+        r = {"entry": 100.0, "sl": 99.0, "mfe_r": mfe, "net_r": net}
+        if why is not None:
+            r["exit_reason"] = why
+        return r
 
+    # No exit_reason anywhere -> the proxy basis, with its warning.
     pop = [mk(9.9, 9.9), mk(9.9, 5.0), mk(8.0, 4.0), mk(8.0, 2.0), mk(1.0, -1.0)]
     c75 = conditional_hit_rate(pop, reached=0.75)     # >= 7.425R -> four rows
     c99 = conditional_hit_rate(pop, reached=0.99)     # >= 9.801R -> the two caps
@@ -240,18 +299,36 @@ def _self_test() -> int:
     czero = conditional_hit_rate(
         pop + [{"entry": 100.0, "sl": 100.0, "mfe_r": 9.9, "net_r": 1.0}],
         reached=0.75)
+
+    # THE REGRESSION CONTROL. Reproduces the live shape measured 2026-08-19:
+    # mfe_r excludes the fill bar, so every take_profit row sits BELOW cap and
+    # the proxy is unsatisfiable. exit_reason must win, and the disagreement
+    # must be reported rather than silently producing a confident p=0.0.
+    fill_bar = [mk(9.0, 9.85, "take_profit"), mk(9.2, 9.9, "take_profit"),
+                mk(8.5, 3.0, "trail_stop"), mk(8.1, -1.0, "stop")]
+    creal = conditional_hit_rate(fill_bar, reached=0.75)
+    proxy_only = conditional_hit_rate(
+        [{k: v for k, v in r.items() if k != "exit_reason"} for r in fill_bar],
+        reached=0.75)
+
     checks += [
         ("conditional population is the reached-X set", c75["n"] == 4),
-        ("conditional hits are the reached-cap subset", c75["hits"] == 2),
         ("conditional p is hits/n", c75["p"] == 0.5),
         ("tighter conditioning shrinks the population", c99["n"] == 2),
-        ("...and a population already at cap is all hits", c99["p"] == 1.0),
         ("empty population -> p is None, NEVER 0.0", cnone["p"] is None),
         ("empty population states why", cnone["why"] == "empty_conditioning_population"),
         ("a zero-risk row is dropped, not graded", czero["n"] == 4),
         ("...and its exclusion is COUNTED, not silent", czero["rows_ungradeable"] == 1),
-        ("n rides with p so a thin rate cannot read as a thick one",
-         "n" in c75 and "n" in cnone),
+        ("no exit_reason -> the proxy basis", c75["hit_basis"] == "mfe_proxy"),
+        ("...and the proxy carries its warning", "proxy_warning" in c75),
+        # The regression the live corpus actually produced.
+        ("exit_reason wins when present", creal["hit_basis"] == "exit_reason"),
+        ("...and finds the take-profits the proxy cannot", creal["hits"] == 2),
+        ("...and p is NOT the fabricated 0.0", creal["p"] == 0.5),
+        ("the proxy disagreement is MEASURED", creal["proxy_agreement"] == 0.0),
+        ("...and called out in words", "unusable" in creal.get("proxy_note", "")),
+        ("the same rows WITHOUT exit_reason reproduce the p=0.0 defect",
+         proxy_only["p"] == 0.0 and proxy_only["hit_basis"] == "mfe_proxy"),
     ]
 
     ok = 0
