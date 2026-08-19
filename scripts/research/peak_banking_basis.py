@@ -230,7 +230,9 @@ def _self_test() -> int:
 
     # conditional_hit_rate — the `observed_p` supplier for hold_vs_cash.
     # entry 100 / sl 99 -> risk 1 -> cap_r = 9.9, so peak_pct = mfe / 9.9.
-    mk = lambda mfe, net: {"entry": 100.0, "sl": 99.0, "mfe_r": mfe, "net_r": net}
+    def mk(mfe, net):
+        return {"entry": 100.0, "sl": 99.0, "mfe_r": mfe, "net_r": net}
+
     pop = [mk(9.9, 9.9), mk(9.9, 5.0), mk(8.0, 4.0), mk(8.0, 2.0), mk(1.0, -1.0)]
     c75 = conditional_hit_rate(pop, reached=0.75)     # >= 7.425R -> four rows
     c99 = conditional_hit_rate(pop, reached=0.99)     # >= 9.801R -> the two caps

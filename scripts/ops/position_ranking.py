@@ -147,7 +147,12 @@ def render(rows: List[Dict[str, Any]]) -> str:
     hdr = (f"{'id':>6} {'symbol':<10} {'side':<5} {'strategy':<24} "
            f"{'state':<13} {'req_p':>7} {'obs_p':>7} {'edge':>7} {'rr':>6}")
     out += [hdr, "-" * len(hdr)]
-    fmt = lambda v, n=3: "—" if v is None else f"{v:.{n}f}"
+
+    def fmt(v, n=3):
+        """An em-dash for a value we do not have. Never 0.000, which in a
+        probability column reads as a measured certainty."""
+        return "—" if v is None else f"{v:.{n}f}"
+
     for r in rows:
         out.append(f"{r['id']:>6} {str(r['symbol']):<10} {str(r['side']):<5} "
                    f"{r['strategy'][:24]:<24} {r['state']:<13} "
