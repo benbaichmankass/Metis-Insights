@@ -5,9 +5,9 @@ they return identical JSON. **Prefer direct; fall back to the relay.**
 
 ## Transport A — direct HTTP (preferred, when the session is configured)
 
-A session whose cloud environment sets `DIAG_BASE_URL` +
-`DIAG_READ_TOKEN` (and whose Network access permits egress to the host)
-can hit the diag surface directly, in one shot:
+A session holding **`DIAG_READ_TOKEN`** can hit the diag surface directly, in
+one shot. **`DIAG_BASE_URL` is OPTIONAL** (corrected 2026-08-20) — see the
+candidate-order note below:
 
 ```
 scripts/ops/diag_fetch.sh 'audit?limit=600'
@@ -15,19 +15,37 @@ scripts/ops/diag_fetch.sh 'journal?table=trades&limit=100'
 scripts/ops/diag_fetch.sh 'status'
 ```
 
-`diag_fetch.sh` resolves `$DIAG_BASE_URL/api/diag/<path>` with the
-bearer in a 0600 curl config (token never hits argv/logs). Exit `0` →
-JSON on stdout. Exit `3` → direct path unavailable (env unset, egress
-blocked, or web-api down) → use Transport B. The bearer value is
-delivered by the `get-diag-token` workflow; it is installed onto the VM
-by `set-diag-token`. Both are documented under "Token management" below.
+`diag_fetch.sh` tries an **ORDERED LIST of candidate bases**, with the bearer
+in a 0600 curl config (token never hits argv/logs), and prints `served by
+<base>` on stderr so a reader can tell WHICH host answered. Exit `0` → JSON
+on stdout. Exit `3` → no candidate answered → use Transport B. The bearer
+value is delivered by the `get-diag-token` workflow; it is installed onto the
+VM by `set-diag-token`. Both are documented under "Token management" below.
 
-> ⚠️ Direct egress to a raw `http://IP:8001` may still be refused by
-> the platform's HTTP/HTTPS security proxy even at Network access =
-> Full (it filters by hostname; a non-standard port on a bare IP can be
-> dropped). If `diag_fetch.sh` keeps returning `3` despite the env vars
-> being set, point `DIAG_BASE_URL` at an HTTPS **hostname** for the diag
-> API. Until that's in place, Transport B keeps everything working.
+| configured `DIAG_BASE_URL` | order tried |
+|---|---|
+| unset | canonical HTTPS |
+| plain-http, or names a known VM IP | **canonical HTTPS first**, configured second |
+| a deliberately-set https base | configured first, canonical second |
+
+Canonical is `https://ict-bot.duckdns.org` — the Caddy route the Svelte SPA
+already uses, which works at the **default `Trusted`** network level with no
+cloud-environment change.
+
+> ⚠️ A raw `http://IP:8001` is not "may be refused" — it **IS** dropped
+> (measured 2026-08-20: rc/http `000` against `141.145.193.91:8001` at the
+> default `Trusted` level, while `https://ict-bot.duckdns.org` returned `200`
+> on `/api/health` AND on a bearer'd `/api/diag/version` in the same session).
+> The proxy allowlists by **scheme + hostname**, not by destination identity.
+> **You no longer have to do anything about that** — the candidate list above
+> handles it, which is why this note is a caveat rather than an instruction.
+>
+> The history is worth one line, because the previous remedy LOOKED like it
+> worked: `diag_fetch.sh` used to "self-heal" a stale base by rewriting the
+> retired micro to the **raw live IP** — a host the proxy drops. It logged
+> success, timed out, and exited `3`, so every session paid the relay hop
+> while a fix sat visibly in the file. A heal that produces an unreachable
+> host is worse than no heal (`BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM`).
 >
 > Also note: SSH from a web session is impossible regardless of Network
 > access — the proxy is HTTP/HTTPS only. So direct access covers the
