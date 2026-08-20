@@ -1,3 +1,42 @@
+> # 🗑️ RETIRED 2026-08-20 — THE FLOW THIS DOCUMENTS NO LONGER EXISTS
+>
+> **Do not follow this runbook.** The M5 `/test <strategy>` consumer was
+> removed on 2026-08-20 (operator-approved). Every code path named in the
+> "Code map" below is **deleted**: `src/bot/test_strategy_consumer.py`,
+> `src/backtest/run_backtest_m5.py`, `src/utils/validation_logger.py`, the
+> `enable-m5-consumer` / `disable-m5-consumer` system-actions, and the
+> `test_strategy:<name>` comms template.
+>
+> **Why it was removed, since "it was default-off and harmless" is the
+> reading to avoid:**
+>
+> - It ran **ONE hardcoded ICT engine regardless of the strategy named** —
+>   `run_backtest_m5.py:46` was `ICTBacktester(df, {})`, and the `strategy`
+>   argument reached only `summarize(..., strategy)` as a **label**. So
+>   `/test vwap` and `/test turtle_soup` produced the same backtest under
+>   different names. A tool that answers every question identically while
+>   labelling the answers differently is worse than no tool.
+> - It stamped `sharpe_ratio` / `total_pnl_pct` / `max_drawdown` as literal
+>   `0.0` — **FABRICATED values wearing the label of measurements**, the
+>   exact class `src/runtime/provenance.py` exists to stop trusting.
+> - Nothing consumed its output: `runtime_logs/validation.jsonl` had **no
+>   read surface anywhere** (absent from `diag.py`'s `_LOG_FILES`
+>   allowlist) — a write-only log.
+>
+> ⚠️ **`src/bot/telegram_query_bot.py::cmd_test_strategy`, named in the Code
+> map below, NEVER EXISTED** — measured 2026-08-20, that symbol appears
+> nowhere in the repo, and neither does its sibling `cmd_new_session`. The
+> Code map has been wrong since it was written; requests were minted by
+> writing a `comms/requests/*.json` artifact directly.
+>
+> **What to use instead:** real backtests are the trainer sweeps, surfaced
+> at `/api/bot/backtests/sweeps` and rendered on the dashboard's
+> Backtesting tab. Per-strategy harnesses live in `scripts/backtest_*.py`.
+> Existing `backtest_results` rows are kept as a record and still served by
+> `GET /api/bot/backtests`; **their zeros are fabricated, not measured.**
+>
+> Kept, unedited below, as the record of what the flow was.
+
 # Strategy Testing Workflow — Runbook
 
 **Owner:** auto-claude (M5).

@@ -29,7 +29,7 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from telegram import (
     InlineKeyboardButton,
@@ -57,9 +57,6 @@ from src.comms import (
     next_status_after_answer,
 )
 from src.comms.models import required_answered_count
-
-if TYPE_CHECKING:  # circular-safe forward ref for the M5 consumer.
-    from src.bot.test_strategy_consumer import BacktestConsumer
 
 logger = logging.getLogger(__name__)
 
@@ -178,17 +175,11 @@ class CommsPoller:
         repo_root: Optional[Path] = None,
         chat_id: Optional[str] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
-        backtest_consumer: Optional["BacktestConsumer"] = None,
     ) -> None:
         self.repo_root = Path(repo_root) if repo_root else Path.cwd()
         self.store = store or RequestStore(self.repo_root / "comms")
         self.chat_id = chat_id or os.environ.get("TELEGRAM_CHAT_ID")
         self.poll_interval = float(poll_interval)
-        # Optional M5 consumer. Runs as an extra pass inside
-        # poll_once before the deliver/expiry/archive sweep so a
-        # ``test_strategy:*`` artifact is answered + transitioned
-        # past PENDING in the same cycle it was minted.
-        self.backtest_consumer = backtest_consumer
         self._task: Optional[asyncio.Task] = None
         self._stop = asyncio.Event()
 
@@ -220,22 +211,11 @@ class CommsPoller:
                 continue
 
     async def poll_once(self, application: Application) -> None:
-        """One pass: M5 consume, deliver pending, alert stuck, alert+expire stale, archive terminal."""
+        """One pass: deliver pending, alert stuck, alert+expire stale, archive terminal."""
         if self.chat_id is None:
             logger.warning("CommsPoller: no chat_id configured; skipping cycle")
             return
         bot = application.bot
-
-        # 0. M5: run the strategy-test consumer first so a /test
-        #    artifact is transitioned past PENDING (to ANSWERED) in
-        #    the same cycle it was minted. The consumer skips any
-        #    artifact whose task != "test_strategy:*"; everything
-        #    else falls through to the deliver pass below unchanged.
-        if self.backtest_consumer is not None:
-            try:
-                self.backtest_consumer.scan_and_run(self.store)
-            except Exception:  # noqa: BLE001
-                logger.exception("CommsPoller: backtest consumer pass failed")
 
         # 1. Deliver any pending requests.
         for request in self.store.list_pending():
@@ -772,19 +752,12 @@ def install_comms_handlers(
     repo_root: Optional[Path] = None,
     chat_id: Optional[str] = None,
     poll_interval: float = DEFAULT_POLL_INTERVAL,
-    backtest_consumer: Optional["BacktestConsumer"] = None,
 ) -> CommsPoller:
     """Register comms handlers + a poll task on the running Application.
 
     The store is stashed in ``application.bot_data["comms_store"]`` so
     handler functions can pick it up without import-time globals.
     Returns the ``CommsPoller`` so the caller can stop it on shutdown.
-
-    ``backtest_consumer`` is the M5 strategy-test consumer; when
-    omitted the wrapper instantiates a default one. Tests pass an
-    explicit consumer (or ``None``-by-passing ``False`` is not
-    supported here on purpose — to disable in tests, construct the
-    poller directly).
     """
     repo_root = Path(repo_root) if repo_root else Path.cwd()
     store = RequestStore(repo_root / "comms")
@@ -815,33 +788,11 @@ def install_comms_handlers(
         group=1,
     )
 
-    if backtest_consumer is None:
-        # Lazy import keeps the comms_handler module importable in
-        # contexts that don't have the backtester deps available
-        # (e.g. minimal CI test images).
-        from src.bot.test_strategy_consumer import (
-            BacktestConsumer as _BC,
-            M5_CONSUMER_ENABLED_ENV,
-        )
-        # P2 env gate: only auto-install the consumer when the
-        # operator has explicitly enabled it on this VM (default off
-        # so a fresh checkout / dev box never auto-runs backtests).
-        if os.environ.get(M5_CONSUMER_ENABLED_ENV, "0").strip().lower() in {
-            "1", "true", "yes", "on",
-        }:
-            backtest_consumer = _BC()
-        else:
-            logger.info(
-                "install_comms_handlers: %s not set; M5 backtest consumer disabled",
-                M5_CONSUMER_ENABLED_ENV,
-            )
-
     poller = CommsPoller(
         store=store,
         repo_root=repo_root,
         chat_id=chat_id,
         poll_interval=poll_interval,
-        backtest_consumer=backtest_consumer,
     )
 
     async def _post_init(app: Application) -> None:
