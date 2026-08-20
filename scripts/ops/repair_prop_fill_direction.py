@@ -105,6 +105,22 @@ def _backup_db(db_path: str) -> str:
 
 
 def _connect(db_path: str, read_only: bool) -> sqlite3.Connection:
+    # NAME THE PATH, AND SAY WHETHER IT EXISTS. sqlite's own message for a
+    # missing file under `mode=ro` is the bare "unable to open database file",
+    # which names no path and no cause — indistinguishable from a permission
+    # problem, a corrupt file, or a wrong DB. That is the unprovenanced-
+    # diagnostic class (CLAUDE.md § "Diagnostic provenance", sub-class A): it
+    # cost a full dispatch cycle on #10049 to learn one fact the process
+    # already had. `mode=ro` never creates, so absence is the likely cause and
+    # is worth stating outright.
+    if not os.path.exists(db_path):
+        raise SystemExit(
+            f"trade_journal.db not found at {db_path!r} — the resolver fell "
+            f"through to this path, so TRADE_JOURNAL_DB is unset in this "
+            f"process. A wrapper must export it via _lib.sh::runtime_db_path "
+            f"(see repair_prop_fill_direction_action.sh). Nothing was read or "
+            f"written."
+        )
     uri = f"file:{db_path}?mode=ro" if read_only else f"file:{db_path}"
     conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row
