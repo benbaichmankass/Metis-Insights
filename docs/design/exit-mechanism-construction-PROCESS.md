@@ -100,8 +100,30 @@ not ship.
 For each candidate feature, its relationship to **forward R** on held trades, with a
 purged/embargoed split grouped by `trade_id` (the `analyze_exit_head` discipline).
 *Falsifier:* a feature that does not beat a shuffled-label control carries no information,
-and no lever built on it can work. **This step has never been run.** It is the reason
-step E3 has been guesswork.
+and no lever built on it can work.
+
+**RUN 2026-08-20** (`docs/research/e2-feature-information-2026-08-20.md`;
+`scripts/research/e2_feature_information.py`). Two preconditions had to be built first:
+`analyze_exit_head._univariate_fdr` turned out to be the **pooled, un-purged** version of
+this test (`BL-20260820-UNIVARIATE-FDR-IS-POOLED-AND-UNPURGED`), and **no shuffled-label
+control existed anywhere in the repo** — E2's declared falsifier had no implementation.
+
+⚠️ **The result depends on WHICH OUTCOME you score, and that is the finding.** On
+`ict_scalp` XRPUSDT 15m — 10,103 rows, 530 trades, xa block joined at **`row_coverage`
+1.0**, controls valid — six features clear the family-wise bar against `forward_r` and
+**every one collapses by one to two orders of magnitude against `advantage_r`**
+(`feat_upnl_r` 0.5753 → 0.0062, a factor of 93). `forward_r` is measured **from entry**,
+so it shares its baseline with `feat_upnl_r` and every path feature tracking accrued R;
+those six are largely arithmetic about where the trade already **is**. Against the
+decision-relevant targets — `advantage_r` and `label_hold` — **nothing clears, at either
+bar**, endogenous or exogenous, and the negative survives a scale-free min-p companion
+shown to fire on the same panel.
+
+**So E3 is still not licensed on this leg**, and the reason has changed: it is no longer
+"nobody measured", it is "measured, and the widened panel does not carry the increment".
+Disposition is §3.1 — regroup and widen; the thread does not close. Anyone quoting a
+`forward_r` score as evidence a lever is buildable must state the target, because the
+same panel says the opposite one bar over.
 
 ### E3 · Design levers over informative features — and COMBINE them
 Only features that survived E2. Levers are swept **jointly**, not one at a time: the
