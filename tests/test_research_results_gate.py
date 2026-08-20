@@ -117,7 +117,7 @@ CREATE TABLE trades (
     account_class TEXT, setup_type TEXT, reconcile_status TEXT, exit_reason TEXT,
     closed_at TEXT, timestamp TEXT, notes TEXT
 );
-CREATE TABLE order_packages (id INTEGER PRIMARY KEY, linked_trade_id INTEGER, updated_at TEXT);
+CREATE TABLE order_packages (order_package_id TEXT PRIMARY KEY, linked_trade_id INTEGER, updated_at TEXT);
 """
 
 

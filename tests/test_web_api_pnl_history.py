@@ -50,7 +50,7 @@ def _make_journal(path: Path) -> Path:
         -- op.updated_at, timestamp) and LEFT JOINs order_packages; an empty
         -- table keeps the join a no-op (close-time falls back to timestamp).
         CREATE TABLE order_packages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_package_id TEXT PRIMARY KEY,
             linked_trade_id INTEGER,
             updated_at TEXT
         )

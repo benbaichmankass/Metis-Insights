@@ -242,9 +242,18 @@ def main() -> int:
         except ValueError:
             rel = f
         print(f"  {rel}  [{n}]  fictional: {', '.join(cols)}")
-    print("\nLift the DDL from src/units/db/database.py rather than hand-rolling it.")
-    print("A fixture that declares a column production lacks lets a query against "
+    print("\nA fixture that declares a column production lacks lets a query against "
           "that column pass CI and raise in production (BL-20260810).")
+    print("\nTwo legitimate fixes — pick by what the fixture DOES:")
+    print("  * inserts real rows -> lift the DDL "
+          "(tests/fixtures/real_schema_db.py::make_canonical_db runs the real "
+          "create_tables, so a future migration is reflected automatically).")
+    print("  * a join stub of 2-3 columns -> KEEP it minimal, but every column "
+          "it declares must be a real one. Production order_packages carries 9 "
+          "NOT NULL columns, so lifting the full DDL for a stub is not the "
+          "cheaper path and telling you to do it is why 20 fixtures hand-rolled "
+          "a fictional `id` instead. Declaring FEWER columns is fine; this "
+          "guard only rejects columns that do not exist.")
     return 1
 
 

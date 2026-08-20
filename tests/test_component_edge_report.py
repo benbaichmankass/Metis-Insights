@@ -76,8 +76,7 @@ def _make_db(path: Path) -> None:
     conn.execute(
         """
         CREATE TABLE order_packages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_package_id TEXT,
+            order_package_id TEXT PRIMARY KEY,
             strategy_name TEXT,
             symbol TEXT,
             confidence REAL,
