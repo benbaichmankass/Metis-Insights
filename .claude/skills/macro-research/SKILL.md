@@ -223,3 +223,46 @@ stated not hidden), the verdict (`edge` / `no_edge` / `insufficient_history` /
 `park`), what it unblocks or blocks next (e.g. M2 waits on M1 data accrual), and
 where it landed (PR + ROADMAP_MACRO + doc). If a data source failed the
 verify-before-build probe, report *that* — it's the most valuable finding.
+
+---
+
+## Definition of done — a capability is not shipped until something RUNS it
+
+*(Operator directive 2026-08-20, binding on every build skill: "we don't keep
+building things out half way and then leaving them to rust while the system
+chugs along with bad structure.")*
+
+Merging is not shipping. Before you call any capability from this skill done,
+all four must hold — and the ones you cannot satisfy get **said out loud**, not
+left implied:
+
+1. **A RUNNER exists.** A workflow, a systemd unit, a call site in `src/`, an
+   entry in `run_guards.py`, or a documented cadence. A tool that is genuinely
+   manual-only declares it in its own file:
+   `# wiring: manual-only — <who runs it, when>`. Verify with
+   **`python3 scripts/ci/check_unwired_artifacts.py`** — if your new file
+   appears in its output, it is not done.
+2. **A CONSUMER exists.** Anything the capability *writes* must be *read* by
+   something that acts on it. A signal written and never read is worse than a
+   missing one — reviewers see the field and assume something acts on it
+   (`provenance-consumer-guard` exists for exactly this).
+3. **A DETECTOR exists.** Something fails if this silently stops working. A
+   test, a guard, an alert, or an invariant in
+   `scripts/ops/system_invariants.py`. "We'll notice" is not a detector.
+4. **It has been OBSERVED working on real data** — not only in a test. Cite the
+   evidence (a diag pull, a log line, a row) or state plainly that it has not
+   yet been observed and what would settle it.
+
+**The measured cost of skipping this:** 161 of 384 tools under `scripts/` have
+no runner (2026-08-20). `scripts/ops/trainer_dataset_gc.py` — the retention
+tool for a 12 G dataset tree — had no caller, no timer and **0 mentions across
+7,442 cycle-log rows** while the disk it was written for reached **93 %**.
+`exchange_fills_ib.closed_pnl_from_fills` has **zero production callers**, so
+IBKR's own realized PnL is pulled hourly and never read. Every one was found by
+accident, months later.
+
+`/system-review` now enumerates everything shipped since the previous review and
+grades each `running` / `wired_not_yet_exercised` / **`UNWIRED`** /
+`unverifiable` (`review_coverage.since_last_build_verification`, enforced by
+`render_system_report.py --strict`). **Your work will be graded against this
+list.** Leave it wired, or leave it declared.

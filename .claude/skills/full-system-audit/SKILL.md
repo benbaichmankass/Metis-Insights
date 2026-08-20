@@ -1,6 +1,6 @@
 ---
 name: full-system-audit
-description: The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check. Use when the operator says "run a full system audit", "audit the whole system / everything", "review every line of code", "/full-system-audit", or for a periodic governance pass. This is a MULTI-SESSION program you orchestrate. It runs on FIVE axes ordered by blast radius — BEHAVIOR (does the mechanism produce the right outcome on real data), INDEPENDENCE (can each claim be falsified by evidence its own producer does not control), CONSISTENCY, LIVENESS, and RECURRENCE (does every past finding have a permanent detector) — plus a standing DESIGN-CRITICISM pass. Composes with doc-freshness, workplan-vs-architecture, session-coordination, diag-data, db-wiring, delegate-work. NOT a code-quality review (use `review`) and NOT a runtime health check (use `health-review`).
+description: The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check, and not a per-file review. Use when the operator says "run a full system audit", "audit the whole system / everything", "review every line of code", "/full-system-audit", or for a periodic governance pass. A MULTI-SESSION program you orchestrate, on SIX axes ordered by blast radius — BEHAVIOR (assert outcomes end-to-end on live data, including a FULL PIPELINE VERIFICATION of real trades hop by hop), INDEPENDENCE (can a claim be falsified by evidence its own producer does not control), CONSISTENCY, LIVENESS, OUTCOME (did what we built deliver what its design promised, measured against history), and RECURRENCE (does every past finding leave a permanent detector) — plus a standing DESIGN-CRITICISM phase judging the system's COHESION, FUNCTION and underlying PHILOSOPHY as a whole, not component by component. Composes with doc-freshness, workplan-vs-architecture, session-coordination, diag-data, db-wiring, delegate-work. NOT a code-quality review (use `review`) and NOT a runtime health check (use `health-review`).
 ---
 
 # /full-system-audit — the exhaustive whole-system audit PROGRAM
@@ -64,7 +64,7 @@ audited component does not control.
 
 ---
 
-## The five axes — always in this order (blast radius, not convenience)
+## The six axes — always in this order (blast radius, not convenience)
 
 | # | Axis | The question | Catches |
 |---|---|---|---|
@@ -72,11 +72,12 @@ audited component does not control.
 | **2** | **INDEPENDENCE** | Can each claim be falsified by evidence its own producer does not control? | reduced verdicts, self-reporting instruments, unfalsifiable greens |
 | **3** | **CONSISTENCY** | Do the rules, code, config, and data agree? | doc drift, contract drift |
 | **4** | **LIVENESS** | Is each thing actually alive, reached, and still wanted? | zombies, dead infra |
-| **5** | **RECURRENCE** | Does every past finding have a permanent detector that fails if it returns? | the treadmill |
+| **5** | **OUTCOME** | Did what we built actually deliver what its design promised, measured against history? | cosmetic features, unfalsified designs, "shipped" ≠ "worked" |
+| **6** | **RECURRENCE** | Does every past finding have a permanent detector that fails if it returns? | the treadmill |
 
 Axes 3 and 4 are the *old* audit — keep them, they work, they are simply not
 where the money-at-risk defects live. **Never spend the session's first half on
-axes 3–5.** A doc-drift finding and a naked live position are not the same
+axes 3–6.** A doc-drift finding and a naked live position are not the same
 finding, and the audit must not be ordered so the cheap one is found first.
 
 Running alongside all five, and never skipped:
@@ -236,15 +237,39 @@ The standing invariant families (extend, never shrink):
 **Read the outcome, not the status.** "The reconciler ran" is not "the
 reconciler reconciled". Assert on the resulting rows.
 
-### 3.2 BEHAVIOR — end-to-end traces
+### 3.2 BEHAVIOR — FULL PIPELINE VERIFICATION, end to end, in the live system
 
-Sample real trades **stratified** (per account × venue × strategy × outcome,
-including at least one refused, one orphaned, one prop, one paper) and trace
-each hop: signal → intent/aggregation → risk sizing → order placement → broker
-ack → journal row → protective legs → monitor/exit → reconciler → analytics →
-each consumer surface. **Assert at every hop.** A half-built pipeline is
-invisible to a line sweep and unmissable in a trace — this is the single
-highest-yield pass in the program. Log which hop each trace died at.
+**Mandatory. This is the single highest-yield pass in the program** — a
+half-built pipeline is invisible to a line sweep and unmissable in a trace.
+
+Sample real trades **stratified**: per account × venue × strategy × outcome,
+and explicitly including **at least one refused, one orphaned, one prop, one
+paper, one real-money**. Then walk every hop and **assert at each one**:
+
+| # | hop | assert |
+|---|---|---|
+| 1 | market data | the frame the decision used exists, and its staleness is inside the declared TTL |
+| 2 | signal | an audit row exists with the geometry the strategy claims it used |
+| 3 | intent / aggregation | the candidate survived (or was gated) for a recorded, named reason |
+| 4 | risk sizing | the qty follows from the account's declared `risk_pct`, the venue's lot rules, and the margin basis actually used |
+| 5 | placement | the broker acknowledged, and acceptance was not read as a fill |
+| 6 | journal row | it exists, with the same qty and geometry that was placed |
+| 7 | protective legs | a stop rests at the broker, two-sided coverage graded, quantity ≤ position |
+| 8 | monitor / exit | the leg is being re-evaluated inside its requirement, and an exit path exists that is not "price reaches a level fixed at entry" |
+| 9 | reconciler | journal qty reconciles to exchange qty |
+| 10 | close + PnL | the close is broker-confirmed, and `pnl` provenance is MEASURED or declared |
+| 11 | analytics | the trade appears in `/performance` with the right population |
+| 12 | each consumer | it appears, correctly, on the Streamlit app, the SPA, and Android — or the gap is named |
+
+**Log which hop each trace died at, and publish the hop-level tally.** "10 of 12
+traces reached hop 12; 2 died at hop 7" is the honest coverage statement, and
+the histogram of death-hops across traces is usually a stronger finding than
+any single trace.
+
+**Run the committed invariants alongside it** —
+`scripts/ops/system_invariants.py` asserts the same properties over the whole
+open book rather than a sample. Traces find the *mechanism* of a break;
+invariants find *how many* rows share it. Do both.
 
 ### 3.3 INDEPENDENCE — can the claim be contradicted?
 
@@ -260,7 +285,44 @@ Specifically hunt **reducers**: booleans and single scalars standing in for a
 structured state (`covered` for a two-sided quantity, `active` for a functioning
 service, `present` for a *current* snapshot, `[]` for both "empty" and "failed").
 
-### 3.4 LIVENESS — the zombie hunt
+### 3.4 OUTCOME — did it deliver what the design promised?
+
+*(Operator directive 2026-08-20: compare the system's historical performance
+against the expected design.)*
+
+Conformance asks *"is it built as specified?"* Liveness asks *"does it run?"*
+**Neither asks whether it WORKED.** A mechanism can be correctly built, fully
+wired, running daily, and delivering nothing — and every other axis passes.
+
+For each significant subsystem shipped since the last audit — and for the
+standing ones — recover **the promise** and measure **the outcome**:
+
+1. **Find the promise.** Every Tier-2/3 change in this repo carries one, in its
+   ROADMAP row, design doc, or the A/B that gated it: *"cuts maxDD"*, *"the ML
+   label beats the frozen label"*, *"removes flip-churn"*, *"no live trade goes
+   >60 s without evaluation"*. Quote it.
+2. **Measure the outcome over history**, on the population the promise was
+   about, stating n. Use the measured surfaces
+   (`/api/bot/performance` `totalPnlMeasured` beside `pnlCoverage`, the soak
+   logs, `tick_cost`, `exit_loop_health`), never the raw sums that include
+   fabricated marks.
+3. **Grade it**: `delivered` · `no measurable effect` · `harmed` ·
+   `not yet measurable (state what would settle it, and by when)`.
+
+**`no measurable effect` is a finding, not a null result.** A mechanism that
+costs complexity, tick time, and review attention while changing no outcome is
+a candidate for removal — and removal is a legitimate, high-value audit outcome.
+
+Two guards on this pass, both from this repo's own history:
+
+- **A promise measured on a fabricated population is not measured.** Quote the
+  population and its provenance coverage, or do not quote the number.
+- **Do not confuse "the gate is enforcing" with "the gate is helping."** The
+  regime router is verifiably ON; whether its OFF-cells earned their keep is a
+  separate question with a separate measurement, and only the second one is
+  this axis.
+
+### 3.5 LIVENESS — the zombie hunt
 
 Build the integration inventory (brokers via `integrator.py::EXCHANGE_MAP` +
 routing in `execute_pkg`; services/timers via `deploy/*` +
@@ -276,14 +338,14 @@ presumed a **corpse to remove or to justify in writing** — not an inventory ga
 to document. A build-arc + retire-arc with no delete-arc is a zombie. A
 retirement findable only in chat is itself a first-class finding.
 
-### 3.5 CONSISTENCY
+### 3.6 CONSISTENCY
 
 `workplan-vs-architecture` (intent ↔ design ↔ reality) + `doc-freshness`
 (doc↔doc, doc↔field). **Field beats comment**, always. Prioritize contract
 surfaces the three consumers share (the REST table in `CLAUDE.md` vs
 `BotApi.kt` vs `streamlit_app.py` vs `webapp/`).
 
-### 3.6 RECURRENCE — the anti-treadmill pass
+### 3.7 RECURRENCE — the anti-treadmill pass
 
 This is the pass that answers *"why do we keep finding the same bugs?"*
 
@@ -302,7 +364,7 @@ This is the pass that answers *"why do we keep finding the same bugs?"*
    vocabulary, `severity`, `tier`, `resolution_criteria`, `detector`) and
    normalize as part of the program.
 
-### 3.7 VM + DATA
+### 3.8 VM + DATA
 
 VMs via the relays (reads only; mutations are tiered): service/timer state,
 journal tails, running SHA vs `main`, `.env` inventory (names, not values —
@@ -368,9 +430,36 @@ the design-criticism section from Phase 6.**
 
 ---
 
-## Phase 6 — Design criticism (standing, operator-directed)
+## Phase 6 — Design criticism: cohesion, function, and philosophy
 
-Conformance is the floor, not the mandate. For each major subsystem ask:
+*(Operator directive 2026-08-20: "not just audit, but research and criticism of
+everything we built… do we need to rethink things." This phase is not optional
+and is not a footer.)*
+
+Conformance is the floor. This phase judges the system **as a whole**, which no
+per-component pass can do.
+
+**6a. Cohesion — is this one system, or N systems in a trench coat?**
+- Where does the same concept have two implementations that can disagree?
+  (Two definitions of exposure; two registries; a provenance vocabulary the bot
+  enforces and the consumers ignore; a risk unit that differs between the live
+  sizer and the harness that validates it.)
+- Where does a decision need facts that live in three places with no join?
+- Which seams have no owner — the places where component A is correct,
+  component B is correct, and the handoff is nobody's?
+
+**6b. Philosophy — is the operating model itself sound?**
+- The repo's implicit doctrine is *observe first, gate later, never strand a
+  capability*. Where has that produced soaks that accrue forever with no one
+  reading them? Where has fail-permissive become fail-silent?
+- The tier system optimises for safety of *change*. Does it also make
+  *removal* hard, so dead structure accumulates because deleting is scarier
+  than adding?
+- The system is heavily instrumented and heavily documented. At what point does
+  a new guard cost more attention than the defect it catches? Name the ones
+  that have crossed it.
+
+**6c. Then, per major subsystem:**
 
 - **Is the mechanism right?** Not "does it match the spec" — *should* the spec
   say this? What would we build if we started today knowing what we know?
@@ -382,7 +471,10 @@ Conformance is the floor, not the mandate. For each major subsystem ask:
   infrastructure spend match it? If most defects are seam/behavioral and most
   infrastructure is doc/consistency, that mismatch is the finding.
 - **What are we not measuring at all?** The gaps that no surface would reveal.
-- **What should be deleted?** Removal is a legitimate, high-value outcome.
+- **What should be deleted?** Removal is a legitimate, high-value outcome, and
+  the OUTCOME axis (3.4) is where the evidence for it comes from.
+- **What would we build differently if we started today?** Answer it in writing
+  even when the answer is "the same" — that is a finding too.
 
 Design findings are **proposals**, not unilateral changes: they land as written
 recommendations to the operator with the reasoning and the trade-off, and
