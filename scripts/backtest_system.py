@@ -56,7 +56,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -1690,16 +1690,78 @@ def _fmt(s: Dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def _fmt_risk_grid(arms: List[Dict[str, Any]],
+                   risk_report: Dict[str, Any]) -> str:
+    """One table across the risk arms, with the caveat that bounds it.
+
+    ⚠️ THE ARMS ARE NOT INDEPENDENT SAMPLES. Same data, same signals, same
+    entries — only the sizing differs, so an arm's edge is the same edge under
+    a different multiplier. What the sweep DOES answer is whether a conclusion
+    SURVIVES a change in risk (drawdown, the daily-loss halt, and compounding
+    are all non-linear in it), which is the operator's question.
+
+    ⚠️ AND IT CANNOT ANSWER THE REFUSAL QUESTION. `_risk_qty` returns a
+    CONTINUOUS quantity: no whole-contract floor, no `min_qty`, no margin cap.
+    Production quantizes and REFUSES sub-1-contract futures orders outright
+    (`IB_PLACE_CONFIRM_S` row, BL-20260611-001) and floors Alpaca to whole
+    shares. So below some threshold a real trade does not shrink — it does not
+    happen, and this harness would still book it. The error is FLATTERING: a
+    small-risk arm reads as safe when it may mean the leg never traded. Stated
+    here rather than left for a reader to assume, and filed as
+    BL-20260820-HARNESS-DOES-NOT-MODEL-QUANTIZATION-REFUSAL.
+    """
+    live_pct = risk_report.get("live_percent")
+    lines = ["", "=" * 78,
+             f"RISK GRID — {len(arms)} arm(s) around live {live_pct:g}% "
+             f"({risk_report.get('account_id')})",
+             "=" * 78,
+             f"{'risk%':>8} {'xlive':>7} {'trades':>7} {'net pnl':>12} "
+             f"{'maxDD':>10} {'ret/DD':>8}"]
+    def _n(v: Any, w: int, spec: str = ".2f") -> str:
+        # bool is an int subclass; excluded so a flag never renders as a number.
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return "—".rjust(w)
+        return format(v, spec).rjust(w)
+
+    for a in arms:
+        r = a["result"] or {}
+        # ⚠️ These accessor names are the engine's ACTUAL keys, read off a real
+        # run — the first draft guessed `trades` / `max_drawdown` / a
+        # self-derived ret/DD and rendered em-dashes over a run that had all
+        # three, which is sub-class A (the label names a quantity the accessor
+        # does not return) in the very table that warns about it.
+        # `return_dd_ratio` is the ENGINE's own figure: re-deriving pnl/dd here
+        # would be a second definition free to drift from the one _fmt prints.
+        lines.append(
+            f"{a['risk_pct']:>8.4g} {a['multiple_of_live']:>6.2f}x "
+            f"{_n(r.get('total_trades'), 7, 'd')} "
+            f"{_n(r.get('net_pnl'), 12)} "
+            f"{_n(r.get('max_drawdown_usd'), 10)} "
+            f"{_n(r.get('return_dd_ratio'), 8)}")
+    lines += [
+        "",
+        "The arms share data, signals and entries — only sizing differs, so this",
+        "asks whether a conclusion SURVIVES a change in risk, not whether the",
+        "arms are independent evidence.",
+        "⚠️  It does NOT model production's quantization: futures REFUSE a",
+        "    sub-1-contract order and Alpaca floors to whole shares, while",
+        "    _risk_qty returns a continuous quantity. A low-risk arm can read",
+        "    clean here where the real leg would not have traded at all.",
+        "=" * 78, ""]
+    return "\n".join(lines)
+
+
 def _risk_pct_arg(raw: str) -> float | str:
-    """`--risk-pct` accepts a number OR the literal `live`.
+    """`--risk-pct` accepts a number, the literal `live`, or the literal `grid`.
 
     Returned as the STRING "live" and resolved later, not here: resolution
     reads config/accounts.yaml and must be able to REFUSE loudly, while an
     argparse type that raised would print a usage blurb instead of the reason
     the live value could not be read.
     """
-    if str(raw).strip().lower() == "live":
-        return "live"
+    lowered = str(raw).strip().lower()
+    if lowered in ("live", "grid"):
+        return lowered
     try:
         return float(raw)
     except (TypeError, ValueError):
@@ -1727,7 +1789,11 @@ def main(argv: List[str]) -> int:
                    help="Per-trade risk %% of balance, in the HARNESS unit "
                         "(percent: 0.3 = 0.3%%). Pass `live` to resolve the "
                         "reference account's declared risk from "
-                        "config/accounts.yaml instead. The numeric DEFAULT is "
+                        "config/accounts.yaml instead, or `grid` to SWEEP "
+                        "live x (0.5, 1.0, 2.0) and report every arm — a "
+                        "result that holds at "
+                        "only one risk setting is a result about that setting, "
+                        "not about the strategy. The numeric DEFAULT is "
                         "deliberately unchanged — moving it would silently "
                         "re-base every historical comparison.")
     p.add_argument("--risk-account", default=risk_basis.DEFAULT_REFERENCE_ACCOUNT,
@@ -1870,6 +1936,24 @@ def main(argv: List[str]) -> int:
     # resolution REFUSES rather than falling back to the default — silently
     # sizing at 0.3 while the operator asked for live is exactly the collapse
     # (`we could not look` read as `here is the number you wanted`).
+    #
+    # `grid` is the half the operator actually asked for: *"it needs to, in any
+    # case, check various different risk percentages to see how they perform."*
+    # It is also the consumer `risk_grid_percent()` shipped WITHOUT — measured
+    # the next day at 6 references, every one of them a test and none in
+    # production, which is definition-of-done clause 2 violated by the very
+    # change that wrote the clause.
+    risk_grid: Optional[Sequence[float]] = None
+    if args.risk_pct == "grid":
+        risk_grid, live = risk_basis.risk_grid_percent(args.risk_account)
+        if risk_grid is None:
+            print(f"ERROR: --risk-pct grid could not resolve a live basis to "
+                  f"bracket: {live.describe()}", file=sys.stderr)
+            return 1
+        args.risk_pct = float(live.percent)  # the 1.0x arm is the reported one
+        print(f"--risk-pct grid -> arms {[f'{g:g}%' for g in risk_grid]} "
+              f"around live {live.percent:g}% (account {args.risk_account})",
+              file=sys.stderr)
     risk_report = risk_basis.compare_to_live(
         0.0 if args.risk_pct == "live" else float(args.risk_pct),
         account_id=args.risk_account)
@@ -1899,10 +1983,11 @@ def main(argv: List[str]) -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
         return 1
-    out = run_system_backtest(
-        base5m, roster=roster, start=args.start, end=args.end,
-        initial_balance=args.initial_balance, risk_pct=args.risk_pct,
-        daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
+    def _run_at(rpct: float) -> Dict[str, Any]:
+        return run_system_backtest(
+            base5m, roster=roster, start=args.start, end=args.end,
+            initial_balance=args.initial_balance, risk_pct=rpct,
+            daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
         overrides=overrides, refresh=args.refresh_signals, clock_tf=args.clock_tf,
         flip_policy=args.flip_policy,
         flip_confidence_threshold=args.flip_confidence_threshold,
@@ -1912,9 +1997,26 @@ def main(argv: List[str]) -> int:
         vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
         ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
         regime_router=args.regime_router, regime_policy_path=args.regime_policy,
-        conviction_sizing=args.conviction_sizing, allocator=args.allocator,
-        symbol=args.symbol)
-    print(_fmt(out))
+            conviction_sizing=args.conviction_sizing, allocator=args.allocator,
+            symbol=args.symbol)
+
+    if risk_grid is not None:
+        arms: List[Dict[str, Any]] = []
+        for rpct in risk_grid:
+            print(f"\n=== risk arm {rpct:g}% "
+                  f"({rpct / risk_report['live_percent']:.2f}x live) ===",
+                  file=sys.stderr)
+            arm_out = _run_at(rpct)
+            print(_fmt(arm_out))
+            arms.append({"risk_pct": rpct,
+                         "multiple_of_live": rpct / risk_report["live_percent"],
+                         "result": arm_out})
+        print(_fmt_risk_grid(arms, risk_report))
+        out = {"mode": "risk_grid", "risk_basis": risk_report,
+               "grid_percent": list(risk_grid), "arms": arms}
+    else:
+        out = _run_at(args.risk_pct)
+        print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
         if args.json_out == "-":
