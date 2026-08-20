@@ -78,6 +78,14 @@ contract + generation discipline. This skill adds the two missing halves:
    with backoff (2s/4s/8s/16s), never treat the first failure as an expired token
    or hand off to the operator. There is **no `create_label`** — labels come from
    `bootstrap-labels.yml`.
+> ⚠️ **EVERY board post goes through `add_issue_comment`. NEVER `issue_write
+> method=update` — that REPLACES the issue body and destroys the board's pinned
+> protocol header.** It has happened five times (2026-07-30, 08-09, 08-15, 08-19,
+> 08-20) and the MCP's return value is **indistinguishable** from a successful
+> comment, so nothing tells you. Full account + the restore procedure:
+> [`docs/claude/coordination-board.md`](../../../docs/claude/coordination-board.md)
+> § "POST WITH `add_issue_comment`".
+
 3. **READ the live coordination board FIRST, then POST your START.** This is the
    mandatory live-comms step (`docs/claude/coordination-board.md`). Before your
    first substantive change: (a) `issue_read method=get_comments` on **#6927** to

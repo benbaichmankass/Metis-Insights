@@ -34,6 +34,43 @@ Using the board is **MANDATORY for every session**, including every review
 sub-session (`/health-review`, `/performance-review`, `/ml-review`,
 `/system-review`). It is the **first framing** the `SessionStart` hook emits.
 
+## ⚠️ POST WITH `add_issue_comment`. `issue_write method=update` DESTROYS THE BOARD.
+
+**This has happened five times.** `issue_write method=update` **replaces the issue
+body** — it is the edit-the-issue tool, not the comment tool — and on #6927 the
+body is the pinned protocol header every session's preflight reads. The comment
+tool is **`add_issue_comment`**.
+
+**Why it keeps recurring, and why a careful reader still hits it:**
+
+* **The MCP's return value is indistinguishable from a successful comment.** Both
+  return an id and a URL. Nothing errors, nothing warns; the session moves on
+  believing it posted, and the damage is found later by someone else.
+* **Every step below says "post a comment" and none of them named the tool**,
+  which left the choice to inference — and `issue_write` is the plausible-looking
+  guess for "write to an issue". Naming the tool is the whole fix.
+* **The record lived where no future session reads it.** Four of the five were
+  written up in the offending session's own sprint log; this doc — the *binding*
+  protocol — never carried the warning. That is the written-and-never-read class
+  this repo has a CI guard family for, reproduced in the doc that governs the
+  board.
+* **Nothing enforces it.** `.claude/settings.json` hooks are inert on Claude Code
+  on the web (`BL-20260820-PROJECT-HOOKS-INERT-ON-WEB`), so this is self-discipline.
+
+Recorded clobbers: **2026-07-30** (`S-BYBIT-COVERAGE-DEPLOY-VERIFY`) · **2026-08-09**
+(`S-M20-LADDER-AND-COLLAPSED-STATES`) · **2026-08-15**
+(`S-M20-DISPERSION-ISOLATION-AND-QUEUE` § 33) · **2026-08-19**
+(`BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE`) · **2026-08-20**
+(`S-LLM-BURST-WORKER-SCHEDULING`). A sixth session attempted it on 2026-07-30 and
+was saved only by a scope denial, not by knowing better.
+
+**If you clobber it anyway:** say so on the board immediately, then restore the
+body from this file (it is the board's **body of record**) and label the result a
+reconstruction — do not pass a rebuild off as the original. GitHub keeps the real
+text in the **"edited"** dropdown on the issue body, which is GraphQL-only
+(`userContentEdits`) and therefore unreachable from a web session, so a verbatim
+restore needs the operator's one click.
+
 ## The protocol (binding)
 
 1. **At session start — READ the board first.** `issue_read method=get_comments`
@@ -59,7 +96,7 @@ sub-session (`/health-review`, `/performance-review`, `/ml-review`,
    silently stops being the tail. Reading *"the tail"* is not the same as reading
    the tail — never write *"no open 🔒"* off a page you have not shown to be last.
 
-2. **POST a `▶️ START` comment before your first substantive change** — session
+2. **POST a `▶️ START` comment (via `add_issue_comment`, NEVER `issue_write`) before your first substantive change** — session
    id, branch, and **specifically which files / subsystems / PRs you're about to
    touch**. This is the claim that lets other sessions steer clear. (You still
    *also* register in `session-board.json::active_sessions` — the board is the
