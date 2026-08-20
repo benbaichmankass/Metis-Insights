@@ -417,6 +417,45 @@ class TestAuditFlaggedEnforceSkip:
         assert row["status"] == "skipped"
         assert row.get("reason") == "audit_flagged"
         end = [e for e in events if e.get("status") == "cycle_end"][-1]
-        assert end["outcome"] == "trained"
+        # 2026-08-20 (F-35 / F-103): this asserted `outcome == "trained"`, which
+        # is BYTE-IDENTICAL to what a cycle that trained a clean fleet emits —
+        # so the one field a consumer reads could not distinguish "trained the
+        # fleet" from "trained 2 and REFUSED one on known-bad data". That
+        # collapse is how five manifests went 25 days untrained under rc=0.
+        assert end["outcome"] == "trained_with_refusals"
         assert end["trained"] == 2
         assert end["skipped"] == 1
+        # The refusal is counted APART from the four-reason `skipped` bucket.
+        assert end["skipped_enforced"] == 1
+        assert end["refusals_total"] == 1
+        # First cycle of the day: nothing carried forward, and the split is a
+        # real measurement rather than an unread default.
+        assert end["carried_done"] == 0
+        assert end["carried_skipped"] == 0
+        assert end["carried_read"] == "ok"
+        assert end["carried_done"] + end["carried_skipped"] == end["already_done"]
+
+    def test_a_clean_cycle_does_NOT_gain_the_refusal_label(self, tmp_path: Path):
+        """The negative control for the assertion above.
+
+        Without this, `trained_with_refusals` could be emitted unconditionally
+        and every assertion above would still pass — the test would be
+        measuring that the string changed, not that it discriminates.
+        """
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        _write_stub_ml_package(tmp_path)
+        subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "stub ml"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "push", "-q", "origin", "main"], cwd=tmp_path, check=True)
+        env = _fixture_env(tmp_path, self.MANIFESTS)  # no AUDIT_FLAG_TARGET
+        r = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                           cwd=tmp_path, env=env, capture_output=True, text=True,
+                           timeout=30)
+        assert r.returncode == 0, r.stdout + r.stderr
+        events = _events(r.stdout)
+        assert not [e for e in events
+                    if e.get("status") == "manifest_audit_skipped_enforced"]
+        end = [e for e in events if e.get("status") == "cycle_end"][-1]
+        assert end["outcome"] == "trained"
+        assert end["skipped_enforced"] == 0
+        assert end["refusals_total"] == 0
