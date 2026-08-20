@@ -376,17 +376,28 @@ def _prepare_fold_feature(
     return idx, cen, norm
 
 
+def _centered_label_ranks(idx: Sequence[int], labels: Dict[int, float]):
+    """Centered label ranks over ``idx`` — the only part a shuffle changes."""
+    lr = average_ranks([labels[i] for i in idx])
+    m = sum(lr) / len(lr)
+    cen = [b - m for b in lr]
+    norm = math.sqrt(sum(b * b for b in cen))
+    if norm <= 1e-15:
+        return None
+    return cen, norm
+
+
+def _corr_from_centered(cen_f, norm_f, cen_l, norm_l) -> float:
+    return sum(a * b for a, b in zip(cen_f, cen_l)) / (norm_f * norm_l)
+
+
 def _fast_spearman(prep, labels: Dict[int, float]) -> Optional[float]:
     """Spearman using precomputed feature ranks; only the label side is ranked."""
     idx, cen_f, norm_f = prep
-    lv = [labels[i] for i in idx]
-    lr = average_ranks(lv)
-    m = sum(lr) / len(lr)
-    cen_l = [b - m for b in lr]
-    norm_l = math.sqrt(sum(b * b for b in cen_l))
-    if norm_l <= 1e-15:
+    lab = _centered_label_ranks(idx, labels)
+    if lab is None:
         return None
-    return sum(a * b for a, b in zip(cen_f, cen_l)) / (norm_f * norm_l)
+    return _corr_from_centered(cen_f, norm_f, lab[0], lab[1])
 
 
 def score_panel(
@@ -492,17 +503,36 @@ def score_panel(
     null_by_feat: Dict[str, List[float]] = {f: [] for f in all_names}
     null_max_family: List[float] = []
 
+    # Features sharing a row-mask share the label ranking. On a dense panel that
+    # is ONE ranking per fold per replicate instead of one per feature per fold
+    # per replicate — the difference between a null that takes ~20 minutes and
+    # one that takes ~20 seconds, which is what makes n_shuffles affordable
+    # enough not to be tempted to lower it.
+    mask_groups: List[Dict[Tuple[int, ...], List[str]]] = []
+    for k in range(len(folds)):
+        g: Dict[Tuple[int, ...], List[str]] = defaultdict(list)
+        for f in all_names:
+            if preps[k][f] is not None:
+                g[tuple(preps[k][f][0])].append(f)
+        mask_groups.append(dict(g))
+    report["mask_groups_per_fold"] = [len(g) for g in mask_groups]
+
     for _ in range(n_shuffles):
         shuffled: Dict[int, float] = {}
         for blocks in fold_blocks:
             shuffled.update(block_shuffled_labels(blocks, true_labels, rng))
+        per_fold_by_feat: Dict[str, List[Optional[float]]] = {f: [] for f in all_names}
+        for k in range(len(folds)):
+            for mask, names in mask_groups[k].items():
+                lab = _centered_label_ranks(mask, shuffled)
+                for f in names:
+                    idx_f, cen_f, norm_f = preps[k][f]
+                    per_fold_by_feat[f].append(
+                        None if lab is None else _corr_from_centered(cen_f, norm_f, lab[0], lab[1])
+                    )
         best_family = None
         for f in all_names:
-            per_fold = [
-                (_fast_spearman(preps[k][f], shuffled) if preps[k][f] is not None else None)
-                for k in range(len(folds))
-            ]
-            stat, _, _ = _aggregate(per_fold)
+            stat, _, _ = _aggregate(per_fold_by_feat[f])
             if stat is None:
                 continue
             null_by_feat[f].append(stat)
