@@ -73,6 +73,16 @@ self-test now probes with a trade-structured feature and asserts the block null 
 wider one, so if the rationale ever stops holding the tool fails rather than quietly
 scoring against a bad null.
 
+**The label horizon is a condition on the answer, not a detail.** `forward_r` is a
+**triple-barrier** outcome, so it is defined against a vertical barrier — here the tool
+default `--time-stop-bars 12`, which on a 15m panel is **3 hours**, with `--tp-r 2.0`.
+The `ict_scalp` adapter's own `timeout_bars` default is **24 bars**, so the label horizon
+is deliberately *shorter* than the span a trade may actually run. That is a legitimate
+pre-registered choice — E2 asks whether a feature predicts R over a stated horizon — but
+it means a negative here is a negative **at 12 bars**, not at all horizons, and §3.1's
+"record the conditions" applies directly. A longer-horizon arm is the cheapest follow-up
+if this returns negative, and it is named here rather than discovered later.
+
 **Why FWER and not per-feature α.** Scoring N features at α=0.05 makes roughly one
 spurious "informative" *expected* on a 16-feature panel. The pointwise verdict is
 reported for diagnosis; the pre-registered decision is the max-statistic threshold,
