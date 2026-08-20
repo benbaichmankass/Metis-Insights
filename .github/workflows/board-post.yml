@@ -43,7 +43,6 @@ name: board-post
 
 on:
   push:
-    branches: ["claude/**"]
     paths: ['automation/board-posts/**']
 
 permissions:
@@ -53,9 +52,6 @@ permissions:
 concurrency:
   group: board-post-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  BOARD_ISSUE: "6927"
 
 jobs:
   post:
@@ -91,7 +87,7 @@ jobs:
               continue
             fi
 
-            if url="$(gh issue comment "$BOARD_ISSUE" --repo "$GITHUB_REPOSITORY" \
+            if url="$(gh issue comment 6927 --repo "$GITHUB_REPOSITORY" \
                         --body-file "$req" 2>&1)"; then
               echo "$url" > "$out"
               echo ">>> ${base}: $(head -1 "$out")"
