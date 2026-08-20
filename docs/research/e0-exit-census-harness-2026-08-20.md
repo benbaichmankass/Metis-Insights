@@ -110,10 +110,20 @@ extending it fleet-wide is the next measurement, not an inference available here
 **`mae_to_stop: unmeasured_no_mae_field` on all 34 legs, `measured_n = 0`.**
 
 `scripts/backtest_pullback.py`'s `--emit-trades` writer emits `mfe_r` and not
-`mae_r`; `backtest_ict_scalp.py` does emit it under `meta`. So the stop-calibration
-half of the E0 census cannot be computed on this corpus at all — reported as a
-coverage gap rather than omitted, because a missing calibration number and a good
-one look identical in a report that simply leaves the row out.
+`mae_r`. So the stop-calibration half of the E0 census cannot be computed on this
+corpus at all — reported as a coverage gap rather than omitted, because a missing
+calibration number and a good one look identical in a report that simply leaves
+the row out.
+
+**This is a gap in these two writers, not in the repo**, and the difference
+matters because "we cannot measure this" deserves more scepticism than any other
+claim here, so here is the tool that was actually read —
+checked: scripts/backtest_ict_scalp.py — which emits `meta["mae_r"]` at line 550,
+so the quantity is defined and produced
+elsewhere. `scripts/research/m21_entry_baseline.py` computes one too. The corpus
+in § 1 comes from the pullback and trend harnesses, neither of which writes it,
+so the field is absent from *this* population and recoverable by changing those
+writers — not by a new metric.
 
 ## 5. `xauusd_trend_1h` was swept against MGC's price series — PROVEN, not inferred
 
