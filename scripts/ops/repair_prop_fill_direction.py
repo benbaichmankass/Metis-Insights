@@ -73,11 +73,20 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-# Same canonical vocabulary the runtime keys on. Imported rather than
-# re-declared so this tool and the pulse can never disagree about what "long"
-# means — re-deriving it here is exactly how the alias fix and the admission
-# gap ended up in two different modules.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Repo root on sys.path so `src.*` imports resolve when this runs as
+# `python scripts/ops/repair_prop_fill_direction.py` — python puts the SCRIPT's
+# directory on sys.path, not the CWD, so the wrapper's `cd $REPO_DIR` does not
+# make `src` importable on its own.
+#
+# THREE dirname calls, not two: __file__ -> scripts/ops -> scripts -> repo root.
+# The first cut had two, which lands on `scripts/` and produced
+# `ModuleNotFoundError: No module named 'src'` on the first live dry run. Same
+# shape as the sibling backfill_tpsl_leg_ids.py:56-59, and idempotent for the
+# same reason — a repeated insert on re-import shadows the real root.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 #: Statuses that make a fill represent a POSITION (the pulse's _OPEN_STATUSES
 #: plus 'closed'): a directionless row in any of these is unclosable/unkeyable.

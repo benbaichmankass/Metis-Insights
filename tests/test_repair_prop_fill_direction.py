@@ -12,8 +12,11 @@ A test that invents its table proves nothing about production.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sqlite3
+import subprocess
+import sys
 
 import pytest
 
@@ -137,3 +140,61 @@ def test_planted_control_detector_refires_on_a_reintroduced_null(
     conn.execute("UPDATE prop_fills SET direction=NULL WHERE id=30")
     conn.commit()
     assert 30 in {r["id"] for r in rpfd.plan_repairs(conn)}
+
+# --- The gap that let a real failure reach the live VM ------------------------
+#
+# Every test above imports the module through importlib with the repo root
+# already on sys.path, and calls plan_repairs/apply_repairs directly. NONE of
+# them called main(), so the module's own `src.*` import bootstrap was never
+# exercised — and it was wrong: two dirname calls resolved to `scripts/` rather
+# than the repo root, and the first live dry run died with
+# `ModuleNotFoundError: No module named 'src'`, having written nothing.
+#
+# A test that hands the module a world it would not have in production proves
+# the logic and nothing about the wiring. These run it the way the wrapper does.
+
+
+def test_runs_as_a_script_the_way_the_wrapper_invokes_it(tmp_path) -> None:
+    """`cd <repo> && python scripts/ops/repair_prop_fill_direction.py --db X`.
+
+    python puts the SCRIPT's directory on sys.path, not the CWD, so this is the
+    invocation that catches a wrong repo-root computation. Asserting on the
+    absence of the import error specifically — a bare returncode check would
+    pass on any other failure and hide a regression here.
+    """
+    db = tmp_path / "j.db"
+    conn = sqlite3.connect(db)
+    _schema(conn)
+    conn.commit()
+    conn.close()
+
+    proc = subprocess.run(
+        [sys.executable, "scripts/ops/repair_prop_fill_direction.py",
+         "--db", str(db), "--account", "breakout_1"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    assert "ModuleNotFoundError" not in proc.stderr, (
+        "the script cannot import its own dependencies when run as a script — "
+        f"this is the failure that reached the live VM.\n{proc.stderr}"
+    )
+    assert proc.returncode == 0, (
+        f"expected a clean no-candidate run.\nstdout: {proc.stdout}\n"
+        f"stderr: {proc.stderr}"
+    )
+    assert json.loads(proc.stdout)["candidates"] == 0
+
+
+def test_repo_root_bootstrap_actually_reaches_the_repo_root() -> None:
+    """Direct check on the value the module computed, so a future edit that
+    drops or adds a `dirname` fails here with a clear message rather than at
+    dispatch on the VM."""
+    assert hasattr(rpfd, "_REPO_ROOT"), (
+        "the module no longer names its computed repo root, so nothing can "
+        "assert it is right"
+    )
+    resolved = pathlib.Path(rpfd._REPO_ROOT)
+    assert resolved == REPO, (
+        f"the module resolves its repo root to {str(resolved)!r}, not "
+        f"{str(REPO)!r}; `src` would not be importable from there"
+    )
+    assert (resolved / "src").is_dir()
