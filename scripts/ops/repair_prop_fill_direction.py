@@ -73,11 +73,20 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-# Same canonical vocabulary the runtime keys on. Imported rather than
-# re-declared so this tool and the pulse can never disagree about what "long"
-# means — re-deriving it here is exactly how the alias fix and the admission
-# gap ended up in two different modules.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Repo root on sys.path so `src.*` imports resolve when this runs as
+# `python scripts/ops/repair_prop_fill_direction.py` — python puts the SCRIPT's
+# directory on sys.path, not the CWD, so the wrapper's `cd $REPO_DIR` does not
+# make `src` importable on its own.
+#
+# THREE dirname calls, not two: __file__ -> scripts/ops -> scripts -> repo root.
+# The first cut had two, which lands on `scripts/` and produced
+# `ModuleNotFoundError: No module named 'src'` on the first live dry run. Same
+# shape as the sibling backfill_tpsl_leg_ids.py:56-59, and idempotent for the
+# same reason — a repeated insert on re-import shadows the real root.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 #: Statuses that make a fill represent a POSITION (the pulse's _OPEN_STATUSES
 #: plus 'closed'): a directionless row in any of these is unclosable/unkeyable.
@@ -96,6 +105,22 @@ def _backup_db(db_path: str) -> str:
 
 
 def _connect(db_path: str, read_only: bool) -> sqlite3.Connection:
+    # NAME THE PATH, AND SAY WHETHER IT EXISTS. sqlite's own message for a
+    # missing file under `mode=ro` is the bare "unable to open database file",
+    # which names no path and no cause — indistinguishable from a permission
+    # problem, a corrupt file, or a wrong DB. That is the unprovenanced-
+    # diagnostic class (CLAUDE.md § "Diagnostic provenance", sub-class A): it
+    # cost a full dispatch cycle on #10049 to learn one fact the process
+    # already had. `mode=ro` never creates, so absence is the likely cause and
+    # is worth stating outright.
+    if not os.path.exists(db_path):
+        raise SystemExit(
+            f"trade_journal.db not found at {db_path!r} — the resolver fell "
+            f"through to this path, so TRADE_JOURNAL_DB is unset in this "
+            f"process. A wrapper must export it via _lib.sh::runtime_db_path "
+            f"(see repair_prop_fill_direction_action.sh). Nothing was read or "
+            f"written."
+        )
     uri = f"file:{db_path}?mode=ro" if read_only else f"file:{db_path}"
     conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row

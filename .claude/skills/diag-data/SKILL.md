@@ -15,13 +15,24 @@ skill is the fast how-to.
 
 ## Two transports, identical JSON — try direct, fall back to the relay
 
-**Transport A — direct HTTP (when the session is configured for it).**
+**Transport A — direct HTTP. TRY THIS FIRST; only `DIAG_READ_TOKEN` is
+required** (corrected 2026-08-20).
 ```
 scripts/ops/diag_fetch.sh '<path>'
 ```
-Resolves `$DIAG_BASE_URL/api/diag/<path>` with the bearer in a 0600 curl
-config. Exit `0` → JSON on stdout. Exit `3` → not configured / egress blocked
-/ web-api down → fall back to Transport B. Live VM only.
+**`DIAG_BASE_URL` is OPTIONAL.** The script tries an ORDERED list of candidate
+bases, putting the canonical HTTPS host (`https://ict-bot.duckdns.org`, the
+Caddy route) FIRST whenever the configured value is plain-http or names a known
+VM IP — exactly the cases the sandbox proxy drops — and prints `served by
+<base>` on stderr so you can tell WHICH host answered. Works at the **default
+`Trusted`** network level; no cloud-environment change needed. Exit `0` → JSON
+on stdout. Exit `3` → no candidate answered → fall back to Transport B. Live
+VM only.
+
+⚠️ **Do not skip Transport A because the env var looks wrong.** It IS wrong —
+the canned `DIAG_BASE_URL` has pointed at the micro terminated 2026-06-16 for
+months — and the script now routes around it. Reaching for the relay on that
+basis costs 30–60 s per read for nothing.
 
 **Transport B — GitHub-issue relay (always available).** Open a labelled
 issue; the workflow SSHes, runs the read, comments the JSON back, closes the
