@@ -227,6 +227,34 @@ contributing a fabricated 0.0 to an aggregate (the manifest's own
 `constant_feature_cols` flags the first). A presence flag is worth its column precisely
 when coverage is *not* 1.0; here it is, and the honest score is "undefined", not "zero".
 
+### 5.5 The negative survives the scale-free check, and the check is not inert
+
+The pre-registered rule is a raw max-|statistic| threshold, and that is **scale-dependent**.
+Null widths here differ by design and by a factor of ~5: a path feature is strongly
+autocorrelated within a trade and gets a wide own-null (`feat_running_mae_r` 0.0848,
+`feat_xa_peer1_beta` 0.0954), while a near-white peer return gets a tight one
+(`feat_xa_peer1_ret` 0.0193, `feat_xa_peer1_ret_lag1` 0.0177). A single max-statistic bar
+is therefore set mostly by the wide-null features and is **conservative for the
+narrow-null ones — which is exactly the exogenous block E1 built.** Leaving it there
+would have meant announcing "no peer feature clears the bar" under a bar tilted against
+peer features.
+
+So a scale-free **Westfall–Young min-p** companion was added (each statistic converted to
+a p-value against its own null before the family-wise minimum) and all three targets
+re-scored (trainer-diag #10024, tool `56a22590`, 31/31 self-tests on the box):
+
+| target | FWER thr | n FWER | min-p thr | n min-p | min-p vs FWER differs on |
+|---|--:|--:|--:|--:|---|
+| `forward_r` | 0.1230 | 6 | 0.004995 | **7** | `feat_mfe_giveback_r` |
+| `advantage_r` | 0.1037 | 0 | 0.004995 | **0** | **nothing** |
+| `label_hold` | 0.0898 | 0 | 0.003996 | **0** | **nothing** |
+
+**The companion is demonstrably capable of firing on this exact panel** — it promotes
+`feat_mfe_giveback_r` on `forward_r`, which the raw rule misses — and it promotes
+**nothing** on either decision-relevant target. The zero is a measured zero, not an
+inert rule producing a vacuous agreement. (The one feature it rescues is endogenous, so
+even the scale-free rule surfaces no peer feature anywhere.)
+
 ⚠️ **Two of the eleven endogenous features named in §0.2 are NOT in this measurement.**
 The manifest reports `dropped_all_null_feature_cols: ["feat_taker_imbalance",
 "feat_taker_imbalance_intrade"]` — the candle CSV carries no taker data, so both columns
