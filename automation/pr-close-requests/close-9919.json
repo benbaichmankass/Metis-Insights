@@ -1,0 +1,5 @@
+{
+  "pr": 9919,
+  "head_sha": "b53006c96779111c71f1a3a738d1b69bd171b7ef",
+  "comment": "Closing: **superseded by #10078, which is merged** (`70196ac5`).\n\nThis PR's observation was correct and is now on `main` — re-landed onto current `main` and **re-confirmed three days later** rather than merged as-is, because a three-day-old live observation is a claim about the past, not the present.\n\nWhat it established, preserved verbatim in the row: the COMEX reopen answered the question — **the cancels completed**, and the mechanism in this PR's own title is **refuted**. What was re-checked before landing: the condition has not recurred since.\n\nThe row on `main` now reads `resolved_on_account_mechanism_refuted_latency_stands` — i.e. the *mechanism* is closed and the *latency* half stands as its own separate concern, so closing this does not quietly close the part that is still true.\n\nClosed by a session whose GitHub MCP is 403 on writes, via the `pr-close.yml` relay. The branch is untouched; reopening is one click."
+}

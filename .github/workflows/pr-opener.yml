@@ -16,9 +16,27 @@ name: pr-opener
 #        "body":  "...",            # markdown
 #        "draft": true}             # optional, default true
 #   * The runner runs `gh pr create`, writes the URL (or error) to
-#     `automation/pr-results/<name>.txt`, removes the request, and commits the
-#     result back to the pushed branch with [skip ci] (no re-trigger loop —
-#     pr-results/** is not a trigger path).
+#     `automation/pr-results/<name>.txt`, and commits that result back to the
+#     pushed branch. The request file is LEFT IN PLACE and re-runs skip it,
+#     because the result file -- not the deletion -- is the idempotency key.
+#
+# ⚠️ WHY THE REQUEST IS NOT DELETED (fixed 2026-08-20). An earlier version
+# `git rm`'d it. `git rm` STAGES the deletion, so the results commit touched
+# `automation/pr-requests/**` -- this workflow's OWN trigger path -- and needed
+# `[skip ci]` to avoid retriggering itself. (The old header blamed
+# `pr-results/**` not being a trigger path; that is true and was never the
+# reason.) `[skip ci]` suppresses EVERY workflow for that commit, so whenever
+# the results commit was the last one on a branch it became the PR head and
+# the PR it had just opened started life with ZERO required checks -- blocked
+# from merging, but rendering as no-red rather than red, which
+# `pytest-collect.yml`'s own header calls out as indistinguishable from green.
+# Measured on PRs #10077 and #10078, whose heads were both
+# `pr-opener: results [skip ci]` with `get_check_runs` total_count 0.
+# Now the commit touches only `automation/pr-results/**`, which is outside the
+# trigger path -- no self-retrigger, no skip directive, PR keeps its CI.
+#
+# ⚠️ Consequence of result-file idempotency: REUSING a request filename that
+# already has a result is a NO-OP, logged and skipped. Use a fresh name per PR.
 #
 # Blast radius: opens PRs only (PRs never auto-merge). contents+pull-requests
 # write. The head branch must already exist on origin.
@@ -54,6 +72,10 @@ jobs:
           shopt -s nullglob
           for req in automation/pr-requests/*.json; do
             base="$(basename "$req" .json)"
+            if [ -f "automation/pr-results/${base}.txt" ]; then
+              echo ">>> ${base}: already processed, skipping ($(head -1 "automation/pr-results/${base}.txt"))"
+              continue
+            fi
             head="$(jq -r '.head' "$req")"
             target="$(jq -r '.base // "main"' "$req")"
             title="$(jq -r '.title' "$req")"
@@ -70,7 +92,6 @@ jobs:
                 || printf 'FAILED:\n%s\n' "$url" > "$out"
             fi
             echo ">>> ${base}: $(head -1 "$out")"
-            git rm -q "$req" || rm -f "$req"
           done
 
       - name: Commit results back to branch
@@ -78,7 +99,10 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f automation/pr-results
+          # ONLY the results dir -- see the header. Staging anything under
+          # automation/pr-requests/** would put this commit back on the trigger
+          # path and force a skip directive, which is what stranded PR CI.
+          git add -A automation/pr-results
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
-          git commit -m "pr-opener: results [skip ci]"
+          git commit -m "pr-opener: results"
           git push origin HEAD:${{ github.ref_name }}

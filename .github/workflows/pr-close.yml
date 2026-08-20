@@ -1,0 +1,159 @@
+name: pr-close
+
+# Git-push-triggered PR closer — the third leg of the MCP-independent PR path.
+#
+# `pr-opener.yml` OPENS a PR and `claude-pr-automerge.yml` MERGES one, both for
+# the case where a sandbox session's GitHub MCP is 403 on writes
+# ("Resource not accessible by integration") while `git push` still works.
+# Nothing CLOSED one. So a read-only session could create work and land work but
+# could never DISPOSE of its own superseded work — it had to ask a human to
+# close a PR it had itself made redundant. That is the same structural gap
+# `board-post.yml` closed for the coordination board
+# (BL-20260820-NO-BOARD-POST-RELAY-FOR-READONLY-MCP), one surface over.
+#
+# Contract:
+#   * Drop a JSON file at `automation/pr-close-requests/<name>.json` and push it:
+#       {"pr": 9924,
+#        "head_sha": "02301d8ae49e23887120db915ba3ae29c91a4a85",
+#        "comment": "why this is being closed"}   # optional but expected
+#   * The runner posts the comment (if given), closes the PR, and writes the
+#     outcome to `automation/pr-close-results/<name>.txt`.
+#
+# ⚠️ `head_sha` IS REQUIRED, AND IT IS THE WHOLE SAFETY MODEL.
+# This workflow can close any PR in the repo, which is more blast radius than
+# its two siblings have. The guard is optimistic concurrency: the request must
+# name the PR's CURRENT head, and the run REFUSES if it does not match. That
+# buys three specific things:
+#   1. You cannot close a PR you never looked at — naming the head means you
+#      read its state.
+#   2. A request that sits unmerged for a while and lands later is INERT if the
+#      PR moved in the meantime, i.e. if someone resumed work on it. Draft age
+#      is not evidence of abandonment (the 2026-08-20 collision warning on
+#      #10068 made exactly that point), and a new commit is evidence of life.
+#   3. A replayed or copy-pasted request cannot silently close the wrong thing.
+# It is deliberately NOT a permission check — it does not try to decide whose PR
+# it is. It only ensures the closer saw what they are closing.
+#
+# The request is LEFT IN PLACE and re-runs skip it when a result exists, and the
+# results commit touches ONLY `automation/pr-close-results/**` (outside the
+# trigger path) so it needs no CI-skip directive. Deleting the request would put
+# the commit back on the trigger path, which is what forced `[skip ci]` into
+# pr-opener.yml and left the PRs it opened with zero required checks.
+#
+# Blast radius: closes PRs and comments on them. It cannot merge, cannot push to
+# a branch, cannot delete a branch, cannot reopen, and cannot touch `src/`,
+# `config/`, a unit file, or either VM. A closed PR is recoverable — reopening
+# is one click, and nothing here deletes the head branch.
+
+on:
+  push:
+    paths: ['automation/pr-close-requests/**']
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-close
+  cancel-in-progress: false
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Close pending PR-close requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/pr-close-results
+          shopt -s nullglob
+          failed=0
+          for req in automation/pr-close-requests/*.json; do
+            base="$(basename "$req" .json)"
+            out="automation/pr-close-results/${base}.txt"
+
+            if [ -f "$out" ]; then
+              echo ">>> ${base}: already processed, skipping ($(head -1 "$out"))"
+              continue
+            fi
+
+            pr="$(jq -r '.pr // empty' "$req")"
+            want_sha="$(jq -r '.head_sha // empty' "$req")"
+            comment="$(jq -r '.comment // empty' "$req")"
+
+            if ! printf '%s' "$pr" | grep -qE '^[0-9]+$'; then
+              echo "REFUSED: .pr missing or not a number" > "$out"
+              echo ">>> ${base}: REFUSED (bad .pr)"; failed=1; continue
+            fi
+            if [ -z "$want_sha" ]; then
+              echo "REFUSED: .head_sha is required -- see this workflow's header" > "$out"
+              echo ">>> ${base}: REFUSED (no head_sha)"; failed=1; continue
+            fi
+
+            # Read the PR's live state. A read failure must NOT be treated as a
+            # mismatch or as permission to proceed -- we did not look.
+            if ! meta="$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" \
+                          --json state,headRefOid,title 2>&1)"; then
+              printf 'FAILED: could not read PR %s:\n%s\n' "$pr" "$meta" > "$out"
+              echo ">>> ${base}: FAILED (could not read PR)"; failed=1; continue
+            fi
+            state="$(printf '%s' "$meta" | jq -r '.state')"
+            got_sha="$(printf '%s' "$meta" | jq -r '.headRefOid')"
+
+            if [ "$state" != "OPEN" ]; then
+              # Already closed/merged is the desired end state, not an error.
+              echo "NOOP: PR #${pr} is already ${state}" > "$out"
+              echo ">>> ${base}: NOOP (already ${state})"; continue
+            fi
+            if [ "$got_sha" != "$want_sha" ]; then
+              printf 'REFUSED: PR #%s head moved.\n  request names: %s\n  actual head:   %s\nThe PR changed since it was inspected -- someone may have resumed it. Re-inspect and file a fresh request.\n' \
+                "$pr" "$want_sha" "$got_sha" > "$out"
+              echo ">>> ${base}: REFUSED (head moved)"; failed=1; continue
+            fi
+
+            if [ -n "$comment" ]; then
+              printf '%s\n' "$comment" > /tmp/close_comment.md
+              if ! cerr="$(gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" \
+                             --body-file /tmp/close_comment.md 2>&1)"; then
+                # Do NOT close a PR whose explanation failed to post: a PR that
+                # closes with no stated reason is the rot this repo keeps paying
+                # for. Fail loudly and leave it open.
+                printf 'FAILED: comment did not post, PR left OPEN:\n%s\n' "$cerr" > "$out"
+                echo ">>> ${base}: FAILED (comment failed; not closing)"; failed=1; continue
+              fi
+            fi
+
+            if err="$(gh pr close "$pr" --repo "$GITHUB_REPOSITORY" 2>&1)"; then
+              echo "CLOSED #${pr} at ${got_sha}" > "$out"
+              echo ">>> ${base}: CLOSED #${pr}"
+            else
+              printf 'FAILED to close #%s:\n%s\n' "$pr" "$err" > "$out"
+              echo ">>> ${base}: FAILED"; failed=1
+            fi
+          done
+
+          # A failed close must fail the run. A session that believes it
+          # disposed of a PR and did not will report the area clear while the
+          # PR still sits there -- the same "believed it posted" failure that
+          # put four duplicate STARTs on the coordination board.
+          exit "$failed"
+
+      - name: Commit results back to branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # ONLY the results dir -- staging the request path would retrigger
+          # this workflow and force a CI-skip directive onto the branch head.
+          git add -A automation/pr-close-results
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "pr-close: results"
+          git push origin HEAD:${{ github.ref_name }}
