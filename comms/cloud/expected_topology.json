@@ -1,36 +1,39 @@
 {
-  "_comment": "Declared OCI compute topology. Diffed against the live cloud by scripts/ops/oci_inventory.py (workflow: oci-inventory). The diff path NEVER writes this file — a checker that rewrites its own baseline on drift can never fail. Update it deliberately when the topology genuinely changes, and say why in _change_log.",
+  "_comment": "THROWAWAY POSITIVE-CONTROL BRANCH \u2014 deliberately wrong. Never merge. Induces drift(ict-trainer-vm ocpus 1->2) + missing/undeclared (gateway renamed) to prove --fail-on-drift can actually go red against the real cloud.",
   "_seeded_at": "2026-08-18",
   "_seeded_from": "Live report run 32128150842 (region eu-paris-1): 3 instances, all VM.Standard.A1.Flex, all RUNNING, totalling 4 OCPU / 24 GB.",
-  "_provenance_note": "ict-ib-gateway and ict-trainer-vm were read verbatim from that run. The live-trader row is DERIVED: the run's totals (3 instances / 4 OCPU / 24 GB) leave exactly 2 OCPU / 12 GB for the third, and CLAUDE.md documents the live trader as ict-bot-arm at that exact shape. If the display_name is wrong, the next report run reports it as missing + undeclared rather than match — which is the tool working, not failing. Correct it there if so.",
+  "_provenance_note": "ict-ib-gateway and ict-trainer-vm were read verbatim from that run. The live-trader row is DERIVED: the run's totals (3 instances / 4 OCPU / 24 GB) leave exactly 2 OCPU / 12 GB for the third, and CLAUDE.md documents the live trader as ict-bot-arm at that exact shape. If the display_name is wrong, the next report run reports it as missing + undeclared rather than match \u2014 which is the tool working, not failing. Correct it there if so.",
   "instances": [
     {
       "display_name": "ict-bot-arm",
       "shape": "VM.Standard.A1.Flex",
       "ocpus": 2.0,
       "memory_gb": 12.0,
-      "role": "Live trader — ict-trader-live.service + ict-web-api.service. Money at risk. Migrated off the x86 micro 2026-06-14.",
+      "role": "Live trader \u2014 ict-trader-live.service + ict-web-api.service. Money at risk. Migrated off the x86 micro 2026-06-14.",
       "name_verified": false
     },
     {
       "display_name": "ict-trainer-vm",
       "shape": "VM.Standard.A1.Flex",
-      "ocpus": 1.0,
+      "ocpus": 2.0,
       "memory_gb": 6.0,
-      "role": "Training centre — ML lifecycle (datasets, training, registry, eval). No live trade authority.",
+      "role": "Training centre \u2014 ML lifecycle (datasets, training, registry, eval). No live trade authority.",
       "name_verified": true
     },
     {
-      "display_name": "ict-ib-gateway",
+      "display_name": "ict-ib-gateway-INDUCED-DRIFT-DOES-NOT-EXIST",
       "shape": "VM.Standard.A1.Flex",
       "ocpus": 1.0,
       "memory_gb": 6.0,
-      "role": "IB Gateway (Java/Xvfb/IBC) on its own box — isolated off the money VM after the 2026-06-10 wedge cascade.",
+      "role": "IB Gateway (Java/Xvfb/IBC) on its own box \u2014 isolated off the money VM after the 2026-06-10 wedge cascade.",
       "name_verified": true
     }
   ],
-  "_budget_note": "4 OCPU / 24 GB total — EXACTLY the legacy/PAYG Always Free ceiling, and DOUBLE the 2 OCPU / 12 GB ceiling Oracle imposed on Always Free tenancies from 2026-06-15. There is ZERO Ampere headroom: any additional A1.Flex instance would exceed the legacy ceiling too. Nothing has been shut down in the two months since the change and the operator reports a card on file with no charges, which is consistent with an upgraded/PAYG tenancy retaining 4/24 — but the account type is visible only in the OCI console and this file does not assert it.",
+  "_budget_note": "4 OCPU / 24 GB total \u2014 EXACTLY the legacy/PAYG Always Free ceiling, and DOUBLE the 2 OCPU / 12 GB ceiling Oracle imposed on Always Free tenancies from 2026-06-15. There is ZERO Ampere headroom: any additional A1.Flex instance would exceed the legacy ceiling too. Nothing has been shut down in the two months since the change and the operator reports a card on file with no charges, which is consistent with an upgraded/PAYG tenancy retaining 4/24 \u2014 but the account type is visible only in the OCI console and this file does not assert it.",
   "_change_log": [
-    {"date": "2026-08-18", "change": "Seeded from the first live inventory run."}
+    {
+      "date": "2026-08-18",
+      "change": "Seeded from the first live inventory run."
+    }
   ]
 }
