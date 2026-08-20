@@ -338,3 +338,157 @@ Whether the ~13 per-strategy harnesses (`backtest_pullback.py`,
 `backtest_trend.py`, …) share this unit convention; look-ahead bias; the
 min-lot / whole-contract floor (CLAUDE.md already concedes *no backtest models
 the exchange min-lot floor*); the trainer-side sweep pipeline.
+
+---
+
+## Part 4 — The VMs (previously unreached)
+
+Access note, corrected: direct HTTP egress is firewalled from this session, but
+that is **not** the same as having no VM access. Three channels work and were
+used: the **live diag relay** (`vm-diag-request`, read-only, batched), the
+**trainer relay** (`trainer-vm-diag-request`, **arbitrary SSH bash**), and
+**`system-actions`** (tiered; used `gateway-logs`, Tier-1 read).
+
+I deliberately did **not** fire `vm-ib-gateway-selftest` — its documented
+mechanism is to `docker stop` the gateway to prove the watchdog recovers it.
+With three open IB positions, one already target-naked and one monitor-blind, a
+controlled outage is the wrong instrument for an audit pass.
+
+### F-16 · GATEWAY · The IB gateway container is flapping
+
+`gateway-logs` (2026-08-20 06:56Z). Container reports `Up 22 minutes` — i.e.
+started ~06:34. `IBC: Login has completed` events in the retained log:
+
+| when | scheduled? |
+|---|---|
+| 2026-08-19 23:59:27 | — (near IBC's own `AutoRestartTime=11:59 PM`) |
+| 2026-08-20 06:01:55 | **no** |
+| 2026-08-20 06:05:24 | yes — `ict-ib-gateway-reset.timer` fires 06:05 UTC |
+| 2026-08-20 06:34:48 | **no** |
+
+**Three container starts inside 33 minutes, only one of them scheduled.** Each
+logs `autorestart file not found: full authentication will be required`, so
+every one is a full re-auth, not a soft restart. `socat … 127.0.0.1:4002:
+Connection refused` appears repeatedly during each startup window.
+
+`vm-ib-gateway-selftest`'s own stated purpose #1 is *"restart cadence — is the
+container flapping?"* — and the answer is yes, obtained from a log read without
+stopping anything.
+
+**Tight temporal correlation with the live-VM symptoms** (all timestamps from
+the same 06:30–06:34Z pull):
+
+- all three IB positions report `unrealizedPnlSource: "unavailable"`,
+  `unrealizedPnlProvenance: "unverified"`, `unrealizedPnl: null`
+- `monitor_blindness` on `ict_scalp_mgc_15m` / MGC — `candles_unavailable` for
+  3 consecutive ticks, *since 06:02:19Z*
+- `mhg_pullback_1d`: *"no candle data returned for symbol=MHG timeframe=1d"*,
+  *since 06:01:32Z*
+- both `ib_target_naked` alerts *since 06:02:13Z*
+
+**Stated honestly: this is correlation, not established causation.** The trader
+process also restarted at 06:00:14Z, which is an alternative explanation for
+some of it. What is established is that the gateway restarted three times in 33
+minutes, that only one restart was scheduled, and that IB market data was
+unavailable across that window.
+
+### F-17 · TRAINER · Disk at 93 %, and the growth mechanism is unpruned dataset versions
+
+`df`: **42 G of 45 G used, 3.2 G free (93 %)**. Trend across the audit record:
+**86 % (07-31) → 79 % (08-04) → 93 % (08-20)**.
+
+Breakdown: `datasets-out` **12 G**, of which `market_features` is **9.9 G**;
+`ml` 4.2 G; `runtime_logs` 3.3 G; `data` 1.9 G.
+
+The mechanism is visible in the paths. Three single files are 1.2 G each
+(`market_features/{BTC,ETH,SOL}USDT/5m/v002/data.jsonl`) — but the 15 m family
+carries `BTCUSDT/15m/**v520**` and `ETHUSDT/15m/**v901**`. Version numbers in
+the hundreds indicate a per-build versioned directory that nothing prunes.
+(Being confirmed in #10002 by counting the version dirs; the *hypothesis* is
+recorded here with the evidence that prompted it, not as a settled fact.)
+
+Two side observations from the same read:
+
+- **~1 G of CUDA runtime on a GPU-less box** —
+  `.venv/…/nvidia/cu13/lib/libcublasLt.so.13` (0.6 G) and `triton/_C/libtriton.so`
+  (0.4 G) on a 1-OCPU/6-GB Ampere trainer with no GPU. M19 does spot-GPU bursts
+  *elsewhere*; these libraries sit on the local venv regardless.
+- **`data/signal_audit.jsonl` is 0.5 G** and `runtime_logs` is 3.3 G.
+
+At 3.2 G free with a 12 G dataset tree still growing, this is a
+weeks-not-months runway, and a full disk on the trainer stops dataset builds
+and training — the failure would present as *"cycles stopped succeeding"*, not
+as a disk alarm, because nothing watches trainer disk.
+
+### F-18 · TRAINER · The stray journal is still there
+
+`/home/ubuntu/ict-trading-bot/trade_journal.db` = **8.2 MB**, beside the real
+`/home/ubuntu/ict-trading-bot/data/trade_journal.db` = **872 MB**. This is the
+same stray that session `system-review-trade-mechanics-falsp8` hit **this
+morning** — its exit census returned `LEGS 0` off it and was nearly reported.
+The `canonical-db-resolver` guard exists to stop CWD-relative fallbacks creating
+exactly this, and one is sitting on the trainer right now.
+
+*(Row counts pending #10002 — `sqlite3` was not available to my first probe, so
+I can confirm the FILE and its size but not yet that it is empty.)*
+
+### F-19 · TRAINER · The worktree is dirty on a box that syncs from `main`
+
+`git status --porcelain` → **15 modified files**, while HEAD == `origin/main`
+(`113741bc`, 0 behind). `ict-trainer-git-sync.timer` is active and firing every
+~15 min. A dirty tree on a pull-based box is either untracked generated output
+landing in tracked paths, or a local edit that a future `git reset --hard`
+silently destroys. *(File list pending #10002.)*
+
+### Verified healthy on the trainer
+
+`failed_count=0`; every `ict-*` timer firing on schedule (`ict-trainer.timer`
+last 00:06 today / next 00:01 tomorrow, publish every ~2 min, forecast, git-sync,
+drift-retrain, promotion-readiness, catchup); uptime 35 days; memory fine
+(343 MB used of 5.9 G).
+
+---
+
+## Part 5 — The consumer repos (previously unreached)
+
+Both were **shallow (52 commits)** and were unshallowed first —
+`ict-trader-dashboard` → 238 commits from 2026-05-04, `ict-trader-android` →
+118 from 2026-05-26.
+
+### F-20 · The F-8 double-count reaches the operator's screen
+
+`streamlit_app.py::_upnl_sum` totals per-row `unrealizedPnl` across open
+positions (correctly excluding `unavailable` legs and counting them separately),
+and that total feeds the **"Unrealized P&L"** metric and the exec summary's
+**"uPnL · real"** tile. So the bot's duplicated per-row value (F-8) becomes a
+**~2× overstated unrealized total** on any netted symbol carrying more than one
+open journal row.
+
+Today the duplication is on `bybit_1`, a **paper** account, so the *real-money*
+tile is unaffected **right now**. The mechanism is account-agnostic, and
+`bybit_2` is real money on the same netting venue — it currently holds one row
+per symbol, which is the only reason it is clean.
+
+### F-21 · Two of three frontends never read the provenance grade the bot ships
+
+`/api/bot/positions` returns `unrealizedPnlProvenance` on **every** row
+(`measured` / `estimated` / `fabricated` / `unverified`).
+
+| consumer | references |
+|---|---|
+| Streamlit `streamlit_app.py` | **0** |
+| Svelte SPA `webapp/src/` | **0** |
+| Android (Kotlin) | 6 — **consumes it** |
+
+So the app renders a number without saying whether it is broker truth or a mark
+estimate, on two of the three production surfaces. This is the
+written-and-never-read class that `provenance-consumer-guard` exists to catch —
+and that guard is a **bot-repo** CI check, so it structurally cannot see a
+consumer repo. A provenance key can satisfy the guard with one bot-side reader
+and still be invisible in the apps.
+
+### F-22 · Dead code
+
+`streamlit_app.py::_position_upnl` (line 1413) has **zero call sites** —
+superseded by `_open_upnl` (1443), which is the one that reports whether the
+value is known. LOW.
