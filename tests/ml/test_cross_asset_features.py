@@ -106,5 +106,46 @@ class TestComputeCrossAssetFeatureRows:
         assert compute_cross_asset_feature_rows([], [[]]) == []
 
     def test_column_count_matches_slots(self):
-        # 6 per-peer features × N_PEER_SLOTS + 1 breadth column.
-        assert len(CROSS_ASSET_FEATURE_COLUMNS) == 6 * N_PEER_SLOTS + 1
+        # 7 per-peer columns (6 measurements + a `present` COVERAGE flag) ×
+        # N_PEER_SLOTS, plus 2 book columns (`xa_breadth_up` + its denominator
+        # `xa_breadth_present`).
+        assert len(CROSS_ASSET_FEATURE_COLUMNS) == 7 * N_PEER_SLOTS + 2
+
+    def test_absent_peer_is_distinguishable_from_a_flat_one(self):
+        """The regression control for the zero-fill collapse.
+
+        Before `present`/`xa_breadth_present`, a bar on which NO peer had data
+        and a bar on which every peer sat at exactly zero produced byte-identical
+        rows — "we could not look" and "we looked and it was flat" were the same
+        number. If this test can be deleted without another failing, the
+        collapse is back.
+        """
+        bars = [{"ts": f"2026-01-0{i + 1}T00:00:00Z", "close": 100.0} for i in range(4)]
+        # No peer series at all.
+        absent = compute_cross_asset_feature_rows(bars, [])[-1]
+        # Two peers present and perfectly flat (every close identical ⇒ zero
+        # returns), which is what the old zero-fill made "absent" look like.
+        flat_peer = [{"ts": b["ts"], "close": 50.0} for b in bars]
+        flat = compute_cross_asset_feature_rows(bars, [flat_peer, flat_peer])[-1]
+
+        assert absent["xa_peer1_ret"] == flat["xa_peer1_ret"] == 0.0, (
+            "precondition: the six measurement columns still agree — which is "
+            "exactly why the coverage flag is needed"
+        )
+        assert absent["xa_peer1_present"] == 0.0
+        assert flat["xa_peer1_present"] == 1.0
+        assert absent["xa_breadth_present"] == 0.0
+        assert flat["xa_breadth_present"] == 2.0
+        assert absent != flat
+
+    def test_present_flags_sum_to_breadth_present(self):
+        """The two coverage fields are keyed on the same value, so they agree.
+
+        A per-slot flag that disagreed with the book-level count would give two
+        answers to one question.
+        """
+        bars = [{"ts": f"2026-01-0{i + 1}T00:00:00Z", "close": 100.0 + i} for i in range(4)]
+        peer = [{"ts": b["ts"], "close": 50.0 + i} for i, b in enumerate(bars)]
+        row = compute_cross_asset_feature_rows(bars, [peer])[-1]
+        per_slot = sum(row[f"xa_peer{s}_present"] for s in range(1, N_PEER_SLOTS + 1))
+        assert per_slot == row["xa_breadth_present"] == 1.0
