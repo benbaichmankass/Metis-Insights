@@ -1962,3 +1962,178 @@ as recording what it found.
    against every `**mandatory**` declaration in a SKILL.md, failing in **both**
    directions. This is the one that matters for live safety; it closes F-77 and
    F-84 together and would have prevented the `account_reachability` gap.
+
+---
+
+## Part 17 — RECURRENCE + the harness family (delegated; the live findings verified by me)
+
+### F-85 — LIVE: exit evaluation breaches its 60 s requirement on 28.2% of intervals, and the row tracking it is CLOSED (severity: HIGH — money at risk)
+
+**Measured by me directly, 2026-08-20T09:13Z**, against the live trader.
+
+Single process (`process_started_utc` 08:15:14Z):
+
+```
+requirement_s        : 60.0
+intervals_measured   : 77
+interval_breaches    : 23          -> 29.9%
+max_interval_ms      : 78707.4     -> 78.7 s
+requirement_state    : breached
+last_breach_utc      : 09:11:08Z   (~2 min before I read it)
+state: fresh · stale: False
+```
+
+**And it is not a single-process artifact.** The durable `exit_interval_soak`
+over **7 processes / 394 measured intervals**:
+
+| statistic | value |
+|---|---|
+| breaches > 60 s | **111 = 28.2%** |
+| max | **91.6 s** |
+| **p90** | **73.8 s** |
+| median | 35.9 s |
+
+**The p90 is itself 23% above the requirement.** Nearly three in ten exit
+evaluations exceed the stated maximum, persistently, across every process.
+
+⚠️ **`BL-20260814-EXIT-PASS-SLOWER-THAN-M20` is marked `resolved`.** `CLAUDE.md`
+states the mechanism itself: *"The MAX is the quantity the requirement is written
+against… it is why `BL-20260814-EXIT-PASS-SLOWER-THAN-M20` was closed while the
+max kept growing."* The doc's most recent figure is 58.9 s — *"1.1 s of margin"*.
+It is now **91.6 s**.
+
+**Why nothing escalated.** The detector is *correct* — `requirement_state` is a
+proper four-state field and it says `breached`. Two things defeat it:
+
+1. `state: fresh` and `requirement_state: breached` coexist by design (liveness
+   and requirement are deliberately different questions), so every liveness-shaped
+   check reads green.
+2. **The breach alarm fires once per PROCESS**, and the trader restarts on every
+   merge to `main`. A per-process latch on a process that restarts hourly is a
+   latch that never accumulates — which is exactly why the durable soak exists
+   and exactly what nothing reads.
+
+**Fix shape:** move the alarm off the per-process latch onto
+`exit_interval_soak.jsonl` — which already computes `summary.max_interval_ms`
+over the whole file — and alert on **breach rate over the last N intervals across
+processes**, rate-limited. Tier-2. Reopening the backlog row is Tier-1 and should
+happen regardless.
+
+### F-86 — LIVE: the sanctioned direct-diag path is dead, "resolved" twice, and the working base is in this repo's own docs (severity: HIGH) — VERIFIED
+
+Filed **five times**; two of those marked `resolved` on 2026-08-16; **two more
+filed on 2026-08-18**, which is the proof the resolution never held.
+
+Measured by me this session:
+
+```
+$ echo $DIAG_BASE_URL
+http://158.178.210.252:8001                    # the micro, terminated 2026-06-16
+
+$ bash scripts/ops/diag_fetch.sh 'version'
+diag_fetch: ... rewriting to the live Ampere host 141.145.193.91 ...
+curl: (28) Connection timed out after 10003 milliseconds   # THE FIX DOES NOT WORK
+
+$ DIAG_BASE_URL=https://ict-bot.duckdns.org bash scripts/ops/diag_fetch.sh 'version'
+{"git_sha":"e4c274af","captured_at":"2026-08-20T09:12:43Z"}   # works instantly
+```
+
+**The 2026-08-16 fix rewrote a DEAD host to an UNREACHABLE one.** The working
+base — `https://ict-bot.duckdns.org` → Caddy → `:8001` — is documented in
+`CLAUDE.md` § "Dashboard consumer". Both `resolved` rows carry criteria
+explicitly demanding *"a subsequent session must OBSERVE the changed state, not
+merely the doc edit"*; the resolution was reached by **reading** the script, in a
+repo whose Rule One is *"read the field, not the prose about it."*
+
+⚠️ **This corrects a claim I made earlier in this very session.** I reported
+*"direct egress is blocked as documented — using the issue relay."* That was
+wrong, and it was wrong in the same way the two `resolved` rows were: I accepted
+the script's own failure message (*"egress blocked / web-api down"*) instead of
+testing the alternative my own repo documents. The message collapses two states —
+config-wrong vs network-blocked — which is the unprovenanced-diagnostic class
+`diagnostic-provenance-guard` exists to catch, in the script that closed this row.
+
+**Every relay round-trip I made this session was avoidable.**
+
+### F-87 — `unwired-artifact-guard` is registered SELF-TEST ONLY; its real scan has never run (severity: HIGH — and it is mine, from this morning)
+
+`run_guards.py:375` invokes `check_unwired_artifacts.py --self-test` and nothing
+else. Measured: `--self-test` → `8/8 passed`, exit 0. The real scan → **exit 1,
+159 of 384 tools with no runner.**
+
+**The guard I shipped this morning to detect build-and-abandon is itself
+registered in a way that can never fail.** Its name appears in the registry and
+in the guard log, reading to any reviewer as "unwired artifacts are policed."
+
+I chose self-test-only deliberately because the script has no diff-scoped mode
+and registering the full scan would redden every PR — but I did not record that
+choice anywhere, which is what makes it indistinguishable from an oversight.
+**Fix:** add `--changed <paths>` (fail only when a PR *adds* an unwired tool),
+register that as the blocking step, keep `--all` as a ratcheting census. And
+extend `check_selftest_wiring.py` to forbid a guard whose only step is a
+self-test.
+
+### F-88 — `pytest-run` short-circuit: a five-times-recurring class, and instance 5 is live (severity: HIGH)
+
+`pytest-run` is a **required** branch-protection check that short-circuits to
+green without running a test when the diff matches no path in its filter. Its own
+header enumerates **four** prior instances, two of which produced a 9- and
+10-second green and left `main` red.
+
+The current fix added a derivation test with its own negative control — good work
+— but it scans only `docs/` and only one path idiom. **Instance 5:**
+
+```
+data/ict_validate_manifest.csv   read by tests/test_backtest_ict_cli.py:234
+                                 assert manifest.exists()
+                                 assert by_symbol["BTCUSDT"] == "5m"
+```
+
+`data/` is not in the filter. A PR touching only that file gets a green
+`pytest-run` having executed nothing.
+
+**Hand-enumeration has now failed five times.** The fix is to generalise the
+derivation test to *any git-tracked non-`.py` path any test resolves against a
+module-level root*.
+
+### F-89 — Detector coverage over resolved findings: 17 of 25 = 68%, and that is an UPPER bound (severity: HIGH, structural)
+
+Sample of 50 seeded-random rows from the 563 resolved. Of those, **25 were
+actual code/config/workflow defects** (24 were research programmes, negative
+results or doc corrections — not defects at all). **17 of the 25 carry a
+detector = 68%.**
+
+⚠️ **Stated as an upper bound, because the auditor stated it as one:** "detector
+exists" meant *a registered guard names the class, or a topically-matching test
+file exists*. **It was not verified for any of the 17 that the test actually
+reddens when the fix is reverted.** Extrapolated, ~90 of the 563 resolved rows
+carry no permanent detector.
+
+**16 verified fix-then-refile pairs**, and the calibration is the finding: at the
+auditor's first similarity threshold its own **known-duplicate control was
+missed** — the scan was blind to a duplicate already read by eye. Recalibrated
+against both controls, it found 16. Title similarity cannot see *semantic*
+recurrence; three further chains were found by mechanism and appear in none of
+the 16 — including the merge-protocol chain running **four generations over 30
+days**, in which a row *whose own id contains the word RECURRENCE* was closed.
+
+### F-90 through F-94 — the harness family, relayed with one live verification
+
+| # | finding | sev |
+|---|---|---|
+| F-90 | **A degenerate or stalled price feed manufactures winning trades.** `backtest_fade.py` on a constant-price fixture: `trades=88, win_rate=100.0%, max_mfe_r=0.0, rc=0` — arithmetically impossible, unflagged. Demonstrated on **real** data too: replacing the last 20% of `backtest_candles.csv` with a repeated bar flips gross_r from **−7.35 to +85.35**, both `rc=0`. Zero variance checks across all 23 files. | HIGH |
+| F-91 | **`_fee_r` has five different semantics under one name**; 7 of 13 harnesses cannot express slippage or funding at all, and `src/backtest/backtester.py` charges **11 bps vs the canonical 7.5**. Measured omitted term: **0.19–0.79 R/trade** over n=1042 — larger than typical per-trade expectancy. All emit the same field name `net_total_r` into the same fleet report. | HIGH |
+| F-92 | **The `risk_pct` comment states the live fraction formula eight lines above code that divides by 100** (`backtest_system.py:857` vs `:866`), and cites a line number that is the wrong function. Defaults across 8 scripts span `0.015`→`1.0`, a **66× range for one flag name**. This extends my F-37 with the mechanism that made it invisible: *the comment is itself the finding*. | HIGH |
+| F-93 | `src/backtest/run_backtest.py::summarize` writes **four permanently-zero columns** into `trade_journal.db::backtest_results` — `max_drawdown`, `max_drawdown_pct`, `sharpe_ratio`, `total_pnl_pct` are hardcoded literals — and a zero-trade run returns a **full row of zeros**, so a run that measured nothing reads as a perfectly safe strategy. `CLAUDE.md` states the correct rule for the live API (*"null (not 0) when uncomputable"*) and the backtest writer inverts it. | HIGH |
+| F-94 | **12 of 13 harnesses report a broken input as `rc=0, trades=0`.** `backtest_ict_scalp.py` alone refuses (exit 1, *"window selected 0 bars — no overlap"*). Also: `--symbol` defaults to `BTCUSDT`, is never cross-checked against the data, and **selects the venue cost policy** — an equity file run under the default gets perp funding charged. | MED-HIGH |
+
+**And the guards do not scan any of it:** `silent-empty-guard` and
+`diagnostic-provenance-guard` both scope to prefix lists that **exclude
+`scripts/backtest_*` and `src/backtest/`** — ~540 KB of code. F-94's symbol bug
+is a textbook instance of the very class `diagnostic-provenance-guard` names, in
+the blind spot of the guard that names it. **F-40's shape, a fourth time.**
+
+The harness auditor also **retracted its own unit detector** — its AST probe
+reported `backtest_system.py: div100=no`, the opposite of the truth, because the
+code renames the parameter to a local before dividing. It flagged that *any file
+in that column may be a false negative* rather than standing behind the result.
