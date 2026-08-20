@@ -123,6 +123,21 @@ def _trainer_disk_banner(trainer_down: bool) -> Optional[Dict[str, Any]]:
     Suppressed entirely when the trainer is DOWN: a stale mirror has no current
     disk fact to report, and `trainer_down` already owns that condition — two
     banners for one cause is the desensitized-alarm pattern this repo calls a P1.
+
+    NOT registered with `collapsed-state-guard`, deliberately, and the reason is
+    recorded rather than left as a silent omission. That guard binds a PRODUCER
+    field to its consumers, and only two of the three states here are producer-
+    observable: the writer can emit `measured:true` or `measured:false`+reason,
+    but `not_published` is by construction the absence of the writer — nothing
+    can emit it. Registering the contract would report full coverage of a
+    three-state field while enforcing two, which is worse than no registration.
+    Adding a redundant `state:` string to the payload to satisfy the guard would
+    give the same fact two sources of truth and invite exactly the drift this
+    repo keeps paying for. The three states are enforced instead by
+    `tests/test_trainer_disk_visibility.py`, whose state assertions were each
+    verified to fail under a surgical break (collapsing `not_published` to
+    healthy fails exactly 2 of 17 tests; removing the DOWN suppression fails
+    exactly 1) — a discriminating control, not merely an import error.
     """
     if trainer_down:
         return None
