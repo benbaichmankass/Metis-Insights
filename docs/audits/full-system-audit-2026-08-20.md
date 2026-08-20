@@ -697,30 +697,29 @@ Declared 55 → enabled 52 → loaded live 52 → named by an account 52. The th
 disabled ones are correctly absent from the runtime. Execution gates:
 **48 `live`, 7 `shadow`**.
 
-### F-30 · `turtle_soup` is loaded every tick and can dispatch to nothing
+### F-30 · `turtle_soup` — ⚠️ SUBSTANTIALLY CORRECTED after reading the history
 
-`enabled: true`, `execution: shadow`, `timeframe: 15m`, `symbols: [BTCUSDT]`,
-a full parameter block, a unit at `src/units/strategies/turtle_soup.py`, and it
-**is in the live runtime's loaded set** — while **no account names it** (no
-wildcard mechanism exists; the other 52 are each named explicitly).
+**My first framing was wrong, and `git log` is what refuted it.** I reported an
+enabled-but-unrouted strategy as an oversight. It is a **deliberate,
+operator-approved downgrade**:
 
-So it is evaluated on the tick and cannot produce an order package for anyone:
-`multi_account_execute` iterates the accounts that route a strategy, and there
-are none. Its `shadow` gate does not explain this — `shadow` means *"runs and
-logs order packages everywhere (live data collection) but never sends a live
-order"*, and with no account there is nothing to log per-account either. The
-data-collection purpose the gate exists to serve is defeated by the routing gap.
+- **2026-07-01** (`8106255806`, Tier-3): de-routed from `bybit_1` — *"net-negative
+  at every stop"* on the BTCUSDT `atr_stop_mult` sweep.
+- **2026-07-07** (`8984eb5f`, Tier-3): `execution: live → shadow` *"to make the
+  downgrade explicit + robust"*, and dropped from `ib_paper`'s list where it was
+  a BTCUSDT no-op parked on an IBKR **futures** account — *"the illegible cruft"*
+  the same commit removed.
 
-**Scale it honestly:** the marginal cost is the indicator computation, not a
-candle fetch — BTCUSDT/15m is already fetched for other legs, so the cache
-serves it. This is a **capability with no consumer**, not a material
-performance drag. It belongs to the same class as F-25 and F-27: built,
-configured, loaded, and connected to nothing.
+That is a correct disposition, correctly recorded. **This would have shipped as a
+false finding without the Phase-0a unshallow** — the clone arrives at 50 commits
+and `git log -S` over it returns nothing. That is the concrete value of the
+un-shallow step, not a formality.
 
-Disposition: either route it to an account (it is `shadow`, so routing it is
-data collection, not exposure) or disable it. Tier-3 either way —
-`config/strategies.yaml` and `config/accounts.yaml` are both Tier-3 files — so
-this is a **proposal**, not a change.
+**What survives is a LOW legibility nit, not a defect.** It remains
+`enabled: true`, so it still loads and evaluates each tick while `shadow` + no
+route means it can neither trade nor log a per-account order package. If the
+intent is "kept, off", `enabled: false` expresses that with no evaluation cost.
+Tier-3 file; proposal only.
 
 ### Verified sound
 
@@ -729,3 +728,108 @@ this is a **proposal**, not a change.
   its instrument" class is **absent**.
 - `ib_live` and `oanda_practice` carry `mode: dry_run` **and** zero strategies —
   coherently shelved, not half-shelved.
+
+---
+
+## Part 8 — Modularity / scalability (operator directive 2026-08-20)
+
+> *"Building things so that system changes require as few code edits as
+> possible (or at least concentrate the edits to one place so we don't have to
+> chase down random hard-coded items across the repo)."*
+
+The measurable form is **change amplification**: how many files must be edited
+to make one system change? Measured from the deep clone.
+
+### F-31 · Adding one strategy leg costs 15–17 files
+
+Two real wirings, from `git show --name-only`:
+
+| commit | leg | files |
+|---|---|---|
+| `2026-07-28` | `ict_scalp_mgc_15m` | **17** |
+| `2026-07-21` | M27 altcoin legs (SOL/XRP/AVAX) | **15** |
+
+Both touch the **same three `src/` files** and the **same satellite registries**:
+
+```
+src/runtime/strategy_signal_builders.py   a named wrapper fn
+src/runtime/intent_multiplexer.py         {name: builder} registry entry
+src/runtime/intents.py                    DEFAULT_PRIORITIES entry
+config/strategies.yaml                    the declaration      (source of truth)
+config/accounts.yaml                      the routing          (source of truth)
+config/strategy_descriptions.json         satellite registry
+config/strategy_changelog.json            satellite registry
+config/regime_coverage_exemptions.yaml    satellite registry
+docs/research/exit-refinement-coverage.json   satellite registry
+docs/strategy-coverage-matrix.md          satellite registry
++ 4–5 test files
+```
+
+**Be fair about what is already good.** The strategy *logic* is properly
+factored: the new builder is a thin wrapper delegating to a shared
+`_ict_scalp_variant_builder` that *reads the timeframe and symbol from config*
+and routes the candle fetch by venue. Nothing about the mechanism is copied per
+leg. The account roster is modular too — see "Verified sound" below.
+
+**What is not factored is the REGISTRATION.** Two hand-maintained maps plus
+5–6 satellite registries must be kept in sync by hand with two YAML files that
+already contain the facts. Every one is an opportunity to half-wire, which is
+the operator's stated failure mode. A config-declared strategy could register
+itself (declare its builder family + priority in `strategies.yaml`; build the
+maps at import), collapsing three `src/` edits to zero.
+
+### F-32 · The "safe" default priority now outranks 90 % of the declared roster
+
+`intents.py::_UNKNOWN_STRATEGY_PRIORITY = 10`, documented as *"picked
+deliberately below the in-scope strategies so a misconfigured new strategy never
+silently overrides Turtle Soup / VWAP."* That was true when the roster was
+`{turtle_soup: 50, vwap: 40}`.
+
+The convention has since become **"a new leg gets 0"** — the *untested-roster
+floor*, so that (in the `ict_scalp_mgc_15m` comment's own words) *"a wiring slip
+stays safe"* and a new leg *"can never OVERRIDE the established sleeves in a
+conflict."*
+
+Measured now: **41 of 50 listed legs are pinned at 0, and 45 of 50 sit BELOW the
+unlisted default of 10.**
+
+**So omission is now less safe than declaration — the exact inverse of the
+constant's stated purpose.** Five enabled strategies carry no entry
+(`gdx_pullback_1d`, `iaum_pullback_1d`, `scha_trend_long_1d`,
+`slv_pullback_1d`, `splg_trend_long_1d`) and therefore resolve to 10, above
+every floored peer. A live collision exists:
+
+```
+slv_pullback_1d  (unlisted -> 10)   vs   slv_trend_1h  (pinned 0)
+shared symbol SLV, on alpaca_paper / alpaca_portfolio / alpaca_live / alpaca_options_paper
+=> on an SLV conflict the FORGOTTEN leg outranks the DELIBERATELY FLOORED one
+```
+
+**Bound the blast radius honestly.** The structural inversion is certain. A
+realized incident is **not** demonstrated: both legs would need actionable,
+opposing intents on SLV on the same tick, and `FLIP_POLICY=hold` means an
+opposing signal does not reverse a held position anyway. What is established is
+that the fail-safe no longer fails safe, and that this is a direct consequence
+of F-31 — a hand-maintained map drifting from the convention it encodes.
+
+`src/runtime/intents.py` is order-routing: **Tier-3, proposed not changed.** The
+minimal fix is to move the default to the floor the roster actually uses (0) —
+or better, derive priority from config so the map cannot drift at all.
+
+### Verified sound — the account axis IS modular
+
+Account ids appear as string literals in executable code in only **7 files**
+(comments and docstrings stripped — an un-stripped count says 12+ and is
+measuring prose, the same error the unwired detector made):
+
+```
+2 ids  src/web/api/routers/pnl_exchange.py     1 id  src/units/strategies/pairs_executor.py
+2 ids  src/core/account_profile.py             1 id  src/units/strategies/macro_thesis/thesis_tick.py
+1 id   src/web/api/routers/prop.py             1 id  src/units/strategies/macro_thesis/thesis_engine.py
+1 id   src/prop/prop_expiry_prompt.py
+```
+
+Mostly single-account defaults on a router or a prop path, not rosters. **Adding
+an account does not require chasing literals through `src/`.** The builder
+registry is also complete — **52 of 52** enabled strategies have an entry, so
+the documented *"declared live, no builder"* class is **absent today**.
