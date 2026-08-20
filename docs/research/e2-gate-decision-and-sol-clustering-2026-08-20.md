@@ -68,6 +68,14 @@ explains it without one — but a small difference in the predicted direction is
 and should not be waved away. The 24-cell re-run's banks give 1,536 control draws and are
 the properly-powered read on it.
 
+> ⚠️ **AND THAT READ REVERSES THIS ONE — do not stop at this table.** Pooled over 768
+> draws per leg (§ 3.6), **XRP is the anticonservative leg at 2.27× α and SOL measures
+> textbook at 0.99× α** — the opposite of what this single 400-column cell suggests. The
+> two are not in conflict so much as differently powered: § 3.7 shows the same panel and
+> target swings 0.047–0.141 across six seeds, so *any* single-cell reading of this
+> quantity is noise. **The per-leg pooled figure is the one to quote; this table is kept
+> because it is what criterion (1) literally asked for, not because it is the answer.**
+
 ### 1.2 A structural defect in the shuffle exists, and is measurably inert here
 
 Worth recording because it is real and a future session will re-find it.
