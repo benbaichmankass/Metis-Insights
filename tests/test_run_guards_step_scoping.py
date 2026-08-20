@@ -126,11 +126,43 @@ class TestTheAffectedPopulationIsStated:
             g["name"] for g in rg.GUARDS
             if any(isinstance(s, dict) and "when" in s for s in g["steps"])
         ]
-        assert set(gated) == {"api-tier-policy-guard", "diagnostic-provenance-guard"}, (
+        assert set(gated) == {
+            "api-tier-policy-guard",
+            "diagnostic-provenance-guard",
+            "test-schema-fidelity-guard",
+        }, (
             f"the step-gated population changed to {sorted(gated)} — the "
-            "push-time coverage decision was measured against exactly two "
+            "push-time coverage decision was measured against exactly three "
             "guards; re-measure before assuming it still holds"
         )
+
+
+# ---------------------------------------------------------------------------
+# Re-derivation for the THIRD member (2026-08-20).
+#
+# `test-schema-fidelity-guard` joined the step-gated population, so the
+# decision above was re-derived rather than inherited — which is exactly what
+# this test class exists to force.
+#
+# It arrived NOT consuming `{pr_diff}`: it resolved its own base with
+# `git diff --name-only origin/main...HEAD`. That is worse than the pattern it
+# was skipping, twice over. On push HEAD *is* main, so the self-resolved diff
+# is empty and the scan reports a clean green over zero files — the same
+# "checked nothing" outcome, reached by a mechanism no reader would recognise
+# as the documented one. And in a shallow clone `origin/main` does not resolve,
+# where it fell back to `--all`, which exits 1 on the 20 pre-existing
+# grandfathered files and would redden every PR under a message that says
+# nothing about the substitution (sub-class B, implicit input selection).
+#
+# So the fix was to make it a genuine `{pr_diff}` consumer, not to exempt it:
+# the harness generates one diff, every consumer reads that same file, and the
+# skip-on-push reasoning above applies to it unchanged and for the same reason.
+# The base-resolution path survives for local use with the silent widening
+# replaced by a hard error.
+#
+# The premise the class pins therefore still holds at n=3: every step-gated
+# command consumes `{pr_diff}`, and each is skipped on push because an empty
+# diff would make it report a green over nothing.
 
 
 # ---------------------------------------------------------------------------

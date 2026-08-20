@@ -168,8 +168,31 @@ def _self_test(root: Path) -> int:
     return 0 if ok == len(checks) else 1
 
 
+def files_in_diff(diff_text: str) -> list[Path]:
+    """Test files named by a unified diff's `+++` headers.
+
+    The canonical scoping mechanism, shared with the eight other guards that
+    take `{pr_diff}`: the harness generates the diff once and every consumer
+    reads the SAME file, so a guard can never be scoped to a different commit
+    range than the one CI reported on.
+    """
+    out: list[Path] = []
+    for raw in diff_text.splitlines():
+        if not raw.startswith("+++ "):
+            continue
+        target = raw[4:].strip()
+        if target == "/dev/null":
+            continue
+        rel = target[2:] if target.startswith(("a/", "b/")) else target
+        if rel.startswith("tests/") and rel.endswith(".py") and (REPO / rel).exists():
+            out.append(REPO / rel)
+    return sorted(set(out))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("diff", nargs="?",
+                    help="unified diff to scope by (the {pr_diff} CI passes)")
     ap.add_argument("--all", action="store_true", help="scan every test file")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--base", default="origin/main")
@@ -179,15 +202,31 @@ def main() -> int:
 
     if a.all:
         files = sorted((REPO / "tests").rglob("*.py"))
+    elif a.diff:
+        dp = Path(a.diff)
+        if not dp.exists():
+            print(f"diff file {a.diff} does not exist — refusing to scan. A guard "
+                  f"that cannot see the change it is scoped to is not a guard.",
+                  file=sys.stderr)
+            return 2
+        files = files_in_diff(dp.read_text(errors="replace"))
     else:
+        # Local convenience only. The fallback is a HARD ERROR, never a silent
+        # widening to --all: substituting the whole tree for the requested diff
+        # changes the POPULATION behind the verdict while the output still says
+        # the same thing, and --all exits 1 on the pre-existing grandfathered
+        # sites, so an unresolvable base would redden every PR for a reason the
+        # exit code does not state. (Sub-class B, implicit input selection.)
         try:
             diff = subprocess.run(["git", "diff", "--name-only", f"{a.base}...HEAD"],
                                   cwd=REPO, capture_output=True, text=True, check=True)
-            files = [REPO / p for p in diff.stdout.split()
-                     if p.startswith("tests/") and p.endswith(".py") and (REPO / p).exists()]
         except subprocess.CalledProcessError:
-            print("could not resolve the diff base; falling back to --all", file=sys.stderr)
-            files = sorted((REPO / "tests").rglob("*.py"))
+            print(f"could not resolve the diff base {a.base!r}; pass a diff file "
+                  f"or --all explicitly rather than having one silently chosen.",
+                  file=sys.stderr)
+            return 2
+        files = [REPO / p for p in diff.stdout.split()
+                 if p.startswith("tests/") and p.endswith(".py") and (REPO / p).exists()]
 
     res = scan(REPO, files)
     if res is None:

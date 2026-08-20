@@ -356,7 +356,8 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_test_schema_fidelity.py", "--self-test"],
             {
-                "argv": ["python3", "scripts/ci/check_test_schema_fidelity.py"],
+                "argv": ["python3", "scripts/ci/check_test_schema_fidelity.py",
+                         "{pr_diff}"],
                 "when": {"regex": r"^tests/.*\.py$"},
             },
         ],
