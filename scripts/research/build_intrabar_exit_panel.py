@@ -168,7 +168,7 @@ def cross_asset_index(
     target_rows = [{"ts": _bar_ts(c), "close": _f(c.get("close"))} for c in candles]
     try:
         xa_rows = compute_cross_asset_feature_rows(target_rows, slots)
-    except Exception as exc:  # noqa: BLE001 — a peer failure must not kill the panel
+    except Exception as exc:  # noqa: BLE001  # allow-silent: NOT silent — the handler returns the named `no_peer_series` state WITH the exception text in `meta['error']`, which reaches the caller and is written into the panel manifest, so a peer failure is READABLE as a peer failure rather than as a symbol that has no peers. Raising instead would let one bad peer feed destroy an otherwise-valid panel build over the endogenous features, which is strictly worse.
         return {}, {"state": "no_peer_series", "target": target_symbol,
                     "peers_configured": list(peers[:N_PEER_SLOTS]),
                     "peers_joined": [], "bars_indexed": 0, "bar_coverage": None,
@@ -487,7 +487,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 {"ts": _bar_ts(r), "close": _f(r.get("close"))}
                 for r in _df_records(pdf)
             ]
-        except Exception as exc:  # noqa: BLE001 — a bad peer feed must not kill the panel
+        except Exception as exc:  # noqa: BLE001  # allow-silent: NOT silent — the handler PRINTS the symbol and the exception, and the peer is then absent from `peer_series`, so the manifest reports it under `peers_configured` but not `peers_joined`. An unreadable peer feed is therefore distinguishable from one that was never supplied, which is the distinction this whole block exists to preserve.
             # Reported, never swallowed: an unreadable peer is not the same fact
             # as a peer that was never asked for, and the manifest's
             # `no_peer_series` state would otherwise conflate them.
