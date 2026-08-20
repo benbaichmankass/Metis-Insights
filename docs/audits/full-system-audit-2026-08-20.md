@@ -2366,3 +2366,332 @@ register that number as a **watched invariant** at ship time, not just cite it i
 a PR body. `system_invariants.py` (shipped this session) is the right home:
 `INV-EXIT-INTERVAL` already exists and would have caught F-85 on any run. A
 `INV-TICK-COST` in the same shape would have caught F-98.
+
+## Part 20 — ML review substance: drift, soak, and promotion adjudication
+
+The operator's framing for this pass was explicit: *"just checking that the
+trainer VM is green isn't enough — we need to verify the training sessions and
+backlogs are actually being worked through and producing reliable and actionable
+results, every day."* This part runs that check against the live trainer.
+
+**Method.** Live reads over direct HTTPS to the bot API (`/api/bot/ml/status`,
+`/ml/cycle`, `/ml/registry`, `/ml/builds`, `/ml/db_pulls`, `/shadow/stats`,
+`/shadow/drift`) plus one trainer-VM relay (#10033) for systemd state and the
+readiness report itself. Populations are stated per claim.
+
+**The headline is not "the trainer is broken."** It is working hard and
+correctly: 68 manifests retrained nightly, 120 dataset builds in 24h, 0 failures,
+mirror age 100s. The defect is one level up — **the daily instrument that turns
+that work into a decision cannot reach its decision.**
+
+### F-101 — The daily promotion-readiness sweep cannot emit a `promote`, by construction (severity: HIGH)
+
+`ict-promotion-readiness.timer` is `enabled` + `active`, fires daily at 04:00Z
+(+≤30min jitter), and has written a report every day from 2026-08-09 to
+2026-08-20 (12 consecutive dated directories, verified by `ls`). It pushes an
+operator ping on exit-10 days. By every liveness test available it is healthy.
+
+Today's report (`2026-08-20T04:22:42Z`, 95 models):
+
+```
+0 promote,  1 demote,  94 hold
+```
+
+**`0 promote` is the only value this report can produce.** Every shadow-stage
+row in the hold list blocks on the same three required gates:
+
+```
+btc-regime-15m-lgbm-fc-pcv-v1 (shadow) — blocking: oos_edge, live_parity, labels_accruing
+btc-regime-15m-lgbm-v2        (shadow) — blocking: oos_edge, live_parity, labels_accruing
+btc-regime-15m-lgbm-yz-v1     (shadow) — blocking: oos_edge, live_parity, labels_accruing
+btc-regime-1h-lgbm-v2         (shadow) — blocking: oos_edge, live_parity, labels_accruing
+btc-regime-5m-lgbm-v2         (shadow) — blocking: oos_edge, live_parity, labels_accruing
+… every shadow row in the fleet, same three.
+```
+
+Two of those three are unsatisfiable in the *scheduled* sweep for reasons that
+have nothing to do with the models:
+
+**1. `oos_edge` — off by default, because on it kills the VM.** The service's own
+run log, every night:
+
+> `PROMOREADY_OOS_EDGE=off: sweep runs WITHOUT --datasets-root; oos_edge reports
+> insufficient_data for EVERY head this run … OFF is the DEFAULT and the
+> known-good state (the 2026-07-26 subprocess-isolation fix was REVERTED
+> 2026-07-27: isolation bounds fleet accumulation, not one head's dataset load,
+> so the sweep OOM-killed and wrote no packet). **MB-20260719-PROMOREADY-OOSEDGE-OOM
+> is OPEN, not resolved** — it closes when oos_edge's load is made memory-bounded.`
+
+This is honest and well-written. It is also load-bearing: `oos_edge` is the gate
+the 2026-07-19 reframe made *carry the promote decision*. The sweep therefore
+runs the promotion report with its deciding gate disabled.
+
+**2. `live_parity` — guaranteed zero by the ordering of three timers.** Read from
+`ml/promotion/gates.py:640-650` (not from prose): fidelity is judged only over
+rows logged **since the current artifact's training run** (`n_fresh_rows <
+parity_min_rows` → `insufficient_data`). Now line up the trainer's own clocks,
+all measured today:
+
+| time (UTC) | event | source |
+|---|---|---|
+| 00:51 | live→trainer pull of `shadow_predictions.*` completes | `/ml/db_pulls` |
+| 01:14 | training cycle ends — **every head re-trained, artifact_at resets** | `/ml/cycle` `cycle_end` |
+| 04:22 | readiness sweep grades `live_parity` | journal, #10033 |
+| 05:04 | the *next* live→trainer pull lands | `/ml/status` `data_pulls.last_ok_ts` |
+
+The sweep at 04:22 counts rows logged after 01:14 **inside a log that ends at
+00:51**. `n_fresh_rows` is 0 every day, not because serving fidelity is
+unproven but because the evidence file predates the artifact it is being asked
+to verify. `scripts/ml/gate_check_candidates.sh` already documents this exact
+trap in its own header (*"a gate-check against a stale trainer-side shadow log
+… can never accumulate the 20-row parity bar and reads a permanent
+insufficient_data"*, MB-20260721-FCPCV-V2-SOAK) — and it fixes it for the
+**manual** path by calling `sync_trainer_data.sh` before gating. The
+**scheduled** path has no such call. The knowledge exists; it was applied to the
+hand-run script and not to the daily one.
+
+**Why this is the class the audit skill was rewritten to catch.** Every
+individual check passes. The timer is enabled. The service exits cleanly. The
+report is written, mirrored, and pinged. The SUMMARY even carries an honest
+warning line about `datasets_root`. What no check asks is the OUTCOME question:
+*over 12 consecutive daily runs, has this instrument ever produced the output it
+exists to produce?* It has not, and it cannot until either the sweep gains a
+pre-gate sync or the sweep moves after the 05:04 pull.
+
+The report is not lying. It is **answering a different question than the one its
+headline implies** — `0 promote` reads as a verdict about 28 shadow models when
+it is a property of the sweep's own configuration. Unprovenanced diagnostic,
+sub-class C: an unasserted denominator, where an empty result reads as a clean
+negative.
+
+**Fix shape (do not apply yet — fixes are deferred):** three separable pieces.
+(a) Move the timer after the 05:04 pull, or call `sync_trainer_data.sh` from
+`run_promotion_readiness.sh` as the manual path already does — this alone
+un-sticks `live_parity`/`labels_accruing` at zero code risk. (b) Make the report
+state its own reachability: a `gates_evaluable` block naming which required gates
+could not be computed this run, so `0 promote` is never readable as a fleet
+verdict. (c) `MB-20260719-PROMOREADY-OOSEDGE-OOM` stays the real work; memory-
+bounding the per-head dataset load is the durable fix, and until it lands the
+report should say `promote: unreachable`, not `promote: 0`. **These are three
+states, not two** — `no model qualified` / `we could not evaluate` / `evaluated
+and blocked` — the collapsed-state doctrine applied to the ML lifecycle's own
+summary.
+
+### F-102 — A DEMOTE proposal for a live advisory head has been pinged for days with no disposition, and two drift implementations disagree about it (severity: MEDIUM)
+
+Today's report carries exactly one actionable proposal:
+
+```
+## Demote
+- sol-regime-15m-lgbm-fc-pcv-v2 (advisory → shadow): score-distribution drift
+  verdict is 'significant'
+```
+
+The sweep exited 10 (actionable) and pushed an operator ping on 08-16, 08-17,
+08-19 and 08-20; 08-18 exited 0. The model is still at `advisory`. So the one
+decision the instrument *can* deliver is being delivered, repeatedly, and is not
+being adjudicated — which is the same normalization failure
+`MB-20260719-DATASET-AUDIT-NOISE` was filed for, in a different organ.
+
+**And the two drift computations do not agree.** Read the same model the same
+day through `/api/bot/shadow/drift`:
+
+| source | KS | PSI | verdict |
+|---|---|---|---|
+| `/api/bot/shadow/drift` (30d ref vs current) | 0.1803 | 0.0042 | **moderate** |
+| readiness report `drift_clean` | — | — | **significant** |
+
+Both are "the drift of `sol-regime-15m-lgbm-fc-pcv-v2`". One of them is the
+input to a demotion of a live head. `ml/shadow/drift.py:22-24` fixes the bands
+(`<0.1` none, `0.1–0.25` moderate, `>0.25` significant), so 0.1803 is
+unambiguously `moderate` under the shared band table — meaning the gate is
+either using different windows or a different statistic, and nothing in either
+output discloses which. This is one concept with two implementations and no
+declared owner: the same modularity failure as the backtest-vs-live `risk_pct`
+(F-40's family).
+
+Context that makes the disagreement worth resolving rather than dismissing: the
+predecessor head `sol-regime-15m-lgbm-fc-pcv-v1` was demoted advisory→shadow on
+2026-07-26 for `drift_clean` at KS 0.236, and `btc-regime-15m-lgbm-v2` was
+demoted at the same figure. `-v2` was promoted 2026-08-02 at KS 0.1353 and reads
+0.1803 today — moving the wrong way, 18 days in.
+
+### F-103 — Five manifests have been enforced-skipped for 25 days and the cycle reports rc=0 (severity: HIGH)
+
+F-35 established that 7 of 76 manifests are stale while `/api/bot/ml/status`
+reads green. This pass establishes **the cause**, which F-35 explicitly deferred.
+
+Five of the seven share one status line, emitted every cycle:
+
+```
+manifest_audit_skipped_enforced — "SKIPPED (enforced): dataset audit flagged a
+dead feature / degenerate label in a NON-empty dataset — not trained this cycle.
+Fix the flagged column/label (see dataset_audit.jsonl) to resume training."
+```
+
+`baseline-prop-mission-policy` · `btc-regime-15m-lgbm-base-vt003-pcv-v1` ·
+`mes-regime-1d-lgbm-v2` · `setup-candidates-metalabel-xsym-yz-v1` ·
+`setup-quality-lgbm-v2` — all last trained **2026-07-26**, all 22.8–22.9 days
+untrained against a 7-day threshold. The `training_staleness_summary` block is
+byte-identical across all six cycles in the retained window
+(`stale: 7, never_trained: 2, awaiting_source: 1, scanned: 76`), 2026-08-18
+through 2026-08-20.
+
+**The recurrence, stated plainly.** This enforcement exists *because of*
+`MB-20260719-DATASET-AUDIT-NOISE` — the incident where the dataset audit
+degenerated to 62/86 manifests alarming, sessions walked past the noise for
+weeks, and the ETH-xa dead-feature bug soaked inside it. The remedy was to stop
+alarming and start **enforcing** the skip. That remedy converted a **noisy**
+failure into a **silent** one: the manifests now stop training and the cycle
+exits `overall_rc: 0`, `failed: 0`, `outcome: already_complete`. A skipped
+manifest is counted as `already_done`, so `already_done: 76` of 76 scanned.
+
+Both polarities of the same defect share a root: **there is no state between
+"trained" and "failed."** An enforced skip is neither, so it is booked as the
+former. This is the collapsed-state doctrine — which this repo wrote down and
+enforces with `collapsed-state-guard` on the *live trader* — never applied to
+the ML lifecycle. `manifest_audit_skipped_enforced` is precisely a
+*we-looked-and-refused* state, and the cycle summary has no field for it.
+
+A secondary row from the same scan, worth its own line because it is the inverse
+failure: `conviction-meta-v1-bt.yaml` carries an
+`expected_optional_features` declaration silencing `c_setup,c_wr` — columns the
+trainer reports are **now populated**. A stale silencer suppressing real data,
+which is how a dead-feature guard degrades into a rubber stamp.
+
+### F-104 — Prop "open position" identity requires a field the ingest contract does not (severity: HIGH — operator-reported, reproduced from the live journal)
+
+Raised by the operator mid-session: *"long after I close a prop trade, I'm still
+getting monitoring things on Telegram … it's a recurring problem that we've come
+across many times, and we keep on fixing the one sequence but not fixing the
+root problem."*
+
+Reproduced exactly, from `/api/bot/prop/fills` (population: all 32 rows):
+
+```
+id  account     symbol   direction  status  qty   reported_at          ticket
+32  breakout_1  SOLUSDT  long       closed  83.0  2026-08-19T21:31:42  None
+31  breakout_1  SOLUSDT  long       closed  83.0  2026-08-19T21:31:28  prop-manual-5e30b930
+30  breakout_1  SOLUSDT  **None**   open    83.0  2026-08-19T12:52:40  prop-manual-5e30b930
+```
+
+`prop_monitor_pulse._position_key` keys a position on
+`(account_id, symbol, canonical_direction)`. Row 30 keys as
+`akd:breakout_1|SOLUSDT|` (empty direction); rows 31/32 key as
+`akd:breakout_1|SOLUSDT|long`. Different keys — so the newest fill under row 30's
+key is still `open`, and `find_open_prop_positions` has reported a phantom-open
+83-SOL position continuously since 2026-08-19. That is the hourly ping the
+operator is seeing.
+
+**The root cause is an unenforced contract between two modules.**
+`prop_report.ingest_report` — the single chokepoint every report-back passes
+through — validates `account_id` (line 57) and `symbol` (line 86) and **passes
+`direction` through unvalidated** (line 106). `_position_key` requires all three.
+One module owns *identity*, another owns *admission*, and nothing asserts they
+cover the same fields. A fill admitted without a direction is **permanently
+unclosable**: no future close report can land under its key, because a close
+carrying a direction keys elsewhere.
+
+**Why the previous fix did not fix it.** `BL-20260708-PROP-PULSE-DIRECTION-ALIAS`
+is the same complaint from 2026-07-08, and the fix hardened the *normalizer*
+(`buy`→`long`, `sell`→`short`) while leaving *admission* open. The journal still
+carries that earlier instance as evidence — row 15 `ETHUSDT buy filled` beside
+row 16 `ETHUSDT long filled`. And before that, keying on `ticket_id` was
+abandoned for the same class (row 10 opens under `prop-manual-SOLUSD-4`, row 11
+closes under `prop-manual-1014c5ab`). Three incidents, three different ways
+operator-typed text can differ between the open and close report, three
+per-instance fixes. The class is: **prop position state is inferred from the
+absence of a matching close row, and the match depends on free text agreeing.**
+*"We have not been told it closed"* and *"it is open"* are the same state — the
+collapsed-state doctrine, never applied to the prop book.
+
+**The safety half, which matters more than the ping.** `find_open_prop_positions`
+has four consumers: the pulse, `prop_sl_tp_alert` (line 139),
+`breakout_executor._suppress_reason` (line 92), and `prop_status_request`. For an
+undirected position:
+
+- the **pulse** iterates all positions → pings hourly (the visible symptom);
+- **`prop_sl_tp_alert`** reaches `_sl_crossed("")`, whose direction dispatch
+  falls through to `return False` (lines 91-97) → **the position can never fire
+  an SL or TP alert.** On a phantom that is harmless. On a *real* position
+  reported without a direction it is a silently dead stop-loss warning on a
+  prop account whose static-DD floor is $4,700.
+- the **suppression guard** compares `pos["direction"].lower() == d`, so
+  `"none" != "long"` → it does **not** suppress. 
+
+**A hypothesis of mine, refuted and recorded.** I first read the `suppressed`
+SOLUSDT tickets at 2026-08-19T21:01 as the phantom gating the prop order path.
+It is not: the direction mismatch that creates the phantom also excludes it from
+the suppression comparison, and ticket `prop-manual-8eccec2028f3` was `emitted`
+at 20:57 with `valid_until` 21:57 — still live at 21:01, so the
+`outstanding_ticket:emitted` branch explains the suppression correctly. The
+order path is unaffected. Recording this because the near-miss is the point:
+one malformed row is interpreted **three different ways by three consumers of
+one derivation**, and only reading each consumer's own predicate tells you
+which.
+
+**Fix shape (deferred, as agreed).** In order of durability: (1) make
+`ingest_report` reject a fill whose `status` implies a position (`open`/`filled`/
+`closed`) and carries no resolvable direction — admission must cover identity, and
+the ticket is available to resolve it from (`prop-manual-5e30b930` carries
+`direction: long`); (2) give the prop book an explicit *reconciliation* state so
+"not reported closed" is distinguishable from "confirmed open", registered with
+`collapsed-state-guard` like every other three-state field in this repo; (3) an
+age ceiling on an unclosed prop position that escalates rather than pulses — a
+position open longer than any plausible hold is a data defect, not a trade to
+monitor. (1) and (3) are Tier-2; (2) is the structural one the operator asked
+for.
+
+### F-105 — The registry carries two stage fields with independent lifecycles (severity: LOW; the dangerous reading refuted)
+
+Every registry row carries `status` **and** `target_deployment_stage`. On all
+three live advisory heads:
+
+```
+btc-regime-15m-lgbm-fc-pcv-v2:  status=candidate  target_deployment_stage=advisory
+sol-regime-15m-lgbm-fc-pcv-v2:  status=candidate  target_deployment_stage=advisory
+mes-regime-5m-lgbm-v2:          status=candidate  target_deployment_stage=advisory
+```
+
+`status` is rewritten `candidate → candidate` by `experiments-runner` on every
+nightly re-train (36 / 35 / 81 history entries, **100% `candidate`** in all
+three); `target_deployment_stage` is moved only by the operator-gated promotion
+and is recorded separately in `stage_history`.
+
+**The hypothesis I formed and then refuted:** that the nightly re-train silently
+demotes a promoted head. It does not. Every runtime consumer reads
+`target_deployment_stage` — `regime_bar_scoring.py:267`,
+`ml_vol_verdict.py:182`, `advisory_sizing.py:64`, `coordinator.py:496`,
+`training_center.py:312` — and the Streamlit renderer prefers it with `stage` only
+as a fallback (`streamlit_app.py:3903,6159,6405`). BTC's real-money vol gate is
+reading `advisory`, as `CLAUDE.md` claims.
+
+What remains is a legibility hazard rather than a live defect: `status` is the
+first field a human sees on a registry row, it is permanently `candidate` for
+every model in the fleet, and it is a **column in the `trainer_store` sidecar**
+(`src/units/db/trainer_store.py:168,184`) — so a Data Explorer or SQL analysis
+grouping `model_registry` by `status` returns *zero advisory models*, confidently.
+Two fields named for one concept, one of them inert, both queryable.
+
+### Retractions from this pass
+
+Two of my own probes returned `None` from **key names that do not exist**, and in
+both cases the null was one step from being reported as a finding:
+
+- `/api/bot/shadow/stats` — I read `first_ts`/`last_ts` and reported them null for
+  all 34 models, nearly concluding that the promotion gate's soak denominator was
+  unpopulated. The keys are `first_seen`/`last_seen`, and the surface is in fact
+  **exemplary**: it carries `soak_days`, `soak_days_is_lower_bound`,
+  `soak_start_basis` (`registry` / `registry_registration` / `observed` /
+  `log_censored` / `unknown`) and a `log_coverage` envelope stating the retained
+  window is not the soak history — the `BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-
+  ROTATION-NOT-SOAK-START` fix, correctly done.
+- The readiness `report.json` — I read `promote`/`demote`/`hold` at top level and
+  got `None`; the real keys are `proposals` / `summary` / `datasets_root_used` /
+  `generated_at_utc`.
+
+`dict.get()` on a misspelled key is indistinguishable from a real null. That is
+the *same* collapsed state this audit keeps finding in the system, occurring in
+the audit's own instrument — which is why every probe in this part prints its
+key set before its values.
+
