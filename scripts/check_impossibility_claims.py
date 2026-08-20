@@ -60,6 +60,7 @@ nothing — an absent result, never a clean one), **1 = findings**, 0 = clean.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -217,13 +218,79 @@ def _added_lines(base: str, path: str) -> list[tuple[int, str]]:
     return added
 
 
+BASELINE_PATH = REPO / "docs/claude/impossibility-claim-baseline.json"
+
+
+def _per_file_counts(failures: list[str]) -> dict:
+    """Bucket findings by the file they were reported against.
+
+    PER-FILE, not a single total, deliberately. A bare total is satisfied by
+    CHURN — annotate one row, add an unannotated one somewhere else, and the
+    count is unchanged while the corpus got no better. A per-file map fails the
+    file that grew, which is the thing a reader needs to know.
+    """
+    counts: dict = {}
+    for f in failures:
+        path = f.split(":", 1)[0]
+        counts[path] = counts.get(path, 0) + 1
+    return counts
+
+
+def _load_baseline() -> dict | None:
+    """Read the committed baseline, or None when we could not look.
+
+    None and {} are DIFFERENT: {} asserts a clean corpus, None says the file is
+    missing or unreadable. Returning {} here would turn a deleted baseline into
+    "every file regressed", which is a confident wrong answer.
+    """
+    try:
+        return json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["per_file"]
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def _ratchet(counts: dict) -> tuple[list[str], list[str]]:
+    """Compare live per-file counts to the baseline. Returns (regressions, improvements)."""
+    base = _load_baseline()
+    if base is None:
+        # `relative_to` RAISES when the path is outside the repo, and this is the
+        # error path — a reporter that crashes while reporting a failure turns a
+        # legible "could not grade" into an opaque traceback.
+        try:
+            where = BASELINE_PATH.relative_to(REPO).as_posix()
+        except ValueError:
+            where = str(BASELINE_PATH)
+        return ([f"baseline unreadable at {where} — "
+                 "cannot grade regression. This is an ABSENT result, not a clean one; "
+                 "regenerate with --update-baseline."], [])
+    regressions, improvements = [], []
+    for path, n in sorted(counts.items()):
+        was = base.get(path, 0)
+        if n > was:
+            regressions.append(
+                f"{path}: {was} -> {n} unsubstantiated impossibility claim(s). "
+                "A NEW one was committed here. Add `checked: <path>` naming the tool "
+                "you actually ran, or annotate the row.")
+    for path, was in sorted(base.items()):
+        n = counts.get(path, 0)
+        if n < was:
+            improvements.append(f"{path}: {was} -> {n}")
+    return regressions, improvements
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", help="base ref; scan only lines added vs it")
     ap.add_argument("--all", action="store_true", help="standing audit over the whole corpus")
+    ap.add_argument("--ratchet", action="store_true",
+                    help="with --all: fail only where a file EXCEEDS its committed baseline")
+    ap.add_argument("--update-baseline", action="store_true",
+                    help="with --all: rewrite the baseline from the current corpus")
     args = ap.parse_args()
     if not args.base and not args.all:
         ap.error("pass --base <ref> or --all")
+    if (args.ratchet or args.update_baseline) and not args.all:
+        ap.error("--ratchet / --update-baseline require --all")
 
     failures: list[str] = []
     scanned = 0
@@ -242,6 +309,40 @@ def main() -> int:
                 continue
         failures.extend(check_lines(lines, path, context=body,
                                     body_lines=body.splitlines()))
+
+    if args.update_baseline:
+        counts = _per_file_counts(failures)
+        BASELINE_PATH.write_text(json.dumps(
+            {"_comment": (
+                "Standing per-file count of unsubstantiated impossibility claims. "
+                "The diff-scoped guard cannot police lines nobody edits, so this "
+                "ratchet is what keeps already-committed rows visible. Counts may "
+                "only go DOWN: regenerate with "
+                "`python3 scripts/check_impossibility_claims.py --all --update-baseline`."),
+             "per_file": dict(sorted(counts.items()))},
+            indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"impossibility-claim-guard: baseline written, "
+              f"{sum(counts.values())} claim(s) across {len(counts)} file(s).")
+        return 0
+
+    if args.ratchet:
+        counts = _per_file_counts(failures)
+        regressions, improvements = _ratchet(counts)
+        for line in improvements:
+            print(f"::notice::impossibility-claim-guard improved — {line}")
+        for line in regressions:
+            print(f"::error::impossibility-claim-guard REGRESSION — {line}")
+        total = sum(counts.values())
+        print(f"impossibility-claim-guard (--all --ratchet): {scanned} file(s) scanned, "
+              f"{total} standing claim(s), {len(regressions)} regression(s), "
+              f"{len(improvements)} improvement(s).")
+        if scanned == 0:
+            print("::error::scanned NOTHING — ABSENT, not clean.")
+            return 2
+        if improvements and not regressions:
+            print("::notice::baseline can be tightened: "
+                  "run `--all --update-baseline` and commit.")
+        return 1 if regressions else 0
 
     for f in failures:
         print(f"::error::{f}")
