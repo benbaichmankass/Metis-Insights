@@ -75,6 +75,7 @@ sys.path[:] = [p for p in sys.path if os.path.abspath(p) != _SCRIPT_DIR]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+from src.research import risk_basis  # noqa: E402  (the ONE definition of live risk + its UNIT)
 from src.runtime.intents import StrategyIntent, aggregate_intents  # noqa: E402
 # The live override predicate + the canonical bar-length map, imported rather
 # than mirrored so the harness measures the arm that actually runs.
@@ -105,7 +106,15 @@ try:
 except Exception:  # noqa: BLE001
     _compute_conviction = None
 
-FEE_BPS_ROUNDTRIP = 7.5
+# 2026-08-20 (B4): was a hardcoded `7.5` — in a file that imports the ONE shared
+# cost model at line 77 and already reads `execution_costs.FUNDING_WINDOW_HOURS`
+# below. Both conventions lived here, and different call sites used each: the
+# literal fed `_close`'s fee_rate + `roundtrip_cost_r` + the emitted metadata,
+# while `roundtrip_cost_usd` took the owner's. They agreed at 7.5 and nothing
+# enforced that — the same shape as F-113 (`risk_pct` as a fraction in the live
+# sizer and a percent in this same harness fleet, a 5x gap invisible from the
+# name). Now an alias, so the value has exactly one home.
+FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP
 # Execution-realism cost (P1 § 3.B). This harness ALREADY charged a round-trip fee
 # (`fee_rate·(entry+exit)·qty` in `_close`), so the fee convention is kept exactly —
 # byte-identical PnL. Slippage + perp-only funding are ADDED through the ONE shared
@@ -1426,6 +1435,17 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     summary = _summarize(closed, equity_curve, base_balance=initial_balance, symbol=symbol,
                          util_bars=util_bars, total_bars=n, roster=roster,
                          params={"initial_balance": initial_balance, "risk_pct": risk_pct,
+                                 # Computed HERE rather than threaded from
+                                 # main(), so EVERY caller gets it — including
+                                 # the in-process ones (the trainer's
+                                 # signal-cache driver, the sweeps) that never
+                                 # go through the CLI. A stamp only the CLI
+                                 # applied would leave exactly the callers that
+                                 # cannot be inspected from a run log ungraded.
+                                 # Pure + fail-permissive: an unreadable
+                                 # accounts.yaml yields verdict `live_unknown`,
+                                 # never a fabricated match.
+                                 "risk_basis": risk_basis.compare_to_live(risk_pct),
                                  "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
                                  "clock_tf": clock_tf, "flip_policy": flip_policy,
                                  "flip_confidence_threshold": flip_confidence_threshold,
@@ -1572,6 +1592,11 @@ def _summarize(closed: List[_ClosedTrade], equity_curve, *, base_balance, util_b
         "kind": "system_backtest", "symbol": symbol, "roster": roster,
         "params": params, "data_start": data_start, "data_end": data_end,
         "run_date": str(date.today()), "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        # The risk basis this run sized against, next to live's — so a stored
+        # result can be graded later without re-deriving what live was that day.
+        # `params["risk_pct"]` alone cannot: it carries no unit and no
+        # comparison, which is how the 5x gap went unseen.
+        "risk_basis": params.get("risk_basis"),
         # Cost config in effect for this run (funding is perp-only → 0 for a non-perp).
         "slippage_bps_roundtrip": SLIPPAGE_BPS_ROUNDTRIP,
         "funding_bps_per_window": FUNDING_BPS_PER_WINDOW,
@@ -1665,6 +1690,23 @@ def _fmt(s: Dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def _risk_pct_arg(raw: str) -> float | str:
+    """`--risk-pct` accepts a number OR the literal `live`.
+
+    Returned as the STRING "live" and resolved later, not here: resolution
+    reads config/accounts.yaml and must be able to REFUSE loudly, while an
+    argparse type that raised would print a usage blurb instead of the reason
+    the live value could not be read.
+    """
+    if str(raw).strip().lower() == "live":
+        return "live"
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError(
+            f"--risk-pct must be a number (percent, e.g. 0.3) or `live`, got {raw!r}")
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
     p = argparse.ArgumentParser(
@@ -1681,8 +1723,16 @@ def main(argv: List[str]) -> int:
     p.add_argument("--roster", default=",".join(ROSTER.keys()),
                    help="Comma list of strategies to run together (default: all v1 members).")
     p.add_argument("--initial-balance", type=float, default=10_000.0)
-    p.add_argument("--risk-pct", type=float, default=0.3,
-                   help="Per-trade risk %% of balance (the shared account's risk_pct).")
+    p.add_argument("--risk-pct", type=_risk_pct_arg, default=0.3,
+                   help="Per-trade risk %% of balance, in the HARNESS unit "
+                        "(percent: 0.3 = 0.3%%). Pass `live` to resolve the "
+                        "reference account's declared risk from "
+                        "config/accounts.yaml instead. The numeric DEFAULT is "
+                        "deliberately unchanged — moving it would silently "
+                        "re-base every historical comparison.")
+    p.add_argument("--risk-account", default=risk_basis.DEFAULT_REFERENCE_ACCOUNT,
+                   help="Account whose declared risk `--risk-pct live` and the "
+                        "reported comparison resolve against.")
     p.add_argument("--daily-loss-pct", type=float, default=3.0,
                    help="Daily-loss cap %% of day-start balance (halts new entries for the day).")
     p.add_argument("--signal-ttl-bars", type=int, default=1,
@@ -1807,6 +1857,41 @@ def main(argv: List[str]) -> int:
             except ValueError:
                 v2 = v
         overrides.setdefault(strat, {})[k] = v2
+
+    # --- Risk basis (fix 2.3 / B3+B5, 2026-08-20) ---------------------------
+    # Measured 2026-08-20: 0 of 25 harness files read config/accounts.yaml or
+    # reached live risk at all, so `--risk-pct 0.3` (percent) ran against a live
+    # `risk_pct: 0.015` (fraction) = 1.5% — a 5x gap invisible from the name
+    # (F-113). `src/research/risk_basis.py` shipped the ONE definition and its
+    # UNIT the day before this and had NO consumer, which is the very
+    # build-and-abandon class this audit exists to catch. This is that consumer.
+    #
+    # `live` RESOLVES; anything else is taken as the harness percent. A failed
+    # resolution REFUSES rather than falling back to the default — silently
+    # sizing at 0.3 while the operator asked for live is exactly the collapse
+    # (`we could not look` read as `here is the number you wanted`).
+    risk_report = risk_basis.compare_to_live(
+        0.0 if args.risk_pct == "live" else float(args.risk_pct),
+        account_id=args.risk_account)
+    if args.risk_pct == "live":
+        live = risk_basis.live_risk(args.risk_account)
+        if not live.ok or live.percent is None:
+            print(f"ERROR: --risk-pct live could not resolve: {live.describe()}",
+                  file=sys.stderr)
+            return 1
+        args.risk_pct = live.percent
+        risk_report = risk_basis.compare_to_live(live.percent,
+                                                 account_id=args.risk_account)
+        print(f"--risk-pct live -> {live.percent:g}% "
+              f"(account {args.risk_account}, {live.state})", file=sys.stderr)
+    else:
+        args.risk_pct = float(args.risk_pct)
+    # Reported on EVERY run, not just `live` ones: a run whose risk differs from
+    # live is not wrong, but a reader must be able to see that it does. The
+    # verdict is three-way — `live_unknown` is NOT `matches_live`.
+    print(f"risk basis: harness {risk_report['harness_percent']:g}% vs live "
+          f"{risk_report.get('live_percent')} — {risk_report.get('verdict')}",
+          file=sys.stderr)
 
     roster = [r.strip() for r in args.roster.split(",") if r.strip() in ROSTER]
     try:
