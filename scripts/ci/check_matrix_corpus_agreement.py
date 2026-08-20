@@ -140,6 +140,30 @@ BLOCKED_ACK = re.compile(
 # is a new column shipping with no evidence store, which is precisely the state
 # these three were in before anyone measured it.
 CORPUS_EXEMPT_LEVERS: dict[str, str] = {
+    "bracket_geometry": (
+        "NOT A LEVER — it is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x "
+        "timeout_bars), added as a DIMENSION 2026-08-20. The corpus this guard "
+        "reads holds (leg, LEVER) rows: one row per post-entry override applied "
+        "to a bracket held fixed. There is no lever here to key a row on, so the "
+        "corpus cannot speak to this column in principle, not merely in practice "
+        "— which is a different exemption from exit_head_ml's, where the evidence "
+        "exists and simply lives in another file. "
+        "WHERE THE EVIDENCE ACTUALLY IS, so this exemption is checkable rather "
+        "than taken on trust: per-leg reports under "
+        "runtime_logs/e35_bracket/<leg>/2026-08-20/report.json, each carrying a "
+        "`gate` block with the IS/OOS result, the path, and the per-fold "
+        "walk-forward for every gated cell. The matrix statuses were DERIVED from "
+        "those blocks, not transcribed from prose, so matrix-vs-artifact "
+        "agreement holds by construction for the 2026-08-20 run. "
+        "WHAT THIS EXEMPTION HIDES, stated rather than left implicit: nothing "
+        "re-checks that derivation on a LATER edit. A hand-edit to a "
+        "bracket_geometry cell would not be caught here, and would not be caught "
+        "anywhere. Narrowing that is "
+        "BL-20260820-BRACKET-GEOMETRY-COLUMN-HAS-NO-AGREEMENT-CHECK — the fix is "
+        "a reports-directory reader, the same shape as pointing this guard at "
+        "m20-exit-head-rounds.jsonl, NOT deleting the exemption. "
+        "Do not read a passing run as 'this column is verified'."
+    ),
     "exit_head_ml": (
         "measured by scripts/research/m20_exit_head_round.py on the trainer VM. "
         "⚠️ THIS EXEMPTION'S ORIGINAL REASON IS NO LONGER TRUE AND IS KEPT ONLY "
