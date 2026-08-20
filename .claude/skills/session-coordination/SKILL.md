@@ -72,12 +72,24 @@ contract + generation discipline. This skill adds the two missing halves:
 2. **Know your capabilities BEFORE you reach for a tool you don't have.** On
    Claude Code on the web / PM-side sessions (see `CLAUDE.md` § "PM-side session
    capabilities"): `run_workflow` 403s — drive workflows via **labelled issues**
-   (the diag/system-action relays). Direct VM egress is usually firewalled —
-   live-VM reads go through the **`vm-diag-snapshot` relay** (`/api/diag/*` only)
-   or `trainer-vm-diag`. The hosted GitHub MCP **drops intermittently** — retry
+   (the diag/system-action relays). Direct VM egress is firewalled for a raw
+   `http://IP:port` but **not** for the Caddy HTTPS hostname (measured
+   2026-08-20 at default-`Trusted`) — try `https://ict-bot.duckdns.org/api/diag/*`
+   first, then the **`vm-diag-snapshot` relay**; the trainer is relay-only
+   (`trainer-vm-diag`), it has no HTTP diag surface. The hosted GitHub MCP **drops intermittently** — retry
    with backoff (2s/4s/8s/16s), never treat the first failure as an expired token
    or hand off to the operator. There is **no `create_label`** — labels come from
    `bootstrap-labels.yml`.
+> ⚠️ **EVERY board post goes through `add_issue_comment`. NEVER `issue_write
+> method=update` — that REPLACES the issue body and destroys the board's pinned
+> protocol header.** It has happened six times (2026-07-30, 08-09, 08-15, 08-19,
+> and twice on 08-20) and the MCP's return value is **indistinguishable** from a successful
+> comment, so nothing tells you — twice on 2026-08-20 alone, four minutes apart, by
+> two sessions neither of which could see the other do it. Full account + the restore
+> procedure:
+> [`docs/claude/coordination-board.md`](../../../docs/claude/coordination-board.md)
+> § "POST WITH `add_issue_comment`".
+
 3. **READ the live coordination board FIRST, then POST your START.** This is the
    mandatory live-comms step (`docs/claude/coordination-board.md`). Before your
    first substantive change: (a) `issue_read method=get_comments` on **#6927** to

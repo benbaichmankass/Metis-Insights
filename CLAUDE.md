@@ -1161,10 +1161,39 @@ these drops, so a premature hand-off strands the task on a false alarm.
 The underlying connector stability is Anthropic-hosted (not fixable
 from this repo); the durable workaround for a VM-data task that must not
 depend on GitHub is the **direct diag path** (`DIAG_BASE_URL` +
-`DIAG_READ_TOKEN` + `scripts/ops/diag_fetch.sh`), which needs the
-environment created at **Full** network access — at the default
-**Trusted** level egress to the VM is firewalled and the issue relay is
-the only channel.
+`DIAG_READ_TOKEN` + `scripts/ops/diag_fetch.sh`). ⚠️ **THE HOSTNAME DECIDES,
+NOT THE NETWORK-ACCESS LEVEL — and the relay is NOT the only channel**
+(corrected 2026-08-20; the claim below had been half wrong since the Caddy
+cutover, and it cost every web session a relay round-trip it did not need).
+**Measured from a default-`Trusted` web session, both arms in one go:**
+
+| target | result |
+|---|---|
+| `http://141.145.193.91:8001/api/health` (raw IP) | **000** — firewalled, as documented |
+| `https://ict-bot.duckdns.org/api/health` (Caddy) | **200** `{"ok":true}` |
+| `https://ict-bot.duckdns.org/api/diag/version` + bearer | **200** `{"git_sha":"e4c274af",…}` |
+
+So the **raw-IP** half of the old claim is right and the **"egress to the VM is
+firewalled, the relay is the only channel"** half is wrong: the Caddy HTTPS
+hostname (the same one the Svelte SPA uses) is allowlisted like any other HTTPS
+host, and **credentialed `/api/diag/*` works over it at Trusted**. Try the
+hostname before falling back to the issue relay. ⚠️ **But check `DIAG_BASE_URL`
+before trusting it** — as of 2026-08-20 the cloud environment still ships
+`http://158.178.210.252:8001`, the x86 micro **terminated 2026-06-16**, so the
+canned var points at a dead host over the one scheme that cannot work
+(`BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM`, re-confirmed live two days
+after filing). ✅ **`scripts/ops/diag_fetch.sh` now handles that for you** — it
+tries an ORDERED list of candidate bases and puts the canonical HTTPS one FIRST
+whenever the configured value is plain-http or names a known VM IP, so a stale
+env var no longer strands the direct path; it prints `served by <base>` on
+stderr so you can see which one answered. **Do not describe this as an
+operator-only problem** — that claim was made in the backlog and was wrong: the
+var is consumed by a repo file, so the repo decides what to do with a bad value.
+It previously "self-healed" the retired micro to the **raw live IP**, which the
+proxy drops — measured 2026-08-20 as `curl (28)` timeout then exit 3, i.e. a
+heal that reported success and produced an unreachable host. Fixed + verified
+in-session with the stale env still set (`exit 0`, real JSON, served by the
+Caddy host); regression-tested in `tests/test_diag_fetch_sh.py`.
 
 **The GitHub REST API is NOT reachable by `curl` — use the MCP (2026-07-30).**
 `*.github.com` being nominally allowlisted does **not** mean
@@ -1193,8 +1222,15 @@ live VM's diag API directly, the environment must be set to **Full**
 (or **Custom** allowlisting the host) AND carry the `DIAG_BASE_URL` +
 `DIAG_READ_TOKEN` env vars — see "Reaching `/api/diag/*`" above. Note
 the security proxy is HTTP/HTTPS-only even at Full, so SSH/raw-TCP to
-the VMs never works from a web session; and a raw `http://IP:port` may
-still be dropped (point `DIAG_BASE_URL` at an HTTPS hostname if so).
+the VMs never works from a web session. ⚠️ **A raw `http://IP:port` is not
+"may still be dropped" — it IS dropped** (measured 2026-08-20: rc/http `000`
+against `141.145.193.91:8001` at Trusted), **while the Caddy HTTPS hostname
+works at Trusted with no Full/Custom change at all** (`200` on both
+`/api/health` and a bearer'd `/api/diag/version`). The **scheme + hostname** is
+what the proxy allowlists, not the destination host's identity — so "must be set
+to Full to reach the live VM's diag API" is true only of the raw-IP route.
+Point `DIAG_BASE_URL` at `https://ict-bot.duckdns.org` and the direct path works
+from an ordinary session.
 Network-access changes take effect on a **new** session, not the
 running one.
 

@@ -136,6 +136,7 @@ on:
           - supersede-reset-orphan-artifacts
           - supersede-intent-reduce-phantom-pnl
           - fix-prop-mislinked-close
+          - repair-prop-fill-direction
           - reset-daily-risk-state
           - repair-malformed-notes
           - repair-netted-rows
@@ -557,7 +558,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -823,6 +824,20 @@ jobs:
                 ;;
             esac
           fi
+          # repair-prop-fill-direction: prop-journal hygiene. `account` is
+          # OPTIONAL (omitted = every account), because the defect is a class
+          # and scoping the sweep to one id is how the previous three instances
+          # each got their own single-purpose script. `apply` must be explicit.
+          if [ "${ACTION}" = "repair-prop-fill-direction" ]; then
+            if [ -n "${ACCOUNT_ID// }" ] && ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::repair-prop-fill-direction account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if [ -n "${ACTION_APPLY// }" ] && [ "${ACTION_APPLY}" != "true" ] && [ "${ACTION_APPLY}" != "false" ]; then
+              echo "::error::repair-prop-fill-direction apply must be true or false (got '${ACTION_APPLY}')."
+              exit 1
+            fi
+          fi
           # backfill-tpsl-leg-ids: same contract as cancel-stale-tpsl-legs
           # (account_id + symbol required; apply gates dry-run-vs-write). The
           # python script additionally guards exchange==bybit AND refuses on
@@ -1045,6 +1060,7 @@ jobs:
             validate-bybit-naked-rearm)         SCRIPT="validate_bybit_naked_rearm_action.sh" ;;
             cancel-stale-tpsl-legs)             SCRIPT="cancel_stale_tpsl_legs_action.sh" ;;
             backfill-tpsl-leg-ids)              SCRIPT="backfill_tpsl_leg_ids_action.sh" ;;
+            repair-prop-fill-direction)         SCRIPT="repair_prop_fill_direction_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -1276,6 +1292,9 @@ jobs:
           fi
           if [ "${ACTION}" = "backfill-tpsl-leg-ids" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "repair-prop-fill-direction" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reset-daily-risk-state" ]; then
             if [ -z "${ACCOUNT_ID// }" ]; then

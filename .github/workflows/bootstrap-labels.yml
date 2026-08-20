@@ -357,6 +357,11 @@ jobs:
                 description: 'Triggers oci-inventory — read-only OCI compute inventory diffed against the declared topology.',
               },
               {
+                name: 'oci-topology-drift',
+                color: 'd93f0b',
+                description: 'Live OCI topology no longer matches the declared one, or could not be checked.',
+              },
+              {
                 name: 'research-exit-head-request',
                 color: '0075ca',
                 description: 'Triggers research-exit-head-build workflow — self-contained M30×M20 per-bar in-trade exit-head build on a GH runner (fetch feed + dense panel + uniqueness-weighted meta-label head + net-of-fee verdict).',

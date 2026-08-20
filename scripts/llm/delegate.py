@@ -67,6 +67,17 @@ SYSTEM_PROMPT = (
     "given. If a claim depends on a file that is not provided, say that the "
     "file was not provided and that you cannot verify the claim — never "
     "conclude the claim is false because you cannot see its implementation.\n\n"
+    # Added 2026-08-20. Without this the model must COUNT lines to answer a
+    # "quote the line number" instruction, and it does that confidently and
+    # wrongly: graded over 4 tasks on unfamiliar code, every quoted snippet was
+    # verbatim correct and 0 of 11 line citations landed (off by 3, 24, and
+    # ~214). A file:line cite is exactly what this repo's conventions teach a
+    # reader to trust, so a fabricated one is worse than none.
+    "Each file below is presented WITH LINE NUMBERS: every line is prefixed "
+    "with its number and a tab. That prefix is presentation, not file content. "
+    "When you cite a line, cite the number shown on that line — do not count "
+    "or estimate line numbers yourself, and do not include the number prefix "
+    "inside code you quote.\n\n"
     "Be concise and concrete."
 )
 
@@ -89,10 +100,24 @@ def envelope(task_id, status, reason=None, **extra):
     return env
 
 
+def number_lines(content: str) -> str:
+    """1-based `<number>\\t<line>`, the `cat -n` shape.
+
+    The model cannot cite a line number it was never shown, so before this it
+    ESTIMATED them — see the SYSTEM_PROMPT note. Right-aligned to a constant
+    width so the code column stays aligned and the prefix is visually separable
+    from the content; the separator is a TAB so a model quoting code can strip
+    it unambiguously (a space would be indistinguishable from indentation).
+    """
+    lines = content.split("\n")
+    width = len(str(len(lines)))
+    return "\n".join(f"{n:>{width}}\t{line}" for n, line in enumerate(lines, 1))
+
+
 def build_prompt(instruction: str, files: list[tuple[str, str]]) -> str:
     parts = [f"## Instruction\n{instruction}\n", "## Files"]
     for path, content in files:
-        parts.append(f"\n### `{path}`\n```\n{content}\n```")
+        parts.append(f"\n### `{path}`\n```\n{number_lines(content)}\n```")
     return "\n".join(parts)
 
 
