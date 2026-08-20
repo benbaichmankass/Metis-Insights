@@ -220,3 +220,118 @@ def test_the_banner_is_wired_into_the_endpoint(monkeypatch):
     assert "_trainer_disk_banner(" in body, (
         "_trainer_disk_banner is defined but never called from the endpoint"
     )
+
+
+# ---------------------------------------------------------------------------
+# Staleness + refusal publishing (F-35 / F-103, the other half of fix 1.3)
+# ---------------------------------------------------------------------------
+def _builder_block() -> str:
+    """The embedded python that builds `trainer_status.json`."""
+    text = PUBLISH_SH.read_text(encoding="utf-8")
+    delim = "P" + "Y"
+    blocks = re.findall(r"<<'" + delim + r"'\n(.*?)\n" + delim + r"\n",
+                        text, flags=re.DOTALL)
+    cands = [b for b in blocks if "last_cycle" in b and "training_staleness" in b]
+    assert cands, "status-builder block not found — the extractor is stale"
+    return cands[0]
+
+
+def _run_cycle_classification(rows):
+    """Execute the SHIPPING classification loop against synthetic cycle rows.
+
+    Extracted and run, not re-declared. Everything before the loop that the
+    loop needs is stubbed minimally; the loop body itself is verbatim.
+    """
+    block = _builder_block()
+    start = block.index("cycles_24h = 0")
+    end = block.index("# --- Dataset build history")
+    loop_src = block[start:end]
+    # the real block computes cycle_rows/cutoff_24h/parse_iso above this point
+    ns = {
+        "Counter": __import__("collections").Counter,
+        "cycle_rows": rows,
+        "cutoff_24h": 0,
+        "parse_iso": lambda _s: 1,   # every row is "within 24h"
+    }
+    exec(loop_src, ns)
+    return ns
+
+
+def test_positive_control_the_classification_loop_is_real_and_runs():
+    ns = _run_cycle_classification([{"status": "manifest_ok", "ts": "t"}])
+    assert ns["manifests"].get("manifest_ok") == 1, (
+        "the extracted loop did not classify a plain manifest_ok — the "
+        "extraction, not the logic, is wrong, and every test below would be "
+        "measuring a stub"
+    )
+
+
+def test_an_enforced_refusal_is_counted_and_NAMED():
+    ns = _run_cycle_classification([
+        {"status": "manifest_ok", "ts": "t"},
+        {"status": "manifest_audit_skipped_enforced", "ts": "t",
+         "manifest": "ml/configs/setup-quality-lgbm-v2.yaml"},
+    ])
+    assert ns["manifests"].get("manifest_audit_skipped_enforced") == 1, (
+        "an enforced refusal counted toward NOTHING in manifests_24h — it was "
+        "absent from the status set entirely, so 25 days of refusals were "
+        "invisible on the one surface consumers read"
+    )
+    assert ns["refusing_manifests"] == {"ml/configs/setup-quality-lgbm-v2.yaml"}, (
+        "the refusing manifest is counted but not NAMED — a bare count cannot "
+        "be acted on"
+    )
+
+
+def test_a_refusal_with_no_manifest_field_is_not_silently_dropped():
+    ns = _run_cycle_classification([
+        {"status": "manifest_audit_skipped_enforced", "ts": "t"}])
+    assert ns["refusing_manifests"] == {"(unnamed)"}, (
+        "a refusal row missing its manifest field vanished from the named set "
+        "while still incrementing the count — the two would disagree"
+    )
+
+
+def test_staleness_summary_is_captured_and_the_NEWEST_wins():
+    ns = _run_cycle_classification([
+        {"status": "training_staleness_summary", "ts": "t1", "stale": 3, "scanned": 76},
+        {"status": "training_staleness_summary", "ts": "t2", "stale": 7, "scanned": 76},
+    ])
+    assert ns["staleness"] is not None
+    assert ns["staleness"]["stale"] == 7, "an older summary overwrote the newest"
+
+
+def test_absent_staleness_is_None_not_an_empty_dict():
+    """`{}` would read as 'scanned nothing / nothing stale'."""
+    ns = _run_cycle_classification([{"status": "manifest_ok", "ts": "t"}])
+    assert ns["staleness"] is None
+
+
+def test_the_published_block_distinguishes_absent_from_clean():
+    """`present:false` must be reachable and must carry an explanation.
+
+    Without it, a mirror with no staleness row is byte-identical to one
+    reporting zero stale manifests — the collapse this whole PR is about.
+    """
+    block = _builder_block()
+    assert '"present": staleness is not None' in block
+    assert "not 'nothing is stale'" in block or "NOT \"nothing is stale\"" in block or \
+           "NOT 'nothing is stale'" in block, (
+        "the present:false branch does not say what it means"
+    )
+
+
+def test_manifests_24h_and_the_classifier_agree_on_the_enforced_key():
+    """The published key and the counted key must be the same string.
+
+    A typo here publishes a permanent 0 that reads as 'no refusals'.
+    """
+    block = _builder_block()
+    assert block.count('"manifest_audit_skipped_enforced"') >= 2
+    assert 'manifests.get("manifest_audit_skipped_enforced", 0)' in block
+
+
+def test_staleness_and_refusals_reach_the_payload_not_just_a_local():
+    block = _builder_block()
+    assert '"training_staleness": {' in block
+    assert '"refusing_manifests_24h": sorted(refusing_manifests)' in block
