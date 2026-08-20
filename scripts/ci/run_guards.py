@@ -319,6 +319,13 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/check_impossibility_claims.py", "--base", "origin/{base_ref}"],
             ["python3", "scripts/ci/guard_selftests.py", "impossibility-claim"],
+            # The STANDING half. The --base run above is diff-scoped, which is
+            # right for new lines and structurally blind to rows nobody edits --
+            # 36 unsubstantiated claims across 14 files sat un-reported because
+            # of exactly that. The ratchet grades every tracked file against a
+            # committed per-file baseline, so it never fails a PR for the
+            # pre-existing 36 and always fails one that ADDS to a file.
+            ["python3", "scripts/check_impossibility_claims.py", "--all", "--ratchet"],
         ],
     },
     {
