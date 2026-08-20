@@ -211,10 +211,10 @@ def _trainer_disk_banner(trainer_down: bool) -> Optional[Dict[str, Any]]:
                 f"(warning) — both CHOSEN, not calibrated "
                 f"(BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED). A full trainer "
                 f"disk stops dataset builds and training cycles, which the trainer's "
-                f"own systemd state will still report as green. Note the dataset GC "
-                f"(scripts/ops/trainer_dataset_gc.py) is NOT the remedy: measured "
-                f"2026-08-20 it reclaims 0.09 GB of 115 version dirs (111 held by 41 "
-                f"manifest pins)."
+                f"own systemd state will still report as green. Note the dataset "
+                f"garbage collector is NOT the remedy: measured 2026-08-20 it "
+                f"reclaims 0.09 GB of 115 version dirs (111 held by 41 manifest "
+                f"pins). See BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER."
             ),
             "since": payload.get("ts"),
         }
