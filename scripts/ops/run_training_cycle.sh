@@ -59,8 +59,15 @@
 # "every manifest skipped". The exit codes above are UNCHANGED (systemd treats
 # non-zero as unit failure, and a routine lock-skip must not read as one) —
 # instead the `cycle_end` event now carries the disambiguation:
-#   {"status":"cycle_end","overall_rc":R,"trained":N,"skipped":N,"failed":N,
-#    "already_done":N,"outcome":"trained|nothing_trained|already_complete"}
+#   {"status":"cycle_end","overall_rc":R,"trained":N,"skipped":N,
+#    "skipped_enforced":N,"failed":N,"already_done":N,"carried_done":N,
+#    "carried_skipped":N,"carried_read":"ok|unavailable","refusals_total":N,
+#    "outcome":"trained|trained_with_refusals|nothing_trained|
+#               already_complete|complete_with_refusals"}
+# A REFUSAL (dataset audit flagged known-bad data) is neither trained nor
+# failed; before 2026-08-20 it had no state of its own and was absorbed into
+# `skipped` and then, on the same-day resume, into `already_done` — which is
+# how five manifests went 25 days untrained under a green rc=0.
 # Consumers (the mirror → /api/bot/ml/cycle → the review skills) read
 # `outcome`, never infer from rc. The lock-skip paths keep their own distinct
 # events (cycle_locked / heavy_lock_timeout) and emit no cycle_end.
@@ -252,6 +259,27 @@ os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w", encoding="utf-8") as fh:
     json.dump(state, fh, indent=2)
 
+# CARRIED-FORWARD SPLIT (2026-08-20, F-35/F-103). A same-day resume excludes
+# BOTH `done` and `skipped` from the run list — correct, since re-running a
+# refused manifest would just refuse again. But the cycle then reported the
+# whole excluded set as `already_done`, which says TRAINED. Measured on the
+# live mirror (7 consecutive cycle_end pairs spanning 76.4 h): the second cycle
+# of every day publishes `already_done: 76, skipped: 0,
+# outcome: already_complete` and IS the `last_cycle` any consumer sees for
+# **78.9% of all hours** — so the visible summary is systematically the one
+# that hides the refusals. Split the two here; the caller reports them apart.
+carried_done = [m for m in manifests
+                if state["manifests"].get(m, {}).get("status") == "done"]
+carried_skipped = [m for m in manifests
+                   if state["manifests"].get(m, {}).get("status") == "skipped"]
+try:
+    with open(path + ".carried", "w", encoding="utf-8") as fh:
+        json.dump({"carried_done": len(carried_done),
+                   "carried_skipped": len(carried_skipped),
+                   "carried_skipped_manifests": sorted(carried_skipped)}, fh)
+except OSError:
+    pass  # best-effort: the caller defaults to 0/0 and RECORDS that it could not read
+
 for m in manifests:
     if state["manifests"].get(m, {}).get("status") not in ("done", "skipped"):
         print(m)
@@ -259,6 +287,26 @@ PY
 )
 
 resumed_count=$(( ${#TRAINING_MANIFEST_LIST[@]} - ${#TO_RUN_LIST[@]} ))
+# Split `resumed_count` into genuinely-trained-earlier vs refused-earlier.
+# `carried_read` is three-state and never collapsed: `ok` (the split is a real
+# measurement) vs `unavailable` (the side file could not be read, so the two
+# numbers below are NOT a measurement and must not be read as "no refusals
+# were carried") — the same distinction exit_anchor.py draws between
+# `no_anchor` and `deferred`.
+carried_done_n=0; carried_skipped_n=0; carried_read="unavailable"
+if [ -f "${PROGRESS_FILE}.carried" ]; then
+  _c="$(python - "${PROGRESS_FILE}.carried" <<'CARRIED_PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+    print("%d %d ok" % (int(d.get("carried_done", 0)), int(d.get("carried_skipped", 0))))
+except Exception:
+    print("0 0 unavailable")
+CARRIED_PY
+)"
+  [ -n "$_c" ] && read -r carried_done_n carried_skipped_n carried_read <<<"$_c"
+  : "${carried_read:=unavailable}"
+fi
 if [ "$resumed_count" -gt 0 ]; then
   emit "$(printf '{"ts":"%s","status":"cycle_resumed","already_done":%d,"to_run":%d}' "$(iso_now)" "$resumed_count" "${#TO_RUN_LIST[@]}")"
 fi
@@ -312,6 +360,7 @@ bash scripts/ops/publish_trainer_mirror.sh >/dev/null 2>&1 \
 overall_rc=0
 trained_n=0
 skipped_n=0
+skipped_enforced_n=0
 failed_n=0
 # Per-manifest wall-clock cap (BL-20260716-TRAINER-WEDGE). Without this a single
 # manifest that hangs or OOM-thrashes (btc-regime-5m-lgbm-flow-v1 wedged the
@@ -425,6 +474,13 @@ PY
     emit "$(printf '{"ts":"%s","status":"manifest_audit_skipped_enforced","manifest":"%s","detail":"SKIPPED (enforced): dataset audit flagged a dead feature / degenerate label in a NON-empty dataset — not trained this cycle. Fix the flagged column/label (see dataset_audit.jsonl) to resume training."}' "$(iso_now)" "$manifest")"
     progress_mark "$manifest" skipped reason=audit_flagged
     skipped_n=$((skipped_n + 1))
+    # A REFUSAL is not a skip. `skipped` is ONE bucket over four
+    # unrelated reasons (quarantined_oom / dataset_unchanged / empty
+    # dataset / this), and only this one means "we looked at the data
+    # and refused to train on it". Counting it apart is what gives the
+    # cycle the state between `trained` and `failed` that F-103 named
+    # as missing.
+    skipped_enforced_n=$((skipped_enforced_n + 1))
     continue
   elif [ "$audit_verdict" = "EMPTY" ]; then
     # Distinct channel from manifest_audit_flagged so the dead-feature alarm
@@ -583,15 +639,38 @@ done
 
 # cycle_end disambiguation (P1.5): `outcome` says what actually happened —
 # rc alone cannot (0 covers trained / already-complete / all-skipped alike).
-if [ "$trained_n" -gt 0 ]; then
+#
+# REFUSALS GET THEIR OWN OUTCOME (2026-08-20, F-35/F-103). Previously `trained`
+# covered "trained the whole fleet" and "trained 68 while 5 manifests refused
+# on known-bad data" identically, and `already_complete` covered "everything
+# genuinely trained today" and "everything either trained OR still refusing".
+# Both collapses hide the same state — a manifest we LOOKED AT and REFUSED,
+# which is neither trained nor failed. That missing middle is why five
+# manifests went 25 days untrained under `overall_rc: 0`.
+#
+# `refusals_now` counts this cycle's enforced skips; `carried_skipped_n` counts
+# ones already refused earlier today and therefore excluded from the run list.
+# A resume cycle has refusals_now == 0 and carried_skipped_n > 0, which is
+# exactly the case the old `already_complete` erased.
+refusals_total=$(( skipped_enforced_n + carried_skipped_n ))
+if [ "$trained_n" -gt 0 ] && [ "$refusals_total" -gt 0 ]; then
+  cycle_outcome="trained_with_refusals"
+elif [ "$trained_n" -gt 0 ]; then
   cycle_outcome="trained"
+elif [ "${#TO_RUN_LIST[@]}" -eq 0 ] && [ "$refusals_total" -gt 0 ]; then
+  cycle_outcome="complete_with_refusals"
 elif [ "${#TO_RUN_LIST[@]}" -eq 0 ]; then
   cycle_outcome="already_complete"
 else
   cycle_outcome="nothing_trained"
 fi
-emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d,"trained":%d,"skipped":%d,"failed":%d,"already_done":%d,"outcome":"%s"}' \
-  "$(iso_now)" "$overall_rc" "$trained_n" "$skipped_n" "$failed_n" "$resumed_count" "$cycle_outcome")"
+# `already_done` keeps its old meaning for back-compat (the mirror, the review
+# skills and /api/bot/ml/status all read it) but is now published BESIDE the
+# split that makes it honest: `carried_done` (trained earlier today) and
+# `carried_skipped` (REFUSED earlier today) sum to it. `carried_read` says
+# whether that split is a measurement at all.
+emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d,"trained":%d,"skipped":%d,"skipped_enforced":%d,"failed":%d,"already_done":%d,"carried_done":%d,"carried_skipped":%d,"carried_read":"%s","refusals_total":%d,"outcome":"%s"}' \
+  "$(iso_now)" "$overall_rc" "$trained_n" "$skipped_n" "$skipped_enforced_n" "$failed_n" "$resumed_count" "$carried_done_n" "$carried_skipped_n" "$carried_read" "$refusals_total" "$cycle_outcome")"
 
 # --- Staleness escalation (P1.3, best-effort) -------------------------------
 # Report every roster manifest with no registered run in
