@@ -3261,3 +3261,245 @@ is harmless and `status` being *present* is the bug. A detector that produces
 reviewable false positives is worth more than one that produces none, provided
 its output is treated as a reading list rather than a finding list.
 
+
+## Part 24 — The backtest harnesses and the remaining skills (delegated; top findings verified by me)
+
+Two read-only agents ran the last unreached breadth areas under the binding
+method, each required to report retractions. Between them they returned 23
+findings and **14 retractions** — including two probes that were wrong by more
+than 2×, which is the ratio this audit has come to expect and to want.
+
+I re-derived the five highest-consequence findings myself before recording them.
+Findings I verified personally are marked ✅; the rest are relayed on the agent's
+evidence and marked accordingly.
+
+### B1 ✅ — The M5 backtest consumer ignores the strategy it was asked to test, and writes fabricated zeros into the money DB (severity: HIGH)
+
+`src/backtest/run_backtest_m5.py` takes `argv[1]` as `strategy`. Grepping every
+use of that variable in the file returns **one** site — line 50,
+`summarize(trades, start_date, end_date, strategy)`, where it becomes the
+`strategy_version` *label*. The engine is constructed at
+`src/backtest/run_backtest.py:132` as:
+
+```python
+bt = ICTBacktester(df, {})
+```
+
+— an **empty config dict** and no strategy. So `/test trend_donchian`,
+`/test vwap` and `/test squeeze_breakout_4h` run the identical hardcoded ICT
+FVG/order-block simulation and differ only in the name written beside the
+result. Those rows land in `trade_journal.db::backtest_results` and are served by
+`GET /api/bot/backtests`.
+
+Compounding it, `run_backtest.py:105-125` hardcodes four metrics in the
+**non-empty-result** branch:
+
+```python
+"max_drawdown": 0.0, "max_drawdown_pct": 0.0,
+"sharpe_ratio": 0.0,  "total_pnl_pct": 0.0,
+```
+
+They are never computed, and they persist as real `0.0` values — the repo's own
+*"render a missing field as '—', never 0"* rule violated at the **writer**, in
+the one backtest path with a production consumer. A reader cannot distinguish
+"drawdown was zero" from "drawdown was never calculated."
+
+Blast radius is bounded by `M5_CONSUMER_ENABLED` (default off, and deliberately
+so per `docs/audits/env-gate-purge-2026-05-10.md`), but any row already written is
+indistinguishable from a good one.
+
+### B2 ✅ — `backtest_system.py`'s two sizing paths disagree by 100×, so the conviction A/B compares arms that differ 6.7× in size before the treatment (severity: HIGH)
+
+Two sizing functions in one file:
+
+```python
+# :866  baseline arm — rpct as PERCENT
+return (bal * (rpct / 100.0)) / stop_dist          # CLI default --risk-pct 0.3
+
+# :123, :890  conviction arm — a bare FRACTION
+_CONVICTION_RISK_BUDGET = 0.02
+risk_usd = conv * _CONVICTION_RISK_BUDGET * bal
+```
+
+At the CLI default the baseline arm risks **0.3%** and the conviction arm risks
+up to **2.0%** — a **6.7× sizing gap between the two arms of an A/B**, stacked on
+top of the treatment being measured. `c1-conviction-ab.yml` dispatches exactly
+this comparison, and the C1 result recorded in `CLAUDE.md` ("reductive cuts maxDD
+on BTC but worsens it on SOL") is a drawdown comparison — the statistic most
+sensitive to a size difference.
+
+This is the **same defect as F-40**, in the same file, on a second parameter, and
+it is worse than F-40: F-40 is a harness-vs-live mismatch, this is a
+harness-vs-**itself** mismatch inside a single experiment. The comment above
+`:866` still quotes the live fraction formula (`risk_usd = balance * risk_pct`),
+so the file documents the convention it does not use — and `--help` invites the
+trap directly: *"Per-trade risk % of balance (**the shared account's
+`risk_pct`**)"*, where that config value is `0.015`, which passed here means
+0.015%, **100× under-risked**.
+
+The agent found a **third** and **fourth** convention on the same name:
+`config/prop_rulesets/breakout_routing.yaml:13` (`1.5  # PERCENT`) and
+`ml/datasets/backtest_recorder.py:136` (`pnl_percent = r * risk_pct`, default
+`1.0` — percent *per R*). The fourth feeds `backtest_trades.db`, whose
+`is_backtest=1` rows the trainer's nightly pooled build merges — so the live
+`0.015` fed there would misprice every training row by 100×. `strategy-risk-guard`
+exists but only forbids re-adding a `risk_pct` key to `strategies.yaml`; nothing
+checks that the four sites agree on what the name means.
+
+### B3 — No harness reads `config/accounts.yaml`; every account-level constraint that decides live fills is unmodelled (relayed; denominator + control stated)
+
+`accounts.yaml` / `load_accounts` appears in **0 of 16** harness files. Positive
+control: the same patterns return 12 hits in `src/main.py`, so the probe works.
+
+Unmodelled by every backtest, therefore: `max_dd_pct`, the margin/buying-power
+ceiling, `min_qty`/`qty_step`, the futures whole-contract rule, Alpaca's
+integer-share rule, and `leverage`. `config/strategies.yaml:2245-2250` records a
+live incident where sub-minimum order size caused ETH orders to be **rejected and
+never opened** — an outcome no harness can produce, because none knows a minimum
+lot exists. This is the same shape as Part 18's death-hop histogram: 37.2% of
+order packages die at the intent/risk hop, and the backtests model none of that
+mortality.
+
+### B4 — "The ONE shared cost model" is single-owner in name only, and defaults slippage and funding to zero (relayed)
+
+`src/runtime/execution_costs.py` states it is *"exactly one owner of the
+round-trip fee constant."* Measured: **6 of 16** import it; five harnesses
+hardcode their own `FEE_BPS_ROUNDTRIP = 7.5`; `orb` hardcodes a fee in **points**
+rather than bps; and `backtest_system.py:108` hardcodes `7.5` **while importing
+the owner at line 77**. The values agree today and nothing enforces that.
+
+More consequential than the duplication: the shared signature defaults
+`slippage_bps_roundtrip = 0.0` and `funding_bps_per_window = 0.0`, and the
+harnesses only lift those to venue policy inside `main()`. So **CLI = net of
+realism, in-process import = fee-only, from the same code** — and
+`scripts/research/build_backtest_panel.py`, which backs two research workflows,
+imports in-process with zero references to slippage, funding or
+`resolve_cost_policy`. Those two terms are the ones the module's own docstring
+names as the measured cause of the +0.57R research→results gap.
+
+`backtest_pairs.py` is the sharpest case: it holds **both legs of crypto perps**
+for up to `max_hold_bars` and charges **no funding at all**, while `CLAUDE.md`
+records live pairs legs reaching 300–595 bars held.
+
+### B5 — Harness defaults have drifted off live values, and the existing guards check lever *presence*, never lever *value* (relayed)
+
+Seven measured drifts, e.g. `backtest_pullback.py:959 --trail-mult 5.0` against a
+live `htf_pullback_trend_2h.trail_mult = 4.0` that was flipped by an
+operator-approved Tier-3 commit the harness was never updated for; and
+`backtest_fade.py:578 --adx-max None` (gate **off**) against a live
+`adx_max = 20.0` (gate **on**), which trades an entirely different regime
+population.
+
+`harness-lever-coupling-guard` passes (I ran it: *"OK — 42 enabled strategies"*)
+because it verifies every config key is **classified**, not that any harness
+default **matches**. This is the guard-boundary family again, and it is the
+mechanism behind the operator's original example: the guard's boundary is
+"is the lever known?", the concept's boundary is "does the harness run what live
+runs."
+
+### B6 — The harness→trainer recorder collapses gross R into net R with no provenance (relayed)
+
+`scripts/ml/record_harness_trades.py:66-71` falls back
+`net_r → gross_r → r_multiple` and writes `"r_multiple": float(r)` **without
+recording which key supplied it**. A gross-R row and a net-R row are
+byte-indistinguishable in `backtest_trades.db`, which the trainer's nightly
+pooled build merges as `is_backtest=1` evidence. That is precisely the collapsed
+state `collapsed-state-guard` exists for, and this field is not registered with
+it. Notably the *sibling* defect in the same function (strategy-label precedence)
+was found and fixed in a 2026-07-19 audit; the gross/net collapse survived that
+pass — a fix that closed the instance and not the class.
+
+### S1 ✅ — A skill denies a capability I used four times in this session, and skills OUTRANK the doc that gets it right (severity: HIGH)
+
+`.claude/skills/git-actions/SKILL.md`, lines 3, 8-9 and 45:
+
+> "Claude-on-web has GitHub MCP for issues/PRs/files but **no** `workflow_dispatch`,
+> no run-log read, no artifact download."
+> "**No `workflow_dispatch` workaround exists** beyond this pattern."
+
+**Falsified by execution, not by argument.** In this session I called
+`mcp__github__actions_run_trigger` with `run_workflow` **four times** — `guards.yml`
+and `pytest-run.yml` on two branches — each returning **HTTP 204, run queued**,
+and all four runs appear in `list_workflow_runs` with `event: workflow_dispatch`.
+I also read job logs twice via `get_job_logs`. Root `CLAUDE.md` records the same
+("**`run_workflow` NOW WORKS** — re-verified 2026-08-06 19:45Z … → HTTP 204").
+The skill was last edited **2026-05-24**, before both MCP updates.
+
+**The governance half is the serious part.** `CLAUDE.md:76-81` places **Skills at
+#5** and **`CLAUDE.md` itself at #6**. So when the stale skill and the correct
+canonical note disagree, *the hierarchy resolves in favour of the wrong one*. A
+session following precedence correctly is routed to the more expensive, more
+fragile path — and the cost is quantified inside this same skill set:
+`diag-data:44-53` records the repo hitting its Actions cap after **427 issues in
+5.5 days**, ~90% single-path relay calls.
+
+This is the first finding in the audit where the **instruction hierarchy itself**
+produces the wrong answer, rather than a document merely being stale. Everything
+else is fixable by editing a file; this says the ordering has no freshness term.
+
+### S2 ✅ — Two skills instruct a session to verify or install something that is retired or harmful (severity: MEDIUM)
+
+- **`vm-migration/SKILL.md:103`** — the post-cutover verification step says to
+  confirm *"the daily `ict-heartbeat` digest fired."* `scripts/install_systemd_units.sh:422`
+  reads `_RETIRED_TIMERS=" ict-heartbeat.timer "`, and `CLAUDE.md` records the
+  retirement on 2026-07-08. The skill was **edited 2026-08-18**, six weeks after.
+  A session verifying a fresh cutover would find the digest never fired and read
+  a **correct** migration as broken — a false-positive verification at exactly the
+  moment the system is least understood.
+- **`db-setup/SKILL.md:72,87`** — names `deploy/dropins/data-dir.conf` and never
+  mentions `data-dir-nomount.conf`. Both files exist. The `nomount` header states
+  the consequence: on a host where `/data/bot-data` is a directory rather than a
+  mount — **which is the current live topology** — the mount-bound drop-in holds
+  the unit `activating` forever and *"every unit that gets the drop-in is wedged
+  dead."* Mitigated because `install_systemd_units.sh:94-98` auto-selects by
+  `mountpoint -q`; not mitigated for a reader who follows the skill's explicit
+  file name, and this is the one skill opened when setting up a fresh environment.
+
+### S3 — The drift detector holds the non-conforming copy of the rule it detects drift in (relayed)
+
+Three skills state the operator-only list. `credentials-and-vm-mutations:19-35`
+(marked *"exhaustive"*) and `before-asking-the-operator:38-45` agree: originate a
+secret value · approve a tier-gated decision · physical/external. **`doc-freshness:75-78`**
+(*"the **three** genuine hand-offs"*) drops **approve a tier-gated decision** —
+the most-used category — and substitutes a one-time sudoers bootstrap. Its third
+item is not invented: `docs/CLAUDE-RULES-CANONICAL.md:848-850` names it, but
+inside an open `"e.g."` list, not a closed set. `doc-freshness` closed an open
+list and landed on a different three.
+
+`doc-freshness` **is the session-end checklist for detecting exactly this class of
+contradiction**, and skills are peers at #5, so nothing resolves it by precedence.
+
+### Other confirmed misses, briefly (relayed)
+
+`db-wiring:36` names `.github/workflows/canonical-db-resolver.yml`, which does not
+exist (the guard is real, registered in `run_guards.py:225`; 1 of 45 backticked
+paths across 17 skills). `credentials-and-vm-mutations:94` tells a new-broker
+session to edit `KNOWN_SECRETS`, a name with exactly **one** repo occurrence — a
+stale header comment — while the real fields are `REQUIRED_SECRETS` /
+`OPTIONAL_SECRETS`. `workplan-vs-architecture:51` scopes reconciliation to
+**M0–M11** while `ROADMAP.md` now runs to **M37** (266 commits since the skill was
+written) — a skill whose job is *"are we building what we set out to build?"*
+pulling intent from a third of the plan. `regime-selectivity` says *"four of the
+six"* `trend_vol` cells are `long: off`; three independent methods on the config
+return **six cells, five `long: off`** — a miscount inside the skill whose own
+Rule 2 is about not accepting a determinate-looking verdict over an unverified
+population.
+
+### What both agents' retractions add
+
+Fourteen retractions between them, and three are worth keeping as method:
+
+- The skills agent **graded `diag-data` clean, then retracted it**: it had
+  verified the claims that were easy to confirm *positively* and never probed the
+  one **negative** assertion (*"the body is ignored"*), which the workflow's own
+  precedence logic contradicts. Stopping at confirmable positives is the exact
+  shape this audit was convened to catch.
+- It also retracted an ML-CLI subcommand count that was wrong by **more than 2×**
+  (`grep 'add_parser("'` matched 7; 10 of the 17 are multi-line) — it was one step
+  from reporting that the three commands `drift-remediation` tells sessions to run
+  do not exist. The skill was right and the probe was wrong.
+- The backtest agent refuted **"no backtest harness runs on a schedule"** by
+  reading past the top of an `on:` block — `research-backtest-augment.yml:49-50`
+  has `cron: "0 6 * * 1"`. Its first probe would have reported a false negative
+  about the single most important fact in its scope.
+
