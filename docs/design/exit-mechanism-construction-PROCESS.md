@@ -125,6 +125,30 @@ Disposition is §3.1 — regroup and widen; the thread does not close. Anyone qu
 `forward_r` score as evidence a lever is buildable must state the target, because the
 same panel says the opposite one bar over.
 
+**HORIZON ARM 2026-08-20** (`docs/research/e2-horizon-arm-2026-08-20.md`;
+`.github/workflows/research-e2-horizon-arm.yml`). The negative above was measured at a
+**12-bar (3 h) vertical barrier**, recorded then as a condition on the answer. Varying only
+the horizon — feature set pinned, embargo tracking the horizon, 12-bar replication control
+passing on both legs — **the verdict FLIPS on `label_hold`**: `no_feature_beats_control` at
+h=12 and h=24, `informative_features_found` at h=48 (XRP) and h=96 (BOTH legs). Tracking one
+feature with its own threshold beside it, `feat_dist_to_stop_atr` is monotone in the
+statistic AND in the gap to the bar on both legs (XRP −0.0799 → +0.0657; SOL −0.0726 →
++0.0388), with fold sign-agreement rising 0.50 → 1.00. `advantage_r` stays negative wherever
+admissible.
+
+⚠️ **Three limits travel with it.** Every feature that clears is **endogenous** — no peer or
+order-flow column clears at any rung, so it is the HORIZON that changed the answer and **not
+E1's widening**, which §0.2's diagnosis is therefore not rescued by. Part of the effect may
+be **barrier geometry** (far from stop ⇒ SL less likely) rather than edge, which E2 cannot
+distinguish and the M20 net-of-cost gate must. And h=96 is 4× the harness's own 24-bar
+timeout, so it asks a strategy-change question, not an exit-timing one.
+
+**So E3 is licensed on `label_hold` at a long horizon** — explicitly not on `advantage_r`,
+and not at 3 h. **State the horizon when quoting any of this**: the same panel, same
+features, same legs return opposite verdicts three rungs apart. 4 of 24 runs were
+`harness_invalid` and are excluded, all on SOL, at a rate below the gate's own α
+(`BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER`); they were **not** re-rolled.
+
 ### E3 · Design levers over informative features — and COMBINE them
 Only features that survived E2. Levers are swept **jointly**, not one at a time: the
 single-lever sweeps cannot see an interaction, and *"exit when the thesis decayed AND the

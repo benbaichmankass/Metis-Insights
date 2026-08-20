@@ -152,3 +152,12 @@ data/macro_candles/
 # Measured 2026-08-17: a stranded copy fails NO guard (run_guards PASS 42), so
 # committing it was the whole risk. BL-20260817-GUARD-SELFTESTS-PLANT-PROBE-FILES-IN-THE-LIVE-REPO-TREE
 scripts/ml/_selftest_probe.py
+
+# E2 horizon-arm sweep outputs (research-only; regenerated per run by
+# .github/workflows/research-e2-horizon-arm.yml, which uploads them as a build
+# artifact instead). Panels are ~10-30MB of JSONL per (symbol, horizon) rung, so
+# they are reproduced from the committed workflow + the public feed, never stored.
+# NOTE the path is deliberately artifacts/research/ and NOT artifacts/ — this repo
+# genuinely tracks artifacts/health/ (5 files), and a blanket ignore would make
+# those unstageable by the `git add -A` idiom these sessions use constantly.
+artifacts/research/
