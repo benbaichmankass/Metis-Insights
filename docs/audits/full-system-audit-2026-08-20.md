@@ -2909,3 +2909,192 @@ are the answer to *"are we even approaching this in the best way"* — and the
 honest reading is that the approach is sound and incomplete in one specific way:
 **the system was built to tell the truth, and not yet built to act on it.**
 
+
+## Part 22 — Closed-trade PnL populations, and the strategy-review gate
+
+The last unreached data area. Everything here is measured live against
+`/api/bot/performance` and `/api/bot/strategies/{name}/review`, with the
+population stated on every number and the per-strategy rows reconciled to the
+headline before anything is claimed.
+
+### The retraction that shaped this part
+
+I read the all-time real-money aggregate and found **`vwap`: 318 of 394 trades
+(80.7%), win rate 23.6%, −145.85 R at −0.459 R/trade** — decisively negative at a
+sample size where that is not noise. Ten of twelve strategies carried a negative
+`totalR`. I was one step from writing *"the strategy carrying 81% of all
+real-money trades is bleeding −145 R and nothing has flagged it."*
+
+**That would have been false.** `vwap` is `execution: shadow, enabled: False` in
+`config/strategies.yaml` today, and it appears in the 24h, 7d and **30d**
+`perStrategy` lists **not at all** — zero real-money trades in 30 days. It was
+stopped. The −145.85 R is a historical record, not an ongoing bleed.
+
+That is the fourth probe of mine today to nearly produce a confident wrong
+finding, and it is the most alarming of the four, because the wrong version was
+the *interesting* version. The check that caught it cost one query: **ask whether
+the thing is still running before describing what it is doing.**
+
+### F-106 — The all-time real-money headline sign-flips on "does this strategy still run?" (severity: MEDIUM)
+
+Decomposing the same 394 trades by whether the strategy is *currently* `enabled`
+**and** `execution: live` in `config/strategies.yaml` (12 strategies, all
+resolvable, sums reconciled to the headline exactly):
+
+| subset | trades | totalR | totalPnl |
+|---|---|---|---|
+| currently enabled AND `execution: live` | **69** | **+42.49** | **+$3.65** |
+| disabled or `execution: shadow` | 325 | −146.95 | −$50.80 |
+| **headline (`window=all`)** | 394 | **−104.46** | **−$47.15** |
+
+The retired subset is `vwap` (318 trades, −145.85 R) and `fade_breakout_4h`
+(7 trades, −1.10 R).
+
+So **the running book is positive on both R and dollars, and the headline is
+negative and 82.5% composed of strategies that have been switched off.** Both
+figures are correct; they answer different questions. `/api/bot/performance` has
+no notion of *currently enabled*, so the only number a reviewer can read for
+"how is the system doing" is the one that describes a system that no longer
+exists.
+
+This is the *"always state the population"* rule applied to a surface rather than
+a claim — the same shape as the +$247,683.78 vs −$36,018.60 provenance split
+already canonical in `CLAUDE.md`, and it deserves the same treatment: publish the
+live-subset aggregate beside the all-time one, or an `enabled` flag per
+`perStrategy` row so a consumer can compute it. A consumer cannot derive it today
+without reading `config/strategies.yaml` out of band.
+
+**A qualification this forces on Part 21's Thesis 1.** Thesis 1 said almost
+nothing gates retention. Strategy-level retention **did** work here — `vwap` and
+`fade_breakout_4h` were demoted to `shadow`/`disabled` and stopped trading. The
+thesis stands for models (12 soaking past 60 d), manifests (7 stale 25 d), legs
+(3 dead 17 d) and tools (161 with no runner), and it does **not** stand for
+strategies, which have a working demotion path in `config/strategies.yaml`. The
+refined claim: **retention is gated exactly where a single declared field
+controls it, and ungated everywhere the decision needs a review to happen.**
+
+### F-107 — The strategy-review gate refuses to grade exactly the strategies that were correctly demoted (severity: HIGH)
+
+`scripts/ml/strategy_review_packet.py:853-859`, read at the field:
+
+```python
+# --- Override 1: execution-mode mismatch (shadow but has fills).
+if execution == "shadow" and headline.n_filled > 0:
+    decision.action = "hold"
+    decision.reasons.append(
+        "execution_mode_mismatch: strategy is shadow but n_filled>0 — pipeline anomaly; do not act."
+    )
+    return decision
+```
+
+An **early return that skips the entire decision matrix** — no `KILL`, no
+`DEMOTE_SHADOW`, no `TUNE`, no grade of any kind. It compares `execution` **as of
+packet-generation time** against `n_filled` **over the whole review window**.
+
+Any strategy demoted to `shadow` during or shortly after its own window trips
+this by construction. Measured on the two that did:
+
+| strategy | window | n_closed | win rate | pnl_total | expectancy | verdict |
+|---|---|---|---|---|---|---|
+| `vwap` | 2026-04-01 → 06-30 | 322 | 23.3% | −$50.71 | −0.157 | `hold` — *do not act* |
+| `ict_scalp_5m` | 2026-04-01 → 06-30 | 18 | **66.7%** | **+$142.78** | **+7.93** | `hold` — *do not act* |
+
+Both metric sets are fully computed and sitting in the packet. Neither was used.
+The gate had a 322-trade negative book and an 18-trade strongly-positive book in
+front of it and returned the same non-answer to both, for a reason that is not
+about either strategy's performance.
+
+**And `ict_scalp_5m`'s flag was a false alarm.** Its config history:
+`live` (≤06-27) → **`shadow` on 2026-06-29** → the packet runs **2026-06-30** →
+back to **`live` on 2026-07-20**. It had been shadow for *one day* when the packet
+ran, so its 20 window fills were placed while it was legitimately live. There was
+no pipeline anomaly. The check reports a **demotion that worked** as an anomaly,
+and its remedy — *"do not act"* — is the one instruction guaranteed to leave the
+demotion un-post-mortemed.
+
+The flip back to `live` on 2026-07-20 happened anyway. So the gate's refusal was
+**routed around, not resolved** — Part 21's Thesis 2 in one strategy's history.
+
+This is the guard-boundary family again (F-40's generalization: *every guard in
+this repo passes over a population narrower than the thing it names*), now in the
+strategy-review gate. The concept is *"is this strategy's live behaviour
+consistent with its declared mode?"*; the implementation compares a point-in-time
+field to a window aggregate. The fix shape is to scope `n_filled` to fills **since
+the mode last changed** — which is knowable from `strategy_versions` (the boot
+snapshot of `config/strategies.yaml`) — so a correctly-demoted strategy grades
+normally and only a genuine shadow-placing-orders anomaly trips the override.
+
+### F-108 — The review packets are 51 days stale and nothing regenerates them (severity: MEDIUM)
+
+Every packet returned by `/api/bot/strategies/{name}/review` today carries
+`generated_at: 2026-06-30` and `window_end: 2026-06-30` — **51 days old**, over a
+window that ends before three of the six currently-trading strategies had their
+present configuration.
+
+`generate-strategy-review-packets` exists as an allowlisted system-action and is
+referenced from **`.github/workflows/system-actions.yml` and nowhere else** — no
+timer under `deploy/`, no scheduled workflow. (Positive control: the same grep
+finds `scripts/ops/generate_strategy_review_packets_action.sh` and
+`scripts/ml/strategy_tune_sweep.py`, so the probe is not silently empty.) It runs
+when a session chooses to run it, and no session has since 2026-06-30.
+
+So the KILL/HOLD/PROMOTE badge the dashboard renders, and that the
+`strategy_promotion` review-coverage key is supposed to push on, is a
+seven-week-old artifact. This is Thesis 1 and Thesis 4 in one object: the gate
+that would force a retention decision is itself unscheduled, and what it reports
+is a level from a window that has closed.
+
+### F-109 — `CLAUDE.md`'s contract for the review endpoint names keys the payload does not carry (severity: LOW, but it misled this audit)
+
+The canonical table says the `packet` carries *"the action badge
+(`KILL`/`DEMOTE_SHADOW`/`TUNE`/`HOLD`/`PROMOTE`), `n_closed`/`win_rate`/
+`expectancy`/`pnl_total`"*. The payload's actual top-level keys are:
+
+```
+alternative · backtest_anchor · enabled · execution · execution_diagnostics ·
+generated_at · generated_by · headline · proposed_action · reasons ·
+regime_cells · schema_version · sla_due_by · strategy · tier ·
+window_end · window_start
+```
+
+The badge is **`proposed_action`**, and `n_closed`/`win_rate`/`expectancy`/
+`pnl_total` live **nested inside `headline`**. A consumer written from the
+contract reads `None` for all five.
+
+I am the demonstration. My first probe used the documented names, got
+`action: None` and every metric null, and I very nearly recorded *"the review
+gate computed no metrics at all"* — a false finding about a gate that had
+computed all of them. `streamlit_app.py:3608,7128` reads `proposed_action`
+correctly, so the **consumer is right and the canonical doc is wrong**: field
+beats comment, and the doc is the bug.
+
+Worth noting what this says about the class. The three CI guards that police
+doc-vs-field drift (`canonical-doc-coherence`, `diagnostic-provenance-guard`,
+`provenance-consumer-guard`) all check *declared values, producers and
+consumers*. None checks that a documented **response schema** matches the
+producer's actual keys — so an API contract table can drift silently, and this
+one has.
+
+### Provenance of the closed-trade populations, for the record
+
+| window | trades | measured | estimated | fabricated | unverified | pnlCoverage |
+|---|---|---|---|---|---|---|
+| 24h | 3 | 3 | 0 | 0 | 0 | 1.000 |
+| 7d | 6 | 6 | 0 | 0 | 0 | 1.000 |
+| 30d | 24 | 21 | 2 | 1 | 0 | 0.875 |
+| all | 394 | 310 | 2 | 4 | **78** | 0.787 |
+
+Recent real-money trades are **fully measured** — the exit-anchoring and
+broker-truth work of 2026-07-30 is holding on new rows, which is a genuine
+delivered outcome. The 78 `unverified` rows are all historical (they do not
+appear in the 30 d window), i.e. the pre-provenance backlog, correctly *not*
+folded into `measured`.
+
+One sign flip worth flagging, in the paper-portfolio book:
+`paperPortfolio` reports **`totalPnl: −$2,298.99` against
+`totalPnlMeasured: +$480.61`** over 45 trades at `pnlCoverage: 0.578`. The raw
+sum and the measured sum have **opposite signs on the same population** — exactly
+the condition `CLAUDE.md` § "Always state the population" says makes a headline
+untrustworthy. The all-paper book (506 trades, −$84,192.74 raw vs −$41,966.93
+measured, coverage 0.374) does not flip sign but halves in magnitude.
+
