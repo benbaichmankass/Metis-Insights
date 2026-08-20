@@ -1576,3 +1576,158 @@ bot repo. **Eight** fields above are N-writers / **0**-readers *across the repo
 boundary* — invisible to it by construction (F-40's guard-boundary shape again).
 A declared honesty-key manifest the frontends' CI must satisfy would have caught
 F-50, F-51, F-52 and F-55 **as a class**, rather than one at a time in an audit.
+
+---
+
+## Part 14 — The skills as binding instructions (delegated, top findings verified)
+
+Produced by a parallel read-only auditor over all 30 `SKILL.md` files, with depth
+concentrated on the 22 outside the ones I had already rewritten. **F-58 through
+F-61 I re-derived myself**; the rest are relayed at the auditor's stated
+confidence and marked.
+
+### F-58 — `vm-migration` instructs autonomous termination of a production VM, with no tier gate anywhere (severity: HIGH) — VERIFIED
+
+`.claude/skills/vm-migration/SKILL.md` contains **zero** occurrences of the word
+"tier" — measured, `grep -ci tier` → `0` over the whole file. It then instructs:
+
+> **Decommission an old box (no human needed):** dispatch `terminate-instance`
+> with `mode: list` … then dispatch `terminate-instance` with
+> `instance_id: <ocid>` + `confirm: yes`.
+
+**The asymmetry is the finding.** `docs/claude/system-actions.md:537` requires
+an operator ack for **`reboot-vm`** (Tier-2). So under the governing documents,
+*restarting* a production box needs a human and *permanently destroying the same
+box* is instructed as needing none.
+
+**The machinery does not compensate.** `terminate-instance.yml:35-38` gates on
+`github.event.issue.user.login == github.repository_owner` — and a Claude
+session **posts as the owner**, so that is an anti-abuse check, not a human
+gate. The only other guard is `confirm: yes`, a string the session writes
+itself. Same file, same gap: `cutover-live` — the money-path cutover — is listed
+with "dry-run first" and no tier.
+
+This composes directly with **F-47**: with `required_pull_request_reviews: null`
+and no guard consuming the Tier-3 list, the tier system is *entirely* carried by
+what the skills tell a session. A skill that omits the tier removes the only
+remaining control.
+
+### F-59 — `stop-micro-zombie` is a phantom workflow, and its failure mode is silence (severity: HIGH) — VERIFIED
+
+`vm-migration/SKILL.md:88` lists `stop-micro-zombie` in a table headed *"Tooling
+(all issue-label-driven)"*, and a decommission-hygiene checklist step depends on
+it. Measured:
+
+- `.github/workflows/stop-micro-zombie.yml` — **does not exist**
+- `bootstrap-labels.yml` — **0** occurrences of the label
+- 7 workflows named in that table, **6 exist, 1 does not (14%)**
+
+**Opening an issue with a label no workflow listens for produces no run, no
+error, and no comment** — indistinguishable from success to a session that does
+not poll. This is the *"we did not look" vs "we looked and found nothing"*
+collapse, in the tooling itself.
+
+The step exists solely because of `BL-20260615-MICRO-ZOMBIE` — a retired box
+kept calling Bybit from a de-allowlisted IP, spamming `10010` and masking a
+diagnosis for a day. **There is no backlog row for the missing workflow**, so
+this is undetected rather than known-and-deferred.
+
+### F-60 — `diag-data` tells every session the relay body is ignored; the body OVERRIDES the title (severity: HIGH) — VERIFIED, including from this session's own behaviour
+
+`.claude/skills/diag-data/SKILL.md` states it **twice**:
+
+- `:33` — *"**title** = the path: `[diag-request] <path>` (body ignored)"*
+- `:93` — *"Live VM: the **title is the path**; the body is ignored."*
+
+The field says the opposite. `vm-diag-snapshot.yml:28` — *"When the body parses
+to a non-empty list, it **wins over the title**"*, restated in the workflow's own
+rejection comment at `:783`. `docs/CLAUDE-RULES-CANONICAL.md` (rank 1, above
+skills) carries an 18-line ⚠️ block: *"**The BODY IS NOT A PLACE FOR PROSE — a
+non-empty body OVERRIDES the title**"*, recording a 2026-07-30 session that lost
+a round trip diagnosing a "failed relay" that was its own prose.
+
+**I can confirm this first-hand rather than only by reading:** my own relay
+request this session (#10013) passed a JSON array in the body and it was
+processed as a 5-path batch. The body is emphatically not ignored.
+
+Three-way wrong — internally contradictory (`:33`/`:93` vs the body-batching
+section at `:62-81`), contradicting the highest-precedence canonical doc, and
+contradicting the field. And `diag-data` is the **most-referenced skill in the
+catalog (15 inbound refs of 30)**, so the error has maximum reach: a session that
+has read it and believes "body ignored" is *more* likely to put prose there.
+
+### F-61 — Two skills are unreachable by skill-first lookup, one of them owning money-affecting Tier-3 rules (severity: HIGH) — VERIFIED
+
+Measured across all 30 skills plus `CLAUDE.md`, `CLAUDE-RULES-CANONICAL.md` and
+`.claude/settings.json`:
+
+| skill | inbound references outside itself |
+|---|---|
+| `regime-selectivity` | **0** |
+| `macro-research` | **0** |
+
+`regime-selectivity` owns the binding rules for authoring a **regime OFF-cell** —
+which drops a strategy's intents before routing, i.e. removes real-money trades.
+Skill-first lookup is declared binding in `CLAUDE.md`, and this skill cannot be
+found by it unless the session already knows the word "regime".
+
+**The auditor's paired finding, which I have NOT re-derived and relay as its
+claim:** `new-strategy` tells an author *"Author a real regime cell… **This is
+the right answer**"* under a merge-blocking `strategy-coverage-guard`, while
+`regime-selectivity` Rule 1 says *"**Do NOT author an OFF-cell for a book that is
+healthy**"* and Rule 2 requires a walk-forward that a brand-new leg with zero
+trades cannot possibly have. If both hold, CI pressure manufactures exactly the
+cosmetic cell that `BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS` names as the
+anti-pattern. **The auditor flagged its own dependency here honestly** — it did
+not verify that `strategy-coverage-guard` has real merge-blocking force, and
+notes that my F-47 finding makes that worth checking independently. Left open.
+
+### F-62 and below — relayed at the auditor's stated confidence
+
+| # | finding | sev |
+|---|---|---|
+| F-62 | The **M22 pairs sleeve** — an isolated 2-leg live order path with its own `execution:` gate — is named in **0 of 30 skills** (`config/pairs.yaml`: 0 mentions; `new-strategy`: 0). Every step of the 716-line `new-strategy` checklist is *wrong* for a pairs leg and nothing says so. Same class, second instance: the **Alpaca options overlay** (6 modules) appears in 0 of 30 skills. | HIGH |
+| F-63 | `health-review`'s "HARD COMPLETION GATE" (`count_untriaged MUST be 0`) is arithmetically unachievable — **290 open health rows** — and its four buckets **cannot express `snoozed`**, the disposition `RULES-CANONICAL` requires for accrual-blocked rows. Measured: **243 of 350 open rows across all three backlogs are `kept_open`**; `snoozed_until` is set on **10 (1.1%)**. Carrying a row forward unchanged is exactly what the canonical rule says must not satisfy `backlog_drive`. | HIGH |
+| F-64 | Three skills + the SessionStart hook assert **`run_workflow` 403s / no run-log read**; `CLAUDE.md` records it re-verified working 2026-08-06 (HTTP 204), and this session's own tool list carries `actions_run_trigger` / `get_job_logs`. The skills are the stale side, and one was edited *after* the re-verification. Drives a standing design tax: `git-actions` tells sessions to *add* issue-label triggers rather than dispatch. | MED |
+| F-65 | All three review skills teach a backlog-row schema **omitting `severity`**, which `scripts/ops/check_backlog_criteria.py` now rejects (`_SEVERITIES = {critical,high,medium,low}`). 4 of 4 skills that write backlog rows omit it. The guard is diff-scoped, so it fires on the new row — at exactly the moment a review is closing out. | MED |
+| F-66 | `delegate-work`'s spawn-prompt template teaches a **two-tier** model (Tier-3 propose / Tier-1 ship) — **Tier-2 is absent**. That template is the entire tier education of a spawned sub-session, and its binary framing puts deploy/timer/service/DB-write changes in the self-merge bucket. One-clause fix. | MED |
+| F-67 | `vm-ops`'s Tier-2 illustrative list reads as plumbing (deploys, toggles, backfills) while `system-actions.md`'s Tier-2 now includes `flatten-ib-position`, `flatten-bybit-position`, `cancel-ib-order` — actions that **place real closing orders on real-money accounts**. The tier assignment is correct; the legibility is not. | MED |
+| F-68 | `exit-refinement` documents **5 of 8** lever columns and **5 of 7** statuses of the artifact it declares as its contract — missing `shipped_gate_failed`, which `RULES-CANONICAL` cites as one of its five canonical collapsed-state fixes. A session filling a cell reaches for `shipped` and re-collapses the state the fix created. | MED |
+| F-69 | `doc-freshness` asserts *"no other operating doc, skill, or script hardcodes a VM IP"* — measured, `141.145.193.91` appears in **98 files**, including live defaults in `diag_fetch.sh`, `publish_trainer_mirror.sh`, `sync_trainer_data.sh`, `oci_vm_ssh.sh`. The invariant is false and is not one of its own enforced scans; `vm-migration`'s environment-contract step depends on it being true. | MED |
+| F-70 | 4 of 16 doc-targeting relative links in skills resolve one level short (`../../docs/…` → the nonexistent `.claude/docs/`). **My own path-reference probe (F-45) was structurally blind to this** — it checked string existence, not depth resolution from the containing directory. `drift-remediation` is 55 lines whose substance is *"the runbook carries the detail"*; a session that cannot resolve it gets the summary and believes it has the skill. | MED |
+
+### F-71 — Only 7 of 30 skills carry the detector obligation, and none of them are the fixing skills (severity: HIGH, structural)
+
+The *"**A DETECTOR exists.** Something fails if this silently stops working…
+'We'll notice' is not a detector"* clause appears in exactly **7 files** — the
+seven build skills, all added by me this session (`9fdca362`).
+
+**The 22 without it include every skill whose job is to find and fix defects:**
+`health-review`, `performance-review`, `ml-review`, `system-review`,
+`doc-freshness`, `drift-remediation`, `db-wiring`, `workplan-vs-architecture`.
+`health-review`'s `fixed-now` bucket authorises Tier-1 fixes with no detector
+requirement; `doc-freshness` repairs doc contradictions in place with no
+requirement that a scan be added so they cannot return.
+
+That is the recurrence class this audit keeps rediscovering — **sitting precisely
+where the fixing happens**. It is a three-line copy into eight files, and it
+converts the repo's best-evidenced lesson from a *build-time* rule into a
+*fix-time* rule.
+
+### Recorded as models, because the report is not only a list of defects
+
+The auditor named eight skills as templates. Three worth citing here:
+**`exit-refinement`** is the only skill with a machine-readable done-condition —
+a committed 52×8 matrix and *"a sweep whose verdict isn't in the matrix didn't
+happen"*, evaluable in one command. **`regime-selectivity`** is factually the
+cleanest checked (its `FOLD_PANEL = (3,4,5)` verified against
+`regime_cell_walkforward.py:72`) and contains the best sentence in the corpus for
+this audit's own method: *"**A verdict over zero trades is not a negative
+finding; it is no finding.**"* **`backtesting:19`** carries an explicit
+retraction of an earlier over-claim — the correct response to a stale coverage
+claim, and precedent for how the others should be fixed.
+
+**The auditor also retracted one of its own findings mid-analysis** — it flagged
+`vm-ops` as mis-tiering `set-account-mode`, then withdrew it on reading that the
+Tier-3 boundary is *new code paths that write `mode:`*, not *dispatching the
+sanctioned wire*. Recorded because the retraction is the evidence the method ran.
