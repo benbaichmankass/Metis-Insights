@@ -102,6 +102,14 @@ bracket/lever parameter change this evidences remains **Tier-3**.
 - Roadmap: M20 renamed **Active Trade Management** + dated entry.
 - Research: 3 new docs (above).
 - Index: `docs/research/RESEARCH-CAPABILITY-INDEX.md` (+2 rows; guard now 86/86).
+- **Coverage matrix: `docs/research/exit-refinement-coverage.json` gained a ninth column,
+  `bracket_geometry`** (added at session close, during the doc-freshness decision-landing pass —
+  it had been missed). Statuses DERIVED from the per-leg `gate` blocks in the artifacts, not from
+  the research doc's prose: 13 `honest_negative` / 2 `passed_unshipped` / 12 `pending` /
+  25 `blocked`, over 52 rows of which **19 legs were measured and 33 were not**. The three
+  not-measured reasons are kept apart (no free-lane feed · no dispersion band · dispersion
+  refused) so a missing feed is never read as a negative result. Research doc gained a § 6
+  recording the same.
 - Backlog: `docs/claude/health-review-backlog.json` +3 rows (753 total).
 - TRADE-PIPELINE.md: **not touched — no pipeline stage changed** (Tier-1 research only).
 

@@ -172,3 +172,54 @@ here). Filed as `BL-20260820-SQUEEZE-MAXDD-IS-GROSS-WHILE-EVERY-SIBLING-IS-NET`
   the first evidence for E3's combine-don't-isolate premise.
 - **Nothing here is shippable.** n = 1 leg, argmax-of-199 unpriced, base
   net-negative. The next step is a second, independent leg — not a Tier-3 packet.
+
+---
+
+## 6. Where the verdict landed (added at session close)
+
+The coverage matrix `docs/research/exit-refinement-coverage.json` now carries
+**`bracket_geometry`** as a ninth column — a **dimension**, not a ninth lever.
+The eight columns beside it are all post-entry overrides on a bracket fixed at
+entry; this one grades that bracket itself.
+
+Statuses were **derived from the per-leg `gate` blocks in
+`runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`**, not transcribed from
+the tables above, so the matrix and the artifacts cannot disagree:
+
+| status | rows | what it means here |
+|---|---:|---|
+| `honest_negative` | 13 | gated, no cell cleared — the shipped triple stands **by measurement** |
+| `passed_unshipped` | 2 | Path A, wf 6/6 effective, clean dispersion — **Tier-3, and not ship-ready (§ below)** |
+| `pending` | 12 | 2 gate-passing but dispersion **unmeasured**; 9 never run (crypto, free lane covers them); 1 bundled row |
+| `blocked` | 25 | 24 have **no candle substrate on the free lane** (equity/ETF/futures); 1 is the squeeze **refusal** |
+
+**State the population:** 133 of 3,781 surface cells were carried into the gate
+(7 per leg — the per-axis optima plus the joint argmax), across 19 legs. The
+matrix has 52 rows, so the column describes **19 legs measured, 33 not**, and
+each un-measured row says which of the three reasons applies rather than
+sharing one bucket.
+
+**The three non-closure reasons are deliberately distinct**, because collapsing
+them would report a missing feed as a negative result:
+
+- **No feed** (24 rows) — the fetch pass sourced `data.binance.vision`, which is
+  crypto-only. Nothing was measured on these legs; that is not evidence the
+  shipped triple is right there.
+- **No dispersion band** (2 rows — `sol_pullback_2h`/`to96`,
+  `trend_donchian_sol_4h`/`to48`) — the cells pass the gate, and the band was
+  never computed. Recording them as passes is precisely what
+  `BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT`'s own criteria
+  forbid, and the one single-axis cell that *was* checked
+  (`eth_pullback_2h`/`tp2.5`) came back **`split_sensitive`**.
+- **Refused** (1 row — `squeeze_breakout_4h`/`to24`) — passes the gate,
+  dispersion refused it on `harness_agreement`. Root cause
+  `BL-20260820-SQUEEZE-MAXDD-IS-GROSS-WHILE-EVERY-SIBLING-IS-NET`, filed not
+  fixed. A refusal is a refusal, not a caveat.
+
+⚠️ **The two `passed_unshipped` cells are not ship-ready, and the matrix cell
+says so.** Each is the **argmax of 199** surface cells and the
+multiple-comparisons cost is **unpriced** — no shuffled-label or random-cell
+control was run. Both sit on **ETHUSDT 2h**, so n=2 legs on one symbol is not
+two independent confirmations. Pricing that argmax is a precondition of putting
+either to the operator; any resulting `config/strategies.yaml` change is Tier-3
+regardless.
