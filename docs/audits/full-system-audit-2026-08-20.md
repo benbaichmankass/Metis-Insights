@@ -3098,3 +3098,166 @@ the condition `CLAUDE.md` § "Always state the population" says makes a headline
 untrustworthy. The all-paper book (506 trades, −$84,192.74 raw vs −$41,966.93
 measured, coverage 0.374) does not flip sign but halves in magnitude.
 
+
+## Part 23 — The Svelte SPA as an independence check on the API contract
+
+The SPA is the newer of the two production frontends and the one the Telegram
+system-report ping deep-links into. It is also the best available **independence
+probe** on the bot's API: a consumer written separately from the producer, whose
+field names can be checked against a live payload. That check is the whole of
+this part — not a code review of the SPA, but *"does what it reads exist?"*
+
+Method: fetch each endpoint live, extract the response fields the consuming route
+reads, diff. Four routes checked against payloads captured this session.
+
+### F-110 — The SPA's prop rule-distance panel reads two keys that do not exist, so both account-killer cushions render "—" and the breach warning is unreachable (severity: HIGH)
+
+`webapp/src/routes/Prop.svelte:35-37`:
+
+```svelte
+const rd       = $derived(status?.rule_distance ?? null);
+const dailyLeft = $derived(rd?.daily_loss_remaining ?? null);
+const ddLeft    = $derived(rd?.static_dd_remaining  ?? null);
+```
+
+The live `/api/bot/prop/status?account_id=breakout_1` payload's `rule_distance`
+block carries 21 keys. `daily_loss_remaining` and `static_dd_remaining` are **not
+among them**. The real names are **`distance_to_daily_loss_usd`** and
+**`distance_to_dd_floor_usd`**, and today they hold real values:
+
+```
+distance_to_daily_loss_usd : 149.49    (limit $149.49, none used today)
+distance_to_dd_floor_usd   : 283.00    (equity $4,983 against the $4,700 static floor)
+status_freshness           : "ok"      (12.0 h old, inside the 24 h threshold)
+```
+
+Both consumer reads resolve to `null`. Lines 63 and 67 then render:
+
+```svelte
+{dailyLeft == null ? DASH : money(dailyLeft)}
+```
+
+— an **em-dash**, which is precisely the repo's convention for *"the producer did
+not provide this"*. So the failure disguises itself as the documented
+missing-value rendering.
+
+**And the warning cannot fire.** Line 70:
+
+```svelte
+{#if (dailyLeft != null && dailyLeft <= 25) || (ddLeft != null && ddLeft <= 25)}
+```
+
+Both operands are permanently `null`, so the low-cushion alert on the panel whose
+entire purpose is to warn before an account-killer breach is **unreachable code**.
+
+Introduced **2026-07-16** in `6c0bbe3` ("webapp: port Prop, Health, Logs, Data
+Explorer, GPU Spend, Models into the section IA", #194) — **35 days**.
+
+**The Streamlit dashboard reads the correct keys** (`streamlit_app.py:8183,8187`
+→ `distance_to_dd_floor_usd`, `distance_to_daily_loss_usd`). So the two
+frontends disagree, and the broken one is the newer one — the one the Telegram
+ping deep-links into.
+
+Note what this is in Part 21's terms: `?? null` is a **fail-permissive branch
+that is never counted** (Thesis 3), and the panel abstains silently. Nothing
+anywhere increments a counter, and the abstention is rendered in the same glyph
+as a legitimate absence.
+
+### F-111 — The SPA labels all three LIVE advisory models as `candidate` (severity: MEDIUM)
+
+`webapp/src/routes/Models.svelte:16`:
+
+```ts
+function stage(m: any): string {
+  return m.stage ?? m.current_stage ?? m.status ?? m.manifest?.target_deployment_stage ?? "—";
+}
+```
+
+Measured across **all 95** rows of the live `/api/bot/ml/registry`: `stage` is
+present on **0**, `current_stage` on **0**, `status` on **95**, and
+`target_deployment_stage` on **95**. So the chain always short-circuits at
+`status` — which, per F-105, is rewritten `candidate → candidate` by
+`experiments-runner` on every nightly re-train and is `candidate` for every model
+in the fleet.
+
+Resolving the chain against the three heads that are actually live:
+
+| model | SPA displays | `target_deployment_stage` | `deployment_bucket` |
+|---|---|---|---|
+| `btc-regime-15m-lgbm-fc-pcv-v2` | **candidate** | advisory | LIVE |
+| `mes-regime-5m-lgbm-v2` | **candidate** | advisory | LIVE |
+| `sol-regime-15m-lgbm-fc-pcv-v2` | **candidate** | advisory | LIVE |
+
+The first of those is the head gating BTC real-money vol routing. The SPA's
+Models page reports it at the stage that `CLAUDE.md` says *"is refused by the
+shadow factory."*
+
+The fallback chain is defensive in intent and wrong in order: it must try
+`target_deployment_stage` **first**, because that is the field every runtime
+consumer reads (`regime_bar_scoring.py:267`, `ml_vol_verdict.py:182`,
+`advisory_sizing.py:64`, `coordinator.py:496`). Streamlit gets the order right
+(`streamlit_app.py:3903,6159,6405` — `target_deployment_stage` with `stage` only
+as a fallback), so again the two frontends disagree and the newer one is wrong.
+
+**This is F-105 realised.** I graded that finding LOW and called two parallel
+stage fields *"a legibility hazard rather than a live defect,"* on the evidence
+that every runtime consumer reads the right one. That was true and incomplete: I
+checked the runtime and the Streamlit renderer and did not check the SPA. The
+hazard was already a defect in a shipped consumer. **F-105's severity should be
+read as MEDIUM, not LOW** — a field that is inert, permanently constant, and
+first in an obvious fallback order is a trap, and something walked into it.
+
+### F-112 — The SPA has no tests at all, while declaring a test framework (severity: MEDIUM)
+
+`find webapp \( -name '*.test.*' -o -name '*.spec.*' \) -not -path '*/node_modules/*'`
+returns **nothing**. Positive control on the same command: `-name '*.svelte'`
+returns **30** files, so the probe works and the absence is real.
+`webapp/package.json:16` declares `"playwright": "^1.61.1"` as a devDependency,
+and there is no `test` script and no spec file — a framework installed and never
+wired, the same build-and-abandon shape this audit keeps finding, in the repo's
+own tooling.
+
+Both F-110 and F-111 are exactly what one rendering test against a recorded
+payload would have caught, on the day each shipped.
+
+### The class, and why no guard sees it
+
+Three of the four SPA routes checked read at least one field the live payload
+does not carry. In both cases where a Streamlit equivalent exists, **Streamlit is
+right and the SPA is wrong** — consistent with Streamlit having been written
+against real payloads and the SPA pages having been *ported* against an assumed
+shape.
+
+Together with F-109 (`CLAUDE.md`'s review-endpoint contract naming keys the
+payload does not have) this is one class: **a documented or assumed response
+schema drifting from the producer's actual keys, with the consumer silently
+rendering a null.** The repo has four guards policing signal honesty
+(`canonical-doc-coherence`, `diagnostic-provenance-guard`,
+`provenance-consumer-guard`, `silent-empty-guard`) and **none of them compares a
+response schema to the producer's keys.** `provenance-consumer-guard` is the
+closest — it fails when a declared provenance key gains a writer but no consumer
+— and it cannot see the mirror-image case: a *consumer* reading a key that has no
+writer.
+
+That mirror image is the durable fix shape, and it is cheap: for each endpoint,
+record one real payload as a fixture and assert that every field a consumer reads
+exists in it. It would have caught F-109, F-110 and F-111 on the day each shipped,
+and it is the same "prove the gauge can fail" discipline the invariant suite uses.
+
+### Retraction
+
+My field-diff detector flagged `Promotion.svelte` reading `first_ts`/`last_ts`
+and `Models.svelte` reading `current_stage` as missing keys. **Both were false
+positives** — each is a defensive `??` fallback chain that also contains the
+correct key (`r.first_seen ?? r.first_ts`), and `Promotion.svelte` is *correct*.
+The detector cannot distinguish a wrong key from a legacy fallback beside a right
+one, and its `Prop.svelte` row was noise for a different reason: that route
+consumes four endpoints and I diffed it against one.
+
+Recording it because the sequence matters: the false positive is what made me
+read `Models.svelte:16` closely, and reading it found F-111 — a real defect the
+detector had not flagged and could not have, since `current_stage` being absent
+is harmless and `status` being *present* is the bug. A detector that produces
+reviewable false positives is worth more than one that produces none, provided
+its output is treated as a reading list rather than a finding list.
+
