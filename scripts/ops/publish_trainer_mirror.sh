@@ -413,13 +413,13 @@ for row in registry_rows:
 # Three states, never collapsed: a read failure is `measured: false` with a
 # reason, NOT a comfortable 0% or a missing key. "We could not look" and "there
 # is plenty of room" are opposite statements.
-disk = {"measured": False, "reason": "not_attempted", "path": str(REPO_ROOT)}
+disk = {"measured": False, "reason": "not_attempted", "path": str(repo_root)}
 try:
-    _du = shutil.disk_usage(str(REPO_ROOT))
+    _du = shutil.disk_usage(str(repo_root))
     _used_pct = round(100.0 * (_du.total - _du.free) / _du.total, 1) if _du.total else None
     disk = {
         "measured": True,
-        "path": str(REPO_ROOT),
+        "path": str(repo_root),
         "total_gb": round(_du.total / 1e9, 2),
         "used_gb": round((_du.total - _du.free) / 1e9, 2),
         "free_gb": round(_du.free / 1e9, 2),
@@ -427,7 +427,7 @@ try:
     }
 except Exception as exc:  # noqa: BLE001 — never break the publish over a stat()
     disk = {"measured": False, "reason": f"{type(exc).__name__}: {exc}",
-            "path": str(REPO_ROOT)}
+            "path": str(repo_root)}
 
 payload = {
     "ts": iso(now),
