@@ -2271,3 +2271,98 @@ not a broken system:
   balance × risk_pct ÷ risk-per-contract, field shows 35.
 - **The pairs sleeve places reliably** — `pairs_bnb_btc_a/b`, `pairs_sol_eth_a/b`:
   105 packages, **105 placed, 0 rejected**.
+
+---
+
+## Part 19 — 3.4 OUTCOME: did the changes deliver what they promised?
+
+The operator's message-3 deliverable in its own words — *"compare the system's
+historical performance against the expected design."* Method: recover the
+**promise** each Tier-2/3 change was gated on, then measure that same quantity
+now. *"No measurable effect"* is a legitimate verdict, and so is *"delivered,
+then silently regressed."*
+
+### F-98 — The M20 decouple delivered, and the gain has since been erased 2.3× over (severity: HIGH)
+
+**Population:** `/api/diag/tick_cost`, n=17 ticks, one process
+(`process_started_utc` 2026-08-20T08:14:21Z), read 09:2xZ. Stated because the
+comparison figures are also small-n reads.
+
+| quantity | promised / verified at ship | measured now | ratio |
+|---|---|---|---|
+| tick mean | **69.3 s** | **159.9 s** | **2.31×** |
+| tick max | **96.8 s** | **215.1 s** | **2.22×** |
+| `fetch.1d` mean | 2.4–3.6 s per call | **17.5 s** | **4.9–7.3×** |
+
+The M20 exit-loop decouple was verified at go-live and `CLAUDE.md` records the
+before/after honestly (*"the tick `mean_ms` fell 107.9 s → 83.9 s across the
+decouple **without the system doing less work** — it became concurrent"*). The
+`CANDLE_CACHE_TTL_MAX_S=300` flip (Tier-3, operator-approved 2026-08-13) was
+independently verified effective the same day: hit rate 21.5% → 41.5%, tick
+69.3 s → 64.1 s.
+
+**Both delivered. Both have been undone.** The tick is now worse than the
+*pre-decouple* 107.9 s figure, and worse than the 83.9 s post-decouple one.
+
+**One half did hold, and it is worth separating:** `offloop_hooks` is
+**POPULATED** (`fetchby.strategy_monitor_loop` n=1289, `monitor.position_telemetry`
+n=1176). `CLAUDE.md` names an empty `offloop_hooks` as the direct proof the
+segregation silently is not working — so the *structural* half of M20 is intact.
+What regressed is the underlying fetch cost it sits on.
+
+### F-99 — F-85 and F-98 are the same defect, and that changes the fix (severity: HIGH — synthesis)
+
+These were found by different passes and read as two problems. They are one.
+
+`CLAUDE.md` states the coupling explicitly: *"The pass is fetch-bound (off-loop
+`fetchby.strategy_monitor_loop` … the largest fetch consumer anywhere), so this
+shares a root with the tick regression and a TTL/fetch change aimed at the tick
+reaches exit decisions too, in both directions."*
+
+The measurements agree with that prediction:
+
+- `fetch.1d` on-loop **17.5 s** mean (documented 2.4–3.6 s)
+- off-loop `fetchby.strategy_monitor_loop` **n=1289**, max **26.8 s**
+- exit pass max **74.4 s**, exit interval max **91.6 s**, **28.2% over the 60 s
+  requirement** (F-85)
+
+So the 60 s exit-requirement breach is not an exit-loop defect to be fixed in the
+exit loop. **Both symptoms are downstream of a market-data fetch regression**, and
+the exit path is simply where it becomes money-relevant. A fix aimed at the exit
+loop alone would move a symptom; the fetch cost is the thing.
+
+⚠️ **This also inverts the natural remedy.** Raising the candle-cache TTL would
+relieve both — but `CLAUDE.md` records that the TTL is **not** a chart-freshness
+setting: strategies read `candles_df["close"].iloc[-1]` as the current price for
+entry geometry, and the monitor reads the same field for exit decisions. So the
+TTL bounds *how stale the price behind a live order may be*. That makes it
+**Tier-3**, and it is why I am recording the diagnosis rather than proposing a
+value.
+
+### F-100 — Promise-vs-delivered, the other changes I could measure
+
+| change | promise | measured now | verdict |
+|---|---|---|---|
+| **M20 exit decouple** | *"no live trade goes >60 s without evaluation"* | 28.2% of 394 intervals breach; p90 73.8 s; max 91.6 s | **NOT DELIVERED** (F-85) |
+| **M20 tick improvement** | 69.3 s mean | 159.9 s | **REGRESSED 2.3×** (F-98) |
+| **`CANDLE_CACHE_TTL_MAX_S=300`** | hit rate ↑, tick 69.3→64.1 s | tick 159.9 s | **ERASED** (F-98) |
+| **M20 off-loop segregation** | `offloop_hooks` populated | populated, n=1289 | **DELIVERED** ✅ |
+| **Netting guard / no-pyramiding** | suppress same-direction adds | 27 `same_direction_reinforcement` rejections, own cause label | **DELIVERED** ✅ |
+| **Pairs sleeve (M22)** | places both legs when live | 105 packages, **105 placed, 0 rejected** | **DELIVERED** ✅ |
+| **Journal↔broker agreement (IB)** | no divergence | MGC 95 = 95 on the traced leg | **DELIVERED** ✅ |
+| **Provenance grading** | mark manufactured PnL | field populated on 185/200 | **DELIVERED as a signal**, but 15% measured (F-97) |
+
+**The pattern is not "things don't work."** Six of eight promises were kept at
+ship time, and four are still verifiably held today. **The failures are all of one
+kind: a delivered improvement that silently decayed, with nothing watching the
+number the promise was written against.**
+
+That is the OUTCOME axis earning its place — none of these would surface as a bug
+report, because nothing is broken. The system is simply no longer doing what it
+was measured doing.
+
+**The structural fix this argues for:** a change gated on a numeric promise should
+register that number as a **watched invariant** at ship time, not just cite it in
+a PR body. `system_invariants.py` (shipped this session) is the right home:
+`INV-EXIT-INTERVAL` already exists and would have caught F-85 on any run. A
+`INV-TICK-COST` in the same shape would have caught F-98.
