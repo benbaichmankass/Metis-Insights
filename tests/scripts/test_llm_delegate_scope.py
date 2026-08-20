@@ -321,3 +321,77 @@ def test_refusal_message_truncates_a_long_denied_list(repo):
 @pytest.mark.parametrize("rel", ["", "   ", "./", "."])
 def test_empty_or_dot_paths_are_denied(repo, rel):
     assert classify(rel, repo).verdict == "denied"
+
+
+# ---------------------------------------------------------------------------
+# Line numbering in the prompt (2026-08-20).
+#
+# The delegate was graded on five real backlog items over code the grading
+# session had not written. Every quoted snippet came back verbatim correct and
+# EVERY line citation was wrong — 0 of 11, off by 3, by 24, and by ~214. The
+# cause was not the model: `build_prompt` sent raw file content, so a
+# "quote the line number" instruction could only be answered by counting, and
+# an estimate rendered as a confident `file:line` is precisely the citation
+# shape this repo's conventions teach a reader to trust.
+# ---------------------------------------------------------------------------
+
+from scripts.llm.delegate import SYSTEM_PROMPT, build_prompt, number_lines  # noqa: E402
+
+
+def test_number_lines_is_one_based_and_aligned_to_source():
+    src = "alpha\nbravo\ncharlie\ndelta"
+    out = number_lines(src).split("\n")
+    assert len(out) == 4
+    for n, original in enumerate(src.split("\n"), 1):
+        num, _, text = out[n - 1].partition("\t")
+        assert int(num) == n, f"line {n} carries number {num!r}"
+        assert text == original
+
+
+def test_the_prefix_is_a_tab_and_strips_back_to_the_exact_source():
+    # A SPACE separator would be indistinguishable from indentation, so a model
+    # quoting an indented line could not tell where the prefix ended.
+    src = "def f():\n    return 1\n\n    # trailing indented comment\n"
+    out = number_lines(src)
+    recovered = "\n".join(line.split("\t", 1)[1] for line in out.split("\n"))
+    assert recovered == src
+    assert all("\t" in line for line in out.split("\n"))
+
+
+def test_numbers_stay_aligned_past_nine_lines():
+    out = number_lines("\n".join(str(i) for i in range(1, 13))).split("\n")
+    assert out[0].startswith(" 1\t"), out[0]      # padded to the widest number
+    assert out[11].startswith("12\t"), out[11]
+
+
+def test_build_prompt_numbers_every_file_it_sends():
+    prompt = build_prompt("do a thing", [("a.py", "x = 1\ny = 2"),
+                                         ("b.md", "# title")])
+    assert "1\tx = 1" in prompt and "2\ty = 2" in prompt
+    assert "1\t# title" in prompt
+
+
+def test_build_prompt_carries_the_true_number_for_a_deep_line():
+    """The positive control: this FAILS if the numbering is ever removed.
+
+    A shallow file would pass by accident, so the target sits deep enough that
+    an estimate would not land on it — that is the actual regression.
+    """
+    content = "\n".join(f"filler {i}" for i in range(1, 220)) + "\nTARGET_LINE = True"
+    assert content.split("\n")[219] == "TARGET_LINE = True"      # 0-based -> line 220
+    prompt = build_prompt("find TARGET_LINE", [("deep.py", content)])
+    assert "220\tTARGET_LINE = True" in prompt
+    # and the wrong-by-a-lot citation the un-numbered prompt produced is absent
+    assert "6\tTARGET_LINE = True" not in prompt
+
+
+def test_system_prompt_tells_the_model_the_numbers_are_there():
+    """Numbering the lines and not saying so leaves the model estimating anyway.
+
+    Both halves of the fix have to stay: the prefix in the prompt AND the
+    instruction to cite it rather than count.
+    """
+    lowered = SYSTEM_PROMPT.lower()
+    assert "line numbers" in lowered
+    assert "do not count" in lowered or "never" in lowered
+    assert "not file content" in lowered or "presentation, not file content" in lowered

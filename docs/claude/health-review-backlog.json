@@ -19810,6 +19810,50 @@
         },
         "why_invisible": "sync loop is get-then-skip; existing labels never reach the create path"
       }
+    },
+    {
+      "id": "BL-20260820-IB-FILL-QTY-FALLS-BACK-TO-ORDER-CUMULATIVE-QTY",
+      "severity": "high",
+      "tier": 2,
+      "opened": "2026-08-20",
+      "status": "open",
+      "area": "exchange-truth",
+      "title": "ib_fill_to_row falls back to cumQty when shares is missing, which is the ORDER's running total, not this execution's size",
+      "detail": "src/runtime/exchange_fills_ib.py::ib_fill_to_row does `qty = _f(execution.shares)` then `if qty is None: qty = _f(execution.cumQty)` (verified at lines 203-205). In the IBKR API `cumQty` is the cumulative quantity filled for the WHOLE ORDER up to and including this execution, not the quantity of this execution. So on a partially-filled order where `shares` is absent, the rows OVERSTATE and double-count: an order for 10 filling 4 then 6 stores 4 and 10, summing to 14. This store is the substrate for /api/bot/pnl/exchange and /api/bot/pnl/exchange/fills — the surfaces used precisely when the journal is not trusted — so an inflated qty corrupts FIFO lot pairing and the realized/unrealized split in the one place that is supposed to be exchange TRUTH. NOT YET OBSERVED IN LIVE DATA: whether ib_insync ever leaves `shares` None on a real execution is unmeasured, so this is a latent path, not a confirmed corruption. Establishing that is step one and it is cheap — the fills store can be queried for rows whose qty exceeds the order's own total. Surfaced by the llm-delegate burst worker (task bl5-ibfills-bugfind, issue #9944) pointed at a real backlog subsystem rather than its own source, and VERIFIED against the file by the grading session — the delegate's line citations were all wrong (a separate, now-fixed defect), so every location below was re-derived by grep.",
+      "resolution_criteria": "First MEASURE: query runtime_state/exchange_fills.sqlite for IB rows sharing an order_id whose qty sums above any single row's qty, and state the count over its denominator — if zero, the path is latent and the row can be closed as such rather than silently. If non-zero, the fallback must be removed or replaced with a per-execution delta (cumQty minus the previous cumQty for that order_id), and a test must assert a two-partial-fill sequence stores 4 and 6, never 4 and 10."
+    },
+    {
+      "id": "BL-20260820-IB-COMMISSION-NOT-SANITIZED-AGAINST-THE-UNSET-SENTINEL",
+      "severity": "medium",
+      "tier": 2,
+      "opened": "2026-08-20",
+      "status": "open",
+      "area": "exchange-truth",
+      "title": "realizedPNL is guarded against IB's unset-double sentinel and commission on the very next line is not",
+      "detail": "src/runtime/exchange_fills_ib.py guards `realized` with `if realized is not None and abs(realized) > 1e17: realized = None` (lines 217-218, carrying a comment that IB 'uses a sentinel for not applicable on realizedPNL in some builds'), and then reads `commission = _f(getattr(report, 'commission', None))` on line 219 with NO equivalent guard. Line 245 writes `fee: commission if commission is not None else 0.0`, so an unset-double commission (~1.798e308) lands in the typed `fee` column intact. The asymmetry is the finding: the same report object, the same sentinel risk, one field defended and its neighbour not. PREMISE NOT VERIFIABLE FROM THE REPO: whether IBKR actually emits the sentinel on `commission` is broker behaviour this repo holds no evidence on — the code's own comment establishes it does so for realizedPNL. Surfaced by the llm-delegate burst worker (task bl5-ibfills-bugfind, issue #9944) pointed at a real backlog subsystem rather than its own source, and VERIFIED against the file by the grading session — the delegate's line citations were all wrong (a separate, now-fixed defect), so every location below was re-derived by grep.",
+      "resolution_criteria": "Either apply the same magnitude guard to `commission` (cheapest, and symmetric with the field beside it), or record explicitly why commission cannot carry the sentinel. A test should assert a report with commission=1.7976931348623157e+308 does not produce that value in `fee`. Also worth checking the fills store for any existing row with an absurd fee, which would settle the premise from data."
+    },
+    {
+      "id": "BL-20260820-IB-EXECUTION-ORDERID-ZERO-BECOMES-NULL",
+      "severity": "low",
+      "tier": 2,
+      "opened": "2026-08-20",
+      "status": "open",
+      "area": "exchange-truth",
+      "title": "order_id 0 is stored as NULL because the falsy-or chain cannot distinguish 0 from absent",
+      "detail": "src/runtime/exchange_fills_ib.py lines 250-252: `str(getattr(execution, 'orderId', '') or '') or None`. Integer 0 is falsy, so `0 or ''` is `''` and the row stores `order_id: None`. Confirmed by direct evaluation, not inference: `str(0 or '') or None` returns None while `str(5 or '') or None` returns '5'. This is the collapsed-state shape on a smaller field — 'the execution had no order id' and 'the execution had order id 0' render identically. Low severity because order_id is metadata here (the docs already note a broker SL/TP exit fills under an order id the bot never sees, so attribution does not depend on it), but it is exactly the class that later reads as a missing denominator. Surfaced by the llm-delegate burst worker (task bl5-ibfills-bugfind, issue #9944) pointed at a real backlog subsystem rather than its own source, and VERIFIED against the file by the grading session — the delegate's line citations were all wrong (a separate, now-fixed defect), so every location below was re-derived by grep.",
+      "resolution_criteria": "Use an is-None test rather than a falsy chain, so 0 stores as '0'. A test should assert orderId=0 round-trips to '0' and a genuinely absent orderId stores None — the two must stay distinguishable."
+    },
+    {
+      "id": "BL-20260820-IB-SIDE-MAPPER-DROPS-ANY-SIDE-IT-DOES-NOT-KNOW-SILENTLY",
+      "severity": "medium",
+      "tier": 2,
+      "opened": "2026-08-20",
+      "status": "open",
+      "area": "exchange-truth",
+      "title": "An IB execution side outside BOT/SLD/BUY/SELL/B/S is dropped with no count, so a dropped fill is invisible",
+      "detail": "src/runtime/exchange_fills_ib.py::ib_side_to_row_side (lines 92-105) maps only ('BOT','BUY','B') and ('SLD','SELL','S'); anything else returns None, and ib_fill_to_row line 208 then returns None for the whole row. The SKIP IS DELIBERATE and correct in intent — its docstring says a mis-signed fill would corrupt every downstream FIFO pairing, and guessing is worse. THE DEFECT IS THAT THE SKIP IS SILENT: nothing counts it, so a systematically-dropped side would present as a store that is simply smaller than reality, which is the unasserted-denominator class (an exchange-truth surface reading clean because rows never arrived). The delegate proposed 'SSHORT' as the concrete trigger; that is BROKER BEHAVIOUR THIS REPO CANNOT CONFIRM and it is recorded as the delegate's hypothesis, NOT as an established fact — IB documents BOT/SLD on Execution.side, and SSHORT appears on the ORDER side for equity short sales. The repo-side finding stands regardless of whether SSHORT is the trigger. Surfaced by the llm-delegate burst worker (task bl5-ibfills-bugfind, issue #9944) pointed at a real backlog subsystem rather than its own source, and VERIFIED against the file by the grading session — the delegate's line citations were all wrong (a separate, now-fixed defect), so every location below was re-derived by grep.",
+      "resolution_criteria": "Count the skips rather than widening the mapping on a guess: have the caller tally rows dropped for an unrecognised side and surface the count (and the raw value) wherever the pull reports, so a non-zero count is a finding rather than an absence. Only then decide whether a specific side string needs mapping — and settle SSHORT from live data, not from the model's claim."
     }
   ]
 }
