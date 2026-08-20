@@ -43,6 +43,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from src.prop.prop_position_identity import canonical_direction, position_key
 from src.prop import prop_journal
 
 logger = logging.getLogger(__name__)
@@ -60,21 +61,7 @@ _CONSOLIDATED_KEY = "__consolidated__"
 # DIFFERENT keys and a closed position's stale "buy" fill lingers as a phantom
 # open — the 2026-07-08 ETHUSDT "still monitoring a closed trade" pulse
 # (BL-20260708-PROP-PULSE-DIRECTION-ALIAS).
-_DIRECTION_ALIASES = {
-    "buy": "long", "b": "long", "bought": "long",
-    "sell": "short", "s": "short", "sold": "short",
-}
-
-
-def _canonical_direction(direction: Any) -> str:
-    """Map any long/short vocabulary to the canonical ``long``/``short``.
-
-    ``buy``/``sell`` (broker vocabulary) collapse to ``long``/``short``
-    (order-package vocabulary); an already-canonical or unknown value passes
-    through lowercased, so nothing is silently dropped.
-    """
-    d = str(direction or "").strip().lower()
-    return _DIRECTION_ALIASES.get(d, d)
+_canonical_direction = canonical_direction  # the ONE owner
 
 
 def _now() -> datetime:
@@ -105,22 +92,13 @@ def _interval_seconds() -> int:
 def _position_key(fill: Dict[str, Any]) -> str:
     """Stable identity for a prop position across its fill rows.
 
-    Always keyed on (account_id, symbol, direction) — never on ticket_id.
-    A prop account can only hold one position per symbol/direction at a time,
-    so the akd key is sufficient AND avoids the split-key bug where an open
-    fill (no ticket) and its close fill (matched to a ticket) end up under
-    different keys, making the close invisible to the open-position filter.
-
-    Direction is **canonicalized** (buy→long, sell→short) so a position
-    reported "buy" on the open and "long" on the close shares one key — else
-    the aliased fills split into two keys and a closed position's stale open
-    fill lingers as a phantom-open pulse (BL-20260708-PROP-PULSE-DIRECTION-ALIAS).
+    Delegates to `prop_position_identity.position_key` — the ONE owner of this
+    contract, which `prop_report.ingest_report` validates admission against.
+    Kept as a thin alias rather than removed: this name is referenced by tests
+    and by the repair tooling that verified the 2026-08-20 phantom fix, and a
+    rename would break the check that proved the fix.
     """
-    return (
-        f"akd:{fill.get('account_id') or ''}|"
-        f"{str(fill.get('symbol') or '').upper()}|"
-        f"{_canonical_direction(fill.get('direction'))}"
-    )
+    return position_key(fill)
 
 
 def find_open_prop_positions(

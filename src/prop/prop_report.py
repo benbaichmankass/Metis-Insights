@@ -32,6 +32,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+from src.prop.prop_position_identity import (
+    IDENTITY_FIELDS,
+    POSITION_BEARING_STATUSES,
+    missing_identity_fields,
+    position_key,
+)
 from src.prop import prop_journal, prop_reconcile
 
 logger = logging.getLogger(__name__)
@@ -84,6 +90,47 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
     symbol = report.get("symbol")
     if not symbol:
         raise ValueError("fill report needs a symbol")
+
+    # --- IDENTITY ADMISSION (2026-08-20, the structural half of the phantom
+    # --- monitor-pulse bug the operator reported three times) ---------------
+    # This chokepoint validated `account_id` and `symbol` and let `direction`
+    # through, while `prop_position_identity.position_key` requires all three.
+    # A fill admitted without a direction is PERMANENTLY UNCLOSABLE: no future
+    # close can land under its key, because a close that carries a direction
+    # keys elsewhere. That is the whole bug — one module owned identity, another
+    # owned admission, and nothing made them agree.
+    #
+    # Validated against IDENTITY_FIELDS rather than a second hardcoded list, so
+    # adding a field to the key cannot silently leave admission behind (which
+    # is exactly how this survived two prior fixes, both of which hardened the
+    # normalizer or the filter instead of the contract).
+    #
+    # REFUSING is the honest outcome. Inferring a direction from prices or from
+    # a sibling fill would FABRICATE the one field that decides which position
+    # this row belongs to — and a wrong guess is worse than a bounced report,
+    # because it silently merges two positions. The operator can re-send with
+    # the direction; nothing is lost but a round trip.
+    #
+    # Scoped to POSITION_BEARING_STATUSES: a `skipped` report records a ticket
+    # that was never placed, so it never becomes a position, and demanding a
+    # direction for it would reject a legitimate report. Measured 2026-08-20:
+    # 5 of the 32 live fills are `skipped`.
+    if status in POSITION_BEARING_STATUSES:
+        missing = missing_identity_fields({
+            "account_id": account_id,
+            "symbol": symbol,
+            "direction": report.get("direction"),
+        })
+        if missing:
+            raise ValueError(
+                f"fill report with status {status!r} is missing "
+                f"{', '.join(missing)} — every field of the position identity "
+                f"{IDENTITY_FIELDS} is required, because a row admitted "
+                f"without one can never be matched by its own close "
+                f"(it keys as {position_key({'account_id': account_id, 'symbol': symbol, 'direction': report.get('direction')})!r}, "
+                f"which no complete report can reproduce). Re-send with the "
+                f"missing field rather than guessing it."
+            )
 
     # Normalise an inbound venue symbol (what the executor / operator typed on
     # the Breakout terminal, e.g. "ETHUSD") back to the bot's canonical symbol
