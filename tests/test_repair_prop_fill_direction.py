@@ -12,8 +12,11 @@ A test that invents its table proves nothing about production.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sqlite3
+import subprocess
+import sys
 
 import pytest
 
@@ -137,3 +140,145 @@ def test_planted_control_detector_refires_on_a_reintroduced_null(
     conn.execute("UPDATE prop_fills SET direction=NULL WHERE id=30")
     conn.commit()
     assert 30 in {r["id"] for r in rpfd.plan_repairs(conn)}
+
+# --- The gap that let a real failure reach the live VM ------------------------
+#
+# Every test above imports the module through importlib with the repo root
+# already on sys.path, and calls plan_repairs/apply_repairs directly. NONE of
+# them called main(), so the module's own `src.*` import bootstrap was never
+# exercised — and it was wrong: two dirname calls resolved to `scripts/` rather
+# than the repo root, and the first live dry run died with
+# `ModuleNotFoundError: No module named 'src'`, having written nothing.
+#
+# A test that hands the module a world it would not have in production proves
+# the logic and nothing about the wiring. These run it the way the wrapper does.
+
+
+def test_runs_as_a_script_the_way_the_wrapper_invokes_it(tmp_path) -> None:
+    """`cd <repo> && python scripts/ops/repair_prop_fill_direction.py --db X`.
+
+    python puts the SCRIPT's directory on sys.path, not the CWD, so this is the
+    invocation that catches a wrong repo-root computation. Asserting on the
+    absence of the import error specifically — a bare returncode check would
+    pass on any other failure and hide a regression here.
+    """
+    db = tmp_path / "j.db"
+    conn = sqlite3.connect(db)
+    _schema(conn)
+    conn.commit()
+    conn.close()
+
+    proc = subprocess.run(
+        [sys.executable, "scripts/ops/repair_prop_fill_direction.py",
+         "--db", str(db), "--account", "breakout_1"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    assert "ModuleNotFoundError" not in proc.stderr, (
+        "the script cannot import its own dependencies when run as a script — "
+        f"this is the failure that reached the live VM.\n{proc.stderr}"
+    )
+    assert proc.returncode == 0, (
+        f"expected a clean no-candidate run.\nstdout: {proc.stdout}\n"
+        f"stderr: {proc.stderr}"
+    )
+    assert json.loads(proc.stdout)["candidates"] == 0
+
+
+def test_repo_root_bootstrap_actually_reaches_the_repo_root() -> None:
+    """Direct check on the value the module computed, so a future edit that
+    drops or adds a `dirname` fails here with a clear message rather than at
+    dispatch on the VM."""
+    assert hasattr(rpfd, "_REPO_ROOT"), (
+        "the module no longer names its computed repo root, so nothing can "
+        "assert it is right"
+    )
+    resolved = pathlib.Path(rpfd._REPO_ROOT)
+    assert resolved == REPO, (
+        f"the module resolves its repo root to {str(resolved)!r}, not "
+        f"{str(REPO)!r}; `src` would not be importable from there"
+    )
+    assert (resolved / "src").is_dir()
+
+
+# --------------------------------------------------------------------------
+# THE WRAPPER MUST RESOLVE AND EXPORT THE DB PATH.
+#
+# Added 2026-08-20 after the SECOND live dry run (#10049) failed with
+# `sqlite3.OperationalError: unable to open database file`. The python resolver
+# order is TRADE_JOURNAL_DB -> $DATA_DIR/trade_journal.db -> repo-root, and a
+# wrapper invoked over SSH inherits NEITHER (they live in the systemd unit's
+# EnvironmentFile, not in an interactive shell). So it fell through to a
+# repo-root path that does not exist on the live VM, and a `mode=ro` URI
+# connection cannot create one.
+#
+# ~20 sibling wrappers already do this (backfill_closed_at_action.sh:34,76).
+# DEVIATING FROM AN ESTABLISHED IDIOM IS THE DEFECT, so these assert against the
+# SHIPPING wrapper text — a test embedding its own copy passes for ever after
+# the original changes.
+#
+# Note what the existing suite could not catch: #10042 added a test that runs
+# the script the way the wrapper does, but it runs it HERE, where the repo-root
+# fallback finds a real file. The environment difference IS the bug, so the
+# only durable assertion is on the wrapper's contract with the python process.
+# --------------------------------------------------------------------------
+
+_WRAPPER = REPO / "scripts" / "ops" / "repair_prop_fill_direction_action.sh"
+_CONTROL_WRAPPER = REPO / "scripts" / "ops" / "backfill_closed_at_action.sh"
+
+
+def test_the_wrapper_resolves_the_db_path_via_the_canonical_helper() -> None:
+    body = _WRAPPER.read_text()
+    assert "runtime_db_path" in body, (
+        "the wrapper must resolve the DB path via _lib.sh::runtime_db_path, "
+        "which calls load_runtime_env and so reads the SAME value the trader "
+        "uses; without it the python resolver falls through to repo-root"
+    )
+
+
+def test_the_wrapper_exports_TRADE_JOURNAL_DB_to_the_python_process() -> None:
+    """Resolving it is not enough — the python process must SEE it."""
+    exec_lines = [
+        line for line in _WRAPPER.read_text().splitlines()
+        if "repair_prop_fill_direction.py" in line and line.strip().startswith("exec")
+    ]
+    assert exec_lines, "no exec line invoking the python script"
+    for line in exec_lines:
+        assert "TRADE_JOURNAL_DB=" in line, (
+            f"the python invocation must carry TRADE_JOURNAL_DB; got: {line}"
+        )
+
+
+def test_the_control_sibling_still_uses_the_idiom_this_suite_enforces() -> None:
+    """POSITIVE CONTROL, and the reason it is separate.
+
+    If the canonical idiom ever moves, the two tests above would keep passing
+    while enforcing a stale pattern. This one fails loudly instead, so the
+    suite cannot quietly hold the wrapper to a convention the repo abandoned.
+    """
+    assert _CONTROL_WRAPPER.is_file(), f"control wrapper missing: {_CONTROL_WRAPPER}"
+    control = _CONTROL_WRAPPER.read_text()
+    assert "runtime_db_path" in control and "TRADE_JOURNAL_DB=" in control, (
+        "the control sibling no longer uses the idiom these tests enforce — "
+        "re-derive the canonical pattern before trusting them"
+    )
+
+
+def test_a_missing_db_names_the_path_instead_of_sqlites_bare_message(tmp_path) -> None:
+    """`unable to open database file` names no path and no cause.
+
+    The process knows both. Reporting neither is the unprovenanced-diagnostic
+    class, and it cost a full dispatch cycle on #10049 to learn one fact the
+    process already had.
+    """
+    missing = tmp_path / "definitely_not_here.db"
+    proc = subprocess.run(
+        [sys.executable,
+         str(REPO / "scripts" / "ops" / "repair_prop_fill_direction.py"),
+         "--db", str(missing)],
+        capture_output=True, text=True, cwd=REPO,
+    )
+    assert proc.returncode != 0
+    combined = proc.stdout + proc.stderr
+    assert str(missing) in combined, combined
+    assert "TRADE_JOURNAL_DB" in combined, combined
+    assert "unable to open database file" not in combined, combined
