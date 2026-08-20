@@ -108,8 +108,11 @@ import m20_fleet_exit_sweep as fleet  # noqa: E402
 #                 set by the 9.9% venue clamp (`--tp-cap-pct`). So the grid walks
 #                 DOWN from the sentinel into the region a real R target occupies.
 #                 1.5 is included because it is what every live `ict_scalp` leg
-#                 actually trades — the value `BL-20260820-E2-LABEL-BARRIER-...`
-#                 says the E2 label should have matched.
+#                 actually trades — the value the E2 label should have matched,
+#                 per the tracking id on the next line (never abbreviated with an
+#                 ellipsis: a truncated id resolves to NOTHING and reads as
+#                 tracked while being tracked by nobody):
+# BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY
 #   atr_stop_mult live is 2.5 on every leg in scope. Symmetric either side.
 #   timeout_bars  live is the harness default (200 trend/pullback, 48 squeeze);
 #                 the grid reaches well below it because the census records
