@@ -1,0 +1,19 @@
+{
+  "_comment": "Standing per-file count of unsubstantiated impossibility claims. The diff-scoped guard cannot police lines nobody edits, so this ratchet is what keeps already-committed rows visible. Counts may only go DOWN: regenerate with `python3 scripts/check_impossibility_claims.py --all --update-baseline`.",
+  "per_file": {
+    "docs/claude/health-review-backlog.json": 8,
+    "docs/claude/ml-review-backlog.json": 5,
+    "docs/claude/performance-review-backlog.json": 1,
+    "docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md": 1,
+    "docs/research/AUTONOMOUS-WORKPLAN-2026-07-30.md": 2,
+    "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md": 1,
+    "docs/research/M23-meta-labeling-DESIGN.md": 1,
+    "docs/research/RESEARCH-CAPABILITY-INDEX.md": 4,
+    "docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md": 2,
+    "docs/research/RESEARCH-PROGRAM-2026-07-30.md": 2,
+    "docs/research/RESEARCH-RIGOR-STANDARD.md": 4,
+    "docs/research/WORKPLAN-2026-08-05.md": 3,
+    "docs/research/c-reg-lens-enablement-2026-07-28.md": 1,
+    "docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md": 1
+  }
+}

@@ -91,6 +91,10 @@ COVERED = {
         "test_exit_head_per_leg reads THE REAL matrix (not a fixture); PR #9208 "
         "changed only this file, short-circuited to a TEN-SECOND green "
         "pytest-run, merged, and left main red",
+    "docs/claude/impossibility-claim-baseline.json":
+        "test_impossibility_claim_ratchet reads the REAL baseline; it records the "
+        "ALLOWED per-file claim counts, so a docs-only PR RAISING them is exactly "
+        "the diff that must not short-circuit into a green tick",
     "docs/research/m20-sweep-corpus.jsonl":
         "test_m20_regime_book_provenance asserts per-run axis agreement over the "
         "committed corpus",
