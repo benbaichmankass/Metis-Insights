@@ -72,6 +72,14 @@ _PER_PEER_SUFFIXES: tuple[str, ...] = (
     "rel_strength",
     "beta",
     "beta_residual",
+    # COVERAGE, not a measurement (2026-08-20). The six columns above are
+    # zero-filled by `_finite_or_zero` when a slot has no readable series, so
+    # "this peer had no data" is byte-identical to "this peer returned exactly
+    # zero at zero vol with zero beta". This flag is what separates them: 1.0
+    # when the slot produced a return on THIS bar, 0.0 when it did not. Without
+    # it the model cannot represent "we did not look", and no consumer can tell
+    # how much of a row was measured.
+    "present",
 )
 
 
@@ -82,9 +90,16 @@ def _peer_columns(slot: int) -> tuple[str, ...]:
 # The fixed cross-asset feature columns this family contributes to
 # `market_features`. Single source of truth shared by the builder schema, the
 # side-stream producer, and the tests.
+#: Book-level columns. `xa_breadth_present` is the DENOMINATOR behind
+#: `xa_breadth_up` — without it, 0.0 means EITHER every peer fell OR no peer had
+#: data, which are opposite market states, and a breadth of 0.5 over two peers is
+#: indistinguishable from 0.5 over one. The count was already computed and simply
+#: never emitted.
+_BOOK_COLUMNS: tuple[str, ...] = ("xa_breadth_up", "xa_breadth_present")
+
 CROSS_ASSET_FEATURE_COLUMNS: tuple[str, ...] = tuple(
     col for slot in range(1, N_PEER_SLOTS + 1) for col in _peer_columns(slot)
-) + ("xa_breadth_up",)
+) + _BOOK_COLUMNS
 
 
 def _finite_or_zero(value: float | None) -> float:
@@ -244,12 +259,21 @@ def compute_cross_asset_feature_rows(
             row[cols[3]] = _finite_or_zero(rs)
             row[cols[4]] = _finite_or_zero(beta)
             row[cols[5]] = _finite_or_zero(beta_resid)
+            # 1.0 iff this slot produced a return on this bar. Deliberately keyed
+            # on `ret_t`, the same value the breadth count is keyed on, so the
+            # per-slot flags always sum to `xa_breadth_present`.
+            row[cols[6]] = 1.0 if ret_t is not None else 0.0
             if ret_t is not None:
                 breadth_present += 1
                 if ret_t > 0:
                     breadth_up += 1
+        # `xa_breadth_up` keeps its historical zero-when-empty value so the
+        # trained heads' column semantics do not shift; `xa_breadth_present` is
+        # what makes that 0.0 readable. Read them together — the ratio alone
+        # cannot say whether it was measured over four peers, one, or none.
         row["xa_breadth_up"] = (
             breadth_up / breadth_present if breadth_present else 0.0
         )
+        row["xa_breadth_present"] = float(breadth_present)
         out_rows.append(row)
     return out_rows

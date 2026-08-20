@@ -13,6 +13,70 @@
 # features (the head degrades to NaN xa columns, which LightGBM handles). Kill
 # switch: CROSS_ASSET_LIVE_DISABLED.
 
+# ---------------------------------------------------------------------------
+# PEER CHOICES ARE MEASURED, NOT INTUITED (2026-08-20).
+#
+# Every rho below is Pearson r on DAILY LOG RETURNS over the 90-day window in
+# `comms/research/crypto_correlation_2026-08-18.json` (Bybit v5 klines, n=90,
+# pulled via trainer-diag #9966). Each symbol takes its top-2 measured peers,
+# which is N_PEER_SLOTS.
+#
+# ⚠️ DO NOT "IMPROVE" THE ETHUSDT ROW. Its peers are the ones
+# `eth-regime-1h-lgbm-xasset-v1` was TRAINED on, and that head is live-wired at
+# shadow stage. XRPUSDT (0.8763) is in fact a closer peer than SOLUSDT (0.8515),
+# so the row looks wrong by the measurement below and is RIGHT as it stands:
+# changing it would break live == train for a head already scoring, which is the
+# one invariant this whole file exists to hold. A future ETH head trained on a
+# different peer set changes this row IN THE SAME PR as the retrain, never before.
+#
+# ⚠️ ADDING A ROW HERE IS INERT FOR LIVE SCORING, which is why it is safe.
+# `cross_asset_live.group_needs_cross_asset` computes the block only for a
+# predictor that TRAINED on `xa_*` columns, and today only the ETH head has. A
+# BTCUSDT row changes no live score, and adds no fetch, until a BTC head trains
+# on it.
+# ---------------------------------------------------------------------------
+
+# TRAINED PEER SET — see the warning above before editing.
 ETHUSDT:
-  - BTCUSDT
-  - SOLUSDT
+  - BTCUSDT      # rho 0.8826 (the highest measured pair in the book)
+  - SOLUSDT      # rho 0.8515
+
+# Added 2026-08-20, top-2 by measured 90d rho. None of these is consumed by any
+# head today (see the inertness note above); they exist so the E1 in-trade panel
+# has a peer series to join for the symbols that actually carry open positions.
+BTCUSDT:
+  - ETHUSDT      # rho 0.8826
+  - XRPUSDT      # rho 0.8433  (SOLUSDT 0.8356 is third, close behind)
+
+SOLUSDT:
+  - ETHUSDT      # rho 0.8515
+  - XRPUSDT      # rho 0.8451
+
+XRPUSDT:
+  - ETHUSDT      # rho 0.8763
+  - SOLUSDT      # rho 0.8451
+
+ADAUSDT:
+  - XRPUSDT      # rho 0.7591
+  - ETHUSDT      # rho 0.7243  (ADA is the weakest-correlated crypto in the book;
+                 #  its top pair is below every other symbol's SECOND pair)
+
+# ---------------------------------------------------------------------------
+# DELIBERATELY ABSENT — no measured pair exists, so no peer is declared.
+#
+# An absent row is now DISTINGUISHABLE from a flat one downstream: the feature
+# block emits `xa_peer{n}_present` / `xa_breadth_present` as of 2026-08-20, so a
+# symbol with no peers reads as UNMEASURED rather than as peers-at-zero. That is
+# what makes leaving these out honest instead of lossy.
+#
+#   AVAXUSDT — traded (2 legs) but NOT in the correlation matrix, which covers
+#              only ADA/BTC/ETH/SOL/XRP. Guessing a peer here would be exactly
+#              the intuition this file's header forbids.
+#
+#   GDX · GLD · IAUM · IEF · IWM · MES · MGC · MHG · QLD · QQQ · SCHA · SPLG ·
+#   SPY · TLT · TQQQ · USO — every pair involving one of these is UNMEASURED,
+#              which is NOT the same as uncorrelated. Blocked on extending the
+#              correlation measurement beyond crypto; the same gap blocks the
+#              mgc/qqq/tlt/spy sweeps.
+#              (BL-20260820-CROSS-ASSET-PEER-MAP-COVERS-1-OF-23-TRADED-SYMBOLS)
+# ---------------------------------------------------------------------------

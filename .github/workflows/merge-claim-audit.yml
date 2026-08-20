@@ -1,0 +1,141 @@
+name: merge-claim-audit
+
+# NON-BLOCKING post-merge detector for the coordination-board merge-slot protocol.
+#
+# WHY THIS SHAPE, and why NOT a required status check (decided 2026-08-20 with the
+# operator, closing the enforcement half of BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE):
+#
+#   * The PreToolUse guard that was supposed to enforce the claim is NEVER INVOKED on
+#     Claude Code on the web -- that runtime registers zero project hooks. See
+#     BL-20260820-PROJECT-HOOKS-INERT-ON-WEB. So on the web there is no enforcement at all.
+#   * The obvious replacement -- a REQUIRED check verifying a claim comment -- was
+#     considered and REJECTED. It is presence-only, so it would be cheaper to satisfy by
+#     posting a formulaic comment than by doing the actual work of reading the board for a
+#     collision: it would enforce the ARTIFACT of the protocol, not the protocol. That is
+#     the new-table-wiring-guard lesson ("a guard cheaper to lie to than to satisfy is worse
+#     than no guard"). It would also change the required-check set on every PR, which
+#     CLAUDE.md documents as the operation that can deadlock every open PR.
+#   * And the harm is UNMEASURED. Ten merges without a claim on 2026-08-20 alone, three
+#     sessions over three days -- and zero reported collisions. Shipping a hard gate before
+#     establishing the harm rate is the exposure-ceiling mistake
+#     (gross-exposure-governance-DESIGN.md section 6: a ceiling with no distribution behind
+#     it silently throttles correct work).
+#
+# So this MEASURES instead of gating. It cannot block a merge, cannot fail a PR, and has
+# nothing to game because it gates nothing. Once there is a distribution -- how often, and
+# whether an unclaimed merge ever coincides with a real collision -- the enforcement
+# question can be decided on evidence.
+#
+# WHY pull_request_target AND NOT pull_request: a fork PR's GITHUB_TOKEN is read-only, so
+# `issues: write` would silently fail to post. This job NEVER checks out or executes PR-authored
+# code -- it only calls github-script against the API -- so it carries none of the usual
+# pull_request_target risk, which comes entirely from running untrusted checkout content.
+#
+# THIS IS A HEURISTIC DETECTOR, NOT A PROOF, and the failure direction is known: the matcher
+# requires the PR number to appear AFTER a CLAIM token on the same line, so a combined
+# "RELEASE #A ... CLAIM #B" comment does not register as a claim for A. A's own earlier claim
+# comment normally still matches inside the window, but a false "unclaimed" is possible.
+# Read the counts as a rate, never as a verdict on a specific session.
+#
+# THREE STATES, NEVER COLLAPSED (collapsed-state discipline): claimed / unclaimed /
+# could_not_check. A read failure must never render as "unclaimed", which would be a
+# confident accusation built on an unasserted denominator (diagnostic-provenance sub-class C).
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: merge-claim-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check for a merge-slot claim on the coordination board
+        uses: actions/github-script@v7
+        env:
+          BOARD_ISSUE: '6927'
+          LOOKBACK_HOURS: '48'
+        with:
+          script: |
+            const board = Number(process.env.BOARD_ISSUE);
+            const pr = context.payload.pull_request;
+            const prNum = pr.number;
+            const mergedAt = new Date(pr.merged_at);
+            const since = new Date(mergedAt.getTime() - Number(process.env.LOOKBACK_HOURS) * 3600e3);
+
+            // state is one of: claimed | unclaimed | could_not_check -- never inferred from a null
+            let state = 'could_not_check';
+            let reason = '';
+            let comments = [];
+
+            try {
+              comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: board, since: since.toISOString(), per_page: 100,
+              });
+            } catch (e) {
+              reason = `board read failed: ${e.message}`;
+              core.warning(`could_not_check — ${reason}`);
+              core.setOutput('state', state);
+              return;
+            }
+
+            // DENOMINATOR ASSERTION. Issue #6927 is a high-traffic board; a 48h window
+            // returning zero comments means the read did not work, not that the board was
+            // silent. Treating 0 as a clean negative is precisely the failure this guard
+            // is written to avoid, so it is refused rather than reported.
+            if (comments.length === 0) {
+              state = 'could_not_check';
+              reason = `zero comments in the last ${process.env.LOOKBACK_HOURS}h on a board that is never silent — treating as a failed read, not as "no claim"`;
+              core.warning(`could_not_check — ${reason}`);
+              core.setOutput('state', state);
+              return;
+            }
+
+            // A claim names the PR. Match #<n> / "PR <n>" / bare <n> on a claim line only,
+            // with a word boundary so #1001 never satisfies a check for #100.
+            const claimRe = new RegExp(
+              String.raw`(MERGE SLOT CLAIM|CLAIM)[^\n]*?(?:#|PR\s*|\bpull/)0*${prNum}\b`, 'i');
+            const hit = comments.find(c => claimRe.test(c.body || ''));
+            state = hit ? 'claimed' : 'unclaimed';
+            core.setOutput('state', state);
+            core.info(`PR #${prNum}: ${state} (scanned ${comments.length} comments since ${since.toISOString()})`);
+
+            if (state === 'claimed') return;   // silent on the happy path — no noise
+
+            const body = [
+              `### 📋 merge-slot audit — PR #${prNum} merged with no claim found`,
+              ``,
+              `**This is an observation, not an accusation, and nothing was blocked.** ` +
+              `[#${prNum}](${pr.html_url}) merged at \`${pr.merged_at}\` and no ` +
+              `\`MERGE SLOT CLAIM\` naming it appears in the last ${process.env.LOOKBACK_HOURS}h ` +
+              `of this board (${comments.length} comments scanned).`,
+              ``,
+              `If you are on **Claude Code on the web**, this is expected rather than a lapse: ` +
+              `the \`PreToolUse\` guard is never invoked there (that runtime registers zero ` +
+              `project hooks — \`BL-20260820-PROJECT-HOOKS-INERT-ON-WEB\`), so nothing stops an ` +
+              `unclaimed merge. **A merge going through is not evidence the protocol ran.**`,
+              ``,
+              `This workflow exists to build the number nobody has: how often this happens, and ` +
+              `whether it ever coincides with a real collision. It deliberately does **not** gate ` +
+              `merging — see the rationale at the top of \`.github/workflows/merge-claim-audit.yml\`.`,
+              ``,
+              `Author: \`${pr.user.login}\` · head \`${pr.head.sha.slice(0, 8)}\` · base \`${pr.base.ref}\``,
+              ``,
+              `---`,
+              `_Generated by [Claude Code](https://claude.ai/code)_`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: board, body,
+            });
