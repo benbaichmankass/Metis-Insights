@@ -1170,3 +1170,165 @@ structurally unable to test.
    Tier-1.
 5. Fix the stale `risk_pct 0.3` prose in `accounts.yaml`. Tier-1, cosmetic, but
    it is the decoy the next reader hits first.
+
+---
+
+## Part 11 — GitHub Actions (106 workflows, operator-named scope)
+
+F-40 predicted the yield here: defects concentrate at guard and automation
+boundaries. They do, and the largest one is an ML verification substrate that
+has produced nothing for a month while every surface reports green.
+
+### F-41 — `replay-pregate-nightly` has been red every night for a month (severity: HIGH)
+
+Measured 2026-08-20 over the last **30 scheduled runs** (2026-07-22 → 2026-08-20):
+
+| conclusion | runs |
+|---|---|
+| failure | 27 |
+| cancelled | 3 |
+| **success** | **0** |
+
+Not a liveness problem — the cron fires reliably at 04:0x every night. It runs,
+and it fails, and it has done so **without a single success in the sampled
+month**. (Total scheduled runs = 55; I read the most recent 30 and state that
+bound rather than claiming the whole history.)
+
+**What it is.** The ML **replay pre-gate (RG3)**: it scores every shadow-stage
+regime head through the LIVE predict path against the dataset's own
+`regime_label`, and commits the report back to the repo. Its own header states
+the purpose — *"so the result survives a dead Claude session… the overnight 'run
+through the trainings' substrate."*
+
+So this is precisely the infrastructure for the operator's standing requirement
+that *"just checking that the trainer VM is green isn't enough — we need to
+verify the training sessions are producing reliable and actionable results,
+every day."* It has produced zero for a month. **Read this next to F-35**
+(trainer reports `overall_rc: 0` while 9 of 76 manifests are stale): two
+independent mechanisms, one blind spot — the ML lifecycle's verification layer
+is dark, and every surface that would show it reports green.
+
+### F-42 — The root cause discards work that already succeeded (severity: HIGH)
+
+From the 2026-08-20 run log, the failure is deterministic, not a flake. The
+fleet scores **9 of 21 heads successfully** — with good numbers
+(`TRUSTWORTHY_SIGNAL`, AUC 0.71–0.93, n≈25k–30k) — then at head 10/21:
+
+```
+[fleet] (10/21) btc-regime-5m-lgbm-yz-v1 ...
+client_loop: send disconnect: Broken pipe
+##[error]no JSON object in driver output
+```
+
+Three compounding defects, all verified in the workflow file:
+
+1. **No SSH keepalive.** The invocation sets `ConnectTimeout=20` and **no
+   `ServerAliveInterval` / `ServerAliveCountMax`**, on a remote command that runs
+   ~25 minutes (04:37 → 05:02) emitting output sparsely. An idle NAT/firewall
+   timeout kills the channel — the textbook `Broken pipe`.
+2. **An all-or-nothing output contract.** The consumer is
+   `raw.find('{')` / `raw.rfind('}')` — ONE JSON object spanning the entire
+   output. A truncated run has no closing brace, so **nine heads of completed,
+   valid scoring are thrown away every night.** The work is real; only the
+   transport is broken.
+3. **The failure carries no partial result.** The error text is `no JSON object
+   in driver output`, which describes the PARSE, not the disconnect immediately
+   above it — a reader is pointed at the driver rather than at the SSH channel.
+
+Note `timeout-minutes: 45` was NOT reached; this is not a budget problem.
+
+### F-43 — The failure alerter cannot tell delivered from undelivered (severity: HIGH)
+
+`claude-run-failure-alert.yml` **exists, is wired, and explicitly names
+`replay-pregate-nightly` in its watch list.** Its `if:` condition is correct —
+`failure || cancelled || timed_out`, and these runs conclude `failure`. So the
+alerting was built for exactly this and 27 nights still passed.
+
+Two silent-no-op paths, both verified in the step body:
+
+1. **Missing secrets → `exit 0`.** If `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`
+   are unset it prints a `::warning::` and exits **0** — the alert job goes
+   **green having alerted nobody**.
+2. **The send's result is discarded.** `curl -sS … >/dev/null`, with no `-f` and
+   no response check. Telegram returns **HTTP 200 with `{"ok":false}`** for
+   `chat not found` / `bot blocked`, so an API-level rejection is
+   indistinguishable from a delivery. The step then prints
+   `Alerted: ${WF_NAME} concluded ${WF_CONCLUSION}` — a confident claim of
+   delivery over code that only established *a request was sent* (diagnostic
+   provenance sub-class A).
+
+**What I could NOT establish, stated rather than assumed.** I could not confirm
+from the run list whether the alert fired on the nightly failures: the sampled
+page of `claude-run-failure-alert` runs (30 of 19,358) was entirely
+`skipped` — but all 30 were from one 12-second CI burst at 08:31 today, i.e.
+successes being correctly skipped, not evidence about 05:02. So two modes remain
+open and they need different fixes:
+
+- **(a) it fires and the ping is walked past** → the desensitized-alarm P1 that
+  `CLAUDE.md` names in its own words (*"an alarm that fires constantly and is
+  routinely walked past… the desensitized alarm is ITSELF a P1 bug"*);
+- **(b) it fires and silently no-ops** via either path above → the alert has
+  never worked and its green runs say otherwise.
+
+**The distinguishing test** (cheap, decisive): read the job log of one
+`claude-run-failure-alert` run triggered by a 04:37 `replay-pregate-nightly`
+failure. `Alerted: …` present ⇒ mode (a); `::warning::Telegram secrets not
+configured` ⇒ mode (b). **Either way F-43 stands**, because the alerter reports
+success in both — its own claim is not falsifiable by anything it controls,
+which is the INDEPENDENCE axis failing on the component whose entire job is to
+be the independent observer.
+
+### F-44 — What the workflow corpus gets RIGHT (recorded, because it bounds the finding)
+
+Two classes I probed for and did not find, each stated with its denominator:
+
+- **Untrusted-input injection: ZERO sites across all 106 workflows.** Every
+  issue-driven workflow routes `github.event.issue.body` through an env var
+  rather than inline `${{ }}` interpolation, exactly as `CLAUDE.md` documents.
+  With 82 of 106 workflows issue-triggered, this is the highest-exposure class
+  in the repo and it is handled consistently.
+- **The `curl … || echo` defaulted-parse class: 2 sites, 1 file.**
+  `alpaca-options-probe.yml:70,78` curl into a file, swallow failure with
+  `|| true`, then `jq … || echo 0` — so "the API call failed" and "this
+  underlying has zero contracts" both render as `contracts=0`. **Step [3] of the
+  same file does it correctly** (`-w "%{http_code}"`, parse gated on `= "200"`),
+  which makes this inconsistency rather than ignorance, and means the fix is
+  already written one step below the defect.
+
+⚠️ **A methodology note, because my first probe was wrong.** My initial detector
+for that class returned **0 sites** — over a corpus containing a known positive I
+had already read by eye. The bug was granularity: it scanned whole `run:` blocks,
+so step [3]'s `%{http_code}` masked its absence in steps [1] and [2]. Re-scoped
+per-`curl`, it finds both. **A zero from a probe that was never shown to find a
+positive is not a measurement** — the control is what turned a false all-clear
+into the honest count above.
+
+### Smaller items
+
+- **109 workflows are registered against 106 files on disk.** Registered
+  workflows persist after file deletion, so 3 are candidates for stale
+  registrations. Not chased.
+- **`continue-on-error: true` on 14 workflows** and `|| true` / `|| echo` in 80
+  of 106 — the latter is mostly correct usage in diagnostic printers where the
+  failure is honestly labelled (`(failed)`, `unreachable`, `none`, `000`).
+  Not swept individually; the two that mattered are F-44.
+- **Only 4 of 106 workflows run on `pull_request`.** 82 are issue-triggered
+  relay/system-action paths — the automation surface is far larger than the CI
+  surface, which is itself the argument for auditing it.
+
+### Proposed fixes (not applied — review first)
+
+1. `ServerAliveInterval=30` + `ServerAliveCountMax=6` on the pregate SSH, and on
+   every other long-running SSH relay (sweep needed — this is a class, not a
+   file). Tier-1.
+2. Make the pregate emit **one JSON object per head, streamed**, so a
+   disconnect keeps the heads already scored; the consumer takes the last
+   complete record set and reports `heads_scored / heads_total` as an explicit
+   coverage figure. Tier-1. This converts a nightly total loss into a partial
+   result with a stated denominator.
+3. Make the alerter falsifiable: check Telegram's `ok` field, **fail the job**
+   when the send is rejected, and make missing secrets a **failure, not
+   `exit 0`** — an alerter that cannot alert must go red, not green. Tier-1.
+4. Run the distinguishing test in F-43 before choosing between the mode-(a) and
+   mode-(b) remedies; if (a), the fix is de-duplication/escalation, not another
+   ping.
