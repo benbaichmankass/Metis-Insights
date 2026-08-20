@@ -76,3 +76,83 @@ class TestBasisRecognition:
     def test_since_date_passes(self):
         head = _blog([_row("BL-NEW", "coverage is 60.8% since 2026-07-30 deploy")])
         assert check_new_rows(_blog([]), head, "x.json") == []
+
+
+class TestFieldOfView:
+    """`_ROW_TEXT_FIELDS` is the guard's whole field of view, in BOTH directions.
+
+    Measured 2026-08-20 across all three backlogs (940 rows): 198 rows carried
+    a quantitative claim in a then-scanned field, and **65 more carried one
+    ONLY in `detail`/`evidence`** — 24.7% of the 263 claim-bearing rows, never
+    checked at all; 16 of those had no basis anywhere and would have failed.
+    So the pre-2026-08-20 guard reported a clean negative over a population it
+    could not see, which is the unasserted-denominator class (sub-class C) the
+    repo's own diagnostic-provenance rule names.
+
+    Each test below is a PLANTED CONTROL: it fails if the field is dropped
+    from `_ROW_TEXT_FIELDS`, so the widening cannot silently regress.
+    """
+
+    # --- false-negative direction: claim hidden in an unscanned field -------
+    def test_a_basisless_claim_in_detail_is_CAUGHT(self):
+        head = _blog([{"id": "BL-NEW", "title": "t",
+                       "detail": "the failure rate reached 47% on this account"}])
+        out = check_new_rows(BASE, head, "x.json")
+        assert out, (
+            "a basis-less claim living only in `detail` passed unseen — the "
+            "guard is blind to the field 226 health-backlog rows use"
+        )
+
+    def test_a_basisless_claim_in_evidence_is_CAUGHT(self):
+        head = _blog([{"id": "BL-NEW", "title": "t",
+                       "evidence": "fabricated PnL totalled $247,683.78"}])
+        assert check_new_rows(BASE, head, "x.json")
+
+    def test_negative_control_a_truly_unscanned_field_still_passes(self):
+        """Proves the tests above discriminate on the FIELD, not the text.
+
+        Same basis-less claim, parked in a field deliberately NOT in the
+        tuple. It passes — so the two tests above are detecting field
+        coverage, not merely 'the guard flags 47% wherever it appears'.
+        """
+        head = _blog([{"id": "BL-NEW", "title": "t",
+                       "some_field_we_do_not_scan":
+                           "the failure rate reached 47% on this account"}])
+        assert check_new_rows(BASE, head, "x.json") == []
+
+    # --- false-positive direction: basis present in an unscanned field ------
+    def test_a_claim_in_title_whose_BASIS_is_in_detail_passes(self):
+        """The false positive that surfaced this: title states 94%, detail
+        states n=1. Failing that row teaches sessions to duplicate prose into
+        `description` to appease a guard, which is worse than the gap."""
+        head = _blog([{"id": "BL-NEW",
+                       "title": "a 94%-full training box was invisible",
+                       "detail": "ONE reading, n=1, not a series: 45G total"}])
+        assert check_new_rows(BASE, head, "x.json") == [], (
+            "a correct row stating its basis in `detail` was failed"
+        )
+
+    def test_the_field_tuple_is_declared_once_and_used(self):
+        """No second hardcoded list — the drift this repo keeps paying for."""
+        import check_claim_basis as cb
+        assert "detail" in cb._ROW_TEXT_FIELDS
+        assert "evidence" in cb._ROW_TEXT_FIELDS
+        src = (_REPO_ROOT / "scripts" / "check_claim_basis.py").read_text(encoding="utf-8")
+        assert src.count('"detail"') == 1, (
+            "`detail` appears more than once in the guard — a second field "
+            "list has been introduced and the two will drift"
+        )
+
+    def test_diff_scoping_still_shields_preexisting_rows(self):
+        """Widening the view must not retro-fail the 16 rows it can now see.
+
+        Without this, the widening would have turned every subsequent PR red
+        on rows nobody in that PR wrote — the change would have been reverted
+        and the blind spot restored.
+        """
+        old = {"id": "BL-OLD-HIDDEN", "title": "t",
+               "detail": "an old row claiming 99% with no basis at all"}
+        base = _blog([old])
+        head = _blog([old, {"id": "BL-NEW", "title": "t",
+                            "detail": "clean row, 5 of 9 dirs"}])
+        assert check_new_rows(base, head, "x.json") == []

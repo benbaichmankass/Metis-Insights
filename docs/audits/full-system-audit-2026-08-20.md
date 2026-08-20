@@ -3915,3 +3915,192 @@ noticing is the method this rewrite was supposed to replace, which is why Phase 
 (prove the gauge can fail before trusting it) and the mandatory `detector` field
 are load-bearing rather than ceremony: they are the only parts that do not depend
 on the auditor being right.
+
+
+---
+
+## Part 28 — The rest of the fix program, and the five times a guard caught the auditor
+
+Part 27 audited the act of fixing. This part continues it, and its through-line is
+narrower and more uncomfortable: **every finding below that concerns my own work was
+surfaced by a mechanical check, not by me noticing.** Part 27 closed by saying an
+audit method that relies on the auditor noticing is the method this rewrite was
+meant to replace. Today the machinery earned that claim five separate times — the
+fifth while writing *this section*.
+
+### F-117 (HIGH) — the trainer publishes no disk metric at all, while its root sits at 94%
+
+Measured (trainer-diag #10057) — **ONE reading, n=1, not a series**: 45G total,
+3.2G free, **94% used**, `datasets-out/` alone 12G (`market_features` 9.9G).
+
+**Verified three ways that nothing published it**, because one grep returning
+nothing is not proof of absence:
+
+| probe | result |
+|---|---|
+| `publish_trainer_mirror.sh` | no disk field — one unrelated comment match |
+| live `/api/bot/ml/status` (`mirror_present:true`, age 15.7 s) | **0 of 12 keys** describe disk |
+| `src/runtime/health.py::check_disk` | exists — and runs on the **live trader** |
+
+So the only trainer-health signal any consumer had was systemd state, which reads
+green on a box about to fail its next dataset build.
+
+⚠️ **The obvious remedy is refuted by measurement, and that is recorded so the next
+session does not re-derive it.** `scripts/ops/trainer_dataset_gc.py` genuinely has
+no caller (no timer, absent from `run_training_cycle.sh`, **0 mentions across 7,442
+cycle rows**) — the build-and-abandon class exactly. But a dry run reclaims
+**0.09 GB** (115 dirs scanned, 111 kept, 4 candidates, 111 held by **41 manifest
+pins**). Against a 3.2 GB shortfall that is **2.8%**. A nightly gate reporting
+"0.09 GB reclaimable" while the disk fills is an alarm that reports motion while
+nothing moves — the desensitized alarm this repo calls a P1 in its own right. The
+real mass is **pinned**, so freeing it is a pinning-policy decision, not a GC
+schedule. `BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER`.
+
+**Detector:** a `disk` block in the mirror (three-state, `measured:false` + a reason
+rather than a comfortable `used_pct: 0`) plus `trainer_disk_low` /
+`trainer_disk_unknown` banners on `/api/bot/notifications`. Thresholds are
+**declared CHOSEN, not calibrated** — n=1 is not a distribution — with the
+calibration path filed and the consequence stated up front: the warning fires from
+the first read and a banner walked past forever becomes the P1 itself, so the item
+closes by calibrating or by resolving the pressure, **never by muting**.
+
+### F-118 (HIGH) — correcting this audit: the enforced-skip collapse is worse than it recorded, and in a different place
+
+F-103 said *"a skipped manifest is counted as `already_done`, so `already_done: 76`
+of 76 scanned."* Measured against the live mirror over **all 7 consecutive
+`cycle_end` pairs in the retained window (76.4 h)**, that is true of only **one of
+the two daily cycles**:
+
+```
+~01:30Z  trained=68 skipped=8 failed=0 already_done=0   outcome=trained
+~05:30Z  trained=0  skipped=0 failed=0 already_done=76  outcome=already_complete
+```
+
+The first cycle reports the refusals correctly. Only the **same-day resume** absorbs
+them, because the progress loader excludes both `done` **and** `skipped` from the
+run list and reports the remainder wholesale.
+
+**But that makes it worse, not better.** `last_cycle` is the newest `cycle_end`, so
+the resume cycle is what `/api/bot/ml/status` publishes for **60.3 of 76.4 hours =
+78.9% of all time**. The summary any consumer actually sees is systematically the
+one reporting `skipped: 0`. Confirmed on the live payload.
+
+Two collapses, both closed: `skipped` was ONE bucket over four unrelated reasons, so
+`skipped=8` could not be read as "5 refusals"; and `already_done` says TRAINED.
+Now `skipped_enforced` counts refusals apart, `carried_done`/`carried_skipped` split
+`already_done` (and sum to it, kept for back-compat), `carried_read` is three-state
+so `0/0` cannot mean "no refusals carried", and the outcome ladder gains
+`trained_with_refusals` / `complete_with_refusals`. **Both live cycles were
+previously byte-indistinguishable from a healthy fleet.**
+
+### F-119 (MEDIUM) — `claim-basis-guard` reported a clean negative over 24.7% of its own population
+
+Filing F-117 **false-positived** the guard: the row stated `94%` in `title` and its
+basis (`n=1`) in `detail`, and `_row_text` scanned six fields that **excluded
+`detail` and `evidence`** — the two richest prose fields these backlogs use.
+
+Measured across all three backlogs (**940 rows, the full population**): 198 rows
+carry a claim in a then-scanned field, and **65 more carry one ONLY in an unscanned
+field — 65 of 263 claim-bearing rows = 24.7% never examined**. Sixteen of those 65
+have no basis anywhere and would have failed if visible; one cites **$247,683.78**,
+precisely the figure `CLAUDE.md` flags as the ALL-STATUS number whose *sign* flips
+on the filter.
+
+Both directions were live: false **negative** (claim hidden in `detail` → passes
+silently, the unasserted-denominator class **on the guard itself**) and false
+**positive** (basis hidden in `detail` → a correct row fails, teaching sessions to
+duplicate prose into `description` to appease it). Fixed by one declared
+`_ROW_TEXT_FIELDS` tuple; safe because the guard is diff-scoped, and a test asserts
+that scoping explicitly — without it the widening would have reddened every
+subsequent PR on rows nobody in that PR wrote, and been reverted.
+
+### F-120 — correcting B4: five of the six files it called offenders were already correct
+
+B4 recorded *"6 of 16 import it; five harnesses hardcode their own
+`FEE_BPS_ROUNDTRIP = 7.5`."* Census over **861 Python files**:
+
+| category | count | verdict |
+|---|---|---|
+| `= execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP` | **5** | **already correct** — an alias |
+| bare literal `7.5`, never imports the owner | **11** | real debt, agreeing by luck |
+| imports the owner **and** hardcodes `7.5` | **1** | `backtest_system.py` — the defect |
+
+**A sweep driven by the constant's NAME would have rewritten five already
+single-sourced files** — the same mistake `check_risk_basis_agreement` was reshaped
+to avoid after it flagged `pairs_dollar_lots.py` for correctly using the convention
+that file uses. So the new `cost-model-single-owner` guard reads the **expression**:
+a numeric literal is the finding, an alias is the fix.
+
+The one real defect is the F-113 shape inside a single file — `backtest_system.py`
+imported the owner at line 77 and hardcoded `7.5` at line 108, with different call
+sites reading each. Also corrected: B4's claim that `build_backtest_panel.py`
+"imports in-process with zero references to slippage, funding" — it has **zero cost
+references of any kind** and does not import the cost model at all.
+
+### F-121 (HIGH) — 0 of 25 harnesses reach live risk, and the module built to fix that had no consumer one day later
+
+The operator's own example, now measured. Over all **25** harness files: **0** read
+`config/accounts.yaml` or reach live risk in any form. Live is **1.5%**
+(`bybit_2.risk.risk_pct = 0.015`, a *fraction*); the harness default is **0.3** (a
+*percent*) — **ratio 0.2, every default backtest sizes at one fifth of live risk.**
+
+⚠️ **And `src/research/risk_basis.py` — shipped the previous day specifically to
+close this — had no consumer.** That is this audit's own build-and-abandon, one day
+old, and it would have looked like progress in a PR body. It is now consumed:
+`--risk-pct live` resolves (and **refuses** rather than falling back to the default),
+and every run stamps its basis against live — computed **inside the engine**, so
+in-process callers that never touch the CLI are graded too. The numeric default is
+deliberately unchanged; re-basing the fleet is a separate evidence-carrying decision.
+
+### The through-line: five times, a mechanical check caught the auditor
+
+| # | what I did | what caught it |
+|---|---|---|
+| 1 | asserted `94%` in a backlog row without saying it was a single reading | `claim-basis-guard` — and investigating *why* exposed F-119 |
+| 2 | wrote a banner whose prose named `scripts/ops/trainer_dataset_gc.py`, making the tool read as **wired** | `unwired-artifact-guard`'s self-test, **on the day that guard shipped** |
+| 3 | named a new field `r_cost_basis`… after first naming it `r_basis`, which already means something else in a module that consumes those very rows | reading the consumer before wiring it — F-113's shape, one commit from being recreated |
+| 4 | registered a collapsed-state contract whose producer emitted no state literal, and a test touching one state of three | `collapsed-state-guard`, on its first run |
+| 5 | wrote **this very section** citing two backlog ids that exist only on an unmerged branch — a doc that reads as tracked while being tracked by nobody on `main` | `artifact-validity-guard`, refusing the commit |
+
+**#2 is the sharpest.** `check_unwired_artifacts.py` strips comments and docstrings,
+and its own `_strip_noncode` docstring records being defeated **twice** already — by
+its own docstring, then by a comment in `render_system_report.py` — concluding *"a
+reference only counts if it is in EXECUTABLE position."* String literals are not
+stripped. So a user-facing sentence saying *"the dataset GC is NOT the remedy"* made
+the tool read as used. That is the third recurrence, in a new form, and the fix
+applied was to the **prose, not the guard** — so the class stays open and is filed
+(`BL-20260820-UNWIRED-ARTIFACT-GUARD-DEFEATED-BY-STRING-LITERALS`). Deliberately not
+fixed by stripping all strings: a literal genuinely can be wiring
+(`subprocess.run(["python", "scripts/ops/foo.py"])`), and that false negative is
+strictly worse for a guard whose whole job is finding what nothing runs.
+
+**And one miss no guard could catch:** I burned a full CI cycle on #10061 because I
+ran my new test file and the guard suite but **not the sibling suite named after the
+file I edited** — `tests/test_run_training_cycle_sh.py`, 10.6 s, which asserted the
+old contract. Every subsequent PR in this program ran a grep-derived sibling sweep
+first; it caught the next one (`test_record_harness_trades`) locally.
+
+### What the execution says about the method
+
+Part 27 counted the auditor producing the unprovenanced-claim defect twice as often
+as the audited system. Today's count is different in a way worth stating: **the
+defects were the same rate, and the catch rate went to 100% mechanically.** None of
+the four was caught by care. Three were caught by guards this audit itself shipped
+or extended, and the fourth by a habit the rewritten skill makes mandatory (read the
+consumer before wiring the producer).
+
+**#5 deserves its own note because of when it fired.** The section you are reading
+asserts that mechanical checks catch what care does not, and the commit carrying
+that assertion was refused for citing
+`BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER` and
+`BL-20260820-UNWIRED-ARTIFACT-GUARD-DEFEATED-BY-STRING-LITERALS` — both real, both
+filed, both living on a branch `main` had not yet taken. The doc would have shipped
+saying *"filed as X"* where `main` had no X. The remedy is ordering, not text:
+this part lands after the PR that files those rows.
+
+That is the argument for the rewritten skill's shape, and it is also its limit: the
+guards caught what guards can see. F-118 — the one finding that required noticing
+that a *correct* summary is published 78.9% of the time — came from pulling the live
+series and doing arithmetic on it, which nothing automates yet. **A level is not
+evidence; a distribution is.** That remains the standing gap, and it is what
+mechanism change 4 (diff-based review) exists to close.
