@@ -763,6 +763,11 @@ def _selftest() -> int:
     rows, man = _synth_panel(60, 8, seed=17, signal=True)
     _orig = inject_controls
 
+    # inert: signal_noise and target are accepted ONLY to match inject_controls'
+    # signature so this stub can stand in for it. Ignoring them is the PLANT --
+    # a positive control that is not a function of the label is exactly the
+    # broken harness this test asserts gets refused. Reading either would
+    # partially restore the control and defeat the test.
     def _broken(rs, *, seed, signal_noise=1.0, target=TARGET_COL):
         r = random.Random(seed)
         for row in rs:
