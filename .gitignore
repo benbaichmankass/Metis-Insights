@@ -73,6 +73,11 @@ reports/
 data/*.csv
 !data/ict_validate_manifest.csv
 data/ohlcv/*.csv
+# Candle files fetched on demand from data.binance.vision by
+# scripts/ops/fetch_backtest_candles.py for the m20 sweeps. Regenerable in
+# minutes on the free lane, ~15MB per fleet-wide pull -- data belongs in the
+# archive, not in git.
+data/e3/
 data/backtests/sprint-015/*.csv
 data/backtests/sprint-015/*.parquet
 

@@ -41,8 +41,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -1251,7 +1253,10 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> dict | None:
     records a legitimate-looking abstention. `winners_seen` is now counted
     SEPARATELY from `mfes` so the two causes stay distinguishable in the log.
     """
-    tmp = "/tmp/m20_p80_emit.jsonl"
+    # Unique per call — see `run_cell`'s note on the shared-temp defect
+    # (BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH). Same class, same fix.
+    _fd, tmp = tempfile.mkstemp(prefix="m20_p80_emit_", suffix=".jsonl")
+    os.close(_fd)
     Path(tmp).unlink(missing_ok=True)
     cmd = [sys.executable, str(REPO / harness), *base,
            "--emit-trades", tmp, "--json", "/tmp/m20_p80_metrics.json",
@@ -1335,7 +1340,11 @@ def run_census(harness: str, args: list[str], target_r: float | None,
     "how bad is it, and where" pass that has to precede designing a lever, so
     the design is driven by a distribution instead of by one remembered trade.
     """
-    tmp_json, tmp_trades = "/tmp/m20_census.json", "/tmp/m20_census_trades.jsonl"
+    # Unique per call — see `run_cell`'s note (BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH).
+    _fd1, tmp_json = tempfile.mkstemp(prefix="m20_census_", suffix=".json")
+    os.close(_fd1)
+    _fd2, tmp_trades = tempfile.mkstemp(prefix="m20_census_trades_", suffix=".jsonl")
+    os.close(_fd2)
     Path(tmp_trades).unlink(missing_ok=True)
     cmd = [sys.executable, str(REPO / harness), *args,
            "--json", tmp_json, "--emit-trades", tmp_trades]
@@ -1412,7 +1421,13 @@ def resolve_split(harness: str, base: list[str], mode: str,
         meta["split"] = fixed_split
         return fixed_split, meta
 
-    tmp = "/tmp/m20_split_emit.jsonl"
+    # Unique per call — and this one is on the GATE path: `resolve_split`
+    # derives the IS/OOS boundary, so under the shared path two concurrent
+    # legs could derive each other's boundary and every downstream verdict
+    # would be graded against the wrong window
+    # (BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH).
+    _fd, tmp = tempfile.mkstemp(prefix="m20_split_emit_", suffix=".jsonl")
+    os.close(_fd)
     Path(tmp).unlink(missing_ok=True)
     cmd = [sys.executable, str(REPO / harness), *base,
            "--emit-trades", tmp, "--json", "/tmp/m20_split_metrics.json"]
@@ -1620,6 +1635,13 @@ def insufficient_base_reason(base_oos_n, floor: int, split: str,
             f"({', '.join(parts)}) -- {verdict}")
 
 
+def _unlink_quiet(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     """One harness run, memoized on its full invocation.
 
@@ -1641,7 +1663,23 @@ def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     hit = _CELL_CACHE.get(key)
     if hit is not None:
         return dict(hit)
-    tmp = "/tmp/m20_fleet_cell.json"
+    # A UNIQUE PATH PER CALL. This was the fixed literal
+    # "/tmp/m20_fleet_cell.json" until 2026-08-20, which is a PROCESS-SHARED
+    # constant: two sweeps running concurrently on one box wrote and read the
+    # SAME file, so each silently served the other's results.
+    #
+    # MEASURED, not theorised (BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH):
+    # five per-leg sweeps run in parallel returned a base `net_R` of EXACTLY
+    # -9.6113 for three different legs on three different symbols — AVAX
+    # (`avax_pullback_2h`), ETH (`eth_pullback_prop_2h`) and BTC
+    # (`htf_pullback_trend_2h`) — while the same legs measured 377 / 321 / 412
+    # trades and three different net totals when run one at a time. The failure
+    # is silent, plausible and produces a complete-looking table.
+    #
+    # `mkstemp` rather than a PID salt: a PID can be reused, and a salt still
+    # collides between two runs that fork the same worker id.
+    fd, tmp = tempfile.mkstemp(prefix="m20_fleet_cell_", suffix=".json")
+    os.close(fd)
     cmd = [sys.executable, str(REPO / harness), *args, "--json", tmp]
     if start:
         cmd += ["--start", start]
@@ -1654,13 +1692,20 @@ def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
         # Deliberately NOT cached: a timeout is "we did not finish looking",
         # not a measured result, and caching it would make one slow run
         # permanent for the rest of the process.
+        _unlink_quiet(tmp)
         return {"error": f"timeout after {CELL_TIMEOUT_S:.0f}s"}
     if p.returncode != 0:
+        _unlink_quiet(tmp)
         return {"error": (p.stderr or p.stdout)[-250:]}
     try:
         out = json.loads(Path(tmp).read_text())
     except (OSError, json.JSONDecodeError) as exc:
         return {"error": f"json: {exc}"}
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
     _CELL_CACHE[key] = out
     return dict(out)
 
