@@ -195,9 +195,18 @@ the tables above, so the matrix and the artifacts cannot disagree:
 
 **State the population:** 133 of 3,781 surface cells were carried into the gate
 (7 per leg — the per-axis optima plus the joint argmax), across 19 legs. The
-matrix has 52 rows, so the column describes **19 legs measured, 33 not**, and
-each un-measured row says which of the three reasons applies rather than
-sharing one bucket.
+matrix has 52 rows, and each un-measured row says which of the reasons applies
+rather than sharing one bucket.
+
+⚠️ **A MATRIX ROW IS NOT ALWAYS ONE LEG, so rows and legs do not reconcile and
+must not be quoted as if they did** (corrected 2026-08-20 by arithmetic, after
+this line first read *"52 rows, so the column describes 19 legs measured, 33
+not"* — which silently equated the two). **19 LEGS were measured; only 18 ROWS
+carry a measured status.** The nineteenth, `trend_donchian_1h`, sits inside the
+aggregate row `shadow fleet (turtle_soup, fade_breakout_4h, vwap,
+trend_donchian_1h, *_prop)`, which stays `pending` because the rest of its legs
+were not swept. So a count taken from row statuses UNDER-reports measured legs
+by one (`BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS`).
 
 **The three non-closure reasons are deliberately distinct**, because collapsing
 them would report a missing feed as a negative result:

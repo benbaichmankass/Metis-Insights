@@ -20365,6 +20365,30 @@
         "docs/research/exit-refinement-coverage.json",
         "scripts/research/m20_coverage_rollup.py"
       ]
+    },
+    {
+      "id": "BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS",
+      "opened": "2026-08-20",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "research/exit-refinement-coverage",
+      "summary": "exit-refinement-coverage.json mixes per-leg rows with AGGREGATE rows covering several legs, so any count derived from row statuses silently misreports leg counts.",
+      "detail": "Measured 2026-08-20 while adding the `bracket_geometry` column: 19 legs were swept but only 18 ROWS carry a measured status, because `trend_donchian_1h` sits inside the aggregate row 'shadow fleet (turtle_soup, fade_breakout_4h, vwap, trend_donchian_1h, *_prop)' which stays `pending` for its unswept majority. The conflation is not confined to this column — every consumer that counts rows (m20_coverage_rollup's gate partition, the movable cut, the done-condition) inherits it. It surfaced only by cross-checking the doc's leg count against the matrix's row count arithmetically; three separate re-reads of the column did not catch it. Filed rather than fixed here because splitting the aggregate row changes cells_to_done and would move the M20 done-condition inside a session that was closing out.",
+      "evidence": "docs/research/exit-refinement-coverage.json (the 'shadow fleet' row); docs/research/e35-bracket-geometry-sweep-2026-08-20.md 'State the population'; 18 measured rows vs 19 measured legs.",
+      "resolution_criteria": "Either split aggregate rows into per-leg rows (and re-baseline cells_to_done + the dated pins in tests/test_rollup_movable_cut.py), or add an explicit per-row `legs_covered` count and make m20_coverage_rollup report legs and rows as two separate numbers that never substitute for each other."
+    },
+    {
+      "id": "BL-20260820-BRACKET-GEOMETRY-COLUMN-SHIPPED-THREE-MISGRADED-ROWS",
+      "opened": "2026-08-20",
+      "status": "resolved",
+      "severity": "medium",
+      "tier": 1,
+      "area": "research/exit-refinement-coverage",
+      "summary": "The bracket_geometry column's first commit graded 3 rows `pending` that were not pending — all three wrong in the ANTI-CONSERVATIVE direction (claiming runnable/unmeasured work that was already blocked or already measured).",
+      "detail": "Caught by CI, not by review: tests/test_rollup_movable_cut.py's dated pin failed because `movable` moved 0 -> 10. (1) `ict_scalp_mgc_15m` was `pending` while every other MGC/MES/MHG row said `blocked:no_free_lane_candle_feed` — MGC is an IBKR COMEX future and data.binance.vision serves no such series. (2)+(3) `sol_pullback_2h` and `trend_donchian_sol_4h` were `pending` while both appear in the results doc's own per-leg table as SWEPT with a gate-passing cell and no dispersion band — a status the doc explicitly names as one of its three distinct non-closure reasons. So the column contradicted the document it was derived from. All three corrected; a fourth accounting defect found in the same pass is BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS.",
+      "evidence": "CI job 96563537016 on 8e3adf9 (4 failed); docs/research/e35-bracket-geometry-sweep-2026-08-20.md 'The three non-closure reasons are deliberately distinct'; movable cut 10 -> 9 after (1), then the two SOL rows left it at 9 under a correct non-movable status.",
+      "resolution_criteria": "Resolved: the 3 rows carry accurate statuses with refs stating what was corrected and why; `blocked:no_dispersion_band` added as an explicit status so a measured-but-unbanded cell can never again read as unmeasured."
     }
   ]
 }

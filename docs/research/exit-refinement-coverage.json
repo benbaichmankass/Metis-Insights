@@ -309,8 +309,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "pending",
-        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). Gate-PASSING cell(s) on this leg — to96 (timeout) path A wf 4/6 eff (inert 2) dOOS +0.6894 — but the DISPERSION BAND WAS NOT MEASURED (`m20_split_dispersion` was run only on the four cells in the doc's §3 table). The backlog row's own resolution criteria require the per-leg optimum to be reported WITH its dispersion band, because a triple tuned on one split is the `split_sensitive` refusal case — and the one single-axis cell that WAS checked (eth_pullback_2h/tp2.5) came back split_sensitive. So this is UNMEASURED, deliberately not recorded as a pass. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.711R, which the harness reports only when the cap actually applies.",
+        "status": "blocked:no_dispersion_band",
+        "ref": "SWEPT 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md). Best cell `to96` PASSES the Path-A/B gate, but `m20_split_dispersion` was never run on it, so there is no `split_sensitive` verdict. Recording it as a pass is what BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT's own criteria forbid — the one single-axis cell that WAS checked (`eth_pullback_2h`/`tp2.5`) came back split_sensitive. Corrected 2026-08-20 from `pending`, which was wrong in BOTH directions: it claimed the leg was un-measured (it was measured) and it made the row read as movable-by-a-session when the remedy is a dispersion run, not a sweep.",
         "tp_geometry": "live_parity"
       }
     },
@@ -604,8 +604,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "pending",
-        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). Gate-PASSING cell(s) on this leg — to48 (timeout) path A wf 4/6 eff (inert 1) dOOS +1.8886 — but the DISPERSION BAND WAS NOT MEASURED (`m20_split_dispersion` was run only on the four cells in the doc's §3 table). The backlog row's own resolution criteria require the per-leg optimum to be reported WITH its dispersion band, because a triple tuned on one split is the `split_sensitive` refusal case — and the one single-axis cell that WAS checked (eth_pullback_2h/tp2.5) came back split_sensitive. So this is UNMEASURED, deliberately not recorded as a pass. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.405R, which the harness reports only when the cap actually applies.",
+        "status": "blocked:no_dispersion_band",
+        "ref": "SWEPT 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md). Best cell `to48` PASSES the Path-A/B gate, but `m20_split_dispersion` was never run on it, so there is no `split_sensitive` verdict. Recording it as a pass is what BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT's own criteria forbid — the one single-axis cell that WAS checked (`eth_pullback_2h`/`tp2.5`) came back split_sensitive. Corrected 2026-08-20 from `pending`, which was wrong in BOTH directions: it claimed the leg was un-measured (it was measured) and it made the row read as movable-by-a-session when the remedy is a dispersion run, not a sweep.",
         "tp_geometry": "live_parity"
       }
     },
@@ -1920,7 +1920,7 @@
       "_bundled_row_note": "STILL A BUNDLED ROW -- BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS. One row carries 8 lever statuses for 4 named legs plus a `*_prop` WILDCARD, so its own denominator is uncountable. It is excluded from the 47-leg done-condition denominator (execution != live), which is why it does not corrupt the headline -- but a reader looking up any of these legs gets a fleet-level status, not that leg's. Exploding it needs per-leg evidence that does not exist yet; inventing one would be worse than the bundle. 2026-08-13: removed `ict_scalp_5m` and `mgc_trend_1h` from the label -- both have their own rows, and the two disagreed on 8/8 and 6/8 cells respectively (e.g. ict_scalp_5m stale_stop own=honest_negative vs bundled=passed_unshipped), so the matrix asserted two different things about the same leg depending on which row you read.",
       "bracket_geometry": {
         "status": "pending",
-        "ref": "PARTIALLY swept: `trend_donchian_1h` and the three `*_prop` legs WERE in the 2026-08-20 run (see their own verdicts in the doc); the rest of this bundled row (turtle_soup, fade_breakout_4h, vwap) was not. A bundled row cannot carry one status honestly — read the doc per leg."
+        "ref": "PARTIALLY MEASURED — this row is an AGGREGATE over several legs, not one leg. `trend_donchian_1h` inside it WAS swept 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md); the rest were not, so the row stays `pending` for the majority. ⚠️ A count of measured ROWS therefore UNDER-reports measured LEGS by one — 18 rows vs 19 legs. Do not derive a leg-count from this column's row statuses without reading this ref (BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS)."
       }
     },
     {
@@ -2177,8 +2177,8 @@
         "ref": "Volatility-scaled trailing lever — presupposes a primary trailing stop ict_scalp does not have (fixed bracket, break-even-after-1R only). Structurally inapplicable — same basis as trail_geometry. Assessed 2026-07-28."
       },
       "bracket_geometry": {
-        "status": "pending",
-        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "MGC is an IBKR COMEX future — data.binance.vision serves no such series, so the free lane cannot supply candles. Corrected 2026-08-20 from `pending`, which was wrong in the ANTI-CONSERVATIVE direction: it advertised a leg as runnable-by-a-session when the feed blocks it, while every other MGC/MES/MHG row in this column already said `blocked:no_free_lane_candle_feed`."
       }
     },
     {
