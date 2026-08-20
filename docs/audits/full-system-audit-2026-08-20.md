@@ -601,3 +601,69 @@ import — the same *"one module owns this"* pattern as
 `scripts/ml/_regime_score_semantics.py` — and/or rename/retire the inert
 `status`. MED, because the failure mode is a *false alarm about live ML
 routing*, which is expensive to chase.
+
+---
+
+## Part 6 — Build-and-abandon, measured (operator directive 2026-08-20)
+
+> *"we don't keep building things out half way and then leaving them to rust
+> while the system chugs along with bad structure."*
+
+The repo already guards this for **declared provenance keys**
+(`provenance-consumer-guard`) and for **registered guard self-tests**
+(`check_selftest_wiring.py`). Neither asks it of **executable tools**. New
+detector: **`scripts/ci/check_unwired_artifacts.py`** (6/6 planted controls,
+one corpus pass, 6.7 s over the whole tree).
+
+### F-27 · 103 of 384 tools under `scripts/` have nothing that runs them
+
+| class | n | meaning |
+|---|---|---|
+| **no runner references it at all** | **11** | nothing — no workflow, unit, script, `src/`, or doc |
+| **referenced ONLY by docs** | **92** | built, written up in a sprint log or research doc, and then never run again |
+| wired | 281 | |
+
+By directory: `research/` 32 · `ml/` 15 · `ops/` 12 · top-level 11 ·
+`macro/` 10.
+
+**The number is not the finding, and 103 deletions is not the remedy.** Many of
+these are legitimately manual research one-offs. The finding is that **not one
+of them says so**, so *"deliberately manual"* and *"abandoned in July"* are
+today indistinguishable — which is exactly why `trainer_dataset_gc.py` could
+sit unrun while the disk it was written for climbed to 93 % (F-25).
+
+The remedy is a declaration, not a purge: a tool either has a runner, or
+carries `# wiring: manual-only — <who runs it, when>`. The marker is
+**verified, not presence-only** — it must carry a reason on its own line, the
+lesson this repo already paid for with `new-table-wiring-guard`'s
+presence-only `# data-wiring:` marker.
+
+### F-28 · A CI-shaped guard that has never run
+
+Of 43 `scripts/check_*.py` + `scripts/ci/check_*.py`, **36 are named in
+`run_guards.py`**. Of the 7 that are not:
+
+- 4 are **runtime watchdogs** driven by systemd timers, not CI guards
+  (`check_db_integrity`, `check_heartbeat`, `check_ib_gateway`,
+  `check_web_api`) — correctly absent. **Not findings.**
+- 2 are **mine, added today** (`check_test_schema_fidelity`,
+  `check_unwired_artifacts`), deliberately left unwired pending review — and
+  the detector correctly flags its own author. **Wiring them is a follow-up in
+  this PR's scope.**
+- **`scripts/check_roadmap_status_glyphs.py` is a genuine orphan** — CI-guard
+  shaped, in the same family as the 36 wired ones, and referenced by no
+  workflow, no unit, no script and no runner at all. A guard that has never
+  run is the "green is not evidence" case one level earlier than
+  `check_selftest_wiring.py` catches: not *registered-but-never-invoked* but
+  *written-but-never-registered*.
+
+### Why this belongs in the SKILLS, not just the backlog
+
+Every instance of this class in the record was found **by accident, months
+later** — the GC tool during a disk investigation, the IB pnl reader during an
+unrelated verification, the exposure block by a session that went looking for
+its reader. A backlog row per instance is a treadmill. The structural fix is
+that **shipping a capability without a runner is a CI failure**, and that the
+periodic review asks *"what was built since the last review, and is each piece
+actually running?"* — both of which are skill changes, delivered separately in
+this session.
