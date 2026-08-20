@@ -200,8 +200,11 @@ Through `diag-data` / the relays (you do this yourself):
 - Disk / the `/opt/ict-trading-bot` symlink / data-dir topology.
 - Exchange-truth vs journal cross-checks (`/api/diag/exchange_positions`).
 Reads only — VM mutations are tiered (Phase 4); SSH from a web session is
-impossible (relay-only). At the default **Trusted** network level the direct
-diag path is firewalled — fall back to the issue relay.
+impossible (relay-only). At the default **Trusted** network level a direct
+diag call to the raw `http://IP:8001` is firewalled, but the **Caddy HTTPS
+hostname is not** (measured 2026-08-20: `https://ict-bot.duckdns.org/api/diag/*`
+answers `200` with a bearer at Trusted). Try the hostname first; the issue relay
+is the fallback, not the only channel.
 
 ### 3E — Data audit (the canonical store)
 Via the Data Explorer API + **`db-wiring`**: `trade_journal.db` +

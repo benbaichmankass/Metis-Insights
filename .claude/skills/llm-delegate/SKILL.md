@@ -14,11 +14,39 @@ Results log: **GitHub issue #9944**.
 
 ## When this pays — and when it does not
 
-Measured 2026-08-18 over 5 completed tasks: **17 of 19 claims valid (~89%)**.
-⚠️ **Every one of those tasks reviewed code the session had just written**, which
-is the easiest possible case — the reviewer could verify each claim instantly.
-Treat that as an existence proof, **not a hit rate**, until it has been graded on
-unfamiliar code against its own denominator.
+**Two gradings, deliberately NOT pooled — they are different populations and
+the second is the one that generalises.**
+
+| grading | population | substantive claims | line citations |
+|---|---|---|---|
+| 2026-08-18 pilot, n=5 | code the session **had just written** | 17 / 19 (~89%) | *not asked for* |
+| 2026-08-20, n=5 | 5 real **open backlog items**, code the grading session did **not** write | **20 / 20** | **0 / 20** |
+
+⚠️ **Do not average these and do not quote a single number.** The pilot is an
+existence proof on the easiest possible case (the reviewer could verify each
+claim instantly because he had just authored the file). The second grading is the
+one that answers "does this work on unfamiliar code", and its answer is **yes on
+substance** — including a trap planted to catch a plausible wrong answer
+(`exchange_flat_reconciled` does *not* match a `startswith("reconciler")` test,
+and it said so unprompted).
+
+**But the two columns disagree violently, and that is the finding.** Every
+quoted snippet came back verbatim correct while **every line number was wrong** —
+off by 3, by 24, by ~214. The cause was **ours, not the model's**: `build_prompt`
+sent raw file content, so a "cite the line number" instruction could only be
+answered by counting. Fixed 2026-08-20 (`number_lines`, plus a SYSTEM_PROMPT
+clause telling the model the numbers are there and not to count) with a
+plant-proven test. **The pilot never saw this because it asked for the "exact
+expression" rather than a line number** — the prompt shape hid a defect that was
+there the whole time, which is worth remembering when a metric looks clean.
+
+**Re-grade the line-citation column after the fix before trusting a `file:line`
+it emits.** It is currently 0/20 on the pre-fix prompt and *unmeasured* after.
+
+⚠️ **It is not a substitute for reading a small file.** Three of the five tasks
+were under 200 lines, where the grading session could derive the ground truth by
+grep faster than the round trip. Delegation paid on the 855-line and 393-line
+files; on `scripts/check_claim_basis.py` (140 lines) it did not.
 
 | Good fit | Poor fit |
 |---|---|
