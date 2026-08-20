@@ -122,6 +122,67 @@ Default-`Trusted` session, no Full/Custom change. "Egress to the VM is firewalle
 the issue relay is the only channel" was **half** wrong and cost every session a
 needless relay hop.
 
+### 6. The direct diag path was dead, and a "fix" for it was the reason (PR #10036)
+
+Follow-on work after #10031 merged, prompted by the operator rejecting a claim I had
+made: that `DIAG_BASE_URL` is *"an environment variable, not a repo file, so no session
+can fix it."* **That claim was wrong, and I had written it into a backlog row.**
+
+Investigating it found something worse than a stale variable.
+`scripts/ops/diag_fetch.sh` already carried a self-heal — added for
+`BL-20260705-ENV-DIAG-BASE-URL-STALE` — that rewrote the retired micro
+`158.178.210.252` to the raw live IP `141.145.193.91`. But the sandbox proxy
+allowlists by **scheme + hostname**, so plain-http to a raw IP is dropped at the
+default `Trusted` level. Run live this session against the real env:
+
+```
+diag_fetch: … rewriting to the live Ampere host 141.145.193.91 …
+curl: (28) Connection timed out after 10002 milliseconds
+exit=3
+```
+
+So the heal fired, produced an unreachable host, timed out, and exited 3 — while
+its own log line reported that it had healed the setting. Every session since has
+paid the 30–60 s issue-relay hop because a green that checked nothing sat in the file.
+
+Replaced with an **ordered candidate list**: canonical HTTPS
+(`https://ict-bot.duckdns.org`) first whenever the configured value is plain-http or
+names a known VM IP, a deliberately-set https base keeps priority, candidates de-duped,
+and the serving base printed to stderr. The gate now requires only the bearer.
+
+**Verified live in the same session, same process, with the stale env still set:**
+`exit 0`, real JSON, `served by https://ict-bot.duckdns.org`. The returned
+`git_sha: 9f65cd5d` independently confirmed the live VM had already deployed #10031.
+
+`tests/test_diag_fetch_sh.py` — 11 tests, no network: `curl` is shimmed onto `PATH`
+and logs attempted URLs, so candidate **order** is asserted directly; the parametrized
+retired / raw-IP / plain-http case is the regression test for this defect.
+
+**Both backlog rows corrected rather than quietly closed** — the false operator-only
+claim is recorded *on the row* as false, so it is not repeated. The same correction
+went into `CLAUDE.md` § "Reaching `/api/diag/*`".
+
+**Note the shape:** this is the second time this session that a thing which *looked*
+verified was not — the deduped-but-not-deduped backlog rows the parent session caught,
+and now a self-heal that logged success while failing. Both were found by running the
+thing rather than reading it.
+
+### 7. The gaps above now carry timers, not just prose
+
+Operator ask: *"make a backlog note with a timer for things that need to be checked
+later on."* The four items under **Gaps not yet verified** were only prose in this log,
+which is exactly how a stated limitation decays into an assumed fact. Each is now a
+backlog row using the existing convention (`snoozed_until` + `trigger_condition` +
+`what_to_check`), and each names what would **falsify** it rather than what would
+confirm it:
+
+| row | wakes | what it asks |
+|---|---|---|
+| `BL-20260820-OCI-INVENTORY-CRON-HAS-NEVER-FIRED` | 2026-08-24 | confirm a run with `event: schedule` exists; a healthy cloud must classify `clean`, never `could_not_check` |
+| `BL-20260820-DELEGATE-LINE-CITATIONS-UNMEASURED-AFTER-NUMBERING-FIX` | 2026-08-27 | re-grade the **number** independently of the quoted expression — checking only the quote is what hid it |
+| `BL-20260820-EXCHANGE-FILLS-IB-DELEGATE-FINDINGS-NOT-DATA-VERIFIED` | 2026-09-03 | put an incidence figure with a stated denominator on each of the four |
+| `BL-20260820-DIAG-FETCH-CANONICAL-BASE-VERIFIED-FROM-ONE-SESSION-ONLY` | 2026-08-22 | a session *other than the one that wrote the fix*, at the default network level |
+
 ## Validation Performed
 - **Positive control, live, both directions** — runs 32351336623 (red) / 32351503893
   (green). This is the M37 falsifier, satisfied **before** the cron was added.
@@ -153,6 +214,10 @@ needless relay hop.
 - **`SSHORT` is the delegate's hypothesis, not a fact** — broker behaviour this repo
   holds no evidence on. Filed as such.
 - The Telegram alert path in the new workflow is **untriggered** (no drift since).
+
+**All five are now backlog rows with timers** (see § 7) rather than prose in this
+log only. The Telegram-path gap rides inside the cron row, since the first real
+scheduled run is what would exercise it.
 
 ## Documentation Updated
 - **Roadmap:** M37 row updated with both results and their denominators.

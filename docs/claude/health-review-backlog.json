@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20T10:30:00+00:00",
+  "updated_at": "2026-08-20T10:45:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -19984,6 +19984,28 @@
         "verified_in": "session llm-burst-2, 2026-08-20",
         "sessions_verified": 1,
         "parent": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM"
+      }
+    },
+    {
+      "id": "BL-20260820-OCI-INVENTORY-ISSUE-PATH-CANNOT-REQUEST-FAIL-ON-DRIFT",
+      "opened_at": "2026-08-20T10:45:00+00:00",
+      "opened_by": "claude (llm-burst-2 / M37, 2026-08-20)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "ci",
+      "title": "The oci-inventory issue-label path has no way to request fail_on_drift - a session triggering it by label always gets a plain report, and nothing in the issue tells it so",
+      "detail": "Observed 2026-08-20 while arming the weekly cron. `.github/workflows/oci-inventory.yml` resolves the flag in bash: an explicit `inputs.fail_on_drift` wins, else `schedule` defaults it TRUE, else FALSE. `inputs` does not exist on the `issues` path, so a label-triggered run ALWAYS lands on the FALSE branch. The issue-label path was exercised for the first time this session (run 32351518408, event=issues, issue #10030) and that is what surfaced it.\n\nThe behaviour itself is defensible - the issue path is an on-demand READ ('tell me the current topology'), and the schedule is the enforcer. The gap is that the asymmetry is invisible from the trigger: nothing in the issue, the label, or the run output says 'this run could not have failed on drift'.",
+      "why_it_matters": "A session that opens the issue expecting the drift check to bite gets a green run that was never able to go red - the exact 'a check that cannot fail' shape the whole M37 falsifier exists to prevent, one layer up. Low severity only because the schedule path DOES enforce weekly, so the blind window is bounded at 7 days rather than unbounded.",
+      "snoozed_until": "2026-09-01",
+      "trigger_condition": "The next session that edits `.github/workflows/oci-inventory.yml` for any reason, OR the next /health-review, OR 2026-09-01 - whichever comes first. Deliberately NOT fixed on 2026-08-20: the cron's first firing is 2026-08-24 and the highest-value property until then is that the schedule path is byte-identical to the one that was positive-controlled. Editing the same file first would trade a real guarantee for a convenience.",
+      "what_to_check": "Two options, pick one and say which. (a) Parse a `fail_on_drift: true` line out of the issue BODY the way `system-actions.yml` parses `action:`/`reason:` (through env, never inline-interpolated), and fold it into the existing bash resolution so precedence stays in one place. (b) Leave the behaviour and make it VISIBLE instead - have the run's own issue comment state `fail_on_drift=false (issue path; this run could not fail on drift)`. Option (b) is cheaper and closes the actual harm; (a) is only worth it if a session genuinely wants an on-demand enforcing run, which no one has asked for yet. Whichever is chosen, the schedule path's default-ON behaviour must be re-confirmed by test after the edit.",
+      "resolution_criteria": "Closed when a label-triggered run's own output states which flag it ran under, OR the issue body can set it. Not closed by documenting it in a comment nobody reads at trigger time.",
+      "evidence": {
+        "workflow": ".github/workflows/oci-inventory.yml",
+        "first_issue_path_run": "32351518408",
+        "issue": "#10030",
+        "branch_taken": "else -> fod=false"
       }
     }
   ]
