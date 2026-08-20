@@ -180,6 +180,7 @@ if ! python3 - "$REPO_ROOT" "$TRAINING_LOG_PATH" "$REGISTRY_ROOT" "$TRAINER_VM_I
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -383,6 +384,37 @@ for row in registry_rows:
     if stage:
         stages[stage] += 1
 
+# --- Disk headroom -----------------------------------------------------------
+# ⚠️ THE TRAINER PUBLISHED NO DISK METRIC AT ALL until 2026-08-20, and nothing
+# anywhere observed it. Measured that day: the 45 G root was at **94%** with
+# **3.2 G free** and the only way to learn it was to SSH in. The LIVE trader has
+# `src/runtime/health.py::check_disk`; the trainer's 12 published status keys did
+# not include disk, so `/api/bot/ml/status`, the ML-review skill and the
+# notification banners were all structurally blind to it.
+#
+# This is the cheap half of the fix: PUBLISH the number so a consumer can grade
+# it. It deliberately does NOT delete anything and is not a retention policy —
+# see the note on `trainer_dataset_gc.py` below.
+#
+# Three states, never collapsed: a read failure is `measured: false` with a
+# reason, NOT a comfortable 0% or a missing key. "We could not look" and "there
+# is plenty of room" are opposite statements.
+disk = {"measured": False, "reason": "not_attempted", "path": str(REPO_ROOT)}
+try:
+    _du = shutil.disk_usage(str(REPO_ROOT))
+    _used_pct = round(100.0 * (_du.total - _du.free) / _du.total, 1) if _du.total else None
+    disk = {
+        "measured": True,
+        "path": str(REPO_ROOT),
+        "total_gb": round(_du.total / 1e9, 2),
+        "used_gb": round((_du.total - _du.free) / 1e9, 2),
+        "free_gb": round(_du.free / 1e9, 2),
+        "used_pct": _used_pct,
+    }
+except Exception as exc:  # noqa: BLE001 — never break the publish over a stat()
+    disk = {"measured": False, "reason": f"{type(exc).__name__}: {exc}",
+            "path": str(REPO_ROOT)}
+
 payload = {
     "ts": iso(now),
     "trainer_vm": {
@@ -393,6 +425,10 @@ payload = {
         "load_1m": load_1m,
         "head_sha": head_sha,
     },
+    # Top-level (not nested under trainer_vm) so a consumer grading headroom
+    # does not have to know it is a "VM" fact — it is a TRAINER fact, and the
+    # ml-review skill reads this blob by key.
+    "disk": disk,
     "service": service,
     "timer": timer,
     "last_cycle": last_cycle,
