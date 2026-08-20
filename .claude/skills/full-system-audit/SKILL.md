@@ -106,6 +106,16 @@ gauge. Three sub-steps, in order.
   `git rev-parse --is-shallow-repository` → `false`.
 - Confirm which relays actually reach the VMs from *this* session (direct
   `diag_fetch.sh` vs the issue relay) before planning any VM pass. Record which.
+  ⚠️ **Measure it; do not infer it from the network-access level.** At the
+  default **Trusted** level a direct call to the raw `http://IP:8001` IS
+  firewalled, but the **Caddy HTTPS hostname is not** — measured 2026-08-20 by
+  two independent sessions: `https://ict-bot.duckdns.org/api/diag/*` answers
+  `200` with a bearer at Trusted. The scheme+hostname is what the proxy
+  allowlists, not the destination host, so "egress to the VM is firewalled,
+  the relay is the only channel" is true of the raw-IP route ONLY. Try the
+  hostname first; the 30–60 s issue relay is the fallback, not the default.
+  (Carried from #10031 — the same fact, found independently, is why this bullet
+  says *measure* rather than *assume*.)
 
 **0b. Audit the RULES for internal contradiction.** Read the canonical set
 highest-precedence first (`docs/CLAUDE-RULES-CANONICAL.md` →

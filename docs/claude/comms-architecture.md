@@ -327,42 +327,47 @@ question, ``required: false``) and picks up the requested sprint.
     lives in CLAUDE.md / sprint prompts, deliberately out of scope
     for the bot).
 
-### `/test <strategy>`
+### ~~`/test <strategy>`~~ — REMOVED 2026-08-20
 
-Queues a backtest for the M5 consumer. The artifact has one
-``required: true`` free-text question (``results``); the consumer
-runs the backtest and fills in the answer via the existing
-``apply_answer`` writeback path so the result lands back in the
-same artifact and propagates through git.
+The M5 backtest consumer, its `test_strategy:<name>` template, and
+`runtime_logs/validation.jsonl` are **gone**. What it actually did:
 
-  - **Source:** operator. **Task:** ``test_strategy:<strategy>``.
-  - **Topic:** ``"Strategy test: <strategy>"``.
-  - **Default-on-timeout:** ``expire`` (a backtest that doesn't run
-    inside the TTL is treated as failed; the consumer surfaces a
-    structured error answer before that point).
-  - **Dispatch validation:** ``cmd_test_strategy`` rejects unknown
-    strategy names against ``config/strategies.yaml`` at dispatch
-    time — `/test bogus` never mints an artifact.
-  - **Consumer:** ``src/bot/test_strategy_consumer.py::BacktestConsumer``
-    (M5 P1 #637, hardening in P2 #639). Bolted into
-    ``CommsPoller.poll_once`` as a 4th pass; auto-installed only
-    when ``M5_CONSUMER_ENABLED`` is truthy. Spawns
-    ``python -m src.backtest.run_backtest_m5`` with
-    ``M5_BACKTEST_TIMEOUT_S`` (default 120 s); persists to
-    ``backtest_results`` and writes one NDJSON row per run to
-    ``runtime_logs/validation.jsonl``. **Operator runbook:**
-    [`docs/runbooks/strategy-testing.md`](../runbooks/strategy-testing.md).
+  - It ran **one hardcoded ICT engine regardless of the strategy
+    named** — `run_backtest_m5.py:46` was `ICTBacktester(df, {})`, and
+    the `strategy` argument reached only `summarize(..., strategy)` as
+    a **label**. So `/test vwap` and `/test turtle_soup` produced the
+    same backtest under different names.
+  - It stamped `sharpe_ratio` / `total_pnl_pct` / `max_drawdown` as
+    literal `0.0` — fabricated values wearing the label of
+    measurements, which is worse than absent.
+  - It was default-off (`M5_CONSUMER_ENABLED`), and **nothing consumed
+    its output**: `validation.jsonl` had no read surface anywhere (it
+    is absent from `diag.py`'s `_LOG_FILES` allowlist).
+
+Existing `backtest_results` rows are **kept as a record** and are
+still served by `GET /api/bot/backtests`, so the Streamlit Backtesting
+tab and the Android client do not 404 — their zeros must not be read
+as measured. **Real backtests are the trainer sweeps**
+(`/api/bot/backtests/sweeps`).
 
 ### Wiring
 
   - Templates: [`src/comms/templates.py`](../../src/comms/templates.py)
-    — `make_new_session_request`, `make_test_strategy_request`,
-    `commit_subject_for`.
-  - Handlers: ``cmd_new_session`` and ``cmd_test_strategy`` in
-    [`src/bot/telegram_query_bot.py`](../../src/bot/telegram_query_bot.py).
-    Both use ``RequestStore.create`` for persistence and
-    ``GitPusher.commit_and_push`` (gated by ``COMMS_PUSH_ENABLED``)
-    for propagation.
+    — `make_new_session_request`, `commit_subject_for`.
+    (`make_test_strategy_request` was removed 2026-08-20.)
+  - ⚠️ **Handlers: NEITHER `cmd_new_session` NOR `cmd_test_strategy`
+    exists.** This bullet claimed both live in
+    [`src/bot/telegram_query_bot.py`](../../src/bot/telegram_query_bot.py);
+    measured 2026-08-20, that file contains **zero** occurrences of
+    either name, and `cmd_test_strategy` appears nowhere in the repo.
+    The stale claim was found while removing M5 — and the check that
+    caught it was a **positive control**: grepping for the surviving
+    sibling `cmd_new_session` returned 0 too, which is what showed the
+    doc was wrong rather than the feature merely being deleted.
+    What that file actually does is call `install_comms_handlers` once
+    (line 629). Requests are minted by **writing a
+    `comms/requests/*.json` artifact directly** (see § "Artifacts"),
+    not by a Telegram command handler.
   - Commit-subject prefix: ``comms(ask):`` — distinct from the
     response-writeback prefix ``comms(response):`` so the
     notify-on-pull filter and downstream consumers can tell the two

@@ -93,11 +93,17 @@ class Headline:
     avg_hold_seconds: Optional[int] = None
     fill_rate: Optional[float] = None
     rejection_cluster: Optional[str] = None
+    # Newest filled package in the window. `n_filled` alone cannot answer the
+    # only question the execution-mode override actually asks — is this shadow
+    # strategy placing orders NOW — because a strategy correctly demoted mid
+    # window keeps its earlier fills for ever.
+    last_fill_at: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "n_decisions": self.n_decisions,
             "n_filled": self.n_filled,
+            "last_fill_at": self.last_fill_at,
             "n_closed": self.n_closed,
             "n_closed_untrusted_pnl": self.n_closed_untrusted_pnl,
             "n_wins": self.n_wins,
@@ -546,6 +552,9 @@ def compute_headline(decisions: Sequence[Mapping[str, Any]]) -> Headline:
     for row in decisions:
         if row.get("linked_trade_id"):
             h.n_filled += 1
+            _fill_ts = row.get("pkg_created_at")
+            if _fill_ts and (h.last_fill_at is None or str(_fill_ts) > h.last_fill_at):
+                h.last_fill_at = str(_fill_ts)
         if _is_closed(row):
             pnl = row.get("trade_pnl")
             # A closed row whose pnl provenance is not measured/estimated is
@@ -828,12 +837,88 @@ def _degenerate_confidence(diag: ExecutionDiagnostics) -> bool:
     return std == 0.0 and cmin == cmax == 1.0
 
 
+#: How recently a `shadow` strategy must have filled for the execution-mode
+#: override to call it a live anomaly. Below this it is a strategy that WAS
+#: filling and has since been correctly demoted — the exact case the override
+#: used to refuse to grade.
+MISMATCH_RECENCY_DAYS = 3.0
+
+
+def _as_dt(value: Any) -> Optional[datetime]:
+    """Coerce a timestamp that may already be a ``datetime``.
+
+    ``build_packet`` is called with ``window_end`` as a real ``datetime`` by its
+    own tests and by the CLI, while ``Headline.last_fill_at`` comes off a DB row
+    as a string. Assuming one or the other is how the first cut of this function
+    broke an existing test with ``'datetime' object has no attribute
+    'endswith'`` — so take both and normalise to UTC-aware.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return _isoparse(str(value))
+
+
+def classify_execution_mismatch(
+    execution: str,
+    headline: "Headline",
+    window_end: Any,
+    recency_days: float = MISMATCH_RECENCY_DAYS,
+) -> str:
+    """Is a `shadow` strategy placing orders NOW? Four states, never collapsed.
+
+    ``not_shadow``            — the override does not apply.
+    ``shadow_no_fills``       — declared shadow, filled nothing. Normal.
+    ``shadow_filling_now``    — newest fill within `recency_days` of the window
+                                end. THE REAL ANOMALY: a shadow-gated strategy
+                                is still reaching the order path.
+    ``shadow_fills_historical`` — it has fills, but none recent. This is what a
+                                CORRECT DEMOTION looks like, and it must be
+                                graded by the matrix, not refused.
+    ``shadow_fill_recency_unknown`` — it has fills we could not date. We do not
+                                know, so we hold — but we say we do not know
+                                rather than asserting a pipeline anomaly.
+
+    WHY THIS EXISTS (BL-20260820-REVIEW-GATE-REFUSES-DEMOTED-STRATEGIES).
+    The old override was ``execution == "shadow" and n_filled > 0`` — a
+    point-in-time config field against a WHOLE-WINDOW aggregate. Any strategy
+    demoted during or shortly after its own window tripped it by construction,
+    so the gate structurally refused to grade exactly the strategies whose
+    post-mortem matters most. Measured on the 2026-06-30 packets: `vwap`
+    (322 closed, -$50.71, expectancy -0.157) and `ict_scalp_5m` (18 closed,
+    66.7% win, +$142.78, expectancy +7.93) both got the identical non-answer,
+    with every metric computed and unused. `ict_scalp_5m`'s flag was a FALSE
+    ALARM — it went live -> shadow on 2026-06-29, the packet ran on 06-30, and
+    it was back to live on 07-20; its window fills were placed while it was
+    legitimately live. The check reported a demotion that WORKED as an anomaly,
+    and prescribed "do not act", which is the one instruction guaranteed to
+    leave the demotion un-post-mortemed.
+    """
+    if str(execution or "").lower() != "shadow":
+        return "not_shadow"
+    if headline.n_filled <= 0:
+        return "shadow_no_fills"
+    if not headline.last_fill_at or not window_end:
+        return "shadow_fill_recency_unknown"
+    last = _as_dt(headline.last_fill_at)
+    end = _as_dt(window_end)
+    if last is None or end is None:
+        return "shadow_fill_recency_unknown"
+    return (
+        "shadow_filling_now"
+        if (end - last) <= timedelta(days=recency_days)
+        else "shadow_fills_historical"
+    )
+
+
 def decide(
     headline: Headline,
     cells: Sequence[RegimeCell],
     diag: ExecutionDiagnostics,
     execution: str,
     shadow_soak_days: int,
+    window_end: Any = None,
 ) -> Decision:
     """Mechanical gate per `docs/strategy-review-gate.md` § Threshold table.
 
@@ -850,13 +935,41 @@ def decide(
     any_off = _any_policy_off_cell_present(cells)
     degenerate_conf = _degenerate_confidence(diag)
 
-    # --- Override 1: execution-mode mismatch (shadow but has fills).
-    if execution == "shadow" and headline.n_filled > 0:
+    # --- Override 1: execution-mode mismatch — a shadow strategy filling NOW.
+    #
+    # Scoped to RECENT fills. The unscoped form refused to grade every strategy
+    # that had been correctly demoted, which is the population whose grade
+    # matters most. See classify_execution_mismatch for the measured cases.
+    mismatch = classify_execution_mismatch(execution, headline, window_end)
+    if mismatch == "shadow_filling_now":
         decision.action = "hold"
         decision.reasons.append(
-            "execution_mode_mismatch: strategy is shadow but n_filled>0 — pipeline anomaly; do not act."
+            f"execution_mode_mismatch: strategy is shadow and last filled "
+            f"{headline.last_fill_at} — inside {MISMATCH_RECENCY_DAYS:g}d of the "
+            f"window end, so it is reaching the order path NOW; pipeline "
+            f"anomaly, do not act on performance until it is resolved."
         )
         return decision
+    if mismatch == "shadow_fill_recency_unknown":
+        decision.action = "hold"
+        decision.reasons.append(
+            "execution_mode_mismatch_undatable: strategy is shadow with "
+            f"n_filled={headline.n_filled}, but the fills could not be dated "
+            "against the window end, so whether it is STILL filling is "
+            "unknown. Holding because a shadow strategy that might be reaching "
+            "the order path is not gradeable — this is 'we could not look', "
+            "NOT an established anomaly."
+        )
+        return decision
+    if mismatch == "shadow_fills_historical":
+        # NOT an override. The strategy was demoted and stopped filling, which
+        # is the mechanism working; grade it on the matrix below and record why
+        # the old override would have fired here.
+        decision.reasons.append(
+            f"execution_mode_note: shadow with n_filled={headline.n_filled}, "
+            f"newest {headline.last_fill_at} — all historical relative to the "
+            f"window end, consistent with a completed demotion. Graded normally."
+        )
 
     # --- The matrix.
     if n == 0:
@@ -1174,7 +1287,10 @@ def build_packet(
     cells = compute_regime_cells(decisions, regime_index, regime_policy, strategy)
     diag = compute_execution_diagnostics(decisions)
 
-    decision = decide(headline, cells, diag, execution, shadow_soak_days)
+    decision = decide(
+        headline, cells, diag, execution, shadow_soak_days,
+        window_end=window_end,
+    )
 
     now = datetime.now(timezone.utc).isoformat()
     sla_due = None

@@ -26,6 +26,23 @@ ACTION_APPLY="${ACTION_APPLY:-}"
 PY="${REPO_DIR}/.venv/bin/python3"
 [ -x "${PY}" ] || PY="python3"
 
+# THE DB PATH MUST BE RESOLVED SHELL-SIDE AND EXPORTED. Omitting this is what
+# made the first two dry runs fail (#10040 import bootstrap, #10049 db path):
+# the python resolver order is TRADE_JOURNAL_DB -> $DATA_DIR/trade_journal.db
+# -> repo-root, and a wrapper invoked over SSH inherits NEITHER env var (they
+# live in the systemd unit's EnvironmentFile, not in an interactive shell). So
+# it fell through to ${REPO_DIR}/trade_journal.db, which does not exist on the
+# live VM, and a read-only URI connection cannot create one:
+#
+#     sqlite3.OperationalError: unable to open database file
+#
+# `runtime_db_path` (scripts/ops/_lib.sh) calls load_runtime_env first, so it
+# reads the SAME value the trader uses. This is the idiom every sibling wrapper
+# already uses (backfill_closed_at_action.sh:34,76 and ~20 others) — deviating
+# from it is what cost two dispatch cycles.
+DB_PATH="$(runtime_db_path)"
+echo ">>> trade_journal.db: ${DB_PATH}"
+
 ARGS=()
 [ -n "${ACCOUNT_ID}" ] && ARGS+=(--account "${ACCOUNT_ID}")
 
@@ -41,4 +58,4 @@ esac
 
 # Exit 1 means at least one candidate could NOT be resolved from its ticket —
 # that row still reads open for ever, so it must not be reported as success.
-exec "${PY}" scripts/ops/repair_prop_fill_direction.py "${ARGS[@]}"
+exec env TRADE_JOURNAL_DB="${DB_PATH}" "${PY}" scripts/ops/repair_prop_fill_direction.py "${ARGS[@]}"

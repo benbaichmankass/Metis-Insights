@@ -19,8 +19,58 @@ name: oci-inventory
 #                    human to review and commit. The diff path NEVER writes the
 #                    expectations file: a checker that rewrites its own baseline
 #                    on drift can never fail.
+#
+# SCHEDULED (2026-08-20). Until now this only told the truth when someone
+# remembered to ask — the exact failure mode it was built to fix. It now also
+# runs WEEKLY with --fail-on-drift, and a drift verdict is LOUD (Telegram + a
+# labelled issue), not a red tick nobody is watching.
+#
+# ⚠️ THE SCHEDULE WAS NOT ARMED UNTIL --fail-on-drift WAS SHOWN TO GO RED.
+# A green check that cannot go red is worse than no check, so the flag was
+# positive-controlled against the REAL cloud before this cron existed
+# (2026-08-20, both arms on the same live tenancy):
+#
+#   red  — run 32351336623, expectations file deliberately wrong on a throwaway
+#          branch: drift 1 · match 1 · missing 1 · undeclared 1, exit 1. The one
+#          `match` is the denominator assertion — it proves the tool really did
+#          read the live cloud rather than failing before the inventory ran.
+#   green— run 32351503893, same flag on unmodified `main`: 3 match, exit 0.
+#
+# The induced drift was on the DECLARED side, deliberately: `diff()` compares
+# the two sides symmetrically, and terminating a live VM to test a checker is
+# not a trade this repo makes.
+#
+# THE POSITIVE CONTROL FOUND A REAL DEFECT, which is why it was worth running.
+# The runner's default shell is `bash -e {0}`; this job adds `set -o pipefail`;
+# so on the drift path the failing `python3 … | tee` pipeline aborted the script
+# AT THAT LINE — before `rc=${PIPESTATUS[0]}` and before the $GITHUB_OUTPUT
+# write. Measured: `RC: 0` on the green run, `RC:` EMPTY on the red one, so the
+# posted report read "exit `unknown`" precisely when there WAS drift. The rc
+# capture below is now guarded (`set +e` around the pipeline) and the step is
+# `continue-on-error` so the alert steps can branch on the verdict and the job
+# fails deliberately at the end.
 
 on:
+  schedule:
+    # Weekly, Mondays 06:00 UTC. ⚠️ CHOSEN, NOT MEASURED: VM topology changes
+    # a handful of times a year, so a daily run would be ~360 no-op runs to
+    # catch one event, and a check that cries wolf is the desensitized-alarm
+    # failure this repo treats as its own P1. Weekly bounds the blind window to
+    # 7 days. Tighten it if topology ever starts moving faster than that.
+    #
+    # ✅ THE TRIGGER IS PROVEN, not assumed (2026-08-20, run 32362843960).
+    # `github.event_name == 'schedule'` had never been evaluated by GitHub —
+    # every run in this workflow's history was `workflow_dispatch` or `issues`
+    # — and a dispatch CANNOT reach that disjunct, because `inputs.fail_on_drift`
+    # carries `default: "false"` and is therefore never empty. Two one-off probe
+    # crons were merged and removed the same day; the run fired at 11:14:30Z for
+    # an 11:00Z window (GitHub scheduling lag, ~14.5 min — expect it, and never
+    # read a late run as a missed one), the job RAN rather than being skipped,
+    # and the verdict was `clean` with Auto-resolve success and Telegram /
+    # drift-issue / fail-the-run all correctly skipped. That run is also the
+    # first live exercise of the `EVENT_NAME = schedule` branch below, which
+    # defaults fail_on_drift ON — so the enforcing default is confirmed live.
+    - cron: "0 6 * * 1"
   workflow_dispatch:
     inputs:
       mode:
@@ -49,6 +99,7 @@ concurrency:
 jobs:
   inventory:
     if: |
+      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
        (github.event.issue.user.login == github.repository_owner ||
@@ -68,6 +119,9 @@ jobs:
 
       - name: Run inventory
         id: run
+        # continue-on-error so the classify + alert steps below can branch on
+        # the verdict; the job is failed deliberately at the end instead.
+        continue-on-error: true
         env:
           OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
           OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
@@ -76,22 +130,118 @@ jobs:
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
           OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
           MODE: ${{ inputs.mode || 'report' }}
-          FAIL_ON_DRIFT: ${{ inputs.fail_on_drift || 'false' }}
+          # Empty on the schedule + issue paths (`inputs` does not exist there),
+          # so the default is resolved in bash below rather than in a nested
+          # expression whose precedence is easy to get wrong and hard to test.
+          FAIL_ON_DRIFT_INPUT: ${{ inputs.fail_on_drift || '' }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -uo pipefail
           mkdir -p /tmp/oci
+
+          # A SCHEDULED run exists to go red on drift, so it defaults the flag
+          # ON. Dispatch and the issue-label path keep their historical default
+          # of a plain report unless the caller asks otherwise.
+          if [ -n "$FAIL_ON_DRIFT_INPUT" ]; then
+            fod="$FAIL_ON_DRIFT_INPUT"
+          elif [ "$EVENT_NAME" = "schedule" ]; then
+            fod="true"
+          else
+            fod="false"
+          fi
+          echo "fail_on_drift=$fod" >> "$GITHUB_OUTPUT"
+
+          # ⚠️ `set +e` here is LOAD-BEARING, not tidiness. The runner's default
+          # shell is `bash -e {0}` and this script adds `set -o pipefail`, so a
+          # failing pipeline aborts the script AT THAT LINE — before the rc
+          # capture and before the $GITHUB_OUTPUT write. Measured 2026-08-20:
+          # `RC: 0` on the green run, `RC:` EMPTY on the drift run, so the posted
+          # report read "exit `unknown`" on precisely the runs that found
+          # something. Do not "simplify" this back.
+          set +e
           if [ "$MODE" = "emit-expected" ]; then
             python3 scripts/ops/oci_inventory.py --emit-expected | tee /tmp/oci/out.txt
-            rc=$?
           else
             extra=""
-            [ "$FAIL_ON_DRIFT" = "true" ] && extra="--fail-on-drift"
+            [ "$fod" = "true" ] && extra="--fail-on-drift"
             # shellcheck disable=SC2086
             python3 scripts/ops/oci_inventory.py --markdown $extra | tee /tmp/oci/out.txt
-            rc=${PIPESTATUS[0]}
           fi
+          # PIPESTATUS[0], never $? — $? is `tee`'s status, which is 0 even when
+          # the inventory exited 1. The emit-expected branch used $? and had the
+          # same latent bug.
+          rc=${PIPESTATUS[0]}
+          set -e
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          exit $rc
+          echo "inventory exited rc=$rc (fail_on_drift=$fod)"
+
+      - name: Classify verdict
+        id: verdict
+        if: always()
+        env:
+          MODE: ${{ inputs.mode || 'report' }}
+        # FOUR states, never collapsed — the alert below branches on this, and
+        # three of the four are failures with DIFFERENT remedies:
+        #   clean            declared, zero bad verdicts
+        #   drift            declared, >=1 drift/missing/undeclared/ambiguous
+        #   not_declared     no expectations file — "nothing to compare against"
+        #                    is NOT "everything matches" (oci_inventory.py says
+        #                    so in its own docstring); remedy is --emit-expected
+        #   could_not_check  no report, or one we could not parse — WE DID NOT
+        #                    LOOK. Must never render as clean, and must never
+        #                    open a "topology drifted" issue either: that would
+        #                    be a confident accusation on an unasserted
+        #                    denominator.
+        # Derived from the REPORT, not from the exit code, so the verdict stays
+        # meaningful on a run dispatched with fail_on_drift=false.
+        run: |
+          set -uo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, pathlib
+
+          if os.environ.get("MODE") == "emit-expected":
+              print("state=not_applicable"); print("summary=emit-expected mode — no diff was computed"); raise SystemExit(0)
+
+          raw = ""
+          p = pathlib.Path("/tmp/oci/out.txt")
+          if p.is_file():
+              raw = p.read_text()
+          head = raw.split("<!--MARKDOWN-->")[0].strip()
+
+          state, summary = "could_not_check", "no inventory output was produced — the step failed before the diff ran"
+          if head:
+              try:
+                  rep = json.loads(head)
+              except ValueError as exc:
+                  summary = f"inventory output was unparseable ({exc})"
+              else:
+                  d = rep.get("diff", {})
+                  if d.get("declaration_state") == "not_declared":
+                      state, summary = "not_declared", "no expectations file — nothing to compare the live cloud against"
+                  elif d.get("declaration_state") == "declared":
+                      bad = {"drift", "missing", "undeclared", "ambiguous"}
+                      hits = [f for f in d.get("findings", []) if f.get("verdict") in bad]
+                      n_match = sum(1 for f in d.get("findings", []) if f.get("verdict") == "match")
+                      if hits:
+                          state = "drift"
+                          summary = "; ".join(
+                              f"{f.get('display_name')} [{f.get('verdict')}]" for f in hits[:8])
+                          if len(hits) > 8:
+                              summary += f"; +{len(hits) - 8} more"
+                          summary += f" ({len(hits)} finding(s) over {len(d.get('findings', []))} declared+live instances)"
+                      else:
+                          state = "clean"
+                          summary = f"{n_match} instance(s) match the declared topology"
+                  else:
+                      summary = f"unrecognised declaration_state {d.get('declaration_state')!r}"
+
+          # A newline in `summary` would corrupt $GITHUB_OUTPUT's line format and
+          # could inject a second key — flatten it.
+          summary = " ".join(str(summary).split())
+          print(f"state={state}")
+          print(f"summary={summary}")
+          PY
+          echo "verdict: $(grep '^state=' "$GITHUB_OUTPUT" | tail -1)"
 
       - name: Post report
         if: always()
@@ -126,3 +276,120 @@ jobs:
             cat /tmp/oci/comment.md >> "$GITHUB_STEP_SUMMARY"
             echo "no issue context — report written to the job summary"
           fi
+
+      - name: Telegram alert (drift / not_declared / could_not_check)
+        # Silent on the happy path — alert on the exception, not the norm.
+        if: >-
+          steps.verdict.outputs.state == 'drift' ||
+          steps.verdict.outputs.state == 'not_declared' ||
+          steps.verdict.outputs.state == 'could_not_check'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STATE: ${{ steps.verdict.outputs.state }}
+          SUMMARY: ${{ steps.verdict.outputs.summary }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "🚨 OCI topology [${STATE}] — ${SUMMARY}" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+
+      - name: Open / update drift issue
+        if: >-
+          steps.verdict.outputs.state == 'drift' ||
+          steps.verdict.outputs.state == 'not_declared' ||
+          steps.verdict.outputs.state == 'could_not_check'
+        uses: actions/github-script@v7
+        env:
+          STATE: ${{ steps.verdict.outputs.state }}
+          SUMMARY: ${{ steps.verdict.outputs.summary }}
+        with:
+          script: |
+            const label = 'oci-topology-drift';
+            const state = process.env.STATE;
+            const summary = process.env.SUMMARY || '(no summary)';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // Self-heal the label rather than depending on bootstrap-labels
+            // having run first. (bootstrap-labels also declares it.)
+            try {
+              await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label });
+            } catch (e) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: label, color: 'd93f0b',
+                description: 'Live OCI topology no longer matches the declared one, or could not be checked.',
+              });
+            }
+            const blurb = {
+              drift: 'The live cloud no longer matches `comms/cloud/expected_topology.json`. ' +
+                     'Either the cloud changed and the declaration must be updated deliberately ' +
+                     '(`mode=emit-expected`, review, commit — the diff path never writes it), ' +
+                     'or something changed in the cloud that nobody intended.',
+              not_declared: 'There is no expectations file, so nothing was compared. ' +
+                     '**This is not a pass** — "we have nothing to compare against" and ' +
+                     '"everything matches" are opposite findings. Seed one with `mode=emit-expected`.',
+              could_not_check: '**We did not look.** The inventory produced no readable report, so this ' +
+                     'says nothing about whether the topology drifted — do not read it as clean. ' +
+                     'Usual causes: an OCI credential secret expired, or the SDK/API call failed.',
+            }[state] || 'Unrecognised verdict state.';
+            const body =
+              `🚨 **oci-inventory — \`${state}\`**\n\n${summary}\n\n${blurb}\n\nRun: ${runUrl}`;
+            // Dedupe: comment on the open issue rather than open a fresh one
+            // every week the condition persists.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: label, per_page: 10,
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `🚨 OCI topology ${state} (${new Date().toISOString().slice(0,10)})`,
+                labels: [label], body,
+              });
+            }
+
+      - name: Auto-resolve drift issue (only when clean)
+        if: steps.verdict.outputs.state == 'clean'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = 'oci-topology-drift';
+            let existing;
+            try {
+              existing = await github.rest.issues.listForRepo({
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', labels: label, per_page: 10,
+              });
+            } catch (e) { return; }   // label never created => nothing to resolve
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            for (const iss of existing.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: iss.number,
+                body: `✅ Live topology matches the declared one again. Auto-closing.\nRun: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: iss.number, state: 'closed', state_reason: 'completed',
+              });
+            }
+
+      - name: Fail the run on drift / not_declared / could_not_check
+        # Deferred to the end so the report + alert steps always run first.
+        # ⚠️ Gated on the VERDICT, not on `steps.run.outcome`, so a run
+        # dispatched with fail_on_drift=false still REPORTS honestly but does
+        # not go red — the flag controls the exit code, this controls the job.
+        if: >-
+          (steps.verdict.outputs.state == 'drift' ||
+           steps.verdict.outputs.state == 'not_declared' ||
+           steps.verdict.outputs.state == 'could_not_check') &&
+          steps.run.outputs.fail_on_drift == 'true'
+        run: |
+          echo "::error::oci-inventory verdict=${{ steps.verdict.outputs.state }} — ${{ steps.verdict.outputs.summary }}"
+          exit 1

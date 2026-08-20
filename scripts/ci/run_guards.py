@@ -502,6 +502,24 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_prop_identity_single_home.py"]],
     },
     {
+        "name": "risk-basis-agreement",
+        # Fires on the harness fleet, the live risk config, and itself. The
+        # SOURCE of truth (config/accounts.yaml) is in the trigger set
+        # deliberately: a live risk_pct change must re-grade every harness
+        # default, which is the direction the drift actually travelled.
+        "when": {"globs": [
+            "scripts/backtest_*.py", "scripts/walkforward_*.py",
+            "scripts/research/*.py", "scripts/ml/*.py", "scripts/prop/*.py",
+            "src/backtest/*.py", "src/research/risk_basis.py",
+            "config/accounts.yaml",
+            "scripts/ci/check_risk_basis_agreement.py",
+        ]},
+        # Self-test FIRST — a guard whose planted controls no longer fire must
+        # not report a clean scan (the collapsed-state-guard lesson below).
+        "steps": [["python3", "scripts/ci/check_risk_basis_agreement.py", "--self-test"],
+                  ["python3", "scripts/ci/check_risk_basis_agreement.py", "--all"]],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read

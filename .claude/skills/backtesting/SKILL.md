@@ -1,6 +1,6 @@
 ---
 name: backtesting
-description: Run and interpret strategy backtests for the ICT bot — the standalone research harnesses (scripts/backtest_squeeze.py, backtest_fade.py, backtest_trend.py, backtest_ict_scalp.py, src/backtest/run_backtest_vwap.py), the on-demand M5 `/test <strategy>` consumer that writes to trade_journal.db::backtest_results, and the trainer-VM sweep mirror surfaced at /api/bot/backtests/sweeps. Use when the operator says "backtest <strategy>", "run a sweep", "validate this config on history", or asks where backtest code/data/outputs live. NOT for live tuning of config/strategies.yaml params (Tier-3) — this is the evidence-gathering step that precedes that.
+description: Run and interpret strategy backtests for the ICT bot — the standalone research harnesses (scripts/backtest_squeeze.py, backtest_fade.py, backtest_trend.py, backtest_ict_scalp.py, src/backtest/run_backtest_vwap.py), and the trainer-VM sweep mirror surfaced at /api/bot/backtests/sweeps (the M5 `/test` consumer was REMOVED 2026-08-20). Use when the operator says "backtest <strategy>", "run a sweep", "validate this config on history", or asks where backtest code/data/outputs live. NOT for live tuning of config/strategies.yaml params (Tier-3) — this is the evidence-gathering step that precedes that.
 ---
 
 # /backtesting — run and read ICT strategy backtests
@@ -141,7 +141,7 @@ result into one change — it smuggles the weak half in on the strong half's evi
 | `scripts/backtest_ict_scalp.py` | ict_scalp_5m | `python scripts/backtest_ict_scalp.py --data <csv> [...]` |
 | `src/backtest/run_backtest_vwap.py` | vwap (HTF-filter sweep) | `python -m src.backtest.run_backtest_vwap [...]` |
 | `src/backtest/run_backtest_m5.py` | on-demand `/test` consumer | `python -m src.backtest.run_backtest_m5 <strategy>` |
-| `src/backtest/run_backtest.py` | core `ICTBacktester` harness (`load_data`, `summarize`) | imported by the M5 runner; not a CLI you call directly |
+| `src/backtest/run_backtest.py` | core `ICTBacktester` harness (`load_data`, `summarize`) | imported by `run_backtest_vwap.py` and invoked by `scripts/ops/run_serious_baseline.sh`; **keep** — the M5 runner that also used it is gone, this is not |
 
 > **Research-only harnesses live on the program branch, not `main`.**
 > `scripts/research_decider.py` and `scripts/ops/fetch_dukascopy_index.py`
@@ -218,23 +218,21 @@ its own rich flag surface (HTF filter, band-pct, regime split, net-of-fee
 aggregates via `--fee-bps-roundtrip`, `--label`). It is the sweep workhorse
 behind the `vwap-backtest-sweep` system-action.
 
-## On-demand `/test <strategy>` (the M5 consumer → trade_journal.db)
+## ~~On-demand `/test <strategy>`~~ — REMOVED 2026-08-20
 
-The operator's `/test <strategy>` Telegram command (or a comms request)
-runs inside the trader's poll loop, NOT in this session:
+**There is no on-demand backtest path. Do not offer one.** The M5 consumer,
+its runner, and its validation log are deleted.
 
-1. `cmd_test_strategy` validates the name against `config/strategies.yaml`.
-2. `CommsPoller.poll_once` runs `BacktestConsumer.scan_and_run` (gated by
-   `M5_CONSUMER_ENABLED`).
-3. It spawns `python -m src.backtest.run_backtest_m5 <strategy>` under an
-   `M5_BACKTEST_TIMEOUT_S` wall clock (default 120s).
-4. The subprocess writes **one row** to `trade_journal.db::backtest_results`
-   and prints `{"db_row_id": N, "summary": {...}}` as its last stdout line.
-5. The consumer appends one NDJSON row to `runtime_logs/validation.jsonl`
-   and answers the comms request.
+⚠️ **Do not read the surviving `backtest_results` rows as evidence.** The tool
+that wrote them ran **one hardcoded ICT engine regardless of the strategy
+named** (`ICTBacktester(df, {})`, with `strategy` used only as a label) and
+stamped `sharpe_ratio` / `total_pnl_pct` / `max_drawdown` as literal `0.0`.
+Those zeros are FABRICATED, not measured. The rows are kept as a record and
+`GET /api/bot/backtests` still serves them so the dashboard and Android client
+do not 404 — but a backtest question is **never** answered from them.
 
-Read those results from the sandbox via `GET /api/bot/backtests?limit=N&strategy=X`
-(diag-reachable, Tier-1). Runbook: `docs/runbooks/strategy-testing.md`.
+**Answer backtest questions from the harnesses above and the trainer sweeps
+below.**
 
 ## Operator sweeps (trainer VM → mirror → /api/bot/backtests/sweeps)
 

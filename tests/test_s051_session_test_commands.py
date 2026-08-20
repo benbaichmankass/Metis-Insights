@@ -28,10 +28,8 @@ from src.comms.state import STATUS
 from src.comms.templates import (
     COMMS_ASK_COMMIT_PREFIX,
     NEW_SESSION_TASK_PREFIX,
-    TEST_STRATEGY_TASK_PREFIX,
     commit_subject_for,
     make_new_session_request,
-    make_test_strategy_request,
 )
 
 
@@ -81,34 +79,6 @@ class TestMakeNewSessionRequest:
 
 
 # ----------------------------------------------------------------------
-# make_test_strategy_request
-
-class TestMakeTestStrategyRequest:
-    def test_happy_path(self):
-        req = make_test_strategy_request("vwap", now=_now_fixed())
-        assert req.source_actor == "operator"
-        assert req.task == f"{TEST_STRATEGY_TASK_PREFIX}:vwap"
-        assert req.topic == "Strategy test: vwap"
-        assert req.status == STATUS.PENDING
-        assert req.default_on_timeout == "expire"
-        assert len(req.questions) == 1
-        q = req.questions[0]
-        assert q.question_id == "results"
-        assert q.input_type == "free_text"
-        assert q.required is True
-
-    def test_request_id_format(self):
-        req = make_test_strategy_request("vwap", now=_now_fixed())
-        assert req.request_id.startswith("REQ-20260508-120000-ts")
-        assert "vwap" in req.request_id
-
-    @pytest.mark.parametrize("bad", ["", "   ", "!!!"])
-    def test_rejects_empty(self, bad):
-        with pytest.raises(CommsValidationError):
-            make_test_strategy_request(bad)
-
-
-# ----------------------------------------------------------------------
 # Commit subject + RequestStore round-trip
 
 class TestCommitSubject:
@@ -118,12 +88,6 @@ class TestCommitSubject:
         assert subject.startswith(COMMS_ASK_COMMIT_PREFIX + " ")
         assert req.request_id in subject
         assert "S-099" in subject
-
-    def test_test_strategy_prefix(self):
-        req = make_test_strategy_request("vwap", now=_now_fixed())
-        subject = commit_subject_for(req)
-        assert subject.startswith(COMMS_ASK_COMMIT_PREFIX + " ")
-        assert req.request_id in subject
 
     def test_prefix_distinct_from_response(self):
         # The bot's response writeback uses ``comms(response):``; this
@@ -142,13 +106,6 @@ class TestRequestStoreRoundTrip:
         assert path.parent.name == "requests"
         assert path.name == f"{req.request_id}.json"
 
-    def test_test_strategy_lands_in_requests_dir(self, tmp_path: Path):
-        store = RequestStore(tmp_path / "comms")
-        req = make_test_strategy_request("vwap", now=_now_fixed())
-        path = store.create(req)
-        assert path.exists()
-        assert path.parent.name == "requests"
-
     def test_artifact_round_trips_through_json(self, tmp_path: Path):
         store = RequestStore(tmp_path / "comms")
         req = make_new_session_request("S-099", now=_now_fixed())
@@ -163,8 +120,11 @@ class TestRequestStoreRoundTrip:
         assert raw["status"] == STATUS.PENDING
 
     def test_creates_one_history_entry_at_create(self, tmp_path: Path):
+        # Re-pointed from the removed make_test_strategy_request (M5 `/test`
+        # removal): this asserts RequestStore history behaviour, not anything
+        # about the template, so it keeps its coverage on the surviving one.
         store = RequestStore(tmp_path / "comms")
-        req = make_test_strategy_request("vwap", now=_now_fixed())
+        req = make_new_session_request("S-099", now=_now_fixed())
         store.create(req)
         loaded = store.load(req.request_id)
         assert len(loaded.history) == 1

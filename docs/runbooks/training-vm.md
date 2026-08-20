@@ -351,7 +351,7 @@ proof to be documented in the reason. Re-run with
 - [`docs/runbooks/health-check.md`](health-check.md) — live VM
   health snapshot (does NOT apply to the trainer VM; uses the
   live-VM trust contract).
-- [`docs/runbooks/strategy-testing.md`](strategy-testing.md) — M5
+- ~~`docs/runbooks/strategy-testing.md`~~ (RETIRED 2026-08-20) — M5
   backtest pipeline (runs on the live VM today; can migrate to
   the trainer in a follow-up — that migration is autonomous-Claude
   per the charter).

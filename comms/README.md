@@ -96,7 +96,7 @@ are instead consumed automatically inside the bot's poll loop:
 
 | Task prefix | Consumer | Notes |
 |---|---|---|
-| `test_strategy:<name>` | `src/bot/test_strategy_consumer.py` (M5) | Runs the ICT backtester, persists to `backtest_results`, writes a formatted summary back via `apply_answer`, appends one row to `runtime_logs/validation.jsonl`. Operator sees the artifact transition straight to `answered` in the same poll cycle it was minted. |
+| ~~`test_strategy:<name>`~~ | **REMOVED 2026-08-20** | The M5 consumer, its template (`make_test_strategy_request`), and `runtime_logs/validation.jsonl` are gone. It ran ONE hardcoded ICT engine regardless of the strategy named and persisted four fabricated `0.0` metrics; the validation log had no read surface anywhere. Existing `backtest_results` rows are kept as a record. |
 | `new_session:<sprint>` | (none — Claude-side bootstrap) | Read by the next Claude session on startup; not consumed by the bot. |
 
 The auto-consumer pass is the first step of `CommsPoller.poll_once`.

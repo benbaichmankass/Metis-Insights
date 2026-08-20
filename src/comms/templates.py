@@ -31,7 +31,6 @@ from .models import (
 )
 
 NEW_SESSION_TASK_PREFIX = "new_session"
-TEST_STRATEGY_TASK_PREFIX = "test_strategy"
 
 # Commit-subject prefix used by the handlers. Distinct from the
 # bot's response-writeback prefix (``comms(response):``) so the
@@ -97,51 +96,6 @@ def make_new_session_request(
         ],
         default_on_timeout="close",
     )
-
-
-def make_test_strategy_request(
-    strategy: str,
-    *,
-    now: Optional[datetime] = None,
-) -> Request:
-    """Build a comms request for ``/test <strategy>``.
-
-    Operator-initiated; the M5 backtest workflow consumes the artifact
-    and writes results back via the existing ``apply_answer`` writeback.
-    The single question is ``results`` (free text) and is
-    ``required=True`` so M5 has to fill it in to drive the request to
-    ``answered``.
-    """
-    strategy = (strategy or "").strip()
-    if not strategy:
-        raise CommsValidationError("strategy required")
-    if not _SLUG_RE.sub("", strategy.lower()):
-        raise CommsValidationError(
-            f"strategy must contain at least one alphanumeric char, got {strategy!r}"
-        )
-    request_id = make_request_id(slug=_slug_for("ts", strategy), now=now)
-    return Request(
-        request_id=request_id,
-        source_actor="operator",
-        task=f"{TEST_STRATEGY_TASK_PREFIX}:{strategy}",
-        topic=f"Strategy test: {strategy}",
-        context=(
-            f"Operator requested via /test that the M5 backtest workflow "
-            f"run a backtest for strategy {strategy!r} and write the "
-            "results into this artifact."
-        ),
-        questions=[
-            Question(
-                question_id="results",
-                prompt=f"Backtest results for strategy {strategy!r}",
-                input_type="free_text",
-                required=True,
-            )
-        ],
-        default_on_timeout="expire",
-    )
-
-
 def commit_subject_for(request: Request) -> str:
     """Build the git commit subject for an operator-initiated request.
 

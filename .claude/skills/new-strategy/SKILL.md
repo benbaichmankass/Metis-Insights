@@ -512,11 +512,12 @@ pytest tests/test_multi_strategy_intents.py \
    PRs, operator-approved). Fire `pull-and-deploy`. The strategy now
    trades real money on the next tick.
 
-(The legacy flow — ship `enabled: false`, backtest via `/test <name>`
-per `docs/runbooks/strategy-testing.md`, then flip `enabled: true` —
-still works for a strategy you want fully inert first. Prefer shadow:
-it gathers the live comparison data that makes the go-live decision
-evidence-based.)
+(The legacy `/test <name>` flow is **GONE** — the M5 consumer was removed
+2026-08-20 because it ran one hardcoded engine regardless of the strategy
+named and wrote fabricated `0.0` metrics. Shipping `enabled: false` to keep a
+strategy fully inert still works; get the evidence from the harnesses in the
+`backtesting` skill or a trainer sweep. Prefer shadow either way: it gathers
+the live comparison data that makes the go-live decision evidence-based.)
 
 ## Files you should NOT need to edit
 
