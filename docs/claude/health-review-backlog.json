@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20",
+  "updated_at": "2026-08-20T10:30:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -1133,8 +1133,8 @@
       "description": "Operator action in the Claude Code environment settings (env vars take effect on new sessions): set DIAG_BASE_URL=http://141.145.193.91:8001, keep DIAG_READ_TOKEN in sync with the VM (get-diag-token workflow). Until then relay-only is the working path (fine, just slower). Decommission-hygiene miss from the 2026-06-14 migration (vm-migration skill's environment-contract lesson).",
       "tier": 1,
       "trigger_condition": "Operator edits the Claude Code cloud-environment settings.",
-      "resolution_criteria": "A new web session resolves scripts/ops/diag_fetch.sh against the live VM (exit 0).",
-      "status": "kept_open",
+      "resolution_criteria": "A new web session resolves scripts/ops/diag_fetch.sh against the live VM (exit 0).  RESOLVED 2026-08-20 by the repo-side fix in scripts/ops/diag_fetch.sh. NOTE that the self-heal block THIS row originally motivated is the thing that was broken: it rewrote the retired micro to the raw live IP, which the sandbox proxy drops, so the heal was cosmetic and the direct path stayed dead for weeks. See BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM for the measurement and the ordered-candidate replacement, verified live in-session.",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -1179,7 +1179,9 @@
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/ops/diag_fetch.sh:46-53 already auto-rewrites the retired host (_RETIRED_LIVE_HOST=158.178.210.252 -> _CANONICAL_LIVE_HOST=141.145.193.91), so the URL half is self-healing. I ran `bash scripts/ops/diag_fetch.sh /api/diag/status` this session: exit 3 (fall back to the relay), i.e. the resolution criterion 'a new web session resolves diag_fetch against the live VM (exit 0)' is still NOT met. — Proposed operator action: set the cloud environment's Network access to Full (or Custom, allowlisting 141.145.193.91:8001) and set DIAG_BASE_URL=http://141.145.193.91:8001 + DIAG_READ_TOKEN. Network-access changes only take effect in a NEW session, so this cannot be self-served from inside one."
         }
       ],
-      "operator_action_required": true
+      "operator_action_required": true,
+      "resolved_at": "2026-08-20T10:30:00+00:00",
+      "resolved_by": "claude (llm-burst-2, 2026-08-20)"
     },
     {
       "id": "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
@@ -18875,11 +18877,11 @@
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
       "severity": "medium",
       "tier": "1 (session/infra config)",
-      "status": "open",
+      "status": "resolved",
       "area": "infra",
       "title": "DIAG_BASE_URL in the cloud-session environment still points at the x86 micro terminated 2026-06-16, so the documented 'try direct first' path is dead and fails as a timeout rather than as a config error",
       "detail": "MEASURED 2026-08-18 at session start. `DIAG_BASE_URL=http://158.178.210.252:8001` — the AMD micro `ict-bot` decommissioned via `terminate-instance` on 2026-06-16 after the 2026-06-14 Ampere cutover. `DIAG_READ_TOKEN` is set and valid.\n\n`scripts/ops/diag_fetch.sh` against that base returns nothing and the raw curl hangs to timeout; the live VM's plain-HTTP `http://141.145.193.91:8001` is also unreachable from a web session (Trusted-level egress firewalls arbitrary IPs, as documented). The transport that DOES work is the Caddy HTTPS hostname `https://ict-bot.duckdns.org`, which served every read in this session including `/api/diag/*` with the same bearer (verified: `/api/diag/version` -> git_sha 08dc9987, matching local HEAD).\n\nThe failure mode is the problem, not the staleness: a stale IP presents as a 45s hang, which reads as 'the VM is down' or 'the token is wrong' rather than 'this address no longer exists'. docs/claude/diag-relay.md's direct/relay contract tells the next session to try direct first and fall back on exit 3, so every session pays the timeout before falling back.\n\nDEDUPED 2026-08-20. BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST was an independent same-day filing of this finding by the concurrent S-LLM-BURST-WORKER session (08:45Z vs this row's 07:00Z). That sprint's log records the pair as 'Deduped at wrap; evidence merged into the earlier row' -- IT WAS NOT: both rows were still present and open two days later. A claim of having deduped is not a dedup, which is the same class as a green test that asserted nothing. Merged in from the dropped row, because it carries provenance this one did not: the stale value is BYTE-IDENTICAL to the one in the issue #1615 comment, so the env was pasted from that comment on or after 2026-05-21 -- i.e. this was never correct for the Ampere topology rather than having drifted. It also framed the impact more sharply: CLAUDE.md documents the direct diag path as the durable fallback for when the hosted GitHub MCP drops, so the fallback has been dead for ~2 months and a session reaching for it mid-outage gets an empty body rather than an error. Its next_action, preserved: bundle the diag_fetch.sh three-state fix and the CLAUDE.md web-reachability correction into one Tier-1 PR, and pair the env-var change with the DIAG_READ_TOKEN rotation so the operator does both in one sitting.  RE-CONFIRMED LIVE 2026-08-20T09:05Z (session llm-burst-2): the cloud environment still ships DIAG_BASE_URL=http://158.178.210.252:8001 — the x86 micro terminated 2026-06-16 — two days after this row was filed. Measured in the same session, so the remedy is now concrete rather than theoretical: the WORKING direct path is https://ict-bot.duckdns.org (Caddy), which returned 200 on /api/health AND 200 on a bearer'd /api/diag/version from a DEFAULT-Trusted web session with no Full/Custom network change. The raw IP returned 000 in the same session, so the stale value fails twice over: dead host AND a scheme the proxy drops. CLAUDE.md's 'egress to the VM is firewalled and the issue relay is the only channel' was corrected in the same PR — it was the reason sessions kept reaching for the relay instead of noticing the var was simply pointing at the wrong host.",
-      "resolution_criteria": "Point `DIAG_BASE_URL` at `https://ict-bot.duckdns.org` in the cloud-environment config (env changes take effect on a NEW session), and make `diag_fetch.sh` fail FAST and LOUD on an unresolvable/unreachable base — distinguishing `dns/connect failed` (a config error, exit 3 with the base echoed) from `HTTP error` (the VM answered). Update docs/claude/diag-relay.md to name the Caddy hostname as the direct base, since that is the one that works from a Trusted-level session. DONE when a fresh session's first `diag_fetch.sh` succeeds without a manual base override. Also closes what BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST asked for; do not re-file a third row for this finding -- check for an existing DIAG-BASE-URL row before opening one, there have now been five across four dates.  Concretely: set DIAG_BASE_URL=https://ict-bot.duckdns.org in the Claude cloud environment (an OPERATOR action — it is an environment variable, not a repo file, so no session can fix it). Verified when a fresh session's scripts/ops/diag_fetch.sh returns JSON on exit 0 without an explicit override.",
+      "resolution_criteria": "Point `DIAG_BASE_URL` at `https://ict-bot.duckdns.org` in the cloud-environment config (env changes take effect on a NEW session), and make `diag_fetch.sh` fail FAST and LOUD on an unresolvable/unreachable base — distinguishing `dns/connect failed` (a config error, exit 3 with the base echoed) from `HTTP error` (the VM answered). Update docs/claude/diag-relay.md to name the Caddy hostname as the direct base, since that is the one that works from a Trusted-level session. DONE when a fresh session's first `diag_fetch.sh` succeeds without a manual base override. Also closes what BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST asked for; do not re-file a third row for this finding -- check for an existing DIAG-BASE-URL row before opening one, there have now been five across four dates.  RESOLVED IN THE REPO 2026-08-20 (session llm-burst-2), and the previous resolution text was WRONG in a way worth recording. It read: 'an OPERATOR action - it is an environment variable, not a repo file, so no session can fix it.' That is false. The var is only ever consumed by scripts/ops/diag_fetch.sh, which IS a repo file, so the repo can decide what to do with a bad value - and it already tried to: a self-heal block (added for BL-20260705-ENV-DIAG-BASE-URL-STALE) rewrote the retired micro 158.178.210.252 to the raw live IP 141.145.193.91. THAT REWRITE PRODUCED AN UNREACHABLE HOST, because the sandbox proxy allowlists by SCHEME+HOSTNAME and drops plain-http to a raw IP at the default Trusted level. Run live this session against the real stale env: the self-heal fired, curl returned 28 (timeout after 10s), exit 3. So the 'fix' had been silently sending every session down the 30-60s issue relay while reporting that it had healed the setting - a green that checked nothing. Fixed by replacing the single rewrite with an ORDERED CANDIDATE LIST that puts the canonical HTTPS base https://ict-bot.duckdns.org FIRST whenever the configured value is plain-http or names a known VM IP, keeps a deliberately-set https base first, de-dups, and names on stderr WHICH base served. The gate was also relaxed to require only DIAG_READ_TOKEN (a session holding a good bearer but no base URL was stranded on the relay for no reason). VERIFIED LIVE IN THE SAME SESSION, same process, with the SAME stale env still set: `scripts/ops/diag_fetch.sh version` -> exit 0, real JSON, 'diag_fetch: served by https://ict-bot.duckdns.org'. Covered by tests/test_diag_fetch_sh.py (11 tests; curl is shimmed on PATH so candidate ORDER is asserted without network, and the parametrized retired/raw-IP/plain-http case is the regression test for exactly this defect). The env var itself is STILL stale and correcting it remains a genuine (now cosmetic) operator nicety - but it is no longer load-bearing, and no session should describe this class as unfixable-from-the-repo again.",
       "evidence": {
         "stale_base": "http://158.178.210.252:8001",
         "terminated_on": "2026-06-16",
@@ -18887,8 +18889,12 @@
         "verified_git_sha": "08dc9987",
         "deduped_from": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-HOST",
         "deduped_on": "2026-08-20",
-        "merged_provenance": "stale base byte-identical to the issue #1615 comment (pasted on/after 2026-05-21)"
-      }
+        "merged_provenance": "stale base byte-identical to the issue #1615 comment (pasted on/after 2026-05-21)",
+        "repo_fix": "scripts/ops/diag_fetch.sh - ordered candidate list, canonical HTTPS first",
+        "verified_live_same_session": "exit 0, 'served by https://ict-bot.duckdns.org', with DIAG_BASE_URL still http://158.178.210.252:8001"
+      },
+      "resolved_at": "2026-08-20T10:30:00+00:00",
+      "resolved_by": "claude (llm-burst-2, 2026-08-20) - scripts/ops/diag_fetch.sh ordered-candidate fix + tests/test_diag_fetch_sh.py"
     },
     {
       "id": "BL-20260818-PROP-REPORT-RELAY-REJECTS-A-BODY-WITH-ANY-PROSE",
@@ -19890,6 +19896,95 @@
       "title": "An IB execution side outside BOT/SLD/BUY/SELL/B/S is dropped with no count, so a dropped fill is invisible",
       "detail": "src/runtime/exchange_fills_ib.py::ib_side_to_row_side (lines 92-105) maps only ('BOT','BUY','B') and ('SLD','SELL','S'); anything else returns None, and ib_fill_to_row line 208 then returns None for the whole row. The SKIP IS DELIBERATE and correct in intent — its docstring says a mis-signed fill would corrupt every downstream FIFO pairing, and guessing is worse. THE DEFECT IS THAT THE SKIP IS SILENT: nothing counts it, so a systematically-dropped side would present as a store that is simply smaller than reality, which is the unasserted-denominator class (an exchange-truth surface reading clean because rows never arrived). The delegate proposed 'SSHORT' as the concrete trigger; that is BROKER BEHAVIOUR THIS REPO CANNOT CONFIRM and it is recorded as the delegate's hypothesis, NOT as an established fact — IB documents BOT/SLD on Execution.side, and SSHORT appears on the ORDER side for equity short sales. The repo-side finding stands regardless of whether SSHORT is the trigger. Surfaced by the llm-delegate burst worker (task bl5-ibfills-bugfind, issue #9944) pointed at a real backlog subsystem rather than its own source, and VERIFIED against the file by the grading session — the delegate's line citations were all wrong (a separate, now-fixed defect), so every location below was re-derived by grep.",
       "resolution_criteria": "Count the skips rather than widening the mapping on a guess: have the caller tally rows dropped for an unrecognised side and surface the count (and the raw value) wherever the pull reports, so a non-zero count is a finding rather than an absence. Only then decide whether a specific side string needs mapping — and settle SSHORT from live data, not from the model's claim."
+    },
+    {
+      "id": "BL-20260820-OCI-INVENTORY-CRON-HAS-NEVER-FIRED",
+      "opened_at": "2026-08-20T10:30:00+00:00",
+      "opened_by": "claude (llm-burst-2 / M37, 2026-08-20)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci",
+      "title": "The oci-inventory weekly cron was armed 2026-08-20 and has NEVER fired - the schedule path, the verdict classifier on a REAL scheduled run, and the alert/auto-resolve steps are all unexercised in production",
+      "detail": "Shipped 2026-08-20 (M37): `.github/workflows/oci-inventory.yml` gained `schedule: - cron: \"0 6 * * 1\"` (Mondays 06:00 UTC), `github.event_name == 'schedule'` in the job gate, a bash-resolved `fail_on_drift` default that is ON for the schedule path only, `continue-on-error` on the run step so the verdict is classified rather than aborted, and a four-state classifier (`clean` / `drift` / `not_declared` / `could_not_check`) derived from the REPORT rather than the exit code.\n\nWHAT WAS ACTUALLY PROVEN before arming: `--fail-on-drift` is bidirectional against the real cloud - run 32351336623 went RED on an induced drift and run 32351503893 went GREEN when clean. That is the falsifier this milestone set itself, and it passed.\n\nWHAT WAS NOT PROVEN: those were `workflow_dispatch` runs. The SCHEDULE path has never executed, so `github.event_name == 'schedule'` reaching the job, the fail_on_drift default resolving to true without an input, the Telegram step, the issue-alert step, and the auto-resolve-when-clean step are all untested in the shape they will actually run in. A cron that has never fired is not a check; it is an intention.",
+      "why_it_matters": "This workflow exists BECAUSE the inventory only told the truth when someone remembered to ask - the exact failure mode the schedule was added to fix. If the schedule path is silently broken (a gate that does not match, a default that resolves false, an alert step that never fires), the repo now believes it has a weekly topology check that in fact runs never, which is strictly worse than knowing it is manual: a green that cannot go red.",
+      "snoozed_until": "2026-08-24",
+      "trigger_condition": "On or after Monday 2026-08-24 06:00 UTC (the first scheduled firing), OR the next /health-review or /system-review run, whichever comes first.",
+      "what_to_check": "1) A run of `oci-inventory` exists with `event: schedule` - list runs and confirm the trigger, do not infer from the workflow file. 2) Its verdict step emitted a state, and that state is one of the four (a missing/empty `state` output means the classifier did not run). 3) If the cloud is genuinely unchanged the state must be `clean` and NOT `could_not_check` - `could_not_check` on a healthy cloud means the report was unreadable and the whole check is inert. 4) If the state was not `clean`, confirm the Telegram step and the issue-alert step actually produced their side effects, and that the run FAILED (the deliberate final-fail step). 5) If the state WAS clean, confirm the auto-resolve step closed any open alert issue rather than leaving a stale one. Record which of the five you verified and which you could not.",
+      "resolution_criteria": "Closed when at least one REAL scheduled run has been observed end-to-end and its verdict state matches the cloud's actual condition. If the scheduled run never appears, that is the finding - do not close it as 'probably fine'.",
+      "evidence": {
+        "cron": "0 6 * * 1",
+        "armed_on": "2026-08-20",
+        "proven_bidirectional_dispatch_runs": [
+          "32351336623 (red on induced drift)",
+          "32351503893 (green when clean)"
+        ],
+        "schedule_runs_observed": 0
+      }
+    },
+    {
+      "id": "BL-20260820-DELEGATE-LINE-CITATIONS-UNMEASURED-AFTER-NUMBERING-FIX",
+      "opened_at": "2026-08-20T10:30:00+00:00",
+      "opened_by": "claude (llm-burst-2 / M37, 2026-08-20)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "tooling",
+      "title": "The LLM delegate's line-citation accuracy is 0/20 on the PRE-fix prompt and UNMEASURED after the fix - the numbering change is a hypothesis with a test behind it, not a measured improvement",
+      "detail": "MEASURED 2026-08-20 over 20 findings the delegate produced on code this session did not write (`src/web/api/routers/strategies.py`, `src/runtime/exchange_fills_ib.py`): substantive findings 20/20 usable, line citations **0/20** correct. Every cited line number was fabricated.\n\nROOT CAUSE was OURS, not the model's: `scripts/llm/delegate.py::build_prompt` handed the file content with no line numbers at all, so the model had nothing to count from. Fixed by adding `number_lines()` and wrapping the content in it, with 6 tests including a positive control (`test_build_prompt_carries_the_true_number_for_a_deep_line`, a 220-line file) - removing the numbering fails 2 tests, verified by planting the defect back and restoring.\n\nNOTE the pilot's prompt shape ('quote the exact expression') HID this defect: a grader checking the quoted expression finds it in the file and scores the finding correct without ever checking the number beside it.",
+      "why_it_matters": "A confident fabricated line number is the expensive failure here - it sends the reader to the wrong place in a real file and, unlike a wrong claim, it looks like provenance. Shipping the fix without re-grading leaves the repo believing a number (0/20) that is now stale in the reassuring direction, which is the same class as quoting a stale go-live margin.",
+      "snoozed_until": "2026-08-27",
+      "trigger_condition": "The next session that runs the delegate on real code for any reason, OR 2026-08-27, whichever comes first. Do not schedule a run purely to close this row if a delegate run is already due.",
+      "what_to_check": "Re-grade line citations on a fresh delegate run over code the grading session did NOT write, with the same denominator discipline as the first grading: report `correct / total cited`, keep it SEPARATE from the self-review numbers, and state the file set. Grade the NUMBER independently of the quoted expression - checking only the quote is what hid the defect the first time. Expectation to falsify: materially better than 0/20. If it is still near zero, the numbering was not the (only) cause and the finding is that the prompt shape, not the input format, is at fault.",
+      "resolution_criteria": "Closed when a post-fix line-citation accuracy is recorded against a stated denominator and file set. A qualitative 'looks better' does not close it.",
+      "evidence": {
+        "pre_fix_line_citations": "0/20",
+        "pre_fix_substantive": "20/20",
+        "fix": "scripts/llm/delegate.py::number_lines + build_prompt",
+        "tests": "tests/scripts/test_llm_delegate_scope.py (48 total, 6 added, incl. a positive control)"
+      }
+    },
+    {
+      "id": "BL-20260820-EXCHANGE-FILLS-IB-DELEGATE-FINDINGS-NOT-DATA-VERIFIED",
+      "opened_at": "2026-08-20T10:30:00+00:00",
+      "opened_by": "claude (llm-burst-2 / M37, 2026-08-20)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "data",
+      "title": "The four src/runtime/exchange_fills_ib.py findings are CODE-verified only - none has been checked against the live exchange-fills store, so their real-world incidence is unknown",
+      "detail": "Filed 2026-08-20 from the delegate's first run on unfamiliar code. Each of the four was confirmed by READING the file - the code path exists and behaves as described. None was confirmed against DATA: nobody has asked the live `runtime_state/exchange_fills.sqlite` how many rows actually hit each path.\n\nThis is deliberately recorded as a limit rather than smoothed over: 'the code can do X' and 'the code does X on N of M live rows' are different claims, and only the second sizes the fix.",
+      "why_it_matters": "Severity here is unmeasured, not low - it is filed low only because nothing shows it is high. A finding with no incidence attached competes for attention on plausibility instead of on impact, which is how a real defect soaks inside a pile of theoretical ones (the dataset-audit alarm-fatigue failure mode).",
+      "snoozed_until": "2026-09-03",
+      "trigger_condition": "The next session touching IBKR fills / broker-truth realised PnL / `exchange_fills_ib.py`, OR the next /health-review, OR 2026-09-03 - whichever comes first.",
+      "what_to_check": "For each of the four findings, put a COUNT on it from the live store via `/api/bot/pnl/exchange/fills` or a diag read of `runtime_state/exchange_fills.sqlite` - rows affected over rows examined, with the population stated (always state the population). Then re-rank: a finding at 0 of N observed rows is a latent-code note, not a bug to schedule. If a count cannot be obtained, say so explicitly rather than leaving the row implying it was checked.",
+      "resolution_criteria": "Closed when each of the four carries an incidence figure with a stated denominator, or an explicit 'could not measure, because <reason>'.",
+      "evidence": {
+        "file": "src/runtime/exchange_fills_ib.py",
+        "findings": 4,
+        "verification": "code-read only; zero data reads"
+      }
+    },
+    {
+      "id": "BL-20260820-DIAG-FETCH-CANONICAL-BASE-VERIFIED-FROM-ONE-SESSION-ONLY",
+      "opened_at": "2026-08-20T10:30:00+00:00",
+      "opened_by": "claude (llm-burst-2 / M37, 2026-08-20)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "infra",
+      "title": "The diag_fetch ordered-candidate fix is verified from exactly ONE session - the claim that matters ('a FRESH session's first diag_fetch succeeds with no override') has not been tested",
+      "detail": "Shipped + verified live 2026-08-20 (session llm-burst-2): with the stale `DIAG_BASE_URL=http://158.178.210.252:8001` still set, `scripts/ops/diag_fetch.sh version` returned exit 0 with real JSON and 'served by https://ict-bot.duckdns.org'. That is one process, one network posture, one moment.\n\nThe resolution criterion the DIAG-BASE-URL rows actually asked for is a FRESH session succeeding without a manual override, and n=1 in the session that wrote the fix is the weakest possible position from which to declare it - it is verifying your own output, which is exactly where RULE ONE says the check is hardest.",
+      "why_it_matters": "The defect this replaced was itself a self-heal that LOOKED fixed and was not, undetected for weeks because no session re-checked it from cold. Repeating the same one-session confidence on the replacement would repeat the mistake with better prose.",
+      "snoozed_until": "2026-08-22",
+      "trigger_condition": "The FIRST session after 2026-08-20 that needs live VM diag data for any reason. Do not open a session solely for this.",
+      "what_to_check": "Run `scripts/ops/diag_fetch.sh version` as the first diag action, with whatever DIAG_BASE_URL that session ships and NO manual override. Record: the exit code, the 'served by' line (which base actually answered), and whether the candidate list had to fall through. Also confirm the network posture is the default Trusted rather than Full/Custom - a success under a widened posture does not prove the Trusted-level claim, and the whole point is that no cloud-environment change is required.",
+      "resolution_criteria": "Closed when a session OTHER than the one that wrote the fix records exit 0 plus the serving base, at the default network level, with no override. A second failure instead is the more valuable outcome and should reopen the parent row.",
+      "evidence": {
+        "verified_in": "session llm-burst-2, 2026-08-20",
+        "sessions_verified": 1,
+        "parent": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM"
+      }
     }
   ]
 }
