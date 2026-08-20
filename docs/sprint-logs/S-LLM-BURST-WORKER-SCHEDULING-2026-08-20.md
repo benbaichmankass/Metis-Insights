@@ -183,6 +183,49 @@ confirm it:
 | `BL-20260820-EXCHANGE-FILLS-IB-DELEGATE-FINDINGS-NOT-DATA-VERIFIED` | 2026-09-03 | put an incidence figure with a stated denominator on each of the four |
 | `BL-20260820-DIAG-FETCH-CANONICAL-BASE-VERIFIED-FROM-ONE-SESSION-ONLY` | 2026-08-22 | a session *other than the one that wrote the fix*, at the default network level |
 
+### 8. The schedule TRIGGER, proven the same day (PR #10037 in, removal out)
+
+The operator asked whether Monday's run could be verified now. It could — but only
+partly by dispatch, and the part that could not was the part that mattered.
+
+**A dispatch cannot reach the schedule branch by construction.**
+`inputs.fail_on_drift` carries `default: "false"`, so a dispatched run always has a
+non-empty input and takes the first branch of the resolution. `EVENT_NAME = schedule`
+is unreachable from a dispatch, and `github.event_name == 'schedule'` in the job `if:`
+had **never been evaluated by GitHub** — every run in this workflow's history was
+`workflow_dispatch` or `issues`.
+
+So the links were tested separately, each by something that actually reaches it:
+
+| link | how | result |
+|---|---|---|
+| end-to-end vs the real cloud, enforcing | dispatch `fail_on_drift=true`, run 32358587200 | **clean**; Auto-resolve fired; alert/issue/fail correctly skipped |
+| the check can go red / green | 32351336623 / 32351503893 | exit 1 on induced drift, exit 0 clean |
+| `fail_on_drift` defaults ON for schedule | block **extracted from the committed YAML**, `EVENT_NAME=schedule`, empty input | `true`, with a **planted-defect control** resolving `false` when the branch is deleted |
+| **the trigger itself** | **two one-off probe crons, merged and removed the same day** | **run 32362843960, `event=schedule`, job RAN, verdict clean** |
+
+**⚠️ The single most reusable thing this produced: GitHub scheduling lag is real and
+normal.** The 11:00Z window fired at **11:14:30Z — 14.5 minutes late.** Setting *two*
+windows was a hedge against GitHub dropping one; what it actually bought was
+protection against a **reader** concluding at 11:05Z that the cron was broken. A late
+scheduled run is not a missed one. Recorded on the backlog row and at the cron itself,
+because the next person to stare at an empty 06:00Z Monday will otherwise re-derive it
+as a defect.
+
+**The probe was built to be safe if forgotten**, which is the design point worth
+keeping: the crons were **day-of-month + month scoped** (`0 11 20 8 *`), not
+day-of-week. A delayed or forgotten removal degrades to one stray run in *August 2027*,
+never a second weekly cron racing the real one. A cleanup that must happen for the
+change to be safe is not a cleanup.
+
+Removal verified byte-identical to the pre-probe file (`git diff e33e6a8` → empty),
+with the proof written into the comment beside the surviving weekly cron so nobody has
+to re-run the probe to know the trigger works.
+
+**What this does NOT claim.** One firing proves the trigger and the gate — not that the
+check will catch a future drift. That half was proven earlier and separately. The two
+together are what make the weekly cron a check rather than an intention.
+
 ## Validation Performed
 - **Positive control, live, both directions** — runs 32351336623 (red) / 32351503893
   (green). This is the M37 falsifier, satisfied **before** the cron was added.
@@ -214,6 +257,10 @@ confirm it:
 - **`SSHORT` is the delegate's hypothesis, not a fact** — broker behaviour this repo
   holds no evidence on. Filed as such.
 - The Telegram alert path in the new workflow is **untriggered** (no drift since).
+
+✅ **The first of these is CLOSED** — the scheduled run fired 2026-08-20T11:14:30Z
+(run 32362843960, verdict clean, job not skipped). See § 8. The Telegram path remains
+untriggered, which is correct: nothing has drifted.
 
 **All five are now backlog rows with timers** (see § 7) rather than prose in this
 log only. The Telegram-path gap rides inside the cron row, since the first real

@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20",
+  "updated_at": "2026-08-20T11:20:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -19901,17 +19901,17 @@
       "id": "BL-20260820-OCI-INVENTORY-CRON-HAS-NEVER-FIRED",
       "opened_at": "2026-08-20T10:30:00+00:00",
       "opened_by": "claude (llm-burst-2 / M37, 2026-08-20)",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": 1,
       "area": "ci",
-      "title": "The oci-inventory weekly cron was armed 2026-08-20 and has NEVER fired - the schedule path, the verdict classifier on a REAL scheduled run, and the alert/auto-resolve steps are all unexercised in production",
-      "detail": "Shipped 2026-08-20 (M37): `.github/workflows/oci-inventory.yml` gained `schedule: - cron: \"0 6 * * 1\"` (Mondays 06:00 UTC), `github.event_name == 'schedule'` in the job gate, a bash-resolved `fail_on_drift` default that is ON for the schedule path only, `continue-on-error` on the run step so the verdict is classified rather than aborted, and a four-state classifier (`clean` / `drift` / `not_declared` / `could_not_check`) derived from the REPORT rather than the exit code.\n\nWHAT WAS ACTUALLY PROVEN before arming: `--fail-on-drift` is bidirectional against the real cloud - run 32351336623 went RED on an induced drift and run 32351503893 went GREEN when clean. That is the falsifier this milestone set itself, and it passed.\n\nWHAT WAS NOT PROVEN: those were `workflow_dispatch` runs. The SCHEDULE path has never executed, so `github.event_name == 'schedule'` reaching the job, the fail_on_drift default resolving to true without an input, the Telegram step, the issue-alert step, and the auto-resolve-when-clean step are all untested in the shape they will actually run in. A cron that has never fired is not a check; it is an intention.",
+      "title": "The oci-inventory weekly cron was armed 2026-08-20 with its schedule path unexercised - RESOLVED the same day: the trigger fired for real, the job ran, and the verdict was clean",
+      "detail": "Shipped 2026-08-20 (M37): `.github/workflows/oci-inventory.yml` gained `schedule: - cron: \"0 6 * * 1\"` (Mondays 06:00 UTC), `github.event_name == 'schedule'` in the job gate, a bash-resolved `fail_on_drift` default that is ON for the schedule path only, `continue-on-error` on the run step so the verdict is classified rather than aborted, and a four-state classifier (`clean` / `drift` / `not_declared` / `could_not_check`) derived from the REPORT rather than the exit code.\n\nWHAT WAS ACTUALLY PROVEN before arming: `--fail-on-drift` is bidirectional against the real cloud - run 32351336623 went RED on an induced drift and run 32351503893 went GREEN when clean. That is the falsifier this milestone set itself, and it passed.\n\nWHAT WAS NOT PROVEN: those were `workflow_dispatch` runs. The SCHEDULE path has never executed, so `github.event_name == 'schedule'` reaching the job, the fail_on_drift default resolving to true without an input, the Telegram step, the issue-alert step, and the auto-resolve-when-clean step are all untested in the shape they will actually run in. A cron that has never fired is not a check; it is an intention.\n\nRESOLVED 2026-08-20T11:15Z. MEASURED, not inferred - run 32362843960, `event=schedule`, head 220a9d4:\n  - the job `inventory` RAN (status in_progress -> completed), it was NOT `skipped`. So the disjunct `github.event_name == 'schedule'` in the job `if:` genuinely admits, and the weekly cron is not decorative.\n  - Run inventory: success. Classify verdict: success.\n  - Telegram alert: SKIPPED. Open/update drift issue: SKIPPED. Fail-the-run: SKIPPED.\n  - Auto-resolve drift issue (only when clean): SUCCESS -> the verdict was `clean`.\nThat is the exact shape a healthy Monday run should have, and it is ALSO the first live exercise of the `EVENT_NAME = schedule` branch that defaults fail_on_drift ON - so the enforcing default is confirmed in production, not just in the extracted-block test.\n\nHOW IT WAS EXERCISED: two one-off probe crons (`0 11 20 8 *` / `20 11 20 8 *`) merged in PR #10037 and removed the same day. Day-of-month + month scoped rather than day-of-week, so a delayed removal could at worst produce one stray run in August 2027, never a second weekly cron racing the real one. Two windows rather than one because GitHub does not guarantee a scheduled run fires promptly or at all - and that caution paid: the 11:00Z window fired at 11:14:30Z, **14.5 minutes late**. A single-window probe plus an impatient reader would have called that a dropped run and drawn the wrong conclusion.\n\n⚠️ GITHUB SCHEDULING LAG IS NORMAL AND IS NOW ON RECORD (the reusable finding): a late scheduled run is not a missed one. Do not diagnose the Monday cron as broken because 06:00Z passed with no run - give it ~20 minutes before concluding anything, and read the run list filtered by `event=schedule` rather than eyeballing timestamps.\n\nWHAT THIS DOES NOT CLAIM: one firing proves the trigger and the gate, not that the check will catch a real future drift - that half was proven separately and earlier (32351336623 RED on induced drift, 32351503893 GREEN when clean). The two together are what make the weekly cron a check rather than an intention.",
       "why_it_matters": "This workflow exists BECAUSE the inventory only told the truth when someone remembered to ask - the exact failure mode the schedule was added to fix. If the schedule path is silently broken (a gate that does not match, a default that resolves false, an alert step that never fires), the repo now believes it has a weekly topology check that in fact runs never, which is strictly worse than knowing it is manual: a green that cannot go red.",
       "snoozed_until": "2026-08-24",
       "trigger_condition": "On or after Monday 2026-08-24 06:00 UTC (the first scheduled firing), OR the next /health-review or /system-review run, whichever comes first.",
       "what_to_check": "1) A run of `oci-inventory` exists with `event: schedule` - list runs and confirm the trigger, do not infer from the workflow file. 2) Its verdict step emitted a state, and that state is one of the four (a missing/empty `state` output means the classifier did not run). 3) If the cloud is genuinely unchanged the state must be `clean` and NOT `could_not_check` - `could_not_check` on a healthy cloud means the report was unreadable and the whole check is inert. 4) If the state was not `clean`, confirm the Telegram step and the issue-alert step actually produced their side effects, and that the run FAILED (the deliberate final-fail step). 5) If the state WAS clean, confirm the auto-resolve step closed any open alert issue rather than leaving a stale one. Record which of the five you verified and which you could not.",
-      "resolution_criteria": "Closed when at least one REAL scheduled run has been observed end-to-end and its verdict state matches the cloud's actual condition. If the scheduled run never appears, that is the finding - do not close it as 'probably fine'.",
+      "resolution_criteria": "CLOSED. Required a REAL run with `event=schedule` whose job was not `skipped`; observed 2026-08-20T11:15Z (run 32362843960, verdict clean). The proof is recorded at the cron itself in .github/workflows/oci-inventory.yml so a future reader does not have to re-derive it or re-run the probe.",
       "evidence": {
         "cron": "0 6 * * 1",
         "armed_on": "2026-08-20",
@@ -19919,8 +19919,22 @@
           "32351336623 (red on induced drift)",
           "32351503893 (green when clean)"
         ],
-        "schedule_runs_observed": 0
-      }
+        "schedule_runs_observed": 1,
+        "schedule_run_id": 32362843960,
+        "schedule_run_fired_at_utc": "2026-08-20T11:14:30Z",
+        "scheduled_window_utc": "2026-08-20T11:00:00Z",
+        "github_scheduling_lag_minutes": 14.5,
+        "job_conclusion": "ran (not skipped)",
+        "verdict": "clean",
+        "steps_skipped_as_expected": [
+          "Telegram alert",
+          "Open / update drift issue",
+          "Fail the run"
+        ],
+        "auto_resolve_step": "success"
+      },
+      "resolved_at": "2026-08-20T11:20:00+00:00",
+      "resolved_by": "claude (llm-burst-2, 2026-08-20) - one-off probe crons, PR #10037 in / removal PR out"
     },
     {
       "id": "BL-20260820-DELEGATE-LINE-CITATIONS-UNMEASURED-AFTER-NUMBERING-FIX",
