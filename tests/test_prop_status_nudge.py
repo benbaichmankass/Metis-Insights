@@ -25,7 +25,7 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_open_report_nudges_when_no_balance_on_file(isolated_env: Path) -> None:
     from src.prop.telegram_report_handler import handle_command
 
-    reply = handle_command("open ETHUSD 1812 1", default_account="breakout_1")
+    reply = handle_command("open ETHUSD 1812 1 long", default_account="breakout_1")
     assert reply is not None and reply.startswith("✅")
     assert "account balance" in reply.lower()
     assert "bal <balance> <equity>" in reply
@@ -34,7 +34,7 @@ def test_open_report_nudges_when_no_balance_on_file(isolated_env: Path) -> None:
 def test_close_report_nudges(isolated_env: Path) -> None:
     from src.prop.telegram_report_handler import handle_command
 
-    reply = handle_command("close ETHUSD 1850 +38 tp", default_account="breakout_1")
+    reply = handle_command("close ETHUSD long 1850 +38 tp", default_account="breakout_1")
     assert reply is not None
     assert "account balance" in reply.lower()
 
@@ -52,7 +52,7 @@ def test_fresh_balance_suppresses_nudge(isolated_env: Path) -> None:
 
     # Record a balance first, then a fill — the fill ack should NOT nag.
     handle_command("bal 5116 5118", default_account="breakout_1")
-    reply = handle_command("open ETHUSD 1812 1", default_account="breakout_1")
+    reply = handle_command("open ETHUSD 1812 1 long", default_account="breakout_1")
     assert reply is not None and reply.startswith("✅")
     assert "account balance" not in reply.lower()
 
@@ -70,7 +70,7 @@ def test_nudge_disabled_by_env(isolated_env: Path,
     from src.prop.telegram_report_handler import handle_command
 
     monkeypatch.setenv("PROP_STATUS_REQUEST_MAX_AGE_HOURS", "0")
-    reply = handle_command("open ETHUSD 1812 1", default_account="breakout_1")
+    reply = handle_command("open ETHUSD 1812 1 long", default_account="breakout_1")
     assert reply is not None and reply.startswith("✅")
     assert "account balance" not in reply.lower()
 

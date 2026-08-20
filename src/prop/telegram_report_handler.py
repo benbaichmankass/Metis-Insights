@@ -85,6 +85,27 @@ def resolve_open_ticket(account_id: str, canonical_symbol: str) -> Tuple[
         if t.get("status") not in ("emitted", "placed", "filled"):
             continue
         return t.get("direction"), t.get("ticket_id")
+
+    # No outbound TICKET — but an open position may still exist as a reported
+    # FILL. That happens whenever the operator reports a fill the bot never
+    # emitted a ticket for (an unsolicited open, a manual entry), and it is the
+    # case that breaks a bare `close`: with no ticket to inherit from, the
+    # identity gate refuses a report the system can in fact answer.
+    #
+    # ⚠️ THIS IS NOT A GUESS. The open fill's direction is RECORDED TRUTH about
+    # the position being closed — the same row `find_open_prop_positions` keys
+    # on — not an inference from prices or a sibling. Refusing here would mean
+    # demanding the operator re-state a fact the journal already holds. The
+    # ticket_id stays None, correctly: there is no ticket to link.
+    try:
+        from src.prop.prop_monitor_pulse import find_open_prop_positions
+
+        for pos in find_open_prop_positions(account_id=account_id):
+            if str(pos.get("symbol", "")).upper() == sym:
+                return pos.get("direction"), None
+    except Exception as exc:  # noqa: BLE001 — never break a report-back
+        logger.warning(
+            "telegram_report_handler: open-fill direction lookup failed: %s", exc)
     return None, None
 
 
