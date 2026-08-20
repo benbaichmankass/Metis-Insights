@@ -172,7 +172,14 @@ def _selftest() -> int:
         except UnknownTimeframe:
             ok += 1
             return
-        except Exception as exc:            # noqa: BLE001
+        # allow-silent: this is the OPPOSITE of a silent-empty — the handler's
+        # whole job is to turn an unexpected exception TYPE into a loud test
+        # FAILURE (it increments `fail` and names the type it got). Narrowing it
+        # would make the test weaker, not safer: if `fetch_interval` ever raised
+        # TypeError instead of UnknownTimeframe the self-test would then ERROR
+        # OUT rather than report a fail, and the assertion would stop being an
+        # assertion. Nothing is swallowed and nothing returns empty.
+        except Exception as exc:  # noqa: BLE001  # allow-silent: inverts the pattern — this handler EXISTS to turn an unexpected exception TYPE into a loud test FAILURE (increments `fail`, names the type). Narrowing it would make the self-test ERROR OUT instead of reporting a fail, i.e. stop being an assertion. Nothing swallowed, nothing returns empty.
             fail += 1
             print(f"FAIL {name}: raised {type(exc).__name__}, want UnknownTimeframe")
             return
