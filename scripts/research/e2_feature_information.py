@@ -25,6 +25,30 @@ and neither was:
 
 ---
 
+## ⚠️ READ THIS BEFORE INTERPRETING A `forward_r` SCORE
+
+`forward_r` is the triple-barrier outcome of holding, and it is measured **FROM
+ENTRY** — `src/research/triple_barrier.py` says so explicitly, precisely so it is
+comparable to the exit-now alternative `upnl_r`. **It therefore shares its baseline
+with `feat_upnl_r`, and with every path feature that tracks accrued R.**
+
+There is no lookahead — features read bars up to `t`, the label reads bars after `t`,
+and the windows are disjoint by construction. But a high association between
+`feat_upnl_r` and `forward_r` is substantially **the shared entry baseline plus path
+persistence**, not evidence of forecasting power over the forward *increment*. A trade
+up 1.5R now tends to still be up around 1.5R at the time stop; that is arithmetic about
+where the trade already is, not a signal about where it is going.
+
+The quantity a hold-vs-exit lever actually needs is the **increment**:
+
+    advantage_r = forward_r - upnl_r - cost_r
+
+which differences the baseline out, and `label_hold = 1[advantage_r > 0]` is its sign.
+Both are already columns in the panel. **Score all three and compare** — a feature that
+dominates on `forward_r` and vanishes on `advantage_r` was measuring the trade's
+current position, not its future, and no lever can be built on it. `--target` selects
+which one; the report stamps it.
+
 ## The statistic, and why it is shaped this way
 
 Per feature, per fold: **Spearman rank association** between the feature and
@@ -165,7 +189,8 @@ from scripts.research.analyze_exit_head import (  # noqa: E402
     load_panel,
 )
 
-TARGET_COL = "forward_r"
+TARGET_COL = "forward_r"          # the pre-registered PRIMARY target
+TARGETS = ("forward_r", "advantage_r", "label_hold")
 CTRL_SIGNAL = "__ctrl_signal"
 CTRL_NOISE = "__ctrl_noise"
 SHUFFLE_SCHEME = "trade_block_cyclic"
@@ -239,7 +264,8 @@ def quantile(sorted_vals: Sequence[float], q: float) -> Optional[float]:
 # ---------------------------------------------------------------------------
 
 
-def inject_controls(rows: List[Dict[str, Any]], *, seed: int, signal_noise: float = 1.0) -> None:
+def inject_controls(rows: List[Dict[str, Any]], *, seed: int, signal_noise: float = 1.0,
+                    target: str = TARGET_COL) -> None:
     """Add the positive and negative control columns, in place.
 
     ``__ctrl_signal`` is a monotone function of the row's own label plus gaussian
@@ -248,7 +274,7 @@ def inject_controls(rows: List[Dict[str, Any]], *, seed: int, signal_noise: floa
     """
     rng = random.Random(seed)
     for r in rows:
-        y = r.get(TARGET_COL)
+        y = r.get(target)
         r[CTRL_SIGNAL] = None if y is None else float(y) + rng.gauss(0.0, signal_noise)
         r[CTRL_NOISE] = rng.gauss(0.0, 1.0)
 
@@ -412,14 +438,15 @@ def score_panel(
     min_trades: int = 30,
     min_rows: int = 200,
     min_fold_rows: int = 20,
+    target: str = TARGET_COL,
 ) -> Dict[str, Any]:
     feats = [f for f in _dense_feats(rows, manifest) if f not in (CTRL_SIGNAL, CTRL_NOISE)]
-    usable = [r for r in rows if r.get(TARGET_COL) is not None]
+    usable = [r for r in rows if r.get(target) is not None]
     n_trades = len({r.get("trade_id") for r in usable})
 
     report: Dict[str, Any] = {
         "step": "E2",
-        "target": TARGET_COL,
+        "target": target,
         "statistic": "abs_mean_of_per_fold_spearman",
         "shuffle_scheme": SHUFFLE_SCHEME,
         "decision_rule": "informative_fwer (max-statistic null, Westfall-Young)",
@@ -468,7 +495,7 @@ def score_panel(
         report["unmeasured_reason"] = f"{len(usable)} labelled rows < min_rows={min_rows}"
         return report
 
-    inject_controls(usable, seed=seed)
+    inject_controls(usable, seed=seed, target=target)
 
     folds = list(_grouped_purged_folds(usable, n_folds=n_folds, embargo_bars=embargo_bars))
     report["folds_formed"] = len(folds)
@@ -481,7 +508,7 @@ def score_panel(
         )
         return report
 
-    true_labels = {i: float(usable[i][TARGET_COL]) for i in range(len(usable))}
+    true_labels = {i: float(usable[i][target]) for i in range(len(usable))}
     all_names = feats + [CTRL_SIGNAL, CTRL_NOISE]
 
     observed: Dict[str, Tuple[Optional[float], int, Optional[float]]] = {}
@@ -683,7 +710,7 @@ def _selftest() -> int:
     rows, man = _synth_panel(60, 8, seed=17, signal=True)
     _orig = inject_controls
 
-    def _broken(rs, *, seed, signal_noise=1.0):
+    def _broken(rs, *, seed, signal_noise=1.0, target=TARGET_COL):
         r = random.Random(seed)
         for row in rs:
             row[CTRL_SIGNAL] = r.gauss(0.0, 1.0)   # no longer a function of the label
@@ -736,6 +763,21 @@ def _selftest() -> int:
               "feature the block null must be the wider one; if this stops "
               "reproducing, the shuffle-scheme rationale in the docstring is wrong "
               "and must be rewritten, not silenced")
+
+    # --- --target must change the POPULATION, not just a label string ------
+    rows, man = _synth_panel(60, 8, seed=11, signal=True)
+    for r in rows:
+        r["advantage_r"] = r[TARGET_COL] * -1.0
+        r["label_hold"] = 1 if r[TARGET_COL] > 0 else 0
+    _reps = {t: score_panel(rows, man, n_folds=3, n_shuffles=60, seed=5, target=t)
+             for t in ("forward_r", "advantage_r", "label_hold")}
+    check("target_is_stamped", all(_reps[t]["target"] == t for t in _reps),
+          "the report must stamp which target produced it")
+    check("target_changes_the_statistic",
+          _reps["label_hold"]["features"][0]["statistic"]
+          != _reps["forward_r"]["features"][0]["statistic"],
+          "binarising the target must change the score; identical numbers would mean "
+          "the flag is cosmetic and the target was never actually switched")
 
     # --- the fast null path must EQUAL the slow one ------------------------
     # The precomputation is an optimization, and an optimization that changes the
@@ -809,6 +851,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--min-trades", type=int, default=30)
     p.add_argument("--min-rows", type=int, default=200)
     p.add_argument("--min-fold-rows", type=int, default=20)
+    p.add_argument("--target", default=TARGET_COL, choices=list(TARGETS),
+                   help=("Outcome column. 'forward_r' is the pre-registered primary and is "
+                         "measured FROM ENTRY, so it shares a baseline with feat_upnl_r; "
+                         "'advantage_r' = forward_r - upnl_r - cost_r differences that "
+                         "baseline out and is what a hold-vs-exit lever actually needs; "
+                         "'label_hold' is its sign."))
     p.add_argument("--out", default=None, help="Write the full report JSON here.")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
@@ -824,12 +872,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         n_folds=args.n_folds, embargo_bars=args.embargo_bars,
         n_shuffles=args.n_shuffles, alpha=args.alpha, seed=args.seed,
         min_trades=args.min_trades, min_rows=args.min_rows,
-        min_fold_rows=args.min_fold_rows,
+        min_fold_rows=args.min_fold_rows, target=args.target,
     )
     rep["panel_path"] = str(args.panel)
 
     pop = rep["population"]
-    print(f"E2 [{args.panel}]")
+    print(f"E2 [{args.panel}] target={args.target}")
     print(f"  population: {pop['n_rows_with_target']}/{pop['n_rows_total']} labelled rows · "
           f"{pop['n_trades']} trades · {pop['n_features']} features · "
           f"{pop['symbol']}/{pop['timeframe']} · xa={pop['cross_asset_state']} "
