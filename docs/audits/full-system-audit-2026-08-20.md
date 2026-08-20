@@ -3754,3 +3754,137 @@ assuming the caller inherited the defect. The audit's own INDEPENDENCE axis is
 the remedy and I did not apply it to myself until the finding was about to
 become an action.
 
+
+---
+
+## Part 27 — Executing the fix program, and what the execution itself revealed
+
+Parts 1–26 audited the system. This part audits **the act of fixing it**, because
+the execution produced findings the analysis had not — and one of them is the
+operator's own worked example.
+
+### F-113 (HIGH) — the backtest fleet and the live sizer disagree on the UNIT of `risk_pct`, so every default backtest sizes at ⅕ of live risk
+
+The operator named this class before it was measured:
+
+> *"the back test risk and the live config don't match … either the way the
+> backtesting is done needs to be independent of what the risk is set to, or it
+> needs to be made up to date. It needs to, **in any case**, check various
+> different risk percentages."*
+
+Measured 2026-08-20. It is not a stale number — **the same parameter name carries
+two different units**:
+
+| | formula | unit |
+|---|---|---|
+| **LIVE** `src/units/accounts/risk.py:201` | `risk_usdt = balance_usdt * risk_pct` | **fraction** — `0.015` = 1.5% |
+| **BACKTEST** `scripts/backtest_system.py::_risk_qty` | `(bal * (rpct / 100.0)) / stop_dist` | **percent** — `0.3` = 0.3% |
+
+`--risk-pct 0.3` is the default of `backtest_system.py`,
+`build_backtest_panel.py`, `walkforward_flip_policy.py`,
+`walkforward_netting_guard.py` and `allocator_multisymbol_backtest.py`. Against a
+live `risk_pct: 0.015`, **ratio = 0.2**.
+
+⚠️ **The comment directly above that formula asserts the opposite of what the code
+does** — *"Sizing mirrors the live RiskManager.position_size math (src/units/
+accounts/risk.py:141): risk_usd = balance * risk_pct"* — while inserting the
+`/ 100.0` that makes it not. Field beats comment, at the sizing basis.
+
+**Detector:** `scripts/ci/check_risk_basis_agreement.py` (new), reading live
+through `src/research/risk_basis.py` (new).
+
+**A third convention exists, and finding it is the reason the fix is shaped as it
+is.** The guard's first real run flagged `scripts/research/pairs_dollar_lots.py`
+(`--risk-pct 0.015`) as *"0.01× live"* — but that file uses the **fraction**
+convention, where `0.015` **is** live. The same number is correct in one unit and
+100× wrong in the other, and **neither the number nor the flag name can tell you
+which**. Filing a correct file as debt would have been the wrong fix. So the unit
+is **declared per file** (`FILE_UNITS`) and an undeclared file is a FINDING —
+guessing the unit is the mistake that produced the five-fold gap.
+
+`KNOWN_DIVERGENCES` records each site's ratio **as measured at filing** and fires
+again if that ratio *changes*, so a grandfather cannot silently absorb new drift
+(the `new-table-wiring-guard` lesson: a guard cheaper to lie to than to satisfy is
+worse than none).
+
+**Deliberately NOT fixed by re-defaulting.** Changing `0.3` would silently re-base
+every historical comparison. The measurement, the vocabulary and the detector ship
+first; wiring harnesses to `risk_grid_percent()` is the follow-up.
+
+### F-114 (MEDIUM) — `diag_fetch.sh` reported three causes it had tested none of
+
+Running `diag_fetch.sh '/api/diag/version'` returned *"no candidate answered —
+web-api down, bearer wrong, or egress blocked. Use the issue relay."* A direct
+`curl` with the same bearer, seconds later, returned **200**.
+
+The actual cause was a **doubled path** (`…/api/diag//api/diag/version` → 404) and
+curl's exit status **22 — the host ANSWERED** — was in hand and discarded. This is
+UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A, which `CLAUDE.md` names precisely,
+and its cost is specific: the documented next move for a dead direct path is the
+30–60 s issue relay, so a wrong *request* gets diagnosed as an *outage* and worked
+around for the rest of a session. **Detector:** 9 new tests + a `curl` shim that
+honours `-o`/`-w` (the old shim ignored `-o`, so the script's own output path was
+untested — the "world that does not exist" shape).
+
+### F-115 (MEDIUM) — `accounts_loader.load_accounts_dict` returns `{}` for three reasons and reports one
+
+Found while routing the new risk module through the canonical loader. Missing
+file, parse failure, and a non-mapping `accounts:` block all return `{}`; only the
+parse failure appends to `errors`. So `({}, [])` cannot distinguish *"we could not
+look"* from *"there are no accounts"* — in the very module whose docstring cites a
+consumer that silently saw zero accounts and produced zero recoveries against a
+real backlog. The loader fixed the SHAPE bug that caused that and left the
+SILENCE. Filed `BL-20260820-ACCOUNTS-LOADER-EMPTY-IS-THREE-STATES`.
+
+### F-116 — `oos_edge`: the fix merged 13 minutes after the workaround, and stayed inert for 24 days
+
+The purest specimen of this audit's own thesis. `#7721` (`a6ca3302`) reverted
+`PROMOREADY_OOS_EDGE` to `off`; `#7722` (`4d1d6663`) added the memory fix
+**thirteen minutes later**. Nothing went back to turn the flag on.
+
+**And measuring it refuted the obvious next step.** trainer-diag #10044: the
+projection **is** deployed, and one head still peaks at **5,193,640 KB (~5.19 GB)**
+against `MemoryMax` **4,608,000 KB** — **+12.7%**, on a box with 5,909 MB of RAM
+total. It completed only because `/usr/bin/time` ran it outside the unit's cgroup.
+A **second, independent** blocker fell out of the same run: 5:35 per head × 28
+shadow heads ≈ **2.6 h** on 1 OCPU, so fixing the memory alone would close the row
+on memory and re-open it on the timer.
+
+### The execution's own meta-finding: THREE of my dispatches failed on environment differences a green suite could not reach
+
+| dispatch | failure | why the tests missed it |
+|---|---|---|
+| #10040 | `ModuleNotFoundError: No module named 'src'` | 6 tests imported via `importlib` with the repo root already on `sys.path`; **none called `main()`** |
+| #10049 | `unable to open database file` | the new test *did* run it as a script — but **here**, where the repo-root fallback finds a real file |
+| — | `canonical-config-loaders` refusing my own hand-rolled parser | nothing; the guard caught it, which is the system working |
+
+The second is the instructive one: I imported the lesson from the first and made
+the adjacent mistake. **A test that runs a tool in an environment the tool will
+never see is testing a world that does not exist.** The durable assertion turned
+out to be on the wrapper's *contract with the child process*, plus a positive
+control on a working sibling kept separate so the suite fails loudly if the
+canonical idiom moves rather than silently enforcing an abandoned one.
+
+Root cause of #10049 is the modularity trap this audit is about: **~20 sibling
+wrappers already used `_lib.sh::runtime_db_path`, and I wrote a new one without
+reading them.**
+
+### Two retractions from the execution, recorded because a retracted claim that stays in circulation is worse than the original error
+
+1. **`state: pending` + `total_count: 0` does NOT diagnose a CI delivery failure.**
+   I told a concurrent session it did, and they were about to file it as a
+   heuristic. A **merged** PR shows the identical response — this repo reports via
+   the check-runs API, not commit statuses, so the field is constant for every PR
+   here. The causal claim ("cleared by a real push") rested on n=1 measured with a
+   zero-information indicator. Fully withdrawn, both directions.
+2. **`ruff-lint` is not red on `main`.** I measured 11,859 errors and nearly
+   recorded it as a pre-existing baseline. It was **ruff 0.16.3** — the version
+   `requirements-dev.txt` upper-bounds **precisely because 0.16 expanded its
+   default rule set**. On the pinned `0.15.22` the repo has **3, all mine**.
+   Likewise `layer-guard`, which I called a sandbox artifact all session on my own
+   say-so: installed, it genuinely passes (6 contracts kept, 0 broken).
+
+Both are the same shape as F-114 and as the class this audit exists for: **a
+confident statement about a cause nobody tested.** Counting the retracted
+diagnostic, that class appeared **five** times in one day across three concurrent
+sessions — twice in the system, three times in our own reasoning about it.
