@@ -36,7 +36,7 @@ sub-session (`/health-review`, `/performance-review`, `/ml-review`,
 
 ## ⚠️ POST WITH `add_issue_comment`. `issue_write method=update` DESTROYS THE BOARD.
 
-**This has happened five times.** `issue_write method=update` **replaces the issue
+**This has happened six times, twice on 2026-08-20 within four minutes.** `issue_write method=update` **replaces the issue
 body** — it is the edit-the-issue tool, not the comment tool — and on #6927 the
 body is the pinned protocol header every session's preflight reads. The comment
 tool is **`add_issue_comment`**.
@@ -60,9 +60,19 @@ tool is **`add_issue_comment`**.
 Recorded clobbers: **2026-07-30** (`S-BYBIT-COVERAGE-DEPLOY-VERIFY`) · **2026-08-09**
 (`S-M20-LADDER-AND-COLLAPSED-STATES`) · **2026-08-15**
 (`S-M20-DISPERSION-ISOLATION-AND-QUEUE` § 33) · **2026-08-19**
-(`BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE`) · **2026-08-20**
-(`S-LLM-BURST-WORKER-SCHEDULING`). A sixth session attempted it on 2026-07-30 and
-was saved only by a scope denial, not by knowing better.
+(`BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE`) · **2026-08-20 08:52Z**
+(`S-LLM-BURST-WORKER-SCHEDULING`) · **2026-08-20 08:56Z**
+(`comprehensive-system-audit-p2dlkd`). A seventh session attempted it on 2026-07-30
+and was saved only by a scope denial, not by knowing better.
+
+⚠️ **The last two are four minutes apart, by two sessions neither of which could see
+the other doing it.** That is the argument that this is a tooling-shaped trap rather
+than carelessness, and it is why the fix is here — in the binding doc — rather than in
+a sixth sprint log.
+
+⚠️ **When restoring, GitHub strips `<…>` as HTML EVEN INSIDE CODE FENCES.** A restore
+that pastes this file verbatim silently empties every comment template. Use `{braces}`
+in the body, and restore the angle brackets when syncing the body back to this file.
 
 **If you clobber it anyway:** say so on the board immediately, then restore the
 body from this file (it is the board's **body of record**) and label the result a

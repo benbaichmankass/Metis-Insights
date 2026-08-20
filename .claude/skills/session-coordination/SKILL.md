@@ -82,9 +82,11 @@ contract + generation discipline. This skill adds the two missing halves:
    `bootstrap-labels.yml`.
 > ⚠️ **EVERY board post goes through `add_issue_comment`. NEVER `issue_write
 > method=update` — that REPLACES the issue body and destroys the board's pinned
-> protocol header.** It has happened five times (2026-07-30, 08-09, 08-15, 08-19,
-> 08-20) and the MCP's return value is **indistinguishable** from a successful
-> comment, so nothing tells you. Full account + the restore procedure:
+> protocol header.** It has happened six times (2026-07-30, 08-09, 08-15, 08-19,
+> and twice on 08-20) and the MCP's return value is **indistinguishable** from a successful
+> comment, so nothing tells you — twice on 2026-08-20 alone, four minutes apart, by
+> two sessions neither of which could see the other do it. Full account + the restore
+> procedure:
 > [`docs/claude/coordination-board.md`](../../../docs/claude/coordination-board.md)
 > § "POST WITH `add_issue_comment`".
 
