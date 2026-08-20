@@ -266,6 +266,30 @@ untriggered, which is correct: nothing has drifted.
 log only. The Telegram-path gap rides inside the cron row, since the first real
 scheduled run is what would exercise it.
 
+### 9. `/doc-freshness` sweep — three surfaces still understated a capability I had just widened
+
+Run at session end. The mechanical scans were clean (`check_canonical_doc_coherence.py`
+→ **5/5 PASS**; the dead-IP, removed-gate and 7-stage-ladder greps all clean after the
+allow-list filter). The real finding was **doc-vs-reality drift I created myself**, all
+three in the same direction — **making a working path look unavailable**:
+
+| surface | said | truth after #10036 |
+|---|---|---|
+| `CLAUDE.md` § "Reaching `/api/diag/*`" | *"If the session's cloud environment sets `DIAG_BASE_URL` **+** `DIAG_READ_TOKEN`"* | only the **bearer** is required |
+| `docs/claude/diag-relay.md` Transport A | same, plus *"resolves `$DIAG_BASE_URL/api/diag/<path>`"* and a note telling the reader to **manually** repoint the var | ordered candidate list, canonical HTTPS first, automatic |
+| `.claude/skills/diag-data/SKILL.md` | same | same |
+
+The third mattered most: **that skill is what a session actually reads under skill-first
+lookup**, so leaving it stale would have kept sending sessions to the relay regardless of
+the other two being fixed. All three corrected here.
+
+**This is the same failure class the session spent the day fixing, committed by me, the
+same afternoon.** I widened a capability and left three docs describing the narrow
+version — the mirror image of `BL-20260818-…-TERMINATED-VM`'s *"no session can fix it"*.
+It is the argument for the sweep being mandatory rather than discretionary: nothing about
+writing the fix made me notice its own documentation, and **no grep would have caught it**
+— only reading both sides did.
+
 ## Documentation Updated
 - **Roadmap:** M37 row updated with both results and their denominators.
 - **Canonical:** `CLAUDE.md` — the reachability correction (2 sites).

@@ -20059,6 +20059,31 @@
       "resolution_criteria": "RESOLVED 2026-08-20 by classify_execution_mismatch(), which returns four never-collapsed states -- not_shadow / shadow_no_fills / shadow_filling_now (a fill inside MISMATCH_RECENCY_DAYS of the window end: the real anomaly, still holds) / shadow_fills_historical (a completed demotion: GRADED on the matrix, with a reason recording that the old override would have fired) / shadow_fill_recency_unknown (holds, but says 'we could not look' rather than asserting an anomaly). decide() takes window_end so recency is measured against the window the packet covers, never wall-clock at render time. Verified by 8 new tests in tests/test_strategy_review_gate.py including a control that reproduces the historical case. Re-opens if a future packet is observed refusing to grade a strategy whose newest fill predates its window end."
     },
     {
+      "id": "BL-20260820-DOC-FRESHNESS-HAND-GREPS-ARE-NOISIER-THAN-THE-CI-CHECKER",
+      "opened_at": "2026-08-20T11:45:00+00:00",
+      "opened_by": "claude (llm-burst-2, 2026-08-20 doc-freshness sweep)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "tooling",
+      "title": "The doc-freshness SKILL's documented hand-greps return ~40 false positives where check_canonical_doc_coherence.py returns 0 - a session that runs them as instructed learns to ignore the output",
+      "detail": "MEASURED 2026-08-20 while running the sweep as written. `.claude/skills/doc-freshness/SKILL.md` § 'Mechanical scans' offers two paths and calls them equivalent: run `python scripts/ci/check_canonical_doc_coherence.py`, 'or the raw greps it wraps, if you want to eyeball'. They are NOT equivalent.\n\nSame working tree, same moment:\n  - `check_canonical_doc_coherence.py` -> 5/5 PASS, zero findings.\n  - The three documented `rg ... | rg -v -i '<filter>'` one-liners -> ~40 hits: historical sprint logs, audits, runbooks, the CI checker's OWN source line (`DEAD_IP = \"158.178.210.252\"`), and the doc-freshness SKILL quoting the gate names it is looking for.\n\nEvery one is a false positive. The cause is that the `rg -v` allow-list in the SKILL is a hand-written word list ('terminat|retir|histor|...') while the checker carries a real allowlist, so the greps cannot tell a historical mention from a live claim.",
+      "why_it_matters": "The SKILL says 'A non-empty result from any of these (after the allow-list filter) is drift to fix in this session, not to defer.' Followed literally that is ~40 items of nothing, every run. The predictable adaptation is to stop reading the output - which is the desensitized-alarm failure this repo names as its own P1 (`MB-20260719-DATASET-AUDIT-NOISE`: an audit degenerated to 62/86 alarming and a real dead-feature bug soaked for weeks inside the noise). A checker that cries wolf on every run trains the reader to walk past the one time it does not.\n\nNote what this is NOT: the CI guard is fine and the sweep still works. The defect is in the DOCUMENTED MANUAL PROCEDURE, which is the half a session actually follows.",
+      "snoozed_until": "2026-09-05",
+      "trigger_condition": "The next session that runs /doc-freshness, OR the next /health-review, OR 2026-09-05 - whichever comes first. Zero urgency; it costs a few minutes of noise per sweep, not correctness.",
+      "what_to_check": "Cheapest fix is to DELETE the raw greps from the SKILL and keep only `python scripts/ci/check_canonical_doc_coherence.py`, since the checker is the authority and the greps are a lossy paraphrase of it - two definitions of the same check are free to drift, and this one already has. If the eyeball path is worth keeping, give the checker a `--explain`/`--verbose` flag that PRINTS what it scanned and what it allow-listed, so a reader can audit the verdict without re-deriving it with a worse instrument. Do NOT just tighten the grep filters: that recreates the same drift one generation later.",
+      "resolution_criteria": "Closed when running the sweep exactly as the SKILL documents produces no false positives - either because the greps are gone, or because the eyeball path is served by the checker itself.",
+      "evidence": {
+        "checker_result": "5/5 PASS, 0 findings",
+        "hand_grep_hits": "~40, all false positives",
+        "same_tree_same_moment": true,
+        "self_referential_hits": [
+          "scripts/ci/check_canonical_doc_coherence.py:63 DEAD_IP",
+          "the doc-freshness SKILL quoting the removed-gate names"
+        ]
+      }
+    },
+    {
       "id": "BL-20260820-ACCOUNTS-LOADER-EMPTY-IS-THREE-STATES",
       "severity": "medium",
       "tier": "1",
