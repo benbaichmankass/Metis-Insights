@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20T12:18:00+00:00",
+  "updated_at": "2026-08-20T11:20:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20082,6 +20082,18 @@
           "the doc-freshness SKILL quoting the removed-gate names"
         ]
       }
+    },
+    {
+      "id": "BL-20260820-ACCOUNTS-LOADER-EMPTY-IS-THREE-STATES",
+      "severity": "medium",
+      "tier": "1",
+      "opened": "2026-08-20",
+      "status": "open",
+      "area": "config-loading",
+      "title": "src/config/accounts_loader.load_accounts_dict returns {} for three different reasons and populates `errors` for only one, so 'we could not look' is indistinguishable from 'there are no accounts'",
+      "detail": "Found 2026-08-20 while routing src/research/risk_basis.py through the canonical loader (the `canonical-config-loaders` guard correctly refused a hand-rolled parser). load_accounts_dict returns an empty dict in THREE distinct situations and only one of them is reported: (1) the file does not exist -> `return {}` at the `if not yaml_path.exists()` guard, with NOTHING appended to `errors`; (2) yaml parsing raises -> `{}` AND an entry appended to `errors` (the only observable case); (3) the top-level `accounts:` key is missing or is not a mapping -> `{}`, again with nothing appended. So a caller holding `({}, [])` cannot tell a MISSING config from a PRESENT-but-empty one, which is the collapsed-state defect CLAUDE.md § 'Collapsed states' names: *we did not look* and *we looked and found nothing* must be distinguishable. It matters most for the case the module docstring itself cites as its origin story — a consumer that silently saw zero accounts and produced zero recoveries against a real backlog (scripts/ops/backfill_orphan_pnl.py, 2026-05-16). The loader fixed the SHAPE bug that caused that and left the SILENCE. This is a real gap and NOT hypothetical for the new caller: risk_basis must report `unreadable` vs `account_absent` distinctly, so it works around the loader by checking `path.exists()` itself before calling in — a workaround that every future caller needing the distinction will have to re-invent, which is how a second parser gets born.",
+      "evidence": "src/config/accounts_loader.py::load_accounts_dict — `if not yaml_path.exists(): return {}` (no errors append); `raw = data.get('accounts')` / `if not isinstance(raw, dict): return {}` (no errors append); only the `except Exception` branch appends. Verified by reading the function, not inferred: tests/test_risk_basis.py::test_an_unreadable_config_is_UNREADABLE_not_absent and ::test_a_garbled_config_is_UNREADABLE pin the distinction on the caller side and pass only because risk_basis adds its own existence check.",
+      "resolution_criteria": "load_accounts_dict can express the three outcomes without the caller re-deriving them — e.g. it appends a typed entry to `errors` for the missing-file and non-mapping cases too (cheapest, fully back-compatible: every existing caller that passes no `errors` list is unaffected), or it grows a sibling returning an explicit state. Then risk_basis drops its `path.exists()` workaround and its two collapsed-state tests still pass. Closing this by making the states distinguishable ONLY inside risk_basis does not count — that is the second-parser outcome this row exists to prevent."
     }
   ]
 }
