@@ -535,12 +535,69 @@ still firing at a rate where individual flags are unlikely to be read.
 
 `outcome` across all 7,442 rows is only `{trained: 20, already_complete: 20}`.
 
-### F-24 · TRAINER · `forecast_live` has no `data.jsonl` while its timer fires every 15 min
+### F-24 · RETRACTED — the forecast producer is healthy; my glob named a family that does not exist
 
-`ict-trainer-forecast.timer` is active (last 06:45Z, next 07:00Z), yet a
-recursive glob for `datasets-out/forecast_live/**/data.jsonl` returns **NONE**.
-The other four families all resolve with 1–2 h freshness
-(`trade_outcomes` 1.9 h, `setup_labels` 1.9 h, `execution_quality` 1.9 h,
-`market_features` 1.0 h). Either the family writes elsewhere (there is a
-separate `datasets-out/forecasts/` at 48 M) or it is producing nothing.
-Probed in #10003; recorded as **unresolved**, not as a failure.
+I globbed `datasets-out/forecast_live/**` and got nothing. The family is
+**`forecasts`**, not `forecast_live`. Measured (#10004): the producer runs every
+15 min and succeeds — `06:30:37`, `06:45:27`, `07:00:27` all "Finished", each
+emitting `{"written": 3}` for BTC/ETH/SOL into
+`runtime_logs/trainer_mirror/forecasts/*.json`, with
+`datasets-out/forecasts/{BTCUSDT,SOLUSDT}/15m/v002/data.jsonl` refreshed
+**2026-08-20**. **Not a finding.**
+
+### F-25 · TRAINER · The dataset GC tool exists and is never invoked — on a 93 %-full disk
+
+`scripts/ops/trainer_dataset_gc.py` is present. Measured (#10004):
+
+- `grep -n "trainer_dataset_gc" scripts/ops/run_training_cycle.sh` → **no match**
+- `systemctl list-timers | grep -iE "gc|prune|clean"` → only
+  `systemd-tmpfiles-clean.timer` (an OS timer, not this)
+- `grep -c "gc" runtime_logs/training_cycle.jsonl` → **0** over 7,442 rows
+
+So the retention tool for a `datasets-out` tree that is **12 G of a 45 G disk
+now at 93 %** has no caller, no schedule, and has never appeared in the cycle
+log. This is the *written-and-never-read* family the repo already guards for
+signals (`provenance-consumer-guard`) applied to an **operational tool**: the
+remedy for the disk problem was built and never wired.
+
+Tier 1 to schedule; the retention *policy* (what may be deleted) is the part
+that needs a decision, not the wiring.
+
+### F-26 · TRAINER · `registry.status` can only ever say `candidate` — and it cost me two wrong reads
+
+Measured over all **95** models in `ml/registry-store/registry.jsonl`:
+
+| field | distribution |
+|---|---|
+| `status` | **`candidate`: 95** — 100 %, no other value exists |
+| `target_deployment_stage` | `candidate` 63 · **`shadow` 28** · **`advisory` 3** · `research_only` 1 |
+
+**The deployment ladder lives in `target_deployment_stage`; `status` tracks the
+training lifecycle and never advances** — `history[]` entries read
+`to_status: candidate` with reasons like *"initial registration"* and
+*"re-trained (run_id=…)"*, i.e. it is a registration/training state that is
+`candidate` forever.
+
+✅ **The fleet is CONSISTENT with `CLAUDE.md`.** The three at
+`target_deployment_stage: advisory` are `btc-regime-15m-lgbm-fc-pcv-v2`,
+`sol-regime-15m-lgbm-fc-pcv-v2` and `mes-regime-5m-lgbm-v2` — the first two are
+exactly the BTC and SOL advisory heads the docs describe, and 28 at `shadow`
+matches the shadow-auto-wire design. **No promotion is missing.**
+
+**The finding is the legibility defect, and I am the evidence for it.** I probed
+this registry twice and got a confidently wrong answer both times: first
+`r.get("stage")` → `None ×95` (no such key), then `r.get("status")` →
+`candidate ×95`, which reads as *"nothing has ever been promoted; the ML vol
+gate has no advisory head"* — a false alarm about a live order-path capability.
+Only dumping the row's actual keys resolved it.
+
+A field named `status` that is invariant, sitting beside a field named
+`target_deployment_stage` that is the real stage, is a trap the repo's own
+`diagnostic-provenance` rule already describes (sub-class **A**, semantic
+substitution: the label names a quantity the accessor does not return). Two
+candidate repairs, both Tier-1: publish a resolver
+(`ml.manifest.canonical_stage` over the right field) that every probe must
+import — the same *"one module owns this"* pattern as
+`scripts/ml/_regime_score_semantics.py` — and/or rename/retire the inert
+`status`. MED, because the failure mode is a *false alarm about live ML
+routing*, which is expensive to chase.
