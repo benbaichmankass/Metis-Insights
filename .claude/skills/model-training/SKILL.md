@@ -151,3 +151,84 @@ tail, new `model_id`s and their metrics, and whether the registry
 progressed. For drift on a live shadow model use `shadow-drift`. Flag a
 model that's been stuck at `candidate` across cycles (training runs
 but nothing passes eval) — that's a `concern`, not silent.
+
+---
+
+## Definition of done — a capability is not shipped until something RUNS it
+
+*(Operator directive 2026-08-20, binding on every build skill: "we don't keep
+building things out half way and then leaving them to rust while the system
+chugs along with bad structure.")*
+
+Merging is not shipping. Before you call any capability from this skill done,
+all four must hold — and the ones you cannot satisfy get **said out loud**, not
+left implied:
+
+1. **A RUNNER exists.** A workflow, a systemd unit, a call site in `src/`, an
+   entry in `run_guards.py`, or a documented cadence. A tool that is genuinely
+   manual-only declares it in its own file:
+   `# wiring: manual-only — <who runs it, when>`. Verify with
+   **`python3 scripts/ci/check_unwired_artifacts.py`** — if your new file
+   appears in its output, it is not done.
+2. **A CONSUMER exists.** Anything the capability *writes* must be *read* by
+   something that acts on it. A signal written and never read is worse than a
+   missing one — reviewers see the field and assume something acts on it
+   (`provenance-consumer-guard` exists for exactly this).
+3. **A DETECTOR exists.** Something fails if this silently stops working. A
+   test, a guard, an alert, or an invariant in
+   `scripts/ops/system_invariants.py`. "We'll notice" is not a detector.
+4. **It has been OBSERVED working on real data** — not only in a test. Cite the
+   evidence (a diag pull, a log line, a row) or state plainly that it has not
+   yet been observed and what would settle it.
+5. **The LIVE environment matches the repo's declaration.** If your change adds
+   or depends on an env var, a service, a timer, a path or a routing entry,
+   **read it back from the VM** (`get-env`, `/api/diag/services`,
+   `/api/bot/config`, the relay) and confirm the running value is the declared
+   one. *"The repo says X"* is not evidence that the VM does X — the two drift,
+   and this repo has the scars: a `FLIP_CONFIDENCE_THRESHOLD` running live for a
+   day with no record behind it, a `DIAG_BASE_URL` still pointing at a VM
+   terminated 2026-06-16 while the doc-coherence guard passed (it checks the
+   docs, not the environment), and a `BYBIT_TPSL_MODE` "flip" that was a no-op
+   re-assertion of a value already live.
+6. **The change is CONCENTRATED.** Count the files you had to touch. If a
+   *routine* addition of this kind cost more than the source-of-truth files plus
+   tests and docs, say so — every hand-maintained registry you had to update in
+   lockstep is a place the next person half-applies the change. Measured
+   2026-08-20: wiring one strategy leg touched **17 files**, of which three were
+   `src/` maps holding facts `strategies.yaml` already contains. **A file you
+   edited only to keep a derived map in sync is a design finding, not a chore** —
+   record it (audit skill § 3.7 MODULARITY) even when you cannot fix it here.
+
+7. **A parameter shared with production has ONE definition, and you asserted
+   it.** If your work reads a value that also lives in a config file —
+   `risk_pct`, a fee, a cap, a threshold — do not re-derive its units. Import the
+   resolver; if there is no resolver, that is the finding. Then state which
+   branch you are on: **SWEEP** the parameter, or **FIX** it at the live value
+   and assert that equality in the run's own output. A default that merely
+   *looks* live is the failure. Measured 2026-08-20 (audit F-37..F-40):
+   `accounts.yaml::risk_pct: 0.015` is a FRACTION while five research/prop files
+   compute `rpct / 100.0` as a PERCENT, so `--risk-pct 0.015` means 1.5% in one
+   research script and 0.015% in another — **100× apart under one flag name** —
+   and every harness default sits **5×** below the live basis.
+   ⚠️ **"It's R-normalized so risk doesn't matter" does NOT discharge this.**
+   That claim assumes the trade SET is invariant to the parameter, and
+   production quantizes: futures floor to whole contracts and **refuse
+   sub-1-contract outright**, Alpaca floors to whole shares, `min_qty` and the
+   margin cap bite. Below a threshold the trade does not shrink — it does not
+   happen. Unless your harness models refusal, it cannot test its own
+   independence premise, and it errs flatteringly (small risk reads as safe when
+   it means the leg does not trade).
+
+**The measured cost of skipping this:** 161 of 384 tools under `scripts/` have
+no runner (2026-08-20). `scripts/ops/trainer_dataset_gc.py` — the retention
+tool for a 12 G dataset tree — had no caller, no timer and **0 mentions across
+7,442 cycle-log rows** while the disk it was written for reached **93 %**.
+`exchange_fills_ib.closed_pnl_from_fills` has **zero production callers**, so
+IBKR's own realized PnL is pulled hourly and never read. Every one was found by
+accident, months later.
+
+`/system-review` now enumerates everything shipped since the previous review and
+grades each `running` / `wired_not_yet_exercised` / **`UNWIRED`** /
+`unverifiable` (`review_coverage.since_last_build_verification`, enforced by
+`render_system_report.py --strict`). **Your work will be graded against this
+list.** Leave it wired, or leave it declared.
