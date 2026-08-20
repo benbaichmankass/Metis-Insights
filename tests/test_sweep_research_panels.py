@@ -151,7 +151,7 @@ def _make_db(path):
           entry_price REAL, stop_loss REAL, position_size REAL,
           closed_at TEXT, timestamp TEXT, setup_type TEXT, reconcile_status TEXT);
         CREATE TABLE order_packages (
-          id INTEGER PRIMARY KEY, linked_trade_id INT, signal_logic TEXT,
+          order_package_id TEXT PRIMARY KEY, linked_trade_id INT, signal_logic TEXT,
           confidence REAL, model_scores TEXT, updated_at TEXT);
         """
     )

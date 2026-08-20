@@ -45,7 +45,7 @@ def _empty_db(path: Path) -> None:
         "is_backtest INT, is_demo INT)"
     )
     conn.execute(
-        "CREATE TABLE order_packages (id INTEGER PRIMARY KEY, linked_trade_id INT, "
+        "CREATE TABLE order_packages (order_package_id TEXT PRIMARY KEY, linked_trade_id INT, "
         "updated_at TEXT)"
     )
     conn.commit()

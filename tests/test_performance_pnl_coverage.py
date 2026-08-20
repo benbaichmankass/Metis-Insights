@@ -45,7 +45,7 @@ CREATE TABLE trades (
     notes TEXT
 );
 CREATE TABLE order_packages (
-    id INTEGER PRIMARY KEY,
+    order_package_id TEXT PRIMARY KEY,
     linked_trade_id INTEGER,
     updated_at TEXT
 );

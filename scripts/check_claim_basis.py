@@ -75,10 +75,37 @@ def _rows(text: str) -> dict[str, dict]:
             if isinstance(r, dict) and isinstance(r.get("id"), str)}
 
 
+# Fields whose prose can carry a quantitative claim OR its basis.
+#
+# ⚠️ THIS LIST IS THE GUARD'S ENTIRE FIELD OF VIEW, IN BOTH DIRECTIONS.
+# A field missing here produces a FALSE NEGATIVE when the claim lives there
+# (the guard sees no claim and passes silently) and a FALSE POSITIVE when the
+# claim is in `title` and the basis is there (a correct row is failed).
+#
+# `detail` and `evidence` were absent until 2026-08-20 while being the two
+# richest prose fields these backlogs actually use. MEASURED across all three
+# backlogs at that date (940 rows): 198 rows carried a quantitative claim in a
+# then-scanned field, and **65 more carried one ONLY in an unscanned field** —
+# 24.7% of the 263 claim-bearing rows, never checked at all. Sixteen of those
+# 65 had no parseable basis anywhere in that text, i.e. they would have FAILED
+# had the guard been able to read them; one of them cites `$247,683.78`, the
+# very figure CLAUDE.md flags as an ALL-STATUS population number whose sign
+# flips on the filter. A guard blind to a quarter of its own population reports
+# a clean negative it never earned.
+#
+# The guard is DIFF-SCOPED to rows absent from the base (`rid in base_ids`
+# continues), so widening this tuple does not retro-fail the 16 — it only holds
+# NEW rows to the standard. When adding a field here, prefer prose fields;
+# adding an id/date field would match dates as "basis" and weaken the check.
+_ROW_TEXT_FIELDS = (
+    "title", "description", "source", "action",
+    "resolution", "resolution_criteria",
+    "detail", "evidence", "why_it_matters", "summary", "impact",
+)
+
+
 def _row_text(row: dict) -> str:
-    return " ".join(str(row.get(k, "")) for k in
-                    ("title", "description", "source", "action",
-                     "resolution", "resolution_criteria"))
+    return " ".join(str(row.get(k, "")) for k in _ROW_TEXT_FIELDS)
 
 
 def check_new_rows(base_text: str, head_text: str, path: str) -> list[str]:

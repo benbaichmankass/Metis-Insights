@@ -47,7 +47,7 @@ def _seed_db(db_path: Path, trades: list[dict]) -> None:
                 is_backtest INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS order_packages (
-                id INTEGER PRIMARY KEY,
+                order_package_id TEXT PRIMARY KEY,
                 linked_trade_id INTEGER,
                 confidence REAL
             );
