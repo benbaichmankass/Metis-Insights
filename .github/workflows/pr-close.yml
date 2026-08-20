@@ -40,6 +40,24 @@ name: pr-close
 # the commit back on the trigger path, which is what forced `[skip ci]` into
 # pr-opener.yml and left the PRs it opened with zero required checks.
 #
+#
+# ⚠️ REMOVING THE SKIP DIRECTIVE IS NECESSARY BUT **NOT SUFFICIENT** — MEASURED.
+# GitHub deliberately does NOT trigger workflows for pushes made with the
+# built-in `GITHUB_TOKEN` (recursion prevention). This results commit is pushed
+# by `github-actions[bot]` using exactly that token, so when it lands last it
+# becomes the PR head and the PR STILL shows zero checks even with no skip
+# directive anywhere. Isolated on PR #10079: head `04e75c8a`
+# (`pr-opener: results`, author `github-actions[bot]`, no skip directive) →
+# `get_check_runs` total_count **0**, while every head on the same branches
+# pushed by a session's own credentials got its checks normally.
+# So there are TWO independent causes and the skip directive was only the first.
+#
+# WHAT THIS MEANS FOR A CALLER: after a relay run leaves its results commit as
+# the branch head, **push one ordinary commit yourself** to arm CI. Do not read
+# a zero-check PR as green — it is blocked, not passing.
+# A durable fix needs either a PAT/app token for the commit-back, or a
+# `workflow_run`/`pull_request_target` trigger; both are larger changes than
+# this one and neither is attempted here.
 # Blast radius: closes PRs and comments on them. It cannot merge, cannot push to
 # a branch, cannot delete a branch, cannot reopen, and cannot touch `src/`,
 # `config/`, a unit file, or either VM. A closed PR is recoverable — reopening
