@@ -1443,3 +1443,136 @@ must have, both learned this session:
   precisely why the #10015 session declined to slip it into a fix. Tier-2/3 by
   nature — the operator approves it, and `workflow_dispatch` on
   `branch-protection-sync.yml` is the sanctioned wire.
+
+---
+
+## Part 13 — The two frontends (delegated, then independently verified)
+
+Produced by a parallel read-only auditor over `streamlit_app.py` (9,587 lines,
+56 API paths) and `webapp/src/` (38 files, 32 API paths) at dashboard HEAD
+`47bb971`. **Android excluded** per the standing 🧊 ON ICE directive.
+
+⚠️ **Provenance of these findings, stated because it is exactly the discipline
+this audit is about.** F-48, F-49 and F-50 I **re-derived myself** against the
+source before recording — an agent's report is a claim, and accepting it
+unverified is the same error as accepting a system's self-description. F-51 and
+below are **relayed at the auditor's stated confidence** and marked as such.
+
+### F-48 — The SPA's prop killer-limit alert is structurally unsatisfiable (severity: HIGH) — VERIFIED
+
+`webapp/src/routes/Prop.svelte:35-37` reads its cushions from the live API:
+
+```js
+const rd        = $derived(status?.rule_distance ?? null);   // ← api.propStatus()
+const dailyLeft = $derived(rd?.daily_loss_remaining ?? null);
+const ddLeft    = $derived(rd?.static_dd_remaining  ?? null);
+```
+
+The producer, `src/prop/prop_reconcile.py:387,390`, emits
+**`distance_to_daily_loss_usd`** and **`distance_to_dd_floor_usd`**. The names
+the SPA reads do not exist on that payload.
+
+Both are therefore permanently `null`, both metrics render `—`, `cushionClass(null)`
+returns `"flat"` so no colour escalation ever occurs, and — the part that matters —
+`Prop.svelte:70`:
+
+```js
+{#if (dailyLeft != null && dailyLeft <= 25) || (ddLeft != null && ddLeft <= 25)}
+  <div class="alert neg">⚠ A killer limit is very close — the cushion is thin.</div>
+```
+
+**cannot evaluate true under any account state.** This is a safety alert on a
+prop account whose two hard limits are a $150 daily loss and a $4,700 static-DD
+floor, and it is inert. Streamlit reads the correct keys
+(`streamlit_app.py:8183,8187`), so the SPA is alone in this.
+
+### F-49 — The same key drift reaches the executive system report (severity: HIGH) — VERIFIED, and wider than the auditor could establish
+
+The delegated auditor flagged this as *unconfirmed — "I did not trace the skill's
+assembly step"*. Traced:
+
+| site | vocabulary |
+|---|---|
+| **producer** `src/prop/prop_reconcile.py:387,390` | `distance_to_daily_loss_usd` / `distance_to_dd_floor_usd` |
+| **schema template** `comms/schema/system_report_response.template.json:96-97` | `daily_loss_remaining` / `static_dd_remaining` |
+| **report renderer** `scripts/reports/render_system_report.py:222-223` | `daily_loss_remaining` / `static_dd_remaining` |
+| **SPA** `Prop.svelte:36-37` | `daily_loss_remaining` / `static_dd_remaining` |
+| **Streamlit** `streamlit_app.py:8183,8187` | `distance_to_*` ✅ |
+| `RiskManager.report` `src/units/accounts/risk.py:1328` | `daily_loss_remaining` — a **different object**, correctly named for itself |
+
+So **one field name, `rule_distance`, carries two different key vocabularies
+depending on which side produced it.** The renderer reads
+`data.get("rule_distance")` out of the assembled report, so it is only correct
+while a session hand-fills it per the template — and the *natural* action, dropping
+`/api/bot/prop/status`'s own `rule_distance` block in verbatim (identical field
+name!), silently produces two em-dashed KPIs on the prop cushion.
+
+That is the cohesion class in its purest form: **one concept, two implementations
+that can disagree, and the seam is owned by nobody.** `RiskManager`'s use of the
+same names for an unrelated object is what makes a grep look reassuring.
+
+### F-50 — The provenance caveat is suppressed exactly when the data is 100% estimated (severity: HIGH, BOTH frontends) — VERIFIED
+
+`streamlit_app.py:1958-1961`, and byte-for-byte the same logic at
+`webapp/src/routes/Performance.svelte:38-40`:
+
+```python
+if covf >= 1.0:      return None      # full coverage: no caveat needed  ✅
+fab = int(block.get("pnlFabricatedCount") or 0)
+unv = int(block.get("pnlUnverifiedCount") or 0)
+if fab + unv <= 0:   return None      # ← suppresses a WARRANTED caveat
+```
+
+The docstring asserts `fabricated + unverified > 0 ⇔ coverage < 1.0`. **That
+biconditional is false.** `src/runtime/provenance.py:468-478` computes
+`coverage() = MEASURED / total` over a four-bucket partition, so an **ESTIMATED**
+row lowers coverage while incrementing neither count.
+
+A window that is 100% ESTIMATED therefore yields `pnlCoverage: 0.0,
+pnlFabricatedCount: 0, pnlUnverifiedCount: 0` → `fab + unv <= 0` → **no caveat at
+all**, on a P&L figure with zero broker-measured content.
+
+**This is not hypothetical — `CLAUDE.md` records the live case verbatim:**
+`trend_donchian_avax_4h` returning `pnlCoverage: 0.0` beside
+`totalPnlMeasured: -5415.17`, both rows ESTIMATED. The bot added
+`pnlEstimatedCount` per-strategy in August *specifically* so this pair
+reconciles — and **neither frontend reads it** (0 and 0).
+
+The `fab + unv` test sits beneath the `covf >= 1.0` test that already returns on
+the only case where no caveat is warranted. It is a redundant `AND` that can
+**only** suppress, never add. Pure downside.
+
+### F-51 and below — relayed at the auditor's stated confidence, not re-derived by me
+
+| # | finding | sev |
+|---|---|---|
+| F-51 | `totalPnlMeasured` / `pnlMeasuredCount` / `pnlEstimatedCount` are **write-only** (0 reads, both frontends); both render `totalPnl`, the fabricated-inclusive sum. Compounds F-50: the fabricated-inclusive number is shown *and* its warning is suppressible. | MED-HIGH |
+| F-52 | `status_freshness`, `status_age_hours`, `balance_basis`, `equity_provenance` — **all 0/0**. Streamlit branches on `present` (the field the bot documented as insufficient) and fires `⛔ BREACHED` / `⚠ Thin cushion` off values that may be weeks old; the SPA renders no `as_of` at all. | HIGH |
+| F-53 | Streamlit's stale-cache path returns `(payload, None)` — **indistinguishable from a fresh fetch** — for up to `STALE_OK_S`=120 s. The SPA never clears last-good state on error, so it renders stale data **unbounded**. Neither frontend renders a "last updated" anywhere (grep: 0). | MED |
+| F-54 | The SPA requests exactly the 200-row cap on `/trades/closed` and recomputes totals client-side; a full 200 is indistinguishable from truncation and it never tests for it. Streamlit does detect and caption the cap. | MED |
+| F-55 | SPA `Models.svelte` renders per-model stage dots with **no `mirror_age_seconds`** — "advisory" reads identically whether the trainer is live or down since Tuesday. Streamlit handles this correctly. | MED |
+| F-56 | SPA sums uPnL over measured legs only but never renders `segOpen.length - known`, so "Open trades: N" sits beside a sum over fewer than N. Streamlit discloses the excluded count. | MED |
+| F-57 | Streamlit **overrides** the bot's authoritative `assetClass` when it is `"unknown"` (`streamlit_app.py:3083-3091`) with a local heuristic — treating a deliberate config-driven "unknown" as a miss. The fallback should key on **absence** of the field, not its value. | LOW-MED |
+
+### Recorded as sound, because it bounds the negatives
+
+**No funding-class blending in either frontend.** The three-way real/paper/prop
+separation is enforced structurally — `_segment_filter_rows`, `funding.ts`, prop
+sourced from its own journal, and `paper_role: portfolio` scoping driven off
+`/config` rather than a hardcoded id list. The auditor looked and found nothing;
+this is the strongest area of both codebases.
+
+**One finding was retracted mid-analysis** and I am recording that it was: the SPA's
+`typeof p.unrealizedPnl === "number"` exclusion was initially flagged as unsafe
+versus Streamlit's explicit `!= "unavailable"` test, then withdrawn after checking
+that **every** `"unavailable"` return in `dashboard.py` is paired with `None`. The
+residual is that the SPA's correctness is *incidental* — it depends on a producer
+invariant it neither states nor checks.
+
+### The one detector that covers this class
+
+`provenance-consumer-guard` already enforces writer/reader pairing **inside** the
+bot repo. **Eight** fields above are N-writers / **0**-readers *across the repo
+boundary* — invisible to it by construction (F-40's guard-boundary shape again).
+A declared honesty-key manifest the frontends' CI must satisfy would have caught
+F-50, F-51, F-52 and F-55 **as a class**, rather than one at a time in an audit.
