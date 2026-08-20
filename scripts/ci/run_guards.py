@@ -330,6 +330,52 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "roadmap-status-glyph-guard",
+        # F-28 (full-system-audit 2026-08-20): this guard was WRITTEN and never
+        # REGISTERED — referenced by no workflow, no unit, no script. A guard
+        # that has never run is "green is not evidence" one step earlier than
+        # check_selftest_wiring catches (that one finds registered-but-never-
+        # invoked; this was written-but-never-registered). Verified passing on
+        # main before wiring, so registering it blocks nothing.
+        # NOTE: it carries no failure-path self-test, so it joins the 31 guards
+        # that are still unproven instruments — tracked separately.
+        "when": {"regex": r"^ROADMAP.*\.md$"},
+        "steps": [
+            ["python3", "scripts/check_roadmap_status_glyphs.py"],
+        ],
+    },
+    {
+        "name": "test-schema-fidelity-guard",
+        # A fixture that declares a money-table column production does NOT have
+        # lets a query against that column pass CI and raise in production. That
+        # is BL-20260810 exactly: `order_packages.id` in the pairs tests, so
+        # `max_hold_bars: 20` was never once evaluated and legs ran 300-595 bars.
+        # The fix at the time swept the pairs tests; 20 other files still declare
+        # it (measured 2026-08-20). Self-test runs on EVERY invocation.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_test_schema_fidelity.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_test_schema_fidelity.py",
+                         "{pr_diff}"],
+                "when": {"regex": r"^tests/.*\.py$"},
+            },
+        ],
+    },
+    {
+        "name": "unwired-artifact-guard",
+        # "We don't keep building things out half way and then leaving them to
+        # rust" (operator, 2026-08-20). A capability that ships without a runner
+        # is the class behind trainer_dataset_gc.py sitting unrun while its disk
+        # reached 93%. Diff-scoped: only a NEW/changed tool is judged, so the
+        # 161 pre-existing unwired tools are grandfathered rather than blocking
+        # every PR — the same shape as diagnostic-provenance-guard.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_unwired_artifacts.py", "--self-test"],
+        ],
+    },
+    {
         "name": "diagnostic-provenance-guard",
         # The self-test runs on EVERY invocation of this guard — including when
         # the scan itself is skipped — because a guard whose failure path is

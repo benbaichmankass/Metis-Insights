@@ -99,6 +99,14 @@ grading-freshness guard. Required, non-empty:
 - `review_coverage.strategy_promotion` — per-strategy promotion/demotion stance
   (ready-to-promote, demote/kill candidates, or "all HOLD") with evidence; pulled
   from the `ml`/`performance` sub-reviews + `/api/bot/strategies/{name}/review`.
+  **A stance is not enough — this must PUSH.** For every candidate whose gate is
+  MET, the review either dispatches the next step itself (where the tier allows)
+  or puts the exact decision in front of the operator with the evidence attached.
+  **A gate that has been MET across two or more consecutive reviews without a
+  decision is a MANDATORY `flags_raised[]` entry** — the same
+  anti-normalization rule `execution_capture` carries. "Ready to promote" that
+  stays "ready to promote" for a month is the soak equivalent of an alarm
+  everyone walks past.
 - `review_coverage.ml_training_health` — did training cycles run since the last
   review? dataset builds OK? any failing/stuck cycle? **any
   `manifest_quarantine_tripped` / `manifest_quarantined` cycle event** (a
@@ -128,6 +136,54 @@ grading-freshness guard. Required, non-empty:
   the stop for **weeks**, unnoticed by successive reviews, because no review was
   measuring capture. Any anomaly open across **≥2 reviews** (`reviews_open>=2`)
   is a MANDATORY `flags_raised[]` + `operator_priorities` escalation.
+- `review_coverage.since_last_build_verification` — **mandatory** (2026-08-20,
+  operator directive). **Enumerate every capability that shipped since the
+  previous review and give each one a VERDICT**: `running` ·
+  `wired_not_yet_exercised` · **`UNWIRED`** · `unverifiable` (+ a `reason`).
+  `count_shipped` must equal the number of items listed — a partial enumeration
+  is the failure this key exists to catch. **Any `UNWIRED` item MUST appear in
+  `flags_raised[]`.**
+
+  Why: *"we don't keep building things out half way and then leaving them to
+  rust."* Measured 2026-08-20 — **161 of 384 tools under `scripts/` have
+  nothing that runs them** (12 referenced nowhere at all, 149 referenced only
+  by docs), and `scripts/ops/trainer_dataset_gc.py` — the retention tool for a
+  12 G dataset tree — sat unrun with **0 mentions across 7,442 cycle-log rows**
+  while the disk it was written for climbed to **93 %**. Every instance of this
+  class in the record was found *by accident, months later*, never by a review.
+  Run **`scripts/ci/check_unwired_artifacts.py`** and read its diff against the
+  previous run; a newly-appearing entry is a shipped-and-unwired capability.
+
+- `review_coverage.backlog_classes` — **mandatory** (2026-08-20, operator
+  directive). **Read the WHOLE open backlog for PATTERNS before disposing of
+  any individual row.** Carries `total_open_reviewed` (the full open count, not
+  a sample) and `classes[]`, each with `class`, `member_ids` (**≥ 2** — one row
+  is an instance, not a class) and `structural_fix` (what retires the whole
+  class).
+
+  Why: draining one row at a time is a treadmill — the same defect returns
+  under a new id. `order_packages.id`, the fictional column behind
+  `BL-20260810`, was still declared in **20 test fixtures** after the fix swept
+  only the reporting instance. **Do this pass FIRST**, before `backlog_drive`:
+  the classes decide which rows are worth disposing of individually and which
+  are symptoms of one fix.
+
+- `review_coverage.ml_output_actionability` — **mandatory** (2026-08-20,
+  operator directive). *"Just checking that the trainer VM is green isn't
+  enough — we need to verify that the training sessions and backlogs are
+  actually being worked through and producing reliable and actionable results,
+  every day."* `ml_training_health` answers *did it run*; this answers **did
+  what it produced get used**. Carries `cycles_in_window`,
+  `outputs_consumed_by` (who actually reads the output — a named consumer, not
+  "the registry"), and `verdict` ∈ `actionable` · `producing_but_unused` ·
+  `not_producing` · `unverifiable`. The last two **must** reach
+  `flags_raised[]`.
+
+  Measured 2026-08-20 for calibration: 7,442 cycle rows over 149 cycles, with
+  `manifest_audit_flagged` 406 and `manifest_untrained_stale` 290 — **~15 %
+  non-ok manifest events** — while `outcome` across the whole log totalled
+  `{trained: 20, already_complete: 20}`. A green service tells you none of that.
+
 - `review_coverage.flags_raised[]` — the loud flags this review surfaced (may be
   empty only if genuinely nothing is degrading — state that explicitly).
 - `review_coverage.account_reachability` — **mandatory** per-account up/down for
@@ -151,10 +207,22 @@ grading-freshness guard. Required, non-empty:
   open item is non-actionable — "no time" / "didn't look" / triaging only "the
   recent few" is a review FAILURE, not a valid reason.
 
-**STOP and complete the assessment if any of the six required keys
+**STOP and complete the assessment if any of the NINE required keys
 (`strategy_promotion`, `ml_training_health`, `soak_status`, `execution_capture`,
-`backlog_drive`, `account_reachability`) is missing or empty, OR if any domain's
-`backlog_drive.count_untriaged > 0`** — a review that can't show its
+`backlog_drive`, `account_reachability`, `since_last_build_verification`,
+`backlog_classes`, `ml_output_actionability`) is missing or empty, OR if any
+domain's `backlog_drive.count_untriaged > 0`**
+
+⚠️ **`account_reachability` was declared mandatory here on 2026-06-29 and
+enforced by NOTHING until 2026-08-20** — this text said "six required keys" and
+named it, while `render_system_report.py::_REQUIRED_COVERAGE_KEYS` held five and
+omitted it. Its stated motivation is *"the IB gateway was dark across reviews
+and went unflagged"*, and on 2026-08-20 the full-system audit measured the
+gateway restarting **three times in 33 minutes** (only one scheduled) with
+nothing flagging it. All nine are now in that tuple with real validators. **If
+you add a tenth key here, add it there in the same commit** — a declared-but-
+unenforced key is worse than no key, because the skill reads as if it is
+covered. — a review that can't show its
 promotion/training/soak coverage, its *execution-capture* measurement, its
 *full* backlog drive (every open item triaged, not a sample), *or its
 per-account reachability* has not actually run, regardless of how complete the
