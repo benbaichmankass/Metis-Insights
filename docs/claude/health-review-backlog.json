@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20T11:20:00+00:00",
+  "updated_at": "2026-08-20T12:18:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20057,6 +20057,31 @@
       "detail": "Found during the 2026-08-20 full-system audit (finding F-107 family). decide() opened with an early return: `if execution == \"shadow\" and headline.n_filled > 0: action='hold'; return decision` -- skipping the ENTIRE decision matrix. `execution` is read from config/strategies.yaml at render time (a point-in-time fact); `n_filled` is counted over the whole review window (an aggregate). A strategy demoted live->shadow mid-window therefore satisfies both terms as a matter of arithmetic, not as evidence of anything -- and that is exactly the population whose grade matters most, since a just-demoted leg is the one an operator is deciding whether to kill or restore. MEASURED over the 2026-06-30 packet set (runtime_logs/strategy_reviews/2026-06-30/), the full population of packets carrying the flag is TWO and they are opposite cases given the identical non-answer: vwap (322 closed, -$50.71, expectancy -0.157) and ict_scalp_5m (18 closed, 66.7% win, +$142.78, expectancy +7.93). Every metric was computed and then discarded by the early return. ict_scalp_5m's flag was a FALSE ALARM: config/strategy_changelog.json records live->shadow on 2026-06-29, the packet ran 06-30, and it returned to live on 2026-07-20 -- so a profitable leg was refused a grade because a completed demotion is indistinguishable, to an unscoped predicate, from a live pipeline anomaly. SECOND DEFECT, same site: the reason string asserted 'pipeline anomaly' unconditionally, including for fills that could not be dated at all -- a cause no code path had established (diagnostic-provenance sub-class A).",
       "evidence": "runtime_logs/strategy_reviews/2026-06-30/vwap.json and ict_scalp_5m.json (proposed_action='hold', reasons[0] the mismatch string, headline{} fully populated); config/strategy_changelog.json (ict_scalp_5m live->shadow 2026-06-29, shadow->live 2026-07-20); scripts/ml/strategy_review_packet.py::decide pre-fix early return. Control run at fix time: reverting only the script while keeping the new tests fails exactly the two behaviour-change tests (test_shadow_with_only_historical_fills_is_GRADED_not_refused, test_undatable_fills_hold_but_do_not_claim_an_anomaly) and passes 56.",
       "resolution_criteria": "RESOLVED 2026-08-20 by classify_execution_mismatch(), which returns four never-collapsed states -- not_shadow / shadow_no_fills / shadow_filling_now (a fill inside MISMATCH_RECENCY_DAYS of the window end: the real anomaly, still holds) / shadow_fills_historical (a completed demotion: GRADED on the matrix, with a reason recording that the old override would have fired) / shadow_fill_recency_unknown (holds, but says 'we could not look' rather than asserting an anomaly). decide() takes window_end so recency is measured against the window the packet covers, never wall-clock at render time. Verified by 8 new tests in tests/test_strategy_review_gate.py including a control that reproduces the historical case. Re-opens if a future packet is observed refusing to grade a strategy whose newest fill predates its window end."
+    },
+    {
+      "id": "BL-20260820-DOC-FRESHNESS-HAND-GREPS-ARE-NOISIER-THAN-THE-CI-CHECKER",
+      "opened_at": "2026-08-20T11:45:00+00:00",
+      "opened_by": "claude (llm-burst-2, 2026-08-20 doc-freshness sweep)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "tooling",
+      "title": "The doc-freshness SKILL's documented hand-greps return ~40 false positives where check_canonical_doc_coherence.py returns 0 - a session that runs them as instructed learns to ignore the output",
+      "detail": "MEASURED 2026-08-20 while running the sweep as written. `.claude/skills/doc-freshness/SKILL.md` § 'Mechanical scans' offers two paths and calls them equivalent: run `python scripts/ci/check_canonical_doc_coherence.py`, 'or the raw greps it wraps, if you want to eyeball'. They are NOT equivalent.\n\nSame working tree, same moment:\n  - `check_canonical_doc_coherence.py` -> 5/5 PASS, zero findings.\n  - The three documented `rg ... | rg -v -i '<filter>'` one-liners -> ~40 hits: historical sprint logs, audits, runbooks, the CI checker's OWN source line (`DEAD_IP = \"158.178.210.252\"`), and the doc-freshness SKILL quoting the gate names it is looking for.\n\nEvery one is a false positive. The cause is that the `rg -v` allow-list in the SKILL is a hand-written word list ('terminat|retir|histor|...') while the checker carries a real allowlist, so the greps cannot tell a historical mention from a live claim.",
+      "why_it_matters": "The SKILL says 'A non-empty result from any of these (after the allow-list filter) is drift to fix in this session, not to defer.' Followed literally that is ~40 items of nothing, every run. The predictable adaptation is to stop reading the output - which is the desensitized-alarm failure this repo names as its own P1 (`MB-20260719-DATASET-AUDIT-NOISE`: an audit degenerated to 62/86 alarming and a real dead-feature bug soaked for weeks inside the noise). A checker that cries wolf on every run trains the reader to walk past the one time it does not.\n\nNote what this is NOT: the CI guard is fine and the sweep still works. The defect is in the DOCUMENTED MANUAL PROCEDURE, which is the half a session actually follows.",
+      "snoozed_until": "2026-09-05",
+      "trigger_condition": "The next session that runs /doc-freshness, OR the next /health-review, OR 2026-09-05 - whichever comes first. Zero urgency; it costs a few minutes of noise per sweep, not correctness.",
+      "what_to_check": "Cheapest fix is to DELETE the raw greps from the SKILL and keep only `python scripts/ci/check_canonical_doc_coherence.py`, since the checker is the authority and the greps are a lossy paraphrase of it - two definitions of the same check are free to drift, and this one already has. If the eyeball path is worth keeping, give the checker a `--explain`/`--verbose` flag that PRINTS what it scanned and what it allow-listed, so a reader can audit the verdict without re-deriving it with a worse instrument. Do NOT just tighten the grep filters: that recreates the same drift one generation later.",
+      "resolution_criteria": "Closed when running the sweep exactly as the SKILL documents produces no false positives - either because the greps are gone, or because the eyeball path is served by the checker itself.",
+      "evidence": {
+        "checker_result": "5/5 PASS, 0 findings",
+        "hand_grep_hits": "~40, all false positives",
+        "same_tree_same_moment": true,
+        "self_referential_hits": [
+          "scripts/ci/check_canonical_doc_coherence.py:63 DEAD_IP",
+          "the doc-freshness SKILL quoting the removed-gate names"
+        ]
+      }
     }
   ]
 }
