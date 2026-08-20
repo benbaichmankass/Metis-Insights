@@ -111,7 +111,18 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f automation/board-results automation/board-posts
+          # `git add -A automation/` and NOT `git add -f <subdir> <subdir>`.
+          # Consuming the last pending request `git rm`s it, which leaves
+          # automation/board-posts/ empty -- and git does not track empty
+          # directories, so the path disappears from the worktree entirely and
+          # naming it explicitly makes `git add` exit non-zero. Under this
+          # step's `set -e` that failed the whole job, which is exactly the
+          # 11-second failure observed on runs 32417445476 and 32417922144:
+          # the post loop was never the problem, the commit-back was, and it
+          # failed AFTER `git rm` had already discarded the request. Staging
+          # the parent directory with -A handles the vanished subdirectory and
+          # the deletion together.
+          git add -A automation/
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -m "board-post: results [skip ci]"
           git push origin HEAD:${{ github.ref_name }}
