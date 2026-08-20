@@ -400,12 +400,24 @@ unavailable across that window.
 Breakdown: `datasets-out` **12 G**, of which `market_features` is **9.9 G**;
 `ml` 4.2 G; `runtime_logs` 3.3 G; `data` 1.9 G.
 
-The mechanism is visible in the paths. Three single files are 1.2 G each
-(`market_features/{BTC,ETH,SOL}USDT/5m/v002/data.jsonl`) — but the 15 m family
-carries `BTCUSDT/15m/**v520**` and `ETHUSDT/15m/**v901**`. Version numbers in
-the hundreds indicate a per-build versioned directory that nothing prunes.
-(Being confirmed in #10002 by counting the version dirs; the *hypothesis* is
-recorded here with the evidence that prompted it, not as a settled fact.)
+⚠️ **MY FIRST HYPOTHESIS WAS WRONG AND IS RETRACTED HERE.** Seeing
+`BTCUSDT/15m/v520` and `ETHUSDT/15m/v901` I inferred a per-build version
+counter accumulating unpruned. **Counted (#10002): 32 version dirs in total**
+across the whole family — BTCUSDT/15m has 8, ETHUSDT/15m has 4, several have 1.
+`v520`/`v901` are **labels, not sequence numbers**. There is no version
+accumulation.
+
+The real mechanism is simply **a few very large datasets**: BTCUSDT/15m is
+2.9 G across 8 dirs, BTCUSDT/5m 1.5 G, ETHUSDT/15m 1.7 G, and three single
+`data.jsonl` files are 1.2 G each. The disk is consumed by dataset *size*, not
+dataset *count* — which points the remedy at retention/compaction of the big
+frames, not at pruning stale versions.
+
+**A GC tool exists and I could not establish that it runs:**
+`scripts/ops/trainer_dataset_gc.py`. No `gc`/`prune`/`clean` timer appears in
+`systemctl list-timers`; it is referenced from `scripts/ops/run_training_cycle.sh`,
+so it may run inside the cycle. Pending in #10003 — recorded as *unestablished*,
+not as "never runs".
 
 Two side observations from the same read:
 
@@ -429,16 +441,24 @@ morning** — its exit census returned `LEGS 0` off it and was nearly reported.
 The `canonical-db-resolver` guard exists to stop CWD-relative fallbacks creating
 exactly this, and one is sitting on the trainer right now.
 
-*(Row counts pending #10002 — `sqlite3` was not available to my first probe, so
-I can confirm the FILE and its size but not yet that it is empty.)*
+**Confirmed (#10002):** the stray is **8,495,104 bytes with `trades = 0`**; the
+real journal is **913,940,480 bytes with `trades = 4820`**. A zero-row 8.5 MB
+decoy is precisely the shape that reads as *"no data"* rather than as *"wrong
+file"*.
 
-### F-19 · TRAINER · The worktree is dirty on a box that syncs from `main`
+### F-19 · TRAINER · Worktree "dirty" — RETRACTED, plus two stray backup files
 
-`git status --porcelain` → **15 modified files**, while HEAD == `origin/main`
-(`113741bc`, 0 behind). `ict-trainer-git-sync.timer` is active and firing every
-~15 min. A dirty tree on a pull-based box is either untracked generated output
-landing in tracked paths, or a local edit that a future `git reset --hard`
-silently destroys. *(File list pending #10002.)*
+⚠️ **DOWNGRADED — I called these "modified" and they are not.** All 15 are
+`??` (**untracked**), not `M`: `datasets-out/`, `ml/registry-store/`,
+`ml/experiments-runs/`, `results/`, `data/signal_audit.jsonl`,
+`data/ibkr_datasets/`, `artifacts/calibration/`, `datasets-live/`,
+`datasets-union/`, `datasets-out-bt/`. These are generated outputs correctly
+kept out of git, so a `git reset --hard` destroys nothing. HEAD == `origin/main`
+(`113741bc`, 0 behind). **Not a finding.**
+
+Two genuine leftovers in the list, both LOW: `scripts/backtest_pullback.py.m20`
+and `scripts/research/backtest_trend.py.m20` — stray `.m20` backup copies of
+harness files sitting in the worktree — and a file literally named `-`.
 
 ### Verified healthy on the trainer
 
@@ -492,3 +512,35 @@ and still be invisible in the apps.
 `streamlit_app.py::_position_upnl` (line 1413) has **zero call sites** —
 superseded by `_open_upnl` (1443), which is the one that reports whether the
 value is known. LOW.
+
+### F-23 · TRAINER · The dataset-audit alarm is noisy at ~15 %
+
+`runtime_logs/training_cycle.jsonl`, **7,442 rows over 149 cycles**, status tally:
+
+| status | count |
+|---|---|
+| `manifest_ok` | 4,754 |
+| `manifest_skipped` | 408 |
+| **`manifest_audit_flagged`** | **406** |
+| **`manifest_untrained_stale`** | **290** |
+| `manifest_audit_skipped_enforced` | 150 |
+| `cycle_start` / `pulled` / `sync_ok` | 149 each |
+| `datasets_ok` | 147 |
+
+Non-`ok` manifest events are **846 against 4,754 ok ≈ 15 %**. `CLAUDE.md`'s
+"If you see something, say something" rule cites `MB-20260719-DATASET-AUDIT-NOISE`
+— the trainer dataset audit degenerating to 62/86 manifests alarming, inside
+which the ETH-xa dead-feature bug soaked for weeks. This is the same instrument
+still firing at a rate where individual flags are unlikely to be read.
+
+`outcome` across all 7,442 rows is only `{trained: 20, already_complete: 20}`.
+
+### F-24 · TRAINER · `forecast_live` has no `data.jsonl` while its timer fires every 15 min
+
+`ict-trainer-forecast.timer` is active (last 06:45Z, next 07:00Z), yet a
+recursive glob for `datasets-out/forecast_live/**/data.jsonl` returns **NONE**.
+The other four families all resolve with 1–2 h freshness
+(`trade_outcomes` 1.9 h, `setup_labels` 1.9 h, `execution_quality` 1.9 h,
+`market_features` 1.0 h). Either the family writes elsewhere (there is a
+separate `datasets-out/forecasts/` at 48 M) or it is producing nothing.
+Probed in #10003; recorded as **unresolved**, not as a failure.
