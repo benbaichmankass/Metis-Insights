@@ -215,8 +215,9 @@ FWER-adjusted, entirely misleading headline.
 ### 5.4 What E2 actually answers
 
 On the decision-relevant targets — the incremental value of holding, and its sign —
-**not one of 22 scoreable features carries information**. Not the eleven endogenous path
-features. Not the eleven exogenous peer features E1 shipped, joined at full coverage.
+**not one of 22 scoreable features carries information** — **9 endogenous** path features
+plus **13 exogenous** peer features (16 xa columns less the 3 constant presence flags),
+which reconciles: 9 + 13 = 22.
 **Zero at the family-wise bar and zero at the pointwise bar**, where ~1.1 pointwise hits
 would be expected by chance at α = 0.05 across 22 features.
 

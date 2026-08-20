@@ -109,7 +109,8 @@ dangerous: a fully controlled, purged, embargoed, FWER-adjusted, misleading head
 **On the decision-relevant targets, nothing in the widened panel carries information** —
 zero at the family-wise bar and **zero at the pointwise bar**, where ~1.1 hits would be
 expected by chance across 22 features at α = 0.05. Not the 9 endogenous path features,
-not the 11 scoreable exogenous peer features E1 shipped at full coverage.
+not the 13 scoreable exogenous peer features E1 shipped at full coverage (16 xa
+columns less 3 constant presence flags; 9 + 13 = 22, which reconciles).
 
 ⚠️ **Scope limits, both stated rather than discovered later:** two of the eleven
 endogenous features named in §0.2 (`feat_taker_imbalance`,
