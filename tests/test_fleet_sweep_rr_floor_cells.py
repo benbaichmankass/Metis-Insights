@@ -171,3 +171,61 @@ def test_a_cell_with_no_state_key_at_all_is_graded_normally():
     """Harnesses that predate the field must not all become `lever_inert`."""
     g = _gate({"net_total_r": 12.0, "max_drawdown_r": 4.0}, BASE)
     assert g["passed"] is True
+
+
+def test_rr_floor_cell_is_withheld_when_the_harness_has_no_such_flag():
+    """A cell must not be emitted for a harness that does not declare its flag.
+
+    REGRESSION PIN for
+    BL-20260820-SWEEP-EMITS-CELLS-FOR-FLAGS-THE-HARNESS-DOES-NOT-IMPLEMENT.
+
+    `inert_rr_floor_reason` tested only whether the lever is SEMANTICALLY
+    applicable — is the family in `LIVE_TP_CAPPED_FAMILIES`, so `rr_from_here`
+    has a target to measure against. `squeeze` is correctly in that set (its live
+    unit does clamp the TP), but `backtest_squeeze.py` declares no `--rr-floor`
+    flag, so the sweep handed it an argument it does not accept.
+
+    MEASURED on the M31 P5 rr_floor walk-forward, 2026-08-20: 3 of 57
+    (leg x cell) rows returned `verdict: "error"` on `squeeze_breakout_4h`, one
+    per rr_floor cell. `error` is a COLLAPSED state there — a genuine crash and a
+    flag the harness never had are indistinguishable, and the second is not a
+    failure at all. The honest grade is the `no_harness_lever` vocabulary the run
+    plan already uses at the LEG level.
+    """
+    mod = m20
+    cfg = {"symbols": ["BTCUSDT"], "timeframe": "4h", "tp_r": 50.0}
+
+    skipped: list = []
+    cells = mod.cells_for(cfg, "squeeze", skipped=skipped, tp_cap_pct=0.099,
+                          harness="scripts/backtest_squeeze.py")
+    tags = {c[0] for c in cells}
+    assert not (tags & {"rrfloor0.5", "rrfloor0.75", "rrfloor1"}), (
+        f"rr_floor cells emitted for a harness with no --rr-floor flag: {tags}")
+    reasons = {s["reason"] for s in skipped if s.get("lever") == "rr_floor"}
+    assert reasons and all("harness_has_no_rr_floor_flag" in r for r in reasons), (
+        f"withheld, but not for the stated reason: {reasons}")
+
+    # AND the control: a harness that DOES declare the flag still gets its cells.
+    # Without this the test would pass against a change that withheld rr_floor
+    # everywhere, which is the opposite defect.
+    ok = mod.cells_for({"symbols": ["BTCUSDT"], "timeframe": "1h",
+                        "tp_r": 50.0, "trail_mult": 5.0},
+                       "donchian", skipped=[], tp_cap_pct=0.099,
+                       harness="scripts/backtest_trend.py")
+    assert {"rrfloor0.5", "rrfloor0.75", "rrfloor1"} <= {c[0] for c in ok}, (
+        "the fix withheld rr_floor from a harness that DOES implement it")
+
+
+def test_harness_implements_flag_never_collapses_unreadable_into_absent():
+    """`None` (we could not read the source) must not read as `False`.
+
+    Collapsing them would turn a filesystem problem into a fake coverage answer:
+    every cell silently withheld for a harness we simply failed to open.
+    """
+    mod = m20
+    assert mod.harness_implements_flag("scripts/backtest_trend.py", "--rr-floor") is True
+    assert mod.harness_implements_flag("scripts/backtest_squeeze.py", "--rr-floor") is False
+    assert mod.harness_implements_flag("scripts/does_not_exist.py", "--rr-floor") is None
+    # and the gate distinguishes them in its reason string
+    assert "harness_unreadable" in (
+        mod.inert_rr_floor_reason("squeeze", 0.099, "scripts/does_not_exist.py") or "")

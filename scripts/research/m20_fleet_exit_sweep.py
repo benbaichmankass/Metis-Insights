@@ -750,7 +750,28 @@ def regime_gate_delta(leg: str, off_legs: set[str] | None) -> str:
     return GATE_DELTA_NARROWER if leg in off_legs else GATE_DELTA_NONE
 
 
-def inert_rr_floor_reason(fam: str | None, tp_cap_pct: float) -> str | None:
+def harness_implements_flag(harness: str, flag: str) -> bool | None:
+    """Does this harness's own argument parser declare `flag`?
+
+    READ FROM THE HARNESS SOURCE, not from a hardcoded list, because a list is
+    exactly what drifts: the flag lives in the harness and any table naming it
+    here is a second copy that can silently disagree with the first.
+
+    Three states, and the None is load-bearing: True (declared) / False (the
+    source was read and the flag is NOT there) / **None — we could not read the
+    source at all**, which must not be collapsed into False. Reporting an
+    unreadable harness as "does not implement" would silently withhold every
+    cell for it, turning a filesystem problem into a fake coverage answer.
+    """
+    try:
+        src = (REPO / harness).read_text()
+    except OSError:
+        return None
+    return f'"{flag}"' in src or f"'{flag}'" in src
+
+
+def inert_rr_floor_reason(fam: str | None, tp_cap_pct: float,
+                          harness: str | None = None) -> str | None:
     """Why an rr_floor cell CANNOT fire on this leg, or None if it can.
 
     `rr_from_here = r_to_target / r_to_stop` needs a TARGET. Both harnesses
@@ -770,6 +791,33 @@ def inert_rr_floor_reason(fam: str | None, tp_cap_pct: float) -> str | None:
         return f"family_has_no_live_tp_cap:{fam}"
     if tp_cap_pct <= 0.0:
         return "no_tp_cap_in_run:rr_from_here_undefined_without_a_target"
+    # THE HARNESS MUST ALSO IMPLEMENT THE FLAG — a SEPARATE condition from
+    # whether the lever is semantically applicable, and it was missing.
+    #
+    # `LIVE_TP_CAPPED_FAMILIES` answers "does this family's live unit clamp the
+    # TP, so rr_from_here has a target to measure against?" — and `squeeze` and
+    # `fade` are correctly in it. But `--rr-floor` is implemented only in
+    # backtest_trend.py and backtest_pullback.py. So the two tests above pass
+    # for a squeeze leg and the sweep then hands `backtest_squeeze.py` a flag it
+    # does not declare.
+    #
+    # MEASURED 2026-08-20 on the M31 P5 rr_floor walk-forward: 3 of 57
+    # (leg x cell) rows came back `verdict: "error"` on `squeeze_breakout_4h`,
+    # one per rr_floor cell. **`error` is a COLLAPSED state here** — a genuine
+    # crash and a flag the harness never had are indistinguishable in it, and
+    # the second is not a failure at all, it is a leg the lever does not reach.
+    # The plan already has the right vocabulary at the LEG level
+    # (`no_harness_levers`); it simply was not applied at the CELL level.
+    #
+    # The existing `harness-lever-coupling` guard does NOT cover this: it checks
+    # config key -> is the harness modelling it, i.e. the opposite direction.
+    # BL-20260820-SWEEP-EMITS-CELLS-FOR-FLAGS-THE-HARNESS-DOES-NOT-IMPLEMENT
+    if harness is not None:
+        impl = harness_implements_flag(harness, "--rr-floor")
+        if impl is False:
+            return f"harness_has_no_rr_floor_flag:{harness.split('/')[-1]}"
+        if impl is None:
+            return f"harness_unreadable:{harness.split('/')[-1]}"
     return None
 
 
@@ -851,6 +899,7 @@ def cells_for(cfg: dict, fam: str | None = None,
               *,
               without_declared_levers: frozenset[str] | None = None,
               tp_cap_pct: float = 0.0,
+              harness: str | None = None,
               ) -> list[tuple[str, str, list[str]]]:
     """(cell_tag, matrix_lever, extra_args). Config-exact base is implied.
 
@@ -928,7 +977,7 @@ def cells_for(cfg: dict, fam: str | None = None,
     # summary to see which of these the leg could reach AT ALL before reading
     # any verdict — a floor below a leg's own rr_min distribution is a real
     # no-op, and is distinguishable from an inert one only by `rr_floor_state`.
-    _rr_inert = inert_rr_floor_reason(fam, tp_cap_pct)
+    _rr_inert = inert_rr_floor_reason(fam, tp_cap_pct, harness)
     for _f in (0.5, 0.75, 1.0):
         _tag = f"rrfloor{_f:g}"
         if _rr_inert:
@@ -2260,7 +2309,7 @@ def main(argv: list[str]) -> int:
         inert: list = []
         cells = cells_for(cfg, fam, skipped=inert,
                           without_declared_levers=without_levers,
-                          tp_cap_pct=a.tp_cap_pct)
+                          tp_cap_pct=a.tp_cap_pct, harness=harness)
         # WHAT THIS LEG ACTUALLY HAD REMOVED, against what the run asked for.
         # A leg that never declared the requested lever produces a base
         # byte-identical to the config-exact base; recording only the run-level

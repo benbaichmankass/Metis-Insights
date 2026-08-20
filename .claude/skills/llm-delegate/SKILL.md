@@ -41,7 +41,36 @@ expression" rather than a line number** — the prompt shape hid a defect that w
 there the whole time, which is worth remembering when a metric looks clean.
 
 **Re-grade the line-citation column after the fix before trusting a `file:line`
-it emits.** It is currently 0/20 on the pre-fix prompt and *unmeasured* after.
+it emits.** It was 0/20 on the pre-fix prompt. **RE-GRADED 2026-08-20, n=25**
+(two E3.5 enumeration tasks over `backtest_trend.py` 66 KB, and
+`triple_barrier.py` + `build_intrabar_exit_panel.py` 31 KB combined):
+
+| column | result |
+|---|---|
+| substantive claims | **25 / 25 valid** |
+| line citations exact | **17 / 25** |
+| line citations off-by-one | 8 / 25 |
+| line citations **wrong** | **0 / 25** |
+
+So `number_lines` moved the column from **0/20 to 17/25 exact with zero wrong**,
+and every one of the 8 misses was off by exactly ±1 — clustered, and consistent
+in direction *within* a cluster (three consecutive citations all −1, three all
++1), which is the signature of an off-by-one on a block boundary rather than of
+counting. **Treat an emitted line number as ±1, not as exact**: `grep` the quoted
+expression rather than seeking to the line. The quoted expression was verbatim
+correct 25/25 and remains the reliable half.
+
+⚠️ **The `absence` failure mode did NOT recur, and it was specifically probed.**
+Task 2 asked whether the emitted per-row record carries any field identifying
+*which* barrier the row was labelled at, and instructed that "if no such field
+exists, say so explicitly — that absence is itself the answer". It returned
+`None found in the provided files` with the correct reason. Verified independently
+by extracting the emitted `rec` keys: `advantage_r, closed_at, cohort,
+decision_time, direction, forward_r, label_hold, label_t0, label_t1, size,
+strategy, symbol, touch, trade_id, trade_realized_r` — no barrier field, and
+`tp_r` is recorded only at MANIFEST level. **Asking for the absence explicitly,
+and naming it as a legitimate answer, is what made this safe** — the 2026-08-18
+false positive came from a question that had no "nothing here" option.
 
 ⚠️ **It is not a substitute for reading a small file.** Three of the five tasks
 were under 200 lines, where the grading session could derive the ground truth by
