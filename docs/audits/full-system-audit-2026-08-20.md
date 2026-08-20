@@ -676,3 +676,56 @@ that **shipping a capability without a runner is a CI failure**, and that the
 periodic review asks *"what was built since the last review, and is each piece
 actually running?"* — both of which are skill changes, delivered separately in
 this session.
+
+---
+
+## Part 7 — Per-strategy config (previously unreached)
+
+Cross-checked `config/strategies.yaml` (55 declared) against
+`config/accounts.yaml` (11 accounts) and the **live** runtime's loaded set
+(`runtime_status.strategies`, 52, pulled 06:31Z).
+
+| check | result |
+|---|---|
+| enabled but NOT loaded by the live runtime | **none** ✅ |
+| routed by an account but NOT declared | **none** ✅ |
+| loaded live but not enabled in YAML | **none** ✅ |
+| routed strategy × account pairs whose **symbols do not intersect** | **0 of all routed pairs** ✅ |
+| enabled but routed to **no account** | **1 — `turtle_soup`** ⚠️ |
+
+Declared 55 → enabled 52 → loaded live 52 → named by an account 52. The three
+disabled ones are correctly absent from the runtime. Execution gates:
+**48 `live`, 7 `shadow`**.
+
+### F-30 · `turtle_soup` is loaded every tick and can dispatch to nothing
+
+`enabled: true`, `execution: shadow`, `timeframe: 15m`, `symbols: [BTCUSDT]`,
+a full parameter block, a unit at `src/units/strategies/turtle_soup.py`, and it
+**is in the live runtime's loaded set** — while **no account names it** (no
+wildcard mechanism exists; the other 52 are each named explicitly).
+
+So it is evaluated on the tick and cannot produce an order package for anyone:
+`multi_account_execute` iterates the accounts that route a strategy, and there
+are none. Its `shadow` gate does not explain this — `shadow` means *"runs and
+logs order packages everywhere (live data collection) but never sends a live
+order"*, and with no account there is nothing to log per-account either. The
+data-collection purpose the gate exists to serve is defeated by the routing gap.
+
+**Scale it honestly:** the marginal cost is the indicator computation, not a
+candle fetch — BTCUSDT/15m is already fetched for other legs, so the cache
+serves it. This is a **capability with no consumer**, not a material
+performance drag. It belongs to the same class as F-25 and F-27: built,
+configured, loaded, and connected to nothing.
+
+Disposition: either route it to an account (it is `shadow`, so routing it is
+data collection, not exposure) or disable it. Tier-3 either way —
+`config/strategies.yaml` and `config/accounts.yaml` are both Tier-3 files — so
+this is a **proposal**, not a change.
+
+### Verified sound
+
+- **Routing coherence is exact**: every routed strategy shares at least one
+  symbol with its account. The "declared live on an account that cannot trade
+  its instrument" class is **absent**.
+- `ib_live` and `oanda_practice` carry `mode: dry_run` **and** zero strategies —
+  coherently shelved, not half-shelved.
