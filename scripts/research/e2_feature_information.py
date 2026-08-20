@@ -122,7 +122,36 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+def _repo_root() -> Path:
+    """Locate the repo so the splitter import works from OUTSIDE the tree too.
+
+    This tool is transported to the trainer and run from a scratch dir, where
+    ``parents[2]`` resolves to ``/`` and the import dies with a bare
+    ``ModuleNotFoundError: No module named 'scripts'`` — which reads like a
+    missing dependency rather than a wrong working directory. Each candidate is
+    confirmed by the presence of the module actually being imported, so a root
+    is never *assumed* to be right.
+    """
+    import os
+
+    cands = []
+    env = os.environ.get("METIS_REPO_ROOT")
+    if env:
+        cands.append(Path(env))
+    cands.append(Path(__file__).resolve().parents[2])
+    cands.append(Path.cwd())
+    for c in cands:
+        if (c / "scripts" / "research" / "analyze_exit_head.py").is_file():
+            return c
+    raise SystemExit(
+        "E2: cannot locate the repo root — analyze_exit_head.py was not found "
+        f"under any of {[str(c) for c in cands]}. Run from inside the repo, or "
+        "set METIS_REPO_ROOT=/path/to/repo. (The splitter is imported, never "
+        "copied, so this tool cannot run without the repo on the path.)"
+    )
+
+
+_REPO_ROOT = _repo_root()
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
