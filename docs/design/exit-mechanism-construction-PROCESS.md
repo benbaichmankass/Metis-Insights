@@ -245,6 +245,51 @@ of them alone.
 *Falsifier:* a combined cell must beat the best single cell by more than the added degrees
 of freedom buy. State the comparison explicitly.
 
+### E3.5 · OPERATOR DIRECTIVE 2026-08-20 — moving the brackets IS active management
+
+Recorded verbatim in substance because it settles a scope question this document was
+ambiguous about, and because § 0.1's *"a bracket isn't an exit strategy, it's a
+safeguard"* could otherwise be read as ruling out the cheapest thing that works:
+
+> *"It's fine if the active management is moving the brackets around. That's absolutely
+> fine. It just needs to be something that we do consistently and have control of and are
+> conscious of … I understand that we don't want to lose too much potential, or if that's
+> going to kill our spread and push us over the edge with the fees to being in minus. I
+> just want to make sure that we're also actively re-evaluating and adjusting. There is
+> some active management on the SL side, but it seems not active enough."*
+
+**Three things follow, and they change what E3 is allowed to propose.**
+
+1. **A bracket that MOVES is an exit mechanism; a bracket that is set once is not.** The
+   distinction § 0.1 draws is between *fixed-at-entry* and *re-evaluated*, not between
+   *level-based* and *close-based*. A lever that ratchets a stop or pulls a target in on
+   decision-time state is squarely in scope.
+
+2. **The cost measurement says this is the form that can work here.** Measured
+   2026-08-20 (`e3-joint-lever-screen-2026-08-20.md`): a round trip costs **0.082–0.163 R**
+   against a fee-free mean edge of **+0.1376 R** (XRP) / **+0.1167 R** (SOL). So
+   *crossing the spread to exit early eats most of a trade's edge* — an early-close lever
+   must be rare and decisive, and the E3 screen's one positive cell died precisely because
+   it fired on 34–52% of trades. **Amending a resting stop or target is not a fill and
+   costs nothing.** The operator's "kill our spread … push us over into minus" is the same
+   constraint arrived at from the other side, and it is now a number rather than an
+   instinct.
+
+3. **"Not active enough" is measurably right.** Of **48 live strategy legs, 30 (62.5%)
+   declare no exit lever at all**; of the 18 that do, `trail_decay` is on 16, `stale_stop`
+   on 3, `giveback_stop` on 1, and `vol_trail` on **zero** (measured against
+   `m20_fleet_exit_sweep.LEVER_DECLARED_KEYS` over `config/strategies.yaml`, 2026-08-20).
+   Beside that, `m31-p5-telemetry-reading-lever-PROPOSAL.md` § 2 records **13 lever
+   firings lifetime against 1,142 closed trades**. ⚠️ Neither figure counts the monitor's
+   own break-even stop-trail, which is not a declared YAML lever — so they bound the
+   *declared* surface, not all SL movement. Filed as
+   `BL-20260820-EXIT-LEVER-COVERAGE-IS-THE-MINORITY-OF-LIVE-LEGS`.
+
+**So the E3 lever family to design next is a bracket that is a FUNCTION OF STATE rather
+than a constant** — and E1's exogenous block gets a second hearing there, because it would
+be conditioning a *level* rather than triggering an *exit*. The gate is unchanged: net of
+fees, walk-forward, dispersion-tested, and Tier-3 to flip.
+
 ### E4 · Dispersion-test the verdict — split AND fold
 `m20_split_dispersion.py` for the IS/OOS boundary; `m20_dispersion_rate` for fold offsets.
 *Falsifier:* `split_sensitive: true` is a **refusal**, not a caveat. It does not proceed.
