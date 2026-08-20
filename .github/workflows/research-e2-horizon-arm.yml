@@ -1,0 +1,389 @@
+name: research-e2-horizon-arm
+
+# E2 × HORIZON — does the per-feature information verdict depend on the label horizon?
+#
+# The follow-up PR #10029 named as the cheapest next probe. E2 measured
+# `no_feature_beats_control` on `advantage_r` and `label_hold` at a **12-bar (3h)
+# vertical barrier**, and recorded that as a CONDITION ON THE ANSWER rather than a
+# property of the fleet (docs/design/exit-mechanism-construction-PROCESS.md § 3.1
+# "record the conditions"). This arm varies the horizon and holds everything else
+# fixed.
+#
+# WHY A GITHUB RUNNER AND NOT THE TRAINER VM. The reference arm ran on the trainer,
+# so "E2 again" looks like a trainer job. It is not: this is CPU-only — a public-feed
+# fetch plus a backtest over it — which docs/claude/vm-resource-management.md routes
+# to a free GitHub-hosted runner. No VM, no lane claim, no contention, $0. The
+# trainer is a single core shared by every session; putting this on it would starve
+# concurrent work for no gain.
+#
+# WHY NOT EXTEND research-exit-head-build.yml. That workflow trains the MULTIVARIATE
+# head (`analyze_exit_head.py`) and passes **no `--peer-data`**, so the panel it
+# builds carries no E1 exogenous block at all. This arm needs the per-feature
+# information test (`e2_feature_information.py`), a horizon sweep, and the peer
+# series joined. Different question, different tool, different substrate.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THE TWO CONTROLS THAT MAKE THE COMPARISON MEAN ANYTHING
+#
+# 1. `expected_hold_bars` IS PINNED, NOT LEFT TO DEFAULT. In the panel builder
+#    `expected = expected_hold_bars if expected_hold_bars else time_stop_bars`, and
+#    `bars_in_trade_frac = bars_in_trade / expected`. Left unset, that denominator
+#    would MOVE WITH THE HORIZON — so the arms would differ in their FEATURE SET as
+#    well as their label, and any difference between them would be uninterpretable.
+#    Pinning it to the harness's own `timeout_bars` (24) makes the label the only
+#    thing that varies.
+#
+#    (Consequence worth knowing: under a RANK statistic, dividing by a constant is
+#    rank-preserving, so `bars_in_trade_frac` is identical to `bars_in_trade` BY
+#    CONSTRUCTION — not coincidentally, as the reference run's "identical to 16 s.f."
+#    reported it. The family therefore holds one fewer distinct test than it appears
+#    to, at every horizon. BL-20260820-BARS-IN-TRADE-FRAC-RANK-IDENTICAL.)
+#
+# 2. `embargo_bars` TRACKS THE HORIZON. The splitter purges a train row whose OWN
+#    `label_t1` reaches within `embargo_bars` of the test block — so the purge is
+#    already horizon-aware, and the embargo is an ADDITIONAL buffer on top. The
+#    reference arm ran embargo 12 at horizon 12; holding embargo fixed at 12 while
+#    the horizon grew would silently shrink that buffer in relative terms. Setting
+#    embargo = horizon preserves the reference arm's relationship at every rung.
+#
+# THE 12-BAR RUNG IS A REPLICATION CONTROL, NOT A RESULT. It reproduces the
+# reference arm's configuration on this lane's feed. The reference ran on the
+# trainer's corpus and this runs on Binance's public archive, so the trades are NOT
+# the same trades and an exact match is not expected — what is expected is the same
+# DIRECTION. If 12 bars does not reproduce, the longer rungs are not trustworthy
+# either, and that must be reported rather than glossed.
+#
+# HORIZONS ARE ANCHORED ON A DECLARED VALUE, NOT INTUITED. The `ict_scalp` adapter's
+# own trade timeout is `timeout_bars: int = 24` (scripts/research/build_backtest_panel.py),
+# and the panel builder exposes no override, so a trade runs at most 24 bars. The
+# ladder is that value's multiples: 12 (0.5x, the reference), 24 (1.0x, the
+# strategy's own designed limit), 48 (2.0x), 96 (4.0x — far past trade close, where
+# `forward_r` stops being an exit-timing question and becomes a strategy-change
+# question; kept as the honest upper probe and labelled as such).
+#
+# Safety: READS the repo + fetches public candles + runs the strategy unit on
+# historical data. Observe-only, Tier-1. It does not push, deploy, or touch
+# config/ or strategies.yaml. Any edge found routes through the M20 net-of-cost
+# gate + Tier-3 before reaching a live surface.
+#
+# Trigger: workflow_dispatch ONLY — deliberately. An `issues.opened` trigger would
+# need its label bootstrapped in bootstrap-labels.yml, and a workflow filtering on a
+# label that was never created can never fire — the exact latent defect PR #10026
+# just fixed for `oci-inventory`. Not worth re-introducing for a sweep that is
+# dispatched by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Comma list of target symbols (each needs a config/cross_asset.yaml row for the exogenous block)"
+        default: "XRPUSDT,SOLUSDT"
+      timeframe:
+        description: "Strategy timeframe label"
+        default: "15m"
+      days:
+        description: "Trailing days of candles (~1830 = the ~175k 15m bars the reference arm used)"
+        default: "1830"
+      horizons:
+        description: "Comma list of vertical-barrier horizons in bars (multiples of the harness timeout 24)"
+        default: "12,24,48,96"
+      tp_r:
+        description: "Upper-barrier profit target in R"
+        default: "2.0"
+      expected_hold_bars:
+        description: "PINNED bars_in_trade_frac denominator — keep constant across horizons or the feature set moves too"
+        default: "24"
+      n_shuffles:
+        description: "Null replicates per run"
+        default: "1000"
+      n_folds:
+        description: "Purged walk-forward folds"
+        default: "4"
+      seed:
+        description: "RNG seed"
+        default: "20260820"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-e2-horizon-arm-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  arm:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyyaml requests
+
+      - name: Self-test the E2 tool on this runner before trusting any run
+        # A result from a tool whose own controls were never exercised HERE is a
+        # green that checked nothing. The suite includes a planted dead positive
+        # control that must force `harness_invalid`.
+        run: python scripts/research/e2_feature_information.py --selftest
+
+      - name: Resolve targets, peers, and the fetch union
+        env:
+          IN_SYMBOLS: ${{ inputs.symbols }}
+          IN_HORIZONS: ${{ inputs.horizons }}
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF'
+          import json, os, re, sys
+          sys.path.insert(0, ".")
+          from src.runtime.cross_asset_live import peers_for
+
+          syms = [s.strip().upper() for s in os.environ["IN_SYMBOLS"].split(",") if s.strip()]
+          hz   = [h.strip()          for h in os.environ["IN_HORIZONS"].split(",") if h.strip()]
+          # Validate rather than interpolate — an unvalidated value here is arg injection.
+          bad = [s for s in syms if not re.fullmatch(r"[A-Z0-9]+", s)]
+          if bad:
+              print(f"::error::invalid symbol(s): {bad}"); sys.exit(1)
+          bad = [h for h in hz if not re.fullmatch(r"[0-9]+", h) or int(h) < 1]
+          if bad:
+              print(f"::error::invalid horizon(s): {bad}"); sys.exit(1)
+
+          plan, union = {}, set()
+          for s in syms:
+              p = list(peers_for(s) or [])
+              plan[s] = p
+              union.add(s); union.update(p)
+              if not p:
+                  # Not fatal, but it silently changes the substrate: the panel would
+                  # carry NO exogenous block and the arm would not be comparable to
+                  # the reference. Refuse rather than produce an incomparable result.
+                  print(f"::error::{s} has no peers in config/cross_asset.yaml — the "
+                        "E1 exogenous block would be absent and this arm would not be "
+                        "comparable to the reference run.")
+                  sys.exit(1)
+          json.dump({"plan": plan, "union": sorted(union), "horizons": [int(h) for h in hz]},
+                    open("arm_plan.json", "w"), indent=2)
+          print(json.dumps({"plan": plan, "union": sorted(union), "horizons": hz}, indent=2))
+          PYEOF
+
+      - name: Fetch feeds (Binance public archive — keyless; Bybit geoblocks US runners)
+        env:
+          BACKTEST_FEED_SOURCE: binance_vision
+          IN_TIMEFRAME: ${{ inputs.timeframe }}
+          IN_DAYS: ${{ inputs.days }}
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          case "${IN_TIMEFRAME}" in
+            *m) INT="${IN_TIMEFRAME%m}" ;;
+            1h) INT=60 ;; 2h) INT=120 ;; 4h) INT=240 ;;
+            1d|1D) INT=D ;; *) INT="${IN_TIMEFRAME}" ;;
+          esac
+          for SYM in $(python -c "import json;print(' '.join(json.load(open('arm_plan.json'))['union']))"); do
+            echo "::group::fetch ${SYM}"
+            python scripts/ops/fetch_backtest_candles.py \
+              --symbol "${SYM}" --interval "${INT}" --days "${IN_DAYS}" \
+              --output "data/feed_${SYM}.csv"
+            echo "${SYM} rows: $(wc -l < "data/feed_${SYM}.csv")"
+            echo "::endgroup::"
+          done
+
+      - name: Sweep — build a panel per (symbol, horizon) and run E2 on all three targets
+        env:
+          IN_TIMEFRAME: ${{ inputs.timeframe }}
+          IN_TPR: ${{ inputs.tp_r }}
+          IN_EHB: ${{ inputs.expected_hold_bars }}
+          IN_SHUF: ${{ inputs.n_shuffles }}
+          IN_FOLDS: ${{ inputs.n_folds }}
+          IN_SEED: ${{ inputs.seed }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/research
+          SYMS=$(python -c "import json;print(' '.join(json.load(open('arm_plan.json'))['plan']))")
+          HZS=$(python -c "import json;print(' '.join(str(h) for h in json.load(open('arm_plan.json'))['horizons']))")
+
+          for SYM in ${SYMS}; do
+            PEER_ARGS=""
+            for P in $(python -c "import json,sys;print(' '.join(json.load(open('arm_plan.json'))['plan']['${SYM}']))"); do
+              PEER_ARGS="${PEER_ARGS} --peer-data ${P}=data/feed_${P}.csv"
+            done
+            for HZ in ${HZS}; do
+              TAG="${SYM}_h${HZ}"
+              echo "::group::panel ${TAG}"
+              # --expected-hold-bars is PINNED (see header control 1). --time-stop-bars
+              # is the ONLY thing that varies across rungs.
+              python scripts/research/build_intrabar_exit_panel.py \
+                --harness ict_scalp --data "data/feed_${SYM}.csv" \
+                --symbol "${SYM}" --timeframe "${IN_TIMEFRAME}" \
+                --time-stop-bars "${HZ}" --tp-r "${IN_TPR}" \
+                --expected-hold-bars "${IN_EHB}" \
+                ${PEER_ARGS} \
+                --out "artifacts/research/panel_${TAG}.jsonl"
+              echo "::endgroup::"
+
+              # Assert the panel measured something AND that the exogenous block
+              # actually joined. A silent peer-join failure would leave the endogenous
+              # features intact, so the run would SUCCEED on a different substrate than
+              # the reference — a vacuous comparison that looks like a real one.
+              python - "artifacts/research/panel_${TAG}.jsonl.manifest.json" "${TAG}" <<'PYEOF'
+          import json, sys
+          path, tag = sys.argv[1], sys.argv[2]
+          m = json.load(open(path))
+          if m.get("error"):
+              print(f"::error::{tag}: panel build error: {m['error']}"); sys.exit(1)
+          rows, trades = m.get("row_count") or 0, m.get("trades_used") or 0
+          if rows < 1 or trades < 1:
+              print(f"::error::{tag}: panel EMPTY (rows={rows}, trades={trades})"); sys.exit(1)
+          xa = m.get("cross_asset") or {}
+          if xa.get("state") != "joined":
+              print(f"::error::{tag}: cross-asset block state={xa.get('state')!r} "
+                    f"(configured={xa.get('peers_configured')}, joined={xa.get('peers_joined')}) "
+                    "— the exogenous half is absent, so this run is NOT comparable to "
+                    "the reference arm. Refusing rather than reporting an incomparable "
+                    "negative.")
+              sys.exit(1)
+          cov = xa.get("row_coverage")
+          if cov is None or cov < 0.99:
+              print(f"::error::{tag}: xa row_coverage={cov} — the reference arm ran at "
+                    "1.0; a partial join changes the substrate."); sys.exit(1)
+          print(f"OK {tag}: rows={rows} trades={trades} xa={xa.get('peers_joined')} cov={cov}")
+          PYEOF
+
+              for TGT in forward_r advantage_r label_hold; do
+                echo "::group::E2 ${TAG} ${TGT}"
+                # embargo tracks the horizon (see header control 2).
+                python scripts/research/e2_feature_information.py \
+                  --panel "artifacts/research/panel_${TAG}.jsonl" \
+                  --target "${TGT}" \
+                  --embargo-bars "${HZ}" \
+                  --n-folds "${IN_FOLDS}" \
+                  --n-shuffles "${IN_SHUF}" \
+                  --seed "${IN_SEED}" \
+                  --out "artifacts/research/e2_${TAG}_${TGT}.json"
+                echo "::endgroup::"
+              done
+            done
+          done
+
+      - name: Assert every run was ADMISSIBLE (controls fired) before reading any verdict
+        # A negative from a run whose controls misbehaved is not evidence. This is the
+        # whole reason E2 has a harness gate; not checking it here would throw that away.
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF'
+          import glob, json, sys
+          bad, unmeasured, ok = [], [], 0
+          for p in sorted(glob.glob("artifacts/research/e2_*.json")):
+              r = json.load(open(p))
+              v = r.get("verdict")
+              if v == "harness_invalid":
+                  bad.append((p, r.get("control_failure")))
+              elif v == "unmeasured":
+                  unmeasured.append((p, r.get("unmeasured_reason")))
+              else:
+                  ok += 1
+          if bad:
+              for p, cf in bad:
+                  print(f"::error::{p}: harness_invalid — controls misbehaved: {cf}")
+              sys.exit(1)
+          for p, why in unmeasured:
+              # UNMEASURED is not a failure and is emphatically not a negative — it is
+              # reported loudly so it can never be read as one.
+              print(f"::warning::{p}: UNMEASURED (not a negative) — {why}")
+          if ok == 0 and not unmeasured:
+              print("::error::no E2 reports were produced at all"); sys.exit(1)
+          print(f"admissible runs: {ok} · unmeasured: {len(unmeasured)} · invalid: 0")
+          PYEOF
+
+      - name: Verdict matrix
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF' | tee artifacts/research/VERDICT.md
+          import glob, json, os, re
+          rows = {}
+          meta = {}
+          for p in sorted(glob.glob("artifacts/research/e2_*.json")):
+              m = re.match(r".*/e2_([A-Z0-9]+)_h(\d+)_(\w+)\.json$", p)
+              if not m:
+                  continue
+              sym, hz, tgt = m.group(1), int(m.group(2)), m.group(3)
+              r = json.load(open(p))
+              rows[(sym, hz, tgt)] = r
+              meta.setdefault((sym, hz), {})
+              cfg = r.get("config") or {}
+              meta[(sym, hz)]["embargo"] = cfg.get("embargo_bars")
+              meta[(sym, hz)]["shuffles"] = cfg.get("n_shuffles")
+
+          L = ["# E2 × horizon arm — does the verdict depend on the label horizon?", ""]
+          L.append("Every cell is a full E2 run: purged/embargoed grouped walk-forward, "
+                   "trade-block shuffled-label null, max-statistic FWER + a scale-free "
+                   "min-p companion. **The horizon is the only thing that varies** — "
+                   "`expected_hold_bars` is pinned so the feature set is identical across "
+                   "rungs, and `embargo_bars` tracks the horizon so the purge buffer keeps "
+                   "the reference arm's relationship.")
+          L.append("")
+          L.append("Cells read `verdict · FWER/min-p/pointwise`. `no_feature_beats_control` "
+                   "is a NEGATIVE; `unmeasured` is **not** a negative — it means a power "
+                   "floor bound and nothing was measured.")
+          L.append("")
+          syms = sorted({k[0] for k in rows})
+          hzs  = sorted({k[1] for k in rows})
+          for tgt in ("forward_r", "advantage_r", "label_hold"):
+              L.append(f"## `{tgt}`"); L.append("")
+              L.append("| symbol | " + " | ".join(f"h={h}" for h in hzs) + " |")
+              L.append("|---|" + "|".join("---" for _ in hzs) + "|")
+              for s in syms:
+                  cells = []
+                  for h in hzs:
+                      r = rows.get((s, h, tgt))
+                      if r is None:
+                          cells.append("—"); continue
+                      v = r.get("verdict")
+                      if v in ("unmeasured", "harness_invalid"):
+                          cells.append(f"**{v}**"); continue
+                      cells.append(
+                          f"{'**HIT**' if v == 'informative_features_found' else 'none'} · "
+                          f"{r.get('n_informative_fwer')}/{r.get('n_informative_minp')}/"
+                          f"{r.get('n_informative_pointwise')}")
+                  L.append(f"| `{s}` | " + " | ".join(cells) + " |")
+              L.append("")
+
+          L.append("## Substrate per rung")
+          L.append("")
+          L.append("| symbol | horizon | embargo | shuffles | rows | trades | xa peers | xa coverage |")
+          L.append("|---|--:|--:|--:|--:|--:|---|--:|")
+          for s in syms:
+              for h in hzs:
+                  mp = f"artifacts/research/panel_{s}_h{h}.jsonl.manifest.json"
+                  if not os.path.exists(mp):
+                      continue
+                  pm = json.load(open(mp))
+                  xa = pm.get("cross_asset") or {}
+                  mm = meta.get((s, h), {})
+                  L.append(f"| `{s}` | {h} | {mm.get('embargo')} | {mm.get('shuffles')} | "
+                           f"{pm.get('row_count')} | {pm.get('trades_used')} | "
+                           f"{','.join(xa.get('peers_joined') or [])} | {xa.get('row_coverage')} |")
+          L.append("")
+          L.append("**Read the 12-bar column as a REPLICATION CONTROL, not a result.** It "
+                   "reproduces the reference arm's configuration on this lane's Binance feed; "
+                   "the reference ran on the trainer's corpus, so the trades differ and only "
+                   "the DIRECTION should match. If it does not, the longer rungs are not "
+                   "trustworthy either.")
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2-horizon-arm
+          path: artifacts/research/
+          retention-days: 14
