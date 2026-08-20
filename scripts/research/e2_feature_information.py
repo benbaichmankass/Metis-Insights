@@ -529,6 +529,9 @@ def score_panel(
 
     null_by_feat: Dict[str, List[float]] = {f: [] for f in all_names}
     null_max_family: List[float] = []
+    # Replicate-aligned matrix over the REAL-feature family, for the scale-free
+    # min-p check below. Rows are replicates, keys are features.
+    null_matrix: List[Dict[str, float]] = []
 
     # Features sharing a row-mask share the label ranking. On a dense panel that
     # is ONE ranking per fold per replicate instead of one per feature per fold
@@ -558,22 +561,66 @@ def score_panel(
                         None if lab is None else _corr_from_centered(cen_f, norm_f, lab[0], lab[1])
                     )
         best_family = None
+        rep_row: Dict[str, float] = {}
         for f in all_names:
             stat, _, _ = _aggregate(per_fold_by_feat[f])
             if stat is None:
                 continue
             null_by_feat[f].append(stat)
+            if f in feats:
+                rep_row[f] = stat
             # The family is the REAL features only — folding the positive control
             # into the max would inflate the threshold with a planted synthetic.
             if f in feats and (best_family is None or stat > best_family):
                 best_family = stat
         if best_family is not None:
             null_max_family.append(best_family)
+        if rep_row:
+            null_matrix.append(rep_row)
 
     null_max_family.sort()
     fwer_threshold = quantile(null_max_family, 1.0 - alpha)
     report["fwer_threshold"] = fwer_threshold
     report["null_family_n"] = len(null_max_family)
+
+    # ---- scale-free companion: Westfall-Young MIN-P -------------------------
+    # The raw max-statistic threshold is SCALE-DEPENDENT. Null widths are not
+    # comparable across these features by design: a path feature is strongly
+    # autocorrelated within a trade and gets a WIDE null, while a near-white
+    # peer return gets a TIGHT one (this module's own self-test demonstrates the
+    # mechanism). A single max-|stat| threshold is therefore set mostly by the
+    # wide-null features and is conservative for the narrow-null ones — which
+    # would quietly stack the test against exactly the exogenous block E1 was
+    # built to evaluate.
+    #
+    # min-p removes the scale: each statistic is first converted to a p-value
+    # against its OWN null, and the family-wise threshold is the alpha-quantile
+    # of the per-replicate MINIMUM p. This is reported ALONGSIDE the
+    # pre-registered rule, never in place of it — swapping the decision rule
+    # after seeing scores is the move the pre-registration exists to prevent.
+    minp_threshold = None
+    minp_p: Dict[str, float] = {}
+    if null_matrix and feats:
+        cols = {f: sorted(null_by_feat[f]) for f in feats if null_by_feat[f]}
+
+        def _p_against(f: str, v: float) -> float:
+            col = cols.get(f) or []
+            if not col:
+                return 1.0
+            return (sum(1 for x in col if x >= v) + 1) / (len(col) + 1)
+
+        q_per_replicate: List[float] = []
+        for row in null_matrix:
+            ps = [_p_against(f, v) for f, v in row.items() if f in cols]
+            if ps:
+                q_per_replicate.append(min(ps))
+        q_per_replicate.sort()
+        minp_threshold = quantile(q_per_replicate, alpha)
+        for f in feats:
+            st = observed[f][0]
+            minp_p[f] = 1.0 if st is None else _p_against(f, st)
+    report["minp_threshold"] = minp_threshold
+    report["minp_null_n"] = len(null_matrix)
 
     def _verdict_for(name: str) -> Dict[str, Any]:
         stat, folds_used, agree = observed[name]
@@ -594,6 +641,11 @@ def score_panel(
             "informative_pointwise": bool(stat is not None and pt_thr is not None and stat > pt_thr),
             "informative_fwer": bool(
                 stat is not None and fwer_threshold is not None and stat > fwer_threshold
+            ),
+            "minp_p": minp_p.get(name),
+            "informative_minp": bool(
+                name in minp_p and minp_threshold is not None
+                and minp_p[name] <= minp_threshold
             ),
         }
 
@@ -623,6 +675,7 @@ def score_panel(
     hits = [d for d in report["features"] if d["informative_fwer"]]
     report["n_informative_fwer"] = len(hits)
     report["n_informative_pointwise"] = sum(1 for d in report["features"] if d["informative_pointwise"])
+    report["n_informative_minp"] = sum(1 for d in report["features"] if d["informative_minp"])
     report["verdict"] = "informative_features_found" if hits else "no_feature_beats_control"
     return report
 
@@ -764,6 +817,47 @@ def _selftest() -> int:
               "reproducing, the shuffle-scheme rationale in the docstring is wrong "
               "and must be rewritten, not silenced")
 
+    # --- min-p must actually DO something, not decorate the report ---------
+    # A companion decision rule nobody can show changes a verdict is decoration.
+    # Construct the regime it exists for: one WIDE-null feature (trade-constant,
+    # uninformative) and one NARROW-null feature (near-white, genuinely but
+    # weakly informative). The raw max-statistic threshold is set by the wide
+    # one and misses the narrow one; min-p, being scale-free, does not.
+    _rng = random.Random(99)
+    _rows = []
+    for _t in range(80):
+        _base = _rng.gauss(0, 1)
+        _lvl = _rng.gauss(0, 1)
+        for _b in range(10):
+            _y = _base + _rng.gauss(0, 0.3)
+            _rows.append({
+                "trade_id": _t,
+                "decision_time": f"2026-01-{1 + _t // 24:02d}T{_t % 24:02d}:{_b:02d}:00Z",
+                "label_t0": _t * 10 + _b + 1, "label_t1": _t * 10 + _b + 2,
+                TARGET_COL: _y,
+                "feat_tradelevel": _lvl + 0.02 * _b,
+                "feat_white_weak": _y * 0.25 + _rng.gauss(0, 1.0),
+            })
+    _man = {"dense_feature_cols": ["feat_tradelevel", "feat_white_weak"],
+            "symbol": "SYNTH", "timeframe": "5m"}
+    _r = score_panel(_rows, _man, n_folds=3, n_shuffles=600, seed=3,
+                     min_trades=30, min_rows=200)
+    _w = next(d for d in _r["features"] if d["feature"] == "feat_white_weak")
+    _tl = next(d for d in _r["features"] if d["feature"] == "feat_tradelevel")
+    check("null_scales_are_heterogeneous",
+          _tl["pointwise_threshold"] > 2.0 * _w["pointwise_threshold"],
+          f"wide={_tl['pointwise_threshold']:.4f} narrow={_w['pointwise_threshold']:.4f} — "
+          "if these converge, the scale problem min-p addresses is not present in "
+          "this fixture and the test below proves nothing")
+    check("minp_rescues_a_narrow_null_signal",
+          _w["informative_minp"] and not _w["informative_fwer"],
+          f"white_weak: minp={_w['informative_minp']} fwer={_w['informative_fwer']} — "
+          "min-p must promote a real signal that the scale-dependent max-statistic "
+          "rule misses, or it is not doing the job it was added for")
+    check("minp_does_not_promote_the_uninformative_one",
+          not _tl["informative_minp"],
+          "the trade-constant uninformative feature must stay negative under min-p too")
+
     # --- --target must change the POPULATION, not just a label string ------
     rows, man = _synth_panel(60, 8, seed=11, signal=True)
     for r in rows:
@@ -891,8 +985,11 @@ def main(argv: Optional[List[str]] = None) -> int:
               f"(+ctrl fwer={c['positive']['informative_fwer']}, "
               f"-ctrl pointwise={c['negative']['informative_pointwise']})")
         print(f"  fwer_threshold={rep.get('fwer_threshold')} over {rep.get('null_family_n')} draws")
+        print(f"  minp_threshold={rep.get('minp_threshold')} (scale-free companion) "
+              f"n_minp={rep.get('n_informative_minp')}")
         for d in rep["features"][:12]:
-            flag = "FWER" if d["informative_fwer"] else ("pt" if d["informative_pointwise"] else "  ")
+            flag = "FWER" if d["informative_fwer"] else (
+                "minp" if d["informative_minp"] else ("pt" if d["informative_pointwise"] else "  "))
             print(f"    {flag:>4}  {d['feature']:<34} stat={d['statistic']} "
                   f"p={d['p_empirical']} folds={d['folds_used']} sign_agree={d['sign_agreement']}")
     if args.out:
