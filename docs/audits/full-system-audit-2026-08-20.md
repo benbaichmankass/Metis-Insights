@@ -3871,6 +3871,22 @@ reading them.**
 
 ### Two retractions from the execution, recorded because a retracted claim that stays in circulation is worse than the original error
 
+0. **A GitHub job status read `in_progress` TEN MINUTES after the job completed,
+   and I built a diagnosis on it.** #10051's `pytest-run` completed at 12:42:40Z
+   ("Run tests" 9m38s, normal); at 12:52Z **both** `get_check_runs` and
+   `actions_get / get_workflow_job` still reported `in_progress`. I concluded
+   "24 min vs a 10-min norm ⇒ my branch hangs a test", ran a control (#10056
+   finished in 9 min on the same runners — correctly ruling out slow runners),
+   formed a plausible mechanism, installed the full CI dependency set locally,
+   and started an 11,392-test run with per-test timeouts. **All of it chased a
+   job that had already gone green.** ⚠️ **The control was good and the
+   conclusion was still wrong**: ruling out "the runners are slow" left "it is
+   my branch" and "the status I am reading is not current", and I never
+   enumerated the second. A control narrows the hypothesis space; it does not
+   guarantee the answer is inside it. **`completed_at` / `steps[].completed_at`
+   are ground truth, not `status`** — the answer was in the payload I already
+   had.
+
 1. **`state: pending` + `total_count: 0` does NOT diagnose a CI delivery failure.**
    I told a concurrent session it did, and they were about to file it as a
    heuristic. A **merged** PR shows the identical response — this repo reports via
@@ -3884,7 +3900,18 @@ reading them.**
    Likewise `layer-guard`, which I called a sandbox artifact all session on my own
    say-so: installed, it genuinely passes (6 contracts kept, 0 broken).
 
-Both are the same shape as F-114 and as the class this audit exists for: **a
-confident statement about a cause nobody tested.** Counting the retracted
-diagnostic, that class appeared **five** times in one day across three concurrent
-sessions — twice in the system, three times in our own reasoning about it.
+All three are the same shape as F-114 and as the class this audit exists for: **a
+confident statement about a cause nobody tested.** That class appeared **six**
+times in one day across three concurrent sessions — twice in the system
+(`diag_fetch`, and a sibling session's self-heal logging success while producing
+an unreachable host), and **four times in our own reasoning about it**.
+
+⚠️ **That ratio is the finding.** The auditor produced this defect twice as often
+as the audited system did. Three of my four were caught only because something
+independent contradicted them — a merged PR showing the same "failure" signature,
+a pinned dependency version, a payload re-read while looking for something else.
+**None was caught by being careful.** An audit method that relies on the auditor
+noticing is the method this rewrite was supposed to replace, which is why Phase 0c
+(prove the gauge can fail before trusting it) and the mandatory `detector` field
+are load-bearing rather than ceremony: they are the only parts that do not depend
+on the auditor being right.
