@@ -73,9 +73,29 @@ jobs:
           failed=0
           found=0
           for req in automation/board-posts/*.md; do
-            found=$((found + 1))
             base="$(basename "$req" .md)"
             out="automation/board-results/${base}.txt"
+
+            # IDEMPOTENCY IS THE RESULT FILE, NOT DELETION OF THE REQUEST.
+            # An earlier version `git rm`'d each request once posted. That made
+            # the results commit touch `automation/board-posts/**` -- this
+            # workflow's own trigger path -- so it needed `[skip ci]` to avoid
+            # retriggering itself, and `[skip ci]` suppresses EVERY workflow for
+            # that commit. When the results commit is the last one on a branch it
+            # becomes the PR head, and the PR is then left with ZERO check runs
+            # that can never arrive. Measured on PR #10076: head 57a25aa9,
+            # `get_check_runs` total_count 0. A check that silently did not run
+            # renders identically to green, which is precisely what
+            # pytest-collect.yml's own header warns about.
+            # Keeping the request in place and skipping it when its result
+            # already exists means the commit touches ONLY
+            # `automation/board-results/**`, which is outside the trigger path --
+            # so there is no self-retrigger, no `[skip ci]`, and the PR keeps CI.
+            if [ -f "$out" ]; then
+              echo ">>> ${base}: already posted, skipping ($(head -1 "$out"))"
+              continue
+            fi
+            found=$((found + 1))
 
             # Assert the input before trusting the outcome: a blank comment would
             # post "successfully" and say nothing.
@@ -83,7 +103,6 @@ jobs:
               echo "REFUSED: empty or whitespace-only body" > "$out"
               echo ">>> ${base}: REFUSED (empty body)"
               failed=1
-              git rm -q "$req" || rm -f "$req"
               continue
             fi
 
@@ -96,7 +115,6 @@ jobs:
               echo ">>> ${base}: FAILED"
               failed=1
             fi
-            git rm -q "$req" || rm -f "$req"
           done
 
           echo "board-post: ${found} request(s) processed"
@@ -111,20 +129,19 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # `git add -A automation/` and NOT `git add -f <subdir> <subdir>`.
-          # Consuming the last pending request `git rm`s it, which leaves
-          # automation/board-posts/ empty -- and git does not track empty
-          # directories, so the path disappears from the worktree entirely and
-          # naming it explicitly makes `git add` exit non-zero. Under this
-          # step's `set -e` that failed the whole job, which is exactly the
-          # 11-second failure observed on runs 32417445476 and 32417922144:
-          # the post loop was never the problem, the commit-back was, and it
-          # failed AFTER `git rm` had already discarded the request. Staging
-          # the parent directory with -A handles the vanished subdirectory and
-          # the deletion together.
-          git add -A automation/
+          # Stage ONLY the results directory. Requests are no longer deleted
+          # (see the idempotency note above), so nothing under the trigger path
+          # `automation/board-posts/**` changes here -- which is what lets this
+          # commit omit `[skip ci]` without retriggering the workflow.
+          #
+          # `-A` on the directory rather than naming files, so a first run that
+          # creates it is handled the same as a later one that adds to it.
+          # (A previous version staged `automation/board-posts` explicitly and
+          # failed under `set -e` once `git rm` had emptied that directory --
+          # git does not track empty directories, so the path vanished.)
+          git add -A automation/board-results
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
-          git commit -m "board-post: results [skip ci]"
+          git commit -m "board-post: results"
           git push origin HEAD:${{ github.ref_name }}
 
       - name: Fail the run if any comment was not posted
