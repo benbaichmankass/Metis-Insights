@@ -120,7 +120,17 @@ def test_cli_records_is_backtest_rows(tmp_path: Path, capsys):
     assert len(rows) == 3
     assert all(r["is_backtest"] == 1 for r in rows)
     assert all(r["symbol"] == "BTCUSDT" for r in rows)
-    assert all(r["notes"] == "test-run" for r in rows)
+    # B6 (2026-08-20): `notes` is no longer the BARE run_tag for a harness row,
+    # because every row now carries its r_cost_basis. Assert through the
+    # canonical decoder rather than on the raw string — that is the only way
+    # anything reads this column, and it is what keeps legacy plain-string rows
+    # working (verified: `run_tag` is written and echoed into summaries but
+    # never read back out of `notes` raw anywhere in scripts/ ml/ src/).
+    from ml.datasets.backtest_recorder import parse_backtest_notes
+    assert all(parse_backtest_notes(r["notes"])["run_tag"] == "test-run"
+               for r in rows)
+    # ...and the basis really landed on every row, not just parsed cleanly.
+    assert {parse_backtest_notes(r["notes"])["r_cost_basis"] for r in rows} == {"net_r"}
     # pnl carries realized R (the recorder's R proxy) -> won = pnl > 0.
     by_strat = {(r["strategy_name"], r["direction"]): r["pnl"] for r in rows}
     # WC-3: the recorder now writes canonical long/short (not buy/sell).

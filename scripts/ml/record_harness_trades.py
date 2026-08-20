@@ -47,7 +47,12 @@ from typing import Any, Iterable
 # Allow `python scripts/ml/record_harness_trades.py` as well as `-m`.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from ml.datasets.backtest_recorder import write_backtest_trades  # noqa: E402
+from ml.datasets.backtest_recorder import (  # noqa: E402
+    R_COST_BASIS_AMBIGUOUS,
+    R_COST_BASIS_GROSS,
+    R_COST_BASIS_NET,
+    write_backtest_trades,
+)
 
 _LONG_ALIASES = frozenset({"long", "buy", "1", "+1"})
 
@@ -63,12 +68,20 @@ def harness_row_to_sim_trade(
     Returns ``None`` for a row with no realized R (an open / unlabeled trade —
     nothing to learn from), mirroring the recorder's own skip rule.
     """
-    r = row.get("net_r")
-    if r is None:
-        r = row.get("gross_r")
-    if r is None:
-        r = row.get("r_multiple")
-    if r is None:
+    # B6 (2026-08-20): STAMP WHICH KEY SUPPLIED R. This fallback used to write
+    # `float(r)` with no record of its source, so a gross-R row (costs NOT
+    # deducted, systematically optimistic) and a net-R row were BYTE-IDENTICAL
+    # in backtest_trades.db — which the trainer's nightly pooled build merges
+    # as is_backtest=1 evidence. The sibling defect in this same function (the
+    # strategy-label precedence just below) was found and fixed in the
+    # 2026-07-19 audit; this one survived that pass, which is a fix that closed
+    # the instance and not the class.
+    r_cost_basis = None
+    for key in (R_COST_BASIS_NET, R_COST_BASIS_GROSS, R_COST_BASIS_AMBIGUOUS):
+        if row.get(key) is not None:
+            r, r_cost_basis = row[key], key
+            break
+    if r_cost_basis is None:
         return None
     entry_ts = row.get("entry_time") or row.get("entry_ts")
     if not entry_ts:
@@ -95,7 +108,10 @@ def harness_row_to_sim_trade(
         "tp": row.get("tp"),
         "r_multiple": float(r),
         "exit_reason": row.get("outcome"),
-        "meta": {},
+        # `r_cost_basis` is a property of THIS row's number, so it rides in `meta`
+        # (which the recorder already threads into the row's `notes`) rather
+        # than as a run-level argument every caller would have to supply.
+        "meta": {"r_cost_basis": r_cost_basis},
     }
 
 
