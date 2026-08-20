@@ -65,6 +65,12 @@ from src.research.intrabar_features import (  # noqa: E402
     intrabar_features,
 )
 from src.research.triple_barrier import hold_meta_label, triple_barrier_forward  # noqa: E402
+from ml.datasets.cross_asset_features import (  # noqa: E402
+    CROSS_ASSET_FEATURE_COLUMNS,
+    N_PEER_SLOTS,
+    compute_cross_asset_feature_rows,
+)
+from src.runtime.cross_asset_live import peers_for  # noqa: E402
 
 # Outcome (strictly-future) columns + the meta-label. ``trade_realized_r`` is the
 # trade's own realized R under the fixed (baseline) exit — the net-of-fee policy
@@ -97,6 +103,91 @@ def _f(v: Any) -> Optional[float]:
     return f if f == f else None
 
 
+def _bar_ts(rec: Dict[str, Any]) -> str:
+    """The ONE timestamp form used on both sides of the peer join.
+
+    ``_aligned_return_series`` maps peer bars onto the target grid by EXACT
+    string equality, so target and peer timestamps must be normalised through
+    the same function or the join silently matches nothing and every peer column
+    comes back absent — which would look exactly like "this symbol has no peers".
+    """
+    return _iso_closed_at(rec.get("timestamp")) or ""
+
+
+def cross_asset_index(
+    candles: List[Dict[str, Any]],
+    target_symbol: str,
+    peer_series: Optional[Dict[str, List[Dict[str, Any]]]],
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    """Per-bar peer-asset features for ``target_symbol``, indexed by bar timestamp.
+
+    Returns ``(index, meta)``. ``meta['state']`` is never collapsed:
+
+    ``no_peers_configured``  the symbol has no row in ``config/cross_asset.yaml``
+                             — 18 of 23 traded symbols, and for the twelve
+                             non-crypto names that is the honest state rather
+                             than a gap to paper over.
+    ``no_peer_series``       peers ARE configured but no candle file was supplied
+                             for any of them. **Distinct from the above**: one is
+                             "nothing to join", the other is "we were asked to
+                             join and could not".
+    ``joined``               at least one peer series was supplied and aligned.
+
+    ⚠️ **When the state is not ``joined`` the caller emits NO ``xa_`` columns at
+    all** rather than a row of zeros. The feature block itself zero-fills an
+    absent slot (with a ``present`` flag beside it since 2026-08-20), which is
+    right for a model that trained on those columns — but a research panel is
+    better served by the column being ABSENT, because the builder's dense-column
+    filter then drops it and E2 never spends a feature slot on a constant.
+
+    Leakage: every column the underlying function emits is past-only (its own
+    invariant), reading a window that ends at bar ``t`` — the same bound the
+    in-trade features use, and disjoint from the label window ``[t+1 ..]``.
+    """
+    peers = peers_for(target_symbol)
+    if not peers:
+        return {}, {"state": "no_peers_configured", "target": target_symbol,
+                    "peers_configured": [], "peers_joined": [],
+                    "bars_indexed": 0, "bar_coverage": None}
+
+    supplied = peer_series or {}
+    slots: List[List[Dict[str, Any]]] = []
+    joined: List[str] = []
+    joined_slots: List[int] = []          # 1-based, matches the xa_peer{n}_ prefix
+    for i, peer in enumerate(peers[:N_PEER_SLOTS], start=1):
+        rows = supplied.get(peer) or []
+        slots.append(rows)
+        if rows:
+            joined.append(peer)
+            joined_slots.append(i)
+    if not joined:
+        return {}, {"state": "no_peer_series", "target": target_symbol,
+                    "peers_configured": list(peers[:N_PEER_SLOTS]),
+                    "peers_joined": [], "bars_indexed": 0, "bar_coverage": None}
+
+    target_rows = [{"ts": _bar_ts(c), "close": _f(c.get("close"))} for c in candles]
+    try:
+        xa_rows = compute_cross_asset_feature_rows(target_rows, slots)
+    except Exception as exc:  # noqa: BLE001 — a peer failure must not kill the panel
+        return {}, {"state": "no_peer_series", "target": target_symbol,
+                    "peers_configured": list(peers[:N_PEER_SLOTS]),
+                    "peers_joined": [], "bars_indexed": 0, "bar_coverage": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    index = {str(r.get("ts")): r for r in xa_rows if r.get("ts")}
+    return index, {
+        "state": "joined",
+        "target": target_symbol,
+        "peers_configured": list(peers[:N_PEER_SLOTS]),
+        "peers_joined": joined,
+        "joined_slots": joined_slots,
+        "bars_indexed": len(index),
+        # How much of the candle frame got a peer row at all. Reported beside the
+        # count so a thin join is visible rather than inferred from silence.
+        "bar_coverage": round(len(index) / len(candles), 4) if candles else None,
+    }
+
+
 def build_intrabar_exit_panel(
     *,
     harness: str,
@@ -109,6 +200,7 @@ def build_intrabar_exit_panel(
     dmae_window: int = 3,
     bar_stride: int = 1,
     max_sample_bars: int = 96,
+    peer_series: Optional[Dict[str, List[Dict[str, Any]]]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Return ``(rows, manifest)`` — the per-bar in-trade exit panel.
 
@@ -134,6 +226,26 @@ def build_intrabar_exit_panel(
 
     candles = _df_records(df)
     n_bars = len(candles)
+    # E1: the EXOGENOUS half of the panel. Computed once over the whole frame
+    # (the underlying function is vectorised over bars and past-only), then
+    # looked up per decision bar — not recomputed per trade, which would be
+    # O(trades x bars) for an identical result.
+    xa_index, xa_meta = cross_asset_index(
+        candles, str(adapter_opts.get("symbol") or ""), peer_series)
+    # Emit ONLY the per-peer columns for slots that actually got a series. An
+    # UNSUPPLIED slot emits six constant zeros plus present=0 (the feature block
+    # zero-fills by design, which is right for a trained head and wrong for a
+    # research panel): the dense filter drops all-NULL columns, not all-CONSTANT
+    # ones, so those six would reach E2 as perfectly collinear noise. Which slots
+    # exist is already in the manifest as peers_configured vs peers_joined, which
+    # says strictly more than a column of zeros would.
+    _xa_slots = set(xa_meta.get("joined_slots") or ())
+    _xa_cols = [
+        c for c in CROSS_ASSET_FEATURE_COLUMNS
+        if not c.startswith("xa_peer")
+        or any(c.startswith(f"xa_peer{n}_") for n in _xa_slots)
+    ]
+    xa_hits = 0
     trades_used = 0
     for trade_id, st in enumerate(sim_trades):
         ei, xi = st.entry_index, st.exit_index
@@ -198,6 +310,16 @@ def build_intrabar_exit_panel(
             # dense in-trade features (feat_ prefix); context cats carried for conditioning
             for k in INTRABAR_FEATURE_NAMES:
                 rec[f"feat_{k}"] = feats.get(k)
+            # Exogenous peer state at THIS bar. Absent when the symbol has no
+            # peers or none were supplied — the columns are then simply not
+            # emitted, so the dense filter drops them rather than E2 spending a
+            # slot on a constant. See cross_asset_index for the state vocabulary.
+            if xa_index:
+                xa = xa_index.get(_bar_ts(candles[t]))
+                if xa is not None:
+                    xa_hits += 1
+                    for k in _xa_cols:
+                        rec[f"feat_{k}"] = xa.get(k)
             for cat_key in ("regime", "vol_regime", "setup_type"):
                 v = (st.meta or {}).get(cat_key)
                 if v is not None:
@@ -217,6 +339,14 @@ def build_intrabar_exit_panel(
             for k in dropped_all_null:
                 rec.pop(k, None)
 
+    # Constant columns are REPORTED, not dropped: constant in THIS panel is not
+    # constant in general, so silently removing one would make two panels of the
+    # same builder disagree on their own schema. A consumer that should not spend
+    # a feature slot on a zero-variance column can read this and skip it.
+    constant_feats = sorted(
+        k for k in dense_feats
+        if len({rec.get(k) for rec in rows if rec.get(k) is not None}) <= 1
+    )
     cat_cols = sorted({k for rec in rows for k in rec if k.startswith("cat_")})
     feature_cols = dense_feats + cat_cols
     hold_rows = [r for r in rows if r.get("label_hold") is not None]
@@ -245,11 +375,25 @@ def build_intrabar_exit_panel(
             "bar_stride": stride,
             "max_sample_bars": max_sample_bars,
         },
+        # E1 exogenous half. Read `state` BEFORE reading any xa column: a panel
+        # with no xa columns and state `no_peers_configured` is a symbol we never
+        # had peers for, which is a different fact from `no_peer_series` (we had
+        # peers and were handed no data). `row_coverage` is the share of emitted
+        # rows that actually received a peer row — a partial join is visible here
+        # rather than hiding inside a column that is merely mostly-populated.
+        "cross_asset": {
+            **xa_meta,
+            "rows_with_xa": xa_hits,
+            "row_coverage": round(xa_hits / len(rows), 4) if rows else None,
+            "xa_feature_cols": [f"feat_{k}" for k in CROSS_ASSET_FEATURE_COLUMNS
+                                if f"feat_{k}" in dense_feats],
+        },
         "key_cols": list(_KEY_COLS),
         "outcome_cols": list(_OUTCOME_COLS),
         "feature_cols": feature_cols,
         "dense_feature_cols": dense_feats,
         "dropped_all_null_feature_cols": dropped_all_null,
+        "constant_feature_cols": constant_feats,
         "leakage_contract": (
             "feat_* are strictly-PAST in-trade state, computed only from bars "
             "[entry_index+1 .. t]; the outcome_cols (forward_r/advantage_r/label_hold/"
@@ -292,6 +436,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--ignore-yaml", action="store_true")
     p.add_argument("--roster", default=None, help="[backtest_system] comma roster.")
     p.add_argument("--clock-tf", default="15m", help="[backtest_system] clock tf.")
+    p.add_argument(
+        "--peer-data", action="append", default=[], metavar="SYMBOL=PATH",
+        help=(
+            "Peer candle feed for the E1 exogenous block, repeatable "
+            "(e.g. --peer-data ETHUSDT=data/eth.csv). Which peers are USED comes "
+            "from config/cross_asset.yaml, not from this flag — supplying a "
+            "symbol that is not a configured peer of --symbol is ignored, and a "
+            "configured peer with no feed is reported in the manifest rather "
+            "than silently zero-filled."
+        ),
+    )
     # label / feature config
     p.add_argument("--time-stop-bars", type=int, default=12,
                    help="Vertical barrier (the time-stop) — bars forward from the decision bar.")
@@ -317,8 +472,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         "roster": args.roster,
         "clock_tf": str(args.clock_tf),
     }
+    peer_series: Dict[str, List[Dict[str, Any]]] = {}
+    for spec in args.peer_data or []:
+        sym, _, path = str(spec).partition("=")
+        sym, path = sym.strip(), path.strip()
+        if not sym or not path:
+            print(f"  note: ignoring malformed --peer-data {spec!r} (want SYMBOL=PATH)")
+            continue
+        try:
+            from scripts.candle_io import load_candles
+
+            pdf = load_candles(path)
+            peer_series[sym] = [
+                {"ts": _bar_ts(r), "close": _f(r.get("close"))}
+                for r in _df_records(pdf)
+            ]
+        except Exception as exc:  # noqa: BLE001 — a bad peer feed must not kill the panel
+            # Reported, never swallowed: an unreadable peer is not the same fact
+            # as a peer that was never asked for, and the manifest's
+            # `no_peer_series` state would otherwise conflate them.
+            print(f"  note: peer feed {sym} unreadable ({type(exc).__name__}: {exc})")
+
     rows, manifest = build_intrabar_exit_panel(
-        harness=args.harness, adapter_opts=adapter_opts,
+        harness=args.harness, adapter_opts=adapter_opts, peer_series=peer_series,
         time_stop_bars=args.time_stop_bars, tp_r=args.tp_r, cost_r=args.cost_r,
         expected_hold_bars=args.expected_hold_bars, atr_period=args.atr_period,
         dmae_window=args.dmae_window, bar_stride=args.bar_stride,
@@ -331,6 +507,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             f"from {manifest['trades_used']}/{manifest['trades_total']} trades "
             f"({manifest['rows_per_trade']} rows/trade), base_hold={manifest['base_hold_rate']}, "
             f"{len(manifest['dense_feature_cols'])} dense feats → {out_path}"
+        )
+        xa = manifest.get("cross_asset") or {}
+        print(
+            f"  cross-asset: {xa.get('state')} · configured={xa.get('peers_configured')} "
+            f"joined={xa.get('peers_joined')} · rows_with_xa={xa.get('rows_with_xa')} "
+            f"(row_coverage={xa.get('row_coverage')})"
         )
         if manifest["error"]:
             print(f"  note: {manifest['error']}")
