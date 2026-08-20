@@ -2137,3 +2137,137 @@ The harness auditor also **retracted its own unit detector** — its AST probe
 reported `backtest_system.py: div100=no`, the opposite of the truth, because the
 code renames the parameter to a local before dividing. It flagged that *any file
 in that column may be a false negative* rather than standing behind the result.
+
+---
+
+## Part 18 — 3.2 FULL PIPELINE VERIFICATION (the pass that had never been run)
+
+Run by me against the live system 2026-08-20T09:15–09:25Z over **direct diag**
+(F-86 unblocked this). **Population: the 400 most recent `order_packages`,
+2026-08-03T18:52Z → 2026-08-20T07:02Z (17 days)** — stated once here and assumed
+below.
+
+### The death-hop histogram
+
+| hop | survivors | died here | note |
+|---|---|---|---|
+| package created | 400 | — | the decision population |
+| **intent/risk resolution** | 251 | **149 (37.2%)** | the dominant hop |
+| reached a terminal state | 251 | — | 213 closed · 15 open · 14 emitted · 9 shadow |
+| closed with a `pnl` | 185 of 200¹ | 15 null (7.5%) | |
+| **PnL is broker-MEASURED** | **30 of 200 = 15.0%** | 170 | 68 estimated · 87 unverified |
+
+¹ the closed-trade hop is measured over the 200 most recent closed trades
+(`include_paper=true`), a different and narrower population than the 400 packages.
+
+**Rejection causes — all 149:**
+
+| cause | n | verdict |
+|---|---|---|
+| `all_accounts_noop` | 88 | investigated below |
+| `no_fill_all_accounts` | 34 | placed, never filled |
+| `same_direction_reinforcement` | 27 | **correct** — the netting guard suppressing a pyramid |
+
+### F-95 — Three strategy legs are 100% dead, and nothing can see them (severity: HIGH)
+
+| leg | packages | placed | window |
+|---|---|---|---|
+| `mgc_trend_1h` | 57 | **0** | 17 days |
+| `tlt_pullback_1h` | 23 | **0** | 17 days |
+| `fade_breakout_4h` | 9 | **0** | 17 days |
+
+**89 of the 149 rejections (60%) are concentrated in three legs that placed
+nothing at all.** (`avax_pullback_2h` is near-dead: 14 packages, 1 placed.)
+
+**Traced `mgc_trend_1h` hop by hop**, which is what this pass is for:
+
+```
+signal      : ADX 42.97 "trending", confidence 0.468, direction long   ✅ fires
+sizing      : sized_qty_by_account = {"ib_paper": 35.0}                ✅ sizes
+intent      : execution_delta = {action:"reduce", qty_delta:60.0,
+                                 target_qty:35.0, current_qty:95.0}
+outcome     : all_accounts_noop                                        ❌ dies
+```
+
+The leg is **structurally blocked, not transiently failing**: `ib_paper` already
+holds **95 MGC contracts** — and broker truth and the journal *agree* at 95, so
+there is no divergence here. That position belongs to **`ict_scalp_mgc_15m`**, a
+different strategy on the same netted symbol. Every `mgc_trend_1h` evaluation
+computes a reduce-by-60 against another strategy's position and correctly
+declines to act.
+
+⚠️ **The no-op is probably the RIGHT behaviour** — letting one leg reduce
+another's position would strand it, which is what the per-trade=per-position
+netting guard exists to prevent. **The defect is not the decision; it is that a
+permanently-dead leg is indistinguishable from a working one.** It is recorded as
+`status: rejected`, it accrues no trades, and it has done so for 17 days.
+
+**A prediction of mine that the data REFUTED, recorded because it matters.** I
+expected F-38's mechanism — sub-1-contract whole-contract refusal at low
+`risk_pct`. It is not that: `ib_paper` holds **$1,342,039**, so a 1.5% budget
+against $576/contract sizes to ~34, and the field confirms the sizer produced
+**35**. My arithmetic was right and my hypothesis was wrong; the qty never fails.
+
+### F-96 — The detector for dead legs exists twice, and neither instance can fire (severity: HIGH)
+
+This is F-40's guard-boundary shape, **fifth instance**, and the cleanest one:
+
+1. **The live alert is account-scoped.** `silent_refusal_alert.py:359` latches
+   per **`(account, cause)`**, deliberately — `CLAUDE.md` records the reasoning:
+   *"a per-leg alert would fire 16 pings for one cause, which is the
+   desensitized-alarm P1."* But `ib_paper` **is** placing orders (the 95-contract
+   position). At account granularity `ib_paper` grades as *"rows, some placed"* —
+   a refusal *rate*, explicitly **not** the finding. **A 100%-dead leg on a
+   healthy account is invisible by construction.**
+2. **The per-leg audit has no runner.** `scripts/ops/dead_leg_audit.py` exists
+   and `dead_leg.py` correctly counts `rejected` in `REFUSED_STATUSES` — so the
+   rows *are* gradeable. But the script is referenced only by two source
+   docstrings and one test: **no workflow, no timer, no caller.** It is a member
+   of the 161 unwired tools (F-6).
+
+So the alert that *could* fire is scoped where it cannot see, and the tool scoped
+correctly is never run. The tension is real — per-leg alerting genuinely does
+risk alarm fatigue — which is why the answer is a per-leg **report** on a
+cadence, not a per-leg alarm. That report is already written.
+
+### F-97 — Broker-measured PnL has fallen to 15.0% of recent closed trades (severity: HIGH)
+
+Population: the **200 most recent closed trades**, `include_paper=true`.
+
+| provenance | n | share |
+|---|---|---|
+| `unverified` | 87 | 43.5% |
+| `estimated` | 68 | 34.0% |
+| **`measured`** | **30** | **15.0%** |
+| null (`realizedPnl` is null) | 15 | 7.5% |
+
+**85% of recent closed-trade PnL is not broker-measured, and 43.5% carries no
+provenance at all.**
+
+⚠️ **Populations differ — do not read this as 60.8% → 15.0% directly.**
+`CLAUDE.md`'s 60.8% is over **829 lifetime** closed non-backtest rows with
+non-null pnl; mine is the **recent 200 including paper**. What makes the
+comparison meaningful anyway is that the doc *already records the direction*:
+fabricated share of closed trades **0.0% (May) → 23.7% (Jun) → 65.3% (Jul)**.
+This measurement extends that trend into August and it has continued.
+
+**Why it matters operationally:** the R4 research→results gate reads
+`totalPnlMeasured` and abstains below a coverage floor. At 15% measured, the gate
+abstains on nearly everything — so the promotion machinery is running on a
+population that can barely be judged, which is exactly the *"poisoned book"* state
+`research_results_gate.py` names as `abstain_unverified`.
+
+### What the pipeline pass found SOUND
+
+Recorded because a death-hop histogram with no green hops would be a broken probe,
+not a broken system:
+
+- **Journal ↔ broker agree on MGC at 95 contracts** — no divergence on the leg I
+  traced end-to-end.
+- **`same_direction_reinforcement` (27 rejections) is the netting guard working**
+  — pyramiding correctly suppressed, and it carries its own distinct cause label
+  rather than being folded into a generic refusal.
+- **The sizer is correct** where I checked it: predicted ~34 contracts from
+  balance × risk_pct ÷ risk-per-contract, field shows 35.
+- **The pairs sleeve places reliably** — `pairs_bnb_btc_a/b`, `pairs_sol_eth_a/b`:
+  105 packages, **105 placed, 0 rejected**.
