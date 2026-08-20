@@ -1182,8 +1182,18 @@ before trusting it** — as of 2026-08-20 the cloud environment still ships
 `http://158.178.210.252:8001`, the x86 micro **terminated 2026-06-16**, so the
 canned var points at a dead host over the one scheme that cannot work
 (`BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM`, re-confirmed live two days
-after filing). Override it with the Caddy hostname rather than concluding the
-path is dead.
+after filing). ✅ **`scripts/ops/diag_fetch.sh` now handles that for you** — it
+tries an ORDERED list of candidate bases and puts the canonical HTTPS one FIRST
+whenever the configured value is plain-http or names a known VM IP, so a stale
+env var no longer strands the direct path; it prints `served by <base>` on
+stderr so you can see which one answered. **Do not describe this as an
+operator-only problem** — that claim was made in the backlog and was wrong: the
+var is consumed by a repo file, so the repo decides what to do with a bad value.
+It previously "self-healed" the retired micro to the **raw live IP**, which the
+proxy drops — measured 2026-08-20 as `curl (28)` timeout then exit 3, i.e. a
+heal that reported success and produced an unreachable host. Fixed + verified
+in-session with the stale env still set (`exit 0`, real JSON, served by the
+Caddy host); regression-tested in `tests/test_diag_fetch_sh.py`.
 
 **The GitHub REST API is NOT reachable by `curl` — use the MCP (2026-07-30).**
 `*.github.com` being nominally allowlisted does **not** mean
