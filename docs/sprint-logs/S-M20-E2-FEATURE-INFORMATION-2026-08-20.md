@@ -112,6 +112,18 @@ expected by chance across 22 features at α = 0.05. Not the 9 endogenous path fe
 not the 13 scoreable exogenous peer features E1 shipped at full coverage (16 xa
 columns less 3 constant presence flags; 9 + 13 = 22, which reconciles).
 
+**REPLICATED on an independent leg.** `ict_scalp` SOLUSDT 15m — **10,786 rows from
+580/580 trades**, peers ETHUSDT + XRPUSDT, xa `joined` at coverage 1.0, controls valid —
+gives the same shape: `forward_r` `informative_features_found` (5 FWER, all endogenous),
+`advantage_r` and `label_hold` both **`no_feature_beats_control`** with **0 FWER and 0
+min-p**. SOL's `feat_upnl_r` collapses 0.5799 → 0.0238 (24×), `dist_to_stop_atr`
+0.4476 → 0.0105 (43×). SOL shows 2 and 1 *pointwise* hits where XRP showed zero — both
+inside the ~1.1 expected by chance, neither surviving a family-wise rule. **Note
+`feat_bars_in_trade` and `feat_bars_in_trade_frac` are ONE feature counted twice**
+(identical to 16 s.f.; `frac` is a positive scalar multiple and Spearman is invariant),
+so the family holds **21 distinct** tests, not 22. **The best exogenous showing across
+both legs and all six runs is p = 0.068** — short of even the pointwise bar.
+
 ⚠️ **Scope limits, both stated rather than discovered later:** two of the eleven
 endogenous features named in §0.2 (`feat_taker_imbalance`,
 `feat_taker_imbalance_intrade`) were **dropped as all-null** — the candle source carries
@@ -197,9 +209,13 @@ operator's own motivating case, and the symbol whose **both** configured peers
   uncovered — execution-cost-aware exits, funding/basis as crypto-specific exogenous
   state, and **order-flow**, which this run could not speak to at all because both taker
   columns were all-null.
-- **Cheapest immediate arms, both already runnable on the trainer:** a longer label
-  horizon (the 12-bar time stop is a condition on this answer, not a property of the
-  fleet), and additional legs — `SOLUSDT`/`ETHUSDT` 15m have full-overlap peers today.
+- **Cheapest immediate arm:** a longer label horizon — the 12-bar time stop is a
+  condition on this answer, not a property of the fleet. (The extra-leg arm is **done**:
+  SOL replicated.)
+- **One hypothesis logged, deliberately not promoted:** `bars_in_trade` — the
+  time-in-state term §1.5.2's semi-Markov result predicts — is the single pointwise
+  whisper on SOL's `advantage_r` (p = 0.034). It fails both family-wise rules and does
+  not reproduce on XRP. It is a candidate for a future arm, not a finding.
 - **What this does NOT license:** concluding that exits cannot be improved, or that E1
   was wasted. E1's widening is what made the exogenous half *measurable*; it is now
   measured, at one leg and one horizon, and found not to help there.
