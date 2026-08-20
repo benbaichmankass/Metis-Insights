@@ -72,13 +72,14 @@ from scripts.research.e2_feature_information import (  # noqa: E402
     average_ranks,
     block_shuffled_labels,
     load_panel,
-    quantile,
     trade_blocks,
 )
 
 try:
     import numpy as np
-except Exception:  # pragma: no cover - numpy is a declared dep of this lane
+except ImportError:  # numpy is a declared dep of this lane; absence is the only
+    # importable failure worth tolerating, and `calibrate_panel` refuses loudly
+    # rather than degrading to a silent partial answer.
     np = None
 
 

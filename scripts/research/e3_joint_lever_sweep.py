@@ -407,7 +407,8 @@ def main(argv: Optional[List[str]] = None) -> int:
           f"baseline {pop['baseline_total_r']:+.2f}R "
           f"(mean {pop['baseline_mean_r']:+.4f}R) · cost_r={a.cost_r}")
     if rep.get("error"):
-        print("  ERROR:", rep["error"]); return 0
+        print("  ERROR:", rep["error"])
+        return 0
     for name in ("singles", "joint"):
         b = rep[name]
         print(f"  {name:8s} pool={b['pool_size']:4d}  OOS dR {b['oos_delta_r_total']:+8.3f}  "

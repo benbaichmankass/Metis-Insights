@@ -128,7 +128,8 @@ def decompose(rows: List[Dict[str, Any]], manifest: Optional[Dict[str, Any]], *,
             if v is None or y is None:
                 continue
             try:
-                xs.append(float(v)); ys.append(float(y))
+                xs.append(float(v))
+                ys.append(float(y))
             except (TypeError, ValueError):
                 continue
         if len(xs) < max(3, min_stratum_rows):
