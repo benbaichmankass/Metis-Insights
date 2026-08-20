@@ -134,8 +134,11 @@ Idea generation, backtesting, dry-run qualification:
 - `experiments/`,
 - `src/backtest/`,
 - `ml/` (model training, datasets, registry, manifests — see [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)),
-- backtest dispatch from `src/bot/test_strategy_consumer.py`
-  (auto-consumed `test_strategy:<name>` requests).
+- ~~backtest dispatch from `src/bot/test_strategy_consumer.py`~~ — **REMOVED
+  2026-08-20.** The M5 `/test` consumer ran one hardcoded ICT engine
+  regardless of the strategy named and wrote fabricated `0.0` metrics; it
+  was default-off and had no consumer. Real backtests are the trainer
+  sweeps, surfaced at `/api/bot/backtests/sweeps`.
 
 ### 3. Operator control and communication layer
 Asynchronous Claude ↔ operator channel:

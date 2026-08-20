@@ -83,9 +83,17 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
         # uniform lets the dashboard treat ``id`` the same way across
         # every list endpoint.
         "id": str(row["id"]),
-        # ``strategy_version`` is the column the M5 consumer stamps
-        # with the strategy name (see run_backtest_m5.py); surface
-        # under the friendlier ``strategy`` key for the dashboard.
+        # ``strategy_version`` is the column the retired M5 `/test`
+        # consumer stamped with the strategy name; surfaced under the
+        # friendlier ``strategy`` key for the dashboard. NOTHING WRITES
+        # THIS TABLE ANY MORE — the writer was removed 2026-08-20 (it ran
+        # one hardcoded ICT engine regardless of the strategy named, and
+        # stamped four fabricated 0.0 metrics). The ROUTE survives so the
+        # existing historical rows stay readable and the two consumers
+        # that call it (the Streamlit Backtesting tab and Android
+        # BotApi.kt:1903) keep working; a 404 here would give the
+        # dashboard a permanent warning banner and make Retrofit raise.
+        # Real backtests come through /api/bot/backtests/sweeps.
         "strategy": row["strategy_version"],
         "runDate": row["run_date"],
         "startDate": row["start_date"],

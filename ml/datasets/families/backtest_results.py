@@ -1,7 +1,11 @@
 """`backtest_results` dataset family (WS3).
 
 Reads aggregate backtest run summaries from the live
-`trade_journal.db` (table `backtest_results`, populated by the M5
+`trade_journal.db` (table `backtest_results` — ⚠️ HISTORICAL ONLY, the
+writer was REMOVED 2026-08-20 and no producer remains; the rows it holds
+carry FABRICATED `0.0` values for sharpe_ratio / total_pnl_pct /
+max_drawdown_pct, so this family must not be trained on without reading
+that first. It was populated by the M5
 backtest consumer) and emits them as a versioned dataset under the
 canonical layout. Only stable columns are exported; the schema below
 is the contract.
