@@ -135,7 +135,7 @@ trainer-diag **#10014**:
 | AVAXUSDT | 15m | 172,766 | 2021-09-15 → 2026-08-19 |
 | SOLUSDT | 15m | 169,920 | 2021-10-15 → 2026-08-19 |
 
-**Target: `XRPUSDT` 15m** — the operator's own motivating case (a short XRP held while a
+**Targets: `XRPUSDT` 15m (primary) and `SOLUSDT` 15m (generalization arm)** — XRP first — the operator's own motivating case (a short XRP held while a
 long ETH was opened at ρ 0.88), and the one symbol whose **both** configured peers have
 full-overlap series: ETHUSDT (ρ 0.8763) and SOLUSDT (ρ 0.8451). Converted and verified
 genuinely varying in **#10016**: XRP 175,296 rows / 25,486 distinct closes, ETH 175,296 /
@@ -274,6 +274,58 @@ built on features that look strongly informative against `forward_r` were readin
 target that shares their own baseline.
 
 ---
+
+## 5.6 The generalization arm — SOLUSDT replicates it
+
+A single-leg negative is weak evidence, so the same three targets were run on an
+independent leg: **`ict_scalp` SOLUSDT 15m, 10,786 labelled rows from 580/580 trades**,
+peers ETHUSDT + XRPUSDT, cross-asset **`joined` at `row_coverage` 1.0**, `base_hold_rate`
+0.4786, identical config. Controls valid on all three targets (trainer-diag #10027 built
+it, #10028 scored it).
+
+| target | XRP verdict | XRP n_fwer / n_minp / n_pt | SOL verdict | SOL n_fwer / n_minp / n_pt |
+|---|---|--:|---|--:|
+| `forward_r` | `informative_features_found` | 6 / 7 / 11 | `informative_features_found` | 5 / 7 / 8 |
+| `advantage_r` | **`no_feature_beats_control`** | **0 / 0 / 0** | **`no_feature_beats_control`** | **0 / 0 / 2** |
+| `label_hold` | **`no_feature_beats_control`** | **0 / 0 / 0** | **`no_feature_beats_control`** | **0 / 0 / 1** |
+
+**The same five features win on `forward_r` and the same collapse follows.** SOL's
+`feat_upnl_r` 0.5799 → **0.0238** (24×), `dist_to_stop_atr` 0.4476 → 0.0105 (43×),
+`running_mae_r` 0.3472 → 0.0146 (24×), `dmae_dt` 0.3166 → 0.0213 (15×), `running_mfe_r`
+0.4231 → 0.0378 (11×). Two legs, two symbols, two peer sets, same result: **the
+family-wise and scale-free bars are cleared by nobody on either decision target.**
+
+### What the pointwise column is, and is not
+
+SOL shows 2 pointwise hits on `advantage_r` and 1 on `label_hold` where XRP showed zero.
+**Neither is a finding**, and the arithmetic says so before the interpretation does:
+~1.1 pointwise hits are expected by chance across the family at α = 0.05, and none of
+these survives either family-wise rule.
+
+Two honest qualifications on that column:
+
+- **`feat_bars_in_trade` and `feat_bars_in_trade_frac` are ONE feature counted twice.**
+  Their statistics are identical to 16 significant figures on every target (SOL
+  `advantage_r`: both 0.03232640901418276) because `frac` is `bars` divided by a positive
+  per-trade constant, and Spearman is invariant to that. So SOL's "2 pointwise hits" is
+  **one** distinct feature, and the family of 22 holds **21 distinct** tests. This makes
+  the max-statistic null very slightly conservative rather than liberal, so it does not
+  threaten the negative — but the duplicate should be collapsed before anyone quotes a
+  family size.
+- ⚠️ **The one whisper is the one the literature predicted, which is exactly why it must
+  not be over-read.** §1.5.2's optimal-stopping result is that under a *semi-Markov* state
+  model — where the probability of the state ending rises with its age — the optimal rule
+  carries a **time-in-state** term. `bars_in_trade` is this fleet's crude proxy for that,
+  and it is the feature that clears pointwise on SOL's `advantage_r` (p = 0.034). It fails
+  FWER, fails min-p, does not reproduce on XRP, and sits among ~1.1 expected false
+  positives. **Recording it as a hypothesis for a later arm, not as a result** — a
+  construct lifted from outside is a hypothesis subject to the same test as anything
+  invented here, and this one has not passed it.
+
+**The best exogenous showing anywhere across both legs and all six runs is
+`feat_xa_peer1_beta` on SOL `advantage_r` at p = 0.068** — short of even the pointwise
+bar. Peer state is the family E1 was built to supply, it is present at full coverage on
+both legs, and it carries nothing measurable about the increment here.
 
 ## 6. Disposition
 
