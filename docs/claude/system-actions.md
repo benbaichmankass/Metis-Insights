@@ -60,8 +60,6 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `reboot-vm` | 2 (last resort) | `scripts/ops/reboot_vm.sh` | full host |
 | `enable-closed-flat-invariant` | 2 | `scripts/ops/enable_closed_flat_invariant.sh` | `.env` (`CLOSED_FLAT_INVARIANT_ENABLED=true`) + restart `ict-trader-live.service` |
 | `disable-closed-flat-invariant` | 2 | `scripts/ops/disable_closed_flat_invariant.sh` | `.env` (remove `CLOSED_FLAT_INVARIANT_ENABLED`) + restart `ict-trader-live.service` |
-| `enable-m5-consumer` | 2 | `scripts/ops/enable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=1`) + restart `ict-telegram-bot.service` |
-| `disable-m5-consumer` | 2 | `scripts/ops/disable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=0`) + restart `ict-telegram-bot.service` |
 | `set-mobile-push-secrets` | 2 | `scripts/ops/set_mobile_push_secrets.sh` | `.env` (`FCM_SERVICE_ACCOUNT_JSON=<value>`) + restart `ict-trader-live.service` — thin wrapper around `set-env` that pins `env_key=FCM_SERVICE_ACCOUNT_JSON` + `service=ict-trader-live.service` and pulls the value from `secrets.FCM_SERVICE_ACCOUNT_JSON`. Use this to rotate the FCM service-account credential without the chance of accidentally targeting the wrong env key or unit. The credential never transits the issue body or run log. No params. |
 | `enable-insights-generator` | 2 | `scripts/ops/enable_insights_generator.sh` | `systemctl daemon-reload` + `systemctl enable --now ict-insights-generator.timer` — activates the M13 S1 AI Analyst generator timer so `runtime_logs/insights/*.json` cache files start filling every ~10 min. Read-only of the trader; never touches `config/*.yaml`, the order path, or `ict-trader-live.service`. Prereq: the unit files must already be installed on the VM (auto-installed by `scripts/install_systemd_units.sh` during the prior `pull-and-deploy`). Idempotent. |
 | `disable-insights-generator` | 2 | `scripts/ops/disable_insights_generator.sh` | `systemctl disable --now ict-insights-generator.timer` — stops the timer. Hard disable; a soft disable (timer still scheduled but each fire exits immediately) is `INSIGHTS_ENABLED=0` in `.env`, which the runbook documents. Idempotent. |
@@ -318,8 +316,6 @@ Tier-2 actions:
 - `reboot-vm`
 - `enable-closed-flat-invariant`
 - `disable-closed-flat-invariant`
-- `enable-m5-consumer`
-- `disable-m5-consumer`
 - `backfill-pnl-nulls`
 - `backfill-orphan-pnl`
 - `backfill-closed-null-pnl`
@@ -497,7 +493,6 @@ depends on the dispatcher's trust class. Three classes exist today:
 Tier-2 set for the table above is `pull-and-deploy`,
 `restart-bot-service`, `reboot-vm`,
 `enable-closed-flat-invariant`, `disable-closed-flat-invariant`,
-`enable-m5-consumer`, `disable-m5-consumer`,
 `backfill-pnl-nulls`, `set-account-mode`, and `fix-data-dir`.
 
 Two corollaries that read as drift but are intentional:
@@ -658,12 +653,6 @@ tier: <1 or 2>
 | `disable-closed-flat-invariant` | 0 (ok) | `normal` |
 | `disable-closed-flat-invariant` | 3 (deferred — vm-runner active) | `normal` |
 | `disable-closed-flat-invariant` | other | `urgent` |
-| `enable-m5-consumer` | 0 (ok) | `normal` |
-| `enable-m5-consumer` | 3 (deferred — vm-runner active) | `normal` |
-| `enable-m5-consumer` | other | `urgent` |
-| `disable-m5-consumer` | 0 (ok) | `normal` |
-| `disable-m5-consumer` | 3 (deferred — vm-runner active) | `normal` |
-| `disable-m5-consumer` | other | `urgent` |
 | `backfill-pnl-nulls` | 0 (ok / noop) | `normal` |
 | `backfill-pnl-nulls` | other | `urgent` |
 | `backfill-orphan-pnl` | 0 (ok / noop) | `normal` |
@@ -700,8 +689,6 @@ follow-up doc PR if it ever becomes a problem.
 | `reboot-vm` | dump uptime + canonical unit states + 10 journal lines | `shutdown -r +1` | workflow polls SSH for ≤ 5 min; post-fetch `/api/diag/status` | SSH not back in 5 min → manual recovery required (Oracle Cloud Console) |
 | `enable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic write to `.env` setting `CLOSED_FLAT_INVARIANT_ENABLED=true`; `systemctl restart ict-trader-live.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-closed-flat-invariant` |
 | `disable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic strip of the env line + its comment header from `.env`; `systemctl restart ict-trader-live.service` | confirm `.env` no longer contains the key; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file still contains the key or unit failed to come back; investigate before re-enabling |
-| `enable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=1`; `systemctl restart ict-telegram-bot.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-m5-consumer` |
-| `disable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=0`; `systemctl restart ict-telegram-bot.service` | confirm `.env` value is `0`; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → unit failed to come back; investigate before re-enabling |
 | `backfill-pnl-nulls` | count rows in `trade_journal.db::trades` matching `status='closed' AND pnl IS NULL AND <complete inputs>` | `python3 scripts/ops/backfill_pnl_nulls.py --apply` — computes realised PnL via the canonical `src.runtime.local_pnl` helpers (`compute_realized_pnl` + `compute_pnl_percent`, multiplier-aware through `contract_value_usd_for` — the SAME maths as the live `order_monitor._sweep_local_pnl_for_unpriced` sweep, so the one-shot and the sweep never disagree; PR #4017 — previously a raw `(exit−entry)×size` that undercounted IBKR futures by their `contract_value_usd`). Prefers `notes.bybit_closed_pnl` (net-of-fees) when present. Writes pnl + pnl_percent | re-count candidate rows (should be 0 unless degenerate inputs were skipped); helper's own stdout lists every touched row id | exit 0 + post_count=0 → clean. exit 0 + post_count>0 → some rows skipped for degenerate inputs (unknown direction, zero notional); helper output names them. exit 1 → script failed; no service touched, no rollback needed |
 | `backfill-orphan-pnl` | count rows in `trade_journal.db::trades` matching `status='orphaned' AND exit_reason='stuck_strategy_watchdog' AND exit_price IS NULL AND COALESCE(is_backtest,0)=0` | `python3 scripts/ops/backfill_orphan_pnl.py --apply` (depends on `account_closed_pnl_for_trade` from PR #1299) — looks up each orphan's real close fill on Bybit V5 `/v5/position/closed-pnl`, then writes `status='closed'` + `exit_price` + `pnl` + `pnl_percent` + `exit_reason='backfill_closed_pnl_recovery'` + audit notes. No service touched | re-count candidate rows; helper's stdout lists every touched row id plus a "skipped" section naming any rows where Bybit had no matching record (typically because the 7-day window expired) | exit 0 + post_count=0 → clean. exit 0 + post_count>0 → unrecoverable orphans remain; helper output names them, manual cleanup needed. exit 1 → script failed; no service touched, no rollback needed |
 | `set-account-mode` | read pre-edit `mode:` value for `<ACCOUNT_ID>` from `config/accounts.yaml`; defer if `claude-vm-runner@*.service` active | targeted single-line regex edit of `config/accounts.yaml` setting `mode: <MODE>` for `<ACCOUNT_ID>`; `systemctl restart ict-trader-live.service` (clears in-memory `_DRY_RUN_OVERRIDES`) | verify post-edit `mode:` matches; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines; probe `runtime_logs/runtime_status.json` `live[<ACCOUNT_ID>]` for the dashboard projection | exit 3 → vm-runner active, deferred. exit 1 → invalid input (account or mode), YAML edit didn't stick, or unit failed to come back; YAML edit is in-place so if the restart fails the file is already mutated — inspect `runtime_logs/operator_actions/*.json` for the pre/post values |
