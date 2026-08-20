@@ -21,6 +21,8 @@ from __future__ import annotations
 import os
 import sys
 
+import json
+
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
@@ -101,7 +103,11 @@ def test_legacy_notes_stay_byte_identical():
     every pre-existing row is untouched and still parses."""
     assert encode_backtest_notes("a1-crypto-weekly") == "a1-crypto-weekly"
     assert parse_backtest_notes("a1-crypto-weekly") == {
-        "run_tag": "a1-crypto-weekly", "fidelity": None, "omitted_levers": []}
+        "run_tag": "a1-crypto-weekly", "fidelity": None, "omitted_levers": [],
+        # B6: a legacy row reports r_cost_basis None = NOBODY RECORDED IT.
+        # It must never read as "net", which would promote an un-costed sample
+        # to trusted evidence — the UNVERIFIED != MEASURED rule.
+        "r_cost_basis": None}
 
 
 def test_labeled_notes_round_trip():
@@ -109,14 +115,41 @@ def test_labeled_notes_round_trip():
                                 omitted_levers=["exit_head_action"])
     assert parse_backtest_notes(raw) == {
         "run_tag": "a1", "fidelity": "approximate",
-        "omitted_levers": ["exit_head_action"]}
+        "omitted_levers": ["exit_head_action"], "r_cost_basis": None}
+
+
+@pytest.mark.parametrize("basis", ["net_r", "gross_r", "r_multiple"])
+def test_r_cost_basis_round_trips_and_alone_defeats_the_bare_run_tag(basis):
+    """B6: the basis rides even when fidelity is absent — for EVERY state.
+
+    Parametrized over all three deliberately: a round-trip proven for one
+    state says nothing about the others, and `collapsed-state-guard` counts a
+    file touching a single state as the defect in miniature — correctly, since
+    that is how a state ends up with no reader.
+    """
+    raw = encode_backtest_notes("a1", r_cost_basis=basis)
+    assert raw != "a1", "a row carrying only a cost basis fell back to the bare run_tag"
+    assert parse_backtest_notes(raw)["r_cost_basis"] == basis
+
+
+def test_an_unrecognised_r_cost_basis_reads_as_unknown_not_as_itself():
+    """A value outside the declared states is not evidence of anything.
+
+    Passing it through would let a typo (or a future producer inventing a
+    fourth name) be read by a consumer that only tests for 'gross_r' — which
+    would silently grade an un-costed sample as trustworthy.
+    """
+    raw = json.dumps({"run_tag": "a1", "fidelity": None,
+                      "omitted_levers": [], "r_cost_basis": "net"})
+    assert parse_backtest_notes(raw)["r_cost_basis"] is None
 
 
 @pytest.mark.parametrize("bad", ["{not json", "{}", None, 42, ""])
 def test_parse_never_raises(bad):
     out = parse_backtest_notes(bad)
-    assert set(out) == {"run_tag", "fidelity", "omitted_levers"}
+    assert set(out) == {"run_tag", "fidelity", "omitted_levers", "r_cost_basis"}
     assert out["fidelity"] is None
+    assert out["r_cost_basis"] is None
 
 
 # --------------------------------------------------------------------------
