@@ -53,7 +53,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -68,6 +67,36 @@ RUNNER_GLOBS = (
 )
 
 
+_PY_DOCSTRING = re.compile(r'("""|\'\'\')(?:.|\n)*?\1')
+_HASH_COMMENT = re.compile(r"#[^\n]*")
+
+
+def _strip_noncode(text: str, suffix: str) -> str:
+    """Remove comments/docstrings so a MENTION is not mistaken for WIRING.
+
+    This checker was defeated by its own documentation TWICE. First its own
+    docstring cited `trainer_dataset_gc.py` as the motivating example, which
+    made that tool read as wired. Excluding this file fixed that instance and
+    not the class: the next commit added a comment in
+    `render_system_report.py` citing the same tool, and it read as wired again.
+
+    A reference only counts if it is in EXECUTABLE position. Prose about a tool
+    — a comment explaining why it matters, a docstring citing it as an example —
+    is exactly what a heavily-documented repo produces, and it is not a runner.
+
+    Approximate by design: a `#` inside a string literal is stripped too. That
+    errs toward FLAGGING (fewer references seen ⇒ more findings), which is the
+    safe direction for a corpse-hunter — a false positive costs a look, a false
+    negative is a capability rusting unnoticed. Markdown is left intact; prose
+    is the whole point of a doc, and the docs-only branch handles it.
+    """
+    if suffix == ".md":
+        return text
+    if suffix == ".py":
+        text = _PY_DOCSTRING.sub(" ", text)
+    return _HASH_COMMENT.sub(" ", text)
+
+
 def _runner_corpus(root: Path):
     """(text, path) for everything that could reference a tool."""
     seen, out = set(), []
@@ -77,7 +106,7 @@ def _runner_corpus(root: Path):
                 continue
             seen.add(f)
             try:
-                out.append((f.read_text(errors="ignore"), f))
+                out.append((_strip_noncode(f.read_text(errors="ignore"), f.suffix), f))
             except Exception:
                 pass
     return out
@@ -104,7 +133,7 @@ def scan(root: Path, targets):
     refs = {st: [] for st in stems}
     for text, f in _runner_corpus(root):
         if f.resolve() == self_path:
-            continue                       # a checker is not a runner (see self-test)
+            continue    # belt-and-braces; _strip_noncode is what actually fixes this
         fr = f.relative_to(root).as_posix()
         if fr.startswith("tests/"):
             continue                       # a test is not a runner
@@ -176,6 +205,25 @@ def _self_test(root: Path) -> int:
         tool.write_text("print('only this checker mentions me')\n")
         checks.append(("a tool named only in THIS checker is still flagged",
                        bool(scan(fake2, [tool]))))
+
+    # A tool mentioned only in a COMMENT of a real runner is still unwired.
+    # This is the class that defeated the checker twice.
+    with tempfile.TemporaryDirectory() as d3:
+        fake3 = Path(d3)
+        (fake3 / "scripts" / "ops").mkdir(parents=True)
+        (fake3 / "scripts" / "ci").mkdir(parents=True)
+        tool = fake3 / "scripts" / "ops" / "mentioned_tool.py"
+        tool.write_text("print('only a comment names me')\n")
+        (fake3 / "scripts" / "ci" / "some_runner.py").write_text(
+            "# see scripts/ops/mentioned_tool.py for the motivating example\n"
+            "print('I do not run it')\n")
+        checks.append(("a tool named only in a COMMENT is still flagged",
+                       bool(scan(fake3, [tool]))))
+        # ...but a real call in executable position IS wiring
+        (fake3 / "scripts" / "ci" / "real_runner.py").write_text(
+            'import subprocess\nsubprocess.run(["python3","scripts/ops/mentioned_tool.py"])\n')
+        checks.append(("a tool CALLED in executable position is NOT flagged",
+                       not scan(fake3, [tool])))
 
     # the probe must find a positive on the real repo, or its silence is meaningless
     real = scan(root, [root / "scripts" / "ops" / "trainer_dataset_gc.py"]) \

@@ -615,16 +615,25 @@ The repo already guards this for **declared provenance keys**
 detector: **`scripts/ci/check_unwired_artifacts.py`** (6/6 planted controls,
 one corpus pass, 6.7 s over the whole tree).
 
-### F-27 · 103 of 384 tools under `scripts/` have nothing that runs them
+### F-27 · 161 of 384 tools under `scripts/` have nothing that runs them
 
 | class | n | meaning |
 |---|---|---|
-| **no runner references it at all** | **11** | nothing — no workflow, unit, script, `src/`, or doc |
-| **referenced ONLY by docs** | **92** | built, written up in a sprint log or research doc, and then never run again |
-| wired | 281 | |
+| **no runner references it at all** | **12** | nothing — no workflow, unit, script, `src/`, or doc |
+| **referenced ONLY by docs** | **149** | built, written up in a sprint log or research doc, and then never run again |
+| wired | 223 | |
 
-By directory: `research/` 32 · `ml/` 15 · `ops/` 12 · top-level 11 ·
-`macro/` 10.
+⚠️ **A first pass reported 103 (11 / 92) and was UNDER-counting**, because it
+treated a mention inside a comment or docstring as wiring. It does not: prose
+about a tool is what a heavily-documented repo produces, and it does not run
+anything. With comments and docstrings stripped, the count is 161.
+
+The checker was defeated by exactly that, twice, on itself — first its own
+docstring cited `trainer_dataset_gc.py` as the motivating example (making the
+tool read as wired), then, after a path-exclusion band-aid, a new comment in
+`render_system_report.py` cited the same tool and it read as wired again. The
+band-aid fixed an instance; stripping non-executable text fixed the class. Both
+cases now have planted controls (8/8).
 
 **The number is not the finding, and 103 deletions is not the remedy.** Many of
 these are legitimately manual research one-offs. The finding is that **not one

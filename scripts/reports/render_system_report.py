@@ -699,7 +699,33 @@ def _is_under(path: Path, parent: Path) -> bool:
 _REQUIRED_COVERAGE_KEYS = (
     "strategy_promotion", "ml_training_health", "soak_status",
     "execution_capture", "backlog_drive",
+    # ── account_reachability: DECLARED MANDATORY SINCE 2026-06-29, ENFORCED BY
+    #    NOTHING UNTIL 2026-08-20. SKILL.md said "any of the SIX required keys"
+    #    and named it; this tuple had FIVE and omitted it. Its stated motivation
+    #    is "the IB gateway was dark across reviews and went unflagged" — and on
+    #    2026-08-20 the full-system audit measured the gateway restarting three
+    #    times in 33 minutes (only one scheduled) with nothing flagging it. The
+    #    guard against exactly that failure was specified and never wired.
+    "account_reachability",
+    # ── The three below are the 2026-08-20 operator directive: stop building
+    #    things half way and leaving them to rust, and stop knocking backlog
+    #    items off one at a time without asking what CLASS they belong to.
+    "since_last_build_verification",
+    "backlog_classes",
+    "ml_output_actionability",
 )
+
+#: Verdicts a since-last-build row may carry. `UNWIRED` is the finding.
+_BUILD_VERDICTS = {"running", "wired_not_yet_exercised", "UNWIRED", "unverifiable"}
+
+
+def flags_blob_of(rc: dict) -> str:
+    """All of `flags_raised[]` as one searchable string.
+
+    Used by the escalation checks: a finding that must be LOUD has to actually
+    appear in the flags, not merely exist in its own coverage block.
+    """
+    return " ".join(str(f) for f in (rc.get("flags_raised") or []))
 
 
 def _validate_review_coverage(report: dict) -> list[str]:
@@ -773,6 +799,108 @@ def _validate_review_coverage(report: dict) -> list[str]:
                 "`summary` does not justify it. A review dispositions; carrying "
                 "every row forward unchanged is not backlog work (75 such touches "
                 "were recorded while the backlog grew +129 net in 30 days)")
+
+    # ── SINCE-LAST BUILD VERIFICATION (2026-08-20) ────────────────────────
+    #
+    # "We keep building things out half way and then leaving them to rust."
+    # Measured the same day: 103 of 384 tools under scripts/ have nothing that
+    # runs them, and `scripts/ops/trainer_dataset_gc.py` -- the retention tool
+    # for a 12G dataset tree -- sat unrun with 0 mentions across 7,442 cycle-log
+    # rows while its disk climbed to 93%. Every instance of that class in the
+    # record was found by accident months later, never by a review.
+    #
+    # So a review must enumerate what shipped since the previous one and give
+    # each piece a VERDICT. A shipped capability that nothing runs is a finding
+    # that must be loud, not a row in a list nobody re-reads.
+    slbv = rc.get("since_last_build_verification") or {}
+    if isinstance(slbv, dict):
+        items = slbv.get("items")
+        if not isinstance(items, list):
+            violations.append(
+                "since_last_build_verification.items missing — list every "
+                "capability shipped since the previous review, each with a verdict")
+        else:
+            shipped = slbv.get("count_shipped")
+            if isinstance(shipped, int) and shipped != len(items):
+                violations.append(
+                    f"since_last_build_verification: count_shipped={shipped} but "
+                    f"{len(items)} item(s) listed — the enumeration is incomplete")
+            for it in items:
+                it = it or {}
+                v = str(it.get("verdict") or "")
+                name = str(it.get("name") or "?")
+                if v not in _BUILD_VERDICTS:
+                    violations.append(
+                        f"since_last_build_verification '{name}': verdict {v!r} not one "
+                        f"of {sorted(_BUILD_VERDICTS)}")
+                elif v == "UNWIRED" and name not in flags_blob_of(rc):
+                    violations.append(
+                        f"since_last_build_verification '{name}' is UNWIRED but not "
+                        "escalated into flags_raised[] — a capability that shipped and "
+                        "does not run is the finding this key exists to surface")
+                elif v == "unverifiable" and not str(it.get("reason") or "").strip():
+                    violations.append(
+                        f"since_last_build_verification '{name}': verdict 'unverifiable' "
+                        "with no reason — say what could not be checked and why")
+
+    # ── BACKLOG CLASSES BEFORE BACKLOG ITEMS (2026-08-20) ──────────────────
+    #
+    # Draining the backlog one row at a time is a treadmill: the same defect
+    # CLASS keeps returning under new ids. The 2026-08-20 audit found
+    # `order_packages.id` -- the fictional column behind BL-20260810 -- still
+    # declared in 20 test fixtures after the "fix" swept only the reporting
+    # instance. So the review must read the WHOLE open backlog for patterns
+    # FIRST, and name the structural fix, before disposing of individual rows.
+    bc = rc.get("backlog_classes") or {}
+    if isinstance(bc, dict):
+        reviewed = bc.get("total_open_reviewed")
+        if not isinstance(reviewed, int) or reviewed <= 0:
+            violations.append(
+                "backlog_classes.total_open_reviewed missing — state how many OPEN "
+                "rows were read for pattern (the whole set, not a sample)")
+        classes = bc.get("classes")
+        if not isinstance(classes, list):
+            violations.append("backlog_classes.classes missing (use [] with a stated "
+                              "summary if the open set genuinely shows no class)")
+        else:
+            for c in classes:
+                c = c or {}
+                label = str(c.get("class") or "?")
+                members = c.get("member_ids") or []
+                if len(members) < 2:
+                    violations.append(
+                        f"backlog_classes '{label}': needs >=2 member_ids — one row is "
+                        "an instance, not a class")
+                if not str(c.get("structural_fix") or "").strip():
+                    violations.append(
+                        f"backlog_classes '{label}': no structural_fix — naming a class "
+                        "without the fix that retires it is just a nicer-looking backlog")
+
+    # ── THE TRAINER BEING GREEN IS NOT THE QUESTION (2026-08-20) ───────────
+    #
+    # Operator: "just checking that the trainer vm is green isn't enough - we
+    # need to verify that the training sessions and backlogs are actually being
+    # worked through and producing reliable and actionable results, every day."
+    # `ml_training_health` answers "did it run"; this answers "did what it
+    # produced get used". On 2026-08-20: 7,442 cycle rows, ~15% non-ok manifest
+    # events, and `outcome` totalling {trained: 20, already_complete: 20}.
+    moa = rc.get("ml_output_actionability") or {}
+    if isinstance(moa, dict):
+        for req in ("cycles_in_window", "outputs_consumed_by", "verdict"):
+            if not str(moa.get(req) or "").strip() and not isinstance(moa.get(req), (int, list)):
+                violations.append(
+                    f"ml_output_actionability.{req} missing — a green service is not "
+                    "evidence that a usable result was produced or that anything read it")
+        v = str(moa.get("verdict") or "")
+        if v and v not in ("actionable", "producing_but_unused", "not_producing", "unverifiable"):
+            violations.append(
+                f"ml_output_actionability.verdict {v!r} not one of "
+                "['actionable','producing_but_unused','not_producing','unverifiable']")
+        if v in ("producing_but_unused", "not_producing") and "ml" not in flags_blob_of(rc).lower():
+            violations.append(
+                f"ml_output_actionability.verdict is {v!r} but nothing about ML is in "
+                "flags_raised[] — a training fleet whose output nobody consumes is a "
+                "loud finding, not a status line")
 
     # Anti-normalization: a >=2-review execution-capture anomaly must be escalated.
     flags_blob = " ".join(str(f) for f in (rc.get("flags_raised") or []))
