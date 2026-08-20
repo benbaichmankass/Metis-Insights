@@ -57,30 +57,20 @@ on:
     # catch one event, and a check that cries wolf is the desensitized-alarm
     # failure this repo treats as its own P1. Weekly bounds the blind window to
     # 7 days. Tighten it if topology ever starts moving faster than that.
+    #
+    # ✅ THE TRIGGER IS PROVEN, not assumed (2026-08-20, run 32362843960).
+    # `github.event_name == 'schedule'` had never been evaluated by GitHub —
+    # every run in this workflow's history was `workflow_dispatch` or `issues`
+    # — and a dispatch CANNOT reach that disjunct, because `inputs.fail_on_drift`
+    # carries `default: "false"` and is therefore never empty. Two one-off probe
+    # crons were merged and removed the same day; the run fired at 11:14:30Z for
+    # an 11:00Z window (GitHub scheduling lag, ~14.5 min — expect it, and never
+    # read a late run as a missed one), the job RAN rather than being skipped,
+    # and the verdict was `clean` with Auto-resolve success and Telegram /
+    # drift-issue / fail-the-run all correctly skipped. That run is also the
+    # first live exercise of the `EVENT_NAME = schedule` branch below, which
+    # defaults fail_on_drift ON — so the enforcing default is confirmed live.
     - cron: "0 6 * * 1"
-
-    # ⛔ TEMPORARY — DELETE AFTER 2026-08-20. Two ONE-OFF probes that exist for a
-    # single reason: the `schedule` TRIGGER has never fired, so the disjunct
-    # `github.event_name == 'schedule'` in the job `if:` below has never been
-    # evaluated by GitHub even once. Everything else about a scheduled run is
-    # already proven — the fail_on_drift resolution was tested against the
-    # committed block with EVENT_NAME=schedule (with a planted-defect control),
-    # the classifier against 6 fixtures, and the whole end-to-end against the
-    # real cloud via workflow_dispatch (32351336623 red / 32351503893 green /
-    # 32358587200 clean). The trigger itself is the ONE link a dispatch cannot
-    # exercise, and a link nobody has ever run is not a link you have.
-    #
-    # Day-of-month + month scoped ON PURPOSE (`20 8 *`), NOT day-of-week: if the
-    # removal PR is delayed or forgotten, the worst case is one extra run in
-    # AUGUST 2027, never a second weekly run competing with the real cron above.
-    # A cleanup that has to happen for the change to be safe is not a cleanup.
-    #
-    # Two times, not one, because GitHub explicitly does not guarantee scheduled
-    # runs fire on time or at all under load — a single miss would be
-    # indistinguishable from a broken gate, which is the exact ambiguity this
-    # probe exists to remove.
-    - cron: "0 11 20 8 *"
-    - cron: "20 11 20 8 *"
   workflow_dispatch:
     inputs:
       mode:
