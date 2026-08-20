@@ -173,6 +173,26 @@ gate the backlog row proposed was designed, measured (2/64 on a narrow family) a
 **rejected** — P(any of K clears) *rises* with K, so it gets more trigger-happy the more
 carefully you measure it.
 
+**RE-RUN 2026-08-20 — and it moves the headline.** The full 24-cell sweep under the new
+rule: **every admissible cell reproduces its published FWER/min-p/pointwise counts
+EXACTLY** — the gate decides admissibility, not verdicts. What moved is the *set*, and
+**the holes swapped legs**: `advantage_r` SOL h24/h48/h96 recover (so `advantage_r` is now
+negative on **8 of 8** cells, a *stronger* claim than published), `label_hold` **SOL h48
+recovers as a HIT 3/5/6** — the "hole at the decisive rung" was the gate's error — while
+`label_hold` **XRP h48 and h96 become inadmissible**.
+
+⚠️ **So the `label_hold` flip is carried by SOL ALONE, and the horizon arm's "two
+independent legs" defence is WITHDRAWN for that target.** The reason is measured: pooled
+over the sweep's 1,536 control draws, **XRP's null is anticonservative at 2.27× α**
+(87/768, +8.0 sd, *p* ≈ 2 × 10⁻¹²) while **SOL's is textbook** (38/768, 0.99× α, mean
+permutation *p* 0.4956). The original suspicion — that *SOL's* null was the narrow one —
+was exactly backwards (`BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP`).
+⚠️ Read the **leg-level** statement, not the two per-cell firings: re-running one cell
+under six seeds fires the gate on 2 of 6, exactly the 0.19 power at K = 64 against a 2×
+null that the rule's pre-shipped power curve predicted. The mechanism is **not
+established** — the cycling distortion is a structural candidate but the `cv_length`
+ordering runs the wrong way.
+
 ### E3 · Design levers over informative features — and COMBINE them
 Only features that survived E2. Levers are swept **jointly**, not one at a time: the
 single-lever sweeps cannot see an interaction, and *"exit when the thesis decayed AND the

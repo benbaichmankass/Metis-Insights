@@ -57,6 +57,36 @@ clean 3/64 pointwise. Kept as the reported diagnostic `n_cleared_fwer` with no v
 self-test caught this, which is why it was fixed before the sweep rather than after seeing
 which cells it rescued.**
 
+### 1b. The re-run — 24/24 cells, and it moved the headline
+
+**Every admissible cell reproduces its published FWER/min-p/pointwise counts EXACTLY.**
+The gate decides admissibility, not verdicts. What moved is the *set*, and **the holes
+swapped legs**:
+
+| target · cell | published | re-run |
+|---|---|---|
+| `advantage_r` SOL h24/h48/h96 | `harness_invalid` ×3 | recovered → **negative on 8 of 8** |
+| `label_hold` **SOL h48** | `harness_invalid` | **HIT 3/5/6** — the gate's error, not luck |
+| `label_hold` **XRP h48 / h96** | HIT 2/3/5 · HIT 3/4/7 | **`harness_invalid`** |
+
+⚠️ **The `label_hold` flip is now carried by SOL alone; the horizon arm's "two independent
+legs" defence is withdrawn for that target.**
+
+**The bank found a bigger defect than the one it was built for.** Pooled over 1,536
+control draws: **XRP's null is anticonservative at 2.27× α** (87/768, +8.0 sd,
+*p* ≈ 2 × 10⁻¹²); **SOL's is textbook** (38/768, 0.99× α, mean permutation *p* 0.4956).
+The original suspicion — that *SOL* was the narrow leg — was exactly backwards. Filed as
+`BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP` (high).
+
+**Self-checked, because the result confirmed a prior guess.** One candidate artifact was
+**refuted** (E2's observed and null paths agree to 6.9 × 10⁻¹⁸ over 48 cells). The
+shared-shuffle correlation worry **survived with a limit**: six seeds on one cell give
+counts 9/6/6/5/3/9, sd 2.34 against a binomial sd of 2.39 at the observed rate — no
+material overdispersion, and the ~2× leg defect replicates on all six — **but the gate
+fired on only 2 of 6**, so the *per-cell* verdict is a coin flip at that effect size,
+exactly the 0.19 power at K = 64 the pre-shipped power curve predicted. **Quote the
+leg-level figure, not the two firings.**
+
 ### 2. Edge vs barrier geometry — settled, and the E2 licence does not survive it
 
 `docs/research/e3-barrier-geometry-2026-08-20.md`, tool
@@ -113,6 +143,8 @@ acts on the *trade*. No lever inherits the h=48 licence.
 ## Filed
 
 - `BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER` — **resolved**
+- **`BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP`** (high) — found by the new
+  bank, and larger than the row it was built to close
 - `BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY` (high) — every E2
   artifact scores a 2.0 R label barrier while the live legs trade `tp_at_r: 1.5`, and
   **no harness trade ever realises above +1.5 R** (caps at exactly +1.500, 97/503 trades)

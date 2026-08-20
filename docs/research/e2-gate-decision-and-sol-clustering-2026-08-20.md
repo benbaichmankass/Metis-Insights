@@ -208,8 +208,141 @@ failed safe. What changes:
 - The `label_hold` flip at 48–96 bars is untouched by any of this and is re-measured
   under the new gate in the sweep this document licenses.
 
+## 3.5 THE RE-RUN — and it moves the horizon arm's headline
+
+The full 24-cell sweep was re-run under the new rule (not the four cells patched, as the
+row requires). Same panels, same seed, same 1,000 shuffles.
+
+**Every admissible cell reproduces its published FWER/min-p/pointwise counts EXACTLY.**
+The gate decides admissibility, not verdicts, and it shows: nothing moved except which
+cells are allowed to speak. What moved is the *set*.
+
+| target · cell | published | re-run |
+|---|---|---|
+| `advantage_r` SOL h24 / h48 / h96 | `harness_invalid` ×3 | **none 0/0/1 · 0/0/1 · 0/0/2** — recovered |
+| `label_hold` **SOL h48** | `harness_invalid` | **HIT 3/5/6** — recovered, *and it is a hit* |
+| `label_hold` **XRP h48** | HIT 2/3/5 | **`harness_invalid`** |
+| `label_hold` **XRP h96** | HIT 3/4/7 | **`harness_invalid`** |
+
+**The admissibility holes swapped legs**, and § 3.6 measures why.
+
+Two consequences for the horizon arm, both material:
+
+1. **`advantage_r` is now negative on 8 of 8 cells**, not 5 of 8. Its claim — the horizon
+   buys the decision's SIGN, not its MAGNITUDE — is *stronger* than published.
+2. ⚠️ **The `label_hold` flip is now carried by SOL ALONE**, at h48 (HIT 3/5/6) *and*
+   h96 (HIT 4/5/6). The horizon arm's central defence — *"two independent legs tracing
+   near-identical trajectories"* — **must be withdrawn for `label_hold`.** Its § 7
+   monotonicity table remains a valid description of the statistics, but XRP's half of it
+   is measured against a null now known to be anticonservative, so the "gap to the bar"
+   column for XRP is not reliable.
+
+   The lament that SOL h48 survived "by luck, not design" is resolved in the other
+   direction: **the hole at the decisive rung was the gate's error, and the cell is a hit.**
+
+⚠️ **`legacy_pointwise_gate_would_invalidate` is NOT a replay of the original sweep.**
+It reads bank column 0 — but adding K = 64 columns changed the RNG stream, so column 0
+is *not* the column the original single-control run drew. On this run the old rule would
+have discarded **0 of 24**; the original discarded 4. Both are single draws from the same
+Bernoulli(α), and that they disagree so completely is the clearest possible illustration
+of why the rule was replaced. **Do not quote 4 → 0 as a like-for-like improvement.**
+
+## 3.6 The bank found a bigger defect than the one it was built for
+
+Pooled over the 24-cell sweep — **1,536 control draws**, the properly-powered read the
+row's criterion (1) called for:
+
+| population | cleared | rate | vs α | sd | binomial *p* | mean permutation *p* |
+|---|--:|--:|--:|--:|--:|--:|
+| **SOLUSDT** (12 cells) | 38/768 | **0.0495** | 0.99× | −0.1 | 0.55 | 0.4956 |
+| **XRPUSDT** (12 cells) | 87/768 | **0.1133** | **2.27×** | **+8.0** | **2.3 × 10⁻¹²** | 0.4707 |
+| pooled | 125/1536 | 0.0814 | 1.63× | +5.6 | — | — |
+
+**The original suspicion was exactly backwards.** The row hypothesised that *SOL's*
+control null was too narrow. Measured on 768 draws per leg: **SOL's null is textbook**
+(0.99× α, mean permutation *p* 0.4956 against a theoretical 0.5) and **XRP's is
+decisively anticonservative** — 2.27× α at *p* ≈ 2 × 10⁻¹².
+
+That is a defect **in the null**, not in the gate, and it is more consequential than the
+row that started this: an anticonservative null lowers the FWER threshold too, so **XRP's
+E2 hits across every target are inflated by an unknown amount**. Filed as
+`BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP`.
+
+⚠️ **The mechanism is NOT established.** § 1.2's cycling/truncation distortion is a real
+structural candidate and predicts severity scaling with block-length inequality — but the
+`cv_length` ordering runs the **wrong way** (SOL 0.4503 > XRP 0.4256), so it cannot be the
+whole story and may not be any of it. Naming it as the cause here would be the same
+unearned mechanism claim this document withdrew in § 1.1a.
+
+## 3.7 ⚠️ Checking my own result: the per-cell verdicts are seed-dependent, the leg-level defect is not
+
+The finding in § 3.6 confirmed what § 1.2 had guessed, which is exactly when a result
+needs the hardest look. Two hypotheses were tested and one survived.
+
+**Refuted — E2's observed and null paths are consistent.** `observed` is computed by
+`_fold_stat` and the null by `_prepare_fold_feature` → `_corr_from_centered`. If those
+disagreed, observed and null would not be comparable and the whole rate would be an
+artifact. Measured over 48 (fold, column) cells on the XRP h48 panel: worst
+`|observed_path − null_path|` = **6.9 × 10⁻¹⁸**. They agree.
+
+**Survived, but with a limit that must travel with § 3.6.** All 64 columns in a run share
+the same 1,000 shuffled label sets, so their verdicts could be correlated and the
+`Binomial(K, α)` reference the gate uses could be wrong. Re-running the *same panel and
+target* under six seeds:
+
+| seed | 20260820 | 11 | 22 | 33 | 44 | 55 |
+|---|--:|--:|--:|--:|--:|--:|
+| bank cleared | **9**/64 | 6/64 | 6/64 | 5/64 | 3/64 | **9**/64 |
+| `harness_state` | **invalid** | valid | valid | valid | valid | **invalid** |
+
+- **No material overdispersion.** Observed sd of the counts is **2.34**; the binomial sd
+  *at the observed rate* is **2.39**. The shared-shuffle correlation is not large enough
+  to break the reference distribution.
+- **The leg-level defect replicates.** Mean rate **0.0990 = 1.98× α** across six
+  independent seeds (range 0.047–0.141). § 3.6's XRP finding stands.
+- ⚠️ **But the per-cell verdict does not.** The gate fired on **2 of 6** seeds. So
+  *"XRP h48 `label_hold` is inadmissible"* is **not a stable verdict** — it is a
+  coin-flip at this effect size, and the same is true of the h96 cell.
+
+**This is the gate behaving exactly as its own power curve predicted**, not misbehaving:
+at K = 64 the power against a 2× inflated null is **0.19**, and 2/6 is consistent with
+that. The curve was computed before the rule shipped and is in § 2.1.
+
+**So read § 3.5 this way.** The reliable statement is the **leg-level** one — XRP's null
+is anticonservative at ~2× α on 768 draws (*p* ≈ 2 × 10⁻¹²) — and the per-cell firings
+are a noisy manifestation of it, not independent evidence about those two cells. The
+correct conclusion is *"every XRP `label_hold` verdict at long horizon rests on a null
+measured hot"*, which is **stronger** than the two firings and does not depend on them.
+It also says what the gate should read next: the **per-leg** pooled rate, not only the
+per-cell one — recorded in the filed row's criterion (4).
+
 ## 4. Disposition
 
 The rule above is fixed. The **full 24-cell sweep is re-run under it** — not the four
 cells patched, as the row requires — and both gates' verdicts are reported side by
 side so the change's effect on the sweep is visible rather than asserted.
+
+---
+
+## Appendix — the full re-run matrix (24/24 cells, new gate)
+
+## `forward_r`  (verdict · FWER/min-p/pointwise)
+
+| symbol | h=12 | h=24 | h=48 | h=96 |
+|---|---|---|---|---|
+| `SOLUSDT` | **HIT** · 5/5/7 | **HIT** · 5/5/7 | **HIT** · 5/5/6 | **HIT** · 5/6/6 |
+| `XRPUSDT` | **HIT** · 6/7/9 | **HIT** · 5/5/11 | **HIT** · 5/7/10 | **HIT** · 5/8/10 |
+
+## `advantage_r`  (verdict · FWER/min-p/pointwise)
+
+| symbol | h=12 | h=24 | h=48 | h=96 |
+|---|---|---|---|---|
+| `SOLUSDT` | none · 0/0/0 | none · 0/0/1 | none · 0/0/1 | none · 0/0/2 |
+| `XRPUSDT` | none · 0/0/0 | none · 0/0/1 | none · 0/0/1 | none · 0/0/2 |
+
+## `label_hold`  (verdict · FWER/min-p/pointwise)
+
+| symbol | h=12 | h=24 | h=48 | h=96 |
+|---|---|---|---|---|
+| `SOLUSDT` | none · 0/0/1 | none · 0/1/3 | **HIT** · 3/5/6 | **HIT** · 4/5/6 |
+| `XRPUSDT` | none · 0/0/0 | none · 0/0/1 | **harness_invalid** | **harness_invalid** |
