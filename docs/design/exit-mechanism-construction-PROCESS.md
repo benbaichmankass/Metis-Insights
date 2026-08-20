@@ -68,6 +68,22 @@ what fraction of exits carry any post-entry information at all.
 *Falsifier:* if `>70%` of exits are bracket-decided, the leg has **no exit mechanism** and
 steps E3+ are premature. Say so rather than sweeping levers at it.
 
+### E-lit · Survey what has already been solved outside this repo — RUNS FIRST, RUNS CONTINUOUSLY
+Practitioner and academic work on exits is large, old, and mostly not in this repo. Every
+step below is cheaper if it starts from what is already known rather than from what this
+fleet happens to have measured. This step is not a one-off literature review that gets
+ticked off — it is re-entered whenever a step returns a negative, because a negative means
+*the constructs we tried* did not work, and the survey is where the next constructs come
+from.
+*Falsifier:* a construct lifted from outside is a **hypothesis, not a result**. It enters
+at E1 (as a feature) or E3 (as a lever form) and is subject to the same E2 information
+test and E4 dispersion test as anything invented here. Citing a paper is never evidence
+about this fleet. Conversely, a construct that fails here has failed **here** — record the
+conditions, not a verdict on the construct.
+
+Findings already gathered (2026-08-20) are in §1.5; they are seeds for E0/E1/E3, not
+conclusions.
+
 ### E1 · Widen the decision surface — the step that is currently missing
 Add **exogenous** features to the in-trade panel. Candidate families, cheapest first:
 - **peer-symbol state** — the measured 0.70–0.89 correlated names' returns, relative
@@ -109,6 +125,141 @@ Operator approval against the specific numbers, with the dispersion band attache
 
 ---
 
+---
+
+## 1.5 E-lit survey, round 1 (2026-08-20) — seeds, not evidence
+
+**Read the source-quality column before reading anything else.** Roughly half of
+what a search returns on this topic is vendor content whose backtest numbers are
+unverifiable marketing. Those rows are kept because the *construct* is worth
+testing here, not because the number is worth believing.
+
+| tier | meaning |
+|---|---|
+| **A** peer-reviewed / working paper with a stated method | the construct AND the result are worth reading |
+| **B** practitioner writing with a stated method but no reproducible artifact | the construct is worth testing; the number is a claim |
+| **C** vendor blog / indicator marketing | the construct only. **Numbers from tier C do not get quoted in any artifact in this repo** |
+
+### 1.5.1 Exit-quality metrics we do not currently compute — feeds E0
+
+The E0 census counts exit REASONS. The practitioner literature measures exit
+*quality*, which is a different question and the one the operator actually asked
+("we gave back 2R"). Two standard ratios, neither of which exists anywhere in
+this repo:
+
+- **MFE capture rate** = realised exit profit / MFE. Tier B sources put "poor
+  exit timing" below 50% and a healthy band at 65–80%; below 60% is read as
+  systematically early exits. **On XRP 4163 this is 1.425 / 3.418 = 41.7%.** We
+  have `peak_r` (a LOWER bound) on the live side and `mfe_r` in the harness, so
+  this is computable today per leg — it just never has been.
+- **MAE-to-stop ratio** = mean MAE / stop distance. Tier B reads below 0.6 as
+  stops set too wide (risk booked that the trade never uses) and above 0.85 as
+  well-calibrated-but-tight. This is the quantitative form of *"is the bracket a
+  safeguard or is it the strategy?"*
+
+Both go into E0 as census columns. Both are **descriptive** — a bad capture rate
+does not by itself imply a lever exists, which is exactly what E2 is for.
+
+### 1.5.2 Optimal stopping is a solved problem class — feeds E3 lever FORM
+
+Tier A. The exit question has a formal literature under *optimal stopping*, and
+its central result is structural rather than parametric:
+
+- **Dai, Zhang & Zhu (2010), "Optimal Trend Following Trading Rules"**
+  (`10.2139/ssrn.1630903`) — under a continuous-time regime-switching model the
+  optimal policy is a pair of **threshold curves in the conditional probability
+  of being in the bull state**, not a price level and not a fixed trailing
+  distance. The exit boundary moves with the posterior, so the same price action
+  exits or holds depending on inferred regime.
+- The same literature's discrete analogue: under a **Markov** state model the
+  optimal rule reduces to an EMA crossing, while under a **semi-Markov** model —
+  where the probability of the state ENDING increases with its age — the optimal
+  rule takes a MACD-like form. **That is a formal argument that time-in-state
+  belongs in an exit rule**, and this fleet's `bars_in_trade` is a crude proxy
+  for it that has never been paired with a state estimate.
+
+The transferable claim is the FORM: *exit on a function of the posterior over
+market state, with an age term*. That is a lever family E3 can express only once
+E1 supplies a regime series — which is the second item on E1's candidate list.
+
+### 1.5.3 Trailing-stop evidence — feeds E3, with a caution
+
+- Tier A/B. **Kaminski & Lo (2014)** report that a trend-following stop rule cut
+  maximum drawdowns by more than half with slightly higher returns.
+  **Clare, Seaton, Smith & Thomas (2013)** report a 10% trailing stop improving
+  Sharpe across equity markets and asset classes.
+- Tier C sources report Chandelier-style exits beating fixed stops on expectancy
+  and drawdown. **Those numbers are not quoted here** and are not evidence about
+  this fleet; the construct is already implemented as `trail_decay`.
+
+⚠️ **The caution is the interesting part.** Both tier-A results are primarily
+**drawdown** results — the stop bought risk reduction, and return improvement was
+secondary or slight. Our own gate (`beats()`) requires net_R improvement AND
+maxDD no worse. **A construct whose literature support is drawdown-side will fail a
+gate written net_R-first even when it is working as designed.** That is a gate
+question, not a lever question, and it is now on the E4 agenda: the fleet may
+need a declared drawdown-primary acceptance path, pre-registered, rather than
+one universal `beats()`.
+
+### 1.5.4 Labelling and validation — feeds E2, and validates the E2 design
+
+Tier A. López de Prado's **triple-barrier** labelling (profit barrier / stop
+barrier / **time barrier**) and **meta-labelling** (a primary model picks the
+side, a secondary model predicts whether the primary was right, and its output
+drives SIZE) are the standard framing for exactly the question E2 asks.
+
+Two things follow:
+
+1. **The E2 design as written is right, and for the documented reason.**
+   Triple-barrier labels overlap in time, so ordinary k-fold leaks and inflates
+   accuracy — purging and embargoing are mandatory, and average-uniqueness
+   weighting corrects the redundancy. E2 already specifies purged/embargoed
+   splits grouped by `trade_id`; this is the external confirmation that the
+   grouping is load-bearing, not defensive decoration.
+2. **Meta-labelling is a SIZING construct, not only an exit construct** — the
+   secondary model's output is naturally a position size. That connects this
+   thread to `CONVICTION_SIZING_MODE`, which is already live reductive-only on
+   `bybit_1`. An exit head and a size head over the same widened panel are the
+   same model wearing two hats; E3 should not design them as unrelated levers.
+
+### 1.5.5 Correlation and portfolio-level exits — feeds E1 directly
+
+- Tier B. Average pairwise correlation inside an equity index is reported around
+  0.30 in normal conditions and **above 0.70 in selloffs** — i.e. correlation is
+  itself regime-dependent, and a book that is diversified at entry is not
+  diversified at the moment it matters. The practitioner framing is **portfolio
+  heat**: cap total open risk and cap risk within a correlated cluster.
+- Tier A. Crypto-specific: BTC leads both directions, with dominance rising in
+  drawdowns; cross-chain spillovers are frequently **negative** (a surge on one
+  chain coincides with declines on others), unlike equities — so a peer feature
+  must carry a SIGN that is estimated, never assumed positive.
+
+**This is the concrete E1 feature that the operator's own observation demands**
+(short XRP held while long ETH at rho 0.88): not just the peer's return, but the
+**current** pairwise correlation against its own history — a rolling correlation
+z-score is the cheapest form. A live accessor is required before it is a feature
+(E1's falsifier), and `comms/research/crypto_correlation_*.json` is a measured
+starting matrix, not a live series.
+
+### 1.5.6 Time stops — feeds E1 and E3
+
+Tier B, but the framing is precise enough to test: choose a time barrier where
+the **marginal reward decays faster than the marginal risk**, by fitting the
+exit-rate curve against bar count. The stated distinction is that mean-reversion
+payoff concentrates in early bars so a timer dominates, while trend-following
+wants a wide trailing distance instead. Our fleet holds BOTH kinds and applies
+neither rule deliberately — and `timeout` is 5 of 284 exits on `xrp_pullback_2h`,
+i.e. effectively absent.
+
+### 1.5.7 What round 1 did NOT cover
+
+Named so the next round starts here rather than re-treading the above:
+execution-cost-aware exits, options-implied signals as exit inputs (IV rank, term
+structure, skew), order-flow / microstructure exit triggers beyond our two taker
+features, funding-rate and basis as crypto-specific exogenous state, and
+survival-analysis framings (hazard of adverse excursion) as an alternative
+prediction target to forward R.
+
 ## 2. What this changes about the fleet
 
 The coverage matrix currently records `honest_negative` for most pullback lever cells.
@@ -123,9 +274,36 @@ that qualification rather than reading as closed questions.
    whether an exit mechanism exists at all.
 2. **E1 peer-symbol features first** — the correlation matrix is already measured and the
    operator's own observation (short XRP while long ETH at rho 0.88) is the motivating case.
-3. **E2 on the widened panel** — the first honest answer to *"is there anything to learn
-   here?"*
-4. E3+ only if E2 finds signal. **If E2 finds nothing, that is the answer** and it is worth
-   more than another twenty cells: it would mean exits on this fleet are genuinely a
-   risk-control problem, not a prediction problem, and the correct response is to size and
-   diversify rather than to keep hunting a lever.
+3. **E2 on the widened panel** — the first honest answer to *"does anything in THIS panel
+   carry information about forward R?"*
+4. E3+ on whatever survives E2.
+
+### 3.1 What a negative result means, and what it does not
+
+A negative at any step means: **the constructs tried up to that point, over the substrate
+available at that point, did not beat holding.** It is a statement about a tried set, with
+a date and a corpus attached. It is never a statement that the leg cannot be improved, and
+it never closes the thread.
+
+The disposition after a negative is **regroup and widen**, in this order:
+
+1. **Check the substrate before blaming the question.** §0.2 is the worked example: twenty
+   lever cells returned negative, and the cause was that all 11 available features were
+   endogenous. The levers were fine; the panel was empty of the thing they needed.
+2. **Re-enter E-lit** for constructs not yet tried — different feature families, different
+   lever forms, different horizons, different aggregation levels (per-symbol → per-regime →
+   portfolio).
+3. **Change the level.** A question that has no answer per-trade may have one per-portfolio
+   (correlated exposure, heat, opposing legs) or per-regime. The pullback family's negatives
+   are all per-trade negatives.
+4. **Change what is being predicted.** Forward R on a held trade is one target. Time-to-
+   adverse-excursion, probability of give-back beyond X, and capital-efficiency-adjusted
+   hold value are different targets with different learnability.
+5. **Record the conditions.** Every negative goes in the coverage matrix with corpus,
+   commit, split band, and the substrate it was measured over, so the next attempt knows
+   what was already covered and does not re-run it.
+
+Sizing and diversification are a **parallel** track that is always worth improving. They
+are not the fallback that gets accepted when a lever search returns negative — treating
+them as the consolation prize is how a search gets abandoned one step before the substrate
+gets fixed.
