@@ -227,6 +227,15 @@ contributing a fabricated 0.0 to an aggregate (the manifest's own
 `constant_feature_cols` flags the first). A presence flag is worth its column precisely
 when coverage is *not* 1.0; here it is, and the honest score is "undefined", not "zero".
 
+⚠️ **Two of the eleven endogenous features named in §0.2 are NOT in this measurement.**
+The manifest reports `dropped_all_null_feature_cols: ["feat_taker_imbalance",
+"feat_taker_imbalance_intrade"]` — the candle CSV carries no taker data, so both columns
+were all-null and dropped before scoring. The panel is therefore **9 endogenous + 16
+exogenous = 25 columns, 22 scoreable**, and **E2 says nothing about the two order-flow
+features.** That is a real scope limit, and it lands on a family the literature survey
+(§1.5.7) had already named as untried — microstructure/order-flow exit triggers. It is
+recorded here so nobody reads this negative as covering them.
+
 **This is the finding with consequences for the programme.** §0.2 diagnosed the failure
 of ~20 lever cells as *"no function of these eleven endogenous inputs beats holding"* and
 proposed E1's widening as the fix. E1 delivered the widening; E2 now measures that **the
