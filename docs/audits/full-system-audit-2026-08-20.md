@@ -1731,3 +1731,234 @@ claim, and precedent for how the others should be fixed.
 `vm-ops` as mis-tiering `set-account-mode`, then withdrew it on reading that the
 Tier-3 boundary is *new code paths that write `mode:`*, not *dispatching the
 sanctioned wire*. Recorded because the retraction is the evidence the method ran.
+
+---
+
+## Part 15 — LIVENESS: the zombie hunt (delegated; top finding verified)
+
+### F-72 — A second, UNREADABLE env var can silently disable the live regime hard gate (severity: HIGH) — VERIFIED
+
+`src/runtime/intents.py::_regime_router_active` has **two** independent disable
+paths:
+
+```python
+if _truthy(_os.environ.get("REGIME_ROUTER_DISABLED")):   # :1066
+    return False
+legacy = _os.environ.get("REGIME_ROUTER_ENABLED")        # :1069
+if legacy is not None and legacy.strip() != "" and not _truthy(legacy):
+    return False
+```
+
+Measured against `scripts/ops/get_env.py::ALLOWED_KEYS`:
+
+| var | disables the gate | readable via `get-env` |
+|---|---|---|
+| `REGIME_ROUTER_DISABLED` | yes | **yes** |
+| `REGIME_ROUTER_ENABLED` (explicit falsy) | yes | **NO** |
+
+`CLAUDE.md` states the live VM *currently carries* `REGIME_ROUTER_ENABLED=true` —
+so the variable is **present** in the live environment, one character from
+falsy, and a stale `.env` carried through a VM migration is exactly how the
+netting-guard regression happened before.
+
+**The failure mode is a confident wrong answer.** A session checking whether the
+gate is active queries `REGIME_ROUTER_DISABLED`, gets `unset`, and concludes
+"enforcing" — while the other key may have turned it off. That is diagnostic
+provenance sub-class C (an unasserted denominator reading as a clean negative)
+applied to a live order-routing gate whose documented failure is *"the
+money-losing `trend_vol` OFF-cells would trade again."*
+
+**Answered independently rather than by reading the config** (relay #10032): the
+gate emits `regime_hard_gate` (`enforced:true`) when enforcing and
+`regime_shadow_gate` when not, and never both on a tick — so the audit log
+partitions by event name regardless of what the env says. Result recorded below
+when it returns.
+
+**Population:** of **43** order-path env vars read in `src/runtime/`,
+`src/units/accounts/`, `src/core/`, `src/prop/` but absent from the `CLAUDE.md`
+table, **43 of 43** are also absent from `ALLOWED_KEYS`.
+
+### F-73 — `ict-promotion-readiness.timer` is dual-defined with DIFFERENT schedules, and the un-installed copy carries the known-bad value (severity: MED-HIGH)
+
+| copy | `OnCalendar` |
+|---|---|
+| `deploy/trainer/ict-promotion-readiness.timer:27` | `*-*-* 04:00:00` |
+| `deploy/training-vm-cloud-init.yaml` (inline heredoc) | `daily` (= 00:00) |
+
+The `deploy/trainer/` header documents why `daily` was a bug (`BL-20260717`): at
+00:00 the ~99-min / ~3.2 GB sweep ran **concurrently with `ict-trainer.timer`**
+on the 6 GB box — a documented OOM collision. The sibling service file states the
+invariant explicitly: *"Mirrors the unit embedded in
+`deploy/training-vm-cloud-init.yaml` … **Edits must stay in lock-step.**"*
+
+**They are not, and nothing checks.** Aggravating: **`deploy/trainer/*` has no
+installer** — a repo-wide grep for `deploy/trainer` across `*.sh`/`*.py`/`*.yml`
+returns **zero** hits, so which value is live depends on whether a human ran a
+manual `cp`. A freshly-provisioned trainer re-acquires the OOM collision.
+
+Population: 8 dual-defined units compared — 6 agree, 1 differs, 1 retracted.
+
+### F-74 — 14 of 58 systemd units are outside ANY inventory guard, and this was already filed 16 days ago (severity: MEDIUM, RECURRENCE)
+
+`scripts/check_diag_unit_allowlist.py` globs `deploy/*.service` + `deploy/*.timer`
+only. It passes cleanly — *"44 deploy units scanned, 37 allowlisted, 8 exempted,
+0 failures"* — over a population that **excludes 14 units by construction**
+(cloud-init heredocs, `deploy/trainer/`, installer-script `cat > … <<'UNIT'`).
+
+The load-bearing one is **`ict-trainer-publish.timer`**: `CLAUDE.md` keys the
+entire `trainer_down` banner and `TRAINER_DOWN_STALE_SECONDS` alert on its 2-min
+mirror heartbeat, and it exists only inside a YAML heredoc and a shell script.
+
+This is the same structural invisibility the code already flags for
+`caddy.service` (*"THIS ENTRY IS HAND-MAINTAINED AND NO GUARD PROTECTS IT"*). I
+asked whether other such exceptions exist undocumented: **yes — 14, and unlike
+caddy none carries the warning.**
+
+⚠️ **Already logged as B-1 in `docs/audits/full-system-audit-2026-08-04.md:163`
+and in the committed 2026-08-04 report — still open 16 days later.** Recorded as
+a recurrence with a number, not a new find. That is F-71's detector gap in
+action: a finding with no detector came back.
+
+### F-75 — Three soak logs have a wired writer and ZERO readers (severity: MEDIUM)
+
+Full matrix over **15** soak/observability logs. Twelve are reachable via
+`/api/diag/log_file` and/or a REST route. Three are not:
+
+| log | writer called from | diag allowlist | REST |
+|---|---|---|---|
+| `conflict_taxonomy_soak` | `src/core/coordinator.py` | ❌ | ❌ |
+| `macro_thesis_soak` | `src/main.py:880` | ❌ | ❌ |
+| `invariant_violations` | `order_monitor.py:9498` | ❌ | ❌ |
+
+Writer wired to a live tick path, zero hits across `src/web/`, `scripts/` and
+diag's 24-entry `_LOG_FILES`. They accrue on the live VM and **no relay-bound
+session can read them** — the precise gap `/api/diag/log_file` exists to close.
+Mitigating: `invariant_violations` additionally Telegrams, so a *violation*
+alerts even though the *log* is unreadable; the other two have no second channel.
+
+### F-76 — One served route undeclared in `CLAUDE.md` — and the instructive contrast (severity: LOW)
+
+`GET /api/bot/exit-interval/soak` is served (`exit_interval.py:41`), mounted, and
+rowed in `docs/api-tier-policy.md` — but absent from `CLAUDE.md`'s API table.
+**1 of 97 served routes undeclared; 0 of 94 declared-but-not-served.**
+
+The contrast is the point: `api-tier-policy.md` **is** guarded
+(`check_api_tier_policy.py`) and is genuinely complete — its "96 of 96" claim
+independently confirmed. `CLAUDE.md`'s table is **not** guarded, and is the one
+that drifted. The guard works; it is pointed at one of two inventories.
+
+### The meta-finding, which generalises F-40
+
+The delegated auditor's closing observation, and I think it is the most valuable
+sentence any of the six produced:
+
+> **Every guard in this repo that exists is passing, and each one is passing over
+> a population narrower than the thing it names.**
+
+`check_diag_unit_allowlist` reports "44 units scanned, 0 failures" over 44 of
+**58**. `check_api_tier_policy` reports "96 of 96" over **one of two**
+inventories. The failure mode is no longer *missing detectors* — it is
+**detectors whose denominators are silently smaller than their titles**.
+
+**A guard that printed its own coverage fraction beside its verdict would have
+surfaced F-74 and F-76 with no audit at all.** That is a one-line change per
+guard and it is the single highest-leverage fix in this document.
+
+### Clean results, each with a planted control
+
+Recorded because a negative without a control is not a measurement:
+**strategy dispatchability — 0 orphans in both directions** (55 declared, 55 in
+the intent roster; a planted `zzz_planted_fake_strategy` was caught, 1 of 56, so
+the zero is measured) · **instrument coverage — 0 gaps** (24 symbols, all
+present) · **0 services without an explained driving timer** · **0 dead
+`ALLOWED_KEYS` entries** · **0 documented-but-unread env vars** (33 candidates,
+30 retracted as the constant-indirection idiom).
+
+The auditor retracted **nine** of its own initial findings and listed them —
+including one, R6, that was *the same failure mode as my own morning probe*: a
+one-line regex at the wrong granularity, missing the `_ENV_CONST = "VAR"` then
+`getenv(_ENV_CONST)` idiom.
+
+---
+
+## Part 16 — CONSISTENCY: canonical docs vs the field (delegated; top findings verified)
+
+**First, the guard's boundary**, since F-40 says that is where defects live.
+`check_canonical_doc_coherence.py` passes 5/5 over: 9 `ACTIVE_DOCS` + skills +
+commands, checking 2 dead IPs, 6 removed gate names, the 7-stage ladder string,
+hierarchy ordering, and 3 hand-written value contracts.
+
+⚠️ **`ROADMAP.md`, `ROADMAP_MACRO.md` and `docs/sprint-logs/**` are scanned by
+NOTHING** — verified: `ROADMAP` is absent from `ACTIVE_DOCS` and `_active_files()`
+never globs `docs/`. Rank 3 of the instruction hierarchy has no coherence guard,
+and that single gap is the structural precondition behind three findings below.
+
+### F-77 — `authored_cells` declared mandatory, enforced by nothing, for 20 days (severity: HIGH)
+
+`system-review/SKILL.md:119` declares `review_coverage.authored_cells`
+**mandatory on the weekly window**. `render_system_report.py:699-716`'s
+`_REQUIRED_COVERAGE_KEYS` holds 9 keys and **`authored_cells` is not among them**.
+
+| mandatory key | implementation files |
+|---|---|
+| `account_reachability` | 13 |
+| `execution_capture` | 2 |
+| `since_last_build_verification` | 1 |
+| `backlog_classes` | 1 |
+| `ml_output_actionability` | 1 |
+| **`authored_cells`** | **0** |
+
+`git log -S` dates the declaration to 2026-07-31 → **20 days unenforced**. This
+is *exactly* the `account_reachability` gap I found and fixed this morning — and
+**the comment block immediately above `_REQUIRED_COVERAGE_KEYS` narrates that
+very bug** while omitting this key from the same fix. I fixed one instance of a
+class and left its sibling in place, in the file I was editing.
+
+**Honest limit:** the consequence is currently clean — all 7 regime-cell
+strategies and all 3 `trend_vol` strategies have register rows, 0 of 12 past due.
+That is luck, not enforcement.
+
+### F-78 — `BROKER_PNL_READER_EXCHANGES` documented as one member; the field has three (severity: HIGH) — VERIFIED
+
+`src/units/accounts/clients.py:643-647` → `frozenset({"bybit",
+"interactive_brokers", "alpaca"})`. `CLAUDE.md:970` → *"today `{bybit}`"*.
+`alpaca` entered the set 2026-07-31 → 20 days stale.
+
+**Why it matters beyond tidiness:** `CLAUDE.md:973` tells a session that
+IBKR/Alpaca realised PnL is filled by `_sweep_local_pnl_for_unpriced` as
+`local_compute`. Under `provenance.classify_pnl` that is a **different
+provenance bucket** than broker truth — so a session reasoning from this doc
+mis-grades Alpaca rows in exactly the measured-vs-manufactured analysis
+`provenance.py` exists to protect.
+
+### F-79 through F-84 — relayed at the auditor's stated confidence
+
+| # | finding | sev |
+|---|---|---|
+| F-79 | `CLAUDE.md:880` places `PUBLIC_ROUTES` in `main.py`; it lives in `auth.py:44`, and the lower-ranked `api-tier-policy.md` has it right. The companion claim "enforced by the test suite" **verifies true**. Detector built and validated: **39 symbol-home claims checked, 1 mismatch, 0 false positives.** | MED |
+| F-80 | **53 dead `.github/workflows/*.yml` references of 187 (28.3%)** after the CI fan-out consolidation — including **present-tense enforcement claims in rank-1 and rank-2 docs**. The guards themselves are real and registered (all 57 scripts `run_guards.py` names exist), so only the *path* is stale — but a session verifying "is this enforced?" opens the named file, finds nothing, and may conclude the guard was deleted. | MED |
+| F-81 | **105 of 256 sprint logs (41%) appear in neither roadmap**; 16 of 44 dated 2026-08. **Lag ruled out by a same-day control** — `S-LLM-BURST-WORKER-2026-08-18` is referenced while `S-SYSREV-TRADE-MECHANICS-2026-08-18` is not. `ROADMAP.md` is defined as *"the centralized record: **every** milestone/sprint"*. Note the sting: `S-M20-WRITTEN-AND-NEVER-READ-2026-08-17` was itself never written into the record. | MED |
+| F-82 | The hierarchy-mirror guard **silently drops items it cannot classify** (`_normalize_item` returns `None`, `if key:` skips). **Demonstrated with both controls on a scratch copy:** inserting an unrecognised 9th item into one list only → guard **PASSES**; deleting a recognised item → guard correctly **FAILS**. So it is blind to precisely the drift that is most likely (someone adds a new canonical doc to one list). One-line fix: append a sentinel instead of skipping. | MED |
+| F-83 | `CLAUDE.md`'s `EXIT_LOOP_*` row contradicts itself three ways in one entry — "three processes in ~8.5 h" vs "five OBSERVED processes in ~10 h"; "the maxima are three points" followed by a fourth (47.4 s); and an `n` series that omits the two daytime samples it reasons from. Neither side is the field (both are prose about VM measurements), but the row is the authority on a **live safety requirement** whose margin it puts at **1.1 s**. | MED |
+| F-84 | `CLAUDE.md` describes the review-coverage guard as **5 keys including `flags_raised`** — which is *not* in the required tuple — while the field has **9** and the skill declares **10**. A session trusting `CLAUDE.md` believes a report passes coverage with 5. | MED |
+
+### The auditor's own retractions
+
+Six, listed in its report, including four claimed arithmetic mismatches that were
+all regex coupling artifacts — **real arithmetic mismatches: 0 of 26.** And one
+left explicitly **unresolved rather than forced**: whether `_MAX_HOOK_NAMES`'s
+"one name of margin" refers to the state before or after a third instrumentation
+cut. Recording that an auditor declined to resolve an ambiguity is worth as much
+as recording what it found.
+
+### Highest-yield detectors from this pass
+
+1. **Add `ROADMAP.md` + `ROADMAP_MACRO.md` to the coherence guard's file set** —
+   2 lines, and the structural precondition behind F-80, F-81 and F-5.
+2. `check_referenced_paths_exist()` — workflow files + relative links (435
+   links, 2 broken; 187 workflow refs, 53 dead).
+3. `check_symbol_home()` — already written and validated, 0 false positives.
+4. `check_mandatory_keys_enforced()` — AST-parse `_REQUIRED_COVERAGE_KEYS`
+   against every `**mandatory**` declaration in a SKILL.md, failing in **both**
+   directions. This is the one that matters for live safety; it closes F-77 and
+   F-84 together and would have prevented the `account_reachability` gap.
