@@ -253,7 +253,14 @@ def _ratchet(counts: dict) -> tuple[list[str], list[str]]:
     """Compare live per-file counts to the baseline. Returns (regressions, improvements)."""
     base = _load_baseline()
     if base is None:
-        return ([f"baseline unreadable at {BASELINE_PATH.relative_to(REPO)} — "
+        # `relative_to` RAISES when the path is outside the repo, and this is the
+        # error path — a reporter that crashes while reporting a failure turns a
+        # legible "could not grade" into an opaque traceback.
+        try:
+            where = BASELINE_PATH.relative_to(REPO).as_posix()
+        except ValueError:
+            where = str(BASELINE_PATH)
+        return ([f"baseline unreadable at {where} — "
                  "cannot grade regression. This is an ABSENT result, not a clean one; "
                  "regenerate with --update-baseline."], [])
     regressions, improvements = [], []

@@ -162,6 +162,10 @@ jobs:
           #   docs/claude/system-actions.md                tests/ops/test_system_actions_workflow
           #   docs/ARCHITECTURE-CANONICAL.md               test_audit_verification_checklist
           #   docs/research/m20-exit-head-rounds.jsonl     test_exit_head_round_emits_evidence
+          #   docs/claude/impossibility-claim-baseline.json
+          #                                               test_impossibility_claim_ratchet —
+          #     the baseline records the ALLOWED per-file claim counts, so a docs-only
+          #     PR that RAISES them is precisely the diff that must not short-circuit.
           #
           # THE COST IS REAL AND IS BEING PAID DELIBERATELY. ARCHITECTURE-
           # CANONICAL.md is edited by many docs-only PRs, and each now pays a
@@ -175,7 +179,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
