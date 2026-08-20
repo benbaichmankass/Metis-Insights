@@ -2684,8 +2684,9 @@ both cases the null was one step from being reported as a finding:
   **exemplary**: it carries `soak_days`, `soak_days_is_lower_bound`,
   `soak_start_basis` (`registry` / `registry_registration` / `observed` /
   `log_censored` / `unknown`) and a `log_coverage` envelope stating the retained
-  window is not the soak history — the `BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-
-  ROTATION-NOT-SOAK-START` fix, correctly done.
+  window is not the soak history — the
+  `BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-ROTATION-NOT-SOAK-START` fix,
+  correctly done.
 - The readiness `report.json` — I read `promote`/`demote`/`hold` at top level and
   got `None`; the real keys are `proposals` / `summary` / `datasets_root_used` /
   `generated_at_utc`.
