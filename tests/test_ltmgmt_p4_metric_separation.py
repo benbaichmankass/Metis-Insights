@@ -63,7 +63,7 @@ def _seed(db: Path) -> None:
         -- (COALESCE(closed_at, op.updated_at, timestamp)); an empty table keeps
         -- the LEFT JOIN a no-op so the close-time falls back to timestamp.
         CREATE TABLE order_packages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_package_id TEXT PRIMARY KEY,
             linked_trade_id INTEGER,
             updated_at TEXT
         );
@@ -132,7 +132,7 @@ def test_stats_winrate_excludes_null_pnl_closed(
             is_demo INTEGER DEFAULT 0, strategy_name TEXT, reconcile_status TEXT
         );
         CREATE TABLE order_packages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_package_id TEXT PRIMARY KEY,
             linked_trade_id INTEGER, updated_at TEXT
         );
         """

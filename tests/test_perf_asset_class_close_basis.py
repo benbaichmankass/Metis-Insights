@@ -54,7 +54,7 @@ def _seed(db: Path, now: datetime.datetime) -> None:
             pnl REAL, created_at TEXT, timestamp TEXT, closed_at TEXT, status TEXT,
             is_backtest INT, account_class TEXT, is_demo INT, account_id TEXT,
             exit_reason TEXT, reconcile_status TEXT);
-        CREATE TABLE order_packages(id INTEGER PRIMARY KEY, linked_trade_id INT, updated_at TEXT);
+        CREATE TABLE order_packages(order_package_id TEXT PRIMARY KEY, linked_trade_id INT, updated_at TEXT);
         """
     )
     rows = [

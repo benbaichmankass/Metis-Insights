@@ -55,8 +55,7 @@ CREATE TABLE trades (
     notes TEXT
 );
 CREATE TABLE order_packages (
-    id INTEGER PRIMARY KEY,
-    order_package_id INTEGER,
+    order_package_id TEXT PRIMARY KEY,
     linked_trade_id INTEGER,
     status TEXT,
     updated_at TEXT
@@ -92,8 +91,8 @@ def _mk_db(tmp_path, rows):
         )
         conn.execute(
             "INSERT INTO order_packages "
-            "(id, order_package_id, linked_trade_id, status, updated_at)"
-            " VALUES (?,?,?,'filled',?)", (i, i, i, _OLD),
+            "(order_package_id, linked_trade_id, status, updated_at)"
+            " VALUES (?,?,'filled',?)", (str(i), i, _OLD),
         )
     conn.commit()
     conn.close()
@@ -183,8 +182,8 @@ def test_rows_with_no_notes_are_not_treated_as_declared(tmp_path):
         )
         conn.execute(
             "INSERT INTO order_packages "
-            "(id, order_package_id, linked_trade_id, status, updated_at)"
-            " VALUES (?,?,?,'filled',?)", (i, i, i, _OLD),
+            "(order_package_id, linked_trade_id, status, updated_at)"
+            " VALUES (?,?,'filled',?)", (str(i), i, _OLD),
         )
     conn.commit()
     conn.close()
