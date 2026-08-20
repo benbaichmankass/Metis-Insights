@@ -233,3 +233,145 @@ def test_build_intrabar_exit_panel_synthetic():
     # taker imbalance survived into the dense set (feed carried taker volume)
     assert "feat_taker_imbalance" in manifest["dense_feature_cols"]
     assert manifest["leakage_contract"]
+
+
+from ml.datasets.cross_asset_features import CROSS_ASSET_FEATURE_COLUMNS  # noqa: E402
+
+
+class TestCrossAssetJoin:
+    """E1 step 3 — the exogenous half of the in-trade panel.
+
+    Targets ETHUSDT deliberately: it is the one symbol configured in
+    `config/cross_asset.yaml` on every branch, so these do not depend on the
+    peer-map widening landing first.
+    """
+
+    @staticmethod
+    def _frame(n=60, start=100.0, step=1.0):
+        return [
+            {"timestamp": f"2026-01-01T{h:02d}:00:00+00:00", "close": start + step * h}
+            for h in range(n)
+        ]
+
+    def test_no_peers_configured_is_distinct_from_no_peer_series(self):
+        """The two absences are different facts and must not collapse.
+
+        `no_peers_configured` = we never had peers for this symbol (true of 18 of
+        23 traded symbols). `no_peer_series` = peers ARE declared and we were
+        handed no data for any of them. Reporting one as the other would hide a
+        broken feed behind a legitimate gap.
+        """
+        from scripts.research.build_intrabar_exit_panel import cross_asset_index
+
+        candles = self._frame()
+        idx_a, meta_a = cross_asset_index(candles, "NOSUCHSYMBOL", {"ETHUSDT": []})
+        assert meta_a["state"] == "no_peers_configured"
+        assert idx_a == {}
+
+        idx_b, meta_b = cross_asset_index(candles, "ETHUSDT", None)
+        assert meta_b["state"] == "no_peer_series"
+        assert meta_b["peers_configured"], "precondition: ETHUSDT must have peers"
+        assert idx_b == {}
+
+        assert meta_a["state"] != meta_b["state"]
+
+    def test_join_populates_and_the_timestamp_forms_match(self):
+        """THE POSITIVE CONTROL for the whole feature.
+
+        `_aligned_return_series` matches peer bars to target bars by EXACT string
+        equality, so a normalisation mismatch produces an empty join that is
+        indistinguishable from "this symbol has no peers". Assert the join
+        actually lands, and that the index keys are the same strings the build
+        loop looks up with `_bar_ts`.
+        """
+        from scripts.research.build_intrabar_exit_panel import _bar_ts, cross_asset_index
+
+        candles = self._frame()
+        peer = [{"ts": _bar_ts(c), "close": 50.0 + 0.5 * i} for i, c in enumerate(candles)]
+        idx, meta = cross_asset_index(candles, "ETHUSDT", {"BTCUSDT": peer})
+
+        assert meta["state"] == "joined"
+        assert meta["peers_joined"] == ["BTCUSDT"]
+        assert meta["bars_indexed"] == len(candles)
+        assert meta["bar_coverage"] == 1.0
+
+        # the exact lookup the build loop performs
+        key = _bar_ts(candles[30])
+        assert key in idx, "ts normalisation diverged between index and lookup"
+        row = idx[key]
+        assert row["xa_peer1_present"] == 1.0
+        assert row["xa_breadth_present"] == 1.0
+        # slot 2 has no series -> declared absent, not flat
+        assert row["xa_peer2_present"] == 0.0
+
+    def test_a_misaligned_peer_reads_as_absent_not_as_flat(self):
+        """Negative control with teeth.
+
+        A peer whose bars are on a different grid must come back UNMEASURED
+        (`present == 0`), not as a peer that returned zero. Before the coverage
+        columns landed these two were byte-identical rows.
+        """
+        from scripts.research.build_intrabar_exit_panel import _bar_ts, cross_asset_index
+
+        candles = self._frame()
+        # same shape, timestamps shifted to a grid that shares no bar
+        peer = [
+            {"ts": f"2027-06-0{(i % 9) + 1}T00:00:00+00:00", "close": 50.0 + i}
+            for i in range(len(candles))
+        ]
+        idx, meta = cross_asset_index(candles, "ETHUSDT", {"BTCUSDT": peer})
+        assert meta["state"] == "joined", "it still ran; the question is what it says"
+        row = idx[_bar_ts(candles[30])]
+        assert row["xa_peer1_present"] == 0.0
+        assert row["xa_breadth_present"] == 0.0
+
+    def test_the_index_is_keyed_past_only_and_covers_every_bar(self):
+        """Sanity on the leakage contract's precondition.
+
+        One row per target bar, keyed at that bar — so the per-bar merge cannot
+        pick up a row from a later bar.
+        """
+        from scripts.research.build_intrabar_exit_panel import _bar_ts, cross_asset_index
+
+        candles = self._frame(n=25)
+        peer = [{"ts": _bar_ts(c), "close": 10.0 + i} for i, c in enumerate(candles)]
+        idx, _ = cross_asset_index(candles, "ETHUSDT", {"BTCUSDT": peer})
+        assert sorted(idx) == sorted(_bar_ts(c) for c in candles)
+
+    def test_an_unsupplied_slot_emits_no_columns_at_all(self):
+        """An unjoined peer slot must not reach the panel as constant zeros.
+
+        The feature block zero-fills an absent slot by design — correct for a
+        head that trained on those columns, wrong for a research panel, because
+        the builder's dense filter drops all-NULL columns and not all-CONSTANT
+        ones. Measured before this scoping: a 142-row panel with one of two peers
+        supplied carried SIX perfectly collinear zero columns for slot 2. The
+        manifest's peers_configured-vs-peers_joined already says more than those
+        columns could.
+        """
+        from scripts.research.build_intrabar_exit_panel import _bar_ts, cross_asset_index
+
+        candles = self._frame()
+        peer = [{"ts": _bar_ts(c), "close": 50.0 + 0.5 * i} for i, c in enumerate(candles)]
+        _, meta = cross_asset_index(candles, "ETHUSDT", {"BTCUSDT": peer})
+
+        # slot 1 supplied, slot 2 not
+        assert meta["joined_slots"] == [1]
+        assert len(meta["peers_configured"]) == 2
+
+        # the emit filter the build loop applies, derived the same way
+        slots = set(meta["joined_slots"])
+        emitted = [
+            c for c in CROSS_ASSET_FEATURE_COLUMNS
+            if not c.startswith("xa_peer")
+            or any(c.startswith(f"xa_peer{n}_") for n in slots)
+        ]
+        assert not [c for c in emitted if c.startswith("xa_peer2_")], (
+            "slot 2 was never supplied; emitting its columns would put constant "
+            "zeros in front of E2"
+        )
+        assert "xa_peer1_ret" in emitted and "xa_breadth_up" in emitted
+        assert "xa_breadth_present" in emitted, (
+            "the book-level coverage column must survive the slot filter — it is "
+            "what makes a thin join readable"
+        )
