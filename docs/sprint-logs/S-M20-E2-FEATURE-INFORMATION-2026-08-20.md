@@ -43,9 +43,21 @@
 - ⚠️ **The session clone arrived SHALLOW (50 commits, `.git/shallow` present)** and
   was unshallowed to **3,469** before any history was read. This is the exact trap
   `BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE` names: a `git log -p` on a
-  shallow clone returns a plausible wrong answer with no error. Whether the
-  SessionStart guard fired here and was missed, or did not fire in this remote
-  environment, was **not determined** and is not asserted either way.
+  shallow clone returns a plausible wrong answer with no error.
+
+  **That open question is now ANSWERED, and the answer is the worse one.** I
+  recorded it mid-session as undetermined; merging `origin/main` brought in
+  `BL-20260820-PROJECT-HOOKS-INERT-ON-WEB` (high, open — filed by
+  `system-review-trade-mechanics-falsp8`, which also flagged it to me directly on
+  board #6927), reporting **1,379 consecutive `Found 0 total hooks in registry`
+  log lines** spanning 2026-08-18 → 2026-08-20 with no non-zero count, and no
+  marker file from any `.claude/settings.json` hook across ~120 sessions. So the
+  guard **did not fire**: the web runtime registers zero project hooks, and the
+  shallow-clone guard fails *open* rather than closed. I did **not** re-derive
+  their log measurement — what this session can say independently is that the
+  clone **was** shallow and **no warning reached me**, which is consistent with
+  it. The consequence for this sprint is unchanged (I unshallowed before reading
+  any history); the general finding is theirs and is larger than this sprint.
 - Canonical docs reviewed: root `CLAUDE.md`, `CLAUDE-RULES-CANONICAL.md`,
   `ROADMAP.md`, the process doc, coordination board #6927.
 
