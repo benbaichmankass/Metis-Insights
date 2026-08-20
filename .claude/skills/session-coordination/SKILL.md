@@ -173,7 +173,26 @@ first. Run all of these in order — this is the part that stops the retest chur
 Mnemonic: **read board → 🔒 CLAIM → sync → merge on green → 🔓 RELEASE**, on every
 `merge_pull_request`.
 
-**This is now hard-enforced (2026-07-27).** A `PreToolUse` guard in
+**Enforcement is RUNTIME-DEPENDENT, and on Claude Code on the web there is
+NONE — do not read a merge that went through as proof the protocol ran**
+(measured 2026-08-20, `BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE`). The web
+runtime never loads project hooks at all: `/tmp/claude-code.log` carries
+**1,379 consecutive `Hooks: Found 0 total hooks in registry` lines** from
+2026-08-18 to 2026-08-20 and **not one** line reporting a non-zero count, and no
+`/tmp/.claude-board-nudge-*` or `/tmp/.claude-merge-claim-*` marker exists across
+~120 sessions of `/tmp` history. This is the same class as *"Claude Code on the
+web doesn't honour project `.mcp.json`"* (root `CLAUDE.md` § PM-side session
+capabilities) — nothing in this repo can change it. The guard SCRIPT is correct
+and denies exactly as documented when invoked (`tests/test_merge_slot_guard.py`
+runs the shipping command against synthetic stdin and asserts the deny, the
+per-PR scoping, and the 20-minute staleness bound), so it does fire in runtimes
+that honour project hooks — CLI and desktop. **On the web the protocol is
+self-discipline: run it because it is the contract, not because something will
+stop you.** Three sessions have now merged without it — 5 merges on 2026-08-18,
+1 on 2026-08-19, 10 on 2026-08-20 — and every one of those was noticed only
+because the session volunteered it.
+
+The guard as written (2026-07-27): a `PreToolUse` guard in
 `.claude/settings.json` **denies** `merge_pull_request` **and**
 `enable_pr_auto_merge` until this session has run the protocol for the specific
 PR and set a fresh (< 20 min) per-PR marker `/tmp/.claude-merge-claim-<sid>-<pr>`

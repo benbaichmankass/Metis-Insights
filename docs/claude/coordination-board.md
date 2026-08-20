@@ -173,7 +173,42 @@ and raced a concurrent Track-C session into repeated behind-rebase churn. The
 operator's directive: make the claim a **physical precondition of merging**, at
 session start, not a gate bolted on at the end.
 
-So the claim is now hard-enforced by a **`PreToolUse` guard** in
+⚠️ **THE ENFORCEMENT DOES NOT EXIST ON CLAUDE CODE ON THE WEB, WHICH IS WHERE
+MOST OF THESE SESSIONS RUN** (measured 2026-08-20, closing the diagnosis half of
+`BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE`). Three sessions merged without
+ever claiming a slot — 5 merges 2026-08-18, 1 on 2026-08-19, 10 on 2026-08-20 —
+and the cause is neither the matcher nor MCP namespacing nor a hook error, the
+three candidates this row originally listed. **The web runtime loads no project
+hooks whatsoever:** `/tmp/claude-code.log` shows **1,379 consecutive
+`Hooks: Found 0 total hooks in registry` lines** (2026-08-18 → 2026-08-20T08:12,
+never once a non-zero count), and no marker file from ANY hook in
+`.claude/settings.json` exists in `/tmp` across ~120 sessions — not the merge
+claim, not the board nudge. So the SessionStart contract echoes, the board
+nudge, this guard, and the VM-lane guard are **all inert on the web**; the same
+class as *"Claude Code on the web doesn't honour project `.mcp.json`"* (root
+`CLAUDE.md`), and not fixable from this repo.
+
+**What this means in practice, stated plainly because the old wording invited
+the opposite inference:** a merge going through is **not** evidence the protocol
+ran. The guard was described as a *"physical precondition of merging"*; on the
+web it is a description of a precondition that nothing checks. A backstop
+believed to exist and absent is worse than a known-absent one — it is the
+desensitized-alarm failure inverted, and it is why the merge-without-claim went
+unremarked for three days across three sessions.
+
+**The script itself is correct** and is now held to that by
+[`tests/test_merge_slot_guard.py`](../../tests/test_merge_slot_guard.py), which
+extracts the shipping command out of `settings.json` (never a copy, which would
+drift) and asserts against synthetic stdin: no marker → deny naming the PR and
+issue #6927; fresh marker → allow; a marker for a *different* PR → still deny;
+a >20-minute marker → deny; and no stray shell diagnostics. That last one caught
+a real defect the same day — `` `behind` `` sat inside a double-quoted string, so
+bash ran command substitution, printed `behind: command not found`, and **deleted
+the word from the deny message**, leaving *"so  no longer blocks a merge"*. Fixed.
+
+So it does fire where project hooks load (CLI, desktop). Where they do not, run
+the protocol as self-discipline. The claim is enforced (in those runtimes) by a
+**`PreToolUse` guard** in
 [`.claude/settings.json`](../../.claude/settings.json) on
 `mcp__github__merge_pull_request` **and** `mcp__github__enable_pr_auto_merge`:
 
