@@ -158,6 +158,16 @@ i.i.d.-per-row columns, which is why the plant has to break both halves.
 
 ---
 
+## 2.4 A substrate fact the manifests settle, recorded here because it bears on § 2
+
+`label_config.cost_r` is **0.0** on every panel: the `advantage_r` / `label_hold` labels
+are computed **fee-free**. And `run_info.ignored_yaml` is **false**, so the *trade* loaded
+live YAML (`tp_at_r: 1.5`) while the *label* used `tp_r: 2.0` — the mismatch filed as
+`BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY`, established from the
+artifact rather than inferred. `expected_hold_bars` is pinned at 24.0 on all eight panels
+and `time_stop_bars` is the only field that varies, so the horizon arm's two confounds are
+verifiable from the manifests without re-deriving them.
+
 ## 3. What this changes about the horizon arm's result
 
 **Nothing about the verdicts, and one thing about the argument.** No bad verdict was
