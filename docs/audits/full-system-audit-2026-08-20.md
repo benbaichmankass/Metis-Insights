@@ -833,3 +833,166 @@ Mostly single-account defaults on a router or a prop path, not rosters. **Adding
 an account does not require chasing literals through `src/`.** The builder
 registry is also complete — **52 of 52** enabled strategies have an entry, so
 the documented *"declared live, no builder"* class is **absent today**.
+
+---
+
+## Part 9 — Backlog classes, harness sizing, and the trainer's green light
+
+Added after the modularity pass, covering the operator's message-3 asks: review
+the WHOLE backlog for larger structural issues rather than knocking items off
+one by one, and verify that training sessions actually produce actionable
+results daily rather than trusting a green trainer VM.
+
+### F-33 — The backlog's `status` field has no controlled vocabulary (severity: HIGH)
+
+`status` is free text. Across the three review backlogs (910 rows) there are
+**18 distinct spellings that mean "open"**, dominated by two that differ only by
+convention:
+
+| spelling | rows |
+|---|---|
+| `kept_open` | 243 |
+| `open` | 67 |
+| `measured_open` | 7 |
+| `fix_landed_pending_live_verification` | 3 |
+| 14 further one-off spellings | 14 |
+
+plus free-text values such as `code fix shipped; DATA REPAIR still open (52 rows
+written degraded)` and `resolved (guard); follow-up OPEN, see
+resolution_criteria (3)` — a sentence in a status field.
+
+**Measured consequence, on my own first attempt:** filtering for
+`status in {open, in_progress, snoozed, ""}` returned **67 open items**. The
+vocabulary-aware count is **334**. An 80% undercount, produced by the obvious
+query, reported with no indication anything was missed. This is sub-class C
+(unasserted denominator) sitting inside the governance system that is supposed
+to catch it — and `backlog_drive` in the review-coverage guard is judged against
+exactly this denominator.
+
+Open-item age (n=303 datable): median 7d, p90 44d, max 87d; 14 items older than
+60 days.
+
+**Fix shape:** an enum with a migration, plus a `backlog-status-vocabulary`
+guard. Tier-1.
+
+### F-34 — Observability defects accumulate; concrete runtime faults do not (severity: HIGH, structural)
+
+The operator asked whether the backlog hides *larger issues*. It does, and the
+split is measurable rather than thematic.
+
+Cohort: every item opened on/after 2026-07-01 (**n=574**), which controls for
+resolved items being systematically older. Cohort-wide open rate **49.0%** — the
+denominator each figure below is judged against.
+
+| class | n | open % | vs cohort |
+|---|---|---|---|
+| **cannot-see-itself** (collapsed state · no read surface · written-never-read) | 110 | 62.7% | **+13.8pp** |
+| **concrete runtime fault** (reconciler · orphan · netting · wedge · timeout · crash) | 144 | 42.4% | **−6.6pp** |
+
+The two populations overlap by only 26 items (11% of their union), so this is a
+**20.4pp spread between largely distinct classes**, not one signal counted twice.
+
+Reading: the system closes concrete, reproducible, money-visible faults *better*
+than its own average, and closes defects in its ability to observe itself
+*worse*. That is the structural issue behind the operator's complaint about
+things "built halfway and left to rust" — the rusting is concentrated in
+observability, which is precisely the category whose decay is invisible by
+construction.
+
+**A retraction, recorded because the method matters.** An intermediate run of
+this analysis reported provenance-class items at **+26.0pp**. Controlling for
+the time confound collapsed that to **+3.1pp** — the lift was almost entirely
+an artifact of resolved items being older than the provenance work itself
+(started 2026-07-30). The uncontrolled figure was wrong and is withdrawn. A
+looser first-pass classifier also matched 94% of all items and is likewise
+withdrawn; it failed the control (resolved items matched at nearly the same
+rate), which is why the control was run before anything was reported.
+
+### F-35 — The trainer reports GREEN while 9 of 76 manifests have not trained (severity: HIGH)
+
+Measured live, 2026-08-20 (relay #10013). This is the operator's exact
+complaint, reproduced.
+
+`/api/bot/ml/status` — the first surface a review session reads — returns:
+
+```
+last_cycle: {failed: 0, trained: 0, overall_rc: 0, outcome: "already_complete"}
+dataset_builds_24h: {ok: 120, failed: 0}
+manifests_24h: {ok: 68, failed: 0}
+```
+
+All green. The trainer's own cycle log, same run, says:
+
+```
+training_staleness_summary: scanned 76, stale 7, never_trained 2, awaiting_source 1
+```
+
+- `exit-policy-v1` — **0 registered runs across 95 registry files**, manifest
+  24.8d old; the trainer's own words: *"it has been skipped/failed every cycle
+  since it landed"*.
+- `setup-candidates-metalabel-paper-v1` — 0 runs, 23.9d old, same.
+- Five further manifests last trained **2026-07-26**, all at exactly **25.0d**
+  against a 7d threshold.
+
+Seven manifests sharing one last-trained date is not seven independent
+failures — it is **one event on 2026-07-26 after which a class stopped
+training**, which nothing has surfaced in the 25 days since.
+
+**Two distinct defects, both of classes F-34 names:**
+
+1. **Written and never read.** The trainer DETECTS this correctly and emits
+   `manifest_untrained_stale` + `training_staleness_summary` rows into
+   `training_cycle.jsonl`. `trainer_status.json` does not carry them, so
+   `/api/bot/ml/status` cannot show them. The detector works; nothing consumes it.
+2. **Semantic substitution (sub-class A).** `training_center.py` does discuss
+   "staleness" — but only `mirror_age_seconds`, i.e. *is the trainer reachable*.
+   That is a different question from *are manifests training*, sharing a word.
+   A reviewer who checks "staleness" on this surface gets a confident answer to
+   the question they did not ask. (`hourly_report.py`'s `tick_stale` is a third
+   distinct meaning.)
+
+The collapse that makes it green: the cycle counts a SKIPPED manifest as
+`already_done`, so `already_done: 76` of 76 scanned yields
+`trained: 0, failed: 0, overall_rc: 0, outcome: already_complete`. "Trained
+successfully" and "skipped every cycle for 25 days" are indistinguishable in the
+headline — a collapsed state in the ML lifecycle's own summary.
+
+**Fix shape:** publish the staleness block into `trainer_status.json`, surface it
+on `/api/bot/ml/status`, and make `ml_output_actionability` (the review-coverage
+key added this session) assert `stale == 0 and never_trained == 0` rather than
+reading `overall_rc`. Tier-1. The 2026-07-26 root cause is separate work.
+
+### F-36 — A daily timer fired 7 times in 9 hours (severity: LOW; cause NOT established)
+
+`ict-research-results-gate.timer` declares `OnCalendar=*-*-* 07:12:00`,
+`Persistent=true`, `RandomizedDelaySec=300`, and no `OnBootSec`/`OnUnitActiveSec`.
+Journal for 2026-08-19T23:04 → 2026-08-20T07:53 shows **seven** completed runs
+(23:04, 05:59, 06:31, 06:59, 07:13, 07:32, 07:53).
+
+The timer unit alone does not explain this, and **I did not establish the cause**
+— stating that rather than naming a mechanism no probe tested. The plausible
+direction is the deploy path re-enabling timers on every merge to `main`, which
+would match today's merge frequency, but I have not confirmed it.
+
+Impact is low (1.1–1.2s CPU per run) but not nil: the report file is rewritten
+per-deploy rather than daily, so anything reasoning about "yesterday's daily
+report" is reading a deploy-triggered snapshot instead.
+
+### Resolved by measurement, not findings
+
+- **The `--risk-pct` unit divergence is confined to `backtest_system.py`.** The
+  other 12 harnesses do not reference `risk_pct` at all because they are
+  **R-normalized and capital-free** (`r_multiple`, `net_total_r`,
+  `max_drawdown_r`) — they never size in currency, so the unit bug cannot reach
+  them. This **narrows** the Part-3 framing, which left open whether the family
+  shared the defect. It does not.
+- **No R-vs-dollars comparison exists.** The R4 gate reads live measured dollar
+  PnL only (`totalPnlMeasured` + a coverage floor, abstaining below it); it never
+  compares harness R output to live currency. The apples-to-oranges risk I went
+  looking for is not present.
+- **`scripts/research/backtest_trend.py` is a deliberate hard-fail shim**, not
+  rot. It occupies the name so a third engine cannot quietly reappear, and its
+  docstring accurately records the retirement. A positive modularity pattern,
+  and the model the change-amplification findings should be fixed toward.
+- **The R4 gate is genuinely running** (F-36 is about its cadence, not its
+  liveness) and writing `report-7d.json` + `report-30d.json`. Not build-and-abandon.
