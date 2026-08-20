@@ -37,6 +37,16 @@ if [ -z "$path" ]; then
   exit 2
 fi
 
+# BE LIBERAL ABOUT THE PATH FORM. The base already carries `/api/diag/`, so a
+# caller who passes the FULL route builds `.../api/diag//api/diag/version` and
+# gets a 404 that reads exactly like an outage. There is no ambiguity to
+# preserve — no real diag path begins with `api/diag/` — so accept both forms
+# rather than making every caller remember which one this script wants.
+# (Measured 2026-08-20: a session passed '/api/diag/version', got the doubled
+# path, and was told the web-api was down. It was serving fine.)
+path="${path#/}"
+path="${path#api/diag/}"
+
 # Only the BEARER is genuinely required. DIAG_BASE_URL is now optional: the
 # candidate list below falls back to the canonical HTTPS base, so an env that
 # never set it is no longer stranded on the relay. Previously this gate
@@ -91,19 +101,47 @@ trap 'rm -f "$cfg"' EXIT
 printf 'header = "Authorization: Bearer %s"\n' "$DIAG_READ_TOKEN" > "$cfg"
 
 _seen=""
+_stages=""
 for base in "${_candidates[@]}"; do
   [ -n "$base" ] || continue
   case " ${_seen} " in *" ${base} "*) continue ;; esac   # de-dup
   _seen="${_seen} ${base}"
-  if curl -sS --fail --max-time 10 -K "$cfg" "${base}/api/diag/${path}"; then
+  # Capture the HTTP status alongside the body so a FAILURE can be described
+  # by what actually happened. `--fail` suppresses the body on an HTTP error,
+  # so the status is the only evidence left — and it is the evidence that
+  # separates "the host answered and refused" from "we never reached a host".
+  _body="$(mktemp)"
+  _http=000
+  set +e
+  _http="$(curl -sS --fail --max-time 10 -K "$cfg" \
+             -o "$_body" -w '%{http_code}' "${base}/api/diag/${path}" 2>/dev/null)"
+  _rc=$?
+  set -e
+  if [ "$_rc" -eq 0 ]; then
+    cat "$_body"; rm -f "$_body"
     # Say which base served, on stderr so it never pollutes the JSON. A reader
     # who cannot tell WHICH host answered cannot tell a healthy direct path
     # from a lucky one.
     echo "diag_fetch: served by ${base}" >&2
     exit 0
   fi
-  echo "diag_fetch: candidate ${base} did not answer; trying the next." >&2
+  rm -f "$_body"
+
+  # THREE STAGES, NEVER COLLAPSED — the whole point of this block. A message
+  # naming a cause no code path tested is worse than no message: it sends the
+  # reader to diagnose the wrong system. `answered_*` means the host is UP.
+  case "$_http" in
+    000) _stage="unreachable"; _why="never reached a host (curl rc ${_rc}: DNS, egress, or timeout) — this is the only case that implicates the network" ;;
+    401|403) _stage="answered_${_http}"; _why="the host ANSWERED and rejected the bearer — DIAG_READ_TOKEN is wrong or expired, NOT an outage" ;;
+    404) _stage="answered_404"; _why="the host ANSWERED; the route does not exist — check the path form (pass 'version', not '/api/diag/version') before suspecting the VM" ;;
+    5*) _stage="answered_${_http}"; _why="the host ANSWERED with a server error — the web-api is up but this route failed" ;;
+    *) _stage="answered_${_http}"; _why="the host ANSWERED with HTTP ${_http} (curl rc ${_rc})" ;;
+  esac
+  _stages="${_stages}${_stages:+, }${base} -> ${_stage}"
+  echo "diag_fetch: candidate ${base}: ${_why}" >&2
 done
 
-echo "diag_fetch: no candidate answered for '${path}' (tried:${_seen}) — web-api down, bearer wrong, or egress blocked. Use the issue relay." >&2
+# The summary reports the STATUS PER CANDIDATE rather than a menu of guesses,
+# so a reader can tell at a glance whether the VM is implicated at all.
+echo "diag_fetch: no candidate served '${path}' — ${_stages}. Use the issue relay only if every candidate is 'unreachable'; an 'answered_*' means the web-api is UP and the problem is this request." >&2
 exit 3

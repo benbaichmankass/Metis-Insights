@@ -107,18 +107,43 @@ mkdir -p "$OUTPUT_DIR"
 #
 # **REGRESSED — default reverted to OFF 2026-07-27 (BL-20260715 verify).**
 # Subprocess isolation only bounds fleet ACCUMULATION; it does NOT bound a
-# SINGLE model's footprint. `ml/promotion/oos_edge.compute_oos_edge` does
-# `rows = _load_jsonl(data_path)` — it materializes the WHOLE dataset
-# (market_features ≈ 2.1e5 rows × many float cols, as dicts) for ONE head's
-# k-fold CV, which alone exceeds MemoryMax=4500M → the subprocess is
-# OOM-killed, failing the unit. Live-confirmed 2026-07-27: with the default
-# ON the daily sweep OOM-killed at ~5 min (04:04Z scheduled + an 08:49Z
-# manual run), producing NO packet — whereas the OFF runs on 07-25 + 07-26
-# completed in ~5 s and wrote packets. So OFF is the known-good state and
-# is the default again. oos_edge evidence remains available per-head via the
-# `gate-check` CLI. Re-enable (default ON) only AFTER oos_edge's dataset
-# load is made memory-bounded (columnar/compact CV load — the real fix,
-# MB-20260719).
+# SINGLE model's footprint. `ml/promotion/oos_edge.compute_oos_edge`
+# materializes the WHOLE dataset (market_features ~2.1e5 rows x many float
+# cols, as dicts) for ONE head's k-fold CV, which alone exceeds
+# MemoryMax=4500M -> the subprocess is OOM-killed, failing the unit.
+# Live-confirmed 2026-07-27: with the default ON the daily sweep OOM-killed
+# at ~5 min (04:04Z scheduled + an 08:49Z manual run), producing NO packet —
+# whereas the OFF runs on 07-25 + 07-26 completed in ~5 s and wrote packets.
+#
+# MEASURED 2026-08-20 (trainer-diag #10044) — THE COLUMN PROJECTION IS
+# DEPLOYED AND IS NOT ENOUGH. Do not re-derive this, and do not read PR
+# #7722 as having resolved it. #7722 added `keep=_referenced_columns(...)`
+# to that load (confirmed present on the trainer at ml/promotion/oos_edge.py
+# line 247), and it landed 13 minutes AFTER #7721 had already reverted this
+# default to `off` — so it has never once run under this flag. Measured
+# directly, one head (`btc-regime-5m-lgbm-yz-v1`, a 1307.6 MB
+# BTCUSDT/5m/v002 data.jsonl) through `ml gate-check --datasets-root`, which
+# is the same `compute_oos_edge` call this sweep makes (ml/cli.py:440
+# computes it whenever --datasets-root is supplied):
+#
+#     peak RSS   5,193,640 KB  (~5.19 GB)
+#     MemoryMax  4,608,000 KB  (4500 MiB)   -> exceeds by 12.7%
+#     wall       5:35 for ONE head; 28 shadow heads have a dataset on disk
+#     box        5909 MB total RAM — peak RSS is 86% of the whole machine
+#
+# The measurement ran under /usr/bin/time, OUTSIDE the unit's cgroup, which
+# is why it completed instead of being killed; under
+# ict-promotion-readiness.service the same load is over the cap. So the
+# projection helped and did not close the gap, and the conclusion below is
+# now MEASURED rather than inferred.
+#
+# So OFF is the known-good state and is the default. oos_edge evidence
+# remains available per-head via the `gate-check` CLI. Re-enable (default
+# ON) only AFTER oos_edge's dataset load is made memory-bounded (chunked /
+# columnar CV load — the real fix, MB-20260719). Note the 2.6 h wall-clock
+# for the shadow roster alone is a SECOND, independent blocker: fixing the
+# memory does not by itself make a daily full-registry sweep schedulable on
+# a 1-OCPU box.
 PROMOREADY_OOS_EDGE="${PROMOREADY_OOS_EDGE:-off}"
 DATASETS_ARG=()
 case "${PROMOREADY_OOS_EDGE,,}" in
@@ -130,7 +155,7 @@ case "${PROMOREADY_OOS_EDGE,,}" in
     fi
     ;;
   *)
-    log_err "PROMOREADY_OOS_EDGE=off: sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data for EVERY head this run — use 'python -m ml gate-check' per head for oos_edge evidence. OFF is the DEFAULT and the known-good state (the 2026-07-26 subprocess-isolation fix was REVERTED 2026-07-27: isolation bounds fleet accumulation, not one head's dataset load, so the sweep OOM-killed and wrote no packet). MB-20260719-PROMOREADY-OOSEDGE-OOM is OPEN, not resolved — it closes when oos_edge's load is made memory-bounded."
+    log_err "PROMOREADY_OOS_EDGE=off: sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data for EVERY head this run — use 'python -m ml gate-check' per head for oos_edge evidence. OFF is the DEFAULT and the known-good state (the 2026-07-26 subprocess-isolation fix was REVERTED 2026-07-27: isolation bounds fleet accumulation, not one head's dataset load, so the sweep OOM-killed and wrote no packet). MB-20260719-PROMOREADY-OOSEDGE-OOM is OPEN, not resolved — it closes when oos_edge's load is made memory-bounded. Re-measured 2026-08-20: the #7722 column projection IS deployed and one head still peaks at 5.19 GB against a 4.5 GiB MemoryMax, so turning this ON would reproduce the OOM."
     ;;
 esac
 

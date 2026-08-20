@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from scripts.ml.strategy_review_packet import (
+    classify_execution_mismatch,
     ExecutionDiagnostics,
     Headline,
     RegimeCell,
@@ -1047,3 +1048,107 @@ class TestLoadRegimePolicyNormalization:
         )
         d = decide(h, cells, _diag(), execution="live", shadow_soak_days=0)
         assert d.action == "kill"
+
+
+# ---------------------------------------------------------------------------
+# execution_mode_mismatch — recency-scoped (BL-20260820-REVIEW-GATE-REFUSES-
+# DEMOTED-STRATEGIES). The override used to be `execution == "shadow" and
+# n_filled > 0`: a point-in-time config field against a WHOLE-WINDOW aggregate,
+# which every correctly-demoted strategy trips by construction. It therefore
+# refused to grade exactly the strategies whose post-mortem matters most.
+# ---------------------------------------------------------------------------
+
+
+_WIN_END = datetime(2026, 6, 30, tzinfo=timezone.utc)
+
+
+def _shadow_decide(headline: Headline, *, cells=None, window_end=_WIN_END):
+    return decide(
+        headline, cells or [], _diag(),
+        execution="shadow", shadow_soak_days=20, window_end=window_end,
+    )
+
+
+class TestExecutionModeMismatchIsRecencyScoped:
+    def test_shadow_filling_now_is_still_refused(self):
+        """The real anomaly must keep its old behaviour: a shadow-gated
+        strategy reaching the order path NOW is not gradeable."""
+        h = _headline(n_decisions=50, n_filled=20, n_closed=18, n_wins=12,
+                      win_rate=0.667, expectancy=7.93)
+        h.last_fill_at = "2026-06-29T12:00:00+00:00"  # 1 day before window end
+        d = _shadow_decide(h)
+        assert d.action == "hold"
+        assert any("execution_mode_mismatch" in r for r in d.reasons)
+        assert classify_execution_mismatch("shadow", h, _WIN_END) == "shadow_filling_now"
+
+    def test_shadow_with_only_historical_fills_is_GRADED_not_refused(self):
+        """THE FINDING. A strategy demoted mid-window stops filling; that is the
+        mechanism WORKING. It must go through the matrix.
+
+        Modelled on the measured 2026-06-30 `vwap` packet: 322 closed,
+        -$50.71, expectancy -0.157, every regime cell off — which the matrix
+        grades, and which the old override threw away."""
+        h = _headline(n_decisions=2081, n_filled=338, n_closed=322, n_wins=75,
+                      win_rate=0.233, pnl_total=-50.71, expectancy=-0.157)
+        h.last_fill_at = "2026-06-01T00:00:00+00:00"  # ~29 days before the end
+        cells = [_cell("trending", "calm", policy="off"),
+                 _cell("chop", "calm", policy="off")]
+        d = _shadow_decide(h, cells=cells)
+        assert classify_execution_mismatch("shadow", h, _WIN_END) == "shadow_fills_historical"
+        assert d.action != "hold", (
+            "a completed demotion must be graded on its record, not refused; "
+            f"got hold with reasons={d.reasons}"
+        )
+        assert not any("execution_mode_mismatch:" in r for r in d.reasons)
+        assert any("execution_mode_note" in r for r in d.reasons), (
+            "the packet must still record that the old override would have "
+            "fired here, so the change is visible in the artifact"
+        )
+
+    def test_undatable_fills_hold_but_do_not_claim_an_anomaly(self):
+        """`we could not look` is not `we found a pipeline anomaly`. Holding is
+        right; asserting a cause we did not establish is not."""
+        h = _headline(n_decisions=10, n_filled=5)
+        h.last_fill_at = None
+        d = _shadow_decide(h)
+        assert d.action == "hold"
+        assert any("execution_mode_mismatch_undatable" in r for r in d.reasons)
+        assert not any(r.endswith("do not act.") for r in d.reasons)
+        assert classify_execution_mismatch("shadow", h, _WIN_END) == "shadow_fill_recency_unknown"
+
+    def test_no_window_end_is_also_undatable_not_an_anomaly(self):
+        h = _headline(n_decisions=10, n_filled=5)
+        h.last_fill_at = "2026-06-29T12:00:00+00:00"
+        assert classify_execution_mismatch("shadow", h, None) == "shadow_fill_recency_unknown"
+
+    def test_shadow_with_no_fills_is_graded_normally(self):
+        h = _headline(n_decisions=40, n_filled=0, n_closed=0)
+        assert classify_execution_mismatch("shadow", h, _WIN_END) == "shadow_no_fills"
+
+    def test_live_strategy_never_trips_the_override(self):
+        h = _headline(n_decisions=50, n_filled=20)
+        h.last_fill_at = "2026-06-29T12:00:00+00:00"
+        assert classify_execution_mismatch("live", h, _WIN_END) == "not_shadow"
+
+    def test_window_end_accepts_both_a_datetime_and_a_string(self):
+        """build_packet passes a real datetime; Headline.last_fill_at comes off
+        a DB row as a string. Assuming either one broke a pre-existing test."""
+        h = _headline(n_decisions=50, n_filled=20)
+        h.last_fill_at = "2026-06-29T12:00:00+00:00"
+        assert classify_execution_mismatch("shadow", h, _WIN_END) == "shadow_filling_now"
+        assert classify_execution_mismatch(
+            "shadow", h, "2026-06-30T00:00:00+00:00") == "shadow_filling_now"
+
+    def test_the_old_predicate_would_have_refused_the_historical_case(self):
+        """Control. Both measured 2026-06-30 cases satisfy the OLD condition
+        (`shadow and n_filled > 0`) and so were refused a grade — one of them a
+        strongly POSITIVE strategy. If this ever stops holding, the finding
+        this suite encodes has changed and the tests above are describing
+        something that no longer exists."""
+        for n_filled, last_fill in ((338, "2026-06-01T00:00:00+00:00"),
+                                    (20, "2026-06-01T00:00:00+00:00")):
+            h = _headline(n_decisions=100, n_filled=n_filled)
+            h.last_fill_at = last_fill
+            assert h.n_filled > 0                      # old predicate: refuse
+            assert classify_execution_mismatch(        # new: grade it
+                "shadow", h, _WIN_END) == "shadow_fills_historical"

@@ -198,3 +198,87 @@ def test_repo_root_bootstrap_actually_reaches_the_repo_root() -> None:
         f"{str(REPO)!r}; `src` would not be importable from there"
     )
     assert (resolved / "src").is_dir()
+
+
+# --------------------------------------------------------------------------
+# THE WRAPPER MUST RESOLVE AND EXPORT THE DB PATH.
+#
+# Added 2026-08-20 after the SECOND live dry run (#10049) failed with
+# `sqlite3.OperationalError: unable to open database file`. The python resolver
+# order is TRADE_JOURNAL_DB -> $DATA_DIR/trade_journal.db -> repo-root, and a
+# wrapper invoked over SSH inherits NEITHER (they live in the systemd unit's
+# EnvironmentFile, not in an interactive shell). So it fell through to a
+# repo-root path that does not exist on the live VM, and a `mode=ro` URI
+# connection cannot create one.
+#
+# ~20 sibling wrappers already do this (backfill_closed_at_action.sh:34,76).
+# DEVIATING FROM AN ESTABLISHED IDIOM IS THE DEFECT, so these assert against the
+# SHIPPING wrapper text — a test embedding its own copy passes for ever after
+# the original changes.
+#
+# Note what the existing suite could not catch: #10042 added a test that runs
+# the script the way the wrapper does, but it runs it HERE, where the repo-root
+# fallback finds a real file. The environment difference IS the bug, so the
+# only durable assertion is on the wrapper's contract with the python process.
+# --------------------------------------------------------------------------
+
+_WRAPPER = REPO / "scripts" / "ops" / "repair_prop_fill_direction_action.sh"
+_CONTROL_WRAPPER = REPO / "scripts" / "ops" / "backfill_closed_at_action.sh"
+
+
+def test_the_wrapper_resolves_the_db_path_via_the_canonical_helper() -> None:
+    body = _WRAPPER.read_text()
+    assert "runtime_db_path" in body, (
+        "the wrapper must resolve the DB path via _lib.sh::runtime_db_path, "
+        "which calls load_runtime_env and so reads the SAME value the trader "
+        "uses; without it the python resolver falls through to repo-root"
+    )
+
+
+def test_the_wrapper_exports_TRADE_JOURNAL_DB_to_the_python_process() -> None:
+    """Resolving it is not enough — the python process must SEE it."""
+    exec_lines = [
+        line for line in _WRAPPER.read_text().splitlines()
+        if "repair_prop_fill_direction.py" in line and line.strip().startswith("exec")
+    ]
+    assert exec_lines, "no exec line invoking the python script"
+    for line in exec_lines:
+        assert "TRADE_JOURNAL_DB=" in line, (
+            f"the python invocation must carry TRADE_JOURNAL_DB; got: {line}"
+        )
+
+
+def test_the_control_sibling_still_uses_the_idiom_this_suite_enforces() -> None:
+    """POSITIVE CONTROL, and the reason it is separate.
+
+    If the canonical idiom ever moves, the two tests above would keep passing
+    while enforcing a stale pattern. This one fails loudly instead, so the
+    suite cannot quietly hold the wrapper to a convention the repo abandoned.
+    """
+    assert _CONTROL_WRAPPER.is_file(), f"control wrapper missing: {_CONTROL_WRAPPER}"
+    control = _CONTROL_WRAPPER.read_text()
+    assert "runtime_db_path" in control and "TRADE_JOURNAL_DB=" in control, (
+        "the control sibling no longer uses the idiom these tests enforce — "
+        "re-derive the canonical pattern before trusting them"
+    )
+
+
+def test_a_missing_db_names_the_path_instead_of_sqlites_bare_message(tmp_path) -> None:
+    """`unable to open database file` names no path and no cause.
+
+    The process knows both. Reporting neither is the unprovenanced-diagnostic
+    class, and it cost a full dispatch cycle on #10049 to learn one fact the
+    process already had.
+    """
+    missing = tmp_path / "definitely_not_here.db"
+    proc = subprocess.run(
+        [sys.executable,
+         str(REPO / "scripts" / "ops" / "repair_prop_fill_direction.py"),
+         "--db", str(missing)],
+        capture_output=True, text=True, cwd=REPO,
+    )
+    assert proc.returncode != 0
+    combined = proc.stdout + proc.stderr
+    assert str(missing) in combined, combined
+    assert "TRADE_JOURNAL_DB" in combined, combined
+    assert "unable to open database file" not in combined, combined

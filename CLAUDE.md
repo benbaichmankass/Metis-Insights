@@ -1098,12 +1098,18 @@ See `docs/claude/vm-operator-mode.md` § 9 for the trust contract.
 
 Two transports, identical JSON — **try direct, fall back to the relay.**
 
-1. **Direct HTTP (preferred, when configured).** If the session's cloud
-   environment sets `DIAG_BASE_URL` + `DIAG_READ_TOKEN` and Network
-   access permits egress, fetch in one shot:
-   `scripts/ops/diag_fetch.sh '<path>'` (exit `0` = JSON; exit `3` =
-   fall back). These vars cover the **live VM only** — there is no
-   `/api/diag/*` surface on the trainer VM.
+1. **Direct HTTP — try it FIRST, and only `DIAG_READ_TOKEN` is required**
+   (corrected 2026-08-20). `scripts/ops/diag_fetch.sh '<path>'` (exit `0` =
+   JSON; exit `3` = fall back). **`DIAG_BASE_URL` is OPTIONAL**: the script
+   tries an ORDERED list of candidate bases and puts the canonical HTTPS
+   host (`https://ict-bot.duckdns.org`, the Caddy route) FIRST whenever the
+   configured value is plain-http or names a known VM IP — i.e. exactly the
+   cases the sandbox proxy drops. It prints `served by <base>` on stderr, so
+   a reader can tell WHICH host answered rather than assuming. This row
+   previously demanded **both** vars, which sent every session to the relay
+   whenever the canned `DIAG_BASE_URL` was stale — and it has been stale
+   since the 2026-06-14 cutover. The diag surface covers the **live VM
+   only**; there is no `/api/diag/*` on the trainer VM.
 2. **GitHub-issue relay (fallback).** Open an issue titled
    `[diag-request] <path>` with label `vm-diag-request`; the
    `vm-diag-snapshot` workflow runs the fetch over SSH + curl, posts
