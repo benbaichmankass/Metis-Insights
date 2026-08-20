@@ -2696,3 +2696,216 @@ the *same* collapsed state this audit keeps finding in the system, occurring in
 the audit's own instrument — which is why every probe in this part prints its
 key set before its values.
 
+
+## Part 21 — Phase 6: design criticism (cohesion, function, philosophy)
+
+The audit skill puts this phase last by construction: it judges the system *as a
+system*, so it needs every other pass finished. What follows is not a summary of
+the 76 findings — it is the four theses they support, each stated so it can be
+argued with, and each carrying the measurement it rests on.
+
+One correction first, because it changes a thesis I was about to write.
+
+### A refuted thesis, recorded before the ones that survived
+
+I expected to find that **every incident gets its own bespoke, hardcoded repair
+script** — the shape the operator named as *"we keep on fixing the one sequence
+but not fixing the root problem."* The prop family looked like a clean example,
+and a first-pass detector over all 83 allowlisted system-actions returned **40**
+carrying a hardcoded incident artefact.
+
+**That number was wrong by a factor of forty.** The regex matched `BL-`/`MB-`
+ids anywhere in the file — including docstrings — so it scored *"cites the
+backlog row it was written for"* as *"hardcoded to one incident."* Citing the row
+is good practice, not a defect; it is what makes `check_backlog_refs.py`
+meaningful. Re-measured with comments and docstrings stripped, and with a
+positive control (`fix-prop-mislinked-close`, a known one-shot, must match) and
+two negative controls (`pull-and-deploy` and `status-check` must not):
+
+| population | n |
+|---|---|
+| allowlisted system-actions | 83 |
+| **hardcoded to a single incident** | **1** (`fix-prop-mislinked-close`) |
+
+The second hit, `vwap-backtest-sweep`, is itself a false positive — `"120"`,
+`"240"`, `"360"` are a timeframe lookup table in `fetch_backtest_candles.py`.
+
+So the ops surface is **overwhelmingly parameterised**, and the "bespoke script
+per incident" thesis does not survive contact with the data. What does survive is
+narrower and differently located: the *prop bridge* has accumulated three
+per-instance fixes **in runtime code** — the ticket-id workaround, the alias
+normaliser, and now the direction gap (F-104) — none of which is a script. The
+modularity failure is real and it is in `src/prop/`, not in `scripts/ops/`.
+
+This is the third time today one of my own probes nearly produced a confident
+wrong finding, after the `first_ts` and `promote` key-name nulls. All three are
+the same defect: **a probe returning a confident answer over a population it did
+not establish** — which is the defect class this entire audit is about, occurring
+in the audit's instrument. The remedy worked every time and costs seconds: run a
+positive and a negative control *before* reporting the number.
+
+### Thesis 1 — Every mechanism gates ADDITION and CHANGE. Almost nothing gates RETENTION.
+
+The permission tiers, the guards, the merge protocol, the definition-of-done, the
+promotion gate — all of them answer *"may this be added or altered?"* Nothing in
+the system periodically asks *"should this still be here?"*, and the consequence
+is visible in every inventory taken this session:
+
+| population | carried | not doing its job | measured |
+|---|---|---|---|
+| registry models | 95 | 64 `OFFLINE` | Part 20 |
+| shadow-stage models | 28 | 12 past 60 d soak, max **93.2 d** | Part 20 |
+| trainer manifests | 76 | 7 stale, 5 enforced-skipped **25 days** | F-103 |
+| live strategy legs | 52 | 3 placed **zero** orders in 17 days | F-95 |
+| `scripts/` tools | 384 | **161** with no runner | Part 12 |
+| system-actions | 83 | allowlist has only ever grown | Part 21 |
+
+**The mechanisms to remove things exist** — `purge-cloudflared`,
+`purge-vm-runner`, `terminate-instance`, `strategy_review_packet`'s `KILL` badge,
+M25's stated "demote/retire sweep so the roster carries no dead weight." They are
+not missing. **Nothing ever schedules them.** A roadmap milestone prompts an
+addition; no artefact anywhere prompts a removal, so removal happens only when a
+session happens to notice — which is to say, rarely, and never on the schedule
+the accumulation runs on.
+
+The promotion gate makes this sharpest. `shadow → advisory` is Tier-3 and
+operator-gated, correctly. But `advisory → shadow` is *equally* gated, and
+`shadow → retired` more so. So the default outcome for a model that is neither
+good enough to promote nor bad enough to force a decision is: **soak for ever.**
+12 models are living that outcome right now, and one of them has been soaking
+longer than the entire fc-pcv fleet has existed.
+
+One deliberate counter-example, stated so it is not swept up: the backlog keeps
+**405 resolved rows** rather than archiving them, and that is *correct* — the
+dangling-reference guard's whole premise is that a dangling id means *never
+filed*, never *filed and pruned*. Retention is not always debt. The distinction
+this thesis needs is between things kept **as a record** and things kept **as if
+they were live**, and it is exactly the second kind that accumulates unwatched.
+
+### Thesis 2 — The honesty investment has outrun the adjudication investment
+
+This repo has, genuinely, the best vocabulary for uncertainty I have audited:
+`MEASURED`/`ESTIMATED`/`FABRICATED`/`UNVERIFIED`; the collapsed-state doctrine;
+`coverage` denominators published beside every aggregate; `soak_days_is_lower_bound`;
+`anchored`/`deferred`/`no_anchor`; `read_state` on the diag reads;
+`peak_r_is_lower_bound`; `filter_state` refusing to let an ignored filter read as
+a match. Four CI guards exist purely to keep signals honest. This is not
+window-dressing — every one of those was verified live this session and every one
+works.
+
+**And the statements they produce go unread.** Not misread: *unread*.
+
+- The promotion-readiness report has proposed **demote `sol-regime-15m-lgbm-fc-pcv-v2`**
+  on four separate days, pushed an operator ping each time, and the head is still
+  advisory (F-102).
+- `training_staleness_summary` is emitted every cycle and has **zero consumers
+  outside its own tests** (F-35, F-103) — `git grep` finds it in the producer, two
+  test files, and prose.
+- `manifest_audit_skipped_enforced` has fired five times a night for **25 nights**
+  with an unchanged payload.
+- `RiskManager.report()["exposure"]` was emitted with **no reader at all**
+  (#8665) until a second PR added one — the shape `provenance-consumer-guard`
+  exists to catch, occurring in a subsystem that guard does not reach.
+- **109 cited-but-unfiled backlog ids, 21% of all cited ids** — the guard's own
+  measurement, deliberately not failed on to avoid alarm fatigue.
+
+The pattern is not a diagnostics problem. It is a **queue** problem: every one of
+these produces a correct, well-worded, actionable statement, and there is nowhere
+a statement goes where it cannot leave except by a decision. The backlog is the
+nearest thing, and it is a parking lot, not a queue — 195 rows sit at
+`kept_open`.
+
+This is the direct answer to the operator's founding complaint. Past audits
+returned clean not because they were lazy but because **they read summaries, and
+summarisation is precisely where a correctly-stated "we refused to look" becomes
+a zero.** The trainer says `stale: 7` in its cycle log and `failed: 0` in its
+status envelope. Both are true. Only one is read.
+
+### Thesis 3 — Fail-permissive is the right default, and its blind spot is that abstentions are decided but never counted
+
+Fail-permissive is correct on a live trading system: a read error must not strand
+a genuine trade. The repo applies it consistently and deliberately. The blind
+spot is uniform:
+
+| site | on failure | is the abstention counted? |
+|---|---|---|
+| `exit_anchor.bar_close_at` | `deferred` | **yes** — a named state, branched on |
+| `IBClient._venue_session` | `unknown` | **yes** — and logged WARNING |
+| `prop_sl_tp_alert._sl_crossed('')` | `return False` | no |
+| `find_open_prop_positions` (read error) | `return []` | no |
+| `intents._regime_router_active` (exception) | keep the intent | no |
+| `breakout_executor._suppress_reason` (any error) | `None` | no |
+
+The two that got it right are the two the repo is proudest of — and they got it
+right by making the abstention a **named state**, which is the collapsed-state
+rule. **So the rule is already written; it is applied at the FIELD level and not
+at the CONTROL-FLOW level.** `filter_state`, `read_state`, `finality_source` all
+say *"we did not look"* about a value. No equivalent exists for a branch. An
+`except: return []` is a collapsed state in code rather than in a column, and no
+guard in the repo looks for one — `silent-empty-guard` catches the *producer*
+returning `[]`, which is the closest, and it does not ask whether the caller can
+tell.
+
+The prop finding is this thesis in miniature: `_sl_crossed('')` returning `False`
+is a decision to abstain from stop-loss alerting, taken silently, on an account
+with a $4,700 floor. Nothing anywhere increments a counter.
+
+### Thesis 4 — Reviews are scheduled by TIME; the failures they must catch arrive as STEP CHANGES
+
+Every review cadence in the system is periodic — daily trainer cycle, daily
+readiness sweep, daily/weekly/monthly `/system-review`. The failures found this
+session are, without exception, **step changes on a single day** that then persist:
+
+- 7 manifests share one last-trained date, **2026-07-26**. That is one event, not
+  seven failures — and ~25 daily cycles have run over it since.
+- `run_one_tick` went 69.3 s → 159.9 s (F-98). The M20 promise held at ship time
+  and decayed after.
+- The exit-interval max reached 58.9 s against a 60 s requirement (F-85) only on
+  the one process that lived long enough to draw the tail.
+- The prop phantom began on **one** report-back, 2026-08-19T12:52:40.
+
+A periodic review that reads the current state cannot see a step change; it sees
+a level, and a level that has been wrong for 25 days looks exactly like a level
+that is correct. **What catches a step change is a diff against the previous
+run**, and nothing in the system takes one. `/system-review --window=since-last`
+reads the prior report's *timestamp* to set a window; it does not compare the
+prior report's *numbers*. The `system_invariants.py` suite shipped this session is
+the first artefact that could — an invariant is a level assertion that fails the
+moment the level moves — which is why F-98 argues for registering every numeric
+promise as a watched invariant at ship time rather than citing it in a PR body.
+
+### What these four say together
+
+The system is **honest, well-instrumented, and under-adjudicated.** Its failure
+mode is not that it breaks loudly and nobody notices; it is that it states its
+problems accurately, in the right place, in the right vocabulary, and then
+nothing converts the statement into a decision — while a governance system that
+gates every addition and no retention lets the un-adjudicated set grow
+monotonically.
+
+Four structural asks follow, and they are deliberately *mechanisms*, not fixes to
+any of the 76 findings:
+
+1. **A retention gate.** Whatever periodically asks "may I add this?" must have a
+   counterpart that asks, on the same cadence, "should this still be here?" — for
+   models past a soak ceiling, legs that have placed nothing, manifests that have
+   not trained, and tools with no runner. The removal machinery already exists; it
+   needs a scheduler.
+2. **An adjudication queue with no silent exit.** A repeated actionable
+   statement — the same demote proposal four days running, the same
+   enforced-skip 25 nights running — must escalate rather than repeat. A statement
+   that reads identically on day 25 as on day 1 has already told you the queue is
+   not a queue.
+3. **Counted abstentions.** Extend the collapsed-state doctrine from fields to
+   control flow: a fail-permissive branch increments a counter and publishes it
+   beside the thing it protects, so *"we abstained 4,000 times"* is a readable
+   state rather than an invisible one.
+4. **Diff-based review.** Every periodic review compares its numbers to the prior
+   run's and reports the deltas first. A level is not evidence; a level that has
+   not moved in 25 days while its denominator has is a finding.
+
+None of these is a code fix and none is in scope for the deferred-fix list. They
+are the answer to *"are we even approaching this in the best way"* — and the
+honest reading is that the approach is sound and incomplete in one specific way:
+**the system was built to tell the truth, and not yet built to act on it.**
+
