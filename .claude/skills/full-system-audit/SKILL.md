@@ -357,6 +357,60 @@ other axes keep finding. If adding one strategy means editing 17 files, then
 "we built it and forgot to wire it" is not carelessness — it is the *expected*
 outcome of the design, and no amount of diligence fixes it.
 
+**The SECOND probe on this axis: values that cross the research↔production
+boundary.** Change amplification asks how many files ONE change touches.
+This asks the sibling question — how many DEFINITIONS one concept has — and it
+is the sharper of the two, because a duplicated definition produces no diff to
+count and no error to catch. It just quietly disagrees.
+
+The repo has killed this class twice and named it both times: one resolver for
+the DB path (`src.utils.paths.trade_journal_db_path()`, after stray journals
+appeared under every process's CWD) and one module for measured-vs-manufactured
+(`src/runtime/provenance.py`, after a phantom −$6,358 leak). Same move each
+time: one module owns the definition, a CI guard fails a second one.
+
+Enumerate every parameter that appears in **both** a config file and a
+research/backtest CLI. `risk_pct` is the worked example (audit 2026-08-20,
+F-37..F-40): `accounts.yaml` declares `0.015` meaning a FRACTION, while five
+research and prop files compute `rpct / 100.0` meaning a PERCENT, and
+`--risk-pct 0.015` therefore means 1.5% in `pairs_dollar_lots.py` and 0.015% in
+`walkforward_flip_policy.py` — same flag, same value, **100× apart**, with the
+harness defaults 5× off the live basis. For each such parameter ask three
+questions, one per failure type:
+
+1. **INFRA** — is there exactly ONE function converting it, imported by both
+   sides?
+2. **WORKFLOW** — does a guard assert the harness default against the live
+   declaration? (Requirement 5 of the build skills' definition of done, applied
+   to a *parameter* rather than an env var.)
+3. **METHOD** — does the harness SWEEP it, or FIX it? If fixed, is the fixed
+   value the live one, **asserted** rather than assumed?
+
+⚠️ **"It's normalized, so the parameter doesn't matter" is an ASSUMPTION, not an
+exemption — and it is the one that hides longest.** A capital-free R-normalized
+harness asserts both that PnL is linear in the risk level AND that *the set of
+trades is invariant to it*. The second is false wherever production quantizes or
+refuses: futures floor to whole contracts and **refuse sub-1-contract outright**,
+Alpaca floors to whole shares, `min_qty` and the margin pre-flight cap both bite.
+Below a threshold the trade does not shrink, it does not HAPPEN — so the trade
+population is a function of the very parameter the harness declared irrelevant,
+and the refused trades are absent from a population the harness never claimed to
+enumerate. A normalization claim is valid only if the harness models the
+quantization and refusal paths; otherwise it is structurally unable to test its
+own premise, and it fails in the flattering direction (small risk reads as safe
+when it means "this leg does not trade").
+
+**Check the GUARD'S BOUNDARY against the CONCEPT'S boundary, not just the
+guard's greenness.** This is the root-cause shape and the most transferable
+lesson on this axis. The 2026-06-29 directive "risk lives at the account level
+and nowhere else" was decided correctly, enforced in code, AND given a CI guard
+(`check_strategy_risk_field_in_diff.py`) — whose scope is `config/strategies.yaml`
+and `src/`. `scripts/` sits outside it, so research drifted to a second
+convention under a green guard. Research authorises Tier-3 changes to
+production, so a rule that binds production and exempts research does not bind
+the decision. For every guard, state the concept it protects and the paths it
+scans, and flag any place those two differ.
+
 **The metric is CHANGE AMPLIFICATION, and it is measurable from history.** For
 each kind of system change — add a strategy, add an account, add a broker, add a
 symbol, add an endpoint, add a soak — find a real commit that did it and count

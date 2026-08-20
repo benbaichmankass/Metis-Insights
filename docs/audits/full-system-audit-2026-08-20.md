@@ -996,3 +996,177 @@ report" is reading a deploy-triggered snapshot instead.
   and the model the change-amplification findings should be fixed toward.
 - **The R4 gate is genuinely running** (F-36 is about its cadence, not its
   liveness) and writing `report-7d.json` + `report-30d.json`. Not build-and-abandon.
+
+---
+
+## Part 10 — `risk_pct`: one name, two unit conventions, and why R-normalization hid it
+
+Operator-directed (2026-08-20): the backtest risk and the live config don't
+match; the harness should either be independent of the risk setting or kept
+current, and in any case should sweep risk levels. *"That's a gap probably of
+more than one type in the workflow and in the infra."* That reading is correct,
+and the gap is wider than the single file Part 3 named.
+
+### F-37 — Two incompatible unit conventions share the name `risk_pct` (severity: HIGH)
+
+**FRACTION** (production). `config/accounts.yaml::risk_pct: 0.015`, consumed at
+`src/units/accounts/risk.py:201` as `risk_usdt = balance_usdt * risk_pct`. 0.015
+means 1.5%. Every live account declares 0.015.
+
+**PERCENT** (research + prop). `rpct / 100.0`, so 0.3 means 0.3%. Sites:
+
+| file | sites |
+|---|---|
+| `scripts/backtest_system.py` | 1 (`:866`) |
+| `scripts/research/allocator_multisymbol_backtest.py` | 5 |
+| `src/prop/montecarlo.py` | 5 |
+| `src/prop/breakout_ticket.py` | 1 |
+| `scripts/prop/account_compat_matrix.py` | 1 (docstring) |
+
+`--risk-pct` defaults to **0.3** in `backtest_system.py`,
+`build_backtest_panel.py`, `allocator_multisymbol_backtest.py`, and
+`walkforward_flip_policy.py` — i.e. **0.3%, against a live basis of 1.5%. A 5×
+divergence**, and the walk-forward that decides Tier-3 questions runs on the
+wrong one.
+
+**The sharp edge is a flag that means two things.** `scripts/research/` contains
+both conventions under one flag name:
+
+```
+pairs_dollar_lots.py    --risk-pct 0.015  ->  1.5%      (fraction; :138 balance * risk_pct)
+walkforward_flip_policy.py --risk-pct 0.015  ->  0.015%  (percent;  rpct / 100.0)
+```
+
+Same flag, same value, **100× apart**. A researcher who passes the live figure
+because it is the live figure gets a run 100× under-sized in one script and
+correct in the other, with nothing in either output naming the convention.
+
+**`risk_pct: 0.3` in `config/accounts.yaml` comments is stale prose**, not a
+field — the per-strategy multiplier was removed 2026-06-29
+(`risk.py:366`). The one grep hit in `strategies.yaml` is `risk_pct: 0.3.`
+*with a trailing period*: a sentence, not YAML. Worth fixing, but it is not the
+cause; it is a plausible-looking decoy that would mislead the next reader.
+
+### F-38 — R-normalization is an assumption, not neutrality (severity: HIGH, conceptual)
+
+Part 9 recorded that 12 of 13 harnesses are R-normalized and capital-free, and
+framed that as why the unit bug cannot reach them. That is true and it is
+**not** the reassurance it reads as, which the operator's "it needs to check
+various different risk percentages" gets at exactly.
+
+Working in R silently asserts two things:
+
+1. **PnL is linear in `risk_pct`** — so the risk level is a scalar you can apply
+   afterwards; and
+2. **the set of trades is invariant to `risk_pct`** — the same trades happen at
+   any risk level.
+
+**(2) is false in production, discontinuously.** `RiskManager.position_size`
+floors futures to **whole contracts and refuses sub-1-contract outright**, floors
+Alpaca to whole shares, applies `min_qty`, and caps against available margin.
+So below a threshold the trade does not shrink — **it does not happen**:
+
+```
+balance_min_for_1_contract = stop_distance × contract_value_usd / risk_pct
+```
+
+| symbol | contract_value_usd | stop (illustrative) | live 1.5% | harness 0.3% |
+|---|---|---|---|---|
+| MES | 5.0 | 20.00 | $6,667 | $33,333 |
+| MGC | 10.0 | 8.00 | $5,333 | $26,667 |
+| MHG | 2500.0 | 0.05 | $8,333 | $41,667 |
+
+(Contract values are from `config/instruments.yaml`; the stop distances are
+illustrative, so read the **formula and the 5× ratio** as the result, not the
+dollar figures.)
+
+The consequence is directional and unflattering: the harness's risk level is the
+one that makes futures legs *stop trading*, and an R-normalized harness reports
+their per-trade edge cheerfully because in R-space the refused trades are simply
+absent from a population it never claimed to enumerate. **Small risk looks safe
+when what it actually means is "this strategy does not trade."** Ruin and
+drawdown are nonlinear in risk too, and margin refusal is already live and
+measured (`bybit_2`, 110007, 30% of that account's orders in-window).
+
+So neither branch of the operator's either/or is currently satisfied:
+independence is claimed but is really an untested assumption, and the one
+capital-simulating harness is 5× out of date.
+
+### F-39 — Nothing sweeps `risk_pct`, though the sweep machinery exists (severity: MEDIUM)
+
+`scripts/backtest_trend.py` ships `_parse_grid()` + `--confidence-sweep` +
+`_confidence_sweep()` — a working, general grid sweeper. It is pointed at
+**confidence**. Across every harness there is **no `--risk-sweep`, no risk grid,
+no risk axis in any panel builder**.
+
+The parameter that determines whether a futures trade happens *at all* is the
+one parameter never swept, while a parameter that only scales an existing trade
+is swept routinely.
+
+### F-40 — The right guard exists and its scope stops at the boundary (severity: HIGH — this is the root cause)
+
+This is the answer to *how it should have worked and what went wrong*, and it is
+not "someone got the units wrong."
+
+The operator already settled the principle on **2026-06-29**: position sizing is
+the `RiskManager`'s sole responsibility, risk lives at the account level and
+nowhere else. It was enforced in code (`strategy_risk_pct` removed end-to-end)
+**and** given a CI guard, `scripts/check_strategy_risk_field_in_diff.py`, which
+fails a PR that re-introduces a risk level anywhere.
+
+That guard's declared scope is `config/strategies.yaml` and `src/`. **`scripts/`
+is outside it.** So the repo made the correct decision, built the correct
+enforcement, and drew its boundary around *production* — while the concept
+"there is one definition of per-trade risk" has to hold across *research* too,
+because research is what authorises Tier-3 changes to production.
+
+The divergence is therefore not an oversight in a file. It is a **guard whose
+boundary and concept's boundary don't match** — and that mismatch is invisible
+precisely because the guard is green.
+
+### The generalizable rule
+
+**Class: a value that crosses the research↔production boundary without a shared
+resolver.** The repo already killed this class twice for other concepts —
+`src.utils.paths.trade_journal_db_path()` for the DB path (after stray journals),
+`src/runtime/provenance.py` for measured-vs-manufactured (after a phantom
+−$6,358 leak). Both are the same move: one module owns the definition, and a CI
+guard fails a second one. It was never applied to `risk_pct`.
+
+For any parameter appearing in **both** a config file and a research/backtest
+CLI, three questions — each mapping to one of the failure types the operator
+predicted:
+
+1. **INFRA** — is there exactly one function that converts it, imported by both
+   sides? (`risk_pct`: no. Two conventions, five files, zero resolvers.)
+2. **WORKFLOW** — does a guard assert the harness default against the live
+   declaration? (`risk_pct`: no. `strategy-risk-guard` exists and excludes
+   `scripts/`.)
+3. **METHOD** — does the harness sweep it, or fix it? If fixed, is the fixed
+   value the live one, asserted rather than assumed? (`risk_pct`: fixed, at 5×
+   off, unasserted.)
+
+A "yes, because it's R-normalized" to (3) is only valid if the harness also
+models the **quantization and refusal** paths that make the trade set a function
+of the parameter — otherwise independence is an assumption the harness is
+structurally unable to test.
+
+### Proposed fixes (not applied — review first, per the operator)
+
+1. **One resolver.** `src/runtime/risk_units.py` owning the fraction↔percent
+   conversion, imported by every harness and prop module; `--risk-pct` accepts a
+   declared unit and echoes the resolved fraction in every run's params block
+   (diagnostic provenance: the output states what it computed). Tier-1.
+2. **Extend `strategy-risk-guard` to `scripts/`** — fail a new `/ 100.0` on a
+   `risk_pct` outside the resolver, and assert every `--risk-pct` default equals
+   the live `accounts.yaml` basis unless it carries an inline justification.
+   Tier-1. This is the fix that generalizes; 1 and 3 are instances of it.
+3. **A risk sweep.** Reuse `_parse_grid`; add `--risk-sweep` and report
+   per-risk-level expectancy, max drawdown, ruin, **and refusal count** — the
+   last is the column that makes F-38 visible instead of theoretical. Tier-1
+   for the harness; any resulting change to a live `risk_pct` is Tier-3.
+4. **Quantization in the R-normalized harnesses**, or an explicit declared
+   caveat that their results hold only above the per-symbol balance threshold.
+   Tier-1.
+5. Fix the stale `risk_pct 0.3` prose in `accounts.yaml`. Tier-1, cosmetic, but
+   it is the decoy the next reader hits first.

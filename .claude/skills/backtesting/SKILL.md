@@ -377,6 +377,26 @@ left implied:
    edited only to keep a derived map in sync is a design finding, not a chore** —
    record it (audit skill § 3.7 MODULARITY) even when you cannot fix it here.
 
+7. **A parameter shared with production has ONE definition, and you asserted
+   it.** If your work reads a value that also lives in a config file —
+   `risk_pct`, a fee, a cap, a threshold — do not re-derive its units. Import the
+   resolver; if there is no resolver, that is the finding. Then state which
+   branch you are on: **SWEEP** the parameter, or **FIX** it at the live value
+   and assert that equality in the run's own output. A default that merely
+   *looks* live is the failure. Measured 2026-08-20 (audit F-37..F-40):
+   `accounts.yaml::risk_pct: 0.015` is a FRACTION while five research/prop files
+   compute `rpct / 100.0` as a PERCENT, so `--risk-pct 0.015` means 1.5% in one
+   research script and 0.015% in another — **100× apart under one flag name** —
+   and every harness default sits **5×** below the live basis.
+   ⚠️ **"It's R-normalized so risk doesn't matter" does NOT discharge this.**
+   That claim assumes the trade SET is invariant to the parameter, and
+   production quantizes: futures floor to whole contracts and **refuse
+   sub-1-contract outright**, Alpaca floors to whole shares, `min_qty` and the
+   margin cap bite. Below a threshold the trade does not shrink — it does not
+   happen. Unless your harness models refusal, it cannot test its own
+   independence premise, and it errs flatteringly (small risk reads as safe when
+   it means the leg does not trade).
+
 **The measured cost of skipping this:** 161 of 384 tools under `scripts/` have
 no runner (2026-08-20). `scripts/ops/trainer_dataset_gc.py` — the retention
 tool for a 12 G dataset tree — had no caller, no timer and **0 mentions across
