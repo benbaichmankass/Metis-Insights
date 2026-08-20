@@ -332,6 +332,63 @@ def _aggregate(per_fold: Sequence[Optional[float]]) -> Tuple[Optional[float], in
     return abs(mean), len(vals), agree
 
 
+def _prepare_fold_feature(
+    rows: Sequence[Dict[str, Any]],
+    test_idx: Sequence[int],
+    feat: str,
+    min_fold_rows: int,
+):
+    """Precompute the parts of the Spearman that do NOT change under a label shuffle.
+
+    A label shuffle changes only the LABEL, so a feature's own ranks are constant
+    across every replicate. Recomputing them per shuffle made the null cost
+    ``n_shuffles x n_folds x n_features`` full re-ranks — on a 5-year 15m panel
+    that is tens of thousands of sorts of ~10k-element vectors, i.e. hours for a
+    measurement that should take minutes.
+
+    Returns ``(idx, centered_feature_ranks, norm)`` or ``None`` when the fold is
+    too thin or the feature is constant on it (a constant vector has no
+    correlation with anything — see ``pearson``).
+
+    Note ``idx`` is stable across replicates: every row in ``usable`` carries a
+    real label by construction, and a block shuffle only moves labels between
+    rows, so the pairwise-complete mask is a property of the FEATURE alone.
+    """
+    idx: List[int] = []
+    vals: List[float] = []
+    for i in test_idx:
+        v = rows[i].get(feat)
+        if v is None:
+            continue
+        try:
+            vals.append(float(v))
+        except (TypeError, ValueError):
+            continue
+        idx.append(i)
+    if len(idx) < max(3, min_fold_rows):
+        return None
+    fr = average_ranks(vals)
+    m = sum(fr) / len(fr)
+    cen = [a - m for a in fr]
+    norm = math.sqrt(sum(a * a for a in cen))
+    if norm <= 1e-15:
+        return None
+    return idx, cen, norm
+
+
+def _fast_spearman(prep, labels: Dict[int, float]) -> Optional[float]:
+    """Spearman using precomputed feature ranks; only the label side is ranked."""
+    idx, cen_f, norm_f = prep
+    lv = [labels[i] for i in idx]
+    lr = average_ranks(lv)
+    m = sum(lr) / len(lr)
+    cen_l = [b - m for b in lr]
+    norm_l = math.sqrt(sum(b * b for b in cen_l))
+    if norm_l <= 1e-15:
+        return None
+    return sum(a * b for a, b in zip(cen_f, cen_l)) / (norm_f * norm_l)
+
+
 def score_panel(
     rows: List[Dict[str, Any]],
     manifest: Optional[Dict[str, Any]],
@@ -422,8 +479,16 @@ def score_panel(
         observed[f] = _aggregate(per_fold)
 
     # ---- the shuffled-label null ------------------------------------------
+    # Feature ranks are precomputed ONCE per (fold, feature); each replicate then
+    # ranks only the label side. See _prepare_fold_feature for why that is exact
+    # rather than an approximation.
     rng = random.Random(seed + 1)
     fold_blocks = [trade_blocks(usable, te) for _, te in folds]
+    preps: List[Dict[str, Any]] = []
+    for _, te in folds:
+        preps.append({f: _prepare_fold_feature(usable, te, f, min_fold_rows) for f in all_names})
+    report["prepared_cells"] = sum(1 for d in preps for v in d.values() if v is not None)
+
     null_by_feat: Dict[str, List[float]] = {f: [] for f in all_names}
     null_max_family: List[float] = []
 
@@ -433,7 +498,10 @@ def score_panel(
             shuffled.update(block_shuffled_labels(blocks, true_labels, rng))
         best_family = None
         for f in all_names:
-            per_fold = [_fold_stat(usable, te, f, shuffled, min_fold_rows) for _, te in folds]
+            per_fold = [
+                (_fast_spearman(preps[k][f], shuffled) if preps[k][f] is not None else None)
+                for k in range(len(folds))
+            ]
             stat, _, _ = _aggregate(per_fold)
             if stat is None:
                 continue
@@ -638,6 +706,31 @@ def _selftest() -> int:
               "feature the block null must be the wider one; if this stops "
               "reproducing, the shuffle-scheme rationale in the docstring is wrong "
               "and must be rewritten, not silenced")
+
+    # --- the fast null path must EQUAL the slow one ------------------------
+    # The precomputation is an optimization, and an optimization that changes the
+    # number is a defect. Asserted rather than argued.
+    rows, man = _synth_panel(30, 9, seed=41)
+    _u = [r for r in rows if r.get(TARGET_COL) is not None]
+    _idx = list(range(len(_u)))
+    _lab = {i: float(_u[i][TARGET_COL]) for i in _idx}
+    _worst = 0.0
+    for _f in ("feat_real", "feat_noise"):
+        _prep = _prepare_fold_feature(_u, _idx, _f, 20)
+        _a = _fast_spearman(_prep, _lab)
+        _b = _fold_stat(_u, _idx, _f, _lab, 20)
+        if _a is not None and _b is not None:
+            _worst = max(_worst, abs(_a - _b))
+    check("fast_path_equals_slow_path", _worst < 1e-12,
+          f"max |fast - slow| = {_worst:.3e} — the precomputed feature ranks must "
+          "reproduce the direct Spearman exactly")
+
+    # --- a constant feature must be REFUSED, not scored as zero ------------
+    _c = [{"trade_id": 0, TARGET_COL: float(i), "feat_flat": 1.0} for i in range(40)]
+    check("constant_feature_prepares_to_none",
+          _prepare_fold_feature(_c, list(range(40)), "feat_flat", 20) is None,
+          "a zero-variance feature has undefined association; it must drop out "
+          "rather than contribute a fabricated 0.0 to the aggregate")
 
     # --- underpowered must be UNMEASURED, not negative ---------------------
     rows, man = _synth_panel(5, 4, seed=19)
