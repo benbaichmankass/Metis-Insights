@@ -13,7 +13,7 @@ that it was not chosen after seeing which cells it rescues.
 
 ---
 
-## 1. Question (1) — "why is it SOL?" — REFUTED. There is no SOL-panel defect.
+## 1. Question (1) — "why is it SOL?" — no defect large enough to explain it
 
 The row's hypothesis was that *"SOL's control null is systematically narrower, [so]
 the trade-block shuffle is not producing an equally valid null on that panel."*
@@ -40,7 +40,33 @@ substrate exactly, row-for-row and trade-for-trade.)
 A valid permutation *p* is Uniform(0,1), so its mean is 0.5. **Measured 0.517, median
 0.507, clear-rate 0.040 against α = 0.05.** The null on the SOL panel is calibrated,
 under the scheme in use *and* under a scheme constructed to have no distortion to
-make. Whatever caused four discards, it was not a narrow SOL null.
+make.
+
+### 1.1a The matched-horizon comparison the row actually asked for
+
+Criterion (1) specifies *"compare the negative control's null distribution between the
+SOL and XRP panels at matched horizons."* Both h48 panels, `label_hold`, 400 controls:
+
+| panel | clear-rate | mean *p* | median *p* | null sd | `cv_length` | binomial *p* |
+|---|--:|--:|--:|--:|--:|--:|
+| XRPUSDT h48 | **0.0375** | 0.5008 | 0.4910 | 0.00687 | 0.4256 | 0.901 |
+| SOLUSDT h48 | **0.0700** | 0.4921 | 0.4745 | 0.00655 | 0.4503 | 0.048 |
+
+**Do not read this as a clean bill either.** SOL's control null is ~5% **narrower** and
+its clear-rate ~1.9× XRP's at the matched cell — *the direction the block-length
+mechanism of § 1.2 predicts*, and SOL's `cv_length` is indeed the higher of the two.
+
+But it is **marginal and does not carry the finding**: binomial *p* = 0.048 on a single
+cell, at α = 0.05, with three targets examined — not significant under even minimal
+multiplicity correction, nowhere near the gate's 0.01, and far too small to produce four
+discards. On the same SOL panel the other two targets measure 0.0375 (`advantage_r`) and
+0.0475 (`forward_r`), so the elevation is not a stable property of the leg.
+
+**The honest statement is therefore narrower than "refuted":** there is no SOL-specific
+defect *large enough to explain the discard pattern*, and the arithmetic in § 1.3 already
+explains it without one — but a small difference in the predicted direction is present
+and should not be waved away. The 24-cell re-run's banks give 1,536 control draws and are
+the properly-powered read on it.
 
 ### 1.2 A structural defect in the shuffle exists, and is measurably inert here
 
@@ -85,8 +111,8 @@ discard distribution over the sweep's 8 independent panels:
 0.086 is not below α; discards *cluster by panel by construction*, and a leg is four
 panels, so four discards sharing a leg is an ordinary outcome rather than a signal.
 
-There is no SOL-specific factor to find. The finding is that **the sweep's own
-independence assumption was wrong** — a shared control column was counted as 24
+So there is no SOL-specific factor large enough to matter. The finding is that **the
+sweep's own independence assumption was wrong** — a shared control column was counted as 24
 separate trials — and that is what turned a 5% gate misfiring into apparent evidence
 of a defect.
 
