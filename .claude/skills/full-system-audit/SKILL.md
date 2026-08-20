@@ -1,6 +1,6 @@
 ---
 name: full-system-audit
-description: The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check, and not a per-file review. Use when the operator says "run a full system audit", "audit the whole system / everything", "review every line of code", "/full-system-audit", or for a periodic governance pass. A MULTI-SESSION program you orchestrate, on SIX axes ordered by blast radius — BEHAVIOR (assert outcomes end-to-end on live data, including a FULL PIPELINE VERIFICATION of real trades hop by hop), INDEPENDENCE (can a claim be falsified by evidence its own producer does not control), CONSISTENCY, LIVENESS, OUTCOME (did what we built deliver what its design promised, measured against history), and RECURRENCE (does every past finding leave a permanent detector) — plus a standing DESIGN-CRITICISM phase judging the system's COHESION, FUNCTION and underlying PHILOSOPHY as a whole, not component by component. Composes with doc-freshness, workplan-vs-architecture, session-coordination, diag-data, db-wiring, delegate-work. NOT a code-quality review (use `review`) and NOT a runtime health check (use `health-review`).
+description: The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check, and not a per-file review. Use when the operator says "run a full system audit", "audit the whole system / everything", "review every line of code", "/full-system-audit", or for a periodic governance pass. A MULTI-SESSION program you orchestrate, on SEVEN axes ordered by blast radius — BEHAVIOR (assert outcomes end-to-end on live data, including a FULL PIPELINE VERIFICATION of real trades hop by hop), INDEPENDENCE (can a claim be falsified by evidence its own producer does not control), CONSISTENCY, LIVENESS, OUTCOME (did what we built deliver what its design promised, measured against history), MODULARITY (how many files must change to make one system change, and can a change be half-applied), and RECURRENCE (does every past finding leave a permanent detector) — plus a standing DESIGN-CRITICISM phase judging the system's COHESION, FUNCTION and underlying PHILOSOPHY as a whole, not component by component. Composes with doc-freshness, workplan-vs-architecture, session-coordination, diag-data, db-wiring, delegate-work. NOT a code-quality review (use `review`) and NOT a runtime health check (use `health-review`).
 ---
 
 # /full-system-audit — the exhaustive whole-system audit PROGRAM
@@ -64,7 +64,7 @@ audited component does not control.
 
 ---
 
-## The six axes — always in this order (blast radius, not convenience)
+## The seven axes — always in this order (blast radius, not convenience)
 
 | # | Axis | The question | Catches |
 |---|---|---|---|
@@ -73,11 +73,12 @@ audited component does not control.
 | **3** | **CONSISTENCY** | Do the rules, code, config, and data agree? | doc drift, contract drift |
 | **4** | **LIVENESS** | Is each thing actually alive, reached, and still wanted? | zombies, dead infra |
 | **5** | **OUTCOME** | Did what we built actually deliver what its design promised, measured against history? | cosmetic features, unfalsified designs, "shipped" ≠ "worked" |
-| **6** | **RECURRENCE** | Does every past finding have a permanent detector that fails if it returns? | the treadmill |
+| **6** | **MODULARITY** | How many files must change to make ONE system change, and can a change be half-applied? | half-wired features, drifted hand-maintained maps, hardcoded rosters |
+| **7** | **RECURRENCE** | Does every past finding have a permanent detector that fails if it returns? | the treadmill |
 
 Axes 3 and 4 are the *old* audit — keep them, they work, they are simply not
 where the money-at-risk defects live. **Never spend the session's first half on
-axes 3–6.** A doc-drift finding and a naked live position are not the same
+axes 3–7.** A doc-drift finding and a naked live position are not the same
 finding, and the audit must not be ordered so the cheap one is found first.
 
 Running alongside all five, and never skipped:
@@ -345,7 +346,67 @@ retirement findable only in chat is itself a first-class finding.
 surfaces the three consumers share (the REST table in `CLAUDE.md` vs
 `BotApi.kt` vs `streamlit_app.py` vs `webapp/`).
 
-### 3.7 RECURRENCE — the anti-treadmill pass
+### 3.7 MODULARITY — can one change be half-applied?
+
+*(Operator directive 2026-08-20: "build things so that system changes require as
+few code edits as possible, or at least concentrate the edits to one place so we
+don't have to chase down random hard-coded items across the repo.")*
+
+This axis exists because it is the **root cause** of the half-wired features the
+other axes keep finding. If adding one strategy means editing 17 files, then
+"we built it and forgot to wire it" is not carelessness — it is the *expected*
+outcome of the design, and no amount of diligence fixes it.
+
+**The metric is CHANGE AMPLIFICATION, and it is measurable from history.** For
+each kind of system change — add a strategy, add an account, add a broker, add a
+symbol, add an endpoint, add a soak — find a real commit that did it and count
+the files:
+
+    git log --format=%H --grep="<the change>" | head -1
+    git show <sha> --format="" --name-only
+
+Measured 2026-08-20: **17 files** to wire `ict_scalp_mgc_15m`, **15** for the
+M27 altcoin legs. Report the number per change-kind; a rising number across
+successive additions is the finding.
+
+Then separate the total into three buckets, because only one of them is a defect:
+
+1. **Sources of truth** — the declaration and the routing. Irreducible; a
+   strategy has to be declared somewhere.
+2. **Derived registries that are NOT derived** — hand-maintained maps holding
+   facts the source of truth already contains (`{name: builder}` dicts, priority
+   maps, description/changelog JSON, coverage matrices). **Every one is an
+   opportunity to half-apply a change.** This is the bucket to attack: could it
+   be built at import from config instead?
+3. **Tests + docs** — expected, and healthy.
+
+**Two checks that turn the principle into evidence:**
+
+- **Hardcoded enumerations.** Grep for account ids, symbol names and strategy
+  names appearing as *string literals in executable code* — **strip comments and
+  docstrings first**, or you are measuring prose, not coupling. (A first pass
+  here reported 12+ files with scattered account rosters; stripped, the real
+  number was **7**, mostly single-account defaults. The account axis turned out
+  to be modular.)
+- **Registry completeness, both directions.** For every hand-maintained map:
+  is every declared thing IN it, and is everything in it still declared? Then
+  ask the harder question — **what does a MISS resolve to, and is that still
+  safe?**
+
+  That last question found F-32: `_UNKNOWN_STRATEGY_PRIORITY = 10` is documented
+  as *"deliberately below the in-scope strategies"* — true when the roster was
+  `{turtle_soup: 50, vwap: 40}`. The convention then became *"a new leg gets
+  0"*, and the constant was never revisited: **41 of 50 legs are pinned at 0 and
+  45 of 50 sit below 10**, so **omission is now less safe than declaration** —
+  the exact inverse of the constant's stated purpose. A default is not
+  fail-safe because a comment says so; it is fail-safe relative to the
+  distribution the roster actually has *now*.
+
+**A drifted default and a stale hand-maintained map are the same defect** as a
+capability with no runner — the system changed around a hardcoded fact and
+nothing forced the fact to change with it.
+
+### 3.8 RECURRENCE — the anti-treadmill pass
 
 This is the pass that answers *"why do we keep finding the same bugs?"*
 
@@ -364,7 +425,7 @@ This is the pass that answers *"why do we keep finding the same bugs?"*
    vocabulary, `severity`, `tier`, `resolution_criteria`, `detector`) and
    normalize as part of the program.
 
-### 3.8 VM + DATA
+### 3.9 VM + DATA
 
 VMs via the relays (reads only; mutations are tiered): service/timer state,
 journal tails, running SHA vs `main`, `.env` inventory (names, not values —

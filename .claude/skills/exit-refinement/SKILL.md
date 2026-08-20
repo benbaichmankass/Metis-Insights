@@ -248,6 +248,24 @@ left implied:
 4. **It has been OBSERVED working on real data** — not only in a test. Cite the
    evidence (a diag pull, a log line, a row) or state plainly that it has not
    yet been observed and what would settle it.
+5. **The LIVE environment matches the repo's declaration.** If your change adds
+   or depends on an env var, a service, a timer, a path or a routing entry,
+   **read it back from the VM** (`get-env`, `/api/diag/services`,
+   `/api/bot/config`, the relay) and confirm the running value is the declared
+   one. *"The repo says X"* is not evidence that the VM does X — the two drift,
+   and this repo has the scars: a `FLIP_CONFIDENCE_THRESHOLD` running live for a
+   day with no record behind it, a `DIAG_BASE_URL` still pointing at a VM
+   terminated 2026-06-16 while the doc-coherence guard passed (it checks the
+   docs, not the environment), and a `BYBIT_TPSL_MODE` "flip" that was a no-op
+   re-assertion of a value already live.
+6. **The change is CONCENTRATED.** Count the files you had to touch. If a
+   *routine* addition of this kind cost more than the source-of-truth files plus
+   tests and docs, say so — every hand-maintained registry you had to update in
+   lockstep is a place the next person half-applies the change. Measured
+   2026-08-20: wiring one strategy leg touched **17 files**, of which three were
+   `src/` maps holding facts `strategies.yaml` already contains. **A file you
+   edited only to keep a derived map in sync is a design finding, not a chore** —
+   record it (audit skill § 3.7 MODULARITY) even when you cannot fix it here.
 
 **The measured cost of skipping this:** 161 of 384 tools under `scripts/` have
 no runner (2026-08-20). `scripts/ops/trainer_dataset_gc.py` — the retention
