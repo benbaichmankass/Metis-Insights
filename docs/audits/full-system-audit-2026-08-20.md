@@ -1332,3 +1332,114 @@ into the honest count above.
 4. Run the distinguishing test in F-43 before choosing between the mode-(a) and
    mode-(b) remedies; if (a), the fix is de-duplication/escalation, not another
    ping.
+
+---
+
+## Part 12 — Skills as instructions, and what actually enforces Tier-3
+
+The operator's original scope named *"all of the instructions, all of the skills"*.
+This pass treats a skill as what it is: a **binding instruction to every future
+session**. A defect there does not cause one bad outcome, it causes a class.
+
+### F-45 — Skill path references are healthy: 7 dead of 366 (severity: LOW)
+
+Probe: every `` `path` `` a skill instructs a session to use, checked for
+existence. **366 distinct references across 30 skills, 7 nonexistent (1.9 %).**
+Stated with the denominator because the result is a *pass* and a bare "7 dead"
+would read as a failure.
+
+Discriminated rather than reported raw — three of the seven are **not** defects:
+
+| ref | verdict |
+|---|---|
+| `runtime_logs/account_reachability_alert_state.json` (×2: health-review, system-review) | **correct** — a runtime file that exists only on the VM |
+| `config/risk_caps.yaml` (×2: health-review, performance-review) | see F-46 |
+| `.github/workflows/canonical-db-resolver.yml` (db-wiring) | **stale** — retired into `run_guards.py` in the CI fan-out consolidation |
+| `scripts/ops/fetch_dukascopy_index.py`, `scripts/research_decider.py` (backtesting) | **stale** — instructs a session to run tools that do not exist |
+
+So the real dead-instruction count is **3**, in 2 skills. This corpus is in far
+better shape than `scripts/` (161 of 384 unrun) or the backlog vocabulary.
+
+### F-46 — `config/risk_caps.yaml` has NEVER existed, and is named in the Tier-3 hard limit (severity: MEDIUM)
+
+`CLAUDE.md` § "VM authority split" lists it among the files that must never be
+merged *"without explicit operator approval"*, and 10+ sprint logs, 2 review
+skills and several design docs reference it. `git log --all -- config/risk_caps.yaml`
+returns **nothing**: it is not deleted, it was never created.
+
+**The protection nonetheless holds — by a different file.** The real caps are
+`config/accounts.yaml::risk.daily_loss_pct: 0.05` (per account), and
+`accounts.yaml` is itself on the Tier-3 list. So this is not an exposure; it is a
+**phantom entry that manufactures false confidence** that risk caps are
+separately guarded. A reader auditing the list would tick "risk caps: covered"
+against a file that does not exist, and never look at where they actually live.
+
+### F-47 — Tier-3 approval is enforced by nothing mechanical (severity: HIGH)
+
+The sharpest finding of this pass, and it was reached by asking the F-40
+question — *does the guard's boundary match the concept's boundary?* — of the
+governance layer itself.
+
+**Live branch protection on `main`** (read from the GitHub API via the
+`[bp-report]` relay, issue #10025, not inferred from the workflow's intent —
+`branch-protection-sync.yml` *preserves* this field rather than setting it, so
+its own text cannot answer the question):
+
+```json
+{
+  "required_status_checks": ["pytest-collect", "pytest-run", "guards"],
+  "enforce_admins": true,
+  "required_pull_request_reviews": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+```
+
+**`required_pull_request_reviews` is `null`.** Four mechanisms that each *look*
+like they would catch an unapproved Tier-3 merge, every one absent or inert:
+
+| mechanism | state |
+|---|---|
+| `required_pull_request_reviews` | **null** — no approval required, measured live |
+| `CODEOWNERS` | **does not exist** — no path-based review gate |
+| the Tier-3 file list in `CLAUDE.md` | **prose only** — no guard, workflow or script consumes it |
+| merge-slot `PreToolUse` guard | **never invoked** on this runtime (`BL-20260820-PROJECT-HOOKS-INERT-ON-WEB`, 1,379 consecutive `Found 0 total hooks in registry`) |
+
+So a session can merge a change to `config/strategies.yaml`, `config/accounts.yaml`,
+`src/runtime/orders.py` or the order path with **green CI and nothing else**.
+
+⚠️ **This is an exposure finding, NOT an incident report, and the distinction is
+load-bearing.** The one Tier-3 PR I checked shows the process working *well*:
+**#9930** (`order_monitor` package-wide effectuation) was genuinely
+operator-approved in conversation on 2026-08-18, the PR body **records the
+approval explicitly**, and it **preserved the superseded ⛔ DO-NOT-MERGE banner
+rather than deleting it** — *"recording that rather than silently deleting it,
+since a stale gate notice is exactly the thing a reviewer would act on."* That is
+better discipline than most enforced systems get.
+
+The finding is that the discipline is **all there is**. The approval's only
+artifact is prose written by the same session that wanted to merge, and nothing
+can distinguish that PR from one whose banner was quietly deleted.
+
+**The remedy converges with an independent finding.** The session that
+root-caused the merge-slot guard reached the same conclusion from the other
+direction: *"the only shape that would bind on the web is a required CI status
+check."* Two unrelated governance mechanisms, one remedy — because on this
+runtime a required check is the only thing that binds. That convergence is the
+argument for building it once, generally.
+
+### Proposed fix (not applied — review first, and it is the operator's call)
+
+A `tier3-approval-guard` required check: when a PR's diff touches a path on the
+Tier-3 list, fail unless the PR carries an explicit operator-approval marker
+(a label only the owner can apply, or an approving review). Two properties it
+must have, both learned this session:
+
+- **The path list lives in ONE place**, imported by the guard rather than
+  restated — otherwise it becomes the second copy that drifts (F-37), and it
+  should be the same list `CLAUDE.md` renders, so the phantom `risk_caps.yaml`
+  entry surfaces as a guard error instead of sitting unread (F-46).
+- **Adding it changes the required-check set on every open PR**, which is
+  precisely why the #10015 session declined to slip it into a fix. Tier-2/3 by
+  nature — the operator approves it, and `workflow_dispatch` on
+  `branch-protection-sync.yml` is the sanctioned wire.
