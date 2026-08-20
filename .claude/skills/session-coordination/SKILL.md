@@ -72,9 +72,11 @@ contract + generation discipline. This skill adds the two missing halves:
 2. **Know your capabilities BEFORE you reach for a tool you don't have.** On
    Claude Code on the web / PM-side sessions (see `CLAUDE.md` § "PM-side session
    capabilities"): `run_workflow` 403s — drive workflows via **labelled issues**
-   (the diag/system-action relays). Direct VM egress is usually firewalled —
-   live-VM reads go through the **`vm-diag-snapshot` relay** (`/api/diag/*` only)
-   or `trainer-vm-diag`. The hosted GitHub MCP **drops intermittently** — retry
+   (the diag/system-action relays). Direct VM egress is firewalled for a raw
+   `http://IP:port` but **not** for the Caddy HTTPS hostname (measured
+   2026-08-20 at default-`Trusted`) — try `https://ict-bot.duckdns.org/api/diag/*`
+   first, then the **`vm-diag-snapshot` relay**; the trainer is relay-only
+   (`trainer-vm-diag`), it has no HTTP diag surface. The hosted GitHub MCP **drops intermittently** — retry
    with backoff (2s/4s/8s/16s), never treat the first failure as an expired token
    or hand off to the operator. There is **no `create_label`** — labels come from
    `bootstrap-labels.yml`.

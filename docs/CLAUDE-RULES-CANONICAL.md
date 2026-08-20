@@ -1202,9 +1202,11 @@ hook surfaces both at session init. Read them before acting.
 
 1. **Know your capabilities before reaching for a tool.** On PM-side / Claude
    Code on the web sessions: `run_workflow` 403s — drive workflows via labelled
-   issues (the diag / system-action relays); direct VM egress is usually
-   firewalled (live reads go through the `vm-diag-snapshot` relay, `/api/diag/*`
-   only); the GitHub MCP drops intermittently — retry with backoff, never treat
+   issues (the diag / system-action relays); direct VM egress is firewalled
+   for a raw `http://IP:port` but **NOT** for the Caddy HTTPS hostname — measured
+   2026-08-20 at default-`Trusted`: the raw IP returns `000` while
+   `https://ict-bot.duckdns.org/api/diag/version` returns `200` with a bearer, so
+   **try the hostname before falling back to the `vm-diag-snapshot` relay**; the GitHub MCP drops intermittently — retry with backoff, never treat
    the first failure as an expired token; there is no `create_label`. Full
    contract: root `CLAUDE.md` § "PM-side session capabilities".
 
