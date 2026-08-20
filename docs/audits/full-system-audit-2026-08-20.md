@@ -3503,3 +3503,162 @@ Fourteen retractions between them, and three are worth keeping as method:
   has `cron: "0 6 * * 1"`. Its first probe would have reported a false negative
   about the single most important fact in its scope.
 
+
+## Part 25 — The fix program
+
+The founding directive asked for *"a long list of things that need to be fixed and
+possibly even changed in how we're working."* This is that list, ordered by
+consequence rather than by finding number, and grouped so that related findings
+are closed by **one** change rather than 89 separate ones.
+
+**Nothing here has been implemented.** Fixes were deferred by operator
+instruction until the review was complete. The review is complete; this is the
+proposal.
+
+Two things are already prepared and awaiting a decision, noted so they are not
+re-planned: the prop-fill data repair (PR #10035, green) and the audit-skill /
+review-skill rewrites (PR #9998, green, draft).
+
+---
+
+### Tier 0 — money-at-risk or safety-visible. Fix before anything else.
+
+| # | What | Closes | Tier |
+|---|---|---|---|
+| 0.1 | **The SPA prop rule-distance panel is blind.** Both account-killer cushions read keys the payload does not carry, so both render "—" and the low-cushion warning is unreachable code. A three-line key rename. | F-110 | 1 |
+| 0.2 | **Prop admission must cover identity.** `ingest_report` refuses a position-implying fill with no resolvable direction (resolvable includes reading the linked ticket). Plus the data repair for the one live row. | F-104 | 2 |
+| 0.3 | **IB target-naked positions.** Two live `ib_paper` positions hold full stops and zero resting take-profits against declared TPs. The coverage read is now two-sided; the *repair* is not automatic by design. | earlier parts | 2 |
+
+0.1 is the single highest value-per-line change in the whole audit: three wrong
+identifiers currently disable the only pre-breach warning on an account with a
+$4,700 floor.
+
+---
+
+### Tier 1 — decisions the system cannot currently make
+
+These four share one shape: **a correct instrument produces a correct output that
+cannot become a decision.** They are the concrete face of Thesis 2.
+
+| # | What | Closes |
+|---|---|---|
+| 1.1 | **Make the promotion-readiness sweep able to say `promote`.** Move the timer after the 05:04 live→trainer pull, or call `sync_trainer_data.sh` from `run_promotion_readiness.sh` as the *manual* gate-check path already does. Then publish a `gates_evaluable` block so `0 promote` can never read as a fleet verdict when the deciding gate was not computed. | F-101 |
+| 1.2 | **Scope the review gate's mismatch check to fills since the mode last changed** (knowable from `strategy_versions`), so a correctly-demoted strategy grades normally instead of getting *"do not act."* And schedule `generate-strategy-review-packets` — today it runs only when a session chooses to. | F-107, F-108 |
+| 1.3 | **Give the trainer cycle a state between `trained` and `failed`.** An enforced skip is currently booked as `already_done`, which is what makes 25 days of identical refusals read as `overall_rc: 0`. Publish the staleness block into `trainer_status.json` so `/api/bot/ml/status` can show it. | F-35, F-103 |
+| 1.4 | **Adjudicate the outstanding demote** on the live SOL advisory head, and resolve which of the two drift computations is authoritative — `/shadow/drift` says `moderate`, the gate says `significant`, on the same model on the same day. | F-102 |
+
+1.4 needs an operator decision, not an implementation. The other three are Tier-1
+or Tier-2 work.
+
+---
+
+### Tier 1 — measurement integrity, because research decides live changes
+
+| # | What | Closes |
+|---|---|---|
+| 2.1 | **One definition of `risk_pct`.** Four incompatible meanings across `accounts.yaml` (fraction), the prop routing YAML (percent), `backtest_system.py` (percent), and the trainer recorder (percent per R). Pick one, convert at the boundaries, and add a guard that checks **convention agreement** rather than key presence. Fix the conviction A/B's 6.7× inter-arm sizing gap in the same change. | F-40, B2 |
+| 2.2 | **Make `/test <strategy>` test the strategy**, or remove the surface. It currently runs one hardcoded engine under whatever name it is given and persists four fabricated `0.0` metrics into the money DB. Removal is a legitimate outcome — it is default-off and no research uses it. | B1 |
+| 2.3 | **Harnesses must read what live reads.** No harness reads `accounts.yaml`, so no backtest can produce the rejection mortality that kills 37.2% of real order packages. Start by sourcing the sizing and account-constraint inputs from the live config instead of CLI defaults. | B3, B5 |
+| 2.4 | **Make the shared cost model actually shared, and stop defaulting realism off.** 6 of 16 import it; the signature defaults slippage and funding to `0.0`, so an in-process caller is fee-only — including the research-panel builder behind two workflows. | B4 |
+| 2.5 | **Stamp R provenance.** `record_harness_trades` falls back `net_r → gross_r` with no field recording which, feeding the trainer's pooled build. Register it with `collapsed-state-guard`. | B6 |
+
+2.1 is the operator's own example and the highest-leverage item here: it is the
+same defect on four sites, and only a convention-agreement check closes the class.
+
+---
+
+### Tier 1 — the one guard that closes a whole class
+
+| # | What | Closes |
+|---|---|---|
+| 3.1 | **Response-schema fixtures.** For each endpoint, record one real payload and assert that every field a consumer reads exists in it. Four guards police signal honesty and none compares a response schema to the producer's keys. | F-109, F-110, F-111, and the class |
+
+This would have caught three findings on the day each shipped, including 0.1. It
+is cheap, mechanical, and it is the mirror image of `provenance-consumer-guard`,
+which today catches only *a key with a writer and no consumer* and is blind to
+*a consumer reading a key with no writer*.
+
+---
+
+### Tier 2 — the instruction system itself
+
+| # | What | Closes |
+|---|---|---|
+| 4.1 | **The hierarchy has no freshness term.** Skills sit at #5 and `CLAUDE.md` at #6, so a stale skill *outranks* the canonical note that corrects it — demonstrated by `git-actions` denying a capability used four times in this session. Either add a staleness rule to the hierarchy, or require a skill making a capability claim to cite the check that proves it. | S1 |
+| 4.2 | **Skills that name retired or harmful artifacts.** A verification step that can never pass reads a correct migration as broken; a setup step names the drop-in that wedges every unit on the current topology. | S2 |
+| 4.3 | **`doc-freshness` holds the non-conforming copy of the rule it detects drift in.** The session-end drift detector is the wrong one of three. | S3 |
+| 4.4 | **Every project hook is inert on Claude Code on the web** — 1,379 consecutive `Found 0 total hooks in registry`. The merge-slot guard and VM-lane guard do not fire where most sessions run. Not fixable from this repo; the fix is to stop describing them as preconditions and to state the runtime split. | `BL-20260820-PROJECT-HOOKS-INERT-ON-WEB` |
+
+---
+
+### How we work — the four mechanism changes
+
+These are the answer to *"are we even approaching this in the best way."* None is
+a fix to a finding; each is a mechanism whose absence produced a class of them.
+
+1. **A retention gate.** Whatever asks *"may I add this?"* needs a counterpart
+   asking, on the same cadence, *"should this still be here?"* — models past a
+   soak ceiling, legs that have placed nothing, manifests that have not trained,
+   tools with no runner. The removal machinery exists (`KILL` badges, retire
+   sweeps, purge actions); it has no scheduler. Note the shape that already
+   works: strategies *do* get retired, because a single declared field controls
+   it. Retention is gated exactly where one field decides it and ungated wherever
+   the decision needs a review to happen.
+
+2. **An adjudication queue with no silent exit.** A repeated actionable
+   statement must escalate rather than repeat. The same demote proposal four days
+   running, the same enforced-skip 25 nights running — a statement that reads
+   identically on day 25 as on day 1 has already proved the queue is not a queue.
+   The backlog is the nearest thing and it is a parking lot: 195 rows at
+   `kept_open`.
+
+3. **Counted abstentions.** Extend the collapsed-state doctrine from *fields* to
+   *control flow*. `exit_anchor`'s `deferred` and the venue gate's `unknown` got
+   this right by making the abstention a named state; `except: return []` and
+   `?? null` are the same thing in code, uncounted. A fail-permissive branch
+   should increment a counter published beside what it protects.
+
+4. **Diff-based review.** Every periodic review compares its numbers to the prior
+   run's and reports deltas first. Seven manifests share one last-trained date —
+   that is one event, and 25 daily cycles read the resulting *level* as normal. A
+   level is not evidence. `system_invariants.py` (shipped this session) is the
+   first artefact that could carry this: register every numeric promise as a
+   watched invariant at ship time rather than citing it in a PR body.
+
+---
+
+### How we audit — what this session changes about the method
+
+Four of my own probes nearly produced confident wrong findings, one off by 40×,
+one that would have raised a false alarm about a strategy bleeding real money.
+Every one was caught by the same three habits, which now belong in the skill:
+
+- **Run a positive AND a negative control before reporting any count.** The
+  40× error was a regex matching docstrings; the control would have caught it in
+  seconds.
+- **Ask whether the thing is still running before describing what it is doing.**
+  One query separated *"the largest strategy is bleeding −145 R"* from *"it was
+  correctly retired six weeks ago."*
+- **Probe the negative assertions hardest.** A delegated agent graded a skill
+  clean by confirming everything it claimed *positively* and never testing the
+  one claim of absence — which was false. Confirmable positives are where a
+  clean audit comes from.
+
+And one that is not about probes: **`dict.get()` on a misspelled key is
+indistinguishable from a real null.** It bit me three times, and it is the same
+collapsed state the system keeps producing. Print the key set before reading
+values.
+
+---
+
+### What is deliberately not on this list
+
+Ninety per cent of the guard, provenance and collapsed-state machinery audited
+this session **works**, and several things checked as suspicious turned out
+correct: the shadow-stats soak surface is exemplary; the trainer registry is
+consistent with the docs; recent real-money trades are 100% measured provenance;
+the pairs `skip_state_unreadable` fix holds; the workflow trigger surface is
+sound; strategy-level retention works. This audit found what it found *because*
+those foundations are honest enough to be checked against — and the four
+mechanism changes above are what turn that honesty into decisions.
+
