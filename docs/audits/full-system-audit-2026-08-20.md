@@ -262,3 +262,79 @@ entirely · the gateway VM · `ict-trader-dashboard` and `ict-trader-android`
 (both cloned, neither audited) · the backtesting harnesses · the 106 workflows
 beyond the diag relay · `config/strategies.yaml` strategy-by-strategy · the ML
 registry · closed-trade PnL populations · the remaining ~30 skills.
+
+---
+
+## Part 3 — The backtesting infrastructure (operator-named scope)
+
+**Credit first, so this is not read as a novel discovery.** The *general*
+backtest↔live fidelity gap is **already known, already measured, and already
+being worked**: `docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md`
+states the harnesses *"**re-implement** strategy logic separately from
+`src/units/strategies/`"* and concludes *"our current backtests do NOT reproduce
+live, and now we can prove it with a number"*, with a calibration gate
+(`scripts/research/backtest_fidelity_calibrate.py`) scoring per-leg agreement.
+`scripts/backtest_system.py` also genuinely imports the LIVE intent layer
+(`aggregate_intents`, `_evaluate_confidence_override`), the ONE shared cost
+model (`src/runtime/execution_costs.py` — fees + slippage + perp funding) and
+the live monitor verdict. That is real parity on real axes.
+
+What follows is a **specific defect inside that known gap** that the design doc
+does not name.
+
+### F-14 · The harness's risk unit is not the live risk unit
+
+| | live | backtest |
+|---|---|---|
+| code | `risk.py:201` `risk_usdt = balance_usdt * risk_pct` | `backtest_system.py:866` `(bal * (rpct / 100.0)) / stop_dist` |
+| unit | **fraction** — `risk.py:31` *"fraction of balance risked per trade (operator default 0.01)"* | **percent number** |
+| live value | `accounts.yaml` → `risk_pct: 0.015` = **1.5 %/trade** (read from `/api/bot/config`, 06:31Z) | `--risk-pct` default **0.3** = **0.3 %/trade** |
+
+Three separable problems:
+
+1. **The docstring claims a parity it does not have.** `backtest_system.py:857`
+   says *"Sizing mirrors the live RiskManager.position_size math
+   (src/units/accounts/risk.py:141): risk_usd = balance * risk_pct"* — and then
+   implements `balance * risk_pct / 100`. Field beats comment; the comment is
+   the bug.
+2. **The help text invites a 100× error.** `--risk-pct` is described as *"the
+   shared account's risk_pct"*. The account's declared value is `0.015`.
+   Passing it gives `0.015/100` = **0.015 %/trade — 100× under-live**.
+3. **The defaults are not the live system.** At default flags the harness models
+   **0.3 %/trade against live's 1.5 %** (5× smaller) and halts on a **3 % daily
+   loss against live's 5 %** (stricter). Because the harness compounds the
+   balance *and* models the daily-loss halt, the sizing scale is **not** a
+   neutral constant: the halt binds at a different frequency and compounding
+   differs, so two arms of an A/B can rank differently at live size.
+
+**A confirmed instance, not a hypothetical:**
+`docs/audits/system-portfolio-backtest-2026-05-30.md` records its invocation as
+`--initial-balance 10000 --risk-pct 0.3 --daily-loss-pct 3.0` — a *system
+portfolio* backtest run at one fifth of live per-trade risk under a stricter
+halt.
+
+Tier **1** to fix (research tooling, no live path). The honest repair is to make
+the flag take the live unit (a fraction), default it to the account's declared
+value, and correct the docstring — or, if the percent convention is kept
+deliberately, say so and stop claiming it mirrors `risk_pct`.
+
+### F-15 · A backtest's invocation is usually not recoverable from its record
+
+Of 9 research docs sampled that reference `backtest_system.py`, **8 record zero
+full command lines**. So for most Tier-3 evidence runs the parameters — risk
+size, daily-halt, flip policy, regime-router arm, date range — cannot be
+recovered from the record, and F-14 therefore cannot be ruled in or out for
+them retrospectively.
+
+This is the research-side analogue of *"always state the population"*: a result
+whose invocation was never recorded cannot be re-derived, contradicted, or
+re-run against a corrected harness. Suggested repair: have the harness emit its
+own resolved argv into the run artifact, so recording it is automatic rather
+than a discipline the author must remember.
+
+### Not assessed
+
+Whether the ~13 per-strategy harnesses (`backtest_pullback.py`,
+`backtest_trend.py`, …) share this unit convention; look-ahead bias; the
+min-lot / whole-contract floor (CLAUDE.md already concedes *no backtest models
+the exchange min-lot floor*); the trainer-side sweep pipeline.
