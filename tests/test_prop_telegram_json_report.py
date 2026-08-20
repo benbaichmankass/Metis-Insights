@@ -89,6 +89,6 @@ def test_command_grammar_still_works(isolated_env: Path) -> None:
     from src.prop import prop_journal
     from src.prop.telegram_report_handler import handle_command
 
-    reply = handle_command("open ETHUSD 1620 0.73", default_account="breakout_1")
+    reply = handle_command("open ETHUSD 1620 0.73 long", default_account="breakout_1")
     assert reply is not None and reply.startswith("✅")
     assert prop_journal.list_fills()[0]["symbol"] == "ETHUSDT"  # ETHUSD→ETHUSDT

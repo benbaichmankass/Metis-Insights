@@ -32,6 +32,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from src.prop.prop_position_identity import (
+    canonical_direction,
+    is_direction_word,
+)
+
 # Verb → canonical action. Aliases keep the operator from memorising one exact
 # word under time pressure at the terminal.
 _CLOSE = {"close", "closed", "c", "exit"}
@@ -172,11 +177,12 @@ def parse_prop_command(text: str) -> Optional[Dict[str, Any]]:
     # close / open / skip — first non-numeric token is the symbol; numeric
     # tokens fill the action's positional slots; the rest is the reason tail.
     symbol: Optional[str] = None
+    sym_idx: Optional[int] = None
     nums: list = []
     reason_parts: list = []
-    for tok in rest:
+    for i, tok in enumerate(rest):
         if symbol is None and _num(tok) is None:
-            symbol = tok
+            symbol, sym_idx = tok, i
             continue
         n = _num(tok)
         if n is not None:
@@ -185,9 +191,52 @@ def parse_prop_command(text: str) -> Optional[Dict[str, Any]]:
             reason_parts.append(tok)
     if not symbol:
         raise ValueError(f"{action} needs a symbol, e.g. `{action} ETHUSD ...`")
+
+    # ---- direction, typed explicitly (operator decision 2026-08-20) --------
+    # A position-bearing fill needs a direction or it is permanently unclosable
+    # (the SOLUSDT phantom: keyed `…|SOLUSDT|`, which no close could match).
+    # The grammar had nowhere to put one, so it is lifted from a bare word.
+    #
+    # ⚠️ ONLY at the HEAD (immediately after the symbol) or the TAIL (final
+    # token) — the two positions a human actually writes it in. Anywhere else
+    # would let a REASON word be read as a direction: `close ETHUSD 2950 +80
+    # short squeeze` must record reason "short squeeze" on a LONG position, not
+    # flip it to short. Silently mis-recording the field that decides which
+    # position a row belongs to MERGES two positions, which is strictly worse
+    # than the bug this fixes — so the anchors are positional, not a scan.
+    #
+    # Judged against the ORIGINAL token positions, never against `reason_parts`:
+    # in that example "short" is `reason_parts[0]` while sitting mid-reason.
+    direction: Optional[str] = None
+    if sym_idx is not None:
+        head = rest[sym_idx + 1] if len(rest) > sym_idx + 1 else None
+        tail = rest[-1] if rest else None
+        found = [
+            t for t in (head, tail)
+            if t is not None and is_direction_word(t)
+        ]
+        canon = {canonical_direction(t) for t in found}
+        if len(canon) > 1:
+            # Two different sides named in one line. Refuse rather than pick —
+            # the whole point is never to guess this field.
+            raise ValueError(
+                f"{action}: '{head}' and '{tail}' name different directions — "
+                f"say one, e.g. `{action} {symbol} … long`"
+            )
+        if canon:
+            direction = canon.pop()
+            # Consume it so it never doubles as a reason word.
+            for t in found:
+                if t in reason_parts:
+                    reason_parts.remove(t)
+
     reason = " ".join(reason_parts).strip() or None
 
     intent = {"_action": action, "status": status, "symbol": symbol}
+    if direction:
+        # An EXPLICIT direction the operator typed. `build_report` prefers it
+        # over the one inferred from an open ticket — typed beats inferred.
+        intent["direction"] = direction
     if account_id:
         intent["account_id"] = account_id
 
@@ -242,8 +291,13 @@ def build_report(
 
     report["symbol"] = intent.get("symbol")
     report["status"] = intent.get("status")
-    if direction:
-        report["direction"] = direction
+    # TYPED beats INFERRED. The `direction` kwarg is what the listener matched
+    # from the newest open ticket — a good heuristic, but still a guess.
+    # `intent["direction"]` is the word the operator wrote while looking at the
+    # terminal. When both exist and disagree, the typed one wins.
+    resolved_direction = intent.get("direction") or direction
+    if resolved_direction:
+        report["direction"] = resolved_direction
     if ticket_id:
         report["ticket_id"] = ticket_id
     for key in ("entry_price", "exit_price", "qty", "pnl", "reason"):

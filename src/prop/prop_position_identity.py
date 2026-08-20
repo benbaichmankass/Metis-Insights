@@ -71,6 +71,15 @@ POSITION_BEARING_STATUSES: frozenset[str] = frozenset(
 )
 
 
+#: Every token that NAMES a direction — the canonical pair plus every alias.
+#: Derived from `_DIRECTION_ALIASES` rather than typed out again, so a new
+#: alias becomes typeable in the Telegram grammar automatically and the parser
+#: can never recognise a word this module does not, or miss one it does.
+DIRECTION_WORDS: frozenset[str] = frozenset({"long", "short"}) | frozenset(
+    _DIRECTION_ALIASES
+)
+
+
 def canonical_direction(direction: Any) -> str:
     """Map any long/short vocabulary to canonical ``long``/``short``.
 
@@ -80,6 +89,19 @@ def canonical_direction(direction: Any) -> str:
     """
     d = str(direction or "").strip().lower()
     return _DIRECTION_ALIASES.get(d, d)
+
+
+def is_direction_word(token: Any) -> bool:
+    """Is this token a direction, as opposed to a reason word?
+
+    A MEMBERSHIP test, deliberately separate from :func:`canonical_direction`,
+    which passes unknown values through unchanged — so `canonical_direction("tp")`
+    returns `"tp"` and cannot answer this question. The Telegram parser needs to
+    decide whether a bare word IS a direction before it consumes it out of the
+    reason tail; asking the canonicaliser would classify every reason word as a
+    direction.
+    """
+    return str(token or "").strip().lower() in DIRECTION_WORDS
 
 
 def position_key(fill: Mapping[str, Any]) -> str:

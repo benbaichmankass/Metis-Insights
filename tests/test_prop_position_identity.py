@@ -143,3 +143,59 @@ def test_an_unknown_direction_passes_through_rather_than_being_coerced():
     """Coercing an unrecognised side into long/short would fabricate the field
     that decides which position a row belongs to."""
     assert canonical_direction("sideways") == "sideways"
+
+
+# ---------------------------------------------------------------------------
+# The two paths that must NOT be broken by requiring a direction.
+#
+# The gate is only defensible if the operator's real habits still work. Both of
+# these were promises made when the grammar change was chosen (operator
+# decision 2026-08-20, "add a direction word"), and neither had a test — the
+# `close`-inherits path had ZERO references to `resolve_open_ticket` anywhere
+# under tests/, which is exactly the kind of un-covered promise that turns into
+# a regression the next time someone "simplifies" the resolver.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def _prop_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "bot-data"))
+    return tmp_path
+
+
+def test_bare_close_still_works_by_inheriting_the_open_ticket(_prop_env):
+    """A `close` with no direction word inherits it from the open position.
+
+    This is the back-compat half of the grammar change: the operator types the
+    direction on the OPEN (where nothing else can supply it) and may keep
+    typing a bare close, because by then a matching open exists to resolve from.
+    Requiring it on both would be the change refusing reports it can answer.
+    """
+    from src.prop.telegram_report_handler import handle_command
+
+    opened = handle_command("open ETHUSD 1812 1 long", default_account="breakout_1")
+    assert opened is not None and opened.startswith("✅"), opened
+
+    # No direction token anywhere in this line.
+    closed = handle_command("close ETHUSD 1850 +38 tp", default_account="breakout_1")
+    assert closed is not None and closed.startswith("✅"), closed
+
+
+def test_screenshot_path_supplies_its_own_direction(_prop_env):
+    """The photo path satisfies the gate without the operator typing anything.
+
+    `screenshot_parse` extracts `direction` (buy|sell) and routes through the
+    same `ingest_report` chokepoint, so the identity gate is transparent to it.
+    Asserted rather than assumed, because if the extractor ever stopped
+    emitting the field the gate would start refusing every screenshot and the
+    failure would look like a vision problem, not an admission one.
+    """
+    from src.prop import screenshot_parse
+
+    assert hasattr(screenshot_parse, "_norm_direction")
+    # buy/sell is the vocabulary the extractor is prompted for; it must land on
+    # a side the identity owner recognises, not pass through as a stray word.
+    for raw, expected in (("buy", "long"), ("sell", "short")):
+        norm = screenshot_parse._norm_direction(raw)
+        assert norm is not None, raw
+        assert canonical_direction(norm) == expected, (raw, norm)
