@@ -134,6 +134,59 @@ case "${PROMOREADY_OOS_EDGE,,}" in
     ;;
 esac
 
+# --- Pre-gate evidence refresh (BL-20260820-PROMOREADY-GATES-UNREACHABLE) ---
+#
+# WITHOUT THIS, TWO REQUIRED GATES ARE UNSATISFIABLE BY TIMER ORDERING ALONE,
+# every single day, for reasons that have nothing to do with any model.
+#
+# `ml/promotion/gates.py::_gate_live_parity` judges serving fidelity only over
+# rows logged SINCE THE CURRENT ARTIFACT'S TRAINING RUN. Line up the trainer's
+# own clocks, measured 2026-08-20:
+#
+#   00:51  live->trainer pull of shadow_predictions.* completes
+#   01:14  training cycle ends — every head re-trained, artifact_at RESETS
+#   04:22  this sweep grades live_parity
+#   05:04  the NEXT live->trainer pull lands
+#
+# So the sweep counts rows logged after 01:14 inside a log that ends at 00:51.
+# `n_fresh_rows` is 0 by construction — not because serving fidelity is
+# unproven, but because the evidence file predates the artifact it is asked to
+# verify. `labels_accruing` starves on the same stale feedstock.
+#
+# `scripts/ml/gate_check_candidates.sh` — the HAND-RUN path — has documented
+# this exact trap since 2026-08-01 (MB-20260721-FCPCV-V2-SOAK) and avoids it by
+# syncing first. The knowledge existed; it was applied to the manual script and
+# never to the scheduled one. This is that same call.
+#
+# Runs INSIDE the heavy lock already held above, so the pull can never race a
+# training cycle on the 6 GB box.
+#
+# HONEST SCOPE, so the next reader does not over-read this: it unblocks
+# live_parity and labels_accruing. It does NOT make `promote` reachable on its
+# own — `oos_edge` stays insufficient_data while PROMOREADY_OOS_EDGE=off, which
+# is the known-good default until MB-20260719-PROMOREADY-OOSEDGE-OOM is closed
+# by making the dataset load memory-bounded.
+#
+# Best-effort, like the manual path: a failed sync gates against whatever log is
+# present rather than skipping the run. But it is RECORDED rather than silent —
+# a gate evaluated on stale evidence and one evaluated on fresh evidence must
+# not be indistinguishable in the artifact.
+PREGATE_SYNC_STATE="skipped_absent"
+if [ -f "$REPO_ROOT/scripts/ops/sync_trainer_data.sh" ]; then
+  if bash "$REPO_ROOT/scripts/ops/sync_trainer_data.sh" >"$OUTPUT_DIR/pregate_sync.log" 2>&1; then
+    PREGATE_SYNC_STATE="ok"
+    log_err "pre-gate sync OK — live_parity/labels_accruing grade against a shadow log refreshed just now"
+  else
+    PREGATE_SYNC_STATE="failed"
+    log_err "pre-gate sync FAILED — gating against a possibly stale shadow log; live_parity/labels_accruing may report insufficient_data for reasons that are NOT about the models. See $OUTPUT_DIR/pregate_sync.log"
+  fi
+fi
+# Stamp the evidence state beside the report so a reader can tell which of the
+# three it is looking at, rather than inferring from a gate verdict.
+printf '{"pregate_sync":"%s","oos_edge_mode":"%s","generated_at":"%s"}\n' \
+  "$PREGATE_SYNC_STATE" "${PROMOREADY_OOS_EDGE,,}" "$(iso_now)" \
+  > "$OUTPUT_DIR/evidence_state.json"
+
 DB_ARG=()
 if [ -f "$TRADE_JOURNAL_DB" ]; then
   DB_ARG=(--db "$TRADE_JOURNAL_DB")
