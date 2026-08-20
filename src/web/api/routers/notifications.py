@@ -77,6 +77,137 @@ def _trainer_banner() -> Optional[Dict[str, Any]]:
         return None
 
 
+# --- Trainer disk thresholds -------------------------------------------------
+# CHOSEN, NOT MEASURED. Declared here rather than derived, because exactly ONE
+# reading of this disk exists (2026-08-20, trainer-vm-diag #10057: 45G total,
+# 3.2G free, 94% used, `datasets-out/` alone 12G) and one point is not a
+# distribution. Shipping a threshold with no distribution behind it is the
+# exposure-ceiling mistake (`gross-exposure-governance-DESIGN.md` § 6/§ 7) —
+# so these are stated as a choice, not passed off as calibration, and
+# `BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED` carries the calibration
+# path (accumulate the published series, then set the warn level ABOVE the
+# free-space a dataset build actually needs and BELOW the point a build fails).
+#
+# Absolute GB, deliberately not a percentage: the operational question is
+# "can the next dataset build complete?", and that is a size in GB, not a
+# fraction of whatever volume the trainer happens to have been provisioned
+# with. A percentage would mean different things on a 45G and a 450G disk.
+_DISK_FREE_ALERT_GB = 2.0
+_DISK_FREE_WARN_GB = 5.0
+
+
+def _trainer_disk_banner(trainer_down: bool) -> Optional[Dict[str, Any]]:
+    """Trainer-VM disk pressure, read from the SAME mirror `trainer_down` reads.
+
+    Why this exists: nothing anywhere published a trainer disk metric. Verified
+    three ways on 2026-08-20 — `publish_trainer_mirror.sh` emitted no disk field,
+    the live `/api/bot/ml/status` payload carried 12 keys and none was disk, and
+    `src/runtime/health.py::check_disk` exists but runs on the LIVE trader. So a
+    trainer at 94% was invisible to every surface the operator reads.
+
+    Four states, never collapsed — *"we did not look"* is not *"the disk is
+    fine"*, which is the whole point of the banner:
+
+      * ``not_published``  — the mirror carries no ``disk`` block at all (a
+        trainer running a publish script older than the writer). We did not look.
+      * ``measure_failed`` — the writer ran and ``shutil.disk_usage`` raised;
+        the reason travels with it. We looked and could not see.
+      * ``ok``             — measured, above both thresholds. No banner.
+      * ``low``            — measured, at or below a threshold. The finding.
+
+    The first two surface as one ``info`` banner (kind ``trainer_disk_unknown``)
+    rather than silence, because a disk fact that is missing reads exactly like
+    a disk fact that is healthy, and that equivalence is the bug. They are one
+    KIND but keep distinct ``detail`` text, so the payload never collapses them.
+
+    Suppressed entirely when the trainer is DOWN: a stale mirror has no current
+    disk fact to report, and `trainer_down` already owns that condition — two
+    banners for one cause is the desensitized-alarm pattern this repo calls a P1.
+    """
+    if trainer_down:
+        return None
+    try:
+        from src.web.api.routers.training_center import _mirror_root, _read_json
+
+        payload = _read_json(_mirror_root() / "trainer_status.json")
+        if not isinstance(payload, dict):
+            # No mirror at all. Not this banner's business — either the trainer
+            # has never published (there is nothing to grade) or it is down and
+            # the caller already suppressed us. Never report "disk unknown" for
+            # a trainer we have no contact with.
+            return None
+
+        disk = payload.get("disk")
+        if not isinstance(disk, dict):
+            return {
+                "severity": "info",
+                "kind": "trainer_disk_unknown",
+                "message": "Trainer disk usage is NOT being reported.",
+                "detail": (
+                    "The trainer is publishing (its mirror is fresh) but its "
+                    "status payload carries no `disk` block — so it is running a "
+                    "publish script older than the disk writer. This is 'we did "
+                    "not look', NOT 'the disk is fine'. Redeploy the trainer to "
+                    "pick up scripts/ops/publish_trainer_mirror.sh."
+                ),
+                "since": payload.get("ts"),
+            }
+
+        if not disk.get("measured"):
+            return {
+                "severity": "info",
+                "kind": "trainer_disk_unknown",
+                "message": "Trainer disk usage could not be measured.",
+                "detail": (
+                    f"The trainer ran the disk check and it failed: "
+                    f"{disk.get('reason') or 'no reason recorded'} "
+                    f"(path {disk.get('path') or 'unknown'}). This is 'we looked "
+                    f"and could not see', NOT 'the disk is fine'."
+                ),
+                "since": payload.get("ts"),
+            }
+
+        free_gb = disk.get("free_gb")
+        if not isinstance(free_gb, (int, float)):
+            # measured:true with an unreadable figure — still not a clean read.
+            return {
+                "severity": "info",
+                "kind": "trainer_disk_unknown",
+                "message": "Trainer disk reading is unusable.",
+                "detail": (
+                    f"The mirror reports measured:true but free_gb is "
+                    f"{free_gb!r}, which cannot be graded against a threshold."
+                ),
+                "since": payload.get("ts"),
+            }
+
+        if free_gb > _DISK_FREE_WARN_GB:
+            return None
+
+        severity = "alert" if free_gb <= _DISK_FREE_ALERT_GB else "warning"
+        used_pct = disk.get("used_pct")
+        used_txt = f"{used_pct}% used" if isinstance(used_pct, (int, float)) else "usage unknown"
+        return {
+            "severity": severity,
+            "kind": "trainer_disk_low",
+            "message": f"Trainer VM disk is low: {free_gb} GB free ({used_txt}).",
+            "detail": (
+                f"Threshold {_DISK_FREE_ALERT_GB} GB (alert) / {_DISK_FREE_WARN_GB} GB "
+                f"(warning) — both CHOSEN, not calibrated "
+                f"(BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED). A full trainer "
+                f"disk stops dataset builds and training cycles, which the trainer's "
+                f"own systemd state will still report as green. Note the dataset GC "
+                f"(scripts/ops/trainer_dataset_gc.py) is NOT the remedy: measured "
+                f"2026-08-20 it reclaims 0.09 GB of 115 version dirs (111 held by 41 "
+                f"manifest pins)."
+            ),
+            "since": payload.get("ts"),
+        }
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: trainer disk banner failed: %s", exc)
+        return None
+
+
 def _account_down_banners() -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     try:
@@ -427,6 +558,12 @@ def get_notifications() -> Dict[str, Any]:
     tb = _trainer_banner()
     if tb:
         banners.append(tb)
+    # Passed the DOWN verdict rather than recomputing it: the disk fact and the
+    # liveness fact must come from one reading of one mirror, or the feed can
+    # report a fresh disk figure beside a "trainer is down" banner.
+    tdb = _trainer_disk_banner(trainer_down=tb is not None)
+    if tdb:
+        banners.append(tdb)
     banners.extend(_account_down_banners())
     banners.extend(_operator_alert_banners())
     orb = _orphan_unreconciled_banner()
