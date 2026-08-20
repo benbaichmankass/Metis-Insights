@@ -1,0 +1,212 @@
+name: e35-bracket-sweep
+
+# Shard the E3.5 bracket-geometry sweep ONE LEG PER JOB on free GitHub runners.
+#
+# WHY THIS EXISTS. Run as a single serial pass the sweep is a multi-hour job, and
+# on 2026-08-20 an interactive session had it killed THREE times mid-run by its
+# ephemeral sandbox being recycled. Measured at the time: 30 GB disk free, 799 MB
+# of 16 GB memory in use, no OOM lines in dmesg, and a dmesg head showing
+# `crng reseeded due to virtual machine fork` — i.e. a container re-provision,
+# NOT resource exhaustion. Nothing was lost (per-leg reports persist and the
+# resume skips completed legs) but each recycle cost wall-clock.
+#
+# The fix is not a bigger box, and it is NOT the GPU burst: this is CPU-bound
+# single-threaded backtesting (~1.1 s per harness run), so a GPU buys nothing and
+# `gpu-burst-train.yml` would spend against the $10/month cap in
+# comms/gpu_spend_ledger.json for no gain. The fix is to run it where a recycle
+# cannot reach it, sharded so a failure costs ONE leg.
+#
+# Same shape as `m20-exit-lever-sweep.yml`, with ONE deliberate difference: that
+# workflow scp's its frames from the trainer VM. This one fetches from
+# data.binance.vision instead — proven this session to reproduce the trainer
+# substrate exactly — which removes an SSH dependency AND the trainer contention
+# `docs/claude/vm-resource-management.md` warns about. Free lane, no VM touched.
+#
+# Tier-1 throughout: research tooling only. Writes no config, runs no order path.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "CSV of leg names. Empty = every runnable leg."
+        required: false
+        default: ""
+      days:
+        description: "Trailing days of candles to fetch per leg."
+        required: false
+        default: "1830"
+      gate_top:
+        description: "Surface cells per axis sent to the IS/OOS + walk-forward gate."
+        required: false
+        default: "2"
+      singles_only:
+        description: "true = one-axis-at-a-time grid only (fast smoke)."
+        required: false
+        default: "false"
+      max_parallel:
+        description: "Concurrent legs. Keep modest to stay a good citizen."
+        required: false
+        default: "6"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e35-bracket-sweep
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install --quiet pandas numpy requests pyyaml
+
+      # The planner resolves legs through the sweep's OWN plan_legs, so this job
+      # cannot disagree with the sweep about which legs exist.
+      #
+      # ⚠️ It EXITS NON-ZERO on an empty matrix, deliberately. GitHub reports a
+      # matrix that expands to zero jobs as SUCCESS, so without this the whole
+      # workflow would go green having tested nothing — indistinguishable from
+      # "all 19 legs passed". `set -e` propagates that refusal.
+      - name: Plan the shards
+        id: plan
+        run: |
+          set -euo pipefail
+          python scripts/research/e35_shard_plan.py \
+            ${{ inputs.only && format('--only "{0}"', inputs.only) || '' }} \
+            --out matrix.json
+          echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
+          echo "count=$(python -c 'import json;print(len(json.load(open("matrix.json"))["include"]))')" >> "$GITHUB_OUTPUT"
+      - name: Show the plan
+        run: |
+          echo "### e35 bracket sweep — ${{ steps.plan.outputs.count }} shard(s)" >> "$GITHUB_STEP_SUMMARY"
+          python -c "
+          import json
+          m = json.load(open('matrix.json'))['include']
+          print('| leg | symbol | tf | family |'); print('|---|---|---|---|')
+          for r in m: print(f\"| \`{r['leg']}\` | {r['symbol']} | {r['tf']} | {r['family']} |\")
+          " >> "$GITHUB_STEP_SUMMARY"
+
+  sweep:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 330          # < the 6h GH ceiling
+    strategy:
+      # ONE LEG FAILING MUST NOT CANCEL THE OTHERS — the whole point of sharding
+      # is that a lost leg costs a leg. fail-fast would give back exactly the
+      # property this workflow exists to buy.
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.max_parallel || '6') }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install --quiet pandas numpy requests pyyaml
+
+      # GitHub runners are US Azure IPs and Bybit geoblocks the US
+      # (BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER), so the source is PINNED to
+      # Binance's public archive rather than left to `auto` — pinning also skips
+      # the doomed ~14s Bybit retry loop. The interval code comes from the
+      # planner, which REFUSES an unmapped timeframe rather than defaulting: a
+      # wrong interval does not error, it silently measures a different
+      # population.
+      - name: Fetch this leg's candles (free lane — no VM, no trainer)
+        env:
+          BACKTEST_FEED_SOURCE: binance_vision
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          OUT="data/${{ matrix.symbol }}_${{ matrix.tf }}.csv"
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${{ matrix.symbol }}" \
+            --interval "${{ matrix.fetch_interval }}" \
+            --days "${{ inputs.days || '1830' }}" \
+            --output "${OUT}"
+          n=$(( $(wc -l < "${OUT}") - 1 ))
+          echo "rows=${n}"
+          # A silent-empty here would make the leg read data_missing and the
+          # sweep would report "no cells evaluated" as though that were a verdict.
+          if [ "${n}" -lt 100 ]; then
+            echo "::error::only ${n} rows fetched for ${{ matrix.symbol }} ${{ matrix.tf }} — the sweep would be a false negative"
+            exit 1
+          fi
+
+      - name: Sweep this leg
+        run: |
+          set -euo pipefail
+          python scripts/research/e35_bracket_geometry_sweep.py \
+            --only "${{ matrix.leg }}" \
+            --gate-top "${{ inputs.gate_top || '2' }}" \
+            ${{ inputs.singles_only == 'true' && '--singles-only' || '' }} \
+            --out "out/${{ matrix.leg }}"
+
+      # A leg's result must outlive this runner, and the artifact is what makes
+      # the shard model safe: a recycled/failed job loses its own leg and nothing
+      # else, because every other leg already uploaded.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e35-bracket-${{ matrix.leg }}
+          path: out/${{ matrix.leg }}
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    needs: [plan, sweep]
+    # `always()`: a partially-failed matrix still produced real rows for the legs
+    # that DID finish, and throwing them away because one leg died is the
+    # opposite of what sharding is for. The summary states the denominator.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          path: collected
+          pattern: e35-bracket-*
+          merge-multiple: false
+      - name: Roll up
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          planned = int("${{ needs.plan.outputs.count }}" or 0)
+          reports = sorted(pathlib.Path("collected").rglob("report.json"))
+          print(f"### e35 bracket sweep — {len(reports)} of {planned} leg(s) returned a report\n")
+          # STATE THE DENOMINATOR. A table of the legs that finished, with no
+          # count of the ones that did not, reads as a complete sweep.
+          if len(reports) < planned:
+              print(f"> ⚠️ **{planned - len(reports)} leg(s) produced no report** — "
+                    f"read every number below as covering {len(reports)}/{planned} legs.\n")
+          print("| leg | base net_R | grid min | grid max | **spread** | best cell |")
+          print("|---|---|---|---|---|---|")
+          for p in reports:
+              d = json.loads(p.read_text())
+              for leg in d.get("legs", []):
+                  s = leg.get("surface")
+                  if not s:
+                      print(f"| `{leg.get('leg')}` | ERROR | | | | |"); continue
+                  print(f"| `{leg['leg']}` | {s['base_net_r']} | {s['net_r_min']} | "
+                        f"{s['net_r_max']} | **{s['net_r_spread']}** | `{s['best_cell']}` |")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e35-bracket-ALL
+          path: collected
+          retention-days: 90
