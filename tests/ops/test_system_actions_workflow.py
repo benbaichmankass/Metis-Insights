@@ -233,6 +233,15 @@ EXPECTED_ACTIONS = {
     # close fill to the real position ticket, close it, restore the phantom.
     # DRY-RUN by default; apply gated + DB backup; guarded + idempotent.
     "fix-prop-mislinked-close": "prop_fix_mislinked_close_action.sh",
+    # 2026-08-20 — prop-journal hygiene for fills admitted with NO direction
+    # (BL-20260820-PROP-FILL-DIRECTION-ADMISSION-GAP). _position_key needs
+    # (account, symbol, direction) but ingest_report only validates the first
+    # two, so a directionless fill keys apart from its own close and reads
+    # OPEN for ever. Resolves the field from the linked ticket through the
+    # canonical mapper. Unlike its three predecessors this one is a PREDICATE,
+    # not a row id. DRY-RUN by default; apply gated + DB backup; guarded +
+    # idempotent; touches prop_fills only.
+    "repair-prop-fill-direction": "repair_prop_fill_direction_action.sh",
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
@@ -339,6 +348,7 @@ TIER_2_ACTIONS = {
     "supersede-reset-orphan-artifacts",
     "supersede-intent-reduce-phantom-pnl",
     "fix-prop-mislinked-close",
+    "repair-prop-fill-direction",
     "reset-daily-risk-state",
     "repair-malformed-notes",
     "repair-netted-rows",
