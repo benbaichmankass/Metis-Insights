@@ -3662,3 +3662,95 @@ sound; strategy-level retention works. This audit found what it found *because*
 those foundations are honest enough to be checked against — and the four
 mechanism changes above are what turn that honesty into decisions.
 
+
+## Part 26 — Correction to B2: the conviction A/B is budget-matched, and I nearly escalated it
+
+**Retracting the sharpest claim in Part 24, before acting on it.**
+
+B2 reported that `backtest_system.py` sizes its baseline arm at `rpct/100.0`
+(CLI default `0.3` → 0.3%) and its conviction arm at a bare fraction
+`_CONVICTION_RISK_BUDGET = 0.02` → 2.0%, and then said:
+
+> a **6.7× sizing gap between the two arms of an A/B**, stacked on top of the
+> treatment being measured. `c1-conviction-ab.yml` dispatches exactly this
+> comparison
+
+**The last clause is false.** `c1-conviction-ab.yml` passes `--risk-pct 2.0`
+to the baseline arm explicitly, to match:
+
+```yaml
+echo "=== ${SYM}: baseline flat 2.0% (budget-matched) ==="
+python scripts/backtest_system.py --data "$CSV" --symbol "$SYM" \
+  --refresh-signals --risk-pct 2.0 \
+  --json "artifacts/c1/${SYM}_base.json"
+echo "=== ${SYM}: conviction ×2.0% reductive ==="
+python scripts/backtest_system.py --data "$CSV" --symbol "$SYM" \
+  --refresh-signals --conviction-sizing \
+  --json "artifacts/c1/${SYM}_conv.json"
+```
+
+It says so three times — in the header comment (*"so only the conviction SHAPE
+differs"*), in the echo (*"budget-matched"*), and in the summary title. Whoever
+wrote it **understood the mismatch and compensated correctly.** And it is the
+**only** caller: `--conviction-sizing` appears in exactly one invocation
+repo-wide (the other hits are the unrelated runtime `conviction_sizing.py`
+module and docs referencing it).
+
+**Why this matters more than an ordinary retraction.** I was one step from
+escalating a Tier-3 alarm to the operator: *the live `CONVICTION_SIZING_MODE=apply`
+on `bybit_1` rests on a confounded A/B, do you want it switched off?* That would
+have been **wrong**, and wrong in the most expensive direction — asking the
+operator to reverse a working, evidence-backed live setting on the strength of a
+finding I had not finished checking. The C1 evidence is not confounded. The live
+setting is not in question.
+
+The check cost two greps. I ran them because the finding was about to become an
+*action*, which is the only reliable trigger I have found for re-verifying
+something I already believe.
+
+### What survives, stated narrowly
+
+The **file-level** defect is real and unchanged: `backtest_system.py` holds two
+conventions for one concept — `_risk_qty` reads `rpct` as a **percent**
+(`rpct / 100.0`) while `_CONVICTION_RISK_BUDGET` is a bare **fraction**
+(`0.02`) — and the *comment above `_risk_qty` quotes the live fraction formula*,
+so the file documents a convention it does not use.
+
+What changes is the **consequence**. It is not an active confound; it is a
+**latent trap whose only current caller happens to disarm it by hand**:
+
+- correctness depends on every caller passing `--risk-pct 2.0` alongside
+  `--conviction-sizing`, and nothing in the code says so;
+- a reader of `_risk_qty` and `_CONVICTION_RISK_BUDGET` cannot tell the two are
+  meant to be numerically equal at the matched setting;
+- the invariant lives **in a workflow YAML**, three files away from the code it
+  constrains, which is precisely the modularity failure the operator named — a
+  system change that requires remembering to edit a second place.
+
+**So the fix shape changes, and gets cheaper.** Not *"remove a confound"* — there
+is none — but *"move the invariant into the code that owns it"*: have
+`--conviction-sizing` derive its budget from `--risk-pct` so there is one source,
+or refuse/warn when the two disagree. Either makes the next caller correct by
+construction instead of correct by recollection. The single-definition work in
+fix **2.1** still stands and still closes this; only its justification narrows
+from *"an A/B is invalid"* to *"an invariant is stored outside the thing it
+constrains."*
+
+**Severity revised: B2 drops from HIGH to MEDIUM.** It is a real defect with no
+known present victim.
+
+### The pattern, since this is now the fifth
+
+Five of my own probes in this audit produced a confident wrong answer:
+`first_ts` and `promote` (key names that do not exist), the one-shot detector
+(40 → 1, matching docstrings), `--base main` against a stale local ref, the
+`vwap` bleed (a retired strategy described in the present tense), and now this.
+
+They share a shape worth naming, because it is not carelessness: **each was a
+correct observation about a component, extended to a claim about the system
+without checking the seam.** `_CONVICTION_RISK_BUDGET = 0.02` beside
+`rpct / 100.0` *is* two conventions — that part was right. The error was
+assuming the caller inherited the defect. The audit's own INDEPENDENCE axis is
+the remedy and I did not apply it to myself until the finding was about to
+become an action.
+
