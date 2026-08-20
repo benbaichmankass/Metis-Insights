@@ -83,6 +83,41 @@ max-statistic FWER threshold**, with the pointwise verdict reported for diagnosi
 only. Positive and negative controls run every time and gate admissibility.
 Underpowered returns `verdict: "unmeasured"`, never a negative.
 
+### The result
+**Population (applies to every number):** `XRPUSDT` 15m · `ict_scalp` · **10,103
+labelled rows from 530/530 trades** · 25 dense features, **22 scoreable** · xa
+**`state: joined`**, both peers joined, **`row_coverage` 1.0** over 175,296 indexed
+bars · 4 folds · embargo 12 · 1,000 shuffles · α 0.05 · time-stop 12 bars (3h) ·
+`tp_r` 2.0. Controls valid on all three targets (+ctrl 0.5644 FWER pass; −ctrl 0.0017,
+p 0.880).
+
+| target | verdict | FWER thr | n FWER | n pointwise |
+|---|---|--:|--:|--:|
+| `forward_r` (pre-registered primary) | `informative_features_found` | 0.1230 | **6** | 11 |
+| `advantage_r` | **`no_feature_beats_control`** | 0.1037 | **0** | **0** |
+| `label_hold` (pre-registered secondary) | **`no_feature_beats_control`** | 0.0898 | **0** | **0** |
+
+**All six `forward_r` winners are endogenous, and every one collapses by one to two
+orders of magnitude on `advantage_r`** — `feat_upnl_r` 0.5753 → 0.0062, a factor of 93.
+`forward_r` is measured **from entry**, so it shares its baseline with `feat_upnl_r` and
+every path feature tracking accrued R; the six "wins" are largely arithmetic about where
+the trade already is. **This was predicted from reading `src/research/triple_barrier.py`
+before the scores were interpreted, not discovered by inspecting them.** There is no
+lookahead — the windows are disjoint by construction — which is precisely what makes it
+dangerous: a fully controlled, purged, embargoed, FWER-adjusted, misleading headline.
+
+**On the decision-relevant targets, nothing in the widened panel carries information** —
+zero at the family-wise bar and **zero at the pointwise bar**, where ~1.1 hits would be
+expected by chance across 22 features at α = 0.05. Not the 9 endogenous path features,
+not the 11 scoreable exogenous peer features E1 shipped at full coverage.
+
+⚠️ **Scope limits, both stated rather than discovered later:** two of the eleven
+endogenous features named in §0.2 (`feat_taker_imbalance`,
+`feat_taker_imbalance_intrade`) were **dropped as all-null** — the candle source carries
+no taker data — so E2 says nothing about order flow. And three `xa_*_present` flags
+scored `null` because coverage is 1.0 makes them **constant**; they correctly drop out
+rather than contributing a fabricated 0.0.
+
 ### Substrate
 The **local** repo cannot support this run — five of six committed candle files
 are constant-price placeholders (300 rows, 1 distinct close each), and the one
@@ -145,7 +180,28 @@ operator's own motivating case, and the symbol whose **both** configured peers
 - The coordination board's issue **body** still needs a human restore.
 
 ## Next Recommended Sprint
-<!-- PENDING: depends on the E2 verdict. -->
+- **Disposition is §3.1 — regroup and widen. The thread does not close.** The negative
+  is a statement about *these constructs over this substrate at this horizon*, dated and
+  corpus-attached, and the substrate itself checked out clean (coverage 1.0, real peers,
+  530 trades, controls fired), so step 1 of §3.1 — *check the substrate before blaming
+  the question* — is already discharged.
+- **Suggested next sprint: §3.1 step 4, CHANGE WHAT IS BEING PREDICTED.** E2 supplies an
+  unusually direct empirical argument for it: swapping `forward_r` for `advantage_r`
+  moved a top feature by **93×** and flipped the verdict. If the choice of target can do
+  that, the target deserves to be a variable rather than an assumption. §1.5.7 already
+  names the candidates — **survival framings (hazard of adverse excursion)**,
+  time-to-adverse-excursion, P(give-back beyond X), capital-efficiency-adjusted hold
+  value.
+- **Second: §3.1 step 2, re-enter E-lit** on the families the survey recorded as
+  uncovered — execution-cost-aware exits, funding/basis as crypto-specific exogenous
+  state, and **order-flow**, which this run could not speak to at all because both taker
+  columns were all-null.
+- **Cheapest immediate arms, both already runnable on the trainer:** a longer label
+  horizon (the 12-bar time stop is a condition on this answer, not a property of the
+  fleet), and additional legs — `SOLUSDT`/`ETHUSDT` 15m have full-overlap peers today.
+- **What this does NOT license:** concluding that exits cannot be improved, or that E1
+  was wasted. E1's widening is what made the exogenous half *measurable*; it is now
+  measured, at one leg and one horizon, and found not to help there.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
