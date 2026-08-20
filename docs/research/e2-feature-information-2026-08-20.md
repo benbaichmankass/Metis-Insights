@@ -149,8 +149,91 @@ before any number it produced was read.
 
 ## 5. Result
 
-<!-- RESULTS PENDING — filled from the trainer run, with the population on every number.
-     Nothing is written here until the run completes and its controls are checked. -->
+### 5.1 The population, stated once and applying to every number below
+
+`XRPUSDT` 15m · `ict_scalp` harness · **10,103 labelled rows from 530 of 530 trades**
+(19.06 rows/trade) · **25 dense feature columns, of which 22 are scoreable** (three are
+constant — see 5.4) · cross-asset **`state: joined`**, both configured peers
+(`ETHUSDT`, `SOLUSDT`) joined, `rows_with_xa` 10,103, **`row_coverage` 1.0** over 175,296
+indexed bars · `base_hold_rate` 0.469.
+Config: `n_folds` 4 · `embargo_bars` 12 · `n_shuffles` 1000 · α 0.05 ·
+`time_stop_bars` 12 (3h) · `tp_r` 2.0 · seed 20260820.
+Source: trainer-diag #10022 (build + primary) and #10023 (all three targets).
+
+**The exogenous half was genuinely MEASURED this time**, not unmeasured — every row
+carried a real peer block from two full-overlap 5-year series. That is the precondition
+E1 existed to create, and it held.
+
+### 5.2 The controls behaved, so the negative below is admissible
+
+| control | statistic | verdict |
+|---|--:|---|
+| `__ctrl_signal` (positive, must fire) | 0.5644 | **FWER pass**, p = 0.000999 |
+| `__ctrl_noise` (negative, must stay silent) | 0.0017 | no pass, p = 0.880 |
+
+`harness_valid: true` on **all three** targets.
+
+### 5.3 The headline, and why it must not be quoted alone
+
+| feature | `forward_r` | `advantage_r` | `label_hold` |
+|---|--:|--:|--:|
+| `feat_upnl_r` | **0.5753** ★ | 0.0062 | 0.0078 |
+| `feat_dist_to_stop_atr` | **0.4668** ★ | 0.0168 | 0.0066 |
+| `feat_running_mfe_r` | **0.4334** ★ | 0.0319 | 0.0212 |
+| `feat_running_mae_r` | **0.4168** ★ | 0.0476 | 0.0376 |
+| `feat_dmae_dt` | **0.2836** ★ | 0.0092 | 0.0087 |
+| `feat_in_trade_vol_ratio` | **0.1311** ★ | 0.0240 | 0.0192 |
+| `feat_mfe_giveback_r` | 0.1140 · | 0.0342 | 0.0295 |
+| `feat_xa_peer2_rel_strength` | 0.0485 | 0.0467 | 0.0519 |
+| `feat_xa_peer2_ret` | 0.0252 · | 0.0032 | 0.0052 |
+| `feat_xa_peer1_ret` | 0.0244 · | 0.0051 | 0.0025 |
+| `feat_xa_breadth_up` | 0.0203 · | 0.0028 | 0.0014 |
+| `feat_bars_in_trade` | 0.0202 | 0.0035 | 0.0082 |
+
+★ = clears the pre-registered family-wise bar · · = clears its own null only.
+(Full 22-row table in the committed reports.)
+
+| target | verdict | FWER threshold | n FWER | n pointwise |
+|---|---|--:|--:|--:|
+| `forward_r` (pre-registered primary) | `informative_features_found` | 0.1230 | **6** | 11 |
+| `advantage_r` | **`no_feature_beats_control`** | 0.1037 | **0** | **0** |
+| `label_hold` (pre-registered secondary) | **`no_feature_beats_control`** | 0.0898 | **0** | **0** |
+
+**Every one of the six `forward_r` winners collapses by one to two orders of magnitude
+on `advantage_r`.** `feat_upnl_r` falls 0.5753 → 0.0062, a factor of **93**.
+
+That is not a surprise and it was not discovered by inspecting the scores: it was
+**predicted from reading `src/research/triple_barrier.py` before interpreting them**.
+`forward_r` is measured **from entry**, so it shares its baseline with `feat_upnl_r` and
+with every path feature tracking accrued R. A trade up 1.5R now tends to still be up
+about 1.5R at the time stop. The six "wins" are substantially arithmetic about **where
+the trade already is**, not information about **where it is going**. There is no
+lookahead — the feature and label windows are disjoint by construction — which is
+exactly what makes this dangerous: a fully-controlled, purged, embargoed, correctly
+FWER-adjusted, entirely misleading headline.
+
+### 5.4 What E2 actually answers
+
+On the decision-relevant targets — the incremental value of holding, and its sign —
+**not one of 22 scoreable features carries information**. Not the eleven endogenous path
+features. Not the eleven exogenous peer features E1 shipped, joined at full coverage.
+**Zero at the family-wise bar and zero at the pointwise bar**, where ~1.1 pointwise hits
+would be expected by chance at α = 0.05 across 22 features.
+
+Three features return `null` rather than a score — `feat_xa_peer1_present`,
+`feat_xa_peer2_present`, `feat_xa_breadth_present`. They are **constant** on this panel,
+because coverage is 1.0 and every row had both peers. They correctly drop out instead of
+contributing a fabricated 0.0 to an aggregate (the manifest's own
+`constant_feature_cols` flags the first). A presence flag is worth its column precisely
+when coverage is *not* 1.0; here it is, and the honest score is "undefined", not "zero".
+
+**This is the finding with consequences for the programme.** §0.2 diagnosed the failure
+of ~20 lever cells as *"no function of these eleven endogenous inputs beats holding"* and
+proposed E1's widening as the fix. E1 delivered the widening; E2 now measures that **the
+widened panel does not help either — at this leg, this horizon, this substrate.** And it
+supplies a mechanism for why the lever sweeps kept returning `honest_negative`: levers
+built on features that look strongly informative against `forward_r` were reading a
+target that shares their own baseline.
 
 ---
 
