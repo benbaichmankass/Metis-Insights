@@ -438,13 +438,34 @@ def backtest_fidelity(rows: Sequence[Mapping[str, Any]]) -> tuple[bool | None, l
     *faithful*: legacy rows predate the label and must not be silently
     promoted to trusted (the `UNVERIFIED` ≠ `MEASURED` rule, one level up).
     """
-    from ml.datasets.backtest_recorder import parse_backtest_notes
+    from ml.datasets.backtest_recorder import (
+        R_COST_BASIS_AMBIGUOUS,
+        R_COST_BASIS_GROSS,
+        parse_backtest_notes,
+    )
 
     seen_label = False
     approximate = False
     levers: list[str] = []
     for row in rows:
         parsed = parse_backtest_notes(row.get("notes"))
+        # R-COST-BASIS (B6, 2026-08-20). A gross-R row has NOT had fees or
+        # slippage deducted, so it is systematically optimistic — which is the
+        # same kind of claim `fidelity=False` makes (this sample is not what
+        # live would have produced) and belongs in the same verdict rather than
+        # a parallel one nobody reads. `r_multiple` is folded in too: the
+        # producer used a key that says neither net nor gross, so the sample
+        # CANNOT be shown to be net, and "cannot be shown" is not "is".
+        #
+        # It sets `approximate` but is deliberately NOT appended to `levers`:
+        # that list names EXIT LEVERS the harness omitted, and a cost basis is
+        # not a lever. Putting it there would make the omitted-lever list
+        # describe something it is not — the semantic substitution
+        # (diagnostic-provenance sub-class A) this repo names by that number.
+        basis = parsed.get("r_cost_basis")
+        if basis in (R_COST_BASIS_GROSS, R_COST_BASIS_AMBIGUOUS):
+            seen_label = True
+            approximate = True
         fid = parsed.get("fidelity")
         if fid is None:
             continue

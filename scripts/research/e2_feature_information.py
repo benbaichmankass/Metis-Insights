@@ -105,18 +105,42 @@ to clear.
 
 ## The harness-validity gate — a negative is inadmissible unless this passes
 
-Every run injects two synthetic features and reports both:
+Every run injects a positive control and a **bank** of negative controls:
 
 - **positive control** ``__ctrl_signal`` = a monotone function of the label plus
   noise. It **must** reach ``informative_fwer``.
-- **negative control** ``__ctrl_noise`` = pure RNG, independent of everything. It
-  **must not** reach ``informative_pointwise``.
+- **negative-control bank** = ``n_negative_controls`` independent pure-RNG columns,
+  each scored exactly like a feature. Under a valid null each clears the pointwise
+  bar with probability ``alpha``, so the bank's clear COUNT is ``Binomial(K, alpha)``
+  and the run is refused only when that count's upper tail falls below
+  ``gate_level``.
 
-If either misbehaves the harness is broken and **no negative from that run is
-admissible** — reported as ``harness_valid: false``, and the verdict becomes
-``harness_invalid`` rather than a result. A control that cannot fire is not a
-control; this is the "every new measurement needs a positive control that can
-actually fire" rule made mechanical.
+⚠️ **WHY A BANK AND NOT ONE COLUMN — READ THIS BEFORE "SIMPLIFYING" IT BACK.** The
+gate used to be ``not negative.informative_pointwise`` on a SINGLE noise column.
+That is a Bernoulli(alpha) draw: it discarded a **sound** run about 5% of the time
+**by construction**, and one draw can never separate that from a genuinely broken
+null. It fired 4 times in the 24-cell 2026-08-20 horizon sweep, all on one leg, and
+the holes landed at the decisive rung — which then had to be argued about instead of
+measured (``BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER``).
+
+Measured over 40 seeded SOUND null panels in ``_selftest``: the old single-draw rule
+discards **2/40 = 5.0%** — alpha, exactly as predicted — while this gate discards
+**0/40**, with the bank's own clear-rate at **0.052** against an expected 0.05. The
+rate is now a *measured property of the tool*, which is what the backlog row bound
+the replacement to deliver.
+
+``harness_state`` is reported as one of four states, never collapsed:
+``valid`` · ``invalid_positive_control_dead`` · ``invalid_null_miscalibrated`` ·
+``unchecked`` (``K = 0`` — the bank never ran, so **we did not look**; this is
+emphatically *not* ``valid``). ``harness_valid`` remains as the boolean, and
+``legacy_pointwise_gate_would_invalidate`` records what the old rule would have said
+so a re-run is comparable to the sweep it replaces without re-running the old code.
+
+If the gate refuses, **no negative from that run is admissible** and the verdict
+becomes ``harness_invalid`` rather than a result. A control that cannot fire is not a
+control — and neither is a gate that cannot fail, which is why ``_selftest`` plants a
+null that fails to preserve the controls' own dependence and requires the gate to
+catch it.
 
 ## Underpowered is UNMEASURED, not negative
 
@@ -192,7 +216,23 @@ from scripts.research.analyze_exit_head import (  # noqa: E402
 TARGET_COL = "forward_r"          # the pre-registered PRIMARY target
 TARGETS = ("forward_r", "advantage_r", "label_hold")
 CTRL_SIGNAL = "__ctrl_signal"
-CTRL_NOISE = "__ctrl_noise"
+CTRL_NOISE = "__ctrl_noise"          # bank column 0; kept as the reported diagnostic
+N_NEGATIVE_CONTROLS = 64             # see the module doc: the gate reads a RATE
+GATE_LEVEL = 0.01                    # binomial tail below which the null is called broken
+
+
+def noise_control_names(k: int) -> List[str]:
+    """Bank column names. Column 0 keeps the legacy name so the single-control
+    diagnostic the backlog asks to retain stays addressable by its old key.
+
+    ``k <= 0`` yields NO columns — the bank is genuinely not run, which the gate
+    reports as ``unchecked``. It deliberately does not fall back to one column:
+    "we did not look" and "we looked with a bank of one" are different states, and
+    the second is the very thing this bank replaced.
+    """
+    if k <= 0:
+        return []
+    return [CTRL_NOISE] + [f"{CTRL_NOISE}_{i:03d}" for i in range(1, k)]
 SHUFFLE_SCHEME = "trade_block_cyclic"
 
 
@@ -265,18 +305,27 @@ def quantile(sorted_vals: Sequence[float], q: float) -> Optional[float]:
 
 
 def inject_controls(rows: List[Dict[str, Any]], *, seed: int, signal_noise: float = 1.0,
-                    target: str = TARGET_COL) -> None:
-    """Add the positive and negative control columns, in place.
+                    target: str = TARGET_COL,
+                    n_negative: int = N_NEGATIVE_CONTROLS) -> None:
+    """Add the positive control and the negative-control BANK, in place.
 
     ``__ctrl_signal`` is a monotone function of the row's own label plus gaussian
     noise — it MUST be detectable, and a run where it is not is a broken run.
-    ``__ctrl_noise`` is independent of everything and MUST NOT be detectable.
+
+    The negative side is a **bank of ``n_negative`` independent noise columns**,
+    not one column. One column yields one Bernoulli draw at the gate's own alpha,
+    which cannot distinguish "5% bad luck" from "the null on this panel is
+    broken" — the ambiguity that produced
+    ``BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER``. A bank yields a
+    RATE, and a rate is a measurement.
     """
     rng = random.Random(seed)
+    names = noise_control_names(n_negative)
     for r in rows:
         y = r.get(target)
         r[CTRL_SIGNAL] = None if y is None else float(y) + rng.gauss(0.0, signal_noise)
-        r[CTRL_NOISE] = rng.gauss(0.0, 1.0)
+        for nm in names:
+            r[nm] = rng.gauss(0.0, 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -439,8 +488,12 @@ def score_panel(
     min_rows: int = 200,
     min_fold_rows: int = 20,
     target: str = TARGET_COL,
+    n_negative_controls: int = N_NEGATIVE_CONTROLS,
+    gate_level: float = GATE_LEVEL,
 ) -> Dict[str, Any]:
-    feats = [f for f in _dense_feats(rows, manifest) if f not in (CTRL_SIGNAL, CTRL_NOISE)]
+    _noise_names = noise_control_names(n_negative_controls)
+    _ctrl_all = set(_noise_names) | {CTRL_SIGNAL}
+    feats = [f for f in _dense_feats(rows, manifest) if f not in _ctrl_all]
     usable = [r for r in rows if r.get(target) is not None]
     n_trades = len({r.get("trade_id") for r in usable})
 
@@ -469,6 +522,8 @@ def score_panel(
             "min_trades": min_trades,
             "min_rows": min_rows,
             "min_fold_rows": min_fold_rows,
+            "n_negative_controls": n_negative_controls,
+            "gate_level": gate_level,
         },
         "features": [],
         "controls": {},
@@ -495,7 +550,7 @@ def score_panel(
         report["unmeasured_reason"] = f"{len(usable)} labelled rows < min_rows={min_rows}"
         return report
 
-    inject_controls(usable, seed=seed, target=target)
+    inject_controls(usable, seed=seed, target=target, n_negative=n_negative_controls)
 
     folds = list(_grouped_purged_folds(usable, n_folds=n_folds, embargo_bars=embargo_bars))
     report["folds_formed"] = len(folds)
@@ -509,7 +564,7 @@ def score_panel(
         return report
 
     true_labels = {i: float(usable[i][target]) for i in range(len(usable))}
-    all_names = feats + [CTRL_SIGNAL, CTRL_NOISE]
+    all_names = feats + [CTRL_SIGNAL] + _noise_names
 
     observed: Dict[str, Tuple[Optional[float], int, Optional[float]]] = {}
     for f in all_names:
@@ -653,18 +708,109 @@ def score_panel(
         (_verdict_for(f) for f in feats),
         key=lambda d: (d["statistic"] is None, -(d["statistic"] or 0.0)),
     )
+    bank = [_verdict_for(n) for n in _noise_names]
     report["controls"] = {
         "positive": _verdict_for(CTRL_SIGNAL),
-        "negative": _verdict_for(CTRL_NOISE),
+        # Retained as the single-column DIAGNOSTIC the backlog row asks to keep.
+        # It is no longer what the gate reads — see `negative_bank` below.
+        "negative": bank[0] if bank else None,
     }
 
-    pos_ok = report["controls"]["positive"]["informative_fwer"]
-    neg_ok = not report["controls"]["negative"]["informative_pointwise"]
-    report["harness_valid"] = bool(pos_ok and neg_ok)
-    report["control_failure"] = None if report["harness_valid"] else {
-        "positive_control_fired": pos_ok,
-        "negative_control_stayed_silent": neg_ok,
+    # ---- the admissibility gate -------------------------------------------
+    # WHAT CHANGED AND WHY (BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER).
+    # The gate used to read `not negative.informative_pointwise` — ONE noise column
+    # against the alpha-quantile of its own null. That is a Bernoulli(alpha) draw,
+    # so it discarded a SOUND run about 5% of the time by construction, and a single
+    # draw can never separate that from a genuinely broken null. It fired 4 times in
+    # the 24-cell horizon sweep and the holes landed at the decisive rung.
+    #
+    # It is replaced by TWO tests over a BANK of noise columns, asking two different
+    # questions that neither subsumes nor substitutes for the other:
+    #
+    # IS THE NULL ON THIS PANEL CALIBRATED? Under a valid null each column clears
+    # the pointwise bar with probability alpha, so the bank's clear COUNT is
+    # Binomial(K, alpha). Invalidate only when its upper tail falls below
+    # `gate_level`. The false-invalidation rate is then bounded by `gate_level`
+    # (0.01) instead of alpha (0.05) — a stated property, and `_selftest` MEASURES
+    # it over seeded null panels rather than asserting it.
+    #
+    # ⚠️ A SECOND GATE WAS DESIGNED HERE AND REJECTED BY ITS OWN MEASUREMENT. The
+    # obvious companion — "invalidate if any bank column clears the FWER bar, the
+    # bar the DECISION uses" — reads well and is WRONG, because the rate at which an
+    # out-of-family noise column clears the family-max threshold is not a known
+    # constant: it falls as the family grows and as the family's null widths widen.
+    # On a narrow family it is far from negligible, and P(at least one of K clears)
+    # then rises with K, so the rule would get MORE trigger-happy the more carefully
+    # you measured. Measured on this module's own 2-feature synthetic null panel:
+    # 2 of 64 columns cleared FWER while the pointwise rate was a clean 3/64
+    # (binomial p = 0.63). That is the gate inventing a failure, which is the exact
+    # sin the row this replaces was filed about. It is kept as the REPORTED
+    # diagnostic `n_cleared_fwer` and given no vote — and note it is redundant
+    # anyway: the max-statistic construction already guarantees
+    # P(any family member clears | global null) = alpha WHENEVER the null is valid,
+    # which is precisely what the rate test checks. Do not re-promote it to a gate
+    # without a measured null rate to calibrate it against.
+    #
+    # The states are kept apart rather than collapsed into one boolean: "the positive
+    # control died" and "the null is miscalibrated" are different defects with
+    # different fixes, and `unchecked` (K = 0 — we did not look) is emphatically NOT
+    # `valid`.
+    pos_ok = bool(report["controls"]["positive"]["informative_fwer"])
+    n_bank = len(bank)
+    n_pt = sum(1 for d in bank if d["informative_pointwise"])
+    n_fw = sum(1 for d in bank if d["informative_fwer"])
+    rate_tail = None
+    if n_bank:
+        rate_tail = sum(
+            math.comb(n_bank, i) * (alpha ** i) * ((1.0 - alpha) ** (n_bank - i))
+            for i in range(n_pt, n_bank + 1)
+        )
+    ps = [d["p_empirical"] for d in bank if d["p_empirical"] is not None]
+    report["controls"]["negative_bank"] = {
+        "n_controls": n_bank,
+        "n_cleared_pointwise": n_pt,
+        "rate_cleared_pointwise": (n_pt / n_bank) if n_bank else None,
+        "expected_rate_if_null_valid": alpha,
+        "binom_p_rate_above_alpha": rate_tail,
+        # DIAGNOSTIC, NOT A GATE. See the rejection note in the gate block: the
+        # null rate of an out-of-family column clearing the family-max bar is not a
+        # known constant, so this cannot carry a vote without being calibrated.
+        "n_cleared_fwer": n_fw,
+        # Reported BESIDE the decision, never in place of it: a valid permutation
+        # p is Uniform(0,1), so a bank mean far from 0.5 says the null is skewed
+        # even when the tail count happens to look ordinary. Sharper than the rate,
+        # but discrete labels (label_hold is binary) make it noisy enough that
+        # letting it move the verdict would trade one misfire for another.
+        "p_empirical_mean": (sum(ps) / len(ps)) if ps else None,
     }
+
+    if n_bank == 0:
+        harness_state = "unchecked"
+    elif not pos_ok:
+        harness_state = "invalid_positive_control_dead"
+    elif rate_tail is not None and rate_tail < gate_level:
+        harness_state = "invalid_null_miscalibrated"
+    else:
+        harness_state = "valid"
+    report["harness_state"] = harness_state
+    report["harness_valid"] = bool(harness_state == "valid")
+    report["control_failure"] = None if report["harness_valid"] else {
+        "harness_state": harness_state,
+        "positive_control_fired": pos_ok,
+        "n_bank_cleared_fwer": n_fw,   # diagnostic only — see the note above
+        "n_bank_cleared_pointwise": n_pt,
+        "n_controls": n_bank,
+        "binom_p_rate_above_alpha": rate_tail,
+        # The verdict the OLD single-draw gate would have returned, carried so the
+        # re-run can be compared against the sweep it replaces without re-running
+        # the old code.
+        "legacy_pointwise_gate_would_invalidate": bool(
+            bank and bank[0]["informative_pointwise"]
+        ),
+    }
+    report["legacy_pointwise_gate_would_invalidate"] = bool(
+        bank and bank[0]["informative_pointwise"]
+    )
 
     if not report["harness_valid"]:
         # The whole point of the gate: a negative from a run whose controls
@@ -773,11 +919,14 @@ def _selftest() -> int:
         seed,
         signal_noise=1.0,  # inert: signature parity with inject_controls; reading it would un-break the plant
         target=TARGET_COL,  # inert: signature parity with inject_controls; the plant must ignore the label
+        n_negative=N_NEGATIVE_CONTROLS,
     ):
         r = random.Random(seed)
+        names = noise_control_names(n_negative)
         for row in rs:
             row[CTRL_SIGNAL] = r.gauss(0.0, 1.0)   # no longer a function of the label
-            row[CTRL_NOISE] = r.gauss(0.0, 1.0)
+            for nm in names:
+                row[nm] = r.gauss(0.0, 1.0)
 
     globals()["inject_controls"] = _broken
     try:
@@ -787,6 +936,117 @@ def _selftest() -> int:
     check("planted_failure_detected", rep_b["verdict"] == "harness_invalid",
           f"a dead positive control must invalidate the run, got {rep_b['verdict']}")
     check("planted_failure_reported", rep_b.get("control_failure") is not None)
+
+    # --- THE NEW GATE, MEASURED RATHER THAN ASSERTED ----------------------
+    # BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER binds the
+    # replacement rule to carry "a self-test asserting the chosen gate's
+    # false-invalidation rate over many seeded null panels, so the rate is a
+    # measured property of the tool rather than an emergent surprise." This is it.
+    # The OLD gate's rate was alpha = 5% BY CONSTRUCTION and nobody had measured it;
+    # the whole point is that this number is now observed, not reasoned about.
+    _M = 40
+    _states = []
+    for _s in range(_M):
+        _r, _m = _synth_panel(60, 8, seed=400 + _s, signal=False)
+        _rep = score_panel(_r, _m, n_folds=3, n_shuffles=200, seed=900 + _s,
+                           min_trades=30, min_rows=200)
+        _states.append(_rep.get("harness_state"))
+    _false_inv = sum(1 for st in _states if st == "invalid_null_miscalibrated")
+    _dead_pos = sum(1 for st in _states if st == "invalid_positive_control_dead")
+    # gate_level is 0.01, so over 40 sound panels the expected count is 0.4 and
+    # seeing 3+ would mean the bound is not holding. This is a LOOSE bound on
+    # purpose: it must fail when the gate is broken, not flake when it is fine.
+    check("gate_false_invalidation_rate_measured", _false_inv <= 2,
+          f"{_false_inv}/{_M} sound null panels invalidated as miscalibrated "
+          f"(gate_level=0.01 ⇒ expect ~0.4); states={_states[:8]}...")
+    check("gate_positive_control_alive_on_null_panels", _dead_pos == 0,
+          f"{_dead_pos}/{_M} panels reported a dead positive control")
+    # And the comparison that says the change did something: the OLD single-draw
+    # rule would have discarded ~alpha of these same sound panels.
+    _legacy = 0
+    for _s in range(_M):
+        _r, _m = _synth_panel(60, 8, seed=400 + _s, signal=False)
+        _rep = score_panel(_r, _m, n_folds=3, n_shuffles=200, seed=900 + _s,
+                           min_trades=30, min_rows=200)
+        _legacy += 1 if _rep.get("legacy_pointwise_gate_would_invalidate") else 0
+    check("legacy_gate_discarded_more_than_the_new_one", _legacy >= _false_inv,
+          f"legacy would discard {_legacy}/{_M}; new gate discards {_false_inv}/{_M}")
+
+    # --- PLANTED FAILURE 3: the new gate MUST still be able to fire --------
+    # "A gate that cannot fail is not a gate." Break the null in the one way that
+    # actually breaks a NOISE bank's calibration: give the control columns trade
+    # structure while the null shuffles at ROW level, so the null no longer
+    # preserves the dependence the columns carry. Observed then sits systematically
+    # high in its own null and the pointwise clear-rate blows past alpha.
+    _rowsM, _manM = _synth_panel(60, 8, seed=71, signal=False)
+    _orig_inj, _orig_shuf = inject_controls, block_shuffled_labels
+
+    def _structured_controls(rs, *, seed, signal_noise=1.0, target=TARGET_COL,
+                             n_negative=N_NEGATIVE_CONTROLS):
+        r = random.Random(seed)
+        names = noise_control_names(n_negative)
+        per_trade = {}
+        for row in rs:
+            key = row.get("trade_id")
+            if key not in per_trade:
+                per_trade[key] = [r.gauss(0.0, 1.0) for _ in names]
+            for nm, v in zip(names, per_trade[key]):
+                row[nm] = v                      # CONSTANT within a trade
+            y = row.get(target)
+            row[CTRL_SIGNAL] = None if y is None else float(y) + r.gauss(0.0, signal_noise)
+
+    def _row_level(blocks, labels, rng):
+        idx = [i for b in blocks for i in b]
+        vals = [labels[i] for i in idx]
+        rng.shuffle(vals)                        # destroys the within-trade structure
+        return dict(zip(idx, vals))
+
+    globals()["inject_controls"] = _structured_controls
+    globals()["block_shuffled_labels"] = _row_level
+    try:
+        _repM = score_panel(_rowsM, _manM, n_folds=3, n_shuffles=200, seed=5,
+                            min_trades=30, min_rows=200)
+    finally:
+        globals()["inject_controls"] = _orig_inj
+        globals()["block_shuffled_labels"] = _orig_shuf
+    check("planted_miscalibration_detected",
+          _repM.get("harness_state") == "invalid_null_miscalibrated",
+          f"a null that does not preserve the controls' own dependence must be "
+          f"refused, got {_repM.get('harness_state')} "
+          f"(cleared {(_repM.get('controls', {}).get('negative_bank') or {}).get('n_cleared_pointwise')})")
+    check("planted_miscalibration_is_not_a_verdict",
+          _repM.get("verdict") == "harness_invalid", str(_repM.get("verdict")))
+
+    # --- 'unchecked' is NOT a pass ----------------------------------------
+    # K = 0 means the bank never ran: we did not look. The repo's collapsed-state
+    # doctrine says that is its own state and must never read as `valid`.
+    _r0, _m0 = _synth_panel(60, 8, seed=17, signal=True)
+    _rep0 = score_panel(_r0, _m0, n_folds=3, n_shuffles=100, seed=5,
+                        min_trades=30, min_rows=200, n_negative_controls=0)
+    check("zero_bank_is_unchecked", _rep0.get("harness_state") == "unchecked",
+          str(_rep0.get("harness_state")))
+    check("unchecked_is_not_valid", _rep0.get("harness_valid") is False,
+          "an unrun bank must never report a valid harness")
+    check("unchecked_is_not_a_result", _rep0.get("verdict") == "harness_invalid",
+          str(_rep0.get("verdict")))
+
+    # --- the bank must not leak into the FAMILY ---------------------------
+    # Bank columns are dense numeric columns sitting on the same rows as the real
+    # features. If `_dense_feats` picked them up they would inflate the
+    # max-statistic threshold with planted synthetics and be reported as findings.
+    _rf, _mf = _synth_panel(60, 8, seed=17, signal=True)
+    _repf = score_panel(_rf, _mf, n_folds=3, n_shuffles=100, seed=5,
+                        min_trades=30, min_rows=200, n_negative_controls=8)
+    _fnames = {d["feature"] for d in _repf["features"]}
+    check("bank_excluded_from_family",
+          not any(n.startswith(CTRL_NOISE) or n == CTRL_SIGNAL for n in _fnames),
+          f"control columns leaked into the scored family: {sorted(_fnames)}")
+    check("bank_size_echoed_in_config",
+          _repf["config"]["n_negative_controls"] == 8,
+          str(_repf["config"].get("n_negative_controls")))
+    check("bank_reported_at_requested_size",
+          (_repf["controls"]["negative_bank"] or {}).get("n_controls") == 8,
+          str(_repf["controls"]["negative_bank"]))
 
     # --- PLANTED FAILURE 2: a row-level shuffle must give a TIGHTER null ---
     # This is the claim the block-shuffle design rests on. If it does not
@@ -955,6 +1215,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--min-trades", type=int, default=30)
     p.add_argument("--min-rows", type=int, default=200)
     p.add_argument("--min-fold-rows", type=int, default=20)
+    p.add_argument("--n-negative-controls", type=int, default=N_NEGATIVE_CONTROLS,
+                   help=("Size of the negative-control BANK. The gate reads the RATE at "
+                         "which pure-noise columns clear the pointwise bar, because one "
+                         "column is a Bernoulli(alpha) draw that cannot tell bad luck "
+                         "from a broken null. 0 means the bank is not run at all, which "
+                         "reports harness_state='unchecked' and is NOT a pass."))
+    p.add_argument("--gate-level", type=float, default=GATE_LEVEL,
+                   help=("Binomial upper-tail level below which the bank's clear-rate is "
+                         "called miscalibration. This IS the gate's false-invalidation "
+                         "rate; _selftest measures it rather than assuming it."))
     p.add_argument("--target", default=TARGET_COL, choices=list(TARGETS),
                    help=("Outcome column. 'forward_r' is the pre-registered primary and is "
                          "measured FROM ENTRY, so it shares a baseline with feat_upnl_r; "
@@ -977,6 +1247,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         n_shuffles=args.n_shuffles, alpha=args.alpha, seed=args.seed,
         min_trades=args.min_trades, min_rows=args.min_rows,
         min_fold_rows=args.min_fold_rows, target=args.target,
+        n_negative_controls=args.n_negative_controls, gate_level=args.gate_level,
     )
     rep["panel_path"] = str(args.panel)
 

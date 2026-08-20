@@ -520,6 +520,24 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_risk_basis_agreement.py", "--all"]],
     },
     {
+        "name": "cost-model-single-owner",
+        # Fires on the harness fleet + the owner itself. The OWNER is in the
+        # trigger set deliberately, mirroring risk-basis-agreement: changing
+        # DEFAULT_FEE_BPS_ROUNDTRIP must re-grade every registered duplicate,
+        # which is the direction the drift actually travels.
+        "when": {"globs": [
+            "scripts/backtest_*.py", "scripts/research/*.py", "scripts/ml/*.py",
+            "src/backtest/*.py", "src/runtime/execution_costs.py",
+            "src/runtime/allocator_ev.py", "src/runtime/trade_costs.py",
+            "scripts/ci/check_cost_model_single_owner.py",
+        ]},
+        # Self-test FIRST — a guard whose planted controls no longer fire must
+        # not report a clean scan.
+        "steps": [["python3", "scripts/ci/check_cost_model_single_owner.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_cost_model_single_owner.py"]],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read

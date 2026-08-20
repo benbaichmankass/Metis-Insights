@@ -35,8 +35,32 @@ _INSERT_COLUMNS = (
 _LONG_ALIASES = frozenset({"long", "buy", "1", "+1"})
 
 
+# R-COST-BASIS: which key supplied the row's `r_multiple` (B6, 2026-08-20).
+#
+# ⚠️ NAMED `r_cost_basis`, NOT `r_basis`, DELIBERATELY. `backtest_fidelity_
+# calibrate.py` already owns an `r_basis` meaning something ELSE — which R AXIS
+# was computed (`stop_distance` vs `sign_proxy`, its `R_BASES`) — and that
+# module is a direct consumer of these very rows. Two concepts under one name,
+# in files that talk to each other, is exactly the F-113 defect this same audit
+# measured (`risk_pct` carrying a fraction in the live sizer and a percent in
+# the backtest fleet, a 5x gap nobody could see from the name). This one says
+# COST TREATMENT: were fees/slippage deducted from the number or not.
+# Four states, never collapsed — a gross-R row and a net-R row were previously
+# BYTE-INDISTINGUISHABLE in backtest_trades.db, which the trainer's nightly
+# pooled build merges as is_backtest=1 evidence.
+R_COST_BASIS_NET = "net_r"  # r_cost_basis: costs deducted — the honest figure
+R_COST_BASIS_GROSS = "gross_r"  # r_cost_basis: costs NOT deducted — optimistic
+R_COST_BASIS_AMBIGUOUS = "r_multiple"  # r_cost_basis: says neither net nor gross
+R_COST_BASIS_STATES = (R_COST_BASIS_NET, R_COST_BASIS_GROSS, R_COST_BASIS_AMBIGUOUS)
+# A fifth reading exists and is deliberately NOT a member: `None`, meaning the
+# row PREDATES the stamp. That is a different fact from R_COST_BASIS_AMBIGUOUS —
+# ambiguous says *the producer told us and the key was uninformative*, None
+# says *nobody recorded it*. Folding either into R_COST_BASIS_NET is the failure.
+
+
 def encode_backtest_notes(run_tag: str, *, fidelity: str | None = None,
-                          omitted_levers: Any = None) -> str:
+                          omitted_levers: Any = None,
+                          r_cost_basis: str | None = None) -> str:
     """Encode the row's `notes`, carrying the PRODUCING HARNESS's fidelity claim.
 
     Why the label has to ride ON THE ROW: `regime_debt_matrix.build_harness_cmd`
@@ -53,21 +77,24 @@ def encode_backtest_notes(run_tag: str, *, fidelity: str | None = None,
     needed and an old row reads as `fidelity=None` — *unknown*, which
     `parse_backtest_notes` keeps distinct from *faithful*.
     """
-    if fidelity is None and not omitted_levers:
+    if fidelity is None and not omitted_levers and r_cost_basis is None:
         return run_tag
     return json.dumps({
         "run_tag": run_tag,
         "fidelity": fidelity,
         "omitted_levers": list(omitted_levers or []),
+        "r_cost_basis": r_cost_basis,
     }, sort_keys=True)
 
 
 def parse_backtest_notes(notes: Any) -> dict[str, Any]:
     """Decode `notes` written by either shape. Never raises.
 
-    Returns ``{run_tag, fidelity, omitted_levers}``. ``fidelity`` is ``None``
-    for a legacy plain-string row — *nobody recorded it*, which must not be
-    read as *the harness said it was complete*.
+    Returns ``{run_tag, fidelity, omitted_levers, r_cost_basis}``. ``fidelity`` is
+    ``None`` for a legacy plain-string row — *nobody recorded it*, which must
+    not be read as *the harness said it was complete*. ``r_cost_basis`` follows the
+    same rule and carries the same warning: ``None`` means the row predates the
+    stamp, NOT that the R is net of costs.
     """
     if isinstance(notes, str) and notes.startswith("{"):
         try:
@@ -76,13 +103,15 @@ def parse_backtest_notes(notes: Any) -> dict[str, Any]:
             obj = None
         if isinstance(obj, dict):
             levers = obj.get("omitted_levers")
+            basis = obj.get("r_cost_basis")
             return {
                 "run_tag": obj.get("run_tag"),
                 "fidelity": obj.get("fidelity"),
                 "omitted_levers": list(levers) if isinstance(levers, list) else [],
+                "r_cost_basis": basis if basis in R_COST_BASIS_STATES else None,
             }
     return {"run_tag": notes if isinstance(notes, str) else None,
-            "fidelity": None, "omitted_levers": []}
+            "fidelity": None, "omitted_levers": [], "r_cost_basis": None}
 
 
 def sim_trade_to_trade_row(
@@ -135,8 +164,15 @@ def sim_trade_to_trade_row(
         "pnl": r,                       # realized R as a pnl proxy → won = R > 0
         "pnl_percent": r * float(risk_pct),
         "status": "closed",
+        # r_cost_basis rides from the producer via `meta`, not a new parameter:
+        # it is a property of THIS ROW's number, while fidelity/omitted_levers
+        # are properties of the RUN. A run-level parameter would force every
+        # caller to know a per-row fact.
         "notes": encode_backtest_notes(run_tag, fidelity=fidelity,
-                                       omitted_levers=omitted_levers),
+                                       omitted_levers=omitted_levers,
+                                       r_cost_basis=(meta.get("r_cost_basis")
+                                                if meta.get("r_cost_basis") in R_COST_BASIS_STATES
+                                                else None)),
         "is_backtest": 1,
         "strategy_name": strategy,
         "account_id": "backtest",

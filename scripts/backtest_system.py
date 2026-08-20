@@ -105,7 +105,15 @@ try:
 except Exception:  # noqa: BLE001
     _compute_conviction = None
 
-FEE_BPS_ROUNDTRIP = 7.5
+# 2026-08-20 (B4): was a hardcoded `7.5` — in a file that imports the ONE shared
+# cost model at line 77 and already reads `execution_costs.FUNDING_WINDOW_HOURS`
+# below. Both conventions lived here, and different call sites used each: the
+# literal fed `_close`'s fee_rate + `roundtrip_cost_r` + the emitted metadata,
+# while `roundtrip_cost_usd` took the owner's. They agreed at 7.5 and nothing
+# enforced that — the same shape as F-113 (`risk_pct` as a fraction in the live
+# sizer and a percent in this same harness fleet, a 5x gap invisible from the
+# name). Now an alias, so the value has exactly one home.
+FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP
 # Execution-realism cost (P1 § 3.B). This harness ALREADY charged a round-trip fee
 # (`fee_rate·(entry+exit)·qty` in `_close`), so the fee convention is kept exactly —
 # byte-identical PnL. Slippage + perp-only funding are ADDED through the ONE shared

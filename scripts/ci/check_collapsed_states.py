@@ -64,6 +64,55 @@ REPO = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "harness_r.r_cost_basis",
+        # The PRODUCER of the persisted field is the recorder: it declares the
+        # three states and encodes them into the row's `notes`.
+        # record_harness_trades.py DECIDES which state a row gets, but it does
+        # so through these constants rather than literals, so pointing the
+        # contract there would fail producer-integrity for the right reason —
+        # the vocabulary lives in exactly one module, which is the point.
+        "producer": "ml/datasets/backtest_recorder.py",
+        "producer_field": "r_cost_basis",
+        # Scoped to this contract's OWN tokens, never to the state words:
+        # "net_r" / "gross_r" / "r_multiple" are ordinary column names that
+        # appear across the whole harness fleet, and matching on them would
+        # bind this contract to a dozen unrelated files (the coincidence-
+        # matching failure the package_leg_coverage entry below records).
+        "consumer_token": (r"\br_cost_basis\b|\bR_COST_BASIS_STATES\b|"
+                           r"\bR_COST_BASIS_GROSS\b"),
+        "states": ["net_r", "gross_r", "r_multiple"],
+        "why": (
+            "record_harness_trades fell back net_r -> gross_r -> r_multiple "
+            "and wrote float(r) with NO record of which key supplied it, so a "
+            "GROSS-R row (fees and slippage NOT deducted, systematically "
+            "optimistic) was BYTE-INDISTINGUISHABLE from a NET-R row in "
+            "backtest_trades.db -- which the trainer's nightly pooled build "
+            "merges as is_backtest=1 evidence. `r_multiple` is its own state, "
+            "not a synonym for either: the producer used a key that says "
+            "NEITHER, so the sample cannot be SHOWN to be net, and 'cannot be "
+            "shown' is not 'is'. A fourth reading, None, is deliberately NOT a "
+            "declared state -- it means the row PREDATES the stamp (nobody "
+            "recorded it), a different fact from a producer telling us the key "
+            "was uninformative; encode_backtest_notes keeps legacy rows "
+            "byte-identical so no migration is needed and an old row reads "
+            "None rather than being promoted to net. The consumer is "
+            "backtest_fidelity_calibrate.backtest_fidelity, which already "
+            "grades 'is this sample what live would have produced' from the "
+            "harness fidelity label; gross/ambiguous now set the same "
+            "`approximate` verdict rather than a parallel one nobody reads -- "
+            "but deliberately do NOT join `omitted_levers`, which names EXIT "
+            "LEVERS and would then describe something it is not. Note the "
+            "SIBLING defect in this same function (strategy-label precedence) "
+            "was found and fixed in the 2026-07-19 audit while this one "
+            "survived: a fix that closed the instance and not the class. "
+            "Named r_cost_basis, NOT r_basis, because "
+            "backtest_fidelity_calibrate already owns an `r_basis` meaning "
+            "which R AXIS was computed (stop_distance vs sign_proxy) -- one "
+            "name for two concepts in modules that talk to each other is the "
+            "F-113 defect measured in this same audit."
+        ),
+    },
+    {
         "name": "prop_rule_distance.balance_basis",
         "producer": "src/prop/prop_reconcile.py",
         "producer_field": "balance_basis",
