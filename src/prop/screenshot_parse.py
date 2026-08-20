@@ -227,12 +227,84 @@ def _strip_fence(text: str) -> str:
     return s.strip()
 
 
-def _call_vision(image_b64: str, media_type: str) -> str:
-    """The one LLM call — lazy anthropic import so tests can monkeypatch this.
+_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    Raises :class:`ScreenshotParseError` with an operator-readable reason when
-    the SDK/key is unavailable so the photo handler can reply cleanly.
+#: Used when the PRIMARY provider fails for a provider-level reason (dead key,
+#: exhausted credit, quota). Gemini's free tier is multimodal, and its key is
+#: already synced to the live VM by `sync-vm-secrets.yml`, so this costs no new
+#: infrastructure. `gemini-2.5-flash` is chosen because it is ALREADY exercised
+#: elsewhere in this repo — not invented here.
+_DEFAULT_FALLBACK_MODEL = "gemini-2.5-flash"
+
+
+def _fallback_model_id() -> str:
+    return (os.environ.get("PROP_SCREENSHOT_FALLBACK_MODEL", _DEFAULT_FALLBACK_MODEL)
+            .strip() or _DEFAULT_FALLBACK_MODEL)
+
+
+def _is_gemini(model_id: str) -> bool:
+    return model_id.strip().lower().startswith("gemini")
+
+
+def _call_vision_gemini(model_id: str, image_b64: str, media_type: str) -> str:
+    """Vision call against the Google Generative Language API.
+
+    Mirrors `src/runtime/insights/generator.py::_call_gemini` — same base URL,
+    same `X-goog-api-key` HEADER auth (never the URL `?key=`, so the key cannot
+    land in an incidentally-logged request line). The only difference is the
+    inline image part, which is what makes this a VISION call.
     """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ScreenshotParseError(
+            "screenshot reading is unavailable (no GEMINI_API_KEY set) — "
+            "type the report instead, e.g. `bal 4982.86 4982.86`.")
+    try:
+        import httpx  # lazy, mirroring the anthropic branch
+    except ImportError as exc:  # pragma: no cover - env-dependent
+        raise ScreenshotParseError(
+            "screenshot reading is unavailable (httpx not installed) — "
+            "type the report instead.") from exc
+
+    body = {
+        "contents": [{"role": "user", "parts": [
+            {"inline_data": {"mime_type": media_type, "data": image_b64}},
+            {"text": _USER_PROMPT},
+        ]}],
+        "systemInstruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
+        # Temperature 0: reading numbers off a screen is transcription, not
+        # generation. A creative sample here is a misread balance.
+        "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.0,
+                             "responseMimeType": "application/json"},
+    }
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.post(
+            f"{_GEMINI_BASE_URL}/{model_id}:generateContent",
+            json=body,
+            headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
+        )
+    if resp.status_code != 200:
+        raise ScreenshotParseError(
+            f"screenshot reading failed ({model_id} HTTP {resp.status_code}) — "
+            "type the report instead.")
+    try:
+        cands = resp.json().get("candidates") or []
+        parts = (cands[0].get("content") or {}).get("parts") or []
+        text = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+    except Exception as exc:  # noqa: BLE001
+        raise ScreenshotParseError(
+            f"screenshot reading returned an unreadable {model_id} response.") from exc
+    if not text.strip():
+        # An empty completion is NOT an empty screenshot. Saying "no trade
+        # found" here would report a read that never happened.
+        raise ScreenshotParseError(
+            f"{model_id} returned no text for that image — try again, or type "
+            "the report instead.")
+    return text
+
+
+def _call_vision_anthropic(model_id: str, image_b64: str, media_type: str) -> str:
+    """Vision call against the Anthropic Messages API."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise ScreenshotParseError(
             "screenshot reading is unavailable (no ANTHROPIC_API_KEY set) — "
@@ -246,7 +318,7 @@ def _call_vision(image_b64: str, media_type: str) -> str:
 
     client = anthropic.Anthropic()  # picks up ANTHROPIC_API_KEY from env
     resp = client.messages.create(
-        model=_model_id(),
+        model=model_id,
         max_tokens=1024,
         system=_SYSTEM_PROMPT,
         messages=[{
@@ -259,6 +331,43 @@ def _call_vision(image_b64: str, media_type: str) -> str:
         }],
     )
     return _extract_text(resp)
+
+
+def _call_vision(image_b64: str, media_type: str) -> str:
+    """The one LLM call — provider chosen by `PROP_SCREENSHOT_MODEL`.
+
+    Tests monkeypatch THIS function, so its signature is deliberately unchanged.
+
+    ⚠️ FALLS BACK, AND SAYS SO. Measured live 2026-08-20: the Anthropic key hit
+    `credit balance is too low`, and the operator's screenshot was refused with
+    a raw provider 400. A single-provider vision path means one billing event
+    takes out the whole manual-bridge report-back — so a provider-level failure
+    now retries on `PROP_SCREENSHOT_FALLBACK_MODEL` (Gemini free tier, key
+    already on the VM).
+
+    The fallback is logged at WARNING naming BOTH models, because which model
+    read the operator's money numbers is a provenance fact, not an
+    implementation detail — a silent swap would leave no record of what
+    transcribed a balance that feeds the prop rule-distance cushion.
+    """
+    primary = _model_id()
+    caller = _call_vision_gemini if _is_gemini(primary) else _call_vision_anthropic
+    try:
+        return caller(primary, image_b64, media_type)
+    except ScreenshotParseError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — provider/network/billing failure
+        fallback = _fallback_model_id()
+        # Never "fall back" to the provider that just failed.
+        if not fallback or fallback == primary or _is_gemini(fallback) == _is_gemini(primary):
+            raise ScreenshotParseError(
+                f"couldn't read that screenshot ({primary}): {exc}") from exc
+        logger.warning(
+            "screenshot_parse: primary vision model %s failed (%s) — "
+            "falling back to %s", primary, exc, fallback,
+        )
+        alt = _call_vision_gemini if _is_gemini(fallback) else _call_vision_anthropic
+        return alt(fallback, image_b64, media_type)
 
 
 def parse_screenshot(
