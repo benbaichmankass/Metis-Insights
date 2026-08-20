@@ -149,7 +149,75 @@ features, same legs return opposite verdicts three rungs apart. 4 of 24 runs wer
 `harness_invalid` and are excluded, all on SOL, at a rate below the gate's own α
 (`BL-20260820-E2-NEGATIVE-CONTROL-GATED-POINTWISE-NOT-FWER`); they were **not** re-rolled.
 
+**GATE + ADMISSIBILITY, RESOLVED 2026-08-20**
+(`docs/research/e2-gate-decision-and-sol-clustering-2026-08-20.md`). Two corrections to the
+paragraph above, both measured.
+
+*The "SOL-panel factor" is withdrawn.* A control **bank** pushed through E2's own imported
+machinery (`scripts/research/e2_null_calibration.py`) measures the SOL h48 null as
+**calibrated** — clear-rate 0.040 against α = 0.05, mean permutation *p* **0.517** (a valid
+null gives 0.5), and a length-matched comparison null agrees. The real cause is that
+`inject_controls` seeds from the run seed and fills in row order, so **the noise column is
+byte-identical across all three targets of a panel**: the sweep had **8** independent control
+draws, not 24. Under the measured co-discard dependence (6.8–14.0× lift) the correct
+arithmetic is **P(≥4) = 0.086, not 0.0298**, and **P(all on one leg | ≥4) = 0.329, not
+0.125.** Both published numbers assumed an independence the runs do not have; the pattern is
+unremarkable.
+
+*The gate now reads a RATE.* K = 64 noise columns, refused only when the Binomial(K, α) upper
+tail falls below `gate_level` = 0.01; `harness_state` is four never-collapsed states
+(`valid` / `invalid_positive_control_dead` / `invalid_null_miscalibrated` / **`unchecked`** —
+K = 0, *we did not look*, which is not `valid`). Measured over 40 seeded sound null panels:
+the old single-draw rule discards **2/40 = 5.0%** (α, exactly), this gate **0/40**. The FWER
+gate the backlog row proposed was designed, measured (2/64 on a narrow family) and
+**rejected** — P(any of K clears) *rises* with K, so it gets more trigger-happy the more
+carefully you measure it.
+
 ### E3 · Design levers over informative features — and COMBINE them
+Only features that survived E2. Levers are swept **jointly**, not one at a time: the
+single-lever sweeps cannot see an interaction, and *"exit when the thesis decayed AND the
+peer already turned AND we are past the capital-efficient hold"* is not reachable by any
+of them alone.
+*Falsifier:* a combined cell must beat the best single cell by more than the added degrees
+of freedom buy. State the comparison explicitly.
+
+**PRECONDITION SETTLED 2026-08-20 — THE E2 LICENCE DOES NOT SURVIVE IT**
+(`docs/research/e3-barrier-geometry-2026-08-20.md`). Limit 2 above — *"part of the effect may
+be barrier geometry"* — was the load-bearing one. Measured: the terminal barrier alone
+accounts for **13.9% → 27.0% → 46.6%** of `label_hold`'s entropy across h=12/24/48 **on one
+leg**, with SOL h48 at 47.4% agreeing to 0.8 pp; P(hold) is 0.017 at the stop, 0.995 at the
+target, 0.556 at the time stop. **The rung where E2 starts finding hits is the rung where the
+barrier's share passes ~45%.** And the pooled association **reverses inside every stratum** —
+`dist_to_stop_atr` +0.117 pooled / −0.194 within, `upnl_r` +0.106 / −0.219 — on exactly the
+features the horizon arm reported clearing FWER. The *within* value is the stable one across
+legs and rungs; the *pooled* value, which E2 scores, swings with the barrier mix.
+
+The stratified view licenses nothing either (`touch` is the barrier the trade **later**
+reached, so it conditions on the future). **So E3 is NOT licensed by an E2 information score
+on this label** — only a decision-time-only, net-of-cost run can license a lever.
+
+**RUN 2026-08-20** (`docs/research/e3-joint-lever-screen-2026-08-20.md`;
+`scripts/research/e3_joint_lever_sweep.py`). Levers over the three named features, 11 singles
++ 179 cells, 503 + 567 trades, 4 anchored walk-forward folds, all numbers OOS. **The
+falsifier FAILS on both legs.** XRP: the joint grid, given **16.3× the cells, selected the
+same single cell every fold — +0.000 R**. SOL: both arms lose, so the comparison does not
+apply (`falsifier_applicable: false`; beating a worse negative is not evidence). The one
+positive cell (`bank0.75`, XRP, +5.467 R OOS, 4/4 folds) **breaks even at 0.02–0.05 R of
+extra cost and the repo's own fee constant resolves to 0.082–0.163 R here** — it fails on
+cost by 2–8×.
+
+⚠️ **A decision-time lever screen is HORIZON-INVARIANT**, verified to full float equality:
+the horizon moves only the *label*, a lever acts on the *trade*. "E3 at h=48" is the same
+screen as at any rung, and **no lever inherits the h=48 licence.**
+
+Two substrate defects surfaced and are filed: the label's 2.0 R upper barrier does not match
+the live `tp_at_r: 1.5` and **no trade ever realises above +1.5 R**
+(`BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY`); and the take-profit
+**level** has never been a swept dimension in any exit sweep, on a fleet whose own E0 census
+says a level fixed at entry decides 78.5% of exits
+(`BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT`). Per §3.1's *"check the
+substrate before blaming the question"*, the bracket geometry is the next thing to measure —
+graded **net of fees**, because §3–4 of the screen say cost is the binding term.
 Only features that survived E2. Levers are swept **jointly**, not one at a time: the
 single-lever sweeps cannot see an interaction, and *"exit when the thesis decayed AND the
 peer already turned AND we are past the capital-efficient hold"* is not reachable by any
