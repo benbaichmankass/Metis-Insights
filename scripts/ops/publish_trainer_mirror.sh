@@ -180,6 +180,7 @@ if ! python3 - "$REPO_ROOT" "$TRAINING_LOG_PATH" "$REGISTRY_ROOT" "$TRAINER_VM_I
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -326,6 +327,12 @@ last_cycle = None
 last_cycle_outcome = None
 cycles_24h = 0
 manifests = Counter()
+# `staleness` stays None until a `training_staleness_summary` row is seen.
+# None means WE DID NOT FIND ONE — never an empty dict, which a consumer would
+# read as "scanned nothing / nothing stale". The published block below says
+# which, rather than leaving the reader to infer it from a null.
+staleness = None
+refusing_manifests = set()  # no annotation: must run on whatever python the trainer has
 for row in cycle_rows:
     status = row.get("status")
     ts = parse_iso(row.get("ts"))
@@ -334,9 +341,17 @@ for row in cycle_rows:
             cycles_24h += 1
         last_cycle = row
         last_cycle_outcome = row.get("overall_rc")
-    elif status in {"manifest_ok", "manifest_failed", "manifest_missing", "manifest_skipped"}:
+    elif status in {"manifest_ok", "manifest_failed", "manifest_missing",
+                    "manifest_skipped", "manifest_audit_skipped_enforced"}:
         if ts and ts >= cutoff_24h:
             manifests[status] += 1
+            if status == "manifest_audit_skipped_enforced":
+                refusing_manifests.add(row.get("manifest") or "(unnamed)")
+    elif status == "training_staleness_summary":
+        # The cycle emits this EVERY run and nothing published it, so the one
+        # surface every consumer reads (/api/bot/ml/status) could not see that
+        # 7 of 76 manifests were stale. Keep the newest row verbatim.
+        staleness = row
 
 # --- Dataset build history ------------------------------------------------
 build_rows = safe_tail_jsonl(repo_root / "runtime_logs" / "trainer" / "dataset_builds.jsonl", 500)
@@ -383,6 +398,37 @@ for row in registry_rows:
     if stage:
         stages[stage] += 1
 
+# --- Disk headroom -----------------------------------------------------------
+# ⚠️ THE TRAINER PUBLISHED NO DISK METRIC AT ALL until 2026-08-20, and nothing
+# anywhere observed it. Measured that day: the 45 G root was at **94%** with
+# **3.2 G free** and the only way to learn it was to SSH in. The LIVE trader has
+# `src/runtime/health.py::check_disk`; the trainer's 12 published status keys did
+# not include disk, so `/api/bot/ml/status`, the ML-review skill and the
+# notification banners were all structurally blind to it.
+#
+# This is the cheap half of the fix: PUBLISH the number so a consumer can grade
+# it. It deliberately does NOT delete anything and is not a retention policy —
+# see the note on `trainer_dataset_gc.py` below.
+#
+# Three states, never collapsed: a read failure is `measured: false` with a
+# reason, NOT a comfortable 0% or a missing key. "We could not look" and "there
+# is plenty of room" are opposite statements.
+disk = {"measured": False, "reason": "not_attempted", "path": str(REPO_ROOT)}
+try:
+    _du = shutil.disk_usage(str(REPO_ROOT))
+    _used_pct = round(100.0 * (_du.total - _du.free) / _du.total, 1) if _du.total else None
+    disk = {
+        "measured": True,
+        "path": str(REPO_ROOT),
+        "total_gb": round(_du.total / 1e9, 2),
+        "used_gb": round((_du.total - _du.free) / 1e9, 2),
+        "free_gb": round(_du.free / 1e9, 2),
+        "used_pct": _used_pct,
+    }
+except Exception as exc:  # noqa: BLE001 — never break the publish over a stat()
+    disk = {"measured": False, "reason": f"{type(exc).__name__}: {exc}",
+            "path": str(REPO_ROOT)}
+
 payload = {
     "ts": iso(now),
     "trainer_vm": {
@@ -393,12 +439,46 @@ payload = {
         "load_1m": load_1m,
         "head_sha": head_sha,
     },
+    # Top-level (not nested under trainer_vm) so a consumer grading headroom
+    # does not have to know it is a "VM" fact — it is a TRAINER fact, and the
+    # ml-review skill reads this blob by key.
+    "disk": disk,
     "service": service,
     "timer": timer,
     "last_cycle": last_cycle,
     "last_cycle_outcome": last_cycle_outcome,
+    # TRAINING STALENESS (2026-08-20, F-35/F-103). The cycle has emitted a
+    # `training_staleness_summary` line every run for weeks — the adder-up over
+    # its four independent skip paths — and NOTHING published it, so the live
+    # /api/bot/ml/status payload carried 12 keys and none described staleness
+    # while 7 of 76 manifests sat past the 7-day threshold. A signal written
+    # and never read is worse than a missing one: reviewers see the field in
+    # the cycle log and assume something acts on it.
+    #
+    # `present` is the honest three-way: `true` (a summary was found and is
+    # inlined), `false` (none in the retained tail — WE DID NOT FIND ONE, which
+    # is NOT "nothing is stale"). A consumer must branch on `present` before
+    # reading any count, exactly as it must read `mirror_age_seconds` beside
+    # any payload on this endpoint.
+    "training_staleness": {
+        "present": staleness is not None,
+        "summary": staleness,
+        "detail": (None if staleness is not None else
+                    "no training_staleness_summary row in the retained cycle "
+                    "tail — the trainer may be running a cycle script that "
+                    "predates it, or the tail is too short. This is 'we did "
+                    "not find one', NOT 'nothing is stale'."),
+    },
+    # REFUSALS (same finding, the other half). An enforced skip is a manifest
+    # we LOOKED AT and REFUSED on known-bad data — neither trained nor failed.
+    # It was absent from `manifests_24h` entirely, so the refusal was invisible
+    # on this surface. Named, not just counted: a bare count cannot be acted on.
+    "refusing_manifests_24h": sorted(refusing_manifests),
     "cycles_24h": cycles_24h,
     "manifests_24h": {
+        # `audit_skipped_enforced` was omitted here until 2026-08-20, so a
+        # refused manifest counted toward nothing on this surface.
+        "audit_skipped_enforced": manifests.get("manifest_audit_skipped_enforced", 0),
         "ok": manifests.get("manifest_ok", 0),
         "failed": manifests.get("manifest_failed", 0),
         "missing": manifests.get("manifest_missing", 0),
