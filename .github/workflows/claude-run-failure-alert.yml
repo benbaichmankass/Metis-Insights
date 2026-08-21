@@ -158,13 +158,34 @@ jobs:
       # operator to ignore the channel (the desensitized-alarm P1), and an
       # exclusion leaves a cron dying unobserved.
       #
-      # The convention: a workflow that sends its own operator ping names that
+      # The convention: a workflow that sends its own operator ping names a
       # step with the sentinel `[operator-ping]`. This listener reads the
       # watched run's steps and stays quiet only when such a step actually
-      # concluded `success` — i.e. a message really went out. It is a
-      # VERIFIED suppression, never a declared one: naming a workflow in some
-      # allow-list would be cheaper to get wrong than to satisfy, the failure
-      # shape `new-table-wiring-guard`'s presence-only marker already cost us.
+      # concluded `success`. It is a VERIFIED suppression, never a declared
+      # one: naming a workflow in some allow-list would be cheaper to get
+      # wrong than to satisfy, the failure shape `new-table-wiring-guard`'s
+      # presence-only marker already cost us.
+      #
+      # ⚠️ THE SENTINEL MUST NAME A STEP WHOSE `success` ENTAILS DELIVERY —
+      # NEVER THE BEST-EFFORT SEND ITSELF. When this dedupe first shipped
+      # (2026-08-21) it did exactly that, and the comment here asserted the
+      # suppression meant "a message really went out". It did not. Both
+      # sentinel steps ran `set +e` and `python scripts/notify_session.py …
+      # || echo "::warning::telegram notify failed (non-fatal)"`, so each
+      # concluded `success` whether or not Telegram accepted the message —
+      # while `notify_session.py` was already exiting 1 on a real delivery
+      # failure and the `|| echo` was discarding that. A Telegram outage
+      # would therefore have been served to this listener as "someone else
+      # handled it", swallowing the ping: the exact bug this workflow exists
+      # to prevent, newly reachable through the fix meant to help.
+      # Both workflows now put the sentinel on a separate marker step gated
+      # `if: steps.<send>.outcome == 'success'`, so a failed send leaves it
+      # `skipped` and this listener falls back — on a DIFFERENT bot token
+      # (`TELEGRAM_BOT_TOKEN` here vs `CLAUDE_TELEGRAM_BOT_TOKEN` there),
+      # which is what makes the fallback worth having.
+      # Enforced by tests/test_run_failure_alert_dedupe.py, which fails if a
+      # sentinel step is ever again `continue-on-error` or swallows with `||`.
+      # BL-20260821-SELF-PING-SENTINEL-SURVIVES-A-FAILED-SEND.
       #
       # THREE states, never collapsed — and the tie-break is deliberate:
       #   self_pinged      a sentinel step ran and succeeded  -> stay quiet

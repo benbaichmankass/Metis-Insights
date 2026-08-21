@@ -284,7 +284,14 @@ jobs:
           print("__SUMMARY__")
           PY
 
-      - name: Notify operator [operator-ping] (informational, only on schedule + dispatch)
+      - name: Notify operator (informational, only on schedule + dispatch)
+        # ⚠️ THE `[operator-ping]` SENTINEL IS DELIBERATELY *NOT* ON THIS STEP —
+        # see the sibling note in oci-inventory.yml. The send is best-effort, so
+        # this step's `success` does not mean Telegram accepted anything, and
+        # claude-run-failure-alert would read it as a licence to stay quiet.
+        # BL-20260821-SELF-PING-SENTINEL-SURVIVES-A-FAILED-SEND.
+        id: operator_ping
+        continue-on-error: true
         # ONE Telegram message per run, framed as an informational
         # status check — not a "review required" alert. Skip for the
         # issue-driven path because the issue comment-back is the
@@ -300,15 +307,22 @@ jobs:
           STATUS_LEVEL: ${{ steps.status.outputs.level }}
           STATUS_SUMMARY: ${{ steps.status.outputs.summary }}
         run: |
-          set +e
+          set -euo pipefail
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           # The summary line carries the level naturally — no extra
           # "ACTION REQUIRED" framing when the bot is fine. Operator
           # opens the run page only if they want the artifact.
           PYTHONPATH=. python scripts/notify_session.py alert \
             --summary "${STATUS_EMOJI} Health snapshot — ${STATUS_SUMMARY}" \
-            --link "${RUN_URL}" \
-            || echo "::warning::telegram notify failed (non-fatal)"
+            --link "${RUN_URL}"
+
+      # THE SENTINEL — runs only when the send above really succeeded, so its
+      # `success` means a message went out. See oci-inventory.yml for the full
+      # rationale; `notify_session.py` exits 1 on a genuine delivery failure and
+      # the old `|| echo` discarded that.
+      - name: Operator ping confirmed sent [operator-ping]
+        if: steps.operator_ping.outcome == 'success'
+        run: echo "Telegram accepted the operator ping."
 
       # ────────────────────────────────────────────────────────────
       # Issue-driven path: comment the run URL + artifact link back
