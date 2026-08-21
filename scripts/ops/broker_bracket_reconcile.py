@@ -83,6 +83,17 @@ Exit codes:  0 = reconciled and clean · 1 = findings · 2 = usage/parse error
 Read-only. Consumes the two diag payloads; opens no socket of its own, touches
 no order path, and cannot refuse a trade.
 
+SCHEDULED CALLER
+================
+``.github/workflows/broker-bracket-reconcile.yml`` runs this every 6h and on
+demand. It RECORDS every run and COMMENTS only when ``fingerprint()`` moves,
+because both of this tool's alarm-shaped outputs are true in the steady state
+(``total_findings`` = 3 and exit 3, measured live 2026-08-21T06:39:13Z), so
+pinging on either would fire constantly -- the desensitized alarm CLAUDE.md
+names as its own P1 bug. Silence from that issue means "the same set of
+problems", NEVER "no problems"; a stale "Last checked" line there means the
+schedule itself has died.
+
 Usage
 -----
     bash scripts/ops/diag_fetch.sh '/api/diag/ib_open_orders' > /tmp/o.json
