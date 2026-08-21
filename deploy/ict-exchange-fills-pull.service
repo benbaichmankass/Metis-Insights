@@ -22,7 +22,7 @@
 # LIVE-TRADER BOX ONLY. Reads Bybit over the public API using each account's
 # BYBIT_API_KEY_* / BYBIT_API_SECRET_* from the trader .env; read-only on the
 # exchange side (fetch_my_trades). Touches NO service and NO trade_journal.db
-# table. The store's primary key is exec_id, so the daily 7-day over-sampling is
+# table. The store's primary key is exec_id, so the hourly 7-day over-sampling is
 # idempotent (duplicate fills are dropped).
 #
 # DATA_DIR: this unit MUST resolve runtime_state_dir() to the SAME root as
@@ -60,7 +60,7 @@ TimeoutStartSec=300
 # Run under the trader venv so ccxt imports (same interpreter the trader uses
 # for Bybit) — not system /usr/bin/python3.
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --all-bybit-accounts --days 7
-# Alpaca fills (rec #7): the same daily timer also pulls every live Alpaca
+# Alpaca fills (rec #7): the same hourly timer also pulls every live Alpaca
 # account's FILL activities (distinct sub-accounts, distinct creds from .env) so
 # the equity accounts accrue exchange-truth fills too. Runs after the Bybit pull;
 # both pullers are fail-soft internally (skip a missing-cred account, exit 2 only
