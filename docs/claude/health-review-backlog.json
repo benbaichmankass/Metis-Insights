@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-21T06:56:00+00:00",
+  "updated_at": "2026-08-21T07:12:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20469,6 +20469,29 @@
         "automation/board-posts/003-merge-claim-and-correction.md",
         "automation/board-results/003-merge-claim-and-correction.txt",
         "docs/claude/coordination-board.md"
+      ]
+    },
+    {
+      "id": "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE",
+      "opened_at": "2026-08-21T07:12:00+00:00",
+      "opened_by": "claude (exit-integrity continuation, hit while requesting auto-merge for #10086)",
+      "severity": "low",
+      "tier": "1 (CI / GitHub Actions)",
+      "status": "open",
+      "area": "session-tooling",
+      "title": "claude-pr-automerge.yml triggers on ONE shared path (.github/pr-automerge-request), so every PR that requests auto-merge conflicts with every other one that does -- a guaranteed merge + full CI cycle per collision, unlike the sibling relays which already use a per-request directory",
+      "detail": "HIT LIVE, not theorised. .github/workflows/claude-pr-automerge.yml triggers on `paths: ['.github/pr-automerge-request']` -- a SINGLE file. Every PR wanting auto-merge must modify that same file, so any two PRs using the relay collide on it by construction.\n\nMEASURED 2026-08-21: #10083 requested auto-merge (writing its line into that file) and merged as 932f0a54. #10086, branched from 9752348b before that, then requested auto-merge and came back `mergeable_state: dirty`. The ONLY conflicted path was `.github/pr-automerge-request`; every other file merged cleanly. Cost: one merge commit plus a full ~10-minute CI cycle, against a repo that has already hit the free-tier CI-minutes cap once (MB-20260706-CI-MINUTES).\n\nThe content is a trigger MARKER, not state anyone reads back -- the workflow only needs the path to have changed. So the conflict is pure ceremony: the resolution is always 'take the requesting PR's line', which carries no information.\n\nTHE FIX IS ALREADY THIS REPO'S OWN CONVENTION, which is what makes this worth filing rather than tolerating. Every sibling relay uses a per-request DIRECTORY and therefore never collides: pr-opener.yml takes `automation/pr-requests/<name>.json`, board-post.yml takes `automation/board-posts/<name>.md`, pr-close.yml takes `automation/pr-close-requests/<name>.json`. Only the auto-merge relay kept a single shared file.\n\nNOT ASSERTED: how often this actually bites. It needs two auto-merge requests open across one merge, which this session hit on its first attempt but which may be uncommon on a quiet day. The cost per occurrence is bounded and recoverable (resolve, push, re-run CI) -- hence 'low', not the conflict itself being in doubt.",
+      "resolution_criteria": [
+        "Change the trigger to a per-request directory matching the sibling relays -- e.g. `paths: ['.github/pr-automerge-requests/**']` with one file per PR -- so two concurrent requests touch different paths and cannot conflict.",
+        "Keep the old single-file path in the trigger list for one transition window so an in-flight branch that already wrote the old file still fires, then remove it.",
+        "PROVE it with two branches: open two PRs that both request auto-merge, merge one, and confirm the second comes back mergeable rather than `dirty`.",
+        "Check whether the relay reads the file's CONTENT anywhere before changing its shape; as of 2026-08-21 it appears to use the path only as a trigger, but that was read, not tested."
+      ],
+      "refs": [
+        ".github/workflows/claude-pr-automerge.yml",
+        ".github/pr-automerge-request",
+        ".github/workflows/pr-opener.yml",
+        ".github/workflows/board-post.yml"
       ]
     }
   ]
