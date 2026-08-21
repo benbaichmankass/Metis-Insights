@@ -437,6 +437,19 @@ tick** today, at ~10.9 s each on the off-loop evidence. Tick mean is 165.1 s
 This is the half the done-condition insists on, and it is a real cost, not a
 formality.
 
+> ⚠️ **CORRECTION 2026-08-21T18:05Z — I checked whose money is behind these legs only
+> AFTER writing this section, and it lowers the stake.** The **only** account trading
+> MES/MGC/MHG is **`ib_paper`** (`account_class: paper`, `mode: live`); the sole
+> real-money IB account, `ib_live`, is **`mode: dry_run`** and shelved. Verified by
+> reading `config/accounts.yaml`, not inferred.
+>
+> So every staleness figure below lands on **paper** legs, while the faster exit pass
+> benefits **every** leg — including the real-money Bybit ones. The phrase *"behind live
+> orders"* is accurate about the ORDER PATH and misleading about the RISK, and the
+> distinction is exactly the sort this repo insists on. The section is left standing
+> rather than rewritten, because the geometry it describes is unchanged and the original
+> framing is the record of what I asserted before I checked.
+
 `candles_df["close"].iloc[-1]` is read as the **current price** for entry geometry
 (`_base.py`, `trend_donchian.py`, `turtle_soup.py`, `vwap.py`, `ict_scalp.py`) and by
 the monitor for exit decisions. Making IB frames cacheable means those reads may be
