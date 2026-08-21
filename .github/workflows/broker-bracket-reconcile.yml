@@ -125,11 +125,21 @@ jobs:
 
       - name: Reconcile declared vs resting
         id: reconcile
+        env:
+          # Via env, never interpolated into the shell: `${{ }}` inside a `run:`
+          # block is textual substitution, so a dispatch input lands as SHELL
+          # SOURCE. Dispatch is collaborator-only, which bounds it but does not
+          # make it correct.
+          TICK_TOL: ${{ inputs.tick_tolerance }}
         run: |
           set -uo pipefail
           TOL=""
-          if [ -n "${{ inputs.tick_tolerance }}" ]; then
-            TOL="--tick-tolerance ${{ inputs.tick_tolerance }}"
+          if [ -n "${TICK_TOL:-}" ]; then
+            # Reject anything that is not a plain number rather than passing it on.
+            case "$TICK_TOL" in
+              ''|*[!0-9.]*) echo "::error::tick_tolerance must be numeric, got '${TICK_TOL}'"; exit 1 ;;
+            esac
+            TOL="--tick-tolerance ${TICK_TOL}"
           fi
           ARGS="--orders-json /tmp/orders.json --positions-json /tmp/positions.json ${TOL}"
 
@@ -156,8 +166,18 @@ jobs:
             echo "_detector exit ${rc} — 0 clean · 1 findings · 3 an account could not be read._"
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # An EMPTY digest is the worst possible value here: it would compare
+          # unequal to the stored one on EVERY run, producing a comment every
+          # run -- precisely the permanently-firing alarm this whole design
+          # exists to avoid, and it would look like real churn. Refuse instead.
+          DIGEST="$(head -1 /tmp/fp.txt)"
+          case "$DIGEST" in
+            [0-9a-f][0-9a-f]*) : ;;
+            *) echo "::error::fingerprint did not produce a digest (got '${DIGEST}') — refusing to write a meaningless tracking record."; exit 1 ;;
+          esac
+
           echo "rc=${rc}" >> "$GITHUB_OUTPUT"
-          echo "digest=$(head -1 /tmp/fp.txt)" >> "$GITHUB_OUTPUT"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
 
       - name: Update the tracking record, comment only on change
         uses: actions/github-script@v7
@@ -173,7 +193,15 @@ jobs:
             const digest = process.env.DIGEST;
             const rc     = process.env.RC;
             const force  = String(process.env.FORCE).toLowerCase() === 'true';
-            const render = fs.readFileSync('/tmp/render.txt', 'utf8');
+            // Bound the embedded render: a GitHub issue body caps at 65536
+            // chars, and an update rejected for length would freeze the
+            // "Last checked" line -- which this issue tells readers to
+            // interpret as a DEAD SCHEDULE. Truncating loudly beats that.
+            const _raw = fs.readFileSync('/tmp/render.txt', 'utf8');
+            const LIMIT = 20000;
+            const render = _raw.length > LIMIT
+              ? _raw.slice(0, LIMIT) + `\n\n... TRUNCATED at ${LIMIT} of ${_raw.length} chars — see the run log for the full report.`
+              : _raw;
             const state  = fs.readFileSync('/tmp/fp.txt', 'utf8').split('\n').slice(1).join('\n').trim();
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const now    = new Date().toISOString();
