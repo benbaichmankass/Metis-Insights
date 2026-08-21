@@ -20764,6 +20764,27 @@
         "BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION",
         "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE"
       ]
+    },
+    {
+      "id": "BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR",
+      "opened_at": "2026-08-21T17:10:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b; independently observed by session spsxq6)",
+      "severity": "high",
+      "tier": "1 (session discipline + a doc line)",
+      "status": "open",
+      "area": "ci",
+      "title": "A check_suite.completed SUCCESS is per-SUITE, not per-PR — acting on it merges on a partial required set",
+      "detail": "The four required checks (guards, pytest-run, pytest-collect, repo-inventory) come from SEPARATE check suites. A `check_suite.completed` webhook with conclusion=success therefore says only that ONE suite finished clean — never that the PR is green. The event's own footer says to verify overall state first, and that caveat is doing real work: read as a go-signal it authorises a merge on one of four required checks.\n\nOBSERVED TWICE, INDEPENDENTLY, ON TWO PRs, WITHIN ONE HOUR, which is why this is filed as a mechanism rather than an anecdote:\n  - PR #10105 (session spsxq6): four success events at 16:51:06, 16:51:52, 16:52:27 and 17:00:53. After the first three, `pytest-run` was still in flight.\n  - PR #10106 (session dcf5220b): four success events on head af0c9c9 (suites 88117636854, 88117658925, 88117659350, 88117658957). On reading `get_check_runs` after the first two, `guards` was still `in_progress`.\n\nNeither session merged on the event — both happened to read `get_check_runs` — but neither avoided it by design, and a session under time pressure would not. The failure mode is merge-on-partial-set, which branch protection catches only if the missing check is required AND has not yet reported; a suite that never starts reports nothing at all.\n\nThis is the same family as BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE: the surface answers a different question from the one being asked, and the answer looks reassuring either way.",
+      "evidence": [
+        "#10105: four check_suite.completed successes 16:51:06 / 16:51:52 / 16:52:27 / 17:00:53; pytest-run still running after the first three",
+        "#10106: four successes on head af0c9c9 (suites 88117636854, 88117658925, 88117659350, 88117658957); get_check_runs showed guards in_progress",
+        "Both sessions recorded it independently on the coordination board before comparing notes"
+      ],
+      "resolution_criteria": "1. State the rule where sessions actually read it — the session-coordination skill's merge protocol step 4 currently says 'confirm all required checks pass' without naming the trap. It should say: read `get_check_runs` on the head SHA and check each required context by name; a `check_suite.completed` success is NEVER sufficient.\n2. Add the same line to the PreToolUse merge-guard deny message, which is the one place a session is guaranteed to read before merging in runtimes where hooks load.\n3. Verified by a session reporting it followed the rule against a PR where a suite completed green while another was still running — i.e. proven against the live condition, not by re-reading the doc.",
+      "related": [
+        "BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE",
+        "BL-20260820-PROJECT-HOOKS-INERT-ON-WEB"
+      ]
     }
   ]
 }
