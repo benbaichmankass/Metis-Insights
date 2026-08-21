@@ -250,12 +250,63 @@ def _pair_is_open(pair: Dict[str, Any], account_id: str, db_path: Optional[str])
     return _pair_leg_state(pair, account_id, db_path) == "open"
 
 
+_STATE_ALERT_COOLDOWN_S = 3600.0
+_state_alert_last: Dict[str, float] = {}
+
+
+def _half_open_should_report(pair_label: str, *, cleaned: bool) -> bool:
+    """Own the half-open reporting cadence in ONE place, for BOTH the alert and
+    the soak row, so the alarm and the durable log can never disagree about what
+    was reported.
+
+    ⚠️ **THE TWO OUTCOMES ARE RATE-LIMITED DIFFERENTLY, DELIBERATELY.**
+
+    ``cleaned=True`` is an EDGE: the strand existed and this tick resolved it, so
+    the condition is gone and reporting is self-limiting. It is never suppressed
+    — suppressing it would hide a genuinely NEW strand that happened to land
+    inside a cooldown window. It also CLEARS the level cooldown, so the next
+    unresolved strand alerts immediately instead of inheriting the suppression
+    of the one just fixed.
+
+    ``cleaned=False`` is a LEVEL: the leg is still standing, and since the
+    safety check moved above the once-per-bar decision dedup (2026-08-21) this
+    branch runs on EVERY tick — roughly 20x per 1h bar. An un-cooled-down
+    CRITICAL there is the desensitized alarm CLAUDE.md names as a P1 in its own
+    right, and an un-cooled-down soak row would inflate the ``by_event`` counts
+    a reviewer reads off ``/api/bot/pairs/soak`` by the same factor. It is
+    reported at most once per ``_STATE_ALERT_COOLDOWN_S`` per pair.
+
+    The cooldown is in-process: a restart re-reports once, the fail-safe
+    direction. Same reasoning and same store as ``_alert_state_unreadable``.
+
+    This is a SEPARATE function from the alert on purpose. Folding the decision
+    into ``_alert_half_open_pair`` and having the caller branch on its return
+    would make the durable soak row a casualty of an alerting failure — the log
+    matters more than the ping, not less.
+    """
+    import time as _t
+    key = f"{pair_label}|half_open_unresolved"
+    if cleaned:
+        _state_alert_last.pop(key, None)
+        return True
+    now = _t.monotonic()
+    last = _state_alert_last.get(key)
+    if last is not None and (now - last) < _STATE_ALERT_COOLDOWN_S:
+        return False
+    _state_alert_last[key] = now
+    return True
+
+
 def _alert_half_open_pair(pair_label: str, account_id: str, *,
                           stranded: Sequence[str], cleaned: bool) -> None:
     """Surface a half-open pair loudly. The close-side sibling of
     ``_alert_partial_placement``: a lone leg is un-hedged directional exposure
     in a market-neutral sleeve. WARN when this tick flattened it, CRITICAL when
-    it is still standing. Never raises."""
+    it is still standing. Never raises.
+
+    Reporting CADENCE is not decided here — see ``_half_open_should_report``,
+    which the caller consults for both this alert and the soak row.
+    """
     try:
         from src.runtime.outcomes import Level, report
         if cleaned:
@@ -272,10 +323,6 @@ def _alert_half_open_pair(pair_label: str, account_id: str, *,
                    pair=pair_label, account_id=account_id, stranded_legs=list(stranded))
     except Exception as exc:  # noqa: BLE001 — an alert must never break the tick
         logger.error("pairs: half-open alert failed for %s: %s", pair_label, exc)
-
-
-_STATE_ALERT_COOLDOWN_S = 3600.0
-_state_alert_last: Dict[str, float] = {}
 
 
 def _alert_state_unreadable(pair_label: str, account_id: str, *,
@@ -808,13 +855,29 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
             n = min(len(closes_a), len(closes_b))
             closes_a, closes_b = closes_a[-n:], closes_b[-n:]
 
-            # One decision per closed bar per pair (dedup on both legs' latest ts).
             bar_key = f"{ts_a}|{ts_b}"
-            if decision_bars.get(name) == bar_key:
-                continue
-            decision_bars[name] = bar_key
-            decision_bars_dirty = True
 
+            # ── SAFETY CHECK — EVERY TICK, ABOVE THE ONCE-PER-BAR DEDUP ─────
+            # ⚠️ THE ORDER OF THESE TWO BLOCKS IS LOAD-BEARING. Do not move the
+            # leg-state read back below the `decision_bars` dedup.
+            #
+            # The dedup exists for BACKTEST FIDELITY: the trader ticks every
+            # ~3 min while the pairs are 1h, so the same closed bar is seen ~20x
+            # and the DECISION must be taken once, mirroring the harness's
+            # one-pass-per-bar loop. That reasoning applies to deciding. It does
+            # not apply to noticing that a leg is standing naked.
+            #
+            # It used to sit above this check, so a strand was not even LOOKED
+            # AT until the next bar. Measured 2026-08-21 on the live journal,
+            # the gap between the reconciler closing one leg and the cleanup
+            # flattening the other was 62, 63, 64 and 6 minutes across the
+            # recorded instances — i.e. a naked directional position in a
+            # market-neutral sleeve stood for up to a full hour, while this
+            # module's own alert graded that condition CRITICAL
+            # (BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN).
+            #
+            # A safety check must not inherit a decision cadence. The dedup now
+            # gates only the decision half, below.
             leg_state = _pair_leg_state(pair, account_id, db_path)
             if leg_state == "half_open":
                 # NOT flat. Exactly one leg is open — a naked directional
@@ -823,6 +886,13 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                 # single netted exchange position (the divergence shape,
                 # BL-20260808-PAIRS-DIVERGENCE-UNOWNED). Flatten it, say so, and
                 # place NOTHING this bar.
+                #
+                # Consuming the bar here preserves the pre-existing "place
+                # nothing this bar" semantic: the cleanup may resolve the strand
+                # mid-bar, and without this the pair would become eligible to
+                # open on the very bar it was stranded on.
+                decision_bars[name] = bar_key
+                decision_bars_dirty = True
                 strat_a, strat_b = _leg_strats(pair)
                 from src.runtime.positions import has_open_trade_for_strategy
                 stranded = [
@@ -841,17 +911,28 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                         _client_for(account_id), acct_cfg, pair,
                         "half_open_cleanup", closes_a[-1], closes_b[-1],
                     ).get("closed"))
-                _alert_half_open_pair(
-                    _pair_label(str(pair["symbol_a"]), str(pair["symbol_b"])),
-                    account_id, stranded=stranded, cleaned=cleaned)
-                rec = build_pairs_soak_record(
-                    event="half_open", pair=_pair_label(
-                        str(pair["symbol_a"]), str(pair["symbol_b"])),
-                    symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
-                    account_id=account_id, execution_mode=execution,
-                    stranded_legs=stranded, cleanup_confirmed=cleaned)
-                record_pairs_soak(rec)
+                _label = _pair_label(str(pair["symbol_a"]), str(pair["symbol_b"]))
+                # ONE cadence decision, used for the alert AND the soak row, so
+                # the alarm and the durable log always agree about what was
+                # reported. The cleanup above is NOT gated by it — a safety
+                # action retries every tick; only the reporting is cooled down.
+                if _half_open_should_report(_label, cleaned=cleaned):
+                    _alert_half_open_pair(_label, account_id,
+                                          stranded=stranded, cleaned=cleaned)
+                    rec = build_pairs_soak_record(
+                        event="half_open", pair=_pair_label(
+                            str(pair["symbol_a"]), str(pair["symbol_b"])),
+                        symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
+                        account_id=account_id, execution_mode=execution,
+                        stranded_legs=stranded, cleanup_confirmed=cleaned)
+                    record_pairs_soak(rec)
                 continue
+
+            # ── DECISION HALF — once per closed bar, as before ──────────────
+            if decision_bars.get(name) == bar_key:
+                continue
+            decision_bars[name] = bar_key
+            decision_bars_dirty = True
 
             is_open = leg_state == "open"
             open_state = None

@@ -3660,7 +3660,35 @@
       "resolution_criteria": "Either (a) a CI check that every file added under docs/sprint-logs/ carries all 14 '## ' section names from the template -- diff-scoped so the ~200 existing logs are grandfathered, the same shape as diagnostic-provenance-guard -- with a self-test proving it FAILS on a log missing a section (not merely passes on a good one); or (b) an explicit decision, recorded in CLAUDE.md, that the template is advisory rather than mandatory, so the hierarchy stops claiming an enforcement that does not exist. Either resolves it; the current state -- 'mandatory' with zero enforcement and measured drift -- is the one that should not persist.",
       "next_action": "A review session picks (a) or (b). If (a): grandfather by diff scope, and check NAMES not a count. Cheap either way; the measurement above is the whole investigation.",
       "updates": []
+    },
+    {
+      "id": "PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "high",
+      "tier": "3 (strategy disposition)",
+      "status": "open",
+      "area": "strategy-performance",
+      "title": "slv_trend_1h: 0 wins in 13 closed trades over 30d, -5,374.59 paper, and it is the only large loser whose loss is well MEASURED (coverage 0.77) — a KILL/DEMOTE candidate with credible evidence",
+      "detail": "MEASURED 2026-08-21 from /api/bot/performance?window=30d paper.perStrategy: slv_trend_1h trades=13 winRate=0.0 totalPnl=-5374.59 totalPnlMeasured=-4264.42 pnlCoverage=0.77 expectancyR=-1.121 totalR=-14.57. A 0-for-13 record is not a small-sample accident at that expectancy.\n\nWhat makes it actionable ahead of the other big losers is its PROVENANCE. The larger paper losers are mostly unmeasured: ict_scalp_avax_5m -7620.73 at coverage 0.40, ict_scalp_xrp_5m -5513.15 at 0.29, trend_donchian_avax_4h -3351.40 at 0.00, htf_pullback_trend_2h -3189.03 at 0.00. slv_trend_1h at 0.77 is the one whose loss we can actually stand behind.\n\nTwo slv_trend_1h positions are open right now (#4837 alpaca_paper, #4838 alpaca_portfolio, both SLV long from 60.33, stop trailed to 60.399 i.e. just above breakeven).\n\nOther 0%-win legs in the same window, all smaller and less measured: eth_pullback_2h 0/6 -6183.99 (coverage 0.83, and ALSO negative on real money: 5 trades 20% win -13.11), htf_pullback_trend_2h 0/3 -3189.03 (coverage 0.00), tlt_pullback_1h 0/4 -1681.88 (coverage 1.00).",
+      "why_it_matters": "The 30d paper book is -45,836.67 and roughly half of it comes from six legs with zero or near-zero win rates. Deciding these is the highest-value performance action available, and slv_trend_1h is the one where the evidence standard is met.",
+      "next_action": "Run the M7 strategy-review packet for slv_trend_1h, eth_pullback_2h, htf_pullback_trend_2h and tlt_pullback_1h (generate-strategy-review-packets, Tier-1) and bring the resulting KILL/DEMOTE_SHADOW badges to the operator with the coverage figure stated beside each verdict. eth_pullback_2h additionally has PB-20260618-015 and PB-20260816-ETHPULLBACK-FILL-RATE-12PCT already open against it.",
+      "resolution_criteria": "Each of the four legs carries a current M7 packet and an operator decision (kill / demote to shadow / hold with a stated reason)."
+    },
+    {
+      "id": "PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "high",
+      "tier": "1 (measurement)",
+      "status": "open",
+      "area": "metrics",
+      "title": "expectancyR and dollar PnL disagree in SIGN on multiple legs — trend_donchian_ada_4h reports 62.6R expectancy, ict_scalp_5m reports +34.84R on real money against -$0.54",
+      "detail": "POPULATION: closed non-backtest trades in the /api/bot/performance 30d window (since 2026-07-22, read 2026-08-21). Measured per-strategy:\n  paper trend_donchian_ada_4h  n=7 trades   totalPnl +2006.65   expectancyR 62.615   totalR 438.30\n  REAL  ict_scalp_5m           n=6 trades   totalPnl    -0.54   expectancyR  5.806   totalR  34.84\n  REAL  headline 30d           n=24 trades  totalPnl    +1.70   expectancyR  1.2525  totalR  30.06   rCoverage 1.0\nThe real-money 30d book therefore reads +30.06R on +$1.70, and 34.84 of those 30.06 R come from ONE leg whose dollars are negative. Over the same 24 trades rCoverage is 1.0, so this is not a thin-sample artifact of the R denominator being absent — it is present and wrong.\n\nAn expectancy of 62.615 R per trade over 7 trades is not a trading result; it is an R denominator (|entry - stop| x qty) collapsing toward zero on a leg whose stop sat very close to entry, e.g. after a trail. Because totalR SUMS across legs, one such leg poisons every aggregate above it.\n\nCLAUDE.md's 'Dollars are the scoreboard' rule and the R4 research->results gate both depend on R being comparable across instruments. On this population it is not.",
+      "why_it_matters": "R is the axis the promotion gates read. A leg whose R is computed against a near-zero denominator will clear any R-based gate while losing money, which is precisely the failure the gate exists to prevent. Measured here on 2 of 31 strategy rows across the real and paper 30d blocks, but the contamination is at the AGGREGATE level, so it reaches every consumer of totalR/expectancyR regardless of how few legs cause it.",
+      "next_action": "Tier-1: floor or reject the R denominator when |entry - stop| is below a venue-tick-derived minimum, and report rTradeCount alongside a max|R| so a single outlier is visible. Then re-check whether any past promotion decision rested on an R aggregate containing one.",
+      "resolution_criteria": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign."
     }
   ],
-  "updated_at": "2026-08-20"
+  "updated_at": "2026-08-21T07:05:00+00:00"
 }
