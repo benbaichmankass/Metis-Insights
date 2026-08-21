@@ -497,6 +497,31 @@ def selftest_matrix_corpus_agreement() -> None:
           "controls all behave")
 
 
+def selftest_workflow_catalog() -> None:
+    """Run the workflow-catalog guard's own planted-failure suite.
+
+    Path B (see COVERED_BY_CHECKER): the checker owns its `--self-test` and
+    `run_guards.py` runs that flag directly, so this entry is a manual alias
+    whose covering path `check_selftest_wiring.py` VERIFIES rather than trusts.
+
+    The suite exercises both directions independently — an unnamed workflow and
+    a doc naming a file that does not exist — plus the negative control that
+    matters most: a real non-workflow file (`config/accounts.yaml`) must never
+    be reported as a phantom. Without that control, the obvious over-broad
+    implementation of the phantom check passes every positive test and starts
+    flagging ordinary config references.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_workflow_catalog.py",
+              "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_workflow_catalog's own "
+            f"planted-failure suite exited {rc}. The catalog guard's failure "
+            "path is broken, so a green from it means nothing.")
+    print("self-test OK — both catalog directions fail closed, and a real "
+          "non-workflow file is not mistaken for a phantom")
+
+
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
     # REDUNDANT-BY-DESIGN, and the comment is load-bearing: `run_guards.py` does
@@ -513,6 +538,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     # covering path on every run — so the claim in this comment is enforced
     # rather than asserted, and a future session need not re-derive it.
     "matrix-corpus-agreement": selftest_matrix_corpus_agreement,
+    "workflow-catalog": selftest_workflow_catalog,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
     "claim-basis": selftest_claim_basis,
@@ -536,6 +562,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
 # (`new-table-wiring-guard`'s presence-only marker is the cautionary case).
 COVERED_BY_CHECKER: Dict[str, str] = {
     "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
+    "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
 }
 
 
