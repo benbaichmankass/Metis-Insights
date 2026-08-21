@@ -82,6 +82,31 @@ def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
             _connector_class_id("src.exchange.oanda_connector", "OandaMarketData"),
             settings.get("OANDA_API_TOKEN"),
         )
+    if name in ("interactive_brokers", "ib"):
+        # IB is memoized on its RESOLVED connection identity, not on settings,
+        # because `_build_ib_market_data` resolves host/port/clientId/account
+        # from settings -> env -> accounts.yaml. Both readers share ONE
+        # resolver (`_ib_connection_identity`) so the memo key can never drift
+        # from what would actually be constructed -- the same reason
+        # `_connector_class_id` is in the key above.
+        #
+        # This adds NO new socket sharing. `IBMarketData.__init__` obtains its
+        # client from `get_ib_client()`, which is already a process-wide
+        # registry keyed on (host, port, client_id): every IBMarketData for one
+        # endpoint ALREADY shares a single IBClient today. Memoizing the
+        # wrapper stops allocating a fresh object per fetch; the number of live
+        # IB clientIds in the process is unchanged, so
+        # BL-20260706-IBACCTUPDATES-COLLISION is untouched.
+        identity = _ib_connection_identity(settings)
+        if identity is None:
+            # Unresolvable endpoint (no ib_port anywhere). Refuse to memo --
+            # today's behaviour exactly, and the same fail-safe posture as the
+            # `None` return below.
+            return None
+        return (
+            "interactive_brokers",
+            _connector_class_id("src.exchange.ib_connector", "IBMarketData"),
+        ) + identity
     return None
 
 
@@ -192,55 +217,80 @@ def _build_exchange_client_uncached(settings: Dict[str, Any]):
     raise ValueError(f"Unsupported EXCHANGE value: {exchange_name}")
 
 
+def _ib_connection_identity(settings: Dict[str, Any]) -> Optional[tuple]:
+    """The RESOLVED IB market-data endpoint, or ``None`` if unresolvable.
+
+    ONE definition, TWO readers: `_build_ib_market_data` constructs from it and
+    `_client_cache_key` memoizes on it. Duplicating this resolution would let
+    the memo key drift from the client it claims to identify — the defect
+    `_connector_class_id` exists to prevent for the other venues.
+
+    Returns ``None`` when no ``ib_port`` can be resolved from settings, env, or
+    the IB account entry. The caller then declines to memo and `IBMarketData`
+    construction raises exactly as it does today.
+    """
+    try:
+        host = (
+            settings.get("IB_HOST")
+            or os.environ.get("IB_HOST")
+            or _ib_account_field("ib_host")
+            or "127.0.0.1"
+        )
+        port = (
+            settings.get("IB_PORT")
+            or os.environ.get("IB_PORT")
+            or _ib_account_field("ib_port")
+        )
+        if not port:
+            return None
+        account = (
+            settings.get("IB_ACCOUNT")
+            or os.environ.get("IB_ACCOUNT")
+            or _ib_account_field("ib_account")
+        )
+        exec_client_id = int(_ib_account_field("ib_client_id") or (int(port) % 1000))
+        md_client_id = int(
+            settings.get("IB_MD_CLIENT_ID")
+            or os.environ.get("IB_MD_CLIENT_ID")
+            or (exec_client_id + 1)
+        )
+        try:
+            md_type = int(
+                settings.get("IB_MARKET_DATA_TYPE")
+                or os.environ.get("IB_MARKET_DATA_TYPE")
+                or 3
+            )
+        except (TypeError, ValueError):
+            md_type = 3
+        return (
+            str(host),
+            int(port),
+            md_client_id,
+            str(account) if account else None,
+            md_type,
+        )
+    except Exception:  # noqa: BLE001 — an unresolvable endpoint must not raise here
+        return None
+
+
 def _build_ib_market_data(settings: Dict[str, Any]):
     """Return an IBMarketData connector for the IB Gateway endpoint.
 
     IB has no API keys — connection identity (host/port/clientId/account)
-    is resolved from the IB account entry in ``config/accounts.yaml`` (via
-    the canonical loader), with ``IB_HOST`` / ``IB_PORT`` env overrides.
-    The market-data ``clientId`` is offset off the execution client's id so
-    the data socket and the order socket coexist on the Gateway.
+    is resolved by ``_ib_connection_identity`` from the IB account entry in
+    ``config/accounts.yaml`` (via the canonical loader), with ``IB_HOST`` /
+    ``IB_PORT`` env overrides. The market-data ``clientId`` is offset off the
+    execution client's id so the data socket and the order socket coexist on
+    the Gateway.
     """
     from src.exchange.ib_connector import IBMarketData
 
-    host = (
-        settings.get("IB_HOST")
-        or os.environ.get("IB_HOST")
-        or _ib_account_field("ib_host")
-        or "127.0.0.1"
-    )
-    port = (
-        settings.get("IB_PORT")
-        or os.environ.get("IB_PORT")
-        or _ib_account_field("ib_port")
-    )
-    if not port:
+    identity = _ib_connection_identity(settings)
+    if identity is None:
         raise ValueError(
             "IB market data: no ib_port (config IB account / IB_PORT env)."
         )
-    account = (
-        settings.get("IB_ACCOUNT")
-        or os.environ.get("IB_ACCOUNT")
-        or _ib_account_field("ib_account")
-    )
-    exec_client_id = int(_ib_account_field("ib_client_id") or (int(port) % 1000))
-    # +1 keeps the market-data socket distinct from the execution socket.
-    md_client_id = int(
-        settings.get("IB_MD_CLIENT_ID")
-        or os.environ.get("IB_MD_CLIENT_ID")
-        or (exec_client_id + 1)
-    )
-    # Default to delayed data (3) so MES works without a paid CME real-time
-    # subscription (strategy-refinement / model-training mode). Override via
-    # IB_MARKET_DATA_TYPE=1 once a live CME feed is active.
-    try:
-        md_type = int(
-            settings.get("IB_MARKET_DATA_TYPE")
-            or os.environ.get("IB_MARKET_DATA_TYPE")
-            or 3
-        )
-    except (TypeError, ValueError):
-        md_type = 3
+    host, port, md_client_id, account, md_type = identity
     return IBMarketData(
         host=str(host),
         port=int(port),
