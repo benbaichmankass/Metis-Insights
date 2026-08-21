@@ -581,14 +581,29 @@ The canonical reference is
 catalogues every workflow under `.github/workflows/` with trigger,
 purpose, secrets, outputs, and the rules for when Claude may modify it.
 
-Current workflows include CI guards (`pytest-collect`, `pytest-run`,
-`ruff-lint`, `secret-scan`, `dry-run-guard`, `env-gate-guard`,
-`silent-empty-guard`, `canonical-config-loaders`, `canonical-db-resolver`
-— these nine are the `REQUIRED_CONTEXTS` that gate `main` in
-`branch-protection-sync.yml`; plus advisory-only guards incl.
+Current workflows include CI guards. ⚠️ **There are THREE required
+contexts, not nine, and most guard names are not workflow files** (corrected
+2026-08-21 — this paragraph asserted both, and both were stale in the dangerous
+direction). `REQUIRED_CONTEXTS` in `branch-protection-sync.yml` is
+`["pytest-collect","pytest-run","guards"]`; **read it there, never here.**
+
+The ~49 static guards (`ruff-lint`, `secret-scan`, `dry-run-guard`,
+`env-gate-guard`, `silent-empty-guard`, `canonical-config-loaders`,
+`canonical-db-resolver`, `strategy-coverage-guard`, `new-table-wiring-guard`,
+`workflow-catalog`, …) are **ids in `scripts/ci/run_guards.py`'s registry**,
+all executed by the single `guards.yml` job — consolidated from ~29 separate
+workflows by BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES. Naming them with
+a `.yml` suffix points at files that do not exist; `docs/github-actions-workflows.md`
+carried the same confusion until 2026-08-21 and is now guarded against it in
+both directions by `workflow-catalog`.
+
+**A guard being outside `REQUIRED_CONTEXTS` no longer means it does not gate.**
 `layer-guard`/import-linter (M0a/M0b platform-layering enforcement — see
-`ROADMAP_MACRO.md § 1`; runs on every PR but is NOT yet a required check),
-`strategy-coverage-guard`, `arch-doc-guard`, `new-table-wiring-guard`), VM ops
+`ROADMAP_MACRO.md § 1`) was described here as *"NOT yet a required check"*;
+since the consolidation it carries no `allow_fail`, so a broken contract fails
+the `guards` job, which **is** required — it gates `main` today. Advisory now
+means a guard whose own script always exits 0 (`arch-doc-guard`) or one
+declared `allow_fail`, not one merely absent from the required list. VM ops
 (`system-actions`, `vm-diag-snapshot`,
 `vm-web-api-recover`, `vm-net-diag`, `vm-net-fix`, `vm-cloud-fix`),
 training (`training-run`, `training-rerun-5m`, `hf-cron`),

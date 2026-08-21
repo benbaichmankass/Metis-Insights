@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-21T13:35:00+00:00",
+  "updated_at": "2026-08-21T14:30:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20734,6 +20734,26 @@
       "resolution_criteria": "1. status_check.sh emits `systemctl list-timers --all 'ict-*.timer'` (NEXT / LEFT / LAST / UNIT), so a schedule is readable wherever status-check is.\n2. Better, and what actually closes it for a relay-bound session: a /api/diag/timers route returning per allowlisted timer {unit, on_calendar (from systemctl show -p TimersCalendar), next_elapse, last_trigger, state}. Read-only, no socket, Tier-1 — the same shape as /api/diag/services beside it.\n3. The route must distinguish 'we could not read this timer' from 'this timer has no calendar' rather than returning null for both — the collapsed-state rule this row is an instance of.\n4. Verified by changing a timer's OnCalendar, deploying, and confirming the surface shows the NEW value directly — WITHOUT falling back to journalctl archaeology on when the service last fired, which is the only method available today and is what made this row's own sibling get filed wrong.",
       "related": [
         "BL-20260821-DEPLOY-WRAPPER-ASSERTS-A-BOUNCE-IT-DID-NOT-DO"
+      ]
+    },
+    {
+      "id": "BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY",
+      "opened_at": "2026-08-21T14:30:00+00:00",
+      "opened_by": "claude (session spsxq6, doc-freshness pass)",
+      "severity": "medium",
+      "tier": "1 (tooling / process)",
+      "status": "open",
+      "area": "tooling",
+      "title": "docs/claude/health-review-backlog.json is one shared mutable JSON array that every session appends to -- concurrent sessions collide on it, and a hand-resolution has ALREADY silently reverted content once",
+      "detail": "OBSERVED 2026-08-21 across two concurrent sessions (spsxq6, dcf5220b) in one morning.\n\nThe file is a single JSON array (770 rows, ~3.9 MB, ~20.7k lines) that every session appends to or edits in place. Same structural shape as BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE: one shared file, N writers. That row's fix (a per-request directory) does NOT apply here, because these are durable records rather than transient requests -- hence a separate row.\n\nMEASURED, and stated precisely because I first got the count wrong myself: TWO merges conflicted on it on 2026-08-21 (#10088 and #10101, both dcf5220b), not three. My own #10100 did NOT conflict. I had told the coordination board 'three consecutive contentions' and corrected it in the merge-slot claim -- an unverified count in the direction that makes a problem look worse is still an unverified count.\n\nWHY IT IS WORTH A ROW RATHER THAN A SHRUG -- the risk is not merge friction, it is SILENT DATA LOSS. BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION records a hand resolution of this exact file that took one side wholesale and silently reverted SIX items another session had edited, one of them a RESOLUTION. That row is still kept_open. A conflict here is resolved by hand, in a 20k-line file, under time pressure, by a session that wants to merge -- and 'no conflict' does not mean 'nothing lost' either: a clean rebase can still drop rows when the unit of change is one giant array.\n\nTHE MITIGATION IS KNOWN AND COSTS NOTHING, and both sessions converged on it independently: cut the branch FRESH from the current main rather than merging main into an existing branch. For an append-mostly file that removes the conflict entirely (verified: #10100 rebased onto #10101's main with zero conflict), and it also avoids inheriting the auto-merge trigger. It is a habit, though, not a mechanism -- nothing enforces it and nothing detects a lossy resolution.\n\nNOT PROPOSING A SPLIT OF THE FILE. That would break every consumer (the review skills, check_backlog_refs, check_allow_degraded, the coherence guard) for a problem that is currently costing minutes, not correctness. The cheap durable win is a DETECTOR, in the shape this repo already uses everywhere else.\n\nPROVENANCE NOTE ON THAT CITATION, because it is an instance of the same family this row is about: I first cited the id in TRUNCATED form, having copied it from a coordination-board comment rather than reading the backlog. artifact-validity-guard rejected it — correctly, since the truncated id resolves to nothing and so read as 'tracked by' a row nobody filed. Second truncated-id rejection of this session; the first was the CI-fanout row BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES, cited without its trailing slug. A cited id from another session's prose is a CLAIM, not a reference, until it is resolved against the file.\n\nAND THE GUARD THEN CAUGHT THIS NOTE ITSELF: the first draft of this paragraph wrote that earlier truncation out in full as an example, which is just another id resolving to nothing, so the note about dangling ids dangled. Describe a bad id; do not spell one. The same shape hit a concurrent session's retraction the same morning, which named the id it was retracting.",
+      "resolution_criteria": [
+        "A CI check that fails a PR touching any docs/claude/*-backlog.json when the merge-base row set is not a SUBSET of the resulting row set -- i.e. it detects a resolution that DROPPED a row, which is the failure mode BL-20260814 actually suffered. Row count alone is insufficient: an add plus a drop nets to zero.",
+        "It must carry a failure-path self-test (plant a dropped row, assert non-zero) and be registered so check_selftest_wiring.py can verify its covering path, matching the workflow-catalog / api-tier-policy pattern.",
+        "The cut-fresh-from-main habit written down wherever the merge protocol lives, so it is guidance rather than folklore two sessions happened to discover on the same morning."
+      ],
+      "refs": [
+        "BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION",
+        "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE"
       ]
     }
   ]
