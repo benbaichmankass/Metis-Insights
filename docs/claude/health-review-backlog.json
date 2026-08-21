@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20T21:50:00+00:00",
+  "updated_at": "2026-08-21T07:20:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20423,6 +20423,78 @@
       ],
       "resolved_at": "2026-08-20T21:12:00+00:00",
       "resolved_by": "claude (session_014myC5S5VacHNuzzBR8dGBC)"
+    },
+    {
+      "id": "BL-20260821-OCI-INVENTORY-CRON-UNWATCHED",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (exit-integrity continuation, wiring the broker-bracket-reconcile caller)",
+      "severity": "medium",
+      "tier": "1 (CI / GitHub Actions)",
+      "status": "open",
+      "area": "observability",
+      "title": "oci-inventory is a cron'd workflow in NEITHER claude-run-failure-alert's watch list NOR its stated population -- a failure before its verdict step is silent, and the fix double-pings on drift, so it needs a decision rather than an appended line",
+      "detail": "FOUND while adding broker-bracket-reconcile to claude-run-failure-alert.yml, by re-counting that file's stated population rather than trusting it.\n\nMEASURED 2026-08-21 by PARSING every .github/workflows/*.yml `on:` block (not grepping -- a commented-out cron reads like a live one to grep, which is how the earlier count went wrong): there are 12 cron'd workflows. claude-run-failure-alert.yml's header asserted '10 cron'd workflows ... The other 9 are added'. The 9 listed were right; the total was not. Unaccounted for: `oci-inventory` (weekly, Mondays 06:00 UTC) and now this session's `broker-bracket-reconcile`. The count has been corrected in that header and broker-bracket-reconcile listed.\n\nWHY oci-inventory IS A GENUINE GAP AND NOT A DELIBERATE EXCLUSION LIKE `Health Snapshot`. Its only Telegram path is the step 'Telegram alert (drift / not_declared / could_not_check)', gated `if: steps.verdict.outputs.state == 'drift' || 'not_declared' || 'could_not_check'`. That output only exists once the verdict step has RUN. A failure BEFORE it -- OCI auth, checkout, a dependency install -- leaves the output empty, the `if` false, and NOTHING is sent. The run dies silent. This is byte-for-byte the shape claude-run-failure-alert's own header names for `replay-pregate-nightly` ('its own two notify steps are gated ... while the trigger that actually fired was schedule'), and the class its cron'd section was added to close.\n\nWHY IT WAS FILED RATHER THAN FIXED IN-SESSION -- the one-line fix has a real cost, so it is a decision, not an omission. On `schedule`, oci-inventory's `fail_on_drift` defaults ON, so a DRIFT verdict FAILS the run. Listing it in claude-run-failure-alert would therefore fire a second Telegram on exactly the case it already handles correctly: the operator gets two pings for one drift. The tradeoff is silence-on-early-failure versus double-ping-on-drift, and an alarm that fires twice for one event is the desensitized-alarm P1 this repo treats as its own bug, so trading one for the other unilaterally is not obviously an improvement.\n\nNOT ASSERTED: whether `Health Snapshot`'s own notify path is gated the same way. It was excluded by a prior session's reasoning that it self-notifies, and that reasoning was not re-verified here -- only oci-inventory was read. If this row is worked, check Health Snapshot's gating too rather than inheriting the claim.",
+      "resolution_criteria": [
+        "DECIDE between the two shapes and record which, with the reason: (a) list oci-inventory in claude-run-failure-alert.yml and accept a double-ping on drift; (b) leave it unlisted and instead make its own alert fire on failure -- e.g. an `if: failure()` step, or moving the notify out from behind steps.verdict; or (c) narrow claude-run-failure-alert so a workflow that already self-pinged is suppressed.",
+        "Whichever is chosen, PROVE it with a real failing run rather than by reading the YAML: force a pre-verdict failure on a dispatch and confirm exactly ONE operator ping arrives.",
+        "Re-verify Health Snapshot's notify gating on the schedule path and either confirm its exclusion is sound or fold it into the same fix; do not inherit the prior session's claim unchecked.",
+        "Leave the corrected population count in claude-run-failure-alert.yml's header consistent with a re-parse of the `on:` blocks -- it has now been wrong twice, both times from grepping."
+      ],
+      "refs": [
+        ".github/workflows/oci-inventory.yml",
+        ".github/workflows/claude-run-failure-alert.yml",
+        ".github/workflows/broker-bracket-reconcile.yml",
+        ".github/workflows/health-snapshot.yml"
+      ]
+    },
+    {
+      "id": "BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH",
+      "opened_at": "2026-08-21T07:10:00+00:00",
+      "opened_by": "claude (exit-integrity continuation)",
+      "severity": "medium",
+      "tier": "1 (CI / GitHub Actions)",
+      "status": "open",
+      "area": "session-tooling",
+      "title": "board-post.yml's idempotency receipt is committed PER-BRANCH while the request merges to main -- so any request that reaches main receipt-less is re-posted by every future branch that files a board post; measured as 3 copies of one comment",
+      "detail": "MEASURED, not inferred. board-post.yml skips a request when automation/board-results/<name>.txt exists. The receipt is committed to the BRANCH that ran the relay; the request file merges to `main` with the PR. When a request reaches main and its receipt does not, main carries a request that looks permanently UNSERVED -- and the relay loops over every *.md in automation/board-posts/ on whatever branch triggered it.\n\nSo any future claude/** branch that adds ANY board post re-posts every receipt-less request sitting on main, as a side effect of filing its own.\n\nTHE EVIDENCE: automation/board-posts/003-merge-claim-and-correction.md landed on main via #10076; its receipt was written to claude/place-protective-docstring, which has not merged. That one comment was posted THREE times on issue #6927:\n  06:23:17Z issuecomment-5365994348 (intended)\n  06:35:30Z issuecomment-5366092551 (re-post)\n  06:35:31Z issuecomment-5366092673 (the NEW request that triggered that run)\nThe last two are ONE SECOND apart in the same run, which is what identifies the mechanism: the new request triggered the relay and the receipt-less 003 was swept up with it. A prior session had already put four near-duplicate STARTs on this board for a DIFFERENT reason (it polled for a receipt and misread its absence as a failed post); the board's value is that sessions actually read it, and it is now carrying multi-screen duplicates.\n\nNOTE THE TRAP IN THE OBVIOUS FIX. Reverting to 'delete the request once posted' -- the original design -- does stop this, but it is what the current header explains was removed: the deleting commit touches the workflow's own trigger path. Without [skip ci] it self-retriggers (harmlessly: the second run finds no requests and commits nothing), and WITH [skip ci] it suppresses every workflow for that commit, which strands a PR at zero checks. Note also that BOTH designs already share the separate github-actions[bot] pathology, and it is WORSE than the current header admits: any commit the relay pushes becomes the branch head, and GitHub does not trigger workflows for GITHUB_TOKEN pushes, so the PR shows zero checks until an ordinary commit arms it (observed on #10076 and again on #10083).\n\nMEASURED TWICE ON ONE PR, 2026-08-21, which is what shows it is a CYCLE and not a one-off: PR #10086 went to zero checks at head b0e6a65 ('board-post: results'), was armed with an ordinary commit 099b0f8 (4 required checks queued, confirmed by reading them), and was re-stranded MINUTES LATER at head b25db90 -- another 'board-post: results' -- because the SAME push that armed CI also filed a board post, so the relay fired again and re-took the head. So filing a board post from a PR branch STRANDS THAT PR'S OWN CI, every time, and a session that files a post as its last act leaves a PR that renders as no-red and can never merge.\n\nTHIS CONTRADICTS A STATED CLAIM AND THE CLAIM SHOULD BE FIXED (field beats comment). pr-opener.yml's header says the results-only staging means 'no self-retrigger, no skip directive, PR keeps its CI'. Only the first two are true. Staging results outside the trigger path avoids the RETRIGGER; it does nothing about the HEAD, because the commit is still pushed with GITHUB_TOKEN. board-post.yml's header repeats the same reasoning verbatim. Both are half-right in the reassuring direction.\n\nA 003 receipt has been BACKFILLED BY HAND to stop this specific request recurring. That fixes the instance, not the class.\n\nTHIRD OCCURRENCE, AND IT GENERALISES BEYOND board-post (2026-08-21T07:1x). PR #10086 was stranded a THIRD time, this time by pr-opener.yml (head 1c5f56b, 'pr-opener: results'), and the trigger was NOT a board post -- it was MERGING `main`. The merge brought in #10083's spent request file automation/pr-requests/place-protective-docstring-0821.json, which sits under pr-opener's own trigger path `automation/pr-requests/**`. So the merge counted as a push touching that path, the relay fired, found nothing to do (it correctly refused to open a duplicate PR: 'a pull request for branch ... already exists'), and STILL committed a results file -- taking the head and zeroing the checks.\n\nSO THE RULE IS BROADER THAN 'do not file a board post from your PR branch'. Any push that touches ANY relay trigger path strands the PR, and MERGING MAIN CAN DO IT WITHOUT THE AUTHOR TOUCHING ANYTHING, because main permanently carries every other PR's spent request files under those paths. A session that syncs to main -- which the merge protocol tells it to do on a real conflict -- can silently zero its own CI as a side effect. Enumerated 2026-08-21, the push-path triggers are: board-post `automation/board-posts/**`, pr-opener `automation/pr-requests/**`, pr-close `automation/pr-close-requests/**`, claude-pr-automerge `.github/pr-automerge-request`, vm-driver `automation/jobs/**`, plus several `.github/*-request` marker files.\n\nNote the relay behaved CORRECTLY in every other respect here -- it refused the duplicate PR and said so. The damage is done purely by the results commit taking the head. That is what makes 'stop the relay taking the head' the right fix rather than any change to the relays' logic.",
+      "resolution_criteria": [
+        "Make the skip decision independent of which branch is running -- e.g. resolve the receipt against origin/main as well as the current branch, or key idempotency on something durable (a marker committed alongside the request, or an existence check against the issue's own recent comments) rather than on a branch-local file.",
+        "Whatever is chosen, it must NOT reintroduce either known pathology: no [skip ci] on a commit that can become a PR head, and no unbounded self-retrigger.",
+        "PROVE it with a real two-branch exercise: leave a receipt-less request on main, push a NEW board post from a fresh branch, and confirm exactly ONE comment appears -- reading the board itself, never the receipt file (misreading the receipt as the post is the error that produced the earlier four duplicates).",
+        "Sweep automation/board-posts/ on main for any other receipt-less request before closing, and backfill or remove them; 003 was found only because it was about to fire a fourth time.",
+        "Fix or correct the 'PR keeps its CI' claim in BOTH pr-opener.yml and board-post.yml headers -- staging outside the trigger path prevents the retrigger, NOT the zero-check head. Either stop the relay taking the head (e.g. push results to a side ref or an artifact rather than the PR branch), or state plainly in both headers that a relay run leaves the PR needing an ordinary commit to re-arm CI.",
+        "Treat the fix as covering ALL push-path relays, not board-post alone: pr-opener, pr-close, claude-pr-automerge and vm-driver share the identical results-commit-takes-the-head shape. A fix for one that leaves the others is not a fix.",
+        "Handle the merge-from-main path explicitly: main permanently carries other PRs' spent request files under the trigger paths, so a routine sync re-fires a relay through no action of the author's. Either make the relays no-op WITHOUT committing when there is nothing pending, or stop them pushing to the PR branch at all."
+      ],
+      "refs": [
+        ".github/workflows/board-post.yml",
+        "automation/board-posts/003-merge-claim-and-correction.md",
+        "automation/board-results/003-merge-claim-and-correction.txt",
+        "docs/claude/coordination-board.md"
+      ]
+    },
+    {
+      "id": "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE",
+      "opened_at": "2026-08-21T07:12:00+00:00",
+      "opened_by": "claude (exit-integrity continuation, hit while requesting auto-merge for #10086)",
+      "severity": "low",
+      "tier": "1 (CI / GitHub Actions)",
+      "status": "open",
+      "area": "session-tooling",
+      "title": "claude-pr-automerge.yml triggers on ONE shared path (.github/pr-automerge-request), so every PR that requests auto-merge conflicts with every other one that does -- a guaranteed merge + full CI cycle per collision, unlike the sibling relays which already use a per-request directory",
+      "detail": "HIT LIVE, not theorised. .github/workflows/claude-pr-automerge.yml triggers on `paths: ['.github/pr-automerge-request']` -- a SINGLE file. Every PR wanting auto-merge must modify that same file, so any two PRs using the relay collide on it by construction.\n\nMEASURED 2026-08-21: #10083 requested auto-merge (writing its line into that file) and merged as 932f0a54. #10086, branched from 9752348b before that, then requested auto-merge and came back `mergeable_state: dirty`. The ONLY conflicted path was `.github/pr-automerge-request`; every other file merged cleanly. Cost: one merge commit plus a full ~10-minute CI cycle, against a repo that has already hit the free-tier CI-minutes cap once (MB-20260706-CI-MINUTES).\n\nThe content is a trigger MARKER, not state anyone reads back -- the workflow only needs the path to have changed. So the conflict is pure ceremony: the resolution is always 'take the requesting PR's line', which carries no information.\n\nTHE FIX IS ALREADY THIS REPO'S OWN CONVENTION, which is what makes this worth filing rather than tolerating. Every sibling relay uses a per-request DIRECTORY and therefore never collides: pr-opener.yml takes `automation/pr-requests/<name>.json`, board-post.yml takes `automation/board-posts/<name>.md`, pr-close.yml takes `automation/pr-close-requests/<name>.json`. Only the auto-merge relay kept a single shared file.\n\nNOT ASSERTED: how often this actually bites. It needs two auto-merge requests open across one merge, which this session hit on its first attempt but which may be uncommon on a quiet day. The cost per occurrence is bounded and recoverable (resolve, push, re-run CI) -- hence 'low', not the conflict itself being in doubt.",
+      "resolution_criteria": [
+        "Change the trigger to a per-request directory matching the sibling relays -- e.g. `paths: ['.github/pr-automerge-requests/**']` with one file per PR -- so two concurrent requests touch different paths and cannot conflict.",
+        "Keep the old single-file path in the trigger list for one transition window so an in-flight branch that already wrote the old file still fires, then remove it.",
+        "PROVE it with two branches: open two PRs that both request auto-merge, merge one, and confirm the second comes back mergeable rather than `dirty`.",
+        "Check whether the relay reads the file's CONTENT anywhere before changing its shape; as of 2026-08-21 it appears to use the path only as a trigger, but that was read, not tested."
+      ],
+      "refs": [
+        ".github/workflows/claude-pr-automerge.yml",
+        ".github/pr-automerge-request",
+        ".github/workflows/pr-opener.yml",
+        ".github/workflows/board-post.yml"
+      ]
     }
   ]
 }

@@ -1,0 +1,287 @@
+name: broker-bracket-reconcile
+
+# The scheduled caller for `scripts/ops/broker_bracket_reconcile.py` — the
+# declared-vs-resting bracket detector merged in #10076.
+#
+# WHY THIS EXISTS. The detector shipped with NO caller, so it ran only when a
+# session happened to remember it. A check nobody runs is indistinguishable
+# from a check that passes, which is the same shape as the defect it was built
+# to find: `protection_coverage` graded MES 4350 fully stop-covered for seven
+# days while the only resting stop sat 69 ticks from the declared level,
+# because nothing ever asked. Shipping the detector and not scheduling it would
+# have reproduced that exactly one level up.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# IT RECORDS EVERY RUN AND SPEAKS ONLY ON CHANGE. THIS IS THE WHOLE DESIGN.
+# ─────────────────────────────────────────────────────────────────────────────
+# The obvious wiring — ping when `total_findings > 0`, or fail the run on the
+# tool's exit 3 — was MEASURED against live state before being rejected. At
+# 2026-08-21T06:39:13Z, `ib_paper` + `ib_live`:
+#
+#   * `total_findings` = 3   MGC 4773 target_naked_declared; MES 4350
+#                            target_naked_declared + stop_price_diverges.
+#                            STANDING: the take-profit attach was DECLINED by
+#                            the operator 2026-08-20 and the stop repair is
+#                            Tier-3 (draft #10081), so these do not clear.
+#   * exit code             = 3, because `ib_live` is a declared account the
+#                            stack deliberately never dials. `could_not_look`
+#                            there is the NORMAL state, not an outage.
+#
+# So both alarm-shaped outputs are TRUE ON EVERY RUN. Wiring either to a ping
+# would have produced a permanently-firing alarm on day one — and
+# `CLAUDE.md` § "If you see something, say something" is explicit that the
+# desensitized alarm is ITSELF a P1 bug ("file 'this audit has degenerated into
+# alarm fatigue' as its own item"). The whole motivating incident there was a
+# real bug soaking for weeks inside exactly that kind of noise.
+#
+# Hence: a tracking issue whose BODY is rewritten with the current numbers on
+# every run (so the standing state and its magnitudes are always visible, and a
+# stale "last checked" line exposes a dead schedule), and a COMMENT only when
+# `fingerprint()` moves. Silence here means "same set of problems as last
+# time", never "no problems".
+#
+# WHAT FAILS THE RUN — deliberately narrow. Only "we could not grade at all":
+# a missing bearer, a fetch that returned nothing, or the detector's exit 2
+# (parse/usage). Those are rare, so this workflow is in
+# `claude-run-failure-alert.yml`'s watch list and a genuine failure pings the
+# operator. Exit 1 (findings) and exit 3 (an account we could not read) do NOT
+# fail the run — they are graded outcomes, and the tracking issue is where they
+# live. A `could_not_look` account never contributes "0 findings"; that
+# collapse is what the detector was written to refuse.
+#
+# Tier 1: read-only. Two GET requests against the live VM's public HTTPS host,
+# no SSH, no order path, no VM mutation, no write to any bot surface. The only
+# thing it writes is one GitHub issue.
+
+on:
+  schedule:
+    # Every 6h at :40 — off the top of the hour so it does not pile into the
+    # cron stampede, and frequent enough that a stripped protective leg is
+    # noticed within a quarter-day rather than at the next audit.
+    - cron: '40 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      tick_tolerance:
+        description: "Ticks of price disagreement tolerated. Blank = the script's own default (single source of truth; do not restate it here)."
+        required: false
+        default: ""
+      force_comment:
+        description: "Post the record as a comment even if the fingerprint has not moved."
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: broker-bracket-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read broker-resting and journal-declared state
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          BOT_API_BASE: https://ict-bot.duckdns.org
+        run: |
+          set -uo pipefail
+
+          # A missing bearer is NOT "nothing to report" — it is "we did not
+          # look", and it must be loud rather than degrade to a clean bill.
+          if [ -z "${DIAG_READ_TOKEN:-}" ]; then
+            echo "::error::DIAG_READ_TOKEN is unset — broker order state could not be read. This is NOT a clean bill."
+            exit 1
+          fi
+
+          # /api/diag/ib_open_orders is token-gated; diag_fetch.sh owns base-URL
+          # resolution (and prints which host served, on stderr).
+          if ! bash scripts/ops/diag_fetch.sh 'ib_open_orders' > /tmp/orders.json; then
+            echo "::error::could not read /api/diag/ib_open_orders — nothing was graded."
+            exit 1
+          fi
+
+          # /api/bot/positions is an unauthenticated Tier-1 route; no bearer.
+          if ! curl -sS --fail --max-time 60 \
+                 "${BOT_API_BASE}/api/bot/positions?include_paper=true" > /tmp/positions.json; then
+            echo "::error::could not read /api/bot/positions — nothing was graded."
+            exit 1
+          fi
+
+          # Assert a plausible denominator before trusting any verdict built on
+          # these payloads: an empty document parses fine and grades as silence.
+          for f in /tmp/orders.json /tmp/positions.json; do
+            if [ ! -s "$f" ]; then
+              echo "::error::${f} is empty — refusing to grade an empty population."
+              exit 1
+            fi
+          done
+          echo "orders=$(wc -c </tmp/orders.json)B positions=$(wc -c </tmp/positions.json)B"
+
+      - name: Reconcile declared vs resting
+        id: reconcile
+        env:
+          # Via env, never interpolated into the shell: `${{ }}` inside a `run:`
+          # block is textual substitution, so a dispatch input lands as SHELL
+          # SOURCE. Dispatch is collaborator-only, which bounds it but does not
+          # make it correct.
+          TICK_TOL: ${{ inputs.tick_tolerance }}
+        run: |
+          set -uo pipefail
+          TOL=""
+          if [ -n "${TICK_TOL:-}" ]; then
+            # Reject anything that is not a plain number rather than passing it on.
+            case "$TICK_TOL" in
+              ''|*[!0-9.]*) echo "::error::tick_tolerance must be numeric, got '${TICK_TOL}'"; exit 1 ;;
+            esac
+            TOL="--tick-tolerance ${TICK_TOL}"
+          fi
+          ARGS="--orders-json /tmp/orders.json --positions-json /tmp/positions.json ${TOL}"
+
+          set +e
+          python3 scripts/ops/broker_bracket_reconcile.py $ARGS            > /tmp/render.txt 2>&1; rc=$?
+          python3 scripts/ops/broker_bracket_reconcile.py $ARGS --json     > /tmp/result.json 2>/dev/null
+          python3 scripts/ops/broker_bracket_reconcile.py $ARGS --fingerprint > /tmp/fp.txt 2>/dev/null
+          set -e
+
+          cat /tmp/render.txt
+
+          # 0 clean · 1 findings · 3 an account could not be read.
+          # All three GRADED something; only 2 (parse/usage) means we did not.
+          case "$rc" in
+            0|1|3) : ;;
+            *) echo "::error::detector exited ${rc} — nothing was graded."; exit 1 ;;
+          esac
+
+          {
+            echo "## broker-bracket-reconcile"
+            echo '```'
+            cat /tmp/render.txt
+            echo '```'
+            echo "_detector exit ${rc} — 0 clean · 1 findings · 3 an account could not be read._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # An EMPTY digest is the worst possible value here: it would compare
+          # unequal to the stored one on EVERY run, producing a comment every
+          # run -- precisely the permanently-firing alarm this whole design
+          # exists to avoid, and it would look like real churn. Refuse instead.
+          DIGEST="$(head -1 /tmp/fp.txt)"
+          case "$DIGEST" in
+            [0-9a-f][0-9a-f]*) : ;;
+            *) echo "::error::fingerprint did not produce a digest (got '${DIGEST}') — refusing to write a meaningless tracking record."; exit 1 ;;
+          esac
+
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Update the tracking record, comment only on change
+        uses: actions/github-script@v7
+        env:
+          RC: ${{ steps.reconcile.outputs.rc }}
+          DIGEST: ${{ steps.reconcile.outputs.digest }}
+          FORCE: ${{ inputs.force_comment }}
+        with:
+          script: |
+            const fs = require('fs');
+            const LABEL  = 'bracket-reconcile';
+            const TITLE  = '🔩 Broker bracket reconcile — declared vs resting protection';
+            const digest = process.env.DIGEST;
+            const rc     = process.env.RC;
+            const force  = String(process.env.FORCE).toLowerCase() === 'true';
+            // Bound the embedded render: a GitHub issue body caps at 65536
+            // chars, and an update rejected for length would freeze the
+            // "Last checked" line -- which this issue tells readers to
+            // interpret as a DEAD SCHEDULE. Truncating loudly beats that.
+            const _raw = fs.readFileSync('/tmp/render.txt', 'utf8');
+            const LIMIT = 20000;
+            const render = _raw.length > LIMIT
+              ? _raw.slice(0, LIMIT) + `\n\n... TRUNCATED at ${LIMIT} of ${_raw.length} chars — see the run log for the full report.`
+              : _raw;
+            const state  = fs.readFileSync('/tmp/fp.txt', 'utf8').split('\n').slice(1).join('\n').trim();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const now    = new Date().toISOString();
+
+            const body = [
+              `<!-- bracket-reconcile-fingerprint: ${digest} -->`,
+              `**Last checked: ${now}** · [run](${runUrl}) · detector exit \`${rc}\``,
+              ``,
+              `> A stale *Last checked* means the **schedule itself** has died — that is`,
+              `> the first thing to read here. Silence from this issue means "the same set`,
+              `> of problems as last time", **never** "no problems": the standing findings`,
+              `> below are re-measured every run and re-stated in full.`,
+              ``,
+              `\`\`\``,
+              render.trim(),
+              `\`\`\``,
+              ``,
+              `<details><summary>graded-state fingerprint (\`${digest}\`) — the preimage</summary>`,
+              ``,
+              `\`\`\``,
+              state,
+              `\`\`\``,
+              `</details>`,
+              ``,
+              `---`,
+              `Detector: \`scripts/ops/broker_bracket_reconcile.py\` · caller:`,
+              `\`.github/workflows/broker-bracket-reconcile.yml\`. Read-only; repairs nothing.`,
+              `The fingerprint is blind to a finding's **magnitude** by design, so a`,
+              `divergence that merely worsens will not re-comment — read the numbers above.`,
+            ].join('\n');
+
+            const found = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: LABEL, per_page: 10,
+            });
+            const issue = found.data.find(i => !i.pull_request);
+
+            if (!issue) {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL],
+              });
+              core.notice(`Created tracking issue #${created.data.number} (baseline ${digest}).`);
+              return;
+            }
+
+            const prev = (issue.body || '').match(/<!-- bracket-reconcile-fingerprint: (\w+) -->/);
+            const prevDigest = prev ? prev[1] : null;
+
+            // The body is refreshed on EVERY run — that is what keeps the
+            // standing magnitudes current and makes a dead schedule visible.
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: issue.number, body,
+            });
+
+            if (prevDigest === digest && !force) {
+              core.notice(`Unchanged (${digest}) — record refreshed on #${issue.number}, staying silent.`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: issue.number,
+              body: [
+                `### ⚠️ Graded state CHANGED — \`${prevDigest || 'none'}\` → \`${digest}\``,
+                ``,
+                `Detector exit \`${rc}\` · [run](${runUrl}) · ${now}`,
+                ``,
+                `\`\`\``,
+                render.trim(),
+                `\`\`\``,
+                ``,
+                `The issue body above now carries the current state. A change here means`,
+                `the **set** of problems moved — a finding appeared or cleared, or an`,
+                `account's readability changed (an \`ib_paper\` slip to \`could_not_look\``,
+                `is a wedged gateway).`,
+                ``,
+                `---`,
+                `_Generated by [Claude Code](https://claude.ai/code)_`,
+              ].join('\n'),
+            });
+            core.notice(`Fingerprint moved ${prevDigest} -> ${digest}; commented on #${issue.number}.`);

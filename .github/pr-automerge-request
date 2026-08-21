@@ -1,1 +1,3 @@
-automerge requested 2026-08-21T06:35:33Z for PR 10083 (Tier-1 docstring; all four required checks green on 1e4a6b8a)
+#10086 — scheduled caller for the declared-vs-resting bracket detector (Tier-1).
+Merge-slot claimed on #6927 at issuecomment-5366299764; release to follow.
+requested: 2026-08-21T07:05Z
