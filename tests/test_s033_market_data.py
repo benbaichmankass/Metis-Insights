@@ -303,9 +303,37 @@ class TestExchangeClientCache:
             "a swapped connector class must MISS the cache, not return a stale client"
         )
 
-    def test_ib_is_never_memoized(self, monkeypatch):
-        """IB holds a live socket on a specific clientId — sharing one instance
-        is the BL-20260706-IBACCTUPDATES-COLLISION multi-client hazard."""
+    def test_ib_is_memoized_like_every_other_venue(self, monkeypatch):
+        """IB IS memoized — and the premise this test used to assert was FALSE.
+
+        ⚠️ **This test previously asserted the opposite** (`test_ib_is_never_memoized`,
+        "IB must be rebuilt every time, never cached") on the stated grounds that
+        "IB holds a live socket on a specific clientId — sharing one instance is
+        the BL-20260706-IBACCTUPDATES-COLLISION multi-client hazard."
+
+        **`IBMarketData` holds no socket.** Its `__init__` sets `use_rth` +
+        `market_data_type` and takes `self._client = get_ib_client(...)`, which is
+        already a process-wide registry keyed on `(host, port, client_id)`
+        (`src/units/accounts/ib_client.py`). Every `IBMarketData` for one endpoint
+        therefore ALREADY shared a single `IBClient` before the memo existed, so
+        memoizing the wrapper cannot change how many IB clientIds are live and
+        BL-20260706-IBACCTUPDATES-COLLISION is untouched. Field beats comment.
+
+        **What the false premise cost**, which is why the history is kept here
+        rather than deleted: because `_client_cache_key` returned `None` for IB, a
+        fresh wrapper was built per request, and `_candle_cache_key` keys on a
+        per-OBJECT lifetime token — so every IB candle request was a guaranteed
+        venue round trip **at any TTL**. Measured on the live trader: the one open
+        IB 15m package was fetched **1.002 times per exit pass over n=433 passes**
+        (zero cache hits) at ~10.8 s per fetch, while the three non-IB frames landed
+        within 12% of what their TTL predicts. Full working:
+        `docs/research/exit-eval-fetch-attribution-2026-08-21.md` (T.1).
+
+        The safety property this test was really protecting is now asserted
+        directly, by `test_ib_memo_adds_no_new_socket_sharing` in
+        `tests/test_ib_candle_cache_memo.py`, which pins the `get_ib_client()`
+        delegation rather than banning the memo.
+        """
         market_data = self._fresh()
         built = []
 
@@ -314,6 +342,22 @@ class TestExchangeClientCache:
             return object()
 
         monkeypatch.setattr(market_data, "_build_ib_market_data", _fake_ib)
-        market_data._build_exchange_client({"EXCHANGE": "interactive_brokers"})
-        market_data._build_exchange_client({"EXCHANGE": "interactive_brokers"})
-        assert len(built) == 2, "IB must be rebuilt every time, never cached"
+        first = market_data._build_exchange_client({"EXCHANGE": "interactive_brokers"})
+        second = market_data._build_exchange_client({"EXCHANGE": "interactive_brokers"})
+        assert len(built) == 1, (
+            "IB must be memoized like every other venue — a fresh wrapper per "
+            "request is what made every IB candle fetch a guaranteed cache miss"
+        )
+        assert first is second
+
+    def test_ib_declines_the_memo_when_the_endpoint_is_unresolvable(self, monkeypatch):
+        """Fail-safe: no resolvable endpoint => no memo, exactly as before.
+
+        Refusing to memo is always correct; guessing an identity is what would
+        make two different endpoints share one client.
+        """
+        market_data = self._fresh()
+        monkeypatch.delenv("IB_HOST", raising=False)
+        monkeypatch.delenv("IB_PORT", raising=False)
+        monkeypatch.setattr(market_data, "_ib_account_field", lambda field: None)
+        assert market_data._client_cache_key({"EXCHANGE": "interactive_brokers"}) is None
