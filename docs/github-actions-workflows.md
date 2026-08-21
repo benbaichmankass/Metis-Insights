@@ -978,6 +978,7 @@ header before triggering a mutating one).
 | `new-table-wiring-guard.yml` | CI guard | AUTO | PR | Fails+pings when a PR adds a persistent table without wiring it into the canonical store. |
 | `writer-conformance-guard.yml` | CI guard | AUTO | PR | Fails+pings when a PR adds a journal writer that bypasses the canonical resolver/conformance. |
 | `diag-relay-sweep.yml` | Ops relay | AUTONOMOUS | label `vm-diag-request` + cron | Sweeps stale, never-answered diag-relay issues (dropped-webhook backstop). |
+| `broker-bracket-reconcile.yml` | Ops audit | AUTONOMOUS | cron (6h) + dispatch | Runs `scripts/ops/broker_bracket_reconcile.py` against the live book (declared vs resting IB protection). Read-only. RECORDS every run to tracking issue #10089 and COMMENTS only when the graded state moves -- both of the detector's alarm-shaped outputs are true in the steady state, so pinging on either would fire constantly. Silence there means "the same problems", never "no problems". |
 | `arm-candidate-diag.yml` | Migration relay | AUTONOMOUS | label `arm-candidate-diag-request` | SSH diag/verification relay for the Ampere migration candidate VM. |
 | `vm-bybit-diag.yml` | Ops relay | AUTONOMOUS | label `vm-bybit-diag-request` | One-shot bybit_2 ErrCode 10010 ('Unmatched IP') diagnostic. |
 | `news-key-check.yml` | Ops relay | AUTONOMOUS | label `news-key-check` | Validate NEWS_API_KEY end-to-end through the bot's news path. |

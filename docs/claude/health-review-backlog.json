@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-21T07:37:00+00:00",
+  "updated_at": "2026-08-21T07:50:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20505,6 +20505,27 @@
         ".github/pr-automerge-request",
         ".github/workflows/pr-opener.yml",
         ".github/workflows/board-post.yml"
+      ]
+    },
+    {
+      "id": "BL-20260821-WORKFLOW-CATALOG-CLAIMS-COMPLETE-AND-IS-47PCT-MISSING",
+      "opened_at": "2026-08-21T07:50:00+00:00",
+      "opened_by": "claude (exit-integrity continuation, during the session-end doc-freshness pass)",
+      "severity": "medium",
+      "tier": "1 (docs)",
+      "status": "open",
+      "area": "documentation",
+      "title": "docs/github-actions-workflows.md asserts every workflow file is named in it (BL-20260602-003's completeness invariant) and 52 of 111 are absent -- a doc that CLAIMS completeness and is 47% short is worse than one that claims nothing",
+      "detail": "FOUND by the session-end doc-freshness pass, checking the invariant mechanically instead of spot-reading it.\n\ndocs/github-actions-workflows.md's 'Complete workflow index' section states its own contract: 'this index lists the REMAINING workflow files so that every .github/workflows/*.yml is named in this doc'. That is the catalog-completeness invariant BL-20260602-003 was closed on.\n\nMEASURED 2026-08-21, by testing every filename against the doc rather than reading the table: **52 of 111 workflow files are named nowhere in it.** Absent entries include load-bearing ones a reader would reasonably expect to find -- `guards.yml` (a REQUIRED status check), `claude-run-failure-alert.yml` (the universal dead-run alarm), `claude-pr-automerge.yml`, `board-post.yml`, `pr-close.yml`, `oci-inventory.yml`, `macro-producer-liveness.yml`, `replay-pregate-nightly.yml`, and the whole m28/m31/m32/m33/m34 grade family.\n\nWHY THIS IS WORSE THAN AN UNDOCUMENTED SET, and why it is filed rather than shrugged at: the doc does not present itself as a partial cheat-sheet, it presents itself as exhaustive. A reader looking for 'is there a workflow that does X' and not finding it concludes NO SUCH WORKFLOW EXISTS. That is the same shape as a check that silently did not run rendering identically to green -- an absence that reads as a measured negative when nothing measured it. A session acting on that conclusion builds a second workflow beside an existing one.\n\nTHIS SESSION'S OWN CONTRIBUTION IS FIXED, NOT LEFT IN THE PILE: `broker-bracket-reconcile.yml` (added this session) is now in the index. The other 51 predate this session and are NOT swept here -- a 51-row backfill is its own PR with its own review, and burying it inside a session wrap-up would make both harder to check.",
+      "resolution_criteria": [
+        "Backfill the 51 remaining absent workflows into the index, each with a real one-line Purpose read from the workflow's own header -- not a filename restated as prose, which would satisfy the count and not the reader.",
+        "Add a MECHANICAL guard so the invariant cannot silently rot again: a CI check that fails when a file in .github/workflows/ is named nowhere in docs/github-actions-workflows.md. The invariant has now been asserted-and-false at least once (BL-20260602-003 closed it; it is 47% short today), which is the argument for a detector over another manual sweep -- the same reasoning canonical-doc-coherence already applies to governance-doc drift.",
+        "Until the guard exists, treat the index as a PARTIAL cheat-sheet: soften the 'every .github/workflows/*.yml is named in this doc' sentence so it stops asserting a completeness it does not have. A weaker true claim beats a strong false one."
+      ],
+      "refs": [
+        "docs/github-actions-workflows.md",
+        ".github/workflows/",
+        ".github/workflows/canonical-doc-coherence.yml"
       ]
     }
   ]
