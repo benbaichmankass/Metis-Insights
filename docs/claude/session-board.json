@@ -10,7 +10,15 @@
     "pr": null,
     "claimed_at": null
   },
-  "active_sessions": [],
+  "active_sessions": [
+    {
+      "session_id": "wave0-8g7443",
+      "branch": "claude/2026-08-21-review-8g7443",
+      "intent": "2026-08-21 review programme, WORKPLAN Wave 0.1 — exit-eval fetch attribution (Tier-3 PROPOSAL, src/ untouched); docs/research + WORKPLAN + health backlog only",
+      "started_at": "2026-08-21T17:21:00+00:00",
+      "updated_at": "2026-08-21T17:50:00+00:00"
+    }
+  ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
   "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
   "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list.",
