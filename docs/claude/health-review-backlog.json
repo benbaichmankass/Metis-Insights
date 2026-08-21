@@ -20689,6 +20689,49 @@
       "why_it_matters": "Two venues, one failure class, one of them now watched every 6h and the other not at all. The half that is watched is ib_paper; the half that is NOT watched is where the real money trades.",
       "next_action": "Tier-1: add a price comparison to scripts/ops/bybit_bracket_audit.py — per open journal row, compare the resting leg trigger against trades.stop_loss / take_profit_1 with a venue-tick tolerance, and report a divergence as its own graded dimension so the roll-up's 'clean across ALL N dimensions' line stays honest about what it checked. Reuse broker_bracket_reconcile's tolerance semantics rather than inventing a second definition.",
       "resolution_criteria": "bybit-bracket-audit grades a price dimension, its roll-up names it, and a planted divergence is shown to FAIL the check before a clean result is trusted."
+    },
+    {
+      "id": "BL-20260821-DEPLOY-FASTPATH-SKIPS-UNIT-INSTALL",
+      "opened_at": "2026-08-21T13:40:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "high",
+      "tier": "2 (deploy path)",
+      "status": "open",
+      "area": "deploy",
+      "title": "pull-and-deploy CANNOT deploy a unit-file-only change — its fast-path exits before install_systemd_units.sh, and ict-git-sync guarantees the fast-path is always taken",
+      "detail": "scripts/deploy_pull_restart.sh lines 273-276:\n\n    if [ \"${RUNTIME_BASE}\" = \"${POST_SYNC_HEAD}\" ]; then\n        echo \">>> Running processes already deployed at ${POST_SYNC_HEAD:0:7}; nothing to deploy.\"\n        echo \"===== DEPLOY COMPLETE: $(date) =====\"\n        exit 0\n\nThat exit 0 is BEFORE install_systemd_units.sh (line 351) and before the service restart. The guard is correct for its stated purpose — do not restart processes that are already running the target SHA — but systemd UNIT FILES are not processes, and a .timer/.service change needs an install + daemon-reload that this path never reaches.\n\nWHY IT ALWAYS FIRES, which is what makes it severe rather than theoretical: ict-git-sync.timer auto-pulls origin/main on the live VM. So by the time any session dispatches pull-and-deploy for a change it just merged, the VM's HEAD already equals origin/main, RUNTIME_BASE == POST_SYNC_HEAD, and the deploy short-circuits. The full path is reachable only in the narrow window before git-sync runs, or when a session pushes a NEW commit after the sync. A session cannot deploy a unit file on demand.\n\nMEASURED 2026-08-21 (issue #10098). PR #10088 changed deploy/ict-exchange-fills-pull.timer from OnCalendar daily 00:20 to hourly *:20 (Tier-2, operator-approved). Merged 9f8aff9 at 13:22Z; ict-git-sync auto-pulled and restarted the trader at 13:28:07Z; pull-and-deploy dispatched 13:29:00Z printed 'Running processes already deployed at 9f8aff9; nothing to deploy' and exited 0. Nothing was installed, nothing was reloaded, nothing was restarted.\n\nSECOND DEFECT IN THE SAME INCIDENT — the wrapper LIES about what it did. scripts/ops/pull_and_deploy.sh closed with '[pull_and_deploy] Deploy finished — HEAD unchanged (already at origin/main); ict-trader-live.service bounced.' No bounce occurred: the journal shows python[1550533] at 13:28:51 AND at 13:29:00, the same PID across the claimed restart. This is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A (CLAUDE.md: the label names an action the code did not take), and it is the reason the failure reads as a success. A reviewer sees a green check and a sentence saying the service bounced.\n\nCONSEQUENCE THIS SESSION: the two operator-approved alpaca_live skips landed either side of the git-sync restart. ACCOUNT_DOWN_ALERT_SKIP (written 13:27:39Z, before) is live; SILENT_REFUSAL_SKIP (written 13:28:21Z, after) is not — get-env #10099 reports process empty vs declared 'alpaca_live', '** DIFFER — restart pending **'. A half-applied silencing is worse than none, because the surviving alarm makes it look handled.\n\nNOTE the fast-path is also why a session cannot rely on 'merge then deploy' for anything under deploy/. It is not a rare race; it is the default ordering.",
+      "evidence": [
+        "scripts/deploy_pull_restart.sh:273-276 (fast-path exit) vs :351 (install_systemd_units.sh)",
+        "issue #10098 run log: '>>> Running processes already deployed at 9f8aff9; nothing to deploy.' then exit 0",
+        "issue #10098 wrapper tail: 'ict-trader-live.service bounced' — contradicted by python[1550533] appearing at both 13:28:51 and 13:29:00",
+        "issue #10099 get-env: SILENT_REFUSAL_SKIP process='' vs declared='alpaca_live', flagged pending_restart",
+        "/api/diag/tick_cost process_started_utc=2026-08-21T13:28:07Z — the restart came from ict-git-sync, not from the deploy"
+      ],
+      "resolution_criteria": "1. deploy_pull_restart.sh runs install_systemd_units.sh + daemon-reload on BOTH paths, or the fast-path is narrowed to compare the runtime SHA only for the PROCESS restart decision while unit installation is always attempted (it is idempotent and already role-gated, so running it unconditionally is cheap).\n2. pull_and_deploy.sh's closing line reports what actually happened, branching on the real outcome: 'units installed / reloaded / service restarted' vs 'no change'. It must never assert a bounce it did not perform.\n3. A regression test asserts that a diff touching only deploy/*.timer still reaches the install step — the shape of the bug is that a whole file class is unreachable, so the test must be about reachability, not about the timer's content.\n4. Verified by changing a unit file, merging, dispatching pull-and-deploy AFTER ict-git-sync has already pulled, and confirming from the run log that the install step ran.",
+      "related": [
+        "BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE"
+      ]
+    },
+    {
+      "id": "BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE",
+      "opened_at": "2026-08-21T13:40:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "high",
+      "tier": "1 (read-only observability)",
+      "status": "open",
+      "area": "observability",
+      "title": "Nothing reports a timer's SCHEDULE — only active/inactive — so a timer whose OnCalendar changed and was never reloaded is indistinguishable from one that was",
+      "detail": "Every surface that reports systemd timers reports STATE, never SCHEDULE:\n  - /api/diag/services -> {unit, state, sub_state, active_enter_iso}. ict-exchange-fills-pull.timer reads 'active' whether it fires hourly or daily.\n  - scripts/ops/status_check.sh -> systemctl list-units + list-unit-files. Neither prints NEXT or LEFT.\n  - `systemctl list-timers`, the one command that shows the next elapse, appears in the repo only in enable_insights_generator.sh, inspect_insights.sh, resume_autoheal.sh and install_trainer_git_sync.sh — each scoped to its own single unit, none reachable as a general read.\n\nSo the question 'is this timer actually on the schedule the repo declares?' has no answer from a session, and the answer that IS available ('active') is the one that looks reassuring in both cases. This is the collapsed-state shape at the ops surface: 'the schedule we intended' and 'the schedule systemd loaded' are different facts and only the first is readable.\n\nIT IS NOT HYPOTHETICAL, AND IT HID A REAL FAILURE THE SAME DAY. BL-20260821-DEPLOY-FASTPATH-SKIPS-UNIT-INSTALL means a unit-file change routinely never reaches systemd. The two defects compose: the deploy silently skips the install, and no surface can show that the loaded schedule still differs from the committed one. The hourly ict-exchange-fills-pull.timer shipped in 9f8aff9 could not be confirmed live from any read available to this session — the best available check was BEHAVIOURAL (watch journalctl for the service firing at :20), which costs an hour and only detects the failure after the window it was meant to protect.\n\nThis also undercuts the Tier-2 contract itself, which is 'ship AND verify the post-state'. For any timer change the verify half is currently unperformable.",
+      "evidence": [
+        "/api/diag/services returns state only; ict-exchange-fills-pull.timer = 'active' with no schedule field",
+        "scripts/ops/status_check.sh: systemctl list-units + list-unit-files, no list-timers",
+        "grep list-timers across scripts/ -> 4 hits, all single-unit and purpose-scoped",
+        "2026-08-21: the hourly timer from 9f8aff9 could not be confirmed loaded by any available read"
+      ],
+      "resolution_criteria": "1. status_check.sh emits `systemctl list-timers --all 'ict-*.timer'` (NEXT / LEFT / LAST / UNIT), so a schedule is readable wherever status-check is.\n2. Better, and what actually closes it for a relay-bound session: a /api/diag/timers route returning per allowlisted timer {unit, on_calendar (from systemctl show -p TimersCalendar), next_elapse, last_trigger, state}. Read-only, no socket, Tier-1 — the same shape as /api/diag/services beside it.\n3. The route must distinguish 'we could not read this timer' from 'this timer has no calendar' rather than returning null for both — the collapsed-state rule this row is an instance of.\n4. Verified by changing a timer's OnCalendar, deploying, and confirming the surface shows the NEW value — i.e. the surface must be able to catch BL-20260821-DEPLOY-FASTPATH-SKIPS-UNIT-INSTALL, which is the test that matters.",
+      "related": [
+        "BL-20260821-DEPLOY-FASTPATH-SKIPS-UNIT-INSTALL"
+      ]
     }
   ]
 }
