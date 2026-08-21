@@ -128,3 +128,104 @@ def test_could_not_look_is_not_treated_as_self_pinged():
         "on an unread response is the swallowed-ping bug this workflow exists "
         "to prevent"
     )
+
+
+# ---------------------------------------------------------------------------
+# The sentinel must name a step whose success ENTAILS delivery.
+#
+# BL-20260821-SELF-PING-SENTINEL-SURVIVES-A-FAILED-SEND: when the dedupe first
+# shipped, the sentinel sat on the best-effort send itself, which ran `set +e`
+# and `… || echo "(non-fatal)"`. That step concluded `success` whether or not
+# Telegram accepted the message, so a Telegram outage read to the listener as
+# "someone else handled it" and the ping was swallowed. These tests fail if the
+# sentinel is ever moved back onto a step that can succeed without sending.
+# ---------------------------------------------------------------------------
+
+SELF_PINGERS = ("oci-inventory", "health-snapshot")
+
+
+def _steps_of(text: str):
+    """Every step across every job, as (job_name, step_dict)."""
+    import yaml
+
+    doc = yaml.safe_load(text)
+    for job_name, job in (doc.get("jobs") or {}).items():
+        for step in job.get("steps") or []:
+            yield job_name, step
+
+
+def _sentinel_steps(text: str):
+    return [s for _, s in _steps_of(text) if SENTINEL in (s.get("name") or "")]
+
+
+@pytest.mark.parametrize("name", SELF_PINGERS)
+def test_sentinel_step_cannot_succeed_without_sending(name):
+    text = (REPO / f".github/workflows/{name}.yml").read_text(encoding="utf-8")
+    marked = _sentinel_steps(text)
+    assert len(marked) == 1, (
+        f"{name}.yml carries {len(marked)} {SENTINEL!r} steps; exactly one "
+        "confirm-step is the convention"
+    )
+    step = marked[0]
+
+    assert not step.get("continue-on-error"), (
+        f"{name}.yml: the {SENTINEL} step is continue-on-error, so it can "
+        "conclude success after a failed send and falsely suppress the listener"
+    )
+    body = step.get("run") or ""
+    assert "||" not in body, (
+        f"{name}.yml: the {SENTINEL} step swallows failure with '||' — its "
+        "success would no longer mean a message went out"
+    )
+    assert "set +e" not in body, (
+        f"{name}.yml: the {SENTINEL} step disables errexit; it must fail when "
+        "the send fails"
+    )
+
+
+@pytest.mark.parametrize("name", SELF_PINGERS)
+def test_sentinel_is_gated_on_a_real_send_step(name):
+    """The confirm-step must be gated on the OUTCOME of a step that actually
+    calls notify_session — otherwise it is a marker that always runs, which is
+    the presence-only failure `new-table-wiring-guard` already cost us."""
+    text = (REPO / f".github/workflows/{name}.yml").read_text(encoding="utf-8")
+    step = _sentinel_steps(text)[0]
+    cond = step.get("if") or ""
+    m = re.search(r"steps\.([A-Za-z0-9_-]+)\.outcome\s*==\s*'success'", cond)
+    assert m, (
+        f"{name}.yml: the {SENTINEL} step's `if` is {cond!r} — it must be "
+        "gated on steps.<send>.outcome == 'success'"
+    )
+    send_id = m.group(1)
+    senders = [
+        s for _, s in _steps_of(text)
+        if s.get("id") == send_id and "notify_session" in (s.get("run") or "")
+    ]
+    assert senders, (
+        f"{name}.yml: the {SENTINEL} step gates on steps.{send_id}.outcome, but "
+        f"no step with id {send_id!r} actually invokes notify_session"
+    )
+    # And that sender must NOT itself be marked, or we are back to the bug.
+    assert SENTINEL not in (senders[0].get("name") or "")
+
+
+def test_the_convention_check_actually_fires():
+    """Negative control. A guard never shown to fail is not evidence."""
+    import yaml
+
+    bad = yaml.safe_load(
+        "jobs:\n"
+        "  j:\n"
+        "    steps:\n"
+        "      - name: Telegram alert [operator-ping]\n"
+        "        continue-on-error: true\n"
+        "        run: |\n"
+        "          set +e\n"
+        "          python scripts/notify_session.py alert || echo oops\n"
+    )
+    step = bad["jobs"]["j"]["steps"][0]
+    assert SENTINEL in step["name"]
+    # Each of the three assertions above would reject this shape.
+    assert step.get("continue-on-error") is True
+    assert "||" in step["run"]
+    assert "set +e" in step["run"]
