@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-21T08:20:00+00:00",
+  "updated_at": "2026-08-21T08:35:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20488,7 +20488,7 @@
       "id": "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE",
       "opened_at": "2026-08-21T07:12:00+00:00",
       "opened_by": "claude (exit-integrity continuation, hit while requesting auto-merge for #10086)",
-      "severity": "low",
+      "severity": "high",
       "tier": "1 (CI / GitHub Actions)",
       "status": "open",
       "area": "session-tooling",
@@ -20505,6 +20505,13 @@
         ".github/pr-automerge-request",
         ".github/workflows/pr-opener.yml",
         ".github/workflows/board-post.yml"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-21T08:35:00+00:00",
+          "by": "claude (/system-review 2026-08-21, session dcf5220b)",
+          "note": "SEVERITY RAISED low -> HIGH by a second live hit, on a DIFFERENT and worse failure mode than this row measured. The original analysis is correct and is not being overwritten — it is extended, because the cost it priced (one merge commit + one CI cycle, 'bounded and recoverable') is not the worst thing this trigger can do.\n\nWHAT HAPPENED (2026-08-21T08:17:11Z, PR #10088). This row's own fix-source — a67b112, the commit that landed #10086 — carries `.github/pr-automerge-request` holding **#10086's** line: '#10086 ... Merge-slot claimed on #6927 at issuecomment-5366299764'. PR #10088 was `mergeable_state: dirty` for an unrelated reason (the health backlog), so it merged origin/main. That merge brought the file in. The push of the merge therefore TOUCHED `.github/pr-automerge-request` — and claude-pr-automerge.yml triggers on any push touching that path, not on a push that WROTE a request. It marked #10088 ready_for_review and enabled auto-merge (squash), attributed to github-actions[bot].\n\nSO THE FAILURE IS NOT ONLY 'two requests conflict'. It is: **merging main into any claude/** branch can enable auto-merge on that branch's PR, using a DIFFERENT PR's merge-slot claim.** No one decided it. The inheriting PR need never have requested auto-merge at all — #10088 never wrote a line into that file.\n\nWHY THAT IS HIGH AND NOT LOW. #10088 carries `src/units/strategies/pairs_executor.py` (an isolated 2-leg ORDER PATH) and `deploy/ict-exchange-fills-pull.timer` (**a unit file the live VM consumes** — named verbatim in CLAUDE.md's Tier-3 hard-limit list). Both are operator-approved, so nothing improper would have merged THIS time; the defect is that approval was not what gated it. A branch that had merged main and held an UNapproved live-path change would have been set to auto-merge identically. It also silently defeats the merge-slot serialization the coordination board exists to enforce: #10088 was queued on #10086's claim.\n\nDISPOSITION THIS SESSION: auto-merge disabled on #10088 and the PR returned to draft, because the merge slot was never claimed for it. Not a fix — the trigger is unchanged and the next branch to merge main will inherit it again.\n\nTHE PROPOSED FIX IS UNCHANGED AND NOW BETTER SUPPORTED: move to a per-request DIRECTORY (`automation/automerge-requests/<name>.json`), matching pr-opener.yml / board-post.yml / pr-close.yml. That fixes BOTH modes at once — a per-branch path cannot collide, AND cannot be inherited through a merge, because a branch that never wrote its own request file never touches the trigger path. A `paths` narrowing alone would not: the file would still arrive via merge."
+        }
       ]
     },
     {
