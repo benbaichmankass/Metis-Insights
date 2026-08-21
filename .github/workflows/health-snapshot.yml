@@ -284,7 +284,7 @@ jobs:
           print("__SUMMARY__")
           PY
 
-      - name: Notify operator (informational, only on schedule + dispatch)
+      - name: Notify operator [operator-ping] (informational, only on schedule + dispatch)
         # ONE Telegram message per run, framed as an informational
         # status check — not a "review required" alert. Skip for the
         # issue-driven path because the issue comment-back is the

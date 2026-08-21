@@ -277,7 +277,7 @@ jobs:
             echo "no issue context — report written to the job summary"
           fi
 
-      - name: Telegram alert (drift / not_declared / could_not_check)
+      - name: Telegram alert [operator-ping] (drift / not_declared / could_not_check)
         # Silent on the happy path — alert on the exception, not the norm.
         if: >-
           steps.verdict.outputs.state == 'drift' ||

@@ -65,21 +65,34 @@ on:
       # block rather than grepping, since a commented-out cron reads like a live
       # one to grep). There are **12** cron'd workflows, not 10.
       #
-      #   * 10 are listed below (the 9 originals + `broker-bracket-reconcile`).
-      #   * `Health Snapshot` is deliberately NOT listed — it already notifies on
-      #     its own schedule path via scripts/notify_session.py (a probe grepping
-      #     for a literal api.telegram.org missed that and reported it silent),
-      #     and listing it would double-ping.
-      #   * `oci-inventory` is NOT listed and IS a real coverage gap, filed as
-      #     BL-20260821-OCI-INVENTORY-CRON-UNWATCHED rather than silently fixed,
-      #     because the fix has a genuine tradeoff. Its only Telegram path is
-      #     gated on `steps.verdict.outputs.state`, so a failure BEFORE the
-      #     verdict step (OCI auth, checkout) sends nothing — the exact shape
-      #     named for `replay-pregate-nightly` above. But on `schedule` its
-      #     `fail_on_drift` defaults ON, so a drift verdict FAILS the run and
-      #     listing it here would double-ping on precisely the case it already
-      #     handles. Silence-on-early-failure vs double-ping-on-drift is a
-      #     decision to take deliberately, not a line to append.
+      #   * ALL 12 are now listed. `Health Snapshot` and `oci-inventory` were
+      #     the two exclusions; both are in as of 2026-08-21, once the
+      #     self-ping dedupe below made listing them safe (operator-directed:
+      #     "dedupe first, then list").
+      #
+      # WHY THEY WERE EXCLUDED, and the correction that closed it. Both send
+      # their own operator ping, so listing them naively double-pinged. The
+      # dedupe in the job below reads the watched run's steps and stays quiet
+      # only when a `[operator-ping]` step actually SUCCEEDED — so the double
+      # is gone and the silent modes are now covered.
+      #
+      # ⚠️ THE FILED PREMISE WAS PARTLY WRONG, corrected here by reading the
+      # YAML rather than inheriting it (BL-20260821-OCI-INVENTORY-CRON-UNWATCHED
+      # said a failure at "OCI auth, checkout, a dependency install" sends
+      # nothing). GitHub evaluates a custom `if:` as `success() && <expr>`, and
+      # `oci-inventory`'s `Run inventory` step carries `continue-on-error:
+      # true`. So:
+      #   * a failure INSIDE `Run inventory` (OCI auth, an API error) is masked,
+      #     `success()` stays true, `Classify verdict` reaches
+      #     `could_not_check`, and the Telegram DOES fire — the dominant
+      #     failure mode was never silent;
+      #   * a failure in `checkout` / `setup-python` / `pip install` makes
+      #     `success()` false, so the notify step is SKIPPED — silent;
+      #   * `cancelled` / `timed_out` never reach the step at all — silent.
+      # `Health Snapshot` has the same shape: its notify is `always() &&
+      # steps.status.outputs.level != ''`, so it pings after `status` has run
+      # and is silent before it. The residual gap was therefore NARROWER than
+      # filed, but real, and it is the part no self-ping can ever cover.
       #
       # `macro-valuation-snapshot` + `econ-calendar-produce` are included even
       # though `macro-producer-liveness` watches them: that check asserts their
@@ -107,10 +120,20 @@ on:
       # otherwise be observable only by reading its tracking issue's
       # "Last checked" line.
       - broker-bracket-reconcile
+      # Added 2026-08-21 once the self-ping dedupe landed. Both self-ping, so
+      # both were excluded before; the dedupe suppresses this listener only on
+      # a VERIFIED successful `[operator-ping]` step, leaving their genuinely
+      # silent modes (pre-notify step failure, cancelled, timed_out) covered.
+      - oci-inventory
+      - Health Snapshot
     types: [completed]
 
 permissions:
   contents: read
+  # Needed by the self-ping dedupe below: reading the WATCHED run's
+  # jobs/steps is the only way to know whether it already told the
+  # operator. The `workflow_run` payload carries no step detail.
+  actions: read
 
 jobs:
   alert:
@@ -125,7 +148,66 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # ── SELF-PING DEDUPE (2026-08-21, operator-directed) ────────────────
+      #
+      # Some watched workflows tell the operator themselves. Listing one of
+      # those here used to mean TWO pings for one event, which is why
+      # `oci-inventory` and `Health Snapshot` were excluded — and being
+      # excluded, their SILENT failure modes were covered by nothing.
+      # Neither horn of that dilemma is acceptable: a double-ping trains the
+      # operator to ignore the channel (the desensitized-alarm P1), and an
+      # exclusion leaves a cron dying unobserved.
+      #
+      # The convention: a workflow that sends its own operator ping names that
+      # step with the sentinel `[operator-ping]`. This listener reads the
+      # watched run's steps and stays quiet only when such a step actually
+      # concluded `success` — i.e. a message really went out. It is a
+      # VERIFIED suppression, never a declared one: naming a workflow in some
+      # allow-list would be cheaper to get wrong than to satisfy, the failure
+      # shape `new-table-wiring-guard`'s presence-only marker already cost us.
+      #
+      # THREE states, never collapsed — and the tie-break is deliberate:
+      #   self_pinged      a sentinel step ran and succeeded  -> stay quiet
+      #   no_self_ping     the run has no such successful step -> PING
+      #   could_not_check  the API read failed                 -> PING ANYWAY
+      # `could_not_check` pings because "we could not look" must never be
+      # served as "someone else handled it". A duplicate ping is a nuisance;
+      # a swallowed one is the entire bug this workflow exists to prevent.
+      - name: Did the watched run already ping the operator?
+        id: selfping
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          body="$(curl -sS --max-time 30 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100")" || body=""
+
+          if [ -z "${body}" ] || ! printf '%s' "${body}" | jq -e '.jobs' >/dev/null 2>&1; then
+            echo "state=could_not_check" >> "$GITHUB_OUTPUT"
+            echo "::warning::could not read run ${RUN_ID} jobs — alerting anyway rather than assuming a self-ping."
+            exit 0
+          fi
+
+          # A sentinel step that was SKIPPED or FAILED sent nothing, so only
+          # `success` counts. This is the whole point of reading conclusions
+          # rather than merely finding the step exists.
+          n="$(printf '%s' "${body}" | jq '[.jobs[].steps[]?
+                 | select(.name | contains("[operator-ping]"))
+                 | select(.conclusion == "success")] | length')"
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "state=self_pinged" >> "$GITHUB_OUTPUT"
+            echo "Suppressing: the run already sent ${n} operator ping(s) of its own."
+          else
+            echo "state=no_self_ping" >> "$GITHUB_OUTPUT"
+            echo "No successful [operator-ping] step on this run — alerting."
+          fi
+
       - name: Loud Telegram flag — a Claude-driven run just died
+        if: steps.selfping.outputs.state != 'self_pinged'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
