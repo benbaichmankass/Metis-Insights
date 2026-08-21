@@ -130,6 +130,28 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "workflow-catalog",
+        # UNGATED (`when: None`), for the same reason api-tier-policy's
+        # completeness backstop is: a diff-scoped check cannot see a row being
+        # DELETED from the index, and a per-step `when` is evaluated against a
+        # `changed` list that is EMPTY under `--all` (push / workflow_dispatch)
+        # — so a gated step would skip on exactly the events meant to run
+        # everything (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH).
+        #
+        # Costs ~0.2s: one directory listing, one regex pass over the doc, and
+        # one `git ls-files`. Cheap enough that gating it would be the more
+        # expensive decision.
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation — a guard whose failure
+            # path is never exercised is indistinguishable from one that always
+            # passes, and this guard's whole subject is a claim that was green
+            # and false for 45.9% of its scope.
+            ["python3", "scripts/ci/check_workflow_catalog.py", "--self-test"],
+            ["python3", "scripts/ci/check_workflow_catalog.py", "--all"],
+        ],
+    },
+    {
         "name": "arch-doc-guard",
         "when": {
             "globs": [

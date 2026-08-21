@@ -222,3 +222,76 @@ def test_the_live_population_flags_MGC_and_MES_and_passes_MHG():
 
 def test_self_test_passes():
     assert bbr._self_test() == 0
+
+
+# ------------------------------------------------- change detection
+# `fingerprint()` is what lets the scheduled caller
+# (.github/workflows/broker-bracket-reconcile.yml) record every run but speak
+# only when the graded state MOVES. Both of the tool's alarm-shaped outputs are
+# true in the steady state -- `total_findings` is 3 and `any_could_not_look` is
+# True on every run -- so pinging on either would ping constantly, which
+# CLAUDE.md names as its own P1 bug.
+
+def _live_doc(mes_orders=MES_ORDERS, mhg_orders=MHG_ORDERS, ib_paper_read=True):
+    doc = {"captured_at": "2026-08-21T06:39:13Z", "accounts": [
+        {"account_id": "bybit_1", "read_state": "not_ib", "orders": None},
+        {"account_id": "ib_paper",
+         "read_state": "orders_read" if ib_paper_read else "could_not_look",
+         "orders": (mhg_orders + MGC_ORDERS + list(mes_orders)) if ib_paper_read else None},
+        {"account_id": "ib_live", "read_state": "could_not_look", "orders": None},
+    ]}
+    positions = [dict(t, account="ib_paper") for t in (MHG_TRADE, MGC_TRADE, MES_TRADE)]
+    return bbr.reconcile(doc, positions)
+
+
+def test_fingerprint_is_stable_across_identical_runs():
+    """The steady state must NOT move, or the caller alarms every run."""
+    assert bbr.fingerprint(_live_doc())[0] == bbr.fingerprint(_live_doc())[0]
+
+
+def test_fingerprint_is_order_independent():
+    """Leg/finding ordering is an artifact of the payload, not a state change."""
+    a = bbr.fingerprint(_live_doc(mhg_orders=MHG_ORDERS))[0]
+    b = bbr.fingerprint(_live_doc(mhg_orders=list(reversed(MHG_ORDERS))))[0]
+    assert a == b
+
+
+def test_fingerprint_moves_when_an_account_stops_being_readable():
+    """ib_paper slipping to could_not_look is a WEDGED GATEWAY -- must alert.
+
+    This is the signal the whole change-detector exists to preserve: ib_live
+    sitting at could_not_look forever is silent, but a readable account going
+    dark is not.
+    """
+    assert bbr.fingerprint(_live_doc(ib_paper_read=True))[0] \
+        != bbr.fingerprint(_live_doc(ib_paper_read=False))[0]
+
+
+def test_fingerprint_moves_when_a_new_finding_appears():
+    """MHG (the control) losing its resting target must break the silence."""
+    stop_only = [o for o in MHG_ORDERS if o["order_type"] == "STP"]
+    assert bbr.fingerprint(_live_doc())[0] != bbr.fingerprint(_live_doc(mhg_orders=stop_only))[0]
+
+
+def test_fingerprint_is_BLIND_to_magnitude__a_stated_limitation():
+    """PINS THE DOCUMENTED LIMITATION so it cannot quietly become false.
+
+    MES 4350's stop drifting from 69 ticks away to ~535 is the SAME set of
+    problems, so the digest does NOT move and the caller stays silent. That is
+    deliberate, and it is why the caller always rewrites the current numbers
+    into its tracking record rather than relying on the digest alone. If this
+    test ever fails, the docstring on `fingerprint()` is now wrong -- fix the
+    prose, do not just re-baseline the test.
+    """
+    worse = [dict(MES_ORDERS[0], aux_price=7400.0)]
+    assert "stop_price_diverges" in _kinds(MES_TRADE, worse, "MES")
+    assert bbr.fingerprint(_live_doc())[0] == bbr.fingerprint(_live_doc(mes_orders=worse))[0]
+
+
+def test_fingerprint_body_is_the_digest_preimage():
+    """A reader must be able to see WHY two runs differ, not compare hashes."""
+    import hashlib
+    digest, body = bbr.fingerprint(_live_doc())
+    assert hashlib.sha256(body.encode("utf-8")).hexdigest()[:16] == digest
+    assert "A:ib_live=could_not_look" in body
+    assert "F:ib_paper:4350:MES:stop_price_diverges" in body

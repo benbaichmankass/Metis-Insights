@@ -1316,21 +1316,59 @@ class IBClient:
         }
 
     def place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
-        """Attach SL/TP to an **already-open** position (no market entry).
+        """Cancel resting protective legs, then attach SL/TP to an
+        **already-open** position (no market entry).
+
+        ⚠️ **THIS CANCELS BEFORE IT PLACES — it is not place-only.** Read
+        that before reasoning about what a repair here can and cannot do.
+        An earlier version of this docstring described only the placing
+        half, and a session that read it (and stopped there) concluded that
+        no safe in-place repair of a resting protective leg existed — the
+        opposite of the truth, and it sent a Tier-3 question to the operator
+        on that basis. Field beats comment: the pre-cancel is in
+        :meth:`_locked_place_protective` and is load-bearing.
+
+        **Pre-cancel scope depends on ``oca_key``**, and the two paths are
+        not equivalent:
+
+        * ``oca_key`` supplied → cancels only group ``oca-protect-t<key>``,
+          i.e. only THIS trade's own legs. Safe on a netted contract, and
+          idempotent (a re-arm for the same trade reuses the same group).
+        * ``oca_key`` absent → falls back to a **symbol-wide** cancel of
+          every resting leg on the root, and logs a warning. IB nets per
+          contract per account, so on a contract several strategies trade
+          this **can destroy a sibling trade's protection**
+          (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Pass a key
+          whenever the caller has a trade identity.
+
+        A pre-cancel that raises is logged and swallowed — the fresh
+        bracket is still armed, on the reasoning that arming protection
+        matters more than a clean cancel. That means a *partial* pre-cancel
+        is possible, so callers must not treat a success return as proof
+        that no stale leg survives.
+
+        The pre-cancel exists to stop bracket ACCUMULATION
+        (BL-20260624-MHG-FLIP): without it, repeated re-arms across an
+        orphan flap stack multiple live OCA brackets on one position, whose
+        stops later fire together and flip a by-then-flat position into a
+        reverse orphan.
 
         Unlike :meth:`place`, this never opens or adds to a position — it
         places only the reverse-side protective legs for a position that
         already exists at IBKR (e.g. a reconciler-adopted orphan that lost
         its bracket). The legs are an OCA pair (one fills → the other
-        cancels): a stop at ``sl`` and a limit at ``tp``, both ``GTC`` so
-        they persist until the position closes. At least one of ``sl`` /
-        ``tp`` must be provided.
+        cancels, ``ocaType=1``, **within that group only**): a stop at
+        ``sl`` and a limit at ``tp``, both ``GTC`` so they persist until the
+        position closes. At least one of ``sl`` / ``tp`` must be provided —
+        so a caller passing SL only silently replaces an existing SL+TP
+        pair with a stop alone.
 
         ``order`` keys: ``symbol``, ``direction`` (``"long"`` / ``"short"``
         — the **position's** side; the protective legs are the reverse),
-        ``qty`` (whole contracts), ``sl``, ``tp``. Return envelope mirrors
-        :meth:`place`: ``{"retCode": 0, "result": {"orderId": ...}, ...}``
-        on success, ``{"retCode": <non-zero>, "retMsg": ...}`` on refusal.
+        ``qty`` (whole contracts), ``sl``, ``tp``, and the optional
+        ``oca_key`` described above. Return envelope mirrors :meth:`place`:
+        ``{"retCode": 0, "result": {"orderId": ...}, ...}`` on success,
+        ``{"retCode": <non-zero>, "retMsg": ...}`` on refusal.
         """
         with self._usage_lock:
             return self._locked_place_protective(order=order)

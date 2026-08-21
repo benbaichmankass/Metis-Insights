@@ -711,9 +711,17 @@ unsupported root costs one request per process, not one per row per tick.
 every future IB close would land as a declared gap. `interactive_brokers` is in
 `BROKER_PNL_READER_EXCHANGES`; `exchange_fills_ib.closed_pnl_from_fills` reads IBKR's own
 `CommissionReport.realizedPNL` back from the exchange-fills store — a **local SQLite read, not
-a broker call** — fed by `ict-ib-executions-pull.timer`. That timer is **hourly, not daily like
-`ict-exchange-fills-pull`**: IBKR's `reqExecutions` serves roughly the current trading day AND
-`_LOCAL_PNL_BROKER_DEFER_MS` is 6h, so a daily pull would look correct and be inert.
+a broker call** — fed by `ict-ib-executions-pull.timer`. That timer is **hourly**: IBKR's
+`reqExecutions` serves roughly the current trading day AND `_LOCAL_PNL_BROKER_DEFER_MS` is 6h, so a
+daily pull would look correct and be inert. ⚠️ **This row used to say "hourly, not daily like
+`ict-exchange-fills-pull`" — that contrast is GONE as of 2026-08-21 and must not be re-quoted.**
+The reasoning was right and had simply never been carried across to Bybit; `ict-exchange-fills-pull`
+is now hourly too (Tier-2, operator-approved 2026-08-21). Leaving the old wording would read as if
+the Bybit sibling is still daily, which is the dangerous direction. What the daily cadence actually
+cost, measured before the flip: real-money trade 4863 crossed its declared take-profit and was
+booked at `candle_at_close` because the store held no `bybit_2` fill later than 2026-08-20T13:36Z,
+and paper `pnlCoverage` had fallen 0.3668 lifetime → 0.1053 (7d) → 0.0625 (24h)
+(`BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE`).
 
 **A broker closed-pnl record carries its own `source`; never stamp a literal.** All four
 monitor sites that persist a broker close hardcoded `exit_price_source = "bybit_closed_pnl"` —

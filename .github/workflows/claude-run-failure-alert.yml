@@ -60,12 +60,26 @@ on:
       # while the trigger that actually fired was `schedule` — so the schedule
       # path is silent on success AND failure.
       #
-      # POPULATION, stated because the first count of it was wrong: there are
-      # 10 cron'd workflows. `Health Snapshot` already notifies on its own
-      # schedule path (via scripts/notify_session.py — a probe grepping for a
-      # literal api.telegram.org missed that and reported it silent), so it is
-      # deliberately NOT listed here; listing it would double-ping. The other 9
-      # are added.
+      # POPULATION, stated because the first count of it was wrong — and it was
+      # STILL wrong (re-counted 2026-08-21 by parsing every workflow's `on:`
+      # block rather than grepping, since a commented-out cron reads like a live
+      # one to grep). There are **12** cron'd workflows, not 10.
+      #
+      #   * 10 are listed below (the 9 originals + `broker-bracket-reconcile`).
+      #   * `Health Snapshot` is deliberately NOT listed — it already notifies on
+      #     its own schedule path via scripts/notify_session.py (a probe grepping
+      #     for a literal api.telegram.org missed that and reported it silent),
+      #     and listing it would double-ping.
+      #   * `oci-inventory` is NOT listed and IS a real coverage gap, filed as
+      #     BL-20260821-OCI-INVENTORY-CRON-UNWATCHED rather than silently fixed,
+      #     because the fix has a genuine tradeoff. Its only Telegram path is
+      #     gated on `steps.verdict.outputs.state`, so a failure BEFORE the
+      #     verdict step (OCI auth, checkout) sends nothing — the exact shape
+      #     named for `replay-pregate-nightly` above. But on `schedule` its
+      #     `fail_on_drift` defaults ON, so a drift verdict FAILS the run and
+      #     listing it here would double-ping on precisely the case it already
+      #     handles. Silence-on-early-failure vs double-ping-on-drift is a
+      #     decision to take deliberately, not a line to append.
       #
       # `macro-valuation-snapshot` + `econ-calendar-produce` are included even
       # though `macro-producer-liveness` watches them: that check asserts their
@@ -87,6 +101,12 @@ on:
       - purge-artifacts
       - replay-pregate-nightly
       - research-backtest-augment
+      # Added 2026-08-21 with the workflow itself. It has NO self-notify path of
+      # its own — by design it stays silent unless the graded state MOVES — so
+      # there is nothing here to double-ping, and a dead schedule would
+      # otherwise be observable only by reading its tracking issue's
+      # "Last checked" line.
+      - broker-bracket-reconcile
     types: [completed]
 
 permissions:

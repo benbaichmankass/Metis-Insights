@@ -1,16 +1,42 @@
 # ============================================
 # ICT EXCHANGE-FILLS PULL TIMER (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
-# Fires the Bybit fills pull DAILY so /api/bot/pnl/exchange never goes stale
+# Fires the Bybit + Alpaca fills pull HOURLY so /api/bot/pnl/exchange never goes
+# stale AND so a same-day close can still resolve against broker truth
 # (the surface had 0 fills/7d before PR #6290 because the S-067 puller had no
 # timer at all).
 #
-# Cadence rationale: DAILY at 00:20 UTC — clear of the 23:30 UTC MES pull, the
-# ~00:50 UTC trainer sync, the 06:05 UTC gateway reset, and IBKR's ~03:45-05:45
-# UTC reset window. The pull is a quick read-only Bybit API call (a 31-fill run
-# took <5s on 2026-07-13), and --days 7 over-samples so a single missed run is
-# fully recovered on the next fire; the exec_id primary key makes the overlap
-# idempotent. Daily keeps the store fully covering /api/bot/pnl/exchange's
-# default 7-day window.
+# ⚠️ CADENCE IS HOURLY, NOT DAILY, AND THE REASON IS THE CLOSE PATH — NOT
+# DASHBOARD FRESHNESS (Tier-2, operator-approved 2026-08-21,
+# BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE).
+#
+# order_monitor's _LOCAL_PNL_BROKER_DEFER_MS is 6h: a closed row waits that long
+# for a broker fill before the estimator is asked for a price. A DAILY pull
+# cannot serve a 6h window — for any trade that opens AND closes inside one day
+# the store is structurally empty at resolution time, so exit_from_fills has
+# nothing to match and the row lands as ESTIMATED (candle_at_close) instead of
+# MEASURED (exchange_fill). That is not hypothetical: real-money trade 4863
+# (bybit_2, ict_scalp_5m) crossed its declared take-profit on 2026-08-21 and was
+# booked at a bar anchor, because the store held no bybit_2 fill later than
+# 2026-08-20T13:36Z. Measured the same day, /api/bot/performance pnlCoverage on
+# the paper book had fallen 0.3668 lifetime -> 0.1053 (7d) -> 0.0625 (24h).
+#
+# THE REPO ALREADY DREW THIS CONCLUSION ONCE AND DID NOT APPLY IT HERE.
+# CLAUDE.md's provenance section says of ict-ib-executions-pull: "That timer is
+# hourly, not daily like ict-exchange-fills-pull ... a daily pull would look
+# correct and be inert." The reasoning was correct and the Bybit sibling was
+# simply never brought across. It now matches: IB fires at *:17:00, this at
+# *:20:00.
+#
+# Cadence rationale: HOURLY at :20 — a 3-minute gap after the IB pull's :17,
+# and the RandomizedDelaySec windows do not overlap (IB :17:00-:19:00 at 120s,
+# this :20:00-:25:00 at 300s). The pull stays a quick read-only API call (a
+# 31-fill run took <5s on 2026-07-13). --days 7 is KEPT deliberately rather than
+# narrowed to the IB sibling's --days 2: the exec_id primary key makes the
+# overlap idempotent, so the only cost of over-sampling is request volume, and
+# at hourly a week of look-back means ~168 missed runs can elapse before the
+# store loses coverage of /api/bot/pnl/exchange's default 7-day window.
+# Narrowing --days is a separate, optional change and is NOT required for the
+# freshness this cadence exists to provide.
 #
 # Auto-enabled on the trader box by scripts/install_systemd_units.sh (it is not
 # a gateway-only or retired timer); the gateway VM + trainer never enable it.
@@ -18,11 +44,11 @@
 # ============================================
 
 [Unit]
-Description=Trigger ict-exchange-fills-pull daily (keep /api/bot/pnl/exchange fresh)
+Description=Trigger ict-exchange-fills-pull hourly (broker truth inside the 6h close-resolution window)
 Requires=ict-exchange-fills-pull.service
 
 [Timer]
-OnCalendar=*-*-* 00:20:00
+OnCalendar=*-*-* *:20:00
 # Spread the fire a few minutes so it never lands exactly on another job.
 RandomizedDelaySec=300
 # Catch up one missed run if the VM was down at fire time.
