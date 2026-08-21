@@ -10,17 +10,10 @@
     "pr": null,
     "claimed_at": null
   },
-  "active_sessions": [
-    {
-      "session_id": "api-tier-policy-guard-npihz7",
-      "branch": "claude/api-tier-policy-guard-npihz7",
-      "intent": "WRAPPING UP. Shipped: api-tier-policy-guard + docs/api-tier-policy.md backfilled 36/92 -> 92/92 (#8698); strict:false on main's branch protection, operator-directed, removing the re-sync livelock (#8711); branch-protection-sync now echoes AND asserts its post-state (#8715). Filed BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP + BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE. Remaining action: merge #8715 under the claim protocol, then this entry is stale and any session may prune it per the >24h rule. Tier-1 docs/CI throughout; no src/, no config/, no order path touched all session.",
-      "started_at": "2026-08-09",
-      "updated_at": "2026-08-10"
-    }
-  ],
+  "active_sessions": [],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
   "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
   "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list.",
-  "_pruned_2026-08-10": "Pruned 2 active_sessions entries from 2026-07-27/2026-07-30 (m28-value-thesis-sweep-evapa5, offline-vol-axis-regime-5u1p7k) — >24h stale per the schema's own pruning rule."
+  "_pruned_2026-08-10": "Pruned 2 active_sessions entries from 2026-07-27/2026-07-30 (m28-value-thesis-sweep-evapa5, offline-vol-axis-regime-5u1p7k) — >24h stale per the schema's own pruning rule.",
+  "_pruned_2026-08-21": "Pruned the 2026-08-10 api-tier-policy-guard-npihz7 entry -- >24h stale per the schema's own rule, and `git ls-remote --heads origin claude/api-tier-policy-guard-npihz7` returns nothing, so the branch is gone (merged-and-deleted or abandoned). Verified rather than inferred from the date alone. NOTE: the detector-scheduling session (2026-08-21, PRs #10086/#10090/#10091) registered no active_sessions entry -- it coordinated via the live #6927 board comments (START / heads-up / claim / release / DONE) and its merge_slot claims were mirrored there, not here. Recording that omission rather than back-filling an entry for a session that is already finished; merge_slot is null and correct."
 }
