@@ -95,6 +95,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -386,6 +387,58 @@ def reconcile(
 
 
 # --------------------------------------------------------------------------
+# change detection
+# --------------------------------------------------------------------------
+def fingerprint(result: dict[str, Any]) -> tuple[str, str]:
+    """Stable identity of the GRADED STATE, for a scheduled caller.
+
+    WHY A FINGERPRINT AND NOT AN ALARM ON ``total_findings``
+    =======================================================
+    Both of this tool's alarm-shaped outputs are TRUE IN THE STEADY STATE, so a
+    caller that pinged on either would ping on every single run. Measured live
+    2026-08-21T06:39Z on ``ib_paper``/``ib_live``:
+
+      * ``total_findings`` = 3 -- MGC 4773 ``target_naked_declared``, MES 4350
+        ``target_naked_declared`` + ``stop_price_diverges``. Standing, and the
+        repair for them is DECLINED/Tier-3, so they will not clear on their own.
+      * ``any_could_not_look`` = True -- ``ib_live`` is a declared account the
+        stack deliberately never dials, so exit 3 is the NORMAL result, not an
+        outage.
+
+    An alarm that fires constantly and is routinely walked past is itself a P1
+    bug (``CLAUDE.md`` s "If you see something, say something"), so the caller
+    records EVERY run and speaks only when this fingerprint MOVES.
+
+    WHAT IS IN IT, AND WHAT IS DELIBERATELY NOT
+    ===========================================
+    In: each account's ``state`` (so ``ib_paper`` slipping to
+    ``could_not_look`` -- a wedged gateway -- moves it, while ``ib_live``
+    sitting there forever does not), and the identity of every finding as
+    ``(account, trade_id, symbol, kind)``.
+
+    NOT in: the MAGNITUDE of a finding. MES 4350 drifting from 69 ticks to 200
+    is the SAME fingerprint and will NOT re-alert. That is a real limitation,
+    stated rather than hidden: this answers "is the set of problems the same?",
+    never "has an existing problem got worse?". The caller therefore always
+    rewrites the current numbers into its tracking record, so the magnitude is
+    visible to a reader even on a run that stays silent.
+
+    Returns ``(digest, body)`` -- the body is the exact preimage, so a reader
+    can always see WHY two runs differ instead of comparing two opaque hashes.
+    """
+    parts: list[str] = []
+    for acct in result.get("accounts", []):
+        aid = str(acct.get("account_id"))
+        parts.append(f"A:{aid}={acct.get('state')}")
+        for pos in acct.get("positions") or []:
+            for f in pos.get("findings") or []:
+                parts.append(
+                    f"F:{aid}:{pos.get('trade_id')}:{pos.get('symbol')}:{f.get('kind')}")
+    body = "\n".join(sorted(parts))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()[:16], body
+
+
+# --------------------------------------------------------------------------
 # rendering
 # --------------------------------------------------------------------------
 def render(result: dict[str, Any]) -> str:
@@ -554,6 +607,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tick-tolerance", type=float, default=_DEFAULT_TICK_TOLERANCE,
                     help="ticks of price disagreement tolerated (default 1.0)")
     ap.add_argument("--json", action="store_true", help="emit JSON")
+    ap.add_argument("--fingerprint", action="store_true",
+                    help="print the graded-state digest, then the preimage "
+                         "(for a scheduled caller's change detection)")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
 
@@ -576,7 +632,12 @@ def main(argv: list[str] | None = None) -> int:
     positions = pos if isinstance(pos, list) else pos.get("positions", [])
     result = reconcile(orders_doc, positions, tick_tolerance=args.tick_tolerance)
 
-    print(json.dumps(result, indent=2) if args.json else render(result))
+    if args.fingerprint:
+        digest, body = fingerprint(result)
+        print(digest)
+        print(body)
+    else:
+        print(json.dumps(result, indent=2) if args.json else render(result))
 
     if result["any_could_not_look"]:
         return 3

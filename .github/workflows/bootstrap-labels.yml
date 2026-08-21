@@ -455,6 +455,11 @@ jobs:
                 color: '5319e7',
                 description: 'Triggers flip-override-walkforward — the live 0.15/4.0 confidence-flip arm vs the incumbent hold.',
               },
+              {
+                name: 'bracket-reconcile',
+                color: 'd93f0b',
+                description: 'Tracking issue for broker-bracket-reconcile — declared vs resting protective legs on IB. Body is rewritten every run; a comment means the graded state MOVED.',
+              },
               // NOTE: `econ-event-study-now` is deliberately NOT re-declared here — it is
               // already declared above. A second entry for the same name is DEAD TEXT, not a
               // second declaration: the loop is get-then-skip, so an existing label is left

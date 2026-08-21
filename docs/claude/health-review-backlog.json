@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-20T21:50:00+00:00",
+  "updated_at": "2026-08-21T07:10:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20423,6 +20423,52 @@
       ],
       "resolved_at": "2026-08-20T21:12:00+00:00",
       "resolved_by": "claude (session_014myC5S5VacHNuzzBR8dGBC)"
+    },
+    {
+      "id": "BL-20260821-OCI-INVENTORY-CRON-UNWATCHED",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (exit-integrity continuation, wiring the broker-bracket-reconcile caller)",
+      "severity": "medium",
+      "tier": "1 (CI / GitHub Actions)",
+      "status": "open",
+      "area": "observability",
+      "title": "oci-inventory is a cron'd workflow in NEITHER claude-run-failure-alert's watch list NOR its stated population -- a failure before its verdict step is silent, and the fix double-pings on drift, so it needs a decision rather than an appended line",
+      "detail": "FOUND while adding broker-bracket-reconcile to claude-run-failure-alert.yml, by re-counting that file's stated population rather than trusting it.\n\nMEASURED 2026-08-21 by PARSING every .github/workflows/*.yml `on:` block (not grepping -- a commented-out cron reads like a live one to grep, which is how the earlier count went wrong): there are 12 cron'd workflows. claude-run-failure-alert.yml's header asserted '10 cron'd workflows ... The other 9 are added'. The 9 listed were right; the total was not. Unaccounted for: `oci-inventory` (weekly, Mondays 06:00 UTC) and now this session's `broker-bracket-reconcile`. The count has been corrected in that header and broker-bracket-reconcile listed.\n\nWHY oci-inventory IS A GENUINE GAP AND NOT A DELIBERATE EXCLUSION LIKE `Health Snapshot`. Its only Telegram path is the step 'Telegram alert (drift / not_declared / could_not_check)', gated `if: steps.verdict.outputs.state == 'drift' || 'not_declared' || 'could_not_check'`. That output only exists once the verdict step has RUN. A failure BEFORE it -- OCI auth, checkout, a dependency install -- leaves the output empty, the `if` false, and NOTHING is sent. The run dies silent. This is byte-for-byte the shape claude-run-failure-alert's own header names for `replay-pregate-nightly` ('its own two notify steps are gated ... while the trigger that actually fired was schedule'), and the class its cron'd section was added to close.\n\nWHY IT WAS FILED RATHER THAN FIXED IN-SESSION -- the one-line fix has a real cost, so it is a decision, not an omission. On `schedule`, oci-inventory's `fail_on_drift` defaults ON, so a DRIFT verdict FAILS the run. Listing it in claude-run-failure-alert would therefore fire a second Telegram on exactly the case it already handles correctly: the operator gets two pings for one drift. The tradeoff is silence-on-early-failure versus double-ping-on-drift, and an alarm that fires twice for one event is the desensitized-alarm P1 this repo treats as its own bug, so trading one for the other unilaterally is not obviously an improvement.\n\nNOT ASSERTED: whether `Health Snapshot`'s own notify path is gated the same way. It was excluded by a prior session's reasoning that it self-notifies, and that reasoning was not re-verified here -- only oci-inventory was read. If this row is worked, check Health Snapshot's gating too rather than inheriting the claim.",
+      "resolution_criteria": [
+        "DECIDE between the two shapes and record which, with the reason: (a) list oci-inventory in claude-run-failure-alert.yml and accept a double-ping on drift; (b) leave it unlisted and instead make its own alert fire on failure -- e.g. an `if: failure()` step, or moving the notify out from behind steps.verdict; or (c) narrow claude-run-failure-alert so a workflow that already self-pinged is suppressed.",
+        "Whichever is chosen, PROVE it with a real failing run rather than by reading the YAML: force a pre-verdict failure on a dispatch and confirm exactly ONE operator ping arrives.",
+        "Re-verify Health Snapshot's notify gating on the schedule path and either confirm its exclusion is sound or fold it into the same fix; do not inherit the prior session's claim unchecked.",
+        "Leave the corrected population count in claude-run-failure-alert.yml's header consistent with a re-parse of the `on:` blocks -- it has now been wrong twice, both times from grepping."
+      ],
+      "refs": [
+        ".github/workflows/oci-inventory.yml",
+        ".github/workflows/claude-run-failure-alert.yml",
+        ".github/workflows/broker-bracket-reconcile.yml",
+        ".github/workflows/health-snapshot.yml"
+      ]
+    },
+    {
+      "id": "BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH",
+      "opened_at": "2026-08-21T07:10:00+00:00",
+      "opened_by": "claude (exit-integrity continuation)",
+      "severity": "medium",
+      "tier": "1 (CI / GitHub Actions)",
+      "status": "open",
+      "area": "session-tooling",
+      "title": "board-post.yml's idempotency receipt is committed PER-BRANCH while the request merges to main -- so any request that reaches main receipt-less is re-posted by every future branch that files a board post; measured as 3 copies of one comment",
+      "detail": "MEASURED, not inferred. board-post.yml skips a request when automation/board-results/<name>.txt exists. The receipt is committed to the BRANCH that ran the relay; the request file merges to `main` with the PR. When a request reaches main and its receipt does not, main carries a request that looks permanently UNSERVED -- and the relay loops over every *.md in automation/board-posts/ on whatever branch triggered it.\n\nSo any future claude/** branch that adds ANY board post re-posts every receipt-less request sitting on main, as a side effect of filing its own.\n\nTHE EVIDENCE: automation/board-posts/003-merge-claim-and-correction.md landed on main via #10076; its receipt was written to claude/place-protective-docstring, which has not merged. That one comment was posted THREE times on issue #6927:\n  06:23:17Z issuecomment-5365994348 (intended)\n  06:35:30Z issuecomment-5366092551 (re-post)\n  06:35:31Z issuecomment-5366092673 (the NEW request that triggered that run)\nThe last two are ONE SECOND apart in the same run, which is what identifies the mechanism: the new request triggered the relay and the receipt-less 003 was swept up with it. A prior session had already put four near-duplicate STARTs on this board for a DIFFERENT reason (it polled for a receipt and misread its absence as a failed post); the board's value is that sessions actually read it, and it is now carrying multi-screen duplicates.\n\nNOTE THE TRAP IN THE OBVIOUS FIX. Reverting to 'delete the request once posted' -- the original design -- does stop this, but it is what the current header explains was removed: the deleting commit touches the workflow's own trigger path. Without [skip ci] it self-retriggers (harmlessly: the second run finds no requests and commits nothing), and WITH [skip ci] it suppresses every workflow for that commit, which strands a PR at zero checks. Note also that BOTH designs already share the separate github-actions[bot] pathology: any commit the relay pushes becomes the branch head, and GitHub does not trigger workflows for GITHUB_TOKEN pushes, so the PR shows zero checks until an ordinary commit arms it (observed on #10076 and again on #10083).\n\nA 003 receipt has been BACKFILLED BY HAND to stop this specific request recurring. That fixes the instance, not the class.",
+      "resolution_criteria": [
+        "Make the skip decision independent of which branch is running -- e.g. resolve the receipt against origin/main as well as the current branch, or key idempotency on something durable (a marker committed alongside the request, or an existence check against the issue's own recent comments) rather than on a branch-local file.",
+        "Whatever is chosen, it must NOT reintroduce either known pathology: no [skip ci] on a commit that can become a PR head, and no unbounded self-retrigger.",
+        "PROVE it with a real two-branch exercise: leave a receipt-less request on main, push a NEW board post from a fresh branch, and confirm exactly ONE comment appears -- reading the board itself, never the receipt file (misreading the receipt as the post is the error that produced the earlier four duplicates).",
+        "Sweep automation/board-posts/ on main for any other receipt-less request before closing, and backfill or remove them; 003 was found only because it was about to fire a fourth time."
+      ],
+      "refs": [
+        ".github/workflows/board-post.yml",
+        "automation/board-posts/003-merge-claim-and-correction.md",
+        "automation/board-results/003-merge-claim-and-correction.txt",
+        "docs/claude/coordination-board.md"
+      ]
     }
   ]
 }
