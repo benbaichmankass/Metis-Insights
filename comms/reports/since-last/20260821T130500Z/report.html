@@ -1,0 +1,159 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-08-21T13:05:00+00:00 · window 2026-08-16T09:25:00+00:00 → 2026-08-21T13:05:00+00:00</p>
+<p><span class="grade">Roll-up: 🔴 investigate</span></p>
+<p>Execution is the story: only 8.1% of closes used a declared bracket, exit evaluation misses its 60s requirement on a third of cycles, and 12 of 33 capabilities shipped this window already have nothing running them. Real money is flat; the paper book&#x27;s loss sits at 0.06 provenance coverage.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Exit evaluation breaches its own 60s requirement on 32.4% of cycles</b> <span class="pill">health · T3</span> ⚠️ operator<br><span class='muted'>n=398 intervals, max 89.1s. The pass is fetch-bound, so the remedy (candle TTL / fetch budget) reaches live entry geometry as well as exit decisions. Third review in a row to record this class.</span></li>
+<li><b>Give the pairs sleeve its own Bybit sub-account</b> <span class="pill">health · T3</span> ⚠️ operator<br><span class='muted'>8 of 8 opens strand a naked leg because the sleeve shares bybit_1 with a directional strategy under one-way netting. The reorder shipped this session shortens the exposure window from ~60 minutes to one tick; it does not remove the cause. Needs a sub-account + key pair in Actions secrets — the one thing only you can originate.</span></li>
+<li><b>Kill or fix slv_trend_1h</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>0 wins in 13, -$5,375 at pnlCoverage 0.77 — the only large loser whose coverage makes the number trustworthy.</span></li>
+<li><b>Trainer disk at 93.5% with a GC that cannot help</b> <span class="pill">ml · T2</span><br><span class='muted'>3.15 GB free; the GC reclaims 0.09 GB. Training cannot be assessed until the box has room, and the last cycle trained 0 manifests.</span></li>
+<li><b>Promote the unwired-artifacts guard from advisory to blocking</b> <span class="pill">health · T1</span><br><span class='muted'>12 of 33 new scripts this window are already unwired. The detector exists and is right; it just does not block. This is the structural fix for the largest backlog class.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">334 open / 768 total · 12 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">39 open / 105 total · 3 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">23 open / 102 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>health</span> Pairs sleeve own sub-account (blocked on operator-originated credentials)</li>
+<li><span class='pill'>performance</span> Kill slv_trend_1h (0 wins in 13 at coverage 0.77)</li>
+<li><span class='pill'>ml</span> Promote the ETH 15m regime head shadow-&gt;advisory, or state why not after 54 days</li>
+<li><span class='pill'>health</span> Candle TTL / fetch budget change to bring exit evaluation inside 60s — reaches live entry geometry, so not Tier-2</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The ict_scalp take-profit path this review initially called &#x27;the highest-leverage single change in the exit program&#x27; was measured and does NOT support that: net +$6,237 is the residue of 29 trades that exited worse (+$20,137 recoverable) against 23 that exited better (-$13,899 forfeited), 1.45:1, reaching 16% of trades — and $1.81 of the net is real money. Over-held scalps were net POSITIVE (+$1,772) vs within-horizon (-$48), so a naive max-hold exit could have destroyed value.</li>
+<li>The decision grader scored 56 of 81 closes &#x27;tp/sl_appropriate&#x27; while only 1 of the 81 exited via a declared bracket — the grader is describing an exit the strategy never made. Performance grades and execution capture must be read together or the grades flatter the system.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>exit evaluation cadence</td><td class="sev-concern">🔴 concern</td><td>requirement_state=&#x27;breached&#x27;. 129/398 intervals over the 60s requirement (32.4%), max 89.1s, mean 48.3s, median 41.7s, 3 processes.</td></tr>
+<tr><td>trader tick</td><td class="sev-concern">🔴 concern</td><td>mean 172.9s / max 222.1s (n=13) against 69.3/96.8 recorded post-M20. fetch.1d is 18.2s on-loop vs 2.4-3.6s on 2026-08-13. /api/bot/stats reports status=&#x27;paused&#x27;.</td></tr>
+<tr><td>trader restarts</td><td class="sev-watch">🟡 watch</td><td>two restarts in one hour (05:49:13Z, 06:50:43Z) not explained by a deploy.</td></tr>
+<tr><td>pairs sleeve</td><td class="sev-concern">🔴 concern</td><td>pairs_sol_eth stranded a naked leg on 8 of 8 opens since 2026-08-18. Confirmed against exchange truth. Half the fix shipped this session.</td></tr>
+<tr><td>account reachability</td><td class="sev-ok">🟢 ok</td><td>all 9 declared-live probeable accounts api_ok=true, read 13:00:58Z. alpaca_live is reachable with a $0.10 balance.</td></tr>
+<tr><td>bybit bracket integrity</td><td class="sev-ok">🟢 ok</td><td>bybit_2 clean on all 5 audited dimensions, both SL and TP legs alive, BYBIT_TPSL_MODE=partial confirmed three ways. None of the 5 dimensions is PRICE (BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS).</td></tr>
+<tr><td>shipped-but-unwired</td><td class="sev-concern">🔴 concern</td><td>12 of 33 scripts added in this window have no runner and no manual-only declaration. Repo-wide unwired set: 150.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">24</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">1.05</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">322</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">40.1%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">+$282.86</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">66</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">0 full dossiers, 81 summarized (full-per-trade (since-last/daily)).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<p class="section-empty">No market context captured.</p>
+<h2>ML / models <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v2</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>live vol verdict for every BTC cell</td></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v2</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>observer with no authored trend_vol cell — deliberate, per the 2026-07-06 walk-forward</td></tr>
+<tr><td>eth-regime-15m</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>at shadow since 2026-06-28 — 54 days awaiting its promotion gate</td></tr>
+</table></div>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>KILL <b>slv_trend_1h</b> — 0 wins in 13 closed, -$5,375, pnlCoverage 0.77 — the only large loser whose coverage makes the number trustworthy</li>
+<li class='muted'>No strategy cleared a promotion gate this window. One honest kill candidate (slv_trend_1h). uso_trend_1h is the credible winner (+$8,778 at pnlCoverage 1.00) but is not up for a stage change.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">False</div></div>
+</div>
+<p class='muted'>Last cycle trained 0 manifests. 7 stale, 5 permanent refusers. Trainer disk 93.5% (3.15 GB free) and the GC reclaims 0.09 GB — the fill is not something retention can clear.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>exit_interval_soak</td><td>gate_met</td><td>n=398 intervals across 3 processes; 32.4% breach the 60s requirement. The soak has produced its answer and the answer is bad.</td></tr>
+<tr><td>eth-15m regime head (shadow)</td><td>stalled</td><td>at shadow since 2026-06-28 — 54 days awaiting its promotion gate</td></tr>
+<tr><td>netting_attribution_soak (annotate)</td><td>accruing</td><td>still at NETTING_ATTRIBUTION_MODE=annotate; rows accruing for review before any flip to apply</td></tr>
+<tr><td>exposure_soak</td><td>accruing</td><td>per-account gross-exposure rows accruing; no ceiling value proposed yet</td></tr>
+<tr><td>pairs_soak</td><td>gate_met</td><td>8 of 8 opens stranded a leg — enough to act, and half the fix shipped</td></tr>
+</table></div>
+<h3>Execution capture <span class='muted'>— did the edge reach the account?</span></h3>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Book</th><th>n</th><th>Round-trip %</th><th>Giveback R</th><th>Hold h (act/exp)</th><th>State</th></tr>
+<tr><td>ict_scalp_mgc_15m</td><td>paper</td><td>—</td><td>—</td><td>—</td><td>270.50 / 4.00</td><td>🔴 anomaly</td></tr>
+<tr><td>ict_scalp_sol_5m</td><td>paper</td><td>—</td><td>—</td><td>—</td><td>41.70 / 1.00</td><td>🔴 anomaly</td></tr>
+<tr><td>qqq_pullback_1h</td><td>paper</td><td>—</td><td>—</td><td>—</td><td>312.00 / 8.00</td><td>🔴 anomaly</td></tr>
+<tr><td>trend_donchian (4h legs)</td><td>paper</td><td>—</td><td>—</td><td>—</td><td>— / 96.00</td><td>🟢 ok</td></tr>
+</table></div>
+<p class='pri'>🔴 <b>ict_scalp_mgc_15m</b>: held 10-100x design horizon <span class='muted'>(open 1 review(s), since 2026-08-21, BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON)</span></p>
+<p class='pri'>🔴 <b>ict_scalp_sol_5m</b>: held 10-100x design horizon <span class='muted'>(open 1 review(s), since 2026-08-21, BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON)</span></p>
+<p class='muted'>30 of 369 closes (8.1%) exited via a declared bracket; 148 (40%) closed reconciler_filled; the M20 lever set = 14 (3.8%). DOLLARS DID NOT RECONCILE WITH R this window — they disagree in SIGN at rCoverage 1.00 (PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN), so R is reported as diagnostic only and the dollar figures stand alone. · dollars reconciled: False</p>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 EXIT EVALUATION MISSES ITS OWN 60s REQUIREMENT ON A THIRD OF CYCLES — requirement_state=&#x27;breached&#x27;; 129 of 398 intervals over 60s (32.4%), max 89.1s, mean 48.3s, median 41.7s, across 3 processes. Every previously recorded mean sits BELOW every reading taken today. Third consecutive review to record this class, worse each time. BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES.</li><li>🚩 12 OF 33 SCRIPTS SHIPPED IN THE LAST FIVE DAYS ALREADY HAVE NOTHING THAT RUNS THEM — scripts/ops/exit_mechanics_audit.py, scripts/ops/exit_path_coverage.py, scripts/ops/portfolio_conflict_audit.py, scripts/ops/position_ranking.py, scripts/ops/regime_policy_coverage.py, scripts/ops/system_invariants.py, scripts/research/e2_null_calibration.py, scripts/research/e3_barrier_decomposition.py, scripts/research/e3_joint_lever_sweep.py, scripts/research/exit_census.py, scripts/research/m20_split_dispersion.py, scripts/research/peak_banking_basis.py. This is the operator&#x27;s 2026-08-20 &#x27;built half way and left to rust&#x27; directive, measured at 36% of one window&#x27;s output. Repo-wide the unwired set is 150.</li><li>🚩 EXECUTION CAPTURE IS THE HEADLINE, NOT A DETAIL — only 30 of 369 closes (8.1%) exited via a declared bracket; 148 (40%) closed &#x27;reconciler_filled&#x27;. The whole M20 lever set accounts for 14 closes (3.8%). The strategies are not exiting the way they are written.</li><li>🚩 SCALPS HELD 10-100x THEIR DESIGN HORIZON — ict_scalp_mgc_15m p90 = 1082 bars (11.3 days on a 15m leg); ict_scalp_sol_5m p90 = 501 bars (41.7h on a 5m leg); qqq_pullback_1h median 312 bars. trend_donchian 4h is the well-behaved control, which is what rules out a measurement artifact.</li><li>🚩 ML: THE REGISTRY REPORTS status=&#x27;candidate&#x27; FOR ALL 95 MODELS while deployment_bucket correctly reports LIVE 3 / SHADOW 28 / OFFLINE 64 — the nightly re-train writes to_status=&#x27;candidate&#x27; over the promoted stage, and stage_history exists on only 26 of 95. The registry&#x27;s own status column cannot be read as the deployment stage. Last cycle trained 0 manifests with 7 stale and 5 permanent refusers.</li><li>🚩 TRAINER DISK 93.5% (3.15 GB free) and the GC reclaims only 0.09 GB — the retention tool cannot fix this class of fill. MB-20260821-TRAINER-DISK-93PCT-AND-THE-GC-CANNOT-HELP.</li><li>🚩 slv_trend_1h: ZERO wins in 13 closed trades, -$5,375 at pnlCoverage 0.77 — the only large loser at credible coverage, and therefore the one honest kill candidate.</li><li>🚩 PROVENANCE IS COLLAPSING: pnlCoverage 0.37 lifetime -&gt; 0.33 -&gt; 0.11 (7d) -&gt; 0.06 (24h). Only 55 of 369 closes (15%) are broker-measured. The scoreboard is increasingly made of reconstructions.</li><li>🚩 pairs_sol_eth STRANDS A NAKED LEG ON 8 OF 8 OPENS since 2026-08-18, confirmed against exchange truth (bybit_1 SOLUSDT Buy 373.00 = donchian 367.80 + pairs 5.20 exactly; no ETH short exists). Half of the fix shipped this session; the cause is the sleeve sharing bybit_1 with a directional strategy under one-way netting and is operator-blocked on a sub-account.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES</code></td><td>health</td><td>• execution</td><td>re-measure max_interval_ms beside intervals_measured; a short-lived process reads reassuringly because the tail needs a large n</td><td>2026-08-22</td></tr>
+<tr><td><code>pnlCoverage trend</code></td><td>performance</td><td>• provenance</td><td>0.37 -&gt; 0.33 -&gt; 0.11 -&gt; 0.06. The hourly Bybit fills timer shipped in this report&#x27;s own PR should arrest it; verify the direction reverses.</td><td>2026-08-22</td></tr>
+<tr><td><code>pairs_sol_eth strand rate</code></td><td>health</td><td>• order path</td><td>the reorder should cut exposure from ~60 min to one tick; strand COUNT should be unchanged until the sub-account lands</td><td>2026-08-22</td></tr>
+</table></div>
+<footer>report_id RPT-20260821-130500-since-last · reviewer claude · prior RPT-20260816-092500-since-last · ICT Trading Bot system-report</footer></div></body></html>
