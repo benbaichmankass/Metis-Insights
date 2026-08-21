@@ -3225,7 +3225,49 @@
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Substantially advanced within two days of opening, but the resolution criterion is not fully met. The driver defect is fixed (live parity is now the DEFAULT with a _round_meta geometry stamp; the first round at that default emitted 95 take-profit exits as the positive control) and 20 non-scalp legs now carry `tp_geometry: live_parity` in docs/research/exit-refinement-coverage.json (updated_at 2026-08-15) from the 2026-08-14/15 re-sweeps: trend_donchian 1h/eth/sol via relay #9206, the 1d pullback fleet via round pullback_1d_20260814T212317Z (relays #9358/#9366), and the 1h equity legs via relay #8921. The scoping question itself is ANSWERED against that population — a non-scalp leg cleared at live parity (trend_donchian_eth_prop passed_unshipped, auc 0.6138, n_oos 902) and trend_donchian_eth reads `shipped`, so 'exit_head_ml only works on ict_scalp' does NOT hold at correct geometry. What remains: SIX non-scalp legs still rest on pre-fix no-TP rounds with tp_geometry null — eth_pullback_2h, xrp_pullback_2h, ada_pullback_2h, eth_pullback_prop_2h (all 2026-07-12/13 round-3 refs) and trend_donchian_xrp_4h, trend_donchian_ada_4h (2026-07-12 round-2 refs), each still graded honest_negative on a book the live system never trades. — Not blocked on a decision — blocked on trainer compute I cannot dispatch from this checkout. TRIGGER: re-run scripts/research/m20_exit_head_round.py (which now defaults to live parity) on those six legs and record the resulting statuses WITH their geometry stamp on both sides of any comparison; a mixed-geometry table would reproduce the exact error this row exists to prevent. Downgrading severity because the load-bearing claim — that the scalp-scoping read is geometry-conditioned — is now demonstrated rather than suspected; what is left is completing the comparison population. NOT resolution: treating the single trend_donchian_eth_prop candidate as settling the question. Note also that the disposition of anything the re-run promotes is Tier-3."
         }
       ]
+    },
+    {
+      "id": "MB-20260821-CYCLE-TRAINED-ZERO-AND-SEVEN-MANIFESTS-STALE",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "medium",
+      "tier": "1 (trainer observability + manifest triage)",
+      "status": "open",
+      "area": "training-health",
+      "title": "The latest training cycle trained 0 models (76 already_done, 8 refusals) while 7 manifests are past the 7-day staleness threshold and 5 refuse every night",
+      "detail": "MEASURED 2026-08-21 from /api/bot/ml/status (mirror age 22s, so current). last_cycle: {outcome: 'complete_with_refusals', trained: 0, already_done: 76, carried_done: 68, carried_skipped: 8, refusals_total: 8, failed: 0}. cycles_24h=2. training_staleness summary: scanned 76, stale 7, never_trained 2, awaiting_source 1, threshold_days 7.0. refusing_manifests_24h, unchanged night after night: baseline-prop-mission-policy, btc-regime-15m-lgbm-base-vt003-pcv-v1, mes-regime-1d-lgbm-v2, setup-candidates-metalabel-xsym-yz-v1, setup-quality-lgbm-v2. Across the last 60 cycle rows: manifest_ok 23, manifest_untrained_stale 14, manifest_audit_skipped_enforced 3, manifest_skipped 2, manifest_dataset_empty 1.\n\nThis is the ml_output_actionability question the /system-review coverage guard asks: the service is green and the cycle completes, and the answer to 'what did it produce' is nothing. CLAUDE.md records the same shape measured 2026-08-20 (7,442 cycle rows over 149 cycles with outcome totals {trained: 20, already_complete: 20}).",
+      "why_it_matters": "A green trainer that trains nothing looks identical to a healthy one on every surface except this arithmetic. Seven stale manifests and five permanent refusers are a standing capability loss nobody is deciding about.",
+      "next_action": "Tier-1: give each of the 5 refusing manifests a disposition (fix the dataset / shrink / drop the manifest) rather than letting them refuse nightly, and report trained-vs-already_done in the hourly snapshot so a zero-training cycle is visible without a diag pull.",
+      "resolution_criteria": "refusing_manifests_24h is empty or every entry carries a recorded disposition, and training_staleness.stale is 0."
+    },
+    {
+      "id": "MB-20260821-TRAINER-DISK-93PCT-AND-THE-GC-CANNOT-HELP",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "high",
+      "tier": "2 (trainer VM disk)",
+      "status": "open",
+      "area": "trainer-vm",
+      "title": "Trainer disk at 93.5% (3.15 GB free) with the dataset GC measured as able to reclaim only 0.09 GB — the banner is firing and the named remedy does not work",
+      "detail": "MEASURED 2026-08-21 from /api/bot/ml/status disk: {free_gb: 3.15, total_gb: 48.28, used_gb: 45.13, used_pct: 93.5, measured: true}. /api/bot/notifications carries the trainer_disk_low warning banner (since 06:38Z).\n\nThe banner's own detail says the remedy does not apply: 'the dataset garbage collector is NOT the remedy: measured 2026-08-20 it reclaims 0.09 GB of 115 version dirs (111 held by 41 manifest pins)'. So 111 of 115 dataset versions are pinned by manifests and cannot be collected. That means the disk problem is a MANIFEST-PIN problem, not a retention problem, and no existing tool addresses it. Related already-open: BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER, BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED.\n\nA full trainer disk stops dataset builds and training cycles, and the trainer's own systemd state reports green throughout — which is exactly the condition that produced MB-20260821-CYCLE-TRAINED-ZERO if it worsens.",
+      "why_it_matters": "3.15 GB of headroom against a build tree that has been growing, with the only named remedy measured at 0.09 GB of relief. This has a deadline attached to it whether or not anyone sets one.",
+      "next_action": "Tier-1 first: measure what the 41 pinning manifests actually need — how many pins are held by manifests that are themselves stale or permanently refusing (see MB-20260821-CYCLE-TRAINED-ZERO). Retiring a refusing manifest releases its pins. Tier-2 for the operator if that is insufficient: grow the trainer volume or move the dataset tree.",
+      "resolution_criteria": "Trainer free_gb is above the 5.0 GB warning threshold and the banner clears, with the reclaim attributed to a named action."
+    },
+    {
+      "id": "MB-20260821-ETH-15M-HEAD-SHADOW-SINCE-0628",
+      "opened_at": "2026-08-21T07:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-21, session dcf5220b)",
+      "severity": "medium",
+      "tier": "3 (promotion is the operator's gate)",
+      "status": "open",
+      "area": "promotion",
+      "title": "The ETH 15m regime head has been awaiting its promotion decision since 2026-06-28 — a gate open across many reviews, which the review-coverage rule makes a mandatory flag",
+      "detail": "CLAUDE.md's REGIME_ML_VERDICT_MODE row records: BTC real-money vol-gate enforce live since 2026-06-28 (head swapped 2026-07-20 and again 2026-08-04); SOL advisory head restored 2026-08-02 but deliberately has NO authored cell, so it is an observer; \"ETH's 15m head is still shadow, awaiting its own promotion (MB-20260628-VOLGATE-GOLIVE)\". That is ~54 days.\n\nThe /system-review coverage rule states: 'A gate that has been MET across two or more consecutive reviews without a decision is a MANDATORY flags_raised entry ... Ready to promote that stays ready to promote for a month is the soak equivalent of an alarm everyone walks past.' Filing it here so the next review inherits the clock rather than rediscovering it.\n\nNOTE the blocker on establishing readiness from the endpoint: /api/bot/ml/registry reports status='candidate' for all 95 models (BL-20260821-REGISTRY-STATUS-SAYS-CANDIDATE-FOR-EVERY-MODEL), so the ETH head's actual stage and soak age are not readable from the surface that exists to report them. That defect should be fixed before the gate packet is trusted.",
+      "why_it_matters": "Either the ETH head is ready and 54 days of edge went unused, or it is not ready and the record should say so. Neither is what 'awaiting promotion' with no clock communicates.",
+      "next_action": "Fix BL-20260821-REGISTRY-STATUS first so stage and soak age are readable, then produce the ETH gate packet (oos_edge / drift KS+PSI / live_parity / soak days) and put a promote-or-decline decision in front of the operator with a date.",
+      "resolution_criteria": "A dated operator decision on the ETH 15m head recorded in stage_history or in the ml backlog."
     }
   ],
-  "updated_at": "2026-08-16T09:05:00+00:00"
+  "updated_at": "2026-08-21T07:05:00+00:00"
 }
