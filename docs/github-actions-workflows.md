@@ -988,6 +988,7 @@ header before triggering a mutating one).
 | `pr-opener.yml` | Control path | AUTONOMOUS | push-sentinel | Git-push-triggered PR opener — the MCP-independent PR-creation path. |
 | `vm-driver.yml` | Control path | AUTONOMOUS | push-sentinel | Git-push-triggered remote driver — MCP-independent control path. |
 | `ict-scalp-backtest.yml` | Backtest | AUTONOMOUS | label / dispatch | Self-contained ict_scalp_5m backtest workflow. |
+| `e35-bracket-sweep.yml` | Research | AUTONOMOUS | dispatch | E3.5 bracket-geometry sweep, sharded one leg per job on free GitHub runners; candles from data.binance.vision, so no VM and no trainer contention. |
 | `provision-live-vm.yml` | VM provisioning | OPERATOR-APPROVAL | label / dispatch | Provision the CANDIDATE live-trader VM (Ampere 2 OCPU/12 GB). |
 | `provision-gateway-vm.yml` | VM provisioning | OPERATOR-APPROVAL | label / dispatch | Provision the dedicated IB-Gateway VM (Ampere 1 OCPU/6 GB). |
 | `provision-ib-gateway.yml` | VM provisioning | OPERATOR-APPROVAL | label / dispatch | Install/re-provision the headless IB Gateway (IBC). |
