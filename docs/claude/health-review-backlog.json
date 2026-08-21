@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-21T17:45:00+00:00",
+  "updated_at": "2026-08-21T18:05:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -20815,6 +20815,22 @@
       "resolution_criteria": "/api/diag/tick_cost (or a sibling diag read) reports _CANDLE_CACHE entry count and a cumulative wholesale-flush counter, so a session can state how often the map was cleared over a window instead of inferring it from fetch counts. LRU eviction instead of .clear() would also close it, and is the better fix if taken.",
       "related": [
         "BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES"
+      ]
+    },
+    {
+      "id": "BL-20260821-NO-BYBIT-ACCOUNT-IDENTITY-READ-SURFACE",
+      "opened_at": "2026-08-21T18:05:00+00:00",
+      "opened_by": "claude (wave0-8g7443, while checking Wave 0.2 STEP 0)",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "area": "observability",
+      "title": "No surface anywhere reports a Bybit account's UID — so 'do bybit_1 and bybit_portfolio share a demo UID?' is unanswerable, and that question GATES the operator-decided hedge-mode item",
+      "detail": "CORRECTS A HANDOFF. The 2026-08-21 /system-review session carried Wave 0.2 STEP 0 forward under 'Operator-blocked'. It is NOT operator-blocked: it is blocked on a read surface that does not exist, and building one is Tier-1.\n\nTHE GATING QUESTION (docs/claude/WORKPLAN-2026-08-21.md Wave 0.2): bybit_portfolio is ALSO demo:True. If it shares a demo UID with bybit_1, switching a symbol's position mode on bybit_1 hits both books - so the hedge-mode design's 'scope it per-symbol on bybit_1' safety argument would not hold.\n\nWHAT CONFIG SETTLES, AND WHAT IT DOES NOT. config/accounts.yaml gives the three bybit accounts three DISTINCT key envs - bybit_1 BYBIT_API_KEY_1, bybit_2 BYBIT_API_KEY_2, bybit_portfolio BYBIT_API_KEY_3 - with bybit_1 and bybit_portfolio both demo:True and bybit_2 mainnet. Distinct keys NARROW the question and do not settle it: Bybit permits several API keys on ONE UID, and a sub-account key carries its own credentials under a master UID. So 'different keys' is consistent with both same-UID and different-UID.\n\nWHAT WOULD SETTLE IT: Bybit v5 GET /v5/user/query-api returns userID and parentUid for the calling key. checked: src/exchange/bybit_connector.py - grepped the connector, src/units/accounts/execute.py and src/units/accounts/clients.py, then all of src/ and scripts/, for query-api / parentUid / userID: ZERO hits. The repo has never read this. /api/diag/broker_account_status has a bybit arm, but it returns available_margin + margin_fields and no identity at all.\n\nNOTE THE SHAPE, because it is the third instance this session: an operator-decided item is gated on a fact with no read surface, so the question gets answered by inference or deferred indefinitely. Same family as BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE (which manufactured a phantom defect) and BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS (which forced a bound where a measurement was wanted).\n\nSCOPE: read-only, no order path, no mutation. It reads identity, not margin, and must NOT be folded into the available_margin branch - that field is about sizing and widening it would make it describe a payload it is not about (the same reason `supported` deliberately stays false on the bybit arm).",
+      "resolution_criteria": "A read-only surface (e.g. an identity block on /api/diag/broker_account_status, or a sibling route) reports userID and parentUid per declared bybit account, three-state and never collapsed - identity_read / could_not_look (null, NEVER a zero or empty string) / not_bybit - and a session can state whether bybit_1 and bybit_portfolio share a UID by citing that read rather than by inferring it from distinct key envs. Wave 0.2 STEP 0 is then answerable without an operator.",
+      "related": [
+        "BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE",
+        "BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS"
       ]
     }
   ]
