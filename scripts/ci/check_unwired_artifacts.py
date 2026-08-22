@@ -161,6 +161,49 @@ def scan(root: Path, targets):
     return findings
 
 
+def added_targets(base: str, root: Path, dirs) -> list:
+    """`*.py` files this change ADDS under *dirs* — the diff-scoped population.
+
+    ADDED, not merely changed. The whole reason this guard shipped
+    self-test-only is that the repo already carries ~161 unwired tools, and a
+    guard that fails every PR for pre-existing debt is the desensitized alarm
+    this repo names as a P1 in its own right. Judging only what a change
+    INTRODUCES makes it blockable without that: the debt stays visible in the
+    `--dir` standing audit and stops GROWING here.
+
+    Returns [] when git cannot answer (a shallow clone, an unknown ref). That is
+    fail-OPEN and it is the honest direction for a diff-scoper: treating "we
+    could not read the diff" as "everything is new" would fail every PR on a CI
+    misconfiguration, and treating it as a finding would claim evidence we do
+    not have.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "diff", "--name-status",
+             "--diff-filter=A", f"{base}...HEAD"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except Exception:
+        return []
+    if out.returncode != 0:
+        return []
+    added = []
+    for line in out.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        rel = parts[-1]
+        if not rel.endswith(".py") or rel.endswith("__init__.py"):
+            continue
+        if not any(rel.startswith(f"{d.rstrip('/')}/") for d in dirs):
+            continue
+        p = root / rel
+        if p.is_file():
+            added.append(p)
+    return added
+
+
 def _self_test(root: Path) -> int:
     import tempfile
     checks = []
@@ -225,6 +268,16 @@ def _self_test(root: Path) -> int:
         checks.append(("a tool CALLED in executable position is NOT flagged",
                        not scan(fake3, [tool])))
 
+    # The DIFF SCOPER's own failure path. A scoper that silently returned []
+    # on every input would make the blocking mode pass unconditionally —
+    # indistinguishable from a clean repo, which is the class this file exists
+    # to catch, turned on itself.
+    checks.append(("added_targets returns [] on an unresolvable base rather than raising",
+                   added_targets("definitely-not-a-ref-9f3a", root, ["scripts"]) == []))
+    checks.append(("added_targets filters to the requested dirs",
+                   all(str(p).startswith(str(root / "scripts"))
+                       for p in added_targets("HEAD~1", root, ["scripts"]))))
+
     # the probe must find a positive on the real repo, or its silence is meaningless
     real = scan(root, [root / "scripts" / "ops" / "trainer_dataset_gc.py"]) \
         if (root / "scripts" / "ops" / "trainer_dataset_gc.py").exists() else []
@@ -243,9 +296,36 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--dir", default="scripts", help="tree of tools to check")
+    ap.add_argument("--base", default=None,
+                    help="git ref: judge ONLY the *.py files this change ADDS "
+                         "(the blocking CI mode). Without it, --dir is a "
+                         "report-only standing audit over the whole tree.")
+    ap.add_argument("--dirs", default="scripts,src",
+                    help="comma-separated trees the --base mode judges")
     a = ap.parse_args()
     if a.self_test:
         return _self_test(REPO)
+
+    if a.base:
+        dirs = [x.strip() for x in a.dirs.split(",") if x.strip()]
+        targets = added_targets(a.base, REPO, dirs)
+        findings = scan(REPO, targets) if targets else []
+        print(f"unwired-artifact (diff-scoped vs {a.base}): {len(targets)} newly "
+              f"added tool(s) under {', '.join(d + '/' for d in dirs)}, "
+              f"{len(findings)} with no runner")
+        if not findings:
+            # STATE THE DENOMINATOR. "0 findings" over 0 targets and over 12
+            # targets are different statements and must not print the same.
+            print("OK — nothing this change ADDS is unwired." if targets
+                  else "OK — this change adds no new tool under those trees.")
+            return 0
+        for rel, why in sorted(findings):
+            print(f"  {rel}\n      {why}")
+        print("\n::error::this change ADDS a capability nothing runs. Wire it to a "
+              "workflow/unit/caller, delete it, or declare "
+              "`# wiring: manual-only - <reason>` in the file itself. "
+              "Pre-existing unwired tools are NOT judged here — only what you add.")
+        return 1
 
     targets = [f for f in (REPO / a.dir).rglob("*.py")
                if "__pycache__" not in f.parts and f.name != "__init__.py"]
