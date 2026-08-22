@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-22T19:35:00+00:00",
+  "updated_at": "2026-08-22T20:35:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -21236,6 +21236,28 @@
       ],
       "evidence": [
         "docs/research/m20-readiness-2026-08-22.md"
+      ]
+    },
+    {
+      "id": "BL-20260822-DIAG-FETCH-404-BLAMES-PATH-FORM-NOT-WRONG-SURFACE",
+      "opened_at": "2026-08-22",
+      "opened_by": "s4-pairs-control (session wrap)",
+      "severity": "low",
+      "tier": "1 (ops tooling diagnostics)",
+      "status": "open",
+      "area": "observability / diag tooling",
+      "title": "diag_fetch.sh's 404 message names path-form as the cause when the real cause is a non-diag surface",
+      "detail": "scripts/ops/diag_fetch.sh:117 builds \"${base}/api/diag/${path}\", so the /api/diag/ prefix is HARDCODED and the tool serves that surface only (its own header, line 2, says so). Passing a valid non-diag route therefore produces /api/diag/api/bot/notifications -> 404. That behaviour is correct-by-contract and is NOT the finding. The finding is the MESSAGE: line 136 explains a 404 as \"check the path form (pass 'version', not '/api/diag/version')\" -- a cause no code path tested for this input. The caller did not get the path form wrong; they addressed a surface this tool does not serve, and the advice points away from that. MEASURED 2026-08-22T20:27Z during a session wrap: diag_fetch.sh '/api/bot/notifications' returned answered_404 while a direct curl to https://ict-bot.duckdns.org/api/bot/notifications returned HTTP 200 with 4 live banners -- the route is healthy and the tool reported it missing. The envelope's other half is GOOD and did its job: answered_404 correctly separated 'the host answered' from 'we never reached a host', which is what stopped the reader concluding an outage. This is sub-class A of CLAUDE.md's 'Diagnostic provenance -- UNPROVENANCED DIAGNOSTIC OUTPUT': the label is confident and names a substitution the code did not test.",
+      "why_it_matters": "diag_fetch.sh is the PRIMARY read path for every session that cannot reach the VM directly, so its failure messages are load-bearing. A 404 whose stated cause is wrong costs a session either a wasted path-form retry loop or -- worse -- the conclusion that a healthy production route is broken. In this instance the route was /api/bot/notifications, the banner feed the Android app and dashboard render for can't-miss conditions; concluding it was 404ing would have manufactured an incident.",
+      "next_action": "Branch the 404 message on whether the requested path was already outside the diag surface. If the caller's argument starts with api/ but not api/diag/, say so explicitly -- 'this tool serves /api/diag/* only; <path> is a bot route, fetch it directly' -- instead of the path-form advice. Do NOT silently widen the tool to proxy arbitrary routes: the diag bearer is surface-scoped, and a fetcher that sometimes attaches it to non-diag routes is a worse problem than a confusing 404.",
+      "resolution_criteria": "RESOLVED when diag_fetch.sh given a non-diag api/* path prints a message naming the surface mismatch, proven by a test asserting the old path-form wording is NOT emitted for that input (presence of the new string alone is insufficient -- both branches must be distinguishable).",
+      "related": [
+        "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM"
+      ],
+      "evidence": [
+        "scripts/ops/diag_fetch.sh:117 -- \"${base}/api/diag/${path}\" (prefix hardcoded)",
+        "scripts/ops/diag_fetch.sh:136 -- the 404 branch's path-form advice",
+        "2026-08-22T20:27Z: diag_fetch '/api/bot/notifications' -> answered_404; direct curl same host+path -> HTTP 200, count=4 banners"
       ]
     }
   ]
