@@ -2906,6 +2906,18 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 summary["pending_disappear"] += 1
                 continue
             _PENDING_ORPHAN_DISAPPEAR_CONFIRM.pop(tid_int, None)
+            # package-cascade: KNOWN GAP — this path closes the trade and does
+            # NOT close the linked `order_packages` row, so the second-line
+            # `_sweep_stuck_linked_packages` picks it up a tick later and stamps
+            # the generic close_reason='stuck_cascade_recovered' (a bookkeeping
+            # repair, NOT an exit) while ALSO firing `enqueue_stuck_package_sweep`.
+            # ⚠️ The intuitive exemption -- "an adopted orphan has no package" --
+            # is FALSE and was MEASURED false 2026-08-22: 44 of 74
+            # setup_type='adopted_orphan' rows carry a non-null order_package_id
+            # (26 of them close with exactly this exit_reason). Fixing it is
+            # Tier-2 (it advances the strategy-monocle gate's unblock by ~1 tick),
+            # so it is filed rather than patched here:
+            # BL-20260822-SEVEN-OF-EIGHT-TRADE-CLOSE-SITES-DO-NOT-CASCADE-THEIR-PACKAGE.
             try:
                 db.update_trade(tid_int, {
                     "status": "closed",
@@ -3583,6 +3595,13 @@ def _close_unattributable_orphan(db, row, summary: Dict[str, int]) -> None:
         ),
         "exchange_close_skipped": skipped,
     })
+    # package-cascade: HANDLED, not missing. This path closes the linked
+    # `order_packages` row directly a few lines below (`update_order_package`
+    # with close_reason='exit_coverage_no_strategy', matching this trade's own
+    # exit_reason) rather than via `_cascade_close_linked_package`. Classified
+    # 2026-08-22 under BL-20260822-SEVEN-OF-EIGHT-TRADE-CLOSE-SITES-DO-NOT-CASCADE-THEIR-PACKAGE:
+    # an enumeration that greps for the HELPER NAME rather than for the OUTCOME
+    # (is the package closed?) reports this site as a gap. It is not one.
     try:
         db.update_trade(tid, {
             "status": "closed",
@@ -5247,6 +5266,14 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                             "min; finalized closed with local-compute pnl"
                         ),
                     })
+                    # package-cascade: HANDLED, not missing. The package was
+                    # already force-closed ABOVE on this same branch
+                    # (`update_order_package` with
+                    # close_reason='stuck_strategy_watchdog', matching this
+                    # trade's exit_reason) — see the "Force-close the package +
+                    # cascade the trade" comment. This is the cascade-the-trade
+                    # half. Classified 2026-08-22 under
+                    # BL-20260822-SEVEN-OF-EIGHT-TRADE-CLOSE-SITES-DO-NOT-CASCADE-THEIR-PACKAGE.
                     db.update_trade(int(trade_row["id"]), {
                         "status": "closed",
                         "exit_reason": "stuck_strategy_watchdog",
@@ -7734,6 +7761,14 @@ def _netting_apply_close(
             db.update_trade(int(row["id"]), updates)
             return "closed"
 
+        # package-cascade: KNOWN GAP — this full-close branch closes the trade
+        # and never touches the linked `order_packages` row at all (this function
+        # has no package reference of any kind), so the second-line
+        # `_sweep_stuck_linked_packages` force-closes it a tick later as
+        # 'stuck_cascade_recovered' and fires `enqueue_stuck_package_sweep`.
+        # Measured 2026-08-22: `netting_attributed` is 5.3% of main-path closes,
+        # so this fires in production. Tier-2 to fix; filed as
+        # BL-20260822-SEVEN-OF-EIGHT-TRADE-CLOSE-SITES-DO-NOT-CASCADE-THEIR-PACKAGE.
         updates: Dict[str, Any] = {
             "status": "closed",
             # `trades` has exit_reason; close_reason lives on `order_packages`.
