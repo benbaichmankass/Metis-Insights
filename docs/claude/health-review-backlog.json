@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-22T20:55:00+00:00",
+  "updated_at": "2026-08-22T21:05:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -21258,6 +21258,30 @@
         "scripts/ops/diag_fetch.sh:117 -- \"${base}/api/diag/${path}\" (prefix hardcoded)",
         "scripts/ops/diag_fetch.sh:136 -- the 404 branch's path-form advice",
         "2026-08-22T20:27Z: diag_fetch '/api/bot/notifications' -> answered_404; direct curl same host+path -> HTTP 200, count=4 banners"
+      ]
+    },
+    {
+      "id": "BL-20260822-ELAPSED-TIME-INFERRED-FROM-ISSUED-SLEEPS-NOT-A-CLOCK",
+      "opened_at": "2026-08-22",
+      "opened_by": "s4-pairs-control (self-reported)",
+      "severity": "low",
+      "tier": "1 (session practice / observability discipline)",
+      "status": "open",
+      "area": "session practice / CI polling",
+      "title": "A session reported a CI overrun that never happened, having inferred elapsed time from the sleeps it had ISSUED rather than reading a clock",
+      "detail": "MEASURED 2026-08-22. While waiting on PR #10157's pytest-run, this session reported the job stuck at '~35 minutes', then '~40+ min against a 10.1-11.6 min baseline', '>3x and still climbing', and RELEASED THE MERGE SLOT WITHOUT MERGING on that basis, posting it to the coordination board twice and arming a self check-in trigger for it. Ground truth from the job's own timestamps: job 20:48:47 -> 21:00:31 = 11.73 min; the 'Run tests' step 20:49:47 -> 21:00:29 = 10.70 min. DEAD ON BASELINE. There was never an anomaly. MECHANISM: the session issued background sleeps (240+420+400+300+360 s ~= 28 min) but `run_in_background` RETURNS INSTANTLY, and it polled the API immediately after each call instead of waiting for the completion notification. Real wall-clock between polls was its own turn latency. It then narrated elapsed time by SUMMING THE SLEEPS IT HAD STARTED, and never read a clock once. ⚠️ THE COMPOUNDING DETAIL IS THE INSTRUCTIVE ONE: the session DID check for the known stale-status trap, and that check was CORRECT -- the sibling pytest-collect started the same second and updated normally, so the API genuinely was not stale. Rigorous verification, applied to the WRONG PREMISE. Checking the API's freshness could never have caught an error in the session's own arithmetic. It also correctly refused to read get_workflow_run_usage's `total_ms: 0` as evidence of a stall -- and then leaned on a fabricated elapsed time in the same breath. And it had the refuting evidence in hand: a duration comparison run minutes earlier showed runs 8292 (11.5 min) and 8291 (11.4 min) as today's genuine-execution baseline.",
+      "why_it_matters": "The cost was real: a green PR sat unmerged, the board carried two false anomaly reports for other sessions to act on, and a trigger was armed for a condition that did not exist. Sessions poll CI constantly, so this is not a one-off -- and it is the same class the repo already enforces against elsewhere ('always state the population', 'verify your own output too, hardest when it confirms what you expected'). The novel part worth carrying is that CAREFUL VERIFICATION OF THE WRONG PREMISE reads exactly like diligence.",
+      "next_action": "Practice, not code: when reporting elapsed time, READ A CLOCK -- take the difference between the API's own `started_at`/`completed_at`, or run `date -u` -- and never infer duration from sleeps issued, turns taken, or context consumed. If a duration is load-bearing enough to change a decision (merge / do not merge), it is load-bearing enough to measure. Consider adding this to the session-coordination skill's merge-protocol section beside the existing 'read the check runs by name' rule, which this sits directly next to.",
+      "resolution_criteria": "RESOLVED when the merge-protocol guidance states explicitly that any elapsed-time or duration claim used in a merge decision must be derived from timestamps, with the failure mode named (inferring from issued waits). A note that merely says 'be careful about timing' does not close this -- the failure was confident precision, not carelessness.",
+      "related": [
+        "BL-20260820-PROJECT-HOOKS-INERT-ON-WEB"
+      ],
+      "evidence": [
+        "job 97091303917: started_at 2026-08-22T20:48:47Z, completed_at 2026-08-22T21:00:31Z (11.73 min)",
+        "step 'Run tests': 20:49:47Z -> 21:00:29Z (10.70 min), conclusion success",
+        "board comments 5382539964 and 5382547767 carry the retracted overrun claim; 5382681402 is the retraction",
+        "trigger trig_019fVx79hn9MBnimmLEMAGRP armed on the false premise, since deleted",
+        "same-day genuine-execution baseline: pytest-run runs 8292 = 11.5 min, 8291 = 11.4 min"
       ]
     }
   ]
