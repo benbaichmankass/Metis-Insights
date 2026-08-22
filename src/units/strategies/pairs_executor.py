@@ -666,6 +666,76 @@ def _alert_partial_placement(pair: str, account_id: str, placed: Sequence[tuple]
         logger.error("pairs: partial-placement alert failed for %s: %s", pair, exc)
 
 
+# collapsed-state: unknown — FALSE POSITIVE against `position_telemetry.finality_source`,
+# not a suppression of a real finding. This module has ZERO references to
+# `position_telemetry`, `finality_source`, `stamped`, `derived_join` or `not_final`
+# (verified by grep, and re-checkable the same way). The only `"unknown"` literals here
+# are the account-id fallback `str(account_cfg.get("account_id") or "unknown")` at the
+# two placement/close sites — a label for an unnamed account, unrelated to whether a
+# telemetry row is terminal. The finding PRE-DATES the cascade fix below: it reproduces
+# on the unmodified file (`git stash` + re-run), and surfaced only because touching this
+# file pulled it into the guard's diff scope.
+
+def _cascade_close_pair_package(db: Any, trade_id: Any, close_reason: str) -> bool:
+    """Close the ``order_packages`` row linked to a pairs leg we just closed.
+
+    **Why this exists.** ``_close_pair`` writes ``status='closed'`` straight to the
+    trade row, so it never routes through ``order_monitor._close_trade_from_order_status``
+    — the *only* place the package cascade runs. Every pairs leg closed here therefore
+    left its package row open until the second-line-of-defence sweep
+    (``_sweep_stuck_linked_packages``) found it and stamped the generic
+    ``close_reason='stuck_cascade_recovered'``, which is a **bookkeeping repair, not an
+    exit** (``BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD``).
+
+    Measured on the live journal 2026-08-22, newest 500 closed rows
+    (2026-07-15 → 2026-08-22), and the two arms reconcile **exactly**:
+
+    ==========================================================  ====
+    pairs legs closed via the monitor (cascades today)            57
+    packages carrying a real reason (``reconciler_filled``)       57
+    pairs legs closed via ``_close_pair`` / ``intent_reduce``    120
+    packages left for the sweep (109 swept + 11 not yet)         120
+    ==========================================================  ====
+
+    ``pairs_revert`` / ``pairs_stop`` / ``pairs_half_open_cleanup`` appear on **99
+    trade rows and ZERO package rows** — the exit reason existed and reached no
+    package. That is the defect this closes: the package now carries the reason the
+    trade actually exited for.
+
+    ⚠️ **This is bookkeeping ONLY — it places, modifies and cancels nothing.** It is
+    the same write the sweep already performs, made timely and honestly-reasoned. The
+    one route by which package state feeds back into ordering is the strategy-monocle
+    gate, and that gate **cannot see a pairs leg**: it is consulted only at
+    ``pipeline.py``'s signal-dispatch site, and pairs legs are not in the strategy
+    roster — the isolated ``run_pairs_tick`` hook owns them
+    (``BL-20260822-PAIRS-PACKAGES-CLOSED-BY-THE-STUCK-CASCADE-SWEEP``).
+
+    ⚠️ **Failure is swallowed HERE, deliberately, and never reaches the caller.** The
+    surrounding ``except`` in ``_close_pair`` sets ``closed_ok = False``, which the
+    tick reads as *the leg did not flatten*. A package-bookkeeping failure must never
+    produce that verdict — the broker close already succeeded, and reporting it as a
+    failed flatten would strand a flat leg as "still open". Same guard shape as
+    ``_record_trade_cost_estimate`` and the ``terminal_state`` stamp. The sweep
+    remains the backstop for anything missed here, exactly as before.
+
+    Returns True when a package row was updated; False on any miss or failure.
+    """
+    try:
+        from src.runtime.order_monitor import _cascade_close_linked_package
+        return bool(_cascade_close_linked_package(
+            db, trade_id,
+            close_reason=close_reason,
+            caller="pairs_executor._close_pair",
+        ))
+    except Exception as exc:  # noqa: BLE001 — bookkeeping only; never fail the close
+        logger.warning(
+            "pairs: package cascade failed for trade_id=%s (%s) — leg IS closed; "
+            "the stuck-cascade sweep remains the backstop: %s",
+            trade_id, close_reason, exc,
+        )
+        return False
+
+
 def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
                 outcome: str, close_a: float, close_b: float) -> Dict[str, Any]:
     """Flatten BOTH legs of an open pair and mark their trade rows closed with a
@@ -709,6 +779,16 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
                 "exit_reason": f"pairs_{outcome}", "closed_at": now_iso,
                 "pnl": pnl, "pnl_percent": pnl_pct,
             })
+            # Package bookkeeping — guarded HERE as well as inside the helper, so
+            # the isolation property is STRUCTURAL rather than conventional: it must
+            # not depend on a future edit keeping the helper's own guard intact. A
+            # raise reaching the enclosing `except` would set `closed_ok = False`,
+            # reporting a leg that IS flat at the broker as a failed flatten.
+            try:
+                _cascade_close_pair_package(db, row["id"], f"pairs_{outcome}")
+            except Exception:  # noqa: BLE001 — bookkeeping never fails a close
+                logger.warning("pairs: package cascade raised for trade_id=%s — "
+                               "leg IS closed; sweep remains the backstop", row["id"])
         except Exception as exc:  # noqa: BLE001
             logger.error("pairs: leg close failed %s (%s): %s", symbol, strat, exc)
             closed_ok = False
