@@ -227,4 +227,5 @@ this finding describe **one population**. ⚠️ Do **not** read that 47.1% as t
   window and the "invisible half" claim corrected.
 - `BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK` — 2026-08-22 recurrence recorded;
   the three silent paths narrowed.
-- `BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS` — mechanism named.
+- `BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS` — mechanism named, prior art credited.
+- `PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK` — **new, performance backlog.** `doc-freshness` step 5 caught that item 1.4's *strategy* half was sitting in the **health** backlog, which `/performance-review` never drains. ⚠️ Both rows now carry the warning that **fixing the clamp without the strategy decision converts 21 loud venue refusals into 21 silent ceiling-sized fills** on the worst-performing leg in the book.
