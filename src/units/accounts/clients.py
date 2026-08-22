@@ -1741,3 +1741,188 @@ def account_position_present(
             account.get("account_id") or "unknown", symbol, exc,
         )
         return None
+
+
+# ---------------------------------------------------------------------------
+# BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND, criterion 5.
+#
+# That row was written about IB. Its criterion 5 -- "Re-audit the Alpaca and
+# Bybit coverage reads for the same price blindness. NOT checked by this
+# session -- do not read this row as clearing them" -- is now checked, and
+# BOTH carry it. `order_monitor._bybit_position_protection` grades QUANTITY and
+# SIDE; its Full-mode branch returns `covered_qty == size` on any
+# `pos["stopLoss"]` that is merely non-empty and not "0", so the STRING is the
+# whole test. The leg's trigger price is never read by anything.
+#
+# The IB half was closable because `/api/diag/ib_open_orders` exists to be
+# contradicted from outside. Bybit had NO equivalent -- so on the one venue
+# that trades real money (`bybit_2` is mainnet) the question could not be asked
+# at all. This is that surface. It grades nothing and reduces nothing; it hands
+# back what the venue is holding so a verdict can be CHECKED against it.
+#
+# ⚠️ FULL MODE HAS NO RESTING ORDER, AND THAT IS THE TRAP THIS SHAPE AVOIDS.
+# Under `BYBIT_TPSL_MODE=full` the stop lives on the POSITION ROW as
+# `stopLoss` -- there is no order to list. A surface that dumped only open
+# orders would report zero legs for a correctly-protected position, and a
+# consumer would grade it naked: the exact inverse of the bug being chased, and
+# a worse one, because it would drive a re-arm on a position that is already
+# protected. So the payload carries BOTH collections, distinguished, and a
+# consumer that reads only one of them is reading half the protection.
+def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Bybit resting orders + position-level protection, or ``None``.
+
+    The Bybit analogue of :func:`account_ib_open_orders`, honouring the same
+    three-state contract:
+
+    * ``None``  -- could not look (not a Bybit account, creds missing, a spot
+      account that has no derivative positions to protect, or an SDK error).
+    * ``{...}`` -- a confirmed clean read, with EMPTY lists meaning genuinely
+      nothing resting.
+
+    ``None`` and an empty payload are deliberately NOT interchangeable, for the
+    same reason they are not on the IB surface: on a live position "we could not
+    look" and "there is no protection" are opposite conclusions.
+
+    Returns ``{"category", "positions": [...], "orders": [...]}`` where each
+    position carries its **position-level** ``stop_loss`` / ``take_profit``
+    (Full mode) and each order its ``trigger_price`` / ``price`` (Partial mode).
+    Both are ``None`` when the venue reports them empty -- never ``0.0``, which
+    would read as a stop at zero rather than as no stop.
+
+    Never raises: a read failure is a ``None``, not an exception into the
+    caller.
+    """
+    if not isinstance(account, dict):
+        return None
+    if (account.get("exchange") or "unknown").lower() != "bybit":
+        return None
+    aid = account.get("account_id") or "unknown"
+    client = bybit_client_for(account)
+    if client is None:
+        return None
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: None = "could not look", the documented degraded state
+        logger.warning("account_bybit_open_orders(%s): category resolve failed: %s", aid, exc)
+        return None
+    if category == "spot":
+        # Cash spot carries no derivative position to protect, so there is no
+        # protection question to answer -- mirrors account_open_positions.
+        return None
+
+    def _price(value: Any) -> Optional[float]:
+        """A venue price, or None. `""`, `"0"` and `0` are NOT prices.
+
+        Bybit reports an unset stop as an empty string or a zero. Coercing
+        either to 0.0 would publish a stop AT ZERO -- a number a consumer can
+        compare against a declared level and find hugely divergent, when the
+        truth is that no stop is set at all.
+        """
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            num = float(text)
+        except (TypeError, ValueError):
+            return None
+        return None if num == 0.0 else num
+
+    positions: list = []
+    orders: list = []
+    try:
+        # ONE account-wide page for positions. `stopLoss`/`takeProfit`/
+        # `tpSlMode` ride on the position row itself, which is where Full-mode
+        # protection lives.
+        presp = client.get_positions(category=category, settleCoin="USDT")
+        praw = ((presp or {}).get("result") or {}).get("list") or []
+        seen: set = set()
+        for p in praw:
+            size = _f(p.get("size"))
+            if size <= 0:
+                continue
+            sym = p.get("symbol")
+            if sym in seen:
+                continue
+            seen.add(sym)
+            positions.append({
+                "symbol": sym,
+                "side": p.get("side"),
+                "size": size,
+                "entry_price": _f(p.get("avgPrice")),
+                "stop_loss": _price(p.get("stopLoss")),
+                "take_profit": _price(p.get("takeProfit")),
+                "tpsl_mode": p.get("tpSlMode") or None,
+            })
+
+        # BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND: a single settleCoin page can
+        # silently OMIT a live symbol -- a real-money bybit_2 BTCUSDT position
+        # was absent from it while the symbol-scoped read saw it. A protection
+        # surface that inherits that blindness would report a position as
+        # absent rather than as unprotected, which is the quieter failure and
+        # therefore the worse one. Cross-check every CONFIGURED symbol the page
+        # did not return.
+        for sym in (account.get("symbols") or []):
+            if not sym or sym in seen:
+                continue
+            try:
+                one = client.get_positions(category=category, symbol=sym)
+                for p in (((one or {}).get("result") or {}).get("list") or []):
+                    if _f(p.get("size")) <= 0:
+                        continue
+                    seen.add(sym)
+                    positions.append({
+                        "symbol": p.get("symbol"),
+                        "side": p.get("side"),
+                        "size": _f(p.get("size")),
+                        "entry_price": _f(p.get("avgPrice")),
+                        "stop_loss": _price(p.get("stopLoss")),
+                        "take_profit": _price(p.get("takeProfit")),
+                        "tpsl_mode": p.get("tpSlMode") or None,
+                        "settlecoin_blind": True,
+                    })
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-symbol cross-check; the settleCoin page already answered
+                logger.warning(
+                    "account_bybit_open_orders(%s): symbol cross-check %s failed: %s",
+                    aid, sym, exc,
+                )
+
+        # Resting orders, BOTH filters. "StopOrder" carries the conditional
+        # SL/TP legs; "Order" carries a resting limit take-profit, which is a
+        # different object and is invisible to the StopOrder filter -- reading
+        # only the first would under-report target protection.
+        for ofilter in ("StopOrder", "Order"):
+            try:
+                oresp = client.get_open_orders(
+                    category=category, settleCoin="USDT", orderFilter=ofilter,
+                )
+            except Exception as exc:  # noqa: BLE001  # allow-silent: the other filter may still answer; a partial read is surfaced by order_filters_read
+                logger.warning(
+                    "account_bybit_open_orders(%s): get_open_orders(%s) failed: %s",
+                    aid, ofilter, exc,
+                )
+                continue
+            for o in (((oresp or {}).get("result") or {}).get("list") or []):
+                orders.append({
+                    "symbol": o.get("symbol"),
+                    "order_id": o.get("orderId"),
+                    "order_filter": ofilter,
+                    "order_type": o.get("orderType"),
+                    "stop_order_type": o.get("stopOrderType") or None,
+                    "side": o.get("side"),
+                    "qty": _price(o.get("qty")),
+                    "trigger_price": _price(o.get("triggerPrice")),
+                    "price": _price(o.get("price")),
+                    "trigger_direction": o.get("triggerDirection"),
+                    "reduce_only": o.get("reduceOnly"),
+                    "tpsl_mode": o.get("tpslMode") or None,
+                    "order_status": o.get("orderStatus"),
+                    "created_time": o.get("createdTime"),
+                    "updated_time": o.get("updatedTime"),
+                })
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the caller's documented degraded state
+        logger.warning("account_bybit_open_orders(%s): read failed: %s", aid, exc)
+        return None
+    return {"category": category, "positions": positions, "orders": orders}

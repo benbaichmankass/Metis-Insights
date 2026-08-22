@@ -2152,3 +2152,107 @@ def get_tick_cost(request: Request) -> dict[str, Any]:
     _require_diag_token(request)
     from src.runtime.tick_cost import read_state
     return read_state()
+
+
+@router.get("/bybit_open_orders")
+async def get_bybit_open_orders(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **Bybit resting orders + position-level protection**.
+
+    The Bybit sibling of ``/api/diag/ib_open_orders``, and it exists for the
+    same reason one level up: every consumer of Bybit protection state REDUCES
+    it before anyone sees it. ``order_monitor._bybit_position_protection``
+    returns a covered QUANTITY; its Full-mode branch returns
+    ``covered_qty == size`` on any ``pos["stopLoss"]`` that is merely non-empty
+    and not ``"0"``. So the *string* is the whole test, the PRICE is never read,
+    and a position whose stop sits anywhere at all grades fully covered.
+
+    That is criterion 5 of BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND, which
+    was written about IB and explicitly left Bybit unchecked. It is checked now,
+    and the blast radius is larger than the row's: the IB instance is
+    ``ib_paper``, whereas **``bybit_2`` is mainnet**.
+
+    ⚠️ **BOTH collections are the protection; reading one is reading half.**
+    Under ``BYBIT_TPSL_MODE=full`` there is NO resting order -- the stop lives
+    on the position row as ``stopLoss``. A surface that dumped only open orders
+    would report zero legs for a correctly-protected position and a consumer
+    would grade it naked, which would drive a re-arm on a position that is
+    already protected. ``positions[]`` carries the Full-mode levels;
+    ``orders[]`` carries the Partial-mode legs with their trigger prices.
+
+    Per-account ``result`` is three-state, never collapsed:
+
+    * ``null``  -- **could not look** (non-Bybit account, creds missing, a spot
+      account with no derivative position to protect, or an SDK error). NOT the
+      same as "nothing is resting".
+    * ``{...}`` -- a confirmed clean read; empty lists mean genuinely nothing.
+
+    ``read_state`` names WHICH (``orders_read`` / ``could_not_look`` /
+    ``not_bybit``) so a consumer never infers it from a null, and
+    ``order_count`` / ``position_count`` stay ``null`` -- never ``0`` -- when we
+    could not look. An unset venue price is reported ``null``, never ``0.0``:
+    a zero would read as a stop AT zero and compare as hugely divergent from a
+    declared level, when the truth is that no stop is set.
+
+    Grades nothing, re-arms nothing, opens no order path, cannot refuse a
+    trade. Whether ``_bybit_position_protection`` itself should carry the price
+    axis is that row's criterion 4 -- a Tier-2/3 change to the ENFORCING path,
+    and deliberately not proposed here.
+
+    Tier 1 -- read-only, token-gated, best-effort per account.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_bybit_open_orders
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_bybit_open_orders: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_bybit_open_orders: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        is_bybit = ((acc or {}).get("exchange") or "unknown").lower() == "bybit"
+        result: Any = None
+        err: str | None = None
+        if is_bybit:
+            try:
+                result = await run_account_read(account_bybit_open_orders, acc)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + result=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_bybit_open_orders: %s raised %s", aid, exc)
+        ok = isinstance(result, dict)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            "account_class": (acc or {}).get("account_class"),
+            "read_state": (
+                "not_bybit" if not is_bybit
+                else "orders_read" if ok
+                else "could_not_look"
+            ),
+            "result": result,
+            "position_count": (len(result.get("positions") or []) if ok else None),
+            "order_count": (len(result.get("orders") or []) if ok else None),
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "count": len(out),
+        "accounts": out,
+    }
