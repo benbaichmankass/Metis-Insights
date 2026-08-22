@@ -3284,6 +3284,23 @@
       "resolution_criteria": "/api/bot/ml/status.training_staleness reports the same scanned/stale/never_trained/awaiting_source/threshold_days values the newest training_staleness_summary row in /api/bot/ml/cycle carries, for the same mirror; and when the summary is genuinely absent the block says so distinguishably rather than emitting nulls that read the same as 'nothing is stale'. Verify by comparing the two surfaces on one mirror read, not by inspecting the parser.",
       "tier": "1 (read path — the trainer already measures and publishes it; only the status endpoint drops it)",
       "title": "/api/bot/ml/status nulls training_staleness that the cycle log carries"
+    },
+    {
+      "id": "MB-20260822-ETH-15M-HEAD-IS-AT-CANDIDATE-NOT-SHADOW",
+      "opened_at": "2026-08-22",
+      "opened_by": "claude (s2-exitclust, T.4)",
+      "source": "workplan T.4 — 'ETH 15m regime head, 54 days at shadow — run the gate packet, then decide'",
+      "title": "T.4's premise is REFUTED: the ETH 15m fc head is at CANDIDATE, demoted from shadow on 2026-07-19 by operator approval on a powered NO_EDGE — and '54 days at shadow' is days since REGISTRATION",
+      "description": "READ 2026-08-22T13:0xZ from /api/bot/ml/registry (mirror_age_seconds 43.8, 95 rows). PROMOTE NOTHING was the operator's instruction and it is the right answer, but not for the reason the plan anticipated -- the packet was never the deciding evidence.\n\neth-regime-15m-lgbm-fc-pcv-v1 has deployment_bucket OFFLINE. Its stage_history is decisive and is quoted verbatim from the registry row:\n  2026-07-04  candidate -> shadow   by claude-m19-aggressive-soak\n  2026-07-19  shadow -> candidate   by claude-ws-a-session, reason: 'operator-approved 2026-07-19: powered RG4 NO_EDGE (0.476) - fc variant no better on ETH; demoted per M25 P4'\n\nSo it spent 14 DAYS at shadow, ending in an OPERATOR-APPROVED DEMOTION on powered evidence, and has sat at candidate for 33 days since. Promoting it shadow->advisory is not merely unsupported: there is no shadow to promote from, and it would reverse an operator decision made on a powered measurement.\n\nWHERE '54 days at shadow' CAME FROM: the row registered 2026-07-01, which is 51 days before today. The figure is days-since-REGISTRATION wearing the label days-at-SHADOW -- the unprovenanced-diagnostic class (sub-class A, semantic substitution) that CLAUDE.md already names. It is worth recording because the label made a demoted head look like a ripening one.\n\nTHE TWO ETH 15m HEADS ACTUALLY AT SHADOW ARE NOT CANDIDATES FOR PROMOTION EITHER: eth-regime-15m-lgbm-xasset-v1 macro_f1 0.4817 and eth-regime-15m-lgbm-selfonly-v901ctrl macro_f1 0.4576 (latest_run 2026-08-22T01:3xZ, n_eval 35,054 each). Both are at or below chance for a two-class head, and both show the saturation signature -- recall_volatile 0.935/0.949 against precision_volatile 0.324/0.315, i.e. they call almost everything volatile. For contrast the demoted fc head is macro_f1 0.5840 (n_eval 87,636), and the promoted SOL/BTC siblings both carry a -fc-pcv-v2 at bucket LIVE. THERE IS NO eth-regime-15m-lgbm-fc-pcv-v2 in the registry at all -- ETH never got the fresh-data v2 its two siblings did.\n\nNOTE ON THE READ: every row in the registry reports stage=None and status=candidate, which is BL-20260821-REGISTRY-STATUS-SAYS-CANDIDATE-FOR-EVERY-MODEL (root-caused, unfixed). I therefore read deployment_bucket and stage_history, which CLAUDE.md documents as the trustworthy fields, NOT status. Had I read status I would have concluded the whole fleet is unpromoted, which is the failure that row describes.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-22T13:40:00+00:00",
+          "by": "claude (s2-exitclust)",
+          "note": "No gate packet was run and none is owed on the shadow->advisory question, because that question is not live for a candidate-stage head. What IS a real open question, and is NOT answered here: whether ETH should get a -fc-pcv-v2 retrain to match the BTC/SOL siblings. That is new work, Tier-1 to propose, and it is deliberately not scheduled on this row."
+        }
+      ]
     }
   ],
   "updated_at": "2026-08-22T10:20:00+00:00"

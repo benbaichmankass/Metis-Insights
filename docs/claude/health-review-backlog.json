@@ -21094,6 +21094,49 @@
           "note": "Filed retrospectively after artifact-validity-guard failed on a new citation added while building /api/diag/bybit_open_orders. I did not invent the history: the defect, the account, the symbol and the remedy are all recorded verbatim in the surviving code comment at clients.py:1391, which is the primary source. What I could NOT recover is the original incident issue/PR number, and I am not manufacturing one."
         }
       ]
+    },
+    {
+      "id": "BL-20260822-PAIRS-PACKAGES-CLOSED-BY-THE-STUCK-CASCADE-SWEEP",
+      "severity": "high",
+      "tier": "2 (order-path adjacent: the sweep force-closes package rows the executor should have closed)",
+      "opened": "2026-08-22",
+      "status": "open",
+      "area": "exit-protection",
+      "title": "The pairs sleeve does not close its own order_packages rows -- the stuck-cascade SECOND-LINE-OF-DEFENCE sweep does it for 69% of its closes (100% for pairs_bnb_btc_a), and that sweep firing routinely is itself the alarm nobody hears",
+      "detail": "MEASURED 2026-08-22 from /api/bot/order-packages?include_paper=true&since=2026-07-23. STATE THE POPULATION: the route's limit MAXIMUM is 200 and it returned exactly 200 rows, so this is a TRUNCATED newest-first page spanning 2026-08-16..2026-08-22 -- one week, NOT the 30d window requested. 110 of the 200 are closed packages.\n\nClose reasons on that page: reconciler_filled 52 (47.3%), stuck_cascade_recovered 50 (45.5%), and then FOUR single rows -- tp_cross 1, sl_cross 1, exit_head 1, giveback_stop 1 -- plus exchange_flat_reconciled 1 and 3 nulls.\n\nstuck_cascade_recovered is NOT an exit. order_monitor.py:4414 force-closes an order_packages row whose linked TRADE already reached a terminal status while the package stayed open. Its own docstring calls it 'the second line of defence' against 'a bug elsewhere (e.g. partial close path forgetting to cascade)'. A second line of defence carrying 45.5% of package closes is a primary path that is not working.\n\nIT IS CONCENTRATED, NOT UNIFORM, AND THAT IS WHAT RULES OUT THE INNOCENT EXPLANATION. The obvious alternative is a tick-ordering RACE -- the sweep runs every monitor tick and could simply beat the normal cascade, which would stamp stuck_cascade_recovered on perfectly healthy closes. A race is uniform across strategies. This is not: pairs_bnb_btc_a 13/13 = 100%, pairs_bnb_btc_b 10/13, pairs_sol_eth_b 11/18, pairs_sol_eth_a 8/17 (pairs overall 42/61 = 69%), ict_scalp 5m legs 7/15 -- against trend_donchian_* at 0 of 14 and ict_scalp_sol_15m / ict_scalp_5m at 0 of 4 each. A sweep that beats the cascade for one strategy family and never for another is not a race.\n\nMECHANISM HYPOTHESIS, stated as a hypothesis: the pairs sleeve is an ISOLATED 2-leg order path (src.units.strategies.pairs_executor.run_pairs_tick, called once per tick from src/main.py, NOT via Coordinator.multi_account_execute -- CLAUDE.md documents this isolation explicitly). The package-close cascade lives on the path pairs does not use. That fits the concentration exactly, but I have NOT traced pairs_executor's close path line by line and am not asserting it as established.",
+      "why_it_matters": "Two ways. (1) Per the sweep's own docstring the strategy-monocle gate reads status='open' AND linked_trade_id IS NOT NULL, so a stuck package row BLOCKS EVERY FUTURE SIGNAL for that strategy until the sweep clears it -- meaning the sleeve may be depending on a repair sweep to un-block itself each tick. Whether the monocle gate actually governs the isolated pairs path is NOT established here and is the first thing to check. (2) It corrupts every measurement built on order_packages.close_reason -- see BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD, which is workplan item 1.1's own metric.",
+      "resolution_criteria": [
+        "Trace pairs_executor's close path and establish whether it cascades the package close at all. A read, Tier-1.",
+        "Establish whether the strategy-monocle gate governs the isolated pairs path. If it does, the sleeve is being unblocked by a repair sweep every tick and that is a much bigger finding than the bookkeeping.",
+        "Discriminate race from defect with a stronger test than concentration: instrument or query the delta between trades.closed_at and order_packages.updated_at for the stuck rows. A race is sub-tick; a missing cascade is not.",
+        "If the cascade is genuinely missing, the fix is on the pairs path and is Tier-2 -- prepare the diff and the evidence, do not ship it on this row's say-so."
+      ],
+      "next_action": "Trace pairs_executor's package-close path (Tier-1 read). Do NOT change the sweep -- it is the thing currently keeping the sleeve working.",
+      "updates": [
+        {
+          "at": "2026-08-22T13:35:00+00:00",
+          "by": "claude (s2-exitclust)",
+          "note": "Found while quantifying the operator's exit/protection cluster, not sought. The page cap (200) is stated because it is the whole reason the window is a week rather than 30d, and a share computed on a truncated newest-first page is not the same claim as one over the window."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD",
+      "severity": "high",
+      "tier": "1 (measurement validity -- it decides what workplan item 1.1 and gate G.2 are measuring)",
+      "opened": "2026-08-22",
+      "status": "open",
+      "area": "exit-protection",
+      "title": "order_packages.close_reason mixes real exits with BOOKKEEPING REPAIRS, so any exit-mechanism share computed from it is measuring two different things at once -- and it is the field workplan item 1.1's headline is built on",
+      "detail": "MEASURED 2026-08-22, two populations read side by side.\n\n(a) order_packages.close_reason, newest 200 packages since 2026-07-23 (the route's MAXIMUM limit; the page therefore spans only 2026-08-16..08-22), 110 closed: reconciler_filled 47.3%, stuck_cascade_recovered 45.5%, everything else 7.2%.\n\n(b) trades.exit_reason via /api/bot/db/table/trades, status='closed', newest 500 by id (filter_state ASSERTED 'applied' before reading -- an ignored filter silently returns the whole table), spanning 2026-07-15..2026-08-22 out of 1292 closed rows total: reconciler_filled 41.2%, intent_reduce_executed 9.6%, exchange_flat_reconciled 8.4%, pairs_revert 8.0%, pairs_stop 7.0%, intent_reduce 6.2%, pairs_half_open_cleanup 4.8%, sl_cross 4.0%, netting_attributed 3.4%, sl 2.2%, stale_stop 1.8%, netting_phantom_reconciled 0.8%, tp_cross 0.6%, giveback_stop 0.6%.\n\nstuck_cascade_recovered does not appear in (b) AT ALL, because it is not an exit -- it is order_monitor.py:4414 force-closing a PACKAGE row whose TRADE had already terminated by some other means. So in population (a) nearly half the denominator describes a bookkeeping repair, and the trade's actual exit mechanism is recorded on a different table.\n\nTHE HONEST SPLIT, from (b), excluding the pairs sleeve because it is a separate order path with its own exit vocabulary and it FLATTERS the aggregate: main order path n=323 -- decision-driven exits 15.2%, reconciler_filled 46.1%, tp_cross 3 rows = 0.9%, sl_cross+sl 31 = 9.6%. THE STOP:TARGET RATIO IS 10.3 : 1. The pairs sleeve alone (n=177) is decision-driven 42.4% and has ZERO tp_cross and ZERO sl_cross -- it exits on pairs_revert/pairs_stop instead, so pooling the two makes the main path look twice as healthy as it is.\n\nThis CORROBORATES the workplan's own figures on an independent population and at a different level (its 'closes reconciler_filled 148 = 40%' vs 41.2% here), which is the useful part: the numbers are right, but the FIELD they came from mixes categories, and the pairs/non-pairs pooling hides that the main path is the worse half.",
+      "why_it_matters": "Workplan item 1.1 ('8.1% of closes use a declared bracket') and gate G.2 ('the grader calls a reconciler close a take-profit') are both exit-mechanism claims. If they are computed over order_packages.close_reason then ~45% of the denominator in a recent week is a repair sweep, and the resulting share is not the quantity anyone means by 'how do our trades exit'. The fix is not to distrust the headline -- it reproduces -- but to pin the measurement to trades.exit_reason and to state the pairs/non-pairs split every time.",
+      "resolution_criteria": [
+        "Every exit-mechanism claim in the workplan and in the review skills names WHICH field it read (trades.exit_reason vs order_packages.close_reason) and states the pairs/non-pairs split.",
+        "The 200-row cap on /api/bot/order-packages is stated wherever that route backs a share, or the claim is recomputed off the DB explorer where the population is controllable.",
+        "A single owner for 'how did this trade exit' -- one accessor both the reviews and the reports read -- rather than two fields that disagree by construction."
+      ],
+      "next_action": "When item 1.1 is next worked, recompute its headline from trades.exit_reason with the pairs split stated. Do not re-derive it from order_packages.close_reason.",
+      "updates": []
     }
   ]
 }
