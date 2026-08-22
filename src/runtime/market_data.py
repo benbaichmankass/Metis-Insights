@@ -556,7 +556,7 @@ def reset_candle_cache() -> None:
         _CANDLE_CACHE.clear()
 
 
-def _fetch_phase(name: str):
+def _fetch_phase(name: str, venue: str = "unknown"):
     """Time ONE venue candle fetch into the per-tick cost record. NO-OP fallback.
 
     WHY. The 2026-08-12 warm read (96 ticks, one process) put `pipeline.signal_build`
@@ -629,13 +629,53 @@ def _fetch_phase(name: str):
         # folded into a neighbour — a fetch outside every instrumented phase is
         # a real, different answer from one under a known phase.
         label = (phase or "unattributed").split(".")[-1]
-        with hook(f"fetch.{name}"), hook(f"fetchby.{label}"):
+        # THREE cuts of the SAME seconds now. Each fetch records once in each
+        # family, so the three sums are equal and summing ACROSS them
+        # triple-counts every fetch. Compare within a family, never across.
+        with hook(f"fetch.{name}"), hook(f"fetchby.{label}"), hook(f"fetchvenue.{venue}"):
             yield
 
     try:
         return _both()
     except Exception:  # noqa: BLE001
         return contextlib.nullcontext()
+
+
+# ---------------------------------------------------------------------------
+# BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS (workplan 0.6)
+#
+# THIRD CUT — `fetchvenue.<venue>`. The two existing cuts answer "which frames
+# miss" and "which consumer asked", and neither can answer "which VENUE is the
+# cost", which is the axis that decides what a fix is worth.
+#
+# The 2026-08-21 exit-loop attribution needed exactly this and did not have it.
+# `fetch.15m` was fully attributable to IB only BY LUCK — there happened to be
+# exactly ONE open 15m package and it happened to be on an IB-routed symbol. A
+# second 15m package on Bybit would have made that line un-attributable, and the
+# T.1 root cause (IB frames cannot cache at any TTL) would not have been
+# isolable from the instrument at all.
+#
+# Keyed on the connector's MODULE, not on a name heuristic: each venue has
+# exactly one market-data class and the module is what `_build_exchange_client_
+# uncached` selects on, so this cannot drift from what was actually constructed.
+# `unknown` keeps its OWN bucket rather than being folded into a neighbour — a
+# venue we cannot name is a different answer from one we can, and folding it
+# would silently inflate whichever venue it was folded into.
+_VENUE_BY_MODULE = {
+    "bybit_connector": "bybit",
+    "ib_connector": "interactive_brokers",
+    "alpaca_connector": "alpaca",
+    "oanda_connector": "oanda",
+}
+
+
+def _venue_of_client(client: Any) -> str:
+    """The venue a connector belongs to, or ``"unknown"``. Never raises."""
+    try:
+        module = (type(client).__module__ or "").rsplit(".", 1)[-1]
+    except Exception:  # noqa: BLE001
+        return "unknown"
+    return _VENUE_BY_MODULE.get(module, "unknown")
 
 
 def fetch_candles(
@@ -702,14 +742,14 @@ def fetch_candles(
     if cached is not None:
         # Counted for its `n` (see _fetch_phase): hits vs misses is the empirical
         # test of whether the cache reaches across ticks at all.
-        with _fetch_phase("cache_hit"):
+        with _fetch_phase("cache_hit", _venue_of_client(exchange_client)):
             pass
         # .copy() is load-bearing: a builder that mutates the frame (adds an
         # indicator column) must not corrupt the copy the next builder sees.
         return cached.copy()
 
     _tf_label = str(timeframe).strip().lower() or "unknown"
-    with _fetch_phase(_tf_label):
+    with _fetch_phase(_tf_label, _venue_of_client(exchange_client)):
         return _fetch_candles_uncached(
             exchange_client, symbol, timeframe, limit, since, cache_key
         )
