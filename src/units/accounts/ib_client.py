@@ -107,6 +107,49 @@ _IB_PROBE_TIMEOUT_S = _env_float("IB_PROBE_TIMEOUT_S", 5.0)
 # this gap absorbs a cold-start miss without abandoning detection: a
 # genuinely logged-out/wedged Gateway still never answers either attempt.
 _IB_PROBE_RETRY_GAP_S = _env_float("IB_PROBE_RETRY_GAP_S", 1.5)
+# How long a SUCCESSFUL liveness probe is trusted before the next connect()
+# re-probes a still-connected CACHED handle. Tracked by
+# BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET — kept on ONE line, because a
+# backlog id wrapped across a line break resolves to nothing and reads as tracked
+# while being tracked by nobody (check_backlog_refs.py caught exactly that here).
+#
+# ⚠️ THE PROBE IS NOT FREE AND ON THIS TOPOLOGY IT IS NOT RARE. `connect()` is
+# called on EVERY IB market-data fetch, and `_probe_liveness` ran on every one
+# of them — including the cached-handle path that otherwise short-circuits.
+# Measured on the live trader 2026-08-22 over FOUR disjoint journal windows
+# spanning 01:30Z-07:40Z (n = 75 events / 2226 s): the first probe attempt
+# timed out at 5.0s on 2.02 calls per minute and the retry then answered, so
+# each event cost `_IB_PROBE_TIMEOUT_S + _IB_PROBE_RETRY_GAP_S` = 6.5s — 488s
+# of blocking in 2226s, **21.9% of wall clock** — and `liveness probe timed out
+# twice` (the branch that actually condemns a connection) fired **ZERO** times
+# in that population. The check was paying a fifth of the process's wall clock
+# and had never once fired.
+#
+# That is the same first-round-trip quirk `_IB_PROBE_RETRY_GAP_S` above already
+# documents ("only this probe fires as the very first thing sent right after
+# connect()"), but the note there frames it as a one-off COLD-START miss the
+# retry absorbs. The measurement says otherwise: on a cached, long-lived,
+# demonstrably healthy handle it misses on essentially every call, forever. The
+# retry did not absorb a rare event; it converted an outright failure into a
+# permanent per-call tax.
+#
+# Caching the SUCCESS bounds the cost without giving up the capability: a
+# mid-life wedge is still condemned, just detected within this window instead of
+# on the very next call, and `_IB_FETCH_TIMEOUT_S` independently bounds every
+# real request in the meantime (so a wedge that opens inside the window degrades
+# to "no candles", which the monitor-blindness alert already watches).
+#
+# A FRESH connect ALWAYS probes — that is the case the probe was built for
+# ("ib.connect() succeeding only proves the socket was accepted"), it happens
+# once per socket rather than once per fetch, and it is the one moment the
+# cached verdict cannot speak for.
+#
+# `IB_PROBE_CACHE_S <= 0` restores the pre-2026-08-22 behaviour byte-for-byte
+# (probe on every connect) — the sanctioned rollback, one env flip + restart, no
+# redeploy. An unparseable value falls back to the default rather than to 0,
+# matching `CANDLE_CACHE_TTL_FRACTION`'s discipline: a typo must not silently
+# change the behaviour in either direction.
+_IB_PROBE_CACHE_S = _env_float("IB_PROBE_CACHE_S", 60.0)
 # How long connect() fast-fails after a probe/connect failure before retrying
 # the gateway again. Long enough that a wedged gateway can't be hammered every
 # tick; short enough that a genuine recovery is picked up promptly.
@@ -444,6 +487,12 @@ class IBClient:
         # socket) or the handle is torn down, so the next connect() always
         # re-warms before declaring success.
         self._account_data_ready: bool = False
+        # Monotonic deadline until which a SUCCESSFUL liveness probe is trusted
+        # for this client's CURRENT handle (see ``_IB_PROBE_CACHE_S``). 0.0 means
+        # "no trusted probe" — the next connect() probes. Reset to 0.0 wherever
+        # ``_account_data_ready`` is reset, because both describe the same thing:
+        # what we have verified about the handle we currently hold.
+        self._probe_ok_until: float = 0.0
         # Connection-legibility state (observability only — never gates a
         # connect/place/close decision). ``_last_ok_wall`` is the wall-clock
         # UTC ISO timestamp of the last fully-healthy round-trip (probe +
@@ -559,15 +608,28 @@ class IBClient:
             self._ib = ib
             fresh_connect = True
             # Fresh handle (new socket or first-ever connect) — its wrapper
-            # caches are empty, so the warm-up below must run again.
+            # caches are empty, so the warm-up below must run again, and any
+            # probe verdict we were carrying described the PREVIOUS handle.
             self._account_data_ready = False
+            self._probe_ok_until = 0.0
 
         # Post-connect liveness probe. ib.connect() succeeding only proves the
         # socket was accepted — a logged-out Gateway accepts the socket but then
         # hangs every request forever. Bound a cheap reqCurrentTime round-trip
         # so a wedged gateway is caught here (and trips the breaker) instead of
         # hanging the first real request (accountSummary / portfolio / bars).
-        if not self._probe_liveness(ib):
+        #
+        # Cached-handle skip (``_IB_PROBE_CACHE_S``): a still-connected handle
+        # whose probe succeeded within the window is trusted without re-probing.
+        # A FRESH connect never takes this path — ``_probe_ok_until`` was just
+        # reset above — so the case the probe exists for is unaffected.
+        if fresh_connect or not self._probe_cache_valid():
+            probe_ok = self._probe_liveness(ib)
+        else:
+            probe_ok = True
+        if not probe_ok:
+            # Never carry a verdict forward from a probe that just failed.
+            self._probe_ok_until = 0.0
             if (
                 fresh_connect
                 and _IB_PROBE_TRUST_FRESH_HANDSHAKE
@@ -604,6 +666,12 @@ class IBClient:
                     "(likely logged out). Tripping circuit breaker so IB calls do "
                     "not block the trader loop."
                 )
+        else:
+            # Trust this verdict for the window. Set unconditionally rather than
+            # only on the freshly-probed path: when the skip above supplied the
+            # True we are simply re-stamping a live deadline, and when the probe
+            # ran we are recording what it just proved.
+            self._mark_probe_ok()
 
         # Post-connect account/portfolio warm-up (BL-20260706-IBWARMUP). Runs
         # once per underlying ``ib`` handle (guarded by
@@ -706,6 +774,40 @@ class IBClient:
         # caches, so the warm-up must run again — never trust a torn-down
         # handle's stale "ready" state.
         self._account_data_ready = False
+        self._probe_ok_until = 0.0
+
+    def _probe_cache_valid(self) -> bool:
+        """True when a recent SUCCESSFUL probe still speaks for this handle.
+
+        Always False when ``_IB_PROBE_CACHE_S <= 0`` (the operator rollback:
+        every connect re-probes, exactly as before 2026-08-22) and always False
+        before the first successful probe, so the cache can only ever SKIP a
+        repeat of a check that has already passed — never stand in for one that
+        has not run.
+        """
+        if _IB_PROBE_CACHE_S <= 0:
+            return False
+        return time.monotonic() < self._probe_ok_until
+
+    def _mark_probe_ok(self) -> None:
+        """Record that the current handle is probe-verified for the window."""
+        if _IB_PROBE_CACHE_S <= 0:
+            self._probe_ok_until = 0.0
+            return
+        self._probe_ok_until = time.monotonic() + _IB_PROBE_CACHE_S
+
+    def _probe_cache_seconds_remaining(self) -> Optional[float]:
+        """Seconds the probe verdict is still trusted, or None when it is not.
+
+        ``None`` is deliberately distinct from ``0.0``: "no trusted verdict"
+        (never probed, cache disabled, or a failure cleared it) is not the same
+        statement as "the verdict expires now", and a consumer that cannot tell
+        them apart would read a disabled cache as a just-expired one.
+        """
+        if _IB_PROBE_CACHE_S <= 0:
+            return None
+        remaining = self._probe_ok_until - time.monotonic()
+        return remaining if remaining > 0 else None
 
     def _probe_liveness(self, ib: Any) -> bool:
         """Hard-bounded liveness check on the client's persistent loop.
@@ -1083,6 +1185,7 @@ class IBClient:
                 self._ib = None
                 self._contract = None
                 self._account_data_ready = False
+                self._probe_ok_until = 0.0
 
     # ------------------------------------------------------------------
     # Contract construction
@@ -3319,6 +3422,19 @@ class IBClient:
             "state": state,
             "connected": bool(live),
             "account_data_ready": bool(self._account_data_ready),
+            # Whether a cached liveness verdict is currently standing in for a
+            # probe, and for how much longer. `None` = no trusted verdict (never
+            # probed / cache disabled / a failure cleared it), which is NOT the
+            # same as 0.0 — see `_probe_cache_seconds_remaining`. Without this a
+            # reader cannot tell a process that is skipping probes from one that
+            # is paying for them on every call, which is the whole subject of
+            # BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET.
+            "probe_cache_seconds_remaining": (
+                round(rem, 1)
+                if (rem := self._probe_cache_seconds_remaining()) is not None
+                else None
+            ),
+            "probe_cache_configured_s": _IB_PROBE_CACHE_S,
             "breaker_open": bool(breaker_open),
             "breaker_seconds_remaining": (
                 round(self._breaker_open_until - now, 1) if breaker_open else 0.0
