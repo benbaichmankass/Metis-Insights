@@ -92,6 +92,41 @@ def _read_orders(cfg: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
         return None
 
 
+def _position_state(cfg: Dict[str, Any], symbol: str) -> tuple:
+    """Is the position still standing? ``(state, size)``.
+
+    The verification's SECOND, INDEPENDENT signal. The order book alone cannot
+    distinguish "never placed" from "placed and already filled", because a filled
+    order is not an OPEN order — both read as absent. The position can tell them
+    apart, and it is not produced by the same call.
+
+    Three states, never collapsed:
+      ``could_not_look`` — the read failed. NOT "flat".
+      ``flat``           — a confirmed clean read, and nothing is left.
+      ``open``           — the position still stands, with its size.
+
+    ``account_open_positions`` already draws the ``None`` / ``[]`` line for us and
+    carries the IB guard for a logged-out Gateway that reports an empty snapshot
+    while connected — the exact failure that would otherwise read as "flat" and
+    turn a never-placed order into a reported success.
+    """
+    from src.units.accounts.clients import account_open_positions
+
+    rows = account_open_positions(cfg)
+    if rows is None:
+        return "could_not_look", None
+    want = symbol.upper()
+    for r in rows or []:
+        if str(r.get("symbol") or "").upper() == want:
+            try:
+                return "open", float(r.get("size"))
+            except (TypeError, ValueError):
+                # Present but unreadable size. It is OPEN — that much is a clean
+                # read — and the size is unknown; do not fabricate one.
+                return "open", None
+    return "flat", 0.0
+
+
 def _open_trade(account_id: str, symbol: str) -> Optional[Dict[str, Any]]:
     """The open journal row for (account, symbol) — carries the DECLARED tp.
 
@@ -291,10 +326,70 @@ def main(argv: Optional[list] = None) -> int:
                    if str(r.get("symbol") or "").upper() == sym
                    and _is_target(r.get("order_type"))]
     out["targets_after"] = now_targets
-    out.update(action="placed" if now_targets else "place_not_effective",
-               verify_state="target_resting" if now_targets else "still_absent")
+    if now_targets:
+        out.update(action="placed", verify_state="target_resting")
+        print(json.dumps(out, indent=2))
+        return 0
+
+    # ── No RESTING target. That is TWO OPPOSITE outcomes, not one ────────────
+    # BL-20260818-ATTACH-IB-TARGET-VERIFY-CANNOT-EXPRESS-FILLED.
+    #
+    # This used to report ``place_not_effective`` / ``still_absent`` + exit 1 here,
+    # which carries both "the order never got placed" AND "the order placed and has
+    # already FILLED" — because the predicate asks only whether a target is RESTING,
+    # and a filled order is not resting.
+    #
+    # MEASURED 2026-08-18 (issue #9929) on the MGC repair: the action reported
+    # ``place_not_effective`` / ``still_absent`` and exited 1 -> a red ❌ FAILED, while
+    # three independent reads minutes later showed the position GONE, order 381 and its
+    # OCA sibling stop 359 both gone. A SELL LMT 105 @ 4297.66 into a ~4420 market is
+    # marketable; it filled instantly and ocaType=1 cancelled the sibling. The mechanism
+    # worked exactly as designed — including leaving no orphan stop on a flat book.
+    #
+    # ⚠️ WHY THIS IS THE DANGEROUS DIRECTION, not merely a cosmetic red. A red on a
+    # FILLED sell invites the obviously-reasonable retry, and a retry places a SECOND
+    # SELL of the same qty against a now-FLAT book — opening a naked SHORT with no
+    # bracket of its own. That is the end state
+    # BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS describes, reached by a
+    # different route, by a session doing the reasonable thing.
+    #
+    # ⚠️ AND LENGTHENING THE VERIFY WINDOW DOES NOT HELP — that is the fix for the
+    # sibling row BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT. Here nothing is
+    # pending; the work is already done. The defect is the PREDICATE, not the window.
+    #
+    # So ask the POSITION, which is an independent signal from the order book.
+    pos_state, pos_size = _position_state(cfg, sym)
+    out["position_after"] = {"state": pos_state, "size": pos_size}
+
+    if pos_state == "could_not_look":
+        # We did not look. Grading either way would be a verdict we did not earn —
+        # and "absent_unexplained" in particular would invite the retry above.
+        out.update(action="placed_unconfirmed", verify_state="could_not_look",
+                   note="the order was accepted and no target is resting, but the "
+                        "position read FAILED — we cannot tell a fill from a "
+                        "never-placed order. Re-read before retrying; do NOT "
+                        "re-place on this result.")
+        print(json.dumps(out, indent=2))
+        return 3
+
+    filled = pos_state == "flat" or (
+        pos_size is not None and pos_size < declared_qty)
+    if filled:
+        out.update(action="placed_and_filled", verify_state="target_filled",
+                   note=("no target is resting because the order FILLED — the "
+                         "position is flat or reduced. This is a SUCCESS: the "
+                         "declared target was reached. Its OCA sibling stop is "
+                         "cancelled by the venue, so no orphan stop remains."))
+        print(json.dumps(out, indent=2))
+        return 0
+
+    # No resting target, a confirmed clean position read, and the position still
+    # stands at full size. THIS is the genuine failure the exit code is for.
+    out.update(action="place_not_effective", verify_state="absent_unexplained",
+               note=("the order was accepted, no target is resting, and the position "
+                     "still stands at full size — the placement did not take effect"))
     print(json.dumps(out, indent=2))
-    return 0 if now_targets else 1
+    return 1
 
 
 if __name__ == "__main__":  # pragma: no cover
