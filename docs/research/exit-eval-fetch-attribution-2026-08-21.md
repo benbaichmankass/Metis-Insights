@@ -4,6 +4,35 @@
 [`docs/claude/WORKPLAN-2026-08-21.md`](../claude/WORKPLAN-2026-08-21.md) ·
 **Row:** `BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES`
 
+> ## ✅ OUTCOME (added 2026-08-22) — APPROVED, SHIPPED, AND LIVE-VERIFIED
+>
+> **The proposal below was approved by the operator and merged as
+> [#10114](https://github.com/benbaichmankass/Metis-Insights/pull/10114) (`1b05353`).**
+> Everything from this line down is the PROPOSAL AS WRITTEN on 2026-08-21 and is
+> preserved verbatim as the record — so read its present-tense "nothing was
+> changed" / "decision requested" framing as **historical**, not as current state.
+>
+> **Live falsifier result** (`/api/diag/tick_cost`; **after** = one process
+> `23:08:50Z→04:48:04Z`, n=676 passes; **before** = n=433):
+>
+> | | before | after | |
+> |---|---|---|---|
+> | off-loop `fetch.15m` per pass | 1.002 | **0.494** | −50.7% |
+> | mean exit pass | 42.3 s | **4.89 s** | **8.6×** |
+> | `requirement_state` breaches | 28.9% | **5 / 675 = 0.74%** | ~39× fewer |
+>
+> ⚠️ **State the population:** these counters are per-process and the 28.9%
+> pre-figure's own process was not recorded beside it, so the two rates are not
+> guaranteed to share a denominator — direction and order of magnitude are solid,
+> the precise ~39× is approximate.
+>
+> ⚠️ **§ 7 was right: the 60 s requirement is STILL BREACHED at the tail**
+> (`max_interval_ms` **88.76 s**). The residual is a different cause —
+> `BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET`, carried as item **1.0** of
+> the workplan. Do not read the 8.6× as closing it.
+
+---
+
 **This is a PROPOSAL. Nothing in `src/` was changed.** The operator's recorded
 decision on this item is *"investigate and propose — do NOT flip."* The exact diff
 is in § 6; it is reproduced as text rather than committed so it cannot merge by
