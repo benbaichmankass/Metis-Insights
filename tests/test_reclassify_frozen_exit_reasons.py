@@ -52,7 +52,8 @@ def _journal(tmp_path: Path) -> Path:
     # 5: broker truth, crossed -- but is a reduce leg
     add(5, px=64230.0, reason="reconciler_filled", src="bybit_closed_pnl",
         setup="intent_reduce")
-    c.commit(); c.close()
+    c.commit()
+    c.close()
     return p
 
 
@@ -77,7 +78,7 @@ def test_annotate_still_measures_every_provenance(tmp_path):
     db = _journal(tmp_path)
     out = tmp_path / "a.jsonl"
     mod.main(["--db", str(db), "--provenance", "broker_truth", "--out", str(out)])
-    rows = [json.loads(l) for l in out.read_text().splitlines()]
+    rows = [json.loads(line) for line in out.read_text().splitlines()]
     provs = {r["provenance"] for r in rows}
     assert "estimated_or_worse" in provs, (
         "the out-of-scope class must still be measured and annotated"

@@ -109,13 +109,16 @@ def _run_sweep(tmp_path, monkeypatch, *, rec, classifier, row_over=None):
         "created_at,notes,setup_type,exit_reason,status,is_backtest,pnl) "
         "VALUES (:id,:symbol,:direction,:position_size,:entry_price,:account_id,"
         ":created_at,:notes,:setup_type,:exit_reason,:status,:is_backtest,:pnl)", row)
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
     captured = {}
 
     class _DB:
         def connect(self):
-            c = sqlite3.connect(db_path); c.row_factory = sqlite3.Row; return c
+            c = sqlite3.connect(db_path)
+            c.row_factory = sqlite3.Row
+            return c
         def update_trade(self, tid, updates):
             captured[tid] = dict(updates)
 
