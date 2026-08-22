@@ -136,6 +136,57 @@ def _git_show(ref: str, path: str) -> str:
     return r.stdout if r.returncode == 0 else "{}"
 
 
+# ---------------------------------------------------------------------------
+# STATUS ENUM (workplan 0.1 Step 0, 2026-08-22)
+#
+# `status` was uncontrolled free text: 41 distinct values across the three
+# files, several of them whole sentences carrying state a two-state field
+# could not hold. The cost was that THE OPEN SET WAS NOT COMPUTABLE -- 333,
+# 378 and 121 were all quoted in one month and each was right under some
+# filter, so no session could defend a count row by row.
+#
+# This lives in the claim-basis guard rather than in a guard of its own on
+# purpose: the cleanup pass that motivated it is a RETIREMENT pass, and a new
+# guard about the backlog is precisely the failure it warns against. This file
+# already opens all three backlogs, so the check is ~15 lines here and zero new
+# CI surface.
+#
+# A qualifier belongs in `detail`, never in `status`.
+# ---------------------------------------------------------------------------
+STATUS_ENUM = frozenset({
+    "open", "kept_open", "resolved", "wont_fix", "superseded", "invalid",
+})
+
+
+def check_status_enum(head_text: str, path: str) -> list[str]:
+    """Every row's `status` must be one of STATUS_ENUM. Whole file, not diff.
+
+    Deliberately NOT diff-scoped: the point is that the count is computable
+    from the file as it stands, which a diff-scoped check cannot establish.
+    An unreadable file returns no findings rather than a false clean -- the
+    caller's `scanned` counter is what catches "we read nothing".
+    """
+    try:
+        doc = json.loads(head_text)
+    except Exception:  # noqa: BLE001
+        return []
+    rows = doc if isinstance(doc, list) else (
+        doc.get("items") or doc.get("rows") or doc.get("backlog") or [])
+    bad: list[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        st = str(r.get("status", "")).strip()
+        if st not in STATUS_ENUM:
+            bad.append(
+                "%s: row %s has status %r, which is not in the enum %s. A "
+                "qualifier belongs in `detail` -- a free-text status makes the "
+                "open count uncomputable."
+                % (path, r.get("id") or r.get("item_id") or "<no id>", st,
+                   sorted(STATUS_ENUM)))
+    return bad
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", required=True,
@@ -151,11 +202,13 @@ def main() -> int:
             continue
         scanned += 1
         failures.extend(check_new_rows(_git_show(args.base, path), head, path))
+        failures.extend(check_status_enum(head, path))
 
     for f in failures:
         print(f"::error::{f}")
     print(f"claim-basis-guard: {scanned} backlog file(s) scanned against "
-          f"{args.base}, {len(failures)} basis-less new claim row(s).")
+          f"{args.base}, {len(failures)} finding(s) "
+          f"(basis-less new claim rows + off-enum statuses).")
     if scanned == 0:
         print("::error::scanned NOTHING — no backlog file readable (an "
               "absent result, not a clean one; wrong cwd?)")
