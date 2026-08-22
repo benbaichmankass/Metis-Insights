@@ -213,6 +213,31 @@ price-blind · 22 of 34 open trades have no decision-driven exit · workplan ite
 - [x] **Phase 0's own bar met: no new guard, no new doc, no backlog row *about*
       the backlog.** The one row filed is a genuine live defect.
 
+## Found during the wrap, filed not fixed
+`BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION` — **the local full
+suite gives 12 failed / 12021 passed while CI's `pytest-run` is green on the same
+tree.** Separated by measurement rather than assumed away: 2 are pre-existing at
+the `1b05353` baseline (psutil), and **two unrelated files pass in isolation and
+fail in the suite** — `test_send_ping.py` 20/20 alone, and
+`tests/ml/calibration/test_calibration.py` 17/17 alone but failing on
+`No module named 'sklearn.isotonic'; 'sklearn' is not a package` while
+`import sklearn` standalone resolves to a real package.
+
+`tests/conftest.py` lines 62–64 **already document this exact shape** for
+`telegram` ("Python treats the bare-MagicMock entry as a leaf, not a package"),
+and `_stub_optional` guards against it — but `sklearn` is not in that list and
+imports fine, so a different writer is leaving the leaf. I did not find it, and
+say so: greps for `sys.modules["sklearn"]`, `ModuleType("sklearn`, and
+`monkeypatch.setitem(sys.modules` over `tests/ scripts/ src/ ml/` return nothing.
+
+Filed rather than fixed because CI is green and a wrap is the wrong place to
+chase it — but it is not cosmetic: **a suite whose result depends on which subset
+you run cannot falsify anything locally**, in either direction, and the direction
+that costs is a real failure masked by running the file alone. That is the
+pre-push check this repo's practices lean on. **What I have NOT established is
+why CI does not hit it** — that is the first thing to measure, and a fix that
+works only because CI already differs is not a fix.
+
 ## Postscript — one class, four instances
 Four of this session's incidents are the same failure: **an operation whose
 failure is indistinguishable from its success.**
