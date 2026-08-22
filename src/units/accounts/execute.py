@@ -1716,6 +1716,17 @@ def apply_intent_reduce_partial_close(
         consumed = min(remaining, parent_qty)
         if consumed >= parent_qty - eps:
             # Fully consumed → close this parent chunk. PnL deferred (NULL).
+            # package-cascade: KNOWN GAP, and the LARGEST of the three. This
+            # closes the parent trade without closing its linked
+            # `order_packages` row, so `_sweep_stuck_linked_packages` force-
+            # closes it a tick later as 'stuck_cascade_recovered' (a bookkeeping
+            # repair, NOT an exit) and fires `enqueue_stuck_package_sweep` each
+            # time. Measured 2026-08-22 on the newest 500 closed rows:
+            # intent_reduce_executed 48 + intent_reduce 10 on the main path,
+            # plus 21 on pairs. Tier-2 to fix (it advances the strategy-monocle
+            # gate's unblock by ~1 tick, and this is the executor's reduce path),
+            # so it is filed rather than patched here:
+            # BL-20260822-SEVEN-OF-EIGHT-TRADE-CLOSE-SITES-DO-NOT-CASCADE-THEIR-PACKAGE.
             db.update_trade(parent_id, {
                 "status": "closed",
                 "exit_price": float(fill_price) if fill_price is not None else None,
