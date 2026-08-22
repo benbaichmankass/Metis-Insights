@@ -63,6 +63,13 @@ RUNNER_GLOBS = (
     ".github/workflows/*.yml", ".github/workflows/*.yaml",
     "deploy/**/*.service", "deploy/**/*.timer", "deploy/**/*.sh",
     "scripts/**/*.sh", "scripts/**/*.py", "src/**/*.py",
+    # `bin/` was MISSING until 2026-08-22 — the directory whose entire purpose is
+    # executable entry points was not in the corpus of things that can execute.
+    # Cost: `bin/backtest_ict.py` imports `scripts.s006_ict_synthetic_validate`
+    # and calls its `main()`, and the tool still graded "no runner references it
+    # at all". A corpse-hunter that cannot see the entry-point directory reports
+    # live tools as dead — and once the guard blocks, that rejects correct work.
+    "bin/**/*.py", "bin/**/*.sh", "bin/*.py", "bin/*.sh",
     "Makefile", "*.md", "docs/**/*.md", ".claude/skills/**/*.md",
 )
 
@@ -125,10 +132,37 @@ def scan(root: Path, targets):
     for t in targets:
         by_stem.setdefault(t.stem, []).append(t)
     stems = set(by_stem)
-    # one alternation over every stem, matched as `<stem>.py`
     if not stems:
         return []
-    pat = re.compile(r"\b(" + "|".join(sorted(map(re.escape, stems))) + r")\.py\b")
+    alt = "|".join(sorted(map(re.escape, stems)))
+    # TWO reference shapes, and missing the second one is a FALSE POSITIVE that
+    # blocks correct work (found 2026-08-22, the hour after this guard was made
+    # blocking — workplan 0.2):
+    #
+    #   a) invocation      `python3 scripts/ops/foo.py`      -> carries `.py`
+    #   b) module import   `import subbar_align`             -> NEVER carries `.py`
+    #                      `from scripts.s006_x import main`
+    #
+    # A `<stem>.py`-only pattern is structurally blind to (b), because Python
+    # import syntax cannot contain the extension. Two live examples were graded
+    # "no runner references it at all" while a sibling script imports and CALLS
+    # them: scripts/backtest_pullback.py:249 does `import subbar_align` then
+    # `subbar_align.align(...)`, and bin/backtest_ict.py:258 does
+    # `from scripts.s006_ict_synthetic_validate import main as syn_main`.
+    #
+    # Importing a tool as a library IS wiring — something that runs reaches it.
+    # The import forms are anchored to `import`/`from` so a bare mention of the
+    # stem in prose still does not count (and _strip_noncode has already removed
+    # comments and docstrings before we get here).
+    pat = re.compile(
+        r"\b(?:" + alt + r")\.py\b"
+        r"|^[ \t]*import[ \t]+(?:[\w.]+\.)?(?:" + alt + r")\b"
+        r"|^[ \t]*from[ \t]+(?:[\w.]+\.)?(?:" + alt + r")[ \t]+import\b",
+        re.MULTILINE,
+    )
+    # `findall` on a pattern with no capturing group returns whole matches, so
+    # recover which stem matched rather than relying on group position.
+    stem_of = re.compile(r"\b(" + alt + r")\b")
 
     refs = {st: [] for st in stems}
     for text, f in _runner_corpus(root):
@@ -138,7 +172,12 @@ def scan(root: Path, targets):
         if fr.startswith("tests/"):
             continue                       # a test is not a runner
         own_stems = {t.stem for t in by_stem.get(f.stem, []) if t == f}
-        for m in set(pat.findall(text)):
+        matched = set()
+        for m in pat.findall(text):
+            got = stem_of.search(m if isinstance(m, str) else m[0])
+            if got:
+                matched.add(got.group(1))
+        for m in matched:
             if m in own_stems:
                 continue                   # its own file never counts
             refs[m].append(fr)
@@ -159,6 +198,49 @@ def scan(root: Path, targets):
             findings.append((rel, "referenced ONLY by docs (%s) — documented, "
                                   "but nothing runs it" % ", ".join(sorted(r)[:3])))
     return findings
+
+
+def added_targets(base: str, root: Path, dirs) -> list:
+    """`*.py` files this change ADDS under *dirs* — the diff-scoped population.
+
+    ADDED, not merely changed. The whole reason this guard shipped
+    self-test-only is that the repo already carries ~161 unwired tools, and a
+    guard that fails every PR for pre-existing debt is the desensitized alarm
+    this repo names as a P1 in its own right. Judging only what a change
+    INTRODUCES makes it blockable without that: the debt stays visible in the
+    `--dir` standing audit and stops GROWING here.
+
+    Returns [] when git cannot answer (a shallow clone, an unknown ref). That is
+    fail-OPEN and it is the honest direction for a diff-scoper: treating "we
+    could not read the diff" as "everything is new" would fail every PR on a CI
+    misconfiguration, and treating it as a finding would claim evidence we do
+    not have.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "diff", "--name-status",
+             "--diff-filter=A", f"{base}...HEAD"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except Exception:
+        return []
+    if out.returncode != 0:
+        return []
+    added = []
+    for line in out.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        rel = parts[-1]
+        if not rel.endswith(".py") or rel.endswith("__init__.py"):
+            continue
+        if not any(rel.startswith(f"{d.rstrip('/')}/") for d in dirs):
+            continue
+        p = root / rel
+        if p.is_file():
+            added.append(p)
+    return added
 
 
 def _self_test(root: Path) -> int:
@@ -206,6 +288,31 @@ def _self_test(root: Path) -> int:
         checks.append(("a tool named only in THIS checker is still flagged",
                        bool(scan(fake2, [tool]))))
 
+    # MODULE IMPORTS are wiring. A `<stem>.py`-only matcher cannot see them,
+    # and once this guard blocks, that false positive rejects correct work.
+    with tempfile.TemporaryDirectory() as di:
+        fi = Path(di)
+        (fi / "scripts").mkdir(parents=True)
+        (fi / "bin").mkdir(parents=True)
+        lib = fi / "scripts" / "sibling_lib.py"
+        lib.write_text("def align(a, b):\n    return {}\n")
+        (fi / "scripts" / "caller.py").write_text(
+            "import sibling_lib\nprint(sibling_lib.align([], []))\n")
+        checks.append(("a bare `import <stem>` counts as wiring",
+                       not scan(fi, [lib])))
+        pkg = fi / "scripts" / "pkg_lib.py"
+        pkg.write_text("def main():\n    return 0\n")
+        (fi / "bin" / "entry.py").write_text(
+            "from scripts.pkg_lib import main as m\nm()\n")
+        checks.append(("a dotted `from pkg.<stem> import x` counts as wiring",
+                       not scan(fi, [pkg])))
+        prose = fi / "scripts" / "prose_only.py"
+        prose.write_text("print('x')\n")
+        (fi / "scripts" / "mentions.py").write_text(
+            "# we should import prose_only one day\nprint('not yet')\n")
+        checks.append(("the stem in a COMMENT is still NOT wiring after the import widening",
+                       bool(scan(fi, [prose]))))
+
     # A tool mentioned only in a COMMENT of a real runner is still unwired.
     # This is the class that defeated the checker twice.
     with tempfile.TemporaryDirectory() as d3:
@@ -225,6 +332,16 @@ def _self_test(root: Path) -> int:
         checks.append(("a tool CALLED in executable position is NOT flagged",
                        not scan(fake3, [tool])))
 
+    # The DIFF SCOPER's own failure path. A scoper that silently returned []
+    # on every input would make the blocking mode pass unconditionally —
+    # indistinguishable from a clean repo, which is the class this file exists
+    # to catch, turned on itself.
+    checks.append(("added_targets returns [] on an unresolvable base rather than raising",
+                   added_targets("definitely-not-a-ref-9f3a", root, ["scripts"]) == []))
+    checks.append(("added_targets filters to the requested dirs",
+                   all(str(p).startswith(str(root / "scripts"))
+                       for p in added_targets("HEAD~1", root, ["scripts"]))))
+
     # the probe must find a positive on the real repo, or its silence is meaningless
     real = scan(root, [root / "scripts" / "ops" / "trainer_dataset_gc.py"]) \
         if (root / "scripts" / "ops" / "trainer_dataset_gc.py").exists() else []
@@ -243,9 +360,36 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--dir", default="scripts", help="tree of tools to check")
+    ap.add_argument("--base", default=None,
+                    help="git ref: judge ONLY the *.py files this change ADDS "
+                         "(the blocking CI mode). Without it, --dir is a "
+                         "report-only standing audit over the whole tree.")
+    ap.add_argument("--dirs", default="scripts,src",
+                    help="comma-separated trees the --base mode judges")
     a = ap.parse_args()
     if a.self_test:
         return _self_test(REPO)
+
+    if a.base:
+        dirs = [x.strip() for x in a.dirs.split(",") if x.strip()]
+        targets = added_targets(a.base, REPO, dirs)
+        findings = scan(REPO, targets) if targets else []
+        print(f"unwired-artifact (diff-scoped vs {a.base}): {len(targets)} newly "
+              f"added tool(s) under {', '.join(d + '/' for d in dirs)}, "
+              f"{len(findings)} with no runner")
+        if not findings:
+            # STATE THE DENOMINATOR. "0 findings" over 0 targets and over 12
+            # targets are different statements and must not print the same.
+            print("OK — nothing this change ADDS is unwired." if targets
+                  else "OK — this change adds no new tool under those trees.")
+            return 0
+        for rel, why in sorted(findings):
+            print(f"  {rel}\n      {why}")
+        print("\n::error::this change ADDS a capability nothing runs. Wire it to a "
+              "workflow/unit/caller, delete it, or declare "
+              "`# wiring: manual-only - <reason>` in the file itself. "
+              "Pre-existing unwired tools are NOT judged here — only what you add.")
+        return 1
 
     targets = [f for f in (REPO / a.dir).rglob("*.py")
                if "__pycache__" not in f.parts and f.name != "__init__.py"]

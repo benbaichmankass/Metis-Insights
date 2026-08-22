@@ -396,12 +396,26 @@ GUARDS: List[Dict[str, Any]] = [
         # "We don't keep building things out half way and then leaving them to
         # rust" (operator, 2026-08-20). A capability that ships without a runner
         # is the class behind trainer_dataset_gc.py sitting unrun while its disk
-        # reached 93%. Diff-scoped: only a NEW/changed tool is judged, so the
-        # 161 pre-existing unwired tools are grandfathered rather than blocking
-        # every PR — the same shape as diagnostic-provenance-guard.
+        # reached 93%.
+        #
+        # ⚠️ THIS RAN SELF-TEST-ONLY UNTIL 2026-08-22 (workplan item 0.3), and
+        # the comment here CLAIMED it was diff-scoped while no scan step existed
+        # at all — a guard registered, described as blocking, and blocking
+        # nothing. That is the same shape as the thing it hunts: something built
+        # and never wired to anything that runs it. The scan step below is the
+        # blocking half; the self-test stays because a guard whose failure path
+        # is never exercised is indistinguishable from one that always passes.
+        #
+        # Diff-scoped ON ADDED FILES ONLY: the repo carries ~161 pre-existing
+        # unwired tools, and failing every PR for that debt would be the
+        # desensitized alarm this repo names as a P1 in its own right. Judging
+        # only what a change INTRODUCES stops the debt GROWING without blocking
+        # on its existence; `--dir` remains the report-only standing audit.
         "when": None,
         "steps": [
             ["python3", "scripts/ci/check_unwired_artifacts.py", "--self-test"],
+            ["python3", "scripts/ci/check_unwired_artifacts.py",
+             "--base", "origin/{base_ref}"],
         ],
     },
     {
