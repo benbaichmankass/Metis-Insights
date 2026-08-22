@@ -78,6 +78,41 @@ def _pct(value: Any) -> str:
         return _f(value)
 
 
+def _bars(value: Any) -> str:
+    """Render a bar COUNT. Bars are discrete -- `_num`'s two decimal places would
+    print "1,082.00 bars", implying a precision the quantity does not have.
+
+    None is the dash, never 0: an unmeasured leg and a leg closed on its entry bar
+    are different facts.
+    """
+    if value is None:
+        return DASH
+    try:
+        return f"{round(float(value)):,d}"
+    except (TypeError, ValueError):
+        return _f(value)
+
+
+def _bars_ratio(value: Any) -> str:
+    """Render bars_held_p90_ratio, flagging a leg past its own resolution threshold.
+
+    The threshold is not arbitrary: BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON
+    resolves at "p90 bars-held within 3x its backtested horizon", so 3.0 is the row's own
+    bar and the render marks it rather than leaving a reader to do the division.
+
+    None renders as the dash -- NOT as 0.0 and NOT as a passing value. "We did not measure
+    this leg's hold" and "this leg holds no bars" are opposite statements, and a ratio is the
+    place that collapse would be least visible.
+    """
+    if value is None:
+        return DASH
+    try:
+        r = float(value)
+    except (TypeError, ValueError):
+        return _f(value)
+    return f"🔴 {r:.1f}x" if r > 3.0 else f"{r:.1f}x"
+
+
 def _num(value: Any, places: int = 2) -> str:
     if value is None:
         return DASH
@@ -420,7 +455,9 @@ def _section_review_coverage(report: dict) -> str:
             out.append('<div class="tablewrap"><table>'
                        '<tr><th>Strategy</th><th>Book</th><th>n</th>'
                        '<th>Round-trip %</th><th>Giveback R</th>'
-                       '<th>Hold h (act/exp)</th><th>State</th></tr>')
+                       '<th>Hold h (act/exp)</th>'
+                       '<th>Bars held med / <b>p90</b> / exp</th>'
+                       '<th>p90 &times;</th><th>State</th></tr>')
             for r in rows:
                 st = _f(r.get("state"))
                 mark = {"anomaly": "🔴", "degraded": "🟡", "ok": "🟢"}.get(r.get("state"), "")
@@ -429,6 +466,10 @@ def _section_review_coverage(report: dict) -> str:
                     f"<td>{_f(r.get('n_closed'))}</td><td>{_pct(r.get('roundtrippers_pct'))}</td>"
                     f"<td>{_num(r.get('mean_giveback_r'))}</td>"
                     f"<td>{_num(r.get('hold_h_actual'))} / {_num(r.get('hold_h_expected'))}</td>"
+                    f"<td>{_bars(r.get('bars_held_median'))} / "
+                    f"<b>{_bars(r.get('bars_held_p90'))}</b> / "
+                    f"{_bars(r.get('bars_held_expected'))}</td>"
+                    f"<td>{_bars_ratio(r.get('bars_held_p90_ratio'))}</td>"
                     f"<td>{mark} {st}</td></tr>"
                 )
             out.append("</table></div>")
@@ -901,6 +942,23 @@ def _validate_review_coverage(report: dict) -> list[str]:
                 f"ml_output_actionability.verdict is {v!r} but nothing about ML is in "
                 "flags_raised[] — a training fleet whose output nobody consumes is a "
                 "loud finding, not a status line")
+
+    # BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON: a leg whose p90 hold is past its own
+    # resolution threshold (3x the backtested horizon) is a finding, not a cell in a
+    # table. Without this the columns are decorative -- the number renders, nobody is
+    # obliged to act, and the row gets rediscovered next review. That IS the failure
+    # this backlog row describes: it was found, then found again.
+    for r in ((rc.get("execution_capture") or {}).get("per_strategy") or []):
+        ratio = r.get("bars_held_p90_ratio")
+        if not isinstance(ratio, (int, float)):
+            continue
+        if ratio > 3.0:
+            strat = str(r.get("strategy") or "")
+            if strat and strat not in flags_blob_of(rc):
+                violations.append(
+                    f"execution_capture '{strat}' holds p90 {ratio:.1f}x its backtested "
+                    "horizon (threshold 3.0x) but is not in flags_raised[] — over-holding "
+                    "past the design horizon is the BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON finding, not a status line")
 
     # Anti-normalization: a >=2-review execution-capture anomaly must be escalated.
     flags_blob = " ".join(str(f) for f in (rc.get("flags_raised") or []))

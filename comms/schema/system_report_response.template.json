@@ -250,7 +250,7 @@
         "_comment": "REQUIRED (2026-07-30 — the anti-execution-blindspot guard). Proves the review MEASURED how much of each live strategy's edge actually reached the account, not just graded decisions. The motivating incident: the BYBIT_TPSL_MODE=full shared-bracket bug made 5m scalps ride 6-14h and round-trip their MFE back to the stop for WEEKS, unnoticed by successive reviews, because no review measured capture. Source: scripts/research/m20_exit_analysis.py --since-days <window> on the trainer VM (the box with the market_raw candle store). Real/paper/prop NEVER blended. `dollars_reconciled` MUST be true — see the honesty rule: the P&L scoreboard is DOLLARS (exchange-fills + broker-truth), R is diagnostic only. Any `anomalies[]` entry with reviews_open>=2 is a MANDATORY flags_raised[] escalation (the normalization killer).",
         "per_strategy": [
           {
-            "_comment": "One row per live strategy that closed >=1 trade in the window. hold_h_actual vs hold_h_expected (from the strategy's timeframe): a 5m/2h leg holding hours is the execution smoking gun. roundtrippers_pct = % of trades that went >=1.0R favorable then closed negative. state ∈ ok|degraded|anomaly.",
+            "_comment": "One row per live strategy that closed >=1 trade in the window. hold_h_actual vs hold_h_expected (from the strategy's timeframe): a 5m/2h leg holding hours is the execution smoking gun. roundtrippers_pct = % of trades that went >=1.0R favorable then closed negative. state in ok|degraded|anomaly. BARS-HELD (added 2026-08-22, BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON): report hold in BARS, not only hours -- hours are not comparable across legs, and the finding that motivated this is leg-relative (ict_scalp_mgc_15m p90 1082 bars = 11.3 days; ict_scalp_sol_5m p90 501; qqq_pullback_1h MEDIAN 312). **p90 is the load-bearing statistic, not the median or the mean** -- a mean in hours is exactly what hid this for weeks, the same lesson as exit_loop_health's max_interval_ms. bars_held_p90_ratio = p90 / expected is what the row's resolution criteria are written against (RESOLVED at <= 3.0). Every bars_held_* field is null when NOT MEASURED -- never 0, which would assert a flat instant close.",
             "strategy": "",
             "book": "real | paper | prop",
             "n_closed": 0,
@@ -258,6 +258,10 @@
             "mean_giveback_r": null,
             "hold_h_actual": null,
             "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
             "state": "ok | degraded | anomaly",
             "note": ""
           }
