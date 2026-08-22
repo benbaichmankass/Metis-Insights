@@ -59,6 +59,54 @@ when it resolved, `unresolved` when it looked and found the fill mid-range. The 
 branch stamps neither. So the note key is a clean marker for *"did this row ever reach the
 classifier at all"*, and it is decisive below.
 
+## 2b. ⚠️ Prior art — the chain's SHAPE was already written down, and I initially missed it
+
+`src/runtime/provenance.py`'s module docstring (steps 1–3, written 2026-07-30 for the
+fabricated-PnL incident) already describes this chain: the fallback pins `exit_reason` to
+`reconciler_filled`, and "`_classify_broker_exit` is downstream of a price the code
+deliberately refuses to fetch". **So this is not an unnamed mechanism, and an earlier draft
+of this document called it one. That claim is withdrawn.**
+
+What that docstring covers, and what it does not:
+
+| | provenance.py (2026-07-30) | this document |
+|---|---|---|
+| scope | **demo accounts**, via `account_closed_pnl_for_trade` returning None | demo **and real money** — 4733 and 4180 are `bybit_2`, mainnet |
+| the harm | the **PnL**, fabricated by `_sweep_local_pnl_for_unpriced` from a sweep-time mark | the **label**, still wrong after a *broker-truth* price arrives |
+| the later writer | `_sweep_local_pnl_for_unpriced` (a mark) | `_sweep_pending_pnl_from_bybit` (the venue's own record) |
+| scale | not measured for the label | **91 of 155 (58.7%)** on broker truth; 181/181 signature |
+| status | **the PnL half was FIXED** (anchored to `closed_at`, Tier-2, 2026-07-30) | **the label half was never fixed and is live today** |
+
+So the contribution here is not the mechanism's shape — it is that the 2026-07-30 fix
+closed the PnL half and left the label half untouched, that it is not confined to demo, and
+that it is measurable at 91 broker-truth rows.
+
+⚠️ **That docstring's step 1 is itself now stale** and is corrected in the same change as
+this document: the demo branch was **narrowed** on 2026-07-30 (#8111,
+`BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ`) so demo resolves the exit from the
+**fills store** rather than returning None. It no longer "refuses to fetch".
+
+## 2c. How this meets G.1 — the same population from the other side
+
+Cross-tabulating the 181 mislabelled rows by account and price provenance:
+
+| account | `bybit_closed_pnl` | `candle_at_close` | `exchange_fill` | `local_markprice` | `netted_dup` | `recorded` | total |
+|---|---|---|---|---|---|---|---|
+| `bybit_1` | 60 | 31 | 13 | 37 | 10 | 4 | **155** |
+| `bybit_2` | 11 | 1 | 0 | 2 | 0 | 0 | 14 |
+| `bybit_portfolio` | 0 | 3 | 7 | 1 | 0 | 1 | 12 |
+
+`bybit_1` is 155 of the 181, and only 73 of its 155 (47.1%) carry a broker-truth price —
+the rest fall to `candle_at_close` / `local_markprice`. That is **G.1's finding seen from
+the other side**: since the 2026-07-30 narrowing, demo resolves its exit from the fills
+store, and `fills_pnl.py`'s 5% `QTY_TOLERANCE` rejects `bybit_1`'s netted closes at a
+measured 31–44% overshoot, so the price lands as an estimate. The two items describe one
+population.
+
+⚠️ **Do not read that 47.1% as the 47.1% in `provenance.py`/#8111.** They are different
+quantities that coincide numerically: that one is *fabricated share of `bybit_1` closes*,
+this one is *broker-truth share among `bybit_1`'s mislabelled rows*.
+
 ## 3. Population and measurement
 
 **POPULATION.** Every `trades` row with `exit_reason = 'reconciler_filled'`, read via

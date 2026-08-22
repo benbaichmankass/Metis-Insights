@@ -168,6 +168,29 @@ rules out only the one path that *does* log.
   99.87% of the cap — not generally. Separation is perfect: all 21 rejected > 22,000, all 22
   accepted < 22,000.
 
+### 4. ⚠️ A correction to my own §2, caught by `doc-freshness` step 2
+
+`src/runtime/provenance.py`'s module docstring (steps 1–3, 2026-07-30) **already describes
+this chain** — the fallback pinning the reason, and the classifier being *"downstream of a
+price the code deliberately refuses to fetch"*. My first draft of §2 called it a mechanism
+nobody had named. **Withdrawn.** What is genuinely new: it is scoped there to **demo**
+(4733 and 4180 are `bybit_2`, **real money**); it is about the **PnL**, which **was fixed**
+on 2026-07-30, not the **label**, which was not; the later writer here is the **broker
+record**, not a sweep-time mark; and the **scale** was never measured.
+
+⚠️ **That docstring's step 1 is itself stale, and is fixed in this PR** — the demo branch
+was **narrowed** on 2026-07-30 (#8111, `BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ`) to
+resolve the exit from the **fills store** rather than returning `None`, so it no longer
+"refuses to fetch". This is the session's **only `src/` edit, and it is a docstring** — no
+behaviour change, `ast.parse` clean.
+
+**This also meets G.1 from the other side.** Of the 181 mislabelled rows `bybit_1` is
+**155**, and only **73 of those (47.1%)** carry a broker-truth price. Since the narrowing,
+demo resolves from fills — and `fills_pnl.py`'s 5% `QTY_TOLERANCE` rejects `bybit_1`'s
+netted closes at a measured 31–44% overshoot, so the price lands as an estimate. G.1 and
+this finding describe **one population**. ⚠️ Do **not** read that 47.1% as the 47.1% in
+`provenance.py`/#8111 — different quantities that coincide numerically.
+
 ## Validation
 - Every DB read asserted **`filter_state == "applied"`** (and `order_state` where ordered)
   before any `total` or distribution was trusted.
@@ -188,6 +211,7 @@ rules out only the one path that *does* log.
   writeback (Tier-2) and needs one operator OK. Prepared detail, including the
   `is_reduce_leg` hazard and why the 181-row historical backlog is a *separate* decision, is
   in § 5 of the research doc.
+- **No behaviour change anywhere.** The single `src/` edit is a docstring correction in `provenance.py`.
 - **No venue-max change.** Establishing *why* `venue_max` is `None` needs observability the
   code does not currently emit; adding it is the honest next step, not guessing at a cause.
 - **The stuck-cascade sweep was not touched**, per item 1.6's standing instruction.
