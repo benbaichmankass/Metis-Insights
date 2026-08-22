@@ -127,9 +127,44 @@ direction, but **Fisher exact one-sided p = 0.111 at n = 44**. **That is not a
 finding and is not quoted as one.** 15 backfilled rows did not cross, and 3
 non-backfilled rows did.
 
-**The cleanest residue for the next session is those 3 rows** — crossed, no backfill,
-so the classifier had the correct price at close time and still did not fire. Resolving
-it needs the trader journal at close time, which this session did not pull.
+### The 3-row residue, narrowed to one named candidate
+
+Those 3 rows — crossed, no backfill marker — are the cleanest lead, and they share a
+striking shape: **all three crossed the STOP by a hair** (0.0159 / 0.0074 / 0.0210
+risk-units past it), all carry a tracked `sl_order_id`, all report
+`close_exec_type: Trade`, and **two are real money** (`bybit_2`).
+
+| trade | symbol | strategy | account | closed_at | overshoot |
+|---|---|---|---|--:|--:|
+| 4928 | AVAXUSDT long | `ict_scalp_avax_5m` | `bybit_1` (paper) | 2026-08-22T13:39Z | 0.0159 R |
+| 4733 | BTCUSDT long | `ict_scalp_5m` | `bybit_2` (**real money**) | 2026-08-18T05:14Z | 0.0074 R |
+| 4180 | BTCUSDT long | `ict_scalp_5m` | `bybit_2` (**real money**) | 2026-07-29T14:31Z | 0.0210 R |
+
+Four candidates were checked and **three are eliminated**:
+
+- **A later price refinement left the reason stale.** ❌ **REFUTED for these rows.** No
+  call site writes `exit_price` without `exit_reason`, and at the site that closed them
+  (`order_monitor.py:5913`) the classifier is handed `avg_exit_price` — the *same* value
+  that is then stored. Classification and price are set together.
+- **A reduce leg** (the classifier returns `None` by design). ❌ Neither
+  `notes.intent_reduce` nor `setup_type == 'intent_reduce'` is set on any of the three.
+- **The netted-sibling cascade**, which classifies separately. ❌ That path stamps
+  `closed_by: monitor_reconciler_netted_cascade` and an `exit_reason_source` field; all
+  three carry plain `closed_by: monitor_reconciler` and no such field.
+- **The level lookup fell back.** ✅ **The surviving candidate.** `_classify_broker_exit`
+  resolves levels via `_resolve_linked_package_id(db, row['id'])` and, on a miss, falls
+  back to `_resolve_protective_levels(db, symbol, direction)` — which resolves from *the
+  most recent matching order package for that symbol+direction*, **not this trade's**. On
+  a netting account with concurrent same-symbol packages that can grade a trade against
+  **another trade's bracket**, and a bracket the fill did not cross returns `None`. All
+  three are `ict_scalp` legs on netting Bybit accounts, which is exactly the population
+  where several journal rows share one symbol.
+
+⚠️ **This is a candidate, not a finding.** All three rows carry a populated
+`order_package_id` *today*; whether it was populated at close time is the open question,
+and answering it needs the trader journal around those three timestamps — which this
+session did not pull. **The next session should start there**: three ids, three
+timestamps, one hypothesis to confirm or kill.
 
 ## Consequences for two other workplan entries
 

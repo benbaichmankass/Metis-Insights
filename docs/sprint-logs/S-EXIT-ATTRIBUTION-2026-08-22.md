@@ -128,6 +128,24 @@ brackets.
   result.** 18 of 21 mis-attributed rows carry a 2026-08-08 price-backfill marker, but the
   2×2 is 18/3 vs 15/8 — **Fisher exact one-sided p = 0.111 at n=44**.
 
+### The 3-row residue, narrowed to one named candidate
+
+Trades **4928** (AVAXUSDT/`bybit_1` paper), **4733** and **4180** (BTCUSDT/`bybit_2`
+**real money**). All three crossed the **stop** by a hair — 0.0159 / 0.0074 / 0.0210
+risk-units — all carry a tracked `sl_order_id`, all report `close_exec_type: Trade`.
+
+**Three candidates eliminated:** a later price refinement (no call site writes
+`exit_price` without `exit_reason`, and the closing site hands the classifier the same
+`avg_exit_price` it stores); a reduce leg (neither marker set); the netted-sibling
+cascade (it stamps a distinct `closed_by` and an `exit_reason_source` field, absent here).
+
+**Surviving candidate:** `_classify_broker_exit`'s level lookup falls back to
+`_resolve_protective_levels(symbol, direction)` — *the most recent matching package*,
+not this trade's — so on a netting account with concurrent same-symbol packages it can
+grade a trade against **another trade's bracket**. All three are `ict_scalp` legs on
+netting Bybit accounts. ⚠️ **A candidate, not a finding** — confirming it needs the
+trader journal around those three timestamps, which this session did not pull.
+
 ## What was NOT done, deliberately
 - **No historical `exit_reason` repair.** Re-stamping 31 money-DB rows on a p=0.111
   hypothesis is the fabrication class this repo already pays for.
