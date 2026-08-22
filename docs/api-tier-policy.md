@@ -17,7 +17,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 96 of 96 routes documented (100%).**
+> **Coverage, computed rather than counted: 97 of 97 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -224,6 +224,7 @@ routes on this router call `_require_diag_token` — no exceptions.
 |---|---|---|
 | `GET /api/diag/snapshot`, `audit`, `journal`, `status`, `services`, `journalctl`, `log_file` | `routers/diag.py` | Token-gated SELECT-only or shell-safe diagnostic reads. |
 | `GET /api/diag/audit_query`, `db_info`, `version`, `shadow_stats`, `ib_state`, `exchange_positions`, `broker_account_status` | `routers/diag.py` | **Backfilled 2026-08-09.** Added piecemeal between 2026-05 and 2026-07 and never rowed here — part of the completeness gap this file's guard now prevents. Same token gate, same read-only contract. |
+| `GET /api/diag/timers` | `routers/diag.py` | **Added 2026-08-22 (BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE).** Per allowlisted `.timer` in `_CANONICAL_UNITS`: its SCHEDULE, not merely its state — `on_calendar` / `on_monotonic` / `next_elapse_*` / `last_trigger`. `/api/diag/services` reports only `active`, so `ict-exchange-fills-pull.timer` read identical whether it fired hourly or daily, and that difference was a measured money-path defect. Scope is DERIVED from `_CANONICAL_UNITS`, never a second hand-kept list. Three read states, never collapsed: `read` / `could_not_look` (systemctl absent or timed out) / and a `schedule_state` of `calendar` / `monotonic` / `no_schedule` / `unknown` — MOST of this fleet is monotonic, so an empty `TimersCalendar` is the CORRECT answer for it, not a failure. Read-only, no socket, no order path. |
 | `GET /api/diag/exposure` | `routers/diag.py` | **Added 2026-08-09 (#8678).** Per-account gross exposure, served as the identical `RiskManager.report()["exposure"]` the enforcing side reports through — deliberately not a reconstruction. Connection-free; never consults policy to compute. |
 | `GET /api/diag/position_telemetry` | `routers/diag.py` | **Added 2026-08-17 (M31 P3).** The read half of `position_telemetry` — P2 shipped the writer with no consumer. Adds `lifecycle` (four never-collapsed states via a LEFT join to `trades`; the table itself has no status column, so a closed row is byte-shaped like an open one), `peak_pct_of_cap`, and `arm_reach`. One read-only SQLite connection, no socket, no order path, cannot refuse a trade. A lever that READS this to change an exit is M31 P5 and Tier-3. |
 | `GET /api/diag/tick_cost` | `routers/diag.py` | **Added 2026-08-09 (#8688).** Per-tick wall-clock cost of the trader's hook chain (`max_ms` beside `ticks_measured`). Pure file read. Measurement only — enforces no budget. |

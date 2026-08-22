@@ -956,6 +956,130 @@ def get_snapshot(request: Request, limit: int = _DEFAULT_LIMIT) -> dict[str, Any
     }
 
 
+# ---------------------------------------------------------------------------
+# BL-20260821-NO-READ-SURFACE-FOR-TIMER-SCHEDULE (workplan 0.6)
+#
+# Every surface that reports systemd timers reports STATE, never SCHEDULE.
+# `/api/diag/services` returns {unit, state, sub_state, active_enter_iso}, so
+# `ict-exchange-fills-pull.timer` reads "active" whether it fires HOURLY or
+# DAILY -- and the difference between those two was a real, measured defect
+# (BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE: a real-money trade
+# crossed its take-profit and was booked at candle_at_close because the fills
+# store held nothing recent enough). `systemctl list-timers` is the one command
+# that shows the next elapse and it appears in this repo only inside four
+# scripts, each scoped to its own single unit, none reachable as a general read.
+#
+# So a relay-bound session could not answer "how often does this fire" at all,
+# and inferred it from unit files that may not match what is installed.
+#
+# THREE STATES, NEVER COLLAPSED, and the distinction is not academic here:
+# MOST of these timers are MONOTONIC (OnBootSec / OnUnitActiveSec), so an empty
+# `TimersCalendar` is the CORRECT answer for them, not a failure. Collapsing
+# "no calendar" into "could not read" would report two-thirds of the fleet as
+# broken; collapsing the other way would report a genuinely unreadable timer as
+# scheduleless. Both spellings are therefore read and reported.
+_TIMER_PROPS = (
+    "TimersCalendar",
+    "TimersMonotonic",
+    "NextElapseUSecRealtime",
+    "NextElapseUSecMonotonic",
+    "LastTriggerUSec",
+    "ActiveState",
+)
+
+
+def _timer_units() -> list[str]:
+    return [u for u in _CANONICAL_UNITS if u.endswith(".timer")]
+
+
+def _systemctl_show(units: list[str], props: tuple[str, ...]) -> dict[str, dict[str, str]]:
+    """`systemctl show -p ... unit...` parsed per unit.
+
+    Returns {} on a missing binary or a timeout -- the CALLER turns that into an
+    explicit `could_not_look`, never into an empty schedule. Multiple units emit
+    blank-line-separated blocks in the order requested.
+    """
+    if not units:
+        return {}
+    args = ["systemctl", "show"]
+    for prop in props:
+        args += ["-p", prop]
+    try:
+        proc = subprocess.run(args + units, capture_output=True, text=True,
+                              timeout=_SYSTEMCTL_TIMEOUT_S, check=False)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {}
+    out: dict[str, dict[str, str]] = {}
+    blocks = (proc.stdout or "").split("\n\n")
+    for i, unit in enumerate(units):
+        if i >= len(blocks):
+            break
+        parsed: dict[str, str] = {}
+        for line in blocks[i].splitlines():
+            if "=" in line:
+                k, _, v = line.partition("=")
+                parsed[k.strip()] = v.strip()
+        if parsed:
+            out[unit] = parsed
+    return out
+
+
+@router.get("/timers")
+def get_timers(request: Request) -> dict[str, Any]:
+    """Per allowlisted timer: its SCHEDULE, not merely its state. Read-only."""
+    _require_diag_token(request)
+    units = _timer_units()
+    shown = _systemctl_show(units, _TIMER_PROPS)
+    rows: list[dict[str, Any]] = []
+    for unit in units:
+        props = shown.get(unit)
+        if not props:
+            # We could not look. NOT "this timer has no schedule".
+            rows.append({
+                "unit": unit,
+                "read_state": "could_not_look",
+                "schedule_state": "unknown",
+                "on_calendar": None, "on_monotonic": None,
+                "next_elapse_realtime": None, "next_elapse_monotonic": None,
+                "last_trigger": None, "state": None,
+            })
+            continue
+        cal = props.get("TimersCalendar") or ""
+        mono = props.get("TimersMonotonic") or ""
+        if cal:
+            schedule_state = "calendar"
+        elif mono:
+            schedule_state = "monotonic"
+        else:
+            # Read cleanly and it declares neither -- a real, reportable state.
+            schedule_state = "no_schedule"
+        rows.append({
+            "unit": unit,
+            "read_state": "read",
+            "schedule_state": schedule_state,
+            "on_calendar": cal or None,
+            "on_monotonic": mono or None,
+            "next_elapse_realtime": props.get("NextElapseUSecRealtime") or None,
+            "next_elapse_monotonic": props.get("NextElapseUSecMonotonic") or None,
+            "last_trigger": props.get("LastTriggerUSec") or None,
+            "state": props.get("ActiveState") or None,
+        })
+    by_schedule: dict[str, int] = {}
+    for r in rows:
+        by_schedule[r["schedule_state"]] = by_schedule.get(r["schedule_state"], 0) + 1
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(rows),
+        # Read `read` beside `count`: an all-`could_not_look` payload is a
+        # systemctl failure, and must not read as a fleet with no schedules.
+        "summary": {"by_schedule_state": by_schedule,
+                    "read": sum(1 for r in rows if r["read_state"] == "read"),
+                    "could_not_look": sum(1 for r in rows
+                                          if r["read_state"] == "could_not_look")},
+        "timers": rows,
+    }
+
+
 @router.get("/audit")
 def get_audit(request: Request, limit: int = _DEFAULT_LIMIT) -> list[dict[str, Any]]:
     _require_diag_token(request)
