@@ -6,8 +6,10 @@ name: claude-pr-automerge
 # HAS write perms — so this workflow does the PR-open + auto-merge the session can't call
 # directly. Generalized from the one-off m28-value-grade/merge-push workflows (2026-07-27).
 #
-# Trigger: a git push to any `claude/**` branch that touches `.github/pr-automerge-request`
-# (a write the session CAN make). The file's contents are ignored — touching it is the
+# Trigger: a git push to any `claude/**` branch that touches
+# `.github/pr-automerge-requests/<branch>.txt` — one file PER REQUEST, so two PRs never
+# collide (the old single shared `.github/pr-automerge-request` is still accepted during a
+# transition window). The file's contents are ignored — touching it is the
 # opt-in signal; the PR title/body derive from the head commit. On fire, this workflow:
 #   1. finds or CREATES the branch's PR to `main` (title = head-commit subject),
 #   2. marks it ready + enables native auto-merge (squash) — GitHub then merges ONLY when
@@ -21,7 +23,33 @@ name: claude-pr-automerge
 on:
   push:
     branches: ["claude/**"]
-    paths: [".github/pr-automerge-request"]
+    # PER-REQUEST FILE, matching every sibling relay in this repo
+    # (BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE).
+    #
+    # This used to be the single shared path `.github/pr-automerge-request`, so
+    # EVERY PR wanting auto-merge had to modify THE SAME FILE and any two of them
+    # collided by construction. Hit live 2026-08-21: #10083 merged as 932f0a54,
+    # and #10086 — branched before it — came back `mergeable_state: dirty` with
+    # that file as the ONLY conflicted path. Cost: a merge commit plus a full
+    # ~10-minute CI cycle, in a repo that has already hit the free-tier
+    # CI-minutes cap once (MB-20260706-CI-MINUTES).
+    #
+    # The conflict was pure ceremony: the file's CONTENT is never read (verified
+    # by whole-file grep — the path appears exactly twice in this workflow, in
+    # the comment above and in the filter below), so the resolution was always
+    # "take the requesting PR's line" and carried no information.
+    #
+    # Every sibling relay already had this right: pr-opener takes
+    # `automation/pr-requests/<name>.json`, board-post
+    # `automation/board-posts/<name>.md`, pr-close
+    # `automation/pr-close-requests/<name>.json`. Only this one kept a shared file.
+    #
+    # The OLD path stays in the list for a transition window so an in-flight
+    # branch that already wrote it still fires. Remove it once no open PR carries
+    # that file.
+    paths:
+      - ".github/pr-automerge-requests/**"
+      - ".github/pr-automerge-request"
 
 permissions:
   contents: write
