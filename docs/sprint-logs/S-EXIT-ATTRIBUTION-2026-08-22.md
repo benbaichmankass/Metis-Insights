@@ -155,12 +155,33 @@ trader journal around those three timestamps, which this session did not pull.
 - The scheduled **Sunday 2026-08-23 22:30Z** session (`trig_014S3NAzMKy2Ac2AM2GgyRE5`,
   MES attach + MGC flatten) — **not** this session; neither duplicated nor pre-empted.
 
-## Owed
+## Owed — attempted twice, result NOT YET OBSERVABLE
+
 **The live positive control on the pairs fix.** After deploy, a pairs close must produce a
 package carrying `pairs_revert` / `pairs_stop` / `pairs_half_open_cleanup` instead of
-`stuck_cascade_recovered`. Pairs close ~3/day on this population, so one should appear
-within a day. Until that read exists the fix is verified **by unit test only**, and this
-log says so rather than claiming a live result.
+`stuck_cascade_recovered`.
+
+**Deployment is confirmed** — the trader serves `4dcf3caa`, and both `e9dbd7b0` (the fix)
+and `4dcf3caa` are ancestors of it by `git merge-base --is-ancestor`, checked rather than
+inferred from the merge.
+
+**The control could not be taken, because no pairs package has closed since the deploy.**
+Read twice (16:27Z and 16:34Z, `filter_state` asserted `applied`): 177 pairs packages,
+distribution **unchanged** at `stuck_cascade_recovered` 109 / `reconciler_filled` 57 /
+null 11, pairs-native rows **0**, and packages updated after the deploy window opened
+(15:36Z) **0**. The newest pairs package update of any kind is **12:10:22Z** — before the
+deploy. Every row on the page predates the fix, which is precisely why the distribution
+has not moved.
+
+⚠️ **This is *"we did not look yet"*, not a failure.** Zero native rows is the expected
+reading when zero pairs packages have closed under the new code. Calling it a failed
+control would be wrong; calling the deploy a passed control would be worse. The sleeve
+closed 5× earlier the same day (09:03, 11:03, 11:05, 12:08, 12:10Z) then went quiet.
+
+A 17:33Z self check-in had been armed to re-take it and was **deleted at session close**
+rather than left to fire into a closed session; the control is carried in the handoff
+instead. **The fix remains verified by unit test only** (7/7 fail pre-fix, 7/7 pass
+post-fix), and this log says so rather than claiming a live result.
 
 ## Rows
 - `BL-20260822-PAIRS-PACKAGES-CLOSED-BY-THE-STUCK-CASCADE-SWEEP` → **resolved** (traced + fixed; live control owed)
