@@ -8366,6 +8366,10 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
     """
     summary: Dict[str, int] = {
         "scanned": 0, "filled": 0, "still_pending": 0, "errors": 0,
+        # Declared here rather than created on first use, so a run that
+        # re-classified NOTHING reports 0 instead of omitting the key —
+        # "we looked and none qualified" must not read as "we did not look".
+        "reclassified": 0,
     }
 
     # Scope: closed, non-backtest, pnl IS NULL, opened within
@@ -8378,7 +8382,8 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT id, symbol, direction, position_size, "
-                "       entry_price, account_id, created_at, notes "
+                "       entry_price, account_id, created_at, notes, "
+                "       setup_type, exit_reason "
                 "  FROM trades "
                 " WHERE status = 'closed' "
                 "   AND COALESCE(is_backtest, 0) = 0 "
@@ -8476,6 +8481,64 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
             closed_pnl = rec.get("closed_pnl")
             notes = _decode_notes(row.get("notes"))
             notes["exit_price_source"] = _broker_pnl_source(rec)
+            _reclassified: Optional[str] = None
+
+            # ── Re-classify the exit now that a price EXISTS ──────────────
+            # BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE.
+            #
+            # `_close_trade_from_order_status`'s no-record fallback hard-codes
+            # ``exit_reason='reconciler_filled'`` and leaves ``exit_price`` NULL
+            # — CORRECTLY, because at that moment there is no price to classify
+            # against. This sweep is the moment the price arrives, and until now
+            # it wrote the price and left the LABEL frozen at the one instant the
+            # answer could not be known. Measured 2026-08-22 over the 395
+            # gradeable ``reconciler_filled`` rows: on the 155 carrying a
+            # BROKER-TRUTH price, **91 (58.7%)** had actually reached a declared
+            # bracket level, and **181 of 181** mislabelled rows carried no
+            # ``exit_reason_source`` key at all — a 100% signature that none had
+            # ever reached the classifier.
+            #
+            # THREE GUARDS, each load-bearing:
+            #   1. ``is_reduce_leg`` is derived exactly as at the other call site.
+            #      A reduce's bracket can be INVERTED relative to the order
+            #      direction, so classifying one would mislabel it as sl/tp —
+            #      the precise failure `_classify_broker_exit`'s own exclusion
+            #      exists to prevent. The sweep's SELECT did not read
+            #      ``setup_type`` before this change; it does now.
+            #   2. Only a row still carrying the GENERIC reason is relabelled.
+            #      This sweep selects on ``pnl IS NULL``, which can include rows
+            #      a different path closed with a real reason (``pairs_*``,
+            #      ``sl_cross``, …). Overwriting one of those would destroy a
+            #      better record than the one being written.
+            #   3. Failure is swallowed HERE and never reaches the price write.
+            #      The pnl/exit_price update is the load-bearing half; a
+            #      bookkeeping label must never be able to lose it. Same guard
+            #      shape as `_record_trade_cost_estimate` and the pairs cascade.
+            try:
+                _setup_type = str(row.get("setup_type") or "").strip().lower()
+                _is_reduce = (
+                    _setup_type == "intent_reduce"
+                    or bool(notes.get("intent_reduce"))
+                )
+                _current_reason = str(row.get("exit_reason") or "").strip()
+                if _current_reason in ("", "reconciler_filled"):
+                    _resolved = _classify_broker_exit(
+                        db, row, avg_exit_price, is_reduce_leg=_is_reduce,
+                    )
+                    # Stamp the marker ONLY when the classifier actually ran, so
+                    # its ABSENCE keeps meaning "never reached the classifier" —
+                    # that is what made the 181/181 signature readable at all.
+                    notes["exit_reason_source"] = (
+                        "price_vs_pkg_bracket" if _resolved else "unresolved"
+                    )
+                    if _resolved:
+                        _reclassified = _resolved
+            except Exception as exc:  # noqa: BLE001 — never lose the price write
+                logger.warning(
+                    "_sweep_pending_pnl_from_bybit: exit re-classification "
+                    "failed for trade_id=%s (price/pnl still written): %s",
+                    row.get("id"), exc,
+                )
             if closed_pnl is not None:
                 notes[_broker_pnl_note_key(rec)] = closed_pnl
             if rec.get("closed_at") and "closed_at" not in notes:
@@ -8489,6 +8552,9 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
                 "exit_price": avg_exit_price,
                 "notes": dump_capped(notes, 500),
             }
+            if _reclassified:
+                updates["exit_reason"] = _reclassified
+                summary["reclassified"] += 1
             if closed_pnl is not None:
                 try:
                     updates["pnl"] = float(closed_pnl)
