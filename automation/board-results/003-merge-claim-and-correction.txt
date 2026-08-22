@@ -17,3 +17,12 @@ the relay, and the receipt-less 003 was swept up with it.
 
 Backfilling this receipt stops the recurrence for THIS request only. The class
 is BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH.
+
+--- merge note, 2026-08-22 (claude/ib-stop-price-reconciler -> main) ---
+This file conflicted add/add when the branch was refreshed onto main. `main`'s
+hand-backfilled record above is KEPT verbatim because it is the one that
+explains the recurrence class; the branch's own receipt recorded a DIFFERENT
+comment id for the same request, preserved here rather than discarded:
+  https://github.com/benbaichmankass/Metis-Insights/issues/6927#issuecomment-5365187949
+Either version suppresses the re-post (the relay skips on the file's EXISTENCE),
+so keeping main's loses nothing operationally and keeps the explanation.

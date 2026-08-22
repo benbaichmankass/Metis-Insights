@@ -20872,6 +20872,22 @@
       ]
     },
     {
+      "id": "BL-20260624-MHG-FLIP",
+      "title": "The MHG long->short flip: an id cited in three src/ files that was never filed",
+      "severity": "low",
+      "tier": 1,
+      "status": "resolved",
+      "opened_at": "2026-08-22",
+      "opened_by": "wave0-8g7443",
+      "source": "artifact-validity-guard, on the #10081 refresh (2026-08-22)",
+      "why_it_matters": "The BEHAVIOUR shipped and is load-bearing; only the RECORD was missing. `BL-20260624-MHG-FLIP` is cited in src/units/accounts/ib_client.py (3 sites), src/runtime/order_monitor.py, src/units/accounts/alpaca_client.py, two test files and a sprint log -- and resolved to NOTHING in any backlog. A code comment saying 'the pre-cancel exists to stop bracket ACCUMULATION (BL-20260624-MHG-FLIP)' reads as tracked while being tracked by nobody, which is the exact crack the 2026-07-30 operator directive names. Filed from the code rather than from memory. WHAT IT DESCRIBES: repeated protective re-arms across an orphan flap stacked multiple live OCA brackets on ONE position; their stops later fired together and flipped a by-then-flat MHG long into a SHORT, i.e. a fresh orphan. Two mitigations are in the tree: `_locked_place_protective` pre-cancels the symbol's resting protective legs before arming (so `modify_protective` deliberately does NOT cancel again, avoiding a double-cancel), and a post-reconciler-flat-close sweep cancels GTC OCA stops left sitting on a flat position. NOTE the pre-cancel is best-effort: it proceeds if the bracket is still armed, so a PARTIAL pre-cancel is possible and a success return is NOT proof that no stale leg survives.",
+      "next_action": "None. Filed as the missing record for behaviour already shipped and referenced. Distinct from BL-20260624-MHG-CLOSE-CONFIRM-VERIFY, which is about the close-confirm window, NOT this pre-cancel -- do not merge the two.",
+      "resolution_criteria": "Filed, so every existing `BL-20260624-MHG-FLIP` reference in src/, tests and docs now resolves. Resolved on filing: no code change is owed, the mitigations are in the tree.",
+      "updates": [
+        "2026-08-22 wave0-8g7443: filed. Surfaced by artifact-validity-guard when #10081's proposal doc newly cited the id -- the guard is diff-scoped, so the pre-existing src/ citations never tripped it. Verified against the code (ib_client.py:1350, :1414, :1649, :2440), not from memory, and confirmed absent from all three backlogs before filing."
+      ]
+    },
+    {
       "id": "BL-20260820-BRACKET-GEOMETRY-COLUMN-HAS-NO-AGREEMENT-CHECK",
       "severity": "medium",
       "tier": "1",
