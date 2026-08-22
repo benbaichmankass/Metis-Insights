@@ -130,6 +130,28 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "workflow-catalog",
+        # UNGATED (`when: None`), for the same reason api-tier-policy's
+        # completeness backstop is: a diff-scoped check cannot see a row being
+        # DELETED from the index, and a per-step `when` is evaluated against a
+        # `changed` list that is EMPTY under `--all` (push / workflow_dispatch)
+        # — so a gated step would skip on exactly the events meant to run
+        # everything (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH).
+        #
+        # Costs ~0.2s: one directory listing, one regex pass over the doc, and
+        # one `git ls-files`. Cheap enough that gating it would be the more
+        # expensive decision.
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation — a guard whose failure
+            # path is never exercised is indistinguishable from one that always
+            # passes, and this guard's whole subject is a claim that was green
+            # and false for 45.9% of its scope.
+            ["python3", "scripts/ci/check_workflow_catalog.py", "--self-test"],
+            ["python3", "scripts/ci/check_workflow_catalog.py", "--all"],
+        ],
+    },
+    {
         "name": "arch-doc-guard",
         "when": {
             "globs": [
@@ -319,6 +341,13 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/check_impossibility_claims.py", "--base", "origin/{base_ref}"],
             ["python3", "scripts/ci/guard_selftests.py", "impossibility-claim"],
+            # The STANDING half. The --base run above is diff-scoped, which is
+            # right for new lines and structurally blind to rows nobody edits --
+            # 36 unsubstantiated claims across 14 files sat un-reported because
+            # of exactly that. The ratchet grades every tracked file against a
+            # committed per-file baseline, so it never fails a PR for the
+            # pre-existing 36 and always fails one that ADDS to a file.
+            ["python3", "scripts/check_impossibility_claims.py", "--all", "--ratchet"],
         ],
     },
     {

@@ -51,11 +51,20 @@ def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
     Returns ``None`` for any exchange whose client is NOT safe to share, in
     which case the caller builds a fresh one exactly as before.
 
-    **IB is deliberately excluded.** An ``IBMarketData`` holds a live socket on
-    a specific clientId; handing one instance to concurrent callers is the
-    documented multi-client collision that BL-20260706-IBACCTUPDATES-COLLISION
-    is about. IB already has its own connection reuse + circuit breaker in
-    ``IBClient``; this cache must not second-guess it.
+    **IB used to be excluded here; it is not any more** (2026-08-22, #10114 /
+    BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES). This docstring
+    read *"IB is deliberately excluded -- an ``IBMarketData`` holds a live
+    socket on a specific clientId"*, which is **false**: ``IBMarketData``
+    holds no socket. Its ``__init__`` takes ``self._client =
+    get_ib_client(...)``, already a process-wide registry keyed on
+    ``(host, port, client_id)``, so every ``IBMarketData`` for one endpoint
+    ALREADY shared one ``IBClient``. The exclusion prevented no sharing that
+    was not already happening one layer down, while costing a guaranteed
+    cache MISS on every IB candle request (a fresh wrapper per request, and
+    ``_candle_cache_key`` keys on a per-OBJECT lifetime token) -- measured at
+    281 venue fetches in 281 consecutive passes against a 90s TTL. See the
+    ``interactive_brokers`` branch below for what it is memoized on and why
+    that adds no new socket sharing.
     """
     name = str(
         settings.get("EXCHANGE", settings.get("exchange", "bybit"))
@@ -82,6 +91,31 @@ def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
             _connector_class_id("src.exchange.oanda_connector", "OandaMarketData"),
             settings.get("OANDA_API_TOKEN"),
         )
+    if name in ("interactive_brokers", "ib"):
+        # IB is memoized on its RESOLVED connection identity, not on settings,
+        # because `_build_ib_market_data` resolves host/port/clientId/account
+        # from settings -> env -> accounts.yaml. Both readers share ONE
+        # resolver (`_ib_connection_identity`) so the memo key can never drift
+        # from what would actually be constructed -- the same reason
+        # `_connector_class_id` is in the key above.
+        #
+        # This adds NO new socket sharing. `IBMarketData.__init__` obtains its
+        # client from `get_ib_client()`, which is already a process-wide
+        # registry keyed on (host, port, client_id): every IBMarketData for one
+        # endpoint ALREADY shares a single IBClient today. Memoizing the
+        # wrapper stops allocating a fresh object per fetch; the number of live
+        # IB clientIds in the process is unchanged, so
+        # BL-20260706-IBACCTUPDATES-COLLISION is untouched.
+        identity = _ib_connection_identity(settings)
+        if identity is None:
+            # Unresolvable endpoint (no ib_port anywhere). Refuse to memo --
+            # today's behaviour exactly, and the same fail-safe posture as the
+            # `None` return below.
+            return None
+        return (
+            "interactive_brokers",
+            _connector_class_id("src.exchange.ib_connector", "IBMarketData"),
+        ) + identity
     return None
 
 
@@ -192,55 +226,80 @@ def _build_exchange_client_uncached(settings: Dict[str, Any]):
     raise ValueError(f"Unsupported EXCHANGE value: {exchange_name}")
 
 
+def _ib_connection_identity(settings: Dict[str, Any]) -> Optional[tuple]:
+    """The RESOLVED IB market-data endpoint, or ``None`` if unresolvable.
+
+    ONE definition, TWO readers: `_build_ib_market_data` constructs from it and
+    `_client_cache_key` memoizes on it. Duplicating this resolution would let
+    the memo key drift from the client it claims to identify — the defect
+    `_connector_class_id` exists to prevent for the other venues.
+
+    Returns ``None`` when no ``ib_port`` can be resolved from settings, env, or
+    the IB account entry. The caller then declines to memo and `IBMarketData`
+    construction raises exactly as it does today.
+    """
+    try:
+        host = (
+            settings.get("IB_HOST")
+            or os.environ.get("IB_HOST")
+            or _ib_account_field("ib_host")
+            or "127.0.0.1"
+        )
+        port = (
+            settings.get("IB_PORT")
+            or os.environ.get("IB_PORT")
+            or _ib_account_field("ib_port")
+        )
+        if not port:
+            return None
+        account = (
+            settings.get("IB_ACCOUNT")
+            or os.environ.get("IB_ACCOUNT")
+            or _ib_account_field("ib_account")
+        )
+        exec_client_id = int(_ib_account_field("ib_client_id") or (int(port) % 1000))
+        md_client_id = int(
+            settings.get("IB_MD_CLIENT_ID")
+            or os.environ.get("IB_MD_CLIENT_ID")
+            or (exec_client_id + 1)
+        )
+        try:
+            md_type = int(
+                settings.get("IB_MARKET_DATA_TYPE")
+                or os.environ.get("IB_MARKET_DATA_TYPE")
+                or 3
+            )
+        except (TypeError, ValueError):
+            md_type = 3
+        return (
+            str(host),
+            int(port),
+            md_client_id,
+            str(account) if account else None,
+            md_type,
+        )
+    except Exception:  # noqa: BLE001 — an unresolvable endpoint must not raise here
+        return None
+
+
 def _build_ib_market_data(settings: Dict[str, Any]):
     """Return an IBMarketData connector for the IB Gateway endpoint.
 
     IB has no API keys — connection identity (host/port/clientId/account)
-    is resolved from the IB account entry in ``config/accounts.yaml`` (via
-    the canonical loader), with ``IB_HOST`` / ``IB_PORT`` env overrides.
-    The market-data ``clientId`` is offset off the execution client's id so
-    the data socket and the order socket coexist on the Gateway.
+    is resolved by ``_ib_connection_identity`` from the IB account entry in
+    ``config/accounts.yaml`` (via the canonical loader), with ``IB_HOST`` /
+    ``IB_PORT`` env overrides. The market-data ``clientId`` is offset off the
+    execution client's id so the data socket and the order socket coexist on
+    the Gateway.
     """
     from src.exchange.ib_connector import IBMarketData
 
-    host = (
-        settings.get("IB_HOST")
-        or os.environ.get("IB_HOST")
-        or _ib_account_field("ib_host")
-        or "127.0.0.1"
-    )
-    port = (
-        settings.get("IB_PORT")
-        or os.environ.get("IB_PORT")
-        or _ib_account_field("ib_port")
-    )
-    if not port:
+    identity = _ib_connection_identity(settings)
+    if identity is None:
         raise ValueError(
             "IB market data: no ib_port (config IB account / IB_PORT env)."
         )
-    account = (
-        settings.get("IB_ACCOUNT")
-        or os.environ.get("IB_ACCOUNT")
-        or _ib_account_field("ib_account")
-    )
-    exec_client_id = int(_ib_account_field("ib_client_id") or (int(port) % 1000))
-    # +1 keeps the market-data socket distinct from the execution socket.
-    md_client_id = int(
-        settings.get("IB_MD_CLIENT_ID")
-        or os.environ.get("IB_MD_CLIENT_ID")
-        or (exec_client_id + 1)
-    )
-    # Default to delayed data (3) so MES works without a paid CME real-time
-    # subscription (strategy-refinement / model-training mode). Override via
-    # IB_MARKET_DATA_TYPE=1 once a live CME feed is active.
-    try:
-        md_type = int(
-            settings.get("IB_MARKET_DATA_TYPE")
-            or os.environ.get("IB_MARKET_DATA_TYPE")
-            or 3
-        )
-    except (TypeError, ValueError):
-        md_type = 3
+    host, port, md_client_id, account, md_type = identity
     return IBMarketData(
         host=str(host),
         port=int(port),
@@ -506,7 +565,7 @@ def reset_candle_cache() -> None:
         _CANDLE_CACHE.clear()
 
 
-def _fetch_phase(name: str):
+def _fetch_phase(name: str, venue: str = "unknown"):
     """Time ONE venue candle fetch into the per-tick cost record. NO-OP fallback.
 
     WHY. The 2026-08-12 warm read (96 ticks, one process) put `pipeline.signal_build`
@@ -579,13 +638,53 @@ def _fetch_phase(name: str):
         # folded into a neighbour — a fetch outside every instrumented phase is
         # a real, different answer from one under a known phase.
         label = (phase or "unattributed").split(".")[-1]
-        with hook(f"fetch.{name}"), hook(f"fetchby.{label}"):
+        # THREE cuts of the SAME seconds now. Each fetch records once in each
+        # family, so the three sums are equal and summing ACROSS them
+        # triple-counts every fetch. Compare within a family, never across.
+        with hook(f"fetch.{name}"), hook(f"fetchby.{label}"), hook(f"fetchvenue.{venue}"):
             yield
 
     try:
         return _both()
     except Exception:  # noqa: BLE001
         return contextlib.nullcontext()
+
+
+# ---------------------------------------------------------------------------
+# BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS (workplan 0.6)
+#
+# THIRD CUT — `fetchvenue.<venue>`. The two existing cuts answer "which frames
+# miss" and "which consumer asked", and neither can answer "which VENUE is the
+# cost", which is the axis that decides what a fix is worth.
+#
+# The 2026-08-21 exit-loop attribution needed exactly this and did not have it.
+# `fetch.15m` was fully attributable to IB only BY LUCK — there happened to be
+# exactly ONE open 15m package and it happened to be on an IB-routed symbol. A
+# second 15m package on Bybit would have made that line un-attributable, and the
+# T.1 root cause (IB frames cannot cache at any TTL) would not have been
+# isolable from the instrument at all.
+#
+# Keyed on the connector's MODULE, not on a name heuristic: each venue has
+# exactly one market-data class and the module is what `_build_exchange_client_
+# uncached` selects on, so this cannot drift from what was actually constructed.
+# `unknown` keeps its OWN bucket rather than being folded into a neighbour — a
+# venue we cannot name is a different answer from one we can, and folding it
+# would silently inflate whichever venue it was folded into.
+_VENUE_BY_MODULE = {
+    "bybit_connector": "bybit",
+    "ib_connector": "interactive_brokers",
+    "alpaca_connector": "alpaca",
+    "oanda_connector": "oanda",
+}
+
+
+def _venue_of_client(client: Any) -> str:
+    """The venue a connector belongs to, or ``"unknown"``. Never raises."""
+    try:
+        module = (type(client).__module__ or "").rsplit(".", 1)[-1]
+    except Exception:  # noqa: BLE001
+        return "unknown"
+    return _VENUE_BY_MODULE.get(module, "unknown")
 
 
 def fetch_candles(
@@ -652,14 +751,14 @@ def fetch_candles(
     if cached is not None:
         # Counted for its `n` (see _fetch_phase): hits vs misses is the empirical
         # test of whether the cache reaches across ticks at all.
-        with _fetch_phase("cache_hit"):
+        with _fetch_phase("cache_hit", _venue_of_client(exchange_client)):
             pass
         # .copy() is load-bearing: a builder that mutates the frame (adds an
         # indicator column) must not corrupt the copy the next builder sees.
         return cached.copy()
 
     _tf_label = str(timeframe).strip().lower() or "unknown"
-    with _fetch_phase(_tf_label):
+    with _fetch_phase(_tf_label, _venue_of_client(exchange_client)):
         return _fetch_candles_uncached(
             exchange_client, symbol, timeframe, limit, since, cache_key
         )

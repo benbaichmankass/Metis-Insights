@@ -70,6 +70,16 @@ _TP_TYPES = {"takeprofit", "partialtakeprofit"}
 # hole. 0.5% of position size.
 _COVERAGE_EPS_FRAC = 0.005
 
+# BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS.
+# Relative tolerance when asking "does the resting leg sit where the journal
+# declared". CHOSEN, not measured -- stated plainly because this file already
+# insists elsewhere that a bound with no distribution behind it must say so.
+# The reasoning: a genuine stop sits ~1-3% from entry, so 0.5% is comfortably
+# below the smallest divergence that could matter while staying above venue
+# tick rounding. Widening it hides real divergence; narrowing it turns tick
+# noise into alarm fatigue, which this repo treats as a P1 in its own right.
+_PRICE_EPS_FRAC = 0.005
+
 
 def _f(v: Any) -> Optional[float]:
     try:
@@ -265,6 +275,67 @@ def _audit_symbol(
                 (str(tracked) in live_ids) if tracked else None
             ),
         })
+    # --- price agreement, graded SEPARATELY from existence ------------------
+    # BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS. Every other dimension
+    # here grades a QUANTITY or an EXISTENCE, so a clean bill of health was
+    # compatible with every stop resting at the wrong price. Both sides of the
+    # comparison were already collected and simply never compared -- the leg's
+    # `triggerPrice` and the row's `journal_sl` -- which is the
+    # written-but-never-read shape `provenance-consumer-guard` exists to catch.
+    #
+    # THIS IS NOT HYPOTHETICAL. Under Full mode the venue holds ONE
+    # position-level stopLoss for the whole netted position and each new open
+    # REPLACES it, so N journal rows with N different declared stops all ride
+    # the newest row's geometry and N-1 of them are necessarily wrong. That is
+    # the documented Jun 21-23 mechanism behind BYBIT_TPSL_MODE=partial. The
+    # audit could not see it.
+    #
+    # Mapping is 1:1 and never guessed: a row is compared to ITS OWN tracked
+    # leg. Three states, never collapsed -- `agree` / `diverged` /
+    # `ungradeable` -- because "no tracked id" and "prices match" are opposite
+    # statements, and a row we could not check must never count as clean.
+    pos_sl_f = _f(pos_sl) if has_pos_sl else None
+    for t in per_trade:
+        want = t["journal_sl"]
+        if want is None or want <= 0:
+            t["price_state"], t["price_basis"], t["broker_sl"] = "ungradeable", "no_journal_sl", None
+            continue
+        got, basis = None, None
+        if has_pos_sl:
+            # Full mode: every row is measured against the ONE position-level
+            # stop, which is exactly how the netting defect surfaces.
+            got, basis = pos_sl_f, "full_mode_position_stopLoss"
+        elif t["tracked_leg_alive_at_broker"] is True:
+            tracked_id = str(t["tracked_sl_order_id"])
+            got = next((_f(leg_rec.get("triggerPrice")) for leg_rec in sl_legs
+                        if str(leg_rec.get("orderId")) == tracked_id), None)
+            basis = "tracked_partial_leg"
+        t["broker_sl"], t["price_basis"] = got, basis
+        if got is None or got <= 0:
+            # Covers: no tracked id, a dead leg, an unparseable triggerPrice.
+            # We did not look -- not "it agrees".
+            t["price_state"] = "ungradeable"
+            t["price_basis"] = basis or "no_tracked_live_leg"
+        elif abs(got - want) > want * _PRICE_EPS_FRAC:
+            t["price_state"] = "diverged"
+        else:
+            t["price_state"] = "agree"
+
+    res["price_diverged_count"] = sum(1 for t in per_trade if t["price_state"] == "diverged")
+    res["price_agree_count"] = sum(1 for t in per_trade if t["price_state"] == "agree")
+    res["price_ungradeable_count"] = sum(1 for t in per_trade if t["price_state"] == "ungradeable")
+    # Envelope state. `ungradeable` is reported when NOTHING could be graded,
+    # so a symbol whose price axis is entirely unreadable can never present as
+    # clean -- the denominator travels with the verdict.
+    if not per_trade:
+        res["price_state"] = "not_applicable"
+    elif res["price_diverged_count"]:
+        res["price_state"] = "diverged"
+    elif res["price_agree_count"]:
+        res["price_state"] = "agree"
+    else:
+        res["price_state"] = "ungradeable"
+
     res["journal_open_trades"] = per_trade
     res["journal_open_trade_count"] = len(per_trade)
     res["journal_qty_sum"] = sum(
@@ -351,6 +422,7 @@ _ROLLUP_DIMENSIONS: Tuple[Tuple[str, str], ...] = (
     ("target_present", "a resting take-profit exists"),
     ("tracked_legs_alive", "no open journal row's tracked SL leg is dead"),
     ("journal_qty_backed", "open journal qty does not exceed the exchange position"),
+    ("price_agreement", "resting protective legs sit where the journal declared"),
 )
 
 
@@ -380,6 +452,10 @@ def grade_rollup(summary: Dict[str, Any]) -> Tuple[Dict[str, List[Tuple]], int]:
                 found["journal_qty_backed"].append(
                     (aid, sym, "JOURNAL_QTY_UNBACKED",
                      s.get("journal_qty_excess"), None))
+            if (s.get("price_diverged_count") or 0) > 0:
+                found["price_agreement"].append(
+                    (aid, sym, "SL_PRICE_DIVERGED",
+                     s.get("price_diverged_count"), s.get("price_state")))
     return found, audited
 
 

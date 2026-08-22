@@ -140,6 +140,20 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "EXIT_EVAL_MAX_INTERVAL_SECONDS",
     "REGIME_BAR_SCORING_BUDGET_S",
     "ACCOUNT_REACHABILITY_CHECK_SECONDS",
+    # --- Alert SKIP allowlists ---------------------------------------------
+    # These do not tune a cadence: they DISABLE a specific alarm for a named
+    # account, so their live value is the difference between "nothing is wrong"
+    # and "the only thing watching this was switched off". A skip that is
+    # writable by set-env and unreadable by anything is precisely
+    # BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE, one level worse than the
+    # cadence keys above, because the failure it hides is silence.
+    #
+    # Added 2026-08-21 when alpaca_live (real money, 127 of 127 orders refused
+    # for zero balance) was deliberately silenced by operator decision — a
+    # defensible call, but one no future review could have discovered without
+    # this read surface. Values are account-id CSVs and carry no secret.
+    "ACCOUNT_DOWN_ALERT_SKIP",
+    "SILENT_REFUSAL_SKIP",
     "TRAINER_HEARTBEAT_CHECK_SECONDS",
     "PROP_MONITOR_PULSE_SECONDS",
     "IB_BROKER_NAKED_CHECK_SECONDS",

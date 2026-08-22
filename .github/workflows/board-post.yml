@@ -1,0 +1,154 @@
+name: board-post
+
+# Git-push-triggered coordination-board relay — the MCP-independent path for
+# posting to the live Claude Coordination Board (issue #6927).
+#
+# WHY THIS EXISTS. `docs/CLAUDE-RULES-CANONICAL.md` § "Multi-session coordination"
+# makes posting a `▶️ START` comment to #6927 MANDATORY *before a session's first
+# substantive tool call*. But a PM-side session's GitHub MCP is intermittently
+# READ-ONLY — `add_issue_comment` returns 403 "Resource not accessible by
+# integration" (the same 403 `claude-pr-automerge.yml`'s header documents for PR
+# create/merge, and it names issue comments explicitly). Two relays already exist
+# for that 403 — `pr-opener.yml` (open a PR) and `claude-pr-automerge.yml` (merge
+# one) — and there was NO relay for the board comment, which is the one the rules
+# call mandatory. So a read-only session was structurally unable to comply with a
+# binding rule; its only options were to skip the board or to stop. This closes
+# that gap. Filed as BL-20260820-NO-BOARD-POST-RELAY-FOR-READONLY-MCP.
+#
+# Contract:
+#   * Drop a markdown file at `automation/board-posts/<name>.md` and push it to a
+#     `claude/**` branch. Its ENTIRE contents become one comment on issue #6927.
+#   * The runner posts it, writes the resulting comment URL (or the error) to
+#     `automation/board-results/<name>.txt`, removes the request, and commits the
+#     result back with [skip ci] (no re-trigger loop).
+#   * Read the result back with:
+#       git fetch origin <branch>
+#       git show origin/<branch>:automation/board-results/<name>.txt
+#
+# DELIBERATELY STRICTER THAN `pr-opener.yml`, WHICH IT IS OTHERWISE MODELLED ON:
+#   1. An EMPTY or whitespace-only body is REFUSED, not posted. A blank board
+#      comment is a vacuous post that reads as compliance — the "green is not
+#      evidence" shape.
+#   2. A failed post FAILS THE RUN (exit 1). `pr-opener.yml` records `FAILED:` in
+#      the result file and still exits 0; for a PR that is recoverable because the
+#      absent PR is self-evident, but a session that believes it claimed the board
+#      and did not is invisible to every other session AND to itself. The failure
+#      must be loud. `claude-run-failure-alert.yml` then pings the operator.
+#
+# Blast radius: posts issue COMMENTS on exactly one hardcoded issue (#6927) and
+# commits result files. It cannot open, close, label or edit an issue, cannot
+# touch a PR, and cannot reach `src/`, `config/`, a unit file, or either VM.
+# The issue number is hardcoded rather than read from the request on purpose —
+# a caller-supplied number would make this a general issue-commenting primitive.
+
+on:
+  push:
+    paths: ['automation/board-posts/**']
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: board-post-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Post pending board comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/board-results
+          shopt -s nullglob
+          failed=0
+          found=0
+          for req in automation/board-posts/*.md; do
+            base="$(basename "$req" .md)"
+            out="automation/board-results/${base}.txt"
+
+            # IDEMPOTENCY IS THE RESULT FILE, NOT DELETION OF THE REQUEST.
+            # An earlier version `git rm`'d each request once posted. That made
+            # the results commit touch `automation/board-posts/**` -- this
+            # workflow's own trigger path -- so it needed `[skip ci]` to avoid
+            # retriggering itself, and `[skip ci]` suppresses EVERY workflow for
+            # that commit. When the results commit is the last one on a branch it
+            # becomes the PR head, and the PR is then left with ZERO check runs
+            # that can never arrive. Measured on PR #10076: head 57a25aa9,
+            # `get_check_runs` total_count 0. A check that silently did not run
+            # renders identically to green, which is precisely what
+            # pytest-collect.yml's own header warns about.
+            # Keeping the request in place and skipping it when its result
+            # already exists means the commit touches ONLY
+            # `automation/board-results/**`, which is outside the trigger path --
+            # so there is no self-retrigger, no `[skip ci]`, and the PR keeps CI.
+            if [ -f "$out" ]; then
+              echo ">>> ${base}: already posted, skipping ($(head -1 "$out"))"
+              continue
+            fi
+            found=$((found + 1))
+
+            # Assert the input before trusting the outcome: a blank comment would
+            # post "successfully" and say nothing.
+            if [ ! -s "$req" ] || ! grep -q '[^[:space:]]' "$req"; then
+              echo "REFUSED: empty or whitespace-only body" > "$out"
+              echo ">>> ${base}: REFUSED (empty body)"
+              failed=1
+              continue
+            fi
+
+            if url="$(gh issue comment 6927 --repo "$GITHUB_REPOSITORY" \
+                        --body-file "$req" 2>&1)"; then
+              echo "$url" > "$out"
+              echo ">>> ${base}: $(head -1 "$out")"
+            else
+              printf 'FAILED:\n%s\n' "$url" > "$out"
+              echo ">>> ${base}: FAILED"
+              failed=1
+            fi
+          done
+
+          echo "board-post: ${found} request(s) processed"
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::board-post: at least one board comment was NOT posted. A session may believe it claimed the board when it did not."
+          fi
+          echo "BOARD_POST_FAILED=$failed" >> "$GITHUB_ENV"
+
+      - name: Commit results back to branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Stage ONLY the results directory. Requests are no longer deleted
+          # (see the idempotency note above), so nothing under the trigger path
+          # `automation/board-posts/**` changes here -- which is what lets this
+          # commit omit `[skip ci]` without retriggering the workflow.
+          #
+          # `-A` on the directory rather than naming files, so a first run that
+          # creates it is handled the same as a later one that adds to it.
+          # (A previous version staged `automation/board-posts` explicitly and
+          # failed under `set -e` once `git rm` had emptied that directory --
+          # git does not track empty directories, so the path vanished.)
+          git add -A automation/board-results
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "board-post: results"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Fail the run if any comment was not posted
+        if: always()
+        run: |
+          if [ "${BOARD_POST_FAILED:-0}" -ne 0 ]; then
+            echo "One or more board comments failed to post."
+            exit 1
+          fi
+          echo "All board comments posted."

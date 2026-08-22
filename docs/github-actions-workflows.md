@@ -129,13 +129,14 @@ which would unlock these.
 
 | Workflow | Autonomy | Trigger pattern | Label / sentinel |
 |---|---|---|---|
+| `guards.yml` | AUTO | PR/push/merge_group | — (**required check**; runs every id below) |
 | `pytest-collect.yml` | AUTO | PR/push | — |
-| `ruff-lint.yml` | AUTO | PR/push | — |
-| `secret-scan.yml` | AUTO | PR/push | — |
-| `dry-run-guard.yml` | AUTO | PR | — |
-| `env-gate-guard.yml` | AUTO | PR | — |
-| `silent-empty-guard.yml` | AUTO | PR | — |
-| `arch-doc-guard.yml` | AUTO | PR | — |
+| `ruff-lint` | AUTO | PR/push | — |
+| `secret-scan` | AUTO | PR/push | — |
+| `dry-run-guard` | AUTO | PR | — |
+| `env-gate-guard` | AUTO | PR | — |
+| `silent-empty-guard` | AUTO | PR | — |
+| `arch-doc-guard` | AUTO | PR | — |
 | `repo-inventory.yml` | AUTO | PR/push | — |
 | `bootstrap-labels.yml` | AUTO / AUTONOMOUS | push (paths: this file) + B-sentinel or `workflow_dispatch` | `.github/triggers/bootstrap-labels` |
 | `branch-protection-sync.yml` | AUTO | push to `main` + workflow_dispatch | — |
@@ -170,24 +171,49 @@ which would unlock these.
 These run on every PR or push to `main`. Claude never triggers them;
 they self-fire. Touching a guard's own logic is **Tier 3**.
 
-| File | Trigger | Purpose | Required on `main`? |
+> ⚠️ **These are guard *ids*, not workflow files.** Every static guard below
+> runs as a step inside the single **`guards.yml`** job — its registry is
+> [`scripts/ci/run_guards.py`](../scripts/ci/run_guards.py) and its failure-path
+> self-tests are in [`scripts/ci/guard_selftests.py`](../scripts/ci/guard_selftests.py).
+> The per-guard workflow files this table used to name (env-gate-guard.yml,
+> secret-scan.yml, … — deliberately unbackticked here, because they are not
+> files) **do not exist**: they were consolidated into one job by
+> BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES, after a single PR asking for
+> ~29 hosted runners left 28 of them queued through an Actions incident. The
+> `.yml` suffixes were left behind in this table until 2026-08-21, so a reader
+> looking for the file that runs a guard found a plausible name, no file, and no
+> pointer to the real one. The `workflow-catalog` guard now fails CI on a name
+> here that is not a real file.
+
+| Guard id (runs inside `guards.yml`) | Trigger | Purpose | Required on `main`? |
 |---|---|---|---|
 | `pytest-collect.yml` | PR, push `main` | `pytest --collect-only` — surfaces import/collection failures. | Yes |
 | `pytest-run.yml` | PR, push `main` | `pytest -q tests/` — runs the **full** suite (collection only checks imports). Required since 2026-05-22 (#1721). | Yes |
-| `ruff-lint.yml` | PR, push `main` | `ruff check` with rules from `ruff.toml`. | Yes |
-| `secret-scan.yml` | PR, push `main` | `scripts/secret_scan.py` over every tracked file. | Yes |
-| `dry-run-guard.yml` | PR to `main` | Fails PRs that flip dry-run flags, silently downgrading live mode. Telegrams operator on hit. | Yes |
-| `env-gate-guard.yml` | PR to `main` | Fails PRs adding env-gate reads in protected files without `# allow-silent: <reason>`. | Yes |
-| `silent-empty-guard.yml` | PR to `main` | Fails PRs adding broad `except` handlers in protected read-paths without justification. | Yes |
-| `canonical-config-loaders.yml` | PR to `main` | Fails PRs that add a hand-rolled parser for `config/accounts.yaml` outside the canonical loader module. | Yes |
-| `canonical-db-resolver.yml` | PR to `main` | Fails PRs that add an inline `trade_journal.db` path fallback outside the canonical resolver. | Yes |
-| `arch-doc-guard.yml` | PR to `main` | Emits `::warning` when high-impact subsystems change without an architecture-doc update. Always exits 0 (advisory). | No |
+| `ruff-lint` | PR, push `main` | `ruff check` with rules from `ruff.toml`. | Yes |
+| `secret-scan` | PR, push `main` | `scripts/secret_scan.py` over every tracked file. | Yes |
+| `dry-run-guard` | PR to `main` | Fails PRs that flip dry-run flags, silently downgrading live mode. Telegrams operator on hit. | Yes |
+| `env-gate-guard` | PR to `main` | Fails PRs adding env-gate reads in protected files without `# allow-silent: <reason>`. | Yes |
+| `silent-empty-guard` | PR to `main` | Fails PRs adding broad `except` handlers in protected read-paths without justification. | Yes |
+| `canonical-config-loaders` | PR to `main` | Fails PRs that add a hand-rolled parser for `config/accounts.yaml` outside the canonical loader module. | Yes |
+| `canonical-db-resolver` | PR to `main` | Fails PRs that add an inline `trade_journal.db` path fallback outside the canonical resolver. | Yes |
+| `arch-doc-guard` | PR to `main` | Emits `::warning` when high-impact subsystems change without an architecture-doc update. Always exits 0 (advisory). | No |
 | `repo-inventory.yml` | PR, push `main` | Uploads `scripts/repo_inventory.py` output as build artifact. Advisory only. | No |
 
 `REQUIRED_CONTEXTS` in `branch-protection-sync.yml` is the authoritative
 list of blocking checks — **read it there, this copy is a convenience mirror.**
-As of 2026-08-04 the 15 required contexts are: `["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard","diagnostic-provenance-guard","layer-guard","json-extract-guard","soak-doctrine-guard","artifact-validity-guard"]`
-(the 2 provenance guards were promoted 2026-07-30; layer/json-extract/soak-doctrine/artifact-validity 2026-07-31).
+As of 2026-08-21 there are **three**:
+`["pytest-collect","pytest-run","guards"]`.
+
+> ⚠️ **This mirror said "15 required contexts" until 2026-08-21 and had been
+> wrong since the guard consolidation.** The 13 individual guard contexts it
+> listed were replaced by the single `guards` context in the same commit that
+> created `guards.yml` — a required context that no longer exists leaves every
+> PR hanging forever, so `branch-protection-sync.yml` had to be updated
+> atomically with it, and this mirror was simply missed. A stale mirror of a
+> gating list is the dangerous direction: it invites a session to expect checks
+> that cannot run. `repo-inventory` also runs on every PR but is **advisory**
+> and deliberately NOT required — folding it into the required set would start
+> gating merges on an artifact upload.
 
 ---
 
@@ -973,11 +999,12 @@ header before triggering a mutating one).
 
 | Workflow | Category | Autonomy | Trigger | Purpose |
 |---|---|---|---|---|
-| `account-class-guard.yml` | CI guard | AUTO | PR | Fails PR when an accounts.yaml account is missing account_class. |
-| `canonical-doc-coherence.yml` | CI guard | AUTO | PR/push | Mechanical guard against governance-doc drift (the doc-coherence 'teeth'). |
-| `new-table-wiring-guard.yml` | CI guard | AUTO | PR | Fails+pings when a PR adds a persistent table without wiring it into the canonical store. |
-| `writer-conformance-guard.yml` | CI guard | AUTO | PR | Fails+pings when a PR adds a journal writer that bypasses the canonical resolver/conformance. |
+| `account-class-guard` | CI guard | AUTO | PR | Fails PR when an accounts.yaml account is missing account_class. |
+| `canonical-doc-coherence` | CI guard | AUTO | PR/push | Mechanical guard against governance-doc drift (the doc-coherence 'teeth'). |
+| `new-table-wiring-guard` | CI guard | AUTO | PR | Fails+pings when a PR adds a persistent table without wiring it into the canonical store. |
+| `writer-conformance-guard` | CI guard | AUTO | PR | Fails+pings when a PR adds a journal writer that bypasses the canonical resolver/conformance. |
 | `diag-relay-sweep.yml` | Ops relay | AUTONOMOUS | label `vm-diag-request` + cron | Sweeps stale, never-answered diag-relay issues (dropped-webhook backstop). |
+| `broker-bracket-reconcile.yml` | Ops audit | AUTONOMOUS | cron (6h) + dispatch | Runs `scripts/ops/broker_bracket_reconcile.py` against the live book (declared vs resting IB protection). Read-only. RECORDS every run to tracking issue #10089 and COMMENTS only when the graded state moves -- both of the detector's alarm-shaped outputs are true in the steady state, so pinging on either would fire constantly. Silence there means "the same problems", never "no problems". |
 | `arm-candidate-diag.yml` | Migration relay | AUTONOMOUS | label `arm-candidate-diag-request` | SSH diag/verification relay for the Ampere migration candidate VM. |
 | `vm-bybit-diag.yml` | Ops relay | AUTONOMOUS | label `vm-bybit-diag-request` | One-shot bybit_2 ErrCode 10010 ('Unmatched IP') diagnostic. |
 | `news-key-check.yml` | Ops relay | AUTONOMOUS | label `news-key-check` | Validate NEWS_API_KEY end-to-end through the bot's news path. |
@@ -1006,3 +1033,64 @@ header before triggering a mutating one).
 | `vm-ib-gateway-watchdog-enable.yml` | IB-gateway ops | OPERATOR-APPROVAL | label / dispatch | Re-enable the IB-gateway watchdog (counterpart to vm-ib-gateway-stop). |
 | `vm-git-credential-bootstrap.yml` | One-shot repair | AUTONOMOUS | label `vm-git-credential-bootstrap` / dispatch | One-shot bootstrap to break the git-fetch-auth chicken-and-egg after the repo went private (BL-20260706-GITSYNC-AUTH-BROKEN) — sets a global git credential on the VM from the outside so the existing (even pre-fix) deploy script's fetch starts authenticating immediately. Also doubles as the recovery step for a stale on-disk deploy script: after its own verification fetch, if the worktree reads behind `origin/main` it `git reset --hard origin/main` + runs `scripts/deploy_pull_restart.sh` directly, so a broken on-disk deploy script can't block itself from being fixed. Resolved + live-verified 2026-07-06. |
 | `vm-ib-gateway-live-login-test.yml` | IB-gateway ops | OPERATOR-APPROVAL | label / dispatch | One-shot: verify LIVE IBKR login + 2FA without disturbing the running gateway. |
+
+<!-- The 51 rows below closed a measured 45.9% gap in this index on 2026-08-21
+     (BL-20260821-WORKFLOW-CATALOG-CLAIMS-COMPLETE-AND-IS-47PCT-MISSING). The
+     completeness claim above is now enforced by the `workflow-catalog` guard
+     (scripts/ci/check_workflow_catalog.py) rather than maintained by hand, so
+     a new workflow that lands without a row here FAILS CI. Do not add a row
+     for a workflow that does not exist — the guard checks that direction too. -->
+
+| Workflow | Category | Autonomy | Trigger | Purpose |
+|---|---|---|---|---|
+| `guards.yml` | CI guard | AUTO | PR, push `main`, `merge_group`, dispatch | **A REQUIRED status check**, and the single job that runs *every* fast static guard in the repo (registry: `scripts/ci/run_guards.py`; failure-path self-tests: `scripts/ci/guard_selftests.py`). Consolidated ~29 per-guard workflows into one runner acquisition after the 2026-08-06 Actions incident left 28 of 29 queued jobs runner-less (BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES). Carries no `paths:` filter, deliberately — a required check must never hang "pending" on a non-matching PR. |
+| `merge-claim-audit.yml` | Coordination | AUTO | `pull_request_target` | NON-BLOCKING post-merge detector for the merge-slot protocol: comments on board #6927 when a PR merged with no `MERGE SLOT CLAIM`. Deliberately not a required check — it builds the number nobody had rather than gating merges (BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE). |
+| `board-post.yml` | Control path | AUTONOMOUS | push-sentinel | Git-push-triggered relay for posting to the Claude Coordination Board (#6927) — the MCP-independent path when a session's GitHub MCP is 403 on issue writes. |
+| `pr-close.yml` | Control path | AUTONOMOUS | push-sentinel | Git-push-triggered PR closer — the third leg of the MCP-independent PR path alongside `pr-opener.yml` (opens) and `claude-pr-automerge.yml` (merges). |
+| `claude-pr-automerge.yml` | Control path | AUTONOMOUS | push (`.github/pr-automerge-request`) | Opens (or finds) a `claude/**` branch's PR and enables native squash auto-merge — the durable path when the GitHub MCP is read-only. CI is never bypassed; branch protection still gates. ⚠️ Triggers on any push that *touches* the request path, so merging `main` can inherit another PR's request (`BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE`). |
+| `claude-run-failure-alert.yml` | Alerting | AUTO | `workflow_run` | The loud failure flag for Claude-driven VM / relay / heavy-compute workflows (operator directive 2026-07-28) — pings instead of letting a failed run be discovered hours later. |
+| `external-issue-alert.yml` | Security | AUTO | `issues` | Early warning on the issue-driven-automation attack surface: flags issues opened by a non-owner, since every privileged relay here triggers on `issues.opened` + a label. |
+| `external-comment-alert.yml` | Security | AUTO | `issue_comment` | The comment-vector half of the above — flags comments from non-owner / non-automation accounts on any issue or PR. |
+| `oci-inventory.yml` | Infra audit | AUTONOMOUS | cron (weekly Mon 06:00) + label / dispatch | Read-only OCI compute inventory diffed against the topology this repo declares (`comms/cloud/expected_topology.json`) — the canonical docs described VM topology in prose and nothing checked it. ⚠️ Currently watched by nothing (`BL-20260821-OCI-INVENTORY-CRON-UNWATCHED`). |
+| `macro-producer-liveness.yml` | Ops audit | AUTONOMOUS | cron (daily 12:00) + label / dispatch | Dead-man switch for the scheduled macro producers — kills the "silently-skipped scheduled job" class by alarming when a registered producer stops landing rows. |
+| `replay-pregate-nightly.yml` | ML | AUTONOMOUS | cron (daily 04:00) + label / dispatch | Session-independent runner for the ML replay pre-gate (RG3): baselines the shadow-stage regime fleet on the trainer VM and commits the report. |
+| `gpu-burst-train.yml` | ML | AUTONOMOUS | label `gpu-burst-train` | M19 Tier-1 ledger-gated, teardown-guaranteed spot-GPU burst training. Spend-gated against the $10/month cap and appended to `comms/gpu_spend_ledger.json` (surfaced at `/api/bot/gpu/spend`). |
+| `trainer-offload-train.yml` | ML | AUTONOMOUS | label `trainer-offload-train-request` / dispatch | Free-runner offload for OOM-prone ML manifests — the 1-OCPU/6-GB trainer OOM-quarantines the heavy ones, so they train on a hosted runner instead. |
+| `llm-delegate.yml` | Tooling | AUTONOMOUS | dispatch | Bursty LLM worker for delegated, bounded coding/research subtasks. The runner *is* the worker: it starts, does one subtask, and is destroyed. Scope guard: public repo code + docs only. |
+| `m20-capture-census.yml` | Research | AUTONOMOUS | dispatch / push | M20 exit-capture census — the measure-first pass. Applies **no** lever and grades nothing; runs each live leg's config-exact base to size the design work. |
+| `m20-exit-lever-sweep.yml` | Research | AUTONOMOUS | dispatch / push | M20 exit-lever sweep — the design pass the capture census sized. |
+| `ict-scalp-exit-sweep.yml` | Research | AUTONOMOUS | push / dispatch | M27 `ict_scalp` crypto exit-lever sweep, one matrix job per live crypto leg on free 4-core runners so the heavy sweep stays off the 1-core trainer. |
+| `research-panel-build.yml` | Research | AUTONOMOUS | label `research-panel-build-request` / dispatch | Self-contained M30 research-panel build — the stable backtest-substrate discovery infrastructure (decision-time ENTRY panel). |
+| `research-exit-head-build.yml` | Research | AUTONOMOUS | label `research-exit-head-request` / dispatch | M30 × M20 per-bar in-trade EXIT-HEAD discovery run — the exit-frontier sibling of `research-panel-build.yml`. |
+| `research-exit-head-replay-trainer.yml` | Research | AUTONOMOUS | label `exit-head-replay-request` / dispatch | The exit-head REPLAY leg, deliberately on the TRAINER VM rather than a free runner — it is one of only two hosts holding the published exit-head artifact. |
+| `research-backtest-augment.yml` | Research | AUTONOMOUS | label `research-backtest-augment-request` / dispatch + cron (weekly) | A1 research-backtest-augment runner: the pinned pooled harness roster per symbol on a free runner. |
+| `research-symbol-p0-build.yml` | Research | AUTONOMOUS | label `research-symbol-p0-request` / dispatch | Symbol P0 validation (`ict_scalp` k-fold under a target account's economics) on a free runner — the resource-correct home for work that was wrongly run as trainer SSH. |
+| `research-e2-horizon-arm.yml` | Research | AUTONOMOUS | dispatch | E2 × HORIZON probe: does the per-feature information verdict depend on the label horizon? |
+| `regime-debt-matrix.yml` | Research | AUTONOMOUS | label `regime-debt-matrix-request` / dispatch | Per-(trend-regime, direction) net-R matrix for the regime-coverage debt roster on a free runner (the sandbox firewalls Yahoo, so equity/ETF/futures legs can only be run here). |
+| `regime-cell-walkforward.yml` | Research | AUTONOMOUS | label `regime-cell-walkforward-request` / dispatch | Walk-forwards the out-of-sample stability of ONE (regime, direction) cell — the gate a losing full-sample cell must clear before it is trusted (see the `regime-selectivity` skill). |
+| `regime-adx-cutpoint-sweep.yml` | Research | AUTONOMOUS | label `regime-adx-cutpoint-sweep-request` / dispatch | Sweeps the ADX regime-attribution cut-points (live `CHOP_MAX_ADX=20` / `TREND_MIN_ADX=25`), which had never been swept despite every regime cell resting on them. |
+| `flip-override-walkforward.yml` | Research | AUTONOMOUS | label `flip-override-walkforward-request` / dispatch | Walk-forwards the flip-confidence override against the incumbent `hold` policy on the same folds (BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED — the run that disarmed it). |
+| `c1-conviction-ab.yml` | Research | AUTONOMOUS | label `c1-conviction-ab-request` / dispatch | W1.1 / C1 deployable evidence: the full-feed, budget-matched, net-of-cost conviction-sizing A/B. |
+| `gld-compat-matrix.yml` | Research | AUTONOMOUS | label `gld-compat-matrix-request` / dispatch | GLD Track B (M36) per-account compatibility gate on a free runner (operator-approved 2026-08-02). |
+| `vix-term-backtest.yml` | Research | AUTONOMOUS | label `vix-term-backtest-now` / dispatch | M31 Track A-S5 `vix_term` single-asset timing backtest on a hosted runner. |
+| `m28-value-grade.yml` | Macro grade | AUTONOMOUS | label `m28-value-grade-now` / dispatch | M28 Phase B — grades the D3 VALUE-sleeve cross-section on a hosted runner (equity price sources are blocked from the sandbox). |
+| `m31-implied-vol-grade.yml` | Macro grade | AUTONOMOUS | label `m31-implied-vol-grade-now` / dispatch | M31 Track A — grades the IMPLIED-VOL input class off keyless FRED series. |
+| `m32-credit-curve-grade.yml` | Macro grade | AUTONOMOUS | label `m32-credit-curve-grade-now` / dispatch | M32 — grades the CREDIT / RATES risk-premium sleeve (HY/IG OAS, curve slope) that the M28 program skipped. |
+| `m33-seasonality-grade.yml` | Macro grade | AUTONOMOUS | label `m33-seasonality-grade-now` / dispatch | M33 — grades the CALENDAR-SEASONALITY family (day-of-week / day-of-month forward-return differences). |
+| `m34-xfamily-grade.yml` | Macro grade | AUTONOMOUS | label `m34-xfamily-grade-now` / dispatch | M34 — grades the CROSS-FAMILY CONDITIONING probe over the two robust-but-non-deployable equity leads (`vix_term`, `hy_oas_pct`). |
+| `macro-valuation-snapshot.yml` | Macro producer | AUTONOMOUS | cron (daily 07:30) + label / dispatch | M28 P1 — the off-VM FRED valuation-snapshot PRODUCER; appends the point-in-time log `comms/macro/valuation_snapshots.jsonl`. |
+| `macro-valuation-backfill.yml` | Macro backfill | AUTONOMOUS | label `macro-valuation-backfill-now` / dispatch | M28 P1 "test now" loop — reconstructs historical point-in-time valuation snapshots from FRED so the gate can be graded without waiting for forward accrual. |
+| `econ-calendar-produce.yml` | Macro producer | AUTONOMOUS | cron (daily 22:30) + label / dispatch | ROADMAP_MACRO M1 — the economic-calendar spine producer's deterministic re-parse-and-land path (FMP + FRED). |
+| `econ-calendar-backfill.yml` | Macro backfill | AUTONOMOUS | label `econ-calendar-backfill-now` / dispatch | ROADMAP_MACRO M1 — reconstructs decades of point-in-time economic-release snapshots from FRED history, so M1/M2 can be graded now rather than at n=12. |
+| `econ-calendar-survey-backfill.yml` | Macro backfill | AUTONOMOUS | label `econ-survey-backfill-now` / dispatch | ROADMAP_MACRO M1/M3 — backfills the SURVEY-CONSENSUS side, so the PIT expectation model can be compared against real survey consensus on their overlap. |
+| `econ-event-study.yml` | Macro research | AUTONOMOUS | cron (weekly Sun 23:10) + label / dispatch | ROADMAP_MACRO M1 — the economic-surprise → forward-price event study; joins point-in-time release history to the traded price series. |
+| `cot-positioning-backfill.yml` | Macro backfill | AUTONOMOUS | label `cot-positioning-backfill-now` / dispatch | M29 — reconstructs historical point-in-time CFTC-COT positioning snapshots and runs the M28 P4 gate + horizon-IC scan over them. |
+| `crypto-signals-backfill.yml` | Macro backfill | AUTONOMOUS | label `crypto-signals-backfill-now` / dispatch | M29 — reconstructs historical crypto derivatives-positioning snapshots (funding / OI / perp-spot basis) off Bybit's keyless public v5 API. |
+| `sysdyn-gas-calibrate.yml` | Macro research | AUTONOMOUS | label `sysdyn-gas-calibrate-now` / dispatch | M29 P1b — calibrates the `gas_storage_price_v1` system-dynamics seed on real weekly Henry Hub prices (keyless FRED) through the identify / walk-forward-stability harness. |
+| `alpaca-options-probe.yml` | Ops relay | AUTONOMOUS | `issues` (label) | Read-only Phase-0 probe for the Alpaca L3 options build — GETs only, places no order. |
+| `test-alpaca-creds.yml` | Ops relay | AUTONOMOUS | `issues` (label) | One-shot check of the Alpaca LIVE credentials from a hosted runner. |
+| `test-alpaca-from-vm.yml` | Ops relay | AUTONOMOUS | label `test-alpaca-from-vm` | Tests the Alpaca live endpoint **from the live VM** with the trader's own `.env` creds — distinguishes an IP restriction from a credentials failure. |
+| `reset-daily-risk-state.yml` | Ops action | OPERATOR-APPROVAL | label `reset-daily-risk-state` | One-shot: delete today's `daily_risk_state` row(s) so the RiskManager resets its intraday drawdown counter immediately rather than at midnight UTC. DB write — Tier 2. |
+| `reset-instance.yml` | Infra | OPERATOR-APPROVAL | label `reset-instance` / dispatch | Out-of-band OCI instance RESET by display name — recovers a hung / SSH-dead VM when the in-band reboot path cannot be reached (built for the 2026-07-08 trainer OOM). |
+| `vm-caddy-deploy.yml` | Ops deploy | OPERATOR-APPROVAL | label `vm-caddy-deploy` / dispatch | Installs / reloads the Caddy HTTPS front on the live VM (`ict-bot.duckdns.org` → `localhost:8001`) — the transport the Svelte SPA depends on and Streamlit does not. |
+| `vm-devnull-source-diagnose.yml` | Ops relay | **MIXED — read modes AUTONOMOUS, `arm-audit` OPERATOR-APPROVAL** | label `vm-devnull-diagnose` / dispatch | Identifies *what* strips `/dev/null`'s write bit on the live VM — the recurring perms regression behind the `ict-devnull-guard` self-heal. ⚠️ **Autonomy is per-MODE, not per-workflow:** `inspect` / `read-audit` / `udev-watch` are READ-ONLY, but **`arm-audit` is a Tier-2 MUTATION** (installs auditd + an audit rule on the live VM). Check the mode before dispatching. |

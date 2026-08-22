@@ -279,6 +279,18 @@ jobs:
 
       - name: Telegram alert (drift / not_declared / could_not_check)
         # Silent on the happy path — alert on the exception, not the norm.
+        #
+        # ⚠️ THE `[operator-ping]` SENTINEL IS DELIBERATELY *NOT* ON THIS STEP.
+        # claude-run-failure-alert suppresses its own ping when a sentinel step
+        # concludes `success`, on the stated grounds that "a message really went
+        # out". This step cannot carry that meaning: the send is best-effort, so
+        # it concludes success whether or not Telegram accepted the message.
+        # Naming it would hand the listener a FALSE suppression and swallow the
+        # ping — precisely the bug the listener exists to prevent, reachable
+        # only through the dedupe that was meant to help.
+        # BL-20260821-SELF-PING-SENTINEL-SURVIVES-A-FAILED-SEND.
+        id: operator_ping
+        continue-on-error: true
         if: >-
           steps.verdict.outputs.state == 'drift' ||
           steps.verdict.outputs.state == 'not_declared' ||
@@ -289,12 +301,22 @@ jobs:
           STATE: ${{ steps.verdict.outputs.state }}
           SUMMARY: ${{ steps.verdict.outputs.summary }}
         run: |
-          set +e
+          set -euo pipefail
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PYTHONPATH=. python scripts/notify_session.py alert \
             --summary "🚨 OCI topology [${STATE}] — ${SUMMARY}" \
-            --link "${RUN_URL}" \
-            || echo "::warning::telegram notify failed (non-fatal)"
+            --link "${RUN_URL}"
+
+      # THE SENTINEL. `scripts/notify_session.py` already exits 1 on a real
+      # delivery failure — its module docstring says so in as many words — and
+      # the old `|| echo "...(non-fatal)"` threw that exit code away. This step
+      # reinstates it as the thing the listener actually reads: it runs only
+      # when the send above genuinely succeeded, so its `success` DOES mean a
+      # message went out. A failed send leaves it `skipped`, and the listener
+      # falls back to its own ping on a DIFFERENT bot token.
+      - name: Operator ping confirmed sent [operator-ping]
+        if: steps.operator_ping.outcome == 'success'
+        run: echo "Telegram accepted the operator ping."
 
       - name: Open / update drift issue
         if: >-
