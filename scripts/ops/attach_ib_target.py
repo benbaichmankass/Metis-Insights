@@ -130,11 +130,45 @@ def _open_trade(account_id: str, symbol: str) -> Optional[Dict[str, Any]]:
     return dict(rows[0]) if len(rows) == 1 else None
 
 
+def _ib_ops_client_id() -> int:
+    """A place-capable, process-unique IB clientId for one-shot ops writes.
+
+    ⚠️ THIS WAS MISSING UNTIL 2026-08-22 AND THE ACTION COULD NOT WORK WITHOUT IT.
+    `_attach` called `ib_client_for(cfg, readonly=False)`, which resolves the
+    TRADER'S OWN EXECUTION clientId (497). While the trader is running — i.e.
+    always — IBKR refuses the second connection outright:
+
+        Error 326, reqId -1: Unable to connect as the client id is already in use.
+        IBClient: circuit breaker tripped ... IB calls suppressed for 120s.
+        {"action": "place_failed"}
+
+    Observed live on ib_paper/MES, system-action issue #10139. So a repair action
+    shipped 2026-08-16 for BL-20260816-COVERAGE-IS-ONE-SIDED had never actually
+    placed a target against a live trader; its dry run reports `state: ready`
+    and the apply cannot connect. A dry run that passes and an apply that cannot
+    is the worst shape for a repair tool — it reads as available right up to the
+    moment it is needed.
+
+    Its sibling `flatten_ib_position.py` had this right from the start and says
+    why in the same words; this is that function, not a new idea. Distinct from
+    the trader's execution ids (496/497) AND the read range (9000-9899), so an
+    ops write can neither be rejected as "clientId already in use" nor race the
+    live execution socket. Salted by PID so two ops runs do not collide.
+
+    NOTE the refusal is what PROTECTED the trader here: IBKR rejects a duplicate
+    clientId rather than evicting the incumbent, so the live session was never at
+    risk (verified after the failure — all three clients connected, zero
+    consecutive failures, tick age 1.2s). The 120s breaker trip was in the
+    short-lived ops process, which then exited.
+    """
+    return 9900 + (os.getpid() % 90)
+
+
 def _attach(cfg: Dict[str, Any], *, symbol: str, direction: str, qty: float,
             tp: float, oca_group: str) -> Dict[str, Any]:
     from src.units.accounts.clients import ib_client_for
 
-    client = ib_client_for(cfg, readonly=False)
+    client = ib_client_for(cfg, client_id=_ib_ops_client_id(), readonly=False)
     if client is None:
         return {"retCode": 1, "retMsg": "could not build an IB client"}
     try:
