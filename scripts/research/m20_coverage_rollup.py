@@ -271,6 +271,13 @@ GEOMETRY_LIVE_PARITY = "live_parity"
 GEOMETRY_SENSITIVE_LEVERS = frozenset({
     "trail_geometry", "stale_stop", "giveback_stop", "trail_decay",
     "vol_trail", "exit_ladder", "regime_flip_exit", "exit_head_ml",
+    # `bracket_geometry` (2026-08-20) is not a ninth lever but it belongs here
+    # for the strongest possible reason: it SWEEPS the take-profit, so a cell
+    # measured before the harness could place the live capped TP is not merely
+    # aged, it graded a different bracket than the one that trades. Its own
+    # cells were measured net-of-fees WITH the cap applied, so none is stale
+    # today — the entry states the RULE, not a current condition.
+    "bracket_geometry",
 })
 
 _DATE = re.compile(r"20\d{2}-\d{2}-\d{2}")
@@ -703,6 +710,7 @@ CORPUS_NO_PRODUCER = "no_sweep_driver_emits_this_column"
 _COLUMNS_WITH_THEIR_OWN_DRIVER = frozenset({
     "exit_head_ml",       # scripts/research/m20_exit_head_round.py
     "regime_flip_exit",   # scripts/research/m20_flip_replay_sweep.py
+    "bracket_geometry",   # scripts/research/e35_bracket_geometry_sweep.py
 })
 
 

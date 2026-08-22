@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW. ⚠️ EVERY `exit_head_ml` VERDICT IN THIS MATRIX WAS MEASURED UNDER AN ORDER-DEPENDENT TIE-BREAK (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER, 2026-08-15). The E1 fold sort is stable and keyed on entry time alone, so trades sharing a bar inherit the order their legs were passed on the command line; on a pooled family every leg entering on the same bar ties. Measured: the same 7 legs in two orders gave identical trade counts, rows and fold shape, yet 8 of 43 folds differed, mean_auc moved up to 0.0331, and two legs lost a usable fold. 27 of the 33 committed rounds are multi-leg `family_pooled` and so exposed; `per_leg` rounds are immune. NO STATUS HERE HAS BEEN RE-GRADED ON THIS — both orders are equally valid and the AUC term is one of four in the gate, so this is a caveat on provenance, NOT a claim that any cell is wrong. `train_exit_head.py --total-sort` fixes it and is DEFAULT-OFF pending an operator-approved re-measure; rounds now stamp `total_sort` so re-measured and legacy rows stay distinguishable.",
-  "updated_at": "2026-08-17",
+  "updated_at": "2026-08-20",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -9,7 +9,8 @@
     "exit_head_ml",
     "trail_decay",
     "regime_flip_exit",
-    "vol_trail"
+    "vol_trail",
+    "bracket_geometry"
   ],
   "legend": {
     "shipped": "validated + live (ref = PR/date)",
@@ -62,6 +63,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:54:43Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 5.833R over n=315 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=315 OOS=34. Split **2025-12-27**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to96=is_oos_fail, to48=is_oos_fail, sm1.5_to400=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 5.977R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -104,6 +110,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "MEASURED BY THE LEVER-OFF ARM -- lever-OFF arm run 2026-08-13T02:13Z (PR #8868, runs 31660158594/71948/76552/81341), tp_cap_pct=0.099 LIVE PARITY, split 2025-07-01, one lever dropped per run so every cell's base differed from live in THAT LEVER ONLY (`base_missing_other_levers: []` on all 18 rows). ⚠️ NET-NEGATIVE OUT-OF-SAMPLE. `is_oos_fail` on base n IS=704 OOS=145: d_net_r IS +5.8333 / OOS **-6.0653**, d_max_dd IS -10.687 / OOS -0.9623. Note the base n differs from this leg's stale_stop row (599/117) BY DESIGN -- separate runs, one lever dropped each, so the two bases are genuinely different books. Removal TIER-3, QUEUED. || METHOD: the config-exact base with this shipped lever REMOVED, vs one cell restoring it at the leg's own live values -- the only construction that can grade a SHIPPED lever. The prior evidence could not: the shipped lever IS the base, so a cell reproducing it measured the base against itself (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES; 31 of 860 corpus rows are that artifact). Invariant asserted over all 22 declaring legs: base-OFF + shipped cell == base-ON exactly. || Previous status `shipped`, ref kept as record: M20-X sweep #6507 (IS -31.1->-27.4/dd 48.3->40.7, OOS +24.1->+28.0/dd 11.7->11.3, wf 4/6); PAPER test on bybit_1 — merged #6517, deployed live HEAD be87cf8 2026-07-15 (operator-approved). Rollback = delete 3 YAML lines. || ⚠️ STATUS CORRECTED 2026-08-13, SAME PR THAT REMOVED THE LEVER. This cell read `shipped` while the lever was being deleted from config/strategies.yaml in the very same change. I updated the ref PROSE with the removal and its measured deltas and left the STATUS untouched — the field-vs-comment split, in its more dangerous orientation: the comment was right and the field was stale, and the roll-up reads the FIELD. `shipped` is defined as 'validated + live'; the lever is not live, so the matrix asserted a live configuration that does not exist, on five cells at once. Caught by reading config/strategies.yaml for the lever's declared keys rather than trusting the matrix or my own PR description. NOT set to `shipped_gate_failed`, which pattern-matches but is wrong: its legend says LIVE in config but a later re-sweep failed and the operator chose to HOLD — a STANDING decision to keep a lapsed lever. These were removed, not held. `honest_negative` is the correct terminal state ('tested, failed the gate'), and its own legend entry confirms it implies NOT live. MEASURED CONSEQUENCE: NOTHING in the roll-up moves. Headline stays 362/376 = 96.3%, done-condition stays 36, and the stale-decision block stays 8 (shipped 7 · passed_unshipped 1) — verified by running the roll-up with and without this change. I first wrote here that the stale count 'correctly drops by 5' and that was WRONG: these five were re-measured 2026-08-13, so they were never in the stale bucket at all (which is evidence older than 2026-08-10). Corrected rather than left, because a plausible consequence asserted without running it is the same error class the cell above documents. The value of the fix is SEMANTIC, not numeric — the matrix no longer claims five live levers that do not exist. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:55:57Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_cold10_t2.5 verdict=path_b_wf_pass wf=4/6 base_trades_OOS=34 (dnetR IS 12.6305 / OOS 1.5844; dmaxDD IS -10.8055 / OOS 1.1834). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) PATH-B, NOT PATH A: is_oos_pass=False, rate_ok_OOS=True (gate_reason_OOS=maxdd_worse); OOS net_R gain 1.5844. (2) DIFFERENT PARTITION, NOT A RERUN: split 2026-02-15, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:55:57Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 3.899R over n=618 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=path_b_wf_pass, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=618 OOS=34. Split **2026-02-15**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. ⚠️ DOES NOT REPRODUCE THE NEGATIVE on vt_cold10_t2.5 — see the counter-evidence segment on this cell; status unchanged because a passing cell is not a passing lever disposition (Tier-3).",
+        "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to48=is_oos_fail, to24=is_oos_fail, sm1.5_to400=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 4.069R, which the harness reports only when the cap actually applies.",
         "tp_geometry": "live_parity"
       }
     },
@@ -148,6 +159,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:56:00Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 3.245R over n=256 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=256 OOS=34. Split **2025-10-31**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to96=is_oos_fail, to24=is_oos_fail, sm1.5_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 3.263R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -191,6 +207,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp2.5=is_oos_fail, sm3=is_oos_fail, sm2=is_oos_fail, to48=is_oos_fail, to96=is_oos_fail, tp4_sm3_to96=wf_fail(3/6 eff). The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 3.606R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -234,6 +255,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:50:42Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 2.467R over n=328 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=328 OOS=34. Split **2025-12-04**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
+        "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm3.5_to48** (tp+stop+timeout) path A, wf 6/6 effective (inert 0), dOOS +3.6208, split 2025-12-07, n IS=294 OOS=49; dispersion dOOS +2.294 … +9.779, split_sensitive=false, pass_fraction=1.0; also gate-passing but dispersion NOT measured: tp2.5 (wf 5/6 eff), tp3 (wf 4/6 eff), sm3.5 (wf 5/6 eff), sm3 (wf 5/6 eff), to48 (wf 5/6 eff). TIER-3 and operator-gated: `tp_at_r`/stop/timeout are strategy parameterisation, not observability. CAVEAT ON THE STRENGTH OF THIS CELL: it is the argmax of 199 surface cells and the multiple-comparisons cost is UNPRICED (no shuffled-label or random-cell control was run), and the joint result rests on n=2 legs both on ETHUSDT 2h — not two independent confirmations. Do not read it as ship-ready. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.737R, which the harness reports only when the cap actually applies.",
         "tp_geometry": "live_parity"
       }
     },
@@ -281,6 +307,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:53:54Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_cold10_t2.5 verdict=PASS wf=4/6 base_trades_OOS=34 (dnetR IS 8.693 / OOS 0.8286; dmaxDD IS -3.089 / OOS -0.726). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) THE WIN TOTAL IS NOT A COUNT OF WINS: 1 of 6 walk-forward folds (2021) are inert — the lever never fired, d_net_r=0 and d_max_dd=0 — and an inert fold still counts ok. So 4/6 is really 3 real win(s). (2) DIFFERENT PARTITION, NOT A RERUN: split 2025-08-23, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:53:54Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.752R over n=190 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=PASS, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=190 OOS=34. Split **2025-08-23**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. ⚠️ DOES NOT REPRODUCE THE NEGATIVE on vt_cold10_t2.5 — see the counter-evidence segment on this cell; status unchanged because a passing cell is not a passing lever disposition (Tier-3).",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_dispersion_band",
+        "ref": "SWEPT 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md). Best cell `to96` PASSES the Path-A/B gate, but `m20_split_dispersion` was never run on it, so there is no `split_sensitive` verdict. Recording it as a pass is what BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT's own criteria forbid — the one single-axis cell that WAS checked (`eth_pullback_2h`/`tp2.5`) came back split_sensitive. Corrected 2026-08-20 from `pending`, which was wrong in BOTH directions: it claimed the leg was un-measured (it was measured) and it made the row read as movable-by-a-session when the remedy is a dispersion run, not a sweep.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -325,6 +356,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:56:56Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.99R over n=262 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=262 OOS=34. Split **2025-11-05**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
+        "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp4=is_oos_fail, sm1.5=is_oos_fail, sm3=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, tp4_sm3_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.137R, which the harness reports only when the cap actually applies.",
         "tp_geometry": "live_parity"
       }
     },
@@ -371,6 +407,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (annotated 2026-08-14, BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): this cell's status stays `honest_negative` and NOTHING here re-grades it, but docs/research/m20-sweep-corpus.jsonl holds a LIVE-PARITY (tp_cap_pct 0.099) row for this exact (leg, lever) that PASSES, while the status above rests on pre-cutover no-take-profit evidence. Row: cell=vt_hot80_t2.5 verdict=path_b_wf_pass run=2026-08-10 wf=4/6 d_net_r_IS=6.5002 d_net_r_OOS=0.0529 d_max_dd_OOS=0.5362 base_trades_OOS=42 (+1 other passing live-parity cell(s) for this lever). On the floor: its run predates the floor (min_oos_trades_floor: null) BUT its base_OOS 42 clears the current MIN_OOS_TRADES=25, so the floor would not refuse it; whether other gate logic moved since 2026-08-10 is NOT established here. READ THIS AS 'the newer evidence disagrees and nobody has adjudicated it', NOT as a verdict: a passing CELL is not automatically a passing LEVER disposition, this is the WEAKER path_b route (gate_passed_OOS false), and any status change on a live leg is Tier-3 and belongs to the operator. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:50:33Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.742R over n=208 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=path_b_wf_pass. base n IS=208 OOS=33. Split **2025-09-13**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. ⚠️ DOES NOT REPRODUCE THE NEGATIVE on vt_hot90_t2.5 — see the counter-evidence segment on this cell; status unchanged because a passing cell is not a passing lever disposition (Tier-3).",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp1.5=wf_fail(3/6 eff), tp2=is_oos_fail, sm3=is_oos_fail, sm3.5=is_oos_fail, to400=is_oos_fail, to96=is_oos_fail, tp2.5_sm3.5_to400=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.828R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -413,7 +454,12 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
       },
-      "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT."
+      "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT.",
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp6=is_oos_fail, tp2=is_oos_fail, sm3.5=is_oos_fail, sm3=is_oos_fail, to96=wf_fail(2/6 eff), to400=is_oos_fail, tp6_to96=wf_fail(2/6 eff). The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.814R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
+      }
     },
     {
       "strategy": "eth_pullback_prop_2h",
@@ -457,6 +503,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:50:33Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 2.373R over n=308 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t1.8=is_oos_fail, vt_hot80_t1.8=is_oos_fail, vt_hot90_t1.8=is_oos_fail. base n IS=308 OOS=33. Split **2025-12-13**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
+        "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp4_sm3_to48** (tp+stop+timeout) path A, wf 6/6 effective (inert 0), dOOS +1.6318, split 2025-12-04, n IS=271 OOS=47; dispersion dOOS +1.154 … +6.776, split_sensitive=false, pass_fraction=1.0; also gate-passing but dispersion NOT measured: sm3.5 (wf 4/6 eff), tp6_sm3.5 (wf 4/6 eff). TIER-3 and operator-gated: `tp_at_r`/stop/timeout are strategy parameterisation, not observability. CAVEAT ON THE STRENGTH OF THIS CELL: it is the argmax of 199 surface cells and the multiple-comparisons cost is UNPRICED (no shuffled-label or random-cell control was run), and the joint result rests on n=2 legs both on ETHUSDT 2h — not two independent confirmations. Do not read it as ship-ready. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.674R, which the harness reports only when the cap actually applies.",
         "tp_geometry": "live_parity"
       }
     },
@@ -502,6 +553,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'trend_donchian_{eth,sol,xrp,ada,avax}_4h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:54:58Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.868R over n=161 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=path_b_wf_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=161 OOS=34. Split **2025-08-22**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp1=is_oos_fail, tp6=is_oos_fail, sm1.5=is_oos_fail, sm2=is_oos_fail, to48=is_oos_fail, to96=is_oos_fail, tp6_sm1.5=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.956R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -546,6 +602,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'trend_donchian_{eth,sol,xrp,ada,avax}_4h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (annotated 2026-08-14, BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): this cell's status stays `honest_negative` and NOTHING here re-grades it, but docs/research/m20-sweep-corpus.jsonl holds a LIVE-PARITY (tp_cap_pct 0.099) row for this exact (leg, lever) that PASSES, while the status above rests on pre-cutover no-take-profit evidence. Row: cell=vt_cold10_t2.5 verdict=path_b_wf_pass run=2026-08-10 wf=4/6 d_net_r_IS=9.2045 d_net_r_OOS=1.5531 d_max_dd_OOS=0.2962 base_trades_OOS=29. On the floor: its run predates the floor (min_oos_trades_floor: null) BUT its base_OOS 29 clears the current MIN_OOS_TRADES=25, so the floor would not refuse it; whether other gate logic moved since 2026-08-10 is NOT established here. READ THIS AS 'the newer evidence disagrees and nobody has adjudicated it', NOT as a verdict: a passing CELL is not automatically a passing LEVER disposition, this is the WEAKER path_b route (gate_passed_OOS false), and any status change on a live leg is Tier-3 and belongs to the operator. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:56:01Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.324R over n=135 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=path_b_wf_pass, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=135 OOS=35. Split **2025-04-22**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. ⚠️ DOES NOT REPRODUCE THE NEGATIVE on vt_cold10_t2.5 — see the counter-evidence segment on this cell; status unchanged because a passing cell is not a passing lever disposition (Tier-3).",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_dispersion_band",
+        "ref": "SWEPT 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md). Best cell `to48` PASSES the Path-A/B gate, but `m20_split_dispersion` was never run on it, so there is no `split_sensitive` verdict. Recording it as a pass is what BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT's own criteria forbid — the one single-axis cell that WAS checked (`eth_pullback_2h`/`tp2.5`) came back split_sensitive. Corrected 2026-08-20 from `pending`, which was wrong in BOTH directions: it claimed the leg was un-measured (it was measured) and it made the row read as movable-by-a-session when the remedy is a dispersion run, not a sweep.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -589,6 +650,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'trend_donchian_{eth,sol,xrp,ada,avax}_4h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:56:29Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.918R over n=108 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=wf_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=108 OOS=34. Split **2025-06-16**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp2.5=wf_fail(3/6 eff), tp4=is_oos_fail, sm2=is_oos_fail, sm3=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, tp3_sm2=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 2.075R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -631,6 +697,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'trend_donchian_{eth,sol,xrp,ada,avax}_4h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:54:53Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.543R over n=185 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=185 OOS=33. Split **2025-09-29**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
+        "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp6=is_oos_fail, sm2=is_oos_fail, sm1.5=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, sm2_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.576R, which the harness reports only when the cap actually applies.",
         "tp_geometry": "live_parity"
       }
     },
@@ -676,6 +747,11 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || EXPLODED 2026-08-09 from bundled row 'trend_donchian_{eth,sol,xrp,ada,avax}_4h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (annotated 2026-08-14, BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): this cell's status stays `honest_negative` and NOTHING here re-grades it, but docs/research/m20-sweep-corpus.jsonl holds a LIVE-PARITY (tp_cap_pct 0.099) row for this exact (leg, lever) that PASSES, while the status above rests on pre-cutover no-take-profit evidence. Row: cell=vt_hot80_t2.5 verdict=PASS run=2026-08-10 wf=4/6 d_net_r_IS=2.644 d_net_r_OOS=1.7569 d_max_dd_OOS=-0.5648 base_trades_OOS=34 (+1 other passing live-parity cell(s) for this lever). On the floor: its run predates the floor (min_oos_trades_floor: null) BUT its base_OOS 34 clears the current MIN_OOS_TRADES=25, so the floor would not refuse it; whether other gate logic moved since 2026-08-10 is NOT established here. READ THIS AS 'the newer evidence disagrees and nobody has adjudicated it', NOT as a verdict: a passing CELL is not automatically a passing LEVER disposition, this is a full PASS, and any status change on a live leg is Tier-3 and belongs to the operator. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:54:55Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.398R over n=165 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=165 OOS=34. Split **2025-08-22**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp2=wf_fail(2/6 eff), tp1.5=wf_fail(2/6 eff), sm1.5=is_oos_fail, sm2=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, tp3_sm1.5_to24=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 1.512R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -715,6 +791,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "MEASURED 2026-08-17 — sweep run 32025100663 on main @6acbaa40 (the merge that shipped the lever), legs=squeeze_breakout_4h levers=vol_trail tp_cap_pct=0.099 split_mode=oos-trades split_target_oos=<default 50>. Path A FAILED on all three cells; hard levers/trail stand. || THE SPLIT, reported because the previous ref's whole argument was about it: split_lifetime_trades=101, split_target_oos=50, derived boundary 2023-09-06 -> IS=51 / OOS=49 against min_oos_trades_floor=25. The clamp did NOT fire (101 >= 2*50). ⚠️ CORRECTING THE CLAIM IN PR #9859, which said this 'derives at the full 50 OOS trades': it derived 49, not 50 — the derivation TARGETS 50 and a boundary must land between trades, so 49 is the achieved value. The refutation is unaffected and in fact strengthened: 49 is nearly 2x the 25 floor and far outside the 'roughly the 25-35 band' the withdrawn projection asserted, which was the sole ground for shelving this cell. But the number to quote is 49. || CELLS: vt_hot90_t1.8 is_oos_fail d_net_r_OOS -7.2492 · vt_hot80_t1.8 is_oos_fail d_net_r_OOS -5.3842 · vt_cold10_t1.8 path_b_wf_pass d_net_r_OOS +3.2198. Both HOT-tail variants lose and the COLD-tail variant gains, which is a coherent directional read, not noise spread across the three. || WHY THE STATUS IS honest_negative AND NOT A PASS: vt_cold10_t1.8 has is_oos_pass=false and gate_passed_IS=false (gate_passed_OOS=true), so it does not clear Path A. It is a Path-B candidate only (path_b_candidate=true, path_b_rate_ok=true), and the two Path B thresholds are DELIBERATELY UNSET pending operator calibration from the measured distribution — so no Path-B verdict can be claimed here and none is. || THE PATH-B CANDIDATE IS RECORDED RATHER THAN BURIED, because a flat negative would discard a real signal: vt_cold10_t1.8 carries d_net_r_OOS +3.2198 with d_max_dd_OOS -0.424 (drawdown IMPROVED too, not traded off), and wf 4/6 with wf_wins_effective 4/6 and wf_inert_wins 0. Zero inert folds matters specifically: measured the same day, 17 of 96 deduped corpus cells pass the walk-forward count while some or all of their 'wins' are folds where the lever never fired (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS), five of them at 0/6 effective. This cell is NOT one of them — all four wins fired, and the two losing folds (2023 -2.7654, 2026 -1.2802) also fired, so the 4/6 is a real discrimination rather than a no-op count. || NO SHIP IS PROPOSED. Whether a cold-tail vol_trail on this leg is worth shipping is Tier-3 and QUEUED for the operator, and it would need the Path-B thresholds set first. || PREVIOUS REF KEPT AS RECORD so the withdrawn 25-35 projection cannot be re-quoted: HARNESS LEVER BUILT 2026-08-17 — this cell is no longer blocked, and the status moved blocked:no_harness_levers -> pending because the block was REMOVED, not because a verdict exists. scripts/backtest_squeeze.py now declares --trail-vol-above-pctl / --trail-vol-below-pctl / --trail-vol-tight-mult / --vol-pctl-window, and m20_fleet_exit_sweep's cells_for emits the three vt cells for the squeeze family (gated SEPARATELY from trail_decay, which squeeze still cannot express). Verified end-to-end: each emitted argv runs rc=0 against the harness and returns a DISTINCT trade count (vt_hot90 107, vt_hot80 117, vt_cold10 120 vs 100 levers-off on data/backtest_candles.csv), so the lever bites; levers-off output is unchanged except the params echo; a tail with no tight mult stays inert. || WHY THE PRIOR ASSESSMENT WAS WITHDRAWN: its ground (2) read 'a derived IS/OOS split of n=135 lands the OOS base in roughly the 25-35 band against the harness's 25-trade floor - i.e. MARGINAL'. That is what you get by treating the 25 FLOOR as the TARGET. resolve_split clamps at `len(stamps) < 2 * target_oos` with DEFAULT_SPLIT_TARGET_OOS=50, so the clamp fires only below lifetime 100 and leg_too_thin needs lifetime < 50. MEASURED 2026-08-17 by capture census run 32015369620 (families=squeeze, tp_cap_pct=0.099, 1 leg planned / 1 measured / 0 errored): n=101, so the derivation targets the FULL 50 OOS trades - 2x the floor - and even at 99 the clamp yields 49. The same conflation produced the stale split_target_oos/split_mode input descriptions corrected in #9847, and the constants' own comment forbids it ('Do NOT re-couple these to one constant'). The census also measured the PRIZE the prior assessment never weighed: cap <30% = 72.73%, giveback 9/45 (20.0%) at the 1R rung costing 13.275R, and exit_kind target_inert - a declared 50.0R target no trade ever approached. Ground (1) (negative fleet vol_trail prior) still stands and is now the ONLY ground; it is a prior about OTHER legs, and this doc forbids an inherited verdict. Tracked: BL-20260817-SQUEEZE-VOLTRAIL-HARNESS-GAP-DISPOSITION-RESTS-ON-A-FLOOR-VS-TARGET-CONFLATION. || NO VERDICT IS CLAIMED HERE - the sweep has not been run, and the fleet prior means another honest_negative is a live outcome. || PREVIOUS REF, KEPT AS RECORD: Column was ABSENT from this row entirely until 2026-08-09, so the matrix roll-up divided by 376 declared live cells when only 374 existed — a missing cell read as a cell needing no verdict. Verified by AST over the harness CLI: scripts/backtest_squeeze.py has --trail-mult but NO --trail-vol-above-pctl, so vol_trail is unreachable here (same shape as the ict_scalp exit_ladder block this PR closed). || FORWARD ASSESSMENT 2026-08-13 (a PROJECTION, explicitly not a measurement — recorded so the next session does not re-derive it, and labelled so nobody cites it as a verdict): is it worth BUILDING the missing harness lever for this leg? Expected value is LOW, on three grounds, only the first two of which are measured. (1) FLEET PRIOR IS NEGATIVE. vol_trail was swept fleet-wide on 2026-08-13 across 6 legs and returned exactly ONE candidate (qqq_pullback_1h, wf 6/6, passed_unshipped); one honest_negative (scha); four blocked for thin data. Partial-TP banking, which is what exit_ladder expresses, is the milestone-wide honest negative of memo section 7.2 (banking loses net_R across 45 rows). Neither prior is evidence about THIS leg — the matrix _doc forbids an inherited verdict and this note does not claim one — but a prior that weak is a poor reason to spend harness work. (2) THE SAMPLE MAY NOT SUPPORT A VERDICT EVEN IF THE LEVER EXISTED. Deepest recorded backtest depth for this leg is n=135 at a 2900d lookback (docs/research/RESEARCH-RIGOR-STANDARD.md line 94); at 730d it is n=28. A derived IS/OOS split of n=135 lands the OOS base in roughly the 25-35 band against the harness's 25-trade floor — i.e. MARGINAL, not comfortably clear. That is the same regime that returned blocked:insufficient_oos_base_at_derived_split for iwm/splg in the 2026-08-13 vol_trail sweep, so the plausible outcome of building the lever is another blocked cell rather than a verdict. Stated as a range because it is arithmetic on a recorded n, NOT a run: the actual split is resolve_split's to compute and it has surprised me before (probe error #8 — I screened eligibility off matrix lifetime refs and the harness measured materially lower). (3) The leg is BTC 4h, the slowest cadence in the fleet, so accrual will not relieve (2) on any near horizon. WHAT WOULD CHANGE THIS: a measured lifetime count for this leg above roughly 2x the OOS floor at the split the harness actually derives — measure it, do not project it — or a fleet vol_trail/banking result that stops being a coin flip. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-17T11:30:58Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_cold10_t1.8 verdict=path_b_wf_pass wf=4/6 base_trades_OOS=49 (dnetR IS 1.5014 / OOS 3.2198; dmaxDD IS 0.2147 / OOS -0.424). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) PATH-B, NOT PATH A: is_oos_pass=False, rate_ok_OOS=True; OOS net_R gain 3.2198. (2) DIFFERENT PARTITION, NOT A RERUN: split 2023-09-06, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book."
+      },
+      "bracket_geometry": {
+        "status": "blocked:dispersion_refused",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). Cell **to24** PASSES the gate (path A, wf 4/6 effective, dOOS +0.1724, split 2023-09-18, n IS=56 OOS=49) but the dispersion check REFUSED it: m20_split_dispersion REFUSED (harness_agreement); root cause BL-20260820-SQUEEZE-MAXDD-IS-GROSS-WHILE-EVERY-SIBLING-IS-NET. A refused dispersion is a REFUSAL, not a caveat — no verdict is recorded for this leg until the harness defect lands."
       }
     },
     {
@@ -753,7 +833,11 @@
         "status": "n/a",
         "ref": "Column was ABSENT from this row entirely until 2026-08-09 (see the squeeze_breakout_4h note — the roll-up's denominator counted cells that did not exist). Verified by AST over the harness CLI: scripts/backtest_fvg_range.py has NO --trail-mult at all — this leg exits on exit_style/tp_r, not a trailing stop, so a vol-conditional TRAIL is structurally inapplicable, not merely un-built."
       },
-      "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT."
+      "_execution_note": "execution corrected 2026-08-13 from `live` -> `shadow`: config/strategies.yaml declares `execution: shadow` for this leg, and the strategy-level gate means it logs order packages but NEVER sends a live order regardless of its account's `mode: live`. The matrix's own _doc puts shadow rows outside the live-leg done-condition, so counting it was inflating the denominator. FIELD BEATS COMMENT.",
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+      }
     },
     {
       "strategy": "mes_trend_long_1d",
@@ -795,6 +879,10 @@
       "vol_trail": {
         "status": "blocked:insufficient_base",
         "ref": "BLOCKED: insufficient OOS base. OOS n=4 at the corpus-standard split 2025-07-01 and n=12 at 2023-01-01, both under the floor of 25; leg lifetime is 33 trades. Measured twice, PR #8849: split 2025-07-01 (run 31655236776) and again at split 2023-01-01 (run 31655318804) to test whether the window, not the data, was binding. LIVE-PARITY geometry tp_cap_pct=0.099. Rows in docs/research/m20-sweep-corpus.jsonl. Moving the split is NOT the fix: it lifted OOS n from 4 to 12, still short, while shrinking IS. Unblocks when either the leg accrues more OOS trades or the operator settles the evidence standard for low-frequency legs. WHY THIS IS NOT `honest_negative`: the cell terminated at `insufficient_base` — the OOS base is under MIN_OOS_TRADES=25 — which is 'we did not have enough trades to look', the opposite claim from 'we looked and the lever failed'. Recording it as a negative would be the same collapse BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS names. AND the walk-forward — the test whose folds span the FULL history and which this leg's lifetime CAN support — is skipped by that same branch (m20_fleet_exit_sweep.py:1442-1451, `if _thin: ... elif candidate: walkforward(...)`), so the leg is refused the one test its data would sustain. See BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS. || STATUS SUFFIX ADDED 2026-08-13 (no re-measurement — the ref already named the cause; only the status string was silent). This cell read a BARE `blocked`, the one cell in the matrix whose status did not carry its reason. That is a collapsed state by the repo's own rule: the roll-up normalises via `base()` (split on ':'), so a bare `blocked` is indistinguishable in the per-reason breakdown from a cell whose cause was never established — 'we know exactly why and it is a thin OOS base' and 'nobody recorded why' landed in the same bucket. Suffix chosen to match what was MEASURED, not what is likely: the sweep ran at EXPLICIT splits (2025-07-01, 2023-01-01) and terminated at insufficient_base with OOS n=4 and n=12 against MIN_OOS_TRADES=25, which is the same terminal state as the mes/mhg `giveback_stop` cells already carrying this suffix. DELIBERATELY NOT `insufficient_lifetime_trades`, even though that is probably where a re-run would land: lifetime 33 is under resolve_split's `2 x target` requirement (2 x 25 = 50), so a derived-split re-run would very likely fall back `leg_too_thin` exactly as spy (48) and qld (31) did in the 2026-08-13 re-sweep. But that is ARITHMETIC ON A RECORDED LIFETIME, NOT A RUN — the cell was measured under fixed splits before PR #8965's resolve_split existed, and stamping the projected reason would be recording a verdict the harness never returned. Consequence worth stating for whoever picks this up: re-running this cell under split-mode=oos-trades is NOT expected to unblock it, so it is a poor candidate for the next sweep. The headline is unmoved (`base()` maps both spellings to `blocked`); only the per-reason breakdown changes, 1 bare -> 0."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -841,6 +929,10 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: mgc_pullback_1d + mhg_pullback_1d [PROXY] both honest_negative; mes_trend_long_1d is a trend leg (not in the pullback sweep) — its vol_trail round is a separate trend-fleet item || EXPLODED 2026-08-09 from bundled row 'mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:51:01Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 5.319R over n=39 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2=is_oos_fail, vt_hot80_t2=is_oos_fail, vt_hot90_t2=is_oos_fail. base n IS=39 OOS=33. Split **2022-01-06**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -887,6 +979,10 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: mgc_pullback_1d + mhg_pullback_1d [PROXY] both honest_negative; mes_trend_long_1d is a trend leg (not in the pullback sweep) — its vol_trail round is a separate trend-fleet item || EXPLODED 2026-08-09 from bundled row 'mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:51:13Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_cold10_t1.5 verdict=path_b_wf_pass wf=5/6 base_trades_OOS=33 (dnetR IS 5.1397 / OOS 0.3693; dmaxDD IS -1.4165 / OOS 0.2591). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) THE WIN TOTAL IS NOT A COUNT OF WINS: 4 of 6 walk-forward folds (2021, 2024, 2025, 2026) are inert — the lever never fired, d_net_r=0 and d_max_dd=0 — and an inert fold still counts ok. So 5/6 is really 1 real win(s). (2) PATH-B, NOT PATH A: is_oos_pass=False, rate_ok_OOS=False (gate_reason_OOS=maxdd_worse); OOS net_R gain 0.3693. (3) DIFFERENT PARTITION, NOT A RERUN: split 2021-11-22, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:51:13Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 3.154R over n=45 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t1.5=path_b_wf_pass, vt_hot80_t1.5=is_oos_fail, vt_hot90_t1.5=is_oos_fail. base n IS=45 OOS=33. Split **2021-11-22**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. ⚠️ DOES NOT REPRODUCE THE NEGATIVE on vt_cold10_t1.5 — see the counter-evidence segment on this cell; status unchanged because a passing cell is not a passing lever disposition (Tier-3).",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -928,6 +1024,10 @@
       "vol_trail": {
         "status": "blocked:insufficient_lifetime_trades",
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — split FELL BACK to 2025-07-01, reason leg_too_thin, MEASURED lifetime 48. A 25-trade OOS target needs >=50 lifetime or the IS side fits nothing. All 3 cells insufficient_base. NOTE: this row's PRIOR ref stated 'leg lifetime is 60' — the harness measures 48. The stale figure is why this leg was screened as eligible; the governing number is the sweep harness's own, and it agrees with the E1 exit-head count, not the old ref."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -969,6 +1069,10 @@
       "vol_trail": {
         "status": "passed_unshipped",
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — PASS. vt_hot90_t2 walk-forward 6/6 on a DERIVED boundary 2019-10-25 (lifetime 60, no fallback). vt_hot80_t2 + vt_cold10_t2 both is_oos_fail, so the PASS is the hot90 cell specifically, not the lever family. Was blocked on 'OOS n=4 at the fixed 2025-07-01 split'; the per-leg boundary is what made it gradeable. Awaiting Tier-3 apply."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1013,6 +1117,10 @@
         "status": "honest_negative",
         "ref": "PATH A FAIL on all 3 cells (is_oos_fail) at split 2023-01-01 with base n IS=47 OOS=27 — the ONLY one of the eight 1d legs whose OOS clears MIN_OOS_TRADES=25, so the only one gradeable. NOTE THE SPLIT DIFFERS FROM THE CORPUS STANDARD (2025-07-01, where this leg had OOS n=8 and returned insufficient_base): the verdict is stated at 2023-01-01 and is not directly comparable to cells graded at the standard split. It is recorded because the answer is a REFUTATION at both windows — moving the split made the cell gradeable without manufacturing a pass, which is the only condition under which a non-standard window is safe to record. Measured twice, PR #8849: split 2025-07-01 (run 31655236776) and again at split 2023-01-01 (run 31655318804) to test whether the window, not the data, was binding. LIVE-PARITY geometry tp_cap_pct=0.099. Rows in docs/research/m20-sweep-corpus.jsonl. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:53:07Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 1.186R over n=40 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2=is_oos_fail, vt_hot80_t2=is_oos_fail, vt_hot90_t2=is_oos_fail. base n IS=40 OOS=33. Split **2021-07-07**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1054,6 +1162,10 @@
       "vol_trail": {
         "status": "blocked:insufficient_lifetime_trades",
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — split FELL BACK to 2025-07-01, reason leg_too_thin, MEASURED lifetime 31 (prior ref said 57 — stale). All 3 cells insufficient_base."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1096,6 +1208,10 @@
         "status": "honest_negative",
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — boundary DERIVED (2020-05-26, lifetime 65, no fallback) and the cells are STILL insufficient_base. Distinct from the fixed-split block it replaces and from leg_too_thin: the per-leg boundary was placed successfully and the achieved OOS base is still under the floor, because the harness windows CANDLES not TRADES so the target is aimed at, never guaranteed. Not re-runnable by moving the split again. (Prior ref said lifetime 73; harness measures 65.) || **THE BLOCK IS CLEARED AND THE ANSWER IS A CLEAN NEGATIVE** — re-swept at live parity 2026-08-17 (run 2026-08-17T01:22:44Z, tp_cap_pct=0.099 APPLIED; the row carries a MEASURED live-TP-reach median of 2.822R, the block the sweep emits ONLY when the cap actually applies). base OOS n=34, above the MIN_OOS_TRADES=25 floor, at the sanctioned `DEFAULT_SPLIT_TARGET_OOS = 50` (`m20_fleet_exit_sweep.py:597`, operator Tier-3 call 2026-08-16 / #9748) — so the `insufficient_oos_base_at_derived_split` reason no longer holds. ALL THREE cells fail outright on IS/OOS: vt_cold10_t2, vt_hot80_t2, vt_hot90_t2 all `is_oos_fail`. **NO WALK-FORWARD RAN ON ANY OF THEM**, which is why this cell is gradeable while its `splg_trend_long_1d` sibling is not: there is no `wf_summary` here to be degenerate. Status `blocked:insufficient_oos_base_at_derived_split` -> `honest_negative`.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1137,6 +1253,10 @@
       "vol_trail": {
         "status": "blocked:insufficient_oos_base_at_derived_split",
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — boundary DERIVED (2020-07-20, lifetime 72, no fallback), cells still insufficient_base. Same state as iwm: the split is no longer the binding constraint. (Prior ref said lifetime 77; harness measures 72.) || **WE LOOKED — THE BLOCK REASON NO LONGER HOLDS — BUT GRADING IS WITHHELD, AND THE STATUS IS DELIBERATELY LEFT BLOCKED.** Re-swept at live parity 2026-08-17 (run 2026-08-17T01:23:16Z, tp_cap_pct=0.099 APPLIED, MEASURED live-TP-reach median 5.126R), base OOS n=35, above the MIN_OOS_TRADES=25 floor at the sanctioned `DEFAULT_SPLIT_TARGET_OOS = 50`. So `insufficient_oos_base_at_derived_split` is factually stale. It is NOT being replaced with a verdict, because the verdict is not trustworthy: vt_cold10_t2 and vt_hot90_t2 are `is_oos_fail`, and the third cell vt_hot80_t2 reads `PASS` on `wf_summary: 6/6` whose SIX FOLDS ALL CARRY `d_net_r == 0.0` — six folds in which the lever changed nothing, scored as six out-of-sample confirmations. That is BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, filed against the grader itself. Recording `honest_negative` here would assert a negative this run did not establish; recording the PASS would ship a lever on six no-ops. Both are wrong, so the cell keeps its blocked status while its REF stops claiming we could not look. THIS IS THE STATE THE ENUM CANNOT EXPRESS — 'measured, but the grader is under question' is neither `blocked` (we did not look) nor a verdict — and it is the operator's call whether the enum gains a value or this waits on the grader fix. Re-grade once that defect is resolved; the measurement itself does not need re-running. || LIVE-PARITY EVIDENCE EXISTS FOR THIS BLOCKED CELL: cell **vt_hot80_t2**, verdict **PASS**, run **2026-08-17** (sweep_generated_at 2026-08-17T01:23:16Z), **base_trades_OOS=35** against the MIN_OOS_TRADES=25 floor, at live parity (measured live-TP-reach median 5.126R). **WHY THE STATUS STAYS BLOCKED ANYWAY, which is the whole point of this acknowledgement:** that PASS rests on `wf_summary: 6/6` whose SIX FOLDS ALL CARRY `d_net_r == 0.0` — six folds in which the lever changed nothing, scored as six out-of-sample confirmations (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, filed against the grader itself). The two sibling cells vt_cold10_t2 and vt_hot90_t2 are `is_oos_fail`. So the BLOCK REASON is stale — we did look, above the floor, at the geometry production places — while the cell remains UNGRADEABLE: recording `honest_negative` would assert a negative this run did not establish, and recording the PASS would ship a lever on six no-ops. Re-grade once the grader defect is resolved; the measurement itself does not need re-running. Whether the matrix enum should gain a value for 'measured, but the grader is under question' is an OPERATOR decision, deliberately not taken here."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1178,6 +1298,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — MEASURED, all 3 cells is_oos_fail on a DERIVED boundary 2019-11-01 (lifetime 63, no fallback). Was blocked on 'OOS n=5 at the fixed split'; now graded and negative."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1221,6 +1345,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1267,6 +1395,10 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:53:17Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 3.623R over n=68 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=68 OOS=33. Split **2019-09-06**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1310,6 +1442,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:49:28Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_hot80_t2.5 verdict=PASS wf=5/6 base_trades_OOS=36 (dnetR IS 13.4985 / OOS 3.4123; dmaxDD IS -5.352 / OOS -3.8988). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) THE WIN TOTAL IS NOT A COUNT OF WINS: 3 of 6 walk-forward folds (2024, 2025, 2026) are inert — the lever never fired, d_net_r=0 and d_max_dd=0 — and an inert fold still counts ok. So 5/6 is really 2 real win(s). (2) DIFFERENT PARTITION, NOT A RERUN: split 2017-01-20, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1356,6 +1492,10 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:51:44Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 2.341R over n=162 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2=is_oos_fail, vt_hot80_t2=is_oos_fail, vt_hot90_t2=is_oos_fail. base n IS=162 OOS=33. Split **2022-11-29**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1399,6 +1539,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:49:25Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_hot90_t2 verdict=PASS wf=5/6 base_trades_OOS=32 (dnetR IS 1.3336 / OOS 0.9922; dmaxDD IS -0.2915 / OOS 0.0). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) THE WIN TOTAL IS NOT A COUNT OF WINS: 5 of 6 walk-forward folds (2021, 2022, 2023, 2024, 2026) are inert — the lever never fired, d_net_r=0 and d_max_dd=0 — and an inert fold still counts ok. So 5/6 is really 0 real win(s). (2) DIFFERENT PARTITION, NOT A RERUN: split 2022-12-06, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1441,6 +1585,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1484,6 +1632,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: LONE PASS qqq_pullback_1h ['vt_hot80_t2.5'] (hot-tail); gld/spy/tlt pullback-1h all honest_negative. PASS is wf-UNVERIFIED — needs the yearly walk-forward detail (>=4/6) before any Tier-3 declare, same gate as the ETH cold cell. slv/uso TREND-1h legs not in the pullback sweep. || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (annotated 2026-08-14, BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): this cell's status stays `honest_negative` and NOTHING here re-grades it, but docs/research/m20-sweep-corpus.jsonl holds a LIVE-PARITY (tp_cap_pct 0.099) row for this exact (leg, lever) that PASSES, while the status above rests on pre-cutover no-take-profit evidence. Row: cell=vt_hot90_t2 verdict=PASS run=2026-08-10 wf=4/6 d_net_r_IS=8.1389 d_net_r_OOS=8.2672 d_max_dd_OOS=0.0 base_trades_OOS=31. On the floor: its run predates the floor (min_oos_trades_floor: null) BUT its base_OOS 31 clears the current MIN_OOS_TRADES=25, so the floor would not refuse it; whether other gate logic moved since 2026-08-10 is NOT established here. READ THIS AS 'the newer evidence disagrees and nobody has adjudicated it', NOT as a verdict: a passing CELL is not automatically a passing LEVER disposition, this is a full PASS, and any status change on a live leg is Tier-3 and belongs to the operator."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1530,6 +1682,10 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: LONE PASS qqq_pullback_1h ['vt_hot80_t2.5'] (hot-tail); gld/spy/tlt pullback-1h all honest_negative. PASS is wf-UNVERIFIED — needs the yearly walk-forward detail (>=4/6) before any Tier-3 declare, same gate as the ETH cold cell. slv/uso TREND-1h legs not in the pullback sweep. || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:52:17Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 9.369R over n=207 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=wf_fail, vt_hot90_t2.5=is_oos_fail. base n IS=207 OOS=34. Split **2025-02-04**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1576,6 +1732,10 @@
         "status": "honest_negative",
         "ref": "MEASURED BY THE LEVER-OFF ARM -- lever-OFF arm run 2026-08-13T02:13Z (PR #8868, runs 31660158594/71948/76552/81341), tp_cap_pct=0.099 LIVE PARITY, split 2025-07-01, one lever dropped per run so every cell's base differed from live in THAT LEVER ONLY (`base_missing_other_levers: []` on all 18 rows). ⚠️ WORSE ON BOTH OOS AXES. `is_oos_fail` on base n IS=250 OOS=26: d_net_r IS +8.5923 / OOS **-1.9643**, d_max_dd IS +0.8678 / OOS **+4.4918** (drawdown worse in BOTH windows). This is the cell whose ref said the yearly walk-forward was never run before the declare -- now measured, and it does not survive. Removal TIER-3, QUEUED. Paper only (alpaca_paper; alpaca_live is dry_run). || METHOD: the config-exact base with this shipped lever REMOVED, vs one cell restoring it at the leg's own live values -- the only construction that can grade a SHIPPED lever. The prior evidence could not: the shipped lever IS the base, so a cell reproducing it measured the base against itself (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES; 31 of 860 corpus rows are that artifact). Invariant asserted over all 22 declaring legs: base-OFF + shipped cell == base-ON exactly. || Previous status `shipped`, ref kept as record: SHIPPED (paper book) 2026-08-09 in #8683: config/strategies.yaml declares trail_vol_above_pctl: 0.80 + trail_vol_tight_mult: 2.5 + vol_pctl_window: 200 -- i.e. exactly the `vt_hot80_t2.5` cell this row previously recorded as passed_unshipped. FIELD BEATS COMMENT: the YAML is armed, so the matrix said unshipped about a lever that is live. Corrected 2026-08-13. || The leg is EFFECTIVELY PAPER (runs on alpaca_paper; its alpaca_live leg is shelved dry_run since 2026-07-15), which is why the declare was made without the yearly walk-forward the previous ref names as the gate -- that gap is real and unclosed, not money-at-risk. || THE PRIOR EVIDENCE DOES NOT SURVIVE READING: the corpus row for `vt_hot80_t2.5` (run 2026-08-10T22:27:22Z) reads verdict=is_oos_fail with d_net_r_IS/OOS = 0.0 and gate_reason=tie_no_improvement -- the cell was measured against a base that ALREADY contained it, so nothing was compared and the verdict name describes no computation (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES). Grading this cell needs the lever-OFF arm (--without-declared-lever vol_trail). || Previous ref, kept as record: M20-X vol_trail #6510: LONE PASS qqq_pullback_1h ['vt_hot80_t2.5'] (hot-tail); gld/spy/tlt pullback-1h all honest_negative. PASS is wf-UNVERIFIED — needs the yearly walk-forward detail (>=4/6) before any Tier-3 declare, same gate as the ETH cold cell. slv/uso TREND-1h legs not in the pullback sweep. || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || ⚠️ STATUS CORRECTED 2026-08-13, SAME PR THAT REMOVED THE LEVER. This cell read `shipped` while the lever was being deleted from config/strategies.yaml in the very same change. I updated the ref PROSE with the removal and its measured deltas and left the STATUS untouched — the field-vs-comment split, in its more dangerous orientation: the comment was right and the field was stale, and the roll-up reads the FIELD. `shipped` is defined as 'validated + live'; the lever is not live, so the matrix asserted a live configuration that does not exist, on five cells at once. Caught by reading config/strategies.yaml for the lever's declared keys rather than trusting the matrix or my own PR description. NOT set to `shipped_gate_failed`, which pattern-matches but is wrong: its legend says LIVE in config but a later re-sweep failed and the operator chose to HOLD — a STANDING decision to keep a lapsed lever. These were removed, not held. `honest_negative` is the correct terminal state ('tested, failed the gate'), and its own legend entry confirms it implies NOT live. MEASURED CONSEQUENCE: NOTHING in the roll-up moves. Headline stays 362/376 = 96.3%, done-condition stays 36, and the stale-decision block stays 8 (shipped 7 · passed_unshipped 1) — verified by running the roll-up with and without this change. I first wrote here that the stale count 'correctly drops by 5' and that was WRONG: these five were re-measured 2026-08-13, so they were never in the stale bucket at all (which is evidence older than 2026-08-10). Corrected rather than left, because a plausible consequence asserted without running it is the same error class the cell above documents. The value of the fix is SEMANTIC, not numeric — the matrix no longer claims five live levers that do not exist. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:52:08Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 6.923R over n=241 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2.5=is_oos_fail, vt_hot80_t2.5=is_oos_fail, vt_hot90_t2.5=is_oos_fail. base n IS=241 OOS=32. Split **2025-03-14**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1622,6 +1782,10 @@
         "status": "honest_negative",
         "ref": "M20-X vol_trail #6510: LONE PASS qqq_pullback_1h ['vt_hot80_t2.5'] (hot-tail); gld/spy/tlt pullback-1h all honest_negative. PASS is wf-UNVERIFIED — needs the yearly walk-forward detail (>=4/6) before any Tier-3 declare, same gate as the ETH cold cell. slv/uso TREND-1h legs not in the pullback sweep. || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:53:48Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 12.026R over n=492 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t1.5=is_oos_fail, vt_hot80_t1.5=is_oos_fail, vt_hot90_t1.5=is_oos_fail. base n IS=492 OOS=30. Split **2025-12-10**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1665,6 +1829,10 @@
         "status": "honest_negative",
         "ref": "PATH A FAIL on all 3 cells (is_oos_fail) with base n IS=269 OOS=40 — OOS clears the MIN_OOS_TRADES=25 floor, so this is a graded refutation, not a thin-window artifact. All 3 cells are the IS-only (overfit) shape: net_R up in-sample, down out-of-sample (vt_cold10_t2 +15.997/-0.291, vt_hot90_t2 +8.618/-0.939, vt_hot80_t2 +4.758/-3.581). That is exactly what the walk-forward exists to catch. M20 vol_trail wave-2 re-sweep 2026-08-12 (PR #8849, run 31655236776), LIVE-PARITY geometry tp_cap_pct=0.099, split 2025-07-01, fee=harness default, min_confidence config-exact. Rows persisted to docs/research/m20-sweep-corpus.jsonl (680 -> 710). Cells swept: vt_cold10_t2, vt_hot80_t2, vt_hot90_t2. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:51:55Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 6.246R over n=275 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2=is_oos_fail, vt_hot80_t2=is_oos_fail, vt_hot90_t2=wf_fail. base n IS=275 OOS=33. Split **2025-08-19**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1708,6 +1876,10 @@
         "status": "honest_negative",
         "ref": "PATH A FAIL with base n IS=197 OOS=27 — OOS clears the MIN_OOS_TRADES=25 floor, so graded. vt_hot80_t2 and vt_hot90_t2 are is_oos_fail (net_R worse on BOTH windows). vt_cold10_t2 is verdict=path_b_wf_pass and IS in the Path-B population (net_R up on both windows, +0.827 IS / +3.116 OOS), but `path_b_wf_pass` is NOT `rate ok`: its per-leg drawdown exchange rate holds on OOS only (rate_ok IS=False headroom -1.494 grant 2%; OOS=True headroom +5.134 grant 50%). One-sided headroom does not meet the both-windows bar, and Path B's thresholds are deliberately UNSET, so nothing here is shippable. Recorded as a negative on the ONLY graded axis, with the Path-B row named so a future threshold session can find it rather than re-derive it. M20 vol_trail wave-2 re-sweep 2026-08-12 (PR #8849, run 31655236776), LIVE-PARITY geometry tp_cap_pct=0.099, split 2025-07-01, fee=harness default, min_confidence config-exact. Rows persisted to docs/research/m20-sweep-corpus.jsonl (680 -> 710). Cells swept: vt_cold10_t2, vt_hot80_t2, vt_hot90_t2. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (annotated 2026-08-14, BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): this cell's status stays `honest_negative` and NOTHING here re-grades it, but docs/research/m20-sweep-corpus.jsonl holds a LIVE-PARITY (tp_cap_pct 0.099) row for this exact (leg, lever) that PASSES. Row: cell=vt_cold10_t2 verdict=path_b_wf_pass run=2026-08-13 wf=4/6 d_net_r_IS=0.8271 d_net_r_OOS=3.1158 d_max_dd_OOS=-2.3895 base_trades_OOS=27. On the floor: its run records min_oos_trades_floor=25, so it was graded UNDER today's floor. ⚠️ THIS CELL IS NOT IN `stale_cells` -- its ref carries a post-cutover date, so the staleness date-proxy reads it as CURRENT while its STATUS rests on an older negative. It was found by matrix-corpus-agreement, not by the staleness pass, which is exactly why that guard exists. READ THIS AS 'the newer evidence disagrees and nobody has adjudicated it', NOT as a verdict: a passing CELL is not automatically a passing LEVER disposition, this is the WEAKER path_b route (gate_passed_OOS false), and any status change on a live leg is Tier-3 and belongs to the operator. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:56:13Z, tp_cap_pct=0.099 APPLIED — the family is in `LIVE_TP_CAPPED_FAMILIES` AND this row carries a MEASURED live-TP-reach distribution (median 4.692R over n=190 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not the request). Cells: vt_cold10_t2=path_b_wf_pass, vt_hot80_t2=is_oos_fail, vt_hot90_t2=is_oos_fail. base n IS=190 OOS=34. Split **2025-04-22**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS) — a different partition from the pre-cutover evidence, not a rerun. ⚠️ DOES NOT REPRODUCE THE NEGATIVE on vt_cold10_t2 — see the counter-evidence segment on this cell; status unchanged because a passing cell is not a passing lever disposition (Tier-3).",
         "tp_geometry": "live_parity"
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1745,7 +1917,11 @@
         "status": "pending",
         "ref": "M20-X vol_trail: #6510 covered the pullback+mixed fleet only; the shadow families (turtle/fade/vwap/scalp/1h/prop) each need their own harness-lever round before a vol_trail verdict — not yet run"
       },
-      "_bundled_row_note": "STILL A BUNDLED ROW -- BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS. One row carries 8 lever statuses for 4 named legs plus a `*_prop` WILDCARD, so its own denominator is uncountable. It is excluded from the 47-leg done-condition denominator (execution != live), which is why it does not corrupt the headline -- but a reader looking up any of these legs gets a fleet-level status, not that leg's. Exploding it needs per-leg evidence that does not exist yet; inventing one would be worse than the bundle. 2026-08-13: removed `ict_scalp_5m` and `mgc_trend_1h` from the label -- both have their own rows, and the two disagreed on 8/8 and 6/8 cells respectively (e.g. ict_scalp_5m stale_stop own=honest_negative vs bundled=passed_unshipped), so the matrix asserted two different things about the same leg depending on which row you read."
+      "_bundled_row_note": "STILL A BUNDLED ROW -- BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS. One row carries 8 lever statuses for 4 named legs plus a `*_prop` WILDCARD, so its own denominator is uncountable. It is excluded from the 47-leg done-condition denominator (execution != live), which is why it does not corrupt the headline -- but a reader looking up any of these legs gets a fleet-level status, not that leg's. Exploding it needs per-leg evidence that does not exist yet; inventing one would be worse than the bundle. 2026-08-13: removed `ict_scalp_5m` and `mgc_trend_1h` from the label -- both have their own rows, and the two disagreed on 8/8 and 6/8 cells respectively (e.g. ict_scalp_5m stale_stop own=honest_negative vs bundled=passed_unshipped), so the matrix asserted two different things about the same leg depending on which row you read.",
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "PARTIALLY MEASURED — this row is an AGGREGATE over several legs, not one leg. `trend_donchian_1h` inside it WAS swept 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md); the rest were not, so the row stays `pending` for the majority. ⚠️ A count of measured ROWS therefore UNDER-reports measured LEGS by one — 18 rows vs 19 legs. Do not derive a leg-count from this column's row statuses without reading this ref (BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS)."
+      }
     },
     {
       "strategy": "xauusd_trend_1h",
@@ -1785,6 +1961,10 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || MERGED 2026-08-09: kept from the stale standalone `xauusd_trend_1h` row, which carried a verdict the bundled row did not. Its other cells were `blocked: candle coverage (task #27)`, superseded by the 2026-07-12 GC=F-proxy fleet sweep. || EXPLODED 2026-08-09 from bundled row 'xauusd_trend_1h / mgc_trend_1h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1825,6 +2005,10 @@
       "vol_trail": {
         "status": "pending",
         "ref": "FIXED 2026-08-12 (was `status: null`, not a legend value). The 2026-08-09 explosion kept the standalone row's vol_trail verdict for `xauusd_trend_1h` (KEEP_FROM_STANDALONE) but the bundle's per-column dict named only `trail_geometry`, so this leg's vol_trail resolved to None and was written as null rather than defaulting. `pending` is this ref's OWN documented rule applied, not a new inference: 'silent or un-run -> `pending`, never an inherited verdict'. Inheriting the sibling's `honest_negative` is exactly what that rule forbids — M20-X #6507's wording covers xauusd, and is silent on mgc_trend_1h. || EXPLODED 2026-08-09 from bundled row 'xauusd_trend_1h / mgc_trend_1h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
       }
     },
     {
@@ -1864,6 +2048,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -1903,6 +2091,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -1941,6 +2133,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -1979,6 +2175,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Volatility-scaled trailing lever — presupposes a primary trailing stop ict_scalp does not have (fixed bracket, break-even-after-1R only). Structurally inapplicable — same basis as trail_geometry. Assessed 2026-07-28."
+      },
+      "bracket_geometry": {
+        "status": "blocked:no_free_lane_candle_feed",
+        "ref": "MGC is an IBKR COMEX future — data.binance.vision serves no such series, so the free lane cannot supply candles. Corrected 2026-08-20 from `pending`, which was wrong in the ANTI-CONSERVATIVE direction: it advertised a leg as runnable-by-a-session when the feed blocks it, while every other MGC/MES/MHG row in this column already said `blocked:no_free_lane_candle_feed`."
       }
     },
     {
@@ -2017,6 +2217,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -2055,6 +2259,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -2094,6 +2302,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -2132,6 +2344,10 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "bracket_geometry": {
+        "status": "pending",
+        "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
       }
     },
     {
@@ -2172,6 +2388,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "Leg entered the M20 denominator 2026-08-13 on its shadow->live graduation (Tier-3, operator-approved; prop EV/survival gate PASSED, relay #8975). PATH A FAIL — all 3 cells is_oos_fail: vt_hot90_t1.8 (dNetR +8.8366 IS / -5.6639 OOS), vt_hot80_t1.8 (+0.6355 / -5.8541), vt_cold10_t1.8 (-2.3655 / +0.4762). vt_hot90's +8.84 IS is the largest single in-sample gain on this leg and it inverts out of sample. Base book IS n=245 net_R=+26.9917 / OOS n=65 net_R=+8.9562 — OOS clears MIN_OOS_TRADES=25, so these are GRADED refutations, not thin-window artifacts. M20 live-parity sweep, tp_cap_pct=0.099, split 2025-07-01, config-exact, regime_router=off (so the base is the UNGATED book; the per-cell deltas are unaffected since both arms share it). Rows in docs/research/m20-sweep-corpus.jsonl. REPRODUCED ACROSS TWO INDEPENDENT RUNS three days apart — gen 2026-08-10T22:38:10Z (pre-floor, min_oos_trades_floor null) and gen 2026-08-13T13:48:20Z (floor 25) — identical deltas to 4dp, so this is not a single-run artifact. NOTE ON THE 08-10 VINTAGE: those rows recorded `tp_cap_pct: null` until 2026-08-13 and were relabelled to 0.099 (corpus dea29fec, BL-20260813-TPCAP-REQUESTED-NOT-APPLIED) — the run WAS capped at the workflow default, its sweep script simply predated the provenance field. They are live-parity measurements, not the legacy no-TP vintage."
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp3=is_oos_fail, sm1.5=is_oos_fail, tp6_sm1.5=is_oos_fail, to96=is_oos_fail, tp6_to96=is_oos_fail, sm1.5_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 3.223R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     },
     {
@@ -2212,6 +2433,11 @@
       "vol_trail": {
         "status": "honest_negative",
         "ref": "Leg entered the M20 denominator 2026-08-13 on its shadow->live graduation (Tier-3, operator-approved; prop EV/survival gate PASSED, relay #8975). PATH A FAIL — all 3 cells is_oos_fail and all three are worse on BOTH windows: vt_cold10_t1.8 (dNetR +0.8639 IS / -2.5931 OOS), vt_hot80_t1.8 (-5.5168 / -17.4763), vt_hot90_t1.8 (-11.1071 / -10.9208). Base book IS n=815 net_R=-24.3715 / OOS n=169 net_R=+20.3514 — OOS clears MIN_OOS_TRADES=25 comfortably, so these are GRADED refutations. M20 live-parity sweep, tp_cap_pct=0.099, split 2025-07-01, config-exact, regime_router=off (so the base is the UNGATED book; the per-cell deltas are unaffected since both arms share it). Rows in docs/research/m20-sweep-corpus.jsonl. REPRODUCED ACROSS TWO INDEPENDENT RUNS three days apart — gen 2026-08-10T22:28:01Z (pre-floor, min_oos_trades_floor null) and gen 2026-08-13T13:47:53Z (floor 25) — identical deltas to 4dp, so this is not a single-run artifact. NOTE ON THE 08-10 VINTAGE: those rows recorded `tp_cap_pct: null` until 2026-08-13 and were relabelled to 0.099 (corpus dea29fec, BL-20260813-TPCAP-REQUESTED-NOT-APPLIED) — the run WAS capped at the workflow default, its sweep script simply predated the provenance field. They are live-parity measurements, not the legacy no-TP vintage."
+      },
+      "bracket_geometry": {
+        "status": "honest_negative",
+        "ref": "run 2026-08-20 (`scripts/research/e35_bracket_geometry_sweep.py`, per-leg reports under `runtime_logs/e35_bracket/<leg>/2026-08-20/report.json`); doc `docs/research/e35-bracket-geometry-sweep-2026-08-20.md`. GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (3,781 total), of which 133 (7/leg, the per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES (harness `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`), tp_cap_pct=0.099 live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: tp4=is_oos_fail, tp3=is_oos_fail, sm1.5=is_oos_fail, tp6_sm1.5=is_oos_fail, to96=is_oos_fail, to400=is_oos_fail, sm1.5_to96=is_oos_fail. The shipped triple stands on this leg by measurement. TP GEOMETRY DECLARED FROM A MEASUREMENT, not the request: the run set tp_cap_pct=0.099 AND this leg emitted a live-TP-reach median of 4.339R, which the harness reports only when the cap actually applies.",
+        "tp_geometry": "live_parity"
       }
     }
   ],
@@ -2223,7 +2449,8 @@
     "ABSENT_means_unrecorded": "⚠️ A MISSING tp_geometry MEANS 'WE DID NOT LOOK', NOT 'presumably fine'. Absence collapses three different conditions — (a) measured at live parity and nobody stamped it, (b) measured on the pre-cutover no-TP default, which is the DEFAULT EXPECTATION for anything dated before the cutover, and (c) nobody looked. The reassuring reading is the one that is wrong for most of the population. The roll-up counts these as `unrecorded` and reports the fraction rather than listing marked cells, so completeness is never inferred from the cells that happen to carry a value.",
     "_coverage_2026_08_16": "170 of 416 cells (40.9%) carry a value: live_parity 167, no_take_profit 3, absent 246. Measured directly off this file. The roll-up's own figure is over the LIVE-leg population (a different, smaller denominator) — both are correct and neither is the other.",
     "_remaining_work": "Stamping the 246 absent cells is NOT done here and must not be guessed from dates: BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING criterion (2) requires each cell's own `ref` to establish live_parity or no_take_profit, with `unrecorded` stamped only where the ref establishes neither. A date is a proxy, and that row exists because a proxy was trusted.",
-    "_unstamped_ceiling": 208,
-    "_unstamped_ceiling_note": "RATCHET, NOT A TARGET. Upper bound on live cells carrying no tp_geometry, enforced by m20_coverage_rollup.py --check (exit-coverage-matrix-guard). Measured 210 on 2026-08-16, agreeing exactly with the roll-up's own independently-computed `unrecorded: 210`; RATCHETED DOWN to 208 on 2026-08-17 when `mhg_pullback_1d/giveback_stop` and `iwm_trend_long_1d/vol_trail` were stamped `live_parity` from corpus rows that had already measured them. The two planted-omission self-tests in `tests/test_m20_tp_geometry_guard.py` are what forced this: stamping two cells without lowering the ceiling left 2 cells of slack, so un-stamping ONE no longer breached and both tests failed with an empty problem list — the probe going quiet, exactly the failure mode that file exists to prevent. Lowering it is the ratchet doing its job, not an accommodation. It exists because an 'every cell must be stamped' assertion would fail on this file today and could only ship switched off — a guard nobody can turn on is worth less than no guard. Grandfathers the known-bad population that BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING owns, while making a NEW silent cell a CI failure. LOWER it when you stamp; raising it must happen in a diff a reviewer sees. Do NOT read a passing ratchet as 'geometry coverage is fine' — read the roll-up's recorded/total fraction for that. Note the denominator: this counts LIVE cells (376), while _coverage_2026_08_16 above counts ALL cells (416)."
-  }
+    "_unstamped_ceiling": 239,
+    "_unstamped_ceiling_note": "RATCHET, NOT A TARGET. Upper bound on live cells carrying no tp_geometry, enforced by m20_coverage_rollup.py --check (exit-coverage-matrix-guard). Measured 210 on 2026-08-16, agreeing exactly with the roll-up's own independently-computed `unrecorded: 210`; RATCHETED DOWN to 208 on 2026-08-17 when `mhg_pullback_1d/giveback_stop` and `iwm_trend_long_1d/vol_trail` were stamped `live_parity` from corpus rows that had already measured them. The two planted-omission self-tests in `tests/test_m20_tp_geometry_guard.py` are what forced this: stamping two cells without lowering the ceiling left 2 cells of slack, so un-stamping ONE no longer breached and both tests failed with an empty problem list — the probe going quiet, exactly the failure mode that file exists to prevent. Lowering it is the ratchet doing its job, not an accommodation. It exists because an 'every cell must be stamped' assertion would fail on this file today and could only ship switched off — a guard nobody can turn on is worth less than no guard. Grandfathers the known-bad population that BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING owns, while making a NEW silent cell a CI failure. LOWER it when you stamp; raising it must happen in a diff a reviewer sees. Do NOT read a passing ratchet as 'geometry coverage is fine' — read the roll-up's recorded/total fraction for that. Note the denominator: this counts LIVE cells (376), while _coverage_2026_08_16 above counts ALL cells (416). || RAISED 208 -> 239 on 2026-08-20, in the diff, per this note's own rule. WHY, so a reviewer can check the arithmetic rather than take it: the `bracket_geometry` column was added the same day, adding one cell to every row and so 47 live cells to this denominator (376 -> 423). 17 of them ARE stamped `live_parity` — declared from a MEASUREMENT (the run set tp_cap_pct=0.099 AND each of those legs emitted a live-TP-reach median, which the harness reports only when the cap actually applies), not from the request and not from the date. The remaining 30 are cells where NOTHING WAS MEASURED — 24 legs have no candle substrate on the free crypto-only lane, 5 were not run, 1 (squeeze_breakout_4h) was gated but its harness emits no `tp_r_effective` at all (BL-20260820-SQUEEZE-HARNESS-EMITS-NO-TP-R-EFFECTIVE), so stamping it would be the guess this note forbids. 208 + 30 = 238, and the roll-up independently counts 239; the one-cell difference is not explained here and is NOT papered over — the ceiling is set to the roll-up's own measured 239 rather than to my arithmetic, and reconciling the two is BL-20260820-UNSTAMPED-CEILING-ARITHMETIC-OFF-BY-ONE. RATCHET IT BACK DOWN as those legs gain a feed and a measurement."
+  },
+  "legend_bracket_geometry": "bracket_geometry is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) — a new DIMENSION, not a ninth lever. The eight lever columns beside it are all POST-ENTRY OVERRIDES on a bracket fixed at entry; this column grades that bracket itself. Added 2026-08-20 closing BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT. Graded NET OF FEES, unlike the fee-free R basis the lever columns use, because a lower target raises turnover and a fee-free comparison would flatter it exactly where it is most likely to pass."
 }

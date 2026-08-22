@@ -290,6 +290,107 @@ than a constant** — and E1's exogenous block gets a second hearing there, beca
 be conditioning a *level* rather than triggering an *exit*. The gate is unchanged: net of
 fees, walk-forward, dispersion-tested, and Tier-3 to flip.
 
+### E3.6 · OPERATOR DIRECTIVE 2026-08-20 (second) — this is ACTIVE TRADE MANAGEMENT, and the bracket must be PREDICTIVE
+
+E3.5 settled that moving a bracket is legitimate. This settles what the bracket is
+*for*, and it renames the problem:
+
+> *"I do think that the brackets should be predictive. Right? Like, when we enter a
+> trade, we should know what the expectation is for when it's gonna exit. It's
+> possible that the active monitoring will change and adjust that over time, which
+> is fine. Like, sometimes a trade will do much better than we thought it would at
+> first, and it's worth extending the TP a few times to try and gain more … We're
+> really not just looking for exit points anymore. We're looking for how to
+> correctly manage trades actively and create not just the entry strategy with some
+> brackets that we already have, but how do we create active management strategies
+> to optimize our profits and capital utilization … those strategies that have
+> brackets that aren't supposed to be hit, maybe we need to change the way that we
+> go about that. Maybe those should have predictive brackets even if they need to
+> be adjusted based on the conditions defined within the strategy itself. So if
+> it's a momentum strategy and we see that we're getting close to the take profit,
+> but the momentum is only getting higher, then we know that we can definitely
+> expand the TP there. But at least know in the beginning where we think that
+> momentum is gonna burn out."*
+
+**Four things follow.**
+
+1. **The milestone is ACTIVE TRADE MANAGEMENT, not exit refinement.** The objective
+   is net P&L *and capital utilisation* over the whole life of a trade — entry, the
+   plan, and every revision of it. "Exit refinement" named one endpoint of that and
+   is why every lever ever screened here can only **cut a trade short**: *extend the
+   target* has no implementation anywhere in the harness or the live monitor. That
+   is a missing capability, not a missing result.
+
+2. **A bracket must carry an expectation at entry, or it is not a bracket.** *"Where
+   do we expect this to exit, and why"* becomes a required output of the entry
+   decision. **This is not what the fleet does today**, and the measurement is
+   unambiguous (`docs/research/e35-bracket-is-not-a-decision-2026-08-20.md`, 6,428
+   trades / 19 legs / 2021-08-16→2026-08-19 / net of fees): **16 of 19 legs declare
+   `tp_r: 50.0`**, so the placed take-profit is `entry × 1.099` — *the exchange's
+   rejection threshold*. Because that is a fixed fraction of price, `tp_R` and
+   `ATR/close` are **the same variable** (collinearity `confirmed` 19/19, worst
+   deviation 2.78e-17), the target distance varies **6.5×–38.9× within every leg**,
+   and **76.2% of the fleet's net R comes from the 23.1% of trades whose target is
+   more than 5 R away** — i.e. from trades the bracket cannot close.
+
+3. **"Adjust the bracket" and "drop the trade" are not symmetric options, and the
+   cost measurement already ranks them.** A round trip is **0.082–0.163 R** against
+   a fee-free mean edge of **+0.1376 R** (XRP) / **+0.1167 R** (SOL), so exiting
+   early eats most of a trade's edge, while **amending a resting level is not a fill
+   and costs nothing**. Bracket revision may therefore be frequent; discretionary
+   early exit must be rare and decisive. E3's one positive cell died precisely
+   because it fired on 34–52% of trades.
+
+4. **Revision must be conditioned on the strategy's OWN thesis.** The operator's
+   momentum example is the specification: state at entry where the move is expected
+   to exhaust, and if price nears the target while the exhaustion condition has not
+   fired, extend. A revision rule that reads only the trade's own path is the same
+   eleven-endogenous-feature substrate § 0.2 already identified as the root cause.
+
+*Falsifier, unchanged in kind:* a predictive bracket is a **claim about where the
+trade will exit**, so it is graded against realised exits — calibration first
+(does the stated expectation match the observed distribution?), P&L second. A
+bracket that improves net R while being systematically wrong about *where* trades
+exit has not met this bar; it has found a different edge and should say so.
+
+### E-ML · The ML track — named, not left to whoever gets to it
+
+Second half of the same directive: *"we haven't really been … using or building new
+MLs for this task, and maybe that's also something we need to consider adding into
+the mix … in general as a way to push the AI side forward and specifically to help
+us solve this problem."*
+
+That reading is correct, and the reason is more specific than "we did not try":
+**the rig exists and has only ever been pointed at a label that could not carry
+it.** `scripts/research/analyze_exit_head.py` already implements grouped / purged /
+embargoed walk-forward CV, uniqueness weighting, deflated Sharpe and PBO-via-CSCV —
+and trains a binary take/skip head on `label_hold`, which
+`docs/research/e3-barrier-geometry-2026-08-20.md` measured at **13.9% / 27.0% /
+46.6%** barrier composition at h=12/24/48.
+
+**ML-1 · the conditional barrier race.** Target `touch ∈ {tp, sl, time}` at
+decision time. Legitimate where E3's stratified view was not: that view
+*stratified* on `touch` (conditioning on a barrier the trade only reaches later),
+whereas this *forecasts* it — `triple_barrier_forward` computes `touch` over the
+strictly-future window `candles[t+1 : t+1+time_stop]`.
+⚠️ **Precondition:** the label's barriers must be the ones the leg actually trades.
+E2 labelled a 2.0 R upper barrier; the donchian/pullback fleet trades the 9.9% cap
+(a *per-trade* R distance) and `ict_scalp` trades `tp_at_r: 1.5`. Neither is 2.0.
+`BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY` must be closed
+**before** this is measured, not after.
+
+**ML-2 · the predictive bracket.** Regress the exit location/time an entry should
+expect, and grade it on **calibration** before P&L (per E3.6's falsifier).
+
+**ML-3 · the revision policy.** Given ML-1 and ML-2, when to move a level. Bound by
+E3.6(3): revising a resting level is free, so this may act often; any variant that
+crosses the spread inherits the 0.082–0.163 R charge and must clear it.
+
+*Falsifier for all three, inherited unchanged:* E2's information test with a
+shuffled-label control that is shown to fire, the E4 dispersion test, and net-of-fee
+grading. **An ML head is subject to exactly the same bar as a hand-written lever**
+— it does not get a softer one for being a model.
+
 ### E4 · Dispersion-test the verdict — split AND fold
 `m20_split_dispersion.py` for the IS/OOS boundary; `m20_dispersion_rate` for fold offsets.
 *Falsifier:* `split_sensitive: true` is a **refusal**, not a caveat. It does not proceed.

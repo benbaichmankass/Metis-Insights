@@ -37,13 +37,29 @@ def _mod():
 
 def _emit(monkeypatch, m, stamps, rc=0):
     """Stand in for the harness run, so the split logic is tested without a
-    16-minute backtest."""
+    16-minute backtest.
+
+    ⚠️ THE EMIT PATH IS READ OFF THE COMMAND, NOT HARDCODED. This fake used to
+    write to the literal "/tmp/m20_split_emit.jsonl" because `resolve_split`
+    used that literal too — which coupled the test to an implementation-internal
+    temp path AND meant the test could only pass while that path was
+    process-shared. When the four shared literals became `tempfile.mkstemp` (the
+    concurrency fix, BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH), all three
+    tests here failed with `split_fallback: emit_unreadable` — the fake was
+    writing somewhere nobody read. Taking the path from `--emit-trades` in the
+    argv the fake is handed is both the fix and the more honest test: it asserts
+    the caller and callee agree on a path rather than that both agree with the
+    test's guess."""
     import subprocess
-    tmp = pathlib.Path("/tmp/m20_split_emit.jsonl")
 
     def fake_run(cmd, **kw):
         import json
-        tmp.write_text("\n".join(
+        argv = list(cmd)
+        assert "--emit-trades" in argv, (
+            "resolve_split no longer passes --emit-trades; this fake can no "
+            "longer stand in for it")
+        out = pathlib.Path(argv[argv.index("--emit-trades") + 1])
+        out.write_text("\n".join(
             json.dumps({"entry_time": s}) for s in stamps), encoding="utf-8")
         return subprocess.CompletedProcess(cmd, rc, "", "")
 

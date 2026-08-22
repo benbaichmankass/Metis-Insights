@@ -149,7 +149,31 @@ def test_measured_state_2026_08_17():
     that only checked invariants would not have caught that.
     """
     _, _part, cut = _partition()
-    assert len(cut.get("movable", [])) == 0
+    # RESTATED 2026-08-20, and the docstring above says to say so.
+    #
+    # `movable` moved 0 -> 7 for a legitimate reason: the `bracket_geometry`
+    # column was added, it HAS a sweep producer of its own
+    # (`scripts/research/e35_bracket_geometry_sweep.py`), and exactly 7 legs are
+    # pending against it — all `ict_scalp`, all crypto at 5m/15m, where the free
+    # lane genuinely serves candles and `m20_fleet_exit_sweep.classify` returns
+    # `scalp` with a real SCALP_HARNESS. A session can move them, so `movable` is
+    # the honest bucket and the count is real work, not bookkeeping.
+    #
+    # The first version of that column made this read 10. All three of the
+    # excess were MY errors, caught here rather than by review:
+    # `ict_scalp_mgc_15m` was `pending` while every other MGC/MES/MHG row said
+    # `blocked:no_free_lane_candle_feed` (MGC is an IBKR COMEX future the free
+    # lane cannot serve); `sol_pullback_2h` and `trend_donchian_sol_4h` were
+    # `pending` while the results doc's own per-leg table lists both as SWEPT
+    # with a gate-passing cell and no dispersion band. All three corrected; the
+    # class is
+    # BL-20260820-BRACKET-GEOMETRY-COLUMN-SHIPPED-THREE-MISGRADED-ROWS.
+    #
+    # `no_sweep_path` is UNCHANGED at 4 — `bracket_geometry` has a driver, so it
+    # never belonged in that bucket, and the fact that this number did not move
+    # is the check that the new column was classified rather than just absorbed.
+    assert len(cut.get("movable", [])) == 7
+    assert {i[3] for i in cut["movable"]} == {"bracket_geometry"}
     assert len(cut.get("no_sweep_path", [])) == 4
     assert {i[3] for i in cut["no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
 
@@ -169,7 +193,7 @@ def test_internal_keys_are_not_printed_as_buckets():
     assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
     assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
     # ...while the measured count IS rendered, and reads 0 rather than 4.
-    assert "MOVABLE BY A SESSION: 0" in text
+    assert "MOVABLE BY A SESSION: 7" in text
     assert "NO SWEEP PATH AT ALL: 4" in text
 
 

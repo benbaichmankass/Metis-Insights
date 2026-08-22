@@ -305,6 +305,7 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     "funding_windows": round(cb["funding_windows"], 3),
                     "confidence": t.confidence}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
+                      tp_r_effective=_tp_r_effective,
                       params={"bb_period": bb_period, "bb_std": bb_std,
                               "kc_mult": kc_mult, "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult, "min_confidence": min_confidence,
@@ -346,7 +347,8 @@ def _fee_r(t: Trade) -> float:
     return _cost_breakdown(t)["total_cost_r"]
 
 
-def _summarize(trades, df, *, timeframe, symbol, params):
+def _summarize(trades, df, *, timeframe, symbol, params,
+               tp_r_effective: Optional[List[float]] = None):
     n = len(trades)
     base: Dict[str, Any] = {
         "strategy": "squeeze_breakout", "symbol": symbol, "timeframe": timeframe,
@@ -357,6 +359,19 @@ def _summarize(trades, df, *, timeframe, symbol, params):
         "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
         "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
         "run_date": str(date.today())}
+    # Live-TP reach: MEASURED per entry, on the SAME terms as
+    # backtest_trend.py / backtest_pullback.py — None (never 0) when the lever
+    # is off, because an un-measured reach and a zero-distance TP are opposite
+    # statements. Added 2026-08-20; tracked by
+    # BL-20260820-SQUEEZE-HARNESS-EMITS-NO-TP-R-EFFECTIVE
+    # The list was already COLLECTED at the entry site and then
+    # dropped on the floor — never threaded into the summary — so one leg of
+    # every fleet sweep was un-cross-checkable against its own harness.
+    _tpe = sorted(tp_r_effective or [])
+    base["tp_r_effective_n"] = len(_tpe)
+    base["tp_r_effective_median"] = (round(_tpe[len(_tpe) // 2], 3) if _tpe else None)
+    base["tp_r_effective_min"] = (round(_tpe[0], 3) if _tpe else None)
+    base["tp_r_effective_max"] = (round(_tpe[-1], 3) if _tpe else None)
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
@@ -375,7 +390,15 @@ def _summarize(trades, df, *, timeframe, symbol, params):
     longs = [t for t in trades if t.direction == "long"]
     shorts = [t for t in trades if t.direction == "short"]
     cum = peak = mdd = 0.0
-    for r in rs:
+    # NET, not gross. Fixed 2026-08-20; tracked by
+    # BL-20260820-SQUEEZE-MAXDD-IS-GROSS-WHILE-EVERY-SIBLING-IS-NET
+    # This loop read `rs` (raw r_multiple) while
+    # backtest_trend.py and backtest_pullback.py both read `net`, so a squeeze
+    # max_drawdown_r was NOT comparable with either sibling's and any
+    # cross-family comparison was gross-vs-net. Found because
+    # m20_split_dispersion REFUSED a squeeze cell on `harness_agreement`
+    # (delta 0.7986 R against a 0.001 tolerance) — the refusal, not a review.
+    for r in net:
         cum += r
         peak = max(peak, cum)
         mdd = max(mdd, peak - cum)

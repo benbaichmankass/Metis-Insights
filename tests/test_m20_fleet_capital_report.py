@@ -255,7 +255,18 @@ def test_run_cell_memo_collapses_the_repeated_walkforward_base(monkeypatch):
         calls.append(tuple(cmd))
         import json as _json
         import pathlib as _pl
-        _pl.Path("/tmp/m20_fleet_cell.json").write_text(_json.dumps({"net_total_r": 1.0}))
+        # The --json path comes from the argv `run_cell` built, NOT a hardcoded
+        # literal. It was "/tmp/m20_fleet_cell.json" while `run_cell` used that
+        # same shared literal; when it moved to `tempfile.mkstemp` (the
+        # concurrency fix, BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH) this
+        # test failed with KeyError: 'net_total_r' because the fake was writing
+        # to a file nobody read. Reading the path off the command asserts the
+        # real contract — that run_cell reads back what it told the harness to
+        # write — instead of asserting a path the test happened to know.
+        argv = list(cmd)
+        assert "--json" in argv, "run_cell no longer passes --json"
+        _pl.Path(argv[argv.index("--json") + 1]).write_text(
+            _json.dumps({"net_total_r": 1.0}))
         return _P()
 
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
@@ -1411,3 +1422,72 @@ def test_winner_mfe_p80_end_to_end_against_a_stub_harness(tmp_path, monkeypatch)
     assert out["recent_era"]["p80"] != out["p80"], \
         "pooled and recent-era coincided on a population built to differ"
     assert out["recent_era"]["delta_vs_pooled"] is not None
+
+
+def test_run_cell_does_not_share_a_temp_path_between_calls(monkeypatch):
+    """Two run_cell calls must never be handed the SAME --json path.
+
+    REGRESSION PIN for BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH. `run_cell`
+    wrote its harness output to the fixed literal "/tmp/m20_fleet_cell.json" and
+    read it straight back — a process-shared constant, so two sweeps running
+    concurrently on one box silently served each other's results. Measured: five
+    per-leg sweeps in parallel returned a base net_R of EXACTLY -9.6113 for three
+    different legs on three different symbols (AVAX / ETH / BTC), against
+    17.369 / -32.5815 / -9.6113 when run one at a time.
+
+    The two tests above cannot catch this: they read the path off the command, so
+    they pass under either implementation. That is correct for what they assert
+    (memoisation, split derivation) and is exactly why the concurrency property
+    needs its own pin.
+
+    Asserted here on the argv rather than by spawning real processes — a genuine
+    race is nondeterministic and a test that only fails sometimes is worse than
+    none.
+    """
+    mod = _sweep_module()
+    mod._CELL_CACHE.clear()
+    seen: list[str] = []
+
+    class _P:
+        returncode = 0
+        stdout = stderr = ""
+
+    def fake_run(cmd, **kw):
+        import json as _json
+        import pathlib as _pl
+        argv = list(cmd)
+        path = argv[argv.index("--json") + 1]
+        seen.append(path)
+        _pl.Path(path).write_text(_json.dumps({"net_total_r": 1.0}))
+        return _P()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    # DIFFERENT args each time, so the memo cannot collapse them into one run.
+    for i in range(4):
+        mod.run_cell("scripts/backtest_trend.py", ["--data", f"leg{i}.csv"])
+
+    assert len(seen) == 4, f"memo collapsed distinct invocations: {seen}"
+    assert len(set(seen)) == 4, (
+        "run_cell handed the SAME --json path to more than one invocation — "
+        f"that is the shared-temp defect: {seen}")
+    assert not any(p == "/tmp/m20_fleet_cell.json" for p in seen), (
+        "the retired shared literal is back")
+    # And it cleans up after itself: a temp file left behind per cell would
+    # accumulate one file per harness run across a fleet sweep.
+    import pathlib as _pl
+    assert not any(_pl.Path(p).exists() for p in seen), (
+        f"run_cell left its temp file(s) behind: "
+        f"{[p for p in seen if _pl.Path(p).exists()]}")
+
+
+def test_the_shared_temp_pin_can_fail():
+    """The pin above must be able to detect the defect it is written against.
+
+    A regression test that would pass against the BROKEN code is not a pin. This
+    replays the old behaviour — one fixed path for every call — and asserts the
+    distinctness check rejects it, so the guarantee is that the assertion has
+    teeth, not merely that today's code satisfies it.
+    """
+    shared = ["/tmp/m20_fleet_cell.json"] * 4
+    assert len(set(shared)) != len(shared), (
+        "the distinctness assertion would NOT have caught the shared path")

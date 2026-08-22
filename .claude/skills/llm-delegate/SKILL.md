@@ -41,7 +41,81 @@ expression" rather than a line number** — the prompt shape hid a defect that w
 there the whole time, which is worth remembering when a metric looks clean.
 
 **Re-grade the line-citation column after the fix before trusting a `file:line`
-it emits.** It is currently 0/20 on the pre-fix prompt and *unmeasured* after.
+it emits.** It was 0/20 on the pre-fix prompt. **RE-GRADED 2026-08-20, n=25**
+(two E3.5 enumeration tasks over `backtest_trend.py` 66 KB, and
+`triple_barrier.py` + `build_intrabar_exit_panel.py` 31 KB combined):
+
+| column | result |
+|---|---|
+| substantive claims | **25 / 25 valid** |
+| line citations exact | **17 / 25** |
+| line citations off-by-one | 8 / 25 |
+| line citations **wrong** | **0 / 25** |
+
+So `number_lines` moved the column from **0/20 to 17/25 exact with zero wrong**,
+and every one of the 8 misses was off by exactly ±1 — clustered, and consistent
+in direction *within* a cluster (three consecutive citations all −1, three all
++1), which is the signature of an off-by-one on a block boundary rather than of
+counting. **Treat an emitted line number as ±1, not as exact**: `grep` the quoted
+expression rather than seeking to the line. The quoted expression was verbatim
+correct 25/25 and remains the reliable half.
+
+⚠️ **The `absence` failure mode did NOT recur, and it was specifically probed.**
+Task 2 asked whether the emitted per-row record carries any field identifying
+*which* barrier the row was labelled at, and instructed that "if no such field
+exists, say so explicitly — that absence is itself the answer". It returned
+`None found in the provided files` with the correct reason. Verified independently
+by extracting the emitted `rec` keys: `advantage_r, closed_at, cohort,
+decision_time, direction, forward_r, label_hold, label_t0, label_t1, size,
+strategy, symbol, touch, trade_id, trade_realized_r` — no barrier field, and
+`tp_r` is recorded only at MANIFEST level. **Asking for the absence explicitly,
+and naming it as a legitimate answer, is what made this safe** — the 2026-08-18
+false positive came from a question that had no "nothing here" option.
+
+### Code AUTHORING — first measured 2026-08-20 (n=1 module)
+
+The table above grades EXTRACTION, bug-finding and coverage-gaps. It had no row
+for *write me a module*, so here is one, measured rather than assumed.
+
+**Task:** author `scripts/research/e35_shard_plan.py` (~150 lines) — a GH-Actions
+matrix planner that imports a real 900-line module's `plan_legs`, maps timeframes
+to fetch intervals, refuses an empty matrix, emits a census, and self-tests.
+Given: the one file it must integrate with. Graded by RUNNING it, not reading it.
+
+| check | result |
+|---|---|
+| runs at all | ✅ |
+| its own self-test | **16 / 16 pass** |
+| real run against 19 live legs | ✅ exit 0 |
+| **matrix vs the hand-written module** | **byte-identical, 19/19 entries** |
+| empty-matrix refusal (exit ≠ 0, writes nothing) | ✅ correct |
+| unknown timeframe raises rather than defaulting | ✅ correct, and it justified why unprompted |
+
+It also found a tighter import than the hand-written version: `sweep.fleet.LIVE_TP_CAP_PCT`,
+reaching the constant *through* the module it already imports rather than importing
+`m20_fleet_exit_sweep` a second time.
+
+⚠️ **One real design defect, and it is the kind that only shows up when you run
+it.** Its `build_matrix` raises on the first unmappable timeframe, and `main`
+catches that and exits 1 — so **ONE bad leg destroys the whole matrix.** Measured
+on a planted 19-leg input (18 good, 1 unmappable): the hand-written version
+returns 18 entries and refuses 1 with a named reason; the delegated version
+returns nothing and all 18 good legs are lost. That is the *opposite* of what a
+shard planner is for, and it is invisible to a read-through — both modules look
+correct, and both pass their own self-tests.
+
+**The lesson generalises past this task.** The delegate reliably satisfies the
+requirements it was GIVEN (all six, verbatim) and does not reason about the
+requirement nobody wrote down — here, *partial failure must stay partial*. Spell
+out the degradation behaviour, or grade for it, because it will not be inferred.
+
+**Operating-envelope note, learned the same session:** the workflow reads files
+from the **ref it runs on**. A first dispatch on `ref: main` returned
+`not_attempted` — `"permitted by scope, but no such file"` — because the target
+module existed only on an unmerged branch. Dispatch on the branch. The
+three-state envelope handled this exactly as designed: `not_attempted` with a
+named reason, never an empty `completed` that would have read as "the model had
+nothing to say".
 
 ⚠️ **It is not a substitute for reading a small file.** Three of the five tasks
 were under 200 lines, where the grading session could derive the ground truth by
