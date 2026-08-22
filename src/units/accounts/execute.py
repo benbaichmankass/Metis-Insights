@@ -25,6 +25,7 @@ import uuid
 from typing import Any, Optional, Tuple
 
 from src.core.coordinator import OrderPackage, is_paused
+from src.runtime import bybit_position_mode
 from src.units.accounts.precision import (
     get_tick_size,
     invalidate_tick_cache,
@@ -701,6 +702,12 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
             # Derivatives (linear/inverse) accept SL/TP on Market.
             kwargs["stopLoss"] = quantize_price(order["sl"], tick)
             kwargs["takeProfit"] = quantize_price(order["tp"], tick)
+            # Wired for consistency: a smoke-test order that skipped the book
+            # resolution would be the one Bybit call able to drift from the rest.
+            bybit_position_mode.apply_position_idx(
+                kwargs, order.get("account_id") or account_cfg.get("account_id"),
+                order["symbol"], order["side"],
+            )
             resp = client.place_order(**kwargs) or {}
             ret_code = resp.get("retCode")
             if ret_code not in (0, "0", None):
@@ -1511,6 +1518,18 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                         "for %s: %s — proceeding without check",
                         order["symbol"], _te,
                     )
+            # T.2 hedge-mode plumbing. Inert while BYBIT_HEDGE_MODE_SYMBOLS is
+            # empty (no kwarg added, byte-for-byte unchanged). The BOOK, not the
+            # order side: a reduce-only order acts on the OPPOSITE book to its
+            # own side, so it is converted here rather than inside the resolver.
+            _pos_side = (
+                bybit_position_mode.opposite_side(kwargs.get("side"))
+                if order.get("reduce_only")
+                else kwargs.get("side")
+            )
+            bybit_position_mode.apply_position_idx(
+                kwargs, account_cfg.get("account_id"), order["symbol"], _pos_side,
+            )
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
     except BelowVenueMinQtyRefusal as exc:
@@ -2442,6 +2461,12 @@ def modify_open_order(
                         "trade's qty.",
                         account_cfg.get("account_id"), symbol,
                     )
+            # A protective stop belongs to the book it protects. `side` here is
+            # the POSITION's direction (callers pass the trade's own), so it
+            # feeds the resolver unconverted. Inert on an empty allowlist.
+            bybit_position_mode.apply_position_idx(
+                kwargs, account_cfg.get("account_id"), symbol, side,
+            )
             resp = exchange_client.set_trading_stop(**kwargs)
             ret_code = (resp or {}).get("retCode")
             ok = ret_code in (0, "0", None)
@@ -2624,6 +2649,12 @@ def close_open_position(
                 kwargs["marketUnit"] = "baseCoin"
             else:
                 kwargs["reduceOnly"] = True
+            # `side` is already the POSITION's direction (see `direction`
+            # above, which derives close_side from it), so it is exactly what
+            # positionIdx needs — no inversion here. Inert on an empty allowlist.
+            bybit_position_mode.apply_position_idx(
+                kwargs, account_cfg.get("account_id"), symbol, side,
+            )
             resp = exchange_client.place_order(**kwargs) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):

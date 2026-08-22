@@ -6534,10 +6534,28 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
             category = _bybit_category(acc)
             if category == "spot":
                 return False  # spot has no position-level SL/TP; monitor exits it
+            # positionIdx was HARDCODED 0 here (one-way). Kept as the default
+            # via the resolver so the re-arm cannot become the one Bybit write
+            # that ignores hedge mode once the allowlist is non-empty — a
+            # half-applied position-mode change would re-arm a protective stop
+            # against the WRONG book, which is worse than not re-arming.
+            # Inert today: an empty allowlist resolves one_way and the kwarg
+            # stays 0, byte-for-byte unchanged.
+            from src.runtime.bybit_position_mode import position_idx_for
+            # `row` may be a sqlite3.Row (no .get), and `direction` is not
+            # guaranteed to be selected — resolve defensively rather than
+            # assuming a shape. An unreadable direction lands as `unresolved`,
+            # which keeps the 0 default and logs, instead of raising into the
+            # re-arm path that exists to fix a naked position.
+            try:
+                _dir = row["direction"]
+            except Exception:  # noqa: BLE001 — a missing column is not a failure
+                _dir = None
+            _pos = position_idx_for(account_id, symbol, _dir)
             resp = client.set_trading_stop(
                 category=category,
                 symbol=symbol,
-                positionIdx=0,
+                positionIdx=(0 if _pos.idx is None else _pos.idx),
                 tpslMode="Full",
                 stopLoss=str(sl),
                 takeProfit=str(tp),
