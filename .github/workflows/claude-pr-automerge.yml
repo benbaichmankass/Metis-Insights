@@ -47,8 +47,15 @@ on:
     # The OLD path stays in the list for a transition window so an in-flight
     # branch that already wrote it still fires. Remove it once no open PR carries
     # that file.
+    # ⚠️ `*.txt`, NOT `**`. The first version of this fix used `**` and armed
+    # auto-merge on THIS VERY PR by matching the directory's own README.md —
+    # observed live 2026-08-22T10:46:15Z, `auto_merge_enabled` by
+    # github-actions[bot], on a commit whose only new file there was
+    # documentation. A trigger path that a doc edit can fire is a trigger that
+    # merges PRs nobody asked to merge. Requests are `<branch-slug>.txt`; prose
+    # in this directory must never be a signal.
     paths:
-      - ".github/pr-automerge-requests/**"
+      - ".github/pr-automerge-requests/*.txt"
       - ".github/pr-automerge-request"
 
 permissions:
