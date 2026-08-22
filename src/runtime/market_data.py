@@ -51,11 +51,20 @@ def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
     Returns ``None`` for any exchange whose client is NOT safe to share, in
     which case the caller builds a fresh one exactly as before.
 
-    **IB is deliberately excluded.** An ``IBMarketData`` holds a live socket on
-    a specific clientId; handing one instance to concurrent callers is the
-    documented multi-client collision that BL-20260706-IBACCTUPDATES-COLLISION
-    is about. IB already has its own connection reuse + circuit breaker in
-    ``IBClient``; this cache must not second-guess it.
+    **IB used to be excluded here; it is not any more** (2026-08-22, #10114 /
+    BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES). This docstring
+    read *"IB is deliberately excluded -- an ``IBMarketData`` holds a live
+    socket on a specific clientId"*, which is **false**: ``IBMarketData``
+    holds no socket. Its ``__init__`` takes ``self._client =
+    get_ib_client(...)``, already a process-wide registry keyed on
+    ``(host, port, client_id)``, so every ``IBMarketData`` for one endpoint
+    ALREADY shared one ``IBClient``. The exclusion prevented no sharing that
+    was not already happening one layer down, while costing a guaranteed
+    cache MISS on every IB candle request (a fresh wrapper per request, and
+    ``_candle_cache_key`` keys on a per-OBJECT lifetime token) -- measured at
+    281 venue fetches in 281 consecutive passes against a 90s TTL. See the
+    ``interactive_brokers`` branch below for what it is memoized on and why
+    that adds no new socket sharing.
     """
     name = str(
         settings.get("EXCHANGE", settings.get("exchange", "bybit"))
