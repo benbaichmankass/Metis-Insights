@@ -108,8 +108,10 @@ _IB_PROBE_TIMEOUT_S = _env_float("IB_PROBE_TIMEOUT_S", 5.0)
 # genuinely logged-out/wedged Gateway still never answers either attempt.
 _IB_PROBE_RETRY_GAP_S = _env_float("IB_PROBE_RETRY_GAP_S", 1.5)
 # How long a SUCCESSFUL liveness probe is trusted before the next connect()
-# re-probes a still-connected CACHED handle (BL-20260816-IB-QUEUE-TIMEOUT-
-# EXCEEDS-EXIT-BUDGET).
+# re-probes a still-connected CACHED handle. Tracked by
+# BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET — kept on ONE line, because a
+# backlog id wrapped across a line break resolves to nothing and reads as tracked
+# while being tracked by nobody (check_backlog_refs.py caught exactly that here).
 #
 # ⚠️ THE PROBE IS NOT FREE AND ON THIS TOPOLOGY IT IS NOT RARE. `connect()` is
 # called on EVERY IB market-data fetch, and `_probe_liveness` ran on every one
