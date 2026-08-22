@@ -200,6 +200,7 @@ def test_every_concern_field_is_graded_by_some_dimension():
         "journal_qty_divergent": "journal_qty_backed",
         "uncovered_qty": "sl_coverage",
         "coverage_pct": "over_coverage",
+        "price_diverged_count": "price_agreement",
     }
     graded = {name for name, _ in audit._ROLLUP_DIMENSIONS}
     for field, dimension in concern_fields.items():
@@ -213,3 +214,128 @@ def test_every_concern_field_is_graded_by_some_dimension():
     assert "_ROLLUP_DIMENSIONS" in src.split("ROLL-UP")[-1], (
         "the roll-up must compute its all-clear from _ROLLUP_DIMENSIONS"
     )
+
+
+# ---------------------------------------------------------------------------
+# BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS
+#
+# Every dimension above grades a QUANTITY or an EXISTENCE. None asked whether
+# the resting leg sits WHERE THE JOURNAL DECLARED, so a clean bill of health
+# was compatible with every stop resting at the wrong price -- and both sides
+# of the comparison were already in the record, never compared.
+#
+# The row's own resolution criteria require a PLANTED DIVERGENCE shown to FAIL
+# before a clean result is trusted. That is `test_a_planted_divergence_FAILS`
+# below; the clean case beside it is what stops the check from passing by
+# always alarming.
+# ---------------------------------------------------------------------------
+
+class _FakeClient:
+    """Minimal stand-in for the pybit client: two read calls, no network."""
+
+    def __init__(self, position, legs):
+        self._position, self._legs = position, legs
+
+    def get_positions(self, **_kw):
+        return {"result": {"list": [self._position]}}
+
+    def get_open_orders(self, **_kw):
+        return {"result": {"list": self._legs}}
+
+
+def _row(trade_id, sl, tracked_id, qty=1.0, symbol="XRPUSDT"):
+    return {"id": trade_id, "symbol": symbol, "strategy_name": "s",
+            "direction": "buy", "position_size": qty, "stop_loss": sl,
+            "take_profit_1": None, "sl_order_id": tracked_id,
+            "tp_order_id": None, "created_at": "2026-08-22T00:00:00Z"}
+
+
+def _partial(position_sl="", legs=(), rows=()):
+    pos = {"size": "10", "side": "Buy", "stopLoss": position_sl,
+           "takeProfit": "3.0", "tpslMode": "Partial"}
+    return audit._audit_symbol(_FakeClient(pos, list(legs)), "linear",
+                               "XRPUSDT", list(rows))
+
+
+def test_a_planted_divergence_FAILS():
+    """THE REQUIRED CONTROL. Journal says 2.00, the live leg rests at 1.50.
+
+    Before this dimension existed the audit reported PROTECTED here: the leg
+    exists, its qty covers the position, a target rests. Every quantity was
+    right and the stop was in the wrong place.
+    """
+    res = _partial(
+        legs=[{"orderId": "L1", "stopOrderType": "PartialStopLoss", "qty": "10",
+               "triggerPrice": "1.50", "orderStatus": "Untriggered"},
+              {"orderId": "T1", "stopOrderType": "PartialTakeProfit", "qty": "10",
+               "triggerPrice": "3.00", "orderStatus": "Untriggered"}],
+        rows=[_row(1, 2.00, "L1", qty=10.0)])
+    assert res["price_state"] == "diverged", res
+    assert res["price_diverged_count"] == 1
+    t = res["journal_open_trades"][0]
+    assert t["broker_sl"] == 1.50 and t["journal_sl"] == 2.00
+    # ...and it must reach the roll-up, or the body carries a finding the
+    # summary still calls clean -- the exact bug this file exists for.
+    found, _ = audit.grade_rollup(_summary(res))
+    assert len(found["price_agreement"]) == 1
+    assert not _is_all_clear(found)
+
+
+def test_matching_prices_are_clean():
+    """The guard must not cry wolf, or it gets ignored -- which is the P1."""
+    res = _partial(
+        legs=[{"orderId": "L1", "stopOrderType": "PartialStopLoss", "qty": "10",
+               "triggerPrice": "2.00", "orderStatus": "Untriggered"}],
+        rows=[_row(1, 2.00, "L1", qty=10.0)])
+    assert res["price_state"] == "agree"
+    found, _ = audit.grade_rollup(_summary(res))
+    assert found["price_agreement"] == []
+
+
+def test_tick_rounding_is_not_a_divergence():
+    """2.000 vs 2.005 is 0.25% -- inside the stated tolerance, not an alarm."""
+    res = _partial(
+        legs=[{"orderId": "L1", "stopOrderType": "PartialStopLoss", "qty": "10",
+               "triggerPrice": "2.005", "orderStatus": "Untriggered"}],
+        rows=[_row(1, 2.00, "L1", qty=10.0)])
+    assert res["price_state"] == "agree"
+
+
+def test_full_mode_netting_surfaces_the_rows_riding_someone_elses_stop():
+    """The documented Jun 21-23 mechanism, which the audit could not see.
+
+    Full mode holds ONE position-level stopLoss and each new open REPLACES it,
+    so N rows with N declared stops all ride the newest geometry. Here two of
+    three rows are wrong, and every quantity dimension is still perfectly clean.
+    """
+    res = _partial(position_sl="1.50",
+                   rows=[_row(1, 2.00, None), _row(2, 1.80, None), _row(3, 1.50, None)])
+    assert res["price_diverged_count"] == 2, res["journal_open_trades"]
+    assert res["price_agree_count"] == 1
+    assert res["price_state"] == "diverged"
+    assert all(t["price_basis"] == "full_mode_position_stopLoss"
+               for t in res["journal_open_trades"])
+
+
+def test_no_tracked_leg_is_ungradeable_never_agree():
+    """"We could not look" must not collapse into "the price is right"."""
+    res = _partial(
+        legs=[{"orderId": "L9", "stopOrderType": "PartialStopLoss", "qty": "10",
+               "triggerPrice": "1.50", "orderStatus": "Untriggered"}],
+        rows=[_row(1, 2.00, None, qty=10.0)])
+    assert res["price_state"] == "ungradeable"
+    assert res["price_ungradeable_count"] == 1
+    assert res["price_diverged_count"] == 0
+    # An entirely ungradeable symbol must not present as clean-by-silence: the
+    # envelope says `ungradeable`, so the denominator travels with the verdict.
+    assert res["price_agree_count"] == 0
+
+
+def test_a_dead_tracked_leg_is_ungradeable_not_agree():
+    """A row whose tracked leg no longer rests has no price to compare to."""
+    res = _partial(
+        legs=[{"orderId": "OTHER", "stopOrderType": "PartialStopLoss", "qty": "10",
+               "triggerPrice": "2.00", "orderStatus": "Untriggered"}],
+        rows=[_row(1, 2.00, "GONE", qty=10.0)])
+    assert res["price_state"] == "ungradeable"
+    assert res["journal_open_trades"][0]["price_basis"] == "no_tracked_live_leg"
