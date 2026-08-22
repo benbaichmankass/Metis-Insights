@@ -66,9 +66,50 @@ if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no
     exit 3
 fi
 
+# ---------------------------------------------------------------------------
+# BL-20260821-DEPLOY-WRAPPER-ASSERTS-A-BOUNCE-IT-DID-NOT-DO
+#
+# The closing line used to infer the outcome from PRE_HEAD vs POST_HEAD and
+# assert "${UNIT} bounced" whenever they matched. That inference cannot be
+# correct, because deploy_pull_restart.sh does NOT drive its restart decision
+# off this script's PRE_HEAD. It drives it off runtime_logs/deployed_sha.txt
+# (its RUNTIME_BASE) and off the CONTENT of the diff, so BOTH branches lied:
+#
+#   PRE_HEAD == POST_HEAD  usually means NOTHING was restarted -- its
+#                          "Running processes already deployed; nothing to
+#                          deploy" early exit -- yet we printed "bounced".
+#   PRE_HEAD != POST_HEAD  can ALSO mean nothing was restarted, when every
+#                          changed path is docs/tests/.claude/.github
+#                          (BL-20260529-002). "active" was then true only
+#                          because the unit had never stopped.
+#
+# Four real outcomes -- restarted / skipped-already-deployed / skipped-non-
+# runtime / deferred-vm-runner -- collapsed into two sentences derived from a
+# signal that determines none of them. Every "deployed and verified" claim
+# that quoted this line rested on it.
+#
+# So MEASURE the asserted fact instead of inferring it: a unit that was bounced
+# has a NEW start timestamp and a NEW MainPID. Three states, never collapsed --
+# bounced / not_bounced / unknown -- because an unreadable systemctl must not
+# read as "did not restart". Two read-only `systemctl show` calls; this changes
+# nothing about what the deploy DOES.
+# ---------------------------------------------------------------------------
+unit_start_fingerprint() {
+    # "<ActiveEnterTimestampMonotonic> <MainPID>" for ${UNIT}, or "" if either
+    # read fails. `show -p X` (not `--value`) so this works on older systemd.
+    local stamp pid
+    stamp="$("${SYSTEMCTL[@]}" show -p ActiveEnterTimestampMonotonic "${UNIT}" 2>/dev/null | cut -d= -f2- || true)"
+    pid="$("${SYSTEMCTL[@]}" show -p MainPID "${UNIT}" 2>/dev/null | cut -d= -f2- || true)"
+    if [ -z "${stamp}" ] || [ -z "${pid}" ]; then
+        return 0
+    fi
+    printf '%s %s' "${stamp}" "${pid}"
+}
+
 cd "${REPO_DIR}"
 PRE_HEAD="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 PRE_UNIT_STATE="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>/dev/null || echo "unknown")"
+PRE_UNIT_FP="$(unit_start_fingerprint)"
 log "Pre-deploy HEAD: ${PRE_HEAD}"
 log "Pre-deploy state of ${UNIT}: ${PRE_UNIT_STATE}"
 
@@ -105,8 +146,21 @@ while [ "$(date +%s)" -lt "${deadline}" ]; do
     fi
     sleep 2
 done
+POST_UNIT_FP="$(unit_start_fingerprint)"
+if [ -z "${PRE_UNIT_FP}" ] || [ -z "${POST_UNIT_FP}" ]; then
+    # We could not look. NOT the same as "it did not restart".
+    BOUNCE_STATE="unknown"
+    BOUNCE_MSG="${UNIT} restart state UNKNOWN (could not read its start stamp)"
+elif [ "${PRE_UNIT_FP}" != "${POST_UNIT_FP}" ]; then
+    BOUNCE_STATE="bounced"
+    BOUNCE_MSG="${UNIT} restarted"
+else
+    BOUNCE_STATE="not_bounced"
+    BOUNCE_MSG="${UNIT} NOT restarted (left running)"
+fi
 log "Post-deploy HEAD: ${POST_HEAD}"
 log "Post-deploy state of ${UNIT}: ${POST_UNIT_STATE}"
+log "Post-deploy restart of ${UNIT}: ${BOUNCE_STATE}"
 
 echo
 echo "===== post-deploy journalctl (last 30 lines) ====="
@@ -114,16 +168,16 @@ journalctl -u "${UNIT}" -n 30 --no-pager 2>/dev/null || true
 
 if [ "${POST_UNIT_STATE}" = "active" ]; then
     record_audit "pull-and-deploy" "ok" \
-        "{\"pre_head\": \"${PRE_HEAD}\", \"post_head\": \"${POST_HEAD}\", \"pre_unit\": \"${PRE_UNIT_STATE}\", \"post_unit\": \"${POST_UNIT_STATE}\"}" >/dev/null || true
+        "{\"pre_head\": \"${PRE_HEAD}\", \"post_head\": \"${POST_HEAD}\", \"pre_unit\": \"${PRE_UNIT_STATE}\", \"post_unit\": \"${POST_UNIT_STATE}\", \"bounce_state\": \"${BOUNCE_STATE}\"}" >/dev/null || true
     if [ "${PRE_HEAD}" = "${POST_HEAD}" ]; then
-        log "Deploy finished — HEAD unchanged (already at origin/main); ${UNIT} bounced."
+        log "Deploy finished — HEAD unchanged at ${POST_HEAD}; ${BOUNCE_MSG}."
     else
-        log "Deploy finished — HEAD ${PRE_HEAD} → ${POST_HEAD}; ${UNIT} active."
+        log "Deploy finished — HEAD ${PRE_HEAD} → ${POST_HEAD}; ${BOUNCE_MSG}."
     fi
     exit 0
 else
     record_audit "pull-and-deploy" "failed" \
-        "{\"pre_head\": \"${PRE_HEAD}\", \"post_head\": \"${POST_HEAD}\", \"pre_unit\": \"${PRE_UNIT_STATE}\", \"post_unit\": \"${POST_UNIT_STATE}\"}" >/dev/null || true
+        "{\"pre_head\": \"${PRE_HEAD}\", \"post_head\": \"${POST_HEAD}\", \"pre_unit\": \"${PRE_UNIT_STATE}\", \"post_unit\": \"${POST_UNIT_STATE}\", \"bounce_state\": \"${BOUNCE_STATE}\"}" >/dev/null || true
     log "ERROR: ${UNIT} did not return to 'active' within 60 s post-deploy."
     exit 1
 fi
