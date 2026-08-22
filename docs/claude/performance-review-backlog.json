@@ -3697,7 +3697,27 @@
       "why_it_matters": "R is the axis the promotion gates read. A leg whose R is computed against a near-zero denominator will clear any R-based gate while losing money, which is precisely the failure the gate exists to prevent. Measured here on 2 of 31 strategy rows across the real and paper 30d blocks, but the contamination is at the AGGREGATE level, so it reaches every consumer of totalR/expectancyR regardless of how few legs cause it.",
       "next_action": "Tier-1: floor or reject the R denominator when |entry - stop| is below a venue-tick-derived minimum, and report rTradeCount alongside a max|R| so a single outlier is visible. Then re-check whether any past promotion decision rested on an R aggregate containing one.",
       "resolution_criteria": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign."
+    },
+    {
+      "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+      "opened_at": "2026-08-22T18:05:00+00:00",
+      "opened_by": "claude (s4-pairs-control 2026-08-22, workplan item 1.4 Tier-1 diagnosis)",
+      "severity": "high",
+      "tier": "3 (sizing policy — proposal only, operator-gated)",
+      "status": "open",
+      "area": "sizing",
+      "source": "docs/sprint-logs/S-PAIRS-CONTROL-EXIT-RESIDUE-2026-08-22.md",
+      "title": "ict_scalp_avax_5m's order size IS the margin ceiling, not a risk number — position_size equals max_qty_by_margin exactly, on the worst paper strategy of the last 30d",
+      "description": "SPLIT OUT OF THE HEALTH BACKLOG DELIBERATELY. BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM is a plumbing row (a venue clamp that does not fire, and the observability gap that makes it unverifiable). THIS row is the strategy question that the plumbing diagnosis exposed, and it does not go away even once the clamp works: a clamp would cap the order at 22,000 AVAX, which is still a ceiling rather than a risk-derived size.\n\nMEASURED 2026-08-22, POPULATION: the 21 exchange_rejected ict_scalp_avax_5m / bybit_1 rows spanning 2026-07-30 -> 2026-08-22 (filter_state asserted 'applied'). Two are recent enough to carry notes.margin_basis (the stamp shipped 2026-08-13), and both say the same thing:\n  {'kind':'venue_available','basis_usd':81229.86,'leverage':3,'buffer':0.9,'max_qty_by_margin':33997.92498997939} -> position_size 33997.9\n  {'kind':'venue_available','basis_usd':91800.28,'leverage':3,'buffer':0.9,'max_qty_by_margin':33265.434696282246} -> position_size 33265.4\nposition_size EQUALS max_qty_by_margin to FULL FLOAT PRECISION on both. risk.py:1232 clamps qty down to that cap when the risk-based size exceeds it, so on these orders the risk model asked for MORE than the account's available margin at 3x leverage could support, and what shipped was the margin ceiling.\n\nn=2 IS A SMALL SAMPLE and is labelled as such -- the margin_basis stamp only exists from 2026-08-13, so the other 19 rejections cannot be attributed this way. What the 19 DO show is the same size band (23,090-34,526) over three weeks, which is consistent with a persistent ceiling rather than two outliers, but that is consistency, not attribution.\n\nCONTEXT: ict_scalp_avax_5m is the worst paper strategy over 30d at -7,620.73 across 20 trades (45.0% win). Accepted orders on the leg (n=22) are median 4,574.3 -- so the ceiling-sized orders are the TAIL, not the norm; the 'invisible half' claim that accepted orders sit near the ceiling is NOT supported at the median and was corrected on the health row.",
+      "why_it_matters": "A size that is a ceiling is not a risk decision. When the venue clamp is eventually fixed the order will be capped at 22,000 AVAX and will PLACE rather than be refused -- so fixing the plumbing converts a loud refusal into a silent fill at a size no risk model chose, on the worst-performing leg in the book. The 21 venue refusals have been acting as an accidental backstop.",
+      "trigger_condition": "Before the BL-20260814 venue-max clamp is made to fire for AVAXUSDT — otherwise the clamp turns 21 refusals into 21 ceiling-sized fills.",
+      "next_action": "TIER-3, PROPOSAL ONLY. Establish what the risk-based size for this leg actually is before the margin cap bites (the pre-clamp qty is not currently recorded -- risk.py knows it at the clamp site and could stamp it into notes.margin_basis alongside max_qty_by_margin, which is Tier-1 observability and the cheapest first step). Then decide whether a leg whose risk-derived size routinely exceeds available margin at 3x leverage should be sized down, have its leverage or risk fraction cut, or be demoted -- given its 30d record. Do not widen the margin cap.",
+      "resolution_criteria": "notes.margin_basis records the PRE-CLAMP risk-derived qty beside max_qty_by_margin, so 'the risk model asked for X and got the ceiling instead' is readable per order rather than inferable from two rows. AND an operator decision on record for this leg — sized down, re-parameterised, or left as-is with the reason stated. AND no ict_scalp_avax_5m order places at a size equal to a ceiling (margin OR venue) without that decision being in place.",
+      "related": [
+        "BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM",
+        "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK"
+      ]
     }
   ],
-  "updated_at": "2026-08-21T07:05:00+00:00"
+  "updated_at": "2026-08-22T18:05:00+00:00"
 }

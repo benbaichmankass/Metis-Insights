@@ -6,13 +6,34 @@ WHY THIS MODULE EXISTS (read before changing anything here)
 On 2026-07-30 a "Bybit scalp exit leak" of −$6,358 turned out to be almost
 entirely a measurement artifact. The chain:
 
-  1. ``clients.account_closed_pnl_for_trade`` returns None for demo accounts
+  1. ``clients.account_closed_pnl_for_trade`` returned None for demo accounts
      (#4503, a correct fix for demo closed-pnl records mis-mapping).
+     ⚠️ **AS WRITTEN THIS STEP IS STALE — it describes the code as it stood on
+     2026-07-30 and must not be read as current.** The branch was NARROWED the
+     same day (#8111, ``BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ``): demo
+     no longer returns None outright, it resolves the exit from the exchange
+     FILLS store instead. The closed-pnl *endpoint* stays untrusted for demo;
+     "there is no broker truth for demo" was the over-generalisation that got
+     fixed. The step is kept in its original form because it is the CHAIN THAT
+     PRODUCED THE INCIDENT, and rewriting history here would make the account
+     unfalsifiable — but the fix below is live, so do not act on step 1.
   2. So ``order_monitor._close_trade_from_order_status`` never recovers the real
      exit fill, leaves ``exit_price`` NULL, and pins ``exit_reason`` to
      ``reconciler_filled`` — ``_classify_broker_exit`` is downstream of a price
      the code deliberately refuses to fetch, so ``sl``/``tp`` became structurally
      unreachable on demo.
+     ⚠️ **THE PnL HALF WAS FIXED; THE LABEL HALF WAS NOT, AND IS STILL LIVE**
+     (measured 2026-08-22, ``BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE``).
+     Once a price DOES arrive — from ``_sweep_pending_pnl_from_bybit`` for a
+     broker record, or from the fills path above — ``exit_price`` and ``pnl``
+     are written and **``exit_reason`` is never revisited**: no writer re-runs
+     ``_classify_broker_exit``. So the label stays frozen at the one moment the
+     answer could not be known, on REAL-MONEY rows as well as demo. Measured on
+     the rows where broker truth can adjudicate: **91 of 155 (58.7%)** closes
+     labelled ``reconciler_filled`` had actually reached a declared bracket
+     level, and **181 of 181** mislabelled rows carry no ``exit_reason_source``
+     note key at all — the marker the classifying branch stamps — which is a
+     100% signature that none of them ever reached the classifier.
   3. Six hours later ``_sweep_local_pnl_for_unpriced`` substitutes
      ``last_mark_price()`` — the market price at sweep time — as ``exit_price``
      and books ``pnl`` from it.
