@@ -22,8 +22,6 @@ import inspect
 import sqlite3
 from pathlib import Path
 
-import pytest
-
 from src.units.strategies import pairs_executor as px
 
 
@@ -81,7 +79,7 @@ def test_cascade_is_passed_the_pairs_native_reason_not_a_literal():
     package would close, but ``close_reason`` still would not be the exit record.
     """
     src = inspect.getsource(px._close_pair)
-    line = next(l for l in src.splitlines() if "_cascade_close_pair_package(" in l)
+    line = next(ln for ln in src.splitlines() if "_cascade_close_pair_package(" in ln)
     assert 'f"pairs_{outcome}"' in line, (
         f"cascade must forward the leg's own exit reason; got: {line.strip()}"
     )

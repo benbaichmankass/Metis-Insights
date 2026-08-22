@@ -666,6 +666,16 @@ def _alert_partial_placement(pair: str, account_id: str, placed: Sequence[tuple]
         logger.error("pairs: partial-placement alert failed for %s: %s", pair, exc)
 
 
+# collapsed-state: unknown — FALSE POSITIVE against `position_telemetry.finality_source`,
+# not a suppression of a real finding. This module has ZERO references to
+# `position_telemetry`, `finality_source`, `stamped`, `derived_join` or `not_final`
+# (verified by grep, and re-checkable the same way). The only `"unknown"` literals here
+# are the account-id fallback `str(account_cfg.get("account_id") or "unknown")` at the
+# two placement/close sites — a label for an unnamed account, unrelated to whether a
+# telemetry row is terminal. The finding PRE-DATES the cascade fix below: it reproduces
+# on the unmodified file (`git stash` + re-run), and surfaced only because touching this
+# file pulled it into the guard's diff scope.
+
 def _cascade_close_pair_package(db: Any, trade_id: Any, close_reason: str) -> bool:
     """Close the ``order_packages`` row linked to a pairs leg we just closed.
 
