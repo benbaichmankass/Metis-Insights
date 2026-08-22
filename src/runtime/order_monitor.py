@@ -6308,6 +6308,13 @@ _BYBIT_COVERAGE_EPS_FRAC = 0.005
 # the live case that motivated it was 4.4× (bybit_1 XRPUSDT, 2026-07-30).
 _BYBIT_OVERCOVER_FACTOR = 1.5
 
+#: IB's sibling of the factor above (BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS).
+#: The class was implemented for Bybit and never ported: `_check_broker_naked_ib_positions`
+#: asked only whether coverage was SUFFICIENT, so 30 contracts of stop against a 15 long
+#: passed with room to spare. Same default as Bybit so the two venues are not silently
+#: graded on different thresholds.
+_IB_OVERCOVER_FACTOR = 1.5
+
 # Fractional tolerance before open-journal-qty EXCEEDING the netted exchange
 # size is reported as a phantom-row divergence. Generous (10%) so ordinary
 # rounding / a mid-fill race never cries wolf; the live cases were +38% and
@@ -6833,6 +6840,11 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0, "skipped": 0,
         "partially_naked": 0, "ungradeable": 0, "read_failed": 0, "covered": 0,
+        # Declared here, not created on first use: a sweep that found no
+        # over-cover must report 0 rather than omit the key, or "we looked and
+        # found none" reads as "we did not look" — which is what this detector
+        # exists to stop being true.
+        "over_covered": 0,
         # Graded SEPARATELY from the stop side: a position can be fully
         # stop-covered and hold no target at all (BL-20260816-COVERAGE-IS-ONE-SIDED).
         "target_naked": 0,
@@ -6956,6 +6968,55 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                     account_id, protect_symbol, cov["unknown_qty_legs"],
                 )
                 continue
+
+            # ── UPPER bound. This sweep only ever asked whether coverage was
+            # SUFFICIENT (BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS).
+            # Measured 2026-08-16: ib_paper MES held stops 338 (15 @ 7516.50,
+            # oca-protect-336) and 375 (15 @ 7533.75, oca-protect-373) — 30
+            # contracts against a 15 long — and passed, because 30 >= 15.
+            #
+            # ⚠️ WHAT MAKES IT DANGEROUS IS THE GROUP COUNT, NOT THE RATIO, and a
+            # blind port of the Bybit factor would miss that. ocaType=1 cancels the
+            # rest of the SAME group when a leg fills; it says nothing about a
+            # DIFFERENT group. So excess inside ONE group is self-limiting, while
+            # excess spread across TWO is the sequence: stop A fires -> flat ->
+            # stop B is still resting -> it fires -> the account is SHORT, with no
+            # stop of its own. Graded at two levels rather than one alarm, because
+            # a detector that shouts equally at both is the desensitised-alarm P1.
+            #
+            # DETECT-ONLY, deliberately. It must not cancel a leg: choosing WHICH
+            # leg to cancel is exactly what went wrong on 2026-08-20, when the
+            # remediation cancelled the one matching the journal and left the stray
+            # (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG:
+            # MES still rests at 7516.5 against a declared 7533.69642857 —
+            # 17.196429 pts x 15 x 5 = $1,289.73).
+            _stop_q = float(cov.get("stop_qty") or 0.0)
+            if _stop_q > size * _IB_OVERCOVER_FACTOR:
+                summary["over_covered"] += 1
+                _groups = cov.get("oca_groups") or {}
+                _pct = (100.0 * _stop_q / size) if size else 0.0
+                if len(_groups) > 1:
+                    logger.error(
+                        "_check_broker_naked_ib_positions: STOP OVER-COVER ACROSS "
+                        "DISJOINT OCA GROUPS %s/%s — position size=%s but resting "
+                        "STOP qty totals %s (%.0f%%) across %d groups %s. OCA "
+                        "cancels only WITHIN a group, so one stop firing flattens "
+                        "the position and leaves the other(s) resting to sell "
+                        "again into a naked SHORT. Detect-only: resolve by hand, "
+                        "and cancel the leg that does NOT match trades.stop_loss.",
+                        account_id, protect_symbol, size, _stop_q, _pct,
+                        len(_groups), sorted(_groups),
+                    )
+                else:
+                    logger.warning(
+                        "_check_broker_naked_ib_positions: stop over-cover WITHIN "
+                        "one OCA group %s/%s — position size=%s but resting STOP "
+                        "qty totals %s (%.0f%%) in group(s) %s. Self-limiting (a "
+                        "fill cancels its own group's siblings) but still not the "
+                        "shape place_protective creates — worth a look.",
+                        account_id, protect_symbol, size, _stop_q, _pct,
+                        sorted(_groups),
+                    )
             # TARGET-side coverage, graded separately (2026-08-16,
             # BL-20260816-COVERAGE-IS-ONE-SIDED). `covered_qty` counts a stop
             # and a take-profit as interchangeable, so a position holding a
