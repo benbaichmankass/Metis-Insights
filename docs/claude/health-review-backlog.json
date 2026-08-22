@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-22T18:05:00+00:00",
+  "updated_at": "2026-08-22T18:30:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -21216,6 +21216,27 @@
         "BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS",
         "BL-20260822-FILLS-MATCHER-QTY-GATE-BLOCKS-NETTED-ACCOUNTS",
         "BL-20260822-PACKAGE-CLOSE-REASON-IS-NOT-THE-EXIT-RECORD"
+      ]
+    },
+    {
+      "id": "BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER",
+      "opened_at": "2026-08-22T18:30:00+00:00",
+      "opened_by": "claude (s4-pairs-control 2026-08-22, M20 readiness infra check)",
+      "severity": "medium",
+      "tier": "1 (observation + alerting shape) — any protection change on the position is Tier-2",
+      "status": "open",
+      "area": "alerting",
+      "title": "ib_paper/MGC is target-naked AND monitor-blind at the same time, and each alert cites the other's missing half as its backstop",
+      "detail": "MEASURED 2026-08-22T18:1xZ on /api/bot/notifications, six banners, two of them alerts.\n\nThe SAME position carries two independent conditions:\n  (a) ALERT ib_target_naked: 'ib_paper/MGC: position 95.0 has 0.0 of take-profit coverage against a declared TP of 4393.02071429 - the position can only stop out or run' (since 17:58:29Z, re-latched on the trader restart).\n  (b) WARNING monitor_blindness: 'ict_scalp_mgc_15m | MGC - Reason: candles_unavailable (for 3 consecutive ticks) - Broker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.' (since 17:36:26Z).\n\nEACH ALERT'S STATED BACKSTOP IS THE OTHER'S MISSING HALF. The target-naked alert is tolerable because the stop rests and the monitor can still act; the monitor-blind alert is tolerable because 'the broker SL/TP backstop (if any) still holds'. On THIS position the take-profit does not exist and the monitor is not running, so the stop is the only remaining protection - and neither alert says so, because neither reads the other's condition.\n\nThis is not a claim that either alert is individually wrong. Both are accurate. The gap is that the banner feed reports them as two independent rows and nothing composes them, so the compound state - which is strictly worse than either - is invisible on every surface.\n\nSCOPE, STATED: ib_paper is PAPER money, so this is not money-at-risk. It IS an M20 evidence source, and a leg whose exits are neither declared nor monitored produces exit rows M20 cannot interpret.\n\nSELF-RESOLVING FOR THIS INSTANCE: the operator-approved Sunday 2026-08-23T22:30Z routine (trig_014S3NAzMKy2Ac2AM2GgyRE5) FLATTENS MGC, which clears both conditions on this position. The CLASS is what this row is about - the composition gap will recur on the next position that hits both.",
+      "why_it_matters": "An alarm whose tolerability argument depends on a second condition that is ALSO alarming is not a graded alarm - it is two half-measurements read as if independent. This is the same shape as the collapsed-state family the repo already enforces: the individual states are emitted correctly and no consumer reads them together.",
+      "next_action": "TIER-1: decide whether the banner feed should compose - i.e. whether a position carrying BOTH ib_target_naked and monitor_blindness should surface as one higher-severity row naming the stop as sole remaining protection, rather than two rows each citing the other. MEASURE FIRST, do not build blind: count how often the two co-occur on one position over the available banner/outcome history. If it is rare, a composed banner is not worth the code; if it is common, the two-row rendering has been understating the state routinely. Explicitly NOT proposed here: any change to what protection is placed - that is Tier-2 and belongs with BL-20260816-COVERAGE-IS-ONE-SIDED.",
+      "resolution_criteria": "Either (a) a measured co-occurrence rate is on record and the operator has decided the two-row rendering is adequate, with the reason stated; or (b) a position holding both conditions surfaces as a single row that names the stop as the only remaining protection, demonstrated on a real or synthetic co-occurrence. A row closed on 'the Sunday routine flattened MGC' does NOT satisfy this - that clears the instance, not the class.",
+      "related": [
+        "BL-20260816-COVERAGE-IS-ONE-SIDED",
+        "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
+      ],
+      "evidence": [
+        "docs/research/m20-readiness-2026-08-22.md"
       ]
     }
   ]
