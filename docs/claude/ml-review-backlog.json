@@ -3300,7 +3300,15 @@
           "by": "claude (s2-exitclust)",
           "note": "No gate packet was run and none is owed on the shadow->advisory question, because that question is not live for a candidate-stage head. What IS a real open question, and is NOT answered here: whether ETH should get a -fc-pcv-v2 retrain to match the BTC/SOL siblings. That is new work, Tier-1 to propose, and it is deliberately not scheduled on this row."
         }
-      ]
+      ],
+      "severity": "medium",
+      "tier": "1 (a registry read + a record correction; any ETH retrain that follows is separately Tier-1 to propose)",
+      "resolution_criteria": [
+        "The workplan's T.4 row no longer states or implies that an ETH 15m head is at shadow awaiting promotion. DONE in this PR — verifiable by reading the T.4 section of docs/claude/WORKPLAN-2026-08-21.md.",
+        "A decision is recorded on the ONE genuinely open question this refutation exposes: whether ETH should get an -fc-pcv-v2 retrain to match the BTC and SOL siblings, which both sit at deployment_bucket LIVE while no eth-regime-15m-lgbm-fc-pcv-v2 exists in the registry at all. Either a manifest is proposed, or the row records why ETH is deliberately left without one.",
+        "Observable check that ends this row either way: /api/bot/ml/registry contains an ETH 15m head whose deployment_bucket is SHADOW or LIVE and whose latest_run macro_f1 exceeds the 0.5840 the demoted fc head achieved — OR a written decision that ETH stays unmodelled at 15m. Today both ETH heads actually at shadow score 0.4817 and 0.4576, at or below chance."
+      ],
+      "next_action": "Propose (do not run) an ETH -fc-pcv-v2 manifest matching the BTC/SOL siblings, OR record why not. Do NOT re-promote eth-regime-15m-lgbm-fc-pcv-v1: that would reverse an operator-approved demotion made on a powered measurement."
     }
   ],
   "updated_at": "2026-08-22T10:20:00+00:00"
