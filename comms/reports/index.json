@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260821-130500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-21T13:05:00+00:00",
+      "window_start": "2026-08-16T09:25:00+00:00",
+      "window_end": "2026-08-21T13:05:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Execution is the story: only 8.1% of closes used a declared bracket, exit evaluation misses its 60s requirement on a third of cycles, and 12 of 33 capabilities shipped this window already have nothing running them. Real money is flat; the paper book's loss sits at 0.06 provenance coverage.",
+      "html_path": "comms/reports/since-last/20260821T130500Z/report.html",
+      "json_path": "comms/reports/since-last/20260821T130500Z/report.json",
+      "md_path": "comms/reports/since-last/20260821T130500Z/report.md"
+    },
+    {
       "id": "RPT-20260816-092500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-16T09:25:00+00:00",

@@ -666,3 +666,144 @@ def test_half_open_alert_severity_reflects_whether_it_is_still_naked(monkeypatch
     assert calls[0][0][1] == "cleaned"
     assert calls[1][0][1] == "unresolved"
     assert calls[0][1] != calls[1][1], "an un-flattened naked leg is more severe"
+
+
+# ── the half-open safety check runs EVERY TICK, not once per bar ────────────
+# BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN. The leg-state read used to
+# sit BELOW the once-per-bar `decision_bars` dedup, so a naked leg was not even
+# looked at until the next bar — measured at 62/63/64 minutes on the live
+# journal for a condition this module's own alert grades CRITICAL.
+
+def _half_open_tick_env(tmp_path, monkeypatch, *, closed_ok=True):
+    """Wire run_pairs_tick for a LIVE pair whose leg-state reads half_open."""
+    ca, cb = _extended_spread()
+    soak, closes = [], []
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": "live",
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    # Same bar on every tick — this is precisely what the dedup suppresses.
+    monkeypatch.setattr(px, "_fetch_leg",
+                        lambda sym, tf, lim, s: (
+                            list(ca) if sym == "SOLUSDT" else list(cb), "SAME_BAR"))
+    monkeypatch.setattr(px, "_pair_leg_state", lambda *a, **k: "half_open")
+    # exactly one leg stranded
+    import src.runtime.positions as _pos
+    monkeypatch.setattr(_pos, "has_open_trade_for_strategy",
+                        lambda acct, sym, strat, **k: sym == "SOLUSDT")
+    monkeypatch.setattr(px, "_close_pair",
+                        lambda *a, **k: closes.append(a) or {"closed": closed_ok})
+    monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
+    monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
+    # ⚠️ THE DEDUP STATE MUST PERSIST ACROSS TICKS or this harness cannot test
+    # the thing it exists to test. run_pairs_tick calls _load_decision_bars() on
+    # EVERY invocation, so the usual `lambda: {}` stub hands back a fresh empty
+    # dict each tick and the once-per-bar dedup never fires between calls —
+    # which made an earlier version of these tests pass against the very bug
+    # they were written to catch. Mirror the real file-backed round-trip.
+    bars: dict = {}
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: dict(bars))
+    monkeypatch.setattr(px, "_save_decision_bars", lambda state: bars.update(state))
+    import src.units.accounts.clients as _clients
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    monkeypatch.setattr(_exec, "execute_pkg",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("must not place while half-open")))
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(_al, "load_accounts_dict",
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit",
+                                                     "account_class": "paper",
+                                                     "risk": {"risk_pct": 0.015}}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: soak.append(rec) or True)
+    px._state_alert_last.clear()
+    return soak, closes
+
+
+def test_half_open_cleanup_retries_on_every_tick_of_the_same_bar(tmp_path, monkeypatch):
+    """THE REGRESSION TEST FOR THE REORDER. Three ticks land on ONE bar with a
+    stranded leg; the cleanup must be attempted on all three. Before the fix the
+    dedup swallowed ticks 2 and 3, so a naked directional position in a
+    market-neutral sleeve stood until the next bar."""
+    soak, closes = _half_open_tick_env(tmp_path, monkeypatch, closed_ok=False)
+    for _ in range(3):
+        px.run_pairs_tick({})
+    assert len(closes) == 3, (
+        f"cleanup ran {len(closes)}x on 3 ticks of one bar — the safety check is "
+        "back below the once-per-bar dedup")
+
+
+def test_half_open_never_places_and_consumes_the_bar(tmp_path, monkeypatch):
+    """Moving the check above the dedup must NOT weaken 'place nothing this
+    bar': execute_pkg raises if called, and the branch marks the bar consumed."""
+    soak, closes = _half_open_tick_env(tmp_path, monkeypatch, closed_ok=True)
+    px.run_pairs_tick({})           # raises via execute_pkg if it ever places
+    assert [r["event"] for r in soak] == ["half_open"]
+    assert soak[0]["cleanup_confirmed"] is True
+    assert soak[0]["stranded_legs"] == ["SOLUSDT"]
+
+
+def test_half_open_unresolved_alert_is_rate_limited_but_cleanup_is_not(
+        tmp_path, monkeypatch):
+    """The per-tick branch must not become a per-tick CRITICAL — that is the
+    desensitized alarm CLAUDE.md calls a P1 in its own right. The ALERT is a
+    level and is cooled down; the CLEANUP is a safety action and is not."""
+    sent = []
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append((a, k)))
+    soak, closes = _half_open_tick_env(tmp_path, monkeypatch, closed_ok=False)
+    for _ in range(5):
+        px.run_pairs_tick({})
+    assert len(closes) == 5, "cleanup must retry every tick"
+    assert len(sent) == 1, f"expected 1 CRITICAL, got {len(sent)} — alarm fatigue"
+    assert sent[0][0][1] == "unresolved"
+    # the soak log follows the alert, so a reviewer's by_event count is not
+    # inflated 5x for one standing strand
+    assert len(soak) == 1, f"expected 1 soak row, got {len(soak)}"
+
+
+def test_half_open_cleaned_alert_is_not_suppressed(monkeypatch):
+    """`cleaned` is an EDGE (condition resolved), not a level. Suppressing it
+    would hide a genuinely NEW strand landing inside a cooldown window."""
+    sent = []
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append((a, k)))
+    px._state_alert_last.clear()
+    for _ in range(4):
+        assert px._half_open_should_report("A/B", cleaned=True) is True
+        px._alert_half_open_pair("A/B", "acct", stranded=["A"], cleaned=True)
+    assert len(sent) == 4, "a resolved strand must alert every time"
+    assert all(s[0][1] == "cleaned" for s in sent)
+
+
+def test_resolved_strand_clears_the_unresolved_cooldown(monkeypatch):
+    """After a strand is fixed, the NEXT unresolved strand must alert
+    immediately rather than inherit the fixed one's suppression window."""
+    sent = []
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append((a, k)))
+    px._state_alert_last.clear()
+    assert px._half_open_should_report("A/B", cleaned=False) is True
+    assert px._half_open_should_report("A/B", cleaned=False) is False
+    assert px._half_open_should_report("A/B", cleaned=True) is True          # resolved
+    assert px._half_open_should_report("A/B", cleaned=False) is True, \
+        "a fresh strand after a fix must not be swallowed by the old cooldown"
+
+
+def test_soak_row_survives_an_alert_failure(tmp_path, monkeypatch):
+    """THE DURABLE LOG MUST NOT BE A CASUALTY OF A BROKEN PING. An alert that
+    raises must not break the tick AND must not cost the soak row — the log is
+    what a reviewer reads back, so it matters more than the alert, not less."""
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    soak, closes = _half_open_tick_env(tmp_path, monkeypatch, closed_ok=True)
+    px.run_pairs_tick({})                       # must not raise
+    assert len(soak) == 1, "the soak row was lost when the alert failed"
+    assert soak[0]["event"] == "half_open"

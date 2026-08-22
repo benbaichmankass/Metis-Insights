@@ -1,0 +1,677 @@
+{
+  "report_id": "RPT-20260821-130500-since-last",
+  "reviewed_at": "2026-08-21T13:05:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-08-16T09:25:00+00:00",
+  "window_end": "2026-08-21T13:05:00+00:00",
+  "prior_report_id": "RPT-20260816-092500-since-last",
+  "overall_assessment": "investigate",
+  "health": {
+    "overall_assessment": "investigate",
+    "findings": {
+      "exit evaluation cadence": {
+        "status": "concern",
+        "note": "requirement_state='breached'. 129/398 intervals over the 60s requirement (32.4%), max 89.1s, mean 48.3s, median 41.7s, 3 processes."
+      },
+      "trader tick": {
+        "status": "concern",
+        "note": "mean 172.9s / max 222.1s (n=13) against 69.3/96.8 recorded post-M20. fetch.1d is 18.2s on-loop vs 2.4-3.6s on 2026-08-13. /api/bot/stats reports status='paused'."
+      },
+      "trader restarts": {
+        "status": "watch",
+        "note": "two restarts in one hour (05:49:13Z, 06:50:43Z) not explained by a deploy."
+      },
+      "pairs sleeve": {
+        "status": "concern",
+        "note": "pairs_sol_eth stranded a naked leg on 8 of 8 opens since 2026-08-18. Confirmed against exchange truth. Half the fix shipped this session."
+      },
+      "account reachability": {
+        "status": "ok",
+        "note": "all 9 declared-live probeable accounts api_ok=true, read 13:00:58Z. alpaca_live is reachable with a $0.10 balance."
+      },
+      "bybit bracket integrity": {
+        "status": "ok",
+        "note": "bybit_2 clean on all 5 audited dimensions, both SL and TP legs alive, BYBIT_TPSL_MODE=partial confirmed three ways. None of the 5 dimensions is PRICE (BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS)."
+      },
+      "shipped-but-unwired": {
+        "status": "concern",
+        "note": "12 of 33 scripts added in this window have no runner and no manual-only declaration. Repo-wide unwired set: 150."
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "summary": "Real money is roughly flat over 30 days on a small sample; paper is deeply negative but at collapsing provenance coverage, so the paper figure should not be read as a measurement."
+  },
+  "ml": {
+    "overall_assessment": "investigate",
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "advisory",
+        "note": "live vol verdict for every BTC cell"
+      },
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "advisory",
+        "note": "observer with no authored trend_vol cell \u2014 deliberate, per the 2026-07-06 walk-forward"
+      },
+      {
+        "model_id": "eth-regime-15m",
+        "stage": "shadow",
+        "note": "at shadow since 2026-06-28 \u2014 54 days awaiting its promotion gate"
+      }
+    ]
+  },
+  "consolidated": {
+    "roll_up_grade": "investigate",
+    "headline": "Execution is the story: only 8.1% of closes used a declared bracket, exit evaluation misses its 60s requirement on a third of cycles, and 12 of 33 capabilities shipped this window already have nothing running them. Real money is flat; the paper book's loss sits at 0.06 provenance coverage.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Exit evaluation breaches its own 60s requirement on 32.4% of cycles",
+        "source_review": "health",
+        "tier": "3",
+        "detail": "n=398 intervals, max 89.1s. The pass is fetch-bound, so the remedy (candle TTL / fetch budget) reaches live entry geometry as well as exit decisions. Third review in a row to record this class.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Give the pairs sleeve its own Bybit sub-account",
+        "source_review": "health",
+        "tier": "3",
+        "detail": "8 of 8 opens strand a naked leg because the sleeve shares bybit_1 with a directional strategy under one-way netting. The reorder shipped this session shortens the exposure window from ~60 minutes to one tick; it does not remove the cause. Needs a sub-account + key pair in Actions secrets \u2014 the one thing only you can originate.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Kill or fix slv_trend_1h",
+        "source_review": "performance",
+        "tier": "3",
+        "detail": "0 wins in 13, -$5,375 at pnlCoverage 0.77 \u2014 the only large loser whose coverage makes the number trustworthy.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "Trainer disk at 93.5% with a GC that cannot help",
+        "source_review": "ml",
+        "tier": "2",
+        "detail": "3.15 GB free; the GC reclaims 0.09 GB. Training cannot be assessed until the box has room, and the last cycle trained 0 manifests.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Promote the unwired-artifacts guard from advisory to blocking",
+        "source_review": "health",
+        "tier": "1",
+        "detail": "12 of 33 new scripts this window are already unwired. The detector exists and is right; it just does not block. This is the structural fix for the largest backlog class.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "The ict_scalp take-profit path this review initially called 'the highest-leverage single change in the exit program' was measured and does NOT support that: net +$6,237 is the residue of 29 trades that exited worse (+$20,137 recoverable) against 23 that exited better (-$13,899 forfeited), 1.45:1, reaching 16% of trades \u2014 and $1.81 of the net is real money. Over-held scalps were net POSITIVE (+$1,772) vs within-horizon (-$48), so a naive max-hold exit could have destroyed value.",
+      "The decision grader scored 56 of 81 closes 'tp/sl_appropriate' while only 1 of the 81 exited via a declared bracket \u2014 the grader is describing an exit the strategy never made. Performance grades and execution capture must be read together or the grades flatter the system."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 24,
+        "wins": null,
+        "win_rate": null,
+        "expectancy": null,
+        "profit_factor": 1.05,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": [],
+        "_note": "30d: +$1.70 over 24 trades, PF 1.05. Lifetime: -$50.96 over 395 trades, 27.3% win rate, PF 0.73. window_pnl is null because the 5-day report window is not one of the windows /performance serves; the 30d figure is stated rather than re-cut."
+      },
+      "paper": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 322,
+        "wins": null,
+        "win_rate": 40.1,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": [],
+        "_note": "30d: -$45,837 over 322 trades at 40.1% win rate. 7d reads +$13,573 but at pnlCoverage 0.11, and 24h coverage is 0.06 \u2014 these are reconstructions, not measurements."
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": null,
+        "tickets_emitted": 66,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": 282.86
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 4982.86,
+            "equity": null,
+            "realized_window": null
+          }
+        ],
+        "_note": "breakout_1 at $4,982.86, -$17.14 lifetime. 0 unacted tickets. Only 5 of 66 tickets have reached 'closed'. static_dd_remaining is balance minus the $4,700 floor."
+      }
+    },
+    "market_context": [],
+    "trade_dossiers": [],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 0,
+      "summarized_trades": 81,
+      "rule": "full-per-trade (since-last/daily)",
+      "_note": "81 closes were graded individually and appended to comms/claude_strategy_scores.jsonl (histogram A1/B22/C54/D4). The per-trade dossiers live there rather than being duplicated into this payload."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 768,
+        "open": 334,
+        "resolved": 434,
+        "drained": 12
+      },
+      "performance": {
+        "total": 105,
+        "open": 39,
+        "resolved": 66,
+        "drained": 3
+      },
+      "ml": {
+        "total": 102,
+        "open": 23,
+        "resolved": 79,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "health",
+        "tier": "3",
+        "summary": "Pairs sleeve own sub-account (blocked on operator-originated credentials)"
+      },
+      {
+        "source_review": "performance",
+        "tier": "3",
+        "summary": "Kill slv_trend_1h (0 wins in 13 at coverage 0.77)"
+      },
+      {
+        "source_review": "ml",
+        "tier": "3",
+        "summary": "Promote the ETH 15m regime head shadow->advisory, or state why not after 54 days"
+      },
+      {
+        "source_review": "health",
+        "tier": "3",
+        "summary": "Candle TTL / fetch budget change to bring exit evaluation inside 60s \u2014 reaches live entry geometry, so not Tier-2"
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES",
+        "domain": "health",
+        "category": "execution",
+        "detail": "re-measure max_interval_ms beside intervals_measured; a short-lived process reads reassuringly because the tail needs a large n",
+        "since": "2026-08-21",
+        "next_check": "2026-08-22"
+      },
+      {
+        "item_id": "pnlCoverage trend",
+        "domain": "performance",
+        "category": "provenance",
+        "detail": "0.37 -> 0.33 -> 0.11 -> 0.06. The hourly Bybit fills timer shipped in this report's own PR should arrest it; verify the direction reverses.",
+        "since": "2026-08-21",
+        "next_check": "2026-08-22"
+      },
+      {
+        "item_id": "pairs_sol_eth strand rate",
+        "domain": "health",
+        "category": "order path",
+        "detail": "the reorder should cut exposure from ~60 min to one tick; strand COUNT should be unchanged until the sub-account lands",
+        "since": "2026-08-21",
+        "next_check": "2026-08-22"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "slv_trend_1h",
+            "gate": "KILL",
+            "evidence": "0 wins in 13 closed, -$5,375, pnlCoverage 0.77 \u2014 the only large loser whose coverage makes the number trustworthy"
+          }
+        ],
+        "summary": "No strategy cleared a promotion gate this window. One honest kill candidate (slv_trend_1h). uso_trend_1h is the credible winner (+$8,778 at pnlCoverage 1.00) but is not up for a stage change."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 0,
+        "dataset_builds_ok": false,
+        "failing_or_stuck": [
+          "7 stale manifests",
+          "5 permanent refusers"
+        ],
+        "summary": "Last cycle trained 0 manifests. 7 stale, 5 permanent refusers. Trainer disk 93.5% (3.15 GB free) and the GC reclaims 0.09 GB \u2014 the fill is not something retention can clear."
+      },
+      "soak_status": [
+        {
+          "soak": "exit_interval_soak",
+          "state": "gate_met",
+          "detail": "n=398 intervals across 3 processes; 32.4% breach the 60s requirement. The soak has produced its answer and the answer is bad."
+        },
+        {
+          "soak": "eth-15m regime head (shadow)",
+          "state": "stalled",
+          "detail": "at shadow since 2026-06-28 \u2014 54 days awaiting its promotion gate"
+        },
+        {
+          "soak": "netting_attribution_soak (annotate)",
+          "state": "accruing",
+          "detail": "still at NETTING_ATTRIBUTION_MODE=annotate; rows accruing for review before any flip to apply"
+        },
+        {
+          "soak": "exposure_soak",
+          "state": "accruing",
+          "detail": "per-account gross-exposure rows accruing; no ceiling value proposed yet"
+        },
+        {
+          "soak": "pairs_soak",
+          "state": "gate_met",
+          "detail": "8 of 8 opens stranded a leg \u2014 enough to act, and half the fix shipped"
+        }
+      ],
+      "execution_capture": {
+        "per_strategy": [
+          {
+            "strategy": "ict_scalp_mgc_15m",
+            "book": "paper",
+            "n_closed": null,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": 270.5,
+            "hold_h_expected": 4.0,
+            "state": "anomaly",
+            "note": "p90 hold = 1082 bars on a 15m leg (11.3 days). hold_h_actual is the p90 converted to hours, not a mean."
+          },
+          {
+            "strategy": "ict_scalp_sol_5m",
+            "book": "paper",
+            "n_closed": null,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": 41.7,
+            "hold_h_expected": 1.0,
+            "state": "anomaly",
+            "note": "p90 hold = 501 bars on a 5m leg."
+          },
+          {
+            "strategy": "qqq_pullback_1h",
+            "book": "paper",
+            "n_closed": null,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": 312.0,
+            "hold_h_expected": 8.0,
+            "state": "anomaly",
+            "note": "MEDIAN hold = 312 bars on a 1h leg."
+          },
+          {
+            "strategy": "trend_donchian (4h legs)",
+            "book": "paper",
+            "n_closed": null,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": 96.0,
+            "state": "ok",
+            "note": "The control. Holds within its design horizon, which is what rules out a measurement artifact in the three rows above."
+          }
+        ],
+        "anomalies": [
+          {
+            "strategy": "ict_scalp_mgc_15m",
+            "symptom": "held 10-100x design horizon",
+            "first_seen": "2026-08-21",
+            "reviews_open": 1,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON"
+          },
+          {
+            "strategy": "ict_scalp_sol_5m",
+            "symptom": "held 10-100x design horizon",
+            "first_seen": "2026-08-21",
+            "reviews_open": 1,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON"
+          }
+        ],
+        "dollars_reconciled": false,
+        "summary": "30 of 369 closes (8.1%) exited via a declared bracket; 148 (40%) closed reconciler_filled; the M20 lever set = 14 (3.8%). DOLLARS DID NOT RECONCILE WITH R this window \u2014 they disagree in SIGN at rCoverage 1.00 (PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN), so R is reported as diagnostic only and the dollar figures stand alone."
+      },
+      "flags_raised": [
+        "EXIT EVALUATION MISSES ITS OWN 60s REQUIREMENT ON A THIRD OF CYCLES \u2014 requirement_state='breached'; 129 of 398 intervals over 60s (32.4%), max 89.1s, mean 48.3s, median 41.7s, across 3 processes. Every previously recorded mean sits BELOW every reading taken today. Third consecutive review to record this class, worse each time. BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES.",
+        "12 OF 33 SCRIPTS SHIPPED IN THE LAST FIVE DAYS ALREADY HAVE NOTHING THAT RUNS THEM \u2014 scripts/ops/exit_mechanics_audit.py, scripts/ops/exit_path_coverage.py, scripts/ops/portfolio_conflict_audit.py, scripts/ops/position_ranking.py, scripts/ops/regime_policy_coverage.py, scripts/ops/system_invariants.py, scripts/research/e2_null_calibration.py, scripts/research/e3_barrier_decomposition.py, scripts/research/e3_joint_lever_sweep.py, scripts/research/exit_census.py, scripts/research/m20_split_dispersion.py, scripts/research/peak_banking_basis.py. This is the operator's 2026-08-20 'built half way and left to rust' directive, measured at 36% of one window's output. Repo-wide the unwired set is 150.",
+        "EXECUTION CAPTURE IS THE HEADLINE, NOT A DETAIL \u2014 only 30 of 369 closes (8.1%) exited via a declared bracket; 148 (40%) closed 'reconciler_filled'. The whole M20 lever set accounts for 14 closes (3.8%). The strategies are not exiting the way they are written.",
+        "SCALPS HELD 10-100x THEIR DESIGN HORIZON \u2014 ict_scalp_mgc_15m p90 = 1082 bars (11.3 days on a 15m leg); ict_scalp_sol_5m p90 = 501 bars (41.7h on a 5m leg); qqq_pullback_1h median 312 bars. trend_donchian 4h is the well-behaved control, which is what rules out a measurement artifact.",
+        "ML: THE REGISTRY REPORTS status='candidate' FOR ALL 95 MODELS while deployment_bucket correctly reports LIVE 3 / SHADOW 28 / OFFLINE 64 \u2014 the nightly re-train writes to_status='candidate' over the promoted stage, and stage_history exists on only 26 of 95. The registry's own status column cannot be read as the deployment stage. Last cycle trained 0 manifests with 7 stale and 5 permanent refusers.",
+        "TRAINER DISK 93.5% (3.15 GB free) and the GC reclaims only 0.09 GB \u2014 the retention tool cannot fix this class of fill. MB-20260821-TRAINER-DISK-93PCT-AND-THE-GC-CANNOT-HELP.",
+        "slv_trend_1h: ZERO wins in 13 closed trades, -$5,375 at pnlCoverage 0.77 \u2014 the only large loser at credible coverage, and therefore the one honest kill candidate.",
+        "PROVENANCE IS COLLAPSING: pnlCoverage 0.37 lifetime -> 0.33 -> 0.11 (7d) -> 0.06 (24h). Only 55 of 369 closes (15%) are broker-measured. The scoreboard is increasingly made of reconstructions.",
+        "pairs_sol_eth STRANDS A NAKED LEG ON 8 OF 8 OPENS since 2026-08-18, confirmed against exchange truth (bybit_1 SOLUSDT Buy 373.00 = donchian 367.80 + pairs 5.20 exactly; no ETH short exists). Half of the fix shipped this session; the cause is the sleeve sharing bybit_1 with a directional strategy under one-way netting and is operator-blocked on a sub-account."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_1",
+          "bybit_2",
+          "bybit_portfolio",
+          "alpaca_live",
+          "alpaca_paper",
+          "alpaca_portfolio",
+          "alpaca_options_paper",
+          "ib_paper",
+          "oanda_practice"
+        ],
+        "down": [],
+        "summary": "All 9 declared-live probeable accounts reachable (api_ok=true), read live at 2026-08-21T13:00:58Z, age 35s. ib_live and breakout_1 are excluded by the spec (dry/shelved; API-less prop). NOTE alpaca_live is REACHABLE with a balance of $0.10 \u2014 that, not an outage, is why it refused 127 of 127 orders."
+      },
+      "since_last_build_verification": {
+        "count_shipped": 27,
+        "items": [
+          {
+            "name": "scripts/ops/broker_bracket_reconcile.py",
+            "verdict": "running",
+            "reason": "cron 40 */6 * * * via broker-bracket-reconcile.yml; two live runs confirmed, issue #10089 rewritten each run"
+          },
+          {
+            "name": "scripts/ci/check_unwired_artifacts.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "scripts/ci/check_lever_wiring.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "scripts/ci/check_lever_reachability.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "scripts/ci/check_risk_basis_agreement.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "scripts/ci/check_selftest_wiring.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "scripts/ci/check_test_schema_fidelity.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "scripts/ci/check_cost_model_single_owner.py",
+            "verdict": "running",
+            "reason": "runs in the guards suite"
+          },
+          {
+            "name": "src/runtime/ib_trading_hours.py",
+            "verdict": "running",
+            "reason": "IB venue-session gate; live-verified 2026-08-17T17:01Z via /api/diag/venue_session"
+          },
+          {
+            "name": "src/runtime/exit_interval_soak.py",
+            "verdict": "running",
+            "reason": "appends one row per exit pass; read via /api/diag/log_file?name=exit_interval_soak \u2014 this review measured n=398 intervals from it"
+          },
+          {
+            "name": "src/runtime/position_telemetry.py",
+            "verdict": "running",
+            "reason": "14 rows live; read half /api/diag/position_telemetry shipped 2026-08-17"
+          },
+          {
+            "name": "scripts/llm/delegate.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "llm-delegate.yml exists; no run observed in this window"
+          },
+          {
+            "name": "scripts/ops/oci_inventory.py",
+            "verdict": "running",
+            "reason": "oci-inventory.yml cron \u2014 but watched by nothing (BL-20260821-OCI-INVENTORY-CRON-UNWATCHED)"
+          },
+          {
+            "name": "scripts/ops/attach_ib_target.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "operator declined the attach 2026-08-20; tool is dispatchable, never fired"
+          },
+          {
+            "name": "scripts/research/tp_recovery_counterfactual.py",
+            "verdict": "running",
+            "reason": "declared '# wiring: manual-only'; run once this session to size the TP prize"
+          },
+          {
+            "name": "scripts/ops/exit_mechanics_audit.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/ops/exit_path_coverage.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/ops/portfolio_conflict_audit.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/ops/position_ranking.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/ops/regime_policy_coverage.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/ops/system_invariants.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/research/e2_null_calibration.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/research/e3_barrier_decomposition.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/research/e3_joint_lever_sweep.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/research/exit_census.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/research/m20_split_dispersion.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          },
+          {
+            "name": "scripts/research/peak_banking_basis.py",
+            "verdict": "UNWIRED",
+            "reason": "no runner reference and no '# wiring: manual-only' declaration (scripts/ci/check_unwired_artifacts.py, verified by hand on two samples)"
+          }
+        ],
+        "summary": "164 commits landed in the window; 33 new scripts + 7 new workflows. Of the 33 new scripts, 12 (36%) already have no runner and no manual-only declaration. Measured with scripts/ci/check_unwired_artifacts.py and spot-verified by hand on two samples."
+      },
+      "backlog_classes": {
+        "total_open_reviewed": 333,
+        "classes": [
+          {
+            "class": "Built and never wired \u2014 a capability ships, nothing runs it",
+            "member_ids": [
+              "BL-20260821-BRACKET-RECONCILER-SHIPPED-WITH-NO-CALLER",
+              "BL-20260821-OCI-INVENTORY-CRON-UNWATCHED",
+              "BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE"
+            ],
+            "structural_fix": "check_unwired_artifacts.py exists and finds these. Promote it from advisory to a diff-scoped BLOCKING guard on newly added scripts/ and src/ modules, so a new tool cannot merge without either a runner or a '# wiring: manual-only' declaration. That retires the class instead of catching instances."
+          },
+          {
+            "class": "Written but never read \u2014 a field is persisted and no consumer branches on it",
+            "member_ids": [
+              "BL-20260813-OPERATOR-WARNING-BANNER-CANNOT-MATCH-WARN",
+              "BL-20260821-REGISTRY-STATUS-SAYS-CANDIDATE-FOR-EVERY-MODEL",
+              "BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN"
+            ],
+            "structural_fix": "provenance-consumer-guard already enforces this for declared provenance keys. Widen its CONTRACTS table to cover any column a writer adds to the journal or registry, so writer-without-reader fails CI at the point of writing."
+          },
+          {
+            "class": "Collapsed state \u2014 'we did not look' is indistinguishable from 'we looked and found nothing'",
+            "member_ids": [
+              "BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED",
+              "BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS",
+              "BL-20260816-COVERAGE-IS-ONE-SIDED"
+            ],
+            "structural_fix": "collapsed-state-guard exists with a CONTRACTS table. The class persists because registration is opt-in. Make registration mandatory for any new field whose value set includes a null or a zero that could mean either state."
+          },
+          {
+            "class": "Alarm that cannot fire, or fires always",
+            "member_ids": [
+              "BL-20260814-REACHABILITY-PROBES-POSITIONS-NOT-BALANCE",
+              "BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127",
+              "MB-20260719-DATASET-AUDIT-NOISE"
+            ],
+            "structural_fix": "Every alert needs a proof-of-life test that asserts it fires on a synthetic positive, in the same suite as the fix. test_merge_slot_guard.py is the pattern to copy fleet-wide."
+          },
+          {
+            "class": "Provenance decay \u2014 the measured share of the scoreboard is falling",
+            "member_ids": [
+              "BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE",
+              "BL-20260807-EXCHANGE-TRUTH-PER-STRATEGY-UNREACHABLE",
+              "BL-20260713-BYBIT2-PNL-UNDERRECORD"
+            ],
+            "structural_fix": "Publish pnlCoverage as a first-class watched metric with a floor, and alert on the DERIVATIVE (coverage falling window over window), not the level \u2014 the level was never breached while coverage went 0.37 -> 0.06."
+          },
+          {
+            "class": "Exit does not happen the way the strategy declares",
+            "member_ids": [
+              "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+              "BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+              "BL-20260720-ICTSCALP-PASTSTOP-EXITS"
+            ],
+            "structural_fix": "Make close_reason a first-class KPI on /api/bot/performance so '8.1% of closes used a declared bracket' is a number on the dashboard rather than something a review has to go and compute."
+          },
+          {
+            "class": "Merge/CI automation collides with itself",
+            "member_ids": [
+              "BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE",
+              "BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH",
+              "BL-20260730-PR-CI-NOT-ATTACHING"
+            ],
+            "structural_fix": "Convert every shared single-file relay trigger to a per-request directory (automation/<relay>-requests/<id>.json), which three sibling relays already do. It closes both the conflict mode and the inheritance mode at once."
+          }
+        ],
+        "summary": "All 333 open health rows were read for pattern before any row was dispositioned. Seven classes account for the bulk; each names a structural fix that retires the class rather than the instance. NOTE the open count reads 334 at render time, not 333: one row (BL-20260821-WORKFLOW-CATALOG-CLAIMS-COMPLETE-AND-IS-47PCT-MISSING) was filed by a concurrent session AFTER this pass and is NOT included in the 333 \u2014 it is named here rather than folded in, because a count that silently absorbs a row nobody read is the kind of number this review is supposed to distrust. On its face it belongs to the first class below."
+      },
+      "ml_output_actionability": {
+        "cycles_in_window": 0,
+        "outputs_consumed_by": [
+          "3 advisory heads read by the regime router on BTC and SOL (ml_vol_regime_for_symbol)",
+          "28 shadow-stage heads logging to shadow_predictions.jsonl, order decisions unchanged"
+        ],
+        "verdict": "producing_but_unused",
+        "summary": "64 of 95 registry rows are OFFLINE and 28 are SHADOW; only 3 influence an order. The last cycle trained 0 manifests, so nothing new was produced this window either. The ETH 15m head has sat at shadow for 54 days with its promotion gate unexamined."
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [
+            "BL-20260821-BRACKET-RECONCILER-SHIPPED-WITH-NO-CALLER"
+          ],
+          "snoozed": [],
+          "promoted": [],
+          "deferred": [
+            {
+              "id": "BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+              "reason": "Tier-3 awaiting operator: the durable fix needs a Bybit sub-account + key pair in Actions secrets, which only the operator can originate. Half shipped this session."
+            },
+            {
+              "id": "BL-20260821-EXIT-EVAL-BREACHES-60S-ON-A-THIRD-OF-CYCLES",
+              "reason": "blocked-on-diagnosis: the pass is fetch-bound and the tail is drawn only on long-lived processes; needs a TTL/fetch change whose blast radius reaches live entry geometry, so it is Tier-3."
+            },
+            {
+              "id": "BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127",
+              "reason": "operator-decided this session (leave live, silence the alert); the set-env write is queued behind this report's own merge so the skip is never written while unreadable."
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "snoozed": [],
+          "promoted": [],
+          "deferred": [
+            {
+              "id": "PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
+              "reason": "Tier-3 awaiting operator: killing a strategy is a config/strategies.yaml change and needs explicit approval."
+            },
+            {
+              "id": "PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+              "reason": "blocked-on-data: needs a per-trade risk-basis audit across the window to locate which population inverts; the tool (src/research/risk_basis.py) shipped this window and has not been run against the live journal."
+            }
+          ]
+        },
+        "ml": {
+          "drained": [],
+          "snoozed": [],
+          "promoted": [],
+          "deferred": [
+            {
+              "id": "MB-20260821-ETH-15M-HEAD-SHADOW-SINCE-0628",
+              "reason": "Tier-3 awaiting operator: shadow->advisory is the promotion gate."
+            },
+            {
+              "id": "MB-20260821-TRAINER-DISK-93PCT-AND-THE-GC-CANNOT-HELP",
+              "reason": "blocked-on-diagnosis: the GC reclaims 0.09 GB of a 3.15 GB shortfall, so the fill is not retention-shaped and the owning tree has not been identified."
+            },
+            {
+              "id": "MB-20260821-CYCLE-TRAINED-ZERO-AND-SEVEN-MANIFESTS-STALE",
+              "reason": "blocked-on-trainer: the disk row above is upstream of this one; training cannot be assessed until the box has room."
+            }
+          ]
+        },
+        "summary": "One row drained (the bracket reconciler's missing caller, resolved by a concurrent session and verified on main rather than assumed). The remaining eight new rows are deferred against a named blocker ON THE ROW: four are Tier-3 awaiting an operator decision, three are blocked on a diagnosis this review could not complete, one is queued behind this report's own merge. The 333 open rows were read for CLASS rather than dispositioned one at a time \u2014 seven classes with structural fixes are recorded above, which is the work this review chose to do instead of a treadmill pass."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260821T130500Z/report.json",
+    "html_path": "comms/reports/since-last/20260821T130500Z/report.html",
+    "md_path": "comms/reports/since-last/20260821T130500Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/Metis-Insights/blob/main/comms/reports/since-last/20260821T130500Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260821-130500-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "high",
+    "message": "[system-report:since-last] roll-up investigate: 8.1% of closes used a declared bracket, exit-eval breaches 60s on 32.4% of cycles, 12/33 new tools already unwired. Real flat, paper -$45.8k at 0.06 coverage."
+  }
+}
