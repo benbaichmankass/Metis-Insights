@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-23T18:22:00+00:00",
+  "updated_at": "2026-08-23T18:26:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22347,7 +22347,13 @@
         "src/runtime/dead_leg.py",
         "config/accounts.yaml"
       ],
-      "last_verified": "2026-08-23"
+      "last_verified": "2026-08-23",
+      "progress": [
+        {
+          "at": "2026-08-23T18:26:00+00:00",
+          "note": "THE TWO SKIPPED DETECTORS ARE NOW MEASURED AUTHORITATIVELY, AND THEY ARE A LANDMINE ON THE FLIP RATHER THAN A BUG TODAY. This row already said 'both detectors are skipped for it'; that was read from config. Confirmed 2026-08-23T18:20Z via get-env (issue #10200) against the RUNNING PROCESS's environ, not merely the declared env_file — both agree: ACCOUNT_DOWN_ALERT_SKIP process='alpaca_live' declared='alpaca_live'; SILENT_REFUSAL_SKIP process='alpaca_live' declared='alpaca_live'. Each list contains EXACTLY ONE entry, and it is this account. WHY IT IS CORRECT TODAY: the account is mode:dry_run and refuses ~100% of orders for the sizing/balance reasons this row documents, so an un-skipped detector would fire continuously on a known, filed condition — the desensitized-alarm P1. Skipping it was the right call. WHY IT BECOMES WRONG AT THE INSTANT OF FUNDING: `silent_refusal_alert` is precisely the detector for 'declared live, evaluates, signals, places NOTHING', and that is EXACTLY the shape the shorting rejection would take (BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT: 157 of 262 packages are short against shorting_enabled=False). So a funded, flipped account would have 60% of its flow rejected at the broker with the one alarm designed to catch that switched off for it specifically — and the other alarm (account-down) off too. THE REMEDY IS CHEAP AND MUST RIDE THE SAME CHANGE AS THE FLIP: clear `alpaca_live` from both vars in the same operation that sets mode:live, so the account is never simultaneously live and unwatched. Doing it afterwards leaves a window whose whole point is that nothing would report it. Two `set-env` calls, Tier-2."
+        }
+      ]
     },
     {
       "id": "BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART",
@@ -22423,7 +22429,13 @@
       "title": "alpaca_live has shorting_enabled=False while 157 of 262 routed order packages (60%) are SHORT — 4 of 16 legs are 100% short and would be entirely dead",
       "detail": "FOUND answering the operator's direct question: 'I'm going to fund alpaca in the next few days, are we ready to go live?'\n\nMEASURED 2026-08-23T18:1xZ. /api/diag/broker_account_status?account_id=alpaca_live returns status_flags {status: ACTIVE, trading_blocked: false, account_blocked: false, trade_suspended_by_user: false, transfers_blocked: false, SHORTING_ENABLED: FALSE, crypto_status: INACTIVE, currency: USD}. So the account is reachable and trade-enabled — it simply cannot sell short.\n\nPOPULATION: 262 order packages across the 16 strategies routed to alpaca_live (per-strategy query, 40-row cap each; splg_trend_long_1d returned 0 rows and is excluded from the direction counts). 157 of 262 = 60% carry a SHORT direction.\n\nPER LEG (short/total): gld_pullback_1d 8/8 · slv_pullback_1d 5/5 · gdx_pullback_1d 7/7 · iaum_pullback_1d 6/6 (ALL FOUR 100% SHORT — entirely dead on this account) · tlt_pullback_1h 33/40 · gld_pullback_1h 27/40 · spy_pullback_1h 26/40 · qqq_pullback_1h 26/40 · slv_trend_1h 17/32 · ief_pullback_1d 1/2 · tlt_pullback_1d 1/4. Long-only in the sample: spy_trend_long_1d, qqq_trend_long_1d, iwm_trend_long_1d, uso_trend_1h.\n\nWHY IT MATTERS NOW: the account is mode: dry_run today, so nothing has been rejected for this reason yet — the existing refusals are all sizing/balance ones (BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL). Funding the account fixes THAT and exposes THIS: 60% of the signal flow would start being rejected by the broker instead, and four legs would never trade at all. A leg that is structurally unable to trade is worse than a disabled one, because it still evaluates, still emits, and still looks alive on every dashboard.",
       "resolution_criteria": "Either shorting is enabled on the Alpaca live account (a broker-side setting the operator owns), or alpaca_live's routed strategy list is narrowed to the long-only legs and the removed legs are recorded as deliberately unrouted rather than silently non-functional. Verified by re-reading status_flags.shorting_enabled and re-counting the short share of routed packages.",
-      "notes": "Tier-3: this is either a broker-account change or a routing-scope change to config/accounts.yaml, both operator-gated. Proposed with evidence, NOT applied. Note the convenient overlap with the performance finding: uso_trend_1h — the only net-positive leg on the paper mirror — is 100% LONG in this sample, so a long-only restriction and a profitability restriction point at overlapping sets."
+      "notes": "Tier-3: this is either a broker-account change or a routing-scope change to config/accounts.yaml, both operator-gated. Proposed with evidence, NOT applied. Note the convenient overlap with the performance finding: uso_trend_1h — the only net-positive leg on the paper mirror — is 100% LONG in this sample, so a long-only restriction and a profitability restriction point at overlapping sets.",
+      "progress": [
+        {
+          "at": "2026-08-23T18:26:00+00:00",
+          "note": "DETECTION CROSS-REFERENCE: this failure mode would be INVISIBLE if the account were funded and flipped today. Measured 2026-08-23T18:20Z (get-env, issue #10200, process environ): SILENT_REFUSAL_SKIP='alpaca_live' and ACCOUNT_DOWN_ALERT_SKIP='alpaca_live' — each list holds exactly this one account. `silent_refusal_alert` is the detector for 'declared live, evaluates, signals, places NOTHING', which is the exact signature of a broker rejecting 60% of the flow for shorting. See the progress note on BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL: the skips must be cleared in the SAME change that flips the mode, never after."
+        }
+      ]
     },
     {
       "id": "BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL",
