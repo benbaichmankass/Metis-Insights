@@ -391,9 +391,38 @@ def compute_rule_distance(
         if (daily_loss_pct is not None and day_basis is not None) else None
     )
     # Day P&L = realized today + unrealized (equity-basis, like Breakout).
+    #
+    # ⚠️ A MISSING TERM MUST NOT BECOME ZERO.
+    # BL-20260823-PROP-DAILY-CUSHION-FABRICATED-FROM-A-MISSING-REALIZED-TODAY
+    # (kept on ONE line — a line-wrapped id resolves to nothing when grepped,
+    # which is what artifact-validity-guard caught here). The old guard passed whenever
+    # EITHER term was present, and then `(realized_today or 0.0)` turned "we
+    # did not look" into "nothing was realized today". That is the
+    # anti-conservative direction on an account-killer limit: it reports MORE
+    # cushion than exists.
+    #
+    # MEASURED 2026-08-23T17:5xZ on breakout_1, snapshot id 13: realized_today
+    # is None (never reported by anyone) while unrealized is 0.0 (correctly
+    # reported — the book was flat). One non-None term let the guard through,
+    # so day_pnl came out 0.0 and the panel published a FULL $142.92 daily
+    # cushion — on a day whose own prop_fills rows hold two closed losses
+    # totalling -$218.79, i.e. 1.53x the limit, with the account $64 above its
+    # static DD floor.
+    #
+    # The sum of an unknown and a known is UNKNOWN. Both terms are required.
+    # `None` is an expected value downstream: nothing refuses a trade on this,
+    # the API serves it as-is, and telegram_report_handler renders it through
+    # `_cushion()` whose docstring already calls None "legitimate".
     day_pnl = None
-    if realized_today is not None or unrealized is not None:
-        day_pnl = (realized_today or 0.0) + (unrealized or 0.0)
+    if realized_today is None and unrealized is None:
+        day_pnl_state = "unreported"          # neither term ever reported
+    elif realized_today is None:
+        day_pnl_state = "realized_unreported"  # THE measured case above
+    elif unrealized is None:
+        day_pnl_state = "unrealized_unreported"
+    else:
+        day_pnl = realized_today + unrealized
+        day_pnl_state = "measured"
     daily_loss_used = (-day_pnl if (day_pnl is not None and day_pnl < 0) else 0.0) \
         if day_pnl is not None else None
     distance_to_daily = (
@@ -426,6 +455,10 @@ def compute_rule_distance(
         "balance": balance,
         "equity": equity_now,
         "day_pnl": day_pnl,
+        # WHY day_pnl is None, never collapsed into the null itself: a consumer
+        # must be able to tell "the operator reported no loss today" from "the
+        # loss today was never reported". Only the first is a cushion.
+        "day_pnl_state": day_pnl_state,
         "daily_loss_pct": daily_loss_pct,
         "daily_loss_limit_usd": daily_loss_limit_usd,
         "daily_loss_used_usd": daily_loss_used,

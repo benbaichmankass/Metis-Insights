@@ -431,25 +431,79 @@ def test_db_info_401_without_token(client, fake_runtime):
 # ---------------------------------------------------------------------------
 
 
-def test_version_returns_git_sha_and_captured_at(client, fake_runtime, monkeypatch):
-    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "abc1234")
+# ⚠️ THESE TWO TESTS USED TO ENCODE THE DEFECT, not the contract
+# (BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE). They
+# monkeypatched ``_resolve_git_sha`` and asserted ``git_sha`` followed it —
+# i.e. they pinned "git_sha is a LIVE resolve of the working tree", which is
+# exactly what made the endpoint report DISK rather than the running process,
+# and made the deploy assertion compare `git rev-parse HEAD` to itself.
+# ``git_sha`` is now bound at import; the live resolve is ``git_sha_on_disk``.
+
+
+def test_version_reports_the_RUNNING_sha_not_a_live_resolve(
+    client, fake_runtime, monkeypatch
+):
+    """THE REGRESSION. A live resolve must NOT be able to move ``git_sha``."""
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "aaaaaaa")
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "bbbbbbb")
     resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
     assert resp.status_code == 200
     body = resp.json()
-    assert body["git_sha"] == "abc1234"
+    assert body["git_sha"] == "aaaaaaa", (
+        "git_sha must be the sha the PROCESS was loaded from; if a live "
+        "resolve can move it, the endpoint is reporting disk again"
+    )
+    assert body["git_sha_on_disk"] == "bbbbbbb"
+    assert body["restart_pending"] is True, (
+        "disk ahead of the running process IS the 2026-05-09 stale-code state"
+    )
     assert "captured_at" in body
     # ISO-8601 UTC.
     assert body["captured_at"].endswith("+00:00") or body["captured_at"].endswith("Z")
+
+
+def test_version_reports_no_restart_pending_when_they_agree(
+    client, fake_runtime, monkeypatch
+):
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "abc1234")
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "abc1234")
+    body = client.get("/api/diag/version", headers=_bearer(_TOKEN)).json()
+    assert body["git_sha"] == "abc1234"
+    assert body["git_sha_on_disk"] == "abc1234"
+    assert body["restart_pending"] is False
 
 
 def test_version_returns_unknown_when_resolver_fails(client, fake_runtime, monkeypatch):
     """``_resolve_git_sha`` returns ``"unknown"`` on a sandbox host
     without git. The deploy script treats ``unknown`` as a soft
     failure rather than a SHA mismatch."""
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "unknown")
     monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "unknown")
     resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
     assert resp.status_code == 200
     assert resp.json()["git_sha"] == "unknown"
+
+
+def test_restart_pending_is_none_not_false_when_a_sha_is_unknown(
+    client, fake_runtime, monkeypatch
+):
+    """'We could not look' must never be reported as 'they agree'.
+
+    ``False`` would assert the process matches the tree — the one claim we
+    cannot make when either sha is unreadable. Both directions are checked
+    because only one of them was ever likely to be written by hand.
+    """
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "unknown")
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "abc1234")
+    assert client.get(
+        "/api/diag/version", headers=_bearer(_TOKEN)
+    ).json()["restart_pending"] is None
+
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "abc1234")
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "unknown")
+    assert client.get(
+        "/api/diag/version", headers=_bearer(_TOKEN)
+    ).json()["restart_pending"] is None
 
 
 def test_version_401_without_token(client, fake_runtime):
