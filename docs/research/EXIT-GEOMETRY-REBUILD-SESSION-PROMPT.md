@@ -132,8 +132,25 @@ Group naming is the forensic marker: `oca_key` supplied ⇒
 `oca-protect-t<trade_id>`; absent ⇒ `oca-protect-<reqId>`. Both live groups are
 the **fallback** form (no `t`), so neither came from the naked sweep.
 
-**The size of the contaminated population is UNMEASURED, and may not be
-reconstructible at all**: `_attempt_naked_autoprotect` returns a bool and logs
+**The size of the contaminated population is NOT RECONSTRUCTIBLE — tested
+2026-08-23, not assumed.** All four candidate anchors fail: `trades.stop_loss`
+and `order_packages.sl` are BOTH overwritten in place by the same
+`_apply_update` path (so a trailed stop erases the level it replaced on both
+records); the append-only `signals` dual-write records decision context
+(`event`, `timeframe`, `regime`, `adx_14`, `pattern`, `confidence`, `price`) but
+**no protective geometry** — checked against live MES rows, not inferred from the
+schema; and `position_telemetry` is UPSERT-on-`order_package_id` with `rToStop`
+derived from the CURRENT stop, so it holds no trajectory and covers only
+donchian/pullback legs anyway.
+
+⚠️ **So do not wait for this number and do not quote a partial one.** A count of,
+say, "packages whose `updated_at` differs from `created_at`" is an UPPER BOUND
+over *all* update reasons, not a measure of this defect — publishing it as the
+latter is the unprovenanced-diagnostic class. Treat IB live exit outcomes as
+contaminated by an **unquantified** amount and do not calibrate on them.
+
+The original wording, kept because the reasoning still applies to the forward
+direction: `_attempt_naked_autoprotect` returns a bool and logs
 **only on failure** — no journal write, no soak row, no outcome emit — and
 `modify_protective` stamps nothing on the trade either. A repair that mutates a
 live position's bracket is invisible afterwards. **Measure what you can before
