@@ -41,6 +41,7 @@ the backtester (handy where the sandbox has no candle data).
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import re
@@ -654,6 +655,49 @@ def _extract_json(stdout: str) -> dict[str, Any]:
     return found
 
 
+def _data_provenance(data: Optional[str]) -> dict:
+    """Say WHICH candles produced this sweep — or say we do not know.
+
+    `strategy_tune_result/v1` recorded `fixed_args` (which carries `--symbol`, a
+    LABEL) but never the candle file, so a result could not be reproduced from
+    its own record. Re-running a 2026-08-23 pullback sweep without `--data`
+    silently fell back to the harness's own `BACKTEST_DATA_PATH` — different
+    candles, every OOS row 0 trades — and produced a confident
+    `no_profitable_value` verdict for the one leg whose sweep had actually
+    shipped a value. That is diagnostic-provenance sub-class B (implicit input
+    selection), and the fix is to name the input.
+
+    Three states, never collapsed: `explicit` (this run chose the file) ·
+    `harness_default` (the harness resolved BACKTEST_DATA_PATH itself — *we did
+    not look*, and MUST NOT be rendered as a path we verified) · `unreadable`
+    (a path was given and could not be measured).
+    """
+    if not data:
+        return {"source": "harness_default", "path": None, "rows": None,
+                "first_ts": None, "last_ts": None}
+    out = {"source": "explicit", "path": str(data), "rows": None,
+           "first_ts": None, "last_ts": None}
+    try:
+        with open(data, newline="") as fh:
+            reader = csv.reader(fh)
+            header = next(reader, None)
+            first = next(reader, None)
+            rows = 1 if first else 0
+            last = first
+            for last in reader:
+                rows += 1
+        if first:
+            col = 0
+            if header and "timestamp" in [h.strip().lower() for h in header]:
+                col = [h.strip().lower() for h in header].index("timestamp")
+            out["first_ts"] = first[col] if col < len(first) else None
+            out["last_ts"] = last[col] if last and col < len(last) else None
+        out["rows"] = rows
+    except Exception:
+        out["source"] = "unreadable"
+    return out
+
+
 def run_sweep(
     recipe: TuneRecipe,
     *,
@@ -735,6 +779,7 @@ def run_sweep(
         "target": recipe.target,
         "harness": recipe.harness,
         "fixed_args": list(recipe.fixed_args),
+        "data": _data_provenance(data),
         "fee_bps_roundtrip": fee_bps,
         "evidence_window_days": window_days,
         "metric_basis": "oos" if folds is not None else "full_sample",

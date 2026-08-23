@@ -99,6 +99,17 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "CONVICTION_SIZING_ACCOUNTS",
     "NETTING_ATTRIBUTION_MODE",
     "NETTING_ATTRIBUTION_ACCOUNTS",
+    # PROTECTION_REASSERT_* (2026-08-23): re-asserts a diverged protective leg at
+    # its journal-declared level — an order-path mutation gated by a mode + a
+    # scope allowlist, the same shape as the two above. `..._ACCOUNTS` is the
+    # reason these are here on day one rather than after an incident: its EMPTY
+    # value means NONE (deliberately inverted from its siblings, where empty
+    # means ALL), so "unset" and "armed for every account" are opposite readings
+    # of the same blank, and only a read surface can tell them apart.
+    "PROTECTION_REASSERT_MODE",
+    "PROTECTION_REASSERT_ACCOUNTS",
+    "PROTECTION_REASSERT_COOLDOWN_S",
+    "PROTECTION_REASSERT_MAX_ATTEMPTS",
     "NEWS_INFLUENCE_MODE",
     "NEWS_VETO_ENABLED",
     "NEWS_SOURCE",
