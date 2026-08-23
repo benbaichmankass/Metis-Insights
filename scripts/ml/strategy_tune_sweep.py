@@ -392,6 +392,44 @@ _REGISTRY: dict[tuple[str, str], HarnessSpec] = {
     ("backtest_trend.py", "atr_period"): HarnessSpec(
         module="scripts/backtest_trend.py", is_module=False, flag="--atr-period"
     ),
+    # Pullback family (2026-08-23). The registry had NO pullback harness and no
+    # `tp_r` row for ANY harness, which mattered the moment "tune before demote"
+    # became mechanical (CLAUDE-RULES-CANONICAL.md § "Tune before demote"): that
+    # override softens a demote_shadow/kill to `tune` until a sweep artifact
+    # exists, and with no registry row NO sweep could ever produce one — so every
+    # pullback demotion would have been softened forever with no way to discharge
+    # it. A rule whose evidence is unobtainable is worse than no rule.
+    #
+    # `tp_r` is the take-profit expectation in R. Sweeping it is the derivation
+    # behind BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT: the fleet
+    # declares the far sentinel 50.0, which measurement shows is unreachable by an
+    # order of magnitude (best excursion in 3 years: 8.96R), so the venue's ~9.9%
+    # cap chooses the level instead.
+    #
+    # ⚠️ A `tp_r` sweep MUST pin `--tp-cap-pct` via fixed_args. The harness has no
+    # take-profit exit path at all when the cap is 0, so an unpinned sweep would
+    # score every candidate against a book that never takes a target — the values
+    # would differ only through path effects and the "optimum" would be noise.
+    ("backtest_pullback.py", "tp_r"): HarnessSpec(
+        module="scripts/backtest_pullback.py", is_module=False, flag="--tp-r"
+    ),
+    ("backtest_pullback.py", "adx_min"): HarnessSpec(
+        module="scripts/backtest_pullback.py", is_module=False, flag="--adx-min"
+    ),
+    ("backtest_pullback.py", "atr_stop_mult"): HarnessSpec(
+        module="scripts/backtest_pullback.py", is_module=False, flag="--atr-stop-mult"
+    ),
+    ("backtest_pullback.py", "trail_mult"): HarnessSpec(
+        module="scripts/backtest_pullback.py", is_module=False, flag="--trail-mult"
+    ),
+    ("backtest_pullback.py", "min_confidence"): HarnessSpec(
+        module="scripts/backtest_pullback.py", is_module=False, flag="--min-confidence"
+    ),
+    # The trend family's own take-profit, same reasoning — `trend_donchian*` legs
+    # carry the same 50.0 sentinel and are the largest group in the fleet.
+    ("backtest_trend.py", "tp_r"): HarnessSpec(
+        module="scripts/backtest_trend.py", is_module=False, flag="--tp-r"
+    ),
     # vwap entry threshold is a module constant — only the native sweep reaches it.
     ("run_backtest_vwap.py", "threshold"): HarnessSpec(
         module="src.backtest.run_backtest_vwap",

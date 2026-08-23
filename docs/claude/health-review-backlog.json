@@ -21884,6 +21884,31 @@
         "BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-TUNE-EVIDENCE-IS-GITIGNORED-AND-HOST-LOCAL",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23 (found while running the first sweep under the new rule)",
+      "severity": "medium",
+      "tier": "1 (tooling / evidence durability)",
+      "status": "open",
+      "area": "backlog governance / strategy tuning",
+      "title": "The tune-before-demote gate reads `runtime_logs/strategy_tunes/`, which is GITIGNORED — so a tuning attempt is only 'on record' on the host that ran it",
+      "detail": "Found the same day the rule shipped, by running the first sweep under it.\n\n`CLAUDE-RULES-CANONICAL.md` § 'Tune before demote' makes a demote_shadow/kill verdict soften to `tune` until a tuning attempt is on record, and the evidence is the M8 artifact `runtime_logs/strategy_tunes/<UTC-date>/<strategy>__<param>.json`. **`runtime_logs/` is gitignored** (.gitignore:29). So the artifact is host-local: it does not commit, does not travel, and a sweep run in a sandbox session is invisible to a /performance-review running on the VM or in CI.\n\nVERIFIED, not assumed: `git check-ignore -v` on the artifact returns `.gitignore:29 runtime_logs/`, and `tuning_attempt_on_record` returns True in the session that produced it.\n\nTHE FAILURE DIRECTION IS THE SAFE ONE, WHICH IS WHY THIS IS MEDIUM AND NOT HIGH. On a host without the directory the reader returns `None` (we could not look), and the override deliberately leaves the matrix verdict STANDING on `None` rather than softening it. So a demotion is never blocked by an attempt the reviewing host cannot see, and nothing fails silently. What is lost is the opposite: a real attempt does not COUNT anywhere but where it ran, so the same sweep may be demanded repeatedly on different hosts.\n\n⚠️ DO NOT 'FIX' THIS BY MAKING `None` SOFTEN. That would restore the property the override was built to avoid -- a losing leg stranded live on missing evidence -- and it is the collapsed-state error this repo has a guard family for. The fix is to make the evidence durable, not to weaken the reader.\n\nINTERIM MITIGATION ALREADY IN PLACE for the two legs swept today: the full grids are pasted into docs/research/target-r-derivation-crypto-pullback-2026-08-23.md, a committed document, so the evidence survives even though the artifact does not. That works for a hand-run sweep and does not scale to a fleet.",
+      "resolution_criteria": [
+        "Tune results land somewhere TRACKED, so an attempt counts wherever the review runs. `comms/` is the existing precedent for exactly this shape — comms/gpu_spend_ledger.json and comms/broker_truth_ledger.json are both committed file-backed records read by an API route. A committed index (strategy, param, date, chosen value, beats_baseline, train_oos_consistent) would be small and would version with the config it advises on.",
+        "OR: the rule states explicitly that sweeps must be run on the live VM, and the reader's canonical path is the one /api/bot/strategies/{name}/tune serves. That is a documentation fix rather than a code one and is legitimate — but it must be WRITTEN, because today the requirement is only inferable from which host happens to have the file.",
+        "Either way, `None` must keep meaning 'we could not look' and must keep leaving the matrix verdict standing. A fix that softens on an unreadable directory is not a fix.",
+        "State the population when this closes: how many legs have an attempt on record on the VM, against the 52 enabled. A count of 2 (today, in a sandbox that does not count) is the honest starting number."
+      ],
+      "refs": [
+        "scripts/ml/strategy_review_packet.py::tuning_attempt_on_record",
+        "scripts/ml/strategy_tune_sweep.py",
+        "docs/CLAUDE-RULES-CANONICAL.md",
+        "docs/research/target-r-derivation-crypto-pullback-2026-08-23.md",
+        ".gitignore"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }
