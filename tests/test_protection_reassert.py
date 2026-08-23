@@ -186,3 +186,55 @@ class TestAllowlist:
         """`ib` must not arm `ib_paper` and `ib_live` at once."""
         assert account_may_apply("ib_paper", "ib") is False
         assert account_may_apply("ib_live", "ib_paper") is False
+
+
+class TestIdempotenceFilterAndReassertAreTwoSided:
+    """`BL-20260823-MODIFY-IDEMPOTENCE...` criterion 5, both halves at once.
+
+    The criterion is explicit that this is a PAIR: *"a build that re-asserts on
+    every pass is as broken as one that never does, and would re-amend every leg
+    on every tick."* Testing only the divergence half would pass on a build that
+    re-asserts unconditionally, which is the more dangerous failure — it puts a
+    real cancel-and-re-place on every live bracket every pass.
+
+    The two halves live in different modules on purpose (see
+    `interpret_verdict`'s docstring): the filter must NOT learn to read the
+    venue, because it runs per open position per pass. So this pins the seam
+    rather than either side alone.
+    """
+
+    def test_agreeing_pair_is_still_filtered_out(self):
+        from src.runtime.monitor_verdict import interpret_verdict
+        d = interpret_verdict({"sl": 7533.69642857}, current_sl=7533.69642857)
+        assert d.rejection == "no_meaningful_change"
+        assert d.sl is None
+
+    def test_a_diverging_pair_still_produces_a_modify(self):
+        from src.runtime.monitor_verdict import interpret_verdict
+        d = interpret_verdict({"sl": 7533.69642857}, current_sl=7516.5)
+        assert d.kind == "modify"
+        assert d.sl == 7533.69642857
+
+    def test_the_reassert_fires_on_the_divergence_the_filter_cannot_see(self):
+        """The MES 4350 shape: journal and venue disagree, so the strategy
+        recomputes the journal's OWN level and the filter deletes it. The
+        divergence is invisible from `interpret_verdict`; the re-assert is what
+        sees it, and it must decide `reassert` on exactly this input."""
+        from src.runtime.monitor_verdict import interpret_verdict
+        declared, resting = 7533.69642857, 7516.5
+
+        # What the modify path sees when the strategy recomputes its own level:
+        assert interpret_verdict(
+            {"sl": declared}, current_sl=declared).rejection == "no_meaningful_change"
+
+        # Grade the real divergence through the shared comparator rather than
+        # hand-building a verdict dict — a hand-built one can drift from what
+        # grade_protection_price actually emits, which is how a test ends up
+        # passing against a shape production never produces.
+        out = _decide(price_verdict=_verdict([resting], declared=declared))
+        assert out["state"] == STATE_REASSERT
+        assert round(out["ticks"]) == 69
+
+    def test_an_agreeing_venue_does_not_reassert(self):
+        out = _decide(price_verdict=_verdict([DECLARED_SL]))
+        assert out["state"] == STATE_AGREES

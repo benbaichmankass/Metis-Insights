@@ -963,7 +963,16 @@ strategies:
     model: null
     signal_prefixes: [htf_pullback, htf_pullback_trend]
     enabled: true
-    execution: live          # PROMOTED shadow -> live 2026-06-02; GRADUATED to
+    # DEMOTED live -> shadow (Tier-3, operator-approved 2026-08-23) after a FOUR-AXIS
+    # tune-before-demote discharge (canonical rule, docs/CLAUDE-RULES-CANONICAL.md
+    # § "Tune before demote"): tp_r, atr_stop_mult, adx_min and trail_mult were each
+    # swept over 13,212 BTCUSDT 2h bars (net-of-cost 7.5bps, --oos-start 2026-01-01,
+    # every other param pinned to this block) and NO value on ANY axis both beat the
+    # baseline and stayed train/OOS-consistent. Baseline itself is OOS net_R -13.933,
+    # the worst of the pullback family, and this leg routes to bybit_2 (REAL MONEY).
+    # `shadow` keeps it running and logging order packages for data; it places no
+    # live order. ROLLBACK: set execution back to `live`.
+    execution: shadow        # shadow-guard: allow — Tier-3 operator-approved 2026-08-23; DEMOTED (was live, promoted 2026-06-02); 4-axis tune discharge found nothing, baseline OOS net_R -13.933 on real money
                              # real-money bybit_2 2026-06-02 (Tier-3, operator-
                              # approved). Runs on bybit_1 (demo) AND bybit_2 (real).
                              # Now live on bybit_1 (demo) AND bybit_2 (real money)
@@ -2403,10 +2412,21 @@ strategies:
     pullback_frac: 0.5
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 5.0
+    # trail_mult 5.0 -> 6.0 (Tier-3, operator-approved 2026-08-23). Swept AFTER tp_r was
+    # pinned to its new 3.0, since the two interact — a real take-profit changes what a
+    # trail is for. beats_baseline TRUE, train/OOS-consistent TRUE over 13,212 XRPUSDT 2h
+    # bars (net-of-cost 7.5bps, --oos-start 2026-01-01). ROLLBACK: set back to 5.0.
+    trail_mult: 6.0
     trail_decay_arm_r: 4.49   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
-    tp_r: 50.0
+    # tp_r 50.0 -> 3.0 (Tier-3, operator-approved 2026-08-23). The 50 was a FAR
+    # SENTINEL meaning "no real target, the trail is the exit" — so the placed TP was
+    # set by the venue's 9.9% ceiling, not by the strategy (13/14 open packages,
+    # verified arithmetically). Sweep over 13,212 XRPUSDT 2h bars, n=181 capped
+    # trades: net_R 1.5->0.89 2->1.69 2.5->4.12 3->4.38 4->2.15 50->2.16. 3.0 beats
+    # baseline AND is train/OOS-consistent; the only one of six pullback legs where
+    # the sweep found a shipping value. ROLLBACK: set back to 50.0.
+    tp_r: 3.0
     min_confidence: 0.0
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
@@ -2425,7 +2445,18 @@ strategies:
     pullback_lookback: 10
     pullback_frac: 0.5
     atr_period: 14
-    atr_stop_mult: 2.5
+    # atr_stop_mult 2.5 -> 1.5 (Tier-3, operator-approved 2026-08-23). Swept because
+    # cap_r = (0.099 x entry) / (atr_stop_mult x ATR) is INVERSELY proportional to this
+    # knob, so it is the direct lever on how often the venue's 9.9% TP ceiling sits
+    # closer than the stop (no coherent bracket). Measured over 13,212 ADAUSDT 2h bars,
+    # net-of-cost 7.5bps, --oos-start 2026-01-01, all other params pinned to this block:
+    #   cap_r<1  18/153 (11.8%) -> 3/172 (1.7%);  median cap_r 2.00 -> 3.34
+    #   OOS net_R +5.088 -> +9.143;  train net_R -3.092 -> +2.962 (sign flip)
+    #   COST: maxDD 6.261 -> 8.508.  beats_baseline TRUE, train/OOS-consistent TRUE.
+    # The 18 trades a cap_r<1 REFUSAL rule would have discarded become tradeable
+    # instead — enhancing the geometry, not rejecting the signal (operator directive).
+    # ROLLBACK: set back to 2.5.
+    atr_stop_mult: 1.5
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0

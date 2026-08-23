@@ -747,6 +747,51 @@ written. Being in the repo is not evidence of being current. Finding
 non-compliance in a precedent is part of the work, not a distraction
 from it.
 
+### Rule 3a — Branch mechanics around a merge (2026-08-23, binding)
+
+Operator-directed after a session spent roughly half an hour, twice, on what
+looked like a CI outage and was neither. Two rules, both cheap:
+
+**1. After a squash merge, RESTART the branch — never merge `main` back in.**
+This repo squash-merges. A squash rewrites your commits into one new commit on
+`main`, so a long-lived session branch that keeps taking work after its PR
+merges can never match `main` again, and the *next* PR on that branch conflicts
+**by construction** — guaranteed, not occasional. It fired twice in the
+2026-08-23 session, once costing a rebase and once costing the investigation
+below.
+
+```bash
+git fetch origin main
+git checkout -B <your-branch> origin/main     # restart from the squashed result
+git cherry-pick <any-commit-not-yet-merged>   # re-apply only what is genuinely new
+```
+
+Merging `main` into the branch instead is what *creates* the add/add conflicts,
+because both sides now carry the same content under different history.
+
+**2. A PR sitting at ZERO check runs: read `mergeable_state` FIRST.**
+
+| reading | meaning | remedy |
+|---|---|---|
+| `dirty` | **merge conflict** — GitHub does not attach checks to a conflicted PR | resolve the conflict; checks attach within seconds |
+| `blocked` | conflict-free, required checks not green yet | wait, or fix the red check |
+| clean, still no runs | a genuine `pull_request` delivery drop (`BL-20260730-PR-CI-NOT-ATTACHING`) | `workflow_dispatch` the workflows by hand on the branch ref |
+
+**The first and third rows present IDENTICALLY** — zero checks, PR looks stuck —
+and they have opposite remedies. Guessing costs a wasted dispatch round *and*
+leaves the real cause standing. On 2026-08-23 a session confirmed Actions was
+healthy repo-wide, concluded "delivery drop", hand-dispatched three workflows,
+and was wrong: `mergeable_state` was `dirty`. One field read, taken first, would
+have replaced the whole detour.
+
+⚠️ **A missing check is not a passing check.** An empty check list renders
+identically to green in every UI that counts failures. Never merge on "no red".
+
+⚠️ **When the conflict is in a backlog JSON, resolve it BY ID, not by side.**
+`BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION`
+is what happens otherwise. Diff the two versions' id sets first; only take one
+side wholesale once you have shown it is a strict superset.
+
 ### Rule 3 — Compliance gate before merge (2026-06-21, binding)
 
 No work is complete and **no PR is merged** until Claude has audited the

@@ -257,7 +257,18 @@ GUARDS: List[Dict[str, Any]] = [
         # and every CLOSED live cell carries the evidence ref the matrix's own
         # `_doc` requires ("statuses only from verified evidence").
         "name": "exit-coverage-matrix-guard",
+        # `config/strategies.yaml` is in this list because the check JOINS the
+        # matrix against it (`execution` must agree). Without it the guard was
+        # scoped to one side of its own join, so the single edit that can make
+        # the matrix stale -- flipping a leg's `execution` -- was the one edit
+        # that would not run it. Measured 2026-08-23: demoting
+        # htf_pullback_trend_2h to shadow left the matrix declaring it `live`,
+        # the guard reported SKIP (not relevant to this diff), and the defect
+        # reached CI, where the test that invokes it with `--all` caught it.
+        # A guard scoped to one side of a two-sided check is quiet exactly when
+        # it should not be.
         "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "config/strategies.yaml",
                            "scripts/research/m20_coverage_rollup.py",
                            "scripts/research/m20_explode_coverage_rows.py"]},
         "steps": [["python3", "scripts/research/m20_coverage_rollup.py", "--check"]],
