@@ -144,7 +144,8 @@ def _is_backlog_json(path: str) -> bool:
 
 #: JSON keys whose value NAMES the finding rather than asserting anything.
 #: An impossibility phrase inside a row's own identifier is a LABEL — e.g.
-#: ``BL-20260816-TICK-COST-...-CANNOT-BE-MEASURED`` is what the row is CALLED.
+#: a row named for the thing it says cannot be measured is CALLED that;
+#: the name is not a second assertion needing its own evidence.
 #: Demanding a ``checked:`` token beside an id line is demanding evidence for a
 #: name, and the only way to satisfy it is to wedge an annotation between the id
 #: and the row's first real field.

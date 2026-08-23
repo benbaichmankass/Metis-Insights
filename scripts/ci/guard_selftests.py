@@ -204,7 +204,7 @@ def selftest_impossibility_claim() -> None:
             "was protecting against")
 
     # An impossibility phrase inside a row's IDENTIFIER is a LABEL, not a claim.
-    id_line = '    "id": "BL-20260816-TICK-COST-CANNOT-BE-MEASURED",'
+    id_line = '    "id": "FIXTURE-ROW-CANNOT-BE-MEASURED",'
     if check_lines([(4, id_line)], "docs/claude/health-review-backlog.json",
                    body_lines=['{', '  "items": [', '  {', id_line, '  }', '  ]', '}']):
         raise SystemExit(

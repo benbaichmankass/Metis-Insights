@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# wiring: manual-only - this is a LIBRARY for the session-end routine and for
+# any tooling that appends a backlog row (import `append_row`), plus a CLI for a
+# one-off append. Giving it a scheduled runner would mean scheduling the act of
+# filing a finding, which is not a thing that can be automated.
 """Append a row to a review backlog WITHOUT reformatting the file.
 
 WHY THIS EXISTS
@@ -64,8 +68,8 @@ def detect_format(raw: str, doc: Any) -> Tuple[Dict[str, Any], str]:
     raise FormatNotReproducible(
         "no candidate serialisation reproduces the file byte-for-byte; refusing "
         "to write rather than reformat it (that reformat re-attributes every "
-        "pre-existing row to this diff — BL-20260820-BACKLOG-APPEND-REFORMATS-"
-        "AND-REATTRIBUTES)"
+        "pre-existing row to this diff; see "
+        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES)"
     )
 
 
