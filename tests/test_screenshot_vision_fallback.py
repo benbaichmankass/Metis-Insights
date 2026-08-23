@@ -38,6 +38,23 @@ def _clean_env(monkeypatch):
               "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    # ⚠️ EVERY TEST IN THIS FILE OPTS IN TO THE HOSTED BACKEND, DELIBERATELY,
+    # AND THAT IS NOT A WORKAROUND (2026-08-23).
+    #
+    # `PROP_SCREENSHOT_BACKEND` now defaults to `local`, which REFUSES rather
+    # than sending an image carrying account balance, equity, the broker account
+    # number and open positions to a hosted model. That default made these four
+    # tests fail — correctly: they exercise the ANTHROPIC->GEMINI fallback, and
+    # the fallback only exists on the external backend, so the refusal fired
+    # before any provider was reached.
+    #
+    # THE FIX IS TO NAME THE BACKEND UNDER TEST, NEVER TO CHANGE THE DEFAULT.
+    # Relaxing the default to make a test pass would delete the control and
+    # leave the tests green, which is the worst available outcome. The default's
+    # own behaviour is covered separately and must stay covered —
+    # tests/test_prop_screenshot_parse.py::test_default_is_local_not_external
+    # and ::test_local_refuses_rather_than_substituting_a_hosted_model.
+    monkeypatch.setenv("PROP_SCREENSHOT_BACKEND", "external")
 
 
 def test_provider_is_chosen_by_the_model_id():

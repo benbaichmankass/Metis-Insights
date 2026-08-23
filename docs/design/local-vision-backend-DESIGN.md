@@ -1,7 +1,58 @@
 # Local vision backend — the prop screenshot reader without an outside service
 
-**Status:** planned (P0 not started) · **Opened:** 2026-08-23 · **Anchor:** `MB-20260823-LOCAL-VISION-BACKEND`
-**Tier:** 1 for P0–P2 (fixtures, harness, measurement) · **Tier 2** for P3 (a new service the live VM calls) · **Tier 2** for P4 (flipping the default)
+**Status:** ⛔ **SCREENSHOT DRIVER WITHDRAWN BY THE OPERATOR, 2026-08-23 — do not start P0** · **Opened:** 2026-08-23
+**Tracking:** ROADMAP M38 · `BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS`
+
+> ## ⛔ READ THIS BEFORE THE REST — the reason this document existed is gone
+>
+> **Operator, 2026-08-23, after reading the constraint analysis below:**
+> *"Regarding the LLM in that case, perhaps it's not worth pursuing. We should
+> still build it just not for the screenshots. And then the question is … let's
+> just leave it for now. We'll not do the screenshots via Telegram. I'll just
+> keep on handing them to you in a cloud chat."*
+>
+> **So the screenshot use case is CLOSED, not deferred.** The phases in § 5 are
+> **not scheduled and must not be started**. Nothing here is a backlog item
+> waiting for capacity; the driver was withdrawn deliberately after the cost was
+> measured, which is the correct outcome of a feasibility study and not a
+> failure of one.
+>
+> **What that settles, operationally:**
+>
+> - **The Telegram screenshot reader stays refusing, permanently.**
+>   `PROP_SCREENSHOT_BACKEND` keeps its `local` default, which now means
+>   *"deliberately not served"* rather than *"not built yet"*. **The egress this
+>   document was written to close is closed and stays closed** — that outcome is
+>   fully achieved, and it did not need a local model.
+> - **The replacement path already works and has been exercised.** The operator
+>   hands the screenshot to a Claude session in chat; that session reads it and
+>   files the report through the same `prop_report.ingest_report` chokepoint via
+>   the `prop-report` relay. That is exactly how **fill id 34** (`breakout_1`,
+>   ETHUSD→`ETHUSDT`, long, 2.0 @ 2453.56) reached the journal on 2026-08-23
+>   while the reader was broken. It is not a workaround; it is now the route.
+> - **The typed grammar is unchanged and remains the fastest path** —
+>   `bal 5040 5010`, `close ETHUSD 2950 +80 tp`.
+> - Stated once, without editorialising, because the record should not imply
+>   more than it does: a screenshot handed to a Claude session is also handled
+>   outside the trading system. The difference the operator is buying is
+>   **deliberate, per-image, human-directed** handling instead of an automated
+>   pipeline shipping account data on every photo with nothing declaring that it
+>   did. That was the actual complaint, and this satisfies it.
+>
+> **What survives and is worth keeping:** the operator also said *"we should
+> still build it, just not for the screenshots."* §§ 1–3 below — the measured
+> constraints and the finding that the public-repo burst worker cannot carry
+> **any** sensitive payload — are reusable for whatever that turns out to be,
+> and they are the expensive part of this document. § 4's accuracy-gate
+> reasoning is now moot for screenshots specifically; the *discipline* it states
+> (per-field money numbers, honest-null in its own column, a control arm) is
+> not, and applies to any future extraction task.
+>
+> **Everything below this box is preserved as the analysis that produced the
+> decision.** It is a record, not a plan. Re-read § 2 before anyone proposes
+> routing sensitive data through `llm-delegate` again.
+
+**Tier (if it were ever revived):** 1 for P0–P2 (fixtures, harness, measurement) · **Tier 2** for P3 (a new service the live VM calls) · **Tier 2** for P4 (flipping the default)
 
 > **Operator, 2026-08-23:** *"we still need to build out this LLM … the Anthropic
 > credits are not relevant here at all. We cancel that out … We need to make sure
