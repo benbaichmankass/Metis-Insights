@@ -21434,6 +21434,25 @@
         "src/prop/breakout_executor.py::_reticket_suppress_reason",
         "docs/audits/full-system-audit-2026-08-23.md"
       ]
+    },
+    {
+      "id": "BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "medium",
+      "tier": "1 (test infrastructure)",
+      "status": "open",
+      "area": "test fixtures / schema fidelity",
+      "title": "A test fixture MISSING a production column fails silently: sqlite's `no such column` is swallowed into a generic scan failure and every behavioural test in the file then misreports as an assertion failure",
+      "detail": "MEASURED 2026-08-23. Adding `exit_reason` to _sweep_local_pnl_for_unpriced's SELECT broke 8 tests in tests/test_sweep_no_mark_fabrication.py, whose hand-rolled `trades` table lacked the column. The failure mode is the problem, not the omission: sqlite raises `no such column`, the sweep's broad except swallows it into `scan query failed` at WARNING, the scan returns nothing, and the tests report `assert 0 == 1` and `KeyError: 'pnl_source'` — pointing squarely at production code that had not changed in the way the message implies. This is the `order_packages.id` class (BL-20260810, a fixture declaring a schema production does NOT have) in its MIRROR IMAGE: a fixture MISSING a column production DOES have. The prior class was swept; this direction was not. Worse, the file's own bomb-defusal regression test — added precisely so this shape names itself rather than being found by elimination — reported the WRONG cause ('the fixture clock has drifted, the sweep is not broken'). A `scanned == 0` has two very different explanations and it named only one, sending the reader to inspect a clock that was fine. ⚠️ DENOMINATOR, stated because the tempting number is misleading: 90 test files hand-roll a `trades` table and all 90 are missing at least one column that some src/ path SELECTs — but that is NOT 90 latent failures, because a fixture only needs the columns the path IT exercises. Quoting 90/90 as a finding would be the unasserted-denominator defect this repo has a rule about. The real population is unknown and only materialises when a SELECT gains a column, which is exactly why the failure needs to be legible rather than enumerated.",
+      "resolution_criteria": "EITHER (a) the scan failure is legible — the swallow logs the offending column/query at ERROR, or re-raises under pytest so the fixture is named directly; OR (b) fixtures build `trades` from the production DDL through one shared helper, so drift is impossible rather than merely detectable. (b) is the stronger fix and the same single-homing move already made for the DB-path resolver and provenance.py.",
+      "detector": "tests/test_sweep_no_mark_fabrication.py::test_fixture_row_is_inside_the_sweep_scan_window now PRAGMA-checks the fixture's columns against the set the sweep SELECTs and names the missing ones BEFORE falling through to the window check — so this file's next drift reports its own cause. That is one file; the class-wide detector is resolution criterion (a) or (b) and does not exist yet.",
+      "checked": "checked: tests/test_sweep_no_mark_fabrication.py — verified 2026-08-23 by causing the failure, reading the swallowed warning in the CI log, and confirming the bomb-defusal test named the wrong cause.",
+      "refs": [
+        "src/runtime/order_monitor.py::_sweep_local_pnl_for_unpriced",
+        "tests/test_sweep_no_mark_fabrication.py",
+        "src/units/db/database.py"
+      ]
     }
   ]
 }

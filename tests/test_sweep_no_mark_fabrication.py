@@ -24,6 +24,17 @@ from src.runtime.provenance import (
     ESTIMATED, FABRICATED, UNMEASURED_MARKER, classify_pnl,
 )
 
+# NOTE on `exit_reason` below: it is NOT optional. Production `trades` has it
+# and the sweep SELECTs it (it gates the exit-LABEL relabel on the row still
+# carrying the generic reason). A fixture MISSING a production column does not
+# fail loudly -- sqlite raises `no such column`, the sweep's broad `except`
+# swallows it into `scan query failed`, and every behavioural test in this file
+# then reports `assert 0 == 1` as if the production code were broken. That is
+# the `order_packages.id` class (BL-20260810, a fixture declaring a schema
+# production does NOT have) in its mirror image: a fixture missing a column
+# production DOES have. Kept as a Python comment, not an SQL one, because
+# `test-schema-fidelity-guard` tokenises the DDL body and reads prose words as
+# column names. BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY.
 _SCHEMA = """
 CREATE TABLE trades (
     id INTEGER PRIMARY KEY,
@@ -32,15 +43,6 @@ CREATE TABLE trades (
     pnl REAL, pnl_percent REAL, status TEXT,
     is_backtest INTEGER DEFAULT 0, setup_type TEXT,
     order_package_id TEXT, closed_at TEXT, created_at TEXT,
-    -- `exit_reason` is NOT optional here. Production `trades` has it and the
-    -- sweep SELECTs it (it gates the exit-LABEL relabel on the row still
-    -- carrying the generic reason). A fixture missing a production column does
-    -- not fail loudly: sqlite raises `no such column`, the sweep's broad
-    -- `except` swallows it into `scan query failed`, and every behavioural test
-    -- in this file then reports `assert 0 == 1` as if the production code were
-    -- broken. That is the `order_packages.id` class (a fixture declaring a
-    -- schema production does NOT have) in its mirror image -- a fixture MISSING
-    -- a column production DOES have.
     exit_reason TEXT,
     timestamp TEXT, notes TEXT
 );
