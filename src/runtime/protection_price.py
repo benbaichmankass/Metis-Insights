@@ -97,6 +97,10 @@ def grade_protection_price(
         "ticks": None,
         "side_of_declared": None,
         "resting_count": None if resting_prices is None else len(resting_prices),
+        # Was the trade's direction readable? `exposure` is None for BOTH an
+        # unreadable direction and a non-stop side, so this says which.
+        "direction_known": None,
+        "exposure": None,
     }
     dec = _f(declared)
     if dec is None:
@@ -120,7 +124,16 @@ def grade_protection_price(
     diff = nearest - dec
     out["diff"] = diff
 
-    is_long = str(direction or "").lower() in ("long", "buy")
+    # `None` for an UNREADABLE direction, never a silent default to one of
+    # them. `exposure` inverts on this value, so defaulting an unknown
+    # direction to "short" would publish a confident label that is exactly
+    # backwards for half the book -- the diagnostic-provenance sub-class A
+    # shape (the accessor does not compute what the label says, and nothing in
+    # the output reveals it). An unknown direction earns NO exposure verdict.
+    _d = str(direction or "").strip().lower()
+    is_long = True if _d in ("long", "buy") else (
+        False if _d in ("short", "sell") else None)
+    out["direction_known"] = is_long is not None
     if abs(diff) == 0:
         out["side_of_declared"] = "at"
     elif diff < 0:
@@ -128,8 +141,11 @@ def grade_protection_price(
     else:
         out["side_of_declared"] = "above"
     # Name the CONSEQUENCE, not just the geometry: for a long a stop below the
-    # declared level means more exposure; for a short it is the mirror.
-    if side == "stop" and out["side_of_declared"] in ("below", "above"):
+    # declared level means more exposure; for a short it is the mirror. The
+    # GEOMETRY (`side_of_declared`) is always published because it needs no
+    # direction; only the consequence does.
+    if (side == "stop" and is_long is not None
+            and out["side_of_declared"] in ("below", "above")):
         wider = (out["side_of_declared"] == "below") if is_long else (
             out["side_of_declared"] == "above")
         out["exposure"] = "more_exposed" if wider else "exits_earlier"

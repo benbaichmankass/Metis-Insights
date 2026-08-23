@@ -7065,7 +7065,15 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                         "caller.",
                         account_id, protect_symbol, row["id"],
                         _pv["declared"], _pv["nearest_resting"], _pv["ticks"],
-                        _pv["side_of_declared"], _pv["exposure"], _gap,
+                        _pv["side_of_declared"],
+                        # `exposure` is None when the direction was unreadable.
+                        # Printing a bare "None" beside a confident geometry
+                        # invites the reader to supply the missing half; say
+                        # which fact is absent instead.
+                        _pv["exposure"] or "consequence UNKNOWN (direction "
+                        "unreadable — the geometry above stands, its meaning "
+                        "does not)",
+                        _gap,
                     )
             except Exception as exc:  # noqa: BLE001 -- grading never breaks the sweep
                 logger.debug(

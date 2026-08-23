@@ -348,3 +348,84 @@ class TestBybitPathActuallyRuns:
         )
         assert g["state"] == PRICE_DIVERGES
         assert g["exposure"] == "more_exposed"
+
+
+# ---------------------------------------------------------------------------
+# An UNREADABLE direction earns no exposure verdict (2026-08-23).
+#
+# `exposure` inverts on direction: a stop BELOW its declared level is
+# more_exposed for a long and exits_earlier for a short. An earlier draft of
+# this module resolved direction with
+#
+#     is_long = str(direction or "").lower() in ("long", "buy")
+#
+# which is a two-state read of a three-state fact: an absent, empty or
+# unrecognised direction fell through to False and was graded as a SHORT. The
+# label was then confidently backwards for every long whose direction the
+# caller failed to supply — the diagnostic-provenance sub-class A shape, where
+# the accessor does not compute what the label says and nothing in the output
+# reveals the substitution.
+#
+# Found by a test fixture that omitted the key, not by reading the code.
+# ---------------------------------------------------------------------------
+class TestDirectionIsThreeState:
+    def _below(self, direction):
+        return grade(
+            declared=7533.696429, resting_prices=[7516.5],
+            direction=direction, side="stop", tick_size=0.25)
+
+    @pytest.mark.parametrize("d", ["long", "buy", "LONG", " Buy "])
+    def test_long_spellings_grade_a_lower_stop_more_exposed(self, d):
+        v = self._below(d)
+        assert v["direction_known"] is True
+        assert v["exposure"] == "more_exposed"
+
+    @pytest.mark.parametrize("d", ["short", "sell", "SHORT", " Sell "])
+    def test_short_spellings_grade_the_same_stop_exits_earlier(self, d):
+        v = self._below(d)
+        assert v["direction_known"] is True
+        assert v["exposure"] == "exits_earlier"
+
+    @pytest.mark.parametrize("d", [None, "", "   ", "flat", "b", 0, 1])
+    def test_unreadable_direction_earns_NO_exposure_verdict(self, d):
+        """Not 'exits_earlier'. Not 'more_exposed'. None."""
+        v = self._below(d)
+        assert v["direction_known"] is False
+        assert v["exposure"] is None
+
+    def test_the_geometry_survives_an_unreadable_direction(self):
+        """`side_of_declared` needs no direction, so it must still be published.
+
+        Suppressing the whole verdict would be the opposite error: the
+        divergence is real and measurable regardless of which way the trade
+        faces. Only its CONSEQUENCE is unknown.
+        """
+        v = self._below(None)
+        assert v["state"] == PRICE_DIVERGES
+        assert v["side_of_declared"] == "below"
+        assert round(v["ticks"]) == 69
+
+    def test_direction_known_is_present_on_every_early_return(self):
+        """A key that appears only on the happy path is one a consumer cannot
+        rely on — `.get()` would silently return None, which is neither True
+        nor False and reads as 'unknown' for a verdict that never ran."""
+        for kwargs in (
+            dict(declared=None, resting_prices=[1.0]),          # no_declared
+            dict(declared=1.0, resting_prices=None),            # no_resting
+            dict(declared=1.0, resting_prices=[]),              # no_resting_leg
+            dict(declared=1.0, resting_prices=[1.5], tick_size=None),  # no_tick
+        ):
+            v = grade(direction="long", side="stop", **kwargs)
+            assert "direction_known" in v
+            assert "exposure" in v
+
+    def test_a_TARGET_never_carries_an_exposure_verdict(self):
+        """Exposure is a stop-side concept: a target sitting off its declared
+        level is a missed exit, not un-agreed risk. Reusing the word there
+        would make two different conditions read as one."""
+        v = grade(
+            declared=8390.59, resting_prices=[8500.0], direction="long",
+            side="target", tick_size=0.25)
+        assert v["state"] == PRICE_DIVERGES
+        assert v["exposure"] is None
+        assert v["direction_known"] is True
