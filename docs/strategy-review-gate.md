@@ -192,6 +192,34 @@ These overrides fire **before** the matrix and short-circuit it:
 4. **Promote requires N cohort weeks.** `promote` is never emitted if
    the shadow soak window is shorter than 14 days, even with strong
    in-window PnL — promotion needs cohort time, not just sample size.
+5. **TUNE BEFORE DEMOTE** (operator directive 2026-08-23, binding —
+   `CLAUDE-RULES-CANONICAL.md` § "Tune before demote"). Fires **LAST**,
+   because unlike the others it grades the matrix's own output. When
+   the verdict is `demote_shadow` or `kill` and **no tuning attempt is
+   on record**, it is softened to `tune`, with a `reasons[]` entry
+   naming the verdict it replaced.
+
+   The evidence is the M8 sweep artifact
+   (`runtime_logs/strategy_tunes/<UTC-date>/<strategy>__<param>.json`,
+   served at `/api/bot/strategies/{name}/tune`) — its EXISTENCE is a
+   fact about what was run, which is what makes it usable here where
+   "we considered tuning" would not be.
+
+   **Why it exists:** the matrix above reaches `demote_shadow` / `kill`
+   DIRECTLY from win-rate + expectancy while `tune` occupies only a
+   narrow middle band, so a leg that is simply losing skipped the
+   tuning attempt every time and the operator had to say so by hand on
+   every packet.
+
+   ⚠️ **It DEFERS a disposition, never forbids one.** A leg tuned and
+   still failing demotes on the next packet, with the attempt as
+   evidence.
+
+   ⚠️ **`None` is not `False`.** An unreadable tune directory means *we
+   could not look*; the matrix verdict **STANDS** and the packet says
+   so. Softening on a failed read would strand a losing leg live on
+   missing evidence — the opposite mistake, and the collapsed-state
+   error this repo has a guard family for.
 
 ## The five actions
 
@@ -231,6 +259,14 @@ the operator; it only refuses to forget.
 `tune` does not have an SLA — the parameter-search recipe (M8) is a
 research task, not a remediation. `hold` and `promote` are similarly
 clock-free.
+
+⚠️ **A verdict softened by Override 5 carries no SLA clock either**, because
+it is a `tune`. That is deliberate but it is also the override's one real
+cost: a losing leg deferred for a tuning attempt has nothing counting the days
+until the attempt happens. If softened verdicts start accumulating without
+sweeps being run, that is a finding in its own right — the next
+`/performance-review` should count them, and a leg softened twice for the same
+missing sweep is the desensitised-alarm shape wearing a different hat.
 
 ## M8 hook — `tune` recipe pointer
 

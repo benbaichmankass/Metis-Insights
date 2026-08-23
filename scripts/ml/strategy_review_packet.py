@@ -912,6 +912,50 @@ def classify_execution_mismatch(
     )
 
 
+def tuning_attempt_on_record(
+    strategy: str, tunes_root: Optional[Path] = None,
+) -> Optional[bool]:
+    """Has an M8 parameter sweep ever been run for ``strategy``?
+
+    THREE STATES, NEVER COLLAPSED — this feeds Override 5, where the two
+    failure directions are opposite:
+      ``True``   at least one sweep artifact exists
+      ``False``  the tunes root IS readable and holds nothing for this leg
+      ``None``   we could not look (the root is missing or unreadable)
+
+    ``None`` must never be read as ``False``. Softening a genuine demotion on
+    the strength of a failed read would strand a losing leg live on missing
+    evidence, which is the opposite mistake from demoting without a tuning
+    attempt — and this repo's whole collapsed-state family exists because one
+    of those two gets quietly folded into the other.
+
+    The artifact is what `scripts/ml/strategy_tune_sweep.py` writes and what
+    `/api/bot/strategies/{name}/tune` serves:
+    ``runtime_logs/strategy_tunes/<UTC-date>/<strategy>__<param>.json``.
+    Its EXISTENCE is a fact about what was run — not a claim about intent,
+    which is the property that makes it usable as gate evidence.
+    """
+    root = tunes_root
+    if root is None:
+        try:
+            from src.utils.paths import runtime_logs_dir
+            root = Path(runtime_logs_dir()) / "strategy_tunes"
+        except Exception:  # noqa: BLE001 -- we could not look
+            return None
+    try:
+        if not root.is_dir():
+            return None  # the root itself is absent: we did not look
+        for day in root.iterdir():
+            if not day.is_dir():
+                continue
+            for f in day.glob(f"{strategy}__*.json"):
+                if f.is_file():
+                    return True
+        return False  # readable, and genuinely nothing for this leg
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def decide(
     headline: Headline,
     cells: Sequence[RegimeCell],
@@ -919,12 +963,20 @@ def decide(
     execution: str,
     shadow_soak_days: int,
     window_end: Any = None,
+    tuning_attempted: Optional[bool] = None,
 ) -> Decision:
     """Mechanical gate per `docs/strategy-review-gate.md` § Threshold table.
 
     The matrix is intentionally ordered to short-circuit on the strongest
     catastrophic signal first. Overrides (§ Overrides in the doc) fire
-    BEFORE the matrix.
+    BEFORE the matrix -- except Override 5, which fires LAST because it
+    grades the matrix's own output.
+
+    ``tuning_attempted`` is the evidence for Override 5 (TUNE BEFORE DEMOTE):
+    ``True`` a sweep is on record, ``False`` none is, ``None`` we could not
+    look. Three states, never collapsed -- ``None`` must not be read as
+    "no attempt", because refusing a demotion on the strength of a failed
+    read would be as wrong as allowing one on no evidence.
     """
     decision = Decision(action="hold")
     n = headline.n_closed
@@ -1095,6 +1147,53 @@ def decide(
         decision.reasons.append(
             f"promote requires >=14 days shadow soak; current = {shadow_soak_days}d."
         )
+
+    # --- Override 5: TUNE BEFORE DEMOTE (operator directive 2026-08-23).
+    #
+    # "we need to do a deeper dive and at least attempt finetuning before
+    #  demoting - this should be documented as standard practice, I shouldn't
+    #  have to explain each time."
+    #
+    # It was structural, not a lapse of judgement: the matrix reaches
+    # `demote_shadow` / `kill` DIRECTLY from win-rate + expectancy, and `tune`
+    # occupies only a narrow middle band. So a leg that is simply losing skips
+    # the tuning attempt every time, and the operator had to say so by hand on
+    # every packet. This makes the practice MECHANICAL.
+    #
+    # A demotion is not refused forever — it is deferred until a tuning attempt
+    # is ON RECORD. The evidence is the M8 sweep artifact
+    # (`runtime_logs/strategy_tunes/<date>/<strategy>__<param>.json`, served at
+    # /api/bot/strategies/{name}/tune), which is a FACT about what was run, not
+    # a claim about what someone intended.
+    #
+    # ⚠️ `None` IS NOT `False`. An unreadable tune directory means we could not
+    # look, and downgrading a genuine demotion on the strength of a failed read
+    # would strand a losing leg live on missing evidence. It is reported and
+    # the matrix verdict STANDS.
+    if decision.action in ("demote_shadow", "kill"):
+        if tuning_attempted is False:
+            _was = decision.action
+            decision.action = "tune"
+            decision.reasons.append(
+                f"softened {_was}->tune: NO tuning attempt is on record for this "
+                f"strategy (no runtime_logs/strategy_tunes artifact). Standard "
+                f"practice is a deeper dive + a fine-tuning attempt BEFORE a "
+                f"disposition — operator directive 2026-08-23. Run the M8 sweep; "
+                f"if the leg still fails after it, this gate will emit "
+                f"{_was} on the next packet with the attempt as evidence."
+            )
+        elif tuning_attempted is None:
+            decision.reasons.append(
+                "tune-before-demote NOT verifiable — the strategy_tunes "
+                "directory could not be read. The matrix verdict STANDS rather "
+                "than being softened on a failed read; confirm a tuning attempt "
+                "by hand before acting on this proposal."
+            )
+        else:
+            decision.reasons.append(
+                "tune-before-demote satisfied: a tuning attempt is on record "
+                "and the leg still fails the matrix."
+            )
 
     if decision.action == "hold":
         decision.tier = 1  # observation-only
@@ -1290,6 +1389,7 @@ def build_packet(
     decision = decide(
         headline, cells, diag, execution, shadow_soak_days,
         window_end=window_end,
+        tuning_attempted=tuning_attempt_on_record(strategy),
     )
 
     now = datetime.now(timezone.utc).isoformat()
