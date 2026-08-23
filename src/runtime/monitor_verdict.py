@@ -112,10 +112,34 @@ def interpret_verdict(verdict: Any, *,
                       current_tp: Any = None) -> VerdictDecision:
     """Interpret one monitor verdict.
 
-    ``current_sl`` / ``current_tp`` are the position's present levels, used only
-    for the meaningful-change filter. Pass them when known; when they are None
-    the filter cannot apply and every parseable modify is kept (fail-permissive
-    — the same direction live takes when ``open_pkg[key]`` won't parse).
+    ⚠️ ``current_sl`` / ``current_tp`` ARE WHAT WE *BELIEVE* RESTS AT THE VENUE,
+    NOT WHAT DOES. This docstring used to call them "the position's present
+    levels", which is false and was false in the direction that hides a defect.
+    Every live caller passes the JOURNAL — ``order_monitor.py`` supplies
+    ``open_pkg.get("sl")`` — and nothing on this path ever reads the venue's
+    resting price. So the meaningful-change filter below compares an intent to a
+    RECORD, and the record can be stale.
+
+    The consequence is not a rounding nuisance, it is a permanent one: once the
+    journal and the venue disagree, the strategy recomputes the journal's own
+    level, ``abs(updates[key] - cur) <= tol`` deletes it, and this function
+    returns ``no_meaningful_change`` — forever, on every pass, for every leg and
+    every venue. `BL-20260823-MODIFY-IDEMPOTENCE-COMPARES-INTENT-TO-JOURNAL-NEVER-TO-VENUE`.
+    Measured instance: MES 4350 sat 68.79 ticks ($1,289.73 on 15 contracts)
+    below its declared stop from 2026-08-20, with a healthy monitor on a
+    connected session, because the divergence is invisible from here.
+
+    **Reconciling that belief with what actually rests is owned elsewhere, on
+    purpose** — ``src/runtime/protection_reassert.py``, driven from the
+    cadence-gated broker naked sweeps in ``order_monitor``, which already hold
+    the resting prices. It is deliberately NOT done here: this path runs per
+    open position per pass, and adding a broker read to it is the shape of both
+    June 2026 wedges. Do not "fix" this by widening ``current_sl`` into a venue
+    read.
+
+    Pass them when known; when they are None the filter cannot apply and every
+    parseable modify is kept (fail-permissive — the same direction live takes
+    when ``open_pkg[key]`` won't parse).
     """
     if not isinstance(verdict, dict):
         return _none("not_a_dict")
