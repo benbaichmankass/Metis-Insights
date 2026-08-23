@@ -197,10 +197,43 @@ class TestThesisPredicates:
                                              self._df([100, 101]), 105.0, "long")
         assert ok is None and detail["reason"] == "insufficient_bars"
 
-    def test_pullback_thesis_is_UNKNOWN_without_a_declared_floor(self):
+    def test_pullback_thesis_is_UNKNOWN_when_NEITHER_predicate_is_available(self):
+        """UPDATED 2026-08-23 — the contract widened, the guarantee did not.
+
+        This asserted that a leg with no `adx_min` is always UNKNOWN. That is no
+        longer the contract: 13 of the 19 enabled legs declare no floor
+        (measured 2026-08-23), and they now fall back to
+        the TREND-STRUCTURE predicate their entry actually uses
+        (`tests/test_pullback_trend_structure_thesis.py`).
+
+        What must NOT change is the guarantee underneath it: when NEITHER
+        predicate can be evaluated, the answer is `None` — *we could not look* —
+        and never `False`. So the case is kept and tightened rather than deleted.
+        """
         from src.units.strategies.htf_pullback_trend_2h import _pullback_thesis_intact
-        ok, detail = _pullback_thesis_intact({}, self._df([100 + i for i in range(40)]))
-        assert ok is None and detail["reason"] == "no_adx_min_declared"
+        df = self._df([100 + i for i in range(40)])
+
+        # no floor AND no direction -> the fallback cannot be graded either
+        ok, detail = _pullback_thesis_intact({"trend_lookback": 10}, df)
+        assert ok is None
+        assert detail["predicate"] == "trend_structure"
+        assert detail["reason"] == "direction_unreadable"
+
+        # no floor AND no trend window -> likewise unknown, and it still records
+        # WHY the ADX branch did not apply
+        ok, detail = _pullback_thesis_intact({}, df, direction="long")
+        assert ok is None
+        assert detail["reason"] == "no_trend_lookback_declared"
+        assert detail["adx_fallback_reason"] == "no_adx_min_declared"
+
+    def test_pullback_thesis_falls_back_to_trend_structure(self):
+        """The widening itself, asserted here too so this file records it."""
+        from src.units.strategies.htf_pullback_trend_2h import _pullback_thesis_intact
+        df = self._df([100 + i for i in range(40)])
+        ok, detail = _pullback_thesis_intact(
+            {"trend_lookback": 10}, df, direction="long")
+        assert ok is True
+        assert detail["predicate"] == "trend_structure"
 
     def test_pullback_thesis_reads_the_declared_floor(self):
         from src.units.strategies.htf_pullback_trend_2h import _pullback_thesis_intact
