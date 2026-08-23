@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Append a row to a review backlog WITHOUT reformatting the file.
+
+WHY THIS EXISTS
+---------------
+The three review backlogs are the only files a session is REQUIRED to edit at
+session end (``CLAUDE.md`` § "Every session"), and editing them is booby-trapped.
+
+They are stored ``ensure_ascii=False`` — real em-dashes on disk. Python's
+``json.dumps`` defaults to ``ensure_ascii=True``, so the obvious
+read-append-write idiom escapes every non-ASCII character and rewrites every
+line containing one. Nothing warns: the file stays valid JSON and the row is
+correctly added. Measured on a ONE-ROW append: **21,307 insertions, 21,288
+deletions**.
+
+That is not a cosmetic problem. ``impossibility-claim-guard`` (and every other
+diff-scoped guard) reads *added-vs-origin/main*, so a whole-file reformat
+**re-attributes every pre-existing unsubstantiated row to the appending PR** —
+turning someone's unrelated change red for eight rows they never wrote, and
+burying the ones they did.
+
+``BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES`` names the remedy
+this file implements: *"a helper both the session-end routine and any tooling
+append through — that round-trips the untouched file and REFUSES to write when
+its own serialisation does not reproduce the original byte-for-byte."* It is
+explicit that documenting "remember ensure_ascii=False" is NOT sufficient,
+because the file already documents plenty that sessions miss.
+
+THE REFUSAL IS THE FEATURE. This helper does not guess the format and it does
+not "fix" a file whose formatting it cannot reproduce. It detects the exact
+serialisation by round-tripping the ORIGINAL bytes against a candidate list,
+and if none reproduces them it refuses to write at all — because a helper that
+silently falls back to a default is the trap wearing a helper's clothes.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+from typing import Any, Dict, Optional, Tuple
+
+#: Candidate serialisations, most-likely first. A file whose bytes none of these
+#: reproduce is REFUSED rather than reformatted.
+_CANDIDATES: Tuple[Dict[str, Any], ...] = (
+    {"indent": 2, "ensure_ascii": False},
+    {"indent": 1, "ensure_ascii": False},
+    {"indent": 4, "ensure_ascii": False},
+    {"indent": 2, "ensure_ascii": True},
+    {"indent": 1, "ensure_ascii": True},
+)
+
+
+class FormatNotReproducible(RuntimeError):
+    """The file's byte layout matches no known serialisation — refuse to write."""
+
+
+def detect_format(raw: str, doc: Any) -> Tuple[Dict[str, Any], str]:
+    """Return (json.dumps kwargs, trailing) that reproduce *raw* byte-for-byte."""
+    for kw in _CANDIDATES:
+        body = json.dumps(doc, **kw)
+        for trailing in ("\n", ""):
+            if body + trailing == raw:
+                return kw, trailing
+    raise FormatNotReproducible(
+        "no candidate serialisation reproduces the file byte-for-byte; refusing "
+        "to write rather than reformat it (that reformat re-attributes every "
+        "pre-existing row to this diff — BL-20260820-BACKLOG-APPEND-REFORMATS-"
+        "AND-REATTRIBUTES)"
+    )
+
+
+def append_row(path: pathlib.Path, row: Dict[str, Any],
+               *, updated_at: Optional[str] = None) -> int:
+    """Append *row* to the backlog at *path*. Returns the new item count.
+
+    Raises :class:`FormatNotReproducible` rather than writing a reformatted file.
+    """
+    raw = path.read_text()
+    doc = json.loads(raw)
+    kw, trailing = detect_format(raw, doc)
+
+    items = doc["items"] if isinstance(doc, dict) else doc
+    original_items = list(items)
+    existing = {i.get("id") for i in items if isinstance(i, dict)}
+    if row.get("id") in existing:
+        raise ValueError(f"{row['id']} is already filed — refusing to duplicate")
+    items.append(row)
+    if isinstance(doc, dict) and updated_at:
+        doc["updated_at"] = updated_at
+
+    out = json.dumps(doc, **kw) + trailing
+
+    # Belt and braces, SEMANTIC not textual. A byte-prefix check is wrong here:
+    # `updated_at` legitimately changes and sits BEFORE `items`, so the prefix
+    # moves on a correct append. (My own planted control caught that — which is
+    # the argument for the control.) What must hold is that this is an ADDITION:
+    # re-parse the output, and require every pre-existing item to be byte-equal
+    # under the same serialisation.
+    check = json.loads(out)
+    check_items = check["items"] if isinstance(check, dict) else check
+    if len(check_items) != len(items):
+        raise FormatNotReproducible("round-trip lost or gained rows — refusing to write")
+    for before_row, after_row in zip(original_items, check_items[:-1]):
+        if json.dumps(before_row, **kw) != json.dumps(after_row, **kw):
+            raise FormatNotReproducible(
+                "an existing row changed under serialisation — refusing to write, "
+                "because a diff-scoped guard would re-attribute it to this change"
+            )
+    path.write_text(out)
+    return len(items)
+
+
+def _self_test() -> int:
+    """Planted controls — including the exact failure this helper exists for."""
+    import tempfile
+
+    checks = []
+
+    def ck(name, ok):
+        checks.append(bool(ok))
+        print(f"  {'ok ' if ok else 'FAIL'} {name}")
+
+    doc = {"schema_version": 1, "updated_at": "2026-01-01",
+           "items": [{"id": "BL-1", "title": "em—dash and ünicode"}]}
+    with tempfile.TemporaryDirectory() as td:
+        p = pathlib.Path(td) / "b.json"
+
+        # (1) A file written ensure_ascii=False round-trips and appends cleanly.
+        p.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+        n = append_row(p, {"id": "BL-2", "title": "new"}, updated_at="2026-01-02")
+        after = p.read_text()
+        ck("appends a row", n == 2)
+        ck("non-ASCII survives unescaped", "em—dash" in after and "\\u2014" not in after)
+        reparsed = json.loads(after)
+        ck("addition-only (every pre-existing row byte-identical)",
+           json.dumps(reparsed["items"][0], indent=2, ensure_ascii=False)
+           == json.dumps(doc["items"][0], indent=2, ensure_ascii=False))
+        ck("updated_at is allowed to move", reparsed["updated_at"] == "2026-01-02")
+
+        # (2) THE CONTROL: a file this helper cannot reproduce must be REFUSED,
+        #     not reformatted. Separators no candidate uses.
+        p2 = pathlib.Path(td) / "odd.json"
+        p2.write_text(json.dumps(doc, indent=3, separators=(" ,", " : ")))
+        raw2 = p2.read_text()
+        try:
+            append_row(p2, {"id": "BL-3"})
+            ck("refuses an unreproducible format", False)
+        except FormatNotReproducible:
+            ck("refuses an unreproducible format", True)
+        ck("refused file is untouched", p2.read_text() == raw2)
+
+        # (3) Duplicate ids are refused.
+        try:
+            append_row(p, {"id": "BL-2"})
+            ck("refuses a duplicate id", False)
+        except ValueError:
+            ck("refuses a duplicate id", True)
+
+    ok = sum(checks)
+    print(f"self-test: {ok}/{len(checks)} passed")
+    return 0 if ok == len(checks) else 1
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--backlog", help="path to a *-backlog.json")
+    ap.add_argument("--row-json", help="path to a JSON file holding the row")
+    ap.add_argument("--updated-at")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args(argv)
+    if a.self_test:
+        return _self_test()
+    if not (a.backlog and a.row_json):
+        ap.error("--backlog and --row-json are required (or --self-test)")
+    row = json.loads(pathlib.Path(a.row_json).read_text())
+    n = append_row(pathlib.Path(a.backlog), row, updated_at=a.updated_at)
+    print(f"appended {row.get('id')} — {n} item(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
