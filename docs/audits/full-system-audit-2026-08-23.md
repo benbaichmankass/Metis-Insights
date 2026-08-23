@@ -1888,3 +1888,224 @@ into a candidate.
   for a reason to add something. ⚠️ But note the earlier draft reached that branch
   by a **retracted** route (excluding the scalps on bridge fit); reaching it again
   requires the compat matrix to actually reject them, not an a-priori filter.
+
+---
+
+# Part 12 — R:R < 1: THE TP CLAMP HAS NO SL REFERENCE (operator-found, live)
+
+> *"the live XRP trade has a SL farther from entry than the TP. This seems like
+> lacking risk management, and is an issue either with the strategy or the
+> pipeline — we need to make sure this isn't happening"*
+
+Confirmed. It is the **pipeline**, not the strategy — and it is live on real
+money as I write this.
+
+## 12.1 The trade
+
+`/api/bot/positions`, trade **4934**, `bybit_2`, **REAL MONEY**:
+
+| | |
+|---|---|
+| leg | `xrp_pullback_2h` XRPUSDT **long** |
+| entry | 1.4995 |
+| stop | 1.28355357 → risk **0.215946 = 14.40%** of entry |
+| target | 1.6479505 → reward **0.148451 = 9.90%** of entry |
+| **R:R** | **0.687** — risking 1 to make 0.687 |
+
+The same package also filled on `bybit_1` (4933) and `bybit_portfolio` (4935),
+both paper. A second leg, `ada_pullback_2h`, is open at **0.843**.
+
+## 12.2 Mechanism — two legs of one bracket computed on different bases
+
+`xrp_pullback_2h` declares **`tp_r: 50.0`** — a deliberate *far sentinel*
+meaning "there is no real target, the Chandelier trail is the profit exit".
+`htf_pullback_trend_2h.py:322` then does:
+
+```python
+tp = min(entry * (1 + _TP_SENTINEL_CAP_PCT), entry + float(params["tp_r"]) * risk)
+```
+
+with `_TP_SENTINEL_CAP_PCT = 0.099`, because Bybit rejects a TP more than ~10%
+from the reference price (ErrCode 10001). And **1.4995 × 1.099 = 1.6479505
+exactly** — the placed target is the clamp, not the strategy's target.
+
+The stop is **unclamped**: `entry − atr_stop_mult × ATR`, i.e. 2.5 ATR.
+
+So the target is a **percentage of price** and the stop is a **multiple of
+volatility**, and *nothing relates them*. Whenever
+`atr_stop_mult × ATR / entry > 9.9%` the target lands nearer than the stop.
+`trend_donchian.py:388` carries the identical clamp and the identical exposure.
+
+**The code comment states the assumption that fails**, which is what makes this
+a seam rather than a bug in either half:
+
+> *"Cap to ~9.9% from entry so the sentinel is exchange-valid AND still far
+> enough that the monitor's Chandelier trail remains the real profit-exit."*
+
+At 50R that is true. At 9.9% against a 14.4% stop it is false — and the clamped
+sentinel is a **real, binding exit, not decoration**: `exit_reason: tp_cross`
+has fired **3 times** on `pullback_2h` + `trend_donchian` legs across all 4,962
+journal trades. ⚠️ n=3 refutes "unreachable"; it does **not** size the cost.
+
+## 12.3 Population — how often the ratio CROSSES 1 (not how big this is)
+
+⚠️ **Read §12.5 before quoting anything in this section.** The rates below measure *how often the clamp pushes R:R below 1*, which is a threshold-crossing, not the defect. The defect's real population is **29 of 52 enabled legs (55.8%)** declaring `tp_r >= 50`. These numbers are two orders of magnitude smaller and were my error.
+
+Over **3,665 non-pairs order packages** carrying numeric entry+SL+TP:
+
+| | count | share |
+|---|---:|---:|
+| `risk/entry` > 9.9% (the clamp binds) | **3** | 0.08% |
+| resulting R:R < 1 | **6** | 0.16% |
+
+Of the 3 clamped, **2 are the pullback legs and both are OPEN right now** — the
+XRP one on real money. The third (`ict_scalp_avax_5m`) clamped without going
+sub-1 because `ict_scalp` sizes its target as `tp_at_r × risk` and does not
+apply this clamp at all.
+
+**Two other populations, deliberately kept apart** — folding them together would
+make the remedy wrong:
+
+- **`vwap` ×3 + `turtle_soup` ×1** — a *different* cause. Their `risk/entry`
+  medians are 0.17% and 0.35%, two orders of magnitude below the clamp, so
+  nothing was ever clamped. Their target is a **level** (the VWAP line) against
+  a **multiple** stop. Filed as `BL-20260823-VWAP-TARGET-NEARER-THAN-STOP`.
+- **100 `pairs_*` rows at exactly R:R 0.500** — verified as exact multiples
+  (`SL = 2.000 × entry`, `TP = 0.500 × entry`), i.e. deliberate placeholders on
+  the isolated 2-leg pairs path, not brackets. Not a finding.
+
+## 12.4 ⚠️ Why the review missed it — the number was measured, published, and read as a different question
+
+This is the half that matters more than the trade, and the operator was right to
+ask. It is **UNPROVENANCED DIAGNOSTIC OUTPUT, sub-class A**: a value published
+under a label that answers a different question.
+
+The ratio **is** computed and **is** published.
+`src/runtime/position_telemetry.py::cap_r` is literally `0.099 * entry / risk`,
+and the live `/api/bot/positions` `r` block for trade 4934 carries
+**`capR: 0.6874`** and **`rrFromHere: 0.8484`**.
+
+But **every consumer reads `cap_r` as a ceiling for the LEVER ARM**:
+
+- `arm_reach` grades *"is `arm_r <= cap_r`"*
+- `/api/diag/position_telemetry` reports `arm_reach`
+- `scripts/ops/lever_reachability_audit.py` reports `cap_r` percentiles
+- `scripts/research/m31_mfe_parity.py` checks `peak_r <= cap_r`
+
+**Not one asks whether `cap_r < 1`** — which is the same number answering *"is
+the target nearer than the stop?"*
+
+It goes further, and I have to own this: **`CLAUDE.md` already documents
+`rrFromHere` on this exact trade** — *"on the motivating XRP trade it is 0.71,
+i.e. holding for the target risks more than it stands to make"*. The number was
+in the canonical doc, about this position, and was read as an **exit-timing**
+signal (*should we hold this?*) rather than as an **entry-geometry** defect
+(*this should not have been placed like this*). My own Part 1 M20 audit this
+session surfaced `armReach: unreachable` for `xrp_pullback_2h` and made the
+same substitution.
+
+And confirmed by grep: **no `min_rr` / reward-to-risk floor exists anywhere on
+the order path**. The only `reward_to_risk` in `src/` is
+`backtest/backtester.py`'s own config default, which is not the live path.
+
+## 12.5 ⚠️ OPERATOR REFRAME — my four options were all bandaids, and my denominator was wrong
+
+I put four remedies to the operator (refuse below a 1.0 floor · rescale the stop
+to fit the clamp · make the clamp venue-aware · accept sub-1 explicitly). **All
+four were rejected, correctly:**
+
+> *"brackets ALWAYS represent our prediction of where the trade should end —
+> e.g. if it's momentum driven, the TP is where we expect momentum to run out,
+> and the SL represents where we think we can consider ourselves wrong and cut
+> our losses. Then the active management adjusts the brackets based on the
+> ongoing monitoring. The only solution here is to properly build out the active
+> management infra, not layer on bandaids to a poorly constructed strategy."*
+
+Every option I offered accepts a target that is **not a prediction** and argues
+about what to do around it. A refusal floor rejects trades on a ratio computed
+from a venue limit. A stop rescale changes real risk to flatter a ratio. A
+venue-aware clamp makes the non-prediction wider. Accepting it documents it.
+None makes the take-profit *a claim about where the trade ends*, which is the
+only thing that makes a bracket a bracket.
+
+**And the operator is right that this is already raised.** It is specified, with
+a measurement, in
+[`docs/design/exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md)
+§ 2 — *"A bracket must carry an expectation at entry, or it is not a bracket …
+**This is not what the fleet does today**"* — backed by
+`docs/research/e35-bracket-is-not-a-decision-2026-08-20.md` (6,428 trades / 19
+legs / 2021-08-16→2026-08-19, net of fees).
+
+### The denominator I used was wrong, and wrong by two orders of magnitude
+
+⚠️ **Do not quote §12.3's "0.08% / 0.16%" as the size of this problem.** Those
+rates are correct for what they measure — *how often the clamp pushes R:R below
+1* — and that is a **threshold-crossing**, not the defect. **State the
+population:**
+
+| population | measure | source |
+|---|---|---|
+| 3,665 non-pairs order packages | **6 (0.16%)** land R:R < 1 | mine, §12.3 |
+| 52 **enabled** legs in `config/strategies.yaml` today | **29 (55.8%)** declare `tp_r >= 50` | mine, counted this session |
+| 19 legs with trade history in the E3.5 set | **16 (84.2%)** declare `tp_r: 50.0` | `e35-bracket-is-not-a-decision` |
+
+The last two are the real scope. **More than half the enabled fleet places the
+exchange's rejection threshold as its take-profit on _every_ trade** — 26 of
+those 29 at `execution: live`. R:R < 1 is simply where that becomes visible
+because it crosses a line a human notices. The XRP trade is not a rare defect;
+it is the ordinary case, seen from an angle that makes it obvious.
+
+E3.5 also establishes why this is not cosmetic: because `entry × 1.099` is a
+fixed fraction of price, `tp_R` and `ATR/close` are **the same variable**
+(collinearity confirmed 19/19), the target distance varies **6.5×–38.9× within
+every leg**, and **76.2% of the fleet's net R comes from the 23.1% of trades
+whose target is more than 5 R away** — i.e. from trades the bracket *cannot*
+close.
+
+## 12.6 What actually happens now
+
+**No bandaid ships.** The remedy is M20's active-management build, which already
+owns this:
+
+1. **A bracket carries an expectation at entry** — *where do we expect this to
+   exit, and why* becomes a required output of the entry decision, per the
+   PROCESS doc § 2. That is what replaces `tp_r: 50.0`, on 29 legs.
+2. **Revision is conditioned on the strategy's own thesis** (§ 4) — the
+   momentum example is the specification: state where the move is expected to
+   exhaust; if price nears the target while the exhaustion condition has not
+   fired, **extend**. *Extend the target* has **no implementation anywhere** in
+   the harness or the live monitor today (§ 1) — that is the missing capability
+   this finding is really about.
+3. **Amending a resting level costs nothing; exiting early costs 0.082–0.163 R**
+   against a fee-free mean edge of +0.1376 R (XRP) / +0.1167 R (SOL) (§ 3). So
+   revision may be frequent and discretionary early exit must be rare — which is
+   the direct argument against my "refuse the signal" option.
+
+**The two open sub-1 positions are the first consumers, not an exception.**
+Operator-directed: *"Fix forward means applying the infra we are about to build
+to the open trades."* So XRP (4934, real money) and ADA are **not** left to run
+on the geometry they were given and **not** hand-re-cut now — they are the first
+trades the bracket-revision capability is applied to when it lands. That is a
+concrete acceptance test for the build: if the capability cannot state where
+these two are expected to exit and revise their levels accordingly, it is not
+finished.
+
+## 12.7 Why the review missed it — TWO failures, and the second is worse
+
+**(a) The substitution.** As §12.4 records: the ratio is measured
+(`cap_r = 0.099 × entry / risk`), published (`capR: 0.6874` on the live trade),
+and read by every consumer as a *ceiling for the lever arm* — never as *is the
+target nearer than the stop*.
+
+**(b) The one I have to own.** The class was **already documented in this repo,
+with a larger and better measurement**, in the PROCESS doc and the E3.5
+research. I did not connect the XRP trade to it. Instead I re-derived a narrow
+version of the same finding, chose a denominator that made it look like a
+0.08% edge case, and put four bandaids to the operator — who had to point back
+at the specification that was already written. A finding that reads as new when
+it is a documented class is worse than missing it, because it competes with the
+real work instead of feeding it.
+
+Filed: `BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE` (high),
+`BL-20260823-VWAP-TARGET-NEARER-THAN-STOP` (low) — both re-scoped to feed the
+active-management build rather than to propose a floor.
