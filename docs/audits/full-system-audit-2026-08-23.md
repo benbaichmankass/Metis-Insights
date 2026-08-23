@@ -1732,3 +1732,98 @@ All four selected.
 the one that prevents a recurrence of the three-day blind window. P2 gates any
 further roster change and should run against the roster *after* this section's
 removal lands. P4 rides the review cadence.
+
+## 11.4 P5 — candidate strategies for the prop account (operator-scoped, queued last)
+
+> *"reviewing other strategies that we have that are candidates to route to the
+> prop as well… even if they need maybe a little bit of refinement, what's
+> performing well, and should we consider adding to the prop account? But again,
+> that's all after we've gone through everything else."*
+
+This is also the honest answer to §11.1's concentration note: the way to find out
+whether a two-leg prop book is too narrow is to ask what else *earns* a place,
+not to argue about it.
+
+### ⚠️ A correction, recorded because it nearly went into the plan
+
+My first pass at this ranked candidates off the raw `pnl` sum in the journal
+mirror, then re-derived provenance locally and got **zero measured rows for every
+prop-eligible leg** — which I was one step from writing down as "you cannot rank
+prop candidates, none of them has a single graded row." **That was my
+re-derivation being broken, not the data.** Checked against the authoritative
+`/api/bot/performance?window=all`, which computes `totalPnlMeasured` and
+`pnlCoverage` server-side, the measured rows are plainly there. The lesson is the
+standing one: verify your own output, hardest when it confirms what you expected.
+**Rank candidates from `/performance`, never from a local re-derivation.**
+
+### The measured picture (authoritative endpoint, `window=all`)
+
+Real-money all-time is **`totalPnl` −22.34 / `totalPnlMeasured` −28.82 at
+`pnlCoverage` 0.78** — i.e. essentially flat-to-slightly-negative, which is the
+context any "this leg is performing well" claim sits inside.
+
+Prop-eligible legs (symbol ∈ {SOLUSDT, ETHUSDT}), **paper block**, since that is
+where the evidence volume is:
+
+| leg | tf | n | raw | **measured** | coverage |
+|---|---|---:|---:|---:|---:|
+| `ict_scalp_sol_5m` | 5m | 17 | 8599.45 | **+8214.59** | 0.41 |
+| `trend_donchian_eth_4h` | 4h | 12 | 10320.23 | **+7024.91** | 0.50 |
+| `ict_scalp_sol_15m` | 15m | 14 | 3587.25 | **+2878.85** | 0.29 |
+| `ict_scalp_eth_15m` | 15m | 10 | 889.53 | **+2131.37** | 0.70 |
+| `trend_donchian_sol_4h` | 4h | 8 | −196.21 | **+489.30** | 0.38 |
+| `eth_pullback_2h` | 2h | 14 | −3738.14 | **−5674.58** | 0.64 |
+| `sol_pullback_2h` | 2h | 5 | −2646.02 | 0.00 | 0.00 |
+
+⚠️ **Read `coverage` beside every figure.** At 0.29–0.50 the measured sum rests on
+a minority of rows, and `trend_donchian_sol_4h` **flips sign** between raw
+(−196.21) and measured (+489.30) — which is exactly why the raw column must not
+be the ranking key. `sol_pullback_2h` at coverage 0.0 is not "flat", it is
+**ungraded**, and n=5 anyway.
+
+### The selection criteria are NOT "performs well"
+
+Three prop-specific filters, and the second is the one a performance table cannot
+see:
+
+1. **Symbol.** `breakout_1` declares `[SOLUSDT, ETHUSDT]`. A candidate on another
+   symbol needs that symbol added and validated, which is its own change.
+2. **⚠️ MANUAL-BRIDGE FIT — the operator's own constraint, applied as a filter.**
+   *"we can't fill every ticket as I'm not always available when the ticket is
+   relevant."* A 5m or 15m signal is stale long before a human reliably sees it,
+   so the scalp legs — which carry the **largest** measured numbers in the table —
+   are the **worst** prop candidates on this axis. A 4h leg is a good fit; a 1h
+   leg (what is routed today) is borderline. **This inverts the naive ranking**,
+   and it is the single most important thing P5 must get right.
+3. **Swap drag.** Breakout charges ~0.033%/day, so long holds are penalised —
+   which is precisely why the `_prop` exit variants exist at all
+   (`docs/research/eth-pullback-prop-swap-aware-2026-06-25.md`). A candidate is
+   evaluated net of that, not on its bybit economics.
+
+### Where that points, provisionally
+
+**`trend_donchian_eth_4h`** is the standout: 4h (good bridge fit), **+7,024.91
+measured** on paper at n=12, and the only prop-eligible leg with a positive
+*real-money* measured figure as well (+31.26, n=6). **`trend_donchian_sol_4h`**
+is its sibling at +489.30 (n=8, coverage 0.38).
+
+⚠️ But note what that does and does not fix: both are `trend_donchian`, so they
+add **timeframe** diversification to the prop book and **no family
+diversification at all**. If §11.1's concentration is the worry, these two do not
+answer it — they deepen the same bet on a slower clock. A genuinely diversifying
+candidate would have to come from another family, and on prop-eligible symbols
+the non-donchian options in the table are the scalps (bad bridge fit) and the
+pullbacks (measured-negative). **That may simply be the honest answer: there is
+no diversifying prop candidate right now**, and the fix is research, not routing.
+
+### What P5 must actually produce
+
+- A ranked shortlist from **`/performance`**, `totalPnlMeasured` beside
+  `pnlCoverage`, never the raw sum.
+- Each candidate scored on the three filters above, with **manual-bridge fit
+  applied before performance**, not after.
+- `scripts/prop/account_compat_matrix.py` under `breakout.yaml` for any leg that
+  survives — the same gate P2 owes for the incumbent roster, run at the
+  concentration that would result.
+- An explicit "and the answer may be none" branch, so this cannot become a search
+  for a reason to add something.
