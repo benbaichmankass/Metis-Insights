@@ -97,20 +97,28 @@ rows closed after the deploy, **4 were priced `candle_at_close` and carry no
 label**. (n=5 is thin — the *code-path* proof is the strong evidence; the
 post-deploy sample is corroboration.)
 
-**Why this is the operator's exact question.** `exit_reason` is consumed by
-`scripts/research/m20_exit_analysis.py` (M20's P1 evidence read — the pass that
-decides *which lever a family needs*), `scripts/ml/build_exit_head_dataset.py`
-(exit-head training rows), `scripts/research/exit_census.py`,
-`scripts/ml/strategy_review_packet.py` (the M7 gate), and
-`e35_barrier_race.py`. A failure-mode distribution in which half the "the
-reconciler just closed it" bucket was actually "it hit its stop" or "it hit its
-target" is the wrong input to every one of them.
+⚠️ **TWO CORRECTIONS TO MY OWN NUMBERS ABOVE, both material.**
 
-**Disposition:** Tier-2 (writes `exit_reason` on the money DB). Proposed, not
-shipped — see WP-1. The correct fix is *not* a copy-paste of item 1.8: an
-anchored/estimated price must carry a **distinct** `exit_reason_source` value
-(e.g. `price_vs_pkg_bracket_estimated`) so the label's provenance travels with
-it, exactly as `exit_price_source` already does.
+1. **The relabellable population is 191, not 294.** The 294/560 figure applied
+   neither of the guards the live classifier applies. Re-measured with them:
+   **497 eligible** rows (578 generic, minus 81 reduce legs — 14% of the
+   population, and a reduce's bracket can be *inverted*, so classifying one
+   mislabels it), of which **191 (38.4%) resolve to a real bracket level** —
+   156 off a MEASURED price, 35 off an ESTIMATED one.
+2. **105 of them must NOT be relabelled at all.** Their price is FABRICATED
+   (`local_markprice` ×88, `netted_duplicate_unattributed` ×17) — the market
+   read at *sweep* time, hours after the exit. Comparing that to the bracket
+   does not recover a lost label, it manufactures one out of unrelated later
+   price action. My original framing would have written 25 `sl` and 4 `tp`
+   labels out of noise.
+
+**Disposition: FIXED + backfill shipped this session** (operator-directed
+Tier-2). Forward fix in `_sweep_local_pnl_for_unpriced`, gated on the price
+basis; `scripts/ops/backfill_exit_labels.py` (dry-run default, `--apply`,
+12/12 planted-control self-test) for history. `price_vs_pkg_bracket_est_price`
+and `refused_unmeasured_price` registered in the provenance vocabulary — the
+refusal deliberately in **no** source set, because a refusal is not a grade of a
+value, it is the statement that no value was produced.
 
 ### F-4 · 🟠 **Two live IB positions are target-naked — KNOWN, and already operator-declined**
 
@@ -460,6 +468,65 @@ across paper/real-money × open/closed:
 Both deaths are the same mechanism as F-3: closed with an anchored/estimated
 price rather than broker truth. No trace died at sizing, placement, journal, or
 protection.
+
+---
+
+## Part 4c — M20 REASSESSMENT: are the lever verdicts broken by the label bug?
+
+*(Operator question, verbatim in substance: "reassess everything that we've done
+in M20 so that we know that things aren't broken because of that label. And if
+yes, then we need to make a plan for doing those things again.")*
+
+### The answer is NO — and it is a structural answer, not a hopeful one
+
+**M20's sweep verdicts do not read the live journal's `exit_reason` at all.**
+I traced every consumer of the field rather than reasoning from the call graph:
+
+| consumer | reads | verdict-bearing? | exposure |
+|---|---|---|---|
+| `m20_exit_analysis.py` — **the P1 evidence read** | live journal | **no** — `exit_reason` appears only as a per-trade *display* column (`"exit": t["exit_reason"][:24]`). Every metric that drives a lever choice (`real_r`, `mfe`, `mae`, `chop_frac`, `hold_h`) is derived from prices and candles | ⚠️ **narrative only** |
+| `build_exit_head_dataset.py` — **exit-head training** | harness emits | **no** — the live branch sets `"exit_reason": None` outright (line 342); only harness rows carry one, and labels are *"pure truncation observables"* from bars (`peak_is_in`, `holding_pays`, `P_win`) | ✅ **none** |
+| `strategy_review_packet.py` — **the M7 gate** | live journal | **no** — `t.exit_reason AS trade_exit_reason` appears exactly once, in the SELECT, and is never referenced again | ✅ **none** |
+| `e35_barrier_race.py` | harness | **no** — its own fixtures use `take_profit`/`stop`/`trail_stop`/`timeout`, the *harness* vocabulary, not the journal's `sl`/`tp`/`reconciler_filled` | ✅ **none** |
+| `peak_banking_basis.py` | harness | reads it as authoritative, but `_TP_EXITS = {"take_profit"}` — harness vocabulary again | ✅ **none** |
+| `exit_census.py` | harness spellings | its whole output IS a label distribution | ✅ **none** (harness-oriented) |
+| `tp_recovery_counterfactual.py` | live journal | **yes** — buckets `delta` by `exit_reason` | 🔴 **its per-mechanism breakdown is wrong** |
+
+**Why this holds structurally:** the harnesses are a closed loop. A backtest
+writes its own `exit_reason` in its own vocabulary; the live reconciler never
+touches a harness row. The two label spaces do not even share spellings, which
+is what makes the separation checkable rather than assumed.
+
+### So: no M20 work needs redoing
+
+**Nothing in the coverage matrix is invalidated by this bug** — not the 20
+`shipped` cells, not the 15 `passed_unshipped`, not the honest negatives, and
+not the 7 `shipped_gate_failed`. The gate arithmetic (`net_R`, `maxDD`,
+`net_r_per_capital_day`, the walk-forward) never saw the field.
+
+**Two things are genuinely affected, and neither is a verdict:**
+
+1. **`m20_exit_analysis.py`'s per-trade diagnostic dump shows wrong exit
+   labels.** The numbers beside them are right. The risk is *human*: this dump
+   is what a session reads to decide "which failure mode does this family
+   have", and 123 stop-outs currently render as "the reconciler closed it".
+   That is a real hazard for lever *selection* judgement, and it is now fixed
+   going forward and backfillable for history.
+2. **`tp_recovery_counterfactual.py`'s per-mechanism split** should be re-run
+   after the backfill applies.
+
+### What I am NOT claiming
+
+I did not re-run any sweep. The claim is narrower and stronger than "the
+verdicts reproduce": it is that **the verdicts are not a function of the
+corrupted field**, established by reading every consumer. Re-running to confirm
+would be theatre — the same inputs produce the same outputs, and the input in
+question was never read.
+
+⚠️ **The M20 evidence has a real reliability problem, and it is a different
+one** — F-9's quantization/refusal gap, which touches **25 of 52 coverage rows
+(48.1%)**. That one is not resolved by this fix and is the thing actually worth
+worrying about before trusting a futures or equity cell.
 
 ---
 
