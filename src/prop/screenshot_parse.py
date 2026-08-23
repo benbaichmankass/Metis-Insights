@@ -106,6 +106,27 @@ class ScreenshotParseError(Exception):
     """Raised for an operator-readable extraction failure (bad/absent API, etc.)."""
 
 
+#: One reply must hold EVERY report the screenshot contains. A portfolio screen
+#: carries an open position AND a Trade History table, so a cap sized for a
+#: single fill truncates mid-JSON on any real screenshot. Measured 2026-08-23:
+#: at 1024 the reply began `{ "reports": [ { "type": "fill",` -- valid,
+#: pretty-printed, and CUT OFF -- so `json.loads` failed and the operator was
+#: told to send "a clearer shot", which could never have worked.
+_MAX_OUTPUT_TOKENS = 4096
+
+
+class ScreenshotTruncated(ScreenshotParseError):
+    """The model was still writing when its token budget ran out.
+
+    A DISTINCT failure from unreadable output, and the distinction is the whole
+    point: the screenshot was read CORRECTLY and the remedy is a tighter crop or
+    a typed report -- NOT a clearer picture. Folding this into the generic
+    "couldn't read it" message names a cause no code path tested
+    (diagnostic-provenance sub-class A) and sends the operator to re-shoot a
+    photo that was never the problem.
+    """
+
+
 def _model_id() -> str:
     return os.environ.get("PROP_SCREENSHOT_MODEL", _DEFAULT_MODEL).strip() or _DEFAULT_MODEL
 
@@ -347,7 +368,7 @@ def _call_vision_gemini_once(model_id: str, image_b64: str, media_type: str) -> 
         "systemInstruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
         # Temperature 0: reading numbers off a screen is transcription, not
         # generation. A creative sample here is a misread balance.
-        "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.0,
+        "generationConfig": {"maxOutputTokens": _MAX_OUTPUT_TOKENS, "temperature": 0.0,
                              "responseMimeType": "application/json"},
     }
     with httpx.Client(timeout=30.0) as client:
@@ -367,9 +388,16 @@ def _call_vision_gemini_once(model_id: str, image_b64: str, media_type: str) -> 
         cands = resp.json().get("candidates") or []
         parts = (cands[0].get("content") or {}).get("parts") or []
         text = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+        finish = str(cands[0].get("finishReason") or "").upper()
     except Exception as exc:  # noqa: BLE001
         raise ScreenshotParseError(
             f"screenshot reading returned an unreadable {model_id} response.") from exc
+    if finish == "MAX_TOKENS":
+        raise ScreenshotTruncated(
+            "the screenshot held more rows than one reply can carry, so the "
+            "report was cut off mid-way. Send a tighter crop (just the position "
+            "or the one trade you want recorded), or type it "
+            "(e.g. `close ETHUSD 2950 +80 tp`).")
     if not text.strip():
         # An empty completion is NOT an empty screenshot. Saying "no trade
         # found" here would report a read that never happened.
@@ -395,7 +423,7 @@ def _call_vision_anthropic(model_id: str, image_b64: str, media_type: str) -> st
     client = anthropic.Anthropic()  # picks up ANTHROPIC_API_KEY from env
     resp = client.messages.create(
         model=model_id,
-        max_tokens=1024,
+        max_tokens=_MAX_OUTPUT_TOKENS,
         system=_SYSTEM_PROMPT,
         messages=[{
             "role": "user",
@@ -406,6 +434,12 @@ def _call_vision_anthropic(model_id: str, image_b64: str, media_type: str) -> st
             ],
         }],
     )
+    if str(getattr(resp, "stop_reason", "") or "").lower() == "max_tokens":
+        raise ScreenshotTruncated(
+            "the screenshot held more rows than one reply can carry, so the "
+            "report was cut off mid-way. Send a tighter crop (just the position "
+            "or the one trade you want recorded), or type it "
+            "(e.g. `close ETHUSD 2950 +80 tp`).")
     return _extract_text(resp)
 
 
@@ -504,4 +538,4 @@ def parse_screenshot(
     return _reports_from_model_json(data, default_account=default_account)
 
 
-__all__ = ["parse_screenshot", "ScreenshotParseError"]
+__all__ = ["parse_screenshot", "ScreenshotParseError", "ScreenshotTruncated"]

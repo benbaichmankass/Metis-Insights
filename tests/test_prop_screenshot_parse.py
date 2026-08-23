@@ -148,3 +148,52 @@ def test_call_vision_without_api_key_raises(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(sp.ScreenshotParseError):
         sp._call_vision("Zm9v", "image/png")
+
+
+class TestTruncationIsNotAnUnreadableScreenshot:
+    """`ScreenshotTruncated` vs the generic parse error — measured 2026-08-23.
+
+    The live failure: Anthropic 400'd on billing, the Gemini fallback answered,
+    and its reply was CUT OFF at 1024 tokens mid-JSON. The operator was told
+    "try a clearer shot", which could never have worked -- the shot was read
+    correctly. A remedy that cannot succeed is worse than no remedy, because it
+    keeps the operator re-trying instead of typing the report.
+    """
+
+    def test_the_cap_holds_a_portfolio_screen_not_a_single_fill(self):
+        import src.prop.screenshot_parse as sp
+        assert sp._MAX_OUTPUT_TOKENS >= 4096
+
+    def test_truncation_is_catchable_as_a_parse_error(self):
+        """Callers that already handle ScreenshotParseError keep working."""
+        import src.prop.screenshot_parse as sp
+        assert issubclass(sp.ScreenshotTruncated, sp.ScreenshotParseError)
+
+    def test_the_message_names_a_remedy_that_can_actually_work(self):
+        """It must NOT tell the operator to re-shoot a picture that was fine."""
+        import src.prop.screenshot_parse as sp
+        msg = str(sp.ScreenshotTruncated(
+            "the screenshot held more rows than one reply can carry, so the "
+            "report was cut off mid-way. Send a tighter crop (just the position "
+            "or the one trade you want recorded), or type it "
+            "(e.g. `close ETHUSD 2950 +80 tp`)."))
+        assert "clearer" not in msg
+        assert "tighter crop" in msg and "type it" in msg
+
+    def test_both_providers_share_one_cap(self):
+        """A cap raised on one provider and not the other reproduces the bug on
+        whichever path the fallback happens to take."""
+        import pathlib
+        import re
+        src = pathlib.Path("src/prop/screenshot_parse.py").read_text()
+        assert "max_tokens=_MAX_OUTPUT_TOKENS" in src          # anthropic
+        assert '"maxOutputTokens": _MAX_OUTPUT_TOKENS' in src  # gemini
+        assert not re.search(r"max_?[oO]utput_?[tT]okens\"?[:=]\s*1024", src)
+
+    def test_both_providers_detect_truncation(self):
+        """Gemini reports finishReason, Anthropic reports stop_reason. Checking
+        one leaves the other silently truncating."""
+        import pathlib
+        src = pathlib.Path("src/prop/screenshot_parse.py").read_text()
+        assert 'finish == "MAX_TOKENS"' in src
+        assert 'stop_reason' in src
