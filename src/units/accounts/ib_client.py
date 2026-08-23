@@ -2630,6 +2630,34 @@ class IBClient:
                 return q
         return None
 
+    @staticmethod
+    def _protective_leg_price(order: Any, side: str) -> Optional[float]:
+        """The price a resting protective leg actually rests AT.
+
+        A stop's level is ``auxPrice``; a target's is ``lmtPrice``. A STP LMT
+        carries both and its TRIGGER is ``auxPrice``, so the stop side reads
+        aux first and only falls back to lmt — reading lmt first would report a
+        stop-limit's limit as its trigger, which is a different price and the
+        wrong one to compare a declared stop against.
+
+        Returns ``None`` when no usable price is present. ⚠️ ``None`` is not
+        ``0.0``: a leg whose price cannot be read is a leg we did not grade,
+        and a zero would compare against a declared level as a catastrophic
+        divergence when the truth is that we could not look.
+        """
+        keys = ("auxPrice", "lmtPrice") if side == "stop" else ("lmtPrice", "auxPrice")
+        for key in keys:
+            try:
+                raw = getattr(order, key, None)
+                if raw is None or raw == "":
+                    continue
+                val = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if val > 0 and val == val:
+                return val
+        return None
+
     def protection_coverage(self, symbol: Optional[str]) -> Optional[Dict[str, Any]]:
         """How MUCH of *symbol*'s IB position is covered by resting protection?
 
@@ -2719,6 +2747,19 @@ class IBClient:
         target_groups: Dict[str, float] = {}
         stop_q = 0.0
         target_q = 0.0
+        # PRICE-AWARE (2026-08-23, BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND).
+        # Quantity and side answer "is protection RESTING?"; they cannot answer
+        # "is it resting WHERE WE DECLARED?". A stop 69 ticks from the journal's
+        # level covers the full size on the correct side and grades FULLY
+        # COVERED — measured live on MES 4350, which declares 7533.696429 while
+        # the resting stop sits at 7516.5: 17.196 points, and at MES $5/pt x 15
+        # contracts that is $1,289.72 of protection the position does not have.
+        # This method does NOT know the declared level (it takes only a symbol),
+        # so it EXPOSES the prices and the caller — which holds the journal row
+        # — does the comparison. Purely additive: no existing consumer's
+        # behaviour changes.
+        stop_prices: List[float] = []
+        target_prices: List[float] = []
         for trade in trades:
             try:
                 contract = getattr(trade, "contract", None)
@@ -2748,6 +2789,9 @@ class IBClient:
                 # of stop coverage, and a group holding only a stop
                 # contributes NOTHING to the target side. That is exactly the
                 # state this measures.
+                px = self._protective_leg_price(order, side)
+                if px is not None:
+                    (stop_prices if side == "stop" else target_prices).append(px)
                 side_groups = stop_groups if side == "stop" else target_groups
                 if group:
                     side_groups[group] = max(side_groups.get(group, 0.0), q)
@@ -2765,6 +2809,10 @@ class IBClient:
             "covered_qty": covered,
             "stop_qty": stop_q,
             "target_qty": target_q,
+            # Sorted for a stable read; empty means no leg of that side carried
+            # a readable price — which is NOT "the price is fine".
+            "stop_prices": sorted(stop_prices),
+            "target_prices": sorted(target_prices),
             "legs": legs,
             "unknown_qty_legs": unknown,
             "oca_groups": dict(oca_groups),
