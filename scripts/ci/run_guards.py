@@ -193,6 +193,14 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
+            # The bracket-expectation census is manual-RUN (no cadence should
+            # re-count the fleet automatically, and a CI job pinning a count
+            # would fail on every legitimate retune) — but its INVARIANTS do not
+            # move: an explicit target always beats a class default, a family
+            # with no default stays ungradeable rather than silently becoming a
+            # sentinel, and cap_r stays inversely proportional to the stop. A
+            # self-test nobody invokes is worse than a missing one, so it runs here.
+            ["python3", "scripts/research/bracket_expectation_census.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a census a session RUNS to answer "does this leg carry an
+# expectation at entry"; there is no cadence at which the fleet should be re-counted
+# automatically, and a CI job asserting a particular count would fail every time a
+# leg is legitimately retuned. Its --selftest IS wired (artifact-validity-guard),
+# because the INVARIANTS it pins never change even though the population does.
 """Which live legs carry an EXPECTATION at entry, and could they if they tried?
 
 Operator directive 2026-08-23: *"Brackets ALWAYS represent our prediction of
@@ -166,51 +171,52 @@ def census(path: Path, atr_over_entry: float) -> Dict[str, Any]:
 
 
 def _pop(legs, sel):
-    return [l for l in legs if sel(l)]
+    return [leg for leg in legs if sel(leg)]
 
 
 def report(data: Dict[str, Any], out=sys.stdout) -> None:
     legs = data["legs"]
-    p = lambda *a: print(*a, file=out)
+    def p(*a):
+        print(*a, file=out)
     p("class defaults read from source:", json.dumps(data["class_defaults"]))
     p("reference ATR/entry for cap_r    :", data["reference_atr_over_entry"],
       "(cap_r scales as 1/(atr_stop_mult * ATR/entry))")
     p("")
-    pops = [("all declared", lambda l: True),
-            ("enabled, any execution", lambda l: l["enabled"]),
-            ("enabled + live", lambda l: l["enabled"] and l["execution"] == "live")]
+    pops = [("all declared", lambda leg: True),
+            ("enabled, any execution", lambda leg: leg["enabled"]),
+            ("enabled + live", lambda leg: leg["enabled"] and leg["execution"] == "live")]
     p("%-26s %5s %11s %11s %8s %8s" % ("POPULATION", "n", "sent_DECL", "sent_EFF", "real", "ungrade"))
     for label, sel in pops:
         sub = _pop(legs, sel)
-        sd = len([l for l in sub if l["is_sentinel"] and l["target_origin"] == "declared_in_yaml"])
-        se = len([l for l in sub if l["is_sentinel"]])
-        re_ = len([l for l in sub if l["target_r_effective"] is not None and not l["is_sentinel"]])
-        un = len([l for l in sub if l["target_r_effective"] is None])
+        sd = len([leg for leg in sub if leg["is_sentinel"] and leg["target_origin"] == "declared_in_yaml"])
+        se = len([leg for leg in sub if leg["is_sentinel"]])
+        re_ = len([leg for leg in sub if leg["target_r_effective"] is not None and not leg["is_sentinel"]])
+        un = len([leg for leg in sub if leg["target_r_effective"] is None])
         p("%-26s %5d %11d %11d %8d %8d" % (label, len(sub), sd, se, re_, un))
     p("")
-    live = _pop(legs, lambda l: l["enabled"] and l["execution"] == "live")
+    live = _pop(legs, lambda leg: leg["enabled"] and leg["execution"] == "live")
     p("=== enabled+live, by family ===")
     p("%-12s %4s %10s %10s %6s   %s" % ("family", "n", "sent_DECL", "sent_EFF", "real", "stop mults in use"))
-    for f in sorted({l["family"] for l in live}):
-        sub = [l for l in live if l["family"] == f]
-        sd = len([l for l in sub if l["is_sentinel"] and l["target_origin"] == "declared_in_yaml"])
-        se = len([l for l in sub if l["is_sentinel"]])
-        re_ = len([l for l in sub if l["target_r_effective"] is not None and not l["is_sentinel"]])
-        sms = sorted({l["atr_stop_mult"] for l in sub if l["atr_stop_mult"]})
+    for f in sorted({leg["family"] for leg in live}):
+        sub = [leg for leg in live if leg["family"] == f]
+        sd = len([leg for leg in sub if leg["is_sentinel"] and leg["target_origin"] == "declared_in_yaml"])
+        se = len([leg for leg in sub if leg["is_sentinel"]])
+        re_ = len([leg for leg in sub if leg["target_r_effective"] is not None and not leg["is_sentinel"]])
+        sms = sorted({leg["atr_stop_mult"] for leg in sub if leg["atr_stop_mult"]})
         p("%-12s %4d %10d %10d %6d   %s" % (f, len(sub), sd, se, re_, sms))
     p("")
-    inh = [l for l in live if l["is_sentinel"] and l["target_origin"] == ORIGIN_CLASS_DEFAULT]
+    inh = [leg for leg in live if leg["is_sentinel"] and leg["target_origin"] == ORIGIN_CLASS_DEFAULT]
     p("=== SENTINEL BY INHERITANCE (declare no target; inherit the class default) : %d ===" % len(inh))
     p("    These are NOT visible to a `grep tp_r` of the YAML. Same runtime")
     p("    behaviour as an explicit sentinel, different remedy.")
-    for l in inh:
-        p("    %-24s family=%-9s tf=%s" % (l["name"], l["family"], l["timeframe"]))
+    for leg in inh:
+        p("    %-24s family=%-9s tf=%s" % (leg["name"], leg["family"], leg["timeframe"]))
     p("")
-    unreach = [l for l in live if l["reachable"] is False]
+    unreach = [leg for leg in live if leg["reachable"] is False]
     p("=== REAL TARGET THE VENUE WOULD CLAMP at the reference ATR : %d ===" % len(unreach))
-    for l in unreach:
+    for leg in unreach:
         p("    %-24s target_r=%-6s cap_r=%.3f  (stop %.2f ATR)"
-          % (l["name"], l["target_r_effective"], l["cap_r_at_ref_atr"], l["atr_stop_mult"]))
+          % (leg["name"], leg["target_r_effective"], leg["cap_r_at_ref_atr"], leg["atr_stop_mult"]))
     if not unreach:
         p("    (none at this reference ATR — reachability is ATR-dependent, so this")
         p("     is NOT proof a target rests; read live cap_r from the soak.)")
@@ -239,15 +245,16 @@ def selftest() -> int:
     # a family with no default stays ungradeable — never silently a sentinel
     chk("no default -> ungradeable", resolve_target("odd_leg", {}, {}), (None, None, ORIGIN_NONE))
     # cap_r arithmetic + its inverse relationship to the stop
-    c15 = cap_r_for(1.5, 0.02); c30 = cap_r_for(3.0, 0.02)
+    c15 = cap_r_for(1.5, 0.02)
+    c30 = cap_r_for(3.0, 0.02)
     chk("cap_r halves when stop doubles", round(c15 / c30, 6), 2.0)
     chk("cap_r value", round(cap_r_for(2.5, 0.02), 4), round(0.099 / 0.05, 4))
     chk("unreadable stop -> None", cap_r_for(None, 0.02), None)
     chk("zero stop -> None", cap_r_for(0.0, 0.02), None)
     # a sentinel is never graded reachable/unreachable — the question is moot
     legs = census(REPO / "config/strategies.yaml", 0.02)["legs"]
-    sent = [l for l in legs if l["is_sentinel"]]
-    chk("sentinels have reachable=None", all(l["reachable"] is None for l in sent), True)
+    sent = [leg for leg in legs if leg["is_sentinel"]]
+    chk("sentinels have reachable=None", all(leg["reachable"] is None for leg in sent), True)
     chk("census found legs", len(legs) > 0, True)
     for f in fails:
         print("FAIL " + f)
