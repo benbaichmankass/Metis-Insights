@@ -216,6 +216,54 @@ def account_status_nudge(account_id: Optional[str]) -> Optional[str]:
     )
 
 
+def _cushion(value: Any) -> str:
+    """Render one rule-distance figure for an operator-facing SAFETY line.
+
+    ⚠️ **NEVER `f"${value}"` DIRECTLY.** Observed live 2026-08-23: the operator
+    typed `bal 4871 4871` and the bot replied *"to daily-loss **$None** · to
+    DD-floor $171.0"*. `distance_to_daily_loss_usd` is legitimately ``None`` —
+    `realized_today` and `day_start_balance` are null on every
+    `prop_account_status` row, so the distance genuinely cannot be computed and
+    refusing to state one is CORRECT. Rendering that refusal as ``$None`` is not:
+    it wears a dollar sign, so it reads as a value and is the shape a reader
+    skims past — on the one message whose entire job is to say how much cushion
+    is left before an account-killer.
+
+    This is the operator-facing instance of the collapsed-state family: *"we did
+    not measure this"* and *"the distance is zero"* must not look alike, and
+    ``$None`` is worse than either because it looks like neither. So a missing
+    figure says **not measured** in words and carries no ``$``; a real one is
+    formatted to cents rather than dumped through ``str`` (``$171.0`` was also
+    sloppy for money).
+
+    Applies to BOTH distances, deliberately — the DD-floor half happened to be
+    populated that day, and a fix scoped to only the half that broke would ship
+    the same defect on the next null. Row:
+    `BL-20260823-PROP-SAFETY-PANEL-RENDERS-NONE-AS-A-DOLLAR-AMOUNT`.
+    """
+    if value is None:
+        return "not measured"
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        # A non-numeric that is not None: say what it is rather than invent a
+        # dollar sign for it. Still never "$<repr>".
+        return f"unreadable ({value!r})"
+    if num != num or num in (float("inf"), float("-inf")):
+        # NaN / inf reach here as genuine floats, so the try above does not
+        # catch them and they render as "$nan" / "$inf" — a currency sign glued
+        # to a computation failure, which is the "$None" defect in a third
+        # costume. A cushion that could not be computed is NOT MEASURED.
+        return "not measured"
+    if num < 0:
+        # ⚠️ A NEGATIVE DISTANCE MEANS THE LINE IS ALREADY CROSSED. That is the
+        # single most important state this message can carry, and "$-25.50"
+        # buries it behind a minus sign a reader skims past — the same failure
+        # as "$None", one state over. Say it in words.
+        return f"BREACHED by ${abs(num):,.2f}"
+    return f"${num:,.2f}"
+
+
 def _with_status_nudge(ack: str, account_id: Optional[str], action: Optional[str]) -> str:
     """Append the balance nudge to a fill ack when the guard is stale/blind."""
     if not action or str(action).lower() not in _NUDGE_ACTIONS:
@@ -231,8 +279,8 @@ def _confirm_json(report: Dict[str, Any], out: Dict[str, Any],
     if kind == "account_status":
         rd = out.get("rule_distance") or {}
         return (f"✅ account status recorded [{report.get('account_id')}] · "
-                f"to daily-loss ${rd.get('distance_to_daily_loss_usd')} · "
-                f"to DD-floor ${rd.get('distance_to_dd_floor_usd')}")
+                f"to daily-loss {_cushion(rd.get('distance_to_daily_loss_usd'))} · "
+                f"to DD-floor {_cushion(rd.get('distance_to_dd_floor_usd'))}")
     sym = report.get("symbol")
     status = str(report.get("status") or out.get("status") or "").upper()
     tid = out.get("ticket_id")
@@ -310,7 +358,7 @@ def _confirm(intent: dict, report: dict, out: dict) -> str:
         dl = rd.get("distance_to_daily_loss_usd")
         dd = rd.get("distance_to_dd_floor_usd")
         return (f"✅ account status recorded [{report['account_id']}] · "
-                f"to daily-loss ${dl} · to DD-floor ${dd}")
+                f"to daily-loss {_cushion(dl)} · to DD-floor {_cushion(dd)}")
     sym = report.get("symbol")
     act = intent.get("_action")
     tid = out.get("ticket_id")

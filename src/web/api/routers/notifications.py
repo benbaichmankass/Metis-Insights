@@ -11,6 +11,12 @@ Overview page** for the important, can't-miss conditions (not routine pings):
     reading unreachable (IB gateway logged out, exchange API 401-ing). One
     banner per latched-down account, from
     ``account_reachability_alert.down_accounts()``.
+  * **prop_fills_stale** (severity ``alert``) — the prop journal is missing
+    trades the venue already took: either a balance that moved between two
+    operator reports with no fills reported in between, or a bracket already
+    announced as crossed whose position is still open in the journal. Never
+    fires on an unacted ticket — that is the expected shape on a manual bridge.
+    From ``prop_fills_staleness.stale_fill_accounts()``.
   * **trade_open** (severity ``info``) — a compact "recently opened trades"
     notice (best-effort, last ``TRADE_OPEN_BANNER_WINDOW_MIN`` minutes), so a
     fresh entry surfaces on the banner too. Never fails the endpoint.
@@ -237,6 +243,55 @@ def _account_down_banners() -> List[Dict[str, Any]]:
             })
     except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
         logger.debug("notifications: account-down banners failed: %s", exc)
+    return out
+
+
+def _prop_fills_stale_banners() -> List[Dict[str, Any]]:
+    """One banner per latched prop fills-staleness finding.
+
+    The read half of :mod:`src.prop.prop_fills_staleness`. It exists here rather
+    than only as a review-skill accessor because the condition — *the prop
+    journal is missing trades the venue already took* — is exactly the
+    can't-miss shape this feed is for, and because a latch nothing renders is
+    the written-and-never-read failure this repo keeps paying for.
+
+    ⚠️ It reports **unrecorded closes**, never unacted tickets: an unanswered
+    ticket is the expected shape on a manual bridge (operator, 2026-08-23) and
+    a banner for it would be the desensitized-alarm P1.
+    """
+    out: List[Dict[str, Any]] = []
+    try:
+        from src.prop.prop_fills_staleness import stale_fill_accounts
+        for aid, findings in (stale_fill_accounts() or {}).items():
+            for f in (findings or {}).values():
+                if not isinstance(f, dict):
+                    continue
+                if f.get("kind") == "balance_moved_unreported":
+                    delta = f.get("delta")
+                    amount = "an unexplained amount" if delta is None else f"${abs(float(delta)):,.2f}"
+                    message = f"Prop journal is missing trades: {aid}"
+                    detail = (
+                        f"Balance moved by {amount} between two reports with no "
+                        "fills reported in between — closes happened that the "
+                        "journal has no record of."
+                    )
+                else:
+                    message = f"Prop trade may have closed unrecorded: {aid}"
+                    detail = (
+                        f"{f.get('symbol')} {f.get('direction')} — its "
+                        f"{str(f.get('level') or '').upper()} was crossed "
+                        f"{f.get('hours_since_crossing')}h ago and the journal "
+                        "still has it open."
+                    )
+                out.append({
+                    "severity": "alert",
+                    "kind": "prop_fills_stale",
+                    "message": message,
+                    "detail": detail,
+                    "since": f.get("crossed_at") or f.get("window_end"),
+                })
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: prop fills-stale banners failed: %s", exc)
     return out
 
 
@@ -580,6 +635,7 @@ def get_notifications() -> Dict[str, Any]:
     if tdb:
         banners.append(tdb)
     banners.extend(_account_down_banners())
+    banners.extend(_prop_fills_stale_banners())
     banners.extend(_operator_alert_banners())
     orb = _orphan_unreconciled_banner()
     if orb:

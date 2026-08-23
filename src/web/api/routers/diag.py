@@ -242,6 +242,7 @@ _CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl
 _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
 _FC_GEOMETRY_SOAK_LOG = runtime_logs_dir() / "fc_geometry_soak.jsonl"
 _EXIT_LEVER_SOAK_LOG = runtime_logs_dir() / "exit_lever_soak.jsonl"
+_TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
@@ -326,6 +327,7 @@ _LOG_FILES: dict[str, Path] = {
     # docs/research/M20-exit-refinement-2026-07-12.md § 5). Absent until the
     # first would-fire trade.
     "exit_lever_soak": _EXIT_LEVER_SOAK_LOG,
+    "target_extension_soak": _TARGET_EXTENSION_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator

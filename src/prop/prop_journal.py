@@ -565,6 +565,34 @@ def insert_account_status(status: Dict[str, Any]) -> int:
         conn.close()
 
 
+def list_account_status(
+    account_id: str, *, limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """Recent ``prop_account_status`` snapshots for one account, NEWEST FIRST.
+
+    :func:`latest_account_status` answers "what is the cushion now"; this
+    answers "what CHANGED between two operator reports", which is a different
+    question and the one :mod:`src.prop.prop_fills_staleness` needs — a balance
+    that moved is proof the book realized PnL, whatever the ticket record says.
+
+    Raises on a DB error rather than returning ``[]``: "we could not look" and
+    "there are no snapshots" are opposite statements, and the caller grades
+    them differently.
+    """
+    if not tables_present():
+        return []
+    conn = _connect(read_only=True)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM prop_account_status WHERE account_id = ? "
+            "ORDER BY id DESC LIMIT ?",
+            (account_id, int(limit)),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def latest_account_status(account_id: str) -> Optional[Dict[str, Any]]:
     if not tables_present():
         return None

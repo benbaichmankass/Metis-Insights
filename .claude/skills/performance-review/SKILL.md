@@ -122,6 +122,7 @@ pulls:
 | M13 insights — per strategy | `GET /api/bot/insights/strategy/{name}` (each enabled strategy) | strategy-level analyst note |
 | M13 insights — health | `GET /api/bot/insights/health` | data-window + cache age |
 | Sweep mirror | `GET /api/bot/backtests/sweeps?limit=5` | trainer-VM sweeps that may justify a tweak proposal |
+| **Prop trade quality** | `python3 scripts/prop/trade_quality_review.py` (reads `/api/bot/prop/{fills,tickets}`) | **placed-vs-ticketed** — the cut that separates a BRIDGE problem from a STRATEGY one |
 
 All pulls go through the **diag relay** (issue label
 `vm-diag-request`, title is the path) OR direct HTTPS when the
@@ -129,6 +130,38 @@ session is configured for it. Do not SSH; do not ask the operator to
 paste anything. If the relay fails, fire `vm-web-api-recover` once
 and retry; if still failing, emit a partial review with a note —
 **never fabricate**.
+
+### Prop trade quality — run it, and read BOTH halves (P4, 2026-08-23)
+
+`breakout_1` is a **manual bridge**, so its failures split two ways that a win
+rate cannot tell apart, and `scripts/prop/trade_quality_review.py` is the cut:
+
+- **BRIDGE** — entry slippage against the *ticketed* entry (signed, **+ = worse**)
+  plus how many fills carry no ticket link. This is *"did the human place what
+  the bot asked for?"*
+- **STRATEGY** — where the exit landed relative to the *ticketed* levels. This
+  is *"given a faithful placement, was the trade any good?"*
+
+⚠️ **Do NOT grade this account on ticket answer-rate.** Operator-directed
+(2026-08-23): the operator is not always at the terminal when a ticket is live,
+so an unanswered ticket is the **expected** shape, and *"that shouldn't be a
+metric of success here"*. An unacted ticket is not a finding and must not enter
+`proposed_tweaks[]` as one.
+
+⚠️ **`UNCLASSIFIED — no ticket link` is not a manual exit.** The tool keeps the
+three unclassified reasons distinct precisely so a review cannot manufacture a
+discretionary-exit rate out of missing data; carry them through as unclassified.
+
+⚠️ **Read `near_boundary` and the stated tolerance before quoting the split.**
+The exit classification is a judgement about closeness; `--tolerance-bps`
+decides it, and the output says how many rows would move if it changed. A split
+with rows near the boundary is not robust at that n.
+
+Measured 2026-08-23 (n=13 closed fills — read the counts, not the percentages):
+9 exited at the declared stop, 1 at target, 2 manual in profit, 1 unclassified;
+net +$35.96, win rate 23.1%; entry slippage median **−6.0 bps** (i.e. *better*
+than ticketed), worst +46.0 bps. **Execution fidelity is good and strategy
+quality is the weak half** — a conclusion no aggregate PnL number produces.
 
 **Batch the diag-labeled rows above into ONE `vm-diag-request` issue.**
 Per the `diag-data` skill's default pattern (MB-20260706-CI-MINUTES —

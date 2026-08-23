@@ -1599,3 +1599,602 @@ detector, reusable as the acceptance test for the live one.
 Steps 1–3 are Tier-2 and independently useful. Step 4 is the Tier-3 gate. There
 is no step 5: the target-side policy was decided by the operator on 2026-08-23
 and the soak is not a place to re-open it.
+
+---
+
+# Part 11 — PROP ACCOUNT REFINEMENT (operator-scoped, 2026-08-23)
+
+> *"we also need to make sure that refining the prop account is in our workplan.
+> Note that because it isn't fully automated, we can't fill every ticket as I'm
+> not always available when the ticket is relevant, so don't read into unacted on
+> tickets too much — we just need to make sure we have the correct strategies
+> routed there and the trades we do place are good."*
+
+## 11.0 A correction to my own framing
+
+I was treating the **17 tickets stuck at `emitted`** as a defect population. That
+was wrong, and the operator is right: on a manual bridge where a human is not
+always available when a ticket is live, an unacted ticket is the **expected**
+shape, not a failure. The detection fix earlier in this session still mattered —
+they were invisible to `/api/bot/prop/reconcile` *and* suppressing new tickets on
+their symbol+direction — but **"N stuck tickets" is not a health metric** and this
+report should not have used it as one.
+
+The two questions that ARE health metrics are the operator's: is the right thing
+routed there, and are the trades that do get placed good.
+
+## 11.1 Routing — the base/`_prop` twins, and a precedent already set
+
+`breakout_1` routes **both** the base and the `_prop` variant of the same leg:
+
+| | entries | `tp_r` | `trail_mult` | tickets emitted |
+|---|---|---:|---:|---:|
+| `trend_donchian_eth` | donchian 20, atr×2.5, min_conf 0.6 | **50.0** | 5.0 | **15** |
+| `trend_donchian_eth_prop` | *identical* | **6.0** | 3.5 | 12 |
+| `trend_donchian_sol` | donchian 20, atr×2.5, min_conf 0.8 | **50.0** | 5.0 | 1 (+ test pings) |
+| `trend_donchian_sol_prop` | *identical* | **6.0** | 3.5 | 8 |
+
+So one Donchian breakout can produce **two tickets for economically one trade**
+on a $5k account with a $150 daily-loss limit.
+
+⚠️ **This exact defect was already diagnosed, and fixed — for the OTHER pair.**
+`config/accounts.yaml` records `eth_pullback_2h` being removed from `breakout_1`
+on 2026-07-20 for the identical reason: *"it fires the SAME entries as
+eth_pullback_prop_2h but is the worse prop leg… With both routed here the intent
+dedup emitted eth_pullback_2h (the worse twin) while the validated
+eth_pullback_prop_2h stayed quiet."* The donchian pair was left in place. The
+emission counts above reproduce that finding precisely — the base twin dominates.
+
+**DECISION (operator, 2026-08-23): keep `_prop` only.** `trend_donchian_sol` and
+`trend_donchian_eth` come off the prop roster; they stay `execution: live` on
+their bybit routes, untouched. Rationale: `tp_r: 50.0` under a **static 6%
+drawdown floor** means "essentially never take profit, ride the trail", which is
+the wrong shape for a rule-bound account — and the `_prop` variants exist
+precisely because someone already judged that. Cost: the base legs carry the ML
+exit-head (`exit-head-donchian-1h-v1`), which the `_prop` variants lack — but on
+a manual bridge an exit-head close signal still needs a human to act on it, so
+its value here is much lower than on an API account.
+
+**⚠️ WHAT THE PROP ACCOUNT ACTUALLY RUNS AFTER THIS.** Worth stating plainly,
+because it is a bigger narrowing than the decision sounds. The roster declares
+five legs; `eth_pullback_prop_2h` was demoted to `execution: shadow` earlier the
+same day (#10161, OOS −11.78R), and this removes two more. That leaves **exactly
+two live prop legs — `trend_donchian_sol_prop` and `trend_donchian_eth_prop`** —
+on one account, two symbols, one timeframe (1h), one strategy family. Everything
+the prop book does from here is Donchian breakouts on SOL and ETH.
+
+That concentration is a *consequence*, not a recommendation, and it is the direct
+input to P2 below: a compat matrix over a two-leg, one-family roster is a
+different question from one over five legs, and the survival arithmetic on a
+static-6%-DD account is sensitive to exactly that. If the answer should be a
+WIDER prop roster rather than a narrower one, P2 is where that surfaces — and it
+should be run before any further routing decision, not after.
+
+## 11.2 Trade quality — execution is sound, strategy is not
+
+All 13 closed prop fills, checked placed-vs-ticketed:
+
+| exit landed on | count |
+|---|---:|
+| the declared **stop** (within a tick or two) | **9** |
+| the declared **take-profit**, exactly | 1 |
+| a **manual** exit in profit, before target | 2 |
+| no ticket link | 1 |
+
+**Execution fidelity is good.** Entries land within ~0.5% of ticketed and exits
+land on the declared level, so the manual bridge is transcribing faithfully —
+that is the half most at risk in a human-in-the-loop design, and it is fine.
+Both manual exits were also *better* than letting the trade run.
+
+**Strategy quality is the weak half: +$35.96 over 13 trades, 3 wins = 23%**, with
+nine of thirteen stopping out. Split by leg family — and **n=2 against n=10 is
+NOT evidence, only non-contradiction**: base legs **−$149.46** (n=10) vs `_prop`
+**+$191.47** (n=2). The mechanism is the argument, not the arithmetic: at a 23%
+win rate a leg carrying `tp_r: 50.0` essentially never reaches target, so it can
+only stop out or drift, and the single take-profit that did print came from a leg
+whose target was reachable. This is the same root as Part 1's M20 finding — an
+exit that is a price level fixed at entry, set where price does not go.
+
+## 11.3 The workplan, as scoped by the operator
+
+All four selected.
+
+- **P1. Fills-staleness alert.** The account-status request escalates when the
+  **balance** goes stale (`PROP_STATUS_REQUEST_MAX_AGE_HOURS`); there is **no
+  equivalent for FILLS**. That is why three days of terminal trades went
+  unrecorded and were found only by the operator sending a screenshot
+  (`BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES`). A prop
+  book that has traded with no fill reported for longer than some bound should
+  raise its own alert. ⚠️ Note the operator's constraint applies here too: the
+  alert must key on *"the book traded and nothing was reported"*, **not** on
+  unacted tickets — an unacted ticket is normal and alerting on it would be the
+  desensitized-alarm P1.
+- **P2. Per-strategy prop compat matrix.** Run
+  `scripts/prop/account_compat_matrix.py` for every surviving leg under
+  `config/prop_rulesets/breakout.yaml` (cost-aware EV + survival via
+  `src/prop/montecarlo.py`). The `backtesting` / `new-strategy` skills already
+  *require* this before routing a strategy to an account; whether it was run for
+  the roster as it stands today is **unverified**, and the roster has changed
+  since (legs added, `eth_pullback_prop_2h` demoted to shadow 2026-08-23 in
+  #10161, and now the two base twins removed).
+- **P3. Fix the `$None` daily-loss render.** The operator's own confirmation read
+  *"to daily-loss $None"*. `realized_today` and `day_start_balance` are null on
+  every snapshot, so the distance genuinely is not computable — but rendering
+  `$None` into an operator-facing **safety** message is its own defect. Either
+  derive it from the fills store, or say *"not measured"* explicitly. A safety
+  panel must never print a Python repr where a number belongs.
+- **P4. Trade-quality review** — done, §11.2 above, and it should be re-run on a
+  cadence rather than once. The useful cut is *placed-vs-ticketed*, because that
+  separates a bridge problem from a strategy problem, and today it says the
+  bridge is fine.
+
+**Sequencing.** P3 is minutes and is on a safety surface, so it goes first. P1 is
+the one that prevents a recurrence of the three-day blind window. P2 gates any
+further roster change and should run against the roster *after* this section's
+removal lands. P4 rides the review cadence.
+
+## 11.4 P5 — candidate strategies for the prop account (operator-scoped, queued last)
+
+> *"reviewing other strategies that we have that are candidates to route to the
+> prop as well… even if they need maybe a little bit of refinement, what's
+> performing well, and should we consider adding to the prop account? But again,
+> that's all after we've gone through everything else."*
+
+This is also the honest answer to §11.1's concentration note: the way to find out
+whether a two-leg prop book is too narrow is to ask what else *earns* a place,
+not to argue about it.
+
+### ⚠️ A correction, recorded because it nearly went into the plan
+
+My first pass at this ranked candidates off the raw `pnl` sum in the journal
+mirror, then re-derived provenance locally and got **zero measured rows for every
+prop-eligible leg** — which I was one step from writing down as "you cannot rank
+prop candidates, none of them has a single graded row." **That was my
+re-derivation being broken, not the data.** Checked against the authoritative
+`/api/bot/performance?window=all`, which computes `totalPnlMeasured` and
+`pnlCoverage` server-side, the measured rows are plainly there. The lesson is the
+standing one: verify your own output, hardest when it confirms what you expected.
+**Rank candidates from `/performance`, never from a local re-derivation.**
+
+### The measured picture (authoritative endpoint, `window=all`)
+
+Real-money all-time is **`totalPnl` −22.34 / `totalPnlMeasured` −28.82 at
+`pnlCoverage` 0.78** — i.e. essentially flat-to-slightly-negative, which is the
+context any "this leg is performing well" claim sits inside.
+
+Prop-eligible legs (symbol ∈ {SOLUSDT, ETHUSDT}), **paper block**, since that is
+where the evidence volume is:
+
+| leg | tf | n | raw | **measured** | coverage |
+|---|---|---:|---:|---:|---:|
+| `ict_scalp_sol_5m` | 5m | 17 | 8599.45 | **+8214.59** | 0.41 |
+| `trend_donchian_eth_4h` | 4h | 12 | 10320.23 | **+7024.91** | 0.50 |
+| `ict_scalp_sol_15m` | 15m | 14 | 3587.25 | **+2878.85** | 0.29 |
+| `ict_scalp_eth_15m` | 15m | 10 | 889.53 | **+2131.37** | 0.70 |
+| `trend_donchian_sol_4h` | 4h | 8 | −196.21 | **+489.30** | 0.38 |
+| `eth_pullback_2h` | 2h | 14 | −3738.14 | **−5674.58** | 0.64 |
+| `sol_pullback_2h` | 2h | 5 | −2646.02 | 0.00 | 0.00 |
+
+⚠️ **Read `coverage` beside every figure.** At 0.29–0.50 the measured sum rests on
+a minority of rows, and `trend_donchian_sol_4h` **flips sign** between raw
+(−196.21) and measured (+489.30) — which is exactly why the raw column must not
+be the ranking key. `sol_pullback_2h` at coverage 0.0 is not "flat", it is
+**ungraded**, and n=5 anyway.
+
+### The selection criteria are NOT "performs well" alone
+
+⚠️ **CORRECTED 2026-08-23 on operator direction — an earlier draft of this
+section got the ranking exactly backwards and must not be re-quoted.** It applied
+manual-bridge fit as a **disqualifying filter**, concluded that "the scalp legs —
+which carry the largest measured numbers in the table — are the **worst** prop
+candidates", and called that inversion "the single most important thing P5 must
+get right." The operator's direction is the opposite on both halves:
+
+> *"it's fine to add those five minute and ten minute scalps. That shouldn't be,
+> like, a blocker from adding them to the prop account."*
+
+> *"Just because a trade is short term … it's fine if the tickets go unanswered.
+> That shouldn't be a metric of success here. This is still in a testing phase.
+> And if it proves itself, then we'll add automation features."*
+
+So **ticket answer-rate is not a success metric and never was one to rank
+against.** The earlier draft had taken a *capacity* observation (the operator is
+not always at the terminal) and promoted it into a *quality* criterion, which is
+a category error: an unanswered ticket costs nothing and teaches nothing, while a
+leg that would perform under prop rules is excluded on a constraint the operator
+has explicitly said to stop optimising around. Automation is the stated remedy
+for fill rate, gated on the account proving itself first — which makes fill rate
+a **downstream** consideration, not an upstream filter.
+
+**The goal is passing the Breakout evaluation, which has not happened yet.** That
+is the criterion every candidate is ranked against:
+
+| | Breakout 1-Step, $5,000 |
+|---|---|
+| profit target | **+10%** (+$500) |
+| daily loss limit | **3%** ($150) |
+| max drawdown | **6% STATIC** — a hard $4,700 floor, not trailing |
+
+Three filters remain, none of them about answer-rate:
+
+1. **Symbol.** `breakout_1` declares `[SOLUSDT, ETHUSDT]`. A candidate on another
+   symbol needs that symbol added and validated, which is its own change.
+2. **Survival under the prop rules, not raw edge.** The static $4,700 floor is
+   the binding constraint, and it is an *account-level* line that binds while
+   flat. A leg's ranking input is its cost-aware EV **and** its survival
+   probability under those two limits — `src/prop/montecarlo.py::run_ev_montecarlo`
+   via `scripts/prop/account_compat_matrix.py`, which is already the mandatory
+   gate. A high-variance leg that clears +10% in expectation but breaches $150 on
+   a bad day fails here regardless of its measured sum.
+3. **Swap drag.** Breakout charges ~0.033%/day, so long holds are penalised —
+   which is precisely why the `_prop` exit variants exist at all
+   (`docs/research/eth-pullback-prop-swap-aware-2026-06-25.md`). A candidate is
+   evaluated net of that, not on its bybit economics. ⚠️ Note this cuts the
+   **opposite way** from the retracted bridge-fit filter: swap drag penalises the
+   *slow* legs and is neutral-to-favourable for the scalps.
+
+**Fill rate is a note, not a filter.** Record the expected answer-rate per
+candidate so a later automation decision has a denominator — an unanswered ticket
+is a missing observation, and a leg whose tickets are mostly unanswered will
+accrue prop evidence slowly. That is a statement about *how long the soak takes*,
+never about whether the leg belongs.
+
+### Where that points, provisionally
+
+With the scalps restored to eligibility, the ranking by measured performance on
+prop-eligible symbols is:
+
+| rank | leg | tf | n | **measured** | coverage | family |
+|---:|---|---|---:|---:|---:|---|
+| 1 | `ict_scalp_sol_5m` | 5m | 17 | **+8,214.59** | 0.41 | ict_scalp |
+| 2 | `trend_donchian_eth_4h` | 4h | 12 | **+7,024.91** | 0.50 | trend_donchian |
+| 3 | `ict_scalp_sol_15m` | 15m | 14 | **+2,878.85** | 0.29 | ict_scalp |
+| 4 | `ict_scalp_eth_15m` | 15m | 10 | **+2,131.37** | 0.70 | ict_scalp |
+| 5 | `trend_donchian_sol_4h` | 4h | 8 | **+489.30** | 0.38 | trend_donchian |
+
+**`ict_scalp_sol_5m` is the top-ranked candidate**, not an excluded one — the
+single largest measured figure of any prop-eligible leg, at the largest n in the
+table. `ict_scalp_eth_15m` is worth noting separately: its **0.70 coverage is the
+highest in the table**, so its +2,131.37 rests on the least-thin evidence even
+though it is fourth by size.
+
+⚠️ **This also softens §11.1's concentration concern.** That section flagged that
+the prop book is entirely `trend_donchian`; the earlier draft then concluded
+"there is no diversifying prop candidate right now" — but that conclusion rested
+**entirely** on the scalps being excluded. They are a different strategy family
+on the same eligible symbols, so with the retraction there **are** diversifying
+candidates, and three of the top four are them. The honest revised statement:
+family diversification is available; what it costs is evaluated by the compat
+matrix, not asserted here.
+
+⚠️ **What has NOT changed, and still binds every row above:** coverage is
+0.29–0.50 for four of the five, n is 8–17, and this is the **paper** block. None
+of these numbers is a prop-rules result — they are bybit-economics results on a
+different account with different costs and no daily-loss limit. **Nothing here is
+a routing recommendation.** The compat matrix is what turns a row in this table
+into a candidate.
+
+### What P5 must actually produce
+
+- A ranked shortlist from **`/performance`**, `totalPnlMeasured` beside
+  `pnlCoverage`, never the raw sum.
+- Each candidate scored on the three filters above, with **survival under the
+  $150 daily / $4,700 static floor** as the binding one — **not** manual-bridge
+  fit, which is recorded as an expected-fill-rate note and ranks nothing.
+- `scripts/prop/account_compat_matrix.py` under `breakout.yaml` for any leg that
+  survives — the same gate P2 owes for the incumbent roster, run at the
+  concentration that would result.
+- An explicit "and the answer may be none" branch, so this cannot become a search
+  for a reason to add something. ⚠️ But note the earlier draft reached that branch
+  by a **retracted** route (excluding the scalps on bridge fit); reaching it again
+  requires the compat matrix to actually reject them, not an a-priori filter.
+
+---
+
+# Part 12 — R:R < 1: THE TP CLAMP HAS NO SL REFERENCE (operator-found, live)
+
+> *"the live XRP trade has a SL farther from entry than the TP. This seems like
+> lacking risk management, and is an issue either with the strategy or the
+> pipeline — we need to make sure this isn't happening"*
+
+Confirmed. It is the **pipeline**, not the strategy — and it is live on real
+money as I write this.
+
+## 12.1 The trade
+
+`/api/bot/positions`, trade **4934**, `bybit_2`, **REAL MONEY**:
+
+| | |
+|---|---|
+| leg | `xrp_pullback_2h` XRPUSDT **long** |
+| entry | 1.4995 |
+| stop | 1.28355357 → risk **0.215946 = 14.40%** of entry |
+| target | 1.6479505 → reward **0.148451 = 9.90%** of entry |
+| **R:R** | **0.687** — risking 1 to make 0.687 |
+
+The same package also filled on `bybit_1` (4933) and `bybit_portfolio` (4935),
+both paper. A second leg, `ada_pullback_2h`, is open at **0.843**.
+
+## 12.2 Mechanism — two legs of one bracket computed on different bases
+
+`xrp_pullback_2h` declares **`tp_r: 50.0`** — a deliberate *far sentinel*
+meaning "there is no real target, the Chandelier trail is the profit exit".
+`htf_pullback_trend_2h.py:322` then does:
+
+```python
+tp = min(entry * (1 + _TP_SENTINEL_CAP_PCT), entry + float(params["tp_r"]) * risk)
+```
+
+with `_TP_SENTINEL_CAP_PCT = 0.099`, because Bybit rejects a TP more than ~10%
+from the reference price (ErrCode 10001). And **1.4995 × 1.099 = 1.6479505
+exactly** — the placed target is the clamp, not the strategy's target.
+
+The stop is **unclamped**: `entry − atr_stop_mult × ATR`, i.e. 2.5 ATR.
+
+So the target is a **percentage of price** and the stop is a **multiple of
+volatility**, and *nothing relates them*. Whenever
+`atr_stop_mult × ATR / entry > 9.9%` the target lands nearer than the stop.
+`trend_donchian.py:388` carries the identical clamp and the identical exposure.
+
+**The code comment states the assumption that fails**, which is what makes this
+a seam rather than a bug in either half:
+
+> *"Cap to ~9.9% from entry so the sentinel is exchange-valid AND still far
+> enough that the monitor's Chandelier trail remains the real profit-exit."*
+
+At 50R that is true. At 9.9% against a 14.4% stop it is false — and the clamped
+sentinel is a **real, binding exit, not decoration**: `exit_reason: tp_cross`
+has fired **3 times** on `pullback_2h` + `trend_donchian` legs across all 4,962
+journal trades. ⚠️ n=3 refutes "unreachable"; it does **not** size the cost.
+
+## 12.3 Population — how often the ratio CROSSES 1 (not how big this is)
+
+⚠️ **Read §12.5 before quoting anything in this section.** The rates below measure *how often the clamp pushes R:R below 1*, which is a threshold-crossing, not the defect. The defect's real population is **29 of 52 enabled legs (55.8%)** declaring `tp_r >= 50`. These numbers are two orders of magnitude smaller and were my error.
+
+Over **3,665 non-pairs order packages** carrying numeric entry+SL+TP:
+
+| | count | share |
+|---|---:|---:|
+| `risk/entry` > 9.9% (the clamp binds) | **3** | 0.08% |
+| resulting R:R < 1 | **6** | 0.16% |
+
+Of the 3 clamped, **2 are the pullback legs and both are OPEN right now** — the
+XRP one on real money. The third (`ict_scalp_avax_5m`) clamped without going
+sub-1 because `ict_scalp` sizes its target as `tp_at_r × risk` and does not
+apply this clamp at all.
+
+**Two other populations, deliberately kept apart** — folding them together would
+make the remedy wrong:
+
+- **`vwap` ×3 + `turtle_soup` ×1** — a *different* cause. Their `risk/entry`
+  medians are 0.17% and 0.35%, two orders of magnitude below the clamp, so
+  nothing was ever clamped. Their target is a **level** (the VWAP line) against
+  a **multiple** stop. Filed as `BL-20260823-VWAP-TARGET-NEARER-THAN-STOP`.
+- **100 `pairs_*` rows at exactly R:R 0.500** — verified as exact multiples
+  (`SL = 2.000 × entry`, `TP = 0.500 × entry`), i.e. deliberate placeholders on
+  the isolated 2-leg pairs path, not brackets. Not a finding.
+
+## 12.4 ⚠️ Why the review missed it — the number was measured, published, and read as a different question
+
+This is the half that matters more than the trade, and the operator was right to
+ask. It is **UNPROVENANCED DIAGNOSTIC OUTPUT, sub-class A**: a value published
+under a label that answers a different question.
+
+The ratio **is** computed and **is** published.
+`src/runtime/position_telemetry.py::cap_r` is literally `0.099 * entry / risk`,
+and the live `/api/bot/positions` `r` block for trade 4934 carries
+**`capR: 0.6874`** and **`rrFromHere: 0.8484`**.
+
+But **every consumer reads `cap_r` as a ceiling for the LEVER ARM**:
+
+- `arm_reach` grades *"is `arm_r <= cap_r`"*
+- `/api/diag/position_telemetry` reports `arm_reach`
+- `scripts/ops/lever_reachability_audit.py` reports `cap_r` percentiles
+- `scripts/research/m31_mfe_parity.py` checks `peak_r <= cap_r`
+
+**Not one asks whether `cap_r < 1`** — which is the same number answering *"is
+the target nearer than the stop?"*
+
+It goes further, and I have to own this: **`CLAUDE.md` already documents
+`rrFromHere` on this exact trade** — *"on the motivating XRP trade it is 0.71,
+i.e. holding for the target risks more than it stands to make"*. The number was
+in the canonical doc, about this position, and was read as an **exit-timing**
+signal (*should we hold this?*) rather than as an **entry-geometry** defect
+(*this should not have been placed like this*). My own Part 1 M20 audit this
+session surfaced `armReach: unreachable` for `xrp_pullback_2h` and made the
+same substitution.
+
+And confirmed by grep: **no `min_rr` / reward-to-risk floor exists anywhere on
+the order path**. The only `reward_to_risk` in `src/` is
+`backtest/backtester.py`'s own config default, which is not the live path.
+
+## 12.5 ⚠️ OPERATOR REFRAME — my four options were all bandaids, and my denominator was wrong
+
+I put four remedies to the operator (refuse below a 1.0 floor · rescale the stop
+to fit the clamp · make the clamp venue-aware · accept sub-1 explicitly). **All
+four were rejected, correctly:**
+
+> *"brackets ALWAYS represent our prediction of where the trade should end —
+> e.g. if it's momentum driven, the TP is where we expect momentum to run out,
+> and the SL represents where we think we can consider ourselves wrong and cut
+> our losses. Then the active management adjusts the brackets based on the
+> ongoing monitoring. The only solution here is to properly build out the active
+> management infra, not layer on bandaids to a poorly constructed strategy."*
+
+Every option I offered accepts a target that is **not a prediction** and argues
+about what to do around it. A refusal floor rejects trades on a ratio computed
+from a venue limit. A stop rescale changes real risk to flatter a ratio. A
+venue-aware clamp makes the non-prediction wider. Accepting it documents it.
+None makes the take-profit *a claim about where the trade ends*, which is the
+only thing that makes a bracket a bracket.
+
+**And the operator is right that this is already raised.** It is specified, with
+a measurement, in
+[`docs/design/exit-mechanism-construction-PROCESS.md`](../design/exit-mechanism-construction-PROCESS.md)
+§ 2 — *"A bracket must carry an expectation at entry, or it is not a bracket …
+**This is not what the fleet does today**"* — backed by
+`docs/research/e35-bracket-is-not-a-decision-2026-08-20.md` (6,428 trades / 19
+legs / 2021-08-16→2026-08-19, net of fees).
+
+### The denominator I used was wrong, and wrong by two orders of magnitude
+
+⚠️ **Do not quote §12.3's "0.08% / 0.16%" as the size of this problem.** Those
+rates are correct for what they measure — *how often the clamp pushes R:R below
+1* — and that is a **threshold-crossing**, not the defect. **State the
+population:**
+
+| population | measure | source |
+|---|---|---|
+| 3,665 non-pairs order packages | **6 (0.16%)** land R:R < 1 | mine, §12.3 |
+| 52 **enabled** legs in `config/strategies.yaml` today | **29 (55.8%)** declare `tp_r >= 50` | mine, counted this session |
+| 19 legs with trade history in the E3.5 set | **16 (84.2%)** declare `tp_r: 50.0` | `e35-bracket-is-not-a-decision` |
+
+The last two are the real scope. **More than half the enabled fleet places the
+exchange's rejection threshold as its take-profit on _every_ trade** — 26 of
+those 29 at `execution: live`. R:R < 1 is simply where that becomes visible
+because it crosses a line a human notices. The XRP trade is not a rare defect;
+it is the ordinary case, seen from an angle that makes it obvious.
+
+E3.5 also establishes why this is not cosmetic: because `entry × 1.099` is a
+fixed fraction of price, `tp_R` and `ATR/close` are **the same variable**
+(collinearity confirmed 19/19), the target distance varies **6.5×–38.9× within
+every leg**, and **76.2% of the fleet's net R comes from the 23.1% of trades
+whose target is more than 5 R away** — i.e. from trades the bracket *cannot*
+close.
+
+## 12.6 What actually happens now
+
+**No bandaid ships.** The remedy is M20's active-management build, which already
+owns this:
+
+1. **A bracket carries an expectation at entry** — *where do we expect this to
+   exit, and why* becomes a required output of the entry decision, per the
+   PROCESS doc § 2. That is what replaces `tp_r: 50.0`, on 29 legs.
+2. **Revision is conditioned on the strategy's own thesis** (§ 4) — the
+   momentum example is the specification: state where the move is expected to
+   exhaust; if price nears the target while the exhaustion condition has not
+   fired, **extend**. *Extend the target* has **no implementation anywhere** in
+   the harness or the live monitor today (§ 1) — that is the missing capability
+   this finding is really about.
+3. **Amending a resting level costs nothing; exiting early costs 0.082–0.163 R**
+   against a fee-free mean edge of +0.1376 R (XRP) / +0.1167 R (SOL) (§ 3). So
+   revision may be frequent and discretionary early exit must be rare — which is
+   the direct argument against my "refuse the signal" option.
+
+**The two open sub-1 positions are the first consumers, not an exception.**
+Operator-directed: *"Fix forward means applying the infra we are about to build
+to the open trades."* So XRP (4934, real money) and ADA are **not** left to run
+on the geometry they were given and **not** hand-re-cut now — they are the first
+trades the bracket-revision capability is applied to when it lands. That is a
+concrete acceptance test for the build: if the capability cannot state where
+these two are expected to exit and revise their levels accordingly, it is not
+finished.
+
+## 12.7 Why the review missed it — TWO failures, and the second is worse
+
+**(a) The substitution.** As §12.4 records: the ratio is measured
+(`cap_r = 0.099 × entry / risk`), published (`capR: 0.6874` on the live trade),
+and read by every consumer as a *ceiling for the lever arm* — never as *is the
+target nearer than the stop*.
+
+**(b) The one I have to own.** The class was **already documented in this repo,
+with a larger and better measurement**, in the PROCESS doc and the E3.5
+research. I did not connect the XRP trade to it. Instead I re-derived a narrow
+version of the same finding, chose a denominator that made it look like a
+0.08% edge case, and put four bandaids to the operator — who had to point back
+at the specification that was already written. A finding that reads as new when
+it is a documented class is worse than missing it, because it competes with the
+real work instead of feeding it.
+
+Filed: `BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE` (high),
+`BL-20260823-VWAP-TARGET-NEARER-THAN-STOP` (low) — both re-scoped to feed the
+active-management build rather than to propose a floor.
+
+---
+
+# Part 13 — P2: THE PROP COMPAT MATRIX, RUN (and it contradicts half the de-dup)
+
+The `backtesting` / `new-strategy` skills **require** `account_compat_matrix.py`
+before a strategy is routed to an account. Whether it was ever run for the
+`breakout_1` roster as it stands was unverified. It has now been run.
+
+## 13.1 Two blockers cleared first, both worth recording
+
+**(a) The candle feed.** `data/ohlcv/` holds five files, none of them SOL or
+ETH; Bybit returns **403** from this sandbox and Yahoo **429**. But
+**`data.binance.vision` answers 200** — so the "no free lane candle feed"
+blocker is *not* absolute here. Fetched via the repo's own
+`scripts/ops/fetch_backtest_candles.py --source binance_vision`: **21,600 1h
+bars** each for SOLUSDT and ETHUSDT, 2024-03-06 → 2026-08-22.
+
+**(b) ⚠️ The gate could not score the legs that are actually routed.** The
+`_prop` variants were **absent from `scripts/backtest_system.py::ROSTER`**, so
+the mandatory prop gate could only run the **base** twins — which differ from
+what is routed in exactly the dimension the gate measures (`tp_r` 6.0 / trail
+3.5 against 50.0 / 5.0). Scoring the base and reporting it as the prop leg's
+result is a **semantic substitution** (sub-class B: an implicit input standing
+in for the declared one). Registered both `_prop` names (research-only; params
+resolve from `config/strategies.yaml` by name, so they carry the real live exit
+geometry rather than a copy).
+
+## 13.2 Results — all four ROUTE, and the ranking splits by symbol
+
+`breakout_1` ruleset, 1.5% risk on $5,000, Monte-Carlo EV + survival:
+
+| leg | ledger n | EV | P(net>0) | verdict |
+|---|---:|---:|---:|---|
+| `trend_donchian_eth_prop` ✅ routed | 450 | **+$2,074** | **0.9700** | ROUTE |
+| `trend_donchian_eth` ❌ removed | 339 | +$1,694 | 0.9367 | ROUTE |
+| `trend_donchian_sol` ❌ removed | 150 | **+$1,162** | **0.9137** | ROUTE |
+| `trend_donchian_sol_prop` ✅ routed | 160 | +$611 | 0.7603 | ROUTE |
+
+**Every leg clears the gate.** Nothing here says the prop book holds something
+it should not.
+
+⚠️ **But the de-dup kept the better twin on ETH and the worse twin on SOL.** On
+ETH the `_prop` variant wins on both axes, which is what the decision assumed.
+On SOL the **base** wins on both — +$1,162 vs +$611 and 0.9137 vs 0.7603 — and
+that is the leg this PR removes.
+
+**Seed-stable, so not noise.** Four seeds (default, 7, 13, 99):
+
+| | `sol_prop` | `sol` (base) |
+|---|---|---|
+| EV range | $606 – $638 | $1,142 – $1,162 |
+| P(net>0) range | 0.753 – 0.773 | 0.903 – 0.908 |
+
+The within-arm spread is ~$30 and ~0.02; the between-arm gap is **~$530 and
+~0.14**. An order of magnitude apart.
+
+⚠️ **State the caveats, because they are load-bearing:**
+
+- These are **research verdicts on a Binance-Vision feed**, not the account's
+  venue data. The tool's own output says so and requires revalidation before
+  live wiring (Tier-3).
+- **The arms are not paired.** Same entries, different exits, so the ledgers
+  differ in length (150 vs 160, 339 vs 450). This is a comparison of two
+  strategies, not of one strategy under two exits on identical trades.
+- Prop verdicts key on EV and `P(net>0)`; the survival/breach columns the
+  standard gate reports are not the prop path's criterion.
+
+## 13.3 What this does and does not change
+
+It does **not** invalidate the de-dup's premise: two legs firing the same
+entries on one $5k account with a $150 daily-loss limit is a real problem, and
+one twin per symbol is right. What it changes is **which twin** on SOL.
+
+**Nothing is re-flipped here.** Re-adding `trend_donchian_sol` and dropping
+`trend_donchian_sol_prop` is a Tier-3 routing change and belongs to the
+operator, with this table in front of them. Both legs ROUTE, both are positive
+EV, and the cost of the current state is opportunity, not risk — so it is a
+decision, not an incident.
+
+⚠️ **And read it against Part 12 before acting:** the base twin's edge here
+comes from `tp_r: 50.0`, i.e. from *not having a reachable target* — which is
+precisely the geometry Part 12 records as not-a-prediction and M20's
+active-management build is meant to replace. So "the base wins on SOL" and "the
+base's target is the exchange's rejection threshold" are the same fact seen
+twice. A re-flip on this evidence buys EV now and re-adopts the geometry that
+is being retired.
+
+Filed: `BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED`.
