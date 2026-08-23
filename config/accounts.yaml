@@ -831,6 +831,24 @@ accounts:
                                        # order-packages logging so the paper-equivalent track record still accrues.
                                        # Prior: Tier-3 approved 2026-06-25; live-flip 2026-06-26 (system-action #4725).
                                        # ROLLBACK: mode: live.
+    side_filter: long                  # LONG-ONLY — Tier-3, operator-directed 2026-08-23:
+                                       # "alpaca long only for real money, everything else stays
+                                       # the same." Scoped to THIS account: alpaca_paper /
+                                       # alpaca_portfolio / ib_paper keep trading both sides, so the
+                                       # ML soak keeps accruing the short-side data that grades this
+                                       # decision (BL-20260823-ALPACA-LONG-ONLY-CANNOT-BE-SCOPED-TO-ONE-ACCOUNT).
+                                       # Enforced in coordinator.multi_account_execute by folding into
+                                       # the same effective_dry resolution as mode:/execution: — a
+                                       # suppressed short is still JOURNALLED here as a would-be trade,
+                                       # so "what did long-only cost or save?" stays measurable.
+                                       # MEASURED BASIS (100% of order_packages, 3,984 rows,
+                                       # 2026-05-02..2026-08-23): 57.7% of this roster's flow is short
+                                       # (149 long / 203 short); 11 of 16 legs lose flow and FOUR go
+                                       # fully inert — gld_pullback_1d, gdx_pullback_1d,
+                                       # iaum_pullback_1d, slv_pullback_1d are 100% short. The short
+                                       # side returns as long positions in inverse ETFs once those are
+                                       # built (BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED).
+                                       # ROLLBACK: delete this key (absent == both sides).
     alpaca_env: live                   # selects api.alpaca.markets (vs paper).
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.

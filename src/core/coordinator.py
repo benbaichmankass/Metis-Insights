@@ -1293,6 +1293,58 @@ class Coordinator:
                         getattr(pkg, "strategy", "?"), exc,
                     )
 
+            # Per-ACCOUNT directional gate (accounts.yaml::side_filter).
+            # Operator disposition 2026-08-23: "alpaca long only for real
+            # money, everything else stays the same."
+            #
+            # WHY IT IS HERE AND NOT IN THE SIGNAL BUILDER. The strategy-level
+            # ``side_filter`` runs at signal-build time, where there is NO
+            # account yet — one package fans out to many. All 11 two-sided legs
+            # alpaca_live routes also route to alpaca_paper (the ML soak book),
+            # so gating them there would have stopped the soak accruing the
+            # short-side data that GRADES this decision
+            # (BL-20260823-ALPACA-LONG-ONLY-CANNOT-BE-SCOPED-TO-ONE-ACCOUNT).
+            #
+            # WHY IT DEMOTES TO DRY RATHER THAN REFUSING. Folding into
+            # ``effective_dry`` reuses the S9 short-circuit above and adds NO
+            # new order-submission path — the property that made the
+            # strategy-level execution gate safe. It also keeps the
+            # counterfactual: the suppressed short is still journalled on the
+            # real-money account as a would-be trade, so in three months the
+            # question "what did long-only cost or save us?" is answerable from
+            # the record instead of unmeasurable.
+            #
+            # Fail-permissive: 'both' and 'unknown' (accounts.yaml unreadable,
+            # or the id is not declared) both place. This is a POLICY
+            # preference, not a safety interlock — ``mode:`` and ``execution:``
+            # are untouched and still decide whether anything is sent at all.
+            if not effective_dry:
+                try:
+                    from src.runtime.account_side_filter import (
+                        account_suppresses_direction,
+                    )
+                    _sf_suppressed, _sf_resolved = account_suppresses_direction(
+                        account.name, getattr(pkg, "direction", None),
+                    )
+                    if _sf_suppressed:
+                        logger.info(
+                            "[coordinator] account '%s' is side_filter:%s — "
+                            "logging %s %s order package but NOT executing "
+                            "(direction suppressed per-account)",
+                            account.name, _sf_resolved,
+                            getattr(pkg, "direction", "?"),
+                            getattr(pkg, "symbol", "?"),
+                        )
+                        effective_dry = True
+                except Exception as exc:  # noqa: BLE001
+                    # Fail-open to the account's own mode — a resolver error
+                    # must never block a permitted direction.
+                    logger.warning(
+                        "[coordinator] account side_filter lookup failed for "
+                        "'%s' (%s); leaving direction ungated",
+                        account.name, exc,
+                    )
+
             client = None
             client_error: Optional[str] = None
             if not effective_dry:
