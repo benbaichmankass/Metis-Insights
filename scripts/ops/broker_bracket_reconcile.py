@@ -113,6 +113,24 @@ import sys
 from typing import Any
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:  # this script is run by path, not as a package module
+    sys.path.insert(0, _ROOT)
+
+# THE COMPARATOR IS SHARED, NOT REIMPLEMENTED (2026-08-23).
+# `src/runtime/protection_price.py` is the one definition of "does the resting
+# leg agree with the declared level", and the LIVE sweep
+# (`order_monitor._check_broker_naked_ib_positions`) grades through the same
+# function. This file used to carry its own nearest-leg / tolerance arithmetic;
+# two definitions of "diverges" are free to drift, and a detector that
+# disagrees with the enforcing path about a live position is worse than either
+# alone. BL-20260823-EXIT-SWEEP-CANNOT-INFER-A-BREACHED-BRACKET criterion 1
+# names this explicitly. The module is PURE (stdlib only), so importing it
+# costs this script nothing it did not already pay.
+from src.runtime.protection_price import (  # noqa: E402
+    PRICE_DIVERGES,
+    PRICE_NO_TICK_SIZE,
+    grade_protection_price,
+)
 
 # How many ticks of disagreement between the declared price and the resting
 # price before it is a finding. 1.0 absorbs the venue's own rounding of a
@@ -292,38 +310,74 @@ def reconcile_position(
                 size=size, target_qty=tgt_qty, declared_tp=d_tp)
 
     # --- BOTH sides: PRICE (the axis nothing else checks) ----------------
-    tol = tick * tick_tolerance
+    # Graded by `src.runtime.protection_price.grade_protection_price`, the SAME
+    # function the live IB sweep calls. This file no longer owns a second
+    # nearest-leg / tolerance arithmetic of its own.
+    direction = trade.get("side") or trade.get("direction")
     for label, declared, legs, price_key in (
         ("stop", d_sl, stops, "aux_price"),
         ("target", d_tp, targets, "lmt_price"),
     ):
         if declared is None or not legs:
             continue
-        try:
-            declared_f = float(declared)
-        except (TypeError, ValueError):
-            continue
-        prices = []
+        # A leg whose price is unreadable is DROPPED here rather than passed as
+        # 0.0 -- a zero would be compared against the declared level as a
+        # catastrophic divergence when the truth is that we could not read it.
+        prices: list[float] = []
+        by_price: dict[float, dict[str, Any]] = {}
         for o in legs:
             try:
-                p = float(o.get(price_key) or 0.0)
+                px = float(o.get(price_key) or 0.0)
             except (TypeError, ValueError):
                 continue
-            if p:
-                prices.append((p, o))
+            if px > 0:
+                prices.append(px)
+                by_price.setdefault(px, o)
         if not prices:
             continue
-        # Nearest resting leg to the declared level: if ANY leg matches, the
-        # declared level is represented at the venue.
-        best_p, best_o = min(prices, key=lambda pr: abs(pr[0] - declared_f))
-        delta = abs(best_p - declared_f)
-        if delta > tol:
+
+        verdict = grade_protection_price(
+            declared=declared,
+            resting_prices=prices,
+            direction=direction,
+            side=label,
+            tick_size=tick,
+            tick_tolerance=tick_tolerance,
+        )
+
+        # "We could not resolve this instrument's tick" is NOT "the price
+        # agrees" -- an assumed tick silently rescales the tolerance, and a
+        # tolerance that is too wide turns a real divergence into a clean pass.
+        # This used to be papered over with a 0.01 default two frames up.
+        if verdict["state"] == PRICE_NO_TICK_SIZE:
+            add(f"{label}_price_ungradeable",
+                f"{sym} declares {label} {verdict['declared']:.6f} and a leg "
+                f"rests at {verdict['nearest_resting']:.6f}, but no tick size "
+                f"resolves for {sym} -- the divergence is NOT graded, which is "
+                f"not the same as agreeing",
+                declared=verdict["declared"],
+                resting=verdict["nearest_resting"],
+                delta=round(abs(verdict["diff"]), 8))
+            continue
+
+        if verdict["state"] == PRICE_DIVERGES:
+            best_o = by_price.get(verdict["nearest_resting"], {})
+            # `exposure` names the CONSEQUENCE, which |diff| cannot: a long
+            # stop BELOW its declared level carries risk that was never
+            # agreed, one ABOVE exits early. Same magnitude, opposite meaning.
+            exposure = verdict.get("exposure")
+            suffix = f" [{exposure}]" if exposure else ""
             add(f"{label}_price_diverges",
-                f"{sym} declares {label} {declared_f:.6f} but the nearest "
-                f"resting {label} is {best_p:.6f} -- {delta / tick:.0f} ticks "
-                f"({delta:.6f}) away",
-                declared=declared_f, resting=best_p,
-                delta=round(delta, 8), ticks=round(delta / tick, 2),
+                f"{sym} declares {label} {verdict['declared']:.6f} but the "
+                f"nearest resting {label} is {verdict['nearest_resting']:.6f} "
+                f"-- {verdict['ticks']:.0f} ticks "
+                f"({abs(verdict['diff']):.6f}) away{suffix}",
+                declared=verdict["declared"],
+                resting=verdict["nearest_resting"],
+                delta=round(abs(verdict["diff"]), 8),
+                ticks=round(verdict["ticks"], 2),
+                side_of_declared=verdict.get("side_of_declared"),
+                exposure=exposure,
                 order_id=best_o.get("order_id"),
                 oca_group=best_o.get("oca_group"))
 
@@ -379,7 +433,12 @@ def reconcile(
         graded = []
         for tr in rows:
             sym = str(tr.get("symbol") or "").upper()
-            tick = ticks.get(sym) or _FALLBACK_TICKS.get(sym) or 0.01
+            # `None`, NEVER a 0.01 default. An assumed tick rescales the
+            # tolerance silently, and too wide a tolerance turns a real
+            # divergence into a clean pass -- the failure direction that
+            # matters. `grade_protection_price` reports `no_tick_size`
+            # for it, which this file surfaces as its own finding kind.
+            tick = ticks.get(sym) or _FALLBACK_TICKS.get(sym)
             graded.append(reconcile_position(tr, orders, tick, tick_tolerance))
         n = sum(len(g["findings"]) for g in graded)
         total_findings += n
@@ -536,7 +595,13 @@ def _self_test() -> int:
           "stop_price_diverges" not in k)
 
     # ---- the live MES state: the price divergence nothing else sees -----
-    mes = {"id": "4350", "symbol": "MES", "qty": 15.0,
+    # `side` matches what /api/bot/positions actually emits ("buy"/"sell" via
+    # dashboard._normalise_side), NOT "long"/"short". Omitting it here is how
+    # the unknown-direction defect in grade_protection_price was found: the
+    # grader read a missing direction as SHORT and published an exposure label
+    # that was exactly backwards. It now returns None for that, and this
+    # fixture carries the key the live payload carries.
+    mes = {"id": "4350", "symbol": "MES", "qty": 15.0, "side": "buy",
            "stopLoss": 7533.696429, "takeProfit": 8390.59025}
     mes_orders = [{"symbol": "MES", "order_type": "STP", "total_quantity": 15.0,
                    "aux_price": 7516.5, "lmt_price": 0.0,
@@ -547,6 +612,61 @@ def _self_test() -> int:
     check("MES is NOT reported as stop-naked (quantity IS correct -- this is "
           "exactly what the quantity-only grade misses)",
           "stop_naked" not in k and "stop_partial" not in k)
+
+    # ---- an UNKNOWN tick is graded as ungradeable, never as agreeing ----
+    # The old code defaulted an unresolvable tick to 0.01. For MES (true tick
+    # 0.25) that is 25x too TIGHT and would over-report; for MHG (0.0005) it is
+    # 20x too WIDE and would hide a real divergence behind a tolerance nobody
+    # chose. Either direction is a verdict about a number that was guessed.
+    def kinds_no_tick(trade, orders):
+        return {f["kind"] for f in
+                reconcile_position(trade, orders, None)["findings"]}
+    k = kinds_no_tick(mes, mes_orders)
+    check("an unresolvable tick reports *_price_ungradeable, NOT agreement",
+          "stop_price_ungradeable" in k)
+    check("an unresolvable tick does NOT also claim a graded divergence",
+          "stop_price_diverges" not in k)
+    # And the non-price findings must survive: a missing tick blinds the PRICE
+    # axis only. Grading the quantity axis does not need one.
+    check("an unresolvable tick still grades the QUANTITY axis "
+          "(target_naked_declared survives)", "target_naked_declared" in k)
+
+    # ---- exposure names the consequence, which |diff| cannot ------------
+    # MES 4350 is LONG and its only stop rests 17.2 pts BELOW the declared
+    # level: risk that was never agreed to. The mirror -- a stop equally far
+    # ABOVE -- is the same magnitude and the opposite meaning, so a build that
+    # reports only |diff| cannot tell a reviewer which one they are looking at.
+    f_below = [f for f in reconcile_position(mes, mes_orders, ticks["MES"])["findings"]
+               if f["kind"] == "stop_price_diverges"]
+    check("a long stop BELOW its declared level is graded more_exposed",
+          len(f_below) == 1 and f_below[0].get("exposure") == "more_exposed")
+    above = [dict(mes_orders[0], aux_price=7533.696429 + 17.196429)]
+    f_above = [f for f in reconcile_position(mes, above, ticks["MES"])["findings"]
+               if f["kind"] == "stop_price_diverges"]
+    check("a long stop ABOVE its declared level is graded exits_earlier -- "
+          "same |diff|, opposite consequence",
+          len(f_above) == 1 and f_above[0].get("exposure") == "exits_earlier")
+    check("the two mirrored divergences carry the SAME magnitude, so the "
+          "direction is the ONLY thing separating them",
+          abs(f_below[0]["delta"] - f_above[0]["delta"]) < 1e-6)
+
+    no_side = {k: v for k, v in mes.items() if k != "side"}
+    f_nodir = [f for f in reconcile_position(no_side, mes_orders, ticks["MES"])["findings"]
+               if f["kind"] == "stop_price_diverges"]
+    check("a trade with NO readable direction still reports the divergence "
+          "but NO exposure -- the geometry is measurable, its consequence is not",
+          len(f_nodir) == 1 and f_nodir[0].get("exposure") is None
+          and f_nodir[0].get("side_of_declared") == "below")
+
+    # ---- the comparator is SHARED with the live sweep, not a copy -------
+    # If this file ever regrows its own arithmetic, this check fails rather
+    # than the two definitions silently drifting apart on a live position.
+    from src.runtime import protection_price as _pp
+    v = _pp.grade_protection_price(
+        declared=7533.696429, resting_prices=[7516.5], direction="long",
+        side="stop", tick_size=0.25)
+    check("the shared grader independently returns 'diverges' for MES 4350",
+          v["state"] == _pp.PRICE_DIVERGES and round(v["ticks"]) == 69)
 
     # ---- the historical over-cover: 30 stop vs 15, two OCA groups -------
     over = [

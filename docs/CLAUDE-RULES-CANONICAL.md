@@ -949,6 +949,56 @@ disagree, the actual code and active deployment files take precedence
 over summaries; this document remains the authority for **process**
 rules.
 
+## Tune before demote (operator directive 2026-08-23, binding)
+
+**A losing strategy leg gets a deeper dive and a fine-tuning ATTEMPT before any
+demotion, kill, or shelving is proposed.** Not after; not "if there's time".
+
+The operator's words, and the reason this is a rule rather than a preference:
+
+> *"we need to do a deeper dive and at least attempt finetuning before
+> demoting — this should be documented as standard practice, I shouldn't have
+> to explain each time."*
+
+**Why it kept needing explaining — it was structural, not a lapse of
+judgement.** The M7 gate matrix in
+[`docs/strategy-review-gate.md`](strategy-review-gate.md) reaches
+`demote_shadow` / `kill` **directly** from win-rate + expectancy, while `tune`
+occupies only a narrow middle band. So a leg that is simply *losing* skipped
+the tuning attempt every single time, and the operator had to intervene by
+hand on every packet. A practice that depends on someone remembering to say it
+is not a practice.
+
+**It is now mechanical.** `strategy_review_packet.decide` Override 5 softens a
+`demote_shadow` / `kill` verdict to `tune` when no tuning attempt is on record,
+and names the verdict it replaced so the packet still shows how bad the leg is.
+
+- **The evidence is an artifact, not an assertion** — the M8 sweep output
+  (`runtime_logs/strategy_tunes/<UTC-date>/<strategy>__<param>.json`, served at
+  `/api/bot/strategies/{name}/tune`). Its EXISTENCE is a fact about what was
+  run; that is what makes it usable as a gate input, where "we considered
+  tuning" would not be.
+- **The override DEFERS a disposition, it never forbids one.** A leg that was
+  tuned and still fails the matrix demotes on the next packet, with the attempt
+  as evidence. Softening that case too would strand losing legs live forever,
+  which is the opposite failure.
+- ⚠️ **`None` is not `False`.** An unreadable tune directory means *we could not
+  look*, and the matrix verdict **STANDS** — softening a genuine demotion on the
+  strength of a failed read would strand a losing leg live on missing evidence.
+  Three states, never collapsed, per § "Collapsed states".
+
+**This binds every disposition path, not just the M7 packet** — `/performance-review`,
+`/ml-review`, `/system-review`, and any session proposing a Tier-3
+`execution: shadow` / `enabled: false` flip. If you are about to propose one and
+no sweep is on record, the proposal is **run the sweep**, and say so in those
+words rather than presenting a demotion with a caveat.
+
+**What it does NOT license.** It is not a reason to keep a leg live
+indefinitely: the attempt is bounded work, and a leg that fails after it gets
+its disposition. Nor does it apply to a leg failing for a MECHANICAL reason —
+a broken close path, an unreachable account, a wiring gap — where the fix is
+the fix and tuning would be measuring a defect.
+
 ## Promotion evidence — offline edge, live mechanics (2026-07-26, binding)
 
 Adopted after the de-soak workplan

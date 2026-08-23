@@ -364,3 +364,88 @@ class TestRunPath:
         fs.run_prop_fills_staleness(now=NOW, force=True)
         out = fs.run_prop_fills_staleness(now=NOW + timedelta(seconds=5))
         assert out == {"checked": False, "reason": "cadence"}
+
+
+# ── the verdict must not depend on the caller's ORDER BY ──────────────
+#
+# `assess_balance_move` used to require `snapshots` newest-first and grade
+# whatever it was handed. That coupled a correctness property to the caller's
+# ordering, and the two do not share a basis: `list_account_status` orders by
+# `id DESC` while every comparison in the grader is on `reported_at`.
+#
+# Handed a mis-ordered list, the old code did not fail loudly. It graded a
+# BACKWARDS window (start > end), and because the fill filter is
+# `start < ts <= end` no fill can ever fall inside one — so every non-noise
+# delta came back `unreported`: a confident FALSE FINDING on a latched alert,
+# which is worse than a silent pass.
+#
+# Found by handing it the live table sorted the other way while verifying the
+# true positive, not by reading the code.
+
+class TestOrderIndependence:
+    def _live_11(self):
+        """The real prop_account_status table, 2026-08-23, newest first."""
+        d = lambda *a: datetime(*a, tzinfo=timezone.utc)  # noqa: E731
+        return [
+            _snap(11, 4871.0, d(2026, 8, 23, 8, 11)),
+            _snap(10, 4982.86, d(2026, 8, 20, 18, 57)),
+            _snap(9, 4983.0, d(2026, 8, 19, 22, 21)),
+            _snap(8, 4738.0, d(2026, 8, 19, 12, 52)),
+            _snap(7, 4747.0, d(2026, 8, 18, 6, 53)),
+            _snap(6, 4825.61, d(2026, 7, 20, 8, 28)),
+            _snap(5, 4928.0, d(2026, 7, 17, 22, 14)),
+            _snap(4, 4929.28, d(2026, 7, 17, 8, 42)),
+            _snap(3, 5116.0, d(2026, 7, 7, 8, 37)),
+            _snap(2, 5188.0, d(2026, 7, 6, 8, 22)),
+            _snap(1, 5215.27, d(2026, 7, 4, 6, 2)),
+        ]
+
+    def test_reversed_input_grades_identically(self):
+        rows = self._live_11()
+        assert (fs.assess_balance_move(rows, [], delta_threshold=25.0)
+                == fs.assess_balance_move(list(reversed(rows)), [],
+                                          delta_threshold=25.0))
+
+    def test_shuffled_input_grades_identically(self):
+        import random
+        rows = self._live_11()
+        shuffled = rows[:]
+        random.Random(7).shuffle(shuffled)
+        assert (fs.assess_balance_move(rows, [], delta_threshold=25.0)
+                == fs.assess_balance_move(shuffled, [], delta_threshold=25.0))
+
+    def test_the_window_always_runs_forwards(self):
+        """start <= end on every ordering. A backwards window is the bug."""
+        rows = self._live_11()
+        for arrangement in (rows, list(reversed(rows)), sorted(rows, key=lambda r: r["balance"])):
+            a = fs.assess_balance_move(arrangement, [], delta_threshold=25.0)
+            assert a["window_start"] is not None and a["window_end"] is not None
+            assert a["window_start"] <= a["window_end"], (
+                "a backwards window makes the fill filter unsatisfiable, so "
+                "every non-noise delta grades 'unreported' — a false alarm"
+            )
+
+    def test_the_wrong_order_used_to_pick_the_wrong_PAIR(self):
+        """The concrete regression: oldest-first must not grade the July pair."""
+        rows = self._live_11()
+        a = fs.assess_balance_move(list(reversed(rows)), [], delta_threshold=25.0)
+        assert (a["prev_id"], a["latest_id"]) == (10, 11)
+        assert a["delta"] == pytest.approx(-111.86, abs=0.01)
+
+    def test_an_undateable_snapshot_never_wins_the_newest_slot(self):
+        """It cannot be placed in time, so it must not be treated as newest —
+        that would grade a real pair out of the running on a row whose date we
+        could not read. It sorts last and the existing balance_unreadable
+        branch is what catches it if it still ends up chosen."""
+        rows = self._live_11()
+        rows.append({"id": 99, "account_id": "breakout_1", "balance": 1.0,
+                     "reported_at": "not-a-timestamp"})
+        a = fs.assess_balance_move(rows, [], delta_threshold=25.0)
+        assert (a["prev_id"], a["latest_id"]) == (10, 11)
+        assert a["balance_state"] == "unreported"
+
+    def test_two_undateable_snapshots_grade_unreadable_not_clean(self):
+        rows = [{"id": 1, "balance": 10.0, "reported_at": "x"},
+                {"id": 2, "balance": 500.0, "reported_at": "y"}]
+        a = fs.assess_balance_move(rows, [], delta_threshold=25.0)
+        assert a["balance_state"] == "balance_unreadable"

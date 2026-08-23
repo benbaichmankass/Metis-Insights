@@ -870,13 +870,66 @@ class AlpacaClient:
         if legs is None:
             return None
         stop = target = False
+        stop_prices: list = []
+        target_prices: list = []
         for o in legs:
             otype = str(o.get("type") or o.get("order_type") or "").lower()
             if "stop" in otype or "trail" in otype:      # incl. "stop_limit"
                 stop = True
+                px = self._leg_price(o, "stop")
+                if px is not None:
+                    stop_prices.append(px)
             elif "limit" in otype:
                 target = True
-        return {"stop": stop, "target": target, "legs": len(legs)}
+                px = self._leg_price(o, "target")
+                if px is not None:
+                    target_prices.append(px)
+        return {
+            "stop": stop, "target": target, "legs": len(legs),
+            # PRICE-AWARE (2026-08-23, BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND
+            # criterion 5). The booleans above answer "does a stop REST?"; they
+            # cannot answer "does it rest WHERE WE DECLARED?" — so an Alpaca
+            # position whose stop sits at any level whatsoever graded
+            # stop-covered, the identical defect measured on IB as a 68.8-tick
+            # gap worth $1,289.72. That row located this fix precisely: the raw
+            # order dicts _open_orders_for_symbol already returns carry
+            # `stop_price` and `limit_price`, so the data was present and simply
+            # unread. The comparison itself lives in
+            # src.runtime.protection_price, the SAME grader IB and the offline
+            # reconciler use, so no venue gets its own definition of "diverges".
+            "stop_prices": sorted(stop_prices),
+            "target_prices": sorted(target_prices),
+        }
+
+    @staticmethod
+    def _leg_price(order: dict, side: str):
+        """The price a resting Alpaca protective leg actually rests AT.
+
+        A stop's level is ``stop_price``; a target's is ``limit_price``. A
+        stop-limit carries BOTH and its TRIGGER is ``stop_price``, so the stop
+        side reads that first — mirroring ``IBClient._protective_leg_price``,
+        and for the same reason: reporting a stop-limit's limit as its trigger
+        compares a declared stop against the wrong price.
+
+        A trailing stop may rest with no absolute price yet published; that
+        returns ``None``. ⚠️ ``None`` is not ``0.0`` — a leg whose price cannot
+        be read is one we did not grade, and a zero would compare against a
+        declared level as a catastrophic divergence when the truth is that we
+        could not look.
+        """
+        keys = (("stop_price", "limit_price") if side == "stop"
+                else ("limit_price", "stop_price"))
+        for key in keys:
+            raw = order.get(key)
+            if raw is None or raw == "":
+                continue
+            try:
+                val = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if val > 0 and val == val:
+                return val
+        return None
 
     def has_protective_orders(self, symbol: str) -> Optional[bool]:
         """Does *symbol* have a resting protective leg (a stop OR a limit) open?

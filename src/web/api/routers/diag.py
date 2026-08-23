@@ -243,6 +243,12 @@ _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
 _FC_GEOMETRY_SOAK_LOG = runtime_logs_dir() / "fc_geometry_soak.jsonl"
 _EXIT_LEVER_SOAK_LOG = runtime_logs_dir() / "exit_lever_soak.jsonl"
 _TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
+# The protection RE-ASSERT soak (2026-08-23). At the default `annotate` mode
+# this is the exact row list to review before flipping PROTECTION_REASSERT_MODE
+# to `apply` — and without an allowlist entry it would be written and
+# unreadable on the one surface a relay-bound session can reach, which is the
+# defect #8778 shipped with `exit_loop_health`.
+_PROTECTION_REASSERT_SOAK_LOG = runtime_logs_dir() / "protection_reassert_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
@@ -328,6 +334,7 @@ _LOG_FILES: dict[str, Path] = {
     # first would-fire trade.
     "exit_lever_soak": _EXIT_LEVER_SOAK_LOG,
     "target_extension_soak": _TARGET_EXTENSION_SOAK_LOG,
+    "protection_reassert_soak": _PROTECTION_REASSERT_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator

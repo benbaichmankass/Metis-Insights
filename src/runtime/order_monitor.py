@@ -6817,6 +6817,130 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
     return summary
 
 
+#: In-process re-assert state per ``(account_id, protect_symbol)``:
+#: ``{"last": <monotonic seconds>, "attempts": int}``. Per-PROCESS on purpose —
+#: a restart re-arms the budget, which is fail-SAFE here: the worst case is one
+#: extra correctly-levelled re-assert after a deploy, whereas persisting a spent
+#: budget across restarts would leave a genuinely diverged position unrepaired
+#: with nothing saying why.
+_REASSERT_STATE: Dict[Tuple[str, str], Dict[str, float]] = {}
+
+
+def _reassert_soak_path():
+    from src.utils.paths import runtime_logs_dir
+    return os.path.join(runtime_logs_dir(), "protection_reassert_soak.jsonl")
+
+
+def _reassert_from_divergence(
+    db, *, client, account_id: str, protect_symbol: str, row,
+    price_verdict: Dict[str, Any], summary: Dict[str, int],
+) -> None:
+    """Decide, record, and (only at ``apply`` on an allowlisted account) act.
+
+    Best-effort throughout: this runs inside the naked sweep on the live
+    trader, so it must never raise into it. Every path writes a soak row, so
+    ``annotate`` produces the exact list to review before the ``apply`` flip —
+    the ``NETTING_ATTRIBUTION_MODE`` staging shape.
+    """
+    import json as _json
+    import time as _time
+    try:
+        from src.runtime.protection_reassert import (
+            MODE_APPLY, STATE_REASSERT, account_may_apply, decide_reassert,
+            resolve_mode,
+        )
+        mode = resolve_mode(os.environ.get("PROTECTION_REASSERT_MODE"))
+        key = (account_id, protect_symbol)
+        st = _REASSERT_STATE.get(key) or {}
+        last = st.get("last")
+        since = (_time.monotonic() - last) if last is not None else None
+
+        def _num(name, default):
+            try:
+                return float(os.environ.get(name) or default)
+            except (TypeError, ValueError):
+                return float(default)  # a typo must not change behaviour
+
+        decision = decide_reassert(
+            price_verdict=price_verdict,
+            declared_sl=row["stop_loss"],
+            declared_tp=row["take_profit_1"],
+            position_size=row["position_size"],
+            trade_is_open=True,  # the query selects status='open' only
+            seconds_since_last_attempt=since,
+            attempts_so_far=int(st.get("attempts") or 0),
+            cooldown_s=_num("PROTECTION_REASSERT_COOLDOWN_S", 3600.0),
+            max_attempts=int(_num("PROTECTION_REASSERT_MAX_ATTEMPTS", 3)),
+        )
+
+        may_apply = account_may_apply(
+            account_id, os.environ.get("PROTECTION_REASSERT_ACCOUNTS"))
+        will_act = (
+            mode == MODE_APPLY
+            and may_apply
+            and decision["state"] == STATE_REASSERT
+        )
+        # `apply_scope` says WHY a decision to act did not act, so a held-back
+        # row can never read as an applied one (the netting-soak lesson).
+        scope = ("allowlisted" if may_apply else "not_allowlisted")
+
+        rec: Dict[str, Any] = {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id, "symbol": protect_symbol,
+            "trade_id": row["id"], "direction": row["direction"],
+            "position_size": row["position_size"],
+            "declared_sl": row["stop_loss"], "declared_tp": row["take_profit_1"],
+            "resting_stop": price_verdict.get("nearest_resting"),
+            "ticks": price_verdict.get("ticks"),
+            "exposure": price_verdict.get("exposure"),
+            "decision": decision["state"], "reason": decision["reason"],
+            "mode": mode, "apply_scope": scope, "acted": will_act,
+            "attempts_so_far": int(st.get("attempts") or 0),
+        }
+
+        if will_act:
+            levels = decision["levels"]
+            _REASSERT_STATE[key] = {
+                "last": _time.monotonic(),
+                "attempts": int(st.get("attempts") or 0) + 1,
+            }
+            result = client.modify_protective({
+                "symbol": protect_symbol,
+                "direction": row["direction"],
+                "qty": abs(float(row["position_size"] or 0.0)),
+                "sl": levels["sl"], "tp": levels["tp"],
+            })
+            ok = int((result or {}).get("retCode", 1)) == 0
+            rec["result"] = result
+            rec["applied_ok"] = ok
+            summary["stop_price_reasserted" if ok
+                    else "stop_price_reassert_failed"] += 1
+            logger.log(
+                logging.INFO if ok else logging.ERROR,
+                "_check_broker_naked_ib_positions: RE-ASSERT %s %s/%s trade=%s "
+                "-> sl=%s tp=%s (was resting %s, %.1f ticks %s): %s",
+                "OK" if ok else "FAILED", account_id, protect_symbol, row["id"],
+                levels["sl"], levels["tp"], price_verdict.get("nearest_resting"),
+                price_verdict.get("ticks") or 0.0,
+                price_verdict.get("exposure") or "consequence unknown", result,
+            )
+        else:
+            summary["stop_price_reassert_annotated"] += 1
+
+        try:
+            path = _reassert_soak_path()
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(_json.dumps(rec, default=str) + "\n")
+        except Exception as exc:  # noqa: BLE001 -- the soak must never break the sweep
+            logger.debug("protection re-assert soak write failed: %s", exc)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_check_broker_naked_ib_positions: re-assert decision failed for "
+            "%s/%s: %s", account_id, protect_symbol, exc,
+        )
+
+
 def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     """Re-arm GTC OCA protection on IB positions that are NAKED at the broker.
 
@@ -6875,6 +6999,14 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
         # the correct side and still rest nowhere near the declared level
         # (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND).
         "stop_price_diverges": 0,
+        # Re-assert outcomes, all four declared up front for the same reason
+        # as the keys above: a sweep that re-asserted nothing must report 0,
+        # not omit the key. `annotated` counts the divergences a decision
+        # DECLINED to act on (mode, allowlist, cooldown, budget) — without it a
+        # quiet run cannot be told from a run where the trigger never fired.
+        "stop_price_reasserted": 0,
+        "stop_price_reassert_failed": 0,
+        "stop_price_reassert_annotated": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
     if interval <= 0:
@@ -7053,6 +7185,27 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 )
                 if _pv["state"] == PRICE_DIVERGES:
                     summary["stop_price_diverges"] += 1
+                    # RE-ASSERT (2026-08-23, operator-directed): "we need to be
+                    # able to adjust trades on IB without disconnecting the
+                    # integration ... we can't leave it to chance because of one
+                    # trade not being worth the effort."
+                    #
+                    # The mechanism already existed — `modify_protective` runs
+                    # on the TRADER'S OWN client, so it needs no ops clientId and
+                    # evicts nothing. Only the TRIGGER was missing, and its
+                    # absence was structural: `interpret_verdict` compares intent
+                    # to `order_packages.sl`, never to the venue, so a diverged
+                    # leg can never be re-synced by the normal path
+                    # (BL-20260823-MODIFY-IDEMPOTENCE-COMPARES-INTENT-TO-JOURNAL-NEVER-TO-VENUE).
+                    #
+                    # The DECISION is a pure function so the policy is arguable
+                    # in tests rather than against a live position — which is
+                    # exactly what went wrong on 2026-08-20.
+                    _reassert_from_divergence(
+                        db, client=client, account_id=account_id,
+                        protect_symbol=protect_symbol, row=row,
+                        price_verdict=_pv, summary=summary,
+                    )
                     _gap = abs(_pv["diff"]) * contract_value_usd_for(
                         protect_symbol) * size
                     logger.error(
@@ -7065,7 +7218,15 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                         "caller.",
                         account_id, protect_symbol, row["id"],
                         _pv["declared"], _pv["nearest_resting"], _pv["ticks"],
-                        _pv["side_of_declared"], _pv["exposure"], _gap,
+                        _pv["side_of_declared"],
+                        # `exposure` is None when the direction was unreadable.
+                        # Printing a bare "None" beside a confident geometry
+                        # invites the reader to supply the missing half; say
+                        # which fact is absent instead.
+                        _pv["exposure"] or "consequence UNKNOWN (direction "
+                        "unreadable — the geometry above stands, its meaning "
+                        "does not)",
+                        _gap,
                     )
             except Exception as exc:  # noqa: BLE001 -- grading never breaks the sweep
                 logger.debug(
@@ -7234,6 +7395,28 @@ def _bybit_sl_leg_qty(leg: dict):
     return None
 
 
+def _bybit_sl_leg_trigger(leg: dict):
+    """Price a resting Bybit SL leg would TRIGGER at, or ``None`` if unreadable.
+
+    Sibling of :func:`_bybit_sl_leg_qty`, and deliberately the same shape: a
+    conditional order's level is its TRIGGER, not its limit — the same
+    distinction IB's STP LMT forces, where reading the limit would compare a
+    declared stop against the wrong price.
+
+    ⚠️ ``None``, never ``0.0``. A leg whose trigger cannot be read is one we did
+    not grade; a zero would compare against a declared level as a catastrophic
+    divergence when the truth is that we could not look.
+    """
+    for key in ("triggerPrice", "stopPx", "price"):
+        try:
+            px = float(leg.get(key))
+        except (TypeError, ValueError):
+            continue
+        if px == px and px > 0:  # not NaN, positive
+            return px
+    return None
+
+
 def _norm_position_side(raw) -> str:
     """Normalise a direction to ``"long"`` / ``"short"`` (``""`` if unknown).
 
@@ -7299,6 +7482,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
         return None
     _flat = {
         "size": 0.0, "side": "", "covered_qty": 0.0, "source": "flat",
+        "stop_prices": [],
         "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
     }
     if not rows:
@@ -7315,10 +7499,26 @@ def _bybit_position_protection(client, category: str, symbol: str):
     #     genuinely covers the WHOLE net position.
     pos_sl = str(pos.get("stopLoss") or "").strip()
     if pos_sl and pos_sl not in ("0", "0.0", "0.00"):
+        # ⚠️ THE *STRING* IS THE WHOLE COVERAGE TEST HERE, and it always was:
+        # any non-empty, non-zero stopLoss grades the position FULLY covered,
+        # so a stop resting anywhere at all passes
+        # (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND criterion 5). That row
+        # was filed on the IB instance, which measured as a 68.8-tick gap worth
+        # $1,289.72 on ib_paper MES — and it explicitly left this venue
+        # unchecked. It is checked now, and the blast radius is LARGER: the IB
+        # instance is a paper account, whereas `bybit_2` is MAINNET.
+        #
+        # The QUANTITY verdict is unchanged (a Full-mode stop does cover the
+        # whole net position); what is added is the PRICE, so a caller holding
+        # the journal row can grade where it rests. `stop_prices` is empty when
+        # the venue's own value will not parse — *we could not look*, never
+        # "the price is fine", and never a fabricated 0.0.
+        _px = _bybit_sl_leg_trigger({"price": pos_sl})
         return {
             "size": size, "side": side, "covered_qty": size,
             "source": "full_position_stop",
             "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
+            "stop_prices": [_px] if (_px is not None and _px > 0) else [],
         }
     # (b) Partial-mode SL legs are separate resting conditional orders, each
     #     covering only its own qty — so SUM them and compare against size.
@@ -7332,6 +7532,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
                      symbol, exc)
         return None
     covered = 0.0
+    leg_prices: List[float] = []
     leg_ids = set()
     unknown = 0
     for o in legs:
@@ -7345,10 +7546,18 @@ def _bybit_position_protection(client, category: str, symbol: str):
             unknown += 1
             continue
         covered += q
+        _lpx = _bybit_sl_leg_trigger(o)
+        if _lpx is not None:
+            leg_prices.append(_lpx)
     return {
         "size": size, "side": side, "covered_qty": covered,
         "source": "partial_sl_legs",
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
+        # A Partial-mode SL leg is a conditional order, so its level is the
+        # TRIGGER price, not the limit — the same distinction IB's STP LMT
+        # forces. Sorted for a stable read; empty means no leg carried a
+        # readable trigger, which is not "the prices are fine".
+        "stop_prices": sorted(leg_prices),
     }
 
 
