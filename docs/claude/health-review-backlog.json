@@ -28,7 +28,7 @@
       "id": "BL-20260812-PR-CHECKS-NOT-ATTACHING-WAS-A-MERGE-CONFLICT",
       "opened_at": "2026-08-12T22:50:00+00:00",
       "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
-      "status": "kept_open",
+      "status": "resolved",
       "severity": "medium",
       "tier": 1,
       "title": "An instance of BL-20260730-PR-CI-NOT-ATTACHING was a MERGE CONFLICT, not a GitHub flake — mergeable_state is the first thing to check and the runbook does not say so",
@@ -50,6 +50,11 @@
           "at": "2026-08-23T13:19:50.116196+00:00",
           "by": "full-system-audit-2026-08-23",
           "note": "RECURRED TWICE IN ONE SESSION, and the second time I misdiagnosed it.\n\nPR #10171 sat at ZERO check runs across THREE pushes (9e82e49c, df72cdc1, eeff698d). Actions was healthy repo-wide -- scheduled workflows ran on main at 12:47Z and 12:50Z -- so 'CI is down' was already excluded by evidence, and I still reached for BL-20260730-PR-CI-NOT-ATTACHING (delivery drop) and hand-dispatched guards/pytest-run/pytest-collect via workflow_dispatch on that theory. The actual cause was `mergeable_state: \"dirty\"` -- THIS row. Resolving the conflict made checks attach within seconds, which is the confirmation.\n\nWHAT MADE THE CONFLICT INEVITABLE: #10167 was squash-merged while the session continued on the same branch, so the branch carried pre-squash commits whose content main also had -- an add/add conflict on tests/test_protection_reassert.py plus a content conflict on this backlog file. The same shape had already cost a rebase earlier in the same session. This is not flakiness; it is what squash-merge + a long-lived branch does every time.\n\nCOST: roughly half an hour and a large number of tokens, on an issue the operator correctly called out as not worth that -- 'we can't just keep wasting tokens on this bullshit' -- with the explicit instruction that it be either fixed or backlogged properly rather than passed over. Hence the criteria above name the 30-second triage tell AND the durable fix, not just the incident.\n\nNOTE ON THE BACKLOG MERGE ITSELF: resolving the conflict in this very file was done by diffing BY ID first (ours 830 rows vs theirs 829, ours a strict superset, the one differing row a pure append with theirs an exact prefix) before taking a side -- because BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION records what happens when that check is skipped."
+        },
+        {
+          "at": "2026-08-23T13:40:00+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "RESOLVED. Operator reframed it correctly: 'the CI bug is really a workflow issue that we can resolve by explaining in the claude docs how to merge prs correctly.' Both criteria are now met in docs/CLAUDE-RULES-CANONICAL.md § 'Rule 3a — Branch mechanics around a merge' (binding, adjacent to the existing pre-merge compliance gate, which is where a session already looks before merging): (a) the triage table — zero check runs means read `mergeable_state` FIRST, with `dirty` and a genuine delivery drop called out as presenting IDENTICALLY and having opposite remedies; (b) the post-squash branch RESTART as the default, with the explicit note that merging main back in is what CREATES the conflict. Also carries the by-id backlog-merge rule and 'a missing check is not a passing check'. No code change — this was never a CI defect."
         }
       ],
       "last_verified": "2026-08-23"
