@@ -212,7 +212,7 @@ GUARDS: List[Dict[str, Any]] = [
             # The backlog union-merge resolver. Three conflicts on
             # health-review-backlog.json in one evening (2026-08-23) across two
             # PRs, and a hand-resolved one once silently reverted six items
-            # (BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS).
+            # (BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION).
             # Its self-test pins the REFUSALS, which are the whole value: a
             # divergent both-side edit, a duplicate new id, and a deletion on
             # either side must all refuse rather than union — while an

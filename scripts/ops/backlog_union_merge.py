@@ -8,7 +8,7 @@
 
 WHY THIS EXISTS
 ---------------
-`BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS`. The three
+`BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION`. The three
 review backlogs are append-heavy files that EVERY session is required to edit
 (`CLAUDE.md` § "Every session"), so any branch open for more than an hour
 conflicts on one. Measured 2026-08-23: **three conflicts on
@@ -32,6 +32,23 @@ rather than guessing when:
 * **either side DELETED a row** — a union RESURRECTS it. Backlog rows are kept
   when resolved rather than archived (`check_backlog_refs` depends on that), so
   a deletion is deliberate and silently undoing it is the same class of defect.
+
+WHOSE ROW OWNS THE DURABLE FIX
+------------------------------
+`BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY` (open) already owns it, and
+is worth reading before proposing one: it explicitly **declines to split the
+file** ("that would break every consumer -- the review skills,
+`check_backlog_refs`, `check_allow_degraded`, the coherence guard -- for a
+problem that is currently costing minutes, not correctness"), and its criterion
+is a **CI check that fails a PR whose merge-base row set is not a SUBSET of the
+result** -- one that detects a resolution which DROPPED a row.
+
+This tool is a PARTIAL, complementary contribution: it prevents a lossy
+resolution at resolve time, but it is NOT that CI detector, and a session that
+reaches for `--ours` never invokes it. Nor does it implement that row's
+zero-cost mitigation -- cut the branch FRESH from current `main` instead of
+merging `main` in, which for an append-mostly file removes the conflict
+entirely.
 
 MEASURE FIRST, ASSERT AFTER
 ---------------------------
