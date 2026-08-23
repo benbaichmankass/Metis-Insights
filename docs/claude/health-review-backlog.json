@@ -15596,9 +15596,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: (a)/(b) are in the tree: scripts/research/m20_exit_head_round.py now takes --tp-cap-pct (default 0.099) and passes it as the 6th positional to base_args, and stamps tp_geometry via the shared `tp_geometry_for` (the same helper the m21 drivers now import). The row's own progress note records (c) as done (11 round dirs annotated). (d) — the recorded decision on whether any exit_head_ml cell graded off the no-TP rounds needs re-running, incl. the three shipped donchian-1h cells — is not recorded anywhere I can find. — Proposed: the operator records a disposition for the exit_head_ml cells whose evidence predates the cap — either 're-run at live parity before any further use' or 'stand with the geometry caveat', written into those cells. It composes with the shipped/hold question in BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM."
+        },
+        {
+          "at": "2026-08-23T13:47:49.914283+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "THE PRODUCER HALF IS FIXED IN CODE; THE CORPUS HALF IS NOT. Verified 2026-08-23 by reading m20_exit_head_round.py, not by trusting this row: `--tp-cap-pct` EXISTS with default 0.099 (arg at :183, whose own docstring records the previous absence), it is passed by KEYWORD into base_args at :410, and :811 warns explicitly when it is <= 0. So the title's 'STRUCTURALLY cannot produce a live-parity book' is FALSE of the code today and must not be re-quoted.\n\nWHAT SURVIVES, and it is why this stays open: the 11 rounds already ON DISK were produced before the fix and still contain zero take-profit exits — including the round behind the SHIPPED donchian-1h head. The remedy is a RE-MEASURE, not another code change. A session reading only the title would re-fix working code; a session reading only the fix would trust a corpus built without it."
         }
       ],
-      "operator_action_required": true
+      "operator_action_required": true,
+      "last_verified": "2026-08-23"
     },
     {
       "id": "BL-20260814-COVERAGE-STALENESS-GRADED-BY-DATE-NOT-GEOMETRY",
@@ -16726,7 +16732,15 @@
         "round pullback_1h_20260814T182245Z (trainer-diag #9338)",
         "round scalp_5m_20260814T151003Z (trainer-diag #9333)"
       ],
-      "source": "M20 session 2026-08-14, found while launching the 1h pullback round"
+      "source": "M20 session 2026-08-14, found while launching the 1h pullback round",
+      "updates": [
+        {
+          "at": "2026-08-23T13:47:49.914283+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "PRODUCER FIXED, CORPUS NOT RE-MEASURED. Verified 2026-08-23 in code: m20_exit_head_round.py:690 now emits `block_unit` as `per_leg` when `family_of(leg) == leg` and `family_pooled` otherwise, resolved through the IMPORTED build_exit_head_dataset.family_of (:47) rather than a second copy of the rule — so the field cannot drift from the collapsing it describes. New rows are distinguishable. The 23 rows already committed are not, so the incomparable-evidence risk stands for the existing file until it is re-measured or back-stamped."
+        }
+      ],
+      "last_verified": "2026-08-23"
     },
     {
       "id": "BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE",
@@ -16899,8 +16913,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/ml/train_exit_head.py:679-687 still declares `--total-sort` as `action='store_true'` — DEFAULT OFF, with the help text calling it 'A MIGRATION flag — the intended end state is total-by-default once the corpus is re-measured'. So the tie-break is still order-dependent by default, the committed corpus has not been re-measured under it, and the rounds file carries no ordered `legs` field (its keys are the 18 listed above, no `legs`). — needs a trainer re-measure of the committed corpus under --total-sort before the default can flip (the row's own criterion), which is why it cannot be closed by a one-line default change. The matrix `_doc` already carries the caveat."
+        },
+        {
+          "at": "2026-08-23T13:47:49.914283+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "THE REMEDY EXISTS AND IS OPT-IN BY DESIGN — this is a pending DECISION, not missing code. Verified 2026-08-23: train_exit_head.py carries `--total-sort`, which breaks ties on `(t_entry, str(trade_key))` and makes the partition independent of --legs order; the run prints a warning that its verdicts are NOT comparable to rows produced without it. Default-off is deliberate and the code says why: flipping it changes recorded AUCs across the committed corpus, so it is 'a re-measure to be decided and dated, not a silent drive-by'. The stated end state is total-by-default once the corpus is re-measured.\n\nSO THE OPEN ITEM IS: run the re-measure WITH --total-sort and record the convention on the row, then flip the default. Do not read default-off as an endorsement of the unstable sort — the code says not to."
         }
-      ]
+      ],
+      "last_verified": "2026-08-23"
     },
     {
       "id": "BL-20260815-EXIT-LOOP-MAX-PASS-NEAR-THE-60S-ASK-AND-NOTHING-WATCHES-IT",
@@ -17777,6 +17797,11 @@
           "at": "2026-08-16T11:55:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "2026-08-16: THE SIXTH CELL IS ALSO BLOCKED, so the gate is now zero-for-six. This row's detail left trend_donchian_eth_prop as 'may be genuinely shippable' pending which artifact its verdict corresponds to. Settled via trainer relay #9670: NONE. The prop_1h round tree contains zero 'model_id' occurrences and its _round_meta carries target:null / features:null; the only loadable exit-head artifacts are exit-head-donchian-1h-v1.json and exit-head-donchian-peak-1h-v1.json, both dated Jul 12 — a month BEFORE the Aug 14 round. Since trend_donchian.py:541 requires the config pin to match the loaded artifact's model_id, declaring the donchian-1h id would ship the July artifact under an August verdict it did not produce. Unblocking needs either publishing the head that round trained, or re-measuring the leg against the existing artifact — work, not a config edit."
+        },
+        {
+          "at": "2026-08-23T13:47:49.914283+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "ACTED ON (operator decision 2026-08-23). The five ict_scalp exit_head_ml cells are re-graded passed_unshipped -> `blocked:no_lever_consumer_in_unit` in docs/research/exit-refinement-coverage.json, and the QUEUED Tier-3 ship of ict_scalp_sol_5m is CANCELLED. The E1 verdicts are NOT withdrawn — they stay in each ref — what is withdrawn is the reading that these cells are ready to ship. Re-verified the absence with a positive control before acting: `grep -c exit_head` returns 0 in ict_scalp.py against 17 in trend_donchian.py, and the only three legs declaring exit_head_model are trend_donchian / _sol / _eth. sol_5m carries a second reason: its pass flips to honest_negative when folds are cut 12 trades later, with the SMALLEST AUC spread of the three legs (0.0034), so the AUC gave no warning."
         }
       ],
       "related": [
