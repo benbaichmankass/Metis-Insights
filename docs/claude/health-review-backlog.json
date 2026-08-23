@@ -22142,6 +22142,30 @@
         "docs/claude/coordination-board.md"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "critical",
+      "tier": "2 (fix shipped in #10174; the CONTAMINATION it leaves in the evidence base is unmeasured)",
+      "status": "open",
+      "area": "execution / ib / exit geometry / evidence integrity",
+      "title": "On IB, moving a stop re-minted the whole bracket through the un-transmitted path — so a trade LOST ITS TAKE-PROFIT the moment it started trailing, and no IB winner could ever reach its target",
+      "detail": "SCOPE CORRECTION, TWICE, AND THE SECOND ONE IS THE IMPORTANT ONE. I first told the operator 'every IB bracket ever placed was stop-only' (too broad), then corrected it to 'only the naked-autoprotect re-arm path' (too narrow). Read from the code, the truth is worse than the narrow version and more specific than the broad one.\n\nTHE TWO PATHS. `IBClient.place()` — the ENTRY bracket — is FINE: children are linked by `parentId`, so transmit-on-the-last-leg works as designed. `IBClient.place_protective()` mints a PARENTLESS OCA pair, where `transmit=False` on a leg means HELD BY IBKR FOREVER. That was the bug (`_locked_place_protective` set transmit only on the final leg).\n\nWHAT MAKES IT SYSTEMATIC RATHER THAN RARE: `IBClient.modify_protective` — the routine SL/TP adjust — is implemented as a re-arm THROUGH `place_protective`. Its own docstring says so: 'a SL/TP modify is a re-arm: cancel the resting protective legs for symbol, then place a fresh OCA pair at the supplied levels via place_protective', and 'Reusing place_protective keeps the leg shape (GTC OCA, reverse side, whole-contract qty, TRANSMIT-ON-LAST) byte-identical'. That last phrase names the defect as a feature being preserved. `modify_protective` is reached from `execute.modify_open_order` (execute.py:2364), which is the MONITOR'S STOP-TRAIL WIRE.\n\nSO: EVERY TIME A MONITOR MOVED A STOP ON AN IB POSITION, THE BRACKET WAS RE-MINTED AND THE TAKE-PROFIT WAS HELD, NEVER TRANSMITTED. On a trailing strategy that is not an edge case, it is the normal lifecycle of any trade that WORKED. The corollary is the part that matters for money and for evidence: on IB, a winning trade could not reach its take-profit, because the target was removed at the moment the trade started going its way.\n\nWHY NOBODY CAUGHT IT: the call site is CORRECT. `modify_open_order` deliberately passes BOTH the changed leg and the current value of the unchanged one 'so neither stop nor target is dropped'. The target was supplied, accepted, and then held at the wire. Every component is individually right; the defect lives at the seam — the same shape as the exit_price_source leak.\n\nLIVE CONTROL, read 2026-08-23T15:16Z from /api/diag/ib_open_orders?account_id=ib_paper (6 orders, read_state=orders_read). It is a controlled comparison sitting in the live book:\n  MHG 29 long — oca_group '308977633' (a bare IB-assigned id, i.e. the place() ENTRY bracket) — holds BOTH a LMT 7.1415 and a STP 6.2215. Its stop was never trailed, so it never went through modify_protective. THE CONTROL, and the only position that kept its target.\n  MES 15 long — oca_group 'oca-protect-408' — and MGC 95 long — 'oca-protect-389'. Both `place_protective`-minted, both STOP-ONLY until they were repaired by hand today.\nNote the group naming is itself the forensic marker: `oca_key` supplied yields 'oca-protect-t<trade_id>'; absent it falls back to 'oca-protect-<reqId>'. Both live groups are the FALLBACK form (no 't'), so neither came from the naked sweep.\n\nTHE FIX SHIPPED IN #10174 COVERS THIS PATH TOO (every leg now transmits, and modify_protective routes through the same function), so its blast radius is larger and more valuable than the PR body claims. ⚠️ IT IS STILL UNEXERCISED — both targets restored today went on retroactively via `place_target_in_group`, a DIFFERENT method that always transmitted correctly.",
+      "resolution_criteria": [
+        "MEASURE THE CONTAMINATED POPULATION, with a stated denominator: how many closed IB trades had their stop modified at least once (and therefore held no target for the remainder of their life). ⚠️ THIS MAY NOT BE RECONSTRUCTIBLE - see the next criterion - in which case say so explicitly rather than reporting a small number as if it were the answer.",
+        "⚠️ THE RE-ARM LEAVES NO DURABLE RECORD, which is a defect in its own right: `_attempt_naked_autoprotect` returns a bool and logs ONLY on failure - no journal write, no soak row, no outcome emit - and `modify_protective` likewise stamps nothing on the trade. So a repair that mutates a live position's protective bracket is invisible afterwards. Propose stamping the trade (Tier-2, a write on the trader path) so the population is measurable GOING FORWARD even if the history is lost.",
+        "The exit-geometry / exit-head research must not calibrate on IB live exit outcomes until this is quantified: for a contaminated trade 'the target was never hit' describes a mechanism that had been removed. Carried into docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md as a blocking caveat.",
+        "PROVE THE FIX ON A NEW BRACKET: a bracket born AFTER the deploy must carry BOTH a STP and a LMT in one OCA group (/api/diag/ib_open_orders). Until then report it as 'deployed but NOT YET EXERCISED' - an unexercised fix and a working one look identical."
+      ],
+      "refs": [
+        "src/units/accounts/ib_client.py",
+        "src/units/accounts/execute.py",
+        "src/runtime/order_monitor.py",
+        "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }

@@ -97,15 +97,49 @@ NOT true that every IB bracket was stop-only. The two paths differ:
   works as intended.
 - **`IBClient.place_protective()` — the RE-ARM path — was the bug.** It mints a
   **parentless OCA** pair, where `transmit=False` on a leg means *held by IBKR
-  forever*. So a position whose protection was ever re-armed (naked-autoprotect
-  sweep, reconciler adopt / re-attach) **lost its take-profit** and could only
-  ever stop out or run.
+  forever*.
 
-**The size of that population is UNMEASURED.** Two live `ib_paper` positions
-were found target-naked and account-wide there were **zero** limit orders — but
-that is 2 observations, not a rate. **Measure it before trusting any IB
-live-parity exit evidence**, because for a contaminated trade "the target was
-never hit" describes a mechanism that did not exist.
+⚠️ **AND IT IS SYSTEMATIC, NOT RARE — this is the part that bites the research.**
+`IBClient.modify_protective` (the routine SL/TP adjust) is implemented as a
+re-arm **through** `place_protective`; its own docstring says so, and calls the
+defect a feature being preserved: *"Reusing `place_protective` keeps the leg
+shape (GTC OCA, reverse side, whole-contract qty, **transmit-on-last**)
+byte-identical."* It is reached from `execute.modify_open_order`
+(`execute.py:2364`) — **the monitor's stop-trail wire**.
+
+**So every time a monitor moved a stop on an IB position, the bracket was
+re-minted and the take-profit was held, never transmitted.** On a trailing
+strategy that is the normal lifecycle of any trade that WORKED — which means
+**on IB a winning trade could not reach its take-profit, because the target was
+removed the moment the trade started going its way.**
+
+The call site is *correct*: `modify_open_order` deliberately passes both the
+changed leg and the current value of the unchanged one *"so neither stop nor
+target is dropped"*. The target was supplied, accepted, and held at the wire.
+Every component individually right; the defect at the seam.
+
+**LIVE CONTROL** (`/api/diag/ib_open_orders?account_id=ib_paper`,
+2026-08-23T15:16Z, 6 orders, `read_state: orders_read`) — a controlled
+comparison sitting in the book:
+
+| position | oca_group | legs |
+|---|---|---|
+| **MHG 29 long** | `308977633` (bare IB id ⇒ the `place()` ENTRY bracket) | **LMT 7.1415 + STP 6.2215** — never trailed, never went through `modify_protective`. **The control, and the only one that kept its target.** |
+| MES 15 long | `oca-protect-408` | stop-only until repaired by hand today |
+| MGC 95 long | `oca-protect-389` | stop-only until repaired by hand today |
+
+Group naming is the forensic marker: `oca_key` supplied ⇒
+`oca-protect-t<trade_id>`; absent ⇒ `oca-protect-<reqId>`. Both live groups are
+the **fallback** form (no `t`), so neither came from the naked sweep.
+
+**The size of the contaminated population is UNMEASURED, and may not be
+reconstructible at all**: `_attempt_naked_autoprotect` returns a bool and logs
+**only on failure** — no journal write, no soak row, no outcome emit — and
+`modify_protective` stamps nothing on the trade either. A repair that mutates a
+live position's bracket is invisible afterwards. **Measure what you can before
+trusting any IB live-parity exit evidence**, and if it is not reconstructible,
+say that plainly rather than reporting a small number as if it were the answer
+(`BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET`).
 
 Fixed in **PR #10174** (`_locked_place_protective`, every leg now transmits;
 plant-proven guard in `tests/test_ib_place_protective_transmits.py`). ⚠️ **At
