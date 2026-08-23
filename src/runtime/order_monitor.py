@@ -6356,8 +6356,61 @@ _LAST_IB_BROKER_NAKED_CHECK_MONO: float = 0.0
 # five minutes forever — which is the desensitized-alarm P1 this repo treats
 # as its own bug, not diligence. One page per 6h per (account, symbol) keeps
 # it loud without training the operator to scroll past it.
+#
+# THAT INTENT WAS RIGHT AND THE FIRST IMPLEMENTATION COULD NOT DELIVER IT
+# (fixed 2026-08-23): the latch was a module global keyed on time.monotonic(),
+# both per-PROCESS, and the trader restarts on every merge to `main` -- so the
+# cooldown reset on every restart and the alert became 53.7% of the entire
+# ERROR+/CRITICAL feed. The latch is durable now; see
+# tests/test_target_naked_cooldown_is_durable.py for the measurement.
 _TARGET_NAKED_ALERT_COOLDOWN_S: float = 6 * 3600.0
-_LAST_TARGET_NAKED_ALERT_MONO: Dict[tuple, float] = {}
+_TARGET_NAKED_STATE_FILENAME = "target_naked_alert_state.json"
+# Entries older than this are dropped on write so the file cannot grow without
+# bound; well past the cooldown, so pruning can never un-suppress a live one.
+_TARGET_NAKED_STATE_TTL_S: float = 7 * 24 * 3600.0
+
+
+def _target_naked_state_path():
+    from src.utils.paths import runtime_logs_dir
+
+    return runtime_logs_dir() / _TARGET_NAKED_STATE_FILENAME
+
+
+def _load_target_naked_state() -> tuple:
+    """Return ``(state, readable)`` for the durable target-naked cooldown.
+
+    ``readable`` is the *"did we look?"* axis and is deliberately NOT collapsed
+    into an empty dict: "the latch has never fired" and "we could not read the
+    latch" are both ``{}`` and must not be treated the same way. The caller
+    ALERTS when ``readable`` is False — suppressing a CRITICAL safety page
+    because a file read failed is the wrong direction to fail, and a
+    permanently unreadable latch then announces itself as spam instead of as
+    silence.
+    """
+    p = _target_naked_state_path()
+    try:
+        if not p.exists():
+            return {}, True  # we looked; nothing has fired yet
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return (data if isinstance(data, dict) else {}), True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "target_naked cooldown state unreadable (%s) - alerting rather "
+            "than suppressing",
+            exc,
+        )
+        return {}, False
+
+
+def _save_target_naked_state(state: dict) -> None:
+    try:
+        p = _target_naked_state_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, p)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("target_naked cooldown state save failed: %s", exc)
 
 
 def _emit_target_naked_alert(
@@ -6379,12 +6432,28 @@ def _emit_target_naked_alert(
     (``outcomes._TELEGRAM_LEVELS``) as well as the ``/api/bot/notifications``
     banner. Never raises into the sweep.
     """
-    key = (str(account_id), str(symbol))
-    now = time.monotonic()
-    last = _LAST_TARGET_NAKED_ALERT_MONO.get(key)
-    if last is not None and (now - last) < _TARGET_NAKED_ALERT_COOLDOWN_S:
-        return False
-    _LAST_TARGET_NAKED_ALERT_MONO[key] = now
+    key = f"{account_id}|{symbol}"
+    # WALL CLOCK, never time.monotonic(): monotonic is meaningless across
+    # processes, and the condition this rate-limits persists across restarts.
+    now = time.time()
+    state, readable = _load_target_naked_state()
+    if readable:
+        try:
+            last = float(state.get(key))
+        except (TypeError, ValueError):
+            last = None  # absent or unparseable -> treat as never fired
+        # A FUTURE-dated entry (clock skew, a restored file) yields a negative
+        # delta and must not suppress forever, so the window is bounded below
+        # by 0 as well as above by the cooldown.
+        if last is not None and 0.0 <= (now - last) < _TARGET_NAKED_ALERT_COOLDOWN_S:
+            return False
+    state = {
+        k: v
+        for k, v in state.items()
+        if isinstance(v, (int, float)) and (now - float(v)) < _TARGET_NAKED_STATE_TTL_S
+    }
+    state[key] = now
+    _save_target_naked_state(state)
     try:
         from src.runtime.outcomes import Level, report
 
