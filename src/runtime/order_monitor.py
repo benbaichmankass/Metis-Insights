@@ -7234,6 +7234,28 @@ def _bybit_sl_leg_qty(leg: dict):
     return None
 
 
+def _bybit_sl_leg_trigger(leg: dict):
+    """Price a resting Bybit SL leg would TRIGGER at, or ``None`` if unreadable.
+
+    Sibling of :func:`_bybit_sl_leg_qty`, and deliberately the same shape: a
+    conditional order's level is its TRIGGER, not its limit — the same
+    distinction IB's STP LMT forces, where reading the limit would compare a
+    declared stop against the wrong price.
+
+    ⚠️ ``None``, never ``0.0``. A leg whose trigger cannot be read is one we did
+    not grade; a zero would compare against a declared level as a catastrophic
+    divergence when the truth is that we could not look.
+    """
+    for key in ("triggerPrice", "stopPx", "price"):
+        try:
+            px = float(leg.get(key))
+        except (TypeError, ValueError):
+            continue
+        if px == px and px > 0:  # not NaN, positive
+            return px
+    return None
+
+
 def _norm_position_side(raw) -> str:
     """Normalise a direction to ``"long"`` / ``"short"`` (``""`` if unknown).
 
@@ -7299,6 +7321,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
         return None
     _flat = {
         "size": 0.0, "side": "", "covered_qty": 0.0, "source": "flat",
+        "stop_prices": [],
         "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
     }
     if not rows:
@@ -7315,10 +7338,26 @@ def _bybit_position_protection(client, category: str, symbol: str):
     #     genuinely covers the WHOLE net position.
     pos_sl = str(pos.get("stopLoss") or "").strip()
     if pos_sl and pos_sl not in ("0", "0.0", "0.00"):
+        # ⚠️ THE *STRING* IS THE WHOLE COVERAGE TEST HERE, and it always was:
+        # any non-empty, non-zero stopLoss grades the position FULLY covered,
+        # so a stop resting anywhere at all passes
+        # (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND criterion 5). That row
+        # was filed on the IB instance, which measured as a 68.8-tick gap worth
+        # $1,289.72 on ib_paper MES — and it explicitly left this venue
+        # unchecked. It is checked now, and the blast radius is LARGER: the IB
+        # instance is a paper account, whereas `bybit_2` is MAINNET.
+        #
+        # The QUANTITY verdict is unchanged (a Full-mode stop does cover the
+        # whole net position); what is added is the PRICE, so a caller holding
+        # the journal row can grade where it rests. `stop_prices` is empty when
+        # the venue's own value will not parse — *we could not look*, never
+        # "the price is fine", and never a fabricated 0.0.
+        _px = _bybit_sl_leg_trigger({"price": pos_sl})
         return {
             "size": size, "side": side, "covered_qty": size,
             "source": "full_position_stop",
             "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
+            "stop_prices": [_px] if (_px is not None and _px > 0) else [],
         }
     # (b) Partial-mode SL legs are separate resting conditional orders, each
     #     covering only its own qty — so SUM them and compare against size.
@@ -7332,6 +7371,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
                      symbol, exc)
         return None
     covered = 0.0
+    leg_prices: List[float] = []
     leg_ids = set()
     unknown = 0
     for o in legs:
@@ -7345,10 +7385,18 @@ def _bybit_position_protection(client, category: str, symbol: str):
             unknown += 1
             continue
         covered += q
+        _lpx = _bybit_sl_leg_trigger(o)
+        if _lpx is not None:
+            leg_prices.append(_lpx)
     return {
         "size": size, "side": side, "covered_qty": covered,
         "source": "partial_sl_legs",
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
+        # A Partial-mode SL leg is a conditional order, so its level is the
+        # TRIGGER price, not the limit — the same distinction IB's STP LMT
+        # forces. Sorted for a stable read; empty means no leg carried a
+        # readable trigger, which is not "the prices are fine".
+        "stop_prices": sorted(leg_prices),
     }
 
 

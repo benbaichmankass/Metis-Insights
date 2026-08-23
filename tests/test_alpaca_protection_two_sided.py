@@ -50,7 +50,14 @@ def test_stop_limit_is_a_STOP_not_a_target():
     invent a fill. Mirrors `IBClient._protective_leg_side`'s ordering.
     """
     st = _FakeClient([{"type": "stop_limit"}]).protection_state("SPY")
-    assert st == {"stop": True, "target": False, "legs": 1}
+    # Assert the keys this test is ABOUT, not the whole dict. `protection_state`
+    # gained additive `stop_prices` / `target_prices` on 2026-08-23
+    # (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND criterion 5), and an
+    # exact-equality assertion breaks on every additive field — which makes a
+    # correct, purely-additive change look like a regression.
+    assert st["stop"] is True
+    assert st["target"] is False
+    assert st["legs"] == 1
 
 
 def test_a_stop_only_book_is_not_protected_on_the_target_side():
