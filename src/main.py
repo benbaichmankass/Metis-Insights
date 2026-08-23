@@ -928,6 +928,23 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("prop_sl_tp_alert tick failed")
 
+            # The account-status request above chases a stale BALANCE; nothing
+            # chased stale FILLS, which is why three days of terminal prop
+            # trades went unrecorded when the report-back path itself broke
+            # (BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES).
+            # Two proof-anchored detectors: a bracket ALREADY announced as
+            # crossed whose position is still open in the journal, and a
+            # balance that moved between two operator reports with zero fills
+            # reported in between. Deliberately NOT keyed on unacted tickets —
+            # on a manual bridge an unanswered ticket is expected, and alerting
+            # on it would be the desensitized-alarm P1 (operator, 2026-08-23).
+            # Cadence-gated internally; best-effort.
+            try:
+                from src.prop.prop_fills_staleness import run_prop_fills_staleness
+                run_prop_fills_staleness()
+            except Exception:  # noqa: BLE001
+                logger.exception("prop_fills_staleness tick failed")
+
             # While the bot is still waiting for the operator's place-decision on
             # a freshly-emitted prop ticket, price can move beyond the ticket's
             # brackets — the setup is no longer placeable. Proactively warn ("do

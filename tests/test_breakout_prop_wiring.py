@@ -69,8 +69,18 @@ def test_prop_account_config():
     # eth_pullback_2h removed from breakout_1 — it fired the same entries as
     # eth_pullback_prop_2h and the intent dedup emitted the worse twin
     # (PB-20260625-001); it stays live on its bybit_1/bybit_2 routes.
+    # 2026-08-23 (Tier-3, operator-approved, PR #10165): the base twins
+    # trend_donchian_sol / trend_donchian_eth removed from breakout_1 for the
+    # SAME reason eth_pullback_2h was in 2026-07-20 — identical entries to their
+    # _prop variants, differing only in exit geometry (tp_r 50.0 vs 6.0), and
+    # both confirmed EMITTING (eth 15 vs 12 tickets, sol 1 vs 8). The de-dup
+    # applied to the pullback pair a month earlier was never carried across to
+    # the donchian pair. Only the _prop twins remain routed here; the base legs
+    # stay live on their bybit_1/bybit_2 routes.
+    # NOTE eth_pullback_prop_2h is still LISTED here but was demoted to
+    # execution: shadow on 2026-08-23 (PR #10161) — this set is the ROUTING
+    # roster, which is orthogonal to the per-strategy execution gate.
     assert set(a["strategies"]) == {
-        "trend_donchian_sol", "trend_donchian_eth",
         "eth_pullback_prop_2h",
         "trend_donchian_sol_prop", "trend_donchian_eth_prop"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
