@@ -322,10 +322,28 @@ it is far too thin to carry a verdict.
 | `BL-20260823-XRP-DECLARED-TARGET-EXCEEDS-VENUE-CAP` | high | `tp_r 3.0` vs `cap_r 0.687`, real money; sentinel→**clamped**, not →declared |
 | `BL-20260823-TARGET-EXPECTATION-DOCSTRING-COUNTS-STALE` | low | 29/26 vs measured 28/24 |
 
-**Evidence contamination caveat, carried forward as instructed:** none of the
-above touches IB live-parity. The `place_protective()` parentless-OCA defect
-silently dropped take-profits on any position whose protection was re-armed, and
-**the size of that population is unmeasured** (2 observations is not a rate). No
-comparison in this document uses IB exit outcomes; the harness reads historical
-candles only. Any future calibration of these targets against *live IB* fills
-must measure that population first.
+**Evidence contamination caveat — and my first version of it was too narrow.**
+None of the above touches IB live-parity, and that caveat now matters *more* than
+when I wrote it. I originally described the `place_protective()` parentless-OCA
+defect as dropping take-profits on "any position whose protection was re-armed
+(naked-autoprotect sweep, reconciler adopt/re-attach)". That is the narrow framing
+`BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET` (severity
+**critical**, merged in #10174 while this work was in flight) explicitly corrects:
+`IBClient.modify_protective` — the **routine SL/TP adjust, i.e. the monitor's
+stop-trail wire** — is itself implemented as a re-arm *through* `place_protective`.
+
+So the affected population is not "positions that happened to be re-armed"; it is
+**every IB position whose stop ever trailed**, which on a trailing strategy is the
+normal lifecycle of any trade that was *working*. The corollary that row draws is
+the one to carry: **no IB winner could ever reach its target.** `IBClient.place()`
+— the ENTRY bracket — was fine throughout (children linked by `parentId`).
+
+**The size of that population is still unmeasured** (that row says so itself), so
+nothing here is calibrated against it. This document is unaffected on its own
+terms: `cap_r` is config-and-ATR geometry, the e35 sweep is a backtest over
+historical candles, and **no claim above reads an IB exit outcome**. But two
+things follow. (1) Any future calibration of these targets against *live IB*
+fills must measure that population first. (2) The fleet has been unable to reach
+its targets for **two independent reasons at once** — the venue clamp on Bybit
+(§ 4–5) and an un-transmitted take-profit on IB — which are separate defects with
+separate remedies and should not be conflated when reading exit statistics.
