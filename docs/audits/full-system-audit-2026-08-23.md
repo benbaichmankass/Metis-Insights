@@ -1321,3 +1321,123 @@ already closed one module over, with better vocabulary than I was about to add.
   strategies naming a model in `shadow_model_ids`, whereas the advisory regime
   gate resolves its head **per-SYMBOL** via `ml_vol_regime_for_symbol`. Do not
   read the empty list as "registered but unused" for an advisory row.
+
+## 8.3 INVERSE PROXIES — the unlock, and the biggest single item in this plan
+
+> Operator, 2026-08-23: *"we can also consider 'short proxies', eg tqqq — we want
+> to make sure we can have as much of the portfolio trading as possible."*
+> …and: *"We may need to do some backtesting and strategy adjustment before
+> flipping live — that's fine, just make sure everything is in the work plan."*
+
+**This is the right idea and it is the highest-leverage item here**, because it
+attacks *both* binding constraints at once: an inverse ETF expresses a short view
+by **buying**, which a cash account can do, and the inverse funds are **cheap**,
+which fixes affordability on exactly the four symbols currently at 0% tradeable.
+
+One factual note on the example: **TQQQ is a 3× LONG fund**, not a short proxy —
+it and QLD are the *leveraged long* siblings already sitting on `alpaca_paper`.
+The short proxies are the inverse members of that same family (`PSQ`, `SH`,
+`RWM`, `TBF`, …). The idea is exactly right; it is that family, other end.
+
+### The measured upside
+
+Direction split per symbol, all 318 `alpaca_live` packages with geometry:
+
+| symbol | long | short | tradeable today | clean −1× inverse |
+|---|---:|---:|---:|---|
+| SPY | 27 | 36 | 0 | **SH** |
+| TLT | 18 | **42** | 18 | **TBF** |
+| QQQ | 19 | 38 | 0 | **PSQ** |
+| GLD | 13 | **44** | 0 | DGZ — an **ETN**, not an ETF |
+| SLV | 15 | 17 | 15 | none at −1× (ZSL is −2×) |
+| USO | 32 | 0 | 32 | — |
+| GDX | 0 | 7 | 0 | none at −1× (DUST is −2×) |
+| IAUM | 0 | 6 | 0 | DGZ (same underlying as GLD) |
+| IWM | 2 | 0 | 0 | **RWM** |
+| IEF | 1 | 1 | 1 | **TBX** |
+
+- **Today: 66 of 318 tradeable = 20.8%.**
+- Short flow on the symbols with a **clean −1× proxy** (SPY, QQQ, IWM, TLT, IEF):
+  **117 packages = 36.8% of all flow.**
+- **Potential: 66 + 117 = 183 = 57.5%** — nearly **3×** the current coverage,
+  using only unleveraged −1× funds.
+- Adding GLD + IAUM (50 more) via DGZ would reach ~73%, but DGZ is an **ETN** —
+  unsecured bank credit, not a fund holding assets — which is a different risk
+  class and should be a separate, explicit decision.
+
+**`TLT` is the single highest-value addition**: 42 shorts, the largest short book
+of any symbol, and `TBF` is a clean unleveraged −1×.
+
+### Why this is research, not a config edit
+
+The 2026-07-07 proxy sprint is the precedent and it did this correctly:
+*"Backtested each proxy's own price series through the same daily cell params as
+its expensive twin."* An inverse proxy needs the same treatment and more, because
+four things do **not** carry across:
+
+1. **Daily-rebalance decay is real at our holding periods.** A −1× fund tracks
+   the *daily* inverse, not the inverse over a multi-day hold; in a chopping
+   market both the index and its inverse can lose. Our measured Alpaca holds are
+   **median 73.7 h, p90 312 h** — days to weeks, squarely in the range where the
+   path-dependence bites. This is the strongest argument for staying at **−1×**
+   and treating −2× / −3× (ZSL, DUST, SCO, SQQQ) as a separate question with a
+   much higher bar; those are built for intraday.
+2. **The stop/target geometry does not transfer.** A stop derived from SPY's
+   series is not a stop on SH's. Entry, SL and TP must be re-derived on the
+   proxy's own bars — and the *risk* per share changes, which feeds straight back
+   into the affordability arithmetic in §8.1.
+3. **Costs are an order of magnitude higher.** Inverse ETFs run ~0.90–1.00%
+   expense ratios against 0.03–0.09% for SPY/SPLG. Over a multi-day hold that is
+   a real drag and must be in the backtest, not assumed away.
+4. **Liquidity and spread** on the smaller inverse funds (RWM, TBX, DNO) are
+   thinner than their long twins and will show up as slippage a paper fill hides.
+
+### Added to Phase R
+
+- **R5. Inverse-proxy identification.** For each symbol carrying short flow, find
+  the best **unleveraged −1×** instrument and record price, expense ratio, AUM,
+  average volume and spread. Prefer an ETF over an ETN (the GLD/DGZ case). Record
+  explicitly where **no** acceptable −1× exists (SLV, GDX, USO today) rather than
+  silently substituting a −2×.
+- **R6. Backtest each proxy on its OWN series, net of its own costs**, through the
+  cell params of the strategy that would trade it — the 2026-07-07 method, with
+  the expense ratio and a realistic spread included. A proxy that only works
+  gross-of-cost has not passed.
+- **R7. Decide the expression mapping per cell, and adjust the strategy.** A short
+  signal on SPY becomes a long entry on SH — which means the cell needs its own
+  geometry, its own risk sizing, and its own name in the roster. This is
+  strategy-adjustment work, not a symbol substitution, and it should be
+  backtested and rostered like any new cell (skill: `new-strategy`).
+- **R8. Re-run R3's compat matrix on the EXPANDED roster.** The survival gate must
+  be cleared by the roster that will actually trade, not by the long-only subset.
+  Adding legs changes the correlation structure — two inverse funds on correlated
+  indices are not two independent bets, and at $200 concentration matters more
+  than usual.
+
+### Added to Phase E
+
+- **E7. Roster + wiring for the accepted proxies** — signal builders,
+  `monitor_unit` tags, intent-multiplexer registration, `strategies.yaml` cells,
+  `instruments.yaml` profiles, descriptions, roster-pin tests. The 2026-07-07
+  sprint's file list is the exact template; CI caught a real wiring gap in that
+  sprint (`test_strategy_monitor_unit_resolution`), so expect the same guards to
+  earn their keep here.
+- **E8. Mirror the new cells on `alpaca_portfolio` FIRST** and let them accrue a
+  forward record before any of them trade real money — which also closes E4's
+  roster-drift gap by construction rather than as a separate chore.
+
+### Revised sequencing
+
+R5 → R6 → R7 gates the roster; **R8 (compat at $200 on the expanded roster) is
+the hard gate** and supersedes R3 as the go/no-go. E1–E3 (short gate,
+affordability refusal, settlement awareness) still land regardless — note that
+**E1 becomes even more important, not less**: once shorts are expressed as long
+buys on proxies, any *residual* raw short signal reaching the account is a
+mapping gap, and the gate is what makes it visible instead of a venue error.
+
+E5's real-venue revalidation and E6's flip come last, unchanged.
+
+**Expected outcome if R5–R8 clear:** the account goes from expressing **20.8%**
+of its signal flow to roughly **57%** on unleveraged instruments — with the
+honest possibility that decay and costs knock some of those cells out in R6,
+which is exactly what R6 is for.
