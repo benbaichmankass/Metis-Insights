@@ -240,8 +240,28 @@ deliberately keeps separate: *"a clamped leg had an expectation the venue
 refused to place; a sentinel leg never had one."* The bracket now **states** a
 prediction the venue will not honour.
 
-⚠️ **Scope and limits of this claim, stated plainly.** `cap_r` is fixed at entry
-and varies with entry ATR, so **n = 1 trade**; a calmer entry would clamp less.
+⚠️ **CORRECTED 2026-08-23 — the population was five open trades, and it is not
+representative.** Re-measured over the leg's **296-entry backtest population**
+(2021-08-19 → 2026-08-23): median ATR/entry is **1.87%**, not the ~5.8% those
+live rows showed, and median `cap_r` is **2.11**, not 0.687. The soak figure sits
+around the **p95** of the distribution. So `tp_r 3.0` is genuinely placeable on
+**22.3%** of entries and clamped on 77.7% — the finding stands in direction and
+was **overstated in magnitude**, and my accompanying claim that the leg is
+*"structurally impossible"* was wrong. Full re-measurement:
+[`xrp-pullback-joint-geometry-2026-08-23.md`](xrp-pullback-joint-geometry-2026-08-23.md).
+
+⚠️ **And the obvious remedy is measured WRONG.** Making 3.0R reachable by
+tightening the stop — what the placeability arithmetic invites — was run as a
+joint grid: **37 (stop, target) cells, zero positive, and the interior optimum is
+the LIVE geometry** (stop 2.5 / `tp_r` 3.0, −13.02R). Stop 1.0 costs a further
+**66R**. The second axis is the same story: 20 trail cells, zero positive, live
+cell optimal. So `#10171` moved the leg the right way and there is **no Tier-3
+change to propose here** — two of three axes are exhausted, and the entry axis
+is untested.
+
+⚠️ **Scope and limits of the original claim, stated plainly.** `cap_r` is fixed at
+entry and varies with entry ATR, so the soak read was **n = 5 trades**; a calmer
+entry clamps less, which is exactly what the 296-entry population shows.
 The R:R-below-1 condition itself is already recorded in root `CLAUDE.md`
 (*"`xrp_pullback_2h` at R:R 0.687 (real money)"*) — that is independent
 confirmation of the same number, not a new discovery. **What is new is that the
@@ -274,16 +294,136 @@ two effects, and they are the same change.
 
 **`pullback` — 15 of the 34, and the family that needs the most work.**
 Thesis: *does ADX still clear `adx_min`* — **unreadable on 5 of 16 trades**,
-because `adx_min` is not declared on the 1d/1h legs. **Step one is not a target
-at all: it is declaring `adx_min` on the 10 inheriting legs**, because
-`thesis_unknown` never extends and a target without a thesis cannot be managed.
-Only then does the target question arise, and the answer is volatility-split:
-low-vol legs have room for a genuine multi-R target; the 2 h crypto legs have
-0.36–1.6 R and two of them have nothing.
+because `adx_min` is not declared on the 1d/1h legs. ⚠️ **An earlier draft of
+this paragraph said step one was to DECLARE `adx_min` on those legs. § 7.5
+measured that and the answer is NO** — the set is 12 not 10, it is an
+entry-behaviour change (no ADX filter exists on them today), 25/28/30 would
+refuse 53–86% of entries, and the only non-destructive value is fitted to the
+sample minimum. The predicate is wrong, not the value: **these legs' entry
+thesis is trend-and-pullback STRUCTURE, never ADX**, so the remedy is a
+trend-structure thesis predicate in `_pullback_thesis_intact` — code, with its
+own falsifier — not a value in YAML. Read § 7.5 before acting on this
+paragraph. Only then does the target question arise, and the answer is
+volatility-split: low-vol legs have room for a genuine multi-R target; the 2 h
+crypto legs have 0.36–1.6 R and two of them have nothing.
 
 **`ict_scalp` — 8 legs, already compliant.** `tp_at_r: 1.5`, a real expectation
 that fits well inside `cap_r`. **Not part of the problem population**, and worth
 saying because it is the existence proof that the fleet *can* carry one.
+
+---
+
+## 6.5 The measured starting point per leg — the venue already chose one
+
+*(Added 2026-08-23, after the § 6 families were written. It changes the shape of
+the answer, so it is a section rather than an edit.)*
+
+§ 0 opened on the operator's premise: *a sentinel target is not an expectation;
+it is the absence of one.* That is right about the **config** and, on half the
+sentinel legs, **wrong about the venue**.
+
+`_TP_SENTINEL_CAP_PCT`'s comment justifies the 9.9% clamp as *"still far enough
+that the monitor's Chandelier trail remains the real profit-exit."* Measured
+across **10 sentinel legs** (e35 base runs, full history, cap ON — i.e. live
+conditions), clamped-TP exits vs trail exits:
+
+| leg | sym/tf | TP : trail | **clamp-imposed target (median R)** |
+|---|---|---|---|
+| `trend_donchian` | BTC/1h | 0.10 | 5.98 |
+| `trend_donchian_1h` | BTC/1h | 0.18 | 5.38 |
+| `trend_donchian_eth` | ETH/1h | 0.33 | 4.08 |
+| `trend_donchian_sol` | SOL/1h | 0.68 | 3.22 |
+| `trend_donchian_avax_4h` | AVAX/4h | 0.97 | 1.48 |
+| `trend_donchian_eth_4h` | ETH/4h | **1.71** | 2.04 |
+| `xrp_pullback_2h` | XRP/2h | **2.78** | — |
+| `trend_donchian_xrp_4h` | XRP/4h | **3.11** | 2.11 |
+| `trend_donchian_ada_4h` | ADA/4h | **3.86** | 1.57 |
+| `trend_donchian_sol_4h` | SOL/4h | **3.88** | 1.44 |
+
+**The claim holds on every 1h leg and fails on every 4h leg plus the 2h
+pullback.** Arithmetic, not luck: a longer bar carries a bigger ATR, so the same
+9.9% price distance is fewer R — and the sweep's own `tp_r_effective_median` is
+monotone in exactly that.
+
+### What this changes about the question
+
+**On 5 of 10 sentinel legs a hard target already exists, is hit 1.7–3.9× more
+often than the trail, and nobody chose its value.** It is 9.9%, picked in
+May 2026 to satisfy Bybit ErrCode 10001.
+
+So the per-family construction task is **not** *"invent an expectation for a leg
+that has none"* on those legs. It is *"replace a venue constant with a thesis"* —
+and the constant is a **measured starting point**, not a guess: the right-hand
+column is what the leg has actually been trading to, for its whole history, at
+the R where it actually exits.
+
+`sentinel_no_expectation` cannot express this. *"No target, the trail is the
+exit"* and *"no DECLARED target, and the clamp is the dominant exit"* are
+opposite conditions sharing one grade — the collapsed-state shape, in the
+vocabulary built to grade exactly this. Filed as a `high` row in **PR #10198** (`…VENUE-CLAMP-IS-THE-UNDECLARED-TARGET…`;
+the id resolves once that PR lands, so it is cited by PR here rather than as a
+tracking reference this branch cannot resolve).
+
+### The coherence check, and it is a strong one
+
+The best risk-adjusted cell in the entire 2,189-cell donchian corpus is
+`trend_donchian_sol_4h tp1.5_sm2_to96` — IS MAR 4.25 → **7.41**, OOS
+0.73 → **1.44**, at **+0.015R of drawdown per +1R of return** in-sample and an
+*improvement* in drawdown out-of-sample.
+
+Its declared **1.5R** sits beside sol_4h's clamp-imposed **1.44R**. Its tighter
+stop (2.0 vs 2.5) lifts `cap_r` by 1.25×, so 1.5R is genuinely *reachable*
+rather than truncated. The winning geometry is, almost exactly:
+
+> **declare what the venue was already placing, and tighten the stop until it is
+> reachable.**
+
+That is § 6's donchian construction rule — *"one change, two effects, and they
+are the same change"* — arrived at independently, from the opposite direction,
+and it is the first measured instance of it.
+
+### The clamp also disarms the levers
+
+The clamp does not only replace the target. It silently disarms **every lever
+whose trigger was calibrated above the truncation point**. Measured on
+`xrp_pullback_2h`: `trail_decay_arm_r: 4.49` fired **0 of 296 times** in five
+years (max MFE **2.92**, so the arm sits at 1.54× the largest peak the leg has
+ever printed), and `arm 4.49` returns **byte-identical** net R to `arm 0.0` at
+every `trail_mult` tested. Uncapped, the same leg reaches 4.49R on 7.1% of
+trades — so the value was fitted in a harness without `--tp-cap-pct` and is
+inert in production.
+
+⚠️ **State the population: 4 legs measured, 2 inert** — the other being
+`trend_donchian_sol_4h` (arm **5.57** vs max MFE **3.85**), one of the fleet's
+*better* performers, whose best cell is precisely the one that stops relying on
+the trail. Four more enabled legs declare an arm and were not measured; that is
+*we did not look*, not *reachable*. Filed as a `medium` row in **PR #10198** (`…DECLARED-TRAIL-DECAY-ARMS-ARE-INERT…`).
+
+### Active management: the entry bracket is the precondition, not the alternative
+
+The expectation a bracket carries at entry is a **starting** prediction that the
+strategy is meant to revise as the trade develops — a momentum leg's momentum
+read should drive its own revision. The point is not to pick the value that
+works most often and freeze it; it is that **whatever the current read is, it
+must be expressed as a bracket**, rather than left implicit in a wide sentinel
+with a trailing measurement doing the work.
+
+The infrastructure for the revision half already exists and is inert on exactly
+this population. `_base.monitor` has declared a `{"tp": float}` verdict — *move
+the take-profit* — since it was written, and **no strategy has ever produced
+one** (AST-verified); `target_extension_soak` is now the annotate-only producer,
+and its `sentinel_no_expectation` / `no_expectation_declared` states are these
+legs.
+
+A leg running a sentinel behind a trail has **no expectation to revise**, so the
+revision machinery cannot engage. And per this section, what it is *actually*
+running is a venue constant — which no thesis can revise either, because no
+thesis chose it, and (per the levers above) the constant may also have disarmed
+the trail decay that was supposed to be managing the trade instead.
+
+**So the entry bracket and active management are one task, not two.** Declaring
+the entry expectation is what turns the trail from *the whole exit policy* into
+*one input to a revisable one*.
 
 ---
 
@@ -446,6 +586,17 @@ that condition was never ADX.
 | `BL-20260823-NO-TARGET-KEY-STATE-UNREACHABLE-IN-PRODUCTION` | medium | The 5th state can never fire; sentinel provenance (chosen vs inherited) is collapsed for 10 live legs |
 | `BL-20260823-XRP-DECLARED-TARGET-EXCEEDS-VENUE-CAP` | high | `tp_r 3.0` vs `cap_r 0.687`, real money; sentinel→**clamped**, not →declared |
 | `BL-20260823-TARGET-EXPECTATION-DOCSTRING-COUNTS-STALE` | low | 29/26 vs measured 28/24 |
+**Filed in PR #10198** (the sibling branch carrying the sweep corpus + tooling;
+cited by PR because the ids do not resolve on *this* branch until it lands):
+
+| row | sev | note |
+|---|---|---|
+| venue clamp is the undeclared target | high | 5 of 10 sentinel legs run a venue-chosen ~1.5R target that out-exits the trail 1.7–3.9× (§ 6.5) |
+| declared trail-decay arms are inert | medium | 2 of 4 measured `trail_decay_arm_r` values can never fire; one is on a top performer |
+| e35 Path B unreachable (raw run_cell dict) | high | The bracket sweep's Path B answered False for every cell ever gated — wrong argument shape |
+| xrp_pullback geometry tuning exhausted | medium | 37 geometry + 20 trail cells, zero positive, live config optimal on both axes |
+| e35 sweep evidence has no durable path | medium | 3,781 measured cells were artifact-only; 2,189 now committed |
+| lever-reachability audit blind without journal rows | low | Grades all 8 levers `unmeasured`; the backtest already carries the answer |
 
 **Evidence contamination caveat — and my first version of it was too narrow.**
 None of the above touches IB live-parity, and that caveat now matters *more* than
