@@ -22252,6 +22252,29 @@
         "scripts/ops/get_env.py"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "high",
+      "tier": "1 (consumers + a guard; the DATA is fine, the readers are not)",
+      "status": "open",
+      "area": "backlog machinery / review triage / unasserted denominator",
+      "title": "A review session filtering `status == \"open\"` sees 174 of 371 live rows, and ageing by `opened_at` silently drops 92 — the backlog's own triage has an unstated denominator",
+      "detail": "MEASURED 2026-08-23 over docs/claude/health-review-backlog.json (837 rows). Found while trying to answer a simple question — is the backlog actually being drained? — and nearly publishing a badly wrong answer to it.\n\nTWO SCHEMA SPLITS, both silent:\n\n1. STATUS VOCABULARY. Live rows are NOT just `open`. The counts are: open 174 · kept_open 197 · resolved 451 · superseded 6 · wont_fix 6 · invalid 3. `kept_open` is REAL LIVE WORK, not a parked state — sampled rows include a stray trade_journal.db on the trainer holding 15,644 signals rows and a 501 MB unrotated signal_audit.jsonl, and none of the sampled rows carries a `snoozed_until`. So a consumer filtering `status == 'open'` sees **174 of 371 live rows — 47%**.\n\n2. DATE KEY. 733 rows carry `opened_at`, **92 carry `opened`** instead, and 12 carry neither. A consumer ageing rows by `opened_at` alone silently treats 92 rows as undateable. The `opened`-keyed cohort is recognisable (a BL-20260818-* block that also uses `evidence`/`next_action`/`related` where the canonical shape uses `detail`/`resolution_criteria`/`refs`), so this is a second row SCHEMA living in the same file rather than scattered typos.\n\nWHAT THAT COSTS, DEMONSTRATED ON MYSELF: my first pass reported '0 open rows >= 45 days old' — computed over 116 dateable rows out of 174, with the other 58 dropped for the key reason above, and over `open` only. Read as stated it says the backlog has no old work at all. THE CORRECTED FIGURE, over the true live population (371 rows, 369 dateable once BOTH keys are read): **12 rows >= 45 days = 3%, oldest 90 days.**\n\n⚠️ THE GOOD NEWS IS REAL AND SURVIVES THE CORRECTION, which is why this row is about the READERS and not the data. Against the baseline `check_backlog_criteria.py` recorded on 2026-08-13 — 38% of open rows with no resolution_criteria, 44% no severity, 24% no tier, and 25% sitting >= 45 days never advanced — today's open rows are at **0% / 0% / 0%** missing across all three backlogs, and the >=45-day share is 25% -> 3%. The guard worked. The 203 rows still missing `resolution_criteria` are ALL non-open (148 resolved, 49 kept_open, 3 wont_fix, 2 superseded, 1 invalid), i.e. history that predates the guard.\n\nThis is the unasserted-denominator class (CLAUDE.md § 'Diagnostic provenance', sub-class C) applied to the backlog's own triage: every count above is correct about the population it ranges over, and wrong about the one a reader assumes.",
+      "resolution_criteria": [
+        "One shared helper that answers 'which rows are LIVE?' and 'when was this row opened?', imported by every consumer instead of each re-deriving it — the same single-owner shape src/runtime/provenance.py has for measured-vs-manufactured. Today at least three readers (check_backlog_criteria.py, the review skills, ad-hoc session probes like the one that found this) each pick their own status filter and date key.",
+        "`kept_open` is either folded into the live set everywhere or given a documented meaning that justifies excluding it. Right now it is 197 rows — larger than `open` — with no statement of what distinguishes them, and the sampled ones read as ordinary live work.",
+        "The `opened` vs `opened_at` split is resolved: either normalise the 92 rows to `opened_at` (a data migration, and note it will rewrite those rows — use scripts/ops/backlog_append.py's round-trip discipline so the diff does not re-attribute the whole file), or have the shared accessor read both and say so. Do NOT leave a reader to discover it.",
+        "check_backlog_criteria.py grows a check for the SHAPE split, not just field presence: a row whose date key or status value is outside the declared vocabulary should fail loudly, because both splits above passed every existing guard while being invisible."
+      ],
+      "refs": [
+        "docs/claude/health-review-backlog.json",
+        "scripts/ops/check_backlog_criteria.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }
