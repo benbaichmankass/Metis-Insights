@@ -200,6 +200,15 @@ GUARDS: List[Dict[str, Any]] = [
             # than appends, and a foreign report.json is refused — none of
             # which move when the data does.
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
+            # The e35->verdicts adapter is what lets the CANONICAL
+            # `m20_banking_risk_adjusted.py` read a bracket sweep, instead of a
+            # second implementation of MAR free to drift from it. Its self-test
+            # pins the distinctions a reader depends on: the NET (not gross)
+            # column lands in the gated slot, a cell the sweep never split is
+            # counted rather than emitted with a null half, a corrupt row is a
+            # refusal rather than a smaller sample, and `dd_per_r` is null for a
+            # return-GAINING cell by construction.
+            ["python3", "scripts/research/e35_verdicts_adapter.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.
