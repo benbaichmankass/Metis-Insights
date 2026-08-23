@@ -130,15 +130,39 @@ def union(anc: Any, ours: Any, theirs: Any) -> Tuple[Any, Dict[str, Any]]:
             f"a side DELETED rows (ours={ours_del}, theirs={theirs_del}) — "
             f"a union RESURRECTS them, and backlog rows are kept on purpose")
 
-    merged = list(t) + [r for r in o if r["id"] not in ti]
+    # THEIRS IS THE SPINE, BUT AN OURS-ONLY EDIT MUST WIN ON ITS OWN ROW.
+    # ⚠️ This used to be `list(t) + ours_new`, which took EVERY theirs row
+    # verbatim -- so a row that WE edited and theirs did not silently reverted
+    # to the ancestor version. Measured 2026-08-23 on the real backlog: our
+    # 5819-char edit to BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY was
+    # replaced by the 3274-char ancestor text, and the tool printed `UNION OK`.
+    # That is the exact failure the edited row itself documents ("a
+    # hand-resolution has ALREADY silently reverted content once") committed by
+    # the tool written to prevent it. A divergent both-side edit still refuses
+    # above; this branch only ever fires when the other side did NOT touch the row.
+    ours_ed_set, theirs_ed_set = set(ours_ed), set(theirs_ed)
+    merged = [
+        (oi[r["id"]] if r["id"] in ours_ed_set and r["id"] not in theirs_ed_set else r)
+        for r in t
+    ] + [r for r in o if r["id"] not in ti]
 
     # ASSERT AFTER — on the merged list, before it is ever written.
     ids = [r["id"] for r in merged]
+    mi = {r["id"]: r for r in merged}
     if len(ids) != len(set(ids)):
         raise UnionRefusal("duplicate ids in the union result")
+    # Row PRESENCE by id (a substituted row is intentionally not verbatim-theirs).
     for r in t:
-        if r not in merged:
+        if r["id"] not in mi:
             raise UnionRefusal(f"theirs row lost: {r['id']}")
+    # ⚠️ THE MISSING ASSERTION. Both sides' EDITS must survive verbatim. Only
+    # the theirs half existed, which is why the drop above passed every check.
+    for i in theirs_ed:
+        if mi.get(i) != ti[i]:
+            raise UnionRefusal(f"their edit to {i} was DROPPED by the union")
+    for i in ours_ed:
+        if mi.get(i) != oi[i]:
+            raise UnionRefusal(f"our edit to {i} was DROPPED by the union")
     for r in ours_new:
         if r not in merged:
             raise UnionRefusal(f"our new row lost: {r['id']}")
@@ -233,6 +257,27 @@ def _selftest() -> int:
     ck("no duplicate ids", len(ids) == len(set(ids)))
     ck("theirs is the spine (their order first)", ids[:3] == ["A", "B", "THEIRS1"])
     ck("provenance counts the sides", prov["ours_new"] == ["OURS1", "OURS2"])
+
+    # ⚠️ THE OURS-SIDE MIRROR. Only the theirs half was asserted above, and the
+    # code had the same asymmetry: an ours-only edit was silently reverted to
+    # the ancestor while the tool printed OK. Measured on the real backlog
+    # 2026-08-23. Both directions are asserted now, and a REGRESSION here means
+    # a session's own edit is being thrown away without saying so.
+    ours_e = doc([r("A", "OURS_EDIT"), r("B"), r("OURS1")])
+    theirs_e = doc([r("A"), r("B"), r("THEIRS1")])
+    out_e, _ = union(anc, ours_e, theirs_e)
+    ck("OUR edit survives verbatim (the reverted-edit regression)",
+       {"id": "A", "note": "OURS_EDIT"} in out_e["items"])
+    ck("our edit does not resurrect the ancestor row",
+       {"id": "A", "note": "a"} not in out_e["items"])
+    ck("an ours-only edit still yields the full union",
+       sorted(x["id"] for x in out_e["items"]) == ["A", "B", "OURS1", "THEIRS1"])
+
+    # and the same shape with BOTH sides editing DIFFERENT rows
+    out_b, _ = union(anc, doc([r("A", "OE"), r("B")]), doc([r("A"), r("B", "TE")]))
+    ck("both sides edit different rows — both edits survive",
+       {"id": "A", "note": "OE"} in out_b["items"]
+       and {"id": "B", "note": "TE"} in out_b["items"])
 
     # non-dict (bare list) backlog shape still works
     out2, _ = union([r("A")], [r("A"), r("O")], [r("A"), r("T")])
