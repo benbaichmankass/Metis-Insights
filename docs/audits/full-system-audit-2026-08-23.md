@@ -1072,3 +1072,252 @@ the two missing legs to `alpaca_portfolio`, and leave `alpaca_live` at
 **Filed:** `BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED` (high),
 `BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS` (medium),
 `BL-20260823-NO-PDT-MODELLING-ON-ALPACA` (medium).
+
+---
+
+# Part 8 — WORKPLAN: taking the Alpaca segment live at $200, cash account
+
+> Operator, 2026-08-23: *"we only have 200 usd there, and if I'm not mistaken, we
+> are limited to non-margin trading there right now, so we need to verify that we
+> are only trading symbols there that are technically feasible (we already did a
+> lot of work in the past to find proxy symbols that will work on that account),
+> so let's come up with a workplan… Doesn't supersede the rest of this session's
+> work, can be held for the end once we are ready to continue M20."*
+
+Queued behind M20. This is the plan, not the execution.
+
+## 8.1 The constraint set, measured
+
+**A cash (non-margin) account changes the diagnosis in Part 7, and mostly for the
+better — because it turns an open question into a settled one.**
+
+- **Shorting is structurally impossible, not a disabled toggle.** Reg-T shorting
+  requires a margin account, and FINRA's margin minimum is **$2,000**. At $200
+  the account cannot be converted. So Part 7's option (a) — "enable shorting" —
+  is **off the table**, and option (b) — a real short gate — is the only path.
+  That is a simplification: there is now one right answer instead of two.
+- **PDT does NOT apply.** The pattern-day-trader rule is a *margin* rule. The
+  `BL-20260823-NO-PDT-MODELLING-ON-ALPACA` finding is **not a blocker for this
+  account** and should be re-scoped to "applies if/when this account goes
+  margin". It stays open, correctly, because the assumption in
+  `market-alternatives-2026-06-10.md` ("the equities account will be >$25k") is
+  still wrong and would bite on a future funding.
+- **What replaces it is T+1 settlement.** In a cash account, proceeds of a sale
+  are not available to buy again until settled. Buying with unsettled funds is a
+  good-faith violation; selling something bought with unsettled funds is
+  free-riding (a 90-day restriction). At $200 the entire balance recycles on
+  every trade, so this binds *hard* and it is modelled **nowhere** — the same
+  gap as PDT, but this one is live today.
+
+**The affordability wall.** Latest entry prices from the bot's own feed:
+
+| symbol | last entry | 1 share ≤ $200? |
+|---|---:|---|
+| SPY | $770.15 | **NO** |
+| QQQ | $717.68 | **NO** |
+| GLD | $402.06 | **NO** |
+| IWM | $303.03 | **NO** |
+| USO | $132.21 | yes (1.5 sh) |
+| IEF | $93.50 | yes (2.1 sh) |
+| TLT | $82.11 | yes (2.4 sh) |
+| GDX | $74.02 | yes (2.7 sh) |
+| SLV | $60.33 | yes (3.3 sh) |
+| IAUM | $40.38 | yes (4.9 sh) |
+| SPLG | *(no package ever emitted)* | — |
+
+Four of the eleven live symbols cost **more than the entire account**, and those
+four carry **55.7%** of its signal volume (177 of 318).
+
+**Composing the constraints against all 318 historical packages:**
+
+| filter | packages | share |
+|---|---:|---:|
+| all with geometry | 318 | 100% |
+| …LONG (cash account) | 127 | 39.9% |
+| …AND one share ≤ $200 | 66 | 20.8% |
+| …AND stop risk fits the budget | **66** | **20.8%** |
+
+**≈4 of every 5 signals this account produces cannot be acted on**, and the
+survivors collapse onto **three symbols**:
+
+| symbol | tradeable packages |
+|---|---:|
+| USO | 32 |
+| TLT | 18 |
+| SLV | 15 |
+| IEF | 1 |
+
+Two things worth naming, because both cut against the intuitive read:
+
+- **The proxies do not help here.** `IAUM` (6 packages) and `GDX` (7) are
+  affordable and were **100% short** — zero tradeable. `SPLG` has emitted **no
+  order package at all**. The 2026-07-07 proxy sprint solved the *affordability*
+  half correctly (SPLG ≡ SPY, IAUM ≡ GLD, no sub-$100 QQQ proxy exists), but
+  affordability was never the binding constraint for those cells — direction is.
+- **`SPLG`'s zero is NOT evidence of a dead leg.** Its whole family barely
+  fires: SPY 1, QQQ 2, IWM 3, SCHA 1, QLD 1, TQQQ 0, SPLG 0 over ~7 weeks. A 0
+  in a family whose median is 1 is not a signal. Do not open a dead-leg
+  investigation on it without a denominator.
+
+## 8.2 The workplan
+
+### Phase R — research (no code, no money)
+
+- **R1. Settle the roster against the real constraint set.** The question is not
+  "which symbols are affordable" (answered 2026-07-07) but **"which
+  (symbol, direction) cells are executable in a $200 cash account"**. Produce the
+  cell list from the intersection above, and for each excluded cell record *why*
+  (unaffordable / short-only / both) so the exclusion is auditable and reverses
+  cleanly when the account grows.
+- **R2. Find the long-side gap.** The three survivors are USO, TLT, SLV. Ask
+  whether the *pullback* family's short bias is a property of the strategies or
+  of the July–August window — a 7-week sample that happened to be one-directional
+  is a different fact from a structurally short book, and only the second
+  justifies re-rostering. Use the backtest sweeps, not the live journal.
+- **R3. Re-run the per-account compat matrix at the real numbers.**
+  `scripts/prop/account_compat_matrix.py` at **$200 / long-only / cash**. The
+  2026-07-07 sprint ran it at ~$150 with the old 10%/10%/10% caps and found
+  survival 0.69 against a 0.90 floor. Nobody has run it at 2%/5%/5% on $200 with
+  the direction filter applied. **This is the gate**: if survival fails here,
+  nothing downstream matters.
+- **R4. Decide the honest evidence base.** The paper mirror's positive result is
+  n=14 long trades dominated by one 10-trade leg — and that leg, `uso_trend_1h`,
+  is also 48% of the tradeable flow. Concentration this high is a hypothesis.
+  Decide explicitly whether that clears the bar, or whether the account trades
+  one leg while the others accrue.
+
+### Phase E — engineering / technical validation
+
+- **E1. Short gate (Tier-3).** Refuse a short at the coordinator, with a named
+  cause in the journal, for any account whose broker reports
+  `shorting_enabled: false`. Today that flag is read and consumed by nothing, so
+  ~60% of this account's flow would fail at the venue with no attributable
+  refusal. Ship this **before** any flip — it is what makes the other 80% of the
+  signal flow legible instead of noisy.
+- **E2. Affordability refusal, stated not silent.** A signal whose one-share
+  notional exceeds available cash should refuse with its own cause, distinct
+  from `risk_refused` (a risk-budget verdict) and from `zero_balance` (an empty
+  account). Three different conditions currently land in overlapping buckets;
+  at $200 the affordability one is the common case and deserves its own name.
+- **E3. Settlement awareness (cash accounts).** Track settled vs unsettled cash
+  and refuse an entry that would buy with unsettled proceeds. Alpaca exposes the
+  fields; nothing reads them. Without this the account earns a good-faith
+  violation and, on the second, a 90-day restriction — an outcome no amount of
+  strategy quality survives.
+- **E4. Close the mirror gap.** `splg_trend_long_1d` and `iaum_pullback_1d` run
+  on `alpaca_live` and on no portfolio-role paper account, so the live roster has
+  legs with no forward record. Make `alpaca_portfolio` a superset of
+  `alpaca_live` and add a check so the drift cannot recur silently.
+  (`BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS`.)
+- **E5. Real-venue revalidation — the step that has never been done.** The
+  2026-07-07 sprint recorded this honestly as an open gap ("real-venue
+  revalidation is NOT done… unconfirmed that IAUM (and SPLG when affordable)
+  actually sizes ≥1 whole share and places a bracket order"), armed a check-in
+  for 2026-07-08, and **the loop was never closed**. One real long entry on one
+  affordable symbol during RTH, watched end-to-end: sizes ≥1 whole share →
+  bracket attaches → both legs rest at the broker → the day-TIF legs are re-armed
+  as GTC by the naked sweep after the close → the position exits without a human.
+  That last clause is the one with a bad precedent: the account's only live-money
+  round trip to date (IEF, July) was closed 13 days later by a manual flatten
+  script.
+- **E6. Then, and only then, the flip.** `set-account-mode alpaca_live live`,
+  Tier-3, operator-approved, with the roster from R1 and the gates from E1–E3 in
+  place.
+
+### Sequencing
+
+R3 gates everything (a failed survival check ends it). E1 and E3 are the two
+that prevent a *venue-level* bad outcome and should land regardless of whether
+the flip happens. E5 is the last thing before E6 and cannot be done outside US
+RTH — schedule it deliberately rather than discovering the market is shut, which
+is what happened in July.
+
+### What this is not
+
+This plan does not assume the account should trade. It is entirely possible the
+honest answer from R3/R4 is *"$200 in a cash account cannot express this book —
+leave it in dry_run and let the portfolio mirror accrue"*. That is a legitimate
+outcome and should not be treated as a failure of the plan.
+
+---
+
+# Part 9 — ML / soak infrastructure health (operator note #3)
+
+> *"we also need to specifically verify the health of the mls and ml training
+> infra — claude recently told me we were having issues there, with daily
+> training sessions resetting soak decisions."*
+
+**VERDICT: the soak infrastructure is HEALTHY, and the "daily training resets
+soak decisions" hypothesis is REFUTED on both halves.** Measured against the
+live registry mirror and `/api/bot/shadow/stats` on 2026-08-23.
+
+## 9.1 Retraining does not reset anything
+
+`ml/registry/model_registry.py::ModelRegistry.register` on a re-train of an
+existing `model_id` explicitly carries forward `status`, `target_deployment_stage`
+**and** `stage_history`, and appends a `StatusEvent(from_status=existing.status,
+to_status=existing.status, reason="re-trained (run_id=…)")` — a **no-op event
+that records the retrain**, not a reset. The stage ladder therefore survives a
+retrain untouched.
+
+The observation that seeded the worry — *every* one of the 5,015 history entries
+carries `to_status: "candidate"` — is fully explained by that line: they write
+`to_status = existing.status`, and every row's status IS `candidate`. Which
+leads to the one real (minor) finding:
+
+**`status` is a vestigial axis.** All 95 registry rows read `status: candidate`,
+including the 3 at `target_deployment_stage: advisory`. Nothing moves it. The
+live ladder runs entirely on the orthogonal `target_deployment_stage`
+(`ml/cli.py promote-stage`), and `deployment_bucket` derives from that, so
+nothing is broken — but a reader who checks `status` sees a fleet that looks
+stuck at candidate. Worth collapsing or documenting; **not** a soak defect.
+
+## 9.2 Soaks are accruing, and 29 of 30 are MEASURED
+
+`/api/bot/shadow/stats?stage=shadow`, 30 shadow-stage records:
+
+| `soak_start_basis` | rows |
+|---|---:|
+| `registry` (a recorded stage transition) | 14 |
+| `registry_registration` (registered directly at the stage) | 15 |
+| `observed` | 1 |
+| **`log_censored` (a LOWER BOUND)** | **0** |
+| `unknown` | 0 |
+
+**Zero rows report a lower bound.** Soaks run 5.6 → 96.1 days and are accruing
+(`execution-quality-baseline-v0` 96.11d/5563 records at the top;
+`exit-head-donchian-peak-1h-v1` 5.56d/64 at the bottom, the newest).
+
+## 9.3 A correction to my own working hypothesis, recorded deliberately
+
+Mid-audit I measured that `stage_history` is **empty for 69 of 95 rows (72.6%),
+including 15 of 28 shadow models**, concluded the soak clock was unrecoverable
+for over half the fleet, and began implementing a fix (record a birth
+`StageEvent` at initial registration). **That was wrong and I reverted it before
+committing.**
+
+`ml/shadow/inspector.py` had already solved it, correctly, and had measured the
+same 15/29 on 2026-08-11: `stage_registration_times` handles precisely the
+"registered directly at the stage, never promoted" case, and reports it under a
+**distinct basis** (`registry_registration`) kept apart from a recorded
+transition (`registry`) — *"one is an event, the other is an inference from the
+state"*. Both count as measured; neither is a lower bound. My "fix" would have
+written a birth event that made those rows match the *transition* path, silently
+collapsing a distinction the module maintains on purpose.
+
+The lesson is the standing one — **verify your own output, hardest when it
+confirms what you expected.** An empty field looked like a gap; the gap was
+already closed one module over, with better vocabulary than I was about to add.
+
+## 9.4 Two small things noted while measuring
+
+- **One row carries a non-canonical stage.** `mes-regime-classifier-baseline-v0`
+  reads `target_deployment_stage: "research_only"` — a legacy 7-stage name the
+  ladder collapsed on 2026-06-16. `deployment_bucket` resolves it correctly to
+  `OFFLINE` (the enrichment canonicalises), so nothing downstream is wrong, but
+  a consumer reading the raw field gets a name the docs say no longer exists.
+- **All 3 advisory heads show `linked_strategies: []`.** This is **expected and
+  is not evidence they are unused**: `linked_strategies` is derived from
+  strategies naming a model in `shadow_model_ids`, whereas the advisory regime
+  gate resolves its head **per-SYMBOL** via `ml_vol_regime_for_symbol`. Do not
+  read the empty list as "registered but unused" for an advisory row.

@@ -21489,6 +21489,30 @@
       "title": "The pattern-day-trader rule is modelled NOWHERE in code, while the Alpaca paper book runs 14.9% same-day round trips and a live account under $25k gets 3 day trades per 5 business days",
       "detail": "MEASURED 2026-08-23. A repo-wide search for PDT / day_trade / daytrading_buying_power across src/ and config/ returns ZERO logic — only prose in docs/research/market-alternatives-2026-06-10.md and one comment in alpaca_client.py:148 noting PDT as an async rejection reason. Meanwhile, over the closed Alpaca paper trades carrying both timestamps (n=94), 14 are same-calendar-day entry+exit = 14.9%; median hold is 73.7h, p25 21.5h. Over the observed window that is ~1.3 day trades per 5 business days against a limit of 3 — under it, but with no headroom modelled and no gate, so a volatile week breaches it and the live account gets flagged. The research doc's assumption that 'the equities account will be >$25k, so the PDT rule is not a concern' does not hold for the funding level actually under discussion. ALPACA_PLACE_CONFIRM_S catches the resulting rejection after the fact; nothing avoids it.",
       "resolution_criteria": "Either the live equity account is funded above $25k (and that is recorded as the reason no gate exists), or a day-trade counter is available to the sizing path so an entry that would be the 4th day trade in a rolling 5-business-day window is refused with a named cause rather than rejected at the venue. Closed when the constraint is either provably inapplicable or enforced."
+    },
+    {
+      "id": "BL-20260823-REGISTRY-STATUS-AXIS-IS-VESTIGIAL",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "low",
+      "tier": "1 (registry / observability)",
+      "status": "open",
+      "area": "ml / model registry",
+      "title": "`RegistryEntry.status` is a dead axis — all 95 rows read `candidate`, including the 3 advisory heads, and nothing ever moves it",
+      "detail": "MEASURED 2026-08-23 against the live registry mirror (95 rows). Every row reads status='candidate' while target_deployment_stage splits 63 candidate / 28 shadow / 3 advisory / 1 research_only. All 5,015 history entries carry to_status='candidate' — explained by ModelRegistry.register, which on a retrain writes StatusEvent(from_status=existing.status, to_status=existing.status): it records the retrain, it does not reset. Nothing is broken: the live ladder runs on the orthogonal target_deployment_stage (ml/cli.py promote-stage) and deployment_bucket derives from that. The cost is legibility — a reader who checks `status` sees a fleet that looks permanently stuck at candidate, and that reading is what seeded the (refuted) 'daily training resets soak decisions' worry this audit was asked to investigate. `ModelRegistry.promote` and VALID_STATUSES/_ALLOWED_TRANSITIONS exist and are exercised only by tests.",
+      "resolution_criteria": "Either the status axis is retired (removed, or documented in ml/registry/model_registry.py's module docstring as vestigial with target_deployment_stage named as the live ladder), or it is driven for real. Closed when a reader of a registry row cannot mistake `status` for the deployment ladder."
+    },
+    {
+      "id": "BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "high",
+      "tier": "2 (order path / venue constraint)",
+      "status": "open",
+      "area": "alpaca / venue constraints / cash account",
+      "title": "T+1 settlement is modelled nowhere, and on a $200 CASH account the whole balance recycles every trade — a good-faith violation is one unsettled buy away",
+      "detail": "Operator confirmed 2026-08-23 that alpaca_live is a NON-MARGIN (cash) account holding ~$200. In a cash account, proceeds of a sale are unavailable until settled (T+1); buying with unsettled funds is a good-faith violation and selling something bought with unsettled funds is free-riding, which carries a 90-day restriction. A repo-wide search finds no settled/unsettled-cash logic — the sizing path reads a single balance figure. At $200 the entire balance recycles on every round trip, so the condition is not an edge case, it is the normal operating mode. NOTE this REPLACES rather than compounds the PDT concern filed the same day: the pattern-day-trader rule is a MARGIN rule and does not apply to a cash account, so BL-20260823-NO-PDT-MODELLING-ON-ALPACA should be re-scoped to 'applies if/when this account goes margin' rather than treated as a live blocker. Also note shorting is structurally impossible here (Reg-T shorting needs a margin account; FINRA minimum $2,000), so BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED resolves to its option (b) — a short gate — with option (a) off the table at this account size.",
+      "resolution_criteria": "The sizing path reads Alpaca's settled-cash fields and refuses an entry that would buy with unsettled proceeds, with its own named cause in the journal (distinct from risk_refused and zero_balance). Closed when a cash account can be shown, from the journal, to refuse an unsettled buy before placement — verified before alpaca_live is flipped to live."
     }
   ]
 }
