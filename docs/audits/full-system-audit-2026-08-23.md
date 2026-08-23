@@ -1509,10 +1509,39 @@ wedge shape, and this file has two of those in its history.
 | **STOP** | we are carrying risk we never agreed to; this position should not exist | closing books the current price, better or worse than the stop — but the position is unauthorised either way. A **safety** action. |
 | **TARGET** | we missed an exit | closing books whatever is available. MGC sits **+234 points past** its target, so closing happens to be *better* — that is luck, not policy. A **profit-taking** action. |
 
-Conflating them is how a safety sweep starts making discretionary trading
-decisions. The operator's rule says close either way, and that is a coherent
-policy — but the two sides deserve separate switches, because the evidence that
-would justify each is different.
+### RESOLVED by the operator, 2026-08-23 — and on better reasoning than mine
+
+> *"the logic being that if we missed a tp, we can't rely on hitting it again as
+> that trade geometry is already stale — since the trade was already lost to our
+> own technical incompetence, we should drop that risk sooner rather than later."*
+
+**This collapses the asymmetry, correctly, and my framing above was wrong.** I
+treated a target breach as a *profit-taking* decision — "closing books whatever
+is available, which may be better or worse". That is the wrong question. The
+right one is whether the position still has a **valid thesis**, and it does not:
+the entry declared a target, the target printed, the setup is over. Everything
+after that is unmanaged drift on levels that no longer describe anything.
+
+So both sides are the **same class**: a position whose declared geometry has
+already been invalidated by events, which we are holding only because of a
+technical failure. Both close.
+
+Two consequences worth stating:
+
+- **MGC being +234 points past its target is not luck to bank, and not a reason
+  to hesitate — it is the measure of how long the position has been drifting
+  unmanaged.** Reading it as a windfall is precisely the error the operator's
+  framing removes.
+- **It changes what the soak is FOR.** It is no longer gathering evidence for
+  *whether* to act — that is decided. It is checking how often this fires and
+  that the implementation acts correctly, which is a much shorter question and
+  should not be used to delay the decision a second time.
+
+One residual difference survives, and it is about **urgency, not policy**: a
+breached stop means holding a loser past its risk limit (actively bleeding),
+while a breached target means holding a winner that has drifted (giving back
+from a profit). Both must close; the stop side goes first if anything has to be
+sequenced.
 
 ### Staging — the repo's own pattern, not a new one
 
@@ -1520,9 +1549,9 @@ would justify each is different.
 
 - **`annotate` (default)** — the sweep does *all* the work: reads history,
   grades the four states, writes a soak row, alerts. Touches no order.
-- **`apply`** — acts on a confirmed **stop-side** breach.
-- **Target side stays alert-only** until the soak shows what applying would have
-  done. That is one flip away once the evidence exists, not a redesign.
+- **`apply`** — acts on a confirmed breach, **both sides** (operator decision
+  above). The stop side is sequenced first only because it is the more urgent
+  bleed, not because the target side is in question.
 
 A `*_MODE` var, never a default-off `*_ENABLED` gate (Prime Directive), and an
 unparseable value falls back to the default rather than switching the
@@ -1563,7 +1592,10 @@ detector, reusable as the acceptance test for the live one.
    hand in ONE dispatch instead of the current cancel-and-hope-the-sweep-catches-it
    workaround (`BL-20260823-NO-REARM-IB-BRACKET-ACTION`).
 3. Breach detection in `annotate`, soaking against the three live controls.
-4. Review the soak; flip the stop side to `apply`.
-5. Decide the target side on the soak's evidence.
+4. Review the soak — confirming the implementation FIRES correctly and how
+   often, not re-litigating whether to act — then flip to `apply`, stop side
+   first.
 
-Steps 1–3 are Tier-2 and independently useful. Step 4 is the Tier-3 gate.
+Steps 1–3 are Tier-2 and independently useful. Step 4 is the Tier-3 gate. There
+is no step 5: the target-side policy was decided by the operator on 2026-08-23
+and the soak is not a place to re-open it.
