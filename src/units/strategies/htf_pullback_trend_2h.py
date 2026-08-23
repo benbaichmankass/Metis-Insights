@@ -442,6 +442,37 @@ def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataF
 
     return since_entry(candles_df, open_pkg)
 
+def _pullback_thesis_intact(meta, candles_df):
+    """Is the trend-pullback thesis still intact? -> (bool|None, detail).
+
+    The entry required ``ADX >= adx_min``; the thesis holds while it still
+    does. Reuses this module's own ``_adx`` — the verbatim copy of
+    ``scripts/backtest_pullback.py::_adx`` — so the live predicate and the
+    harness cannot disagree about the number.
+
+    Returns ``None`` when ``adx_min`` was never declared or ADX cannot be
+    computed: *we could not look*, which never extends. A leg with no declared
+    floor has no thesis to test, which is a different thing from a broken one.
+    """
+    try:
+        adx_min_p = _coerce_float(meta.get("adx_min"))
+        if adx_min_p is None or adx_min_p <= 0:
+            return None, {"predicate": "adx_floor", "reason": "no_adx_min_declared"}
+        period = int(_coerce_float(meta.get("adx_period")) or 14)
+        if candles_df is None or len(candles_df) < period + 2:
+            return None, {"predicate": "adx_floor", "reason": "insufficient_bars"}
+        series = _adx(candles_df, period)
+        value = float(series.iloc[-1])
+        if value != value:  # NaN
+            return None, {"predicate": "adx_floor", "reason": "adx_nan"}
+        return bool(value >= adx_min_p), {
+            "predicate": "adx_floor", "adx": value, "adx_min": adx_min_p,
+            "adx_period": period,
+        }
+    except Exception:  # noqa: BLE001
+        return None, {"predicate": "adx_floor", "reason": "compute_failed"}
+
+
 def monitor(cfg, candles_df, open_pkg):
     """Identical contract to ``trend_donchian.monitor`` — see that module."""
     if candles_df is None or len(candles_df) == 0:
@@ -479,6 +510,26 @@ def monitor(cfg, candles_df, open_pkg):
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
         if direction == "short" and current_price <= tp:
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
+
+    # Target-extension ANNOTATE soak (exit-geometry rebuild, 2026-08-23).
+    # OBSERVE-ONLY: returns nothing, moves no order. See
+    # src/runtime/target_extension_soak.py. Placed after the two close checks
+    # and before the levers, same position as on trend_donchian.
+    #
+    # THE THESIS IS THIS FAMILY'S OWN ENTRY CONDITION: the entry required
+    # ADX >= adx_min (a trend worth pulling back into), so the thesis holds
+    # while ADX still clears that floor. An unreadable ADX yields None ->
+    # `thesis_unknown`, which never extends.
+    try:
+        _thesis_ok, _thesis_detail = _pullback_thesis_intact(meta, candles_df)
+        from src.runtime.target_extension_soak import annotate_from_monitor
+        annotate_from_monitor(
+            strategy=str(open_pkg.get("strategy_name") or "htf_pullback_trend_2h"),
+            open_pkg=open_pkg, meta=meta, price=current_price,
+            thesis_intact=_thesis_ok, thesis=_thesis_detail,
+        )
+    except Exception:  # noqa: BLE001 — observe-only; never break the monitor
+        pass
 
     # M20 R-based exit levers — the SHARED implementations in
     # src/runtime/exit_levers.py, the same bodies trend_donchian runs. Until

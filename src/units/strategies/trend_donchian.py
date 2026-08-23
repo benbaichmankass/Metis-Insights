@@ -631,6 +631,40 @@ def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataF
 
     return since_entry(candles_df, open_pkg)
 
+def _donchian_thesis_intact(meta, candles_df, current_price, direction):
+    """Is the Donchian breakout thesis still intact? -> (bool|None, detail).
+
+    The strategy's OWN entry condition, re-evaluated on fresh candles: a long
+    entered because price broke the prior `donchian`-bar high, so the thesis
+    holds while price still sits at or above that rolling high. Returns
+    ``None`` when the channel cannot be recomputed — *we could not look*, which
+    `evaluate_extension` maps to `thesis_unknown` and never extends.
+
+    Excludes the forming bar from the channel (``[-n-1:-1]``) exactly as the
+    entry side does, so the level compared against is a CLOSED-bar extreme and
+    price is not being compared to a channel it is itself setting.
+    """
+    try:
+        n = int(_coerce_float(meta.get("donchian")) or 0)
+        if n <= 0 or candles_df is None or len(candles_df) < n + 1:
+            return None, {"predicate": "donchian_rebreak", "reason": "insufficient_bars"}
+        window = candles_df.iloc[-n - 1:-1]
+        hi = float(window["high"].max())
+        lo = float(window["low"].min())
+        if direction == "long":
+            intact = current_price >= hi
+            level = hi
+        else:
+            intact = current_price <= lo
+            level = lo
+        return bool(intact), {
+            "predicate": "donchian_rebreak", "donchian": n,
+            "level": level, "price": current_price,
+        }
+    except Exception:  # noqa: BLE001
+        return None, {"predicate": "donchian_rebreak", "reason": "compute_failed"}
+
+
 def monitor(cfg, candles_df, open_pkg):
     """Re-evaluate an open trend_donchian package against fresh candles.
 
@@ -692,6 +726,34 @@ def monitor(cfg, candles_df, open_pkg):
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
         if direction == "short" and current_price <= tp:
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
+
+    # 2.45 Target-extension ANNOTATE soak (exit-geometry rebuild, 2026-08-23).
+    # OBSERVE-ONLY: it returns nothing and moves no order — it records what a
+    # target-extension decision WOULD do, so the Tier-3 flip has an evidence
+    # trail. Placed AFTER the two close checks (a trade that should close is
+    # not a trade whose target we are extending) and BEFORE the levers, so a
+    # row is written even on ticks a lever then acts on.
+    #
+    # THE THESIS IS THE STRATEGY'S OWN ENTRY CONDITION, RE-EVALUATED — per
+    # exit-mechanism-construction-PROCESS.md § 4, a revision rule that reads
+    # only the trade's own path is the eleven-endogenous-feature substrate
+    # already identified as the root cause. For a Donchian breakout the thesis
+    # is "the channel is still being pushed", so `_donchian_thesis_intact`
+    # recomputes the entry-time channel and asks whether price still sits at
+    # its extreme in the trade's direction. An unreadable channel yields None
+    # → `thesis_unknown`, which never extends.
+    try:
+        _thesis_ok, _thesis_detail = _donchian_thesis_intact(
+            meta, candles_df, current_price, direction
+        )
+        from src.runtime.target_extension_soak import annotate_from_monitor
+        annotate_from_monitor(
+            strategy=str(open_pkg.get("strategy_name") or "trend_donchian"),
+            open_pkg=open_pkg, meta=meta, price=current_price,
+            thesis_intact=_thesis_ok, thesis=_thesis_detail,
+        )
+    except Exception:  # noqa: BLE001 — observe-only; never break the monitor
+        pass
 
     # 2.5 M20 conditional stale-stop (evidence: docs/research/
     # M20-exit-refinement-2026-07-12.md § 4-5). Behaviour is YAML-declared:
