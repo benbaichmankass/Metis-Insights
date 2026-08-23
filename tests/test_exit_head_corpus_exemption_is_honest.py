@@ -82,12 +82,33 @@ def test_the_committed_evidence_actually_exists_and_is_non_trivial() -> None:
 
 
 def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
-    """The exemption states 10 disagreements. Recompute and hold it to that.
+    """The exemption states 9 disagreements. Recompute and hold it to that.
 
     A number quoted in a comment and never recomputed is how the original reason
     went stale in the first place. If a round is added or a status is re-graded,
     this fails and the comment gets updated with it — the count is evidence, not
     decoration.
+
+    ⚠️ THE STATUS IS NORMALISED THROUGH `guard._base_status`, AND THAT IS LOAD-
+    BEARING (fixed 2026-08-23). This test used to match the status by EXACT
+    membership against the literal ``"blocked"``. `blocked:<reason>` is the repo
+    convention rather than an exception — 51 of the 53 blocked cells in the
+    matrix carry a reason, across nine distinct ones — so the exact test matched
+    only the single bare ``blocked`` cell and missed every qualified one. It went
+    unnoticed because this column happened to have no qualified-blocked cells
+    until three ict_scalp cells gained ``blocked:no_lever_consumer_in_unit``,
+    at which point they read as three fresh disagreements and the count appeared
+    to jump 10 -> 13.
+
+    RECORDING WHY A CELL IS BLOCKED MUST NOT FLIP WHETHER IT AGREES. A qualified
+    state read as an unknown state is the collapsed-state class, and raising the
+    stated count to 13 would have enshrined a parsing artifact as evidence —
+    precisely the stale-number failure this file exists to prevent, inverted.
+
+    The guard itself was never wrong: `find_stale_blocks` has always normalised
+    via `_base_status`. Importing that same helper rather than re-deriving the
+    rule here is deliberate — two copies of "what counts as blocked" is how they
+    drift apart.
     """
     rows = [json.loads(x) for x in ROUNDS.read_text().splitlines() if x.strip()]
     matrix = json.loads(MATRIX.read_text())
@@ -98,7 +119,9 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
     disagree = []
     for rd in rows:
         cell = (by_strategy.get(rd["leg"], {}) or {}).get("exit_head_ml") or {}
-        st, v = cell.get("status"), rd.get("verdict")
+        # `blocked:<reason>` -> `blocked`. See the docstring: the guard's own
+        # helper, never a second copy of the rule.
+        st, v = guard._base_status(cell.get("status")), rd.get("verdict")
         ok = ((v == "candidate"
                and st in {"shipped", "passed_unshipped", "pending", "blocked"})
               or (v == "honest_negative"
@@ -108,8 +131,12 @@ def test_the_disagreement_count_in_the_exemption_is_still_accurate() -> None:
             disagree.append(rd["leg"])
 
     reason = guard.CORPUS_EXEMPT_LEVERS["exit_head_ml"]
-    assert "10 DISAGREE" in reason, "the exemption no longer states a count"
-    assert len(disagree) == 10, (
-        f"the exemption says 10 disagreements; recomputing over the committed "
+    assert "9 DISAGREE" in reason, "the exemption no longer states a count"
+    assert len(disagree) == 9, (
+        f"the exemption says 9 disagreements; recomputing over the committed "
         f"evidence gives {len(disagree)}: {sorted(disagree)}. Update the "
-        "exemption text — a stale count is how this exemption went wrong before.")
+        "exemption text — a stale count is how this exemption went wrong before. "
+        "But FIRST check whether the delta is real: a cell gaining a "
+        "`blocked:<reason>` suffix is the same disposition with its cause "
+        "recorded, and must NOT move this count (that is what `_base_status` "
+        "above is for).")
