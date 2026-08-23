@@ -1781,49 +1781,110 @@ a minority of rows, and `trend_donchian_sol_4h` **flips sign** between raw
 be the ranking key. `sol_pullback_2h` at coverage 0.0 is not "flat", it is
 **ungraded**, and n=5 anyway.
 
-### The selection criteria are NOT "performs well"
+### The selection criteria are NOT "performs well" alone
 
-Three prop-specific filters, and the second is the one a performance table cannot
-see:
+⚠️ **CORRECTED 2026-08-23 on operator direction — an earlier draft of this
+section got the ranking exactly backwards and must not be re-quoted.** It applied
+manual-bridge fit as a **disqualifying filter**, concluded that "the scalp legs —
+which carry the largest measured numbers in the table — are the **worst** prop
+candidates", and called that inversion "the single most important thing P5 must
+get right." The operator's direction is the opposite on both halves:
+
+> *"it's fine to add those five minute and ten minute scalps. That shouldn't be,
+> like, a blocker from adding them to the prop account."*
+
+> *"Just because a trade is short term … it's fine if the tickets go unanswered.
+> That shouldn't be a metric of success here. This is still in a testing phase.
+> And if it proves itself, then we'll add automation features."*
+
+So **ticket answer-rate is not a success metric and never was one to rank
+against.** The earlier draft had taken a *capacity* observation (the operator is
+not always at the terminal) and promoted it into a *quality* criterion, which is
+a category error: an unanswered ticket costs nothing and teaches nothing, while a
+leg that would perform under prop rules is excluded on a constraint the operator
+has explicitly said to stop optimising around. Automation is the stated remedy
+for fill rate, gated on the account proving itself first — which makes fill rate
+a **downstream** consideration, not an upstream filter.
+
+**The goal is passing the Breakout evaluation, which has not happened yet.** That
+is the criterion every candidate is ranked against:
+
+| | Breakout 1-Step, $5,000 |
+|---|---|
+| profit target | **+10%** (+$500) |
+| daily loss limit | **3%** ($150) |
+| max drawdown | **6% STATIC** — a hard $4,700 floor, not trailing |
+
+Three filters remain, none of them about answer-rate:
 
 1. **Symbol.** `breakout_1` declares `[SOLUSDT, ETHUSDT]`. A candidate on another
    symbol needs that symbol added and validated, which is its own change.
-2. **⚠️ MANUAL-BRIDGE FIT — the operator's own constraint, applied as a filter.**
-   *"we can't fill every ticket as I'm not always available when the ticket is
-   relevant."* A 5m or 15m signal is stale long before a human reliably sees it,
-   so the scalp legs — which carry the **largest** measured numbers in the table —
-   are the **worst** prop candidates on this axis. A 4h leg is a good fit; a 1h
-   leg (what is routed today) is borderline. **This inverts the naive ranking**,
-   and it is the single most important thing P5 must get right.
+2. **Survival under the prop rules, not raw edge.** The static $4,700 floor is
+   the binding constraint, and it is an *account-level* line that binds while
+   flat. A leg's ranking input is its cost-aware EV **and** its survival
+   probability under those two limits — `src/prop/montecarlo.py::run_ev_montecarlo`
+   via `scripts/prop/account_compat_matrix.py`, which is already the mandatory
+   gate. A high-variance leg that clears +10% in expectation but breaches $150 on
+   a bad day fails here regardless of its measured sum.
 3. **Swap drag.** Breakout charges ~0.033%/day, so long holds are penalised —
    which is precisely why the `_prop` exit variants exist at all
    (`docs/research/eth-pullback-prop-swap-aware-2026-06-25.md`). A candidate is
-   evaluated net of that, not on its bybit economics.
+   evaluated net of that, not on its bybit economics. ⚠️ Note this cuts the
+   **opposite way** from the retracted bridge-fit filter: swap drag penalises the
+   *slow* legs and is neutral-to-favourable for the scalps.
+
+**Fill rate is a note, not a filter.** Record the expected answer-rate per
+candidate so a later automation decision has a denominator — an unanswered ticket
+is a missing observation, and a leg whose tickets are mostly unanswered will
+accrue prop evidence slowly. That is a statement about *how long the soak takes*,
+never about whether the leg belongs.
 
 ### Where that points, provisionally
 
-**`trend_donchian_eth_4h`** is the standout: 4h (good bridge fit), **+7,024.91
-measured** on paper at n=12, and the only prop-eligible leg with a positive
-*real-money* measured figure as well (+31.26, n=6). **`trend_donchian_sol_4h`**
-is its sibling at +489.30 (n=8, coverage 0.38).
+With the scalps restored to eligibility, the ranking by measured performance on
+prop-eligible symbols is:
 
-⚠️ But note what that does and does not fix: both are `trend_donchian`, so they
-add **timeframe** diversification to the prop book and **no family
-diversification at all**. If §11.1's concentration is the worry, these two do not
-answer it — they deepen the same bet on a slower clock. A genuinely diversifying
-candidate would have to come from another family, and on prop-eligible symbols
-the non-donchian options in the table are the scalps (bad bridge fit) and the
-pullbacks (measured-negative). **That may simply be the honest answer: there is
-no diversifying prop candidate right now**, and the fix is research, not routing.
+| rank | leg | tf | n | **measured** | coverage | family |
+|---:|---|---|---:|---:|---:|---|
+| 1 | `ict_scalp_sol_5m` | 5m | 17 | **+8,214.59** | 0.41 | ict_scalp |
+| 2 | `trend_donchian_eth_4h` | 4h | 12 | **+7,024.91** | 0.50 | trend_donchian |
+| 3 | `ict_scalp_sol_15m` | 15m | 14 | **+2,878.85** | 0.29 | ict_scalp |
+| 4 | `ict_scalp_eth_15m` | 15m | 10 | **+2,131.37** | 0.70 | ict_scalp |
+| 5 | `trend_donchian_sol_4h` | 4h | 8 | **+489.30** | 0.38 | trend_donchian |
+
+**`ict_scalp_sol_5m` is the top-ranked candidate**, not an excluded one — the
+single largest measured figure of any prop-eligible leg, at the largest n in the
+table. `ict_scalp_eth_15m` is worth noting separately: its **0.70 coverage is the
+highest in the table**, so its +2,131.37 rests on the least-thin evidence even
+though it is fourth by size.
+
+⚠️ **This also softens §11.1's concentration concern.** That section flagged that
+the prop book is entirely `trend_donchian`; the earlier draft then concluded
+"there is no diversifying prop candidate right now" — but that conclusion rested
+**entirely** on the scalps being excluded. They are a different strategy family
+on the same eligible symbols, so with the retraction there **are** diversifying
+candidates, and three of the top four are them. The honest revised statement:
+family diversification is available; what it costs is evaluated by the compat
+matrix, not asserted here.
+
+⚠️ **What has NOT changed, and still binds every row above:** coverage is
+0.29–0.50 for four of the five, n is 8–17, and this is the **paper** block. None
+of these numbers is a prop-rules result — they are bybit-economics results on a
+different account with different costs and no daily-loss limit. **Nothing here is
+a routing recommendation.** The compat matrix is what turns a row in this table
+into a candidate.
 
 ### What P5 must actually produce
 
 - A ranked shortlist from **`/performance`**, `totalPnlMeasured` beside
   `pnlCoverage`, never the raw sum.
-- Each candidate scored on the three filters above, with **manual-bridge fit
-  applied before performance**, not after.
+- Each candidate scored on the three filters above, with **survival under the
+  $150 daily / $4,700 static floor** as the binding one — **not** manual-bridge
+  fit, which is recorded as an expected-fill-rate note and ranks nothing.
 - `scripts/prop/account_compat_matrix.py` under `breakout.yaml` for any leg that
   survives — the same gate P2 owes for the incumbent roster, run at the
   concentration that would result.
 - An explicit "and the answer may be none" branch, so this cannot become a search
-  for a reason to add something.
+  for a reason to add something. ⚠️ But note the earlier draft reached that branch
+  by a **retracted** route (excluding the scalps on bridge fit); reaching it again
+  requires the compat matrix to actually reject them, not an a-priori filter.
