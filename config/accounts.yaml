@@ -977,10 +977,41 @@ accounts:
                                        # gate EV used (the EV engine reads it).
     account_size_usd: 5000             # 1-Step Classic $5k.
     strategies:                        # the validated alt variants (Tier-3):
-      - trend_donchian_sol             #   SOL — robust gate PASS, execution: live
-      - trend_donchian_eth             #   ETH — promoted to execution: live 2026-06-17
-                                       #   (operator-approved; strategies.yaml is the field-of-
-                                       #   truth). Earlier "marginal/shadow" comment was stale.
+      # trend_donchian_sol + trend_donchian_eth REMOVED from breakout_1 on
+      # 2026-08-23 (Tier-3, operator-approved during the full-system audit).
+      # THIS IS THE SAME DE-DUP THE eth_pullback PAIR ALREADY GOT on 2026-07-20
+      # (see the removal note below) — applied to the donchian pair, which was
+      # left in place then. Each base leg fires the SAME entries as its _prop
+      # twin (donchian 20, atr_stop_mult 2.5, identical min_confidence, symbol
+      # and timeframe) and differs ONLY in the exits: tp_r 50.0 / trail 5.0
+      # against the twin's tp_r 6.0 / trail 3.5. On a $5k account with a 3%
+      # daily-loss and a STATIC 6% max-DD, tp_r 50.0 means "essentially never
+      # take profit, ride the trail", which is the wrong shape under a
+      # drawdown ceiling — the _prop variants exist precisely because that was
+      # judged wrong.
+      #
+      # MEASURED 2026-08-23, and it reproduces the eth_pullback finding exactly:
+      # BOTH twins emit. trend_donchian_eth 15 tickets vs _prop 12;
+      # trend_donchian_sol 1 (+ test pings) vs _prop 8 — so one Donchian
+      # breakout can produce two tickets for economically one trade on a
+      # thin-cushion account, and the base twin dominates the emission just as
+      # eth_pullback_2h did.
+      #
+      # Trade quality on the 13 closed prop fills (STATE THE POPULATION — this
+      # is 13 trades and the split below is n=10 vs n=2, which is NOT evidence,
+      # only non-contradiction): +$35.96 total, 3 wins = 23%. Nine of thirteen
+      # exited AT the declared stop, one hit its take-profit exactly, two were
+      # manual exits in profit. Execution fidelity is therefore good — entries
+      # land within ~0.5% of ticketed and exits land on the declared level. By
+      # leg family, base legs -$149.46 (n=10) against _prop +$191.47 (n=2). The
+      # coherent mechanism, not the arithmetic, is the argument: at a 23% win
+      # rate a leg carrying tp_r 50.0 essentially never reaches target, so it
+      # can only stop out or drift, and the one take-profit that DID print came
+      # from a leg whose target was reachable.
+      #
+      # SCOPE: breakout_1 ONLY. trend_donchian_sol and trend_donchian_eth stay
+      # execution: live on their bybit routes and are untouched here.
+      # ROLLBACK: re-add the two names above this comment.
       - eth_pullback_prop_2h           #   ETH pullback swap-robust variant,
                                        #   execution: live (operator-approved 2026-06-25).
                                        #   At Breakout's real 0.033%/day swap the funded-EV

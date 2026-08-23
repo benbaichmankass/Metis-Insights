@@ -1599,3 +1599,136 @@ detector, reusable as the acceptance test for the live one.
 Steps 1–3 are Tier-2 and independently useful. Step 4 is the Tier-3 gate. There
 is no step 5: the target-side policy was decided by the operator on 2026-08-23
 and the soak is not a place to re-open it.
+
+---
+
+# Part 11 — PROP ACCOUNT REFINEMENT (operator-scoped, 2026-08-23)
+
+> *"we also need to make sure that refining the prop account is in our workplan.
+> Note that because it isn't fully automated, we can't fill every ticket as I'm
+> not always available when the ticket is relevant, so don't read into unacted on
+> tickets too much — we just need to make sure we have the correct strategies
+> routed there and the trades we do place are good."*
+
+## 11.0 A correction to my own framing
+
+I was treating the **17 tickets stuck at `emitted`** as a defect population. That
+was wrong, and the operator is right: on a manual bridge where a human is not
+always available when a ticket is live, an unacted ticket is the **expected**
+shape, not a failure. The detection fix earlier in this session still mattered —
+they were invisible to `/api/bot/prop/reconcile` *and* suppressing new tickets on
+their symbol+direction — but **"N stuck tickets" is not a health metric** and this
+report should not have used it as one.
+
+The two questions that ARE health metrics are the operator's: is the right thing
+routed there, and are the trades that do get placed good.
+
+## 11.1 Routing — the base/`_prop` twins, and a precedent already set
+
+`breakout_1` routes **both** the base and the `_prop` variant of the same leg:
+
+| | entries | `tp_r` | `trail_mult` | tickets emitted |
+|---|---|---:|---:|---:|
+| `trend_donchian_eth` | donchian 20, atr×2.5, min_conf 0.6 | **50.0** | 5.0 | **15** |
+| `trend_donchian_eth_prop` | *identical* | **6.0** | 3.5 | 12 |
+| `trend_donchian_sol` | donchian 20, atr×2.5, min_conf 0.8 | **50.0** | 5.0 | 1 (+ test pings) |
+| `trend_donchian_sol_prop` | *identical* | **6.0** | 3.5 | 8 |
+
+So one Donchian breakout can produce **two tickets for economically one trade**
+on a $5k account with a $150 daily-loss limit.
+
+⚠️ **This exact defect was already diagnosed, and fixed — for the OTHER pair.**
+`config/accounts.yaml` records `eth_pullback_2h` being removed from `breakout_1`
+on 2026-07-20 for the identical reason: *"it fires the SAME entries as
+eth_pullback_prop_2h but is the worse prop leg… With both routed here the intent
+dedup emitted eth_pullback_2h (the worse twin) while the validated
+eth_pullback_prop_2h stayed quiet."* The donchian pair was left in place. The
+emission counts above reproduce that finding precisely — the base twin dominates.
+
+**DECISION (operator, 2026-08-23): keep `_prop` only.** `trend_donchian_sol` and
+`trend_donchian_eth` come off the prop roster; they stay `execution: live` on
+their bybit routes, untouched. Rationale: `tp_r: 50.0` under a **static 6%
+drawdown floor** means "essentially never take profit, ride the trail", which is
+the wrong shape for a rule-bound account — and the `_prop` variants exist
+precisely because someone already judged that. Cost: the base legs carry the ML
+exit-head (`exit-head-donchian-1h-v1`), which the `_prop` variants lack — but on
+a manual bridge an exit-head close signal still needs a human to act on it, so
+its value here is much lower than on an API account.
+
+**⚠️ WHAT THE PROP ACCOUNT ACTUALLY RUNS AFTER THIS.** Worth stating plainly,
+because it is a bigger narrowing than the decision sounds. The roster declares
+five legs; `eth_pullback_prop_2h` was demoted to `execution: shadow` earlier the
+same day (#10161, OOS −11.78R), and this removes two more. That leaves **exactly
+two live prop legs — `trend_donchian_sol_prop` and `trend_donchian_eth_prop`** —
+on one account, two symbols, one timeframe (1h), one strategy family. Everything
+the prop book does from here is Donchian breakouts on SOL and ETH.
+
+That concentration is a *consequence*, not a recommendation, and it is the direct
+input to P2 below: a compat matrix over a two-leg, one-family roster is a
+different question from one over five legs, and the survival arithmetic on a
+static-6%-DD account is sensitive to exactly that. If the answer should be a
+WIDER prop roster rather than a narrower one, P2 is where that surfaces — and it
+should be run before any further routing decision, not after.
+
+## 11.2 Trade quality — execution is sound, strategy is not
+
+All 13 closed prop fills, checked placed-vs-ticketed:
+
+| exit landed on | count |
+|---|---:|
+| the declared **stop** (within a tick or two) | **9** |
+| the declared **take-profit**, exactly | 1 |
+| a **manual** exit in profit, before target | 2 |
+| no ticket link | 1 |
+
+**Execution fidelity is good.** Entries land within ~0.5% of ticketed and exits
+land on the declared level, so the manual bridge is transcribing faithfully —
+that is the half most at risk in a human-in-the-loop design, and it is fine.
+Both manual exits were also *better* than letting the trade run.
+
+**Strategy quality is the weak half: +$35.96 over 13 trades, 3 wins = 23%**, with
+nine of thirteen stopping out. Split by leg family — and **n=2 against n=10 is
+NOT evidence, only non-contradiction**: base legs **−$149.46** (n=10) vs `_prop`
+**+$191.47** (n=2). The mechanism is the argument, not the arithmetic: at a 23%
+win rate a leg carrying `tp_r: 50.0` essentially never reaches target, so it can
+only stop out or drift, and the single take-profit that did print came from a leg
+whose target was reachable. This is the same root as Part 1's M20 finding — an
+exit that is a price level fixed at entry, set where price does not go.
+
+## 11.3 The workplan, as scoped by the operator
+
+All four selected.
+
+- **P1. Fills-staleness alert.** The account-status request escalates when the
+  **balance** goes stale (`PROP_STATUS_REQUEST_MAX_AGE_HOURS`); there is **no
+  equivalent for FILLS**. That is why three days of terminal trades went
+  unrecorded and were found only by the operator sending a screenshot
+  (`BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES`). A prop
+  book that has traded with no fill reported for longer than some bound should
+  raise its own alert. ⚠️ Note the operator's constraint applies here too: the
+  alert must key on *"the book traded and nothing was reported"*, **not** on
+  unacted tickets — an unacted ticket is normal and alerting on it would be the
+  desensitized-alarm P1.
+- **P2. Per-strategy prop compat matrix.** Run
+  `scripts/prop/account_compat_matrix.py` for every surviving leg under
+  `config/prop_rulesets/breakout.yaml` (cost-aware EV + survival via
+  `src/prop/montecarlo.py`). The `backtesting` / `new-strategy` skills already
+  *require* this before routing a strategy to an account; whether it was run for
+  the roster as it stands today is **unverified**, and the roster has changed
+  since (legs added, `eth_pullback_prop_2h` demoted to shadow 2026-08-23 in
+  #10161, and now the two base twins removed).
+- **P3. Fix the `$None` daily-loss render.** The operator's own confirmation read
+  *"to daily-loss $None"*. `realized_today` and `day_start_balance` are null on
+  every snapshot, so the distance genuinely is not computable — but rendering
+  `$None` into an operator-facing **safety** message is its own defect. Either
+  derive it from the fills store, or say *"not measured"* explicitly. A safety
+  panel must never print a Python repr where a number belongs.
+- **P4. Trade-quality review** — done, §11.2 above, and it should be re-run on a
+  cadence rather than once. The useful cut is *placed-vs-ticketed*, because that
+  separates a bridge problem from a strategy problem, and today it says the
+  bridge is fine.
+
+**Sequencing.** P3 is minutes and is on a safety surface, so it goes first. P1 is
+the one that prevents a recurrence of the three-day blind window. P2 gates any
+further roster change and should run against the roster *after* this section's
+removal lands. P4 rides the review cadence.
