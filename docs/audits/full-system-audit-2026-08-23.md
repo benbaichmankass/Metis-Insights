@@ -1441,3 +1441,129 @@ E5's real-venue revalidation and E6's flip come last, unchanged.
 of its signal flow to roughly **57%** on unleveraged instruments — with the
 honest possibility that decay and costs knock some of those cells out in R6,
 which is exactly what R6 is for.
+
+---
+
+# Part 10 — DESIGN: a price-aware exit sweep that can infer "should this have fired?"
+
+> Operator, 2026-08-23: *"it also looks like the live sweep needs to be able to
+> check the price and infer if it should have fired."*
+
+Right, and it is the generalisation of the manual MGC/MES triage into the
+system, so this class stops consuming sessions. **Not built in this session** —
+it changes the enforcing exit path, and the honest sequence is design → soak →
+apply, not a same-session order-path change. This is the design.
+
+## 10.1 What the live path can see today
+
+| reader | returns | price? |
+|---|---|---|
+| `IBClient.protection_coverage` | `stop_qty` / `target_qty` / `covered_qty` | **no** |
+| `AlpacaClient.protection_state` | `{stop, target, legs}` | **no** — verified this session |
+| `order_monitor._bybit_position_protection` | covered qty; Full-mode branch tests only that `stopLoss` is non-empty and not `"0"` | **no** |
+| `scripts/ops/broker_bracket_reconcile.py` | full declared-vs-resting comparison, tick-tolerant | **yes**, but OFFLINE |
+
+So the semantics already exist and are proven — the 2026-08-23 discriminating
+run graded MHG **clean** and MES **69 ticks diverged** in the same pass. What is
+missing is that the *enforcing* path cannot see any of it.
+
+## 10.2 Part one — price-aware coverage (the safe half)
+
+Each venue's coverage read also returns the resting leg's **price**; the sweep
+compares it to the journal's declared `stop_loss` / `take_profit_1` with a
+**one-tick tolerance** (a venue snapping a fractional declared level onto its
+grid is correct behaviour and must not be reported — MGC's 0.0469 delta is
+exactly that case and must stay clean). On a divergence beyond tolerance the
+sweep **re-arms at the declared level** via `place_protective` scoped by
+`oca_key`. That is a *correction*, not a close, and it is unambiguous.
+
+⚠️ **ONE COMPARATOR, NOT TWO.** The live sweep must call the same
+`reconcile_position` / `load_tick_sizes` the offline detector uses, not a
+reimplementation. Two definitions of "is this position protected?" are free to
+drift, and then the audit and the sweep disagree about the same position — the
+same hazard as two definitions of exposure. This is also why the detector's
+`_FALLBACK_TICKS` must not be copied.
+
+## 10.3 Part two — "should have fired" (where the care goes)
+
+Answering it requires knowing whether price *traded through* the declared level
+since the position opened. That is a **bar-history read, not a snapshot**, and
+this runs on the live trader — so it inherits `exit_anchor`'s discipline
+verbatim: a per-call timeout, a per-pass budget, positive **and** negative
+caching. An unbounded per-row history fetch here is the 2026-06-09 cold-start
+wedge shape, and this file has two of those in its history.
+
+**Four states, never collapsed** (the `exit_anchor` vocabulary, deliberately):
+
+| state | meaning | action |
+|---|---|---|
+| `within` | the leg rests at the declared level (± 1 tick) | nothing |
+| `diverged` | a leg rests, at the wrong price | re-arm at declared (§10.2) |
+| `breached` | price already traded through the declared level, position still open | **the decision below** |
+| `unknown` | we could not read the history | alert; **never** fold into `within` |
+
+### The asymmetry is the actual design question
+
+| side | what a breach means | acting now |
+|---|---|---|
+| **STOP** | we are carrying risk we never agreed to; this position should not exist | closing books the current price, better or worse than the stop — but the position is unauthorised either way. A **safety** action. |
+| **TARGET** | we missed an exit | closing books whatever is available. MGC sits **+234 points past** its target, so closing happens to be *better* — that is luck, not policy. A **profit-taking** action. |
+
+Conflating them is how a safety sweep starts making discretionary trading
+decisions. The operator's rule says close either way, and that is a coherent
+policy — but the two sides deserve separate switches, because the evidence that
+would justify each is different.
+
+### Staging — the repo's own pattern, not a new one
+
+`NETTING_ATTRIBUTION_MODE` is the precedent and should be copied exactly:
+
+- **`annotate` (default)** — the sweep does *all* the work: reads history,
+  grades the four states, writes a soak row, alerts. Touches no order.
+- **`apply`** — acts on a confirmed **stop-side** breach.
+- **Target side stays alert-only** until the soak shows what applying would have
+  done. That is one flip away once the evidence exists, not a redesign.
+
+A `*_MODE` var, never a default-off `*_ENABLED` gate (Prime Directive), and an
+unparseable value falls back to the default rather than switching the
+observation off.
+
+### Non-negotiables
+
+- **Never act on an unconfirmed read.** `None` means we did not look; every
+  other sweep already follows this.
+- **Never close on a single observation.** Reuse the 2-observation confirm
+  (`RECONCILER_CLOSE_CONFIRM_SECONDS`) — a breach seen once may be a bad bar.
+- **Never fabricate the fill.** The close books the market; the soak records
+  that the *declared* level was passed at time T. Writing the declared level as
+  the exit price would be the anchorless-estimate class all over again.
+- **Alert rate-limited per `(account, symbol, state)`.** This condition can hold
+  for days; a per-pass alarm is the desensitized-alarm P1.
+
+## 10.4 Why this is cheap to validate
+
+Both live `ib_paper` positions demonstrate the class **today**, so a positive
+control is available immediately and does not need to be waited for:
+
+- **MGC 4773** — `breached` on the TARGET side (+234 pts past 4393.02).
+- **MES 4350** — `diverged` on the STOP side (69 ticks), `within` on nothing,
+  and target-naked.
+- **MHG 4796** — `within` on both sides. **The control**: a build that flags all
+  three is as broken as one that flags none.
+
+That is the same discriminating-run discipline that validated the offline
+detector, reusable as the acceptance test for the live one.
+
+## 10.5 Sequencing
+
+1. Price axis into the three venue coverage reads, sharing the detector's
+   comparator (**closes `BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND`
+   criterion 4, and criterion 5's now-located Alpaca half**).
+2. `rearm-ib-bracket` system-action, so a divergence can also be corrected by
+   hand in ONE dispatch instead of the current cancel-and-hope-the-sweep-catches-it
+   workaround (`BL-20260823-NO-REARM-IB-BRACKET-ACTION`).
+3. Breach detection in `annotate`, soaking against the three live controls.
+4. Review the soak; flip the stop side to `apply`.
+5. Decide the target side on the soak's evidence.
+
+Steps 1–3 are Tier-2 and independently useful. Step 4 is the Tier-3 gate.
