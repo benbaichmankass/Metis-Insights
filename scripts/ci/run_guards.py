@@ -209,6 +209,16 @@ GUARDS: List[Dict[str, Any]] = [
             # refusal rather than a smaller sample, and `dd_per_r` is null for a
             # return-GAINING cell by construction.
             ["python3", "scripts/research/e35_verdicts_adapter.py", "--selftest"],
+            # The backlog union-merge resolver. Three conflicts on
+            # health-review-backlog.json in one evening (2026-08-23) across two
+            # PRs, and a hand-resolved one once silently reverted six items
+            # (BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS).
+            # Its self-test pins the REFUSALS, which are the whole value: a
+            # divergent both-side edit, a duplicate new id, and a deletion on
+            # either side must all refuse rather than union — while an
+            # IDENTICAL both-side edit must NOT refuse, since there is nothing
+            # to pick.
+            ["python3", "scripts/ops/backlog_union_merge.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.
