@@ -294,9 +294,51 @@ rows below.
 
 **Tier-3 — proposed with evidence, explicitly NOT applied, needs an operator OK:**
 
-1. **Declare `adx_min` on the 10 inheriting pullback legs.** Cheapest, highest
-   leverage, unblocks 31% of open trades from `thesis_unknown`, and changes no
-   geometry.
+1. ⚠️ **~~Declare `adx_min` on the 10 inheriting pullback legs~~ — I RETRACT the
+   framing of this item. It is not the cheap observability fix I called it.**
+   Corrected 2026-08-23 after the operator approved it *on my characterization*,
+   which was wrong in three ways. Recorded here rather than quietly fixed,
+   because the approval was given on the strength of the wrong description.
+
+   **(a) The set is 12, not 10.** "Legs that inherit the target" and "legs that
+   lack `adx_min`" are DIFFERENT SETS. The `adx_min`-lacking set adds
+   `mgc_pullback_1d` and `mhg_pullback_1d`, which declare `tp_r: 50.0`
+   explicitly but no floor. Declaring on only the 10 would leave two legs
+   `thesis_unknown` while looking complete — and `mhg_pullback_1d` is one of the
+   five legs actually OBSERVED in the soak with `no_adx_min_declared`.
+
+   **(b) It is an ENTRY-BEHAVIOUR change, not an observability one.**
+   `htf_pullback_trend_2h.py:76` declares `"adx_min": None` as the class
+   default, and the gate at line 297 runs only `if adx_min_p is not None or
+   adx_max_p is not None`. So these 12 legs have **no ADX filter at entry
+   today**; declaring one **starts refusing setups that are currently
+   admitted**. My "changes no geometry" was true of SL/TP and false of what
+   matters — admission. `thesis_unknown` on these legs is therefore **correct
+   reporting, not a defect**: a leg with no declared entry regime condition
+   genuinely has no thesis to re-evaluate.
+
+   **(c) There is no value to declare, and inventing one contradicts the
+   directive.** No class default exists to fall back on. The only values in the
+   family are **25 / 28 / 30, all on 2h CRYPTO legs**; these 12 are 1d/1h
+   equity, bond and metal. Porting a number across instrument class and
+   timeframe is chosen-not-measured — and it is literally *"reaching for a
+   refusal"*, which the operator's own standing directive forbids.
+
+   **What the item should be instead:** these legs have no declared entry regime
+   condition at all. Giving them one is a real strategy change needing its own
+   evidence. **The prerequisite is measurable and is the actual next step:
+   compute the ADX-at-entry distribution for each of the 12 over history, so a
+   floor is DERIVED from what it would refuse rather than chosen.** A floor that
+   refuses ~0% is nearly inert and cheap; one that refuses 40% is a different
+   strategy. Nobody knows which today.
+
+   **Blast radius, measured:** all 12 route to `alpaca_live` (**real_money but
+   `mode: dry_run`**, so nothing executes today), plus paper accounts, plus
+   `ib_paper` for the mgc/mhg pair. Zero live real-money exposure right now —
+   but `alpaca_live` is the latent account root `CLAUDE.md` flags as *"16
+   strategies all `execution: live`; flipping that one account takes 16 legs
+   live at once."* Whatever is declared now is what goes live that day, which is
+   an argument for deriving the value rather than shipping one quickly.
 2. **Tighten the donchian family's stop toward 1.5–2.0 ATR**, one leg at a time
    with a per-leg walk-forward. ⚠️ The sweep is argmax-of-199 and its gate killed
    112/133 rows — this needs its own dispersion test per leg, not the argmax.
