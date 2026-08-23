@@ -6910,16 +6910,53 @@ def _reassert_from_divergence(
                 "qty": abs(float(row["position_size"] or 0.0)),
                 "sl": levels["sl"], "tp": levels["tp"],
             })
-            ok = int((result or {}).get("retCode", 1)) == 0
+            call_ok = int((result or {}).get("retCode", 1)) == 0
             rec["result"] = result
+            # ⚠️ `retCode == 0` PROVES THE CALL SUCCEEDED, NOT THAT BOTH LEGS REST.
+            # `place_protective` places a stop AND a limit but returns a SINGLE
+            # orderId, so an envelope-only check cannot see a half-armed bracket.
+            # Measured 2026-08-23 one hour after arming: MES 4350 re-asserted with
+            # declared_tp 8390.59025, returned retCode 0, and the account-wide
+            # broker read showed ONE leg -- STP only, no limit order anywhere.
+            # This is BL-20260816-COVERAGE-IS-ONE-SIDED at the opposite end of the
+            # loop: that row is the DETECTION path grading a stop-only book as
+            # covered; this was the REPAIR path reporting a stop-only re-arm as
+            # complete. `BL-20260823-REASSERT-REPORTS-APPLIED-OK-ON-A-HALF-ARMED-BRACKET`.
+            #
+            # ONE extra broker read, and only on an APPLY -- which is rare by
+            # construction (divergence + allowlist + cooldown + attempt cap). This
+            # is NOT the per-pass read the design forbids.
+            rec["applied_state"] = _reassert_applied_state(
+                client, protect_symbol, call_ok,
+                want_tp=levels.get("tp") is not None)
+            ok = rec["applied_state"] == "both_legs_resting"
             rec["applied_ok"] = ok
-            summary["stop_price_reasserted" if ok
-                    else "stop_price_reassert_failed"] += 1
+            # The SUMMARY must not collapse either: "we could not verify" is not
+            # "it failed", and a stop-only re-arm is neither. Counting all three
+            # as one number reproduces, in the roll-up, the exact defect the
+            # applied_state split exists to remove.
+            _counter = {
+                "both_legs_resting": "stop_price_reasserted",
+                "stop_only": "stop_price_reassert_incomplete",
+                "no_legs_resting": "stop_price_reassert_incomplete",
+                "unverified": "stop_price_reassert_unverified",
+                "call_failed": "stop_price_reassert_failed",
+            }[rec["applied_state"]]
+            # `.get(...) + 1`, not `summary[k] += 1`: this whole function sits
+            # inside a broad `except` that logs and moves on, so a KeyError from a
+            # caller whose summary predates a counter would SILENTLY kill the
+            # re-assert — the decision, the log line and the soak row all vanish,
+            # and the sweep reports nothing wrong. Found exactly that way: adding
+            # two counters turned a passing wiring test into "re-assert decision
+            # failed" with no other signal.
+            summary[_counter] = int(summary.get(_counter, 0)) + 1
             logger.log(
-                logging.INFO if ok else logging.ERROR,
+                logging.INFO if ok else (
+                    logging.ERROR if rec["applied_state"] == "call_failed"
+                    else logging.WARNING),
                 "_check_broker_naked_ib_positions: RE-ASSERT %s %s/%s trade=%s "
                 "-> sl=%s tp=%s (was resting %s, %.1f ticks %s): %s",
-                "OK" if ok else "FAILED", account_id, protect_symbol, row["id"],
+                rec["applied_state"], account_id, protect_symbol, row["id"],
                 levels["sl"], levels["tp"], price_verdict.get("nearest_resting"),
                 price_verdict.get("ticks") or 0.0,
                 price_verdict.get("exposure") or "consequence unknown", result,
@@ -6939,6 +6976,43 @@ def _reassert_from_divergence(
             "_check_broker_naked_ib_positions: re-assert decision failed for "
             "%s/%s: %s", account_id, protect_symbol, exc,
         )
+
+
+def _reassert_applied_state(client, symbol, call_ok, *, want_tp):
+    """Did the re-assert actually leave both declared legs resting at the venue?
+
+    Five states, never collapsed — the same discipline the decision half uses:
+
+    ``call_failed``        the modify itself returned non-zero; nothing to verify.
+    ``both_legs_resting``  a stop AND a target rest. The only success.
+    ``stop_only``          the stop rests, the target does not. NOT a success: the
+                           position can stop out or run, and cannot take profit.
+    ``no_legs_resting``    the call said OK and nothing rests. Worse than a
+                           failure, because the call claimed otherwise.
+    ``unverified``         the coverage read failed — *we could not look*. NEVER
+                           folded into success; an unconfirmed read is exactly
+                           what the sweep refuses to re-arm on, so it is also not
+                           something to declare repaired on.
+    """
+    if not call_ok:
+        return "call_failed"
+    try:
+        cov = client.protection_coverage(symbol)
+    except Exception:  # noqa: BLE001 — a verification failure must not raise
+        return "unverified"
+    if not isinstance(cov, dict):
+        return "unverified"          # `None` is the documented could-not-read
+    stop = cov.get("stop_qty")
+    target = cov.get("target_qty")
+    if stop is None or (want_tp and target is None):
+        return "unverified"          # the side we need was not graded
+    has_stop = float(stop or 0.0) > 0.0
+    has_target = float(target or 0.0) > 0.0
+    if has_stop and (has_target or not want_tp):
+        return "both_legs_resting"
+    if has_stop:
+        return "stop_only"
+    return "no_legs_resting"
 
 
 def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
@@ -7004,8 +7078,10 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
         # not omit the key. `annotated` counts the divergences a decision
         # DECLINED to act on (mode, allowlist, cooldown, budget) — without it a
         # quiet run cannot be told from a run where the trigger never fired.
-        "stop_price_reasserted": 0,
-        "stop_price_reassert_failed": 0,
+        "stop_price_reasserted": 0,          # verified: BOTH legs rest
+        "stop_price_reassert_incomplete": 0,  # call OK, bracket half-armed
+        "stop_price_reassert_unverified": 0,  # could not re-read the venue
+        "stop_price_reassert_failed": 0,      # the modify itself was rejected
         "stop_price_reassert_annotated": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
