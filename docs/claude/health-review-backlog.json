@@ -21981,6 +21981,46 @@
         "scripts/ci/run_guards.py"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-XRP-DECLARED-TARGET-EXCEEDS-VENUE-CAP",
+      "opened_at": "2026-08-23T15:40:00+00:00",
+      "opened_by": "bracket-expectations-session (operator-directed: what expectation should a bracket carry at entry)",
+      "severity": "high",
+      "tier": "3 (config/strategies.yaml — target/stop geometry on a real-money leg)",
+      "status": "open",
+      "area": "strategy geometry / bracket expectation",
+      "title": "xrp_pullback_2h declares tp_r 3.0 but the venue clamps it to 0.687 R — the leg moved sentinel -> CLAMPED, not sentinel -> declared, and it is on real money",
+      "detail": "PR #10171 (merged 2026-08-23T13:37Z) set xrp_pullback_2h tp_r 50.0 -> 3.0 and left atr_stop_mult UNCHANGED at 2.5 (only trail_mult moved 5.0 -> 6.0).\n\nMEASURED on the open trade via /api/diag/log_file?name=target_extension_soak: cap_r = 0.687 on all 5 rows of that order package. cap_r = 0.099 * entry / (atr_stop_mult * ATR), so the declared 3.0 R BINDS on 5/5 and the level that actually RESTS is 0.687 R — a take-profit NEARER than the stop. Backing ATR out: ATR/entry = 5.76%. Making 3.0 R reachable would require the stop to tighten from 2.5 to 0.573 ATR (4.36x tighter), which is not a sane stop.\n\nWHY THIS IS ITS OWN ROW AND NOT THE KNOWN R:R FINDING. Root CLAUDE.md already records 'xrp_pullback_2h at R:R 0.687 (real money)' — that is independent confirmation of the same number, not a new discovery. What is new is that the FIX DID NOT RESOLVE IT: target_expectation.py separates `clamped` from `sentinel_no_expectation` precisely because 'a clamped leg had an expectation the venue refused to place; a sentinel leg never had one'. The bracket now STATES a prediction the venue will not honour, which is a different defect from having none.\n\nROUTING: bybit_2 (real_money), plus bybit_1 (paper) and bybit_portfolio (paper).\n\nSAME SHAPE, NOT YET MEASURED LIVE: trend_donchian_eth_prop and trend_donchian_sol_prop both declare tp_r 6.0 against cap_r ~1.98 at a 2% reference ATR, and both route to breakout_1 (prop, terminal breach). All three non-ict_scalp real targets in the live fleet are clamped.\n\nLIMITS OF THIS MEASUREMENT: cap_r is fixed at entry and varies with entry ATR, so n = 1 trade. A calmer entry clamps less. The DIRECTION is structural (cap_r is inversely proportional to atr_stop_mult); the exact 0.687 is one reading.",
+      "evidence": "docs/research/bracket-expectation-construction-2026-08-23.md sections 4-5; scripts/research/bracket_expectation_census.py (11/11 selftest); /api/diag/log_file?name=target_extension_soak 2026-08-23T10:12Z-14:43Z",
+      "resolution_criteria": "Either (a) atr_stop_mult moves WITH the target so that tp_r <= cap_r at typical entry ATR for XRPUSDT 2h, verified by re-reading cap_r from the soak on a NEW order package (not the current one), or (b) tp_r is set to a value that actually fits under cap_r, or (c) the leg is explicitly declared trail-exited and the target key removed rather than left at an unplaceable value. A row that merely re-states the current number does NOT close this: the test is that a soak row for a fresh entry shows expectation_state='declared', never 'clamped'. Any change here is Tier-3 and needs explicit operator approval.",
+      "not_a_finding_about": "This is NOT a claim that #10171 was wrong to act, and NOT a demotion proposal. No leg should be demoted without a genuine multi-axis tuning attempt (TUNE BEFORE DEMOTE)."
+    },
+    {
+      "id": "BL-20260823-NO-TARGET-KEY-STATE-UNREACHABLE-IN-PRODUCTION",
+      "opened_at": "2026-08-23T15:42:00+00:00",
+      "opened_by": "bracket-expectations-session (operator-directed bracket-expectation census)",
+      "severity": "medium",
+      "tier": "1 (observability / provenance — no order path)",
+      "status": "open",
+      "area": "exit geometry / target_expectation",
+      "title": "target_expectation.STATE_NO_TARGET_KEY can never fire in production, so the sentinel's PROVENANCE (chosen vs inherited) is collapsed for 10 live legs",
+      "detail": "resolve_expectation() carefully separates `no_target_key` from `sentinel_no_expectation`, and its own docstring gives the reason: calling one the other 'would accuse 20 legs of a defect they may not have'. In production the state is unreachable.\n\nMECHANISM: the monitor hands resolve_expectation the MERGED config (strategy-class defaults + YAML), so the class default has already been applied before the module sees it. htf_pullback_trend_2h.py:67, trend_donchian.py:81, squeeze_breakout_4h.py:65 and fade_breakout_4h.py:88 each declare tp_r = 50.0, so a leg whose YAML has no target key arrives carrying tp_r=50.0 and grades sentinel_no_expectation.\n\nMEASURED: all 72 target_extension_soak rows (2026-08-23T10:12Z-14:43Z) are sentinel_no_expectation; ZERO are no_target_key. Five of the covered legs (mhg/tlt/ief_pullback_1d, spy/qqq_pullback_1h) declare no target key in config/strategies.yaml yet emit target_source_key='tp_r', target_r=50.0 — the class default, observed from the other side.\n\nCONSEQUENCE FOR THE POPULATION: counting tp_r>=50 in the YAML gives 24 of 45 enabled+live legs; the number that BEHAVE as sentinels is 34 of 45. The YAML count understates it by 42%. The 10 invisible legs are gdx/gld/iaum/ief/slv/tlt_pullback_1d, gld/qqq/spy/tlt_pullback_1h.\n\nWHAT IS AND IS NOT WRONG: the GRADE is behaviourally correct — the effective tp_r really is 50, and the placed level really is the venue threshold. What is lost is PROVENANCE: whether the sentinel was chosen or inherited. Those have different remedies (edit the leg vs change a class default that silently governs 10 legs), which is the exact distinction the state was built to preserve.",
+      "evidence": "docs/research/bracket-expectation-construction-2026-08-23.md sections 1-1.1; scripts/research/bracket_expectation_census.py (reports declared and effective SEPARATELY and refuses to sum them)",
+      "resolution_criteria": "A consumer can distinguish an EXPLICIT sentinel from an INHERITED one on a live trade. Acceptable shapes: the soak row carries the origin (declared_in_yaml | inherited_class_default) alongside expectation_state, or resolve_expectation is passed the raw YAML block beside the merged one. NOT sufficient: documenting the class defaults, or a test asserting the current counts — the failure is that the distinction is unobservable at runtime, so the test must show a leg with no YAML target key grading differently from one that writes tp_r: 50.0 explicitly."
+    },
+    {
+      "id": "BL-20260823-TARGET-EXPECTATION-DOCSTRING-COUNTS-STALE",
+      "opened_at": "2026-08-23T15:43:00+00:00",
+      "opened_by": "bracket-expectations-session",
+      "severity": "low",
+      "tier": "1 (docstring only)",
+      "status": "open",
+      "area": "docs / exit geometry",
+      "title": "target_expectation.py docstring quotes 29 of 52 enabled / 26 live sentinel legs; measured today it is 28 / 24",
+      "detail": "The module docstring states '29 of 52 enabled legs are here (counted 2026-08-23), 26 of them execution: live'. Measured against config/strategies.yaml at 9544ced: 28 of 52 enabled, 24 of 45 live.\n\nRECONCILED, so this is staleness and not disagreement: at 9544ced~1 the docstring was exactly right (29 enabled / 26 live). PR #10171 then changed xrp_pullback_2h tp_r 50.0 -> 3.0 (removing one sentinel from both populations) and demoted the htf leg (removing a live sentinel and taking live 46 -> 45).\n\nWHY FILE IT AT ALL: the docstring is quoted as a population, and this repo's own rule is to state the population on every number. A count that drifts one commit at a time is how a quoted figure becomes wrong without anyone deciding it should be.",
+      "evidence": "docs/research/bracket-expectation-construction-2026-08-23.md section 1.2; scripts/research/bracket_expectation_census.py reproduces 55/52/45 with sentinel 30/28/24 declared and 40/38/34 effective",
+      "resolution_criteria": "Either the docstring cites the census script as the source of truth rather than embedding a snapshot, or the embedded numbers are refreshed AND carry the commit they were measured at, so the next drift is visible rather than silent."
     }
   ]
 }
