@@ -120,7 +120,7 @@ and `refused_unmeasured_price` registered in the provenance vocabulary — the
 refusal deliberately in **no** source set, because a refusal is not a grade of a
 value, it is the statement that no value was produced.
 
-### F-4 · 🟠 **Two live IB positions are target-naked — KNOWN, and already operator-declined**
+### F-4 · 🟠 **Two live IB positions are target-naked — KNOWN, with TWO operator-approved actions SCHEDULED for tonight**
 
 Measured continuously across today's sweeps (02:02Z, 04:02Z, and the 00:05Z
 partial):
@@ -130,20 +130,53 @@ partial):
 | `ib_paper` / **MES** | 15 | 15.0 | **0.0** | 8390.59025 |
 | `ib_paper` / **MGC** | 95 | 95.0 | **0.0** | 4393.02071429 |
 
-⚠️ **CORRECTION — I initially wrote this up as a live recurrence needing
-action. It is not.** Issue **#10089** (the `broker-bracket-reconcile` tracking
-issue, body last rewritten **2026-08-23T02:11:55Z**) records both as a
-**standing, already-dispositioned state**: *"the take-profit attach was DECLINED
-by the operator 2026-08-20 and the stop repair is Tier-3 (draft #10081), so
-these do not clear."* The detection, the alerting, and the disposition all
-worked. Recording it here as a new find would have been the audit re-deriving a
-decision the operator already made.
+⚠️ **CORRECTION, TWICE — and the second one matters more than the first.**
+
+My first pass called this a live recurrence needing action. My second pass, on
+reading #10089's *"the take-profit attach was DECLINED"*, called it a settled
+non-action. **Both were wrong**, and the operator corrected me: *"This is not a
+non-action decision, and that needs to be clear."*
+
+The actual state, verified against the scheduler and against price history:
+
+| position | decision | why |
+|---|---|---|
+| **MGC** 95 long | **CLOSE IT OUT** | its declared TP **4393.02 is 233.88 pts BELOW market 4626.9** — the trade blew through its take-profit and is still open. Attaching a target now would be a *marketable* limit that instantly flattens 95 contracts at a worse price than the market. The refusal to attach is not "leave it alone", it is "close it instead". |
+| **MES** 15 long | **ATTACH THE TARGET** | declared TP **8390.59 sits ~703 pts ABOVE** market 7687.5 — a genuine resting limit. This is the one that **needs its brackets**. |
+
+Confirmed from price history since each trade opened (1d bars): **MGC's TP WAS
+reached** (high 4654.4 vs TP 4393.02); **MES's was not** (high 7838.5 vs
+8390.59), and neither breached its declared stop. So exactly one of the two
+passed the level it was supposed to exit at, and it is MGC.
+
+**Both are already scheduled.** Routine `trig_014S3NAzMKy2Ac2AM2GgyRE5` — *"MGC
+flatten + MES target attach — Sunday reopen"* — is **enabled and fires
+2026-08-23T22:30Z**, deliberately deferred to the CME/COMEX Sunday reopen
+(18:00 ET / 22:00Z) because the venue was shut and the IB session gate would
+have deferred the close anyway.
+
+⚠️ **Three risks that routine carries, worth watching tonight:**
+
+1. **It may fire without MCP tools.** Its own step 0 says so and tells the
+   session to STOP rather than improvise — specifically not to `curl
+   api.github.com`, which returns a Claude-specific 403 that the usual
+   `|| echo '{}'` idiom launders into a clean-looking empty result. If it stops,
+   **neither action happens** and it needs re-running by hand.
+2. **The MES attach must be re-priced at fire time.** If market runs above
+   8390.59 over the reopen, the attach becomes marketable and instantly flattens
+   15 contracts. As of this audit, market 7687.5 — safe by ~703 pts.
+3. **It is the owed positive control for
+   `BL-20260822-ATTACH-IB-TARGET-USES-TRADER-CLIENTID`.** That fix (PR #10140)
+   has never run against a live trader; the dry run *cannot* exercise it because
+   it never builds a client. An `Error 326` tonight means the fix did not work.
 
 **The alerting is confirmed working end-to-end**: `_emit_target_naked_alert`
 fires CRITICAL, and both are on `/api/bot/notifications` right now
 (`ib_target_naked · detected`, since 05:08:38Z) → Telegram + both apps' banners.
-Not-re-arming is **by design** (`attach-ib-target` is the sanctioned repair;
-blind re-arm would invent decision-time geometry).
+Not-re-arming *automatically* is by design (`attach-ib-target` is the sanctioned
+repair, and a blind re-arm would invent decision-time geometry) — but "the sweep
+does not re-arm" is a statement about the sweep, **not** a disposition of the
+position, and reading it as one is the mistake this row records.
 
 **What IS new, and is not in #10089:**
 
