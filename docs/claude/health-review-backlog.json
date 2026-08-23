@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-23T04:35:00+00:00",
+  "updated_at": "2026-08-23T05:12:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -19595,7 +19595,7 @@
         "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
       ],
       "resolution_criteria": "Basis: the six config-exact bases above, each over a 13,206-bar corpus with n stated per window, and the per-cell arithmetic adding each Path-A delta to its own leg's base. RESOLVED when the operator records a disposition per leg — demote to shadow, retune, kill, or keep with the OOS-negative base accepted and stated. Declaring an exit lever does NOT resolve this row: 11 of 13 passing cells leave the leg losing. If a leg is retuned its cells must be RE-RUN, not re-read. Extending the measurement to the 12 uncorpused legs is separate work, not a condition of closing this.",
-      "next_action": "✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (asked directly, four options offered: demote-5-to-shadow / kill / keep-and-accept / retune-first): **RETUNE FIRST, THEN RE-DECIDE.** The six legs stay `execution: live` while a retune runs; the disposition per leg is deferred to after it. ⚠️ THE ROW'S OWN CONSTRAINT BINDS THE RETUNE: a retuned leg's cells must be RE-RUN, not re-read, and a Path-A delta must be added to its own leg's OWN base (that arithmetic is what turned '13 of 42 cells pass' into 'the family has no OOS edge'). MEASURED THE SAME DAY, because the headline overstates the money at risk: of the 5 OOS-negative legs, the WORST (htf_pullback_trend_2h, -14.61R) routes ONLY to bybit_1 (account_class PAPER), as does sol_pullback_2h (-2.58R). Three carry consequence — eth_pullback_2h (-6.80R) and xrp_pullback_2h (-0.59R) both route to bybit_2 (REAL MONEY), and eth_pullback_prop_2h (-11.78R) routes to breakout_1 (PROP). ⚠️ FLAGGED TO THE OPERATOR, NOT YET DECIDED: the PROP leg is the asymmetric one. A prop breach is TERMINAL ($150 daily-loss limit, $4,700 static-DD floor on a $5k account), not a drawdown you retune back from — so 'keep live while retuning' has a different shape there than on the paper legs. A narrow carve-out of eth_pullback_prop_2h to shadow was offered and is open; the recorded disposition above stands unless the operator takes it."
+      "next_action": "✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (asked directly, four options offered: demote-5-to-shadow / kill / keep-and-accept / retune-first): **RETUNE FIRST, THEN RE-DECIDE.** The six legs stay `execution: live` while a retune runs; the disposition per leg is deferred to after it. ⚠️ THE ROW'S OWN CONSTRAINT BINDS THE RETUNE: a retuned leg's cells must be RE-RUN, not re-read, and a Path-A delta must be added to its own leg's OWN base (that arithmetic is what turned '13 of 42 cells pass' into 'the family has no OOS edge'). MEASURED THE SAME DAY, because the headline overstates the money at risk: of the 5 OOS-negative legs, the WORST (htf_pullback_trend_2h, -14.61R) routes ONLY to bybit_1 (account_class PAPER), as does sol_pullback_2h (-2.58R). Three carry consequence — eth_pullback_2h (-6.80R) and xrp_pullback_2h (-0.59R) both route to bybit_2 (REAL MONEY), and eth_pullback_prop_2h (-11.78R) routes to breakout_1 (PROP). ⚠️ FLAGGED TO THE OPERATOR, NOT YET DECIDED: the PROP leg is the asymmetric one. A prop breach is TERMINAL ($150 daily-loss limit, $4,700 static-DD floor on a $5k account), not a drawdown you retune back from — so 'keep live while retuning' has a different shape there than on the paper legs. ✅ CARVE-OUT TAKEN 2026-08-23 (Tier-3, operator-approved): eth_pullback_prop_2h demoted live -> shadow in config/strategies.yaml. The other FIVE legs stay live under the retune-first disposition. ⚠️ This REVERSES an operator-approved promotion — the leg was promoted shadow -> live on 2026-06-25 on corrected-swap evidence; the reversal rests on NEW evidence (OOS -11.78R) plus the prop asymmetry, not on that promotion having been wrong. ⚠️ Two honest mitigations that were NOT in the original warning: the prop venue is a MANUAL-TICKET bridge and the operator gates each ticket, so nothing auto-executed; and the leg's paper routing on bybit_1 goes shadow too (the gate is per-STRATEGY, not per-account). Revert only after a retune whose cells were RE-RUN clears this leg's own base."
     },
     {
       "id": "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
@@ -21284,6 +21284,60 @@
         "board comments 5382539964 and 5382547767 carry the retracted overrun claim; 5382681402 is the retraction",
         "trigger trig_019fVx79hn9MBnimmLEMAGRP armed on the false premise, since deleted",
         "same-day genuine-execution baseline: pytest-run runs 8292 = 11.5 min, 8291 = 11.4 min"
+      ]
+    },
+    {
+      "id": "BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "low",
+      "tier": "1 (docs / housekeeping)",
+      "status": "open",
+      "area": "docs drift",
+      "title": "A money-path comment names two strategies as `execution: shadow` that are both live",
+      "detail": "src/units/accounts/execute.py (the prop no-emit branch, ~:235) documents its own purpose with \"the shadow prop variants (trend_donchian_{sol,eth}_prop, which are execution: shadow)\". MEASURED 2026-08-23 against config/strategies.yaml: BOTH are `execution: live`, as was eth_pullback_prop_2h before this session demoted it — i.e. at the moment of reading, ALL THREE prop-routed strategies were live and NOTHING exercised that branch in production. Field beats comment. Found while verifying, before a Tier-3 demotion, that `execution: shadow` genuinely suppresses prop ticket emission — the branch itself is real and correct by reading; only the claim about who exercises it is stale.",
+      "why_it_matters": "The comment was about to be used as PRECEDENT for a live money-path change ('shadowing a *_prop variant is an established pattern'). It is not established — the demotion shipped this session is the FIRST live exerciser of that branch. A stale comment that manufactures false precedent is worse than no comment, because it substitutes for the verification it appears to provide.",
+      "next_action": "Correct the comment to describe the branch's PURPOSE without naming strategies whose gate state drifts, or name them with an as-of date. Do not delete the branch — it is load-bearing and now genuinely in use.",
+      "resolution_criteria": "RESOLVED when the comment no longer asserts a gate state it does not verify.",
+      "related": [],
+      "evidence": []
+    },
+    {
+      "id": "BL-20260823-ZOMBIE-ROUTINES-ENABLED-WITH-NULL-NEXT-RUN",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "low",
+      "tier": "1 (docs / housekeeping)",
+      "status": "open",
+      "area": "scheduling / housekeeping",
+      "title": "Two account Routines are enabled with a null next_run_at, one naming a twice-renamed org",
+      "detail": "`Health Check Routine` (trig_015diTGEy9jATecSPMFmPyNF) and `Sprint Continue Work` (trig_01SvpLKYiTKgXkeLgV7Q3pEr) are both `enabled: true` with `next_run_at: 0001-01-01T00:00:00Z`, so they never fire. `Sprint Continue Work`'s prompt targets `the-lizardking/ict-trading-bot` — TWO renames stale (-> benbaichmankass/ict-trading-bot -> benbaichmankass/Metis-Insights). Both predate the current review split: `Health Check Routine` describes a comms/state-machine flow that the /health-review skill replaced. OPERATOR DISPOSITION 2026-08-23: backlog it, not important now — explicitly NOT to be actioned this session.",
+      "why_it_matters": "Low but non-zero: an `enabled: true` Routine reads as live in any listing, so a future session auditing scheduled work has to re-derive that the null next_run_at makes it inert. That re-derivation cost is the whole reason to write it down once.",
+      "next_action": "Operator deletes both (they are account-level Routines, not repo state, so a session cannot remove them for the operator). No code change. Close when `list_triggers` no longer returns them.",
+      "resolution_criteria": "RESOLVED when both Routines are deleted, confirmed by a list_triggers read that does not return them.",
+      "related": [],
+      "evidence": []
+    },
+    {
+      "id": "BL-20260823-EXIT-COVERAGE-GUARD-CANNOT-SEE-THE-FILE-IT-JOINS-AGAINST",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "medium",
+      "tier": "1 (CI guard scoping)",
+      "status": "open",
+      "area": "CI guards",
+      "title": "exit-coverage-matrix-guard is diff-scoped to 3 files but joins against config/strategies.yaml, which is not one of them",
+      "detail": "scripts/ci/run_guards.py:259 scopes `exit-coverage-matrix-guard` with `when.globs = [docs/research/exit-refinement-coverage.json, scripts/research/m20_coverage_rollup.py, scripts/research/m20_explode_coverage_rows.py]`. But the check it runs (`m20_coverage_rollup.py --check`) JOINS the matrix against **config/strategies.yaml** and fails when the two disagree about a leg's `execution`. config/strategies.yaml is NOT in the glob list, so a change to the runtime gate can break the join while the diff-scoped guard never runs. MEASURED 2026-08-23 on PR #10161: demoting eth_pullback_prop_2h live -> shadow in config/strategies.yaml left the matrix saying `execution: live`. Local `run_guards.py` reported **'All relevant guards passed'** with exit-coverage-matrix-guard in its SKIP list. CI caught it only because tests/test_guards_uncommitted_work.py runs the guard explicitly via `--all --only`, and tests/test_m20_coverage_join.py asserts the real join is clean — i.e. TESTS caught it, not the guard's own diff scoping.",
+      "why_it_matters": "The matrix is M20's DONE-CONDITION DENOMINATOR, not decoration: it is what 'x of 468 cells resolved' is computed over, and it records each leg's execution state. A gate change that silently desynchronises it corrupts the milestone's own progress measure. Worse, the failure is silent LOCALLY and green — 'All relevant guards passed' is exactly the reassuring output that stops a session looking further. This is the guard analogue of the session's recurring finding: an operation whose non-execution is indistinguishable from its success.",
+      "next_action": "Add `config/strategies.yaml` to the guard's `when.globs`. Then verify the fix DISCRIMINATES: a strategies.yaml change that desyncs the matrix must make the guard RUN and FAIL, and a strategies.yaml change that does not touch a matrix leg must not make it fail. Consider a general audit: any guard whose check reads a file outside its own `when` scope has the same hole.",
+      "resolution_criteria": "RESOLVED when a diff touching ONLY config/strategies.yaml selects exit-coverage-matrix-guard in run_guards.py, proven by a test that fails if the glob is reverted — presence of the glob alone is not sufficient.",
+      "related": [
+        "BL-20260822-DIAG-FETCH-404-BLAMES-PATH-FORM-NOT-WRONG-SURFACE"
+      ],
+      "evidence": [
+        "scripts/ci/run_guards.py:259-263 — when.globs omits config/strategies.yaml",
+        "PR #10161 job 97144958235: 2 failed, 12153 passed — both failures the same matrix/config disagreement",
+        "local run_guards.py on the same diff: 'All relevant guards passed', guard in the skip list"
       ]
     }
   ]
