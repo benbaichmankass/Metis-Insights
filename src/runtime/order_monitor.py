@@ -5585,6 +5585,24 @@ def _is_real_order_id(trade_id: str) -> bool:
 _is_numeric_order_id = _is_real_order_id
 
 
+#: `exit_reason_source` value to stamp, keyed on the PRICE basis the label was
+#: derived from. The label is only ever as good as the price it was compared
+#: against, and a reader must be able to tell the two apart WITHOUT re-deriving
+#: the price's provenance from a second field.
+#:
+#: `price_vs_pkg_bracket` (a MEASURED price) is the pre-existing value and is
+#: deliberately unchanged — it is already registered in
+#: `provenance.ESTIMATED_SOURCES`, on the reasoning that the venue never said
+#: "this was a stop-out", so even off a real fill the REASON is a derivation.
+#: The `_est_price` sibling is that same derivation over an ESTIMATED price
+#: (`candle_at_close`) — an inference on an inference, and it must not be
+#: allowed to read as the stronger one.
+_EXIT_LABEL_SOURCE_BY_BASIS: Dict[str, str] = {
+    "measured": "price_vs_pkg_bracket",
+    "estimated": "price_vs_pkg_bracket_est_price",
+}
+
+
 def _classify_broker_exit(
     db, row: Dict[str, Any], exit_price: Any, *, is_reduce_leg: bool = False,
 ) -> Optional[str]:
@@ -8750,7 +8768,7 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             cursor.execute(
                 "SELECT id, symbol, direction, position_size, "
                 "       entry_price, exit_price, account_id, created_at, "
-                "       closed_at, notes, order_package_id "
+                "       closed_at, notes, order_package_id, exit_reason "
                 "  FROM trades "
                 " WHERE status IN ('closed', 'orphaned') "
                 "   AND COALESCE(is_backtest, 0) = 0 "
@@ -8914,6 +8932,7 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
 
 
             notes = _decode_notes(row.get("notes"))
+            updates_exit_reason: Optional[str] = None
             # Net out the close-side fees when the exit came from real fills
             # that recorded them (stamped at close by the fills resolver). This
             # arithmetic was fee-BLIND, and that is a CORRECTNESS bug, not a
@@ -8942,11 +8961,85 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             # anchored must drop the marker, or INV-2b would count it forever.
             notes.pop("unmeasured_reason", None)
 
+            # ── Re-derive the exit LABEL now that a price exists ────────────
+            # BL-20260823-EXIT-LABEL-FROZEN-ON-THE-ANCHORED-PRICE-PATH.
+            #
+            # `_sweep_pending_pnl_from_bybit` learned this in #10151 (item 1.8);
+            # THIS sweep — the sibling that prices every row Bybit broker truth
+            # never covered — did not, so it wrote the price and left the label
+            # frozen at `reconciler_filled`. Measured 2026-08-23 over the whole
+            # journal: of 497 eligible rows (generic reason, reduce legs already
+            # excluded by this query), 191 resolve to a real bracket level —
+            # 156 of them off a MEASURED price. Fixing one sweep and not its
+            # sibling is the "swept the instance, not the class" shape this repo
+            # has named and re-paid for repeatedly.
+            #
+            # THE PRICE BASIS DECIDES WHETHER A LABEL IS DEFENSIBLE AT ALL.
+            # `_classify_broker_exit` compares a price to the package bracket;
+            # it is provenance-blind, and that is fine for a broker fill. It is
+            # NOT fine for `local_markprice`, which is the market read at SWEEP
+            # time — hours after the exit — so comparing it to the bracket
+            # manufactures an sl/tp verdict out of later, unrelated price
+            # action. That is the exact fabrication class `exit_anchor` was
+            # built to stop, one level up in the label instead of the number.
+            # So: classify on MEASURED or ESTIMATED, REFUSE on FABRICATED, and
+            # say which happened rather than staying silent (105 of the 497 are
+            # fabricated-price rows — a silent skip there is indistinguishable
+            # from never having looked).
+            #
+            # THREE GUARDS, all load-bearing:
+            #   1. Reduce legs are already excluded by this query's WHERE
+            #      (setup_type + the notes LIKE), so no second derivation here —
+            #      a duplicated predicate is one that can drift.
+            #   2. Only a row still carrying the GENERIC reason is relabelled.
+            #      This sweep selects on `pnl IS NULL`, which includes rows a
+            #      different path closed with a real reason (`pairs_*`,
+            #      `sl_cross`, `stale_stop`); overwriting one destroys a better
+            #      record than the one being written.
+            #   3. Failure is swallowed HERE and never reaches the price write.
+            #      The pnl/exit_price update is the load-bearing half; a
+            #      bookkeeping label must never be able to lose it.
+            try:
+                from src.runtime import provenance as _prov
+
+                _cur_reason = str(row.get("exit_reason") or "").strip()
+                if _cur_reason in ("", "reconciler_filled"):
+                    _basis = _prov.classify(exit_source, "exit_price_source")
+                    if _basis in (_prov.MEASURED, _prov.ESTIMATED):
+                        _resolved = _classify_broker_exit(
+                            db, row, exit_price, is_reduce_leg=False,
+                        )
+                        # Stamp ONLY when the classifier actually ran, so its
+                        # ABSENCE keeps meaning "never reached the classifier" —
+                        # the 100% signature that made this readable at all.
+                        notes["exit_reason_source"] = (
+                            _EXIT_LABEL_SOURCE_BY_BASIS[_basis]
+                            if _resolved else "unresolved"
+                        )
+                        if _resolved:
+                            updates_exit_reason = _resolved
+                            notes["exit_reason_price_basis"] = _basis
+                    else:
+                        # We looked and DECLINED. Distinct from both "resolved"
+                        # and "never ran".
+                        notes["exit_reason_source"] = (
+                            _prov.EXIT_LABEL_REFUSED_UNMEASURED
+                        )
+                        notes["exit_reason_price_basis"] = _basis
+            except Exception as exc:  # noqa: BLE001 — never lose the price write
+                logger.warning(
+                    "_sweep_local_pnl_for_unpriced: exit re-classification "
+                    "failed for trade_id=%s (price/pnl still written): %s",
+                    row.get("id"), exc,
+                )
+
             updates: Dict[str, Any] = {
                 "pnl": pnl,
                 "exit_price": float(exit_price),
                 "notes": dump_capped(notes, 500),
             }
+            if updates_exit_reason:
+                updates["exit_reason"] = updates_exit_reason
             pct = compute_pnl_percent(
                 pnl=pnl, entry_price=entry, qty=qty, contract_value_usd=cvu,
             )
