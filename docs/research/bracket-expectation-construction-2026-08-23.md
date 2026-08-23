@@ -356,6 +356,89 @@ it is far too thin to carry a verdict.
 
 ---
 
+## 7.5 MEASURED: what an `adx_min` floor would actually refuse
+
+Ran 2026-08-23 to settle § 7 item 1 with evidence instead of a chosen number.
+Tool: `scripts/research/adx_entry_distribution.py` (10/10 selftest). Candles from
+the bot's own `/api/bot/candles` (the connector the strategies trade on), entries
+from `scripts/backtest_pullback.py` run with `--adx-min 0` — which **computes ADX
+and rejects nothing**, so the trade set is the unfiltered one the fleet runs
+today. ADX comes from the harness's own `_adx`, **imported not re-derived**; it
+is the verbatim copy of the live strategy's, which is what stops the live
+predicate and the harness disagreeing about the number. Measured at the **entry
+bars**, not over all bars — a different distribution that would not answer this.
+
+**Coverage, stated because it is partial: 6 of 12 legs measured, 4
+`insufficient_n`, 2 `no_data`.**
+
+| leg | state | n | ADX min | p50 | max |
+|---|---|---|---|---|---|
+| `gdx_pullback_1d` | measured | 24 | 11.08 | 19.49 | 42.30 |
+| `slv_pullback_1d` | measured | 22 | 15.34 | 19.10 | 55.56 |
+| `iaum_pullback_1d` | measured | 21 | 10.14 | 23.02 | 54.03 |
+| `tlt_pullback_1d` | measured | 20 | 15.92 | 19.48 | 38.95 |
+| `gld_pullback_1d` | measured | 19 | 10.29 | 22.85 | 52.40 |
+| `ief_pullback_1d` | measured | 17 | 12.01 | 21.24 | 43.47 |
+| `tlt_pullback_1h` | `insufficient_n` | 8 | — | — | — |
+| `gld_pullback_1h` | `insufficient_n` | 3 | — | — | — |
+| `qqq_pullback_1h` / `spy_pullback_1h` | `insufficient_n` | 2 each | — | — | — |
+| `mgc_pullback_1d` / `mhg_pullback_1d` | **`no_data`** | — | — | — | — |
+
+⚠️ **`no_data` is not `no_entries`.** MGC/MHG are IBKR futures and the candles
+route returns `no_data` for them — *we could not look*, the opposite claim from
+*we looked and found none*. The 1h legs are thin because the venue serves only
+~1 month of hourly bars (221–257), not because those legs rarely trade.
+⚠️ **n is 17–24 per leg, 123 entries total across six legs.** Small. The
+direction below is large enough to survive it; no single leg's rate is.
+
+### The result: every value the family declares would delete most of the strategy
+
+| floor | GDX | GLD | IAUM | IEF | SLV | TLT |
+|---|---|---|---|---|---|---|
+| 10 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
+| 15 | 20.8% | 10.5% | 23.8% | 17.6% | 0.0% | 0.0% |
+| 18 | 41.7% | 26.3% | 38.1% | 23.5% | 31.8% | 25.0% |
+| 20 | 54.2% | 36.8% | 42.9% | 47.1% | 50.0% | 50.0% |
+| **25** *(eth/xrp)* | **75.0%** | **52.6%** | **57.1%** | **64.7%** | **72.7%** | **70.0%** |
+| **28** *(ada)* | **75.0%** | **57.9%** | **81.0%** | **76.5%** | **81.8%** | **70.0%** |
+| **30** *(sol)* | **79.2%** | **73.7%** | **81.0%** | **82.3%** | **86.4%** | **80.0%** |
+
+**Porting the family's own crypto values would have refused a mean of 65% (at
+25), 74% (at 28) or 80% (at 30) of every historical entry on these legs** —
+range 53–86%. That is not unblocking `thesis_unknown`; it is deleting two-thirds
+to four-fifths of the strategy. The instinct to reuse 25/28/30 was exactly the
+cross-instrument port this measurement existed to test, and it fails.
+
+### And there is no inert value either
+
+The only floor refusing 0% across all six is **10** — but the lowest ADX-at-entry
+observed anywhere is **10.14**, so a floor at 10 sits 0.14 below the sample
+minimum. It is **fitted to the sample**: inert on the observed history by
+construction, and refusing a future entry the moment one prints below it. It
+would also test almost nothing at exit, since ADX on these instruments is rarely
+near 10. A declaration that is inert by fitting is not evidence of safety.
+
+### So the answer is: DO NOT declare `adx_min` on these legs
+
+There is no value that is both meaningful and non-destructive, and that is not a
+tuning failure — it is the measurement telling us the predicate is wrong.
+
+**These legs' entry thesis is not ADX.** Their entry condition is the
+trend-and-pullback STRUCTURE (`trend_lookback`, `pullback_lookback`,
+`pullback_frac`); the ADX band is an *optional additional* regime filter that
+only the four 2h crypto legs ever adopted. `_pullback_thesis_intact` tests the
+ADX floor because that is what the crypto legs declare — so on a leg that never
+declared one it correctly returns `thesis_unknown`.
+
+**The real remedy is a trend-structure thesis predicate** — "is the trend that
+defined this entry still intact?" — for legs with no declared ADX band. That is a
+change to `_pullback_thesis_intact` (code, with its own design and falsifier),
+**not** a value in `config/strategies.yaml`. It is also the § 4-faithful answer:
+the thesis is the family's OWN entry condition re-evaluated, and for these legs
+that condition was never ADX.
+
+---
+
 ## 8. Filed
 
 | id | sev | note |

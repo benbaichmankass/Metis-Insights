@@ -201,6 +201,7 @@ GUARDS: List[Dict[str, Any]] = [
             # sentinel, and cap_r stays inversely proportional to the stop. A
             # self-test nobody invokes is worse than a missing one, so it runs here.
             ["python3", "scripts/research/bracket_expectation_census.py", "--selftest"],
+            ["python3", "scripts/research/adx_entry_distribution.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.
