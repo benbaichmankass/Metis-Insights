@@ -561,6 +561,82 @@ tracking issues over ephemeral logs.
 
 ---
 
+## Part 6 — The axes the first pass did not reach (added after operator challenge)
+
+The operator's read was that the first pass *"doesn't seem extensive enough"*.
+That was correct: I had named the gaps and not closed them. These are the
+closures.
+
+### 6.1 LIVENESS — the zombie hunt
+
+| probe | result |
+|---|---|
+| workflows | **112**; exactly **1** with no trigger that can fire (`claude-run-failure-alert.yml` — it is `workflow_run`-driven, so this is a detector artefact, not a zombie). 13 scheduled. |
+| systemd timers | **15 of 16 active.** The one inactive is `ict-ib-gateway-watchdog.timer` — **correct on this host**: it is auto-enabled only where `/etc/ict-vm-role == gateway`. |
+| long-running services | **5 of 5 active** — `ict-trader-live`, `ict-web-api`, `ict-telegram-bot`, `ict-claude-bridge`, and **`caddy.service`** (the SPA's transport, the one unit outside the `ict-*` guard's reach). |
+| env gates | 25 distinct `*_ENABLED` / `*_DISABLED` / `*_MODE` / `*_SOURCE` names in `src/`. No default-off gate found in front of a required capability. |
+
+**F-13 · A unit deliberately absent from a host is indistinguishable from one
+that has failed.** `/api/diag/services` lists `ict-ib-gateway-watchdog.timer`
+and reports `inactive` on the live VM, where it is *supposed* to be absent. A
+reader — or a health review grepping for non-active units — reads that as the IB
+gateway auto-heal being down. It matters more than it looks given F-5: IB reads
+are intermittently failing, and **nothing on the live VM can tell you whether
+that watchdog is alive on the gateway VM.** The allowlist needs a per-host
+expectation (`expected_on: gateway`), so `inactive` there grades as
+`not_on_this_host` rather than as a failure. Not fixed — it touches the diag
+allowlist contract.
+
+### 6.2 MODULARITY — change amplification and registry completeness
+
+**Change amplification is IMPROVING**, measured from real commits:
+
+| change | files touched |
+|---|---|
+| add `ict_scalp_mgc_15m` (2026-08-20 measurement) | **17** |
+| add `trend_donchian_eth_prop` | **13** |
+| add `trend_donchian_sol_prop` | **13** |
+| add account `bybit_portfolio` | **10** |
+
+**F-14 · `DEFAULT_PRIORITIES` — the drifted default, re-measured and now
+CONCRETE.** The 2026-08-20 audit raised this as a distribution problem; it now
+has exactly one named live consequence.
+
+- 50 map entries, **47 live legs**, **0 stale entries** (the map has no dead rows — good).
+- **5 live legs are absent from the map**: `gdx_pullback_1d`, `iaum_pullback_1d`, `scha_trend_long_1d`, `slv_pullback_1d`, `splg_trend_long_1d`.
+- A miss resolves to `_UNKNOWN_STRATEGY_PRIORITY = 10`, documented as *"deliberately below the in-scope strategies"*. The live distribution is **41 of 50 at priority 0** and **46 of 50 at ≤ 10** — so omission **outranks or ties 46 of 50 declarations**, the inverse of the constant's stated purpose.
+- ⚠️ **But the blast radius is ONE leg, not five.** Priority only arbitrates between legs contending on the same symbol. Four of the five are the sole live leg on their symbol, so their priority never arbitrates. The single real instance: **`slv_pullback_1d` (miss → 10) contends with `slv_trend_1h` (declared 0) on SLV**, and the undeclared leg wins.
+
+*(I checked whether the map's two call sites disagree —
+`intent_multiplexer` passes `DEFAULT_PRIORITIES.get(name)` with no default while
+`StrategyIntent.effective_priority()` resolves the miss itself. They do **not**
+disagree: the `None` is deliberate and the miss is single-homed in
+`effective_priority`. Reporting a divergence there would have been wrong.)*
+
+### 6.3 RECURRENCE — the anti-treadmill pass, and the audit's sharpest finding
+
+**F-15 · 🔴 Of 596 RESOLVED findings across the three backlogs, 2 carry a
+`detector` — 0.3%. Both are from this session.**
+
+| backlog | items | resolved | with a detector |
+|---|---|---|---|
+| health | 800 | 450 | **2** |
+| performance | 106 | 65 | **0** |
+| ml | 104 | 81 | **0** |
+| **total** | **1,010** | **596** | **2** |
+
+This is the mechanical answer to *"why do we keep finding the same bugs"*. Six
+hundred findings have been fixed and essentially none left a permanent check
+that fails if they return. The audit program's own finding schema has required
+`detector` since 2026-08-20; adoption is ~0.
+
+It is also the cheapest high-leverage fix on the list: the field exists, the
+schema mandates it, and nothing enforces it. A `claim-basis`-style guard
+requiring `detector` on any item moving INTO a terminal status would convert
+the backlog from a queue into a regression suite.
+
+---
+
 ## Coverage contract (honest)
 
 **Behavioral (primary):** 7 committed invariants run against live broker truth
@@ -577,7 +653,11 @@ live reads of 12 API surfaces · 6 journal tables pulled whole
 disclaimer), the audit + exit-refinement skills, the coverage matrix and its
 rollup.
 
-**NOT reached this pass — stated, not implied:**
+**CLOSED in the second pass (Part 6):** LIVENESS (workflows, timers, services,
+env gates) · MODULARITY (change amplification, registry completeness both
+directions) · RECURRENCE (detector coverage over 596 resolved findings).
+
+**STILL not reached — stated, not implied:**
 - **Android was not audited** (it is ON ICE per its own CLAUDE.md; a real defect
   would still be filed, and none was looked for).
 - **Hop 12 was partially covered.** A targeted consumer-contract pass over three
@@ -599,8 +679,6 @@ rollup.
   differently). A full per-trade render trace across all three consumers is
   still not done.
 - **Trainer-VM-side** state beyond the mirror (no trainer relay run this session).
-- The **106 workflows / system-actions allowlist** liveness sweep (axis 3.5).
-- **Axis 3.7 change-amplification** measurement from git history.
 - A **per-line `src/` sweep** (retired as a headline metric by the skill).
 
 ---
