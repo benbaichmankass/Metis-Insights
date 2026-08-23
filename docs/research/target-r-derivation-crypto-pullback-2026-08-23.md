@@ -234,3 +234,80 @@ Consequences, stated rather than left to be discovered:
 The durable fix is either committing tune results to a tracked location (as
 `comms/` already does for GPU spend and broker truth) or running the sweep on
 the VM. Filed as its own row; not fixed here.
+
+---
+
+# The whole family swept — and 1 of 6 produces a shippable value
+
+The operator's directive was a **deeper dive and a fine-tuning attempt before
+demoting**. That is now done for all six live crypto pullback legs, on the same
+method: config-exact params, 13,212 2h bars per symbol from `binance_vision`,
+walk-forward with OOS from 2026-01-01, cap pinned at 0.099.
+
+| leg | current | pick | beats base | train/OOS consistent | OOS net_total across the grid |
+|---|---:|---:|:--:|:--:|---|
+| **`xrp_pullback_2h`** | 50 | **3.0** | ✅ | ✅ | 1.5:0.89 2:1.69 2.5:4.12 **3:4.38** 4:2.15 50:2.16 |
+| `ada_pullback_2h` | 50 | 2.0 | ✅ | ❌ | 1.5:5.63 2:8.66 2.5:5.26 3:6.75 4:5.09 50:5.09 |
+| `eth_pullback_2h` | 50 | 2.5 | ✅ | ❌ | 1.5:−9.40 2:−6.17 2.5:−5.81 3:−6.48 4:−9.90 6:−9.61 50:−9.61 |
+| `eth_pullback_prop_2h` | 6 | 2.0 | ✅ | ❌ | 1.5:−7.06 2:−6.12 2.5:−8.49 3:−8.01 4:−8.67 6:−8.67 50:−8.67 |
+| `htf_pullback_trend_2h` | 50 | 2.0 | ✅ | ❌ | 1.5:−11.62 2:−6.44 2.5:−7.69 3:−16.35 4:−14.35 6:−13.93 50:−13.93 |
+| `sol_pullback_2h` | 50 | 6.0 | ❌ | ❌ | 1.5:−7.87 2:−8.36 2.5:−7.31 3:−5.84 4:−4.52 **6:−4.44 = 50:−4.44** |
+
+**Read the grids, not the verdict column.** Three legs — `eth_pullback_2h`,
+`eth_pullback_prop_2h`, `htf_pullback_trend_2h` — are **net-negative at every
+single tested value**. Their "beats baseline ✅" means *less bad*. And
+`sol_pullback_2h`'s "best" value **is** its baseline (6.0 and 50.0 return the
+identical −4.44 on identical trade counts, because the cap binds above ~4R and
+they are the same book), so tuning found nothing at all.
+
+**Only `xrp_pullback_2h` produces a value worth shipping** — a clean interior
+peak, positive throughout, consistent across train and OOS, roughly doubling
+OOS net_total against the sentinel.
+
+This reproduces on the `tp_r` axis exactly what
+`BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE` already found on the
+exit-lever axis: *"a lever that improves a losing book leaves a losing book"*.
+The tuning attempt has now been **made** for all six — which is what
+tune-before-demote required — and for five of six it produced nothing. That is
+a legitimate outcome of an attempt, and it is what puts the disposition question
+properly on the table for those five rather than skipping to it.
+
+Verified, not assumed: `tuning_attempt_on_record` now returns `True` for all six
+legs and `False` for `trend_donchian_sol_4h` (never swept), so the gate would
+still correctly soften a demotion for anything outside this set.
+
+## ⚠️ A tooling defect this surfaced, and it was pointing the wrong way
+
+`eth_pullback_2h`'s recommendation, before the fix, read:
+
+```
+action:          propose_value
+proposed_value:  2.5
+beats_baseline:  true
+yaml_line:       config/strategies.yaml::eth_pullback_2h.tp_r : 2.5
+```
+
+— a **ready-to-paste Tier-3 config line** on a leg that loses money at every
+tested value. `beats_baseline` is a *relative* test and says nothing about the
+sign; the pre-existing `train_oos_consistent` caveat does not cover it either,
+because that grades **consistency**, not profitability.
+
+That is the unprovenanced-diagnostic sub-class A shape: the label names a
+comparison, a reader maps it to "is this good?", and nothing in the output
+reveals the substitution. The repo's *sibling* sweep already had the concept
+(`rate_ungradeable_why: base_unprofitable`); this tool did not — a grep for
+`unprofitable` in it returned nothing.
+
+Fixed: the recommendation now publishes `chosen_net_total`,
+`chosen_is_profitable` and `any_grid_value_profitable`, and when **no** tested
+value is profitable the action becomes `no_profitable_value` with
+
+> ⛔ NO TESTED VALUE IS PROFITABLE — every point on this grid is net-NEGATIVE
+> (best −5.8083). `beats_baseline` here means LESS BAD, not good. Tuning this
+> parameter cannot rescue this leg; the question is a disposition, not a value.
+
+That is not a judgement dressed as a fact — *"there is no profitable value in
+this grid"* is a statement about the grid. Both branches were exercised against
+the real corpora (XRP still `propose_value`; ETH now `no_profitable_value`), and
+a mixed grid is reported as a third, distinct case so "the PICK is negative" is
+never confused with "the LEG is".
