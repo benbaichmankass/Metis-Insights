@@ -354,9 +354,17 @@ def _call_vision(image_b64: str, media_type: str) -> str:
     caller = _call_vision_gemini if _is_gemini(primary) else _call_vision_anthropic
     try:
         return caller(primary, image_b64, media_type)
-    except ScreenshotParseError:
-        raise
-    except Exception as exc:  # noqa: BLE001 — provider/network/billing failure
+    except Exception as exc:  # noqa: BLE001 — provider/network/billing/env failure
+        # ⚠️ A PRIMARY ``ScreenshotParseError`` FALLS BACK TOO (2026-08-23).
+        # This used to `except ScreenshotParseError: raise` before the generic
+        # handler, which defeated the fallback for the most common failures:
+        # every ScreenshotParseError the two callers raise is provider-level and
+        # retryable on the OTHER provider — SDK not installed, API key absent,
+        # HTTP non-200, unreadable response, empty completion. None of them says
+        # anything about the image, so short-circuiting on them meant a missing
+        # ANTHROPIC_API_KEY took out the whole manual bridge while a working
+        # Gemini key sat unused. The non-retryable checks (empty image,
+        # unsupported media type) live in ``parse_screenshot``, above this call.
         fallback = _fallback_model_id()
         # Never "fall back" to the provider that just failed.
         if not fallback or fallback == primary or _is_gemini(fallback) == _is_gemini(primary):
@@ -367,7 +375,22 @@ def _call_vision(image_b64: str, media_type: str) -> str:
             "falling back to %s", primary, exc, fallback,
         )
         alt = _call_vision_gemini if _is_gemini(fallback) else _call_vision_anthropic
-        return alt(fallback, image_b64, media_type)
+        try:
+            return alt(fallback, image_b64, media_type)
+        except Exception as alt_exc:  # noqa: BLE001 — both providers are down
+            # ⚠️ REPORT BOTH CAUSES. The fallback's error used to propagate
+            # ALONE, so the operator read "screenshot reading failed
+            # (gemini-2.5-flash HTTP 404) — type the report instead" and
+            # reasonably concluded the problem was Gemini, while whatever took
+            # out the PRIMARY was visible only in a VM log line they never see.
+            # That is a failure message naming a cause no code path tested —
+            # the class CLAUDE.md § "Diagnostic provenance" (sub-class A) exists
+            # to stop. Observed live 2026-08-23 on the prop bot.
+            raise ScreenshotParseError(
+                f"screenshot reading failed on BOTH vision providers — "
+                f"primary {primary}: {exc} || fallback {fallback}: {alt_exc}. "
+                "Type the report instead."
+            ) from alt_exc
 
 
 def parse_screenshot(
