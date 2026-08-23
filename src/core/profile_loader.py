@@ -132,6 +132,45 @@ def contract_value_usd_for(symbol: str) -> float:
     return _CONTRACT_VALUE_USD_CACHE.get(symbol, 1.0)
 
 
+_TICK_SIZE_CACHE: dict[str, float] | None = None
+
+
+def tick_size_for(symbol: str) -> float | None:
+    """Venue price grid for *symbol*, or ``None`` when it cannot be resolved.
+
+    Sibling of :func:`contract_value_usd_for` over the same single source
+    (``config/instruments.yaml``), added 2026-08-23 for
+    `BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND`: grading whether a resting
+    stop sits where the journal declared needs the venue's tick, and every
+    caller that wanted one was re-reading the YAML itself.
+
+    ⚠️ **Returns ``None`` rather than a default, unlike its sibling.** A wrong
+    contract value scales a P&L figure; a wrong TICK turns a real protection
+    divergence into "agrees" or the reverse, so the safe failure is to refuse
+    and let the caller report `no_tick_size`. Do not add a fallback here.
+
+    Memoized process-wide; reset ``_TICK_SIZE_CACHE`` to force a reload (tests).
+    """
+    global _TICK_SIZE_CACHE
+    if not symbol:
+        return None
+    if _TICK_SIZE_CACHE is None:
+        try:
+            profiles = load_instrument_profiles()
+            cache: dict[str, float] = {}
+            for sym, prof in (profiles or {}).items():
+                try:
+                    tick = float(getattr(prof, "tick_size", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if tick > 0:
+                    cache[sym] = tick
+            _TICK_SIZE_CACHE = cache
+        except Exception:  # noqa: BLE001 — best-effort; None is the honest answer
+            _TICK_SIZE_CACHE = {}
+    return _TICK_SIZE_CACHE.get(symbol)
+
+
 # Commission-free venues: US equities/ETFs on Alpaca settle at $0 commission
 # (only sub-basis-point SEC/TAF regulatory fees on the SELL leg, treated as
 # negligible). The flat crypto-style round-trip-bps estimate over-charges them

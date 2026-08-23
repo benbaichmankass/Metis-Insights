@@ -6871,6 +6871,10 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
         # Graded SEPARATELY from the stop side: a position can be fully
         # stop-covered and hold no target at all (BL-20260816-COVERAGE-IS-ONE-SIDED).
         "target_naked": 0,
+        # Graded on PRICE, not quantity: a stop can cover the full size on
+        # the correct side and still rest nowhere near the declared level
+        # (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND).
+        "stop_price_diverges": 0,
     }
     interval = _ib_broker_naked_check_interval_seconds()
     if interval <= 0:
@@ -7013,6 +7017,62 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
             # (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG:
             # MES still rests at 7516.5 against a declared 7533.69642857 —
             # 17.196429 pts x 15 x 5 = $1,289.73).
+            # PRICE. Everything above grades QUANTITY and SIDE; none of it can
+            # answer "is protection resting WHERE WE DECLARED?"
+            # (BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND). A stop covering
+            # the full size on the correct side grades FULLY COVERED however far
+            # from the journal's level it sits -- measured live 2026-08-23 on
+            # ib_paper MES 4350: declared 7533.696429, resting 7516.5, 68.8
+            # ticks, and at $5/pt x 15 contracts that is $1,289.72 of protection
+            # the position does not have. This sweep had never flagged it; an
+            # offline reconciler run is what found it.
+            #
+            # DETECT-ONLY, for the same reason the over-cover check below is:
+            # choosing what to do about a divergence -- amend, or cancel and
+            # re-arm -- is exactly what went wrong on 2026-08-20, when the
+            # remediation cancelled the leg that MATCHED the journal and kept
+            # the stray. Grading is Tier-1; touching a live protective order is
+            # not, and this sweep does not do it.
+            #
+            # The verdict comes from src.runtime.protection_price, the same pure
+            # module scripts/ops/broker_bracket_reconcile.py grades with, so the
+            # live sweep and the offline report can never disagree about a level.
+            try:
+                from src.core.profile_loader import (
+                    contract_value_usd_for, tick_size_for,
+                )
+                from src.runtime.protection_price import (
+                    PRICE_DIVERGES, grade_protection_price,
+                )
+                _pv = grade_protection_price(
+                    declared=row["stop_loss"],
+                    resting_prices=cov.get("stop_prices"),
+                    direction=row["direction"],
+                    side="stop",
+                    tick_size=tick_size_for(protect_symbol),
+                )
+                if _pv["state"] == PRICE_DIVERGES:
+                    summary["stop_price_diverges"] += 1
+                    _gap = abs(_pv["diff"]) * contract_value_usd_for(
+                        protect_symbol) * size
+                    logger.error(
+                        "_check_broker_naked_ib_positions: STOP PRICE DIVERGES "
+                        "%s/%s trade=%s -- journal declares %s but the nearest "
+                        "resting stop is %s (%.1f ticks %s the declared level; "
+                        "%s). ~$%.2f of declared protection is not actually "
+                        "resting. Detect-only: resolve by hand, and READ "
+                        "trades.stop_loss rather than taking a level from a "
+                        "caller.",
+                        account_id, protect_symbol, row["id"],
+                        _pv["declared"], _pv["nearest_resting"], _pv["ticks"],
+                        _pv["side_of_declared"], _pv["exposure"], _gap,
+                    )
+            except Exception as exc:  # noqa: BLE001 -- grading never breaks the sweep
+                logger.debug(
+                    "_check_broker_naked_ib_positions: price grading failed "
+                    "for %s/%s: %s", account_id, protect_symbol, exc,
+                )
+
             _stop_q = float(cov.get("stop_qty") or 0.0)
             if _stop_q > size * _IB_OVERCOVER_FACTOR:
                 summary["over_covered"] += 1
