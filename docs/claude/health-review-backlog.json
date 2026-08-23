@@ -22322,6 +22322,20 @@
         "config/accounts.yaml"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH",
+      "opened_at": "2026-08-23T17:00:00+00:00",
+      "opened_by": "bracket-expectations-session (found while trying to reuse the e35 bracket-geometry evidence for a dispersion test)",
+      "severity": "medium",
+      "tier": "1 (research tooling / CI — no runtime path)",
+      "status": "open",
+      "area": "research infra / evidence durability",
+      "title": "The e35 bracket-geometry sweep's 3,781 measured cells exist only as GitHub Actions artifacts — no session can read them back, so every consumer must re-run a multi-hour sweep",
+      "detail": "MEASURED 2026-08-23. docs/research/e35-bracket-geometry-sweep-2026-08-20.md reports 19 legs x 199 grid cells = 3,781 measured cells plus 133 gate rows. Wanting to run a per-leg dispersion test on the donchian STOP cells, I went looking for that evidence and it is not reachable:\n\n- docs/research/m20-sweep-corpus.jsonl holds 1,379 rows, 331 of them donchian, across 44 distinct cells -- and ZERO of those cells name a stop (`sm*`). Every corpus cell is an M20 LEVER cell (giveback/decay/stale/flip). Asserted by counting, not by eye.\n- .github/workflows/e35-bracket-sweep.yml ends in two `actions/upload-artifact` steps and a GITHUB_STEP_SUMMARY. There is no corpus-extract step and no commit.\n- Root CLAUDE.md is explicit that a PM-side session has NO artifact download.\n\nSo the sweep's own evidence is write-only from any session's point of view.\n\nTHIS IS THE EXACT PROBLEM m20_corpus_extract.py WAS BUILT TO SOLVE, unfixed for the newer sweep. That tool's own index entry says it: 'Before this, every sweep's evidence went to an Actions artifact no session can download ... so each run restarted the population from zero and no threshold could be derived from more than one sweep.' The lever sweep got the fix; the bracket sweep reproduced the defect.\n\nWHY THE EXISTING EXTRACTOR CANNOT JUST BE POINTED AT IT: the e35 sweep writes report.json + SUMMARY.md + results.jsonl (e35_bracket_geometry_sweep.py:688-690), NOT the verdicts.json m20_corpus_extract.py consumes -- and that extractor deliberately REFUSES a foreign schema loudly (its own docstring: 'TWO SWEEPS WRITE A FILE CALLED verdicts.json AND THE SCHEMAS ARE [different]'). So this needs an e35-shaped extractor, not a path argument.\n\nCONSEQUENCE, and it is not theoretical: the 2026-08-20 sweep's headline reading -- 17 of 19 argmax cells move the STOP, and the two families select from disjoint halves of the stop grid -- is quotable from the committed markdown but CANNOT BE RE-INTERROGATED. Any follow-up (dispersion on a specific cell, a different gate, wins_effective beside wins) requires re-running the whole multi-hour sweep from candles. I am re-running it now for exactly that reason.",
+      "evidence": "docs/research/m20-sweep-corpus.jsonl (1,379 rows; 331 donchian; 0 cells matching sm*); .github/workflows/e35-bracket-sweep.yml lines 158 + 208 (upload-artifact) with no extract/commit; scripts/research/e35_bracket_geometry_sweep.py:688-690 (writes report.json/SUMMARY.md/results.jsonl); scripts/research/m20_corpus_extract.py docstring + its foreign-schema refusal",
+      "resolution_criteria": "An e35 sweep run leaves per-cell rows in a COMMITTED artifact a later session can read without re-running it, and the workflow does that automatically rather than relying on someone remembering. Acceptable: an e35-shaped extractor writing into m20-sweep-corpus.jsonl (with a schema/lever tag so bracket cells and lever cells stay distinguishable and cannot silently merge), plus a commit step in e35-bracket-sweep.yml. NOT sufficient: uploading a nicer artifact, or documenting that the artifact exists -- the failure is that no session can READ it, so the test is that one can, from a committed file, without a re-run.",
+      "not_a_finding_about": "NOT a criticism of the sweep's measurements, which are sound and whose markdown report is committed. The gap is retrievability of the per-cell rows behind them."
     }
   ]
 }
