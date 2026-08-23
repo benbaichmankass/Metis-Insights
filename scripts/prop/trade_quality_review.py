@@ -45,6 +45,8 @@ Usage::
     python scripts/prop/trade_quality_review.py --account breakout_1 --tolerance-bps 15
     python scripts/prop/trade_quality_review.py --db --json
 """
+# wiring: manual-only - a REVIEW tool, invoked by /performance-review (see its § 'Prop trade quality'). Nothing schedules it because the review cadence IS its runner; a timer would produce a report no one had asked for.
+
 from __future__ import annotations
 
 import argparse
