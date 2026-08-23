@@ -1,6 +1,6 @@
 ---
 name: full-system-audit
-description: The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check, and not a per-file review. Use when the operator says "run a full system audit", "audit the whole system / everything", "review every line of code", "/full-system-audit", or for a periodic governance pass. A MULTI-SESSION program you orchestrate, on SEVEN axes ordered by blast radius — BEHAVIOR (assert outcomes end-to-end on live data, including a FULL PIPELINE VERIFICATION of real trades hop by hop), INDEPENDENCE (can a claim be falsified by evidence its own producer does not control), CONSISTENCY, LIVENESS, OUTCOME (did what we built deliver what its design promised, measured against history), MODULARITY (how many files must change to make one system change, and can a change be half-applied), and RECURRENCE (does every past finding leave a permanent detector) — plus a standing DESIGN-CRITICISM phase judging the system's COHESION, FUNCTION and underlying PHILOSOPHY as a whole, not component by component. Composes with doc-freshness, workplan-vs-architecture, session-coordination, diag-data, db-wiring, delegate-work. NOT a code-quality review (use `review`) and NOT a runtime health check (use `health-review`).
+description: The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check, and not a per-file review. Use when the operator says "run a full system audit", "audit the whole system / everything", "review every line of code", "/full-system-audit", or for a periodic governance pass. A MULTI-SESSION program you orchestrate, on SEVEN axes ordered by blast radius — BEHAVIOR (assert outcomes end-to-end on live data, including a FULL PIPELINE VERIFICATION of real trades hop by hop), INDEPENDENCE (can a claim be falsified by evidence its own producer does not control), CONSISTENCY, LIVENESS, OUTCOME (did what we built deliver what its design promised, measured against history), MODULARITY (how many files must change to make one system change, and can a change be half-applied), and RECURRENCE (does every past finding leave a permanent detector) — plus a MANDATORY SYSTEM REVIEW (Phase 3.10 — the audit carries /system-review's promotion/demotion readiness, ML training + soak health, flags, and backlog drive; it is not deferred to a separate session) and a standing DESIGN-CRITICISM phase judging the system's COHESION, FUNCTION and underlying PHILOSOPHY as a whole, not component by component. Composes with doc-freshness, workplan-vs-architecture, session-coordination, diag-data, db-wiring, delegate-work. NOT a code-quality review (use `review`) and NOT a runtime health check (use `health-review`).
 ---
 
 # /full-system-audit — the exhaustive whole-system audit PROGRAM
@@ -502,6 +502,57 @@ column is ignored, not an error, and `total` comes back as the whole table.
 
 ---
 
+## Phase 3.10 — THE SYSTEM REVIEW (mandatory, not a separate session)
+
+*(Operator directive 2026-08-23: a full system audit MUST also carry a full
+system review. Running the audit and leaving the review for "a separate
+session" is how a review-cadence assessment silently goes unmade for as long
+as audits keep pre-empting the calendar.)*
+
+The audit and the review answer **different questions over the same system**,
+and neither substitutes for the other:
+
+| | asks | fails when |
+|---|---|---|
+| **audit** (axes 1–7) | *is the mechanism correct?* | a seam is broken, a verdict is unfalsifiable, a fix has no detector |
+| **review** (`/system-review`) | *what has the system BEEN DOING, and what decision is now due?* | a promotion gate is met and nobody notices; a soak stalls; a backlog grows |
+
+An audit can return a clean bill on a system whose every promotion decision is
+overdue, and a review can report a healthy fleet built on a broken measurement.
+**Run both.**
+
+**What this phase requires.** Execute the assessments
+[`.claude/skills/system-review/SKILL.md`](../system-review/SKILL.md) declares —
+its three constituent reviews (`/health-review`, `/performance-review`,
+`/ml-review`) plus the four assessments the audit axes do NOT cover:
+
+1. **Strategy promotion/demotion readiness** — where each live leg stands
+   against its gate, and which decisions are DUE.
+2. **ML training-cycle + soak health** — are cycles running, dataset builds
+   clean, soaks accruing rather than stalled.
+3. **Flags raised loudly** — anything degrading, named, not buried.
+4. **Backlog drive** — DRAIN open items in all three review backlogs, not
+   merely count them.
+
+`system-review`'s own **`review_coverage` guard** applies here unchanged: a run
+missing any of `strategy_promotion` / `ml_training_health` / `soak_status` /
+`flags_raised` / `backlog_drive` FAILS. The audit does not get an exemption
+from a guard the review cannot skip.
+
+**Deduplicate, do not re-run.** Where an audit pass already produced the
+evidence a review assessment needs, cite it rather than repeating the pull —
+the audit's BEHAVIOR pass (3.1/3.2) largely covers `/health-review`'s pipeline
+half, and its OUTCOME pass (3.4) largely covers the performance half. What is
+genuinely additive is the **decision** layer: promotion/demotion readiness,
+soak status, and the backlog drive. Spend the budget there.
+
+**One report, not two.** The audit report (Phase 5) carries the review's
+consolidated content as its own sections — same artifact, same
+`/api/bot/reports` entry, one ping. Two reports for one session is how the
+second one goes unread.
+
+---
+
 ## Phase 4 — Dispositions
 
 - **Tier the action.** Tier-1 (docs/tests/CI/dead code/observability) → fix and
@@ -550,8 +601,10 @@ commit (the VM mirrors via `ict-git-sync`); `"audit"` is in `_VALID_WINDOWS` in
 **Content:** what was covered (**both** coverage numbers — behavioral and
 reading, with what was not reached) · findings by axis and blast radius · what
 was fixed (SHAs/PR#s + live-verify evidence) · what is proposed and awaiting
-operator approval · what was verified a non-issue · what remains open · **and
-the design-criticism section from Phase 6.**
+operator approval · what was verified a non-issue · what remains open · **the
+system-review sections from Phase 3.10** (promotion/demotion readiness, ML
+training + soak health, flags raised, backlog drive, and the `review_coverage`
+block) · **and the design-criticism section from Phase 6.**
 
 ---
 
@@ -619,6 +672,10 @@ trading system a confident wrong "done" is worse than "I need to verify X".
 
 ## Composes with
 
+- **`system-review`** (and through it `health-review` / `performance-review` /
+  `ml-review`) — Phase 3.10. **Required**, not optional: the audit asks whether
+  the mechanism is correct; the review asks what the system has been doing and
+  which decision is now due. Its `review_coverage` guard binds here too.
 - **`doc-freshness`** — Phase 0b (opening) + Phase 5 decision-landing (closing).
 - **`workplan-vs-architecture`** — Phase 3.5 intent↔design↔reality drift.
 - **`delegate-work`** — Phase 2 decomposition + fan-out.

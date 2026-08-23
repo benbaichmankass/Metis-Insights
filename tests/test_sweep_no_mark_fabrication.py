@@ -24,6 +24,17 @@ from src.runtime.provenance import (
     ESTIMATED, FABRICATED, UNMEASURED_MARKER, classify_pnl,
 )
 
+# NOTE on `exit_reason` below: it is NOT optional. Production `trades` has it
+# and the sweep SELECTs it (it gates the exit-LABEL relabel on the row still
+# carrying the generic reason). A fixture MISSING a production column does not
+# fail loudly -- sqlite raises `no such column`, the sweep's broad `except`
+# swallows it into `scan query failed`, and every behavioural test in this file
+# then reports `assert 0 == 1` as if the production code were broken. That is
+# the `order_packages.id` class (BL-20260810, a fixture declaring a schema
+# production does NOT have) in its mirror image: a fixture missing a column
+# production DOES have. Kept as a Python comment, not an SQL one, because
+# `test-schema-fidelity-guard` tokenises the DDL body and reads prose words as
+# column names. BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY.
 _SCHEMA = """
 CREATE TABLE trades (
     id INTEGER PRIMARY KEY,
@@ -32,6 +43,7 @@ CREATE TABLE trades (
     pnl REAL, pnl_percent REAL, status TEXT,
     is_backtest INTEGER DEFAULT 0, setup_type TEXT,
     order_package_id TEXT, closed_at TEXT, created_at TEXT,
+    exit_reason TEXT,
     timestamp TEXT, notes TEXT
 );
 """
@@ -288,6 +300,20 @@ def test_fixture_row_is_inside_the_sweep_scan_window(db):
     disagree the failure NAMES that, instead of being discovered by elimination.
     """
     summary = om._sweep_local_pnl_for_unpriced(db)
+    # DISTINGUISH THE TWO CAUSES OF `scanned == 0`. This test used to name only
+    # the window, so when the sweep's SELECT gained a column the fixture lacked
+    # it confidently reported "the fixture clock has drifted" and sent the reader
+    # to inspect a clock that was fine. A failing scan query is not a stale
+    # window, and the swallowed `no such column` makes them look identical.
+    _cols = {r[1] for r in db.connect().execute("PRAGMA table_info(trades)")}
+    _need = {"exit_reason", "setup_type", "notes", "created_at", "position_size"}
+    assert _need <= _cols, (
+        "the fixture's `trades` table is MISSING column(s) the sweep SELECTs: "
+        f"{sorted(_need - _cols)}. The sweep is not broken — the fixture has "
+        "drifted from production DDL, sqlite's `no such column` is swallowed "
+        "into `scan query failed`, and every other test in this file then fails "
+        "as `assert 0 == 1`"
+    )
     assert summary["scanned"] == 1, (
         "the fixture row fell outside the sweep's `datetime('now','-14 days')` "
         "scan window — the fixture clock has drifted, the sweep is not broken"

@@ -107,6 +107,13 @@ EXPECTED_ACTIONS = {
     # (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ). Dry-run by default;
     # apply:1 makes it a Tier-2 money-DB write.
     "backfill-fabricated-exits": "backfill_fabricated_exits_action.sh",
+    # 2026-08-23 — relabel trades.exit_reason on rows PRICED after they were
+    # closed, whose label stayed frozen at the reconciler's generic fallback
+    # (BL-20260823-EXIT-LABEL-FROZEN-ON-THE-ANCHORED-PRICE-PATH). The price's
+    # provenance gates the label; a FABRICATED price is REFUSED and the refusal
+    # is stamped. Touches no monetary field. Dry-run by default; apply:1 makes
+    # it a Tier-2 money-DB write.
+    "backfill-exit-labels": "backfill_exit_labels_action.sh",
     # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
@@ -316,6 +323,7 @@ TIER_2_ACTIONS = {
     "backfill-broker-order-id",
     "backfill-broker-truth-costs",
     "backfill-fabricated-exits",
+    "backfill-exit-labels",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
     "pull-exchange-funding",

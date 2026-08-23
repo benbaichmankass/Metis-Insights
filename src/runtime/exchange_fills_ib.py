@@ -21,9 +21,30 @@ mark, and IBKR historical-candle coverage is **0%**, so without a broker-truth
 read every future IB close becomes a *declared unmeasured* gap. This module is
 what converts that gap into a measurement instead.
 
-The mechanism is structural, not a bug: ``interactive_brokers`` is absent from
-``clients.BROKER_PNL_READER_EXCHANGES`` (today ``{"bybit"}``), there is no
-``IBClient.fills()``, and so every IB close falls through to
+⚠️ **THE PARAGRAPH BELOW DESCRIBES THE STATE THIS MODULE WAS WRITTEN FOR, WHICH
+NO LONGER HOLDS. Do not read it as current** (corrected 2026-08-23). Measured
+today, ``clients.BROKER_PNL_READER_EXCHANGES`` is
+``{"bybit", "interactive_brokers", "alpaca"}`` — IBKR **is** a declared
+broker-truth reader, wired since 2026-07-31 (#8111, commit ``e5e8656a``), and
+``clients.account_closed_pnl_for_trade`` dispatches its closes to
+``src.runtime.fills_pnl.exit_from_fills(require_realized=True)``, which reads
+each fill's ``CommissionReport.realizedPNL`` and returns ``closed_pnl``. So an
+IB close no longer falls through to the mark-priced sweep.
+
+The stale text cost something real: it is what
+``BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER`` reasoned from, filing a
+CRITICAL on the inference that IBKR's realised PnL was "pulled hourly and never
+read". The function ``closed_pnl_from_fills`` in THIS module does indeed have
+zero production callers — but a DIFFERENT, wired function reads the same field,
+so the data path was never blind. Measured on the live journal 2026-08-23 (a
+small population, stated: 15 closed ``ib_paper`` rows in total, 6 of them closed
+on or after the wiring date): **4 of those 6 grade ``measured``**, against a
+pre-wiring mix of fabricated/unverified. Field beats comment — and a call count
+on one accessor is not a claim about the data path.
+
+The historical framing follows, kept as the record of why this module exists:
+``interactive_brokers`` WAS absent from ``clients.BROKER_PNL_READER_EXCHANGES``,
+there is no ``IBClient.fills()``, and so every IB close fell through to
 ``order_monitor._sweep_local_pnl_for_unpriced``, which prices a CONFIRMED CLOSE
 off ``last_mark_price()`` — the market hours later — and then multiplies that
 error by the futures contract multiplier.

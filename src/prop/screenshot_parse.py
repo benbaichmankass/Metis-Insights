@@ -43,7 +43,13 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-sonnet-5"
+# ⚠️ AN API MODEL ID, NOT A MARKETING NAME (corrected 2026-08-23).
+# This read ``claude-sonnet-5``, which is not an id the Anthropic API serves —
+# so the PRIMARY provider failed on every screenshot, silently handing every
+# request to the fallback. The working caller in this repo
+# (``src/runtime/insights/generator.py``) uses ``claude-sonnet-4-6`` and
+# ``claude-haiku-4-5-20251001``; this now matches it rather than inventing an id.
+_DEFAULT_MODEL = "claude-sonnet-4-6"
 _FILL_STATUSES = {"placed", "open", "filled", "closed", "skipped"}
 _SUPPORTED_MEDIA = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 
@@ -232,9 +238,32 @@ _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 #: Used when the PRIMARY provider fails for a provider-level reason (dead key,
 #: exhausted credit, quota). Gemini's free tier is multimodal, and its key is
 #: already synced to the live VM by `sync-vm-secrets.yml`, so this costs no new
-#: infrastructure. `gemini-2.5-flash` is chosen because it is ALREADY exercised
-#: elsewhere in this repo — not invented here.
-_DEFAULT_FALLBACK_MODEL = "gemini-2.5-flash"
+#: infrastructure.
+#:
+#: ⚠️ WAS ``gemini-2.5-flash``, WHICH 404s ON THIS KEY (corrected 2026-08-23).
+#: Observed live on the prop bot: "screenshot reading failed (gemini-2.5-flash
+#: HTTP 404)". The sibling caller already learned this and wrote it down —
+#: ``insights/generator.py`` pins ``gemini-3.5-flash`` as "the model that
+#: actually has free-tier quota on this project's key" and keeps an ordered
+#: ladder because **free-tier caps are per-MODEL and can be 0**, so a single
+#: pinned id is fragile. This module pinned one anyway. Now it pins the proven
+#: one and borrows that ladder rather than defining a second copy.
+_DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash"
+
+
+def _gemini_candidates(model_id: str) -> list[str]:
+    """*model_id* first, then the generator's ladder — ONE list, not two.
+
+    Imported lazily from ``src.runtime.insights.generator`` so this module keeps
+    importing on a host without that dependency tree, and so the ladder has a
+    single owner: a second hardcoded copy here would drift the moment Google
+    retires a model, which is exactly the failure being fixed.
+    """
+    try:
+        from src.runtime.insights.generator import _GEMINI_FALLBACK_MODELS as ladder
+    except Exception:  # noqa: BLE001 — never let a missing import kill the call
+        ladder = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-flash"]
+    return [model_id] + [m for m in ladder if m != model_id]
 
 
 def _fallback_model_id() -> str:
@@ -247,7 +276,51 @@ def _is_gemini(model_id: str) -> bool:
 
 
 def _call_vision_gemini(model_id: str, image_b64: str, media_type: str) -> str:
-    """Vision call against the Google Generative Language API.
+    """Vision call against Gemini, walking the model ladder on a catalog miss.
+
+    ⚠️ **A 403/404/429 IS A MODEL PROBLEM, NOT A REQUEST PROBLEM** — it means
+    that id is absent from this key's catalog or has no free-tier quota, and the
+    NEXT candidate may serve the identical request. Pinning one id and
+    dead-ending on its 404 is what took the prop screenshot path down
+    (BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE); the
+    sibling `insights/generator.py::_call_gemini_with_fallback` had already
+    learned this and this module did not.
+
+    Any OTHER status (400/5xx) surfaces immediately — that is a real bug in the
+    request, and walking the ladder would just repeat it four times and report
+    the last one.
+    """
+    tried: list[str] = []
+    last: Optional[ScreenshotParseError] = None
+    for candidate in _gemini_candidates(model_id):
+        try:
+            return _call_vision_gemini_once(candidate, image_b64, media_type)
+        except _GeminiCatalogMiss as exc:
+            tried.append(f"{candidate}:{exc.status}")
+            last = ScreenshotParseError(
+                f"screenshot reading failed ({candidate} HTTP {exc.status}) — "
+                "type the report instead.")
+            logger.warning(
+                "screenshot_parse: gemini %s HTTP %d (catalog/quota) — "
+                "trying next candidate", candidate, exc.status,
+            )
+            continue
+    raise ScreenshotParseError(
+        "screenshot reading failed — no Gemini model in this key's catalog "
+        f"served the request (tried {', '.join(tried)}). Type the report instead."
+    ) from last
+
+
+class _GeminiCatalogMiss(Exception):
+    """A 403/404/429 — this MODEL is unavailable; the next candidate may work."""
+
+    def __init__(self, status: int) -> None:
+        super().__init__(f"HTTP {status}")
+        self.status = status
+
+
+def _call_vision_gemini_once(model_id: str, image_b64: str, media_type: str) -> str:
+    """ONE vision call against the Google Generative Language API.
 
     Mirrors `src/runtime/insights/generator.py::_call_gemini` — same base URL,
     same `X-goog-api-key` HEADER auth (never the URL `?key=`, so the key cannot
@@ -283,6 +356,9 @@ def _call_vision_gemini(model_id: str, image_b64: str, media_type: str) -> str:
             json=body,
             headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
         )
+    if resp.status_code in (403, 404, 429):
+        # Catalog / quota — a DIFFERENT model may serve this exact request.
+        raise _GeminiCatalogMiss(resp.status_code)
     if resp.status_code != 200:
         raise ScreenshotParseError(
             f"screenshot reading failed ({model_id} HTTP {resp.status_code}) — "
@@ -354,9 +430,17 @@ def _call_vision(image_b64: str, media_type: str) -> str:
     caller = _call_vision_gemini if _is_gemini(primary) else _call_vision_anthropic
     try:
         return caller(primary, image_b64, media_type)
-    except ScreenshotParseError:
-        raise
-    except Exception as exc:  # noqa: BLE001 — provider/network/billing failure
+    except Exception as exc:  # noqa: BLE001 — provider/network/billing/env failure
+        # ⚠️ A PRIMARY ``ScreenshotParseError`` FALLS BACK TOO (2026-08-23).
+        # This used to `except ScreenshotParseError: raise` before the generic
+        # handler, which defeated the fallback for the most common failures:
+        # every ScreenshotParseError the two callers raise is provider-level and
+        # retryable on the OTHER provider — SDK not installed, API key absent,
+        # HTTP non-200, unreadable response, empty completion. None of them says
+        # anything about the image, so short-circuiting on them meant a missing
+        # ANTHROPIC_API_KEY took out the whole manual bridge while a working
+        # Gemini key sat unused. The non-retryable checks (empty image,
+        # unsupported media type) live in ``parse_screenshot``, above this call.
         fallback = _fallback_model_id()
         # Never "fall back" to the provider that just failed.
         if not fallback or fallback == primary or _is_gemini(fallback) == _is_gemini(primary):
@@ -367,7 +451,22 @@ def _call_vision(image_b64: str, media_type: str) -> str:
             "falling back to %s", primary, exc, fallback,
         )
         alt = _call_vision_gemini if _is_gemini(fallback) else _call_vision_anthropic
-        return alt(fallback, image_b64, media_type)
+        try:
+            return alt(fallback, image_b64, media_type)
+        except Exception as alt_exc:  # noqa: BLE001 — both providers are down
+            # ⚠️ REPORT BOTH CAUSES. The fallback's error used to propagate
+            # ALONE, so the operator read "screenshot reading failed
+            # (gemini-2.5-flash HTTP 404) — type the report instead" and
+            # reasonably concluded the problem was Gemini, while whatever took
+            # out the PRIMARY was visible only in a VM log line they never see.
+            # That is a failure message naming a cause no code path tested —
+            # the class CLAUDE.md § "Diagnostic provenance" (sub-class A) exists
+            # to stop. Observed live 2026-08-23 on the prop bot.
+            raise ScreenshotParseError(
+                f"screenshot reading failed on BOTH vision providers — "
+                f"primary {primary}: {exc} || fallback {fallback}: {alt_exc}. "
+                "Type the report instead."
+            ) from alt_exc
 
 
 def parse_screenshot(

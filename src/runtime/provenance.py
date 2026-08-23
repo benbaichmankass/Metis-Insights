@@ -105,7 +105,7 @@ __all__ = [
     "MEASURED", "ESTIMATED", "FABRICATED", "UNVERIFIED", "UNTRUSTED_BUCKETS",
     "UNMEASURED_MARKER",
     "PROVENANCE_KEYS", "MEASURED_SOURCES", "ESTIMATED_SOURCES",
-    "FABRICATED_SOURCES",
+    "FABRICATED_SOURCES", "EXIT_LABEL_REFUSED_UNMEASURED",
     "classify", "classify_row", "classify_pnl", "is_measured",
     "pnl_is_trustworthy",
     "split_counts", "coverage",
@@ -245,7 +245,31 @@ ESTIMATED_SOURCES = frozenset({
     # Its sibling value `unresolved` is deliberately absent here: it falls to
     # UNVERIFIED, which is exactly what it means.
     "price_vs_pkg_bracket",
+    # The SAME derivation, but performed against an ESTIMATED exit price
+    # (`candle_at_close`) rather than a broker fill — an inference on an
+    # inference. It shares this bucket rather than falling to FABRICATED
+    # because the price it reads is genuinely anchored to the recorded
+    # `closed_at`; what it must NOT do is read as the stronger
+    # `price_vs_pkg_bracket`, which is why it is a distinct value at all.
+    # Written by order_monitor._sweep_local_pnl_for_unpriced
+    # (BL-20260823-EXIT-LABEL-FROZEN-ON-THE-ANCHORED-PRICE-PATH).
+    "price_vs_pkg_bracket_est_price",
 })
+
+#: `exit_reason_source` value meaning: the classifier was reached, LOOKED, and
+#: DECLINED to label — because the exit price it would have compared against the
+#: bracket is FABRICATED (`local_markprice` is the market at SWEEP time, hours
+#: after the exit; `netted_duplicate_unattributed` is one record's magnitude
+#: copied onto N rows). Deriving sl/tp from either would manufacture a verdict
+#: out of unrelated price action.
+#:
+#: It is a REFUSAL, not a bucket, so it is deliberately in none of the three
+#: source sets — a refusal is not a grade of the value, it is the statement that
+#: no value was produced. It exists as a named constant because the alternative
+#: is a silent skip, and a silent skip is indistinguishable from the classifier
+#: never having run — which is exactly the 100% signature that made this whole
+#: defect class readable (see `exit_reason_source`'s absence semantics).
+EXIT_LABEL_REFUSED_UNMEASURED = "refused_unmeasured_price"
 
 FABRICATED_SOURCES = frozenset({
     # entry x mark x qty, where the mark is `last_mark_price()` at SWEEP time —

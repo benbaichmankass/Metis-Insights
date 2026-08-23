@@ -166,6 +166,62 @@ def selftest_impossibility_claim() -> None:
             "JSON — that reach spans whole rows, so one row's `checked:` can "
             "silently satisfy another row's claim")
 
+    # ── item-scoped window on a row-structured BACKLOG json (2026-08-23) ──────
+    # A ±6-line window is BOTH too tight and too loose on these files. Measured:
+    # an annotation sat 45-75 lines from its claim INSIDE THE SAME ROW and was
+    # rejected, while on a run of short rows the window spills into neighbours.
+    # For `*-backlog.json` the locality is the enclosing ROW — resolved from
+    # the `items` array, so it works on the real file AND on these fixtures.
+    long_row = "\n".join(
+        ['{', '  "items": [', '  {', '    "id": "BL-X",',
+         '    "title": "this cannot be measured",']
+        + [f'    "filler_{i}": "x",' for i in range(30)]
+        + ['    "checked": "checked: scripts/research/backtest_fidelity_calibrate.py"',
+           '  }', '  ]', '}'])
+    claim_ln = 5
+    if check_lines([(claim_ln, '    "title": "this cannot be measured",')],
+                   "docs/claude/health-review-backlog.json",
+                   body_lines=long_row.split("\n")):
+        raise SystemExit(
+            "::error::guard rejected an annotation inside the SAME backlog row "
+            "as its claim — the item-scoped window is broken, and hand-annotating "
+            "a long row becomes impossible")
+
+    # ...and the neighbour must still NOT satisfy it. This is the property the
+    # tight window existed to protect; item-scoping must not lose it.
+    two_rows = "\n".join(
+        ['{', '  "items": [',
+         '  {', '    "id": "BL-A",', '    "title": "this cannot be measured"',
+         '  },', '  {', '    "id": "BL-B",',
+         '    "checked": "checked: scripts/research/backtest_fidelity_calibrate.py"',
+         '  }', '  ]', '}'])
+    if len(check_lines([(5, '    "title": "this cannot be measured"')],
+                       "docs/claude/health-review-backlog.json",
+                       body_lines=two_rows.split("\n"))) != 1:
+        raise SystemExit(
+            "::error::a NEIGHBOURING row's annotation satisfied this row's claim "
+            "— item-scoping leaked, which is the exact defect the fixed window "
+            "was protecting against")
+
+    # An impossibility phrase inside a row's IDENTIFIER is a LABEL, not a claim.
+    id_line = '    "id": "FIXTURE-ROW-CANNOT-BE-MEASURED",'
+    if check_lines([(4, id_line)], "docs/claude/health-review-backlog.json",
+                   body_lines=['{', '  "items": [', '  {', id_line, '  }', '  ]', '}']):
+        raise SystemExit(
+            "::error::guard demanded evidence for a row's NAME — an id is what "
+            "the finding is CALLED, it asserts nothing")
+
+    # ...but the exemption must be keyed on the `id` FIELD, not on the text, so
+    # a real claim in `title`/`detail` is still caught.
+    t_line = '    "title": "BL-ish text: this cannot be measured",'
+    if len(check_lines([(4, t_line)], "docs/claude/health-review-backlog.json",
+                       body_lines=['{', '  "items": [', '  {', t_line, '  }',
+                                   '  ]', '}'])) != 1:
+        raise SystemExit(
+            "::error::the id exemption leaked into a non-id field — a real claim "
+            "in `title` must still be flagged")
+
+
     print("failure path verified: bare claim flagged, fake `checked:` path "
           "rejected, real one accepted, annotation window scoped per file type")
 

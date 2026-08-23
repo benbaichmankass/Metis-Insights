@@ -60,6 +60,7 @@ nothing — an absent result, never a clean one), **1 = findings**, 0 = clean.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import re
 import subprocess
@@ -103,6 +104,10 @@ ANNOTATION = re.compile(r"checked:\s*([^\s,;)\]\"']+)")
 _REFUTING = re.compile(r"(?i)\b(?:phantom\s+gate|is\s+wrong|WRONG|refut|incorrect|false)\b")
 
 
+# Cached: this does a filesystem stat, and the item-scoped window (below) hands
+# it the same handful of candidate paths thousands of times. Measured 2026-08-23
+# before caching: 1,571,312 calls / 23.6 s, the single largest cost in the guard.
+@functools.lru_cache(maxsize=4096)
 def _annotation_ok(value: str) -> bool:
     """The named tool must actually exist. A path that does not resolve is the
     presence-only lie `new-table-wiring-guard` was defeated by."""
@@ -133,6 +138,119 @@ def _window_for(path: str) -> int:
     return ANNOTATION_WINDOW_PROSE if path.endswith(".md") else ANNOTATION_WINDOW
 
 
+def _is_backlog_json(path: str) -> bool:
+    return path.endswith("-backlog.json")
+
+
+#: JSON keys whose value NAMES the finding rather than asserting anything.
+#: An impossibility phrase inside a row's own identifier is a LABEL — e.g.
+#: a row named for the thing it says cannot be measured is CALLED that;
+#: the name is not a second assertion needing its own evidence.
+#: Demanding a ``checked:`` token beside an id line is demanding evidence for a
+#: name, and the only way to satisfy it is to wedge an annotation between the id
+#: and the row's first real field.
+_LABEL_ONLY_KEYS = ("id",)
+
+
+def _is_label_line(raw: str) -> bool:
+    m = re.match(r'\s*"([A-Za-z0-9_]+)"\s*:', raw)
+    return bool(m) and m.group(1) in _LABEL_ONLY_KEYS
+
+
+_DEPTH_CACHE: dict[int, list[int]] = {}
+
+
+def _depths(body: list[str]) -> list[int]:
+    """Cumulative brace depth AFTER each line. Computed once per body.
+
+    The first version walked the file outward per claim, re-counting braces each
+    level — O(levels x n) per claim, which timed out on the 21k-line backlog. A
+    guard that cannot finish is a guard that does not run.
+    """
+    key = id(body)
+    cached = _DEPTH_CACHE.get(key)
+    if cached is not None and len(cached) == len(body):
+        return cached
+    out: list[int] = []
+    d = 0
+    for line in body:
+        d += line.count("{") - line.count("}")
+        out.append(d)
+    _DEPTH_CACHE[key] = out
+    return out
+
+
+_ROW_DEPTH_CACHE: dict[int, int | None] = {}
+
+
+def _row_depth(body: list[str], depths: list[int]) -> int | None:
+    """Depth at which a backlog ROW object opens, or None if unresolvable.
+
+    A row is a direct element of the `items` array, so its depth is fixed by the
+    file's shape rather than guessed. Anchoring on `items` is what makes this
+    work on the real file AND on a bare fixture: no magic constant.
+    """
+    key = id(body)
+    if key in _ROW_DEPTH_CACHE:
+        return _ROW_DEPTH_CACHE[key]
+    found = None
+    for j, line in enumerate(body):
+        if '"items"' in line and "[" in line:
+            found = depths[j]
+            break
+    _ROW_DEPTH_CACHE[key] = found
+    return found
+
+
+def _item_span(body: list[str], lineno: int) -> tuple[int, int]:
+    """The enclosing TOP-LEVEL backlog row's line span for *lineno* (1-indexed).
+
+    On a row-structured backlog the natural locality is the ITEM, not a fixed
+    line count. A +/-6 window is BOTH too tight and too loose here: a long row
+    cannot reach its own annotation (measured 2026-08-23: an annotation sat
+    45-75 lines from its claim inside the SAME row and was rejected), while on a
+    run of short rows the window spills into the neighbours the author
+    explicitly wanted excluded.
+
+    Resolves the ROW, not the innermost object. A row carries nested structures
+    (`updates: [...]`, `refs: [...]`), and a claim written inside one belongs to
+    the ROW — the innermost reading reintroduces exactly the too-tight failure
+    this exists to fix. It is also not the OUTERMOST object, which would be the
+    whole document and would let any row's annotation satisfy any other's.
+
+    Falls back to the fixed window whenever the structure cannot be resolved, so
+    a malformed or differently-shaped file degrades to the old behaviour rather
+    than to "no window".
+    """
+    fallback = (max(0, lineno - 1 - ANNOTATION_WINDOW),
+                min(len(body), lineno + ANNOTATION_WINDOW))
+    if not body:
+        return fallback
+    depths = _depths(body)
+    i = min(lineno - 1, len(body) - 1)
+    row_d = _row_depth(body, depths)
+    # Bare fixture with no `items` array: treat the shallowest object that still
+    # encloses `i` as the row.
+    target = row_d if row_d is not None else min(depths[: i + 1] or [0])
+    if depths[i] <= target:
+        return fallback
+    lo = None
+    for j in range(i, -1, -1):
+        if depths[j] == target:
+            lo = j
+            break
+    if lo is None:
+        lo = 0
+    hi = None
+    for j in range(i, len(body)):
+        if depths[j] == target:
+            hi = j + 1
+            break
+    if hi is None:
+        hi = len(body)
+    return (lo, hi)
+
+
 def check_lines(lines: list[tuple[int, str]], path: str, *,
                 context: str = "", body_lines: list[str] | None = None) -> list[str]:
     """Flag impossibility claims lacking a verified `checked:` annotation.
@@ -145,21 +263,58 @@ def check_lines(lines: list[tuple[int, str]], path: str, *,
     body = body_lines if body_lines is not None else context.splitlines()
     span = _window_for(path)
 
+    item_scoped = _is_backlog_json(path)
+
+    # Many claims share one window (every claim inside a backlog ROW resolves to
+    # the same span), so join once per span rather than once per claim.
+    _win_cache: dict[tuple[int, int], str] = {}
+
+    def _span_key(lineno: int) -> tuple[int, int] | None:
+        if not body:
+            return None
+        if item_scoped:
+            return _item_span(body, lineno)
+        return (max(0, lineno - 1 - span), min(len(body), lineno + span))
+
     def _window(lineno: int) -> str:
         if not body:
             return context
-        lo = max(0, lineno - 1 - span)
-        hi = min(len(body), lineno + span)
-        return "\n".join(body[lo:hi])
+        if item_scoped:
+            lo, hi = _item_span(body, lineno)
+        else:
+            lo = max(0, lineno - 1 - span)
+            hi = min(len(body), lineno + span)
+        key = (lo, hi)
+        cached = _win_cache.get(key)
+        if cached is None:
+            cached = "\n".join(body[lo:hi])
+            _win_cache[key] = cached
+        return cached
+
+    # The annotation scan is the guard's dominant cost (measured 2026-08-23:
+    # 30 s of `findall` over item-sized windows). Every claim inside one backlog
+    # row resolves to the SAME span, so scan once per span, not once per claim.
+    _scan_cache: dict[tuple[int, int] | None, tuple[list, list, bool]] = {}
 
     for lineno, raw in lines:
+        # A phrase inside a row's IDENTIFIER names the finding; it asserts
+        # nothing, so there is nothing to have checked.
+        if item_scoped and _is_label_line(raw):
+            continue
         local = _window(lineno)
         # The annotation must not be its own evidence: strip annotation text
         # before scanning for claims, so `checked: cannot-be-measured.py`
         # cannot satisfy itself.
-        ann_values = ANNOTATION.findall(local)
-        verified = [v for v in ann_values if _annotation_ok(v)]
-        unverified = [v for v in ann_values if not _annotation_ok(v)]
+        _sk = _span_key(lineno)
+        scanned = _scan_cache.get(_sk) if _sk is not None else None
+        if scanned is None:
+            _vals = ANNOTATION.findall(local)
+            scanned = ([v for v in _vals if _annotation_ok(v)],
+                       [v for v in _vals if not _annotation_ok(v)],
+                       bool(_REFUTING.search(local)))
+            if _sk is not None:
+                _scan_cache[_sk] = scanned
+        verified, unverified, _refuting = scanned
         text = ANNOTATION.sub("", raw)
         for pattern, label in CLAIM_PATTERNS:
             if not re.search(pattern, text, re.IGNORECASE):
@@ -174,7 +329,7 @@ def check_lines(lines: list[tuple[int, str]], path: str, *,
                     f"exist in the repo. A guard that is cheaper to lie to than "
                     f"to satisfy is worse than no guard — name a real path. "
                     f"| {snippet}")
-            elif _REFUTING.search(local):
+            elif _refuting:
                 failures.append(
                     f"{path}:{lineno} impossibility claim ({label}) appears in a "
                     f"REFUTING block but still names nothing. Even a refutation "

@@ -148,12 +148,55 @@ def find_unacted_tickets(
     # Keying on account too keeps the cross-account isolation the design's
     # multi-account-from-day-one invariant requires (matches the account-scoped
     # keys in prop_monitor_pulse._position_key + match_fill_to_ticket).
-    acted_keys = {
-        (str(f.get("account_id") or "").strip(),
-         str(f.get("symbol") or "").upper(),
-         _norm_direction(f.get("direction")))
-        for f in fills
-    }
+    #
+    # ⚠️ THE FALLBACK MATCH IS TIME-BOUNDED BY CAUSALITY, and must stay so.
+    # BL-20260823-PROP-UNACTED-MASKED-BY-UNBOUNDED-FILL-MATCH.
+    #
+    # It used to be a flat set of (account, symbol, direction) keys with NO time
+    # bound, so ONE historical fill masked EVERY future un-acted ticket on that
+    # symbol+direction, permanently. Measured 2026-08-23 on the live prop
+    # journal: **17 of 17** `emitted` tickets — 32 h to 62 DAYS past their
+    # `valid_until`, none with a fill — were hidden by it, so
+    # `/api/bot/prop/reconcile` reported `unacted_count: 0` while 17 sat stuck.
+    # The drift alert built to catch exactly this reported clean over a
+    # population it had excluded.
+    #
+    # The consequence was not only cosmetic: `breakout_executor` suppresses a
+    # fresh ticket while an `outstanding_ticket:emitted` exists (7 of the 25
+    # suppressions), and `prop_expiry_prompt` builds on THIS function — so an
+    # invisible ticket is also an un-promptable one that silently blocks its
+    # own symbol+direction forever.
+    #
+    # The bound is CAUSALITY, not a tuned window: a fill recorded BEFORE the
+    # ticket existed cannot be that ticket's fill. That needs no evidence to
+    # justify. A tighter window (fill within the ticket's validity + a
+    # reporting-lag grace) would be more discriminating, but picking the grace
+    # needs lag evidence this repo does not have yet — filed as the follow-up
+    # rather than invented here.
+    #
+    # The explicit `ticket_id` link above stays UNBOUNDED: an explicit link is
+    # explicit, whenever it was recorded.
+    acted_times: Dict[tuple, List[datetime]] = {}
+    for f in fills:
+        k = (str(f.get("account_id") or "").strip(),
+             str(f.get("symbol") or "").upper(),
+             _norm_direction(f.get("direction")))
+        ft = (_parse_iso(f.get("opened_at"))
+              or _parse_iso(f.get("reported_at"))
+              or _parse_iso(f.get("created_at")))
+        acted_times.setdefault(k, []).append(ft)
+
+    def _acted_by_fallback(key: tuple, emitted_at: Optional[datetime]) -> bool:
+        times = acted_times.get(key)
+        if not times:
+            return False
+        for ft in times:
+            # FAIL-SAFE: an undateable fill keeps the OLD masking behaviour, so
+            # a parse failure can never manufacture a new drift alert.
+            if ft is None or emitted_at is None or ft >= emitted_at:
+                return True
+        return False
+
     out: List[Dict[str, Any]] = []
     for t in tickets:
         if t.get("status") != "emitted":
@@ -163,7 +206,9 @@ def find_unacted_tickets(
         key = (str(t.get("account_id") or "").strip(),
                str(t.get("symbol") or "").upper(),
                _norm_direction(t.get("direction")))
-        if key in acted_keys:
+        emitted_at = (_parse_iso(t.get("signal_time"))
+                      or _parse_iso(t.get("created_at")))
+        if _acted_by_fallback(key, emitted_at):
             continue
         vu = _parse_iso(t.get("valid_until"))
         if vu is not None and now <= vu:
