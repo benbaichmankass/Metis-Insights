@@ -183,6 +183,22 @@ ROSTER: Dict[str, Dict[str, str]] = {
     "trend_donchian_sol":    {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
     "trend_donchian_sol_4h": {"module": "src.units.strategies.trend_donchian", "tf": "4h"},
     "sol_pullback_2h":       {"module": "src.units.strategies.htf_pullback_trend_2h", "tf": "2h"},
+    # --- The PROP exit variants (2026-08-23) -----------------------------------
+    # Registered so `scripts/prop/account_compat_matrix.py` can score the legs
+    # that are ACTUALLY routed to `breakout_1`. Without these the mandatory prop
+    # gate could only score the BASE twins, which differ from what is routed in
+    # exactly the dimension the gate cares about: same module, same 1h clock,
+    # same symbol, same `donchian: 20` / `atr_stop_mult: 2.5` entry — and
+    # `tp_r` 6.0 / `trail_mult` 3.5 against the base 50.0 / 5.0. Scoring the base
+    # and calling it the prop leg's result would be a semantic substitution
+    # (`CLAUDE.md` § "Diagnostic provenance", sub-class B: an implicit input
+    # standing in for the declared one).
+    # Params come from `config/strategies.yaml` by NAME via `_load_strategy_cfg`,
+    # so these entries carry the real live exit geometry rather than a copy.
+    # RESEARCH ONLY; the live order path resolves strategies from config, never
+    # from ROSTER.
+    "trend_donchian_sol_prop": {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
+    "trend_donchian_eth_prop": {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
 }
 _PANDAS_TF = {"5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
 

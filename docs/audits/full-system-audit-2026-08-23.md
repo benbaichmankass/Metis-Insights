@@ -2109,3 +2109,92 @@ real work instead of feeding it.
 Filed: `BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE` (high),
 `BL-20260823-VWAP-TARGET-NEARER-THAN-STOP` (low) — both re-scoped to feed the
 active-management build rather than to propose a floor.
+
+---
+
+# Part 13 — P2: THE PROP COMPAT MATRIX, RUN (and it contradicts half the de-dup)
+
+The `backtesting` / `new-strategy` skills **require** `account_compat_matrix.py`
+before a strategy is routed to an account. Whether it was ever run for the
+`breakout_1` roster as it stands was unverified. It has now been run.
+
+## 13.1 Two blockers cleared first, both worth recording
+
+**(a) The candle feed.** `data/ohlcv/` holds five files, none of them SOL or
+ETH; Bybit returns **403** from this sandbox and Yahoo **429**. But
+**`data.binance.vision` answers 200** — so the "no free lane candle feed"
+blocker is *not* absolute here. Fetched via the repo's own
+`scripts/ops/fetch_backtest_candles.py --source binance_vision`: **21,600 1h
+bars** each for SOLUSDT and ETHUSDT, 2024-03-06 → 2026-08-22.
+
+**(b) ⚠️ The gate could not score the legs that are actually routed.** The
+`_prop` variants were **absent from `scripts/backtest_system.py::ROSTER`**, so
+the mandatory prop gate could only run the **base** twins — which differ from
+what is routed in exactly the dimension the gate measures (`tp_r` 6.0 / trail
+3.5 against 50.0 / 5.0). Scoring the base and reporting it as the prop leg's
+result is a **semantic substitution** (sub-class B: an implicit input standing
+in for the declared one). Registered both `_prop` names (research-only; params
+resolve from `config/strategies.yaml` by name, so they carry the real live exit
+geometry rather than a copy).
+
+## 13.2 Results — all four ROUTE, and the ranking splits by symbol
+
+`breakout_1` ruleset, 1.5% risk on $5,000, Monte-Carlo EV + survival:
+
+| leg | ledger n | EV | P(net>0) | verdict |
+|---|---:|---:|---:|---|
+| `trend_donchian_eth_prop` ✅ routed | 450 | **+$2,074** | **0.9700** | ROUTE |
+| `trend_donchian_eth` ❌ removed | 339 | +$1,694 | 0.9367 | ROUTE |
+| `trend_donchian_sol` ❌ removed | 150 | **+$1,162** | **0.9137** | ROUTE |
+| `trend_donchian_sol_prop` ✅ routed | 160 | +$611 | 0.7603 | ROUTE |
+
+**Every leg clears the gate.** Nothing here says the prop book holds something
+it should not.
+
+⚠️ **But the de-dup kept the better twin on ETH and the worse twin on SOL.** On
+ETH the `_prop` variant wins on both axes, which is what the decision assumed.
+On SOL the **base** wins on both — +$1,162 vs +$611 and 0.9137 vs 0.7603 — and
+that is the leg this PR removes.
+
+**Seed-stable, so not noise.** Four seeds (default, 7, 13, 99):
+
+| | `sol_prop` | `sol` (base) |
+|---|---|---|
+| EV range | $606 – $638 | $1,142 – $1,162 |
+| P(net>0) range | 0.753 – 0.773 | 0.903 – 0.908 |
+
+The within-arm spread is ~$30 and ~0.02; the between-arm gap is **~$530 and
+~0.14**. An order of magnitude apart.
+
+⚠️ **State the caveats, because they are load-bearing:**
+
+- These are **research verdicts on a Binance-Vision feed**, not the account's
+  venue data. The tool's own output says so and requires revalidation before
+  live wiring (Tier-3).
+- **The arms are not paired.** Same entries, different exits, so the ledgers
+  differ in length (150 vs 160, 339 vs 450). This is a comparison of two
+  strategies, not of one strategy under two exits on identical trades.
+- Prop verdicts key on EV and `P(net>0)`; the survival/breach columns the
+  standard gate reports are not the prop path's criterion.
+
+## 13.3 What this does and does not change
+
+It does **not** invalidate the de-dup's premise: two legs firing the same
+entries on one $5k account with a $150 daily-loss limit is a real problem, and
+one twin per symbol is right. What it changes is **which twin** on SOL.
+
+**Nothing is re-flipped here.** Re-adding `trend_donchian_sol` and dropping
+`trend_donchian_sol_prop` is a Tier-3 routing change and belongs to the
+operator, with this table in front of them. Both legs ROUTE, both are positive
+EV, and the cost of the current state is opportunity, not risk — so it is a
+decision, not an incident.
+
+⚠️ **And read it against Part 12 before acting:** the base twin's edge here
+comes from `tp_r: 50.0`, i.e. from *not having a reachable target* — which is
+precisely the geometry Part 12 records as not-a-prediction and M20's
+active-management build is meant to replace. So "the base wins on SOL" and "the
+base's target is the exchange's rejection threshold" are the same fact seen
+twice. A re-flip on this evidence buys EV now and re-adopts the geometry that
+is being retired.
+
+Filed: `BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED`.
