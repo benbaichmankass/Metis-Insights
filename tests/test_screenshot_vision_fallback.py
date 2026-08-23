@@ -66,8 +66,13 @@ def test_the_live_billing_failure_reaches_the_gemini_fallback(monkeypatch):
     monkeypatch.setenv("PROP_SCREENSHOT_MODEL", "claude-sonnet-5")
 
     assert sp._call_vision("Zm9v", "image/png") == '{"reports": []}'
+    # The fallback id is read from the module default, NOT hardcoded here — it
+    # changed 2026-08-23 (gemini-2.5-flash -> gemini-3.5-flash) because the
+    # pinned one 404s on the live key, and a test that pins it independently
+    # would have to be edited every time the ladder moves, which is how a test
+    # stops tracking the thing it guards.
     assert calls == [("anthropic", "claude-sonnet-5"),
-                     ("gemini", "gemini-2.5-flash")], calls
+                     ("gemini", sp._DEFAULT_FALLBACK_MODEL)], calls
 
 
 def test_it_never_falls_back_to_the_provider_that_just_failed(monkeypatch):
@@ -204,3 +209,64 @@ def test_an_empty_completion_is_not_read_as_an_empty_screenshot(monkeypatch):
     monkeypatch.setattr(httpx, "Client", lambda *a, **k: _Client())
     with pytest.raises(sp.ScreenshotParseError, match="no text"):
         sp._call_vision_gemini("gemini-2.5-flash", "Zm9v", "image/png")
+
+
+def test_a_gemini_catalog_miss_walks_the_ladder_instead_of_dead_ending(monkeypatch):
+    """A 404 means THAT MODEL is unavailable — the next candidate may serve.
+
+    This is the defect the operator hit twice on 2026-08-23: the prop bot
+    answered "screenshot reading failed (gemini-2.5-flash HTTP 404) — type the
+    report instead", because a single pinned id dead-ended on its own catalog
+    miss. `insights/generator.py::_call_gemini_with_fallback` had already
+    learned this ("free-tier request/day caps are per-MODEL and can be 0 for a
+    given model on a given project") and this module had not.
+
+    403 / 404 / 429 walk the ladder; anything else surfaces immediately, because
+    a 400 or a 5xx is a bug in the REQUEST and retrying it four times just
+    reports the last one.
+    """
+    seen = []
+
+    def flaky(model_id, b64, mt):
+        seen.append(model_id)
+        if len(seen) < 3:
+            raise sp._GeminiCatalogMiss(404)
+        return '{"reports": []}'
+
+    monkeypatch.setattr(sp, "_call_vision_gemini_once", flaky)
+    assert sp._call_vision_gemini("gemini-3.5-flash", "Zm9v", "image/png") == '{"reports": []}'
+    assert len(seen) == 3, seen
+    assert seen[0] == "gemini-3.5-flash", seen
+    assert len(set(seen)) == len(seen), f"a candidate was retried: {seen}"
+
+
+def test_a_real_request_error_does_NOT_walk_the_ladder(monkeypatch):
+    """A 400/5xx is a bug in the request — four retries would hide it."""
+    seen = []
+
+    def broken(model_id, b64, mt):
+        seen.append(model_id)
+        raise sp.ScreenshotParseError(
+            f"screenshot reading failed ({model_id} HTTP 400)")
+
+    monkeypatch.setattr(sp, "_call_vision_gemini_once", broken)
+    with pytest.raises(sp.ScreenshotParseError, match="HTTP 400"):
+        sp._call_vision_gemini("gemini-3.5-flash", "Zm9v", "image/png")
+    assert seen == ["gemini-3.5-flash"], seen
+
+
+def test_every_candidate_missing_names_what_was_TRIED(monkeypatch):
+    """An exhausted ladder must not report only the last model's 404.
+
+    The whole incident was a message naming one model when the reader needed
+    the set. If nothing in the catalog serves, say which ids were asked.
+    """
+    def always_missing(model_id, b64, mt):
+        raise sp._GeminiCatalogMiss(404)
+
+    monkeypatch.setattr(sp, "_call_vision_gemini_once", always_missing)
+    with pytest.raises(sp.ScreenshotParseError) as ei:
+        sp._call_vision_gemini("gemini-3.5-flash", "Zm9v", "image/png")
+    msg = str(ei.value)
+    assert "gemini-3.5-flash:404" in msg, msg
+    assert "tried" in msg.lower(), msg
