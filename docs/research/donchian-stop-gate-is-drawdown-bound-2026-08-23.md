@@ -1,4 +1,9 @@
-# The donchian stop sweep: 77/77 fail the gate, and the binding constraint is DRAWDOWN
+# The donchian stop sweep: the constraint is DRAWDOWN — and the gate's Path B could not fire
+
+> ⚠️ **The original title said "77/77 fail the gate". § 3.9 supersedes that:**
+> Path B was unreachable by construction, so 77 cells were never assessed on the
+> path they qualified for. Re-run with it reachable, **7 of 9 Path B candidates
+> pass the walk-forward**. The drawdown finding stands; the tally does not.
 
 **Date:** 2026-08-23 · **Tier-1, observe-only.** No `config/strategies.yaml`
 change is made or proposed here as applied. Any stop change is **Tier-3**.
@@ -200,6 +205,91 @@ target** and makes a 1.5R expectation placeable at all.
 behaving correctly, not a gap. It is defined only in the banking direction
 (surrender return, buy smoothness). These cells gain return and pay drawdown —
 the mirror object — so the ratio is quoted the other way up above.
+
+---
+
+## 3.9 ⚠️ "77 of 77 fail" was measured against a gate whose Path B could not fire
+
+*(Added 2026-08-23, after §§ 2–3.5 were written. It supersedes the headline.)*
+
+Asked to argue a drawdown bound, I went looking for the Path B population the
+bound would apply to. **There wasn't one, and there never had been.**
+
+`e35_bracket_geometry_sweep.py::gate` passed the raw `run_cell` output to
+`fleet.is_path_b_candidate`, which reads `d_net_r_per_capital_day` — a key
+`run_cell` never emits. Proven two ways: **308 `run_cell` dicts across 11 legs**
+carry the *rate* and never the *delta*; and the real predicate, on
+`trend_donchian sm2`'s real numbers, returns **False** given a raw dict and
+**True** given a `capital_delta` dict, with a positive control. So `_up(None)`
+was False for **every cell ever gated**, and each short-circuited to
+`is_oos_fail` before any walk-forward ran.
+
+This is the **same gate gap the fleet sweep found and fixed on 2026-08-10** —
+*"a Path B candidate short-circuited to `is_oos_fail` BEFORE any walk-forward
+ran, so every Path B candidate on record had ZERO generalisation evidence"* —
+reproduced in the newer sweep. Second inherited-fix miss between these two
+sweeps in one day; the first is the write-only corpus.
+
+### Re-run with Path B reachable — 5 donchian legs, 50 gated cells
+
+| verdict | n |
+|---|---|
+| `is_oos_fail` | 41 |
+| **`path_b_wf_pass`** | **7** |
+| `wf_fail` | 2 |
+
+**Path B candidates: 9. Before the fix: 0, by construction.**
+
+| leg | cell | axis | wf | eff | IS ΔR | OOS ΔR | IS ΔDD | OOS ΔDD |
+|---|---|---|---|---|---|---|---|---|
+| `trend_donchian_1h` | `sm2_to96` | stop+timeout | **6/6** | 6 | +35.36 | +4.26 | +4.39 | +3.76 |
+| `trend_donchian` | `sm2` | stop | 5/6 | 5 | +15.07 | +3.88 | +8.40 | −0.74 |
+| `trend_donchian_ada_4h` | `sm1.5` | stop | 5/6 | 5 | +21.61 | +9.85 | +6.13 | +3.63 |
+| `trend_donchian_ada_4h` | `sm2` | stop | 5/6 | 5 | +10.07 | +2.68 | −1.84 | +1.08 |
+| `trend_donchian_ada_4h` | `sm1.5_to400` | stop+timeout | 5/6 | 5 | +21.61 | +9.85 | +6.13 | +3.63 |
+| `trend_donchian_sol_4h` | `sm1.5` | stop | 4/6 | 4 | +1.18 | +7.40 | +8.05 | −0.48 |
+| `trend_donchian_sol_4h` | **`tp1.5_sm2_to96`** | tp+stop+timeout | 4/6 | 4 | +21.33 | +3.86 | +0.32 | −1.43 |
+| `trend_donchian_1h` | `sm2` | stop | 3/6 | 3 | +18.16 | +8.15 | +2.08 | −0.63 |
+| `trend_donchian_sol_4h` | `sm2` | stop | 3/6 | 3 | +0.18 | +7.31 | +1.92 | −2.09 |
+
+**`wins_effective` equals `wins` on all nine and `inert_wins` is 0** — no fold
+was counted a win for a cell that changed nothing
+(`BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS`). The two `wf_fail`
+rows are a real negative, not an artifact.
+
+⚠️ **So the "77/77" headline is correct as a tally of verdict STRINGS and
+overstates the finding.** It counted cells the gate never actually assessed on
+the path they qualified for. Corrected here rather than quietly restated.
+
+### The measured drawdown cost — the distribution a ceiling must be argued from
+
+Path B **records** `d_max_dd` per fold rather than gating on it (*"measure the
+axis first, threshold it second"*). Over **54 usable folds across 9 cells**:
+
+| min | p25 | median | p75 | max |
+|---|---|---|---|---|
+| **−7.47** | −0.22 | **+0.90** | +3.30 | **+17.71** |
+
+Drawdown got **worse in 37/54 = 68.5%** of folds and **improved in 31.5%**.
+
+⚠️ **This distribution cannot by itself set the ceiling, and saying so is the
+point.** It is the distribution of the cells one *wants* to admit; deriving a
+threshold from it fits the threshold to the candidates, which is the free
+parameter `m20_path_b_floor.py`'s docstring exists to refuse (*"database
+decisions and not arbitrary guesses"*). A defensible ceiling is argued from
+**risk capacity** — what drawdown the account can carry — and then checked
+against this distribution to see how many candidates it admits. That direction
+is the operator's; the measurement is now available for it either way.
+
+### The base-rate floor tool cannot read this population yet
+
+`m20_path_b_floor.py` run against this corpus returns
+**`insufficient_population` — "no walk-forwarded cell carries `base_rate_IS` —
+nothing was compared. This is 'we did not look', not 'the predictor does not
+predict'."** It is an m20-corpus reader and refuses the e35 schema cleanly
+rather than reporting a false negative. Even adapted, **n = 9 (7 pass / 2 fail)**
+is below what any separation test could resolve — so that verdict would likely
+stand on its own merits, and is reported as a refusal, not as a result.
 
 ---
 

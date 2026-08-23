@@ -153,6 +153,42 @@ def rows_from_report(doc: Dict[str, Any], source: str) -> List[Dict[str, Any]]:
                 "gate_oos_d_net_r": ((g or {}).get("oos") or {}).get("d_net_r"),
                 "gate_is_reason": ((g or {}).get("is") or {}).get("reason"),
                 "gate_oos_reason": ((g or {}).get("oos") or {}).get("reason"),
+                # PATH + WALK-FORWARD (added 2026-08-23). These were absent
+                # because they could not exist: Path B was unreachable by
+                # construction until the same day
+                # (BL-20260823-E35-PATH-B-UNREACHABLE-RAW-RUNCELL-DICT), so no
+                # e35 cell had ever reached a walk-forward and the corpus had
+                # no folds to carry. Fixing the gate without extending the
+                # corpus would make the newly-generated Path B evidence
+                # write-only -- the exact defect this extractor exists to cure.
+                #
+                # `wf_ran` is the DENOMINATOR and is never inferred from a null
+                # count: False means the cell never reached a walk-forward
+                # (*we did not look*), which a `wf_wins: null` alone cannot
+                # distinguish from a run that produced nothing.
+                "gate_path": (g or {}).get("path"),
+                "wf_ran": bool((g or {}).get("wf")),
+                "wf_wins": (((g or {}).get("wf") or {}).get("summary") or {}).get("wins")
+                           if isinstance(((g or {}).get("wf") or {}).get("summary"), dict)
+                           else ((g or {}).get("wf") or {}).get("wins"),
+                "wf_usable": (((g or {}).get("wf") or {}).get("summary") or {}).get("usable")
+                             if isinstance(((g or {}).get("wf") or {}).get("summary"), dict)
+                             else ((g or {}).get("wf") or {}).get("usable"),
+                # BESIDE `wf_wins`, NEVER INSTEAD OF IT
+                # (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS): a
+                # fold in which the cell changed nothing satisfies the win test
+                # by construction, so the effective tally is what a reader
+                # needs to know whether a 5/6 is five real wins or two.
+                "wf_wins_effective": ((g or {}).get("wf") or {}).get("wins_effective"),
+                "wf_inert_wins": ((g or {}).get("wf") or {}).get("inert_wins"),
+                "wf_folds": ((g or {}).get("wf") or {}).get("folds"),
+                # The measured per-fold DRAWDOWN COST -- Path B records this
+                # rather than gating on it ("measure the axis first, threshold
+                # it second"), and it is the distribution any drawdown
+                # tolerance must be argued from.
+                "capital_oos_d_net_r_per_capital_day":
+                    (((g or {}).get("capital") or {}).get("OOS") or {})
+                    .get("d_net_r_per_capital_day"),
             }
             row["measurement_key"] = measurement_key(row)
             out.append(row)
