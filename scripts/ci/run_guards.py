@@ -193,6 +193,13 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
+            # The e35 corpus extractor is the durable half of a sweep whose
+            # evidence was previously write-only. Its self-test pins the
+            # distinctions that make the corpus trustworthy — an ungated cell
+            # never reads as a passing one, a re-extract supersedes rather
+            # than appends, and a foreign report.json is refused — none of
+            # which move when the data does.
+            ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.
