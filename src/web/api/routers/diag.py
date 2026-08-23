@@ -403,6 +403,22 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "account_reachability_alert_state.json",
     "trainer_reachability_alert_state":
         runtime_logs_dir() / "trainer_reachability_alert_state.json",
+    # The other three durable alert latches. Two of five were readable and
+    # three were not, which is an inconsistency rather than a policy — and the
+    # gap matters most for the newest of them. Each of these latches SUPPRESSES
+    # an operator page, and each fails LOUD when its state file cannot be read
+    # (alerting is the only safe direction for a safety page). So a
+    # permanently-unwritable latch reproduces exactly the spam it exists to
+    # stop, and from outside the two are indistinguishable: the alert rate
+    # looks the same either way. Reading the latch is what tells them apart.
+    # BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART shipped the
+    # target-naked latch; these entries are its read half.
+    "silent_refusal_alert_state":
+        runtime_logs_dir() / "silent_refusal_alert_state.json",
+    "prop_fills_staleness_state":
+        runtime_logs_dir() / "prop_fills_staleness_state.json",
+    "target_naked_alert_state":
+        runtime_logs_dir() / "target_naked_alert_state.json",
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by
