@@ -21453,6 +21453,42 @@
         "tests/test_sweep_no_mark_fabrication.py",
         "src/units/db/database.py"
       ]
+    },
+    {
+      "id": "BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "high",
+      "tier": "3 (order path)",
+      "status": "open",
+      "area": "alpaca / order path / live-promotion readiness",
+      "title": "`shorting_enabled` is read on the diag surface and consumed by NOTHING on the order path — flipping alpaca_live to live would send 60.1% of its flow to a broker that cannot fill it",
+      "detail": "MEASURED 2026-08-23 while assessing the operator's dry_run->live ask for alpaca_live. The account reads ACTIVE with `shorting_enabled: false` (/api/diag/broker_account_status). Over ALL 318 alpaca_live journal rows ever produced (2026-06-30..2026-08-23) the direction split is 191 SHORT / 127 LONG = 60.1% short, concentrated in the four highest-volume legs (spy_pullback_1h 58.1%, tlt_pullback_1h 71.9%, qqq_pullback_1h 69.1%, gld_pullback_1h 74.5%) and 100% short across gdx/gld/iaum/slv_pullback_1d (n=24). The string `shorting_enabled` appears in exactly THREE places in the repo: src/units/accounts/alpaca_client.py (the read + the field list) and src/web/api/routers/diag.py (a docstring). There is no short gate, no can_short predicate, nothing on the order path. This is the written-and-never-read shape provenance-consumer-guard exists to catch, on a capability flag rather than a provenance key. Note the 5 existing `exchange_rejected` rows say `unauthorized` and were all LONG (2026-06-30/07-01) — they are NOT evidence for this finding and must not be quoted as such. ALPACA_PLACE_CONFIRM_S would surface the resulting rejections rather than journaling phantoms, which is correct behaviour and does not make the trades execute.",
+      "resolution_criteria": "Either (a) shorting is enabled broker-side on the Alpaca live account AND the short book earns a forward record (it is currently 0-for-7, -$4,254 on alpaca_portfolio), or (b) a short gate refuses the signal at the coordinator with a logged cause for any account whose broker reports shorting_enabled false — so the refusal is attributable from the journal rather than from a venue error. (b) is Tier-3 order-path work and is worth doing regardless of (a). Closed when a non-shorting account can be shown, from the journal, to refuse a short with a named cause before placement."
+    },
+    {
+      "id": "BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "medium",
+      "tier": "3 (strategy roster)",
+      "status": "open",
+      "area": "alpaca / paper-portfolio mirror",
+      "title": "`alpaca_portfolio` does not mirror the `alpaca_live` roster — 2 of 16 live legs have no forward paper record at all",
+      "detail": "MEASURED 2026-08-23 from config/accounts.yaml. alpaca_live declares 16 strategies; alpaca_portfolio (paper_role: portfolio, the account the UIs render as 'Paper' and the one a live-readiness decision reads) declares 14. splg_trend_long_1d and iaum_pullback_1d run on alpaca_live and on NEITHER paper account with a portfolio role. The mirror's whole purpose is to be the forward record of what the live account would do, so a leg absent from it is a leg whose live promotion has no evidence behind it. Compounding: the mirror's positive result is thin and concentrated — closed-with-pnl n=21, long n=14 +$6,392.80, short n=7 -$4,254.23, and uso_trend_1h alone is +$8,822.10 over 10 closed trades, i.e. one leg exceeds the entire positive result.",
+      "resolution_criteria": "alpaca_portfolio's strategy list is a superset of alpaca_live's, verified by a check that compares the two rosters (so the drift cannot recur silently), and the two added legs have accrued a stated soak before any live-promotion decision cites the mirror."
+    },
+    {
+      "id": "BL-20260823-NO-PDT-MODELLING-ON-ALPACA",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "medium",
+      "tier": "2 (order path / venue constraint)",
+      "status": "open",
+      "area": "alpaca / venue constraints",
+      "title": "The pattern-day-trader rule is modelled NOWHERE in code, while the Alpaca paper book runs 14.9% same-day round trips and a live account under $25k gets 3 day trades per 5 business days",
+      "detail": "MEASURED 2026-08-23. A repo-wide search for PDT / day_trade / daytrading_buying_power across src/ and config/ returns ZERO logic — only prose in docs/research/market-alternatives-2026-06-10.md and one comment in alpaca_client.py:148 noting PDT as an async rejection reason. Meanwhile, over the closed Alpaca paper trades carrying both timestamps (n=94), 14 are same-calendar-day entry+exit = 14.9%; median hold is 73.7h, p25 21.5h. Over the observed window that is ~1.3 day trades per 5 business days against a limit of 3 — under it, but with no headroom modelled and no gate, so a volatile week breaches it and the live account gets flagged. The research doc's assumption that 'the equities account will be >$25k, so the PDT rule is not a concern' does not hold for the funding level actually under discussion. ALPACA_PLACE_CONFIRM_S catches the resulting rejection after the fact; nothing avoids it.",
+      "resolution_criteria": "Either the live equity account is funded above $25k (and that is recorded as the reason no gate exists), or a day-trade counter is available to the sizing path so an entry that would be the 4th day trade in a rolling 5-business-day window is refused with a named cause rather than rejected at the venue. Closed when the constraint is either provably inapplicable or enforced."
     }
   ]
 }

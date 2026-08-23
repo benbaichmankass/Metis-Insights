@@ -904,3 +904,171 @@ the repo already made for the DB-path resolver and `provenance.py`.
 - **`eth_pullback_2h` demotion from prop** — already off the roster since
   2026-07-18; its −$333 is historical. Its real-money weakness (n=5) is a
   separate, under-powered question.
+
+---
+
+# Part 7 — ALPACA LIVE READINESS (operator ask, 2026-08-23)
+
+> *"I'm going to fund the alpaca live account now and I want us to flip from dry
+> run to live, but first I want us to do a full portfolio performance review and
+> pipeline verification to ensure that we are ready to start trading some real
+> money there."*
+
+**VERDICT: NOT READY AS CONFIGURED.** The flip is Tier-3 and I am not making it.
+Three blockers, one of which is decisive and none of which is fixed by funding.
+Every number below states its population.
+
+## 7.1 The decisive blocker — 60.1% of this account's flow cannot execute
+
+`alpaca_live` carries `shorting_enabled: false` (measured this session,
+`/api/diag/broker_account_status`; the account reads `ACTIVE`, not blocked,
+balance $0.10).
+
+Measured over **all 318 `alpaca_live` journal rows** (2026-06-30 → 2026-08-23,
+every row the account has ever produced): **191 SHORT / 127 LONG = 60.1% short.**
+The concentration is in the four highest-volume legs:
+
+| leg | n | short | short share |
+|---|---:|---:|---:|
+| `spy_pullback_1h` | 62 | 36 | 58.1% |
+| `tlt_pullback_1h` | 57 | 41 | 71.9% |
+| `qqq_pullback_1h` | 55 | 38 | 69.1% |
+| `gld_pullback_1h` | 51 | 38 | 74.5% |
+| `slv_trend_1h` | 27 | 12 | 44.4% |
+| `gdx/gld/iaum/slv_pullback_1d` | 24 | 24 | **100%** |
+| `uso_trend_1h` | 32 | 0 | **0.0%** |
+
+**Nothing in the codebase reads `shorting_enabled`.** Verified: the string
+appears in exactly three places — `alpaca_client.py` (the read + the field list)
+and `diag.py` (the docstring). There is **no short gate on the order path**, no
+`can_short` predicate, nothing. So flipping to `live` sends ~60% of this
+account's orders to a broker that cannot fill them, and each becomes a venue
+rejection at placement time.
+
+This is not a funding problem. It does not improve at any account size.
+
+## 7.2 The paper record does not transfer
+
+The mirror account `alpaca_portfolio` (`paper_role: portfolio`, same broker,
+`risk_pct: 0.02`) is the only forward record. Closed-with-pnl, n=21:
+
+| direction | n | total pnl | measured+est | win rate |
+|---|---:|---:|---:|---:|
+| long | 14 | **+$6,392.80** | +$6,633.80 (n=12) | 36% |
+| short | 7 | **−$4,254.23** | −$1,084.91 (n=3) | **0%** |
+
+`alpaca_paper` (the wider soak roster, n=56): long −$1,183.45, short −$9,331.76.
+
+So the mirror's ~+$2,138 headline is **entirely carried by longs**, and the
+short book is 0-for-7 on one account and near-total loss on the other. Read
+naively, "disable shorts" looks like it *improves* the account. But:
+
+- **n=21 is not a decision population.** Split by direction it is n=14 / n=7.
+- **`uso_trend_1h` alone is +$8,822.10 over 10 closed trades** and is 100% long
+  — i.e. one leg is larger than the entire positive result, and the rest of the
+  long book is net negative without it. A single-leg result at n=10 is a
+  hypothesis, not an edge.
+- **2 of the 16 `alpaca_live` legs have NO mirror record at all.**
+  `alpaca_live` runs `splg_trend_long_1d` and `iaum_pullback_1d`;
+  `alpaca_portfolio` runs neither. The "portfolio mirror" does not mirror the
+  live roster.
+
+## 7.3 Funding size — the number you actually need
+
+Measured on the real entry/stop geometry of all 318 packages, against
+`risk_pct: 0.02` and the round-up-to-one-share rule
+(`_ROUND_UP_BUDGET_MULT = 1.5`, `risk.py:118`):
+
+| funding | placeable (round-up) | placeable at TRUE risk | long-only placeable |
+|---:|---:|---:|---:|
+| $150 | 50.9% | 36.8% | 25.8% |
+| $500 | 96.2% | 83.0% | 39.3% |
+| **$1,000** | **99.4%** | **99.4%** | 39.3% |
+| $2,000+ | 100% | 100% | 39.9% |
+
+**~$1,000 is where the account stops refusing its own signals.** Below ~$500 a
+large share of trades that DO place are riding the 1.5× round-up, i.e.
+realising up to 150% of the configured per-trade risk.
+
+This is not hypothetical — the account has been funded before. 25 journal rows
+read `risk_refused: sized_qty=0 with balance=150.05` and similar: **at $150,
+every single signal was refused for size.** Note the long-only column never
+exceeds 39.9% at any funding level — that is §7.1's ceiling, restated.
+
+Per-leg medians (balance to place one share): `qqq_trend_long_1d` $1,132 ·
+`gld_pullback_1d` $438 · `qqq_pullback_1h` $387 · `spy_pullback_1h` $200 ·
+`tlt_pullback_1h` $12.
+
+## 7.4 Pipeline verification — what IS sound
+
+Checked against the code, not the docs:
+
+- ✅ **Whole-share quantization.** `risk.WHOLE_UNIT_QTY_EXCHANGES = {"alpaca"}`;
+  `place()` re-quantizes through the shared `whole_unit_qty` helper, so the qty
+  placed can never drift from the qty journaled (BL-20260622).
+- ✅ **Bracket attach.** `order_class: bracket` with both legs, `oto` with one.
+- ✅ **Post-accept rejection confirmation.** `ALPACA_PLACE_CONFIRM_S` (3.0s)
+  polls for a terminal `rejected`/`canceled`/`expired` state, so an async venue
+  refusal surfaces as a real failure instead of a phantom `open` row
+  (BL-20260707). Its docstring names the PDT rule as one of the async rejections
+  it catches — **this is the mechanism that would surface the §7.1 short
+  rejections rather than journaling phantoms.** Good, but it converts a
+  systematic 60% failure into 60% logged failures; it does not make them trade.
+- ✅ **Broker-naked sweep, sides graded apart.** Entry brackets are `day` TIF, so
+  the legs die at the RTH close — `_check_broker_naked_equity_positions` re-reads
+  the broker each tick via `AlpacaClient.protection_state` (**not** the one-sided
+  boolean) and re-arms a GTC OCO on a missing STOP, alerting without re-arming on
+  a missing TARGET. The Alpaca half of `BL-20260816-COVERAGE-IS-ONE-SIDED` is
+  already closed, over 13 live positions.
+- ✅ **Extended-hours exit.** `_close_extended_hours` places a marketable LIMIT
+  crossed by `ALPACA_EXT_LIMIT_BUFFER_BPS` (25bp) during pre/post market and
+  **defers** (retCode 2, bracket left armed) when fully closed.
+- ⚠️ **The close path has one real-money precedent and it needed a human.**
+  Trade `8e43575f` (IEF, `ief_pullback_1d`, opened 2026-07-02 with
+  `is_dry: false`) was closed 13 days later by
+  `close_stranded_journal_row_script` with `broker_flat_confirmed: true`. One
+  data point, but it is the only live-money round trip this account has and it
+  did not close itself.
+- ⚠️ **PDT is not modelled anywhere.** Verified: no `PDT` / `day_trade` /
+  `daytrading_buying_power` logic in `src/` or `config/` — only prose in
+  research docs and one comment. Measured on the closed Alpaca paper trades
+  (n=94): **14.9% are same-calendar-day round trips**, median hold 73.7h. Over
+  the observed window that is ~1.3 day trades per 5 business days, under the
+  3-per-5 limit — but with no headroom modelled and no gate, a volatile week
+  breaches it and the account gets flagged. Below $25k this is a live risk.
+- ⚠️ **`sizing_failed: balance() returned None`** ×20 —
+  `BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE`, still open. On a
+  funded live account this is silent refusal, and it is exactly the class
+  `SILENT_REFUSAL_CHECK_SECONDS` was shipped for (which now covers it).
+- ℹ️ The 5 `exchange_rejected` rows are `Alpaca rejected order … unauthorized`
+  and all 5 were **LONG** — an authorization state from 2026-06-30/07-01, not a
+  shorting refusal. Do not read them as evidence for §7.1.
+
+## 7.5 What would make this ready
+
+In order. (1) and (2) are the gate; (3) is sizing.
+
+1. **Decide the short question, in code.** Either (a) enable shorting on the
+   Alpaca account (a broker-side action — margin account, ≥$2k), or (b) add a
+   real short gate so a non-shorting account refuses the signal at the
+   coordinator with a logged cause instead of at the venue. Doing neither and
+   flipping anyway means 60% of the flow fails at placement. **(b) is Tier-3
+   order-path work and should exist regardless of (a)** — `shorting_enabled` is
+   read and never consumed, which is precisely the written-and-never-read shape
+   `provenance-consumer-guard` exists to catch.
+2. **Get a real forward record for the roster that will actually trade.** If the
+   answer is (a), the existing short record is 0-for-7 and −$4,254 and needs to
+   be much better before it takes real money. If the answer is (b), the live
+   roster becomes long-only and the honest population is n=14 dominated by one
+   10-trade leg — and `splg_trend_long_1d` / `iaum_pullback_1d` have no mirror
+   record at all. Add both to `alpaca_portfolio` and let it soak.
+3. **Fund ≥$1,000** so the account is not refusing its own signals or riding the
+   1.5× round-up. $150 refuses everything.
+
+**Recommended interim, if you want money in play now:** fund the account, add
+the two missing legs to `alpaca_portfolio`, and leave `alpaca_live` at
+`dry_run`. That costs nothing and buys the forward record item (2) needs.
+
+**Filed:** `BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED` (high),
+`BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS` (medium),
+`BL-20260823-NO-PDT-MODELLING-ON-ALPACA` (medium).

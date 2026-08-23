@@ -6669,14 +6669,19 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
     broker-side day-TIF bracket legs are cancelled at the RTH close, so it is
     broker-naked yet invisible to that check (BL-20260629-ALPACA-NAKED-BRACKET).
     This pass closes that gap: for each open, past-grace Alpaca position it asks
-    the broker whether a resting protective leg exists
-    (``AlpacaClient.has_protective_orders``) and, when none does, re-arms a GTC
-    OCO via :func:`_attempt_naked_autoprotect` (levels from the journal row, or
-    the originating order package as a fallback).
+    the broker which SIDES of the bracket actually rest
+    (``AlpacaClient.protection_state`` — **not** the boolean
+    ``has_protective_orders``, which answers ``True`` for a stop-only book and
+    is the grading BL-20260816-COVERAGE-IS-ONE-SIDED exists to stop) and, when
+    the stop side is absent, re-arms a GTC OCO via
+    :func:`_attempt_naked_autoprotect` (levels from the journal row, or the
+    originating order package as a fallback). The TARGET side is counted and
+    alerted without a blind re-arm, mirroring the IB sweep: a missing stop is a
+    safety gap to close, a missing take-profit is decision-time geometry.
 
     The broker's own order state IS the idempotency: a position that already has
     a resting leg is skipped, so this never stacks OCOs and self-corrects each
-    tick. A read failure (``has_protective_orders`` → ``None``) is skipped — a
+    tick. A read failure (``protection_state`` → ``None``) is skipped — a
     transient outage must not be read as naked. Never raises.
 
     Returns ``{"checked", "broker_naked", "rearmed", "errors"}``.
