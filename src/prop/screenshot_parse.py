@@ -443,6 +443,54 @@ def _call_vision_anthropic(model_id: str, image_b64: str, media_type: str) -> st
     return _extract_text(resp)
 
 
+class ScreenshotBackendUnavailable(ScreenshotParseError):
+    """The configured backend cannot serve this read, and we will NOT substitute.
+
+    Distinct from a truncated read and from an unreadable screenshot: nothing was
+    attempted. Substituting a different backend is precisely what this class
+    exists to prevent.
+    """
+
+
+#: Where a prop screenshot may be read. Operator directive 2026-08-23: *"that
+#: flow is supposed to use the local LM ... It shouldn't be sent to any outside
+#: service."*
+#:
+#: ⚠️ WHAT THE SYSTEM ACTUALLY DOES, stated because it did not match that intent
+#: and the mismatch was silent. `parse_screenshot` sent the image to Anthropic
+#: and, on failure, to Google — carrying account balance, equity, the broker
+#: account number and open positions. That is LIVE TRADING DATA leaving the
+#: system on a path with no scope guard: `llm-delegate`'s guard ("public repo
+#: code + docs ONLY — never live trading data, credentials, or account config")
+#: governs the delegate WORKFLOW and has never covered this module.
+#:
+#: ⚠️ AND THERE IS NO LOCAL BACKEND TO ROUTE TO. Verified 2026-08-23: every
+#: mention of a local GGUF/llama.cpp/ollama runner in this repo is DOCUMENTATION
+#: — `docs/design/llm-burst-worker-DESIGN.md` lists it as "Phase 3 ... if a
+#: privacy driver appears", and the burst worker that does exist is itself
+#: external (Cerebras/Gemini on an Actions runner). The privacy driver has now
+#: appeared; the backend has not been built.
+#:
+#: So the default is `local`, which today RESOLVES TO A REFUSAL rather than to a
+#: silent external call. Three states, never collapsed:
+#:   local    — intended backend; not installed, so refuse and say so (DEFAULT)
+#:   external — explicit opt-in to the hosted providers, today's behaviour
+#:   off      — reader deliberately disabled
+#: `local` and `off` are NOT the same statement: one is "this should work and
+#: does not yet", the other is "we chose not to". Collapsing them would erase
+#: the reason Phase 3 exists.
+_BACKEND_LOCAL = "local"
+_BACKEND_EXTERNAL = "external"
+_BACKEND_OFF = "off"
+_BACKENDS = (_BACKEND_LOCAL, _BACKEND_EXTERNAL, _BACKEND_OFF)
+
+
+def _backend() -> str:
+    """Resolve the backend. An unparseable value fails CLOSED, never open."""
+    raw = (os.environ.get("PROP_SCREENSHOT_BACKEND") or "").strip().lower()
+    return raw if raw in _BACKENDS else _BACKEND_LOCAL
+
+
 def _call_vision(image_b64: str, media_type: str) -> str:
     """The one LLM call — provider chosen by `PROP_SCREENSHOT_MODEL`.
 
@@ -460,6 +508,20 @@ def _call_vision(image_b64: str, media_type: str) -> str:
     implementation detail — a silent swap would leave no record of what
     transcribed a balance that feeds the prop rule-distance cushion.
     """
+    backend = _backend()
+    if backend == _BACKEND_OFF:
+        raise ScreenshotBackendUnavailable(
+            "screenshot reading is switched off (PROP_SCREENSHOT_BACKEND=off) — "
+            "type the report instead (e.g. `close ETHUSD 2950 +80 tp`).")
+    if backend == _BACKEND_LOCAL:
+        raise ScreenshotBackendUnavailable(
+            "screenshot reading is set to the LOCAL backend, which is not "
+            "installed yet — and this image carries account balance, equity and "
+            "positions, so it is NOT being sent to a hosted model instead. "
+            "Type the report (e.g. `close ETHUSD 2950 +80 tp`, or "
+            "`bal <balance> <equity>`). To use the hosted providers anyway, set "
+            "PROP_SCREENSHOT_BACKEND=external.")
+
     primary = _model_id()
     caller = _call_vision_gemini if _is_gemini(primary) else _call_vision_anthropic
     try:
@@ -538,4 +600,5 @@ def parse_screenshot(
     return _reports_from_model_json(data, default_account=default_account)
 
 
-__all__ = ["parse_screenshot", "ScreenshotParseError", "ScreenshotTruncated"]
+__all__ = ["parse_screenshot", "ScreenshotParseError", "ScreenshotTruncated",
+           "ScreenshotBackendUnavailable"]

@@ -197,3 +197,61 @@ class TestTruncationIsNotAnUnreadableScreenshot:
         src = pathlib.Path("src/prop/screenshot_parse.py").read_text()
         assert 'finish == "MAX_TOKENS"' in src
         assert 'stop_reason' in src
+
+
+class TestBackendGateFailsClosed:
+    """Operator directive 2026-08-23: the prop screenshot flow "shouldn't be sent
+    to any outside service". It was — Anthropic then Google, carrying balance,
+    equity, the broker account number and open positions.
+
+    `llm-delegate`'s scope guard ("public repo code + docs ONLY — never live
+    trading data, credentials, or account config") governs the delegate WORKFLOW
+    and never covered this module, so nothing stopped it.
+    """
+
+    def _backend(self, monkeypatch, value):
+        import src.prop.screenshot_parse as sp
+        monkeypatch.delenv("PROP_SCREENSHOT_BACKEND", raising=False)
+        if value is not None:
+            monkeypatch.setenv("PROP_SCREENSHOT_BACKEND", value)
+        return sp._backend()
+
+    def test_default_is_local_not_external(self, monkeypatch):
+        """Unset must NOT mean 'send it to a hosted model'."""
+        assert self._backend(monkeypatch, None) == "local"
+
+    def test_an_unparseable_value_fails_closed(self, monkeypatch):
+        """A typo must not silently re-open the egress path."""
+        assert self._backend(monkeypatch, "gemini-ish") == "local"
+        assert self._backend(monkeypatch, "") == "local"
+
+    def test_external_requires_an_explicit_opt_in(self, monkeypatch):
+        assert self._backend(monkeypatch, "external") == "external"
+
+    def test_local_and_off_are_not_the_same_statement(self, monkeypatch):
+        """`local` = 'should work, not built yet' (the Phase-3 driver).
+        `off` = 'we chose not to'. Collapsing them erases why Phase 3 exists."""
+        assert self._backend(monkeypatch, "local") != self._backend(monkeypatch, "off")
+
+    def test_local_refuses_rather_than_substituting_a_hosted_model(self, monkeypatch):
+        import pytest
+        import src.prop.screenshot_parse as sp
+        monkeypatch.delenv("PROP_SCREENSHOT_BACKEND", raising=False)
+        called = []
+        monkeypatch.setattr(sp, "_call_vision_anthropic",
+                            lambda *a, **k: called.append("anthropic") or "{}")
+        monkeypatch.setattr(sp, "_call_vision_gemini",
+                            lambda *a, **k: called.append("gemini") or "{}")
+        with pytest.raises(sp.ScreenshotBackendUnavailable):
+            sp._call_vision("aGk=", "image/png")
+        assert called == [], f"a hosted provider was called under the local backend: {called}"
+
+    def test_the_refusal_names_a_remedy_the_operator_can_use(self, monkeypatch):
+        import pytest
+        import src.prop.screenshot_parse as sp
+        monkeypatch.delenv("PROP_SCREENSHOT_BACKEND", raising=False)
+        with pytest.raises(sp.ScreenshotBackendUnavailable) as e:
+            sp._call_vision("aGk=", "image/png")
+        msg = str(e.value)
+        assert "Type the report" in msg or "type the report" in msg
+        assert "PROP_SCREENSHOT_BACKEND=external" in msg

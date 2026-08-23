@@ -22016,6 +22016,28 @@
         "scripts/ci/run_guards.py"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS",
+      "opened_at": "2026-08-23T14:03:26.481622+00:00",
+      "opened_by": "full-system-audit-2026-08-23 (operator-reported)",
+      "severity": "high",
+      "tier": "2 (egress path on an operator-facing flow)",
+      "status": "open",
+      "area": "prop / privacy / llm",
+      "title": "The prop screenshot reader sent broker account data (balance, equity, account number, open positions) to Anthropic and Google — and the local backend the operator expected it to use does not exist",
+      "detail": "OPERATOR, 2026-08-23: 'that flow is supposed to use the local LM that we created for bursts of localized LLM usage. It shouldn't be sent to any outside service, which means that there's some other type of wiring issue here.'\n\nTWO FACTS, both verified rather than assumed, and they do not match that intent.\n\n1. THE EGRESS IS REAL AND UNGUARDED. src/prop/screenshot_parse.py posted the image to Anthropic and, on any failure, to Google (_call_vision_anthropic / _call_vision_gemini). The measured screenshot carried account balance 4869, equity 4867, the broker account number, an open ETHUSD position with entry/TP/SL, and a seven-row trade history. That is LIVE TRADING DATA. The `llm-delegate` skill DOES carry a scope guard — 'public repo code + docs ONLY -- never live trading data, credentials, or account config' -- but it governs the delegate WORKFLOW and has never covered this module, so nothing on this path enforced it.\n\n2. THERE IS NO LOCAL BACKEND TO ROUTE TO. Every mention of a local runner (gguf/llama.cpp/ollama/vllm) in the repo is DOCUMENTATION -- ROADMAP.md, two sprint logs, docs/design/llm-burst-worker-DESIGN.md, docs/architecture/model-inventory.md -- and zero .py files. The design lists it as 'Phase 3: local GGUF backend ... if a privacy driver appears'. The burst worker that DOES exist is itself external (Cerebras/Gemini on an Actions runner), and its own design rejected the Oracle VM as a worker on capacity + wedge-risk grounds. So the operator's expectation describes a system that was designed and not built.\n\nTHE PRIVACY DRIVER HAS NOW APPEARED — that is the exact trigger the design names for Phase 3.\n\nSHIPPED NOW (not the full fix): PROP_SCREENSHOT_BACKEND, three states never collapsed -- `local` (DEFAULT; refuses and names the typed-report remedy) / `external` (explicit opt-in to today's behaviour) / `off`. An unparseable value fails CLOSED. `local` and `off` are deliberately distinct: one is 'should work, not built yet', the other 'we chose not to'. A test asserts no hosted provider is called under the default.\n\n⚠️ THIS STOPS THE EGRESS; IT DOES NOT RESTORE THE FEATURE. Until Phase 3 exists the operator types the report, which already works (`bal 5040 5010`, `close ETHUSD 2950 +80 tp`). Flipping to `external` is a deliberate, logged choice.\n\nNOTE ON MY OWN EARLIER ADVICE: I reported the Anthropic 400 as 'out of credit -- operator action, add credits'. That remedy was WRONG. Paying to keep broker screenshots flowing to a third party is the opposite of the correction needed. The billing error was a symptom of a path that should not have been live.",
+      "resolution_criteria": [
+        "Phase 3: a local vision-capable backend the prop reader can call, with NO image leaving the system. Measure it against the hosted path before preferring it, per the design's own condition — a local model that misreads a balance feeds the prop rule-distance cushion, so accuracy is a safety property here, not a nicety.",
+        "Until then PROP_SCREENSHOT_BACKEND stays `local` (refusing) unless the operator explicitly opts into `external`. Do not 'fix' the refusal by changing the default.",
+        "Audit the OTHER LLM call sites for the same class before closing: src/prop/screenshot_parse.py is the one found, but the M13 insights generator also calls hosted models and its inputs are trade data. Establish per-site what leaves the system, with a denominator — this row does NOT claim the screenshot path is the only one."
+      ],
+      "refs": [
+        "src/prop/screenshot_parse.py",
+        ".claude/skills/llm-delegate/SKILL.md",
+        "docs/design/llm-burst-worker-DESIGN.md"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }
