@@ -238,8 +238,8 @@ def _cushion(value: Any) -> str:
 
     Applies to BOTH distances, deliberately — the DD-floor half happened to be
     populated that day, and a fix scoped to only the half that broke would ship
-    the same defect on the next null (`BL-20260823-PROP-SAFETY-PANEL-RENDERS-
-    NONE-AS-A-DOLLAR-AMOUNT`).
+    the same defect on the next null. Row:
+    `BL-20260823-PROP-SAFETY-PANEL-RENDERS-NONE-AS-A-DOLLAR-AMOUNT`.
     """
     if value is None:
         return "not measured"
