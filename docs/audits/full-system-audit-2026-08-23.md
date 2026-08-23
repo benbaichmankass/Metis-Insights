@@ -112,7 +112,7 @@ anchored/estimated price must carry a **distinct** `exit_reason_source` value
 (e.g. `price_vs_pkg_bracket_estimated`) so the label's provenance travels with
 it, exactly as `exit_price_source` already does.
 
-### F-4 · 🔴 **MONEY-AT-RISK — two live IB positions are target-naked right now**
+### F-4 · 🟠 **Two live IB positions are target-naked — KNOWN, and already operator-declined**
 
 Measured continuously across today's sweeps (02:02Z, 04:02Z, and the 00:05Z
 partial):
@@ -122,17 +122,33 @@ partial):
 | `ib_paper` / **MES** | 15 | 15.0 | **0.0** | 8390.59025 |
 | `ib_paper` / **MGC** | 95 | 95.0 | **0.0** | 4393.02071429 |
 
-This is the **MGC-4487 class recurring** — a position that can only stop out or
-run. **The alerting works correctly**: `_emit_target_naked_alert` fires
-CRITICAL, and both are live on `/api/bot/notifications` right now
-(`ib_target_naked · detected`, since 05:08:38Z), so Telegram + both apps'
-banners have them. Not-re-arming is **by design** (`attach-ib-target` is the
-sanctioned repair; blind re-arm would invent decision-time geometry).
+⚠️ **CORRECTION — I initially wrote this up as a live recurrence needing
+action. It is not.** Issue **#10089** (the `broker-bracket-reconcile` tracking
+issue, body last rewritten **2026-08-23T02:11:55Z**) records both as a
+**standing, already-dispositioned state**: *"the take-profit attach was DECLINED
+by the operator 2026-08-20 and the stop repair is Tier-3 (draft #10081), so
+these do not clear."* The detection, the alerting, and the disposition all
+worked. Recording it here as a new find would have been the audit re-deriving a
+decision the operator already made.
 
-**Compounding state on MGC:** the same position also carries a live
-`monitor_blindness` banner — `ict_scalp_mgc_15m`, `candles_unavailable` for 3
-consecutive ticks. So MGC currently has **no resting target and no
-monitor-driven exit**; only the broker stop stands.
+**The alerting is confirmed working end-to-end**: `_emit_target_naked_alert`
+fires CRITICAL, and both are on `/api/bot/notifications` right now
+(`ib_target_naked · detected`, since 05:08:38Z) → Telegram + both apps' banners.
+Not-re-arming is **by design** (`attach-ib-target` is the sanctioned repair;
+blind re-arm would invent decision-time geometry).
+
+**What IS new, and is not in #10089:**
+
+1. **MGC is simultaneously monitor-blind.** A live `monitor_blindness` banner —
+   `ict_scalp_mgc_15m`, `candles_unavailable` for 3 consecutive ticks. So MGC
+   currently has **no resting target AND no monitor-driven exit**; only the
+   broker stop stands. #10089 grades resting protection and cannot see this;
+   the two surfaces have to be read together for the compound state to appear,
+   and nothing joins them.
+2. **MES `stop_price_diverges` by 69 ticks** — declares 7533.696429, nearest
+   resting stop 7516.500000 (17.196429 away). Captured by #10089 and covered by
+   Tier-3 draft #10081; noted here because it compounds with the missing target
+   on the same position.
 
 **F-4a (FIXED this session).** The sweep's own summary line printed
 `covered=3 naked=0 partially_naked=0 rearmed=0` on the very sweeps that logged
@@ -147,19 +163,26 @@ reasoning (*"the ONLY evidence the sweep runs is a re-arm — visible exactly wh
 something is wrong and invisible when it is working, which is the wrong way
 round"*) was never applied to Bybit. Filed, not fixed (WP-6).
 
-### F-5 · 🔴 **INDEPENDENCE — the surface built to make IB protection falsifiable is itself blind, silently**
+### F-5 · 🔴 **INDEPENDENCE — the surface built to make IB protection falsifiable fails INTERMITTENTLY, and says nothing when it does**
 
 `/api/diag/ib_open_orders` was created 2026-08-16 precisely because
-`protection_coverage` was a *reduced verdict* nobody could contradict. Today,
-for `ib_paper`:
+`protection_coverage` was a *reduced verdict* nobody could contradict.
+
+⚠️ **CORRECTION — my first read of this was "the surface is blind." It is worse
+in a more useful way: it is FLAKY.** At **2026-08-23T02:11:42Z** the same
+endpoint returned `ib_paper` **`reconciled`** with 4 resting legs and 3 graded
+findings (#10089). At **05:34–05:35Z**, three consecutive calls returned:
 
 ```
 read_state: "could_not_look"   orders: null   count: null   error: null
 ```
 
-Reproducible across 3 consecutive calls. **`/api/diag/exchange_positions`
-returns `null` for `ib_paper` too.** Meanwhile `/api/diag/ib_state` reports every
-IB client `state: connected`, `likely_wedged: false`, `account_data_ready: true`.
+**`/api/diag/exchange_positions` returned `null` for `ib_paper` in the same
+window**, while `/api/diag/ib_state` reported every IB client `state:
+connected`, `likely_wedged: false`, `account_data_ready: true`. So the failure
+is per-read and transient, not a configuration or outage state — which is
+precisely why it is dangerous: an intermittent blind spot on a protection
+surface looks identical to a quiet one.
 
 **Root cause (from the web-api journal at the exact second of my probes):** the
 web-api's read-only client opens, and `reqAllOpenOrders` returns openOrder
@@ -171,7 +194,7 @@ then `11` (MES) — which kills the message handler and drops the socket
 its journal; its own sweep reads coverage fine) — this is web-api-process-local.
 
 **Consequences, both real:**
-1. **4 of 7 `system_invariants.py` checks returned `not_measured`** —
+1. **4 of 7 `system_invariants.py` checks returned `not_measured`** on this audit's run —
    `INV-PROTECT-STOP`, `INV-PROTECT-OVERCOVER`, `INV-PROTECT-TARGET`, and
    `INV-EXIT-INTERVAL` — on the only account holding IB positions. The three
    protection invariants could not look at the exact class that produced
@@ -440,6 +463,37 @@ protection.
 
 ---
 
+## Part 4b — OUTCOME axis: did recent work deliver? (54 commits since 2026-08-20)
+
+Three ships with concrete, checkable promises, graded against measurement:
+
+| ship | promise | grade | evidence |
+|---|---|---|---|
+| **#10067** — *"retire the `order_packages.id` class"* | sweep the class the 2026-08-20 audit found in 20 test fixtures | ✅ **delivered** | **0** `CREATE TABLE … order_packages` blocks in `tests/` declare `id INTEGER PRIMARY KEY`. Production PK is `order_package_id TEXT`. The class-sweep actually happened, which is the failure mode this repo most often repeats |
+| **#10061** — *"give a refused manifest a state between trained and failed"* | a third state, visible | ✅ **delivered** | live `/api/bot/ml/status`: `refusals_total: 8`, `refusing_manifests_24h` naming 5 manifests, `outcome: complete_with_refusals`, `overall_rc: 0`. Neither trained nor failed, and readable |
+| **#10076 + #10086** — the declared-vs-resting bracket detector + a scheduled caller *"that cannot become a desensitized alarm"* | catch the price axis nothing checked | ✅ **delivered, with one caveat** | Issue #10089 at 02:11:42Z: 3 real findings on `ib_paper`, including a **69-tick `stop_price_diverges`** on MES that no other surface reports. Design is excellent — a tracking issue rewritten every run, a comment only on fingerprint change, `could_not_look` never collapsed to 0 findings |
+
+**The caveat is worth stating precisely, because it is a genuine gap in an
+otherwise exemplary mechanism.** The workflow's fingerprint is *"blind to a
+finding's magnitude by design"* — its own words. That is the right call for
+comment-spam, and it means **the MES stop divergence can widen from 69 ticks to
+690 and the issue will not speak.** Combined with F-5's intermittency (a run
+that lands during a flaky read grades `could_not_look`, contributes no
+fingerprint entry for that account, and stays silent), the mechanism can be
+quiet for two different reasons that a reader cannot tell apart. A magnitude
+band in the fingerprint — not the raw number — would close it.
+
+**A note on this audit's own method.** My first write-up of F-4 and F-5 was
+wrong in the flattering-to-the-auditor direction: I graded a
+already-operator-declined state as a new find, and an intermittent failure as a
+permanent one. What corrected both was reading **the detector's own tracking
+issue** — i.e. the system's durable record contradicted the auditor. That is
+the INDEPENDENCE axis working in the direction it is usually not pointed, and it
+is the argument for #10086-style *"record every run, speak only on change"*
+tracking issues over ephemeral logs.
+
+---
+
 ## Coverage contract (honest)
 
 **Behavioral (primary):** 7 committed invariants run against live broker truth
@@ -527,8 +581,9 @@ readable becomes the permanent check.
 **Why first:** it is the input to M20's own lever selection, the exit-head
 training rows, and the M7 gate.
 
-**WP-2 · Restore `/api/diag/ib_open_orders` [Tier-1/2]**
-*Closes F-5.* Two independent halves:
+**WP-2 · Make `/api/diag/ib_open_orders` reliable, and make its failure legible [Tier-1/2]**
+*Closes F-5.* It is **flaky, not dead** — it graded `ib_paper` fine at
+02:11:42Z and failed three consecutive calls at 05:34Z. Two independent halves:
 (a) **Populate the error channel** — `account_ib_open_orders` returns `None` from
 a branch that logs nothing and the route reports `error: null`. Make
 `could_not_look` say *why* (a reason enum, `collapsed-state-guard`-registered).
@@ -538,16 +593,24 @@ Tier-1, cheap, and it is what turned a 20-minute diagnosis into a 3-call one.
 drops the socket. The trader is unaffected, so the likely delta is the web-api
 venv's `ib_insync` version. Pin/upgrade it, or route the diag read through the
 trader's already-working path.
-*Until this lands, 3 of 7 money-at-risk invariants cannot look at IB.*
+*Until this lands, any given run — this audit's invariants, or the scheduled
+`broker-bracket-reconcile` — can silently draw a blind window on the only
+account holding IB positions.*
 *Detector:* `system_invariants.py` already returns `not_measured` — promote a
 `not_measured` on a protection invariant to a **CI/health-review failure** when
 the account holds open positions.
 
-**WP-3 · Disposition the two live target-naked positions, and the 6 lapsed levers [Tier-2 / Tier-3]**
-- Run `attach-ib-target` for `ib_paper` MES + MGC, or explicitly accept
-  stop-only and clear the declared TP so the state stops alarming (F-4).
-- Fix the MGC `candles_unavailable` monitor blindness — that position currently
-  has neither a resting target nor a monitor exit.
+**WP-3 · Fix MGC's compound state, and disposition the 7 lapsed levers [Tier-2 / Tier-3]**
+- **The target-naked pair needs no new decision** — you declined the TP attach
+  on 2026-08-20 and the stop repair is Tier-3 draft #10081. Left as-is.
+- **What does need action: MGC is target-naked AND monitor-blind at the same
+  time** (`ict_scalp_mgc_15m`, `candles_unavailable`). The declined-TP decision
+  was made when the monitor was still an exit path; it no longer is, so only the
+  broker stop stands. Fix the IB candle availability, or revisit the TP decision
+  for this position specifically.
+- Add a detector for the **compound** state — no resting target AND no live
+  monitor exit. #10089 grades resting protection, `monitor_blindness` grades the
+  monitor, and nothing joins them.
 - Give each of the **7 `shipped_gate_failed` cells** (F-10) a dated disposition:
   re-sweep, revert, or a HOLD with an expiry. **Start with
   `trend_donchian`/BTCUSDT `exit_head_ml`** — the only live ML exit head, and its
@@ -593,6 +656,14 @@ close.*
 
 **WP-8 · Add the Bybit per-sweep summary line [Tier-1]** (F-4b) — same reasoning
 the IB comment already gives for why it exists.
+
+**WP-8b · Give `broker-bracket-reconcile`'s fingerprint a magnitude band [Tier-1]**
+Today a `stop_price_diverges` can widen from 69 ticks to 690 without the
+tracking issue speaking, and a run landing in one of F-5's flaky windows goes
+quiet for a *different* reason a reader cannot distinguish. Band the magnitude
+(not the raw number — that would reintroduce comment spam) and make a
+`could_not_look` on a previously-`reconciled` account its own fingerprint
+entry.
 
 ### Then — make the evidence trustworthy
 
