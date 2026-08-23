@@ -392,8 +392,67 @@ answers that, and it is Tier-3.
 
 ## 6. What would move this forward
 
-1. **An operator decision on the drawdown trade** — the only genuinely blocked
-   item, and Tier-3.
+### ✅ 6.0 DECIDED 2026-08-23 (operator, Tier-3): the bound is a SHAPE, not a number
+
+The operator was asked how to bound the drawdown a Path B cell may add, and
+chose a **criterion** rather than an R threshold. A Path B cell is admissible
+only if **both**:
+
+1. **MAR improves in BOTH halves** (return per unit of worst peak-to-trough
+   pain, § 3.5); and
+2. **the Path B claim is dispersion-stable at all five split targets**
+   (35/40/45/50/60, § 3.95).
+
+**Why a shape and not a number.** Both criteria are independent of *how much*
+drawdown the cell adds, so the bound is not fitted to the candidate
+distribution — which is the trap § 3.9 flags (that distribution is of the cells
+one *wants* to admit, so deriving a threshold from it is circular).
+
+⚠️ **It is not fully blind either, and that is stated rather than glossed.** I
+proposed these two criteria already knowing which cells pass them. They are
+independent of the drawdown magnitude, but they were not pre-registered before
+the candidates were measured. A criterion chosen after seeing the data is weaker
+evidence than one chosen before, whatever its shape.
+
+**What it admits today — MEASURED against all 7 walk-forward survivors, not
+asserted.** `c1` = MAR improves in both halves; `c2` = Path B claim stable at
+all 5 splits:
+
+| leg | cell | MAR IS | MAR OOS | c1 | stable | c2 | OOS book |
+|---|---|---|---|---|---|---|---|
+| `trend_donchian` | `sm2` | 2.14→2.02 | −0.47→−0.32 | **fail** | 5/5 | pass | negative |
+| `trend_donchian_1h` | `sm2_to96` | 0.36→1.49 | −0.33→−0.07 | pass | 5/5 | pass | **NEGATIVE** |
+| `trend_donchian_ada_4h` | `sm1.5` | 0.81→1.68 | 1.09→1.54 | pass | 5/5 | pass | positive |
+| `trend_donchian_ada_4h` | `sm1.5_to400` | *(identical — `to400` inert)* | | pass | 5/5 | pass | positive |
+| `trend_donchian_ada_4h` | `sm2` | 0.81→1.86 | 1.09→1.23 | pass | 4/5 | **fail** | positive |
+| `trend_donchian_sol_4h` | `sm1.5` | 4.25→1.90 | 0.73→1.72 | **fail** | 4/5 | **fail** | positive |
+| `trend_donchian_sol_4h` | `tp1.5_sm2_to96` | 4.25→7.41 | 0.73→1.44 | pass | 3/5 | **fail** | positive |
+
+**Admitted: 3 rows = 2 DISTINCT cells** (`ada_4h sm1.5` and `sm1.5_to400` are
+the same object). Not three — an earlier draft of this section said three by
+counting `trend_donchian sm2`, which **fails c1**: its in-sample MAR *degrades*,
+2.14 → 2.02.
+
+⚠️ **AND THE CRITERION HAS A GAP, SURFACED RATHER THAN PATCHED.** It says nothing
+about whether the resulting book *makes money*. `trend_donchian_1h sm2_to96`
+passes **both** criteria and its out-of-sample book is still **−1.45R**. The
+criterion improves a losing book without making it a winning one, which is a
+real thing to want and also not what "admissible" usually means.
+
+So on the letter of the decision: **2 distinct cells**. With a positive book in
+both halves as well: **1** — `ada_4h sm1.5`.
+
+I have **not** added a positive-book condition on my own. Whether the criterion
+should carry one is a follow-up decision, not a detail; adding a third criterion
+unilaterally after seeing which cell it eliminates is exactly the fitting this
+whole section is built to avoid.
+
+⚠️ **THIS ADMITS A CELL TO CANDIDACY, NOT TO PRODUCTION.** It is an admission
+criterion for the gate, not authorisation to change any leg's geometry.
+Every actual `config/strategies.yaml` change remains a separate Tier-3 decision
+with its own evidence, per leg.
+
+1. ~~An operator decision on the drawdown trade~~ — **decided, § 6.0 above.**
 2. If that decision is "yes, within a bound", the gate's Path-A allowance is the
    parameter to argue about, and `m20_path_b_floor.py` already exists to test
    whether a floor is supportable rather than guessed.
