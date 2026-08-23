@@ -819,6 +819,23 @@ def monitor(cfg, candles_df, open_pkg):
 
     Verdict order (first match wins):
 
+    0. **SL-cross / TP-cross** — belt-and-braces, matching `trend_donchian` and
+       `htf_pullback_trend_2h`, which have both run this check all along.
+       ict_scalp did NOT, and that gap is
+       `BL-20260818-ICT-SCALP-HAS-NO-TAKE-PROFIT-CLOSE-PATH`: with no
+       take-profit close of its own the strategy depended ENTIRELY on a venue
+       bracket nothing verifies, and MGC 4487 sat **122.74 points past its
+       declared target for 11 days** with zero LMT orders resting on the
+       account. The venue bracket normally fires first; this catches the case
+       where it did not, was never placed, or was stripped.
+
+       ⚠️ It fires only when price has ALREADY passed a level the strategy
+       itself declared at entry, so it closes where the declared geometry asked
+       to close — it introduces no new opinion about where a trade should end.
+       Checked BEFORE the stale-stop, because a bar that has crossed SL/TP is
+       not a bar the stale-stop should be reasoning about (the same stop-first
+       ordering the stale-stop's own docstring already assumes).
+
     1. **M20 stale-stop** (YAML-declared, default-OFF; ``_stale_stop_verdict``).
        Cuts a trade held ≥ ``stale_exit_bars`` native bars that is still below
        ``stale_exit_below_r`` open-R at bar close — but only when the current
@@ -836,9 +853,34 @@ def monitor(cfg, candles_df, open_pkg):
     before the break-even modify" (per the M20 exit-refinement pipeline) is
     exactly this ordering.
     """
-    if candles_df is None:
+    if candles_df is None or len(candles_df) == 0:
         return None
     cfg_dict = cfg if isinstance(cfg, dict) else {}
+
+    # 0. SL/TP-cross close — see the docstring. Byte-identical in shape to the
+    # sibling families' checks so the three cannot drift.
+    try:
+        current_price = float(candles_df["close"].iloc[-1])
+    except (KeyError, IndexError, ValueError, TypeError):
+        current_price = None
+    direction = str(open_pkg.get("direction") or "").lower()
+    if current_price is not None and direction in ("long", "short"):
+        sl = _coerce_float(open_pkg.get("sl"))
+        if sl is not None:
+            if direction == "long" and current_price <= sl:
+                return {"action": "close", "reason": "sl_cross",
+                        "exit_price": current_price}
+            if direction == "short" and current_price >= sl:
+                return {"action": "close", "reason": "sl_cross",
+                        "exit_price": current_price}
+        tp = _coerce_float(open_pkg.get("tp"))
+        if tp is not None:
+            if direction == "long" and current_price >= tp:
+                return {"action": "close", "reason": "tp_cross",
+                        "exit_price": current_price}
+            if direction == "short" and current_price <= tp:
+                return {"action": "close", "reason": "tp_cross",
+                        "exit_price": current_price}
 
     stale_verdict = _stale_stop_verdict(open_pkg, cfg_dict, candles_df)
     if stale_verdict is not None:
