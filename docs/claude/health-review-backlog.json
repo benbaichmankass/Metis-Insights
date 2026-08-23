@@ -21313,6 +21313,27 @@
         "scripts/ops/backfill_exit_labels.py",
         "docs/audits/full-system-audit-2026-08-23.md"
       ]
+    },
+    {
+      "id": "BL-20260823-PROP-UNACTED-MASKED-BY-UNBOUNDED-FILL-MATCH",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "high",
+      "tier": "1 (read-path correctness; no order path, no money write)",
+      "status": "resolved",
+      "area": "prop manual bridge / drift detection",
+      "title": "find_unacted_tickets' (account,symbol,direction) fallback had NO time bound, so one historical fill masked every future un-acted ticket — 17 of 17 live tickets invisible and unpromptable",
+      "detail": "MEASURED 2026-08-23 on the live prop journal (72 tickets, 32 fills). A ticket is matched to a fill two ways: an explicit ticket_id link, and a (account, symbol, direction) FALLBACK. The fallback was a flat set with no time bound, so ANY fill on that key — however old — masked the ticket forever. Consequence: all 17 `emitted` tickets, 32 h to 62 DAYS past their valid_until and none carrying a fill, were dropped from find_unacted_tickets, so /api/bot/prop/reconcile reported `unacted_count: 0` while 17 sat stuck. The drift alert built to catch exactly this reported clean over a population it had excluded — the INDEPENDENCE shape: a reduced verdict nothing outside the producer could contradict. NOT COSMETIC: breakout_executor suppresses a fresh ticket while an `outstanding_ticket:emitted` exists (7 of the 25 suppressions), and prop_expiry_prompt.find_tickets_to_prompt is BUILT ON this function — so an invisible ticket is also un-promptable, and silently blocks its own symbol+direction forever. CORRECTED FUNNEL, since the headline attrition figure is easy to misread: of 72 tickets, 25 `suppressed` are the one-ticket-per-trade rule working correctly (18 open_position, 7 outstanding_ticket) and are NOT a leak; 47 were actually presented; 12 closed, 17 reached a decision (6 expired, 6 invalidated_prompted, 5 skipped), and 17 were stuck in `emitted`. So closure over the presented population is 12/47 = 25.5%, not 12/72 = 16.7%, and the single genuine leak is the stuck-emitted set this row fixes.",
+      "resolution_criteria": "The fallback match requires the fill NOT to predate the ticket, and /api/bot/prop/reconcile's unacted_count reflects genuinely un-acted tickets. Verified against the live shape: 5 of the 17 surface as unacted under the causality bound; the other 12 had a fill genuinely follow them on the same key.",
+      "detector": "tests/test_prop_unacted_time_bound.py — 8 controls. The load-bearing one plants the exact live shape (an old fill, a newer ticket) and asserts the ticket SURFACES; a companion plants 17 stuck tickets behind one old fill and asserts all 17 surface, so a regression to the unbounded set fails loudly. Counter-controls assert the fallback still masks a fill that FOLLOWED the ticket (this is a bound, not a removal), that an explicit ticket_id link stays unbounded, that an undateable fill keeps the old masking (fail-safe: a parse failure must never manufacture a drift alert), and that cross-account and direction isolation survive.",
+      "checked": "checked: src/prop/prop_reconcile.py — the bound is CAUSALITY, not a tuned window: a fill recorded before the ticket existed cannot be that ticket's fill, which needs no evidence to justify. A tighter window (fill inside the ticket's validity plus a reporting-lag grace) would discriminate better, but choosing the grace needs lag evidence this repo does not have — filed as the follow-up rather than invented.",
+      "follow_up": "Tighten the fallback to the ticket's own validity window once the manual bridge's reporting-lag distribution has been measured. Separately: the 17 now-visible stuck tickets need an operator disposition, and prop_expiry_prompt's 12 h PROP_EXPIRY_PROMPT_MAX_AGE_HOURS means anything that slips past it is never asked about again — worth revisiting now that the masking is gone.",
+      "refs": [
+        "src/prop/prop_reconcile.py::find_unacted_tickets",
+        "src/prop/prop_expiry_prompt.py::find_tickets_to_prompt",
+        "src/prop/breakout_executor.py::_reticket_suppress_reason",
+        "docs/audits/full-system-audit-2026-08-23.md"
+      ]
     }
   ]
 }
