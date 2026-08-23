@@ -22172,6 +22172,50 @@
         "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md"
       ],
       "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-ALPACA-LIVE-IS-EXEMPT-FROM-BOTH-DETECTORS-THAT-WATCH-IT",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "high",
+      "tier": "2 (an env change on the live trader; the DISPOSITION is the operator's)",
+      "status": "open",
+      "area": "alerting / accounts / observability",
+      "title": "alpaca_live is on BOTH alert skip-lists at once — the one account measured refusing 120 orders is the one account nothing watches",
+      "detail": "MEASURED 2026-08-23 from a get-env ALL read of ict-trader-live (issue #10181), while verifying an unrelated key. Both values are declared in the env_file, so they survive every restart:\n    ACCOUNT_DOWN_ALERT_SKIP = 'alpaca_live'\n    SILENT_REFUSAL_SKIP     = 'alpaca_live'\n\nTHE TWO ALERTS EXIST TO COVER DIFFERENT HALVES OF ONE FAILURE, AND alpaca_live IS EXEMPT FROM BOTH. `account_reachability_alert` answers 'is this account reachable' (it probes positions()). `silent_refusal_alert` was built SPECIFICALLY because that probe misses an account whose positions() answers while balance() returns None — an account that reads UP while refusing every signal routed to it (BL-20260814-REACHABILITY-PROBES-POSITIONS-NOT-BALANCE). CLAUDE.md states the motivating measurement outright: 'measured on the live journal 2026-08-14, alpaca_live produced 120 refusals across 16 separate days at 3-5/hr and nothing alerted once'.\n\nSo the account that motivated building the second detector is skipped by the second detector — AND by the first. Between them there is now no path by which alpaca_live's silence or refusal reaches an operator.\n\n⚠️ THIS MAY WELL BE DELIBERATE AND STILL BE WRONG. CLAUDE.md documents ACCOUNT_DOWN_ALERT_SKIP as the 'escape hatch for a live account intentionally expected-down', which is a legitimate use. But SILENT_REFUSAL_SKIP is a different question with a different answer: 'we know it is down' does not imply 'we do not want to know when it starts refusing for a NEW cause'. The silent-refusal latch is keyed per (account, cause) precisely so a new cause is not swallowed by an old one — and a blanket skip defeats exactly that design. Suppressing the alarm is a reasonable response to noise; suppressing BOTH alarms is indistinguishable from not monitoring the account, and nothing in the config records which was intended.\n\nNOT CHANGED IN-SESSION: removing a skip re-arms a live alert path and the operator may have suppressed these on purpose. This row asks the question rather than answering it.",
+      "resolution_criteria": [
+        "Operator decides, per detector rather than per account: is alpaca_live expected-down (ACCOUNT_DOWN_ALERT_SKIP legitimate), and separately, do we want to know if it starts REFUSING for a new cause (SILENT_REFUSAL_SKIP)? These are different questions and the current config answers both with 'no' without recording that either was decided.",
+        "If both skips stay, record WHY in the env file or CLAUDE.md, with a date and a re-check trigger - an undocumented double-suppression is indistinguishable from an account nobody is monitoring, which is the state this pair of alerts was built to make impossible.",
+        "Either way, state the CURRENT refusal rate for alpaca_live with a denominator (scripts/ops/dead_leg_audit.py grades with the same src/runtime/dead_leg.py module the live alert uses, so the offline report and the suppressed alert cannot disagree). A decision to keep suppressing should be made against a number, not against the memory of the 2026-08-14 one."
+      ],
+      "refs": [
+        "src/runtime/silent_refusal_alert.py",
+        "src/runtime/account_reachability_alert.py",
+        "src/runtime/dead_leg.py"
+      ],
+      "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-NETTING-ATTRIBUTION-LIVE-IN-APPLY-ON-REAL-MONEY-UNRECORDED",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "medium",
+      "tier": "1 (doc correction; the live value itself was an operator-gated Tier-2 flip)",
+      "status": "open",
+      "area": "docs / netting attribution / money DB",
+      "title": "NETTING_ATTRIBUTION_MODE is live in `apply` on bybit_1 AND real-money bybit_2, and CLAUDE.md records neither the value nor when it was flipped",
+      "detail": "MEASURED 2026-08-23 from a get-env ALL read of ict-trader-live (issue #10181); both declared in the env_file, so persistent:\n    NETTING_ATTRIBUTION_MODE     = 'apply'\n    NETTING_ATTRIBUTION_ACCOUNTS = 'bybit_1,bybit_2'\n\nCLAUDE.md's row for this pair describes `annotate` as the default, explains at length what the annotate soak is for, and ends '**Tier-2 to flip to `apply`.**' It never states that the flip HAPPENED, when, or on which accounts. A reader following that row would conclude the reconciler is still observe-only and is NOT touching the money DB. It is: at `apply` it reduces/closes journal rows, and the allowlist includes **bybit_2, which is mainnet real money**.\n\nTHE FLIP MAY BE ENTIRELY CORRECT - this row does NOT assert it was unauthorised. The same CLAUDE.md row records the operator staging decision that produced the bybit_1-only allowlist, and widening to bybit_2 is a plausible, deliberate follow-on. What is wrong is the RECORD: the doc says what the default is and what the gate would be, not what the system is doing.\n\nTHIS IS THE FLIP_CONFIDENCE_THRESHOLD CLASS AGAIN, and that one cost real money. There, an override ran live on real money with no walk-forward behind it and was surfaced only when someone happened to read the env (BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD, 'that read surface's first find'). CLAUDE.md now carries an explicit 'LIVE VALUE:' marker on that key for exactly this reason. The netting keys have no such marker.\n\nNoted while verifying an unrelated key - i.e. found the same way, by accident, which is the argument for the marker convention rather than for a better reader.",
+      "resolution_criteria": [
+        "CLAUDE.md's NETTING_ATTRIBUTION_MODE / _ACCOUNTS row carries an explicit '**LIVE VALUE:**' line stating apply + the account list + the date + who approved it, in the same shape FLIP_CONFIDENCE_THRESHOLD and BYBIT_TPSL_MODE already use. Field beats comment: read the env, do not infer from the merge.",
+        "Confirm with the operator that widening the allowlist to real-money bybit_2 was the intended Tier-2 decision, and record the answer on the row. Do NOT change the live value on either answer - if it was NOT intended, that is a Tier-2 decision of its own.",
+        "Consider whether the '**LIVE VALUE:**' marker should be enforced rather than remembered: three keys now carry it by hand (FLIP_CONFIDENCE_THRESHOLD, FLIP_MIN_POSITION_AGE_HOURS, BYBIT_TPSL_MODE, CANDLE_CACHE_TTL_MAX_S) and this pair shows the convention is not self-applying. A guard could compare get_env.py's ALLOWED_KEYS against the keys CLAUDE.md marks, and flag any declared-in-env key whose doc row has no live-value line."
+      ],
+      "refs": [
+        "CLAUDE.md",
+        "src/runtime/order_monitor.py",
+        "scripts/ops/get_env.py"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }

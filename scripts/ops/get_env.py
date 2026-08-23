@@ -106,6 +106,25 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # value means NONE (deliberately inverted from its siblings, where empty
     # means ALL), so "unset" and "armed for every account" are opposite readings
     # of the same blank, and only a read surface can tell them apart.
+    # ⚠️ ADDED 2026-08-23, AND THE GAP WAS SELF-INFLICTED ON THE SAME DAY.
+    # `PROP_SCREENSHOT_BACKEND` shipped that morning as the gate deciding whether
+    # a prop screenshot — carrying account balance, equity, the broker account
+    # number and open positions — may be sent to a hosted model. Four
+    # PROTECTION_REASSERT_* siblings were allowlisted correctly in the same
+    # session and this one was not, so the one env var governing a live-data
+    # EGRESS decision was the one that could not be read back from outside.
+    # That is exactly BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE, and
+    # "the default is safe" is not a substitute for being able to CHECK it:
+    # the value is `local`/`external`/`off`, none of which is a secret.
+    "PROP_SCREENSHOT_BACKEND",
+    # `INSIGHTS_MODEL_MODE` is the M13 analyst's provider switch —
+    # `template` (no hosted call) / an Anthropic mode / a Gemini mode. Measured
+    # 2026-08-23 as template:v1 with 28,808 calls month-to-date at 0 tokens and
+    # $0.00, so nothing is leaving today — but that is a measurement of the
+    # EFFECT, not a reading of the control, and one flip of this key starts
+    # sending TRADE DATA to a hosted model. It was unreadable from outside too.
+    # A mode name is not a secret.
+    "INSIGHTS_MODEL_MODE",
     "PROTECTION_REASSERT_MODE",
     "PROTECTION_REASSERT_ACCOUNTS",
     "PROTECTION_REASSERT_COOLDOWN_S",
