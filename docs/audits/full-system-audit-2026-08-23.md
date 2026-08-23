@@ -511,9 +511,26 @@ disclaimer), the audit + exit-refinement skills, the coverage matrix and its
 rollup.
 
 **NOT reached this pass — stated, not implied:**
-- The **dashboard and Android repos** were unshallowed but not audited. Hop 12
-  (does each trade render correctly on Streamlit / SPA / Android) was **not**
-  traced.
+- **Android was not audited** (it is ON ICE per its own CLAUDE.md; a real defect
+  would still be filed, and none was looked for).
+- **Hop 12 was partially covered.** A targeted consumer-contract pass over three
+  fields this audit touched found two of three clean and one divergent:
+
+  | field | Streamlit | Svelte SPA |
+  |---|---|---|
+  | ML registry `stage` (**null on all 95 rows**) | ✅ falls back to `target_deployment_stage` | ✅ same |
+  | `pnlProvenance` | ✅ rendered per-row | ✅ rendered + counted |
+  | **prop `status_freshness`** | 🔴 **not read at all** | ✅ four states, uncollapsed |
+
+  **F-12 · The Streamlit prop rule-distance panel ignored `status_freshness`**,
+  rendering a `$282.86` cushion off a **58.7-hour-old** snapshot with only a raw
+  `As of <iso>` caption — byte-identical on screen to a live cushion. The bot
+  added the field 2026-08-14 for exactly this, and the SPA honours it; one
+  endpoint had two behaviours and the divergent one is the frontend in use.
+  **FIXED this session** — `ict-trader-dashboard` PR **#207** (four states,
+  vocabulary matched to the SPA so the two frontends cannot describe one payload
+  differently). A full per-trade render trace across all three consumers is
+  still not done.
 - **Trainer-VM-side** state beyond the mirror (no trainer relay run this session).
 - The **106 workflows / system-actions allowlist** liveness sweep (axis 3.5).
 - **Axis 3.7 change-amplification** measurement from git history.
