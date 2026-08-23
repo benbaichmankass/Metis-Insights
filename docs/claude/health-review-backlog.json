@@ -22180,6 +22180,29 @@
           "note": "TESTED THE 'MAY NOT BE RECONSTRUCTIBLE' CLAIM RATHER THAN LEAVING IT STANDING, because the exit-geometry thread needs the number and 'probably not' is not an answer it can plan around.\n\nIT IS NOT RECONSTRUCTIBLE. Four candidate anchors, each ruled out for a stated reason (see criterion 1). The decisive one is that BOTH sides of the journal are overwritten by the SAME code path: `_apply_update` writes `trades.stop_loss` via `update_trade` and `order_packages.sl` via `update_order_package`, so a trailed stop erases the level it replaced on both records. The `signals` dual-write is append-only and WOULD have served, but it does not record protective geometry — checked against live MES rows rather than inferred from the schema.\n\nWHAT THIS CHANGES FOR THE EXIT-GEOMETRY THREAD: it must NOT wait for this number, and must not quote a partial one. The correct posture is the one already written into the session prompt — treat IB live exit outcomes as contaminated by an unquantified amount and do not calibrate on them. A count derived from, say, 'packages whose updated_at differs from created_at' would be an UPPER BOUND over all update reasons, not a measure of this defect, and publishing it as the latter is exactly the unprovenanced-diagnostic class this repo guards against.\n\nTHE FORWARD FIX IS CHEAP AND IS NOW A SEPARATE CRITERION. One stamp on the trade at re-arm/amend time makes the question answerable next time. Tier-2, so proposed rather than shipped."
         }
       ]
+    },
+    {
+      "id": "BL-20260823-PROP-DAILY-LOSS-USED-READS-ZERO-WHEN-IT-WAS-NEVER-MEASURED",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "high",
+      "tier": "1 (a read surface; the remedy is a distinguishable state, not a value change)",
+      "status": "open",
+      "area": "prop / rule distance / collapsed states",
+      "title": "`daily_loss_used_usd: 0.0` means BOTH 'no loss today' and 'today's loss was never measured' — and the second is what it meant on a day that lost $107",
+      "detail": "MEASURED LIVE 2026-08-23T16:10Z on /api/bot/prop/status?account_id=breakout_1, immediately after ingesting a real closed trade (fill 35: ETHUSD long 2.0, 2453.56 -> 2402.00, net -107.02) and the operator's balance snapshot:\n\n    day_pnl                     : 0.0\n    daily_loss_used_usd         : 0.0\n    distance_to_daily_loss_usd  : 142.92\n    fills_applied_since_snapshot: 0\n    balance_basis               : snapshot\n    status_freshness            : ok\n\nEVERY ONE OF THOSE IS CORRECT AND THE PANEL STILL MISLEADS. The account lost $107.02 today. It does not appear in `daily_loss_used_usd` because the operator's snapshot was taken AFTER the close, so the loss is already baked into the 4764 balance rather than counted as usage, and `fills_applied_since_snapshot` is legitimately 0. Without `day_start_balance` — which the terminal does not display, so it was correctly OMITTED under the honest-null contract — nothing can reconstruct what today started at.\n\nSO `distance_to_daily_loss_usd: 142.92` IS NOT A CUSHION. It is 'the full daily limit, because we do not know what today already used'. A reader sizing the next trade against it would believe they have $142.92 of daily room on a day that has already spent $107.02 of a $142.92 limit — i.e. roughly $36 left, not $143. The error runs in the DANGEROUS direction: it overstates room.\n\nTHIS IS THE COLLAPSED-STATE CLASS, on the safety panel of an account-killer limit. `docs/CLAUDE-RULES-CANONICAL.md` § 'Collapsed states': ask whether 'we did not look' and 'we looked and found nothing' are distinguishable. Here they are NOT — a measured zero and an unmeasured zero print identically. The sibling axis on this very endpoint got this right: `status_freshness` is four-state (`ok`/`stale`/`absent`/`unchecked`) precisely so a full-looking cushion cannot be read off a snapshot nobody can date. The DAILY axis has no equivalent.\n\nA careful reader CAN infer it from `fills_applied_since_snapshot: 0` plus an absent `day_start_balance`, but that is a derivation across three fields to discover that a fourth is meaningless — which is exactly what a state label exists to prevent.",
+      "resolution_criteria": [
+        "`/api/bot/prop/status` gains a `daily_basis` (or equivalent) that is never collapsed, mirroring `status_freshness`'s vocabulary: `measured` (a day_start_balance is known and day_pnl is computed from it) / `fills_only` (no day_start_balance; day_pnl reflects only fills reported since the snapshot, so it is a LOWER BOUND) / `unmeasured` (neither available - we did not look). `distance_to_daily_loss_usd` must be readable as untrustworthy without deriving it from three other fields.",
+        "When the basis is not `measured`, the daily distance is still RETURNED (discarding the last known figure helps nobody, per the same rule that keeps stale rule_distance values) but the caveat travels INSIDE rule_distance as well as on the envelope - the pattern status_freshness already uses, so a consumer reading only the panel cannot miss it.",
+        "Register the new field with collapsed-state-guard so the producer must emit every state and a real consumer must branch on each.",
+        "Consumers updated: the dashboard Prop tab rule-distance panel must not render a `fills_only`/`unmeasured` daily distance the same way it renders a measured one."
+      ],
+      "refs": [
+        "src/web/api/routers/prop.py",
+        "src/prop/prop_balance.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }
