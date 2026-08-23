@@ -465,7 +465,7 @@
       "strategy": "eth_pullback_prop_2h",
       "symbol": "ETHUSDT",
       "tf": "2h",
-      "execution": "live",
+      "execution": "shadow",
       "exploded_from": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
       "trail_geometry": {
         "status": "honest_negative",
