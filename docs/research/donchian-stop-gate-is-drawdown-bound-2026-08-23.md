@@ -293,6 +293,66 @@ stand on its own merits, and is reported as a refusal, not as a result.
 
 ---
 
+## 3.95 Dispersion — now runnable, and it corrects my own headline cell
+
+§ 6 of the first draft said *"dispersion becomes runnable only once cells clear
+the gate."* Seven now do, so it ran: `m20_split_dispersion`, **5 OOS targets
+(35/40/45/50/60)**, base and cell books emitted through the sweep's **own**
+`base_args`/`cell_args` so the books are identical by construction.
+
+⚠️ **The tool's `harness_agreement` is `True` on all 7** — it refused to grade
+anything until `--base-reported` let it check its re-derivation against the
+harness's own figures. That refusal is the tool working, and it is why these
+numbers are trustworthy.
+
+### ⚠️ `split_sensitive: false` here means stably FAILING — do not filter on it
+
+Every cell came back `split_sensitive: false` with **`pass_fraction: 0.0`**. That
+is not stability of a pass. `m20_split_dispersion`'s predicate is
+`beats(cell_IS, base_IS) and beats(cell_OOS, base_OOS)` — **Path A**, net_R *and*
+maxDD — and `m20_fleet_exit_sweep::walkforward`'s own docstring says applying it
+to a Path B candidate *"would reject it in every fold BY CONSTRUCTION … the tally
+would be a fabricated negative."*
+
+**So a filter of `split_sensitive: false` would have kept all seven and read the
+stability of a failure as evidence of a pass.** The tool has no Path B mode.
+Filed as `BL-20260823-SPLIT-DISPERSION-HAS-NO-PATH-B-MODE`.
+
+### The Path B claim, graded across the same 5 splits
+
+Read from the rows the tool already emitted (`d_net_r_is` / `d_net_r_oos`) — no
+metric re-derived here. The cell's own claim is **net R up in BOTH windows**:
+
+| leg | cell | stable | per-target ΔIS / ΔOOS (35 · 40 · 45 · 50 · 60) |
+|---|---|---|---|
+| `trend_donchian` | `sm2` | **5/5** | +15.94/+2.99 · +15.30/+3.63 · +14.85/+4.08 · +15.07/+3.86 · +12.52/+6.41 |
+| `trend_donchian_1h` | `sm2_to96` | **5/5** | +40.88/+6.10 · +44.30/+2.68 · +43.17/+3.81 · +34.35/+12.64 · +35.88/+11.11 |
+| `trend_donchian_ada_4h` | `sm1.5` | **5/5** | +31.48/+0.98 · +27.90/+4.56 · +23.44/+9.02 · +21.61/+10.85 · +17.42/+15.04 |
+| `trend_donchian_ada_4h` | `sm1.5_to400` | **5/5** | *(identical — `to400` is inert on this leg)* |
+| `trend_donchian_ada_4h` | `sm2` | 4/5 | **−0.56 OOS at target 35** |
+| `trend_donchian_sol_4h` | `sm1.5` | 4/5 | **−2.54 IS at target 60** |
+| `trend_donchian_sol_4h` | **`tp1.5_sm2_to96`** | **3/5** | **−3.26 OOS at 35, −0.88 OOS at 45** |
+
+**Three distinct cells hold at all five splits:** `trend_donchian sm2`,
+`trend_donchian_1h sm2_to96`, `ada_4h sm1.5`.
+
+### ⚠️ This demotes my own headline cell
+
+`sol_4h tp1.5_sm2_to96` — the cell I called the best in the corpus, and the one
+carrying the *"declare a real target"* thesis across three documents — is
+**3 of 5**. Its out-of-sample gain **flips negative at two of the five split
+targets**. It remains the best cell on MAR at the single default split, and its
+mechanism argument (a declared 1.5R beside the clamp's 1.44R) is unaffected —
+but **it is the least split-stable of the seven**, and any weight I put on it as
+a *result* rather than as an *illustration* was too much.
+
+Note also that `trend_donchian_1h sm2_to96` is 5/5 stable on the Path B claim
+while its OOS **book** is still negative (§ 3.5). Those are different questions —
+*does the cell improve the book* vs *is the resulting book positive* — and both
+answers stand.
+
+---
+
 ## 4. Widening the grid would not address this
 
 The operator's pre-registered fallback was *"widen the grid and re-run"* if
@@ -337,9 +397,10 @@ answers that, and it is Tier-3.
 2. If that decision is "yes, within a bound", the gate's Path-A allowance is the
    parameter to argue about, and `m20_path_b_floor.py` already exists to test
    whether a floor is supportable rather than guessed.
-3. Dispersion becomes runnable **only** once cells clear the gate. Running it on
-   a gate-failed cell would be measuring the stability of something already
-   refused.
+3. ~~Dispersion becomes runnable only once cells clear the gate.~~ **Done —
+   see § 3.95.** Seven cells now clear it, dispersion ran on all seven, and
+   three distinct cells hold the Path B claim at all five split targets. It also
+   surfaced that the dispersion tool grades on Path A and has no Path B mode.
 
 4. **The bracket half is separable from the drawdown question, and cheaper.**
    `sol_4h tp1.5_sm2_to96` (§ 3.5) is the only measured cell here that replaces
