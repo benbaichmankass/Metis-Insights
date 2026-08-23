@@ -106,6 +106,27 @@ class ScreenshotParseError(Exception):
     """Raised for an operator-readable extraction failure (bad/absent API, etc.)."""
 
 
+#: One reply must hold EVERY report the screenshot contains. A portfolio screen
+#: carries an open position AND a Trade History table, so a cap sized for a
+#: single fill truncates mid-JSON on any real screenshot. Measured 2026-08-23:
+#: at 1024 the reply began `{ "reports": [ { "type": "fill",` -- valid,
+#: pretty-printed, and CUT OFF -- so `json.loads` failed and the operator was
+#: told to send "a clearer shot", which could never have worked.
+_MAX_OUTPUT_TOKENS = 4096
+
+
+class ScreenshotTruncated(ScreenshotParseError):
+    """The model was still writing when its token budget ran out.
+
+    A DISTINCT failure from unreadable output, and the distinction is the whole
+    point: the screenshot was read CORRECTLY and the remedy is a tighter crop or
+    a typed report -- NOT a clearer picture. Folding this into the generic
+    "couldn't read it" message names a cause no code path tested
+    (diagnostic-provenance sub-class A) and sends the operator to re-shoot a
+    photo that was never the problem.
+    """
+
+
 def _model_id() -> str:
     return os.environ.get("PROP_SCREENSHOT_MODEL", _DEFAULT_MODEL).strip() or _DEFAULT_MODEL
 
@@ -347,7 +368,7 @@ def _call_vision_gemini_once(model_id: str, image_b64: str, media_type: str) -> 
         "systemInstruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
         # Temperature 0: reading numbers off a screen is transcription, not
         # generation. A creative sample here is a misread balance.
-        "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.0,
+        "generationConfig": {"maxOutputTokens": _MAX_OUTPUT_TOKENS, "temperature": 0.0,
                              "responseMimeType": "application/json"},
     }
     with httpx.Client(timeout=30.0) as client:
@@ -367,9 +388,16 @@ def _call_vision_gemini_once(model_id: str, image_b64: str, media_type: str) -> 
         cands = resp.json().get("candidates") or []
         parts = (cands[0].get("content") or {}).get("parts") or []
         text = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+        finish = str(cands[0].get("finishReason") or "").upper()
     except Exception as exc:  # noqa: BLE001
         raise ScreenshotParseError(
             f"screenshot reading returned an unreadable {model_id} response.") from exc
+    if finish == "MAX_TOKENS":
+        raise ScreenshotTruncated(
+            "the screenshot held more rows than one reply can carry, so the "
+            "report was cut off mid-way. Send a tighter crop (just the position "
+            "or the one trade you want recorded), or type it "
+            "(e.g. `close ETHUSD 2950 +80 tp`).")
     if not text.strip():
         # An empty completion is NOT an empty screenshot. Saying "no trade
         # found" here would report a read that never happened.
@@ -395,7 +423,7 @@ def _call_vision_anthropic(model_id: str, image_b64: str, media_type: str) -> st
     client = anthropic.Anthropic()  # picks up ANTHROPIC_API_KEY from env
     resp = client.messages.create(
         model=model_id,
-        max_tokens=1024,
+        max_tokens=_MAX_OUTPUT_TOKENS,
         system=_SYSTEM_PROMPT,
         messages=[{
             "role": "user",
@@ -406,7 +434,61 @@ def _call_vision_anthropic(model_id: str, image_b64: str, media_type: str) -> st
             ],
         }],
     )
+    if str(getattr(resp, "stop_reason", "") or "").lower() == "max_tokens":
+        raise ScreenshotTruncated(
+            "the screenshot held more rows than one reply can carry, so the "
+            "report was cut off mid-way. Send a tighter crop (just the position "
+            "or the one trade you want recorded), or type it "
+            "(e.g. `close ETHUSD 2950 +80 tp`).")
     return _extract_text(resp)
+
+
+class ScreenshotBackendUnavailable(ScreenshotParseError):
+    """The configured backend cannot serve this read, and we will NOT substitute.
+
+    Distinct from a truncated read and from an unreadable screenshot: nothing was
+    attempted. Substituting a different backend is precisely what this class
+    exists to prevent.
+    """
+
+
+#: Where a prop screenshot may be read. Operator directive 2026-08-23: *"that
+#: flow is supposed to use the local LM ... It shouldn't be sent to any outside
+#: service."*
+#:
+#: ⚠️ WHAT THE SYSTEM ACTUALLY DOES, stated because it did not match that intent
+#: and the mismatch was silent. `parse_screenshot` sent the image to Anthropic
+#: and, on failure, to Google — carrying account balance, equity, the broker
+#: account number and open positions. That is LIVE TRADING DATA leaving the
+#: system on a path with no scope guard: `llm-delegate`'s guard ("public repo
+#: code + docs ONLY — never live trading data, credentials, or account config")
+#: governs the delegate WORKFLOW and has never covered this module.
+#:
+#: ⚠️ AND THERE IS NO LOCAL BACKEND TO ROUTE TO. Verified 2026-08-23: every
+#: mention of a local GGUF/llama.cpp/ollama runner in this repo is DOCUMENTATION
+#: — `docs/design/llm-burst-worker-DESIGN.md` lists it as "Phase 3 ... if a
+#: privacy driver appears", and the burst worker that does exist is itself
+#: external (Cerebras/Gemini on an Actions runner). The privacy driver has now
+#: appeared; the backend has not been built.
+#:
+#: So the default is `local`, which today RESOLVES TO A REFUSAL rather than to a
+#: silent external call. Three states, never collapsed:
+#:   local    — intended backend; not installed, so refuse and say so (DEFAULT)
+#:   external — explicit opt-in to the hosted providers, today's behaviour
+#:   off      — reader deliberately disabled
+#: `local` and `off` are NOT the same statement: one is "this should work and
+#: does not yet", the other is "we chose not to". Collapsing them would erase
+#: the reason Phase 3 exists.
+_BACKEND_LOCAL = "local"
+_BACKEND_EXTERNAL = "external"
+_BACKEND_OFF = "off"
+_BACKENDS = (_BACKEND_LOCAL, _BACKEND_EXTERNAL, _BACKEND_OFF)
+
+
+def _backend() -> str:
+    """Resolve the backend. An unparseable value fails CLOSED, never open."""
+    raw = (os.environ.get("PROP_SCREENSHOT_BACKEND") or "").strip().lower()
+    return raw if raw in _BACKENDS else _BACKEND_LOCAL
 
 
 def _call_vision(image_b64: str, media_type: str) -> str:
@@ -426,6 +508,20 @@ def _call_vision(image_b64: str, media_type: str) -> str:
     implementation detail — a silent swap would leave no record of what
     transcribed a balance that feeds the prop rule-distance cushion.
     """
+    backend = _backend()
+    if backend == _BACKEND_OFF:
+        raise ScreenshotBackendUnavailable(
+            "screenshot reading is switched off (PROP_SCREENSHOT_BACKEND=off) — "
+            "type the report instead (e.g. `close ETHUSD 2950 +80 tp`).")
+    if backend == _BACKEND_LOCAL:
+        raise ScreenshotBackendUnavailable(
+            "screenshot reading is set to the LOCAL backend, which is not "
+            "installed yet — and this image carries account balance, equity and "
+            "positions, so it is NOT being sent to a hosted model instead. "
+            "Type the report (e.g. `close ETHUSD 2950 +80 tp`, or "
+            "`bal <balance> <equity>`). To use the hosted providers anyway, set "
+            "PROP_SCREENSHOT_BACKEND=external.")
+
     primary = _model_id()
     caller = _call_vision_gemini if _is_gemini(primary) else _call_vision_anthropic
     try:
@@ -504,4 +600,5 @@ def parse_screenshot(
     return _reports_from_model_json(data, default_account=default_account)
 
 
-__all__ = ["parse_screenshot", "ScreenshotParseError"]
+__all__ = ["parse_screenshot", "ScreenshotParseError", "ScreenshotTruncated",
+           "ScreenshotBackendUnavailable"]

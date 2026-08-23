@@ -148,3 +148,110 @@ def test_call_vision_without_api_key_raises(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(sp.ScreenshotParseError):
         sp._call_vision("Zm9v", "image/png")
+
+
+class TestTruncationIsNotAnUnreadableScreenshot:
+    """`ScreenshotTruncated` vs the generic parse error — measured 2026-08-23.
+
+    The live failure: Anthropic 400'd on billing, the Gemini fallback answered,
+    and its reply was CUT OFF at 1024 tokens mid-JSON. The operator was told
+    "try a clearer shot", which could never have worked -- the shot was read
+    correctly. A remedy that cannot succeed is worse than no remedy, because it
+    keeps the operator re-trying instead of typing the report.
+    """
+
+    def test_the_cap_holds_a_portfolio_screen_not_a_single_fill(self):
+        import src.prop.screenshot_parse as sp
+        assert sp._MAX_OUTPUT_TOKENS >= 4096
+
+    def test_truncation_is_catchable_as_a_parse_error(self):
+        """Callers that already handle ScreenshotParseError keep working."""
+        import src.prop.screenshot_parse as sp
+        assert issubclass(sp.ScreenshotTruncated, sp.ScreenshotParseError)
+
+    def test_the_message_names_a_remedy_that_can_actually_work(self):
+        """It must NOT tell the operator to re-shoot a picture that was fine."""
+        import src.prop.screenshot_parse as sp
+        msg = str(sp.ScreenshotTruncated(
+            "the screenshot held more rows than one reply can carry, so the "
+            "report was cut off mid-way. Send a tighter crop (just the position "
+            "or the one trade you want recorded), or type it "
+            "(e.g. `close ETHUSD 2950 +80 tp`)."))
+        assert "clearer" not in msg
+        assert "tighter crop" in msg and "type it" in msg
+
+    def test_both_providers_share_one_cap(self):
+        """A cap raised on one provider and not the other reproduces the bug on
+        whichever path the fallback happens to take."""
+        import pathlib
+        import re
+        src = pathlib.Path("src/prop/screenshot_parse.py").read_text()
+        assert "max_tokens=_MAX_OUTPUT_TOKENS" in src          # anthropic
+        assert '"maxOutputTokens": _MAX_OUTPUT_TOKENS' in src  # gemini
+        assert not re.search(r"max_?[oO]utput_?[tT]okens\"?[:=]\s*1024", src)
+
+    def test_both_providers_detect_truncation(self):
+        """Gemini reports finishReason, Anthropic reports stop_reason. Checking
+        one leaves the other silently truncating."""
+        import pathlib
+        src = pathlib.Path("src/prop/screenshot_parse.py").read_text()
+        assert 'finish == "MAX_TOKENS"' in src
+        assert 'stop_reason' in src
+
+
+class TestBackendGateFailsClosed:
+    """Operator directive 2026-08-23: the prop screenshot flow "shouldn't be sent
+    to any outside service". It was — Anthropic then Google, carrying balance,
+    equity, the broker account number and open positions.
+
+    `llm-delegate`'s scope guard ("public repo code + docs ONLY — never live
+    trading data, credentials, or account config") governs the delegate WORKFLOW
+    and never covered this module, so nothing stopped it.
+    """
+
+    def _backend(self, monkeypatch, value):
+        import src.prop.screenshot_parse as sp
+        monkeypatch.delenv("PROP_SCREENSHOT_BACKEND", raising=False)
+        if value is not None:
+            monkeypatch.setenv("PROP_SCREENSHOT_BACKEND", value)
+        return sp._backend()
+
+    def test_default_is_local_not_external(self, monkeypatch):
+        """Unset must NOT mean 'send it to a hosted model'."""
+        assert self._backend(monkeypatch, None) == "local"
+
+    def test_an_unparseable_value_fails_closed(self, monkeypatch):
+        """A typo must not silently re-open the egress path."""
+        assert self._backend(monkeypatch, "gemini-ish") == "local"
+        assert self._backend(monkeypatch, "") == "local"
+
+    def test_external_requires_an_explicit_opt_in(self, monkeypatch):
+        assert self._backend(monkeypatch, "external") == "external"
+
+    def test_local_and_off_are_not_the_same_statement(self, monkeypatch):
+        """`local` = 'should work, not built yet' (the Phase-3 driver).
+        `off` = 'we chose not to'. Collapsing them erases why Phase 3 exists."""
+        assert self._backend(monkeypatch, "local") != self._backend(monkeypatch, "off")
+
+    def test_local_refuses_rather_than_substituting_a_hosted_model(self, monkeypatch):
+        import pytest
+        import src.prop.screenshot_parse as sp
+        monkeypatch.delenv("PROP_SCREENSHOT_BACKEND", raising=False)
+        called = []
+        monkeypatch.setattr(sp, "_call_vision_anthropic",
+                            lambda *a, **k: called.append("anthropic") or "{}")
+        monkeypatch.setattr(sp, "_call_vision_gemini",
+                            lambda *a, **k: called.append("gemini") or "{}")
+        with pytest.raises(sp.ScreenshotBackendUnavailable):
+            sp._call_vision("aGk=", "image/png")
+        assert called == [], f"a hosted provider was called under the local backend: {called}"
+
+    def test_the_refusal_names_a_remedy_the_operator_can_use(self, monkeypatch):
+        import pytest
+        import src.prop.screenshot_parse as sp
+        monkeypatch.delenv("PROP_SCREENSHOT_BACKEND", raising=False)
+        with pytest.raises(sp.ScreenshotBackendUnavailable) as e:
+            sp._call_vision("aGk=", "image/png")
+        msg = str(e.value)
+        assert "Type the report" in msg or "type the report" in msg
+        assert "PROP_SCREENSHOT_BACKEND=external" in msg

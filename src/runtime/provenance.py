@@ -167,6 +167,12 @@ measurement), which is why they share a bucket. They differ only in
 ACCOUNTABILITY, and that distinction is read from the raw source string, not the
 bucket: see :data:`UNMEASURED_MARKER`."""
 
+#: How an ABSENT source key renders. Not a source value — the difference
+#: between "nothing was recorded" and "something unrecognised was recorded" is
+#: exactly the accountability distinction this module documents, so the two
+#: must never share a rendering.
+_ABSENT_RAW = "(none)"
+
 UNMEASURED_MARKER = "unmeasured"
 """The canonical ``pnl_source`` value meaning **"this close is real, its PnL
 could not be measured, and we are saying so on the record."**
@@ -412,7 +418,7 @@ def classify_row(row: Any, key: str = "exit_price_source") -> Tuple[str, str]:
         except (KeyError, IndexError, TypeError):
             notes = None
         raw = str(_decode_notes(notes).get(key) or "")
-    return classify(raw, key), (raw or "(none)")
+    return classify(raw, key), (raw or _ABSENT_RAW)
 
 
 #: Bucket severity, worst first — used to combine evidence from several keys.
@@ -454,13 +460,35 @@ def classify_pnl(row: Any) -> Tuple[str, str]:
     coverage, 206 fabricated, 119 unverified — numbers an operator can act on.
     """
     buckets = {}
+    unrecognised = []
     for key in ("pnl_source", "exit_price_source"):
         bucket, raw = classify_row(row, key)
         if bucket != UNVERIFIED:
             buckets[bucket] = f"{key}={raw}"
+        elif raw and raw != _ABSENT_RAW:
+            # `classify_row` renders an absent key as the sentinel "(none)", so a
+            # bare truthiness test counts ABSENCE as an unrecognised source --
+            # which reverses this fix into the same collapse it removes. Caught by
+            # testing the all-absent case rather than only the interesting one.
+            unrecognised.append(f"{key}={raw}")
     for bucket in _SEVERITY:
         if bucket in buckets:
             return bucket, buckets[bucket]
+    # ⚠️ THE BUCKET IS RIGHT; THE REASON USED TO BE A FALSE STATEMENT.
+    # This returned "(no provenance on either key)" unconditionally, discarding
+    # the raw strings — which contradicted this module's own documented contract
+    # that "no record" and "explicitly declared unmeasurable" are told apart by
+    # READING THE RAW SOURCE STRING (see UNVERIFIED / UNMEASURED_MARKER above).
+    # Measured on trade 4164 (bybit_portfolio XRPUSDT, closed reconciler_filled):
+    # order_monitor.py:6074 deliberately stamps
+    # exit_price_source='entry_order_avg_price_unreliable' to say WHY the exit
+    # could not be priced, and classify_pnl answered "no provenance on either
+    # key". An auditor reading that goes looking for a missing writer that is not
+    # missing — the wasted-investigation shape, caused by our own label.
+    # The bucket stays UNVERIFIED (for TRUST the two are identical, exactly as
+    # documented); only ACCOUNTABILITY is restored.
+    if unrecognised:
+        return UNVERIFIED, "unrecognised source: " + " · ".join(unrecognised)
     return UNVERIFIED, "(no provenance on either key)"
 
 

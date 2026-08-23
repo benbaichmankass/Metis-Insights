@@ -9,6 +9,17 @@ extracting a pattern across a subsystem — burns context and time on work a
 small model could do. We wanted a "local LLM on cloud" the session could start
 on demand, use, and stop, at zero cost.
 
+> ⚠️ **THAT PHRASE IS MISLEADING AND IT MISLED THE OPERATOR** (corrected
+> 2026-08-23). *"Local LLM on cloud"* describes the ergonomics we wanted — cheap,
+> on-demand, disposable — and reads as a statement about WHERE INFERENCE HAPPENS,
+> which it is not. **What shipped is external:** the worker calls Gemini (and
+> optionally Cerebras) from a GitHub Actions runner. Nothing in this system runs
+> a model locally; the local-GGUF backend below is Phase 3 and unbuilt. The
+> operator read this as a local model and, on 2026-08-23, correctly objected when
+> a flow was found sending live account data to a hosted provider. A label naming
+> a property the implementation does not have is the same sub-class A defect this
+> repo's guards exist to catch — here in our own design doc.
+
 ## The reframe
 
 The lifecycle machinery everyone reaches for (start → health-check → idle
@@ -104,3 +115,8 @@ a bounded question, a checkable answer, and a real fix landed.
 - Phase 2: more task types, driven by what Phase 1 shows.
 - Phase 3: local GGUF backend (cached in the 10 GB Actions cache) if a privacy
   driver appears — measured against the hosted backend before being preferred.
+  ⚠️ **THE PRIVACY DRIVER HAS APPEARED — 2026-08-23, operator-stated.** The
+  condition this phase was gated on is now met, and the deferral rationale
+  recorded elsewhere ("no privacy driver exists") was never the operator's
+  position: it was OURS, asserted about their requirements without asking them.
+  See `BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS`.

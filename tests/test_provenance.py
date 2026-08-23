@@ -280,8 +280,15 @@ def test_classify_pnl_never_promotes_to_measured_without_evidence():
     """`local_compute` describes the ARITHMETIC, not the evidence — it must
     never be enough on its own."""
     bucket, why = P.classify_pnl(_row(pnl_source="local_compute"))
-    assert bucket == P.UNVERIFIED
-    assert "no provenance" in why
+    assert bucket == P.UNVERIFIED          # the load-bearing assertion, unchanged
+    # This used to assert `"no provenance" in why`, which encoded a FALSE
+    # statement: `local_compute` IS recorded — it is simply not EVIDENCE, and the
+    # module's own docs describe it as deliberately "unrecognised" so the
+    # classifier defers to `exit_price_source`. Claiming no provenance was
+    # recorded sent auditors hunting a missing writer (measured on trade 4164).
+    # The reason now names what was found; the BUCKET is what protects trust.
+    assert "local_compute" in why
+    assert "no provenance" not in why
 
 
 def test_classify_pnl_returns_the_deciding_evidence():
@@ -358,3 +365,49 @@ class TestPnlIsTrustworthy:
         assert pnl_is_trustworthy(
             {"pnl_source": "local_compute",
              "exit_price_source": "bybit_closed_pnl"})
+
+
+class TestUnverifiedReasonKeepsAccountability:
+    """`classify_pnl` returned "(no provenance on either key)" unconditionally,
+    discarding the raw source strings — contradicting this module's own contract
+    that "no record" and "explicitly declared unmeasurable" are told apart by
+    READING THE RAW SOURCE STRING.
+
+    Measured on trade 4164 (bybit_portfolio XRPUSDT, closed `reconciler_filled`):
+    order_monitor deliberately stamps
+    `exit_price_source='entry_order_avg_price_unreliable'` to record WHY the exit
+    could not be priced, and the classifier answered "no provenance". An auditor
+    reading that hunts a missing writer that is not missing.
+    """
+
+    def test_a_declared_unmeasurable_reason_is_reported_not_erased(self):
+        from src.runtime import provenance as p
+        bucket, why = p.classify_pnl(
+            {"exit_price_source": "entry_order_avg_price_unreliable", "pnl_source": None})
+        assert bucket == p.UNVERIFIED, "TRUST must not change — it is still not a measurement"
+        assert "entry_order_avg_price_unreliable" in why
+        assert "no provenance" not in why
+
+    def test_genuinely_absent_still_says_absent(self):
+        """The inverse error, and the one my first fix introduced: rendering an
+        ABSENT key as an unrecognised source. `classify_row` returns the sentinel
+        "(none)", so a bare truthiness test counts absence as a recorded value."""
+        from src.runtime import provenance as p
+        bucket, why = p.classify_pnl({"exit_price_source": None, "pnl_source": None})
+        assert bucket == p.UNVERIFIED
+        assert why == "(no provenance on either key)"
+        assert "unrecognised" not in why
+
+    def test_absent_and_unrecognised_are_distinguishable(self):
+        """The whole point: two states, never collapsed into one reason."""
+        from src.runtime import provenance as p
+        _, absent = p.classify_pnl({"exit_price_source": None, "pnl_source": None})
+        _, present = p.classify_pnl({"exit_price_source": "something_new", "pnl_source": None})
+        assert absent != present
+
+    def test_recognised_buckets_are_untouched(self):
+        """The bucket logic must not move — only the UNVERIFIED reason string."""
+        from src.runtime import provenance as p
+        assert p.classify_pnl({"exit_price_source": "bybit_closed_pnl"})[0] == p.MEASURED
+        assert p.classify_pnl({"exit_price_source": "candle_at_close"})[0] == p.ESTIMATED
+        assert p.is_measured({"exit_price_source": "entry_order_avg_price_unreliable"}) is False

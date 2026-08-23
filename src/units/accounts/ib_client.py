@@ -1578,23 +1578,50 @@ class IBClient:
             # fallback preserves the legacy behaviour for keyless callers.
             if oca_group is None:
                 oca_group = f"oca-protect-{ib.client.getReqId()}"
+            # ORDER IS LOAD-BEARING NOW THAT EVERY LEG TRANSMITS: the legs go to
+            # IBKR one at a time, so whichever is placed first is live alone for
+            # a moment. The STOP goes first — a brief window with only downside
+            # protection is strictly safer than one with only an upside target.
+            # (Under the old transmit-on-last behaviour this ordering was
+            # invisible, which is part of why the defect survived.)
             legs = []
-            if tp_price is not None:
-                tp = LimitOrder(reverse, qty, tp_price)
-                tp.orderId = ib.client.getReqId()
-                legs.append(tp)
             if sl_price is not None:
                 sl = StopOrder(reverse, qty, sl_price)
                 sl.orderId = ib.client.getReqId()
                 legs.append(sl)
-            for i, leg in enumerate(legs):
+            if tp_price is not None:
+                tp = LimitOrder(reverse, qty, tp_price)
+                tp.orderId = ib.client.getReqId()
+                legs.append(tp)
+            for leg in legs:
                 leg.ocaGroup = oca_group
                 leg.ocaType = 1
                 leg.tif = "GTC"
-                # Transmit only on the final leg so IBKR receives the OCA
-                # pair atomically (mirrors the bracket-transmit discipline
-                # in place()).
-                leg.transmit = i == len(legs) - 1
+                # ⚠️ EVERY LEG TRANSMITS. This used to be `i == len(legs) - 1`
+                # — "transmit only on the final leg ... mirrors the
+                # bracket-transmit discipline in place()". That discipline works
+                # in `place()` ONLY because its children carry `parentId`
+                # (see :meth:`place`), so IBKR holds them until the parent
+                # transmits and then releases them. THESE LEGS HAVE NO PARENT —
+                # this method's own docstring says so two lines up ("OCA group
+                # ties the legs together with **no parent**"). A parentless order
+                # with `transmit=False` is held by IBKR and NEVER released,
+                # because nothing exists to release it.
+                #
+                # `legs` is built [TP, SL], so the TP was the non-final leg: it
+                # was constructed, sent, and silently never transmitted, while
+                # the SL went live. Every bracket placed through this method was
+                # STOP-ONLY. That is the CAUSE of
+                # `BL-20260816-COVERAGE-IS-ONE-SIDED`, whose measurement was
+                # "zero limit orders existed account-wide" on ib_paper — that row
+                # found the symptom and `place_target_in_group` was built to
+                # repair it, while the producer kept making them.
+                #
+                # Confirmed live 2026-08-23: a re-assert carrying declared_tp
+                # 8390.59025 returned retCode 0 and left ONE MES leg resting
+                # (STP), with no limit order anywhere on the account.
+                # `BL-20260823-REASSERT-REPORTS-APPLIED-OK-ON-A-HALF-ARMED-BRACKET`.
+                leg.transmit = True
                 if self.account:
                     leg.account = self.account
 
@@ -1607,9 +1634,19 @@ class IBClient:
         except Exception as exc:  # noqa: BLE001
             return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
 
+        # `orderId` is the STOP's id when a stop was placed, else the target's.
+        # It used to be `legs[-1]`, which happened to BE the stop only because the
+        # list was built [TP, SL]; reordering the list to place the stop first
+        # (see the transmit note above) would have silently changed which leg this
+        # id names, and callers persist it (e.g. `trades.sl_order_id`). Naming the
+        # leg explicitly makes the guarantee independent of list order.
+        _stop_leg = next((leg for leg in legs
+                          if type(leg).__name__ == "StopOrder"), None)
+        _named = _stop_leg if _stop_leg is not None else legs[-1]
         return {
             "retCode": 0,
-            "result": {"orderId": str(legs[-1].orderId), "ocaGroup": oca_group},
+            "result": {"orderId": str(_named.orderId), "ocaGroup": oca_group,
+                       "legs_placed": len(legs)},
             "retMsg": "OK",
         }
 
