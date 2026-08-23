@@ -7124,10 +7124,11 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
         # round for confirming a deploy.
         logger.info(
             "_check_broker_naked_ib_positions: swept %d open IB position(s) — "
-            "covered=%d naked=%d partially_naked=%d rearmed=%d "
+            "covered=%d naked=%d partially_naked=%d target_naked=%d rearmed=%d "
             "read_failed=%d ungradeable=%d errors=%d",
             summary["checked"], summary["covered"], summary["broker_naked"],
-            summary["partially_naked"], summary["rearmed"],
+            summary["partially_naked"], summary.get("target_naked", 0),
+            summary["rearmed"],
             summary["read_failed"], summary["ungradeable"], summary["errors"],
         )
     return summary
