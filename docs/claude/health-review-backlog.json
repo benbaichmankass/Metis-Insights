@@ -22227,14 +22227,21 @@
       "resolution_criteria": [
         "Operator decides, per detector rather than per account: is alpaca_live expected-down (ACCOUNT_DOWN_ALERT_SKIP legitimate), and separately, do we want to know if it starts REFUSING for a new cause (SILENT_REFUSAL_SKIP)? These are different questions and the current config answers both with 'no' without recording that either was decided.",
         "If both skips stay, record WHY in the env file or CLAUDE.md, with a date and a re-check trigger - an undocumented double-suppression is indistinguishable from an account nobody is monitoring, which is the state this pair of alerts was built to make impossible.",
-        "Either way, state the CURRENT refusal rate for alpaca_live with a denominator (scripts/ops/dead_leg_audit.py grades with the same src/runtime/dead_leg.py module the live alert uses, so the offline report and the suppressed alert cannot disagree). A decision to keep suppressing should be made against a number, not against the memory of the 2026-08-14 one."
+        "DONE 2026-08-23 — and the number reframes the whole row. Measured over the COMPLETE population (318 rows of 318 total for account_id='alpaca_live'; filter_state='applied', page == total, nothing truncated; span 2026-06-25 -> 2026-08-21): **317 of 318 orders refused = 99.7%. Exactly ONE trade ever closed.** Causes parsed from notes.reason: 134 zero_balance (gate_balance=0.00), ~90 risk_refused with sized_qty=0 against a balance of ~$150, 20 `balance() returned None`, 8 account_mode_dry_run. So this is NOT a refusal RATE to tune — the account is funded at roughly $150 while the 15 strategies routed to it trade ETFs (SPY/TLT/QQQ/GLD/SLV/USO/GDX/IAUM) it cannot buy a single WHOLE share of, and Alpaca rejects fractional shares. Every component behaves as designed; the configuration is the defect. Escalated to its own row: BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL (critical, Tier-3)."
       ],
       "refs": [
         "src/runtime/silent_refusal_alert.py",
         "src/runtime/account_reachability_alert.py",
         "src/runtime/dead_leg.py"
       ],
-      "last_verified": "2026-08-23"
+      "last_verified": "2026-08-23",
+      "updates": [
+        {
+          "at": "2026-08-23T16:27:22.287117+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "THE MEASUREMENT THIS ROW ASKED FOR CHANGES WHAT THE ROW IS ABOUT. I filed it as an ALERTING question — is suppressing both detectors on one account defensible? Discharging its own criterion 3 answered a bigger one.\n\nalpaca_live has refused 317 of 318 orders across its entire recorded life (99.7%), with exactly ONE closed trade, over 57 days. That is the complete population, not a window: the query returned 318 of 318 with filter_state='applied'.\n\nAnd the cause is CONFIGURATION, not malfunction. The account holds ~$150 (sometimes $0, sometimes unreadable) while the 15 strategies routed to it trade ETFs whose share price exceeds that, and Alpaca is in WHOLE_UNIT_QTY_EXCHANGES so the sizer correctly rounds to zero and correctly refuses. Nothing is broken. The account cannot place an order at this funding level, by arithmetic.\n\nSO THE SUPPRESSION IS NOT THE PROBLEM, IT IS THE SYMPTOM. Silencing an alarm that fires 3-5 times an hour is a rational response to noise. The cost is that a structurally dead account with 16 live strategies pointed at it stopped being visible instead of being fixed — which is the desensitized-alarm P1 read from the other end: not an alarm everyone walks past, but an alarm someone reasonably turned off while the condition stayed.\n\nThis row stays open on its alerting question (the two SKIPs still need a disposition), but the operator decision now lives on the new row, because funding/routing is Tier-3 and is the thing that actually needs deciding."
+        }
+      ]
     },
     {
       "id": "BL-20260823-NETTING-ATTRIBUTION-LIVE-IN-APPLY-ON-REAL-MONEY-UNRECORDED",
@@ -22278,6 +22285,30 @@
         "docs/claude/health-review-backlog.json",
         "scripts/ops/check_backlog_criteria.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "last_verified": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL",
+      "opened_at": "2026-08-23",
+      "opened_by": "full-system-audit-2026-08-23",
+      "severity": "critical",
+      "tier": "3 (funding / account-mode / strategy routing — propose, do not act)",
+      "status": "open",
+      "area": "accounts / alpaca / routing / dead legs",
+      "title": "alpaca_live has refused 317 of 318 orders in its entire recorded life (99.7%) — 16 live strategies route to an account that cannot size a single whole share, and both alarms are switched off",
+      "detail": "COMPLETE POPULATION, not a sample: the query returned 318 rows of 318 total for account_id='alpaca_live' (/api/bot/db/table/trades, filter_state='applied', page == total, so nothing was truncated). Span 2026-06-25T13:30 -> 2026-08-21T15:05, about 57 days.\n\n    rejected           312\n    exchange_rejected    5\n    closed               1     <-- the only trade that ever completed\n\n317 of 318 = 99.7% refused.\n\nTHE CAUSES ARE STRUCTURAL, NOT TRANSIENT. Parsed from notes.reason across all 318 rows:\n    134  zero_balance: gate_balance=0.00 USD (no funds available to size against)   [101 dry_run_sizing_skip + 33 direct]\n     20  sizing_failed: RuntimeError: balance() returned None for alpaca_live\n     ~90 risk_refused: sized_qty=0, with balance reading 0.10 / 149.31 / 149.48 / 149.56 / 150.00 / 150.05\n      8  account_mode_dry_run\n\nSo the account holds roughly $150 (sometimes $0, sometimes unreadable) and the 15 strategies routed to it trade ETFs — SPY(63), TLT(60), QQQ(57), GLD(57), SLV(32), USO(32), GDX(7), IAUM(6) — whose share prices exceed what $150 can buy. Alpaca is in `risk.WHOLE_UNIT_QTY_EXCHANGES` (bracket orders reject fractional shares — documented in CLAUDE.md's env-var table under IB_PLACE_CONFIRM_S; note that id is a CLAUDE.md citation, NOT a filed backlog row, so do not follow it expecting one), so the sizer correctly rounds to sized_qty=0 and correctly refuses. EVERY COMPONENT IS BEHAVING AS DESIGNED. The account simply cannot place an order at this funding level, and no amount of signal generation will change that.\n\nTHE 20 `balance() returned None` ROWS ARE A SEPARATE, REAL DEFECT riding along - that is BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE observed in the wild, and it is why the reachability probe reads the account UP (positions() answers) while every order dies.\n\n⚠️ AND NOTHING REPORTS ANY OF IT. Both detectors that would surface this are skipped for this exact account: ACCOUNT_DOWN_ALERT_SKIP='alpaca_live' and SILENT_REFUSAL_SKIP='alpaca_live', both declared in the env_file so they survive restarts (BL-20260823-ALPACA-LIVE-IS-EXEMPT-FROM-BOTH-DETECTORS-THAT-WATCH-IT). Suppressing an alarm that fires 3-5 times an hour is a rational response to noise; the cost is that the underlying condition — 16 live strategies emitting signals into an account that cannot act on them — became invisible rather than fixed.\n\nThis is the dead-leg shape at ACCOUNT scale: 'declared live, evaluates, signals, places NOTHING' is exactly what silent_refusal_alert was built to catch, and this account is exempt from it.",
+      "resolution_criteria": [
+        "OPERATOR DECISION, and it is Tier-3 either way — this row proposes nothing unilaterally. Three coherent dispositions: (a) FUND it to a level where whole-share sizing on the routed symbols is possible (SPY alone needs several hundred dollars per share); (b) REROUTE those 15-16 strategies to an account that can size them, or to fractional-capable venues; (c) set the account to dry_run and stop routing live strategies into it. What is NOT coherent is the present state: live routing plus a funding level that guarantees refusal plus both alarms off.",
+        "Whichever is chosen, the two SKIP entries are revisited in the same change - they are currently the only reason this looks quiet. Do not leave a suppressed alarm attached to a condition that has been resolved, and do not leave it attached to one that has not.",
+        "Re-measure after the change with the SAME complete-population query (account_id filter, assert filter_state=='applied', check page == total) and state the refusal share. The current baseline to beat is 317/318 = 99.7%.",
+        "The 20 `balance() returned None` rows are tracked separately as BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE; fixing the funding does NOT fix that, and it is what makes the reachability probe read UP while orders die."
+      ],
+      "refs": [
+        "src/units/accounts/risk.py",
+        "src/runtime/silent_refusal_alert.py",
+        "src/runtime/dead_leg.py",
+        "config/accounts.yaml"
       ],
       "last_verified": "2026-08-23"
     }
