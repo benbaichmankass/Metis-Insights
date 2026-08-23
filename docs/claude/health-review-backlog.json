@@ -22030,14 +22030,22 @@
       "resolution_criteria": [
         "Phase 3: a local vision-capable backend the prop reader can call, with NO image leaving the system. Measure it against the hosted path before preferring it, per the design's own condition — a local model that misreads a balance feeds the prop rule-distance cushion, so accuracy is a safety property here, not a nicety.",
         "Until then PROP_SCREENSHOT_BACKEND stays `local` (refusing) unless the operator explicitly opts into `external`. Do not 'fix' the refusal by changing the default.",
-        "Audit the OTHER LLM call sites for the same class before closing: src/prop/screenshot_parse.py is the one found, but the M13 insights generator also calls hosted models and its inputs are trade data. Establish per-site what leaves the system, with a denominator — this row does NOT claim the screenshot path is the only one."
+        "Audit the OTHER LLM call sites for the same class before closing: src/prop/screenshot_parse.py is the one found, but the M13 insights generator also calls hosted models and its inputs are trade data. Establish per-site what leaves the system, with a denominator — this row does NOT claim the screenshot path is the only one.",
+        "Audit M37's OTHER completion claims against what exists — the operator's concern was about a pattern, not one row, and this session verified only the local-backend claim. State a denominator: how many M37 'shipped/verified' assertions were checked, and how many held."
       ],
       "refs": [
         "src/prop/screenshot_parse.py",
         ".claude/skills/llm-delegate/SKILL.md",
         "docs/design/llm-burst-worker-DESIGN.md"
       ],
-      "last_verified": "2026-08-23"
+      "last_verified": "2026-08-23",
+      "updates": [
+        {
+          "at": "2026-08-23T14:06:01.999919+00:00",
+          "by": "full-system-audit-2026-08-23",
+          "note": "CLAIM HISTORY CHECKED, because the operator said 'several Claude sessions worked on that and told me that it was done'. THE RECORD DOES NOT SHOW THAT, and saying so is worth more than agreeing:\n\n  docs/sprint-logs/S-LLM-BURST-WORKER-2026-08-18.md:132 — 'A local-GGUF backend (design Phase 3) — deferred indefinitely; no privacy driver exists'\n  docs/sprint-logs/S-LLM-BURST-WORKER-SCHEDULING-2026-08-20.md:334 — 'Deferred indefinitely, unchanged: the local-GGUF delegate backend (design Phase 3)'\n  ROADMAP.md M37 — 'Deferred indefinitely: a local-GGUF backend'\n\nSo no session claimed the local model was built. What they shipped and called done is the BURST WORKER, which is real, works, and is EXTERNAL.\n\nBUT THE OPERATOR'S BELIEF HAS A CAUSE, AND IT IS OURS. The design doc's own Problem statement reads: 'We wanted a \"local LLM on cloud\" the session could start on demand, use, and stop.' That phrase describes ERGONOMICS (cheap, disposable) in words that state a LOCATION. A reader is entitled to conclude inference is local. It is the same sub-class A defect the repo's guards exist to catch — a label naming a property the implementation does not have — in our own design of record. Corrected in place rather than left to be re-read the same way.\n\nAND THE OPERATOR IS RIGHT ABOUT THE DECISION. The deferral rationale was 'NO PRIVACY DRIVER EXISTS' — a claim about the OPERATOR'S REQUIREMENTS, asserted on our own authority, never asked. On that unasked premise the flow was pointed at two hosted providers. 'That was Claude deciding something on his own that he should not have' is an accurate description of what the artifacts show. ROADMAP M37 and the design's Phase 3 line now record the premise as FALSIFIED rather than quietly dropping it.\n\nWHAT REMAINS UNCHECKED, stated so it is not read as clean: I verified the LOCAL-BACKEND claim history only. Whether other completion claims in M37 hold — the burst worker itself, the scope guard, oci-inventory — is NOT established by this note, and the operator's wider concern ('several sessions told me it was done') deserves its own pass over what M37 asserts versus what exists."
+        }
+      ]
     }
   ]
 }
