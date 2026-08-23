@@ -160,15 +160,25 @@ def run_leg(name: str, cfg: Dict[str, Any], csv_dir: Path, workdir: Path,
         rec["state"] = STATE_ERROR
         rec["reason"] = (proc.stderr or proc.stdout or "")[-300:]
         return rec
-    rows = []
+    rows, malformed = [], 0
     if emit.exists():
         for line in emit.read_text().splitlines():
             line = line.strip()
-            if line:
-                try:
-                    rows.append(json.loads(line))
-                except Exception:
-                    pass
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                # COUNTED, never swallowed: a dropped emit row understates n and
+                # would bias the distribution downward while looking like a
+                # smaller sample. Surfaced on the record and escalated below.
+                malformed += 1
+    if malformed:
+        rec["n_malformed_emit_rows"] = malformed
+    if malformed and not rows:
+        rec["state"] = STATE_ERROR
+        rec["reason"] = f"{malformed} emit row(s) unparseable and none readable"
+        return rec
     if not rows:
         rec["state"] = STATE_NO_ENTRIES
         rec["n_entries"] = 0
@@ -286,6 +296,10 @@ def main() -> int:
             print("%-22s %5d  %s" % (
                 r["leg"], r["n_adx_resolved"],
                 "  ".join("%5.1f%%" % (100 * r["refusal_rate"][str(f)]) for f in DEFAULT_FLOORS)))
+    bad = [r for r in recs if r.get("n_malformed_emit_rows")]
+    if bad:
+        print("\n⚠️ malformed emit rows (counted, not swallowed): " +
+              ", ".join("%s=%d" % (r["leg"], r["n_malformed_emit_rows"]) for r in bad))
     print("\nstates: " + ", ".join(
         "%s=%d" % (s, sum(1 for r in recs if r["state"] == s))
         for s in (STATE_MEASURED, STATE_INSUFFICIENT, STATE_NO_ENTRIES, STATE_NO_DATA, STATE_ERROR)))
