@@ -21944,6 +21944,28 @@
       ],
       "last_verified": "2026-08-23",
       "resolved_at": "2026-08-23"
+    },
+    {
+      "id": "BL-20260823-GUARD-SCOPED-TO-ONE-SIDE-OF-ITS-OWN-JOIN",
+      "opened_at": "2026-08-23T13:04:02.424882+00:00",
+      "opened_by": "full-system-audit-2026-08-23 (operator-requested guard glob audit)",
+      "severity": "low",
+      "tier": "1 (CI scoping only — no runtime path)",
+      "status": "open",
+      "area": "ci / guards",
+      "title": "exit-mechanism-coverage-guard reads config/lever_reachability.json and is not triggered by it — measured COSMETIC today, but it becomes real the moment a step is added",
+      "detail": "Found by scripts/ci/check_guard_glob_coverage.py, written after CI caught the same shape in exit-coverage-matrix-guard (which joined the M20 matrix against config/strategies.yaml while being scoped only to the matrix, so demoting a leg reported SKIP locally and went red in CI).\n\nTHE READ IS REAL: scripts/ops/exit_mechanism_coverage.py:60 resolves config/lever_reachability.json and :152 reads it in _reachability(), which is reachable from main(). The guard's when.globs are config/strategies.yaml, src/units/strategies/*.py, src/runtime/strategy_signal_builders.py and the script itself -- the registry is absent.\n\nBUT IT IS NOT VERDICT-BEARING TODAY, measured rather than assumed. Emptying the file's `levers` list (8 entries -> 0) and re-running BOTH steps the guard actually invokes -- --self-test and --orphans-only -- produced byte-identical output and the same exit code. audit() computes the reachability map and neither step surfaces it. So adding the glob would fire the guard on edits it cannot grade, which is the desensitized-alarm P1 this repo treats as its own failure mode. NOT fixed by adding a glob, deliberately.\n\nNOTE THE FIRST PERTURBATION WAS INERT AND SAID 'UNCHANGED': it cleared `_comment` (a str, so neither the dict nor list branch fired) while the consumer reads data['levers']. A probe that could not have produced a positive returned a clean negative. The measurement above is the re-run against the key actually read.",
+      "resolution_criteria": [
+        "If a step is ever added to exit-mechanism-coverage-guard that SURFACES the reachability verdict (a plain run, or --json), add config/lever_reachability.json to its when.globs in the same change -- at that point the read becomes verdict-bearing and the guard would be scoped to one side of its own join.",
+        "Re-run python3 scripts/ci/check_guard_glob_coverage.py after any edit to the guard table; it reuses run_guards.is_relevant rather than re-implementing the matcher, so it cannot drift from the runner's own definition of relevance.",
+        "Close by either (a) the glob being added alongside such a step, or (b) a recorded perturbation showing the current steps still do not move -- re-verified, not assumed from this row."
+      ],
+      "refs": [
+        "scripts/ci/check_guard_glob_coverage.py",
+        "scripts/ops/exit_mechanism_coverage.py",
+        "scripts/ci/run_guards.py"
+      ],
+      "last_verified": "2026-08-23"
     }
   ]
 }
