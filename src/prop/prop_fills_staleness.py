@@ -109,6 +109,11 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+# Sort floor for a snapshot whose `reported_at` will not parse. It is never
+# compared as a real time — the tuple key puts every undateable row behind
+# every dateable one, and this is only the tie-break among them.
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
 logger = logging.getLogger(__name__)
 
 _STATE_FILENAME = "prop_fills_staleness_state.json"
@@ -279,7 +284,27 @@ def assess_balance_move(
 ) -> Dict[str, Any]:
     """Compare the two newest snapshots against the fills reported between them.
 
-    ``snapshots`` newest-first. Returns a graded dict; never raises.
+    Returns a graded dict; never raises.
+
+    ORDER-INDEPENDENT BY CONSTRUCTION (2026-08-23). This used to require
+    ``snapshots`` newest-first and grade whatever it was handed. That coupled a
+    correctness property to the caller's ``ORDER BY``, and the two do not share
+    a basis: :func:`prop_journal.list_account_status` orders by ``id DESC``
+    while every comparison in here is on ``reported_at``. They agree today —
+    measured over all 11 live rows, zero inversions — but by coincidence of how
+    snapshots have happened to be entered, not by anything enforcing it.
+
+    Handed a mis-ordered list the old code did NOT fail loudly. It graded a
+    BACKWARDS window (``start > end``), and because the fill filter is
+    ``start < ts <= end`` no fill can ever fall inside one, so every non-noise
+    delta came back ``unreported`` — a confident FALSE FINDING on a latched
+    alert, which is worse than a silent pass. Demonstrated on the live table:
+    the same 11 rows reversed graded ``unreported`` on a July pair with a
+    window running 07-06 -> 07-04.
+
+    So the ordering is now established here rather than assumed. A snapshot
+    whose ``reported_at`` will not parse cannot be placed in time at all and
+    sorts last, where the existing ``balance_unreadable`` branch catches it.
 
     The interval is half-open ``(prev.reported_at, latest.reported_at]`` so a
     fill reported in the same second as the snapshot that reflects it counts as
@@ -300,7 +325,16 @@ def assess_balance_move(
     if len(snapshots) < 2:
         return out
 
-    latest, prev = snapshots[0], snapshots[1]
+    # Newest first, on the field this function actually compares. An
+    # undateable row sorts last (it cannot be placed in time); the
+    # `balance_unreadable` branch below is what then catches it.
+    ordered = sorted(
+        snapshots,
+        key=lambda r: (_parse_iso(r.get("reported_at")) is not None,
+                       _parse_iso(r.get("reported_at")) or _EPOCH),
+        reverse=True,
+    )
+    latest, prev = ordered[0], ordered[1]
     out["prev_id"] = prev.get("id")
     out["latest_id"] = latest.get("id")
     lb, pb = _num(latest.get("balance")), _num(prev.get("balance"))
