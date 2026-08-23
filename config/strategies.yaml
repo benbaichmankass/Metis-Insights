@@ -2301,7 +2301,17 @@ strategies:
     model: null
     signal_prefixes: [eth_pullback_prop]
     enabled: true
-    execution: live          # operator-approved live promotion 2026-06-25 (Tier-3); prop manual-ticket venue, operator gates each ticket.
+    execution: shadow        # shadow-guard: allow — Tier-3 operator-approved 2026-08-23; prop leg, OOS net_R -11.78, breach is terminal
+    # DEMOTED live -> shadow 2026-08-23. Reverses the 2026-06-25 promotion below on NEW
+    # evidence: OOS net_R -11.78 over a 13,206-bar corpus
+    # (trainer #9955/#9958), one of 5-of-6 OOS-negative crypto pullback legs. The family
+    # disposition is RETUNE FIRST and the other five stay live; this leg is carved out
+    # because it alone routes to breakout_1 (PROP), where a breach is TERMINAL -- $150
+    # daily-loss limit, $4,700 static-DD floor on a $5k account -- not a drawdown a retune
+    # recovers. Shadow still RUNS and LOGS the package (execute.py stamps status='shadow',
+    # close_reason='prop_shadow_no_emit') and emits NO prop ticket, so the soak keeps
+    # accruing. Revert to live only after a retune whose cells were RE-RUN (not re-read)
+    # clears this leg's OWN base.
     timeframe: "2h"           # served as Bybit 120m via CCXT (candle source).
     symbols:
       - ETHUSDT               # Bybit USDT linear perp candles; ticketed on Breakout.

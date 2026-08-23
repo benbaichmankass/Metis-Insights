@@ -19604,7 +19604,7 @@
         "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT"
       ],
       "resolution_criteria": "Basis: the six config-exact bases above, each over a 13,206-bar corpus with n stated per window, and the per-cell arithmetic adding each Path-A delta to its own leg's base. RESOLVED when the operator records a disposition per leg — demote to shadow, retune, kill, or keep with the OOS-negative base accepted and stated. Declaring an exit lever does NOT resolve this row: 11 of 13 passing cells leave the leg losing. If a leg is retuned its cells must be RE-RUN, not re-read. Extending the measurement to the 12 uncorpused legs is separate work, not a condition of closing this.",
-      "next_action": "✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (asked directly, four options offered: demote-5-to-shadow / kill / keep-and-accept / retune-first): **RETUNE FIRST, THEN RE-DECIDE.** The six legs stay `execution: live` while a retune runs; the disposition per leg is deferred to after it. ⚠️ THE ROW'S OWN CONSTRAINT BINDS THE RETUNE: a retuned leg's cells must be RE-RUN, not re-read, and a Path-A delta must be added to its own leg's OWN base (that arithmetic is what turned '13 of 42 cells pass' into 'the family has no OOS edge'). MEASURED THE SAME DAY, because the headline overstates the money at risk: of the 5 OOS-negative legs, the WORST (htf_pullback_trend_2h, -14.61R) routes ONLY to bybit_1 (account_class PAPER), as does sol_pullback_2h (-2.58R). Three carry consequence — eth_pullback_2h (-6.80R) and xrp_pullback_2h (-0.59R) both route to bybit_2 (REAL MONEY), and eth_pullback_prop_2h (-11.78R) routes to breakout_1 (PROP). ⚠️ FLAGGED TO THE OPERATOR, NOT YET DECIDED: the PROP leg is the asymmetric one. A prop breach is TERMINAL ($150 daily-loss limit, $4,700 static-DD floor on a $5k account), not a drawdown you retune back from — so 'keep live while retuning' has a different shape there than on the paper legs. A narrow carve-out of eth_pullback_prop_2h to shadow was offered and is open; the recorded disposition above stands unless the operator takes it."
+      "next_action": "✅ OPERATOR DISPOSITION RECORDED 2026-08-23T04:3xZ (asked directly, four options offered: demote-5-to-shadow / kill / keep-and-accept / retune-first): **RETUNE FIRST, THEN RE-DECIDE.** The six legs stay `execution: live` while a retune runs; the disposition per leg is deferred to after it. ⚠️ THE ROW'S OWN CONSTRAINT BINDS THE RETUNE: a retuned leg's cells must be RE-RUN, not re-read, and a Path-A delta must be added to its own leg's OWN base (that arithmetic is what turned '13 of 42 cells pass' into 'the family has no OOS edge'). MEASURED THE SAME DAY, because the headline overstates the money at risk: of the 5 OOS-negative legs, the WORST (htf_pullback_trend_2h, -14.61R) routes ONLY to bybit_1 (account_class PAPER), as does sol_pullback_2h (-2.58R). Three carry consequence — eth_pullback_2h (-6.80R) and xrp_pullback_2h (-0.59R) both route to bybit_2 (REAL MONEY), and eth_pullback_prop_2h (-11.78R) routes to breakout_1 (PROP). ⚠️ FLAGGED TO THE OPERATOR, NOT YET DECIDED: the PROP leg is the asymmetric one. A prop breach is TERMINAL ($150 daily-loss limit, $4,700 static-DD floor on a $5k account), not a drawdown you retune back from — so 'keep live while retuning' has a different shape there than on the paper legs. ✅ CARVE-OUT TAKEN 2026-08-23 (Tier-3, operator-approved): eth_pullback_prop_2h demoted live -> shadow in config/strategies.yaml. The other FIVE legs stay live under the retune-first disposition. ⚠️ This REVERSES an operator-approved promotion — the leg was promoted shadow -> live on 2026-06-25 on corrected-swap evidence; the reversal rests on NEW evidence (OOS -11.78R) plus the prop asymmetry, not on that promotion having been wrong. ⚠️ Two honest mitigations that were NOT in the original warning: the prop venue is a MANUAL-TICKET bridge and the operator gates each ticket, so nothing auto-executed; and the leg's paper routing on bybit_1 goes shadow too (the gate is per-STRATEGY, not per-account). Revert only after a retune whose cells were RE-RUN clears this leg's own base."
     },
     {
       "id": "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
@@ -21293,6 +21293,106 @@
         "board comments 5382539964 and 5382547767 carry the retracted overrun claim; 5382681402 is the retraction",
         "trigger trig_019fVx79hn9MBnimmLEMAGRP armed on the false premise, since deleted",
         "same-day genuine-execution baseline: pytest-run runs 8292 = 11.5 min, 8291 = 11.4 min"
+      ]
+    },
+    {
+      "id": "BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "low",
+      "tier": "1 (docs / housekeeping)",
+      "status": "open",
+      "area": "docs drift",
+      "title": "A money-path comment names two strategies as `execution: shadow` that are both live",
+      "detail": "src/units/accounts/execute.py (the prop no-emit branch, ~:235) documents its own purpose with \"the shadow prop variants (trend_donchian_{sol,eth}_prop, which are execution: shadow)\". MEASURED 2026-08-23 against config/strategies.yaml: BOTH are `execution: live`, as was eth_pullback_prop_2h before this session demoted it — i.e. at the moment of reading, ALL THREE prop-routed strategies were live and NOTHING exercised that branch in production. Field beats comment. Found while verifying, before a Tier-3 demotion, that `execution: shadow` genuinely suppresses prop ticket emission — the branch itself is real and correct by reading; only the claim about who exercises it is stale.",
+      "why_it_matters": "The comment was about to be used as PRECEDENT for a live money-path change ('shadowing a *_prop variant is an established pattern'). It is not established — the demotion shipped this session is the FIRST live exerciser of that branch. A stale comment that manufactures false precedent is worse than no comment, because it substitutes for the verification it appears to provide.",
+      "next_action": "Correct the comment to describe the branch's PURPOSE without naming strategies whose gate state drifts, or name them with an as-of date. Do not delete the branch — it is load-bearing and now genuinely in use.",
+      "resolution_criteria": "RESOLVED when the comment no longer asserts a gate state it does not verify.",
+      "related": [],
+      "evidence": []
+    },
+    {
+      "id": "BL-20260823-ZOMBIE-ROUTINES-ENABLED-WITH-NULL-NEXT-RUN",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "low",
+      "tier": "1 (docs / housekeeping)",
+      "status": "open",
+      "area": "scheduling / housekeeping",
+      "title": "Two account Routines are enabled with a null next_run_at, one naming a twice-renamed org",
+      "detail": "`Health Check Routine` (trig_015diTGEy9jATecSPMFmPyNF) and `Sprint Continue Work` (trig_01SvpLKYiTKgXkeLgV7Q3pEr) are both `enabled: true` with `next_run_at: 0001-01-01T00:00:00Z`, so they never fire. `Sprint Continue Work`'s prompt targets `the-lizardking/ict-trading-bot` — TWO renames stale (-> benbaichmankass/ict-trading-bot -> benbaichmankass/Metis-Insights). Both predate the current review split: `Health Check Routine` describes a comms/state-machine flow that the /health-review skill replaced. OPERATOR DISPOSITION 2026-08-23: backlog it, not important now — explicitly NOT to be actioned this session.",
+      "why_it_matters": "Low but non-zero: an `enabled: true` Routine reads as live in any listing, so a future session auditing scheduled work has to re-derive that the null next_run_at makes it inert. That re-derivation cost is the whole reason to write it down once.",
+      "next_action": "Operator deletes both (they are account-level Routines, not repo state, so a session cannot remove them for the operator). No code change. Close when `list_triggers` no longer returns them.",
+      "resolution_criteria": "RESOLVED when both Routines are deleted, confirmed by a list_triggers read that does not return them.",
+      "related": [],
+      "evidence": []
+    },
+    {
+      "id": "BL-20260823-EXIT-COVERAGE-GUARD-CANNOT-SEE-THE-FILE-IT-JOINS-AGAINST",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "medium",
+      "tier": "1 (CI guard scoping)",
+      "status": "open",
+      "area": "CI guards",
+      "title": "exit-coverage-matrix-guard is diff-scoped to 3 files but joins against config/strategies.yaml, which is not one of them",
+      "detail": "scripts/ci/run_guards.py:259 scopes `exit-coverage-matrix-guard` with `when.globs = [docs/research/exit-refinement-coverage.json, scripts/research/m20_coverage_rollup.py, scripts/research/m20_explode_coverage_rows.py]`. But the check it runs (`m20_coverage_rollup.py --check`) JOINS the matrix against **config/strategies.yaml** and fails when the two disagree about a leg's `execution`. config/strategies.yaml is NOT in the glob list, so a change to the runtime gate can break the join while the diff-scoped guard never runs. MEASURED 2026-08-23 on PR #10161: demoting eth_pullback_prop_2h live -> shadow in config/strategies.yaml left the matrix saying `execution: live`. Local `run_guards.py` reported **'All relevant guards passed'** with exit-coverage-matrix-guard in its SKIP list. CI caught it only because tests/test_guards_uncommitted_work.py runs the guard explicitly via `--all --only`, and tests/test_m20_coverage_join.py asserts the real join is clean — i.e. TESTS caught it, not the guard's own diff scoping.",
+      "why_it_matters": "The matrix is M20's DONE-CONDITION DENOMINATOR, not decoration: it is what 'x of 468 cells resolved' is computed over, and it records each leg's execution state. A gate change that silently desynchronises it corrupts the milestone's own progress measure. Worse, the failure is silent LOCALLY and green — 'All relevant guards passed' is exactly the reassuring output that stops a session looking further. This is the guard analogue of the session's recurring finding: an operation whose non-execution is indistinguishable from its success.",
+      "next_action": "Add `config/strategies.yaml` to the guard's `when.globs`. Then verify the fix DISCRIMINATES: a strategies.yaml change that desyncs the matrix must make the guard RUN and FAIL, and a strategies.yaml change that does not touch a matrix leg must not make it fail. Consider a general audit: any guard whose check reads a file outside its own `when` scope has the same hole.",
+      "resolution_criteria": "RESOLVED when a diff touching ONLY config/strategies.yaml selects exit-coverage-matrix-guard in run_guards.py, proven by a test that fails if the glob is reverted — presence of the glob alone is not sufficient.",
+      "related": [
+        "BL-20260822-DIAG-FETCH-404-BLAMES-PATH-FORM-NOT-WRONG-SURFACE"
+      ],
+      "evidence": [
+        "scripts/ci/run_guards.py:259-263 — when.globs omits config/strategies.yaml",
+        "PR #10161 job 97144958235: 2 failed, 12153 passed — both failures the same matrix/config disagreement",
+        "local run_guards.py on the same diff: 'All relevant guards passed', guard in the skip list"
+      ]
+    },
+    {
+      "id": "BL-20260823-PROP-ACCOUNT-RUNS-BOTH-BASE-AND-PROP-VARIANT-OF-THE-SAME-LEG",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "high",
+      "tier": "3 (strategy routing on a live prop account)",
+      "status": "open",
+      "area": "prop / strategy routing",
+      "title": "breakout_1 routes BOTH trend_donchian_{sol,eth} AND their _prop variants, all live, same symbol and timeframe, with contradictory exit geometry",
+      "detail": "MEASURED 2026-08-23 from config/accounts.yaml + config/strategies.yaml. breakout_1 (account_class prop, mode live) routes FIVE strategies; after this session's eth_pullback_prop_2h demotion, FOUR are still execution: live -- trend_donchian_sol, trend_donchian_eth, trend_donchian_sol_prop, trend_donchian_eth_prop. The base and _prop variants are the SAME module on the SAME symbol at the SAME 1h timeframe, differing only in exit geometry: base tp_r 50.0 / trail_mult 5.0 (let-winners-run) vs _prop tp_r 6.0 / trail_mult 3.5 (swap-robust, tightened). The _prop variants exist to REPLACE the base legs on the Breakout venue -- eth_pullback_prop_2h's own config comment describes the pattern as 'SWAP-ROBUST prop variant of <base> for the Breakout venue' -- not to run alongside them. NOT THEORETICAL, CONFIRMED IN PRODUCTION. Over 162 prop tickets on breakout_1 (2026-06-17 .. 2026-08-22), cross-tabbed by status so the no-emit rows do not inflate the count (shadow/suppressed excluded from REAL-EMIT): trend_donchian_eth 19 real emissions alongside trend_donchian_eth_prop's 23; trend_donchian_sol 4 alongside trend_donchian_sol_prop's 14. So the operator has been receiving tickets for the same setup on the same symbol from two legs with OPPOSITE exit instructions. TWO OPEN QUESTIONS this row does NOT answer, deliberately: (a) whether the intent multiplexer or the strategy-monocle gate dedupes them -- the monocle gate keys on (strategy, symbol) and these are DIFFERENT strategy names, so it very likely does not, but that was NOT traced; (b) eth_pullback_2h shows 12 real emissions on breakout_1 while the CURRENT config does not route it there at all -- either the routing changed or the ticket's strategy field records something else. Both need tracing before any fix.",
+      "why_it_matters": "breakout_1 is a FUNDED PROP account where a breach is TERMINAL, not a drawdown: $150 daily-loss limit and a $4,700 static-DD floor on a $5k account. Measured the same day, the cushion is $282.86 to the floor (equity $4,982.86) on a snapshot 58.2 hours stale (status_freshness: stale). Duplicate tickets with contradictory exits on a thin, terminal-limit account is the highest-consequence routing defect currently visible, and it has been running since at least 2026-06-17.",
+      "next_action": "TIER-1 FIRST, do not skip to the fix: (1) trace whether the intent layer dedupes two strategy names on one symbol/account -- if it does, this is noise, not exposure, and the severity drops; (2) resolve the eth_pullback_2h routing discrepancy. THEN Tier-3 for the operator: decide whether breakout_1 should route the base legs at all, given the _prop variants exist precisely because the base exit geometry is wrong for a daily-swap venue. Do NOT unroute anything before (1) -- the base legs may be the ones carrying the account.",
+      "resolution_criteria": "RESOLVED when breakout_1 routes exactly one variant per (strategy, symbol), OR the operator records that running both is intended with the dedup mechanism named and verified. A count of tickets alone does not close this -- the dedup question must be answered from the code path.",
+      "related": [
+        "BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE"
+      ],
+      "evidence": [
+        "config/accounts.yaml breakout_1.strategies = [trend_donchian_sol, trend_donchian_eth, eth_pullback_prop_2h, trend_donchian_sol_prop, trend_donchian_eth_prop]",
+        "config/strategies.yaml: base tp_r 50.0/trail_mult 5.0 vs _prop tp_r 6.0/trail_mult 3.5, both timeframe 1h, same symbols",
+        "/api/bot/prop/tickets?account_id=breakout_1&limit=200 on 2026-08-23: 162 rows, real-emit split as above",
+        "/api/bot/prop/status?account_id=breakout_1: equity 4982.86, distance_to_dd_floor_usd 282.86, status_freshness stale (58.2h)"
+      ]
+    },
+    {
+      "id": "BL-20260823-TP-GEOMETRY-RATCHET-LOOSENS-WHEN-THE-LIVE-DENOMINATOR-SHRINKS",
+      "opened_at": "2026-08-23",
+      "opened_by": "s4-pairs-control",
+      "severity": "high",
+      "tier": "1 (CI guard mechanism)",
+      "status": "open",
+      "area": "CI guards / M20 coverage",
+      "title": "The tp-geometry ratchet silently loosens whenever the live cell population shrinks, and only its own self-tests notice",
+      "detail": "`docs/research/exit-refinement-coverage.json::tp_geometry_legend._unstamped_ceiling` is an ABSOLUTE upper bound on live cells carrying no `tp_geometry`, enforced by `m20_coverage_rollup.py --check` (exit-coverage-matrix-guard). Because it counts **LIVE** cells, ANY change that removes live cells lowers the true count while the recorded ceiling stays put -- creating slack, and slack is exactly what makes the ratchet stop detecting. MEASURED 2026-08-23 on PR #10161. Demoting ONE leg (eth_pullback_prop_2h, live -> shadow) removed its 9 cells: live 423 -> 414, of which 7 were stamped and 2 unstamped, so the true unstamped count fell 239 -> 237 against a recorded ceiling still reading 239. **Two cells of slack.** Consequence: un-stamping ONE cell no longer breached, and BOTH planted-omission self-tests in tests/test_m20_tp_geometry_guard.py failed with an EMPTY problem list -- the probe going quiet. ⚠️ THE CEILING NOTE ALREADY DOCUMENTS THIS EXACT FAILURE, but only for the STAMPING case (2026-08-17: 'stamping two cells without lowering the ceiling left 2 cells of slack ... the probe going quiet, exactly the failure mode that file exists to prevent'). It did not generalise to population changes. I ratcheted 239 -> 237 and widened the written rule to 'LOWER IT WHENEVER THE LIVE DENOMINATOR FALLS, not only when you stamp'. ⚠️ THAT IS A MITIGATION AND A NOTE, NOT A MECHANISM. Nothing computes the ceiling from the population; it is a hand-maintained number that a human must remember to lower, and the ONLY thing that catches a stale one is the guard's own two self-tests -- which fail in the confusing 'empty problem list' shape rather than naming the cause.",
+      "why_it_matters": "A ratchet whose slack grows silently is worse than no ratchet: it keeps reporting PASS while its detection power decays, and the decay is invisible from the guard's own output. This is the same class as the session's other findings -- an operation whose non-execution is indistinguishable from its success -- and it sits on M20's done-condition instrument, so the milestone's own progress measure is what degrades. Note the asymmetry that found it: NEITHER of the two guard holes this config change exposed was caught by a guard; both were caught by TESTS that exercise guards.",
+      "next_action": "Preferred: make the ceiling DERIVED rather than declared -- have `--check` compare the measured unstamped count against the count recorded at the last ratchet AND against the live-cell total, so a shrinking denominator either auto-tightens or fails loudly with the cause named. If it must stay hand-maintained, then at minimum make the guard FAIL when `ceiling > measured_unstamped` (slack is itself the defect) rather than only when `measured > ceiling`, and make the message say 'the ceiling is stale by N cells', not an empty list. ⚠️ Verify the fix DISCRIMINATES: a genuine new unstamped cell must still breach, and a legitimate stamping must not fire.",
+      "resolution_criteria": "RESOLVED when shrinking the live population (e.g. demoting a leg) either auto-tightens the ceiling or produces a NAMED failure, proven by a test that plants a population shrink and asserts the specific message. A test that merely re-checks the current number does not close this -- the 2026-08-17 and 2026-08-23 instances both passed that bar and still recurred.",
+      "related": [
+        "BL-20260823-EXIT-COVERAGE-GUARD-CANNOT-SEE-THE-FILE-IT-JOINS-AGAINST",
+        "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
+      ],
+      "evidence": [
+        "PR #10161 job 97146128984: 2 failed / 12153 passed — both tests/test_m20_tp_geometry_guard.py planted-omission tests, AssertionError: []",
+        "live cells 423 -> 414; unstamped 239 -> 237; roll-up independently counts 237",
+        "tp_geometry_legend._unstamped_ceiling_note records the identical 2026-08-17 recurrence for the stamping case"
       ]
     },
     {
