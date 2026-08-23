@@ -255,6 +255,30 @@ _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
 _NETTING_ATTRIBUTION_SOAK_LOG = (
     runtime_logs_dir() / "netting_attribution_soak.jsonl"
 )
+# The git sha this PROCESS was loaded from, captured ONCE at import.
+#
+# BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE. `_resolve_git_sha`
+# shells `git rev-parse --short HEAD` against the working tree at CALL time, so
+# calling it per-request reports what is on DISK -- which a `git pull` advances
+# without restarting anything. `/api/diag/version` existed specifically to
+# assert "a post-deploy restart actually rolled the running code forward", and
+# reading disk is the one thing that cannot answer that: it reports the new sha
+# while the old code serves, which IS the 2026-05-09 24h-stale-code state the
+# endpoint was built to catch.
+#
+# Worse, the assertion in scripts/deploy_pull_restart.sh compared this value to
+# its own `git rev-parse --short HEAD` over the SAME tree -- X == X, a check
+# that could not fail whether or not the service restarted.
+#
+# Measured 2026-08-23: /api/diag/version reported `fced7279` while the same
+# process returned HTTP 400 for an allowlist entry that exists in `fced7279`
+# (control: a name allowlisted earlier returned 200). Disk had moved; the
+# process had not.
+#
+# Captured at import so it names the code actually loaded. Resolving it here
+# costs one `git rev-parse` per process start, not one per request.
+_RUNNING_GIT_SHA: str = _resolve_git_sha()
+
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 # Exit-loop liveness state (M20 decouple, #8778). NOT a .jsonl — a single
 # small JSON object rewritten atomically by exit_loop_health.write_state_file.
@@ -403,6 +427,22 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "account_reachability_alert_state.json",
     "trainer_reachability_alert_state":
         runtime_logs_dir() / "trainer_reachability_alert_state.json",
+    # The other three durable alert latches. Two of five were readable and
+    # three were not, which is an inconsistency rather than a policy — and the
+    # gap matters most for the newest of them. Each of these latches SUPPRESSES
+    # an operator page, and each fails LOUD when its state file cannot be read
+    # (alerting is the only safe direction for a safety page). So a
+    # permanently-unwritable latch reproduces exactly the spam it exists to
+    # stop, and from outside the two are indistinguishable: the alert rate
+    # looks the same either way. Reading the latch is what tells them apart.
+    # BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART shipped the
+    # target-naked latch; these entries are its read half.
+    "silent_refusal_alert_state":
+        runtime_logs_dir() / "silent_refusal_alert_state.json",
+    "prop_fills_staleness_state":
+        runtime_logs_dir() / "prop_fills_staleness_state.json",
+    "target_naked_alert_state":
+        runtime_logs_dir() / "target_naked_alert_state.json",
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by
@@ -1316,8 +1356,27 @@ def get_version(request: Request) -> dict[str, Any]:
     treats ``unknown`` as a soft failure.
     """
     _require_diag_token(request)
+    on_disk = _resolve_git_sha()
+    # Three-way, never collapsed. "unknown" on either side means we could not
+    # look, which is NOT the same as "they agree" -- so restart_pending is None
+    # rather than False when either sha is unresolvable.
+    if _RUNNING_GIT_SHA == "unknown" or on_disk == "unknown":
+        restart_pending = None
+    else:
+        restart_pending = _RUNNING_GIT_SHA != on_disk
     return {
-        "git_sha": _resolve_git_sha(),
+        # The sha the RUNNING process was loaded from -- captured once at
+        # import. This is what the field name and this endpoint's whole
+        # purpose have always claimed, and what deploy_pull_restart.sh
+        # compares against.
+        "git_sha": _RUNNING_GIT_SHA,
+        # The sha currently checked out in the working tree, resolved live.
+        # A pull advances this WITHOUT restarting anything.
+        "git_sha_on_disk": on_disk,
+        # True when the tree has moved ahead of the running process, i.e. code
+        # was pulled and nothing restarted -- the 2026-05-09 incident state.
+        # None when either side is unknown (we could not look).
+        "restart_pending": restart_pending,
         "captured_at": datetime.now(timezone.utc).isoformat(),
     }
 

@@ -502,6 +502,18 @@ done
 # but its in-process git SHA was 24+h stale because nothing in the
 # deploy chain restarted it.
 #
+# ⚠️ THIS ASSERTION WAS VACUOUS UNTIL 2026-08-23 and could not catch that
+# class — BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE.
+# /api/diag/version resolved git_sha by shelling `git rev-parse --short HEAD`
+# at REQUEST time, against the same working tree EXPECTED_SHA is read from
+# three lines below. So both sides of the comparison were the same `git
+# rev-parse` over the same tree — X == X, a check that passes whether or not
+# the service restarted, including during the very incident it cites.
+# The endpoint now reports the sha captured at process IMPORT, so this
+# compares DISK (post-pull) against RUNNING and differs exactly when the
+# restart did not happen. The comparison below is unchanged; what changed is
+# that it now means something.
+#
 # Soft failure: if web-api isn't installed, DIAG_READ_TOKEN isn't
 # set, or curl is missing, we log and move on. Hard failure: the
 # endpoint is reachable AND advertises a different SHA than HEAD.
