@@ -103,16 +103,22 @@ def build_matrix(runnable: list[dict]) -> tuple[list[dict], list[dict]]:
 
 
 def census(include: list[dict], skipped: list[dict],
-           refused: list[dict]) -> str:
+           refused: list[dict], data_pending: int = 0) -> str:
     """One line naming what ran and what did not, grouped by reason.
 
     A bare count of jobs cannot say WHY the other legs are absent, and "19 legs
     skipped" with no breakdown is the kind of number that gets read as fine.
+
+    ``data_pending`` is reported SEPARATELY rather than folded into the job
+    count: "43 jobs, data on disk" and "43 jobs whose data does not exist yet
+    and whose first step is to fetch it" are different claims, and a reader who
+    cannot tell them apart cannot tell a planned run from a runnable one.
     """
     by = Counter(str(s.get("reason", "?")).split(":")[0] for s in skipped)
     by.update(Counter(str(r["reason"]).split(":")[0] for r in refused))
     detail = ", ".join(f"{k}={v}" for k, v in sorted(by.items())) or "none"
-    return (f"shard-plan: {len(include)} job(s); "
+    pend = f"; {data_pending} awaiting fetch" if data_pending else ""
+    return (f"shard-plan: {len(include)} job(s){pend}; "
             f"{len(skipped) + len(refused)} not scheduled ({detail})")
 
 
@@ -125,15 +131,27 @@ def main(argv: list[str]) -> int:
     # Default comes from the sweep's own source of truth, never a literal — a
     # second copy of the live TP clamp is free to drift from the first.
     ap.add_argument("--tp-cap-pct", type=float, default=fleet.LIVE_TP_CAP_PCT)
+    ap.add_argument(
+        "--ignore-missing-data", action="store_true",
+        help="Plan from CONFIG alone, dropping ONLY the data-presence gate. "
+             "Default OFF so local behaviour is unchanged. Set it in CI, where "
+             "the per-leg job fetches its own candles: leg CSVs are gitignored "
+             "(.gitignore `data/*.csv`), so on a fresh checkout every leg "
+             "resolves data=None and the matrix expands to zero jobs. The flag "
+             "is implemented in sweep.plan_legs, NOT re-implemented here, so "
+             "the plan and the sweep cannot disagree about what is in scope.")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv[1:])
     if a.selftest:
         return _selftest()
 
     only = [s.strip() for s in a.only.split(",")] if a.only else None
-    runnable, skipped = sweep.plan_legs(Path(a.data_dir), only, a.tp_cap_pct)
+    runnable, skipped = sweep.plan_legs(
+        Path(a.data_dir), only, a.tp_cap_pct,
+        ignore_missing_data=a.ignore_missing_data)
     include, refused = build_matrix(runnable)
-    print(census(include, skipped, refused), file=sys.stderr)
+    pending = sum(1 for r in runnable if r.get("data_pending"))
+    print(census(include, skipped, refused, pending), file=sys.stderr)
     for r in refused:
         print(f"  REFUSED {r['leg']}: {r['reason']}", file=sys.stderr)
 
@@ -217,6 +235,15 @@ def _selftest() -> int:
     chk("census names data_missing", "data_missing=1" in line, True)
     chk("census names unmapped", "unmapped_timeframe=1" in line, True)
     chk("census with nothing missing", "none" in census(inc, [], []), True)
+
+    # `data_pending` is reported SEPARATELY, never folded into the job count:
+    # "43 jobs, data on disk" and "43 jobs whose data does not exist yet" are
+    # different claims about whether this plan is runnable right now.
+    pend_line = census(inc, [], [], 1)
+    chk("census names awaiting fetch", "1 awaiting fetch" in pend_line, True)
+    chk("census still counts jobs with pending", "1 job(s)" in pend_line, True)
+    chk("census omits pending when zero",
+        "awaiting fetch" in census(inc, [], [], 0), False)
 
     print(f"selftest: {ok} pass, {fail} fail")
     return 1 if fail else 0

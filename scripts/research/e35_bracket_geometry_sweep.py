@@ -366,13 +366,37 @@ def axis_of(tp_r, stop_mult, timeout, base_geo: dict) -> str:
 
 
 def plan_legs(data_dir: Path, only: list[str] | None,
-              tp_cap_pct: float) -> tuple[list[dict], list[dict]]:
+              tp_cap_pct: float, *,
+              ignore_missing_data: bool = False) -> tuple[list[dict], list[dict]]:
     """(runnable, skipped) — resolved through the fleet sweep's OWN resolvers.
 
     Symbol/timeframe/data/base are read EXACTLY as `m20_fleet_exit_sweep.main`
     reads them (`cfg["symbols"][0]`, `classify`, `resolve_data`, `base_args`
     with `tp_cap_pct` positional). Re-deriving any of them here is how this tool
     and the fleet sweep would come to disagree about what a leg's base is.
+
+    ``ignore_missing_data`` (default **False** — the sweep's own behaviour is
+    byte-for-byte unchanged) drops **only** the data-presence gate, for callers
+    that PLAN work whose first step is to fetch the data. `e35_shard_plan.py` is
+    that caller: leg CSVs are gitignored, so on a fresh CI checkout every leg
+    resolves `data=None` and the matrix expands to zero jobs
+    (`BL-20260824-E35-SHARD-PLANNER-CANNOT-PLAN-ON-A-FRESH-CHECKOUT`; measured
+    `0 job(s); 55 not scheduled (data_missing=43, out_of_scope_family=12)`,
+    exit 1 — and `e35-bracket-sweep.yml` had therefore never run).
+
+    ⚠️ **THE FLAG LIVES HERE, NOT IN A PARALLEL PLANNER.** The obvious fix was a
+    config-only loop inside the shard planner, but then "which legs are in
+    scope" would exist TWICE and the two copies are free to drift — a shard
+    plan that schedules a leg the sweep would refuse, or misses one it accepts,
+    with nothing to catch it. One loop, one scope; the flag removes exactly one
+    `if`.
+
+    ⚠️ **A data-pending entry carries `base: None`, and that is deliberate.**
+    `base_args` needs the resolved data path, so a base built without data would
+    be a fiction. Such an entry is stamped `data_pending: True` and is safe ONLY
+    for callers that read scope fields (leg/family/symbol/tf); anything reading
+    `base`/`base_geometry` must not be handed one. The sweep never sets the flag,
+    so its own rows always carry a real base.
     """
     cfg_all = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())
     strats = cfg_all.get("strategies", cfg_all)
@@ -392,18 +416,23 @@ def plan_legs(data_dir: Path, only: list[str] | None,
         sym = (c.get("symbols") or [None])[0]
         tf = str(c.get("timeframe") or "1h")
         data, proxy, resample = fleet.resolve_data(str(sym), tf, data_dir)
-        if data is None:
+        if data is None and not ignore_missing_data:
             skipped.append({"leg": name, "reason": f"data_missing:{sym}"})
             continue
         harness = fleet.FAMILY_HARNESS[fam]
-        base = fleet.base_args(name, c, fam, data, resample, tp_cap_pct)
+        # A base without data would be a fiction, so it is None and SAYS so
+        # rather than being half-built from defaults.
+        base = (None if data is None
+                else fleet.base_args(name, c, fam, data, resample, tp_cap_pct))
         runnable.append({
             "leg": name, "family": fam, "symbol": sym, "tf": tf,
             "harness": harness, "data": data, "proxy": proxy,
             "resample": resample, "base": base,
             "execution": c.get("execution", "live"),
             "declared_levers_present": fleet.declared_levers_present(c),
-            "base_geometry": base_geometry(harness, base),
+            "base_geometry": (None if base is None
+                              else base_geometry(harness, base)),
+            "data_pending": data is None,
         })
     return runnable, skipped
 
