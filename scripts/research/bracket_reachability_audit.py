@@ -27,6 +27,31 @@ quoted as a measurement:
       same-stop no-tp cell to compare against — and is never folded into
       `not_cosmetic`.
 
+      ⚠️ WHERE THAT BASELINE COMES FROM IS ITSELF A STATE (`baseline_basis`),
+      because two different objects can serve as it and they must never be
+      quoted as one:
+        `row`         an explicit same-stop `(tp=None, timeout=None)` sweep
+                      cell. Exists only at the EXPLICITLY swept stops.
+        `base_block`  the sweep's own config-exact base run, carried on every
+                      corpus row as `base_net_total_r` / `base_max_drawdown_r`.
+                      This IS the same-shape no-tp book at the LIVE stop.
+        `absent`      neither — grades `no_baseline`.
+
+      The `base_block` rung is why the live stop is gradeable at all, and it
+      cost ZERO new harness runs. `e35_bracket_geometry_sweep.surface` runs the
+      config-exact base on EVERY sweep (`fleet.run_cell(harness, base)`) and
+      records it — but into the leg's `base` block, not into `cells[]`, and
+      `e35_corpus_extract.rows_from_report` iterates `cells[]` only. So the
+      measurement existed the whole time and merely had no row of its own.
+      A predecessor session read the missing ROW as a missing RUN and scoped
+      "~one harness run per leg" to buy a number already sitting in the corpus
+      — the same written-and-never-read shape this repo has a guard family for,
+      one level up: measured-and-never-emitted.
+
+      ⚠️ A TIMEOUT-OVERRIDE CELL STAYS `no_baseline` ON EITHER RUNG. Its
+      identity to a book with a different timeout would not be a statement
+      about the TARGET, which is the only thing this axis claims about.
+
 The relationship is one-way and is asserted, not assumed: every `cosmetic` cell
 must also be `truncated` (a target the clamp never reaches cannot be reached),
 while many `truncated` cells are NOT cosmetic (the median is not the maximum).
@@ -145,10 +170,29 @@ def classify(rows: List[dict]) -> List[dict]:
             continue
         cap = cap_r_at(r["leg"], stop_mult)
         base = baselines.get((r["leg"], stop_mult))
+        baseline_basis = "row" if base is not None else "absent"
+        if base is None and stop_basis == "base_implicit":
+            # The LIVE stop has no explicit `(tp=None, timeout=None)` sweep
+            # cell -- that grid point moves nothing off the base, so the sweep
+            # records it `inert_equals_base` and never runs it as a CELL. But
+            # the sweep DOES run the config-exact base itself, once per leg,
+            # and every corpus row carries the result. That run is exactly the
+            # same-shape no-tp book at the live stop, so it is the baseline.
+            # Kept as its own `baseline_basis` rather than merged into `row`:
+            # one is a swept cell, the other is the base run, and a reader must
+            # be able to tell which answered.
+            b_net = r.get("base_net_total_r")
+            b_dd = r.get("base_max_drawdown_r")
+            if b_net is not None and b_dd is not None:
+                base = {"net_total_r": b_net, "max_drawdown_r": b_dd}
+                baseline_basis = "base_block"
         if base is None or r.get("timeout") is not None:
             # A timeout cell has no same-shape no-tp baseline, so its identity
-            # to one would not be a statement about the TARGET.
+            # to one would not be a statement about the TARGET. This holds on
+            # BOTH rungs -- the base block does not rescue a timeout cell.
             cosmetic = "no_baseline"
+            if r.get("timeout") is not None:
+                baseline_basis = "absent"
         elif (abs(r["net_total_r"] - base["net_total_r"]) < EPS
               and abs((r.get("max_drawdown_r") or 0.0)
                       - (base.get("max_drawdown_r") or 0.0)) < EPS):
@@ -160,7 +204,8 @@ def classify(rows: List[dict]) -> List[dict]:
             "stop_mult": stop_mult, "stop_basis": stop_basis,
             "timeout": r.get("timeout"),
             "cap_r": cap, "truncation": truncation_state(r["tp_r"], cap),
-            "cosmetic": cosmetic, "net_total_r": r["net_total_r"],
+            "cosmetic": cosmetic, "baseline_basis": baseline_basis,
+            "net_total_r": r["net_total_r"],
             "max_drawdown_r": r.get("max_drawdown_r"),
             "baseline_net_total_r": base["net_total_r"] if base else None,
             "gate_verdict": r.get("gate_verdict"),
@@ -219,10 +264,27 @@ def audit(rows: List[dict], verdict: str) -> Dict[str, Any]:
         "positive_control": gate_positive_control(rows, verdict),
         "truncation": _counts(cells, "truncation"),
         "cosmetic": _counts(cells, "cosmetic"),
+        # Which rung answered. Read this BESIDE the cosmetic counts: a verdict
+        # resting on `base_block` is the config-exact base run, not a swept
+        # cell, and the two must stay distinguishable.
+        "baseline_basis": _counts(cells, "baseline_basis"),
+        "cosmetic_by_baseline_basis": _cross(cells, "cosmetic",
+                                             "baseline_basis"),
         "implication_violations": implication_violations(cells),
         "cosmetic_unverifiable": cosmetic_unverifiable(cells),
         "cells": cells,
     }
+
+
+def _cross(cells: List[dict], a: str, b: str) -> Dict[str, Dict[str, int]]:
+    """Two-key breakdown, so a headline count can always be split by which
+    baseline rung produced it."""
+    out: Dict[str, Dict[str, int]] = {}
+    for c in cells:
+        out.setdefault(str(c.get(a)), {})
+        k = str(c.get(b))
+        out[str(c.get(a))][k] = out[str(c.get(a))].get(k, 0) + 1
+    return {k: dict(sorted(v.items())) for k, v in sorted(out.items())}
 
 
 def _counts(cells: List[dict], key: str) -> Dict[str, int]:
@@ -255,6 +317,13 @@ def report(a: Dict[str, Any], out=sys.stdout) -> None:
     p("")
     p("TRUNCATION (derived, median basis):", a["truncation"])
     p("COSMETIC   (observed, exact)      :", a["cosmetic"])
+    p("BASELINE RUNG (which book answered):", a["baseline_basis"])
+    p("  cosmetic split by rung           :", a["cosmetic_by_baseline_basis"])
+    p("  `row` = an explicit same-stop no-tp SWEPT CELL (explicit stops only).")
+    p("  `base_block` = the sweep's own config-exact BASE RUN, which is the")
+    p("     same-shape no-tp book at the LIVE stop. Already measured on every")
+    p("     sweep and carried on every corpus row -- it cost no new runs.")
+    p("  `absent` = no baseline; those cells grade `no_baseline` (we did not look).")
     v = a["implication_violations"]
     if v:
         p("")
@@ -327,6 +396,50 @@ def selftest() -> int:
     to = classify([base, dict(base, cell="tp9_sm2_to96", tp_r=9.0, timeout=96)])
     chk("timeout cell is not graded cosmetic",
         [c["cosmetic"] for c in to if c["cell"].endswith("to96")], ["no_baseline"])
+
+    # ---- the `base_block` rung (the LIVE stop) ----------------------------
+    # `stop_mult is None` is the live stop and has NO explicit no-tp cell,
+    # because that grid point moves nothing off the base. The sweep's own base
+    # run is that book, and every corpus row carries it.
+    liveb = {"leg": "L", "cell": "tp2", "tp_r": 2.0, "stop_mult": None,
+             "timeout": None, "net_total_r": 10.0, "max_drawdown_r": 4.0,
+             "state": "measured",
+             "base_net_total_r": 10.0, "base_max_drawdown_r": 4.0}
+    got = classify([liveb])[0]
+    chk("live stop grades off the base block", got["cosmetic"], "cosmetic")
+    chk("and says WHICH rung answered", got["baseline_basis"], "base_block")
+    chk("live stop resolves to the base stop", got["stop_mult"], 2.5)
+    # A differing base book is not_cosmetic, not no_baseline -- the rung
+    # produces a real verdict in both directions, not just the flattering one.
+    moved = classify([dict(liveb, cell="tp1", tp_r=1.0, net_total_r=12.0)])[0]
+    chk("base-block rung can also say not_cosmetic",
+        moved["cosmetic"], "not_cosmetic")
+    # Matching net_R but NOT drawdown must not pass on this rung either.
+    ddo = classify([dict(liveb, cell="tp3", tp_r=3.0, base_max_drawdown_r=9.9)])[0]
+    chk("base-block rung still requires BOTH metrics",
+        ddo["cosmetic"], "not_cosmetic")
+    # ⚠️ The timeout rule holds on the base-block rung too. A timeout cell is
+    # not rescued by having a base pair -- its identity to a book with a
+    # different timeout is not a statement about the TARGET.
+    tob = classify([dict(liveb, cell="tp2_to96", timeout=96)])[0]
+    chk("timeout cell is NOT rescued by the base block",
+        tob["cosmetic"], "no_baseline")
+    chk("and its rung is recorded absent", tob["baseline_basis"], "absent")
+    # A row with no base pair at all still grades no_baseline -- the rung is a
+    # fallback, never a fabrication.
+    nob = classify([{k: v for k, v in liveb.items()
+                     if k not in ("base_net_total_r", "base_max_drawdown_r")}])[0]
+    chk("no base pair -> still we-did-not-look", nob["cosmetic"], "no_baseline")
+    chk("and the rung says absent", nob["baseline_basis"], "absent")
+    # An EXPLICIT stop keeps using the swept row, never the base block (whose
+    # book was run at a DIFFERENT stop and would be the wrong comparison).
+    expl = {c["cell"]: c for c in classify(
+        [base, dict(base, cell="tp9_sm2", tp_r=9.0,
+                    base_net_total_r=999.0, base_max_drawdown_r=999.0)])}
+    chk("explicit stop prefers the swept row over the base block",
+        expl["tp9_sm2"]["baseline_basis"], "row")
+    chk("and the row verdict is unchanged by a stray base pair",
+        expl["tp9_sm2"]["cosmetic"], "cosmetic")
 
     # The implication is asserted, and a violation is detectable.
     bad = [{"leg": "L", "cell": "x", "tp_r": 1.0, "stop_mult": 2.0, "cap_r": 5.0,

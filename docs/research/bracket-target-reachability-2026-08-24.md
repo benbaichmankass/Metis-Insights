@@ -191,13 +191,33 @@ design**, and reachability was never a selection criterion.
 > the cosmetic headline did *not* move — stated rather than left to be inferred
 > from the population jump.
 >
-> **The remaining cosmetic blindness at the live stop is STRUCTURAL, not a
+> ~~**The remaining cosmetic blindness at the live stop is STRUCTURAL, not a
 > filter bug.** A cosmetic verdict needs a same-leg *no-target* book at the same
 > stop, and the corpus holds **zero** rows with `tp`/`stop`/`timeout` all None —
 > that grid point is a provable no-op the sweep records as `inert_equals_base`
 > and correctly never runs. Right as a *grid* decision; the consequence is that
 > its **book**, which is exactly what a cosmetic comparison needs, does not
-> exist.
+> exist.~~
+>
+> ⚠️ **CORRECTED 2026-08-24 (later session). The premise above is true about the
+> ROW and false about the BOOK, and the difference is 9–11 harness runs.**
+>
+> There is indeed no `cells[]` row with `tp`/`stop`/`timeout` all None. But
+> `e35_bracket_geometry_sweep.surface` runs the config-exact base on **every**
+> sweep (`base_row = fleet.run_cell(harness, base)`) — that run **is** the
+> no-target book at the live stop. It is recorded into the leg's `base` block
+> rather than into `cells[]`, and `e35_corpus_extract.rows_from_report` iterates
+> `cells[]` only — while still copying the base block onto **every** row as
+> `base_net_total_r` / `base_max_drawdown_r`.
+>
+> **So the measurement was already in the corpus, on all 2204 rows, the whole
+> time.** Verified: 2204/2204 rows carry both fields non-null, and each leg has
+> exactly **one** distinct base pair (no cross-report ambiguity).
+>
+> This is the same written-and-never-read class this repo guards for, one level
+> up — **measured-and-never-emitted**. The predecessor read a missing *row* as a
+> missing *run* and scoped ~one harness run per leg to buy a number already
+> sitting in the file it was reading.
 
 ~~**The live stop, `atr_stop_mult: 2.5`, is absent from the joint axis on all four
 legs** — the grid is `{1.5, 2.0, 3.0, 3.5}`. So every number in § 4 is *"declare
@@ -221,10 +241,34 @@ rule, and § 7 means the cheapest version of the change is unmeasured.
    against `base_geo`, so a cell at `sm=2.5` differs from the base on no axis,
    is marked `"none"`, and is recorded as `inert_equals_base` and **never run**.
    Adding 2.5 to `STOP_MULT_GRID` produces duplicate tags, not new coverage.
-   **Replaced by:** run the **no-target book at stop 2.5, one cell per leg**
+   ~~**Replaced by:** run the **no-target book at stop 2.5, one cell per leg**
    (~9–11 runs, not a grid re-sweep). That is the single missing row that
    unlocks a cosmetic verdict for all 388 base-stop cells; the truncation half
-   needed no new runs at all and is already graded.
+   needed no new runs at all and is already graded.~~
+   ⚠️ **ALSO WITHDRAWN 2026-08-24 — the runs were unnecessary.** Per the § 7
+   correction, the base run is already in the corpus on every row.
+   `bracket_reachability_audit.classify` now falls back to it via a third
+   baseline rung, and **the cosmetic axis at the live stop is graded, at a cost
+   of zero harness runs**.
+
+   ⚠️ **AND THE UNLOCK IS 80 CELLS, NOT 388.** 308 of the 388 carry a **timeout
+   override**, and a timeout cell stays `no_baseline` **deliberately** — its
+   identity to a book with a different timeout would not be a statement about
+   the TARGET, which is the only thing this axis claims. That rule is enforced
+   on the new rung too, and pinned by a test. Measured result, **strata kept
+   apart because they rest on different baselines**:
+
+   | baseline rung | cells | cosmetic | not_cosmetic |
+   |---|---|---|---|
+   | `row` (explicit stops, a swept no-tp cell) | 308 | **49** | 259 |
+   | `base_block` (**live stop**, the config-exact base run) | 80 | **10** | 70 |
+
+   **The 49/308 headline is UNCHANGED** — it is the `row` stratum, exactly as
+   before. The 10/80 is a *new* stratum, not a movement of the old one, and the
+   two must not be quoted as one number without saying which book answered.
+   `no_baseline` falls 1620 → 1540. The audit's own implication (`cosmetic` ⟹
+   `truncated`) **holds on all 10**, with zero violations and zero unverifiable
+   — an independent consistency check on the new rung.
 2. **Grade reachable cells explicitly**, rather than relying on a net_R top-N to
    surface them. 3 of 200 is not a sample.
 3. **Never ship a cosmetic target.** A declared `tp_r` above the leg's `cap_r`
