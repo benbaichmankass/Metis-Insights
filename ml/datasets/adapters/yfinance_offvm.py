@@ -27,6 +27,21 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar, Iterator, Mapping
 
 from .base import MarketRawAdapter
+# The ticker map + history caps live in the import-free leaf `yf_symbols`,
+# re-exported here so this module stays their single public home and every
+# existing importer is unchanged. They were MOVED (not copied) because reading
+# a dict of ticker strings through this module executes `ml/datasets/__init__`
+# -> `.registry` -> fourteen family builders, one of which imports `yaml`; a
+# candle puller with only pandas+yfinance installed then failed with
+# "yfinance fetch failed: No module named 'yaml'" — a message naming a fetch
+# that never happened. See `yf_symbols` for the full account.
+from .yf_symbols import (  # noqa: F401  (re-export: this is the public home)
+    YF_MAX_HISTORY_DAYS,
+    _DEFAULT_TICKER_MAP,
+    known_symbols,
+    max_history_days,
+)
+
 # Reuse the exact same off-VM guard contract as the Bybit adapter so a
 # build host only has to set one env var for every network adapter.
 from .bybit_offvm import (
@@ -46,21 +61,6 @@ _TIMEFRAME_TO_YF: Mapping[str, str] = {
     "1h": "60m",
     "1d": "1d",
 }
-
-# The ticker map + history caps live in the import-free leaf `yf_symbols`,
-# re-exported here so this module stays their single public home and every
-# existing importer is unchanged. They were MOVED (not copied) because reading
-# a dict of ticker strings through this module executes `ml/datasets/__init__`
-# -> `.registry` -> fourteen family builders, one of which imports `yaml`; a
-# candle puller with only pandas+yfinance installed then failed with
-# "yfinance fetch failed: No module named 'yaml'" — a message naming a fetch
-# that never happened. See `yf_symbols` for the full account.
-from .yf_symbols import (  # noqa: F401  (re-export: this is the public home)
-    YF_MAX_HISTORY_DAYS,
-    _DEFAULT_TICKER_MAP,
-    known_symbols,
-    max_history_days,
-)
 
 
 def _to_iso_utc(value: Any) -> str:
