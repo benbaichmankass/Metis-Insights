@@ -3717,6 +3717,27 @@
         "BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM",
         "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK"
       ]
+    },
+    {
+      "id": "PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE",
+      "opened_at": "2026-08-24T09:00:00+00:00",
+      "opened_by": "claude (session_01EG3s2, xrp entry-axis measurement)",
+      "severity": "medium",
+      "tier": "3 (strategy params — propose only)",
+      "status": "open",
+      "area": "strategy",
+      "source": "docs/research/xrp-pullback-entry-axis-2026-08-24.md",
+      "title": "The htf_pullback_trend_2h family's pullback-DEPTH filter is a net negative on all 5 crypto legs on full history, but removing it survives split dispersion on only 1 (xrp)",
+      "description": "Measured 2026-08-24, each leg at its OWN live params from config/strategies.yaml. Setting pullback_frac to 1.0 makes the filter vacuous (backtest_pullback.py line 370 is `pos <= pullback_frac`), reducing the entry to uptrend + ADX + confirmation bar. Full history net R, live -> pf=1.0: xrp -13.02 -> +32.87 (+45.89); eth -26.99 -> +41.41 (+68.40); sol +18.09 -> +36.92 (+18.83); ada -12.74 -> +3.29 (+16.02); avax -1.20 -> +27.76 (+28.96). DIRECTION replicates 5/5. Split dispersion (m20_split_dispersion, targets 35/40/45/50/60, harness_agreement ok): xrp pass_fraction 1.0; eth/sol/ada/avax all 0.0 — a large in-sample gain that dies at the split, the same shape as the donchian Path B cells. On xrp the surface is a monotone approach to a stable plateau (pf 0.70-1.00 all 5/5), not a knife edge, and the full-history argmax (pl20+pf0.4, +14.25R, MAR 1.52) FAILS all five splits while the third-best arm generalizes.",
+      "why_it_matters": "The filter the family is NAMED for is the component losing money on every leg measured. That is a claim about the family's premise, not a tuning detail, and it should not sit only in one leg's research doc. It is also the strongest available argument for the next M7 review of the other four legs looking at the ENTRY axis rather than the exits.",
+      "trigger_condition": "Revisit when any pullback leg comes up for an M7 review, or when an admission criterion for an entry change is fixed IN ADVANCE (the donchian § 6.0b lesson). Do NOT act on the full-history direction alone.",
+      "resolution_criteria": "Either (a) an operator Tier-3 decision on xrp_pullback_2h.pullback_frac made against a PRE-REGISTERED admission criterion, with the four non-generalizing legs explicitly left alone and that recorded; or (b) a fresh walk-forward over >= 3 of the 5 legs whose criterion was fixed before the candidates were measured, resolving whether the 1-of-5 survivor is an edge or a lucky draw over ~120 measured cells. Closing requires one of those two, not a re-read of the existing corpus.",
+      "next_action": "Operator decision on whether one leg clearing a gate that four siblings fail is actionable. No config change proposed meanwhile; nothing was applied.",
+      "related": [
+        "docs/research/xrp-pullback-entry-axis-2026-08-24.md",
+        "docs/research/xrp-pullback-joint-geometry-2026-08-23.md",
+        "docs/research/donchian-stop-gate-is-drawdown-bound-2026-08-23.md"
+      ]
     }
   ],
   "updated_at": "2026-08-22T18:05:00+00:00"
