@@ -144,6 +144,23 @@ def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
 
 
 def run(args: argparse.Namespace) -> int:
+    # Overrides are parsed by the ONE owner so this tool and a direct engine run
+    # can never disagree about what `STRAT.key=val` means.
+    overrides = bt.parse_overrides(getattr(args, "override", []) or [])
+    if overrides and args.ledger:
+        # The --ledger path SKIPS the engine entirely, so an override here would
+        # change nothing while the output claimed it applied. Refusing beats a
+        # verdict that is labelled overridden and was not.
+        print("ERROR: --override is invalid with --ledger (that path never runs "
+              "the engine, so the override could not apply)", file=sys.stderr)
+        return 2
+    stray = sorted(set(overrides) - {args.strategy})
+    if stray:
+        # A typo'd strategy name would apply to nothing and read as applied.
+        print(f"ERROR: --override names {stray}, not the --strategy "
+              f"{args.strategy!r}; it would apply to nothing", file=sys.stderr)
+        return 2
+
     units = all_account_units()
     if args.accounts:
         keep = {a.strip() for a in args.accounts.split(",") if a.strip()}
@@ -183,8 +200,9 @@ def run(args: argparse.Namespace) -> int:
         summary = bt.run_system_backtest(
             base5m, roster=[args.strategy], start=args.start, end=args.end,
             initial_balance=args.base_account_size, risk_pct=args.base_risk_pct,
-            daily_loss_pct=3.0, signal_ttl_bars=1, overrides={}, refresh=args.refresh_signals,
-            clock_tf=args.clock_tf, flip_policy="hold", reentry_policy="suppress", attach_full=True,
+            daily_loss_pct=3.0, signal_ttl_bars=1, overrides=overrides,
+            refresh=args.refresh_signals, clock_tf=args.clock_tf,
+            flip_policy="hold", reentry_policy="suppress", attach_full=True,
         )
         ledger = summary.get("closed_trades", []) or []
         data_src = args.data
@@ -205,7 +223,12 @@ def run(args: argparse.Namespace) -> int:
         "symbol": args.symbol, "asset_class": args.asset_class,
         "fee_bps_roundtrip": args.fee_bps_roundtrip,
         "min_survival": args.min_survival, "max_p_breach": args.max_p_breach,
-        "n_ledger_trades": len(ledger), "horizon_months": horizon, "rows": rows,
+        "n_ledger_trades": len(ledger), "horizon_months": horizon,
+        # PROVENANCE: a verdict computed under an override must SAY so, or it is
+        # indistinguishable from one at the config values (diagnostic-provenance
+        # sub-class B -- implicit input selection).
+        "overrides": overrides or None,
+        "rows": rows,
     }
     (out_dir / f"compat_{label}.json").write_text(json.dumps(payload, indent=2, default=str))
 
@@ -283,6 +306,13 @@ def main(argv: List[str]) -> int:
     p.add_argument("--max-p-breach", type=float, default=0.10,
                    help="Standard ROUTE gate: maximum P(breach) under the account's "
                         "soft limits (default 0.10).")
+    p.add_argument("--override", action="append", default=[], metavar="STRAT.key=val",
+                   help="Per-strategy param override forwarded to the ENGINE run, e.g. "
+                        "trend_donchian_sol_prop.tp_r=3.2. Repeatable. Parsed by the ONE "
+                        "owner (scripts.backtest_system.parse_overrides) so an override "
+                        "means the same thing here and in a direct engine run. Overrides "
+                        "flow into the live unit's order_package, so venue clamps still "
+                        "apply. INVALID with --ledger (that path never runs the engine).")
     p.add_argument("--refresh-signals", action="store_true")
     p.add_argument("--out-dir", default=None)
     args = p.parse_args(argv[1:])
