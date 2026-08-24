@@ -133,7 +133,13 @@ def plan_legs(data_dir: Path, only: Optional[List[str]]) -> tuple[list, list]:
             skipped.append({"leg": name, "reason": "family_unresolved"})
             continue
         sym, tf = row["symbol"], row["timeframe"]
-        data, resample, proxy = fleet.resolve_data(sym, tf, data_dir)
+        # ⚠️ ORDER IS (path, proxy, resample) -- this unpacked it as
+        # (path, resample, proxy) until 2026-08-24, which put a BOOL into
+        # `resample` and so would have emitted `--resample True` on any
+        # leg needing a resample. `e35_bracket_geometry_sweep` unpacks it
+        # correctly; this did not, which is exactly why the convention is
+        # to copy the sibling's call rather than re-type it.
+        data, proxy, resample = fleet.resolve_data(sym, tf, data_dir)
         if data is None:
             # Distinct from `not_served`: the LANE exists, the local CSV does
             # not. Different fix, so a different state.
@@ -202,8 +208,36 @@ def plan_shards(only: Optional[List[str]]) -> tuple[list, list]:
                             "reason": f"unmapped_timeframe:{row['timeframe']}"})
             continue
         sym = row["symbol"]
+        # ⚠️ THE FILE MUST BE WRITTEN UNDER THE SPELLING `resolve_data` LOOKS
+        # FOR, WHICH FOR A PROXIED SYMBOL IS THE PROXY, NOT THE LEG'S SYMBOL.
+        #
+        # `PROXY_DATA` maps MGC->GC_F, MHG->HG_F, MES->ES_F, XAUUSD->GC_F, and
+        # `resolve_data`'s default (`prefer_native=False`) applies it
+        # UNCONDITIONALLY -- deliberately, because the proxy is the DEEPER
+        # series (GC_F_1d is 2,512 rows from 2016 vs 940 native from 2022).
+        # MEASURED on run 32765331857: writing `data/MGC_1d.csv` left
+        # `resolve_data` returning `(None, True, None)`, so `mgc_pullback_1d`
+        # and `mhg_pullback_1d` reported `data_missing` and **2 of 19 legs
+        # silently dropped out of the cross-leg population** even though their
+        # fetch step succeeded and passed the row floor.
+        #
+        # ⚠️ AND THE FIX IS NOT `prefer_native=True`. `resolve_data`'s docstring
+        # is explicit that a yfinance-built `data/MGC_1d.csv` is byte-for-byte
+        # the proxy (it pulls the FULL-SIZE `GC=F` contract), so a file under
+        # the native name "asserts a provenance its CONTENT does not have" and
+        # `prefer_native` would then report `proxy=False` for it -- "a session
+        # did that on 2026-08-14 and removed it the same hour; do not
+        # recreate it". Writing the proxy spelling keeps the series honest AND
+        # makes `resolve_data` report `proxy=True`, which is the truth.
+        #
+        # The FETCH still asks for the leg's own symbol, because that is what
+        # `_yf_ticker` maps to a venue ticker (MGC -> GC=F); only the OUTPUT
+        # filename changes.
+        data_symbol = fleet.PROXY_DATA.get(sym, sym)
         include.append({
             "leg": name, "symbol": sym, "tf": row["timeframe"],
+            "data_symbol": data_symbol,
+            "proxied": data_symbol != sym,
             "fetch_interval": iv,
             # The lane decides which feed the job pins. Crypto goes to
             # Binance's public archive because GitHub runners are US Azure IPs
@@ -271,6 +305,9 @@ def sweep_leg(leg: dict, log=print) -> dict:
     return {
         "leg": leg["leg"], "symbol": leg["symbol"], "tf": leg["tf"],
         "stratum": leg["stratum"], "declared_frac": leg["declared_frac"],
+        # Whether this leg's book came from a PROXY series. Reported per leg
+        # so a cross-leg verdict is never read as if every leg were measured
+        # on its own instrument.
         "proxy": leg["proxy"],
         "base": {"net_total_r": b_net, "trades": base_row.get("total_trades"),
                  "max_drawdown_r": _f(base_row, "max_drawdown_r")},
@@ -508,6 +545,32 @@ def selftest() -> int:
     ck("4 capped legs planned",
        sum(1 for r in inc if r["stratum"] == "capped_730d") == 4)
     ck("--only narrows the plan", len(plan_shards(["spy_pullback_1h"])[0]) == 1)
+
+    # --- the PROXY spelling, pinned ------------------------------------------
+    # 2 of 19 legs silently left the population on run 32765331857 because the
+    # fetch wrote `data/MGC_1d.csv` while `resolve_data` (proxy-first by
+    # default) looks for `data/GC_F_1d.csv`. These assert the plan carries the
+    # spelling the resolver actually wants.
+    by_leg = {r["leg"]: r for r in inc}
+    ck("a proxied leg plans its data file under the PROXY spelling",
+       by_leg["mgc_pullback_1d"]["data_symbol"] == "GC_F")
+    ck("and the other one too", by_leg["mhg_pullback_1d"]["data_symbol"] == "HG_F")
+    ck("a proxied leg is FLAGGED as proxied",
+       by_leg["mgc_pullback_1d"]["proxied"] is True)
+    # The REQUEST keeps the leg's own symbol -- that is what `_yf_ticker` maps.
+    ck("but the fetch still requests the leg's own symbol",
+       by_leg["mgc_pullback_1d"]["symbol"] == "MGC")
+    ck("an unproxied leg is unchanged",
+       by_leg["gld_pullback_1d"]["data_symbol"] == "GLD")
+    ck("and is not flagged proxied", by_leg["gld_pullback_1d"]["proxied"] is False)
+    # Every proxied symbol in the fleet map that appears in our population must
+    # be covered -- a new entry there must not silently drop a leg again.
+    ck("every planned leg whose symbol is in PROXY_DATA is redirected",
+       all(r["data_symbol"] == fleet.PROXY_DATA[r["symbol"]]
+           for r in inc if r["symbol"] in fleet.PROXY_DATA))
+    ck("and no unproxied leg is redirected",
+       all(r["data_symbol"] == r["symbol"]
+           for r in inc if r["symbol"] not in fleet.PROXY_DATA))
 
     print(f"pullback_frac cross-leg sweep selftest: {len(checks)} checks")
     for f in failed:
