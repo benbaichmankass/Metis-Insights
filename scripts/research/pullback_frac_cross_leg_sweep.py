@@ -51,7 +51,6 @@ NOT what this produces -- it produces the evidence for that decision.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import statistics
 import sys
@@ -317,8 +316,8 @@ def summarise(results: List[dict]) -> Dict[str, Any]:
     out = {}
     for name, legs in sorted(strata.items()):
         votes: Dict[float, int] = {}
-        for l in legs:
-            votes[l["best_frac"]] = votes.get(l["best_frac"], 0) + 1
+        for row in legs:
+            votes[row["best_frac"]] = votes.get(row["best_frac"], 0) + 1
         n = len(legs)
         top = max(votes.items(), key=lambda kv: kv[1]) if votes else None
         if n < MIN_LEGS_FOR_A_CROSS_LEG_CLAIM:
@@ -327,11 +326,11 @@ def summarise(results: List[dict]) -> Dict[str, Any]:
             verdict, winner = "GENERALISES", top[0]
         else:
             verdict, winner = "SPLIT", None
-        spreads = [l["spread_r"] for l in legs]
+        spreads = [row["spread_r"] for row in legs]
         out[name] = {
             "legs": n, "votes": {str(k): v for k, v in sorted(votes.items())},
             "verdict": verdict, "winner": winner,
-            "flat_legs": sum(1 for l in legs if l["flat"]),
+            "flat_legs": sum(1 for row in legs if row["flat"]),
             "median_spread_r": round(statistics.median(spreads), 4),
             "max_spread_r": round(max(spreads), 4),
             "per_leg": legs,
@@ -394,7 +393,13 @@ def selftest() -> int:
     calls = []
     real = fleet.run_cell
     try:
-        def fake(h, a, start=None, end=None):
+        # `_`-prefixed because they are genuinely unread: this stub
+        # REPLACES `fleet.run_cell`, so it must accept that function's
+        # signature or the call site raises, but the test asserts only
+        # on the ARGV (`a`) that `cell_args` builds. Reading the harness
+        # path or window bounds to look busy would be worse than saying
+        # plainly that no claim here depends on them.
+        def fake(_h, a, *_args, **_kwargs):
             calls.append(a)
             frac = a[a.index("--pullback-frac") + 1] if "--pullback-frac" in a else None
             return {"net_total_r": {"0.33": 1.0, "0.5": 5.0,
