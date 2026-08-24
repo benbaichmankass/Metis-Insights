@@ -210,3 +210,108 @@ jobs:
           name: e35-bracket-ALL
           path: collected
           retention-days: 90
+
+  # ------------------------------------------------------------------ corpus
+  # WHY THIS JOB EXISTS. Until 2026-08-23 this workflow ended at the artifact
+  # above, and a PM-side session has NO artifact download (root CLAUDE.md). So
+  # 3,781 measured cells were write-only: re-interrogating ANY of them — a
+  # dispersion test, a different gate, wins_effective beside wins — meant
+  # re-running the whole multi-hour sweep from candles. A session did exactly
+  # that on 2026-08-23, which is what surfaced it.
+  # BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH
+  #
+  # This is the same cure m20_corpus_extract.py already gives the LEVER sweep,
+  # and this job deliberately mirrors that workflow's corpus job rather than
+  # inventing a second shape.
+  corpus:
+    needs: [plan, sweep, aggregate]
+    # `always()` for the same reason `aggregate` uses it: the legs that DID
+    # finish produced real rows, and discarding them because one leg died is
+    # the opposite of what sharding buys.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # The ONLY job here that writes. Kept off the workflow's top-level
+      # `contents: read` so the sweep shards stay read-only.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          path: collected
+          pattern: e35-bracket-*
+          merge-multiple: false
+
+      - name: Extract per-cell rows into the committed corpus
+        id: extract
+        run: |
+          set -euo pipefail
+          # The extractor REFUSES an empty scan rather than exiting 0, so a run
+          # that produced no report cannot land here as a silent success.
+          python3 scripts/research/e35_corpus_extract.py collected | tee extract.out
+
+      - name: Commit + push the corpus
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/research/e35-bracket-corpus.jsonl
+          if git diff --cached --quiet; then
+            echo "corpus byte-identical to the committed copy — this run"
+            echo "superseded rows that matched what was already recorded."
+            exit 0
+          fi
+          # WHERE IT LANDS. A dispatch on the default branch cannot push there:
+          # branch protection declines a bare commit it cannot give required
+          # checks to (GH006). That is STRUCTURAL, so the fix is to retarget,
+          # never to retry — measured on the lever sweep as four dispatches
+          # that swept every leg and then threw every row away at this step
+          # (BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN).
+          TARGET="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          RETARGETED=0
+          if [ "$TARGET" = "${DEFAULT_BRANCH:-main}" ]; then
+            TARGET="claude/e35-bracket-corpus"
+            RETARGETED=1
+            echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — routing the corpus to '$TARGET' to preserve the rows."
+          fi
+          echo "corpus target branch: $TARGET (retargeted=$RETARGETED)"
+          {
+            echo "corpus: e35 bracket sweep run $(date -u +%Y-%m-%dT%H:%MZ)"
+            echo
+            cat extract.out
+            echo
+            echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+          } > .commitmsg
+          git commit -F .commitmsg
+          # A push can lose a genuine race with a concurrent dispatch, which IS
+          # retryable — unlike the protection refusal above.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/${TARGET}"; then
+              echo "pushed to ${TARGET} on attempt ${attempt}"
+              break
+            fi
+            if [ "$attempt" = "3" ]; then
+              echo "::error::could not push the corpus to ${TARGET} after 3 attempts — the rows are in this run's artifact and are NOT lost, but nothing has recorded them"
+              exit 1
+            fi
+            git fetch origin "${TARGET}" || true
+            git rebase "origin/${TARGET}" || git rebase --abort || true
+            sleep $((attempt * 5))
+          done
+          if [ "$RETARGETED" = "1" ]; then
+            # ⚠️ NO CLAIM THAT ANYTHING DOWNSTREAM FINISHES THIS. A push made
+            # with GITHUB_TOKEN starts no workflows (the recursion guard), so
+            # this job cannot open or green its own PR — measured on the lever
+            # sweep's first default-branch dispatch, which landed rows and
+            # triggered ZERO runs (BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR).
+            # A loud, accurate hand-off beats a claim that is not true.
+            echo "::notice::corpus rows are on '${TARGET}'. A HUMAN OR A SESSION must open the PR — this job cannot, and no workflow will fire from its push."
+          fi

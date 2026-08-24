@@ -193,6 +193,32 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
+            # The e35 corpus extractor is the durable half of a sweep whose
+            # evidence was previously write-only. Its self-test pins the
+            # distinctions that make the corpus trustworthy — an ungated cell
+            # never reads as a passing one, a re-extract supersedes rather
+            # than appends, and a foreign report.json is refused — none of
+            # which move when the data does.
+            ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
+            # The e35->verdicts adapter is what lets the CANONICAL
+            # `m20_banking_risk_adjusted.py` read a bracket sweep, instead of a
+            # second implementation of MAR free to drift from it. Its self-test
+            # pins the distinctions a reader depends on: the NET (not gross)
+            # column lands in the gated slot, a cell the sweep never split is
+            # counted rather than emitted with a null half, a corrupt row is a
+            # refusal rather than a smaller sample, and `dd_per_r` is null for a
+            # return-GAINING cell by construction.
+            ["python3", "scripts/research/e35_verdicts_adapter.py", "--selftest"],
+            # The backlog union-merge resolver. Three conflicts on
+            # health-review-backlog.json in one evening (2026-08-23) across two
+            # PRs, and a hand-resolved one once silently reverted six items
+            # (BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION).
+            # Its self-test pins the REFUSALS, which are the whole value: a
+            # divergent both-side edit, a duplicate new id, and a deletion on
+            # either side must all refuse rather than union — while an
+            # IDENTICAL both-side edit must NOT refuse, since there is nothing
+            # to pick.
+            ["python3", "scripts/ops/backlog_union_merge.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.
