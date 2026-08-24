@@ -308,6 +308,29 @@ def _note_unsupported_management_op(
     )
 
 
+def _prov_unmeasured_marker() -> str:
+    """Return :data:`provenance.UNMEASURED_MARKER`, fail-safe.
+
+    M39(A), 2026-08-24. Used by the close path to declare *"we closed this
+    trade and could not establish an exit price"* rather than writing nothing,
+    which would be indistinguishable from a row nobody ever looked at.
+
+    Imported lazily and defensively for the same reason every other
+    provenance import in this module is: this runs on the LIVE close path, and
+    a provenance-vocabulary import failure must never be able to prevent a
+    trade from closing. The literal fallback is the same string the module
+    defines; if the two ever diverge, `provenance.classify` puts an
+    unrecognised source in UNVERIFIED, which is the correct bucket for this
+    state anyway — so the failure mode degrades to the honest answer rather
+    than to a false one.
+    """
+    try:
+        from src.runtime.provenance import UNMEASURED_MARKER
+        return str(UNMEASURED_MARKER)
+    except Exception:  # noqa: BLE001 - never block a close on a doc import
+        return "unmeasured"
+
+
 def _apply_partial_close(
     db,
     open_pkg: dict,
@@ -1058,16 +1081,53 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             }
             if actual_exit_price is not None:
                 close_updates["exit_price"] = actual_exit_price
-            # Annotate the notes field when we had to fall back to the
-            # verdict's exit_price (lookup unavailable / dry-run /
-            # not-found) so downstream consumers (hourly reports,
-            # backtest comparisons, ML datasets) can filter on
-            # exchange-confirmed fills only. Skip the annotation when
-            # there was no exit_price either side — nothing meaningful
-            # to source-tag.
-            if exit_price_source == "verdict" and actual_exit_price is not None:
-                existing_notes = _decode_notes(matched_trade.get("notes"))
-                existing_notes["exit_price_source"] = "verdict"
+            # ── STAMP EVERY OUTCOME, INCLUDING THE GOOD ONE ───────────────
+            # M39(A), 2026-08-24 (`BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-
+            # UNMEASURED-ONE`). This block used to write the note ONLY under
+            # `exit_price_source == "verdict"`, so the branch that resolved a
+            # REAL venue fill stamped nothing and the row classified as
+            # UNVERIFIED — the strongest evidence we ever have, recorded as
+            # "we don't know". Measured on the live journal before the fix:
+            # of 175 unverified DECIDED closes, 175 (100%) carried an
+            # `exit_price` and ZERO carried a stamp, and the string
+            # `"exchange"` appeared 0 times in the whole decided-close source
+            # distribution — this branch had never written a note, ever.
+            #
+            # `"exchange"` needs no vocabulary change: it is already in
+            # `provenance.MEASURED_SOURCES` and is what this module's own
+            # docstring declares (see the `_apply_update` contract above,
+            # `"exit_price_source": "exchange"|"verdict"`). It is genuine
+            # broker truth — `_capture_fill_details` returns only on a
+            # non-zero `avg_price` from `account_order_status`, and yields
+            # None for dry-run / read-failure / not-found, all of which fall
+            # to the verdict branch. Unlike `recorded_exit_price` (demoted
+            # from MEASURED the same day for claiming a fill it never had),
+            # this one IS the venue's own number.
+            #
+            # THIRD STATE, deliberately: a close with no price on EITHER
+            # branch used to be skipped as "nothing meaningful to source-tag".
+            # It is meaningful — it says we closed the trade and could not
+            # establish what price we got. Silence makes that identical to a
+            # row nobody ever looked at, which is the collapse
+            # `docs/CLAUDE-RULES-CANONICAL.md` § "Collapsed states" exists to
+            # forbid. `UNMEASURED_MARKER` shares the UNVERIFIED *trust* bucket
+            # (neither is a measurement) but is distinguishable in
+            # ACCOUNTABILITY from the raw source string — the same
+            # `anchored`/`deferred`/`no_anchor` discipline `exit_anchor` uses.
+            # It is not observed in the current journal (0 of 175); it is
+            # here so the state cannot become silent later.
+            #
+            # NEVER overwrites a more specific existing stamp — the sibling
+            # rule added to `_sweep_local_pnl_for_unpriced` on 2026-08-24,
+            # after an unconditional overwrite laundered a projection over a
+            # broker source.
+            if actual_exit_price is not None:
+                _exit_source = exit_price_source
+            else:
+                _exit_source = _prov_unmeasured_marker()
+            existing_notes = _decode_notes(matched_trade.get("notes"))
+            if not existing_notes.get("exit_price_source"):
+                existing_notes["exit_price_source"] = _exit_source
                 close_updates["notes"] = dump_capped(existing_notes, 2000)
             trade_id = matched_trade.get("id")
             if trade_id is not None:
