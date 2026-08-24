@@ -324,6 +324,13 @@ def fetch_klines_binance_vision(
     return rows
 
 
+# Days shaved off a clamped intraday request. yfinance's own message says the
+# range "must be within the last 730 days", and a request landing exactly on
+# that boundary races the venue's own clock between our clamp and its check —
+# so give it a little room rather than rediscovering the refusal at the edge.
+_YF_CAP_MARGIN_DAYS = 2
+
+
 class YfLaneError(RuntimeError):
     """Base for the yfinance lane's failures, carrying the STAGE that failed.
 
@@ -457,10 +464,31 @@ def fetch_klines_yfinance(
     cap = syms.max_history_days(tf)
     requested_days = (end_dt - start_dt).days
     if cap is not None and requested_days > cap:
+        # ⚠️ THE VENUE REFUSES AN OVER-LONG INTRADAY REQUEST; IT DOES NOT CLIP IT.
+        # This block used to warn "the span WILL be truncated" and pass the
+        # request through unchanged. MEASURED 2026-08-24 (proof run
+        # 32734360738, SPY 1h, 1001 d): Yahoo answered
+        #   "1h data not available ... The requested range must be within the
+        #    last 730 days"
+        # and returned ZERO rows. So the old warning predicted an outcome the
+        # code never verified, and the real outcome was strictly worse than the
+        # one predicted — a caller who trusted it would read "partial window"
+        # and get no window at all. Same family as the stage-label defect this
+        # lane was already fixed for: do not assert what you did not check.
+        #
+        # So CLAMP the start to the cap and SAY SO, rather than warn and fail.
+        # Clamping is the useful behaviour (the 1h legs want whatever history
+        # exists, not a refusal) and stays honest because the obtained span is
+        # reported against the requested one downstream — the caller is never
+        # left believing it got the window it asked for.
+        clamped_start = end_dt - timedelta(days=cap - _YF_CAP_MARGIN_DAYS)
         sys.stderr.write(
-            f"  ⚠️ yfinance caps {tf} history at ~{cap} d; {requested_days} d "
-            f"requested, so the span WILL be truncated. Treat the result as a "
-            f"partial window, not the requested one.\n")
+            f"  ⚠️ yfinance serves at most ~{cap} d of {tf} history and REFUSES "
+            f"a longer request outright (it does not truncate). {requested_days} d "
+            f"were requested, so the START was clamped to "
+            f"{clamped_start.date()} — {(end_dt - clamped_start).days} d. "
+            f"Treat the result as a PARTIAL window, not the requested one.\n")
+        start_dt = clamped_start
 
     try:
         import yfinance as yf  # noqa: E402  (optional dep)
@@ -637,7 +665,14 @@ def main(argv: list[str]) -> int:
             return 1
 
     if not rows:
-        sys.stderr.write("ERROR: no candles returned from any source.\n")
+        # Name the source(s) actually ATTEMPTED. "from any source" claimed a
+        # breadth of search the run did not perform: an explicit --source
+        # yfinance run tries exactly one, and reporting it as if every source
+        # had been exhausted sends the reader looking in the wrong places.
+        tried = ("bybit, then binance_vision" if args.source == "auto"
+                 else args.source)
+        sys.stderr.write(
+            f"ERROR: no candles returned (source attempted: {tried}).\n")
         return 1
 
     df = pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
