@@ -125,7 +125,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p data
-          OUT="data/${{ matrix.symbol }}_${{ matrix.tf }}.csv"
+          # The OUTPUT is the spelling `resolve_data` looks for -- the PROXY
+          # for a proxied symbol (MGC -> GC_F), the symbol itself otherwise.
+          # The REQUEST stays the leg's own symbol so `_yf_ticker` can map it
+          # (MGC -> GC=F). Writing `data/MGC_1d.csv` instead silently dropped
+          # 2 of 19 legs on run 32765331857.
+          OUT="data/${{ matrix.data_symbol }}_${{ matrix.tf }}.csv"
           python scripts/ops/fetch_backtest_candles.py \
             --symbol "${{ matrix.symbol }}" \
             --interval "${{ matrix.fetch_interval }}" \
@@ -137,7 +142,7 @@ jobs:
           # `data_missing`, and the sweep would report "no cells evaluated" as
           # though that were a verdict rather than an absence.
           if [ "${n}" -lt 100 ]; then
-            echo "::error::only ${n} rows for ${{ matrix.symbol }} ${{ matrix.tf }} — the sweep would be a false negative"
+            echo "::error::only ${n} rows for ${{ matrix.symbol }} (as ${{ matrix.data_symbol }}) ${{ matrix.tf }} — the sweep would be a false negative"
             exit 1
           fi
 
