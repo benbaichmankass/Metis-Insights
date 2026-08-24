@@ -51,6 +51,9 @@ _BYBIT_TO_BINANCE_INTERVAL = {
     "1": "1m", "3": "3m", "5": "5m", "15": "15m", "30": "30m",
     "60": "1h", "120": "2h", "240": "4h", "360": "6h", "480": "8h",
     "720": "12h", "D": "1d", "W": "1w",
+    # Both spellings resolve, because `_interval_ms` accepts both and a caller
+    # that writes the explicit count should not silently lose the source.
+    "1D": "1d", "1W": "1w",
 }
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -61,12 +64,23 @@ def _ms(dt: datetime) -> int:
 
 
 def _interval_ms(interval: str) -> int:
-    """Convert a Bybit interval string to milliseconds."""
-    if interval.upper().endswith("D"):
-        return int(interval[:-1]) * 86_400_000
-    if interval.upper().endswith("W"):
-        return int(interval[:-1]) * 7 * 86_400_000
-    return int(interval) * 60_000
+    """Convert a Bybit interval string to milliseconds.
+
+    ⚠️ A BARE ``D``/``W`` carries an implicit count of 1, and dropping that
+    crashed this function for the two codes the CLI help advertises. The old
+    body did ``int(interval[:-1])`` unconditionally, so ``"D"`` became
+    ``int("")`` -> ValueError — while ``_BYBIT_TO_BINANCE_INTERVAL`` mapped bare
+    ``"D"`` to ``"1d"`` and the ``--interval`` help string listed ``.../240/D/W``.
+    Advertised, mapped, and unreachable: the daily feed could not be pulled from
+    either source under either spelling, since ``"1D"``/``"1W"`` compute fine but
+    had no Binance mapping. Both spellings now work end to end.
+    """
+    code = interval.strip().upper()
+    for suffix, unit_ms in (("D", 86_400_000), ("W", 7 * 86_400_000)):
+        if code.endswith(suffix):
+            count = code[:-1] or "1"   # bare "D" means one day, not zero
+            return int(count) * unit_ms
+    return int(code) * 60_000
 
 
 def fetch_klines(
@@ -304,6 +318,101 @@ def fetch_klines_binance_vision(
     return rows
 
 
+# Bybit interval code -> the canonical timeframe token the yfinance adapter
+# speaks. Only the bars yfinance can actually serve appear here; an interval
+# absent from this map is REFUSED rather than silently coerced to a neighbour,
+# because a 4h request quietly served as 1h is a wrong backtest that looks fine.
+_BYBIT_TO_YF_TIMEFRAME = {
+    "1": "1m", "5": "5m", "15": "15m", "60": "1h",
+    "D": "1d", "1D": "1d",
+}
+
+
+def fetch_klines_yfinance(
+    symbol: str,
+    interval: str,
+    start_ms: int,
+    end_ms: int,
+) -> list[dict]:
+    """Fetch candles from Yahoo, for the NON-CRYPTO legs no free lane serves.
+
+    ``data.binance.vision`` is a crypto archive, so the 25 bracket-geometry
+    cells blocked on `no_free_lane_candle_feed` — 5 IBKR futures, 18 US
+    equities/ETFs, XAUUSD — can never be served by it. That is a source-coverage
+    fact, not a backlog oversight.
+
+    ⚠️ **The symbol map is NOT duplicated here.** It lives in
+    ``ml.datasets.adapters.yfinance_offvm``, which already owned one, and this
+    repo already carries two further copies (``scripts/research/regime_debt_matrix``
+    and the dashboard's ``_yf_ticker``). A fourth is how they drift.
+
+    ⚠️ **yfinance CAPS INTRADAY HISTORY** (~730 d at 1h, ~60 d at 15m; 1d is
+    effectively uncapped). A caller asking for five years of 1h gets about two
+    and would otherwise never know, so the truncation is reported on stderr
+    against the span actually requested — silence there would make a partial
+    span read as a complete one.
+    """
+    sys.path.insert(0, str(_REPO_ROOT))
+    from ml.datasets.adapters.yfinance_offvm import (  # noqa: E402
+        _DEFAULT_TICKER_MAP, max_history_days,
+    )
+
+    tf = _BYBIT_TO_YF_TIMEFRAME.get(interval.strip().upper())
+    if tf is None:
+        raise RuntimeError(
+            f"yfinance cannot serve interval {interval!r}; "
+            f"supported: {sorted(set(_BYBIT_TO_YF_TIMEFRAME))}")
+
+    ticker = _DEFAULT_TICKER_MAP.get(symbol.upper())
+    if ticker is None:
+        raise RuntimeError(
+            f"no yfinance ticker mapped for {symbol!r}. Add it to "
+            f"ml/datasets/adapters/yfinance_offvm._DEFAULT_TICKER_MAP — an "
+            f"unmapped symbol is UNKNOWN, not 'probably fine as-is'.")
+
+    start_dt = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
+    end_dt = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
+    cap = max_history_days(tf)
+    requested_days = (end_dt - start_dt).days
+    if cap is not None and requested_days > cap:
+        sys.stderr.write(
+            f"  ⚠️ yfinance caps {tf} history at ~{cap} d; {requested_days} d "
+            f"requested, so the span WILL be truncated. Treat the result as a "
+            f"partial window, not the requested one.\n")
+
+    import yfinance as yf  # noqa: E402  (optional dep — requirements-backtest)
+
+    frame = yf.download(
+        tickers=ticker, interval=tf, start=start_dt.date(), end=end_dt.date(),
+        auto_adjust=False, progress=False, threads=False,
+    )
+    if frame is None or frame.empty:
+        return []
+    if hasattr(frame.columns, "nlevels") and frame.columns.nlevels > 1:
+        frame.columns = frame.columns.get_level_values(0)
+
+    rows: list[dict] = []
+    for ts, r in frame.iterrows():
+        ts = ts.to_pydatetime()
+        ts = ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
+        try:
+            row = {
+                "timestamp": ts,
+                "open": float(r["Open"]), "high": float(r["High"]),
+                "low": float(r["Low"]), "close": float(r["Close"]),
+                "volume": float(r.get("Volume", 0.0) or 0.0),
+            }
+        except (KeyError, TypeError, ValueError):
+            # A malformed bar is COUNTED by its absence from `rows`, never
+            # substituted with a zero — a fabricated OHLC bar is worse than a
+            # short series, and the caller can see the count it got.
+            continue
+        if any(row[k] != row[k] for k in ("open", "high", "low", "close")):
+            continue  # NaN row (yfinance pads holidays) — drop, do not zero-fill
+        rows.append(row)
+    return rows
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch 5m candles for backtest (Bybit primary, Binance-vision fallback)"
@@ -340,14 +449,17 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument(
         "--source",
-        choices=["auto", "bybit", "binance_vision"],
+        choices=["auto", "bybit", "binance_vision", "yfinance"],
         default=os.environ.get("BACKTEST_FEED_SOURCE", "auto"),
         help=(
             "Feed source. 'auto' (default): try Bybit, fall back to Binance's "
             "public data archive if Bybit fails/returns nothing (Bybit "
             "geoblocks US IPs, so a US GH-runner always 403s — the fallback is "
             "how the off-trainer research-panel-build works). 'bybit' or "
-            "'binance_vision' force one source."
+            "'binance_vision' force one source. 'yfinance' is the NON-CRYPTO "
+            "lane (equities/ETFs/futures) that neither Bybit nor Binance can "
+            "serve; it is never reached by 'auto', because a crypto symbol "
+            "silently answered from Yahoo would be a different instrument."
         ),
     )
     args = parser.parse_args(argv[1:])
@@ -377,6 +489,18 @@ def main(argv: list[str]) -> int:
 
     start_ms, end_ms = _ms(start_dt), _ms(end_dt)
     rows: list[dict] = []
+
+    if args.source == "yfinance":
+        # Deliberately NOT part of the `auto` chain: `auto` exists to survive a
+        # Bybit geoblock on a US runner, and quietly answering a crypto symbol
+        # from Yahoo would substitute a different instrument for the one asked
+        # for. Choosing this lane is explicit.
+        try:
+            rows = fetch_klines_yfinance(
+                args.symbol, args.interval, start_ms, end_ms)
+        except Exception as exc:
+            sys.stderr.write(f"yfinance fetch failed: {exc}\n")
+            return 1
 
     if args.source in ("auto", "bybit"):
         try:
