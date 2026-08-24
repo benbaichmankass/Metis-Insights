@@ -4,10 +4,13 @@ Two independent defects blocked the 25 `no_free_lane_candle_feed` bracket-
 geometry cells, and only one of them was the missing source:
 
 1. `_interval_ms` CRASHED on a bare ``D``/``W`` — `int(""[:-1])` — while the
-   `--interval` help advertised ``.../240/D/W`` and `_BYBIT_TO_BINANCE_INTERVAL`
-   mapped bare ``"D"`` to ``"1d"``. Advertised, mapped, unreachable. The
-   explicit spellings ``1D``/``1W`` computed correctly but had no Binance
-   mapping, so NEITHER spelling worked end to end.
+   `--interval` help advertised ``.../240/D/W``. ⚠️ Scope, stated precisely:
+   that function is on the BYBIT path only, so daily was NOT globally broken.
+   What held is that **no single spelling worked on both sources** — bare
+   ``D``/``W`` crashed Bybit but resolved on the archive, and ``1D``/``1W``
+   computed fine but had no archive label. Under ``--source auto`` a bare ``D``
+   burned the Bybit arm on an exception and fell through to Binance: a venue
+   chosen by a stack trace rather than a decision.
 2. Both real sources are CRYPTO archives, so no lane could serve the 18
    equity/ETF/futures symbols at all.
 

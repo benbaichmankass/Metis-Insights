@@ -67,13 +67,19 @@ def _interval_ms(interval: str) -> int:
     """Convert a Bybit interval string to milliseconds.
 
     ⚠️ A BARE ``D``/``W`` carries an implicit count of 1, and dropping that
-    crashed this function for the two codes the CLI help advertises. The old
+    crashed this function for the two codes the CLI help advertises: the old
     body did ``int(interval[:-1])`` unconditionally, so ``"D"`` became
-    ``int("")`` -> ValueError — while ``_BYBIT_TO_BINANCE_INTERVAL`` mapped bare
-    ``"D"`` to ``"1d"`` and the ``--interval`` help string listed ``.../240/D/W``.
-    Advertised, mapped, and unreachable: the daily feed could not be pulled from
-    either source under either spelling, since ``"1D"``/``"1W"`` compute fine but
-    had no Binance mapping. Both spellings now work end to end.
+    ``int("")`` -> ValueError.
+
+    ⚠️ **State the scope precisely — this function is on the BYBIT path only**
+    (``fetch_klines``); the archive path resolves a label from
+    ``_BYBIT_TO_BINANCE_INTERVAL`` and never calls here. So daily was not
+    globally broken. What was true is that **no single spelling worked on both
+    sources**: bare ``D``/``W`` crashed Bybit but resolved on the archive, while
+    ``1D``/``1W`` computed correctly here and had no archive label. Under
+    ``--source auto`` a bare ``D`` therefore burned the Bybit arm on an
+    exception, was caught, and fell through to Binance — a venue selected by a
+    stack trace rather than by a decision. Both spellings now work on both.
     """
     code = interval.strip().upper()
     for suffix, unit_ms in (("D", 86_400_000), ("W", 7 * 86_400_000)):
