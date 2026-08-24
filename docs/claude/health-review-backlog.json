@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-24T08:45:00+00:00",
+  "updated_at": "2026-08-24T10:05:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22754,6 +22754,44 @@
         "BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET",
         "BL-20260823-REASSERT-REPORTS-APPLIED-OK-ON-A-HALF-ARMED-BRACKET",
         "BL-20260816-COVERAGE-IS-ONE-SIDED"
+      ]
+    },
+    {
+      "id": "BL-20260824-SELECTIVE-FLIP-SHELVED-ON-EVIDENCE-RECORDED-ONLY-ON-A-CLOSED-PR",
+      "opened_at": "2026-08-24T10:05:00+00:00",
+      "opened_by": "claude (branch audit, operator-directed investigation)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "Unit-A selective-flip was SHELVED on measured evidence — and that evidence lives only on a closed draft PR, nowhere in the repo",
+      "source": "Operator asked whether the abandoned selective-flip code died on EVIDENCE or on NEGLECT. INVESTIGATED, not assumed. It died on evidence, and the evidence is specific.\n\nPR #5025 (`claude/unit-a-selective-flip-mamcnu`, draft, opened and closed the same day 2026-06-29): 1,944 additions over 10 files — `src/runtime/flip_ev.py`, `src/runtime/flip_reentry.py`, an `intents.py` `selective` branch, 47 tests. Two backtests were run and reported ON THE PR:\n\n1. Default knobs, BTC roster, net-of-fee: selective was BYTE-IDENTICAL to hold (both -$5,110, maxDD 54.26%, 573 trades) — the EV/confidence gates never fired. A no-op, correctly flagged as inconclusive rather than as a pass.\n\n2. Tuned knobs on a genuinely flip-heavy roster (trend_donchian + fade_breakout_4h on BTC, ict_scalp_5m excluded), multi-year 2023-01 -> 2026-02 plus a chop sub-window. Gates DID fire (4-6 flips), so this is a real result:\n   - maxDD FAILS the 'no worse' bar: EVERY selective combo lands 18.08% against hold's 17.92%. The flips it takes raise drawdown ~0.16pp in every cell, window and knob setting — uniformly, not on average.\n   - Net edge is NOT ROBUST: selective beats hold multi-year (-$757 vs -$975) and LOSES in chop 2023 (-$816.4 vs -$799.5).\n   - At best it makes a LOSING roster less-losing; never net-positive.\n   - thr 0.15 == thr 0.20 (confidence gaps rarely exceed ~0.15) and the age gate is nearly inert — so two of the three knobs are not doing work.\n\nExplicit recommendation on the PR: SHELVE. Closed 8 minutes later, with 'the code stays on the branch if we ever revisit'. So the branch is deliberately retained, not forgotten — and the 2026-08-24 prune correctly excludes it.\n\nTHE GAP IS NOT THE DECISION, IT IS WHERE THE DECISION LIVES. Nothing in the REPO records any of this: no backlog row, no research doc, no ROADMAP line. A session reading only the repo sees `FLIP_POLICY` with three implemented options, a fourth designed in `docs/research/pnl-optimal-conflict-resolution-DESIGN.md`, and no reason it is missing — and could rebuild all 1,944 lines to re-derive a negative that was already measured. This composes with BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED, whose own resolution disarmed FLIP_CONFIDENCE_THRESHOLD on the same grounds: the flip family has now lost twice, measured, and the repo states neither loss.\n\nSTATE THE POPULATION: two backtest runs, one roster family (BTC), n=4-6 flips in the run that mattered. That is a SMALL flip count — enough to fail a 'no worse maxDD' bar that it fails uniformly, not enough to characterise a distribution. Raw grids: trainer relays #5068 / #5090 / #5094.",
+      "resolution_criteria": [
+        "Land the verdict where a repo-only reader will hit it: a short docs/research/ note (or a section in the existing pnl-optimal-conflict-resolution DESIGN doc) carrying the two tables, the uniform-maxDD finding, the chop-window reversal, and the trainer relay ids.",
+        "Cross-reference it from the FLIP_POLICY row in CLAUDE.md, which today documents hold/reverse/flat and says nothing about `selective` having been built and measured.",
+        "State the small-n caveat explicitly (4-6 flips) so the record cannot be read as a stronger negative than it is — and so a future re-test knows what would actually settle it.",
+        "Do NOT delete claude/unit-a-selective-flip-mamcnu while this is open: the PR comment deliberately kept the code, and the record should point at a branch that still exists."
+      ],
+      "related": [
+        "BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED",
+        "BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD"
+      ]
+    },
+    {
+      "id": "BL-20260824-SESSION-GIT-PROXY-CANNOT-DELETE-A-REMOTE-BRANCH",
+      "opened_at": "2026-08-24T10:05:00+00:00",
+      "opened_by": "claude (branch audit)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "title": "A Claude web session can CREATE remote branches but gets HTTP 403 deleting one — which is how the bot repo reached 282 branches",
+      "source": "MEASURED 2026-08-24, not inferred. `git push origin --delete claude/admiring-davinci-MufpA` from this session returns:\n  error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403\n  send-pack: unexpected disconnect while reading sideband packet\n  fatal: the remote end hung up unexpectedly\n  Everything up-to-date\nwhile ref CREATION works fine (this session pushed several branches). The hosted GitHub MCP has `create_branch` and NO delete-branch tool, so neither channel can remove a ref.\n\nCONSEQUENCE: every session adds branches and none can remove them. The bot repo holds 282, of which 149 are provably landed; dashboard and android hold 75 each.\n\nTWO TRAPS THIS EXPOSED, both worth keeping:\n1. The failure prints 'Everything up-to-date' immediately after 'fatal:' — a reassuring string on a failed operation. A reader skimming the tail sees success.\n2. Wrapping the push in `if git push ... | tail -2` made the shell test TAIL's exit code, so a batch loop reported 'deleted: 146' having deleted zero. Caught only by re-counting the remote afterwards. This is the FOURTH pipe-swallows-rc incident in one session — see BL-20260823-BACKGROUND-TASK-RC-IS-THE-PIPELINE-NOT-THE-COMMAND.",
+      "resolution_criteria": [
+        "RESOLVED BY the prune-landed-branches workflow shipped 2026-08-24 (a runner's GITHUB_TOKEN has the contents:write the delete needs) — confirm it deletes for real on a non-dry run, since a workflow that reports success having deleted nothing is exactly the failure above one level up.",
+        "Verify by RE-COUNTING the remote after the run, never by reading the workflow's own summary.",
+        "If the 403 ever lifts for sessions, note it here — the workflow stays either way, because the manifest + SHA-pin is a better audit trail than an ad-hoc push."
+      ],
+      "related": [
+        "BL-20260823-BACKGROUND-TASK-RC-IS-THE-PIPELINE-NOT-THE-COMMAND"
       ]
     }
   ]

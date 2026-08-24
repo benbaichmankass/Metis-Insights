@@ -161,6 +161,7 @@ which would unlock these.
 | `hf-cron.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
 | `continue-work.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
 | `purge-artifacts.yml` | AUTO | E (daily 03:00 UTC) + C (workflow_dispatch) + A (`purge-artifacts-now`) | `purge-artifacts-now` |
+| `prune-landed-branches.yml` | AUTONOMOUS | C (workflow_dispatch) + A (`prune-landed-branches`) | `prune-landed-branches` |
 
 ---
 
@@ -218,6 +219,53 @@ As of 2026-08-21 there are **three**:
 ---
 
 ### Repo / branch admin
+
+#### `prune-landed-branches.yml`
+
+**Autonomy:** AUTONOMOUS (Claude dispatches via labelled issue; operator
+may dispatch via the Actions UI).
+
+**Trigger:** `workflow_dispatch` + `issues.opened` filtered to label
+`prune-landed-branches`.
+
+**Purpose:** Deletes remote branches listed in
+`docs/claude/pruned-branches-manifest.txt`.
+
+⚠️ **It exists because a Claude web session CANNOT delete a ref.**
+Measured 2026-08-24: `git push origin --delete <branch>` returns **HTTP
+403** from the session's git proxy while ref *creation* works, and the
+hosted GitHub MCP ships `create_branch` with no delete counterpart. So
+every session adds branches and none can remove them — which is how the
+bot repo reached **282**, 149 of them provably landed
+(`BL-20260824-SESSION-GIT-PROXY-CANNOT-DELETE-A-REMOTE-BRANCH`). A
+runner's `GITHUB_TOKEN` has the `contents: write` the delete needs.
+
+**Four guards, and the SHA one is the point:**
+1. **SHA-pinned.** A branch whose tip has MOVED since the manifest was
+   written is SKIPPED, never deleted — `--force-with-lease` applied to
+   deletion. Without it a manifest generated days earlier silently
+   authorises deleting work added since.
+2. **Open-PR guard.** Any branch that is the head of an open PR is
+   skipped even if the manifest names it.
+3. **Default-branch guard.** `main` / `master` / the repo's actual
+   default are refused unconditionally.
+4. **Dry run by default.** On BOTH triggers. Only a literal
+   `dry_run: false` applies; anything else — including a typo — fails
+   SAFE. Opening the issue can never itself destroy anything.
+
+It also **refuses a manifest that parses to zero rows**, rather than
+reporting a successful run that deleted nothing — the failure mode the
+guard family calls an unasserted denominator.
+
+**Recovering a deletion:** every tip SHA is in the manifest and GitHub
+retains the head SHA of a closed PR, so
+`git push origin <sha>:refs/heads/<branch>` restores any row.
+
+**Verifying it worked:** re-count the remote (`git ls-remote --heads`),
+never the workflow's own summary. The 403 above prints
+`Everything up-to-date` immediately after `fatal:`, and a batch loop that
+pipes the push into `tail` tests *tail's* exit code — that combination
+reported "deleted: 146" having deleted zero.
 
 #### `purge-artifacts.yml`
 
