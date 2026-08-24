@@ -313,10 +313,29 @@ def test_classify_pnl_reproduces_the_live_2026_07_30_distribution():
         counts[b] = counts.get(b, 0) + n
         counts["total"] += n
     assert counts["total"] == 829
-    assert counts[P.MEASURED] == 504
+    # ── RESTATED 2026-08-24, and the restatement IS the finding ───────────
+    # `BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED`.
+    #
+    # This test did its job: it failed the moment `recorded_exit_price` was
+    # demoted MEASURED -> ESTIMATED, which is precisely the "a vocabulary edit
+    # silently moves coverage" alarm the docstring promises. The numbers below
+    # are updated deliberately, not to make it pass.
+    #
+    # The 46 `recorded_exit_price` rows in this 2026-07-30 snapshot moved out
+    # of MEASURED, so 504 -> 458 and coverage 0.608 -> 0.5525. Nothing about
+    # the SNAPSHOT changed; what changed is that we stopped calling a price of
+    # unproven origin a measurement. Verified on the 2026-08-24 journal: all 82
+    # rows then carrying this source had `pnl_source: local_compute` and ZERO
+    # carried `close_fees_usd`, the key stamped only when an exit really came
+    # from fills — so not one had evidence of a venue fill.
+    #
+    # ESTIMATED rather than FABRICATED: the price was on the row at close time,
+    # unlike a mark read at sweep time. Same bucket as `candle_at_close`.
+    assert counts[P.MEASURED] == 458
+    assert counts[P.ESTIMATED] == 46
     assert counts[P.FABRICATED] == 206
     assert counts[P.UNVERIFIED] == 119
-    assert P.coverage(counts) == 0.608
+    assert P.coverage(counts) == 0.5525
 
 
 class TestPnlIsTrustworthy:

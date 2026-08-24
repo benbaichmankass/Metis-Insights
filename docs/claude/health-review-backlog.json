@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-24T15:20:00+00:00",
+  "updated_at": "2026-08-24T15:45:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22475,7 +22475,10 @@
           "at": "2026-08-23T20:05:00+00:00",
           "note": "⚠️ CORRECTION TO MY OWN FRAMING, AND IT CHANGES WHAT THE DEFECT IS. This row (and what I told the operator) implied the oversized order reaches the venue. IT DOES NOT. RiskManager.position_size applies a margin pre-flight cap AFTER the risk-based size: max_qty_by_margin = available_usd x effective_leverage x _MARGIN_SAFETY_BUFFER(0.9) / entry, and available_usd IS populated for Alpaca — coordinator.py:1495 calls AlpacaClient.buying_power(), which prefers regt_buying_power (the OVERNIGHT figure, correct for these swing legs). VERIFIED BY SIMULATION, not by reading: position_size at balance=available=$2,500, whole_units=True — a TLT-like leg with a 0.5% stop computes a risk-based 114.94 sh ($10,000 = 400% of account) and the sizer RETURNS 25 sh ($2,175 = 87.0%); SPY at a 1.0% stop 7.81 sh (200%) -> 3 sh (76.8%); GLD at 2.0% 8.06 sh (100%) -> 7 sh (86.8%). SO THE REAL DEFECT IS NOT REJECTION, IT IS TWO THINGS AT ONCE, IN OPPOSITE DIRECTIONS. (a) CONCENTRATION: one leg is clamped to ~87% of buying power, so the first leg to fire consumes the account and the other 15 size to near zero — first-come-first-served, not a portfolio. (b) THE RISK MODEL SILENTLY STOPS GOVERNING: the clamped TLT trade risks 25 x $0.435 = $10.88 = 0.44% of a $2,500 account against a declared risk_pct of 2%. The account is simultaneously over-concentrated in notional and under-risked per trade, from the same clamp. WHAT SURVIVES UNCHANGED: the scale-invariance (notional = balance x risk_pct / stop_distance_pct, so more funding does not change the percentage), the absence of any max_gross_exposure_pct, and the live $199,697 / $168,166 observation on the paper mirrors — those accounts have the buying power, so nothing clamped them. Severity stays critical; the resolution criteria are unchanged (declare an exposure bound). The failure MODE in the title and detail is what was wrong, and a fix aimed at 'stop the venue rejecting orders' would have been aimed at a problem this account does not have."
         }
-      ]
+      ],
+      "evidence_measured_2026_08_24": "INDEPENDENTLY RE-MEASURED in the /system-review session, because the row carried a claim with no numeric basis recorded. Method: for each alpaca_live-routed leg that currently holds a live position on a sibling alpaca book, take the ACTUAL declared entry and stopLoss from /api/bot/positions and compute notional/equity = risk_pct / stop_pct. alpaca_live's accounts.yaml risk block declares risk_per_trade_pct 0.02. Result (5 of the 6 measurable legs exceed whole-account notional): spy_pullback_1h stop 0.162% -> 12.37x; qqq_pullback_1h 0.324% -> 6.17x; tlt_pullback_1d 0.705% -> 2.84x; ief_pullback_1d 0.868% -> 2.30x; slv_trend_1h 1.614% -> 1.24x; iwm_trend_long_1d 3.491% -> 0.57x (the one that is fine). CONFIRMS the row's scale-invariance claim: the ratio has no equity term, so a deposit of ANY size leaves it unchanged - a $10,000 deposit would have spy_pullback_1h attempt a $123,700 position.",
+      "operator_decision_2026_08_24": "Operator elected 'fund it and go live' in the /system-review session. This row is a BLOCKER on that: funding without a declared bound puts real money behind the sizing above. Sequence recorded in BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE.",
+      "updated_at": "2026-08-24T15:45:00+00:00"
     },
     {
       "id": "BL-20260823-ALPACA-LIVE-STRATEGY-SET-IS-NET-NEGATIVE-EXCEPT-ONE-LEG",
@@ -22887,6 +22890,28 @@
       "not_a_finding_about": "Whether a skill-referenced tool actually RAN. It does not prove that — scripts/ops/trainer_dataset_gc.py is skill-referenced AND was measured on 2026-08-20 as having 0 mentions across 7,442 cycle-log rows. That is exactly why the two need SEPARATE verdicts rather than being merged into 'wired'.",
       "proposed_fix": "Give the guard a third verdict instead of two. `unwired` (no reference anywhere) · `doc_only` (prose references a tool nothing invokes) · `skill_invoked` (a binding skill names it — a runner, but an agent-executed one whose EXECUTION is unproven). Report the three separately so the headline counts rust and not correct work. Do NOT simply allowlist .claude/skills/ into 'wired' — that would hide the trainer_dataset_gc case, which is the real one.",
       "resolution_criteria": "(1) The guard emits three verdicts, not two. (2) Its headline count excludes skill_invoked. (3) The 9 no-reference-anywhere tools are each removed, wired, or annotated `# wiring: manual-only - <reason>`. (4) Re-run and state the new counts beside the old ones."
+    },
+    {
+      "id": "BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:45:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24, operator-directed)",
+      "status": "open",
+      "severity": "high",
+      "tier": "3 (funding + risk caps + broker account settings)",
+      "area": "accounts",
+      "title": "alpaca_live go-live: the operator elected to fund it, and funding is the LAST step of three, not the first",
+      "source": "Operator decision in the /system-review session 2026-08-24: 'Fund it and go live'. Raised at the time that funding alone does not make the account work.",
+      "why_it_matters": "Two of the three blockers are scale-invariant and survive any deposit. Depositing first means real money behind a sizer that asks for up to 12.37x the account on a single trade, on an account where 68.8% of the routed flow cannot legally execute.",
+      "measured_this_session": "(a) SHORT FLOW: 128 of 186 routed orders are SHORT (68.8%) and SIX legs are 100% short - gdx_pullback_1d, iaum_pullback_1d, gld_pullback_1d, slv_pullback_1d, ief_pullback_1d, tlt_pullback_1d - so they are entirely dead while the account has shorting_enabled=False. (This is WORSE than the earlier row's '60% / 4 legs'.) (b) SHORTING FLAG: /api/diag/broker_account_status?account_id=alpaca_live confirms shorting_enabled: False, status ACTIVE, trading_blocked false. (c) NOTIONAL: 5 of 6 measurable legs exceed whole-account notional - see BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL.",
+      "sequence": [
+        "STEP 1 (Tier-3, Claude prepares): declare a bound on alpaca_live so no routed leg can size past the account - max_gross_exposure_pct and/or a per-position notional cap. The VALUE needs a basis, and the gross-exposure soak (/api/bot/exposure/soak) is the surface that supplies the distribution; per gross-exposure-governance-DESIGN.md section 7 a value with no soak behind it must not ship. Until this lands, funding is unsafe.",
+        "STEP 2 (OPERATOR-ONLY, broker-side): enable shorting on the Alpaca account (margin agreement / account settings). Claude cannot change a broker account's permissions. Without it, 6 of 16 legs are dead and 68.8% of flow is refused - the account would be funded and still mostly inert.",
+        "STEP 3 (OPERATOR-ONLY): make the deposit, then flip mode dry_run -> live via the sanctioned set-account-mode action.",
+        "STEP 4 (Claude verifies): re-read /api/diag/broker_account_status + the first live fills, and confirm silent_refusal_alert grades the account healthy rather than refusing."
+      ],
+      "already_done_2026_08_24": "slv_trend_1h (the fleet's worst leg, 0 wins in 13 closed, -$5,375) was demoted live -> shadow this session with operator approval. It routed to alpaca_live, so it is already out of the go-live set.",
+      "resolution_criteria": "All four steps complete and the account has placed at least one real fill that reconciles against exchange truth. Do NOT close this on the deposit alone."
     }
   ]
 }
