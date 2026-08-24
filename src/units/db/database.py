@@ -3,10 +3,18 @@ Database Module
 Handles SQLite database operations for storing trades, backtests, and strategy versions
 """
 
-import sqlite3
-from pathlib import Path
-from datetime import datetime, timezone
 import json
+import logging
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+
+# This module had NO logger until 2026-08-24: every best-effort helper here
+# (``_stamp_telemetry_terminal``, ``_record_trade_cost_estimate``) swallows its
+# exceptions silently, so a persistently-failing stamp was indistinguishable
+# from one that never had anything to write. Bookkeeping that fails must still
+# say so.
+logger = logging.getLogger(__name__)
 
 
 def _migrate_add_strategy_name(cursor: sqlite3.Cursor) -> bool:
@@ -318,6 +326,74 @@ def _migrate_add_tpsl_leg_ids(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_protection_repair(cursor: sqlite3.Cursor) -> bool:
+    """Add the protective-bracket REPAIR stamp to ``trades`` if absent.
+
+    Operator-approved 2026-08-24. **A repair that mutates a live position's
+    protective bracket is invisible the moment it finishes.**
+    ``_attempt_naked_autoprotect`` returns a bool and logs only on FAILURE;
+    ``modify_protective`` stamps nothing. So the question *"which trades had
+    their bracket repaired, and by what?"* has no answer from the journal — and
+    that is precisely why the historical population is already lost.
+
+    It is not an idle question. A repaired bracket is not the geometry the
+    strategy chose: the naked re-arm resolves levels from the most recent
+    matching order package, which on a netted contract several strategies trade
+    need not be THIS trade's package. A trade whose exit ran on borrowed
+    geometry should be identifiable before its PnL is fed to anything.
+
+    Five columns, because "how many" alone cannot say which mechanism acted or
+    what it left behind:
+
+    * ``protection_repairs``             how many repair actions REACHED THE
+                                         VENUE on this trade — not how many
+                                         succeeded. ``call_failed`` counts,
+                                         deliberately: these paths cancel the
+                                         resting legs BEFORE they place, so a
+                                         failed repair is the state a reader
+                                         most needs to find, and a counter that
+                                         dropped it would be quietest exactly
+                                         when it mattered most.
+    * ``protection_repair_first_at``     ISO. **Never moves.** A later repair
+                                         must not rewrite when the first one
+                                         happened — the netting reconciler's
+                                         *anchor at first observation* rule.
+    * ``protection_repair_last_at``      ISO of the most recent one.
+    * ``protection_repair_last_kind``    WHICH mechanism: ``naked_rearm`` ·
+                                         ``partial_topup`` · ``reassert``.
+    * ``protection_repair_last_verified`` what we CHECKED afterwards, sharing
+                                         ``order_monitor._reassert_applied_state``'s
+                                         vocabulary rather than inventing a
+                                         second one.
+
+    ⚠️ **``unverified`` is a real value and is NOT success.** The naked sweep
+    deliberately adds no broker read-back (a per-repair read on the live sweep
+    is the IB pacing-wedge shape), so its stamp records *the call was accepted*,
+    never *both legs rest*. Those are different claims, and conflating them is
+    exactly ``BL-20260823-REASSERT-REPORTS-APPLIED-OK-ON-A-HALF-ARMED-BRACKET``
+    — a repair path reporting a stop-only re-arm as complete.
+
+    ⚠️ **``NULL`` means "no repair recorded", NEVER "no repair happened".** A
+    trade opened before this writer deployed carries NULL whatever was done to
+    it. A reader distinguishing the two must compare ``trades.created_at``
+    against the deploy; there is no in-row signal, and inventing one by
+    back-filling zeros would assert an observation nobody made.
+
+    Idempotent: returns True only on the run that actually adds the columns.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "protection_repairs" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN protection_repairs INTEGER")
+    cursor.execute("ALTER TABLE trades ADD COLUMN protection_repair_first_at TEXT")
+    cursor.execute("ALTER TABLE trades ADD COLUMN protection_repair_last_at TEXT")
+    cursor.execute("ALTER TABLE trades ADD COLUMN protection_repair_last_kind TEXT")
+    cursor.execute(
+        "ALTER TABLE trades ADD COLUMN protection_repair_last_verified TEXT")
+    return True
+
+
 def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     """Add ``model_scores`` column to ``order_packages`` if absent.
 
@@ -453,6 +529,11 @@ class Database:
                 broker_order_id TEXT,
                 sl_order_id TEXT,
                 tp_order_id TEXT,
+                protection_repairs INTEGER,
+                protection_repair_first_at TEXT,
+                protection_repair_last_at TEXT,
+                protection_repair_last_kind TEXT,
+                protection_repair_last_verified TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -467,6 +548,7 @@ class Database:
         _migrate_add_trade_costs(cursor)
         _migrate_add_broker_order_id(cursor)
         _migrate_add_tpsl_leg_ids(cursor)
+        _migrate_add_protection_repair(cursor)
         # NOTE: ``_migrate_add_telemetry_terminal`` is deliberately NOT called
         # here — this block migrates ``trades``, and ``position_telemetry`` is
         # not created until further down. It runs immediately after that DDL.
@@ -974,6 +1056,91 @@ class Database:
             )
             if cur.rowcount:
                 conn.commit()
+        finally:
+            conn.close()
+
+    #: Mechanisms that may repair a live position's protective bracket.
+    #: A caller passing anything else is DEGRADED to ``unknown_kind`` with a
+    #: warning rather than stored verbatim — a typo written through would make
+    #: ``WHERE ... last_kind = 'reassert'`` miss the row silently, which is
+    #: worse than a label that announces itself.
+    PROTECTION_REPAIR_KINDS = ("naked_rearm", "partial_topup", "reassert")
+
+    #: What we CHECKED after the repair. Shares
+    #: ``order_monitor._reassert_applied_state``'s vocabulary deliberately —
+    #: a second vocabulary for the same question is free to drift from it.
+    #: ``unverified`` is *we did not look*, never a success.
+    PROTECTION_REPAIR_VERIFIED = (
+        "both_legs_resting", "stop_only", "no_legs_resting", "unverified",
+        "call_failed",
+    )
+
+    def stamp_protection_repair(
+        self, trade_id, kind: str, verified: str = "unverified",
+    ) -> bool:
+        """Record that this trade's protective bracket was REPAIRED.
+
+        The single owner of that stamp (operator-approved 2026-08-24). Call it
+        from every path that mutates a live bracket outside the strategy's own
+        intent — the naked re-arm, the Bybit qty-scoped top-up, the divergence
+        re-assert — so *"which trades were repaired?"* is answerable by a query
+        instead of by grepping logs that only fire on failure.
+
+        **Deliberately NOT called from the ordinary trailing-stop amend.** A
+        strategy moving its own stop is the exit working, not a repair; counting
+        those would put dozens of increments on a healthy trade and destroy the
+        signal this column exists to carry.
+
+        Returns True when a row was stamped.
+
+        * **Never inserts.** No such trade id → nothing, like
+          :meth:`_stamp_telemetry_terminal`. Manufacturing a row would assert a
+          trade that does not exist.
+        * **``first_at`` never moves.** ``COALESCE`` keeps the first
+          observation; a second repair updates only the last-* fields.
+        * **Own connection. RAISES on a DB failure — it does not swallow.**
+          The swallow belongs one layer up, in
+          ``order_monitor._stamp_repair``, which is the layer that must never
+          break a live repair (Prime Directive: re-arming a naked position
+          outranks recording that we did). Catching here as well would mean a
+          persistently-failing stamp is silent at BOTH layers, and a direct
+          caller could never learn its write did not land — the shape
+          ``silent-empty-guard`` exists to refuse in this package.
+        """
+        from datetime import datetime, timezone
+
+        if kind not in self.PROTECTION_REPAIR_KINDS:
+            logger.warning(
+                "stamp_protection_repair: unrecognised kind %r for trade_id=%s "
+                "— recording the repair as 'unknown_kind' (the COUNT is still "
+                "right; only the label is degraded)", kind, trade_id,
+            )
+            kind = "unknown_kind"
+        if verified not in self.PROTECTION_REPAIR_VERIFIED:
+            logger.warning(
+                "stamp_protection_repair: unrecognised verified state %r for "
+                "trade_id=%s — recording 'unverified' (we did not look), which "
+                "is the fail-safe reading", verified, trade_id,
+            )
+            verified = "unverified"
+        now = datetime.now(timezone.utc).isoformat()
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "UPDATE trades SET "
+                "  protection_repairs = COALESCE(protection_repairs, 0) + 1,"
+                "  protection_repair_first_at ="
+                "      COALESCE(protection_repair_first_at, ?),"
+                "  protection_repair_last_at = ?,"
+                "  protection_repair_last_kind = ?,"
+                "  protection_repair_last_verified = ? "
+                "WHERE id = ?",
+                (now, now, kind, verified, int(trade_id)),
+            )
+            if cur.rowcount:
+                conn.commit()
+                return True
+            return False
         finally:
             conn.close()
 

@@ -580,6 +580,36 @@ trade_journal.db        — canonical SQLite (live VM: /data/bot-data/trade_jour
                           duplicate void-flagged by the historical reconciliation
                           pass, excluded from analytics). Orphan is an EXPLICIT
                           queryable terminal state, never inferred from setup_type.
+                          trades ALSO carries the protective-bracket REPAIR stamp
+                          (2026-08-24, Tier-2 operator-approved): protection_repairs
+                          / protection_repair_first_at / _last_at / _last_kind
+                          (naked_rearm | partial_topup | reassert) /
+                          _last_verified (both_legs_resting | stop_only |
+                          no_legs_resting | unverified | call_failed). Written by
+                          the ONE owner Database.stamp_protection_repair from the
+                          three repair paths in order_monitor. ⚠️ It counts repairs
+                          that REACHED THE VENUE, not ones that succeeded —
+                          call_failed counts deliberately, because these paths
+                          cancel the resting legs BEFORE they place, so a failed
+                          repair is the state a reader most needs to find.
+                          ⚠️ unverified is 'we did not look', NEVER a success: the
+                          naked sweep adds no per-repair broker read-back (that is
+                          the IB pacing-wedge shape), so it can attest the call was
+                          accepted and nothing more — conflating the two is
+                          BL-20260823-REASSERT-REPORTS-APPLIED-OK-ON-A-HALF-ARMED-BRACKET.
+                          ⚠️ NULL means 'no repair RECORDED', never 'no repair
+                          happened' — a trade opened before the writer deployed
+                          carries NULL whatever was done to it; distinguish by
+                          trades.created_at against the deploy, and never back-fill
+                          zeros (that would assert an observation nobody made). The
+                          ordinary strategy-driven trailing amend is deliberately
+                          NOT stamped — that is the exit working, and counting it
+                          would put dozens of increments on a healthy trade and
+                          destroy the signal. Read surface is generic (the Data
+                          Explorer /api/bot/db/table/trades + /api/diag/journal),
+                          so the columns are queryable with no new endpoint; no
+                          consumer BRANCHES on them yet
+                          (BL-20260824-PROTECTION-REPAIR-STAMP-HAS-NO-BRANCHING-CONSUMER).
                           Tables: trades, order_packages, signals (dual-write),
                           backtest_results (HISTORICAL only — the M5 /test
                           writer was removed 2026-08-20; no producer remains),

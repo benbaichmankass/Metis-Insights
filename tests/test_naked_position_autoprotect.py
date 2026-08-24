@@ -145,7 +145,7 @@ def test_autoprotect_attaches_and_stamps(tmp_path, monkeypatch):
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db)
     seen = {}
-    def _fake_attach(row, sl, tp):
+    def _fake_attach(row, sl, tp, **_kw):  # **_kw: absorbs `db=` (repair stamp)
         seen["levels"] = (sl, tp)
         return True
     monkeypatch.setattr(om, "_attempt_naked_autoprotect", _fake_attach)
@@ -169,7 +169,8 @@ def test_autoprotect_attaches_even_if_previously_alerted(tmp_path, monkeypatch):
     # attached) must still get protected — "alerted" is not "protected".
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
-    monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: True)
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect",
+                        lambda row, sl, tp, **_kw: True)
 
     summary = om._check_naked_positions(db)
     assert summary["protected"] == 1
@@ -182,7 +183,8 @@ def test_attach_failure_alerts_once_on_first_sighting(tmp_path, monkeypatch):
     # → fall back to a single naked-position alert.
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db)
-    monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: False)
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect",
+                        lambda row, sl, tp, **_kw: False)
     alerts = []
     import src.runtime.execution_diagnostics as ed
     monkeypatch.setattr(ed, "enqueue_naked_position_alert", lambda **k: alerts.append(k))
@@ -196,7 +198,8 @@ def test_attach_failure_does_not_realert_previously_alerted(tmp_path, monkeypatc
     # every tick (it waits for the next attach attempt).
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
-    monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: False)
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect",
+                        lambda row, sl, tp, **_kw: False)
     alerts = []
     import src.runtime.execution_diagnostics as ed
     monkeypatch.setattr(ed, "enqueue_naked_position_alert", lambda **k: alerts.append(k))

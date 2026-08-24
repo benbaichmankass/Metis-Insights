@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-24T08:00:00+00:00",
+  "updated_at": "2026-08-24T08:45:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22734,6 +22734,27 @@
       "evidence": "config/strategies.yaml (16 enabled+live pullback legs; 4 with adx_min, 12 without); src/units/strategies/htf_pullback_trend_2h.py:76 (class default None) and :297 (gate runs only when declared) and :458-460 (thesis returns no_adx_min_declared); /api/diag/log_file?name=target_extension_soak 2026-08-23 (5 of 16 open trades reason=no_adx_min_declared); config/accounts.yaml routing",
       "resolution_criteria": "A floor is DERIVED, not chosen. Required first: the ADX-at-entry distribution per leg over history for all 12, so the proposed adx_min is stated together with the fraction of historical entries it would have REFUSED. A value whose refusal rate is unmeasured does NOT close this row, and neither does porting 25/28/30 from the crypto legs. If the measurement shows a candidate floor refuses a material share of entries, it needs its own walk-forward before any Tier-3 flip -- at which point it is a strategy change, not a fix to thesis_unknown. Closing this row by declaring nothing is also acceptable IF the finding is recorded as 'these legs deliberately have no entry regime condition', since thesis_unknown is then correct behaviour rather than a gap.",
       "not_a_finding_about": "NOT a claim that these legs are broken, and NOT a demotion proposal. thesis_unknown is the honest state for a leg with no declared floor."
+    },
+    {
+      "id": "BL-20260824-PROTECTION-REPAIR-STAMP-HAS-NO-BRANCHING-CONSUMER",
+      "opened_at": "2026-08-24T08:45:00+00:00",
+      "opened_by": "claude (full-system-audit continuation, Tier-2 repair-stamp session)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "The protective-bracket repair stamp is written and QUERYABLE but nothing BRANCHES on it — the exit_price_source shape, filed by its own author at the moment of writing",
+      "source": "Shipped 2026-08-24 (Tier-2, operator-approved): trades gains protection_repairs / _first_at / _last_at / _last_kind / _last_verified, written by Database.stamp_protection_repair from the three repair paths in order_monitor (naked re-arm, Bybit qty-scoped top-up, divergence re-assert).\n\nThe read surface is GENERIC and real — the Data Explorer (/api/bot/db/table/trades) and /api/diag/journal?table=trades both serve the columns with no new endpoint, so 'which trades were repaired?' is answerable by a query today, which is the whole ask. But NO CONSUMER BRANCHES on the field.\n\nThat is precisely the exit_price_source shape this repo already paid for (written in 12 files, branched on in ONE, for an unrelated value; zero references in the whole ml/ tree) and it is what provenance-consumer-guard exists to catch. Filing it at the moment of writing rather than waiting to be found is the point: a signal that is written and never read is worse than a missing one, because reviewers see the field and assume something acts on it.\n\nSTATE THE POPULATION: zero rows carry the stamp today. The writer deployed 2026-08-24; every pre-existing trade is NULL, and NULL means 'no repair RECORDED', never 'no repair happened'. So there is nothing yet to measure a consumer against — which is itself the argument for deciding the consumer deliberately rather than bolting one on to satisfy a guard.\n\nDO NOT close this by adding a decorative branch. This repo's own rule: a guard cheaper to lie to than to satisfy is worse than no guard, and the same applies to a consumer that reads a field only to keep a checker quiet.",
+      "resolution_criteria": [
+        "DECIDE the consumer explicitly, with a reason, from these candidates (not all of them): (a) /api/bot/trades/closed emits a repaired flag beside pnlProvenance, so the dashboard + Android can caveat a trade whose exit ran on a repaired bracket; (b) /performance excludes or separately reports repaired rows, the way pnlCoverage reports measured share; (c) the system-review reads it as a standing count; (d) nothing — the generic query IS the consumer, recorded as a deliberate decision rather than an omission.",
+        "If (a) or (b): the flag must not collapse — a repaired trade whose repair landed both_legs_resting is a different claim from one that landed stop_only or call_failed, and a boolean 'repaired' would lose exactly the distinction the _last_verified column was added to keep.",
+        "Whichever is chosen, state the population it was measured over. Re-check first that the stamp has ACCRUED any rows at all: a consumer designed against an empty column is untested by construction.",
+        "If the decision is (d), say so in CLAUDE.md's trades row and close this — an explicit 'the query is the consumer' is a valid answer; a silent one is not."
+      ],
+      "related": [
+        "BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET",
+        "BL-20260823-REASSERT-REPORTS-APPLIED-OK-ON-A-HALF-ARMED-BRACKET",
+        "BL-20260816-COVERAGE-IS-ONE-SIDED"
+      ]
     }
   ]
 }

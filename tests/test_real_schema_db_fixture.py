@@ -75,6 +75,19 @@ _EXPECTED_TRADES_COLS = {
     # adding a new one. NULL on pre-migration / non-Bybit / Full-mode /
     # ambiguous-capture rows.
     "sl_order_id", "tp_order_id",
+    # Added 2026-08-24 (Tier-2, operator-approved): the protective-bracket
+    # REPAIR stamp. A repair that mutates a live bracket — the naked re-arm, the
+    # Bybit qty-scoped top-up, the divergence re-assert — used to leave no trace
+    # on the row, so "which trades were repaired?" was unanswerable and the
+    # historical population is already lost. `protection_repairs` counts repairs
+    # that REACHED THE VENUE (call_failed included: these paths cancel before
+    # they place); `..._first_at` never moves (anchor at first observation);
+    # `..._last_verified` shares _reassert_applied_state's vocabulary, in which
+    # `unverified` is *we did not look*, never a success. NULL on every
+    # pre-migration row, which means "no repair RECORDED", not "no repair".
+    "protection_repairs", "protection_repair_first_at",
+    "protection_repair_last_at", "protection_repair_last_kind",
+    "protection_repair_last_verified",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {
