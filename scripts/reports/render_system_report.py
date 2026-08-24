@@ -754,6 +754,15 @@ _REQUIRED_COVERAGE_KEYS = (
     "since_last_build_verification",
     "backlog_classes",
     "ml_output_actionability",
+    # ── unexercised_fixes: operator-directed 2026-08-24. A fix that is DEPLOYED
+    #    and a fix that WORKS look identical from every surface we have, and the
+    #    difference is only settled by the mechanism firing on a real trade. Two
+    #    such fixes shipped on 2026-08-23 alone (#10174's IB transmit fix; the
+    #    durable target-naked cooldown), which is what makes this a CLASS and not
+    #    a one-off row. Operator: it "should be a live item that each system
+    #    review needs to report on and check thoroughly until we see it work
+    #    correctly."
+    "unexercised_fixes",
 )
 
 #: Verdicts a since-last-build row may carry. `UNWIRED` is the finding.
@@ -942,6 +951,47 @@ def _validate_review_coverage(report: dict) -> list[str]:
                 f"ml_output_actionability.verdict is {v!r} but nothing about ML is in "
                 "flags_raised[] — a training fleet whose output nobody consumes is a "
                 "loud finding, not a status line")
+
+    # ── A DEPLOYED FIX IS NOT A WORKING FIX (2026-08-24, operator-directed) ──
+    #
+    # The two are INDISTINGUISHABLE from every surface available: the code is on
+    # main, the deploy sha matches, the tests pass — and none of that shows the
+    # mechanism ever ran. Only the mechanism firing on a real trade settles it.
+    #
+    # The motivating pair, both 2026-08-23: #10174's IB transmit fix, and the
+    # durable target-naked cooldown. MGC 4773 is the cautionary case — it closed
+    # with BOTH bracket legs resting and the target 233.9 points in the money,
+    # and STILL exited via the monitor's `tp_cross`. The order book looked like
+    # proof and was not.
+    #
+    # `verdict: exercised` therefore REQUIRES `evidence` — the trade or event in
+    # which the mechanism demonstrably acted. Without that the key would be
+    # satisfiable by asserting success, which is the failure it exists to stop.
+    uxf = rc.get("unexercised_fixes")
+    if isinstance(uxf, dict):
+        uxf = [uxf]
+    if isinstance(uxf, list):
+        for i, row in enumerate(uxf):
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("fix") or f"[{i}]")
+            v = str(row.get("verdict") or "")
+            if v not in ("exercised", "still_unexercised", "regressed", "unverifiable"):
+                violations.append(
+                    f"unexercised_fixes[{label}].verdict {v!r} not one of "
+                    "['exercised','still_unexercised','regressed','unverifiable']")
+            if v == "exercised" and not str(row.get("evidence") or "").strip():
+                violations.append(
+                    f"unexercised_fixes[{label}] claims 'exercised' with no evidence — "
+                    "name the trade or event in which the mechanism demonstrably acted; "
+                    "a deployed fix and a working one are otherwise indistinguishable")
+            if v in ("still_unexercised", "regressed", "unverifiable") and \
+                    "unexercised" not in flags_blob_of(rc).lower() and \
+                    label.lower() not in flags_blob_of(rc).lower():
+                violations.append(
+                    f"unexercised_fixes[{label}].verdict is {v!r} but neither it nor "
+                    "'unexercised' appears in flags_raised[] — a fix we cannot show "
+                    "working is a standing risk, not a status line")
 
     # BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON: a leg whose p90 hold is past its own
     # resolution threshold (3x the backtested horizon) is a finding, not a cell in a

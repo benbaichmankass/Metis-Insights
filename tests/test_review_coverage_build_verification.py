@@ -32,7 +32,7 @@ def _validate(rc: dict) -> list[str]:
 @pytest.mark.parametrize("key", [
     "strategy_promotion", "ml_training_health", "soak_status", "execution_capture",
     "backlog_drive", "account_reachability", "since_last_build_verification",
-    "backlog_classes", "ml_output_actionability",
+    "backlog_classes", "ml_output_actionability", "unexercised_fixes",
 ])
 def test_every_declared_key_is_actually_enforced(key):
     """SKILL.md's list and the enforced tuple must not drift apart again."""
@@ -116,6 +116,65 @@ def test_a_clean_payload_raises_none_of_these():
             "cycles_in_window": 149,
             "outputs_consumed_by": ["intents._decision_vol_regime"],
             "verdict": "actionable"},
+        # A clean payload must carry an `exercised` row WITH evidence — the only
+        # state that legitimately drains this key. `still_unexercised` would be
+        # honest but not clean: it is required to reach flags_raised[].
+        "unexercised_fixes": [{
+            "fix": "#10174 IB transmit", "deployed_sha": "abc1234",
+            "verdict": "exercised",
+            "evidence": "trade 4931 exited at the attached LMT, exit_reason=target_fill"}],
         "flags_raised": [],
     }
     assert _validate(rc) == []
+
+
+# ── unexercised_fixes (2026-08-24, operator-directed) ────────────────────────
+#
+# "A deployed fix and a working fix look identical" is the whole point, so the
+# guard has to refuse the two ways a review could assert success without
+# showing it: claiming `exercised` with no evidence, and reporting a fix that
+# is still unproven without making it loud.
+
+
+def _rc(rows, flags=None):
+    """A minimal block carrying only what these tests are about.
+
+    Deliberately NOT a fully-populated coverage object: the sibling validators
+    have their own shape requirements, and filling every key with a placeholder
+    trips them instead of the one under test. Every assertion below filters to
+    `unexercised_fixes` violations, so the other keys' "missing/empty" noise is
+    irrelevant here and is covered by the parametrized test above.
+    """
+    return {"unexercised_fixes": rows, "flags_raised": flags or []}
+
+
+def test_exercised_without_evidence_is_refused():
+    """The claim that settles this key cannot be made by assertion alone."""
+    v = _validate(_rc([{"fix": "#10174 IB transmit", "verdict": "exercised"}]))
+    assert any("claims 'exercised' with no evidence" in x for x in v)
+
+
+def test_exercised_with_evidence_passes():
+    """The falsifier: the same row WITH evidence must be clean."""
+    v = _validate(_rc([{
+        "fix": "#10174 IB transmit", "verdict": "exercised",
+        "evidence": "trade 4931 MGC exited at the attached LMT 4393.00, exit_reason=target_fill",
+    }]))
+    assert not [x for x in v if "unexercised_fixes" in x], v
+
+
+@pytest.mark.parametrize("verdict", ["still_unexercised", "regressed", "unverifiable"])
+def test_unproven_fix_must_reach_flags(verdict):
+    """A fix we cannot show working is a standing risk, not a status line."""
+    v = _validate(_rc([{"fix": "#10174 IB transmit", "verdict": verdict}]))
+    assert any("unexercised_fixes" in x and "flags_raised" in x for x in v)
+    # ...and is clean once it IS flagged.
+    v2 = _validate(_rc([{"fix": "#10174 IB transmit", "verdict": verdict}],
+                       flags=["#10174 IB transmit fix still unexercised"]))
+    assert not [x for x in v2 if "unexercised_fixes" in x], v2
+
+
+def test_unknown_verdict_is_refused():
+    """An unrecognised verdict must not pass as a fourth valid state."""
+    v = _validate(_rc([{"fix": "x", "verdict": "probably_fine"}]))
+    assert any("not one of" in x for x in v)

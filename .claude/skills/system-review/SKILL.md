@@ -184,6 +184,32 @@ grading-freshness guard. Required, non-empty:
   non-ok manifest events** — while `outcome` across the whole log totalled
   `{trained: 20, already_complete: 20}`. A green service tells you none of that.
 
+- `review_coverage.unexercised_fixes` — **mandatory** (2026-08-24, operator
+  directive: it *"should be a live item that each system review needs to report
+  on and check thoroughly until we see it work correctly"*). **A fix that is
+  DEPLOYED and a fix that WORKS are indistinguishable from every surface we
+  have** — the code is on `main`, the deploy sha matches, the tests pass, and
+  none of that shows the mechanism ever ran. Only the mechanism firing on a real
+  trade settles it.
+
+  One row per fix still awaiting first exercise, each carrying `fix`,
+  `deployed_sha`, `verdict` ∈ `exercised` · `still_unexercised` · `regressed` ·
+  `unverifiable`, and — **required when `exercised`** — `evidence` naming the
+  trade or event in which the mechanism demonstrably acted. Anything other than
+  `exercised` **must** reach `flags_raised[]`. A row leaves this block only on
+  `exercised` **with** evidence; it is not drained by time passing.
+
+  ⚠️ **Do not accept a proxy for the mechanism.** MGC 4773 (2026-08-23) closed
+  with BOTH bracket legs resting and the take-profit **233.9 points in the
+  money**, and still exited via the monitor's `tp_cross` — the attached target
+  never acted. The order book looked like proof and was not. Check the TRADE:
+  which mechanism closed it, and should the fixed one have fired?
+
+  Open at the time of writing: **#10174's IB transmit fix** and the **durable
+  target-naked cooldown**, both shipped 2026-08-23, both unexercised. Two in one
+  day is what makes this a class rather than a row — see
+  `BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET`.
+
 - `review_coverage.flags_raised[]` — the loud flags this review surfaced (may be
   empty only if genuinely nothing is degrading — state that explicitly).
 - `review_coverage.account_reachability` — **mandatory** per-account up/down for
@@ -207,11 +233,11 @@ grading-freshness guard. Required, non-empty:
   open item is non-actionable — "no time" / "didn't look" / triaging only "the
   recent few" is a review FAILURE, not a valid reason.
 
-**STOP and complete the assessment if any of the NINE required keys
+**STOP and complete the assessment if any of the TEN required keys
 (`strategy_promotion`, `ml_training_health`, `soak_status`, `execution_capture`,
 `backlog_drive`, `account_reachability`, `since_last_build_verification`,
-`backlog_classes`, `ml_output_actionability`) is missing or empty, OR if any
-domain's `backlog_drive.count_untriaged > 0`**
+`backlog_classes`, `ml_output_actionability`, `unexercised_fixes`) is missing or
+empty, OR if any domain's `backlog_drive.count_untriaged > 0`**
 
 ⚠️ **`account_reachability` was declared mandatory here on 2026-06-29 and
 enforced by NOTHING until 2026-08-20** — this text said "six required keys" and
@@ -219,8 +245,8 @@ named it, while `render_system_report.py::_REQUIRED_COVERAGE_KEYS` held five and
 omitted it. Its stated motivation is *"the IB gateway was dark across reviews
 and went unflagged"*, and on 2026-08-20 the full-system audit measured the
 gateway restarting **three times in 33 minutes** (only one scheduled) with
-nothing flagging it. All nine are now in that tuple with real validators. **If
-you add a tenth key here, add it there in the same commit** — a declared-but-
+nothing flagging it. All ten are now in that tuple with real validators. **If
+you add an eleventh key here, add it there in the same commit** — a declared-but-
 unenforced key is worse than no key, because the skill reads as if it is
 covered. — a review that can't show its
 promotion/training/soak coverage, its *execution-capture* measurement, its
