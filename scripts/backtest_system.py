@@ -243,6 +243,38 @@ def _load_strategy_cfg(name: str) -> dict:
         return {}
 
 
+def parse_overrides(items: Sequence[str]) -> Dict[str, dict]:
+    """Parse ``STRAT.key=val`` strings into ``{strat: {key: value}}``.
+
+    THE ONE owner of override spelling + typing. `account_compat_matrix.py`
+    imports this rather than re-implementing it: two copies of "how is an
+    override written and coerced" is exactly how an engine run and a compat
+    verdict drift into disagreeing about the same flag while both look right.
+
+    Values coerce int -> float -> str in that order, so ``tp_r=6`` is an int and
+    ``tp_r=6.0`` a float (both read numerically downstream) while ``side=long``
+    stays a string. A malformed item raises rather than being skipped -- an
+    override that is silently DROPPED produces a run labelled as overridden that
+    used the config value, which is the `filter_state` collapse this repo
+    already pays for elsewhere.
+    """
+    out: Dict[str, dict] = {}
+    for ov in items:
+        if "." not in ov or "=" not in ov:
+            raise ValueError(f"malformed --override {ov!r}; expected STRAT.key=val")
+        strat, kv = ov.split(".", 1)
+        k, v = kv.split("=", 1)
+        try:
+            v2: Any = int(v)
+        except ValueError:
+            try:
+                v2 = float(v)
+            except ValueError:
+                v2 = v
+        out.setdefault(strat, {})[k] = v2
+    return out
+
+
 def _import_callable(module: str, attr: str) -> Optional[Callable]:
     import importlib
     try:
@@ -1927,18 +1959,7 @@ def main(argv: List[str]) -> int:
         if args.funding_bps_per_window is None else args.funding_bps_per_window)
     FUNDING_WINDOW_HOURS = args.funding_window_hours
 
-    overrides: Dict[str, dict] = {}
-    for ov in args.override:
-        strat, kv = ov.split(".", 1)
-        k, v = kv.split("=", 1)
-        try:
-            v2: Any = int(v)
-        except ValueError:
-            try:
-                v2 = float(v)
-            except ValueError:
-                v2 = v
-        overrides.setdefault(strat, {})[k] = v2
+    overrides: Dict[str, dict] = parse_overrides(args.override)
 
     # --- Risk basis (fix 2.3 / B3+B5, 2026-08-20) ---------------------------
     # Measured 2026-08-20: 0 of 25 harness files read config/accounts.yaml or
