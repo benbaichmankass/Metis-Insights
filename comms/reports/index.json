@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260824-152500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-24T15:25:00+00:00",
+      "window_start": "2026-08-21T13:05:00+00:00",
+      "window_end": "2026-08-24T15:25:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "The prop account is $64 from the line that kills it: breakout_1 equity $4,764 against a $4,700 static floor, after -$218.79 across two closes this window, with the daily-loss cushion unknown. Real money is otherwise fine and honest (+$5.63 on 5 closes, 0.78 lifetime coverage). Two wins: the 60s exit-evaluation requirement is now MET on the durable surface (0 breaches over n=990 across 11 processes, was 32.4%), and 12 of 12 scripts shipped this window are wired. Two defects found and driven: silent_refusal_alert had latched a real_money alarm for three days on an account that is correctly switched off (fixed), and `recorded_exit_price` \u2014 graded MEASURED \u2014 is now the single largest 'measured' source in the journal at 82 rows, outnumbering all genuine broker truth combined (79).",
+      "html_path": "comms/reports/since-last/20260824T152500Z/report.html",
+      "json_path": "comms/reports/since-last/20260824T152500Z/report.json",
+      "md_path": "comms/reports/since-last/20260824T152500Z/report.md"
+    },
+    {
       "id": "RPT-20260821-130500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-21T13:05:00+00:00",
