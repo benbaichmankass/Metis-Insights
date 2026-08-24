@@ -324,6 +324,85 @@ def fetch_klines_binance_vision(
     return rows
 
 
+class YfLaneError(RuntimeError):
+    """Base for the yfinance lane's failures, carrying the STAGE that failed.
+
+    The lane's first proof run reported ``yfinance fetch failed: No module
+    named 'yaml'`` — a message naming a network fetch against Yahoo for an
+    error raised at import time, before anything was requested. That is
+    ``diagnostic-provenance-guard`` sub-class **A**: the label names a
+    quantity the code never computed, and a reader who trusts it goes looking
+    at Yahoo, at the ticker, at the span — anywhere but the dependency.
+
+    The remedy the guard prescribes is to branch on the failure STAGE rather
+    than to reword the label, so the three stages are three types:
+    """
+
+
+class YfDependencyMissing(YfLaneError):
+    """A module needed to run the lane is absent. NOTHING was requested."""
+
+
+class YfRefused(YfLaneError):
+    """We read the request and declined it. NOTHING was requested.
+
+    An interval yfinance does not serve, or a symbol with no ticker mapped —
+    both are decisions about the ask, never observations about the venue.
+    """
+
+
+class YfFetchFailed(YfLaneError):
+    """The request reached yfinance and the venue/network failed it.
+
+    This is the ONLY stage for which "yfinance fetch failed" is a true
+    sentence.
+    """
+
+
+_YF_STAGE_LABEL = {
+    YfDependencyMissing: "dependency missing (nothing was fetched)",
+    YfRefused: "request refused before any fetch",
+    YfFetchFailed: "yfinance fetch failed",
+}
+
+
+def _load_yf_symbols():
+    """Load the canonical ticker map WITHOUT executing any package ``__init__``.
+
+    ⚠️ **Deliberately by file path, not ``import``.** A plain
+    ``from ml.datasets.adapters.yf_symbols import ...`` executes
+    ``ml/datasets/__init__.py`` -> ``.registry`` -> fourteen dataset-family
+    builders, one of which imports ``yaml`` — so reading a dict of ticker
+    strings would require the whole ML dependency set on a host that only
+    needs pandas + yfinance. ``yf_symbols`` is import-free precisely so this
+    load works; the by-path form is what makes that property pay.
+
+    The map is NOT copied here. One home, reached cheaply.
+    """
+    import importlib.util
+
+    path = _REPO_ROOT / "ml" / "datasets" / "adapters" / "yf_symbols.py"
+    if not path.is_file():
+        raise YfDependencyMissing(
+            f"the canonical yfinance symbol map is missing at {path}; "
+            f"it is the single home for the ticker map — a copy here would "
+            f"be the fourth in this repo")
+    spec = importlib.util.spec_from_file_location("_yf_symbols", path)
+    if spec is None or spec.loader is None:
+        raise YfDependencyMissing(f"cannot load a module spec from {path}")
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except ImportError as exc:
+        # `yf_symbols` promises to import nothing local. If that ever stops
+        # being true this is where it surfaces, and it must not be reported
+        # as a missing file or a fetch failure.
+        raise YfDependencyMissing(
+            f"{path.name} is no longer import-free ({exc}); it must import "
+            f"nothing but `typing` or the by-path load cannot work") from exc
+    return mod
+
+
 # Bybit interval code -> the canonical timeframe token the yfinance adapter
 # speaks. Only the bars yfinance can actually serve appear here; an interval
 # absent from this map is REFUSED rather than silently coerced to a neighbour,
@@ -358,27 +437,24 @@ def fetch_klines_yfinance(
     against the span actually requested — silence there would make a partial
     span read as a complete one.
     """
-    sys.path.insert(0, str(_REPO_ROOT))
-    from ml.datasets.adapters.yfinance_offvm import (  # noqa: E402
-        _DEFAULT_TICKER_MAP, max_history_days,
-    )
+    syms = _load_yf_symbols()
 
     tf = _BYBIT_TO_YF_TIMEFRAME.get(interval.strip().upper())
     if tf is None:
-        raise RuntimeError(
+        raise YfRefused(
             f"yfinance cannot serve interval {interval!r}; "
             f"supported: {sorted(set(_BYBIT_TO_YF_TIMEFRAME))}")
 
-    ticker = _DEFAULT_TICKER_MAP.get(symbol.upper())
+    ticker = syms._DEFAULT_TICKER_MAP.get(symbol.upper())
     if ticker is None:
-        raise RuntimeError(
+        raise YfRefused(
             f"no yfinance ticker mapped for {symbol!r}. Add it to "
-            f"ml/datasets/adapters/yfinance_offvm._DEFAULT_TICKER_MAP — an "
+            f"ml/datasets/adapters/yf_symbols._DEFAULT_TICKER_MAP — an "
             f"unmapped symbol is UNKNOWN, not 'probably fine as-is'.")
 
     start_dt = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
     end_dt = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
-    cap = max_history_days(tf)
+    cap = syms.max_history_days(tf)
     requested_days = (end_dt - start_dt).days
     if cap is not None and requested_days > cap:
         sys.stderr.write(
@@ -386,12 +462,23 @@ def fetch_klines_yfinance(
             f"requested, so the span WILL be truncated. Treat the result as a "
             f"partial window, not the requested one.\n")
 
-    import yfinance as yf  # noqa: E402  (optional dep — requirements-backtest)
+    try:
+        import yfinance as yf  # noqa: E402  (optional dep)
+    except ImportError as exc:      # pragma: no cover - exercised in the proof lane
+        raise YfDependencyMissing(
+            f"the yfinance package is not installed ({exc}); "
+            f"`pip install yfinance`") from exc
 
-    frame = yf.download(
-        tickers=ticker, interval=tf, start=start_dt.date(), end=end_dt.date(),
-        auto_adjust=False, progress=False, threads=False,
-    )
+    try:
+        frame = yf.download(
+            tickers=ticker, interval=tf, start=start_dt.date(),
+            end=end_dt.date(),
+            auto_adjust=False, progress=False, threads=False,
+        )
+    except Exception as exc:        # pragma: no cover - network
+        # ONLY from here on is "the fetch failed" a true sentence: the request
+        # left the process. Everything above is a dependency or a refusal.
+        raise YfFetchFailed(f"{ticker} {tf}: {exc}") from exc
     if frame is None or frame.empty:
         return []
     if hasattr(frame.columns, "nlevels") and frame.columns.nlevels > 1:
@@ -504,8 +591,21 @@ def main(argv: list[str]) -> int:
         try:
             rows = fetch_klines_yfinance(
                 args.symbol, args.interval, start_ms, end_ms)
+        except YfLaneError as exc:
+            # Report the STAGE that failed, not a single label over all three.
+            # The lane's first proof run printed "yfinance fetch failed: No
+            # module named 'yaml'" for an error raised at import time — a
+            # message blaming a venue that was never contacted.
+            stage = _YF_STAGE_LABEL.get(type(exc), "yfinance lane failed")
+            sys.stderr.write(f"{stage}: {exc}\n")
+            return 1
         except Exception as exc:
-            sys.stderr.write(f"yfinance fetch failed: {exc}\n")
+            # An UNCLASSIFIED failure. Deliberately not folded into any stage
+            # above: naming a stage we did not establish is the same defect
+            # one level down.
+            sys.stderr.write(
+                f"yfinance lane failed at an unclassified stage "
+                f"({type(exc).__name__}): {exc}\n")
             return 1
 
     if args.source in ("auto", "bybit"):

@@ -18,6 +18,7 @@ These tests pin the behaviours a data refresh cannot move.
 """
 from __future__ import annotations
 
+import ast
 import importlib.util
 import sys
 from pathlib import Path
@@ -121,8 +122,73 @@ def test_futures_translate_rather_than_pass_through(sym, want):
 def test_the_puller_does_not_carry_its_own_ticker_map():
     """A fourth copy is how the existing three drift apart."""
     src = (_ROOT / "scripts" / "ops" / "fetch_backtest_candles.py").read_text()
-    assert "yfinance_offvm import" in src
+    assert "yf_symbols" in src, "the puller no longer reaches the one home"
     assert "ES=F" not in src, "the puller re-declared a ticker literal"
+
+
+def test_the_symbol_leaf_imports_nothing_local():
+    """The by-path load in the puller works ONLY while `yf_symbols` is
+    import-free. A relative import added here would re-create exactly the
+    coupling the leaf exists to remove — and would do it silently, so the
+    property is asserted rather than left to the module docstring."""
+    leaf = _ROOT / "ml" / "datasets" / "adapters" / "yf_symbols.py"
+    tree = ast.parse(leaf.read_text())
+    offenders = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:                      # any relative import at all
+                offenders.append(f"relative import (level {node.level})")
+            elif node.module not in {"__future__", "typing"}:
+                offenders.append(f"from {node.module}")
+        elif isinstance(node, ast.Import):
+            for a in node.names:
+                if a.name != "typing":
+                    offenders.append(f"import {a.name}")
+    assert not offenders, f"yf_symbols is no longer import-free: {offenders}"
+
+
+def test_the_map_loads_without_the_ml_package():
+    """The whole point: reading a dict of ticker strings must not execute
+    `ml/datasets/__init__` -> `.registry` -> fourteen family builders (one of
+    which imports `yaml`). Asserted by the ABSENCE of `ml.datasets` from
+    sys.modules after the load, not by the load merely succeeding."""
+    for name in [n for n in sys.modules if n.startswith("ml.datasets")]:
+        del sys.modules[name]
+    syms = _puller()._load_yf_symbols()
+    assert syms._DEFAULT_TICKER_MAP["SPY"] == "SPY"
+    assert "ml.datasets" not in sys.modules, (
+        "the by-path load executed the ml.datasets package after all")
+
+
+# --------------------------------------------------------------------------
+# 3b. the failure STAGE is reported, not one label over three causes
+# --------------------------------------------------------------------------
+def test_an_unservable_interval_is_a_refusal_not_a_fetch_failure():
+    """`diagnostic-provenance-guard` sub-class A: the lane's first proof run
+    printed "yfinance fetch failed: No module named 'yaml'" for an error
+    raised at import time, blaming a venue that was never contacted. A
+    refusal and a dependency gap are both PRE-fetch and must say so."""
+    mod = _puller()
+    with pytest.raises(mod.YfRefused):
+        mod.fetch_klines_yfinance("SPY", "240", 0, 86_400_000)
+
+
+def test_an_unmapped_symbol_is_a_refusal_not_a_fetch_failure():
+    mod = _puller()
+    with pytest.raises(mod.YfRefused):
+        mod.fetch_klines_yfinance("BTCUSDT", "D", 0, 86_400_000)
+
+
+def test_the_three_stages_are_distinct_types_with_distinct_labels():
+    mod = _puller()
+    stages = (mod.YfDependencyMissing, mod.YfRefused, mod.YfFetchFailed)
+    assert len({mod._YF_STAGE_LABEL[s] for s in stages}) == 3, (
+        "two stages share a label, so the message cannot tell them apart")
+    # Only the post-request stage may claim a fetch happened.
+    assert "fetch failed" in mod._YF_STAGE_LABEL[mod.YfFetchFailed]
+    for pre in (mod.YfDependencyMissing, mod.YfRefused):
+        assert "fetch failed" not in mod._YF_STAGE_LABEL[pre], (
+            f"{pre.__name__} claims a fetch that never left the process")
 
 
 # --------------------------------------------------------------------------
