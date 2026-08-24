@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-24T18:40:00+00:00",
+ "updated_at": "2026-08-24T21:20:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -22945,7 +22945,16 @@
    "evidence": "Bucketing every close as JANITOR (reconciler/orphan/netting/backfill/half-open/adopt) vs DECIDED (strategy monitor, bracket, intent layer): DECIDED n=419 -> 113 measured / 88 estimated / 43 fabricated / 175 unverified = 27.0% coverage. JANITOR n=732 -> 381/147/157/47 = 52.0%. Unstamped DECIDED closes by path: vwap_cross 67 of 102 (65.7%), pairs_revert 42 of 42, pairs_stop 37 of 37, sl_cross 21 of 96, tp_cross 5 of 17, time_decay 3 of 4. All 102 vwap_cross rows are account_class=real_money, i.e. 22.9% of the 446 real-money closed rows.",
    "why_it_matters": "The path whose quality M20 exists to improve is the path we cannot measure. Any exit-refinement result on vwap_cross or the pairs sleeve is unfalsifiable today: two thirds of the closes have no recorded provenance, so a lever that helped and a lever that did nothing produce the same evidence. This ALSO refutes the intuitive framing that the provenance gap is a downstream symptom of janitor closes — the measurement says the opposite, and improving reconciler coverage would not move this at all.",
    "resolution_criteria": "(1) Every DECIDED close path stamps exit_price_source at the point of close, with the same three-state discipline exit_anchor uses — a monitor-derived level is NOT a fill and must not be stamped as one (see BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED). (2) Unverified share of DECIDED closes falls below 10% on trades opened after the fix deploys — measured on that cohort only, never back-filled, since a zero stamped onto an old row asserts an observation nobody made. (3) A test pins that each decided path writes a stamp. Tier-2: it changes what the monitor records at close.",
-   "operator_decision": "2026-08-24 — operator selected this as the next work block, over 'exit execution path' and 'one divergence owner'. Rationale accepted: it is the smallest of the three and it unblocks measuring the other two."
+   "operator_decision": "2026-08-24 — operator selected this as the next work block, over 'exit execution path' and 'one divergence owner'. Rationale accepted: it is the smallest of the three and it unblocks measuring the other two.",
+   "updates": [
+    {
+     "at": "2026-08-24T19:55:00+00:00",
+     "by": "claude (M39A implementation)",
+     "state": "partially addressed — row stays OPEN",
+     "note": "WRITER FIX APPLIED (Tier-2, M39A). Root cause was NOT a missing stamp path — it was that `_apply_update` wrote the note ONLY under `exit_price_source == \"verdict\"`, so the branch resolving a REAL venue fill stamped nothing and classified UNVERIFIED. Confirmed: of the 175 unverified DECIDED closes, 175 (100%) carry an exit_price and ZERO carry a stamp, and the string 'exchange' appears 0 times in the entire decided-close source distribution — that branch had never written a note in the system's history. No provenance vocabulary change was needed: `classify('exchange')` already returns MEASURED and the value is what this module's own docstring declares at L342. SECOND DEFECT FOUND BY THE TESTS, not by reading: the old verdict branch OVERWROTE an existing more-specific stamp (a `bybit_closed_pnl` row was laundered to 'verdict'), the same class as the unconditional overwrite fixed in `_sweep_local_pnl_for_unpriced` the same day. THIRD STATE ADDED: a close with no price on either branch was silently skipped as 'nothing meaningful to source-tag'; it now declares UNMEASURED_MARKER (0 of 175 observed today — added so the state cannot become silent later). MEASUREMENT MADE REPEATABLE: `scripts/ops/provenance_exposure_audit.py` gains section `0a_coverage_by_close_path`, classifying in PYTHON via `provenance.classify_pnl` rather than re-deriving buckets in SQL; verified to reproduce the hand measurement exactly (decided 419/113 = 27.0%, janitor 732/381 = 52.0%) against a fixture built from 1324 real journal rows.",
+     "remaining": "(1) Criterion 2 is NOT yet met and cannot be checked today — it requires trades OPENED AFTER the fix deploys; measure on that cohort only and never back-fill. The `/system-review` `structural_health` key is what picks this up, and its `trend` field is where a non-improving result would show. (2) 79 of the 175 unverified rows are `pairs_revert`/`pairs_stop`, which run through `pairs_executor` and are NOT touched by this fix — that is M39 track B. This fix reaches 96 of 175 (vwap_cross 67, sl_cross 21, tp_cross 5, time_decay 3)."
+    }
+   ]
   },
   {
    "id": "BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION",
@@ -23027,6 +23036,22 @@
    "why_it_matters": "This is the written-and-never-read class landing where it costs most — a research run whose answer exists and has no reader. It is a PATTERN, not a one-off: any workflow a Claude session dispatches and must then interpret has the same exposure.",
    "resolution_criteria": "Audit workflows that write to $GITHUB_STEP_SUMMARY for whether their output is a RESULT a session must consume (vs. a human-facing render), and tee those. A checklist line in docs/github-actions-workflows.md would also close it.",
    "notes": "Only pullback-frac-cross-leg-sweep.yml is fixed; the audit across other workflows was not done."
+  },
+  {
+   "id": "BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI",
+   "opened": "2026-08-24",
+   "opened_at": "2026-08-24T21:10:00+00:00",
+   "opened_by": "claude (M39A session, operator-directed to file it)",
+   "status": "open",
+   "severity": "medium",
+   "tier": 1,
+   "area": "tooling",
+   "title": "The web-sandbox pytest run diverges from CI — 95 collection errors and 34 failures CI does not have — so every session is pre-validating against a suite that cannot import FastAPI",
+   "source": "MEASURED 2026-08-24 while validating M39(A). Full local run: `34 failed, 12137 passed, 21 skipped, 95 errors in 501s`. CI's pytest-run passed on the same commits all day (#10232, #10234).",
+   "evidence": "The 95 errors are collection-time `pyo3_runtime.PanicException` in every test importing pydantic-core / FastAPI (tests/test_web_api_*.py, test_prop_report_ingest.py, test_s067_*, test_trade_scores_symbol_filter.py, …). CONFIRMED PRE-EXISTING, not caused by any change: stashing the working-tree edit and collecting tests/test_prop_report_ingest.py on pristine main reproduces the identical error. The 34 FAILURES are separate and their names were NOT captured (the background run piped through `tail`, so only the summary line survived) — so this row states the count and explicitly does NOT claim they are all environmental.",
+   "why_it_matters": "A session that runs the suite locally and sees green is not seeing what CI sees, and one that sees red cannot tell its own breakage from the sandbox's. Today that cost a wrong inference in both directions: the pyo3 errors had to be re-verified against pristine main to be dismissed, and the 34 failures could not be attributed at all. The practical effect is that the sandbox suite cannot gate a push — only CI can — which is fine as a policy but is nowhere written down, so each session rediscovers it.",
+   "resolution_criteria": "EITHER (a) root-cause the pyo3/pydantic-core panic so a local run matches CI, and confirm by running the full suite in-sandbox to the same pass/fail counts CI reports on the same commit; OR (b) if it cannot be fixed in this environment, record the limitation where a session will read it BEFORE trusting a local run (the session-coordination preflight is the natural home) and name CI as the only gate. Either way the 34 failures must be enumerated once against a pristine-main baseline, so the claim 'they are environmental' is measured rather than assumed.",
+   "detail": "Operator decision 2026-08-24: file it and keep trusting CI for now, over identifying the 34 immediately (~16 min of runtime) or fixing the sandbox (its own piece of work)."
   }
  ]
 }

@@ -84,6 +84,9 @@ def audit(db: str) -> Dict[str, Any]:
             "db_bytes": os.path.getsize(db),
             "db_mtime_utc": _mtime(db),
             "sections": {
+                # M39(A), 2026-08-24 — first, because it is the split that
+                # reframes every section below it.
+                "0a_coverage_by_close_path": _close_path_coverage(conn),
                 "0_staleness": _query(conn,
                     "SELECT MAX(COALESCE(closed_at,created_at,timestamp)) newest_closed, "
                     "COUNT(*) closed_rows FROM trades WHERE status='closed'"),
@@ -152,6 +155,84 @@ def audit(db: str) -> Dict[str, Any]:
         }
     finally:
         conn.close()
+
+
+#: Exit reasons written by CLEANUP machinery (reconcilers, orphan adoption,
+#: netting attribution, backfills, half-open pair cleanup) rather than by a
+#: strategy/bracket/intent DECISION. Substring match, because the reasons are
+#: composed (`reconciler_filled`, `exchange_flat_reconciled`,
+#: `adopted_orphan_disappeared`, `backfill_closed_pnl_recovery`, …).
+_JANITOR_MARKERS = (
+    "reconcil", "exchange_flat", "orphan", "backfill", "netting",
+    "half_open_cleanup", "superseded", "adopt",
+)
+
+
+def _close_path(exit_reason: Any) -> str:
+    """`janitor` (cleanup found it) vs `decided` (a decision closed it)."""
+    k = str(exit_reason or "").lower()
+    if not k:
+        return "unlabelled"
+    return "janitor" if any(m in k for m in _JANITOR_MARKERS) else "decided"
+
+
+def _close_path_coverage(conn: sqlite3.Connection) -> Dict[str, Any]:
+    """M39(A): provenance coverage split by WHO closed the trade.
+
+    The axis `provenance_exposure_audit` did not have. It exists because the
+    intuitive reading is WRONG and only a measurement settles it: on 2026-08-24
+    the DECIDED path measured **27.0%** against the janitor path's **52.0%**,
+    with 41.8% of decided closes carrying no stamp at all — i.e. the path whose
+    quality M20 exists to improve was the one that could not be measured.
+
+    Bucketing is done in PYTHON through `provenance.classify_pnl`, deliberately
+    NOT re-implemented in SQL. A second definition of "measured" is exactly how
+    this repo's `_regime_score_semantics` incident happened — two probes derived
+    the same answer independently and both got it wrong on the same day.
+
+    Refuses loudly rather than returning an empty section if the provenance
+    module cannot be imported: a silently absent split reads as "nothing to
+    report", which is the `silent-empty-guard` failure this repo already owns.
+    """
+    try:
+        sys.path.insert(0, os.getcwd())
+        from src.runtime import provenance as _prov
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"provenance module unavailable: {exc!r} — split NOT computed"}
+
+    try:
+        cur = conn.execute(
+            f"SELECT exit_reason, notes, pnl FROM trades WHERE {_POP}"
+        )
+        rows = cur.fetchall()
+    except sqlite3.Error as exc:
+        return {"error": f"query failed: {exc!r}"}
+
+    tally: Dict[str, Dict[str, int]] = {}
+    for exit_reason, notes, pnl in rows:
+        path = _close_path(exit_reason)
+        bucket, _key = _prov.classify_pnl({"notes": notes, "pnl": pnl})
+        tally.setdefault(path, {})[bucket] = tally.setdefault(path, {}).get(bucket, 0) + 1
+
+    out_rows: List[List[Any]] = []
+    for path in sorted(tally):
+        c = tally[path]
+        n = sum(c.values())
+        measured = c.get(_prov.MEASURED, 0)
+        out_rows.append([
+            path, n, measured, c.get(_prov.ESTIMATED, 0),
+            c.get(_prov.FABRICATED, 0), c.get(_prov.UNVERIFIED, 0),
+            round(100.0 * measured / n, 1) if n else None,
+        ])
+    return {
+        "columns": ["close_path", "n", "measured", "estimated", "fabricated",
+                    "unverified", "pct_measured"],
+        "rows": out_rows,
+        "population": (
+            "closed, non-backtest, pnl NOT NULL — the decision population; "
+            "WHOLE history, not a window"
+        ),
+    }
 
 
 def _print(report: Dict[str, Any]) -> None:
