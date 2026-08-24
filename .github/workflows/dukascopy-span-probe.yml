@@ -1,0 +1,91 @@
+# How FAR BACK does Dukascopy actually serve the blocked symbols' instruments?
+#
+# WHY THIS EXISTS. `dukascopy-coverage-probe.yml` answered EXISTENCE and
+# `docs/research/dukascopy-coverage-adjudication-2026-08-24.md` adjudicated the
+# mapping by hand. That work closed with an explicit caveat recorded in
+# ROADMAP.md: "Existence is not span, and span is the actual question --
+# Dukascopy depth remains unmeasured." This measures the span.
+#
+# It matters because the consumers ask for DEPTH, not for a ticker to exist:
+# `e35-bracket-sweep.yml` fetches days: 1830 per leg, and yfinance is MEASURED
+# to serve at most 730 d of 1h history (proof run 32734360738) -- which is what
+# made Dukascopy the candidate. An instrument that exists but carries 18 months
+# of 1h bars does not unblock a 1830-day sweep.
+#
+# DIRECTLY FEEDS the e35 feed-source row
+# (BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX):
+# that row's two candidate fixes are (a) resolve the feed source
+# per-leg, or (b) have the planner refuse an unservable leg at plan time. Which
+# one is honest depends on whether a non-crypto feed can actually serve 1830 d,
+# and that is exactly what this run answers. Measure before writing either fix.
+#
+# ⚠️ THIS DOES NOT DECIDE WHETHER AN INSTRUMENT MAY STAND IN FOR OUR SYMBOL.
+# That is the adjudication doc's judgement -- MES is a CME future and
+# INSTRUMENT_IDX_AMERICA_E_SANDP_500 is an index CFD with different venue,
+# hours, financing and settlement. Every row carries the adjudicated `relation`
+# so a proxy's depth is never read as the real instrument's.
+#
+# Read-only, free lane: no VM, no trainer, writes no repo data. Each probe
+# fetches a 3-day window, so the whole run is ~66 small requests.
+name: dukascopy-span-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      interval:
+        description: "Bar interval to probe (the sweep's binding one is 1h)."
+        default: "1h"
+      anchors:
+        description: "Comma-separated look-back distances in days."
+        default: "365,730,1095,1830,2555,3650"
+      window_days:
+        description: "Size of each probe window. Small on purpose."
+        default: "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dukascopy-span-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install pandas dukascopy-python
+
+      # The selftest runs FIRST and gates the probe. It uses an injected fake
+      # fetcher, so it proves the four states stay apart without touching the
+      # venue -- and a probe whose state machine is broken must not produce a
+      # depth table that reads as authoritative.
+      - name: Selftest the state machine before trusting its output
+        run: python scripts/research/dukascopy_span_probe.py --self-test
+
+      - name: Probe the span
+        run: |
+          set -euo pipefail
+          python scripts/research/dukascopy_span_probe.py \
+            --interval "${{ inputs.interval }}" \
+            --anchors "${{ inputs.anchors }}" \
+            --window-days "${{ inputs.window_days }}" \
+            --json-out /tmp/dukascopy_span.json \
+            | tee /tmp/dukascopy_span.md
+          # The summary is for a human; the API-readable copy is the artifact.
+          # A verdict written ONLY to $GITHUB_STEP_SUMMARY is invisible to the
+          # Actions API, which this session already got wrong once.
+          cat /tmp/dukascopy_span.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dukascopy-span-probe
+          path: |
+            /tmp/dukascopy_span.json
+            /tmp/dukascopy_span.md
+          if-no-files-found: error
