@@ -69,7 +69,12 @@ MEASURED_CAP_R: Dict[str, float] = {
     "trend_donchian_ada_4h": 1.57,
     "trend_donchian_sol_4h": 1.44,
 }
-MEASURED_CAP_AT_STOP = 2.5  # every leg above is live at atr_stop_mult 2.5
+MEASURED_CAP_AT_STOP = 2.5
+# The harness base every `stop_mult is None` corpus row was actually run at.
+# Same number as MEASURED_CAP_AT_STOP by coincidence of the fleet's config, NOT
+# by definition -- they answer different questions and are kept separate so a
+# future config change moves only the one it should.
+BASE_STOP_MULT = 2.5  # every leg above is live at atr_stop_mult 2.5
 
 
 def cap_r_at(leg: str, stop_mult: Optional[float]) -> Optional[float]:
@@ -100,20 +105,46 @@ def truncation_state(tp_r: Optional[float], cap: Optional[float]) -> str:
 
 def classify(rows: List[dict]) -> List[dict]:
     """Attach both axes to every joint (tp + stop) cell that has a book."""
+    # ⚠️ `stop_mult is None` IS THE LIVE STOP, NOT A MISSING VALUE.
+    # `e35_bracket_geometry_sweep` builds its stop axis as `(None,) + GRID`,
+    # where None means "do not pass --atr-stop-mult" — i.e. run at the harness
+    # base, which `base_geo` records as 2.5, the value every leg in scope
+    # actually trades. `cell_tag` then omits the `sm` token for those cells, so
+    # they carry tags like `tp1.5_to24` with no stop component.
+    #
+    # This function used to `continue` on them. That dropped 390 of 2204
+    # corpus rows — EVERY cell at the live stop with a varied target — and the
+    # audit then reported "the live atr_stop_mult 2.5 is absent from the joint
+    # grid entirely". It is not absent from the GRID; it was absent from the
+    # POPULATION THIS FILTER BUILT. An empty result read as a clean negative is
+    # `diagnostic-provenance-guard` sub-class C, and it is the more dangerous
+    # direction here: the 49/308 cosmetic measurement was computed over a
+    # population that excluded the stop the fleet actually runs.
+    #
+    # So None RESOLVES to the base rather than being skipped, and the row
+    # records `stop_basis` so an explicitly-swept 2.5 could never be conflated
+    # with an implicit one.
+    def _stop_of(r: dict) -> tuple:
+        sm = r.get("stop_mult")
+        if sm is not None:
+            return sm, "explicit"
+        return BASE_STOP_MULT, "base_implicit"
+
     baselines: Dict[tuple, dict] = {}
     for r in rows:
-        if (r.get("tp_r") is None and r.get("stop_mult") is not None
+        if (r.get("tp_r") is None
                 and r.get("timeout") is None and r.get("net_total_r") is not None):
-            baselines[(r["leg"], r["stop_mult"])] = r
+            baselines[(r["leg"], _stop_of(r)[0])] = r
 
     out: List[dict] = []
     for r in rows:
-        if r.get("tp_r") is None or r.get("stop_mult") is None:
+        if r.get("tp_r") is None:
             continue
+        stop_mult, stop_basis = _stop_of(r)
         if r.get("net_total_r") is None or r.get("state") != "measured":
             continue
-        cap = cap_r_at(r["leg"], r["stop_mult"])
-        base = baselines.get((r["leg"], r["stop_mult"]))
+        cap = cap_r_at(r["leg"], stop_mult)
+        base = baselines.get((r["leg"], stop_mult))
         if base is None or r.get("timeout") is not None:
             # A timeout cell has no same-shape no-tp baseline, so its identity
             # to one would not be a statement about the TARGET.
@@ -126,7 +157,8 @@ def classify(rows: List[dict]) -> List[dict]:
             cosmetic = "not_cosmetic"
         out.append({
             "leg": r["leg"], "cell": r["cell"], "tp_r": r["tp_r"],
-            "stop_mult": r["stop_mult"], "timeout": r.get("timeout"),
+            "stop_mult": stop_mult, "stop_basis": stop_basis,
+            "timeout": r.get("timeout"),
             "cap_r": cap, "truncation": truncation_state(r["tp_r"], cap),
             "cosmetic": cosmetic, "net_total_r": r["net_total_r"],
             "max_drawdown_r": r.get("max_drawdown_r"),
