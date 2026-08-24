@@ -1,0 +1,162 @@
+# Landed-branch prune manifest — generated 2026-08-24 by the branch audit.
+#
+# One '<tip-sha>  <branch>' per line. Every branch here was verified LANDED:
+#   (a) main carries a commit whose subject matches one of the branch's commits
+#       (this repo SQUASH-merges, so ancestry is broken and 'commits ahead' lies), AND
+#   (b) the branch adds NO file that is absent from main.
+#
+# Check (b) is not redundant: it caught 3 branches that (a) alone called landed
+# and which still carried absent files (econ-calendar-source-probe-r30gnq,
+# expansion-backtesting-research-y74054, m28-value-thesis-sweep-evapa5). Those
+# are EXCLUDED and must stay excluded.
+#
+# The SHA is load-bearing: prune-landed-branches.yml refuses to delete a branch
+# whose tip has MOVED since this manifest was written. That is force-with-lease
+# applied to deletion — a branch someone touched after the audit is not the
+# branch that was audited.
+f021ed54092c27bd6c37da0553f0cb96ecf122fd  automation/cot-positioning-backfill-30035346341-1
+fbf1cd4a54dbec436dc43815e4df4ea1b054941f  claude/admiring-davinci-MufpA
+940d77f1272488681710576d9d5c46b0bfcc6b3d  claude/admiring-gauss-8ah2r
+8a36d9ec92f0cbda496a56cbc8ec6b0255602130  claude/android-stats-data-wiring-uuYLQ
+92a06a4431e8b946df186e666cad3f642c480d3c  claude/arm-candidate-diag
+7c5385123e50b0ea359666c16d05f837741d1e4a  claude/attach-ib-target
+255e0f8747db90bf52abd8ee8d44685d8529e26d  claude/audit-F-web-api-routers
+368a455211d86fd2de156d104ae420c5d7a54827  claude/autonomous-followups-202606-07
+22280f0f5180f236d3342917ad4ee824aed98a5a  claude/backlog-ib-paper-port
+40466c06d1f70b16f19582e95e6730579f8225c6  claude/brave-volta-7cugpl
+5748d94d4c3976e3fd492f9b44d8d4287efa6675  claude/bybit-part-a-decision-ready
+e1c5407b3f76ef40791c9e1d3fce1359632a9c05  claude/c1-ab-runner-sizing
+801a6fb2bc31d1325e7f04df84b3428deafbfdde  claude/candles-connector-cache-WEcoa
+feacd62b5f3f43170c3a61c604a24c35d8d47fbe  claude/candles-ib-clientid-fix
+3d3e30b6f17e63909030598c553e08bd25fbd773  claude/canonical-docs-review-split
+992b0efe14926cc90841f021bf66d9c2243c465a  claude/cloud-docs-audit-s3Y5v
+bad8f307ae1c35001bc1cfb75ed68ec8a5336058  claude/cloud-docs-phase2-system-actions
+e53b2f91ab25676f336114f07584ed3928dbaa3a  claude/cloud-docs-phase2b-autonomy-reframe
+36d9f0dd57465fb39fb424bde6cb60225aff6503  claude/cloud-docs-phase4-skills
+7b6503d9838c54d702ac228f8d3c796bf9cb94e7  claude/cool-bell-hYNre
+0b0afea9b01e6d5fd3c84fed7a770d50637dadff  claude/cool-bell-hYNre-canonical-rules
+8e2e047dc976702fc365e4cf8d2b08443066f57f  claude/cool-bell-hYNre-init-secrets-trigger
+b271eeed0d8d838ac7893d4a3c845da4e7d20236  claude/cool-bell-hYNre-tradovate-docs
+014e2d312393595b6a89f6f9880854ce9581a174  claude/cool-bell-hYNre-tradovate-wiring
+e4cf85d9aab348ad53816ca52c4b1bdd992e7937  claude/dazzling-bardeen-h83W8
+e64e439dce2ea3ca8cdf000862c1bc4ac8c9c028  claude/dazzling-bardeen-h83W8-docs
+8835d833e3acf65133dce0c17adee60b24530437  claude/demote-squeeze-fade
+1d9bf25d2c76e6922783e9288ed5ae6842ea56d8  claude/deploy-candidate
+7fbeb14a3df2dcae767b2701307224bc84ad1985  claude/deploy-guard-install-units
+28c01098c3fa3f40c98ce3b57a4d33f99f3f4054  claude/deploy-reliability-fixes
+b9857f374304f310e33688f0f1354b79d93800f2  claude/diag-relay-sweeper-Uyvbx
+6d3eb50911512bd599686b2aa8166b1d9c02628e  claude/doc-freshness-Uyvbx
+d5b8ba4933393c98620a220ff77952a32e2d8445  claude/doc-freshness-m13-close-5EP04
+7a35dfbcffdbe6683db5eaed1607a130fca60958  claude/doc-freshness-post-1933
+397a7d95f414725b66dcf2c8983e09669f11deb8  claude/doc-freshness-s12-wrapup
+8e34a196a91f2d2fa67cbd6202a88920497a8642  claude/doc-sweep-qqq-finding-31p76k
+ef743ca31473d543a1ef18579a686ab24241d358  claude/docsweep-gateway-isolation
+03b056a50ba9774fdea9383f68f8ff56d6a743f4  claude/elegant-mccarthy-8oTAn
+2b6a32efd026572d8e8d2068b4d9a857f480eee0  claude/fix-bar-debounce-reentry
+ce3102bac45a34e64c2b2c7d1e71adea6aea6c9b  claude/fix-ibkr-daily-pull
+61f2b4f67ebfac97443e3268fe9363b8635392c3  claude/fix-mes-daily-version
+3be67d72590f0167ae04ca386257bf43f48d852f  claude/fix-rebuild-pnl-date-flake
+2079bbb813ddd64b117ea7c7fbca09551b077b6d  claude/fix-reduce-leg-and-flipsuppress-notifications
+3dbc375855d33d8b4980f8679931219b0c9c6c44  claude/friendly-clarke-lYnrL
+535499a807b910ac5a067f05d86dcb1406a5b68e  claude/full-system-audit-h57153
+88da4801399974ed6b94b0b001ec9c491a28c0a1  claude/gate-non-degenerate-imbalance-rYTI8
+5e9c9cb62e209ace2a1c20afa40915a5046dcd92  claude/github-mcp-transient-note
+b2bd8e3b456328a73bd4d9ef7e514786a53e4d6c  claude/happy-heisenberg-p3vt9j
+71e7a44c98e9c3c67391760c99ac326bd91f3d6e  claude/health-check-Lf6aA
+f1bd4ccf8ff5c95eb2e4c65c344010217341c184  claude/health-review-IeTuX
+f88e3ff0761bb40f063b62644d062208242db931  claude/hopeful-goldberg-AliCS
+24d45c22cdf740df3b3f667cf699e7e41af136c5  claude/ib-gateway-host-input
+ded79fc31162a280c17ba8e77754fcd09fe4b8e4  claude/ib-gateway-isolation
+ec9911cb6498262ac2957438b195d8e73b45ccab  claude/ib-gateway-recovery-ooh9xq
+21e16467fe7e1206b24313234a0337e6df7b6d63  claude/ib-paper-host-cutover
+43b43cae538a5d1c97452871a8c7f0edd29079d4  claude/inspiring-meitner-1TqH1
+844468b6c69c16c9551e33746d44428dd7e193c7  claude/intelligent-gates-LY9Jv
+9c3b5bf96a895ea570d5913c643833c44555a8eb  claude/intelligent-ritchie-8g4Jy
+fd8b96587edd2b3acfaf79d9b8df7107fc929e40  claude/intelligent-ritchie-8g4Jy-backlog
+696ccc7293dec07f679cd07b6a308bd2fea670f5  claude/intelligent-ritchie-8g4Jy-broker-upnl
+23a1268f9562600dacf8870b0c8e81e69a8c7603  claude/land-9919-cancel-reopen
+3fb64162f481b125624c5501a57aa01764fd01a3  claude/m12-s1-android-scaffold-Se7to
+14daa02c58d44df84f917d8b5b0960485ba59114  claude/m12-s1-fcm-creds-file
+a0ca20cbe315b62f70af15c6a9fdea00b0ecb8a0  claude/m12-s4-event-kinds
+4787ac55ca3a072bd7f285a7bb4179715d327ae9  claude/m12-s5-signal-emitted-wire
+780aa65518ec584e3a77ad3946317ecef1308e64  claude/m13-s1-history-usage-endpoints-5EP04
+34fd9734811cea4ed848b3d2116a96a1758576cc  claude/m13-s1-insights-dropin-5EP04
+0ca535f66425fe150e979ffe005d1b085b569728  claude/m13-s1-insights-main-shim-5EP04
+93d5876d8c08808d2bd91c0a5e1b251c2c9da063  claude/m13-s1-inspect-insights-5EP04
+5f875839b24dfd262d36fb3fbbf5a9217707d636  claude/m13-s1-router-skeleton-5EP04
+f5a2dd5392b69586977ee4c4a07344d5d1fe64f3  claude/m13-s12-sprint-log-roadmap-5EP04
+897537d42062ca8e0cfdd3721eda92bb16dd91fc  claude/m13-s2-gemini-429-logging-5EP04
+a8130dce980838c43019b09ecc20ffb8e454c10d  claude/m13-s2-gemini-provider-5EP04
+03d4bd61effe73738cc52c4ada05059f352af94c  claude/m13-s2-kick-insights-5EP04
+e9b2b68c3120f0c8e88373dc7388ea7859efb9aa  claude/m13-s2-template-analyst-5EP04
+44507dc8814aa45aa0a218001f23276a48b1ca65  claude/m19-next-direction-research-zl2544
+31efaa32c1409aed51385042f4b33f7c693d6cd7  claude/m20-trend-harness-workstream-ipa3ce
+f2ca5980b0e51386dc3a8fc00fa11ea0874dafff  claude/m7-closeout
+f4c867de6c7a76e443bfeda4d60affa460ab9e79  claude/m7-honest-n-closed
+0d595e3c34147c8cc05dacf74c0fe146871449d4  claude/m7-load-policy-normalize
+5e54a0b2f2d59fc8f9fbde8e59fc3678244d2cde  claude/m7-policy-bool-and-direction
+469096db1d34015f25cb8de0a309f6f1b791f619  claude/m7-regime-from-pkg-meta
+69c0154247d8a7e74bd19b7ca9172dcb98911e45  claude/m7-wrapper-print-packets
+2bebf8a25dce450f8629e269ceccfce66298a1f4  claude/m8-milestone-setup-ggr7d6
+3d88f4af951039291b74f8ab34f8173dbbb596ee  claude/macro-economic-calendar-spine-r30gnq
+77357eef82d174e3c649e7d3109b89eb22f255f0  claude/magical-bardeen-MeAlG
+9f61603b8539d33a7c565e775a75777a7377b08c  claude/mb-20260603-001-resolved
+35a559093439b02dc0910f3ec47b8f3acb2c7193  claude/mes-candles-eventloop-fix
+f300b21f2f8808a71ff5c4200588b1056fb9c2c5  claude/ml-backlog-sim-scoring-perf
+a707cb177d5a6591ca17776b0a979c9945a76f66  claude/ml-review-backlog-Uyvbx
+c42578b3b03f2ae26d6c494b3bd92ac3621f1b98  claude/mlopt-docfreshness
+4e36d56b0fad1ae45b9efdd488ff533f50143c6e  claude/mlopt-docs-wrap
+76a7ce29c4254396c414710b58dc657da1cae37f  claude/mlopt-s12-macro-mes
+946b685a1a4bd7ce610646470c07e344c433ea58  claude/mlopt-s2-sample-weighting
+fcce03c4e5b14acfb7ce16d402a806f99f7e1e52  claude/mlopt-s3-hpo
+969780585e130a2ac7efdd5f076d887a9f02e981  claude/mlopt-s4-promotion-gates-3b9LJ
+26c78470e349f059eb6e2435966c1ca47397b35e  claude/mlopt-s5-triple-barrier
+2f31987e88f41365d22c5c1a24c82216709b0d04  claude/mlopt-s6-metalabel
+39f5b991bb0c7103b5e59bc69a6ce7a44faa68a1  claude/mlopt-s7-backtest-labels
+7a56d1989044126f93285a12ad83efa9a54b7b68  claude/mlopt-s8-cross-symbol
+6cd8ae6a777a19177563e5f31aa9e768226d01c3  claude/models-status-expansion-rYTI8
+b6049f3b6dde3681d2bf1977ca4a7bbc2b77801e  claude/newsletter-model-live-trading-fkppix
+a17bf5b8c831a0e9b6dcf62220774564980f7d44  claude/options-graduation-backlog-6907
+ea6fc1741b694a7b75c03c248996feccc7dfe4c6  claude/orphan-pnl-attribution-bl-20260601-6cgBj
+611b591f07c40ba3a02af3559840fdf8155b8e44  claude/pensive-feynman-HBeE3
+bd0059a3f81cdcd213cbb90f46c99a248c71d492  claude/perf-20260601-006-regime-router-phase-3
+3f7ec35e008fbdd587fcfd7ee1bbd97658e65205  claude/place-protective-docstring
+2402ce21cdfb89c42de2360880e78a8cfc8371bb  claude/position-netting-sltp-proposal-20260608
+0832f3d5b63ff2ca981b34b708b63f069871dcef  claude/post-value-pivot-workplan
+aad8de3aab1caaf54683788f170d3f333fa82ebd  claude/pr-relay-close-and-ciskip
+d6c06be728e4548ed40a4fddb99ffb79b7b781f1  claude/project-roadmap-status-2UXks
+5bdf5a316a0de31bbfa0eba6d4a6b4df270b3c85  claude/provision-live-arm-vm
+da637f9da85bce5831898da1c29b86088fe82af2  claude/purge-cloudflared-vm
+cced2304eae7b31a9f6ff2c60e6b017a90f7f020  claude/purge-tradovate
+248faa47d12e1133658ad11b7ae074821a86023d  claude/retune-trend-donchian-1h
+e7a357dc3c688225895c3147de17533b4583a9af  claude/roadmap-m13-stub-rYTI8
+07c4f52628cd288a788dd4920b870a504e0d09e9  claude/roadmap-work-plan-review-m2aw6p
+4e66de1edc81ad7612db9d2fce963218871af023  claude/s12-account-context-snapshots
+6c031e1d4f3b0033ba4ae9a93e18bca0165ccae0  claude/s15b-volatility-regime-gate-fjji0
+b0b1be70907adae59aaffacdbb561970db316178  claude/s17-regime-feature-parity-fjji0
+46e880a7681a08a384df2a220e4c266b587822d6  claude/s9-yz-shadow-loose-ends-nh3e8z
+653039235fb89fa26deb6df524a643c2099e3ae4  claude/session-close-backlog-Uyvbx
+e2440a6770d3b6e9af10f42f676828761554d5bd  claude/session-i6pk2c
+5b922b69b9fd127df64a26683b03d385b01c1e3a  claude/session-wrap-2026-05-26-rYTI8
+b315dd21d3fa21fceb5f276b674a8f7a903eb942  claude/shadow-htf-pullback-trend-2h
+c162343a8d907763726b5f7f53e0db73a1c5bddb  claude/shadow-mes-trend-long-1d
+c6948beec0356b8e29be321a1a56c971512bb043  claude/shadow-trend-donchian-1h
+7110fce3abb6c1bce6a4318560f53db6468ec5cb  claude/sharp-johnson-LIYLH
+0b4fb4154a6f15e08a13696377b19022a83677af  claude/sprint-log-2026-06-07
+b0adb7d6fe037fedd492bbd9f67589fc5a71a97b  claude/sprint-log-profit-gaps
+c177890afa0c98c3f6b4a9f3f2248ee4f04f7bbe  claude/strategy-ml-review-2CX8n
+074641d6b638e679b3f961178fa8b1b8ca5d045a  claude/streamlit-mobile-push-notifications-84oLz
+1e502abb147f57fbe83c4fc362f61b1be1b3d264  claude/sweet-hawking-5EP04
+8a31a86f1775bab2b85a454168488c4e45bebad6  claude/tender-ride-0sInG
+9fd27b3ad79d598fd481afe2895b80005c3cb675  claude/tp-sentinel-clamp-Uyvbx
+949dcabe2fd5257cb61504e20818e58d14c2d5eb  claude/trader-resource-isolation
+c9b879b5c99d7751e77f0ea96a1fde8e9962f464  claude/v2-5m-weight-retune-rYTI8
+20ab668cdd7c09e6a1a86a84890637ab9ed79842  claude/v2-class-rebalance-rYTI8
+2be654932c9b1c6a5881f215c34ebce0d5fd2d8e  claude/vibrant-babbage-9Wbls
+4de99246fc088d7dce9745061602b7e824058f7f  claude/vm-resize-live-tooling
+c7d56ca600447fd6a82fd0212e7436fa5e8fbe6e  claude/vwap-policy-skip-weak-down-low
+52774c94e551a7c2f8c0c99378e4fdc7b0ba2cc9  claude/web-app-candles-endpoint-WEcoa
+5b4d6752c542f0b728b26d356a20360034df03e9  claude/web-app-visualizations-registry-WEcoa
+7b4dc8cb692504e35fbe7641a860cca8fc29794a  claude/wizardly-euler-bWQIW
+0b5b83281d568caf5906eb7052fb87628a45e8ad  claude/wizardly-euler-bWQIW-2
+a4314cebfd7eb605b72fa712738dce23e2645794  devnull-udev-watch-mode

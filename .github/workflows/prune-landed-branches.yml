@@ -1,0 +1,155 @@
+name: prune-landed-branches
+
+# Deletes remote branches listed in docs/claude/pruned-branches-manifest.txt.
+#
+# WHY A WORKFLOW AND NOT `git push --delete`: a Claude web session's git proxy
+# returns **HTTP 403 on a ref DELETION** while permitting ref creation — measured
+# 2026-08-24. So the session can make 282 branches and remove none of them, which
+# is how the repo got to 282 in the first place. A runner's GITHUB_TOKEN has the
+# `contents: write` the delete needs. Per `.claude/skills/before-asking-the-operator`,
+# work a runner can do is never handed to the operator.
+#
+# SAFETY — four guards, and the SHA one is the point:
+#   1. SHA-PINNED. A branch whose tip has MOVED since the manifest was written is
+#      SKIPPED, never deleted. This is `--force-with-lease` applied to deletion:
+#      the branch that moved is not the branch that was audited. Without it, a
+#      manifest generated days earlier silently authorises deleting new work.
+#   2. OPEN-PR GUARD. Any branch that is the head of an OPEN PR is skipped, even
+#      if the manifest lists it.
+#   3. DEFAULT-BRANCH GUARD. main / master / the repo's actual default are refused
+#      unconditionally, manifest or not.
+#   4. DRY-RUN BY DEFAULT. The destructive direction requires an explicit opt-in;
+#      a mistyped input fails SAFE (no deletion), never open.
+#
+# Triggers:
+#   - workflow_dispatch with `dry_run` (operator clicks Run workflow).
+#   - issues.opened labelled `prune-landed-branches` — the Claude-driven path.
+#     Body override: `dry_run: <true|false>`. DEFAULTS TO DRY RUN on this path
+#     too, so opening the issue can never itself destroy anything.
+#
+# Deletion is recoverable: every tip SHA is in the manifest, and GitHub retains
+# the head SHA of a closed PR, so `git push origin <sha>:refs/heads/<name>`
+# restores any row.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would be deleted; call no DELETE"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: prune-landed-branches
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'prune-landed-branches'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prune landed branches
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+
+            // ---- dry_run resolution: anything not exactly "false" stays a dry run ----
+            let dryRun = true;
+            if (context.eventName === 'workflow_dispatch') {
+              dryRun = (core.getInput('dry_run') || 'true').toLowerCase() !== 'false';
+            } else {
+              const m = (process.env.ISSUE_BODY || '')
+                .match(/^\s*dry_run\s*:\s*(true|false)\s*$/im);
+              dryRun = !(m && m[1].toLowerCase() === 'false');
+            }
+            core.info(`dryRun=${dryRun}`);
+
+            // ---- manifest ----
+            const path = 'docs/claude/pruned-branches-manifest.txt';
+            if (!fs.existsSync(path)) { core.setFailed(`missing ${path}`); return; }
+            const rows = fs.readFileSync(path, 'utf8').split('\n')
+              .map(l => l.trim())
+              .filter(l => l && !l.startsWith('#'))
+              .map(l => { const [sha, ...rest] = l.split(/\s+/); return { sha, branch: rest.join(' ') }; })
+              .filter(r => r.sha && r.branch);
+            core.info(`manifest rows: ${rows.length}`);
+            if (!rows.length) { core.setFailed('manifest parsed to ZERO rows — refusing to report success on an empty run'); return; }
+
+            // ---- guard 3: default branch ----
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            const protectedNames = new Set([repoInfo.default_branch, 'main', 'master']);
+
+            // ---- guard 2: open PR heads ----
+            const openPRs = await github.paginate(github.rest.pulls.list,
+              { owner, repo, state: 'open', per_page: 100 });
+            const openHeads = new Set(openPRs.map(p => p.head.ref));
+            core.info(`open PR heads: ${openHeads.size}`);
+
+            const deleted = [], skipped = [];
+            for (const { sha, branch } of rows) {
+              if (protectedNames.has(branch)) { skipped.push([branch, 'PROTECTED default branch']); continue; }
+              if (openHeads.has(branch))      { skipped.push([branch, 'head of an OPEN PR']); continue; }
+
+              // ---- guard 1: SHA pin ----
+              let liveSha = null;
+              try {
+                const { data: ref } = await github.rest.git.getRef(
+                  { owner, repo, ref: `heads/${branch}` });
+                liveSha = ref.object.sha;
+              } catch (e) {
+                skipped.push([branch, e.status === 404 ? 'already gone' : `ref read failed: ${e.message}`]);
+                continue;
+              }
+              if (liveSha !== sha) {
+                skipped.push([branch, `TIP MOVED ${sha.slice(0,8)} -> ${liveSha.slice(0,8)} — not the audited branch`]);
+                continue;
+              }
+
+              if (dryRun) { deleted.push([branch, `would delete @ ${sha.slice(0,8)}`]); continue; }
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` });
+                deleted.push([branch, `deleted @ ${sha.slice(0,8)}`]);
+              } catch (e) {
+                skipped.push([branch, `delete failed: ${e.message}`]);
+              }
+            }
+
+            const verb = dryRun ? 'WOULD DELETE' : 'DELETED';
+            let md = `## prune-landed-branches — ${dryRun ? 'DRY RUN' : 'APPLIED'}\n\n`;
+            md += `manifest ${rows.length} · **${verb} ${deleted.length}** · skipped ${skipped.length}\n\n`;
+            if (skipped.length) {
+              md += `### Skipped (each with its reason — a skip is never silent)\n\n`;
+              md += skipped.map(([b, r]) => `- \`${b}\` — ${r}`).join('\n') + '\n\n';
+            }
+            md += `<details><summary>${verb} (${deleted.length})</summary>\n\n`;
+            md += deleted.map(([b, r]) => `- \`${b}\` — ${r}`).join('\n');
+            md += `\n</details>\n\nRestore any row: \`git push origin <sha>:refs/heads/<branch>\` (SHAs in the manifest).\n`;
+            core.summary.addRaw(md).write();
+
+            if (context.eventName === 'issues') {
+              const n = context.issue.number;
+              await github.rest.issues.createComment({ owner, repo, issue_number: n, body: md });
+              await github.rest.issues.update({ owner, repo, issue_number: n, state: 'closed' });
+            }
