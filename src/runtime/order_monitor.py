@@ -9431,7 +9431,24 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             # `classify_pnl` defers to `exit_price_source`, which is what
             # actually determines whether this number is trustworthy.
             notes["pnl_source"] = "local_compute"
-            notes["exit_price_source"] = exit_source
+            # ── NEVER OVERWRITE A MORE SPECIFIC STAMP (2026-08-24) ──────────
+            # `BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED`.
+            #
+            # This assignment was unconditional, and that is how a projection
+            # got laundered into a fill. The close path already labels its own
+            # exit honestly — `exchange` when a fill lookup answered, `verdict`
+            # when it did not (`_apply_update`) — and this sweep then stamped
+            # `recorded_exit_price` over the top, which reads as the STRONGER
+            # claim "a real fill the bot recorded".
+            #
+            # The distinction is whether THIS pass learned something about the
+            # price's ORIGIN. The anchor branch did: it asked a venue for the
+            # bar covering `closed_at`, so it stamps. The `recorded_exit_price`
+            # branch did not — it only read a number already on the row — so it
+            # must not claim to know where that number came from, and must
+            # leave any existing stamp alone.
+            if exit_source == ANCHOR_SOURCE or not notes.get("exit_price_source"):
+                notes["exit_price_source"] = exit_source
             notes["contract_value_usd"] = cvu
             # A row that previously declared itself unmeasured and has now been
             # anchored must drop the marker, or INV-2b would count it forever.

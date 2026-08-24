@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-24T10:05:00+00:00",
+  "updated_at": "2026-08-24T16:40:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22475,7 +22475,10 @@
           "at": "2026-08-23T20:05:00+00:00",
           "note": "⚠️ CORRECTION TO MY OWN FRAMING, AND IT CHANGES WHAT THE DEFECT IS. This row (and what I told the operator) implied the oversized order reaches the venue. IT DOES NOT. RiskManager.position_size applies a margin pre-flight cap AFTER the risk-based size: max_qty_by_margin = available_usd x effective_leverage x _MARGIN_SAFETY_BUFFER(0.9) / entry, and available_usd IS populated for Alpaca — coordinator.py:1495 calls AlpacaClient.buying_power(), which prefers regt_buying_power (the OVERNIGHT figure, correct for these swing legs). VERIFIED BY SIMULATION, not by reading: position_size at balance=available=$2,500, whole_units=True — a TLT-like leg with a 0.5% stop computes a risk-based 114.94 sh ($10,000 = 400% of account) and the sizer RETURNS 25 sh ($2,175 = 87.0%); SPY at a 1.0% stop 7.81 sh (200%) -> 3 sh (76.8%); GLD at 2.0% 8.06 sh (100%) -> 7 sh (86.8%). SO THE REAL DEFECT IS NOT REJECTION, IT IS TWO THINGS AT ONCE, IN OPPOSITE DIRECTIONS. (a) CONCENTRATION: one leg is clamped to ~87% of buying power, so the first leg to fire consumes the account and the other 15 size to near zero — first-come-first-served, not a portfolio. (b) THE RISK MODEL SILENTLY STOPS GOVERNING: the clamped TLT trade risks 25 x $0.435 = $10.88 = 0.44% of a $2,500 account against a declared risk_pct of 2%. The account is simultaneously over-concentrated in notional and under-risked per trade, from the same clamp. WHAT SURVIVES UNCHANGED: the scale-invariance (notional = balance x risk_pct / stop_distance_pct, so more funding does not change the percentage), the absence of any max_gross_exposure_pct, and the live $199,697 / $168,166 observation on the paper mirrors — those accounts have the buying power, so nothing clamped them. Severity stays critical; the resolution criteria are unchanged (declare an exposure bound). The failure MODE in the title and detail is what was wrong, and a fix aimed at 'stop the venue rejecting orders' would have been aimed at a problem this account does not have."
         }
-      ]
+      ],
+      "evidence_measured_2026_08_24": "INDEPENDENTLY RE-MEASURED in the /system-review session, because the row carried a claim with no numeric basis recorded. Method: for each alpaca_live-routed leg that currently holds a live position on a sibling alpaca book, take the ACTUAL declared entry and stopLoss from /api/bot/positions and compute notional/equity = risk_pct / stop_pct. alpaca_live's accounts.yaml risk block declares risk_per_trade_pct 0.02. Result (5 of the 6 measurable legs exceed whole-account notional): spy_pullback_1h stop 0.162% -> 12.37x; qqq_pullback_1h 0.324% -> 6.17x; tlt_pullback_1d 0.705% -> 2.84x; ief_pullback_1d 0.868% -> 2.30x; slv_trend_1h 1.614% -> 1.24x; iwm_trend_long_1d 3.491% -> 0.57x (the one that is fine). CONFIRMS the row's scale-invariance claim: the ratio has no equity term, so a deposit of ANY size leaves it unchanged - a $10,000 deposit would have spy_pullback_1h attempt a $123,700 position.",
+      "operator_decision_2026_08_24": "Operator elected 'fund it and go live' in the /system-review session. This row is a BLOCKER on that: funding without a declared bound puts real money behind the sizing above. Sequence recorded in BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE.",
+      "updated_at": "2026-08-24T15:45:00+00:00"
     },
     {
       "id": "BL-20260823-ALPACA-LIVE-STRATEGY-SET-IS-NET-NEGATIVE-EXCEPT-ONE-LEG",
@@ -22816,6 +22819,117 @@
       "summary": "The sanctioned remedy for BL-20260730-PR-CI-NOT-ATTACHING is a manual workflow_dispatch of guards/pytest-run/pytest-collect. Measured on PR #10215 (2026-08-24): a dispatched guards run reports the SAME headline as a pull_request run -- 'PASS 50 FAIL 0 SKIP 0' followed by 'All relevant guards passed' -- while having scanned THREE FEWER guards. The run footer says so ('NOT SCANNED on this event (3) -- no PR diff to scope by'): api-tier-policy-guard, test-schema-fidelity-guard and diagnostic-provenance-guard consume the {pr_diff} template variable, which is empty on a non-pull_request event. So the workaround for a bug whose whole danger is 'a check that silently did not run renders identically to green' itself renders a reduced scan identically to a full one, in the headline a reader quotes.",
       "evidence": "PR #10215, guards run 32716867785 (event=workflow_dispatch, head_sha 90374658), job 97399901700. Log footer lists the 3 unscanned steps by name. Note the harness is INCONSISTENT rather than uniformly diff-less on this event: guards taking the literal path /tmp/pr.diff DID scan a real diff on the same run (new_table_wiring reported '6 changed file(s) scanned', matching this PR's file count), while the three consuming {pr_diff} were skipped -- so two diff mechanisms coexist and only one survives a dispatch. Mitigated for THIS PR by running the three locally against origin/main: all three PASS, diagnostic-provenance-guard reporting 'OK -- every scanned diagnostic states what it computed'.",
       "resolution_criteria": "Either (a) give the three steps an ungated whole-tree form, which the run footer itself already prescribes ('A guard needing real push-time coverage must carry an UNGATED whole-tree step (see api-tier-policy-guard)') -- api-tier-policy-guard is named there as the pattern to copy, so the remedy exists and simply was not applied to these three; or (b) make the SUMMARY line refuse to read as a clean bill of health when steps were skipped -- the local runner already does exactly this for uncommitted paths ('All SELECTED guards passed -- but N path(s) are UNCOMMITTED ... This is NOT a clean bill of health for your change'), and the CI path should carry the same refusal. Closing without one of those leaves the documented workaround quietly weaker than the path it substitutes for."
+    },
+    {
+      "id": "BL-20260824-SILENT-REFUSAL-CANNOT-SEE-A-DECLARED-DRY-RUN",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "resolved",
+      "resolved_at": "2026-08-24T15:05:00+00:00",
+      "severity": "high",
+      "tier": 1,
+      "area": "observability/alerting",
+      "title": "silent_refusal_alert graded a DECLARED dry_run account as broken and latched a real_money alert for three days on correct behaviour",
+      "source": "MEASURED this session. /api/diag/log_file?name=silent_refusal_alert_state showed alpaca_live {alerting: true, cause: risk_refused, verdict: signalled_never_placed} continuously since 2026-08-21T12:38:38Z. /api/diag/broker_account_status?account_id=alpaca_live returns mode: dry_run, account_class: real_money, status ACTIVE, trading_blocked false. A dry_run account refusing every order IS the execution gate working as designed.",
+      "root_cause": "silent_refusal_alert.assess() builds its account set purely from journal rows (SELECT account_id ... FROM trades) and NEVER reads the account's declared mode. Its own docstring claims to watch for 'declared live, evaluates, signals, places NOTHING' but the code never establishes 'declared live'. Field beats comment.",
+      "why_it_matters": "This is the desensitized-alarm P1 the repo names as its own worst failure mode, self-inflicted on its newest detector — and it wore an account_class: real_money label, which reads maximally alarming. The repo had ALREADY ruled on this exact account: execution_diagnostics.EXPECTED_DISPATCH_SKIP_REASONS ('a dry_run-shelved account declining an order is the execution gate working exactly as designed ... must never raise an operator alert') was added by operator directive 2026-07-15 after shelving alpaca_live to dry_run made every tick fire both banners. silent_refusal_alert shipped 2026-08-14 without consulting it and re-created the alarm the operator had had suppressed.",
+      "evidence": "162 of 186 alpaca_live journal rows carry entry_reason starting 'REJECTED: dry_run_sizing_skip:' — the exact token is_expected_dispatch_skip() recognises. The 24 that do not are all 2026-07-15..2026-07-20, before the coordinator started prefixing it, and fall outside the alert's 24h window.",
+      "fix": "dead_leg.bucket_for() gains an optional `reason` axis and a FOURTH bucket `policy_skipped`; verdict_for() gains `refusing_by_declaration`. The predicate is IMPORTED from execution_diagnostics, never re-derived (one module owns 'is this refusal deliberate?'). Fail-SAFE, opposite polarity to account_side_filter: this gates an ALARM, so an unrecognised reason stays a real refusal. silent_refusal_alert also gains `alert_disposition` (alerting / suppressed_declared_dry_run / below_min_rows / not_a_finding) so a bare `alerting: False` no longer collapses three different facts. Omitting the reason preserves pre-2026-08-24 behaviour byte-for-byte.",
+      "verification": "Replayed against the REAL live journal over the 28 daily 24h-windows in which alpaca_live produced rows: 24 of 28 — every window from 2026-07-21 onward, INCLUDING the 2026-08-21 window that produced the live latch — now grade refusing_by_declaration / alerting False. The 2 pre-prefix windows (07-16, 07-17) still alert, correctly: the classifier genuinely cannot read those reasons as declared skips, and the fail-safe direction keeps them loud. 39 unit tests pass (32 pre-existing unchanged). collapsed-state-guard, provenance-consumer-guard and diagnostic-provenance-guard all clean.",
+      "resolution": "Fixed in this session's PR. Suppression is per-ROW, never per-account: an account that is switched off AND separately hitting a venue cap still alerts on the genuine refusals (pinned by test).",
+      "resolution_criteria": "RESOLVED. Residual watch: the standing alpaca_live latch clears only when the account next produces rows — see BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS."
+    },
+    {
+      "id": "BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "open",
+      "severity": "high",
+      "tier": "1 to MEASURE (done); 2 to change what the monitor records at close, or to re-grade the vocabulary",
+      "area": "provenance",
+      "title": "`recorded_exit_price` is classified MEASURED and is the single largest 'measured' source in the journal — outnumbering every genuine broker-truth source COMBINED",
+      "source": "MEASURED this session over the newest 1,500 trades rows (531 closed non-backtest; trades table total 4,985). exit_price_source distribution: recorded_exit_price 82 (15.4%) · candle_at_close 136 · local_markprice 58 · exchange_fill 52 · bybit_closed_pnl 25 · ib_execution 2 · None 173 · entry_order_avg_price_unreliable 3. Genuine broker truth (exchange_fill + bybit_closed_pnl + ib_execution) = 79. So recorded_exit_price (82) EXCEEDS all broker-truth sources combined, and classify() grades it MEASURED — indistinguishable from the 79 on every consumer surface.",
+      "root_cause": "src/runtime/provenance.py::MEASURED_SOURCES includes 'recorded_exit_price' under the comment '# A real fill the bot itself recorded at close time.' #10209 (2026-08-24) DISPROVED that comment on trade 4773: the recorded exit 4626.9 was Friday's last close, 49 hours stale, BELOW the reopen bar's low, so it cannot have been a fill. Field beats comment — except here the code's correctness rests entirely on the comment's claim.",
+      "why_it_matters": "67 of the 82 rows come from MONITOR-DERIVED close paths (intent_reduce 31, sl_cross 20, stale_stop 8, tp_cross 4, giveback_stop 3, stuck_strategy_watchdog 1) where the 'exit price' is by construction the bot's own computed level or last candle close, NOT a venue fill. This is precisely the class exit_anchor.py was built for and that _sweep_local_pnl_for_unpriced was already fixed to stop doing. The blast radius is the SCOREBOARD: totalPnlMeasured exists specifically to be the honest figure the R4 gate reads INSTEAD of totalPnl, and it is currently led by this class.",
+      "measured_reporting_impact": "Trade 4773 (ib_paper MGC, +$249,185.00, graded `measured`) is 96% of the paper book's entire 3-day window PnL ($259,699.65) and 98.4% with the next two rows. /api/bot/performance?window=24h returns paper totalPnl $247,027.13 with totalPnlMeasured $247,148.80 — i.e. the 'honest measured' figure is MORE inflated than the raw total. /api/bot/stats paper.pnl24h shows the same number to both the dashboard and the Android app.",
+      "not_established": "Whether the other 81 rows are individually wrong. Only 4773 has been proven stale (by #10209). What IS established is that the vocabulary cannot distinguish them, and that the population is 82 rows and not the ONE that #10209 measured — that commit explicitly recorded 'Population is ONE trade; the historical audit that would bound prevalence is in resolution_criteria and has NOT been run.' This row IS that audit.",
+      "scope_correction": "#10209 dispositioned this 'PAPER account, no money impact, backlog only'. True of MONEY. NOT true of REPORTING: real-money rows are 5 of the 82, but the vocabulary defect is account-agnostic and the paper book is the honest net-of-everything predictor the 'Dollars are the scoreboard' rule relies on.",
+      "proposed_fix": "Split the source: a close whose price came from a VENUE fill keeps MEASURED; a close whose price is the monitor's own level or last candle close is ESTIMATED (it has an anchor — the bar at closed_at — so it is not FABRICATED). exit_anchor.py already owns exactly this three-way decision. Do NOT simply demote recorded_exit_price wholesale without checking which writers are genuine fills, or genuine broker truth will be downgraded with the rest.",
+      "resolution_criteria": "(1) Enumerate the WRITERS of exit_price_source='recorded_exit_price' and classify each as venue-fill vs monitor-derived. (2) Either split the source string at the writers or split the classification. (3) Re-measure pnlCoverage and totalPnlMeasured before/after and state the population. (4) Do NOT back-fill or rewrite historical rows — they stay attributable to the tool that made them (the backtest_results precedent)."
+    },
+    {
+      "id": "BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "observability/alerting",
+      "title": "A latched silent-refusal alert can never clear while the account produces no rows — so a latch outlives the condition indefinitely",
+      "source": "READ this session in src/runtime/silent_refusal_alert.py::run_silent_refusal_check. The recovery loop iterates `assessed.items()`, and assess() deliberately omits an account with no rows ('we observed nothing'). alpaca_live's last journal row is 2026-08-21 and its latch still reads alerting:true today (2026-08-24).",
+      "why_it_matters": "Not a defect in the omission — declaring recovery on ABSENCE would be wrong, and the docstring says so. The gap is that there is no third state: `silent_accounts()` (the read surface the review skills consume) reports the account as currently-latched-silent when the truth is 'latched a while ago, unobserved since'. A reviewer reading it cannot tell a live condition from a stale one.",
+      "proposed_fix": "Stamp the latch with the last OBSERVED-at time (distinct from updated_at) and have silent_accounts() expose staleness, so a consumer can distinguish 'alerting, observed this window' from 'alerting, not observed since <ts>'. Same discipline as prop status_freshness. Do NOT auto-clear on absence.",
+      "resolution_criteria": "silent_accounts() rows carry an observation age, and a consumer can tell a live latch from an unobserved one without reading the journal."
+    },
+    {
+      "id": "BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:20:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci-guards",
+      "title": "check_unwired_artifacts counts a SKILL.md reference as 'documented, but nothing runs it' — so 10 of its 128 findings are tools a binding skill invokes, two of which this very review ran",
+      "source": "MEASURED this session. scripts/ci/check_unwired_artifacts.py reports '410 tool(s) under scripts/, 128 with no runner'. Parsing its own output: 10 of the 128 are annotated 'referenced ONLY by docs (.claude/skills/<name>/SKILL.md, ...)'. Among them are scripts/reports/render_system_report.py and scripts/reports/backlog_counts.py — MANDATORY steps of .claude/skills/system-review/SKILL.md, both executed by this session — plus scripts/ops/grade_closed_trades_from_diag.py, also executed this session.",
+      "breakdown": "128 unwired = 10 skill-referenced + 109 referenced only by non-skill docs + 9 with no reference anywhere.",
+      "why_it_matters": "Skills are this repo's binding invocation path ('skill-first lookup is binding', CLAUDE.md). A skill IS a runner — just an agent-executed one rather than a scheduled one. Grading it as rust inflates the headline number the operator's 2026-08-20 'stop building things half way' directive is measured by, and it errs in the DANGEROUS direction: it trains a reader to discount a list that also contains 9 genuinely-unreferenced tools. A guard that is noisy about correct work is the desensitized-alarm P1 applied to CI.",
+      "not_a_finding_about": "Whether a skill-referenced tool actually RAN. It does not prove that — scripts/ops/trainer_dataset_gc.py is skill-referenced AND was measured on 2026-08-20 as having 0 mentions across 7,442 cycle-log rows. That is exactly why the two need SEPARATE verdicts rather than being merged into 'wired'.",
+      "proposed_fix": "Give the guard a third verdict instead of two. `unwired` (no reference anywhere) · `doc_only` (prose references a tool nothing invokes) · `skill_invoked` (a binding skill names it — a runner, but an agent-executed one whose EXECUTION is unproven). Report the three separately so the headline counts rust and not correct work. Do NOT simply allowlist .claude/skills/ into 'wired' — that would hide the trainer_dataset_gc case, which is the real one.",
+      "resolution_criteria": "(1) The guard emits three verdicts, not two. (2) Its headline count excludes skill_invoked. (3) The 9 no-reference-anywhere tools are each removed, wired, or annotated `# wiring: manual-only - <reason>`. (4) Re-run and state the new counts beside the old ones."
+    },
+    {
+      "id": "BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:45:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24, operator-directed)",
+      "status": "open",
+      "severity": "high",
+      "tier": "3 (funding + risk caps + broker account settings)",
+      "area": "accounts",
+      "title": "alpaca_live go-live: the operator elected to fund it, and funding is the LAST step of three, not the first",
+      "source": "Operator decision in the /system-review session 2026-08-24: 'Fund it and go live'. Raised at the time that funding alone does not make the account work.",
+      "why_it_matters": "Two of the three blockers are scale-invariant and survive any deposit. Depositing first means real money behind a sizer that asks for up to 12.37x the account on a single trade, on an account where 128 of 186 routed orders (68.8%) are SHORT and cannot legally execute while shorting is disabled.",
+      "sequence": [
+        "STEP 1 (Tier-3, Claude prepares): declare a bound on alpaca_live so no routed leg can size past the account - max_gross_exposure_pct and/or a per-position notional cap. The VALUE needs a basis, and the gross-exposure soak (/api/bot/exposure/soak) is the surface that supplies the distribution; per gross-exposure-governance-DESIGN.md section 7 a value with no soak behind it must not ship. Until this lands, funding is unsafe.",
+        "STEP 2 (OPERATOR-ONLY, broker-side): enable shorting on the Alpaca account (margin agreement / account settings). Claude cannot change a broker account's permissions. Without it, 6 of 16 legs are dead and 68.8% of flow is refused - the account would be funded and still mostly inert.",
+        "STEP 3 (OPERATOR-ONLY): make the deposit, then flip mode dry_run -> live via the sanctioned set-account-mode action.",
+        "STEP 4 (Claude verifies): re-read /api/diag/broker_account_status + the first live fills, and confirm silent_refusal_alert grades the account healthy rather than refusing."
+      ],
+      "already_done_2026_08_24": "slv_trend_1h (the fleet's worst leg, 0 wins in 13 closed, -$5,375) was demoted live -> shadow this session with operator approval. It routed to alpaca_live, so it is already out of the go-live set.",
+      "resolution_criteria": "All four steps complete and the account has placed at least one real fill that reconciles against exchange truth. Do NOT close this on the deposit alone.",
+      "evidence": "(a) SHORT FLOW: 128 of 186 routed orders are SHORT (68.8%) and SIX legs are 100% short - gdx_pullback_1d, iaum_pullback_1d, gld_pullback_1d, slv_pullback_1d, ief_pullback_1d, tlt_pullback_1d - so they are entirely dead while the account has shorting_enabled=False. (This is WORSE than the earlier row's '60% / 4 legs'.) (b) SHORTING FLAG: /api/diag/broker_account_status?account_id=alpaca_live confirms shorting_enabled: False, status ACTIVE, trading_blocked false. (c) NOTIONAL: 5 of 6 measurable legs exceed whole-account notional - see BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL."
+    },
+    {
+      "id": "BL-20260824-DEMOTING-A-LEG-SILENTLY-LOOSENS-THE-M20-RATCHET",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T16:40:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24, found by a planted-omission self-test)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci-guards",
+      "title": "The M20 tp_geometry ratchet is an ABSOLUTE count over a population that can shrink — so demoting a leg loosens it by exactly that leg's unstamped cells, with no diff a reviewer reads as loosening",
+      "source": "MEASURED this session. tp_geometry_legend._unstamped_ceiling was 234 and unstamped live cells were EXACTLY 234 — the ratchet was tight. Demoting slv_trend_1h live -> shadow (Tier-3, operator-approved) removed its 9 lever cells, 5 of them unstamped, from m20_coverage_rollup.cells(live_only=True). Unstamped fell to 229 against an unchanged ceiling of 234, leaving 5 cells of slack.",
+      "evidence": "tests/test_m20_tp_geometry_guard.py's two planted-omission tests FAILED and that is how this was found: deleting one stamp produced 230 unstamped, still under the stale 234, so `validate` returned no problem and `any('above the recorded ceiling' in p)` was False over an empty list. Both tests pass again once the ceiling is corrected to 229.",
+      "why_it_matters": "That guard's own docstring names the cheap lie it exists to resist: 'the cheap lie would be raising _unstamped_ceiling — which is why the ceiling lives in the matrix beside the legend rather than in this script, so raising it lands in a diff a reviewer reads.' A DEMOTE produces the identical loosening WITHOUT any such diff — the ceiling line is untouched and only an unrelated execution field moves. The protection is real but its threat model missed the population axis, so the guard can be loosened by a change nobody would review as touching it. 5 live cells could have lost their tp_geometry stamp silently.",
+      "fixed_in_session": "The ceiling was corrected 234 -> 229 with the reason recorded inline in _unstamped_ceiling_note, so the ratchet is tight again. That fixes THIS INSTANCE, not the class.",
+      "proposed_fix": "Make the coupling explicit rather than relying on someone remembering. Options, cheapest first: (a) have `validate` FAIL when the live-cell count changes without the ceiling being re-derived — i.e. record the live-cell denominator beside the ceiling and check both; (b) express the ceiling as a derived assertion (unstamped == ceiling) rather than an inequality, so any movement in either direction must be acknowledged; (c) have the execution-state change and the ceiling live in one place so a demote cannot land without touching it. (b) is closest to the guard's existing ratchet intent and is a one-line validator change.",
+      "not_established": "Whether any PAST demote already loosened this ceiling unnoticed. The ceiling was exactly tight when this session started, which is consistent with it having been correct — but that is one observation, not a history. Checking would mean walking the ceiling value and the live-cell count together through git history.",
+      "resolution_criteria": "(1) A demote (or any live-population change) either updates the ceiling or fails the guard. (2) A planted-omission test covers the POPULATION-SHRINK path specifically, not only the stamp-removal path — the existing tests catch it only because the ceiling happened to be exactly tight. (3) The git-history question in not_established is answered or explicitly dropped."
     }
   ]
 }

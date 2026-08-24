@@ -240,7 +240,15 @@ def test_a_recorded_fill_is_still_preferred(db, monkeypatch):
     row = _row(db)
     assert row["exit_price"] == 5020.0
     assert not called, "the anchor must not be consulted when a fill is recorded"
-    assert json.loads(row["notes"])["exit_price_source"] == "recorded_exit_price"
+    # 2026-08-24: this asserted `recorded_exit_price`, i.e. it PINNED THE BUG.
+    # The row already carried the broker's own stamp (`bybit_closed_pnl`) and the
+    # sweep overwrote it with the weaker-provenance-but-stronger-sounding
+    # `recorded_exit_price` — that unconditional overwrite is exactly how a
+    # projection got laundered into a fill
+    # (BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED).
+    # The test name — "a recorded fill is still preferred" — was already right;
+    # only the assertion disagreed with it. Broker truth is now PRESERVED.
+    assert json.loads(row["notes"])["exit_price_source"] == "bybit_closed_pnl"
 
 
 def test_anchoring_a_previously_declared_row_clears_the_marker(db, monkeypatch):

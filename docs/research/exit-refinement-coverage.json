@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW. ⚠️ EVERY `exit_head_ml` VERDICT IN THIS MATRIX WAS MEASURED UNDER AN ORDER-DEPENDENT TIE-BREAK (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER, 2026-08-15). The E1 fold sort is stable and keyed on entry time alone, so trades sharing a bar inherit the order their legs were passed on the command line; on a pooled family every leg entering on the same bar ties. Measured: the same 7 legs in two orders gave identical trade counts, rows and fold shape, yet 8 of 43 folds differed, mean_auc moved up to 0.0331, and two legs lost a usable fold. 27 of the 33 committed rounds are multi-leg `family_pooled` and so exposed; `per_leg` rounds are immune. NO STATUS HERE HAS BEEN RE-GRADED ON THIS — both orders are equally valid and the AUC term is one of four in the gate, so this is a caveat on provenance, NOT a claim that any cell is wrong. `train_exit_head.py --total-sort` fixes it and is DEFAULT-OFF pending an operator-approved re-measure; rounds now stamp `total_sort` so re-measured and legacy rows stay distinguishable.",
-  "updated_at": "2026-08-20",
+  "updated_at": "2026-08-24T15:55:00+00:00",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -1793,7 +1793,7 @@
       "strategy": "slv_trend_1h",
       "symbol": "SLV",
       "tf": "1h",
-      "execution": "live",
+      "execution": "shadow",
       "exploded_from": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
       "trail_geometry": {
         "status": "honest_negative",
@@ -1834,7 +1834,8 @@
       "bracket_geometry": {
         "status": "blocked:no_free_lane_candle_feed",
         "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
-      }
+      },
+      "execution_note": "live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77; the kill gate had been MET across two consecutive reviews with no decision. The leg still evaluates and logs order packages (shadow, not disabled) so the exit-refinement denominator keeps accruing data on it, but it places no live order. Recorded here because the coverage matrix's execution column IS the denominator and must not disagree with config/strategies.yaml."
     },
     {
       "strategy": "uso_trend_1h",
@@ -2450,8 +2451,8 @@
     "ABSENT_means_unrecorded": "⚠️ A MISSING tp_geometry MEANS 'WE DID NOT LOOK', NOT 'presumably fine'. Absence collapses three different conditions — (a) measured at live parity and nobody stamped it, (b) measured on the pre-cutover no-TP default, which is the DEFAULT EXPECTATION for anything dated before the cutover, and (c) nobody looked. The reassuring reading is the one that is wrong for most of the population. The roll-up counts these as `unrecorded` and reports the fraction rather than listing marked cells, so completeness is never inferred from the cells that happen to carry a value.",
     "_coverage_2026_08_16": "170 of 416 cells (40.9%) carry a value: live_parity 167, no_take_profit 3, absent 246. Measured directly off this file. The roll-up's own figure is over the LIVE-leg population (a different, smaller denominator) — both are correct and neither is the other.",
     "_remaining_work": "Stamping the 246 absent cells is NOT done here and must not be guessed from dates: BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING criterion (2) requires each cell's own `ref` to establish live_parity or no_take_profit, with `unrecorded` stamped only where the ref establishes neither. A date is a proxy, and that row exists because a proxy was trusted.",
-    "_unstamped_ceiling": 234,
-    "_unstamped_ceiling_note": "237 -> 234 on 2026-08-23: htf_pullback_trend_2h was demoted live -> shadow, which removed its 3 unstamped cells from the LIVE population the ratchet counts. Lowering the ceiling is the point of a ratchet -- left at 237 it would have had 3 cells of slack, so three genuinely new silent cells could have been added without tripping it. Caught by tests/test_m20_tp_geometry_guard.py, whose planted un-stamp stopped producing a breach: a guard that can no longer be made to fail is not evidence when it passes. RAISING this number is allowed only in a diff a reviewer sees; LOWERING it is mandatory whenever the live population shrinks."
+    "_unstamped_ceiling": 229,
+    "_unstamped_ceiling_note": "234 -> 229 on 2026-08-24, and the REASON matters more than the number. The ceiling is an ABSOLUTE count of unstamped LIVE cells, and the live population shrank: slv_trend_1h was demoted live -> shadow (Tier-3, operator-approved), taking its 9 lever cells — 5 of them unstamped — out of the `live_only` denominator. The ratchet had been EXACTLY tight at 234; leaving it there would have left 5 cells of slack in which a live cell could silently lose its tp_geometry stamp with the guard still green. This file's own docstring names raising the ceiling as the cheap lie the guard exists to resist — a demote produces the identical loosening while looking innocent, which is why it is corrected here in a diff rather than absorbed. Verified by the planted-omission self-tests in tests/test_m20_tp_geometry_guard.py, which FAILED at 234 (deleting a stamp gave 230, under the stale ceiling) and pass at 229."
   },
   "legend_bracket_geometry": "bracket_geometry is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) — a new DIMENSION, not a ninth lever. The eight lever columns beside it are all POST-ENTRY OVERRIDES on a bracket fixed at entry; this column grades that bracket itself. Added 2026-08-20 closing BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT. Graded NET OF FEES, unlike the fee-free R basis the lever columns use, because a lower target raises turnover and a fee-free comparison would flatter it exactly where it is most likely to pass."
 }

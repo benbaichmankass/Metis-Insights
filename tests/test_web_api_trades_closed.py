@@ -603,7 +603,15 @@ def test_normalize_closed_at_value_helper():
 
 
 @pytest.mark.parametrize("notes,expected", [
-    (json.dumps({"exit_price_source": "recorded_exit_price"}), "measured"),
+    # 2026-08-24: recorded_exit_price demoted MEASURED -> ESTIMATED. Measured over
+    # 531 closed non-backtest rows: all 82 carrying this source had pnl_source
+    # local_compute and ZERO carried close_fees_usd — the key the fills resolver
+    # stamps when an exit really came from fills. Not one had evidence of a venue
+    # fill. BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED.
+    (json.dumps({"exit_price_source": "recorded_exit_price"}), "estimated"),
+    # A genuine broker fill, kept as the MEASURED control so this parametrisation
+    # still pins both sides of the boundary rather than only the demoted one.
+    (json.dumps({"exit_price_source": "exchange_fill"}), "measured"),
     (json.dumps({"exit_price_source": "candle_at_close"}), "estimated"),
     (json.dumps({"exit_price_source": "local_markprice"}), "fabricated"),
     (None, "unverified"),

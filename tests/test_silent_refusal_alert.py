@@ -317,3 +317,126 @@ def test_reads_a_real_journal_end_to_end(isolated, sent) -> None:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+# ── the DECLARED-dry_run state (2026-08-24) ──────────────────────────
+#
+# BL-20260824-SILENT-REFUSAL-CANNOT-SEE-A-DECLARED-DRY-RUN. "Refused because
+# BROKEN" and "refused because deliberately SWITCHED OFF" produce byte-identical
+# `trades.status` rows, and this detector graded both `signalled_never_placed`.
+# Live consequence: `alpaca_live` (mode: dry_run, account_class real_money, 16
+# legs) latched `alerting: true` from 2026-08-21 and held it for three days on
+# correct behaviour — the desensitized-alarm P1, self-inflicted on the newest
+# detector, while `execution_diagnostics.EXPECTED_DISPATCH_SKIP_REASONS` had
+# already ruled on this exact account by operator directive 2026-07-15.
+
+_DRY = "REJECTED: dry_run_sizing_skip: risk_refused: sized_qty=0 with balance=0.10"
+
+
+def test_a_declared_dry_run_refusal_is_not_the_finding(isolated) -> None:
+    from src.runtime.silent_refusal_alert import assess
+
+    a = assess([_row("alpaca_live", "rejected", _DRY)] * 6, min_rows=5)["alpaca_live"]
+
+    assert a["verdict"] == "refusing_by_declaration"
+    assert a["alerting"] is False
+    assert a["policy_skipped"] == 6
+    assert a["refused"] == 0
+
+
+def test_a_declared_dry_run_account_never_pings(isolated, sent) -> None:
+    from src.runtime.silent_refusal_alert import run_silent_refusal_check
+
+    run_silent_refusal_check(rows=[_row("alpaca_live", "rejected", _DRY)] * 6)
+
+    assert sent == []
+
+
+def test_a_real_refusal_alongside_policy_skips_still_alerts(isolated) -> None:
+    """The suppression is per-ROW, never per-account.
+
+    An account that is switched off AND separately hitting a venue cap has a
+    real problem; folding its genuine refusals into the declared ones would
+    silence exactly the case this detector exists for.
+    """
+    from src.runtime.silent_refusal_alert import assess
+
+    rows = ([_row("alpaca_live", "rejected", _DRY)] * 6
+            + [_row("alpaca_live", "rejected", "REJECTED: venue_max_qty")] * 5)
+    a = assess(rows, min_rows=5)["alpaca_live"]
+
+    assert a["verdict"] == "signalled_never_placed"
+    assert a["alerting"] is True
+    assert a["refused"] == 5
+
+
+def test_an_unrecognised_reason_still_counts_as_a_real_refusal(isolated) -> None:
+    """Fail-SAFE, the opposite polarity to `account_side_filter`.
+
+    That module gates an ORDER and is fail-permissive. This one gates an ALARM,
+    so a reason the classifier cannot read must stay a refusal — the failure we
+    refuse is a genuine outage silenced by a predicate that could not parse it.
+    """
+    from src.runtime.silent_refusal_alert import assess
+
+    a = assess([_row("alpaca_live", "rejected", "REJECTED: something_new")] * 6,
+               min_rows=5)["alpaca_live"]
+
+    assert a["verdict"] == "signalled_never_placed"
+    assert a["alerting"] is True
+
+
+def test_why_we_are_not_alerting_is_itself_a_state(isolated) -> None:
+    """A bare `alerting: False` collapses three different facts."""
+    from src.runtime.silent_refusal_alert import assess
+
+    off = assess([_row("a", "rejected", _DRY)] * 6, min_rows=5)["a"]
+    thin = assess([_row("b", "rejected", "REJECTED: venue_max_qty")] * 2, min_rows=5)["b"]
+    fine = assess([_row("c", "closed")] * 3, min_rows=5)["c"]
+    bad = assess([_row("d", "rejected", "REJECTED: venue_max_qty")] * 6, min_rows=5)["d"]
+
+    assert off["alert_disposition"] == "suppressed_declared_dry_run"
+    assert thin["alert_disposition"] == "below_min_rows"
+    assert fine["alert_disposition"] == "not_a_finding"
+    assert bad["alert_disposition"] == "alerting"
+
+
+def test_the_predicate_is_imported_never_re_derived() -> None:
+    """One module owns "is this refusal deliberate?".
+
+    A second copy is free to drift from the first, and the two would then
+    disagree about whether to wake the operator.
+    """
+    from src.runtime import dead_leg
+    from src.runtime.execution_diagnostics import EXPECTED_DISPATCH_SKIP_REASONS
+
+    src = (Path(dead_leg.__file__)).read_text()
+    assert "is_expected_dispatch_skip" in src
+    for token in EXPECTED_DISPATCH_SKIP_REASONS:
+        assert token not in src.split('"""', 2)[2], (
+            f"{token!r} is re-declared in dead_leg — import the predicate instead")
+
+
+def test_recovery_into_declared_dry_run_does_not_claim_orders_were_placed(
+    isolated, sent
+) -> None:
+    """The recovery ping must name the reason it recovered.
+
+    An account can leave the alerting state WITHOUT placing anything — a
+    declared dry_run refuses everything, correctly — and the old wording
+    ("is placing orders again (0 reached the exchange)") contradicts its own
+    numbers in exactly that case.
+    """
+    from src.runtime.silent_refusal_alert import run_silent_refusal_check
+
+    real = [_row("alpaca_live", "rejected", "REJECTED: venue_max_qty")] * 6
+    run_silent_refusal_check(rows=real)
+    assert len(sent) == 1 and "[ALERT]" in sent[0]
+
+    run_silent_refusal_check(rows=[_row("alpaca_live", "rejected", _DRY)] * 6, force=True)
+
+    assert len(sent) == 2
+    msg = sent[1]
+    assert "[OK]" in msg
+    assert "DECLARED policy skip" in msg
+    assert "placing orders again" not in msg

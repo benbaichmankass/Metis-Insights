@@ -225,8 +225,8 @@ MEASURED_SOURCES = frozenset({
     # rows sitting on accounts whose fills were already being collected and
     # discarded (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ).
     "exchange_fill",
-    # A real fill the bot itself recorded at close time.
-    "recorded_exit_price", "operator_flatten_fill", "verdict",
+    # A real fill the operator reported when flattening by hand.
+    "operator_flatten_fill",
 })
 
 ESTIMATED_SOURCES = frozenset({
@@ -245,6 +245,41 @@ ESTIMATED_SOURCES = frozenset({
     # reconstructed, still not a fill. Promoting it to MEASURED would re-import
     # fabrication wearing a better label.
     "mirror_account_fill",
+    # ── DEMOTED FROM MEASURED 2026-08-24 ──────────────────────────────────
+    # `BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED`.
+    #
+    # `recorded_exit_price` carried the comment "A real fill the bot itself
+    # recorded at close time." That claim was DISPROVED on trade 4773 (#10209):
+    # the recorded exit 4626.9 was Friday's last close, 49 hours stale, BELOW
+    # the reopen bar's low, so it cannot have been a fill of anything.
+    #
+    # It is not one row. Measured over the newest 1,500 journal rows (531 closed
+    # non-backtest): 82 carry this source, against 79 for ALL genuine broker
+    # truth combined (`exchange_fill` 52 + `bybit_closed_pnl` 25 +
+    # `ib_execution` 2) — so the single largest "measured" source in the journal
+    # was the one with no fill behind it. ALL 82 carry `pnl_source:
+    # local_compute` and **ZERO** carry `close_fees_usd`, the key the fills
+    # resolver stamps when an exit really came from fills. Not one has evidence
+    # of a venue fill. 67 of the 82 come from monitor verdict paths
+    # (intent_reduce 31, sl_cross 20, stale_stop 8, tp_cross 4, giveback_stop 3,
+    # stuck_strategy_watchdog 1) where the price is a level the monitor
+    # computed.
+    #
+    # ESTIMATED, not FABRICATED: the price WAS on the row at close time and is
+    # anchored to the close, unlike a mark read at sweep time. Same bucket and
+    # same reasoning as `candle_at_close`.
+    #
+    # Genuine broker rows are UNAFFECTED: every broker path stamps its own
+    # source (`_broker_pnl_source(rec)`), and the sweep no longer overwrites an
+    # existing stamp — see `order_monitor._sweep_local_pnl_for_unpriced`.
+    "recorded_exit_price",
+    # The monitor's PROJECTED exit level, used when no fill lookup was
+    # available (`_apply_update`: `exit_price_source = "verdict"`). The close
+    # path has always labelled this honestly; only the classification was
+    # wrong. The venue never said this price traded — it is what the strategy
+    # decided the exit should be — so it is a defensible reconstruction and
+    # never a measurement.
+    "verdict",
     # The exit REASON (sl/tp) derived by comparing the recovered exit price to
     # the order package's bracket. A defensible derivation, but the venue never
     # said "this was a stop-out" — so it is not a measurement of the reason.

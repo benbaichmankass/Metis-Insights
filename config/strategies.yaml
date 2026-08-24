@@ -1903,11 +1903,32 @@ strategies:
     # Pilot for the intraday ETF sleeve (operator-approved rollout A, risk_pct
     # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
     # SL/TP); the builder gates on the US cash session (market_hours us_equity).
-    # execution: live per the paper-accounts-execute operator policy.
+    #
+    # ── DEMOTED live -> shadow 2026-08-24 (Tier-3, operator-approved in the
+    #    /system-review session) ──────────────────────────────────────────────
+    # `PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE`. The kill gate had been MET
+    # across two consecutive reviews with no decision, which is the soak
+    # equivalent of an alarm everyone walks past.
+    #
+    # MEASURED: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77 — the
+    # only large loser at credible coverage, and therefore the one honest kill
+    # candidate in the fleet. The 2026-08-01 risk_pct 0.0 -> 0.3 change below
+    # was itself a response to 2 consecutive reviews of should_skip-grade
+    # entries (confidence 0.04-0.15, 5 graded entries all losses); it did not
+    # rescue the leg.
+    #
+    # `shadow` NOT `enabled: false`, deliberately: the leg keeps evaluating and
+    # logging order packages everywhere (live data collection) while placing NO
+    # live order, so the decision is reversible on evidence rather than on
+    # having to re-derive the leg from scratch. This is the sanctioned demotion
+    # per CLAUDE.md § "The two execution gates".
+    #
+    # NOTE it routes to `alpaca_live` (real_money) as well as the paper books —
+    # so this also removes the fleet's worst leg from the account being funded.
     model: null
     signal_prefixes: [slv_trend]
     enabled: true
-    execution: live
+    execution: shadow  # shadow-guard: allow — operator-approved Tier-3 demote 2026-08-24; 0 wins in 13 closed, -$5,375 at 0.77 coverage, gate met 2 consecutive reviews
     timeframe: "1h"
     symbols:
       - SLV

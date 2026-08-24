@@ -42,6 +42,15 @@ placed orders and mean opposite things:
   * **rows, all refused** — `signalled_never_placed`. This is the finding.
   * **rows, some placed** — the account works; a refusal rate is a tuning
     question, not an outage.
+  * **rows, all refused BY DECLARATION** — `refusing_by_declaration`
+    (2026-08-24). The account is `mode: dry_run`, so refusing is the execution
+    gate working as designed, not a fault. This state was MISSING and collapsed
+    into `signalled_never_placed`: `alpaca_live` (dry_run, `real_money` class,
+    16 legs routed) latched `alerting: true` on 2026-08-21 and held it for three
+    days on correct behaviour. The repo had already ruled on this exact account
+    in `execution_diagnostics.EXPECTED_DISPATCH_SKIP_REASONS` (operator
+    directive 2026-07-15); this detector shipped without consulting it. The
+    predicate is imported, never re-derived — see `dead_leg`.
 
 The verdict comes from `src.runtime.dead_leg`, the same module the offline
 `scripts/ops/dead_leg_audit.py` grades with, so the live alert and the report
@@ -199,9 +208,12 @@ def assess(rows: List[Any], *, min_rows: int) -> Dict[str, Dict[str, Any]]:
 
         a = acc.setdefault(aid, {
             "account_id": aid, "placed": 0, "refused": 0, "other": 0,
-            "causes": {}, "strategies": set(),
+            "policy_skipped": 0, "causes": {}, "strategies": set(),
         })
-        bucket = bucket_for(status)
+        # The REASON is passed so a declared policy skip (a dry_run-shelved
+        # account) is separated from a real refusal. Without it every deliberate
+        # skip counts as a fault — see the module docstring.
+        bucket = bucket_for(status, reason)
         a[bucket] += 1
         if bucket == "refused":
             cause = classify_cause(reason)
@@ -211,7 +223,8 @@ def assess(rows: List[Any], *, min_rows: int) -> Dict[str, Dict[str, Any]]:
 
     out: Dict[str, Dict[str, Any]] = {}
     for aid, a in acc.items():
-        a["total_rows"] = a["placed"] + a["refused"] + a["other"]
+        a["total_rows"] = (
+            a["placed"] + a["refused"] + a["other"] + a["policy_skipped"])
         a["verdict"] = verdict_for(a)
         a["strategies"] = sorted(a["strategies"])
         # The dominant cause names the fix. Ties break on the cause name so the
@@ -226,6 +239,18 @@ def assess(rows: List[Any], *, min_rows: int) -> Dict[str, Dict[str, Any]]:
         a["alerting"] = bool(
             a["verdict"] == "signalled_never_placed" and a["refused"] >= min_rows
         )
+        # Why we are NOT alerting is itself a state worth naming: "the account
+        # is fine", "the account is switched off", and "too few rows to call it
+        # a pattern" are three different facts, and collapsing them into a bare
+        # False is what hid the dry_run case in the first place.
+        if a["alerting"]:
+            a["alert_disposition"] = "alerting"
+        elif a["verdict"] == "refusing_by_declaration":
+            a["alert_disposition"] = "suppressed_declared_dry_run"
+        elif a["verdict"] == "signalled_never_placed":
+            a["alert_disposition"] = "below_min_rows"
+        else:
+            a["alert_disposition"] = "not_a_finding"
         out[aid] = a
     return out
 
@@ -362,10 +387,21 @@ def run_silent_refusal_check(
             _send_alert(_describe(a, hours))
             alerted.append(aid)
         elif was_alerting and not a["alerting"]:
-            _send_alert(
-                f"\U0001F7E2 [OK] {aid} is placing orders again "
-                f"({a['placed']} reached the exchange in the last {hours}h)."
-            )
+            # The recovery message must name the reason it recovered. Since
+            # 2026-08-24 an account can leave the alerting state WITHOUT having
+            # placed anything — a declared dry_run refuses everything, correctly
+            # — and the old wording ("is placing orders again (0 reached the
+            # exchange)") states the opposite of what happened, on its own
+            # numbers. A recovery ping nobody can trust is worse than none.
+            if a["verdict"] == "refusing_by_declaration":
+                body = (f"its refusals are all DECLARED policy skips "
+                        f"(dry_run / prop session) — the account is switched "
+                        f"off, not broken. {a['policy_skipped']} skipped in "
+                        f"the last {hours}h, none placed.")
+            else:
+                body = (f"{a['placed']} order(s) reached the exchange in the "
+                        f"last {hours}h.")
+            _send_alert(f"\U0001F7E2 [OK] {aid} is no longer placing nothing: {body}")
             recovered.append(aid)
         state[aid] = {
             "alerting": a["alerting"], "cause": a["cause"],
