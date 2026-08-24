@@ -447,6 +447,35 @@ should carry one is a follow-up decision, not a detail; adding a third criterion
 unilaterally after seeing which cell it eliminates is exactly the fitting this
 whole section is built to avoid.
 
+### ✅ 6.0b DECIDED 2026-08-24 (operator, Tier-3): NO CELL SHIPS — the shortlist is withdrawn
+
+Put the gap above to the operator as a three-way choice — add the positive-book
+condition (1 cell), leave the criterion as written (2 cells), or ship nothing —
+and the answer was **ship nothing**. Everything in § 3.9–§ 3.95 and the table
+above is **evidence, not a shortlist.**
+
+**This supersedes the reading that § 6.0 produces admitted cells.** § 6.0's
+criterion still stands as a *criterion* and is not withdrawn; what is withdrawn
+is treating the two rows it admits as a queue for a geometry change. No cell in
+this document is a candidate for `config/strategies.yaml` today, and a future
+session must not read the table above as "these were approved, just not yet
+applied."
+
+**Why this is the coherent call rather than the cautious one.** The criterion
+was, by my own admission above, chosen after seeing which cells pass it. Adding
+a third condition *also* after seeing which cell it eliminates would have
+compounded that, and picking between "1 cell" and "2 cells" on that basis is
+choosing an outcome, not a rule. Declining both keeps the criterion honest and
+costs nothing measurable: the strongest admitted row
+(`trend_donchian_1h sm2_to96`) carries a **−1.45R** out-of-sample book, and the
+one cell with a positive book in both halves (`ada_4h sm1.5`) is a single leg at
+small n.
+
+**What would reopen it: a walk-forward whose criterion was fixed BEFORE the
+candidates were measured.** That is a different piece of work from re-reading
+this corpus, and re-running dispersion on these same seven cells will not supply
+it — the pre-registration, not the measurement, is what is missing.
+
 ⚠️ **THIS ADMITS A CELL TO CANDIDACY, NOT TO PRODUCTION.** It is an admission
 criterion for the gate, not authorisation to change any leg's geometry.
 Every actual `config/strategies.yaml` change remains a separate Tier-3 decision
