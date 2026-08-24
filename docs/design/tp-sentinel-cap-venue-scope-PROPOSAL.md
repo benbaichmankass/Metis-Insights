@@ -1,6 +1,8 @@
 # Should a Bybit-derived take-profit cap bind non-Bybit venues?
 
-**Status: PROPOSAL — Tier-3, order geometry. Nothing here is applied.**
+**Status: RESOLVED 2026-08-24 — option C MEASURED AND REJECTED. The clamp and
+both legs' `tp_r: 6.0` are UNCHANGED; only the false YAML comments were fixed.
+See § 9 for the measurement. Nothing in §§ 1-8 was applied.**
 **Date:** 2026-08-24 · **Requested by the operator** (2026-08-24) after the item
 was surfaced and parked by the preceding session.
 
@@ -165,3 +167,97 @@ Five copies of one venue constant is the shape `cost-model-single-owner` and
 option B cheap if it is ever taken** — the consolidation is worth doing on its
 own merits, independently of the venue question. **Not proposed here**, because
 bundling a refactor with a Tier-3 geometry decision makes both harder to judge.
+
+
+---
+
+## 9. RESOLUTION (2026-08-24) — C was measured, and it loses
+
+The operator directed **"measure first, then decide."** Two things came out of
+that, and the first one invalidates this document's own § 6.
+
+### 9.1 ⚠️ Option C's stated rationale was FALSE
+
+C described itself as addressing *"the documentation defect without touching
+order geometry"*. **It does touch order geometry.** The effective target is
+
+```
+min(cap_r, tp_r),   cap_r = 0.099 · entry / risk
+```
+
+`cap_r` is a **percent-of-entry**; `tp_r` is a **multiple-of-risk**. They are
+different functions of different variables, so **no `tp_r` reproduces the
+clamp**. Lowering `tp_r` to 3.22 / 4.08 tightens the *real* target on every
+trade where `cap_r > tp_r` — **half the trades by the definition of the
+median**, since 3.22 and 4.08 *are* the medians quoted in § 4.
+
+The half of § 5 that survives: `backtest_system`'s ROSTER maps both prop legs to
+the live unit and imports its `order_package` — the function holding the clamp —
+so the +$483 / +$883 gate **did** measure the clamped book. That was checked, not
+assumed.
+
+### 9.2 The measurement
+
+Blocked at first: `account_compat_matrix` passed `overrides={}` **hardcoded**, so
+the engine could only score a strategy at its config values — pricing a candidate
+`tp_r` required first editing the Tier-3 file under evaluation. PR #10238 removed
+that circularity and shipped `prop-tp-r-gate.yml`; the grid and accept criterion
+were fixed in the workflow header **before any result**.
+
+**Actions run `32781427791`, 10/10 arms, 5m base, `breakout_1` ruleset.**
+
+| `trend_donchian_sol_prop` | trades | ev_net_usd | P(net>0) | vs control |
+|---|---|---|---|---|
+| **6.0** (control) | 411 | **$1,084** | 0.8863 | — |
+| 5.0 | 413 | $1,090 | 0.8840 | +$5 |
+| 4.0 | 413 | $1,029 | 0.8773 | −$55 |
+| 3.0 | 422 | $986 | 0.8517 | −$99 |
+| 2.5 | 431 | $950 | 0.8587 | −$135 |
+
+| `trend_donchian_eth_prop` | trades | ev_net_usd | P(net>0) | vs control |
+|---|---|---|---|---|
+| **6.0** (control) | 977 | **$968** | 0.8063 | — |
+| 5.0 | 981 | $980 | 0.8163 | +$12 |
+| 4.0 | 987 | $795 | 0.7707 | −$173 |
+| 3.0 | 999 | $611 | 0.7273 | −$358 |
+| 2.5 | 1020 | $503 | 0.6760 | −$465 |
+
+**C's own values land in the losing region on both legs.** EV falls
+monotonically below 5.0 and `P(net>0)` falls with it; criterion clause (c) fails.
+5.0-vs-6.0 is a tie (+$5 / +$12, well under 2%) and is **not** read as a win.
+
+⚠️ **State the population.** These are this run's own numbers on its own data
+vintage and window — they are **not** comparable to trainer relay #8975's
++$483 / +$883, and the control is the 6.0 arm *in this run*.
+
+⚠️ **`eth_pullback_prop_2h` was NOT measured.** The run covered the two donchian
+prop legs only; that leg is `execution: shadow`. Its comment was corrected on the
+**structural** ground alone (read off the code) — it has no measured `cap_r`
+median and no EV evidence, and the donchian numbers must not be borrowed for it.
+
+### 9.3 What was applied
+
+**Option C is REJECTED on the evidence.** `tp_r` stays 6.0 on both legs; the
+clamp is untouched; no order path changed.
+
+The **documentation defect is fixed instead**: all three prop legs carried
+`# real 6R take-profit cap`, which is false — the clamp gets there first on more
+than half of the two measured legs' trades. Those comments now state the real
+mechanism, and the two donchian legs carry the measured evidence for why 6.0
+stays. **Comment-only: the parsed YAML is byte-identical before and after**,
+asserted rather than eyeballed.
+
+### 9.4 Still open, and deliberately not closed here
+
+- **§ 5's load-bearing unknown is UNCHANGED**: nobody has established whether
+  Breakout imposes a TP limit at all. This measurement says 6.0 beats the lower
+  arms *under the clamp as it exists*; it says nothing about whether the clamp
+  should apply to a venue that may not need it.
+- **The grid never probed ABOVE 6.0.** The surface is monotone increasing toward
+  6.0 and flat between 5.0 and 6.0, so the optimum may sit at or above it —
+  possibly at the 50.0 sentinel the non-prop siblings use. Answering that needs a
+  second run at `{6.0, 8.0, 12.0, 50.0}`; **6.0 is therefore the best of the five
+  arms tested, NOT a demonstrated optimum**, and this document does not claim it
+  is one.
+- **Option B remains structurally blocked** for the reason in § 6 (the clamp runs
+  before the account is known).

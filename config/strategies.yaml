@@ -1200,7 +1200,28 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
-    tp_r: 6.0               # real 6R take-profit cap (vs live 50.0 sentinel).
+    tp_r: 6.0               # ⚠️ NOT a "6R cap". The OPERATIVE target is
+                            # min(cap_r, 6.0), where cap_r = 0.099*entry/risk --
+                            # the _TP_SENTINEL_CAP_PCT clamp in trend_donchian.py
+                            # (applied in order_package, BEFORE the account is
+                            # known). cap_r is a percent-of-entry and tp_r a
+                            # multiple-of-risk, so 6.0 binds ONLY when ATR/entry
+                            # is low enough; on MORE THAN HALF this leg's trades
+                            # the clamp gets there first (measured median cap_r
+                            # 3.22, 2026-08-24). The old comment claimed a 6R cap
+                            # this leg mostly does not get, and is corrected here.
+                            #
+                            # 6.0 is KEPT ON MEASURED EVIDENCE, not inertia. The
+                            # prop EV/survival gate swept {6.0,5.0,4.0,3.0,2.5}
+                            # against breakout_1's ruleset on 2026-08-24 (Actions
+                            # run 32781427791, 5/5 arms): ev_net_usd 6.0 $1,084 /
+                            # 5.0 $1,090 / 4.0 $1,029 / 3.0 $986 / 2.5 $950, with
+                            # P(net>0) 0.886 -> 0.859. EV falls monotonically
+                            # below 5.0 and 5.0-vs-6.0 is a tie (+$5, ~0.5%).
+                            # ⚠️ LOWERING tp_r IS A REAL GEOMETRY CHANGE, NOT A
+                            # DOC FIX: it tightens the live target on every trade
+                            # where cap_r > tp_r. Tier-3, and the measured answer
+                            # on this grid was DO NOT TIGHTEN.
     min_confidence: 0.80
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
@@ -1224,7 +1245,20 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
-    tp_r: 6.0               # real 6R take-profit cap (vs live 50.0 sentinel).
+    tp_r: 6.0               # ⚠️ NOT a "6R cap" -- same structure as
+                            # trend_donchian_sol_prop above: the operative target
+                            # is min(cap_r, 6.0), cap_r = 0.099*entry/risk, so 6.0
+                            # binds only when ATR/entry is low enough. Measured
+                            # median cap_r 4.08 (2026-08-24), i.e. the clamp gets
+                            # there first on more than half this leg's trades.
+                            #
+                            # 6.0 KEPT on measured evidence -- same gate run
+                            # (Actions 32781427791, 5/5 arms): ev_net_usd 6.0 $968
+                            # / 5.0 $980 / 4.0 $795 / 3.0 $611 / 2.5 $503, P(net>0)
+                            # 0.806 -> 0.676. The decline below 5.0 is STEEPER
+                            # here than on sol (-$465 at 2.5 vs -$135). Lowering
+                            # tp_r is a real geometry change, Tier-3; the measured
+                            # answer was DO NOT TIGHTEN.
     min_confidence: 0.60
     stale_exit_bars: 12          # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
     stale_exit_below_r: 0.0      # stale12_lt0R (IS +1.26R / OOS +5.43R, maxDD -4.18 / -4.88)
@@ -2352,7 +2386,18 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 3.5           # swap-robust (vs live 5.0) — shorter holds.
-    tp_r: 6.0                 # real 6R take-profit cap (vs live 50.0 sentinel).
+    tp_r: 6.0                 # ⚠️ NOT a "6R cap" -- the operative target is
+                              # min(cap_r, 6.0) with cap_r = 0.099*entry/risk
+                              # (_TP_SENTINEL_CAP_PCT in htf_pullback_trend_2h.py),
+                              # so 6.0 binds only when ATR/entry is low enough.
+                              # ⚠️ THIS LEG WAS **NOT** MEASURED by the 2026-08-24
+                              # prop tp_r gate (Actions 32781427791) -- that run
+                              # covered the two donchian prop legs only, and this
+                              # leg is `execution: shadow` (demoted 2026-08-23).
+                              # So the STRUCTURAL correction above applies (it is
+                              # read off the code), but there is NO measured cap_r
+                              # median and NO EV evidence for 6.0 here. Do not
+                              # borrow the donchian numbers for this leg.
     min_confidence: 0.0
     adx_min: 25               # ADX>=25 regime gate (== eth_pullback_2h).
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
