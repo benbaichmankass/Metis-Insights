@@ -754,6 +754,22 @@ _REQUIRED_COVERAGE_KEYS = (
     "since_last_build_verification",
     "backlog_classes",
     "ml_output_actionability",
+    # ── structural_health: operator-directed 2026-08-24. `backlog_classes`
+    #    finds patterns in the BACKLOG; this finds them in the RUNNING SYSTEM,
+    #    where the defect may have no backlog row at all. Operator: "if we see
+    #    that trades aren't closing properly, or that there are bugs that are
+    #    not really resolving themselves over time because we're just putting
+    #    on band-aids and we need a bigger structural fix -- those are also
+    #    things you should be looking for."
+    #
+    #    Measured the day it was added, over ALL 1324 closed non-backtest
+    #    trades (not the window): 64.7% of closes come from cleanup machinery
+    #    and 35.3% from a decision; the M20 exit levers -- the entire point of
+    #    the exit-refinement program -- had fired 17 times EVER (1.3%). Not one
+    #    of those facts was a backlog row, and eight consecutive reviews had
+    #    reported the same execution-capture percentage as a metric without
+    #    once asking what it was a symptom OF.
+    "structural_health",
     # ── unexercised_fixes: operator-directed 2026-08-24. A fix that is DEPLOYED
     #    and a fix that WORKS look identical from every surface we have, and the
     #    difference is only settled by the mechanism firing on a real trade. Two
@@ -925,6 +941,67 @@ def _validate_review_coverage(report: dict) -> list[str]:
                     violations.append(
                         f"backlog_classes '{label}': no structural_fix — naming a class "
                         "without the fix that retires it is just a nicer-looking backlog")
+
+    # ── THE BACKLOG IS NOT THE ONLY PLACE A DEFECT LIVES (2026-08-24) ─────
+    #
+    # `backlog_classes` above reads the BACKLOG for patterns. This reads the
+    # RUNNING SYSTEM, where the biggest defects have no backlog row at all --
+    # they are visible only as a distribution over live data. Three rules,
+    # each earned:
+    #
+    #  1. POPULATION IS THE WHOLE HISTORY, NOT THE WINDOW. A structural trend
+    #     is invisible in a 3-day slice; the window is what let successive
+    #     reviews report execution-capture as a flat metric.
+    #  2. EVERY FINDING CARRIES A TREND. "Is this class shrinking?" is the
+    #     whole question -- a defect count that is flat across reviews means
+    #     the fixes are not touching the cause, which is the operator's
+    #     actual complaint ("bugs that are not really resolving themselves").
+    #  3. ONE FALSIFIABLE HYPOTHESIS, STATED AND TESTED. On 2026-08-24 the
+    #     review predicted the provenance gap was downstream of janitor
+    #     closes; it was REFUTED (janitor 52.0% measured vs decided 27.0%)
+    #     and the refutation was the single most valuable output of the pass.
+    #     A structural review that only confirms what it already believed has
+    #     not tested anything -- the repo's own RULE ONE, applied to itself.
+    sh = rc.get("structural_health") or {}
+    if isinstance(sh, dict):
+        if not str(sh.get("population") or "").strip():
+            violations.append(
+                "structural_health.population missing — state the denominator AND "
+                "that it spans the whole history, not the review window")
+        findings = sh.get("findings")
+        if not isinstance(findings, list) or not findings:
+            violations.append(
+                "structural_health.findings missing — name at least one structural "
+                "observation, or state explicitly why the system shows none")
+        else:
+            for f in findings:
+                f = f or {}
+                label = str(f.get("finding") or "?")[:60]
+                if not str(f.get("measured") or "").strip():
+                    violations.append(
+                        f"structural_health '{label}': no measured — a structural claim "
+                        "without a number over a stated population is an opinion")
+                if str(f.get("trend") or "") not in (
+                        "falling", "flat", "rising", "first_measurement"):
+                    violations.append(
+                        f"structural_health '{label}': trend must be one of "
+                        "falling|flat|rising|first_measurement — a defect class with no "
+                        "trend cannot answer whether the fixes are working")
+                if not str(f.get("structural_fix") or "").strip():
+                    violations.append(
+                        f"structural_health '{label}': no structural_fix")
+        hyp = sh.get("hypothesis_tested") or {}
+        if not isinstance(hyp, dict) or not str(hyp.get("hypothesis") or "").strip():
+            violations.append(
+                "structural_health.hypothesis_tested.hypothesis missing — state one "
+                "falsifiable structural hypothesis this review actually tested")
+        elif str(hyp.get("verdict") or "") not in ("supported", "refuted"):
+            violations.append(
+                "structural_health.hypothesis_tested.verdict must be supported|refuted")
+        elif not str(hyp.get("evidence") or "").strip():
+            violations.append(
+                "structural_health.hypothesis_tested.evidence missing — the numbers "
+                "that settled it, either way")
 
     # ── THE TRAINER BEING GREEN IS NOT THE QUESTION (2026-08-20) ───────────
     #
