@@ -161,15 +161,53 @@ design**, and reachability was never a selection criterion.
 
 ## 7. ⚠️ The gap that limits all of it
 
-**The live stop, `atr_stop_mult: 2.5`, is absent from the joint axis on all four
+> ## ⚠️ § 7 WAS WRONG, AND THIS TOOL'S OWN FILTER IS WHY (corrected 2026-08-24, same day)
+>
+> **The struck text below is false.** The live stop is **not** absent from the
+> joint grid. `e35_bracket_geometry_sweep` builds its stop axis as
+> `(None,) + STOP_MULT_GRID`, where `None` means *do not pass
+> `--atr-stop-mult`* — i.e. run at the harness base, which `base_geo` records
+> as **2.5**. `cell_tag` then omits the `sm` token for those cells, so they
+> carry tags like `tp1.5_to24` with no stop component.
+>
+> `bracket_reachability_audit.classify` did `if stop_mult is None: continue`,
+> which dropped **390 of 2204** corpus rows — every cell at the live stop with
+> a varied target — and this document then reported that absence as a property
+> of the GRID. An empty result read as a clean negative is
+> `diagnostic-provenance-guard` sub-class **C**, and it ran in the dangerous
+> direction: § 4's measurement was computed over a population that excluded the
+> stop the fleet actually trades.
+>
+> **Fixed** (`stop_mult is None` resolves to `BASE_STOP_MULT`, every cell
+> carrying `stop_basis`). **Population 1540 → 1928 cells.** The two axes move
+> differently and must be read separately:
+>
+> | axis | the 388 newly-visible cells |
+> |---|---|
+> | truncation | 167 reachable / **153 truncated** / 68 no-cap-basis |
+> | cosmetic | **all 388 `no_baseline` — the 49/308 headline is UNCHANGED** |
+>
+> So **153 truncated cells at the live stop were previously invisible**, and
+> the cosmetic headline did *not* move — stated rather than left to be inferred
+> from the population jump.
+>
+> **The remaining cosmetic blindness at the live stop is STRUCTURAL, not a
+> filter bug.** A cosmetic verdict needs a same-leg *no-target* book at the same
+> stop, and the corpus holds **zero** rows with `tp`/`stop`/`timeout` all None —
+> that grid point is a provable no-op the sweep records as `inert_equals_base`
+> and correctly never runs. Right as a *grid* decision; the consequence is that
+> its **book**, which is exactly what a cosmetic comparison needs, does not
+> exist.
+
+~~**The live stop, `atr_stop_mult: 2.5`, is absent from the joint axis on all four
 legs** — the grid is `{1.5, 2.0, 3.0, 3.5}`. So every number in § 4 is *"declare
 a target **and** move the stop"*. The isolated question — *does declaring a
 target at the geometry we actually run help?* — **has never been measured**, on
-any of the four.
+any of the four.~~
 
-That is not fatal to § 6.5's rule, which is explicitly a **joint** change ("one
-change, two effects, and they are the same change"). It is fatal to reading § 4
-as evidence about targets alone. Filed.
+What survives: § 4's top-N numbers still confound target with stop, because the
+cells that top-N surfaced were the explicitly-swept ones. What does not survive
+is the stated CAUSE — the grid covered the live stop all along.
 
 ## 8. What I am proposing, and what I am not
 
@@ -178,9 +216,15 @@ rule, and § 7 means the cheapest version of the change is unmeasured.
 
 **Proposing, in order:**
 
-1. **Add `atr_stop_mult: 2.5` to the joint grid** and re-run the four legs. Cheap,
-   and it separates "the target helped" from "the stop helped" — currently
-   inseparable.
+1. ~~**Add `atr_stop_mult: 2.5` to the joint grid** and re-run the four legs.~~
+   ⚠️ **WITHDRAWN — this would not have worked.** `axis_of` compares each cell
+   against `base_geo`, so a cell at `sm=2.5` differs from the base on no axis,
+   is marked `"none"`, and is recorded as `inert_equals_base` and **never run**.
+   Adding 2.5 to `STOP_MULT_GRID` produces duplicate tags, not new coverage.
+   **Replaced by:** run the **no-target book at stop 2.5, one cell per leg**
+   (~9–11 runs, not a grid re-sweep). That is the single missing row that
+   unlocks a cosmetic verdict for all 388 base-stop cells; the truncation half
+   needed no new runs at all and is already graded.
 2. **Grade reachable cells explicitly**, rather than relying on a net_R top-N to
    surface them. 3 of 200 is not a sample.
 3. **Never ship a cosmetic target.** A declared `tp_r` above the leg's `cap_r`
