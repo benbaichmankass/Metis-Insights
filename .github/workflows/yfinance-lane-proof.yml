@@ -1,0 +1,77 @@
+# Proves the NON-CRYPTO candle lane on a real network, which the sandbox cannot.
+#
+# Yahoo returns HTTP 429 to the dev sandbox, so `--source yfinance` is
+# implementable but UNVERIFIABLE there. The M20 readiness note is explicit that
+# the source must be proven on a GitHub runner; this is that proof, and it is
+# dispatch-only so it never runs on a push.
+#
+# It is also the lane's smoke test: it asserts a real CSV with a sane schema,
+# and REPORTS THE SPAN OBTAINED against the span requested — yfinance caps
+# intraday history (~730 d at 1h, ~60 d at 15m), and a truncated window that
+# nobody printed reads exactly like a complete one.
+name: yfinance-lane-proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "Bot symbol (must be mapped in yfinance_offvm._DEFAULT_TICKER_MAP)"
+        default: "SPY"
+      interval:
+        description: "Kline code: 1 / 5 / 15 / 60 / D"
+        default: "D"
+      days:
+        description: "Trailing days to request"
+        default: "365"
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install pandas yfinance
+
+      - name: Fetch via the yfinance lane
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${{ inputs.symbol }}" \
+            --interval "${{ inputs.interval }}" \
+            --days "${{ inputs.days }}" \
+            --source yfinance \
+            --output data/yf_proof.csv
+
+      - name: Assert the result is a real book, not an empty green
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import sys
+          import pandas as pd
+          df = pd.read_csv("data/yf_proof.csv", parse_dates=["timestamp"])
+          # A zero-row CSV would exit 0 from the fetch and prove nothing --
+          # the whole point of this job is that "it ran" is not "it worked".
+          assert len(df) > 0, "REFUSED: 0 rows -- the lane produced no book"
+          need = {"timestamp", "open", "high", "low", "close", "volume"}
+          missing = need - set(df.columns)
+          assert not missing, f"REFUSED: missing columns {sorted(missing)}"
+          bad = df[~(df["high"] >= df["low"])]
+          assert bad.empty, f"REFUSED: {len(bad)} bars with high < low"
+          assert df["close"].notna().all(), "REFUSED: NaN closes survived the filter"
+          span = (df["timestamp"].max() - df["timestamp"].min()).days
+          print(f"rows={len(df)}  span={span} d  "
+                f"{df['timestamp'].min().date()} -> {df['timestamp'].max().date()}")
+          # Reported, never asserted: a SHORT span is the documented yfinance
+          # cap doing its job, not a failure -- but it must be visible.
+          req = int("${{ inputs.days }}")
+          if span < req * 0.8:
+              print(f"NOTE: obtained {span} d against {req} d requested -- "
+                    f"treat this as a PARTIAL window (yfinance intraday cap).")
+          PY
