@@ -212,7 +212,7 @@
       }
     ],
     "review_coverage": {
-      "_comment": "REQUIRED (the Review-coverage guard, 2026-06-23; execution_capture added 2026-07-30). Proves the SYSTEM REVIEW actually covered its mandate — strategy promotion, ML training health, soak progress, EXECUTION CAPTURE (did the edge reach the account?), AND that it WORKED THE BACKLOGS DOWN (not just counted them) — not just the trade/health summary. A run with any of strategy_promotion / ml_training_health / soak_status / execution_capture / backlog_drive missing or empty must STOP and complete the work before rendering. Relay-blocked data is allowed only as an explicit 'unavailable: <reason>' string, never silently omitted.",
+      "_comment": "REQUIRED (the Review-coverage guard, 2026-06-23). Proves the SYSTEM REVIEW actually covered its mandate, not just the trade/health summary. THE AUTHORITATIVE LIST IS `_REQUIRED_COVERAGE_KEYS` in scripts/reports/render_system_report.py — this template mirrors it and tests/test_review_coverage_template_complete.py FAILS if the two drift. That test exists because they DID drift: this template sat at 8 keys while the renderer required 11 (since_last_build_verification, backlog_classes, ml_output_actionability and unexercised_fixes were all missing here), so the canonical shape a session copies to build its payload actively taught the wrong one. A run with any required key missing or empty must STOP and complete the work before rendering. Relay-blocked data is allowed only as an explicit 'unavailable: <reason>' string, never silently omitted.",
       "strategy_promotion": {
         "_comment": "Per-strategy promotion/demotion stance vs each gate (KILL/DEMOTE_SHADOW/TUNE/HOLD/PROMOTE), from the ml/performance sub-reviews + /api/bot/strategies/{name}/review. List ready-to-promote + demote/kill candidates, or state 'all HOLD'.",
         "ready_to_promote": [
@@ -278,6 +278,43 @@
         ],
         "dollars_reconciled": null,
         "summary": "<= 240 chars — capture health + the dollars-vs-R reconciliation result (real-money DOLLARS from /pnl/exchange + /pnl/broker-truth, stated as down when down) | 'unavailable: <reason>'"
+      },
+      "since_last_build_verification": {
+        "_comment": "REQUIRED (2026-08-20). Enumerate EVERY capability shipped since the previous review and give each a verdict ∈ running|wired_not_yet_exercised|UNWIRED|unverifiable (+reason). count_shipped MUST equal len(items) — a partial enumeration is the failure this key exists to catch. Any UNWIRED item MUST also appear in flags_raised[]. Run scripts/ci/check_unwired_artifacts.py.",
+        "count_shipped": 0,
+        "items": []
+      },
+      "backlog_classes": {
+        "_comment": "REQUIRED (2026-08-20). Read the WHOLE open backlog for PATTERNS before disposing of any row. total_open_reviewed is the full open count, not a sample. Each class needs >=2 member_ids (one row is an instance, not a class) and a structural_fix that retires the whole class. Do this BEFORE backlog_drive.",
+        "total_open_reviewed": 0,
+        "classes": []
+      },
+      "ml_output_actionability": {
+        "_comment": "REQUIRED (2026-08-20). ml_training_health answers 'did it run'; this answers 'did what it produced get USED'. Name the consumers, not just the cycle count.",
+        "cycles_in_window": 0,
+        "outputs_consumed_by": [],
+        "verdict": "actionable|not_actionable"
+      },
+      "unexercised_fixes": {
+        "_comment": "REQUIRED (2026-08-24). A fix that is DEPLOYED and a fix that WORKS look identical from every surface we have; only the mechanism firing on a real trade settles it. Each row: fix, deployed_sha, verdict ∈ exercised|still_unexercised, evidence. A still_unexercised row MUST reach flags_raised[].",
+        "rows": []
+      },
+      "structural_health": {
+        "_comment": "REQUIRED (2026-08-24, operator directive). backlog_classes finds patterns in the BACKLOG; this finds them in the RUNNING SYSTEM, where the biggest defects have no backlog row at all. THREE RULES: (1) population is the WHOLE HISTORY, not the review window — a structural trend is invisible in a three-day slice; (2) every finding carries trend ∈ falling|flat|rising|first_measurement, because 'is this class shrinking?' is the whole question; (3) state ONE falsifiable hypothesis and test it, with verdict ∈ supported|refuted — 'refuted' is exactly as legal as 'supported' (on 2026-08-24 the refutation WAS the most valuable output), and there is deliberately no 'inconclusive' or a review discharges the rule by not deciding.",
+        "population": "e.g. all N closed non-backtest trades — whole history, not the window",
+        "findings": [
+          {
+            "finding": "",
+            "measured": "",
+            "trend": "first_measurement",
+            "structural_fix": ""
+          }
+        ],
+        "hypothesis_tested": {
+          "hypothesis": "",
+          "verdict": "supported|refuted",
+          "evidence": ""
+        }
       },
       "flags_raised": [
         "free-form — the loud flags this review surfaced (degrading strategy, stalled soak, gate met-but-unactioned, training failure). Empty ONLY if genuinely nothing is degrading — say so explicitly."

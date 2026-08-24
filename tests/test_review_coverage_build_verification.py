@@ -123,6 +123,23 @@ def test_a_clean_payload_raises_none_of_these():
             "fix": "#10174 IB transmit", "deployed_sha": "abc1234",
             "verdict": "exercised",
             "evidence": "trade 4931 exited at the attached LMT, exit_reason=target_fill"}],
+        # structural_health (2026-08-24): `backlog_classes` above reads the
+        # BACKLOG for patterns; this reads the RUNNING SYSTEM, where the biggest
+        # defects have no backlog row. A clean payload must carry a stated
+        # population spanning the whole history, a finding with a number and a
+        # trend, and one falsifiable hypothesis with its verdict — `refuted` is
+        # as clean as `supported`, deliberately.
+        "structural_health": {
+            "population": "all 1324 closed non-backtest trades — whole history",
+            "findings": [{
+                "finding": "exits are performed by cleanup, not by decisions",
+                "measured": "857 of 1324 closes (64.7%) from reconciler/sweep paths",
+                "trend": "flat",
+                "structural_fix": "make the declared exit fire at the venue"}],
+            "hypothesis_tested": {
+                "hypothesis": "the provenance gap is downstream of janitor closes",
+                "verdict": "refuted",
+                "evidence": "janitor 52.0% measured vs decided 27.0% — the opposite"}},
         "flags_raised": [],
     }
     assert _validate(rc) == []

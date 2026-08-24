@@ -168,6 +168,50 @@ grading-freshness guard. Required, non-empty:
   the classes decide which rows are worth disposing of individually and which
   are symptoms of one fix.
 
+- `review_coverage.structural_health` — **mandatory** (2026-08-24, operator
+  directive). **`backlog_classes` finds patterns in the BACKLOG. This finds
+  them in the RUNNING SYSTEM — where the biggest defects have no backlog row
+  at all**, because they are visible only as a distribution over live data.
+
+  Operator, 2026-08-24: *"if we see that trades aren't closing properly, or
+  that there are bugs that are not really resolving themselves over time
+  because we're just putting on band-aids and we need a bigger structural fix
+  — those are also things you should be looking for and suggesting here."*
+
+  Carries `population`, `findings[]` (each with `finding`, `measured`,
+  `trend`, `structural_fix`) and `hypothesis_tested`. Three binding rules:
+
+  1. **The population is the WHOLE HISTORY, not the window.** A structural
+     trend is invisible in a three-day slice. The window is precisely what let
+     successive reviews report execution-capture as a flat metric.
+  2. **Every finding carries a `trend`** (`falling` / `flat` / `rising` /
+     `first_measurement`) against prior reviews. *Is this class shrinking?* is
+     the whole question — a count that is flat across reviews means the fixes
+     are not touching the cause, which IS the complaint.
+  3. **State ONE falsifiable hypothesis and test it.** Report the verdict even
+     — especially — when it is `refuted`. A structural review that only
+     confirms what it already believed has tested nothing; this is RULE ONE
+     ("verify your own output too, hardest when it confirms what you
+     expected") applied to the review itself.
+
+  Why it exists. Measured the day it was added, over **all 1,324 closed
+  non-backtest trades**: **64.7% of closes come from cleanup machinery** and
+  35.3% from a decision, and the M20 exit levers — the entire point of the
+  exit-refinement program — had fired **17 times ever (1.3%)**. Separately,
+  the strategy-**decided** exit path is the *unmeasured* one (27.0% measured
+  coverage vs the janitor path's 52.0%; 41.8% of decided closes carry no
+  provenance stamp at all), and the pairs sleeve stamped **79 of 79** closes
+  with nothing. **None of those facts was a backlog row.** Eight consecutive
+  reviews reported the same execution-capture percentage as a metric without
+  once asking what it was a symptom OF. The rule-3 hypothesis on that run was
+  REFUTED — the review predicted the provenance gap was downstream of janitor
+  closes and the measurement said the opposite — and that refutation was the
+  most valuable thing the pass produced.
+
+  Do this pass **after** `backlog_classes` (the classes are an input to it)
+  and **before** writing `operator_priorities` — the structural findings are
+  what those priorities should be ranked against.
+
 - `review_coverage.ml_output_actionability` — **mandatory** (2026-08-20,
   operator directive). *"Just checking that the trainer VM is green isn't
   enough — we need to verify that the training sessions and backlogs are
