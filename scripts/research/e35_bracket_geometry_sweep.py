@@ -580,9 +580,34 @@ def gate(leg: dict, cells: list[dict], split_mode: str, split: str,
         if "stop" in c["axis"]:
             rec["leverage"] = c.get("leverage") or {"state": "unmeasured"}
         path_a = fleet.beats(c_is, b_is) and fleet.beats(c_oos, b_oos)
+        # PATH B WAS UNREACHABLE BY CONSTRUCTION UNTIL 2026-08-23
+        # (BL-20260823-E35-PATH-B-UNREACHABLE-RAW-RUNCELL-DICT). This passed the
+        # RAW `c_oos` run_cell dict where `is_path_b_candidate` reads
+        # `d_net_r_per_capital_day` -- a key `run_cell` never emits (proved over
+        # 308 run_cell dicts across 11 legs: `net_r_per_capital_day` present,
+        # the DELTA absent). `.get` returned None, `_up(None)` is False, so the
+        # predicate answered False for every cell ever gated, whatever its
+        # numbers. The fleet sweep passes `capital_delta(c_oos, b_oos)`; this
+        # now does the same, so the cell-vs-base delta actually exists.
+        #
+        # This is the SAME gate gap the fleet sweep found and fixed on
+        # 2026-08-10 -- "a Path B candidate short-circuited to `is_oos_fail`
+        # BEFORE any walk-forward ran, so every Path B candidate on record had
+        # ZERO generalisation evidence" -- reproduced in the newer sweep, and
+        # the second instance of the lever sweep getting a fix the bracket
+        # sweep did not inherit (the first: the write-only corpus,
+        # BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH).
+        #
+        # `capital_delta` is REPORTED, never graded, and returns None (never
+        # 0.0) for an unmeasurable rate -- so an unmeasurable cell still fails
+        # the predicate, which is correct: it is "we could not look", not "the
+        # rate did not improve".
+        cap_oos = fleet.capital_delta(c_oos, b_oos)
+        rec["capital"] = {"IS": fleet.capital_delta(c_is, b_is),
+                          "OOS": cap_oos}
         path_b = (not path_a) and fleet.is_path_b_candidate(
             fleet.beats_detail(c_is, b_is), fleet.beats_detail(c_oos, b_oos),
-            c_oos)
+            cap_oos)
         if not path_a and not path_b:
             rec["verdict"] = "is_oos_fail"
             out.append(rec)

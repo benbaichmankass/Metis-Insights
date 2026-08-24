@@ -36,7 +36,8 @@ sub-session (`/health-review`, `/performance-review`, `/ml-review`,
 
 ## ⚠️ POST WITH `add_issue_comment`. `issue_write method=update` DESTROYS THE BOARD.
 
-**This has happened six times, twice on 2026-08-20 within four minutes.** `issue_write method=update` **replaces the issue
+**This has now happened seven times** — twice on 2026-08-20 within four minutes,
+and again on 2026-08-23. `issue_write method=update` **replaces the issue
 body** — it is the edit-the-issue tool, not the comment tool — and on #6927 the
 body is the pinned protocol header every session's preflight reads. The comment
 tool is **`add_issue_comment`**.
@@ -62,13 +63,19 @@ Recorded clobbers: **2026-07-30** (`S-BYBIT-COVERAGE-DEPLOY-VERIFY`) · **2026-0
 (`S-M20-DISPERSION-ISOLATION-AND-QUEUE` § 33) · **2026-08-19**
 (`BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE`) · **2026-08-20 08:52Z**
 (`S-LLM-BURST-WORKER-SCHEDULING`) · **2026-08-20 08:56Z**
-(`comprehensive-system-audit-p2dlkd`). A seventh session attempted it on 2026-07-30
-and was saved only by a scope denial, not by knowing better.
+(`comprehensive-system-audit-p2dlkd`) · **2026-08-23 18:13Z**
+(`bracket-expectations-exit-ctjaiq` — restored as a reconstruction the same
+minute; the session had not read this section before acting). Another session
+attempted it on 2026-07-30 and was saved only by a scope denial, not by knowing
+better.
 
-⚠️ **The last two are four minutes apart, by two sessions neither of which could see
+⚠️ **Two of these are four minutes apart, by two sessions neither of which could see
 the other doing it.** That is the argument that this is a tooling-shaped trap rather
 than carelessness, and it is why the fix is here — in the binding doc — rather than in
-a sixth sprint log.
+a sixth sprint log. ⚠️ **The 2026-08-23 recurrence happened WITH this section already
+in place**, which narrows the remaining cause: the doc is only load-bearing for a
+session that reads it before posting, and nothing on the web prompts that read. The
+warning is necessary and is not sufficient.
 
 ⚠️ **When restoring, GitHub strips `<…>` as HTML EVEN INSIDE CODE FENCES.** A restore
 that pastes this file verbatim silently empties every comment template. Use `{braces}`

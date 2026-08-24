@@ -98,6 +98,21 @@ _DEFAULTS: Dict[str, Any] = {
 _TP_SENTINEL_CAP_PCT = 0.099
 
 
+def _trend_midline(df: "pd.DataFrame", trend_lb: int) -> "pd.Series":
+    """Donchian-``trend_lb`` midline, ``shift(1)`` so there is no lookahead.
+
+    ONE definition, because two consumers must not disagree about it: the ENTRY
+    condition (`close` above it = uptrend) and `_pullback_thesis_intact`, which
+    re-evaluates that same condition while the trade is open. A second copy
+    would let the thesis grade a trade against a midline the entry never used --
+    the same class as the two byte-identical `_since_entry` copies this module
+    already had to collapse.
+    """
+    dc_hi = df["high"].rolling(trend_lb).max().shift(1)
+    dc_lo = df["low"].rolling(trend_lb).min().shift(1)
+    return (dc_hi + dc_lo) / 2.0
+
+
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return {key: cfg.get(key, default) for key, default in _DEFAULTS.items()}
 
@@ -212,9 +227,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     atr_series = _atr(df, atr_period)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1), no
     # lookahead). Price above a rising midline = uptrend; below = downtrend.
-    dc_hi = df["high"].rolling(trend_lb).max().shift(1)
-    dc_lo = df["low"].rolling(trend_lb).min().shift(1)
-    midline = (dc_hi + dc_lo) / 2.0
+    midline = _trend_midline(df, trend_lb)
     # Recent range for the pullback test (prior pull_lb bars, shift(1)).
     pr_hi = df["high"].rolling(pull_lb).max().shift(1)
     pr_lo = df["low"].rolling(pull_lb).min().shift(1)
@@ -442,35 +455,116 @@ def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataF
 
     return since_entry(candles_df, open_pkg)
 
-def _pullback_thesis_intact(meta, candles_df):
+def _pullback_thesis_intact(meta, candles_df, direction=None):
     """Is the trend-pullback thesis still intact? -> (bool|None, detail).
 
-    The entry required ``ADX >= adx_min``; the thesis holds while it still
-    does. Reuses this module's own ``_adx`` — the verbatim copy of
-    ``scripts/backtest_pullback.py::_adx`` — so the live predicate and the
-    harness cannot disagree about the number.
+    TWO PREDICATES, IN PRIORITY ORDER, because this family declares its entry
+    regime two different ways and a MINORITY of legs use the first:
 
-    Returns ``None`` when ``adx_min`` was never declared or ADX cannot be
-    computed: *we could not look*, which never extends. A leg with no declared
-    floor has no thesis to test, which is a different thing from a broken one.
+    1. **ADX floor** -- when the leg declares ``adx_min``, the entry required
+       ``ADX >= adx_min`` and the thesis holds while it still does. Unchanged.
+    2. **Trend structure** -- when it does not. The entry ALSO required price on
+       the correct side of the Donchian-``trend_lookback`` midline, and every
+       leg in the family requires that, declared or not. The thesis holds while
+       price is still on that side.
+
+    ⚠️ **THE THESIS IS THE TREND, NOT THE PULLBACK, AND THAT IS THE WHOLE POINT.**
+    The entry needed BOTH an uptrend AND a pullback into the lower
+    ``pullback_frac`` of the recent range. Only the first is a *thesis*; the
+    pullback is entry TIMING -- it says why we entered *now*, not why the trade
+    should work. Re-evaluating it would invert the grade: a trade that is
+    WORKING has moved AWAY from the pullback zone, so "is it still in the lower
+    third?" reads a winner as thesis-broken. Pinned by test.
+
+    ⚠️ **MOST LEGS DECLARE NO ``adx_min``** -- measured 2026-08-23 over the 19
+    ENABLED legs the intent multiplexer routes to this module (16 ``live`` +
+    3 ``shadow``): **6 declare a floor, 13 do not.** State the population: this
+    is the enabled roster in ``config/strategies.yaml``, not every entry in the
+    file, and it moves whenever a leg is added.
+
+    ⚠️ **13 HERE vs 12 IN THE RESEARCH DOC IS A POPULATION DIFFERENCE, NOT A
+    CONTRADICTION** -- state which one you mean. `bracket-expectation-
+    construction-2026-08-23.md` § 7.5 counts the 12 SYMBOL-PINNED legs; this
+    counts those plus the un-pinned base `htf_pullback_trend_2h` entry, which is
+    also enabled and also declares no floor. 12 + 1 = 13, exactly.
+
+    Before this those 13 returned ``None`` -> ``thesis_unknown`` -> never extend,
+    and that was CORRECT reporting rather than a defect: those legs run **no ADX
+    filter at entry at all**, so there was no declared regime condition to
+    re-evaluate. Nor was there a value to port -- § 7.5 measured the family's own
+    crypto floors (25/28/30) against **123 historical entries across 6 of the 12
+    legs** (the other 6 were `insufficient_n` or `no_data`) and they would refuse
+    a mean of 65%/74%/80%, range **53-86%**. The predicate was wrong for these
+    legs, not the number. This gives them the predicate their entry actually uses.
+
+    ⚠️ That doc is on the SIBLING branch (`claude/bracket-expectations-exit-ctjaiq`,
+    PR #10183) and does not exist on this one yet -- the reference resolves once
+    it merges.
+
+    ⚠️ **OBSERVE-ONLY, AND IT MUST STAY THAT WAY.** The sole consumer is
+    ``target_extension_soak.annotate_from_monitor``, which returns nothing and
+    moves no order, so widening this predicate changes what a soak row RECORDS,
+    not what any trade DOES -- which is why it is Tier-1. A test asserts the
+    call site stays annotate-only; if this ever reaches a close/verdict path it
+    becomes Tier-3 and needs its own approval.
+
+    Returns ``None`` -- *we could not look*, which never extends -- when neither
+    predicate is computable. That is deliberately distinct from ``False``
+    (*we looked; the thesis is broken*).
     """
+    adx_detail = None
     try:
         adx_min_p = _coerce_float(meta.get("adx_min"))
-        if adx_min_p is None or adx_min_p <= 0:
-            return None, {"predicate": "adx_floor", "reason": "no_adx_min_declared"}
-        period = int(_coerce_float(meta.get("adx_period")) or 14)
-        if candles_df is None or len(candles_df) < period + 2:
-            return None, {"predicate": "adx_floor", "reason": "insufficient_bars"}
-        series = _adx(candles_df, period)
-        value = float(series.iloc[-1])
-        if value != value:  # NaN
-            return None, {"predicate": "adx_floor", "reason": "adx_nan"}
-        return bool(value >= adx_min_p), {
-            "predicate": "adx_floor", "adx": value, "adx_min": adx_min_p,
-            "adx_period": period,
-        }
+        if adx_min_p is not None and adx_min_p > 0:
+            period = int(_coerce_float(meta.get("adx_period")) or 14)
+            if candles_df is None or len(candles_df) < period + 2:
+                adx_detail = {"predicate": "adx_floor", "reason": "insufficient_bars"}
+            else:
+                value = float(_adx(candles_df, period).iloc[-1])
+                if value != value:  # NaN
+                    adx_detail = {"predicate": "adx_floor", "reason": "adx_nan"}
+                else:
+                    return bool(value >= adx_min_p), {
+                        "predicate": "adx_floor", "adx": value,
+                        "adx_min": adx_min_p, "adx_period": period,
+                    }
+        else:
+            adx_detail = {"predicate": "adx_floor", "reason": "no_adx_min_declared"}
     except Exception:  # noqa: BLE001
-        return None, {"predicate": "adx_floor", "reason": "compute_failed"}
+        adx_detail = {"predicate": "adx_floor", "reason": "compute_failed"}
+
+    # ---- 2. Trend structure: the entry condition every leg in the family uses.
+    detail = {"predicate": "trend_structure",
+              "adx_fallback_reason": (adx_detail or {}).get("reason")}
+    try:
+        side = str(direction or "").strip().lower()
+        if side not in ("long", "short", "buy", "sell"):
+            # Direction decides which side of the midline is INTACT, so an
+            # unreadable one cannot be defaulted -- guessing would grade half
+            # the book backwards.
+            detail["reason"] = "direction_unreadable"
+            return None, detail
+        is_long = side in ("long", "buy")
+        trend_lb = int(_coerce_float(meta.get("trend_lookback")) or 0)
+        if trend_lb <= 0:
+            detail["reason"] = "no_trend_lookback_declared"
+            return None, detail
+        if candles_df is None or len(candles_df) < trend_lb + 2:
+            detail["reason"] = "insufficient_bars"
+            return None, detail
+        mid = float(_trend_midline(candles_df.reset_index(drop=True),
+                                   trend_lb).iloc[-1])
+        close = float(candles_df["close"].iloc[-1])
+        if mid != mid or close != close:  # NaN
+            detail["reason"] = "midline_nan"
+            return None, detail
+        intact = (close > mid) if is_long else (close < mid)
+        detail.update({"trend_lookback": trend_lb, "midline": mid,
+                       "close": close, "direction": "long" if is_long else "short"})
+        return bool(intact), detail
+    except Exception:  # noqa: BLE001
+        detail["reason"] = "compute_failed"
+        return None, detail
 
 
 def monitor(cfg, candles_df, open_pkg):
@@ -516,12 +610,20 @@ def monitor(cfg, candles_df, open_pkg):
     # src/runtime/target_extension_soak.py. Placed after the two close checks
     # and before the levers, same position as on trend_donchian.
     #
-    # THE THESIS IS THIS FAMILY'S OWN ENTRY CONDITION: the entry required
-    # ADX >= adx_min (a trend worth pulling back into), so the thesis holds
-    # while ADX still clears that floor. An unreadable ADX yields None ->
-    # `thesis_unknown`, which never extends.
+    # THE THESIS IS THIS FAMILY'S OWN ENTRY CONDITION, and this family declares
+    # it TWO ways -- so `_pullback_thesis_intact` tries both in priority order:
+    # the declared ADX floor when there is one (6 of 19 enabled legs, measured
+    # test every leg's entry uses (price on the correct side of the Donchian
+    # 2026-08-23), else the trend-structure test every leg's entry uses (price
+    # on the correct side of the Donchian `trend_lookback` midline; the other 13
+    # declare no floor and would otherwise be
+    # permanently `thesis_unknown`). Neither computable -> None ->
+    # `thesis_unknown`, which never extends: *we did not look* is not *it holds*.
+    # `direction` is passed because it decides WHICH side of the midline is
+    # intact -- an unreadable one grades nothing rather than guessing.
     try:
-        _thesis_ok, _thesis_detail = _pullback_thesis_intact(meta, candles_df)
+        _thesis_ok, _thesis_detail = _pullback_thesis_intact(
+            meta, candles_df, direction=open_pkg.get("direction"))
         from src.runtime.target_extension_soak import annotate_from_monitor
         annotate_from_monitor(
             strategy=str(open_pkg.get("strategy_name") or "htf_pullback_trend_2h"),
