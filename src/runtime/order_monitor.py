@@ -6583,10 +6583,50 @@ def _rearm_broker_protection_after_recovery(db, trade_id, sl, tp) -> bool:
         return False
     if row is None:
         return False
-    return _attempt_naked_autoprotect(row, sl, tp)
+    return _attempt_naked_autoprotect(row, sl, tp, db=db)
 
 
-def _attempt_naked_autoprotect(row, sl, tp) -> bool:
+def _stamp_repair(db, row, kind: str, verified: str = "unverified") -> None:
+    """Record on the TRADE ROW that its protective bracket was repaired.
+
+    Thin adapter onto the single owner, ``Database.stamp_protection_repair`` —
+    it exists only to resolve the trade id off a ``sqlite3.Row`` (no ``.get``)
+    and to make a missing ``db`` a no-op rather than a crash.
+
+    ⚠️ **``db=None`` skips the stamp and says so.** A caller that forgot to
+    thread ``db`` loses the bookkeeping, never the repair: re-arming a naked
+    live position outranks recording that we did (Prime Directive — the repair
+    is the required capability). A silent skip would be the worse failure,
+    since the column would read "never repaired" for a trade that was.
+
+    ``verified`` defaults to ``unverified`` — *we did not look*. The naked
+    sweep deliberately adds no broker read-back per repair (that is the IB
+    pacing-wedge shape), so it can attest the call was accepted and nothing
+    more. Only the re-assert path, which already pays for one read-back on an
+    apply, passes a graded state.
+
+    Best-effort; never raises into a live repair path.
+    """
+    if db is None:
+        logger.debug(
+            "_stamp_repair: no db handle for %s repair — the bracket WAS "
+            "repaired, only the trade-row stamp is skipped", kind,
+        )
+        return
+    try:
+        trade_id = row["id"]
+    except Exception:  # noqa: BLE001 -- a shapeless row must not break the repair
+        return
+    try:
+        db.stamp_protection_repair(trade_id, kind, verified)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_stamp_repair: failed for trade_id=%s kind=%s: %s",
+            trade_id, kind, exc,
+        )
+
+
+def _attempt_naked_autoprotect(row, sl, tp, *, db=None) -> bool:
     """Re-arm a broker-side GTC protective bracket on a naked position.
 
     Returns True on a placed protective bracket. Never raises.
@@ -6683,6 +6723,7 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
             )
             ret_code = (resp or {}).get("retCode")
             if ret_code in (0, "0", None):
+                _stamp_repair(db, row, "naked_rearm")
                 return True
             logger.warning(
                 "_attempt_naked_autoprotect: bybit set_trading_stop refused for "
@@ -6721,6 +6762,7 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
                 "trade_id=%s: %r", row["id"], (resp or {}).get("retMsg"),
             )
             return False
+        _stamp_repair(db, row, "naked_rearm")
         return True
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -6870,7 +6912,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     row["id"], symbol,
                 )
                 continue
-            if _attempt_naked_autoprotect(row, a_sl, a_tp):
+            if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
                 summary["rearmed"] += 1
                 logger.info(
                     "_check_broker_naked_equity_positions: re-armed GTC OCO "
@@ -7000,6 +7042,14 @@ def _reassert_from_divergence(
                 want_tp=levels.get("tp") is not None)
             ok = rec["applied_state"] == "both_legs_resting"
             rec["applied_ok"] = ok
+            # Stamp the TRADE ROW, not just the soak log. The soak answers
+            # "what did the re-assert do?"; the row answers "was THIS trade
+            # repaired?" — which is the question that has been unanswerable,
+            # and the reason the historical population is already lost.
+            # `applied_state` is passed through verbatim: this path pays for a
+            # read-back, so unlike the naked sweep it can say what actually
+            # rests rather than only that the call was accepted.
+            _stamp_repair(db, row, "reassert", rec["applied_state"])
             # The SUMMARY must not collapse either: "we could not verify" is not
             # "it failed", and a stop-only re-arm is neither. Counting all three
             # as one number reproduces, in the roll-up, the exact defect the
@@ -7480,7 +7530,7 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                     row["id"], symbol,
                 )
                 continue
-            if _attempt_naked_autoprotect(row, a_sl, a_tp):
+            if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
                 summary["rearmed"] += 1
                 # Credit ONLY this trade's qty against the netted position's
                 # coverage — not the whole position. The old code set the cached
@@ -8647,6 +8697,12 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                 )
                 if topped_up:
                     summary["topped_up"] += 1
+                    # A qty-scoped top-up mutates this trade's own protection
+                    # too — narrower than a Full-mode re-arm, but still a
+                    # repair, and stamped as its own kind so a reader can tell
+                    # the two apart. Like the naked re-arm it adds no read-back,
+                    # hence the default `unverified`.
+                    _stamp_repair(db, row, "partial_topup")
                     protection_cache[cache_key] = {
                         **state, "covered_qty": size,
                     }
@@ -8656,7 +8712,8 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         "@ sl=%s (trade_id=%s)",
                         account_id, symbol, uncovered, a_sl, row["id"],
                     )
-            if not topped_up and _attempt_naked_autoprotect(row, a_sl, a_tp):
+            if not topped_up and _attempt_naked_autoprotect(
+                row, a_sl, a_tp, db=db):
                 summary["rearmed"] += 1
                 protection_cache[cache_key] = {**state, "covered_qty": size}
                 logger.info(
@@ -8751,7 +8808,7 @@ def _check_naked_positions(db) -> Dict[str, int]:
             a_sl = a_sl if a_sl is not None else r_sl
             a_tp = a_tp if a_tp is not None else r_tp
         if a_sl is not None and a_tp is not None and _attempt_naked_autoprotect(
-            row, a_sl, a_tp
+            row, a_sl, a_tp, db=db
         ):
             summary["protected"] += 1
             attached_notes = dict(notes)
