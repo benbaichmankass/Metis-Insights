@@ -1,0 +1,204 @@
+name: pullback-frac-cross-leg-sweep
+
+# Does ONE `pullback_frac` generalise across the fleet, or is each value fit to
+# its own leg? Operator-approved 2026-08-24 at FULL scope: all 19 enabled legs,
+# reported as TWO STRATA that are never blended.
+#
+# ONE LEG PER JOB on free GitHub runners. Same shape as `e35-bracket-sweep.yml`
+# with ONE DELIBERATE DIFFERENCE, and it is the difference that makes this lane
+# actually run.
+#
+# ⚠️ THE PLANNER IS CONFIG-GATED, NOT DATA-GATED.
+# Leg CSVs are gitignored (`.gitignore:73`, `data/*.csv`), so a fresh CI
+# checkout has none. `e35_shard_plan.py` plans through `plan_legs`, which
+# requires the CSV to be on disk -- but on that workflow the CSV is fetched by
+# the very per-leg job the planner is supposed to schedule. MEASURED against an
+# empty data dir 2026-08-24: `0 job(s); 55 not scheduled (data_missing=43,
+# out_of_scope_family=12)`, exit 1. `e35-bracket-sweep.yml` has NEVER RUN
+# (0 workflow runs), so nobody found it. Its refusal is correct -- an empty
+# matrix is a green run that tested nothing -- the bug is planning on a
+# precondition the plan itself creates. This workflow plans from
+# `config/strategies.yaml` + the lane map, so no ordering dependency exists.
+#
+# ⚠️ THE TWO STRATA ARE NEVER COMBINED. yfinance serves 1d uncapped but REFUSES
+# a >730 d 1h request outright (it returns ZERO rows -- it does not truncate;
+# proof run 32734360738). A decade-long daily leg and a two-year hourly leg do
+# not share a denominator, so there is no all-legs verdict and no input to
+# produce one.
+#
+# ⚠️ THE CRITERION IS FIXED IN THE SCRIPT, NOT CHOSEN HERE OR AT REPORT TIME
+# (`VERDICT_RULE` / `MIN_LEGS_FOR_A_CROSS_LEG_CLAIM`). A shortlist chosen after
+# the candidates are measured is a shortlist chosen by the argmax.
+#
+# Tier-1 throughout: research tooling only. Writes no config, runs no order
+# path, touches no VM. Changing `pullback_frac` in config/strategies.yaml is
+# Tier-3 and is NOT what this produces -- it produces the evidence for it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "CSV of leg names. Empty = every scoped leg."
+        required: false
+        default: ""
+      days:
+        description: "Trailing days of candles to fetch. yfinance CLAMPS 1h to 730."
+        required: false
+        default: "1830"
+      max_parallel:
+        description: "Concurrent legs. Keep modest to stay a good citizen."
+        required: false
+        default: "6"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pullback-frac-cross-leg-sweep
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet pandas numpy requests pyyaml
+
+      # Exits non-zero on an empty matrix, deliberately: GitHub reports a
+      # zero-job matrix as SUCCESS, so without this the run would go green
+      # having tested nothing -- indistinguishable from "all 19 legs passed".
+      - name: Plan the shards
+        id: plan
+        run: |
+          set -euo pipefail
+          python scripts/research/pullback_frac_cross_leg_sweep.py \
+            ${{ inputs.only && format('--only "{0}"', inputs.only) || '' }} \
+            --emit-matrix matrix.json
+          echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
+          echo "count=$(python -c 'import json;print(len(json.load(open("matrix.json"))["include"]))')" >> "$GITHUB_OUTPUT"
+
+      - name: Show the plan
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          m = json.load(open("matrix.json"))["include"]
+          print(f"### pullback_frac cross-leg sweep — {len(m)} shard(s)\n")
+          print("| leg | symbol | tf | stratum | feed |")
+          print("|---|---|---|---|---|")
+          for r in m:
+              print(f"| `{r['leg']}` | {r['symbol']} | {r['tf']} "
+                    f"| {r['stratum']} | {r['feed_source']} |")
+          PY
+
+  sweep:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 330          # < the 6h GH ceiling
+    strategy:
+      # One leg failing must not cancel the others -- that property is the
+      # whole point of sharding.
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.max_parallel || '6') }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet pandas numpy requests pyyaml yfinance
+
+      # The feed is PINNED per leg by the planner, never left to `auto`:
+      # crypto -> Binance's public archive, because GitHub runners are US Azure
+      # IPs and Bybit geoblocks the US (BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER);
+      # everything else -> the yfinance lane proven on 2026-08-24 (daily run
+      # 32734190004, intraday 32735954272).
+      - name: Fetch this leg's candles (free lane — no VM, no trainer)
+        env:
+          BACKTEST_FEED_SOURCE: ${{ matrix.feed_source }}
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          OUT="data/${{ matrix.symbol }}_${{ matrix.tf }}.csv"
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${{ matrix.symbol }}" \
+            --interval "${{ matrix.fetch_interval }}" \
+            --days "${{ inputs.days || '1830' }}" \
+            --output "${OUT}"
+          n=$(( $(wc -l < "${OUT}") - 1 ))
+          echo "rows=${n}"
+          # Without this floor a silent-empty fetch would make the leg read
+          # `data_missing`, and the sweep would report "no cells evaluated" as
+          # though that were a verdict rather than an absence.
+          if [ "${n}" -lt 100 ]; then
+            echo "::error::only ${n} rows for ${{ matrix.symbol }} ${{ matrix.tf }} — the sweep would be a false negative"
+            exit 1
+          fi
+
+      - name: Sweep this leg
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python scripts/research/pullback_frac_cross_leg_sweep.py \
+            --only "${{ matrix.leg }}" \
+            --json "out/${{ matrix.leg }}.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pullback-frac-${{ matrix.leg }}
+          path: out/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    needs: [plan, sweep]
+    # `always()`: a partially-failed matrix still produced real rows for the
+    # legs that DID finish. The summary states the denominator.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet pyyaml
+      - uses: actions/download-artifact@v4
+        with:
+          path: collected
+          pattern: pullback-frac-*
+          merge-multiple: false
+      - name: Roll up (per stratum — never blended)
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib, sys
+          sys.path.insert(0, "scripts/research")
+          from pullback_frac_cross_leg_sweep import summarise, report
+          planned = int("${{ needs.plan.outputs.count }}" or 0)
+          files = sorted(pathlib.Path("collected").rglob("*.json"))
+          results = []
+          for f in files:
+              try:
+                  results += json.loads(f.read_text()).get("results", [])
+              except Exception as exc:
+                  print(f"- could not read `{f}`: {exc}")
+          print(f"### pullback_frac cross-leg — {len(results)} of {planned} leg(s) reported\n")
+          if len(results) < planned:
+              # Stated, never implied: a partial matrix is a partial population.
+              print(f"> ⚠️ **{planned - len(results)} leg(s) did not report.** "
+                    f"Every count below is over the {len(results)} that did.\n")
+          if not results:
+              print("> ⚠️ **No leg reported.** This is an absence, not a verdict.")
+              raise SystemExit(0)
+          lines = []
+          report(summarise(results), out=lines.append)
+          print("```"); [print(l) for l in lines]; print("```")
+          PY
