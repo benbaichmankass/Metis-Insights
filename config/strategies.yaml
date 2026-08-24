@@ -1928,7 +1928,7 @@ strategies:
     model: null
     signal_prefixes: [slv_trend]
     enabled: true
-    execution: shadow
+    execution: shadow  # shadow-guard: allow — operator-approved Tier-3 demote 2026-08-24; 0 wins in 13 closed, -$5,375 at 0.77 coverage, gate met 2 consecutive reviews
     timeframe: "1h"
     symbols:
       - SLV

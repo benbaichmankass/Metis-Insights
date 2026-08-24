@@ -22902,8 +22902,7 @@
       "area": "accounts",
       "title": "alpaca_live go-live: the operator elected to fund it, and funding is the LAST step of three, not the first",
       "source": "Operator decision in the /system-review session 2026-08-24: 'Fund it and go live'. Raised at the time that funding alone does not make the account work.",
-      "why_it_matters": "Two of the three blockers are scale-invariant and survive any deposit. Depositing first means real money behind a sizer that asks for up to 12.37x the account on a single trade, on an account where 68.8% of the routed flow cannot legally execute.",
-      "measured_this_session": "(a) SHORT FLOW: 128 of 186 routed orders are SHORT (68.8%) and SIX legs are 100% short - gdx_pullback_1d, iaum_pullback_1d, gld_pullback_1d, slv_pullback_1d, ief_pullback_1d, tlt_pullback_1d - so they are entirely dead while the account has shorting_enabled=False. (This is WORSE than the earlier row's '60% / 4 legs'.) (b) SHORTING FLAG: /api/diag/broker_account_status?account_id=alpaca_live confirms shorting_enabled: False, status ACTIVE, trading_blocked false. (c) NOTIONAL: 5 of 6 measurable legs exceed whole-account notional - see BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL.",
+      "why_it_matters": "Two of the three blockers are scale-invariant and survive any deposit. Depositing first means real money behind a sizer that asks for up to 12.37x the account on a single trade, on an account where 128 of 186 routed orders (68.8%) are SHORT and cannot legally execute while shorting is disabled.",
       "sequence": [
         "STEP 1 (Tier-3, Claude prepares): declare a bound on alpaca_live so no routed leg can size past the account - max_gross_exposure_pct and/or a per-position notional cap. The VALUE needs a basis, and the gross-exposure soak (/api/bot/exposure/soak) is the surface that supplies the distribution; per gross-exposure-governance-DESIGN.md section 7 a value with no soak behind it must not ship. Until this lands, funding is unsafe.",
         "STEP 2 (OPERATOR-ONLY, broker-side): enable shorting on the Alpaca account (margin agreement / account settings). Claude cannot change a broker account's permissions. Without it, 6 of 16 legs are dead and 68.8% of flow is refused - the account would be funded and still mostly inert.",
@@ -22911,7 +22910,8 @@
         "STEP 4 (Claude verifies): re-read /api/diag/broker_account_status + the first live fills, and confirm silent_refusal_alert grades the account healthy rather than refusing."
       ],
       "already_done_2026_08_24": "slv_trend_1h (the fleet's worst leg, 0 wins in 13 closed, -$5,375) was demoted live -> shadow this session with operator approval. It routed to alpaca_live, so it is already out of the go-live set.",
-      "resolution_criteria": "All four steps complete and the account has placed at least one real fill that reconciles against exchange truth. Do NOT close this on the deposit alone."
+      "resolution_criteria": "All four steps complete and the account has placed at least one real fill that reconciles against exchange truth. Do NOT close this on the deposit alone.",
+      "evidence": "(a) SHORT FLOW: 128 of 186 routed orders are SHORT (68.8%) and SIX legs are 100% short - gdx_pullback_1d, iaum_pullback_1d, gld_pullback_1d, slv_pullback_1d, ief_pullback_1d, tlt_pullback_1d - so they are entirely dead while the account has shorting_enabled=False. (This is WORSE than the earlier row's '60% / 4 legs'.) (b) SHORTING FLAG: /api/diag/broker_account_status?account_id=alpaca_live confirms shorting_enabled: False, status ACTIVE, trading_blocked false. (c) NOTIONAL: 5 of 6 measurable legs exceed whole-account notional - see BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL."
     }
   ]
 }
