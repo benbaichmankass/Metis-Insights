@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       symbol:
-        description: "Bot symbol (must be mapped in yfinance_offvm._DEFAULT_TICKER_MAP)"
+        description: "Bot symbol (must be mapped in yf_symbols._DEFAULT_TICKER_MAP)"
         default: "SPY"
       interval:
         description: "Kline code: 1 / 5 / 15 / 60 / D"
@@ -35,7 +35,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install
+      # ⚠️ DELIBERATELY MINIMAL — DO NOT ADD `pyyaml` HERE.
+      # The first proof run failed with "No module named 'yaml'" because
+      # reading a dict of ticker strings imported `ml.datasets` -> `.registry`
+      # -> fourteen dataset-family builders, one of which imports yaml.
+      # Installing pyyaml would have made the run green while leaving the
+      # coupling in place for the next transitive import to break. The map now
+      # lives in the import-free `ml/datasets/adapters/yf_symbols.py`, loaded
+      # by file path, so this two-package install is ALSO the decoupling
+      # proof: widen it and the job stops proving that.
+      - name: Install (pandas + yfinance ONLY — see the note above)
         run: pip install pandas yfinance
 
       - name: Fetch via the yfinance lane
