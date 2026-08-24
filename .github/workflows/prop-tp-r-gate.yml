@@ -1,0 +1,300 @@
+name: prop-tp-r-gate
+
+# Prop EV/survival gate for the two live Breakout donchian legs, swept across
+# `tp_r`, on a free GitHub-hosted runner.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS EXISTS (operator decision 2026-08-24: "measure first, then decide")
+# ---------------------------------------------------------------------------
+# `docs/design/tp-sentinel-cap-venue-scope-PROPOSAL.md` option C proposed lowering
+# `trend_donchian_{sol,eth}_prop.tp_r` from 6.0 to inside each leg's measured
+# `cap_r`, describing it as fixing the declaration "without touching order
+# geometry". VERIFIED 2026-08-24 — that premise is FALSE:
+#
+#   effective target (R) = min(cap_r, tp_r),  cap_r = 0.099 * entry / risk
+#
+# `cap_r` is a percent-of-entry; `tp_r` is a multiple-of-risk. They are different
+# functions of different variables, so NO `tp_r` reproduces the clamp. Lowering
+# `tp_r` to 3.22 (sol) / 4.08 (eth) tightens the REAL target on every trade where
+# `cap_r > tp_r` -- which is HALF THE TRADES BY THE DEFINITION OF THE MEDIAN,
+# since 3.22 and 4.08 ARE the medians. On a prop account a breach is TERMINAL
+# ($150 daily-loss, $4,700 static-DD floor on $5k), and the EV gate that approved
+# `execution: live` (+$483 sol / +$883 eth, trainer relay #8975) was measured at
+# `tp_r: 6.0`. So the tightening needs its own evidence; it does not inherit that
+# gate's.
+#
+# ---------------------------------------------------------------------------
+# THE GRID AND THE CRITERION ARE FIXED HERE, BEFORE ANY RESULT IS SEEN
+# ---------------------------------------------------------------------------
+# Criterion-first discipline (donchian design section 6.0b): a shortlist chosen
+# after its candidates are measured is a shortlist chosen by the argmax.
+#
+#   GRID: tp_r in {6.0, 5.0, 4.0, 3.0, 2.5} -- the SAME grid for both legs so the
+#         two are comparable. 6.0 is the CONTROL (today's live declaration).
+#
+#   CRITERION: lowering `tp_r` is justified for a leg ONLY IF, against that leg's
+#         OWN 6.0 control arm in the SAME run, the candidate keeps
+#           (a) ev_net_usd > 0, AND
+#           (b) p_profitable >= 0.5 (the gate's own --min-p-profitable floor), AND
+#           (c) ev_net_usd not materially below the control.
+#         If no candidate clears all three, the measured answer is DO NOT TIGHTEN
+#         -- which is a real result, not a failed run.
+#
+# ---------------------------------------------------------------------------
+# TWO METHODOLOGY POINTS THAT MUST TRAVEL WITH THE NUMBERS
+# ---------------------------------------------------------------------------
+# 1. THE CONTROL IS THE 6.0 ARM IN THIS RUN, NOT #8975's HEADLINE. This run uses
+#    its own data vintage and window, so absolute EV is NOT expected to reproduce
+#    +$483 / +$883. Comparing a candidate here against #8975's number would be
+#    comparing across two different populations. Compare within the run.
+# 2. THE SYMBOL IS A LABEL; THE DATA DECIDES. `backtest_system` takes the candles
+#    it is handed -- `BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC`
+#    VOIDed gate run #8969 for grading a BTC fixture under a SOLUSDT label. Each
+#    arm therefore fetches its OWN symbol's candles and the summary prints the
+#    row count + date span of the file it actually scored.
+# 3. A 5m BASE, NOT 1h. `run_system_backtest` resamples `base5m` to the strategy
+#    frame AND to the clock; feeding 1h would make those no-ops and silently drop
+#    intra-bar exit resolution -- precisely the axis a `tp_r` change moves.
+#
+# SAFETY: reads the repo + PUBLIC candles, runs the read-only engine + read-only
+# compat matrix, uploads artifacts. It does NOT push, deploy, or touch
+# config/strategies.yaml. Changing `tp_r` is a separate Tier-3 decision the
+# operator makes ON this evidence; this only produces the evidence.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Candle start date (YYYY-MM-DD UTC)"
+        default: "2021-01-01"
+      arms:
+        description: "Comma-separated tp_r grid (the control 6.0 is always added)"
+        default: "6.0,5.0,4.0,3.0,2.5"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: prop-tp-r-gate-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  # -------------------------------------------------------------------------
+  # 1. Candles once per symbol (not once per arm -- 5 arms would refetch 5x).
+  # -------------------------------------------------------------------------
+  candles:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'prop-tp-r-gate-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [SOLUSDT, ETHUSDT]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy requests
+
+      - name: Fetch 5m candles
+        env:
+          START_DATE: ${{ github.event.inputs.start_date || '2021-01-01' }}
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${{ matrix.symbol }}" \
+            --interval 5 \
+            --start-date "${START_DATE}" \
+            --output "data/${{ matrix.symbol }}_5m.csv"
+
+      - name: Assert a non-empty, plausible file
+        # A short/empty candle file is the shape that turns a gate into a
+        # confident wrong answer. Refuse rather than score it.
+        run: |
+          set -euo pipefail
+          F="data/${{ matrix.symbol }}_5m.csv"
+          rows=$(( $(wc -l < "$F") - 1 ))
+          echo "${{ matrix.symbol }}: ${rows} rows"
+          if [ "$rows" -lt 100000 ]; then
+            echo "REFUSING: only ${rows} 5m rows for ${{ matrix.symbol }} -- expected >=100k for a multi-year span."
+            exit 1
+          fi
+          head -2 "$F"; tail -1 "$F"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candles-${{ matrix.symbol }}
+          path: data/${{ matrix.symbol }}_5m.csv
+          retention-days: 3
+
+  # -------------------------------------------------------------------------
+  # 2. One job per (leg, tp_r arm).
+  # -------------------------------------------------------------------------
+  gate:
+    needs: candles
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        leg:
+          - { name: trend_donchian_sol_prop, symbol: SOLUSDT }
+          - { name: trend_donchian_eth_prop, symbol: ETHUSDT }
+        tp_r: ["6.0", "5.0", "4.0", "3.0", "2.5"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy requests
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: candles-${{ matrix.leg.symbol }}
+          path: data
+
+      - name: Score the prop ruleset at this tp_r
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/gate
+          python scripts/prop/account_compat_matrix.py \
+            --strategy "${{ matrix.leg.name }}" \
+            --data "data/${{ matrix.leg.symbol }}_5m.csv" \
+            --symbol "${{ matrix.leg.symbol }}" \
+            --accounts breakout_1 \
+            --override "${{ matrix.leg.name }}.tp_r=${{ matrix.tp_r }}" \
+            --out-dir artifacts/gate \
+            2>&1 | tee artifacts/gate/run.log
+
+      - name: Stamp the arm onto the result
+        # The payload records the override, but the FILENAME must carry the arm
+        # too -- all five arms of a leg write compat_<leg>.json and would
+        # otherwise collide into one artifact name.
+        run: |
+          set -euo pipefail
+          src="artifacts/gate/compat_${{ matrix.leg.name }}.json"
+          dst="artifacts/gate/arm_${{ matrix.leg.name }}_tp${{ matrix.tp_r }}.json"
+          python - "$src" "$dst" <<'PY'
+          import json, sys
+          src, dst = sys.argv[1], sys.argv[2]
+          d = json.load(open(src))
+          # Fail loudly if the override did not reach the payload: a result
+          # labelled with an arm it did not run under is the whole class this
+          # gate exists to avoid.
+          if not d.get("overrides"):
+              raise SystemExit("REFUSING: payload carries no overrides -- the arm did not apply")
+          json.dump(d, open(dst, "w"), indent=2, default=str)
+          print(f"wrote {dst} with overrides {d['overrides']}")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arm-${{ matrix.leg.name }}-tp${{ matrix.tp_r }}
+          path: artifacts/gate/
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # 3. Aggregate -- and TEE, so the verdict reaches the JOB LOG.
+  # -------------------------------------------------------------------------
+  aggregate:
+    needs: gate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: arm-*
+          path: arms
+          merge-multiple: false
+
+      - name: Render the comparison
+        # `tee -a`, NOT `>>`: a $GITHUB_STEP_SUMMARY-only result is invisible to
+        # the Actions API, so the session that dispatched this run cannot read
+        # its own answer (BL-20260824-A-STEP-SUMMARY-IS-INVISIBLE-TO-THE-ACTIONS-API).
+        run: |
+          python - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import glob, json, collections
+
+          rows = []
+          for p in sorted(glob.glob("arms/**/arm_*.json", recursive=True)):
+              try:
+                  d = json.load(open(p))
+              except Exception as e:
+                  print(f"unreadable {p}: {e}")
+                  continue
+              ov = (d.get("overrides") or {})
+              leg = next(iter(ov), None)
+              arm = (ov.get(leg) or {}).get("tp_r") if leg else None
+              for r in d.get("rows", []):
+                  rows.append({
+                      "leg": leg, "tp_r": arm, "account": r.get("account"),
+                      "ev": r.get("value"), "p": r.get("p_profitable"),
+                      "verdict": r.get("verdict"), "n": d.get("n_ledger_trades"),
+                  })
+
+          print("# prop tp_r gate\n")
+          if not rows:
+              print("**NO ARMS PRODUCED A RESULT.** Every job failed or uploaded nothing —")
+              print("this is NOT 'the tightening is neutral', it is no measurement at all.")
+              raise SystemExit(0)
+
+          by_leg = collections.defaultdict(list)
+          for r in rows:
+              by_leg[r["leg"]].append(r)
+
+          for leg in sorted(by_leg, key=lambda x: (x is None, x)):
+              rs = sorted(by_leg[leg], key=lambda r: -float(r["tp_r"] or 0))
+              ctrl = next((r for r in rs if float(r["tp_r"] or 0) == 6.0), None)
+              print(f"\n## `{leg}`  ({len(rs)} of 5 arms reported)\n")
+              if ctrl is None:
+                  print("⚠️ **THE 6.0 CONTROL ARM IS MISSING** — every comparison below is")
+                  print("against nothing. Do not read these as deltas.\n")
+              print("| tp_r | trades | ev_net_usd | P(net>0) | verdict | vs control |")
+              print("|---|---|---|---|---|---|")
+              for r in rs:
+                  ev = r["ev"]
+                  delta = "—"
+                  if float(r["tp_r"] or 0) == 6.0:
+                      delta = "— (control)"
+                  elif ctrl and ctrl["ev"] is not None and ev is not None:
+                      delta = format(ev - ctrl["ev"], "+,.0f")
+                  if ev is None:
+                      ev_s = "—"
+                  else:
+                      sign = "-" if ev < 0 else ""
+                      ev_s = sign + "$" + format(abs(ev), ",.0f")
+                  p_s = "—" if r["p"] is None else format(r["p"], ".4f")
+                  print("| {} | {} | {} | {} | {} | {} |".format(
+                      r["tp_r"], r["n"], ev_s, p_s, r["verdict"], delta))
+
+          print("\n---\n")
+          print("**CRITERION (fixed before the run):** a lower `tp_r` is justified for a leg")
+          print("only if, against that leg's OWN 6.0 control arm in THIS run, it keeps")
+          print("`ev_net_usd > 0`, `P(net>0) >= 0.5`, and EV not materially below control.")
+          print("If nothing clears all three, the measured answer is **DO NOT TIGHTEN**.\n")
+          print("⚠️ Absolute EV is NOT expected to reproduce trainer relay #8975's")
+          print("+$483 / +$883 — different data vintage and window. Compare WITHIN this run.")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prop-tp-r-gate-summary
+          path: arms/
+          retention-days: 14
