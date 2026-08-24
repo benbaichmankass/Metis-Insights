@@ -50,41 +50,110 @@ jobs:
           echo "---- catalogue size ----"
           wc -l < /tmp/catalogue.txt
 
-      - name: Probe each blocked symbol by name, and REPORT MISSES EXPLICITLY
+      - name: Probe each blocked symbol, and REPORT BOTH FAILURE DIRECTIONS
         run: |
           set -euo pipefail
           python - <<'PY'
-          import subprocess, sys
+          import re, subprocess, sys
 
           # The 18 distinct symbols behind the 25 no_free_lane_candle_feed cells.
           SYMBOLS = ["GDX", "GLD", "IAUM", "IEF", "IWM", "MES", "MGC", "MHG",
                      "QLD", "QQQ", "SCHA", "SLV", "SPLG", "SPY", "TLT",
                      "TQQQ", "USO", "XAUUSD"]
 
-          hits, misses = {}, []
-          for sym in SYMBOLS:
+          # ⚠️ RUN 1 (32744577414) GOT TWO OF EIGHTEEN WRONG, IN OPPOSITE
+          # DIRECTIONS, and both came from matching a raw ticker as a substring:
+          #
+          #   FALSE POSITIVE  MHG -> INSTRUMENT_NORWAY_MHG_NO_NOK, which is
+          #                   Mowi ASA, a Norwegian salmon farmer quoted in NOK.
+          #                   Our MHG is CME Micro Copper. A reader trusting the
+          #                   hit would backtest copper against fish.
+          #   FALSE NEGATIVE  XAUUSD reported unmatched while the venue carries
+          #                   INSTRUMENT_FX_METALS_XAU_USD -- the underscore
+          #                   defeated a literal substring search. Confirmed on
+          #                   the venue by run 32744837828, not from a docstring.
+          #
+          # So a raw substring is not a probe, it is a coincidence detector.
+          # Two changes, and NEITHER of them decides coverage -- that stays a
+          # reader's judgement, which is the whole contract of this job:
+          #   1. Also try a PUNCTUATION-INSENSITIVE form, so XAUUSD reaches
+          #      XAU_USD. Reported as a separate `relaxed` match so it is never
+          #      silently equated with an exact one.
+          #   2. Flag every hit whose instrument family is NOT a US ETF CFD as
+          #      NEEDS_ADJUDICATION. That is what separates SPY (an ETF CFD, the
+          #      same underlying) from MHG (a Norwegian equity that merely
+          #      shares three letters).
+
+          def names_for(query):
               out = subprocess.run(
                   [sys.executable, "scripts/ops/fetch_dukascopy_ohlcv.py",
-                   "--list", sym],
+                   "--list", query],
                   capture_output=True, text=True).stdout.strip()
-              if out and not out.startswith("no instrument matches"):
-                  hits[sym] = out.splitlines()
+              if not out or out.startswith("no instrument matches"):
+                  return []
+              return out.splitlines()
+
+          def relaxed(sym):
+              """XAUUSD -> XAU_USD. Only tried when the exact form finds nothing."""
+              if len(sym) == 6 and sym.isalpha():
+                  return f"{sym[:3]}_{sym[3:]}"
+              return None
+
+          US_ETF_CFD = re.compile(r"^INSTRUMENT_ETF_CFD_US_([A-Z0-9]+)_US_USD$")
+
+          exact, via_relaxed, unmatched = {}, {}, []
+          for sym in SYMBOLS:
+              hits = names_for(sym)
+              if hits:
+                  exact[sym] = hits
+                  continue
+              alt = relaxed(sym)
+              hits = names_for(alt) if alt else []
+              if hits:
+                  via_relaxed[sym] = (alt, hits)
               else:
-                  misses.append(sym)
+                  unmatched.append(sym)
 
-          print("=== NAME-MATCHED (a match is a CANDIDATE, not a verdict) ===")
-          for sym, names in sorted(hits.items()):
-              print(f"{sym}: {', '.join(names)}")
+          def adjudicate(sym, names):
+              """Which hits are the SAME ticker as a US ETF CFD, and which are not."""
+              same, other = [], []
+              for n in names:
+                  m = US_ETF_CFD.match(n)
+                  (same if m and m.group(1) == sym else other).append(n)
+              return same, other
 
-          print("\n=== NO NAME MATCH ===")
-          # Stated explicitly rather than left as an absence: a symbol missing
-          # from the hit list above is indistinguishable from one nobody probed.
-          print(", ".join(misses) if misses else "(none)")
+          print("=== EXACT NAME MATCH ===")
+          for sym in sorted(exact):
+              same, other = adjudicate(sym, exact[sym])
+              if same:
+                  print(f"  {sym}: SAME-TICKER US ETF CFD -> {', '.join(same)}")
+              if other:
+                  print(f"  {sym}: ⚠️ NEEDS_ADJUDICATION (not a same-ticker US "
+                        f"ETF CFD) -> {', '.join(other)}")
+              if not same:
+                  print(f"      ^ {sym} has NO same-ticker ETF CFD. A hit here is "
+                        f"a coincidence until a reader says otherwise.")
 
-          print(f"\nprobed={len(SYMBOLS)}  name_matched={len(hits)}  "
-                f"unmatched={len(misses)}")
-          print("\n⚠️ A NAME MATCH IS NOT COVERAGE. XAUUSD->XAU_USD is the same "
-                "underlying; MES->an index CFD is a different instrument that "
-                "tracks the same index. The mapping is decided by a reader, "
-                "and the two cases must not be merged.")
+          print("\n=== MATCHED ONLY VIA THE RELAXED FORM ===")
+          # Kept separate from exact: the relaxed form is a GUESS about how the
+          # venue punctuates, and a reader should see that it was needed.
+          for sym in sorted(via_relaxed):
+              alt, names = via_relaxed[sym]
+              print(f"  {sym} (as {alt}): {', '.join(names)}")
+          if not via_relaxed:
+              print("  (none)")
+
+          print("\n=== NO MATCH IN EITHER FORM ===")
+          # Stated explicitly: a symbol missing from a hit list is otherwise
+          # indistinguishable from one nobody probed.
+          print("  " + (", ".join(unmatched) if unmatched else "(none)"))
+
+          print(f"\nprobed={len(SYMBOLS)}  exact={len(exact)}  "
+                f"relaxed={len(via_relaxed)}  unmatched={len(unmatched)}")
+          print("\n⚠️ NONE OF THESE THREE BUCKETS IS 'COVERED'. A same-ticker US "
+                "ETF CFD is the same underlying but still a CFD (financing and "
+                "fees differ from the ETF). A NEEDS_ADJUDICATION hit may be an "
+                "unrelated instrument -- MHG matched a Norwegian salmon farmer. "
+                "MES/MGC have no same-ticker instrument and would need a PROXY, "
+                "which is a different instrument and must stay labelled as one.")
           PY
