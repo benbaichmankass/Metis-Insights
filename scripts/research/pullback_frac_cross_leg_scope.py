@@ -27,6 +27,13 @@ STATES, NEVER COLLAPSED
   NOT_SERVED      no lane resolves. **We cannot test this leg**, which is a
                   different statement from "this leg disagreed".
 """
+# wiring: manual-only - a session runs this ONCE when scoping the pullback_frac
+# cross-leg sweep, and its answer changes only when config/strategies.yaml or a
+# lane's coverage changes. Wiring it into run_guards would spend CI on a report
+# whose output is static between those events, and the desensitized-alarm rule
+# says a check that fires constantly on correct behaviour is itself the defect.
+# The thing that DOES need continuous enforcement -- a declared tp_r above its
+# cap -- is a separate tool and IS wired (target_reachability_report.py).
 from __future__ import annotations
 
 import collections
