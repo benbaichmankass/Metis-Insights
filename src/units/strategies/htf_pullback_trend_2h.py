@@ -497,9 +497,9 @@ def _pullback_thesis_intact(meta, candles_df, direction=None):
     a mean of 65%/74%/80%, range **53-86%**. The predicate was wrong for these
     legs, not the number. This gives them the predicate their entry actually uses.
 
-    ⚠️ That doc is on the SIBLING branch (`claude/bracket-expectations-exit-ctjaiq`,
-    PR #10183) and does not exist on this one yet -- the reference resolves once
-    it merges.
+    (That doc landed on `main` in PR #10183 on 2026-08-24, so the reference above
+    resolves. This note replaced a caveat saying it did not exist yet -- true when
+    written, stale the moment it merged.)
 
     ⚠️ **OBSERVE-ONLY, AND IT MUST STAY THAT WAY.** The sole consumer is
     ``target_extension_soak.annotate_from_monitor``, which returns nothing and

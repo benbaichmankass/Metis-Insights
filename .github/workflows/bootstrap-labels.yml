@@ -427,6 +427,11 @@ jobs:
                 description: 'Triggers purge-artifacts workflow — delete build artifacts to reclaim Actions storage.',
               },
               {
+                name: 'prune-landed-branches',
+                color: 'd93f0b',
+                description: 'Triggers prune-landed-branches — delete remote branches listed in docs/claude/pruned-branches-manifest.txt. DRY RUN unless the body says dry_run: false.',
+              },
+              {
                 name: 'macro-producer-liveness-now',
                 color: '0e8a16',
                 description: 'Triggers macro-producer-liveness — check the scheduled macro producers have not silently stopped firing.',
