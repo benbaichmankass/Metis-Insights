@@ -207,3 +207,62 @@ def test_unknown_timeframe_raises_rather_than_claiming_uncapped():
     from ml.datasets.adapters.yfinance_offvm import max_history_days
     with pytest.raises(KeyError):
         max_history_days("4h")
+
+
+# --------------------------------------------------------------------------
+# 5. the venue REFUSES an over-long intraday request; it does not clip it
+# --------------------------------------------------------------------------
+def _capture_yf_request(monkeypatch, mod, *, interval, days):
+    """Run the lane with the network stubbed, returning the (start, end) it asked for."""
+    seen = {}
+
+    class _FakeYF:
+        @staticmethod
+        def download(*, tickers, interval, start, end, **kw):
+            seen["start"], seen["end"] = start, end
+            import pandas as pd
+            return pd.DataFrame()          # empty is fine; we want the REQUEST
+
+    monkeypatch.setitem(sys.modules, "yfinance", _FakeYF)
+    end_ms = 1_787_500_000_000
+    start_ms = end_ms - days * 86_400_000
+    mod.fetch_klines_yfinance("SPY", interval, start_ms, end_ms)
+    return seen
+
+
+def test_an_overlong_intraday_request_is_clamped_not_passed_through(monkeypatch, capsys):
+    """MEASURED (proof run 32734360738): asking Yahoo for 1001 d of SPY 1h
+    returns ZERO rows — "The requested range must be within the last 730 days".
+    It refuses; it does not truncate. The lane must therefore clamp the START
+    rather than warn that a truncation will happen and pass the request on."""
+    mod = _puller()
+    seen = _capture_yf_request(monkeypatch, mod, interval="60", days=1001)
+    span = (seen["end"] - seen["start"]).days
+    assert span <= 730, f"asked the venue for {span} d, above its 730 d ceiling"
+    assert span >= 700, f"clamped far below the cap ({span} d) — history thrown away"
+
+
+def test_a_request_inside_the_cap_is_left_alone(monkeypatch):
+    """The clamp must not shrink a window the venue would have served."""
+    mod = _puller()
+    seen = _capture_yf_request(monkeypatch, mod, interval="60", days=400)
+    assert (seen["end"] - seen["start"]).days == 400
+
+
+def test_daily_is_never_clamped(monkeypatch):
+    """`1d` is uncapped (max_history_days -> None); clamping it would silently
+    discard decades of history the venue is willing to serve."""
+    mod = _puller()
+    seen = _capture_yf_request(monkeypatch, mod, interval="D", days=5000)
+    assert (seen["end"] - seen["start"]).days == 5000
+
+
+def test_the_clamp_is_announced_not_silent(monkeypatch, capsys):
+    """A silently shortened window reads exactly like a complete one."""
+    mod = _puller()
+    _capture_yf_request(monkeypatch, mod, interval="60", days=1001)
+    err = capsys.readouterr().err
+    assert "clamped" in err.lower()
+    assert "PARTIAL" in err
+    assert "WILL be truncated" not in err, (
+        "still predicting a truncation the venue does not perform")
