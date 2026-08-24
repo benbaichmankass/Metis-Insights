@@ -175,10 +175,17 @@ jobs:
           path: collected
           pattern: pullback-frac-*
           merge-multiple: false
+      # ⚠️ `tee`, NOT `>>`. The verdict must reach the JOB LOG as well as the
+      # step summary. A step summary is readable in the web UI and NOT through
+      # the Actions API, so on the first real run (32762934189) the sweep
+      # produced a correct answer that the session which dispatched it could
+      # not read at all -- the result existed and had no reader, which is the
+      # write-only class this repo has a guard family for, reproduced in the
+      # one place it makes a research run worthless.
       - name: Roll up (per stratum — never blended)
         run: |
           set -euo pipefail
-          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json, pathlib, sys
           sys.path.insert(0, "scripts/research")
           from pullback_frac_cross_leg_sweep import summarise, report
