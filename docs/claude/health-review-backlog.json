@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-24T21:05:00+00:00",
+ "updated_at": "2026-08-24T21:10:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -22971,6 +22971,22 @@
    "why_it_matters": "This is the general shape, not one bug: a path built AROUND the main pipeline inherits none of the cross-cutting concerns the pipeline has accumulated, and nothing detects the omission because each concern is implemented at the pipeline, not at an interface both paths must satisfy. The next isolated path will miss whatever the pipeline learns next. Same pattern one layer down: 14 reconcile/sweep passes and 23 env knobs handle journal-vs-venue divergence with no single owner, and 150 of 204 open backlog rows (73.5%) are that one class.",
    "resolution_criteria": "(1) The pairs sleeve stamps provenance on close, satisfying the same criteria as BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE. (2) Enumerate every cross-cutting invariant the main pipeline enforces and record, per invariant, whether the sleeve satisfies it, is deliberately exempt (with the reason), or is missing it. (3) That enumeration becomes a CI guard so a future isolated path cannot silently skip them — presence-only markers are not acceptable (the new-table-wiring-guard lesson: a guard cheaper to lie to than to satisfy is worse than none). Keep the sleeve RUNNING throughout — it is bybit_1 demo-only, so in-place work carries no real-money risk.",
    "operator_decision": "2026-08-24 — operator chose 'conformance pass, keep it running' over adding a guard only, shutting the sleeve to shadow, or deferring."
+  },
+  {
+   "id": "BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI",
+   "opened": "2026-08-24",
+   "opened_at": "2026-08-24T21:10:00+00:00",
+   "opened_by": "claude (M39A session, operator-directed to file it)",
+   "status": "open",
+   "severity": "medium",
+   "tier": 1,
+   "area": "tooling",
+   "title": "The web-sandbox pytest run diverges from CI — 95 collection errors and 34 failures CI does not have — so every session is pre-validating against a suite that cannot import FastAPI",
+   "source": "MEASURED 2026-08-24 while validating M39(A). Full local run: `34 failed, 12137 passed, 21 skipped, 95 errors in 501s`. CI's pytest-run passed on the same commits all day (#10232, #10234).",
+   "evidence": "The 95 errors are collection-time `pyo3_runtime.PanicException` in every test importing pydantic-core / FastAPI (tests/test_web_api_*.py, test_prop_report_ingest.py, test_s067_*, test_trade_scores_symbol_filter.py, …). CONFIRMED PRE-EXISTING, not caused by any change: stashing the working-tree edit and collecting tests/test_prop_report_ingest.py on pristine main reproduces the identical error. The 34 FAILURES are separate and their names were NOT captured (the background run piped through `tail`, so only the summary line survived) — so this row states the count and explicitly does NOT claim they are all environmental.",
+   "why_it_matters": "A session that runs the suite locally and sees green is not seeing what CI sees, and one that sees red cannot tell its own breakage from the sandbox's. Today that cost a wrong inference in both directions: the pyo3 errors had to be re-verified against pristine main to be dismissed, and the 34 failures could not be attributed at all. The practical effect is that the sandbox suite cannot gate a push — only CI can — which is fine as a policy but is nowhere written down, so each session rediscovers it.",
+   "resolution_criteria": "EITHER (a) root-cause the pyo3/pydantic-core panic so a local run matches CI, and confirm by running the full suite in-sandbox to the same pass/fail counts CI reports on the same commit; OR (b) if it cannot be fixed in this environment, record the limitation where a session will read it BEFORE trusting a local run (the session-coordination preflight is the natural home) and name CI as the only gate. Either way the 34 failures must be enumerated once against a pristine-main baseline, so the claim 'they are environmental' is measured rather than assumed.",
+   "detail": "Operator decision 2026-08-24: file it and keep trusting CI for now, over identifying the 34 immediately (~16 min of runtime) or fixing the sandbox (its own piece of work)."
   }
  ]
 }
