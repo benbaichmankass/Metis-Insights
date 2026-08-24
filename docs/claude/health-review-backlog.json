@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-24T10:05:00+00:00",
+  "updated_at": "2026-08-24T15:05:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22816,6 +22816,60 @@
       "summary": "The sanctioned remedy for BL-20260730-PR-CI-NOT-ATTACHING is a manual workflow_dispatch of guards/pytest-run/pytest-collect. Measured on PR #10215 (2026-08-24): a dispatched guards run reports the SAME headline as a pull_request run -- 'PASS 50 FAIL 0 SKIP 0' followed by 'All relevant guards passed' -- while having scanned THREE FEWER guards. The run footer says so ('NOT SCANNED on this event (3) -- no PR diff to scope by'): api-tier-policy-guard, test-schema-fidelity-guard and diagnostic-provenance-guard consume the {pr_diff} template variable, which is empty on a non-pull_request event. So the workaround for a bug whose whole danger is 'a check that silently did not run renders identically to green' itself renders a reduced scan identically to a full one, in the headline a reader quotes.",
       "evidence": "PR #10215, guards run 32716867785 (event=workflow_dispatch, head_sha 90374658), job 97399901700. Log footer lists the 3 unscanned steps by name. Note the harness is INCONSISTENT rather than uniformly diff-less on this event: guards taking the literal path /tmp/pr.diff DID scan a real diff on the same run (new_table_wiring reported '6 changed file(s) scanned', matching this PR's file count), while the three consuming {pr_diff} were skipped -- so two diff mechanisms coexist and only one survives a dispatch. Mitigated for THIS PR by running the three locally against origin/main: all three PASS, diagnostic-provenance-guard reporting 'OK -- every scanned diagnostic states what it computed'.",
       "resolution_criteria": "Either (a) give the three steps an ungated whole-tree form, which the run footer itself already prescribes ('A guard needing real push-time coverage must carry an UNGATED whole-tree step (see api-tier-policy-guard)') -- api-tier-policy-guard is named there as the pattern to copy, so the remedy exists and simply was not applied to these three; or (b) make the SUMMARY line refuse to read as a clean bill of health when steps were skipped -- the local runner already does exactly this for uncommitted paths ('All SELECTED guards passed -- but N path(s) are UNCOMMITTED ... This is NOT a clean bill of health for your change'), and the CI path should carry the same refusal. Closing without one of those leaves the documented workaround quietly weaker than the path it substitutes for."
+    },
+    {
+      "id": "BL-20260824-SILENT-REFUSAL-CANNOT-SEE-A-DECLARED-DRY-RUN",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "resolved",
+      "resolved_at": "2026-08-24T15:05:00+00:00",
+      "severity": "high",
+      "tier": 1,
+      "area": "observability/alerting",
+      "title": "silent_refusal_alert graded a DECLARED dry_run account as broken and latched a real_money alert for three days on correct behaviour",
+      "source": "MEASURED this session. /api/diag/log_file?name=silent_refusal_alert_state showed alpaca_live {alerting: true, cause: risk_refused, verdict: signalled_never_placed} continuously since 2026-08-21T12:38:38Z. /api/diag/broker_account_status?account_id=alpaca_live returns mode: dry_run, account_class: real_money, status ACTIVE, trading_blocked false. A dry_run account refusing every order IS the execution gate working as designed.",
+      "root_cause": "silent_refusal_alert.assess() builds its account set purely from journal rows (SELECT account_id ... FROM trades) and NEVER reads the account's declared mode. Its own docstring claims to watch for 'declared live, evaluates, signals, places NOTHING' but the code never establishes 'declared live'. Field beats comment.",
+      "why_it_matters": "This is the desensitized-alarm P1 the repo names as its own worst failure mode, self-inflicted on its newest detector — and it wore an account_class: real_money label, which reads maximally alarming. The repo had ALREADY ruled on this exact account: execution_diagnostics.EXPECTED_DISPATCH_SKIP_REASONS ('a dry_run-shelved account declining an order is the execution gate working exactly as designed ... must never raise an operator alert') was added by operator directive 2026-07-15 after shelving alpaca_live to dry_run made every tick fire both banners. silent_refusal_alert shipped 2026-08-14 without consulting it and re-created the alarm the operator had had suppressed.",
+      "evidence": "162 of 186 alpaca_live journal rows carry entry_reason starting 'REJECTED: dry_run_sizing_skip:' — the exact token is_expected_dispatch_skip() recognises. The 24 that do not are all 2026-07-15..2026-07-20, before the coordinator started prefixing it, and fall outside the alert's 24h window.",
+      "fix": "dead_leg.bucket_for() gains an optional `reason` axis and a FOURTH bucket `policy_skipped`; verdict_for() gains `refusing_by_declaration`. The predicate is IMPORTED from execution_diagnostics, never re-derived (one module owns 'is this refusal deliberate?'). Fail-SAFE, opposite polarity to account_side_filter: this gates an ALARM, so an unrecognised reason stays a real refusal. silent_refusal_alert also gains `alert_disposition` (alerting / suppressed_declared_dry_run / below_min_rows / not_a_finding) so a bare `alerting: False` no longer collapses three different facts. Omitting the reason preserves pre-2026-08-24 behaviour byte-for-byte.",
+      "verification": "Replayed against the REAL live journal over the 28 daily 24h-windows in which alpaca_live produced rows: 24 of 28 — every window from 2026-07-21 onward, INCLUDING the 2026-08-21 window that produced the live latch — now grade refusing_by_declaration / alerting False. The 2 pre-prefix windows (07-16, 07-17) still alert, correctly: the classifier genuinely cannot read those reasons as declared skips, and the fail-safe direction keeps them loud. 39 unit tests pass (32 pre-existing unchanged). collapsed-state-guard, provenance-consumer-guard and diagnostic-provenance-guard all clean.",
+      "resolution": "Fixed in this session's PR. Suppression is per-ROW, never per-account: an account that is switched off AND separately hitting a venue cap still alerts on the genuine refusals (pinned by test).",
+      "resolution_criteria": "RESOLVED. Residual watch: the standing alpaca_live latch clears only when the account next produces rows — see BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS."
+    },
+    {
+      "id": "BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "open",
+      "severity": "high",
+      "tier": "1 to MEASURE (done); 2 to change what the monitor records at close, or to re-grade the vocabulary",
+      "area": "provenance",
+      "title": "`recorded_exit_price` is classified MEASURED and is the single largest 'measured' source in the journal — outnumbering every genuine broker-truth source COMBINED",
+      "source": "MEASURED this session over the newest 1,500 trades rows (531 closed non-backtest; trades table total 4,985). exit_price_source distribution: recorded_exit_price 82 (15.4%) · candle_at_close 136 · local_markprice 58 · exchange_fill 52 · bybit_closed_pnl 25 · ib_execution 2 · None 173 · entry_order_avg_price_unreliable 3. Genuine broker truth (exchange_fill + bybit_closed_pnl + ib_execution) = 79. So recorded_exit_price (82) EXCEEDS all broker-truth sources combined, and classify() grades it MEASURED — indistinguishable from the 79 on every consumer surface.",
+      "root_cause": "src/runtime/provenance.py::MEASURED_SOURCES includes 'recorded_exit_price' under the comment '# A real fill the bot itself recorded at close time.' #10209 (2026-08-24) DISPROVED that comment on trade 4773: the recorded exit 4626.9 was Friday's last close, 49 hours stale, BELOW the reopen bar's low, so it cannot have been a fill. Field beats comment — except here the code's correctness rests entirely on the comment's claim.",
+      "why_it_matters": "67 of the 82 rows come from MONITOR-DERIVED close paths (intent_reduce 31, sl_cross 20, stale_stop 8, tp_cross 4, giveback_stop 3, stuck_strategy_watchdog 1) where the 'exit price' is by construction the bot's own computed level or last candle close, NOT a venue fill. This is precisely the class exit_anchor.py was built for and that _sweep_local_pnl_for_unpriced was already fixed to stop doing. The blast radius is the SCOREBOARD: totalPnlMeasured exists specifically to be the honest figure the R4 gate reads INSTEAD of totalPnl, and it is currently led by this class.",
+      "measured_reporting_impact": "Trade 4773 (ib_paper MGC, +$249,185.00, graded `measured`) is 96% of the paper book's entire 3-day window PnL ($259,699.65) and 98.4% with the next two rows. /api/bot/performance?window=24h returns paper totalPnl $247,027.13 with totalPnlMeasured $247,148.80 — i.e. the 'honest measured' figure is MORE inflated than the raw total. /api/bot/stats paper.pnl24h shows the same number to both the dashboard and the Android app.",
+      "not_established": "Whether the other 81 rows are individually wrong. Only 4773 has been proven stale (by #10209). What IS established is that the vocabulary cannot distinguish them, and that the population is 82 rows and not the ONE that #10209 measured — that commit explicitly recorded 'Population is ONE trade; the historical audit that would bound prevalence is in resolution_criteria and has NOT been run.' This row IS that audit.",
+      "scope_correction": "#10209 dispositioned this 'PAPER account, no money impact, backlog only'. True of MONEY. NOT true of REPORTING: real-money rows are 5 of the 82, but the vocabulary defect is account-agnostic and the paper book is the honest net-of-everything predictor the 'Dollars are the scoreboard' rule relies on.",
+      "proposed_fix": "Split the source: a close whose price came from a VENUE fill keeps MEASURED; a close whose price is the monitor's own level or last candle close is ESTIMATED (it has an anchor — the bar at closed_at — so it is not FABRICATED). exit_anchor.py already owns exactly this three-way decision. Do NOT simply demote recorded_exit_price wholesale without checking which writers are genuine fills, or genuine broker truth will be downgraded with the rest.",
+      "resolution_criteria": "(1) Enumerate the WRITERS of exit_price_source='recorded_exit_price' and classify each as venue-fill vs monitor-derived. (2) Either split the source string at the writers or split the classification. (3) Re-measure pnlCoverage and totalPnlMeasured before/after and state the population. (4) Do NOT back-fill or rewrite historical rows — they stay attributable to the tool that made them (the backtest_results precedent)."
+    },
+    {
+      "id": "BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T15:05:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "area": "observability/alerting",
+      "title": "A latched silent-refusal alert can never clear while the account produces no rows — so a latch outlives the condition indefinitely",
+      "source": "READ this session in src/runtime/silent_refusal_alert.py::run_silent_refusal_check. The recovery loop iterates `assessed.items()`, and assess() deliberately omits an account with no rows ('we observed nothing'). alpaca_live's last journal row is 2026-08-21 and its latch still reads alerting:true today (2026-08-24).",
+      "why_it_matters": "Not a defect in the omission — declaring recovery on ABSENCE would be wrong, and the docstring says so. The gap is that there is no third state: `silent_accounts()` (the read surface the review skills consume) reports the account as currently-latched-silent when the truth is 'latched a while ago, unobserved since'. A reviewer reading it cannot tell a live condition from a stale one.",
+      "proposed_fix": "Stamp the latch with the last OBSERVED-at time (distinct from updated_at) and have silent_accounts() expose staleness, so a consumer can distinguish 'alerting, observed this window' from 'alerting, not observed since <ts>'. Same discipline as prop status_freshness. Do NOT auto-clear on absence.",
+      "resolution_criteria": "silent_accounts() rows carry an observation age, and a consumer can tell a live latch from an unobserved one without reading the journal."
     }
   ]
 }
