@@ -94,7 +94,14 @@ def test_yaml_entries_pin_validated_params():
     assert gld["model"] is None
     # SLV 1h — BIDIRECTIONAL Donchian trend (spy clone but both-sides)
     slv = cfg["slv_trend_1h"]
-    assert slv["execution"] == "live" and slv["enabled"] is True
+    # DEMOTED live -> shadow 2026-08-24 (Tier-3, operator-approved in the
+    # /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins
+    # in 13 closed trades, -$5,375 at pnlCoverage 0.77, kill gate met across two
+    # consecutive reviews. `enabled` stays True deliberately — the leg still
+    # evaluates and logs order packages, it just places no live order, so the
+    # decision is reversible on evidence. Every other pinned param below is
+    # unchanged, which is the point of still asserting them.
+    assert slv["execution"] == "shadow" and slv["enabled"] is True
     # CRITICAL: no long_only key — silver trades both directions
     assert "long_only" not in slv
     assert slv["symbols"] == ["SLV"]

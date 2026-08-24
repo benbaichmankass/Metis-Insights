@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-24T15:45:00+00:00",
+  "updated_at": "2026-08-24T16:40:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -22912,6 +22912,24 @@
       "already_done_2026_08_24": "slv_trend_1h (the fleet's worst leg, 0 wins in 13 closed, -$5,375) was demoted live -> shadow this session with operator approval. It routed to alpaca_live, so it is already out of the go-live set.",
       "resolution_criteria": "All four steps complete and the account has placed at least one real fill that reconciles against exchange truth. Do NOT close this on the deposit alone.",
       "evidence": "(a) SHORT FLOW: 128 of 186 routed orders are SHORT (68.8%) and SIX legs are 100% short - gdx_pullback_1d, iaum_pullback_1d, gld_pullback_1d, slv_pullback_1d, ief_pullback_1d, tlt_pullback_1d - so they are entirely dead while the account has shorting_enabled=False. (This is WORSE than the earlier row's '60% / 4 legs'.) (b) SHORTING FLAG: /api/diag/broker_account_status?account_id=alpaca_live confirms shorting_enabled: False, status ACTIVE, trading_blocked false. (c) NOTIONAL: 5 of 6 measurable legs exceed whole-account notional - see BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL."
+    },
+    {
+      "id": "BL-20260824-DEMOTING-A-LEG-SILENTLY-LOOSENS-THE-M20-RATCHET",
+      "opened": "2026-08-24",
+      "opened_at": "2026-08-24T16:40:00+00:00",
+      "opened_by": "claude (/system-review 2026-08-24, found by a planted-omission self-test)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci-guards",
+      "title": "The M20 tp_geometry ratchet is an ABSOLUTE count over a population that can shrink — so demoting a leg loosens it by exactly that leg's unstamped cells, with no diff a reviewer reads as loosening",
+      "source": "MEASURED this session. tp_geometry_legend._unstamped_ceiling was 234 and unstamped live cells were EXACTLY 234 — the ratchet was tight. Demoting slv_trend_1h live -> shadow (Tier-3, operator-approved) removed its 9 lever cells, 5 of them unstamped, from m20_coverage_rollup.cells(live_only=True). Unstamped fell to 229 against an unchanged ceiling of 234, leaving 5 cells of slack.",
+      "evidence": "tests/test_m20_tp_geometry_guard.py's two planted-omission tests FAILED and that is how this was found: deleting one stamp produced 230 unstamped, still under the stale 234, so `validate` returned no problem and `any('above the recorded ceiling' in p)` was False over an empty list. Both tests pass again once the ceiling is corrected to 229.",
+      "why_it_matters": "That guard's own docstring names the cheap lie it exists to resist: 'the cheap lie would be raising _unstamped_ceiling — which is why the ceiling lives in the matrix beside the legend rather than in this script, so raising it lands in a diff a reviewer reads.' A DEMOTE produces the identical loosening WITHOUT any such diff — the ceiling line is untouched and only an unrelated execution field moves. The protection is real but its threat model missed the population axis, so the guard can be loosened by a change nobody would review as touching it. 5 live cells could have lost their tp_geometry stamp silently.",
+      "fixed_in_session": "The ceiling was corrected 234 -> 229 with the reason recorded inline in _unstamped_ceiling_note, so the ratchet is tight again. That fixes THIS INSTANCE, not the class.",
+      "proposed_fix": "Make the coupling explicit rather than relying on someone remembering. Options, cheapest first: (a) have `validate` FAIL when the live-cell count changes without the ceiling being re-derived — i.e. record the live-cell denominator beside the ceiling and check both; (b) express the ceiling as a derived assertion (unstamped == ceiling) rather than an inequality, so any movement in either direction must be acknowledged; (c) have the execution-state change and the ceiling live in one place so a demote cannot land without touching it. (b) is closest to the guard's existing ratchet intent and is a one-line validator change.",
+      "not_established": "Whether any PAST demote already loosened this ceiling unnoticed. The ceiling was exactly tight when this session started, which is consistent with it having been correct — but that is one observation, not a history. Checking would mean walking the ceiling value and the live-cell count together through git history.",
+      "resolution_criteria": "(1) A demote (or any live-population change) either updates the ceiling or fails the guard. (2) A planted-omission test covers the POPULATION-SHRINK path specifically, not only the stamp-removal path — the existing tests catch it only because the ceiling happened to be exactly tight. (3) The git-history question in not_established is answered or explicitly dropped."
     }
   ]
 }
