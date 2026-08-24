@@ -1,0 +1,90 @@
+# Does Dukascopy actually cover the 18 symbols behind the blocked backtest cells?
+#
+# WHY THIS EXISTS. yfinance is MEASURED to serve at most 730 d of 1h history —
+# it REFUSES a longer request outright rather than truncating it (proof run
+# 32734360738). Eight of the 25 `no_free_lane_candle_feed` legs are 1h and want
+# a ~1825 d sweep span, so yfinance cannot serve them at any request size.
+# Dukascopy serves YEARS of 1-minute history for FX / metals / index / ETF CFDs,
+# which makes it the candidate — but "is it the candidate" is a question about
+# COVERAGE, and nobody has ever asked it.
+#
+# ⚠️ THIS PROBE DUMPS THE CATALOGUE; IT DOES NOT DECLARE COVERAGE.
+# The mapping from our symbol to a Dukascopy instrument is a JUDGEMENT, not a
+# substring match, and the two are easy to confuse:
+#   - SPY   -> INSTRUMENT_ETF_CFD_US_SPY_US   is the same underlying.
+#   - MES   -> an index CFD is a DIFFERENT INSTRUMENT (different venue, hours,
+#             financing and settlement) that merely tracks the same index.
+# Reporting the second as "covered" is the semantic substitution this repo's
+# diagnostic-provenance rule exists to stop. So the job prints the raw
+# catalogue and a human/session does the mapping with the states kept apart.
+#
+# Read-only: lists instrument names, fetches NO candles, writes NO data.
+name: dukascopy-coverage-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "Substring to list (empty = the WHOLE catalogue)"
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install pandas dukascopy-python
+
+      - name: Dump the catalogue
+        run: |
+          set -euo pipefail
+          python scripts/ops/fetch_dukascopy_ohlcv.py --list "${{ inputs.filter }}" \
+            | tee /tmp/catalogue.txt
+          echo "---- catalogue size ----"
+          wc -l < /tmp/catalogue.txt
+
+      - name: Probe each blocked symbol by name, and REPORT MISSES EXPLICITLY
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess, sys
+
+          # The 18 distinct symbols behind the 25 no_free_lane_candle_feed cells.
+          SYMBOLS = ["GDX", "GLD", "IAUM", "IEF", "IWM", "MES", "MGC", "MHG",
+                     "QLD", "QQQ", "SCHA", "SLV", "SPLG", "SPY", "TLT",
+                     "TQQQ", "USO", "XAUUSD"]
+
+          hits, misses = {}, []
+          for sym in SYMBOLS:
+              out = subprocess.run(
+                  [sys.executable, "scripts/ops/fetch_dukascopy_ohlcv.py",
+                   "--list", sym],
+                  capture_output=True, text=True).stdout.strip()
+              if out and not out.startswith("no instrument matches"):
+                  hits[sym] = out.splitlines()
+              else:
+                  misses.append(sym)
+
+          print("=== NAME-MATCHED (a match is a CANDIDATE, not a verdict) ===")
+          for sym, names in sorted(hits.items()):
+              print(f"{sym}: {', '.join(names)}")
+
+          print("\n=== NO NAME MATCH ===")
+          # Stated explicitly rather than left as an absence: a symbol missing
+          # from the hit list above is indistinguishable from one nobody probed.
+          print(", ".join(misses) if misses else "(none)")
+
+          print(f"\nprobed={len(SYMBOLS)}  name_matched={len(hits)}  "
+                f"unmatched={len(misses)}")
+          print("\n⚠️ A NAME MATCH IS NOT COVERAGE. XAUUSD->XAU_USD is the same "
+                "underlying; MES->an index CFD is a different instrument that "
+                "tracks the same index. The mapping is decided by a reader, "
+                "and the two cases must not be merged.")
+          PY
