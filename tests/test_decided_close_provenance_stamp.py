@@ -21,8 +21,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from src.runtime import order_monitor as om
 from src.runtime import provenance as P
 

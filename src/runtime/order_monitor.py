@@ -1082,8 +1082,11 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             if actual_exit_price is not None:
                 close_updates["exit_price"] = actual_exit_price
             # ── STAMP EVERY OUTCOME, INCLUDING THE GOOD ONE ───────────────
-            # M39(A), 2026-08-24 (`BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-
-            # UNMEASURED-ONE`). This block used to write the note ONLY under
+            # M39(A), 2026-08-24. Backlog row (kept on ONE line so the id
+            # actually resolves — a wrapped id reads as a dangling reference,
+            # which `check_backlog_refs` correctly refuses):
+            # BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE
+            # This block used to write the note ONLY under
             # `exit_price_source == "verdict"`, so the branch that resolved a
             # REAL venue fill stamped nothing and the row classified as
             # UNVERIFIED — the strongest evidence we ever have, recorded as
