@@ -228,6 +228,19 @@ GUARDS: List[Dict[str, Any]] = [
             # self-test nobody invokes is worse than a missing one, so it runs here.
             ["python3", "scripts/research/bracket_expectation_census.py", "--selftest"],
             ["python3", "scripts/research/adx_entry_distribution.py", "--selftest"],
+            # The bracket-reachability audit answers whether a DECLARED target
+            # is the operative exit or whether the 9.9% venue clamp gets there
+            # first. Its self-test pins the distinctions that make the answer
+            # trustworthy and that a data refresh cannot move: the DERIVED
+            # median-basis truncation label never merges with the OBSERVED
+            # byte-identity cosmetic label; a cell matching a no-target baseline
+            # on net_R but NOT on drawdown is not "changed nothing"; a cell with
+            # no same-stop baseline is `no_baseline` rather than `not_cosmetic`;
+            # and — the regression that fired on the real corpus — a cosmetic
+            # cell on a leg with NO measured cap_r is UNVERIFIABLE, not a
+            # violation. It also pins the positive control, without which a
+            # zero-pass filter reads as a measured negative.
+            ["python3", "scripts/research/bracket_reachability_audit.py", "--selftest"],
             # A NEW tracking reference that resolves to nothing is a PR-scoped
             # question (it needs a base to diff against); the whole-repo sweep
             # below stays advisory exactly as it was.

@@ -3738,6 +3738,28 @@
         "docs/research/xrp-pullback-joint-geometry-2026-08-23.md",
         "docs/research/donchian-stop-gate-is-drawdown-bound-2026-08-23.md"
       ]
+    },
+    {
+      "id": "PB-20260824-JOINT-GRID-OMITS-THE-LIVE-STOP-SO-TARGET-EFFECT-IS-UNSEPARABLE",
+      "opened": "2026-08-24",
+      "severity": "medium",
+      "tier": 3,
+      "status": "open",
+      "area": "research/bracket-geometry",
+      "summary": "The e35 bracket joint grid walks atr_stop_mult {1.5, 2.0, 3.0, 3.5} and OMITS the live value 2.5 on all four clamp-dominated donchian 4h legs (eth/xrp/ada/sol). Every joint cell therefore changes the stop AND the target together, so 'does declaring a target at the geometry we actually run help?' is unmeasured — measured 2026-08-24 over 1,540 joint cells with a book. The per-leg deltas in docs/research/bracket-target-reachability-2026-08-24.md section 4 (sol_4h helps at 4/4 stops, ada_4h hurts at 3/4) are all joint-change results and must not be quoted as target-only effects.",
+      "evidence": "docs/research/bracket-target-reachability-2026-08-24.md section 7; scripts/research/bracket_reachability_audit.py --corpus docs/research/e35-bracket-corpus.jsonl; stop_mult values present per leg = [1.5, 2.0, 3.0, 3.5], live = 2.5, present = False on all four legs.",
+      "resolution_criteria": "Either (a) re-run the four legs with atr_stop_mult 2.5 added to the joint grid, so the target-only column exists and section 4 can be restated as target-only vs joint; or (b) if that run is not worth its cost, record that decision here and add an explicit caveat at every consuming site that the deltas are joint-change, so no future session reads them as target-only. A criterion for 'this target ships' must be written down BEFORE (a) runs, per the donchian section 6.0b lesson."
+    },
+    {
+      "id": "PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS",
+      "opened": "2026-08-24",
+      "severity": "medium",
+      "tier": 3,
+      "status": "open",
+      "area": "research/bracket-geometry",
+      "summary": "A declared tp_r above a leg's cap_r is byte-identically the same run as declaring NO target — the 9.9% venue clamp exits first — yet it reads in config as a chosen expectation. Measured 2026-08-24: 49 of 308 cells that have a same-stop no-target baseline are byte-identical to that baseline on BOTH net_R and max_drawdown_r (15.9%); restricted to the four clamp-dominated donchian 4h legs, 28 of 112 (25.0%). Worked case: trend_donchian_ada_4h at sm1.5 (cap_r 2.62R) returns net_R 55.4731 at tp_r 6.0 and net_R 55.4731 with no target at all. This extends the operator premise that a sentinel target is the absence of an expectation: a target above the clamp is equally absent while looking like a decision.",
+      "evidence": "docs/research/bracket-target-reachability-2026-08-24.md section 3; scripts/research/bracket_reachability_audit.py (COSMETIC axis, observed byte-identity, not derived); implication that every cosmetic cell is also truncated holds 40/40 on cells with a cap basis, 9 further unverifiable.",
+      "resolution_criteria": "A config-time check that refuses or warns when a declared tp_r exceeds the leg's cap_r at its declared atr_stop_mult, so a cosmetic target cannot ship as a declared expectation. cap_r must come from bracket_expectation_census.cap_r_for (one definition), and the check must distinguish 'no cap basis for this leg' (we did not look) from 'target is within cap' — collapsing those is the defect this row is about. Closing without the check requires recording why a cosmetic declaration is acceptable."
     }
   ],
   "updated_at": "2026-08-22T18:05:00+00:00"
