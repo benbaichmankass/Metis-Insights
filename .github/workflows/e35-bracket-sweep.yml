@@ -81,8 +81,19 @@ jobs:
         id: plan
         run: |
           set -euo pipefail
+          # --ignore-missing-data is REQUIRED here and is not a convenience:
+          # leg CSVs are gitignored (.gitignore `data/*.csv`) and each per-leg
+          # job fetches its OWN candles, so on this fresh checkout every leg
+          # resolves data=None. Without the flag the planner correctly refuses
+          # with `0 job(s); 55 not scheduled (data_missing=43,
+          # out_of_scope_family=12)` and exits 1 -- which is why this workflow
+          # had NEVER run (BL-20260824-E35-SHARD-PLANNER-CANNOT-PLAN-ON-A-FRESH-CHECKOUT).
+          # The flag drops ONLY the data-presence gate; the family filter and
+          # every other scope rule still apply (measured: 43 scheduled, 12 still
+          # refused as out_of_scope_family).
           python scripts/research/e35_shard_plan.py \
             ${{ inputs.only && format('--only "{0}"', inputs.only) || '' }} \
+            --ignore-missing-data \
             --out matrix.json
           echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
           echo "count=$(python -c 'import json;print(len(json.load(open("matrix.json"))["include"]))')" >> "$GITHUB_OUTPUT"
