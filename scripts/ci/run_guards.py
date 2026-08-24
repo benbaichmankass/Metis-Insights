@@ -193,6 +193,13 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
+            # WARN-ONLY target reachability (operator decision 2026-08-24:
+            # "warn, do not refuse"). Its MECHANISM is gated — a broken
+            # self-test or an unreadable config exits 1 — while its FINDINGS
+            # never fail the build. That split is the whole point: a cosmetic
+            # target is a decision for the operator, but a report that has
+            # silently stopped being able to SEE one is a defect.
+            ["python3", "scripts/research/target_reachability_report.py"],
             # The e35 corpus extractor is the durable half of a sweep whose
             # evidence was previously write-only. Its self-test pins the
             # distinctions that make the corpus trustworthy — an ungated cell
