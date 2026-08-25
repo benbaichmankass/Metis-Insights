@@ -123,10 +123,36 @@ this log.
   with nothing reading them back.
 
 ## Next Recommended Sprint
-Not the proxy wiring. **Re-run the 2026-08-23 alpaca blocker set against today's
-state** — specifically the notional-exceeds-equity finding and the net-negative
-paper record — because an affordable instrument on a losing leg is not progress.
-The sweep's candidate list is input to that, not a substitute for it.
+⚠️ **Corrected after the operator read the first version of this section: it
+named a verification errand where the program has a LANE.** The narrow answer
+("re-run the 2026-08-23 alpaca blocker set") is a task *inside* the real one and
+must not be handed off as the whole of it.
+
+**Continue [`docs/research/WORKPLAN-2026-08-14.md`](../research/WORKPLAN-2026-08-14.md)
+Lane 0 — Live-capability integrity (P0, IN PROGRESS).** That doc supersedes
+ROADMAP's "Next" table for the non-M20 track, and **M36** governs above it:
+consolidate and integrate the open M25→M30 threads *before* opening new
+frontiers. Do not start a new milestone.
+
+Lane 0's done-condition is the frame this session's alpaca work belongs to:
+*every `mode: live` account × enabled strategy leg is either (a) demonstrably
+able to place an order, or (b) carries a filed row saying why not — **and a
+standing check exists**.* That last clause is the lane's own stated real
+deliverable (`scripts/ops/dead_leg_audit.py`).
+
+**Lane 0 items re-verified live 2026-08-25 ~09:20Z — the doc is 11 days old and
+two have MOVED, so read these, not the table:**
+
+| item | doc | live now |
+|---|---|---|
+| **0.3** `alpaca_paper`/`alpaca_portfolio` `balance()` → None | queued | ⚠️ the **balance-SNAPSHOT** path is healthy ($83,947.32 / $99,240.45, `api_ok: true`, 6 open each, non-zero `delta_1h`) — but that is the **DB snapshot writer, NOT the sizing path's `balance()`**. `BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE` must **not** be closed on this surface alone. |
+| **0.5** `ib_paper` MGC uPnL $119,490 vs ~$37.80 truth | queued | ⚠️ **not presenting** — MGC/MHG/MES all `uPnL: None`, `src: unavailable`, the honest degraded state. Fix vs transient IB read failure is **undetermined**. |
+| **0.6** `breakout_1` prop status 25 d stale | queued | 🔴 **STILL OPEN** — 41.2 h stale, `freshness: stale`, `api_ok: false`. The $150 daily-loss / $4,700 DD guard computes off that snapshot. The one unambiguously live item. |
+
+`alpaca_live` is Lane 0's done-condition **case study**, not a separate track:
+affordability is measured and is NOT the blocker (42 of 51 size); the four real
+blockers are in the 2026-08-23 ROADMAP row and are listed under "Risks and
+Follow-Ups" above.
 
 ## Wrap-Up Check
 Two PRs merged, one open with auto-merge armed on green. Board `START`,
