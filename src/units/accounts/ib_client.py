@@ -155,6 +155,21 @@ _IB_PROBE_CACHE_S = _env_float("IB_PROBE_CACHE_S", 60.0)
 # tick; short enough that a genuine recovery is picked up promptly.
 _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
 
+# How long to let a batch of cancels SETTLE at the venue before re-reading to
+# see whether they actually removed anything
+# (BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT).
+# `ib.cancelOrder` is fire-and-forget: it returns None, never raises, and IBKR's
+# answer — including a REFUSAL such as `Error 10147 ... OrderId 417 that needs
+# to be cancelled is not found` for an order owned by a retired clientId —
+# arrives asynchronously. Measured on the live trader 2026-08-25T14:52:34Z, the
+# two 10147s landed 156 ms and 239 ms after their cancels, so the pre-existing
+# `ib.sleep(0)` (one event-loop yield) could not have observed either.
+# A cadence/tolerance knob, NOT an enable gate: `0` disables only the WAIT, and
+# the re-read still runs — the verification itself has no off switch, because a
+# verification that can be switched off is how the accumulation this bounds got
+# back in. Unparseable falls back to the default rather than to zero.
+_IB_CANCEL_SETTLE_S = _env_float("IB_CANCEL_SETTLE_SECONDS", 0.5)
+
 # BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE — clientId rotation on reconnect.
 # After a gateway (container) restart under the socat relay, the trader's old
 # socket can go half-open: isConnected() reads False (so connect() attempts a
@@ -1450,6 +1465,23 @@ class IBClient:
         is possible, so callers must not treat a success return as proof
         that no stale leg survives.
 
+        **The pre-cancel is now VERIFIED, and a verified survivor REFUSES the
+        arm** (2026-08-25,
+        BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT).
+        ``ib.cancelOrder`` returns ``None`` and never raises, and IBKR binds
+        cancel rights to the SUBMITTING clientId — which this trader rotates on
+        reconnect failure — so a bracket placed before a rotation is refused
+        with ``Error 10147`` on an event nothing read, and this method armed
+        another OCA group on top of legs it had not removed. Measured live on
+        ib_paper/MHG: three disjoint groups, 87 lots of stop against a 29-lot
+        position, one new group per trailing amend. Both cancel helpers now
+        re-read the venue and return ``verify_state`` ∈ ``verified`` /
+        ``unverified`` / ``not_attempted`` plus ``still_resting``; only the
+        first state with a non-empty survivor list refuses, and it returns
+        ``retCode 1`` with those legs in ``result``. The other two states arm,
+        deliberately — see the branch comment for why the asymmetry is the safe
+        one in each direction.
+
         The pre-cancel exists to stop bracket ACCUMULATION
         (BL-20260624-MHG-FLIP): without it, repeated re-arms across an
         orphan flap stack multiple live OCA brackets on one position, whose
@@ -1543,9 +1575,10 @@ class IBClient:
         # says so loudly, because that path is the one that can strand a sibling.
         oca_key = str(order.get("oca_key") or "").strip()
         oca_group = f"oca-protect-t{oca_key}" if oca_key else None
+        precancel: Optional[Dict[str, Any]] = None
         try:
             if oca_group:
-                self._cancel_oca_group_for_symbol(ib, sym, oca_group)
+                precancel = self._cancel_oca_group_for_symbol(ib, sym, oca_group)
             else:
                 logger.warning(
                     "place_protective: no oca_key for %s — falling back to the "
@@ -1553,12 +1586,65 @@ class IBClient:
                     "protective legs on a netted contract "
                     "(BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY)", sym,
                 )
-                self._cancel_resting_orders_for_symbol(ib, sym)
+                precancel = self._cancel_resting_orders_for_symbol(ib, sym)
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "place_protective: pre-cancel of resting %s legs failed "
                 "(proceeding to arm fresh bracket): %s", sym, exc,
             )
+
+        # ── THE INVARIANT ────────────────────────────────────────────────────
+        # NEVER arm a fresh bracket while legs we TRIED to cancel are still
+        # resting. See
+        # BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT.
+        # Arming anyway puts the new pair in a SECOND OCA group, and
+        # ocaType=1 only cancels within a group — so one stop firing flattens
+        # the position and the other group is left resting to sell the same size
+        # AGAIN, into an un-hedged reverse nobody requested. Measured live
+        # 2026-08-25 on ib_paper/MHG: three groups, 87 lots of stop against a
+        # 29-lot position, one new group per trailing amend.
+        #
+        # REFUSING IS THE SAFE DIRECTION HERE, and only here, because those very
+        # legs ARE the protection: the position is demonstrably still covered,
+        # so the whole cost of refusing is that this re-arm's new levels do not
+        # take effect — visible, alerted, and retried on the next verdict. That
+        # is not true of the two other states, which is why they are separate:
+        #
+        #   unverified  → the re-read failed, so we CANNOT show the position is
+        #                 protected, and the cancel may well have succeeded.
+        #                 ARM. CLAUDE.md is unambiguous that "a live position
+        #                 with no stop is an unacceptable state the system must
+        #                 always correct", and a blind refusal risks exactly
+        #                 that for up to IB_BROKER_NAKED_CHECK_SECONDS (300s)
+        #                 before any sweep would notice — whereas the over-cover
+        #                 it risks instead is paged within one sweep.
+        #   not_attempted → nothing was resting. The position may be naked. ARM.
+        #
+        # Collapsing "we did not look" into "nothing is left" is the mistake
+        # this whole envelope exists to prevent; do not simplify the branch.
+        if isinstance(precancel, dict):
+            still_resting = precancel.get("still_resting") or []
+            if precancel.get("verify_state") == "verified" and still_resting:
+                refusal_codes = sorted({
+                    (leg.get("refusal") or {}).get("code")
+                    for leg in still_resting
+                    if isinstance(leg.get("refusal"), dict)
+                } - {None})
+                return {
+                    "retCode": 1,
+                    "retMsg": (
+                        f"refusing to arm a duplicate bracket: "
+                        f"{len(still_resting)} {sym} protective leg(s) survived "
+                        f"the pre-cancel and are still resting at the venue"
+                        + (f" (IBKR refusal code(s): {refusal_codes})"
+                           if refusal_codes else "")
+                        + " — the position keeps the protection it already has; "
+                        "arming now would create a second, non-mutually-"
+                        "cancelling OCA group"
+                    ),
+                    "result": {"still_resting": still_resting,
+                               "precancel": precancel},
+                }
         contract = self._build_contract(order.get("symbol"))
         tick = tick_size_for(order.get("symbol") or self.symbol)
         tp_price = _round_to_tick(float(tp_raw), tick) if tp_raw else None
@@ -2428,6 +2514,227 @@ class IBClient:
                     return None
         return 0.0
 
+    # ------------------------------------------------------------------
+    # Cancel VERIFICATION — did the cancel remove the leg, or was it refused?
+    # ------------------------------------------------------------------
+    #
+    # BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT.
+    # Both cancel helpers below used to count the ``ib.cancelOrder`` CALL and
+    # report that as the outcome — the same conflation CLAUDE.md already spells
+    # out for ``protection_repairs`` ("counts repairs that REACHED THE VENUE,
+    # not ones that succeeded"). It is not an academic distinction here: IBKR
+    # binds cancel rights to the SUBMITTING clientId, and this trader rotates
+    # its clientId on reconnect failure (``IB_RECONNECT_ROTATE_CLIENTID_AFTER``),
+    # so every bracket placed before a rotation is refused with
+    # ``Error 10147 — OrderId <n> that needs to be cancelled is not found``.
+    # ``cancelOrder`` returns ``None`` and never raises, so that refusal was
+    # unobservable IN PRINCIPLE, and ``place_protective`` armed another OCA
+    # group on top of legs it had not removed. Measured live 2026-08-25:
+    # ib_paper/MHG reached THREE disjoint groups, 87 lots of resting stop
+    # against a 29-lot position, one new group per trailing amend.
+
+    @staticmethod
+    def _leg_identity(order: Any) -> Optional[str]:
+        """A stable identity for a resting leg, for before/after comparison.
+
+        ``permId`` is IBKR's durable, account-wide handle and is what survives a
+        client rotation, so it is preferred. A leg the venue has not yet
+        acknowledged can carry ``permId`` 0/None; those fall back to the
+        session-local ``orderId``, which is still comparable across the two
+        reads of a single cancel batch. Returns ``None`` when neither is
+        readable — such a leg is EXCLUDED from the verdict rather than assumed
+        gone, because "we could not identify it" is not "we removed it".
+        """
+        try:
+            perm = getattr(order, "permId", None)
+            if perm not in (None, 0, "0", ""):
+                return f"perm:{int(float(perm))}"
+        except (TypeError, ValueError):
+            pass
+        try:
+            oid = getattr(order, "orderId", None)
+            if oid not in (None, "", 0, "0"):
+                return f"oid:{int(float(oid))}"
+        except (TypeError, ValueError):
+            pass
+        return None
+
+    @staticmethod
+    def _leg_descriptor(trade: Any) -> Dict[str, Any]:
+        """Human/JSON-readable summary of a resting leg, for logs + envelopes."""
+        order = getattr(trade, "order", None)
+        contract = getattr(trade, "contract", None)
+
+        def _num(obj: Any, attr: str):
+            try:
+                v = getattr(obj, attr, None)
+                return None if v is None else float(v)
+            except (TypeError, ValueError):
+                return None
+
+        return {
+            "symbol": str(getattr(contract, "symbol", "") or "") or None,
+            "order_id": _num(order, "orderId"),
+            "perm_id": _num(order, "permId"),
+            "client_id": _num(order, "clientId"),
+            "order_type": str(getattr(order, "orderType", "") or "") or None,
+            "oca_group": str(getattr(order, "ocaGroup", "") or "") or None,
+            "total_quantity": _num(order, "totalQuantity"),
+        }
+
+    def _verify_cancel_effect(
+        self,
+        ib: Any,
+        sym: str,
+        attempted: Dict[str, Dict[str, Any]],
+        refusals: Dict[int, Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Re-read the venue and report which attempted cancels actually landed.
+
+        Three states, never collapsed (the ``exit_anchor`` shape this repo
+        already uses for exactly this question):
+
+        * ``verified``   — the account-wide re-read succeeded, so
+          ``still_resting`` and ``confirmed_gone`` are real observations.
+        * ``unverified`` — the re-read RAISED. **We did not look.** An empty
+          ``still_resting`` here means nothing and must never be read as a
+          clean cancel.
+        * ``not_attempted`` — no cancel was issued, so there is no effect to
+          verify. Distinct from ``verified`` with nothing left, because the
+          caller branches differently: nothing was resting in the first place.
+
+        A leg whose cancel IBKR explicitly refused carries the venue's own code
+        in ``refusal``, so a permanent refusal (10147) is distinguishable from a
+        cancel that is merely slow — the two want opposite retry behaviour.
+
+        ⚠️ **Not yet registered with ``collapsed-state-guard``, deliberately**,
+        following the ``BYBIT_HEDGE_MODE_SYMBOLS`` precedent. ``verified`` and
+        ``unverified`` each have a real consumer branch today (the refuse-to-arm
+        invariant in :meth:`place_protective` and :meth:`_log_cancel_verdict`),
+        but ``not_attempted`` does not: the consumer that would care — "was this
+        position protected a moment ago?" — is the naked-detection path, which
+        does not call this. Registering the contract now would either fail the
+        guard or invite a decorative branch, and a guard that is cheaper to lie
+        to than to satisfy is worse than no guard. It becomes registrable in the
+        change that gives ``not_attempted`` a consumer. The state is kept in the
+        envelope regardless, because collapsing it into ``verified`` would say
+        "we looked and nothing survived" about a call that never looked.
+        """
+        if not attempted:
+            return {"verify_state": "not_attempted", "still_resting": [],
+                    "confirmed_gone": [], "account_wide_seen": None}
+
+        # Let the batch settle. Bounded, and `0` disables only the wait.
+        if _IB_CANCEL_SETTLE_S > 0:
+            try:
+                ib.sleep(_IB_CANCEL_SETTLE_S)
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            try:
+                ib.sleep(0)
+            except Exception:  # noqa: BLE001
+                pass
+
+        try:
+            live = self._req_all_open_orders(ib)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "IBClient: could not re-read open orders after cancelling %d "
+                "%s leg(s) — cancel effect UNVERIFIED (this is 'we did not "
+                "look', NOT 'the cancel worked'): %s",
+                len(attempted), sym or "(all)", exc,
+            )
+            return {"verify_state": "unverified", "still_resting": [],
+                    "confirmed_gone": [], "account_wide_seen": None}
+
+        live_ids: Dict[str, Any] = {}
+        account_wide = 0
+        for t in live:
+            contract = getattr(t, "contract", None)
+            t_sym = str(getattr(contract, "symbol", "") or "").upper()
+            if sym and t_sym and t_sym != sym:
+                continue
+            account_wide += 1
+            key = self._leg_identity(getattr(t, "order", None))
+            if key:
+                live_ids[key] = t
+
+        still: List[Dict[str, Any]] = []
+        gone: List[str] = []
+        for key, desc in attempted.items():
+            if key in live_ids:
+                row = dict(desc)
+                oid = desc.get("order_id")
+                ref = refusals.get(int(oid)) if oid is not None else None
+                row["refusal"] = ref
+                still.append(row)
+            else:
+                gone.append(key)
+
+        return {"verify_state": "verified", "still_resting": still,
+                "confirmed_gone": gone, "account_wide_seen": account_wide}
+
+    @staticmethod
+    def _log_cancel_verdict(sym: str, scope: str, result: Dict[str, Any]) -> None:
+        """Say what the cancel ACHIEVED, at a level matching what it means."""
+        state = result.get("verify_state")
+        still = result.get("still_resting") or []
+        if state == "verified" and still:
+            logger.error(
+                "IBClient: %s cancel on %s did NOT clear %d leg(s) — they are "
+                "STILL RESTING at the venue: %s. A fresh bracket placed now "
+                "would sit in a SECOND OCA group and OCA does not cancel across "
+                "groups. See "
+                "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
+                scope, sym or "(all)", len(still), still,
+            )
+        elif state == "unverified":
+            logger.warning(
+                "IBClient: %s cancel on %s is UNVERIFIED — the post-cancel "
+                "re-read failed, so whether the legs went away was not "
+                "observed. This is not a clean cancel.", scope, sym or "(all)",
+            )
+
+    def _cancel_error_capture(self, ib: Any):
+        """Subscribe to IBKR's error event for the life of a cancel batch.
+
+        Returns ``(refusals, detach)``. ``refusals`` maps the erroring
+        ``reqId`` — which for a cancel rejection is the ORDER id — to
+        ``{"code", "message"}``. ``detach`` must be called in a ``finally``.
+
+        Without this the venue's answer is unreachable: ``ib.cancelOrder``
+        returns ``None``, and the rejection arrives only here.
+        """
+        refusals: Dict[int, Dict[str, Any]] = {}
+
+        def _on_error(reqId=None, errorCode=None, errorString=None,
+                      contract=None, *_a, **_kw):
+            try:
+                refusals[int(reqId)] = {"code": int(errorCode),
+                                        "message": str(errorString)}
+            except (TypeError, ValueError):
+                pass
+
+        event = getattr(ib, "errorEvent", None)
+        attached = False
+        if event is not None:
+            try:
+                ib.errorEvent += _on_error
+                attached = True
+            except Exception:  # noqa: BLE001
+                attached = False
+
+        def _detach() -> None:
+            if not attached:
+                return
+            try:
+                ib.errorEvent -= _on_error
+            except Exception:  # noqa: BLE001
+                pass
+
+        return refusals, _detach
+
     def _cancel_oca_group_for_symbol(
         self, ib: Any, symbol: str, oca_group: str
     ) -> int:
@@ -2440,31 +2747,48 @@ class IBClient:
         and :meth:`cancel_resting_protection` — are flatten paths that genuinely
         do want every leg gone.
 
-        Returns the number of legs cancelled. Never raises.
+        Returns a verification envelope (see :meth:`_verify_cancel_effect`)
+        carrying ``cancelled`` (calls MADE), ``verify_state``, ``still_resting``
+        and ``confirmed_gone``. Never raises.
+
+        ``cancelled`` is deliberately kept and deliberately NOT renamed: it is
+        the count of cancel CALLS, and reading it as an outcome is the defect
+        this envelope exists to make impossible
+        (BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT).
+        Branch on ``verify_state`` + ``still_resting``, never on ``cancelled``.
         """
         sym = str(symbol or "").upper()
         group = str(oca_group or "")
         if not group:
-            return 0
+            return {"cancelled": 0, "verify_state": "not_attempted",
+                    "still_resting": [], "confirmed_gone": [],
+                    "account_wide_seen": None}
         cancelled = 0
-        for trade in self._open_trades(ib):
-            try:
-                contract = getattr(trade, "contract", None)
-                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
-                if sym and trade_sym and trade_sym != sym:
-                    continue
-                order = getattr(trade, "order", None)
-                if str(getattr(order, "ocaGroup", "") or "") != group:
-                    continue
-                ib.cancelOrder(order)
-                cancelled += 1
-            except Exception:  # noqa: BLE001 — one un-cancellable leg never aborts
-                continue
+        attempted: Dict[str, Dict[str, Any]] = {}
+        refusals, detach = self._cancel_error_capture(ib)
         try:
-            ib.sleep(0)
-        except Exception:  # noqa: BLE001
-            pass
-        return cancelled
+            for trade in self._open_trades(ib):
+                try:
+                    contract = getattr(trade, "contract", None)
+                    trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                    if sym and trade_sym and trade_sym != sym:
+                        continue
+                    order = getattr(trade, "order", None)
+                    if str(getattr(order, "ocaGroup", "") or "") != group:
+                        continue
+                    key = self._leg_identity(order)
+                    if key:
+                        attempted[key] = self._leg_descriptor(trade)
+                    ib.cancelOrder(order)
+                    cancelled += 1
+                except Exception:  # noqa: BLE001 — one un-cancellable leg never aborts
+                    continue
+            result = self._verify_cancel_effect(ib, sym, attempted, refusals)
+        finally:
+            detach()
+        result["cancelled"] = cancelled
+        self._log_cancel_verdict(sym, f"OCA group {group}", result)
+        return result
 
     def _cancel_resting_orders_for_symbol(
         self, ib: Any, symbol: str
@@ -2516,40 +2840,43 @@ class IBClient:
         seen = 0
         cancelled = 0
         failed = 0
-        for trade in self._open_trades(ib):
-            try:
-                contract = getattr(trade, "contract", None)
-                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
-                if sym and trade_sym and trade_sym != sym:
-                    continue
-                seen += 1
-                ib.cancelOrder(trade.order)
-                cancelled += 1
-            except Exception:  # noqa: BLE001
-                # Best-effort: a single un-cancellable leg must not abort
-                # the flatten; the naked-autoprotect / reconciler paths
-                # converge the remainder. Counted, not swallowed.
-                failed += 1
-                continue
+        attempted: Dict[str, Dict[str, Any]] = {}
+        refusals, detach = self._cancel_error_capture(ib)
         try:
-            ib.sleep(0)
-        except Exception:  # noqa: BLE001
-            pass
+            for trade in self._open_trades(ib):
+                try:
+                    contract = getattr(trade, "contract", None)
+                    trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                    if sym and trade_sym and trade_sym != sym:
+                        continue
+                    seen += 1
+                    key = self._leg_identity(getattr(trade, "order", None))
+                    if key:
+                        attempted[key] = self._leg_descriptor(trade)
+                    ib.cancelOrder(trade.order)
+                    cancelled += 1
+                except Exception:  # noqa: BLE001
+                    # Best-effort: a single un-cancellable leg must not abort
+                    # the flatten; the naked-autoprotect / reconciler paths
+                    # converge the remainder. Counted, not swallowed.
+                    failed += 1
+                    continue
+            verdict = self._verify_cancel_effect(ib, sym, attempted, refusals)
+        finally:
+            detach()
 
         # The honest denominator: how many legs exist ACCOUNT-WIDE for this
         # symbol. If that exceeds what this session could see, legs are resting
         # that this client cannot cancel — the exact condition that made the
         # 2026-08-16 flatten look successful while changing nothing.
-        account_wide: Optional[int] = None
-        try:
-            account_wide = sum(
-                1 for t in self._req_all_open_orders(ib)
-                if not sym
-                or str(getattr(getattr(t, "contract", None), "symbol", "")
-                       or "").upper() == sym
-            )
-        except Exception:  # noqa: BLE001
-            account_wide = None  # could not look — NOT zero
+        #
+        # ⚠️ THIS COMPARISON IS NOT THE VERIFICATION AND NEVER WAS. Once
+        # `reqAllOpenOrders` has populated the local book, `ib.openTrades()`
+        # returns other clients' orders too, so `seen` counts the very legs this
+        # session cannot cancel and `account_wide > seen` stays False while they
+        # rest untouched. Measured live 2026-08-25 on ib_paper/MHG. Keep it for
+        # the case it does catch, but branch on `verify_state`/`still_resting`.
+        account_wide: Optional[int] = verdict.get("account_wide_seen")
 
         if account_wide is not None and account_wide > seen:
             logger.warning(
@@ -2564,10 +2891,11 @@ class IBClient:
                 "IBClient: symbol-wide cancel on %s — %d of %d leg(s) refused "
                 "cancellation and are STILL RESTING.", sym, failed, seen,
             )
-        return {
-            "seen": seen, "cancelled": cancelled, "failed": failed,
-            "account_wide_seen": account_wide,
-        }
+        result = dict(verdict)
+        result.update({"seen": seen, "cancelled": cancelled, "failed": failed,
+                       "account_wide_seen": account_wide})
+        self._log_cancel_verdict(sym, "symbol-wide", result)
+        return result
 
     def cancel_resting_protection(self, symbol: Optional[str]) -> Dict[str, Any]:
         """Cancel every resting (working) order for *symbol* — public, best-effort.

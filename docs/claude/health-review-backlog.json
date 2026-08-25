@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T05:30:00+00:00",
+ "updated_at": "2026-08-25T15:05:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -18221,7 +18221,8 @@
     "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
     "order_monitor._check_broker_naked_ib_positions",
     "order_monitor._bybit_position_protection",
-    "scripts/ops/attach_ib_target.py"
+    "scripts/ops/attach_ib_target.py",
+    "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT"
    ],
    "evidence": {
     "venue_recheck_2026_08_18": {
@@ -18245,11 +18246,16 @@
      "at": "2026-08-23T16:30:56.066487+00:00",
      "by": "full-system-audit-2026-08-23",
      "note": "RESOLVED, VERIFIED AT THE BROKER 2026-08-23 (/api/diag/ib_open_orders?account_id=ib_paper, read_state='orders_read', 6 orders total). The row recorded ib_paper MES holding 30 contracts of STOP against a 15 long in TWO DISJOINT OCA groups, where either stop firing would flatten the position twice. Today MES holds exactly ONE group, oca-protect-408, containing STP 7533.75 qty 15.0 and LMT 8390.50 qty 15.0 — 15 of stop against a 15 long, correctly paired, no second group.\n\nCAUSE OF THE FIX, so it is not read as spontaneous: the protection re-assert ran on this position today to correct a diverged stop (7516.5 -> 7533.75), and IBClient.modify_protective re-arms through place_protective, whose Step-1 pre-cancel removes the resting protective legs before minting the fresh pair. That pre-cancel is what collapsed the two disjoint groups into one. The over-cover was repaired as a SIDE EFFECT of a different repair — worth stating plainly, because nothing was aimed at this row and a future reader should not conclude a dedicated fix exists.\n\n⚠️ SO THE CLASS IS NOT CLOSED, only this instance. Nothing DETECTS over-cover: the sweep grades a covered QUANTITY and the 444.7% over-coverage case is cited in CLAUDE.md as a sub-class C example (an unasserted denominator reading as clean). If the same accumulation recurs it will again be invisible until someone reads the raw orders. That detection gap is separate work and is not claimed here."
+    },
+    {
+     "at": "2026-08-25T15:05:00+00:00",
+     "by": "claude (system-review fix round, MHG over-cover apply)",
+     "note": "DETECTOR EXERCISED ON A REAL OVER-COVER 2026-08-25 -- this row's own next_action ('observe the detector fire once on a real or planted over-cover') is now MET, and the ROOT CAUSE it never had is filed.\n\nTHE PAGE FIRED. The stop-over-cover CRITICAL page (PR #10259, deployed d4bf2648 at ~12:20Z) emitted at 2026-08-25T12:27:44Z, one sweep after deploy: 'ib_stop_over_cover detected: ib_paper/MHG: position 29.0 but resting STOP qty totals 58.0 (200%) across 2 DISJOINT OCA groups [oca-protect-416, oca-protect-432]'. Verified in /api/bot/logs?level=error, latch file runtime_logs/stop_over_cover_alert_state.json = {'ib_paper|MHG': 1787660864.72}. Note the SYMBOL: this row was measured on MES, so the class recurred on a different instrument, which is what the row meant by 'the gap is the finding'.\n\nROOT CAUSE, caught in the journal rather than inferred -- filed as BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT. At 14:52:34Z place_protective's pre-cancel issued cancelOrder on all four resting MHG legs; IBKR refused the two owned by the retired clientId 497 with 'Error 10147 ... OrderId 417 that needs to be cancelled is not found'; ib_insync's cancelOrder returns None and never raises, _cancel_resting_orders_for_symbol increments `cancelled` on the CALL, and place_protective discards the return value entirely -- so it armed a fresh bracket in a THIRD group (oca-protect-440) and reported legs_placed 2 / retMsg OK. Measured at 14:56:17Z (read_state 'orders_read'): 87 lots of stop against a 29-lot position, 300%.\n\nSO THE 2026-08-17 PROPOSAL IN THIS ROW WAS RIGHT AND IS STILL NOT IMPLEMENTED. This row said: 'PROPOSED FIX (preferred over cancel the old leg): have the re-arm REUSE the existing OCA group. That fails safe ... Cancelling the old leg only works if the cancel succeeds; reusing the group is correct even when it does not.' That is exactly the failure now measured. Today exactly ONE of the two place_protective call sites passes oca_key (order_monitor:6950, naked autoprotect); execute.py:2536 -- the trailing-amend path that produced all three groups -- passes none.\n\nNOT RE-OPENING THIS ROW, deliberately. Its resolution_criteria is the DETECTOR and the detector is real, shipped, and has now fired on live state. Re-opening it to carry the producer would merge a detection gap and an order-path defect into one row, which is how the 08-16/08-17 triplicate happened. The producer is its own row, at its own tier."
     }
    ],
    "next_action": "DONE for the detector (Tier-1, shipped 2026-08-22). What remains is the control: observe the detector fire once on a real or planted over-cover. Do NOT extend it to cancel a leg -- choosing which leg to cancel is what went wrong on 2026-08-20, and the remedy for the surviving stray is BL-20260820's own Tier-2 next_action.",
    "last_reviewed": "2026-08-22T19:20:00+00:00",
-   "last_verified": "2026-08-23"
+   "last_verified": "2026-08-25"
   },
   {
    "id": "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT",
@@ -23530,6 +23536,99 @@
    "related": [
     "BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE"
    ]
+  },
+  {
+   "id": "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
+   "opened_at": "2026-08-25T15:05:00+00:00",
+   "opened_by": "claude (system-review fix round, MHG over-cover apply)",
+   "severity": "critical",
+   "tier": "2 (order path)",
+   "status": "open",
+   "area": "exit-coverage",
+   "title": "IB over-cover ROOT CAUSE: place_protective's pre-cancel counts the cancelOrder CALL, never its effect, so IBKR Error 10147 is invisible and every re-arm mints ANOTHER disjoint OCA group",
+   "detail": "This is the mechanism behind BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS, caught in the trader journal rather than inferred. It was proposed as a fix on 2026-08-17 ('have the re-arm REUSE the existing OCA group') and never made; the row was marked resolved on 2026-08-23 with its own update saying the class was not closed.\n\nMEASURED 2026-08-25T14:52:34Z, ict-trader-live.service journal, one contiguous second:\n  1. mhg_pullback_1d produced a trailing verdict {'sl': 6.25507143}.\n  2. place_protective logged its own warning: 'no oca_key for MHG - falling back to the symbol-wide pre-cancel'.\n  3. It issued cancelOrder on FOUR resting legs: 433, 434 (clientId 597, its own) and 418, 417 (clientId 497).\n  4. IBKR answered the foreign two:\n       ERROR ib_insync.wrapper | Error 10147, reqId 418: OrderId 418 that needs to be cancelled is not found.\n       ERROR ib_insync.wrapper | Error 10147, reqId 417: OrderId 417 that needs to be cancelled is not found.\n  5. It placed a FRESH bracket 441/442 in a NEW group oca-protect-440 and reported {'retCode': 0, 'result': {'orderId': '441', 'ocaGroup': 'oca-protect-440', 'legs_placed': 2}, 'retMsg': 'OK'}.\n\nSTATE THE POPULATION. /api/diag/ib_open_orders?account_id=ib_paper at 2026-08-25T14:56:17Z, read_state 'orders_read' (a confirmed clean account-wide read): MHG holds THREE disjoint OCA groups against a 29-lot long -- oca-protect-416 (417 STP 6.231 / 418 LMT 7.1415, client 497), oca-protect-432 (433 STP 6.2515 / 434 LMT 7.1415, client 597), oca-protect-440 (441 STP 6.255 / 442 LMT 7.1415, client 597). 87 lots of resting stop against 29 = 300%, up from the 200% / two-group state the over-cover page fired on at 12:27:44Z the same day. One more group per trailing amend.\n\nWHY IT IS INVISIBLE, three separate defects stacked:\n  (a) ib_insync's cancelOrder returns None and never raises; Error 10147 arrives on the wrapper's error callback, which nothing in this repo reads.\n  (b) ib_client._cancel_resting_orders_for_symbol does `ib.cancelOrder(trade.order)` then `cancelled += 1` -- it counts the CALL, not the EFFECT. Exactly the distinction CLAUDE.md already spells out for protection_repairs ('counts repairs that REACHED THE VENUE, not ones that succeeded').\n  (c) place_protective:1556 DISCARDS that method's return value entirely and arms the fresh bracket unconditionally. The one guard that exists (`account_wide > seen`) cannot fire here, because ib.openTrades() already includes the foreign-client orders once reqAllOpenOrders has populated the local book -- so `seen` counts the very legs that could not be cancelled.\n\nWHY THE CLIENTIDS DIFFER -- THIS ROW AND THE PEER-CLOSE ROW ARE THE SAME BUG. The trader runs on clientId 597 (placeOrder log) having rotated off base 497 (IB_RECONNECT_ROTATE_CLIENTID_AFTER=1, IB_RECONNECT_CLIENTID_STRIDE=100; 597-497=100 exactly). The rotation is driven by reconnect failures, and BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE measured 74 peer-close episodes over 5.4 days on this gateway. Every bracket placed before a rotation becomes uncancellable by the post-rotation session, and this defect then arms another one on top rather than failing loudly.\n\nTHE STRANDED LEGS APPEAR API-UNCANCELLABLE. system-action cancel-ib-order was run in APPLY mode against order 417 with force_client_id (issue #10280), i.e. connecting AS clientId 497: it connected cleanly -- no Error 326, and the trader's own sessions were untouched (/api/diag/ib_state before and after: 498/9246/497 all 'connected', consecutive_failures 0, every last_fail timestamp pre-dating the run) -- and the cancel still did not take effect (verify_state 'still_present', orders_on_account_after 8). So a FRESH session reusing a retired clientId does not inherit cancel rights over that id's orders; clearing group 416 likely needs TWS/the IBKR UI.\n\nNOT ESTABLISHED, and it matters: orders 433/434 were the CURRENT session's OWN (clientId 597), drew NO 10147, received orderStatus callbacks -- and were still resting at 14:56:17Z, 2.5 minutes later. So the same-client cancel also failed to take effect, by a mechanism this row has not traced. If that generalises, group-name determinism alone is not sufficient and the verification in criterion 1 is the load-bearing half.\n\nALSO NOT ESTABLISHED: how often 10147 fires fleet-wide. /api/diag/journalctl caps at 1000 lines and a 1000-line window on this trader spans about four minutes, so the day's count is not reachable from that surface. The three MHG groups are a lower bound on occurrences for this one symbol.\n\nib_paper is a PAPER account, so nothing was at risk today. place_protective is the same code on every IB account, and the producer is the ordinary trailing amend.",
+   "resolution_criteria": "1. _cancel_resting_orders_for_symbol reports its EFFECT, not its calls: after cancelling it re-reads account-wide and returns a per-leg three-state result -- confirmed_gone / refused_not_found (IBKR 10147) / unverified (we could not look) -- never collapsing the last two. Register the contract with collapsed-state-guard.\n2. place_protective BRANCHES on that result. The invariant to pin: never place a fresh bracket while legs it attempted to cancel are still resting. Refusing is safe precisely because those legs ARE the protection -- the cost is that the trail does not advance, which is visible and alertable, whereas arming anyway is the accumulation this row describes. The genuinely-naked case (pre-cancel found nothing) must still arm.\n3. Thread oca_key through the modify path so the ordinary re-arm is idempotent: order_monitor._apply_update -> execute.modify_open_order -> IBClient.modify_protective -> place_protective. Today exactly ONE of the two place_protective call sites passes it (order_monitor:6950, naked autoprotect); execute.py:2536 passes symbol/direction/qty/sl/tp and nothing else. MIND THE MIGRATION -- order_monitor:7670 already records that a scoped cancel will not match legs resting in legacy oca-protect-<reqId> groups, so switching the modify path to the scoped key WITHOUT criterion 2 in place makes existing positions worse, not better. Criterion 2 lands first.\n4. A regression test that plants a resting leg the cancel cannot remove and asserts place_protective refuses to arm a second group -- driven by a simulated 10147, not by a return-value stub, so it pins the wrapper-error path that is the actual defect.\n5. Clear the live ib_paper MHG state and re-read to confirm exactly one group. Which leg survives is decided by the journal's declared stop_loss, never guessed -- BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what happens otherwise. Trade 4796 declares stop_loss 6.25157143, which matches order 433 (6.2515), NOT the newest group's 441 (6.255) and not 417 (6.231).",
+   "refs": [
+    "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+    "BL-20260817-IB-CLIENTID-ROTATION-DUPLICATES-PROTECTIVE-STOPS",
+    "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG",
+    "BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE",
+    "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
+    "src/units/accounts/ib_client.py::_cancel_resting_orders_for_symbol",
+    "src/units/accounts/ib_client.py::_locked_place_protective",
+    "src/units/accounts/execute.py::modify_open_order"
+   ],
+   "evidence": {
+    "journal_utc": "2026-08-25T14:52:34Z",
+    "ibkr_errors": [
+     "Error 10147 reqId 418",
+     "Error 10147 reqId 417"
+    ],
+    "venue_read_utc": "2026-08-25T14:56:17Z",
+    "venue_read_state": "orders_read",
+    "mhg_position": 29,
+    "mhg_stop_qty_total": 87,
+    "mhg_oca_groups": [
+     "oca-protect-416",
+     "oca-protect-432",
+     "oca-protect-440"
+    ],
+    "ops_apply_issue": 10280,
+    "ops_apply_verify_state": "still_present",
+    "trader_unharmed": "ib_state 498/9246/497 connected, consecutive_failures 0, last_fail all pre-run"
+   },
+   "next_action": "Criterion 2 first (the verification + refuse-to-duplicate invariant), then 3. Tier-2 -- needs one operator OK before it ships."
+  },
+  {
+   "id": "BL-20260825-CANCEL-IB-ORDER-REPORTS-RETMSG-OK-WHILE-IBKR-REFUSED",
+   "opened_at": "2026-08-25T15:05:00+00:00",
+   "opened_by": "claude (system-review fix round, MHG over-cover apply)",
+   "severity": "medium",
+   "tier": "1 (ops tooling)",
+   "status": "open",
+   "area": "ops-tooling",
+   "title": "cancel-ib-order's cancel_response says retCode 0 / 'OK' when IBKR refused the cancel -- the envelope reports that the CALL was made, and only the separate read-back reveals it did nothing",
+   "detail": "MEASURED on the APPLY run in issue #10280 (2026-08-25T14:51Z). The emitted envelope carried:\n  'cancel_response': {'retCode': 0, 'result': {'orderId': '417'}, 'retMsg': 'OK'}\nalongside 'action': 'cancel_not_effective', 'verify_state': 'still_present'.\n\nThe trader hitting the SAME order one minute later got IBKR's actual answer -- 'Error 10147, reqId 417: OrderId 417 that needs to be cancelled is not found' -- so the venue had refused. The ops envelope had no way to say so: ib_insync's cancelOrder returns None and delivers the refusal on the wrapper error callback, which the script does not subscribe to, so 'OK' means 'we called it'.\n\nTHE READ-BACK DID ITS JOB and this row is not about a missed detection -- verify_state 'still_present' plus a non-zero exit is exactly right, and is why the failure was visible at all. The defect is that a reader of the envelope sees a success line and a failure line and cannot tell which is authoritative, or WHY the cancel failed. 'OK' next to 'cancel_not_effective' reads as a race or a slow venue (that is literally what BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT concluded about an earlier run, and on that occasion it was right) rather than as a refusal that no wait would fix. Diagnostic-provenance sub-class A: a status naming a result no code path observed.\n\nCheap to fix and it makes the retry question decidable: a 10147 must never be retried with a longer window, and a genuine race should be.",
+   "resolution_criteria": "1. The script subscribes to the ib_insync error event for the duration of the cancel and reports any code/message keyed to the reqId it just cancelled.\n2. cancel_response stops claiming 'OK' for an unobserved outcome: three states, never collapsed -- accepted_and_confirmed_gone / refused_by_venue (with the IBKR code) / call_made_outcome_unobserved.\n3. A refusal must be distinguishable from a too-short verify window, so BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT's conclusion stays checkable rather than being re-derived per incident.",
+   "refs": [
+    "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
+    "BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT",
+    "scripts/ops/cancel_ib_order_action.sh"
+   ],
+   "evidence": {
+    "issue": 10280,
+    "cancel_response": "retCode 0 / OK",
+    "verify_state": "still_present",
+    "venue_truth": "IBKR Error 10147 (order not found for this client)"
+   },
+   "next_action": "Tier-1 -- ships with the ops script, no operator gate."
+  },
+  {
+   "id": "BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION",
+   "opened_at": "2026-08-25T15:05:00+00:00",
+   "opened_by": "claude (system-review fix round, MHG over-cover apply)",
+   "severity": "medium",
+   "tier": "1 (observability)",
+   "status": "open",
+   "area": "alerting",
+   "title": "The stop-over-cover CRITICAL page latches on (account, symbol) for 6h, so 200% escalating to 300% on the same symbol pages nobody -- a worsening safety condition is indistinguishable from a held one",
+   "detail": "Self-reported against the page shipped this morning in PR #10259 (order_monitor._emit_stop_over_cover_alert, durable latch runtime_logs/stop_over_cover_alert_state.json).\n\nMEASURED 2026-08-25. The page fired once, correctly, at 12:27:44Z: 'ib_paper/MHG: position 29.0 but resting STOP qty totals 58.0 (200%) across 2 DISJOINT OCA groups'. By 14:56:17Z the same symbol held THREE groups and 87 lots (300%) and the page did NOT re-fire, because the cooldown key is (account, symbol) and the 6h window had not elapsed. Confirmed against /api/bot/logs?level=error (n=42 rows): exactly one ib_stop_over_cover row in the feed.\n\nThe 6h cooldown itself is right and must stay -- it is the direct remedy for BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART, where 202 of 376 CRITICAL rows (53.7% of the entire operator ERROR+ feed) were one un-latched alarm. The defect is the KEY, not the window: 'MHG is over-covered' and 'MHG is over-covered by half again as much, by a mechanism that adds a group per amend' are different facts, and the second is the one that says the condition is being PRODUCED rather than merely standing.\n\nThe repo already has the shape that fixes this: silent_refusal_alert latches per (account, cause) precisely so 'an account that stops refusing for zero_balance and starts refusing for a venue cap has a NEW problem' is not swallowed as already-alerting. Same argument, same remedy.",
+   "resolution_criteria": "1. The over-cover latch key includes the severity of the condition -- the disjoint-group count is the natural discriminator, since it is what makes the naked-reverse hazard worse and it is already in the message. A NEW group on an already-latched (account, symbol) pages once; the unchanged condition stays silent.\n2. It must not become a per-sweep alarm: an unchanged group count keeps the existing 6h cooldown, so the total volume on a static condition is unchanged from today.\n3. A test that plants 2 groups, asserts one page, plants a 3rd inside the cooldown, and asserts a second page -- and that a 4th sweep with the group count unchanged is silent.\n4. Audit the sibling target-naked latch for the same collapse and fix it in the same change if present -- it shares _cooldown_admits and the same (account, symbol) key.",
+   "refs": [
+    "BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART",
+    "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
+    "src/runtime/order_monitor.py::_emit_stop_over_cover_alert",
+    "src/runtime/silent_refusal_alert.py"
+   ],
+   "evidence": {
+    "page_utc": "2026-08-25T12:27:44Z",
+    "page_state": "2 groups / 200%",
+    "unpaged_state_utc": "2026-08-25T14:56:17Z",
+    "unpaged_state": "3 groups / 300%",
+    "error_feed_rows_scanned": 42,
+    "over_cover_rows_found": 1
+   },
+   "next_action": "Tier-1 -- ships with the alert, no operator gate."
   }
  ]
 }
