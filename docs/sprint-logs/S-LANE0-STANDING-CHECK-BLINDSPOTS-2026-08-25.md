@@ -108,7 +108,46 @@ Full evidence in `WORKPLAN-2026-08-14.md` § "Lane 0 re-measured LIVE". Summary:
 |---|---|---|
 | 0.3 | **OPEN — not presenting, not fixed** | newest `balance()`-None row is 2026-08-13; **66** clean attempts / 12 days, against a condition whose historical inter-arrival is *weeks*; **no fix exists in the code** |
 | 0.5 | **OPEN — masked by a second defect** | fabrication path unchanged since 08-01; IB `connected`; candles return real bars for all 3 symbols in the same process; the fallback would produce ≈**$17,966.50** |
-| 0.6 | **OPEN, cushion $64.00** | 41.26 h stale; `distance_to_dd_floor_usd` **$64.00**; `distance_to_daily_loss_usd` **null** (`day_pnl_state: realized_unreported`) |
+| 0.6 | **OPEN, cushion $64.00 — and staleness is only HALF of it** | 41.26 h stale; `distance_to_dd_floor_usd` **$64.00**; `distance_to_daily_loss_usd` **null** (`day_pnl_state: realized_unreported`). Plus the half I got wrong — see the correction below |
+
+### 4. A correction I did NOT find myself, and a test race I did not write
+
+**0.6 — I closed it on the wrong conclusion.** My first write-up ended
+*"operator-owed input, not a code defect"*. The concurrent `/system-review`
+session had reached the same ground ~10 minutes earlier and gone further (board
+#6927 09:31:06Z; PR #10256 finding 1): **staleness is not the whole defect.**
+The emitter sized ticket `prop-manual-1a29db54154e` at **`risk_usd: 75.00`**
+against the **$64.00** cushion, because
+`compute_rule_distance::distance_to_dd_floor_usd` has **three DISPLAY consumers
+and zero DECISION consumers** — `breakout_ticket.py:133` computes the floor only
+to print it at line 175. A perfectly fresh snapshot still emits an
+account-killing ticket. Corrected in the workplan and credited; **not
+re-derived**, which is what their heads-up asked for.
+
+Worth naming the failure mode in myself: I had the same `/api/bot/prop/status`
+payload in front of me, read `status_freshness: stale`, and stopped at the axis
+the row named. The write-only-signal class is one this repo has a whole guard
+family for, and I walked past an instance of it.
+
+**A genuine test race, root-caused by them, verified and landed by me.**
+`tests/test_diag_token_workflows.py` failed `pytest-run` on PR #10256 at
+10:04:45Z on a sha that had **passed the identical job 21 minutes earlier**.
+`subprocess.Popen` returns after `fork`, not `execve`, so `/proc/<pid>/environ`
+does not yet carry `DIAG_READ_TOKEN` and `before_token_source` reads `envfile`
+where the test expects `process`. The fixture writes the same token to both, so
+**every other assertion still passes and only the source label flips** — a real
+failure wearing a passing test's clothes, on exactly the distinction
+`set-diag-token.yml` exists to make.
+
+⚠️ **Not taken on trust.** Reproduced independently here before landing:
+**21/60 = 35%** of first reads missed the token (they measured 12%; rate varies
+with load, mechanism identical), readable 0.02–0.81 ms later. State the
+population: that is the RAW race on the first read — the real test does enough
+work in between that the window is usually covered, which is why it passes
+locally and passed CI on the same sha an hour before. Fixed by waiting for the
+state the test asserts about, with an `else` clause so a genuinely broken
+fixture stays **loud** instead of degrading into a silent `envfile` reading.
+Stressed 5×, plus the full 24-test file.
 
 ## Validation Performed
 - Tests run: `tests/test_dead_leg_audit.py` **18 pass** (10 pre-existing + 8

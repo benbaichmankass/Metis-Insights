@@ -32,6 +32,7 @@ import re
 import stat
 import subprocess
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -277,6 +278,49 @@ def _run_remote(
         holder = subprocess.Popen(
             ["sleep", "60"], env={"DIAG_READ_TOKEN": served_token, "PATH": os.environ["PATH"]}
         )
+        # WAIT FOR THE STATE THIS TEST IS ASSERTING ABOUT.
+        #
+        # `Popen` returns after `fork`, NOT after `execve`. Until the child has
+        # exec'd, `/proc/<pid>/environ` does not yet carry `DIAG_READ_TOKEN` —
+        # so `_read_served_token` finds an empty read, falls through to its
+        # ENVFILE branch, and reports `before_token_source: envfile` where the
+        # test expects `process`.
+        #
+        # The failure is nastier than a plain flake because the fixture writes
+        # the SAME token into the envfile, so every other assertion still
+        # passes and only the SOURCE LABEL flips — i.e. the test silently stops
+        # covering the one distinction `set-diag-token.yml` exists to make
+        # ("what is served RIGHT NOW" vs "what a restart would serve").
+        #
+        # Measured in this sandbox, 60 trials reading immediately after Popen
+        # returns: 21/60 = 35% of first reads did not yet see the token,
+        # readable 0.02–0.81 ms later. ⚠️ State the population: that is the RAW
+        # race on the very first read. The real test does substantial work
+        # between these two points (writes four shims, substitutes the script,
+        # spawns bash), which usually covers the window — which is exactly why
+        # it passes locally and passed CI on the same sha 21 minutes before it
+        # failed on it. Under runner contention the window is not covered.
+        # Root-caused by the concurrent /system-review session (board #6927,
+        # 2026-08-25T10:10Z) and reproduced independently here before landing.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            try:
+                with open(f"/proc/{holder.pid}/environ", "rb") as fh:
+                    if b"DIAG_READ_TOKEN=" in fh.read():
+                        break
+            except OSError:
+                pass
+            time.sleep(0.005)
+        else:
+            # Keep a genuinely broken fixture LOUD rather than letting it
+            # degrade into a silent `envfile` reading — the whole defect above
+            # is a real failure wearing a passing test's clothes.
+            holder.kill()
+            raise AssertionError(
+                "holder process never exposed DIAG_READ_TOKEN in "
+                "/proc/<pid>/environ within 5s — the fixture is broken, not "
+                "the script under test"
+            )
         env["FAKE_WEBAPI_PID"] = str(holder.pid)
     try:
         proc = subprocess.run(
