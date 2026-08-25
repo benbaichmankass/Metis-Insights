@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T16:15:00+00:00",
+ "updated_at": "2026-08-25T17:15:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -23001,6 +23001,11 @@
      "at": "2026-08-25T16:55:00+00:00",
      "by": "claude (system-review fix round)",
      "note": "FOURTH OCCURRENCE, 2026-08-25 on PR #10282 — and it REFUTES the delete/recreate hypothesis this row's own title carries, which is the most useful thing it contributes.\n\nTHE BRANCH WAS NEVER DELETED OR RECREATED. `claude/full-system-review-qhpxyh` has been continuously pushed all session. More decisive: attachment worked, then stopped, WITHIN THE SAME PR.\n\n  push 1  f24f640d  15:18:57Z  pull_request run created  (cancelled by push 2)\n  push 2  da914dd1  15:24:13Z  pull_request run created  (cancelled by push 3)\n  push 3  012e201b  15:31:36Z  pull_request run created  -> COMPLETED SUCCESS\n  push 4  8548f48e  ~15:43Z    NO run of any workflow\n  push 5  da11ae06  ~15:52Z    NO run\n  push 6  5251d36c  ~16:0xZ    NO run   (a real merge of origin/main, not a no-op push)\nVerified from actions_list filtered to pytest-run + the PR's own check_runs (total_count 0) and get_status (sha 5251d36c, total_count 0, statuses []).\n\nSO THE MECHANISM IS NOT A PROPERTY OF THE BRANCH OR THE PR AT CREATION — the same PR, same branch, same author, same workflows, delivered three `synchronize` events and then stopped delivering them. A delete/recreate cannot explain a mid-life transition, and neither can 'the PR was opened wrong'. Whatever this is, it is transient and it starts partway through a PR's life. Two candidates NOT ruled out from here: webhook backlog on a busy repo (there was heavy Actions traffic today), and something about the workflow_dispatch I issued at 15:46 — though note push 4 preceded that dispatch, so the dispatch cannot be the cause of push 4.\n\nWHAT IT COST, which is the argument for criterion (b): nothing. I happened to be watching. The PR shows no failed check, `mergeable_state` is not 'unstable', and every surface a session or a human reads is indistinguishable from 'all green'. A session that pushed and moved on would have merged an unverified change to a live-money system, which is exactly what the 2026-07-30 row records happening to #8053. This occurrence adds nothing to the argument FOR the detector except a fourth data point — but it does sharpen what the detector must watch: not 'a PR that never had checks', which is what a creation-time bug would produce, but 'a PR whose head sha has zero checks past a threshold age', which catches the mid-life transition too. A detector written to the delete/recreate hypothesis would have missed this.\n\nWORKAROUND USED (and it works): workflow_dispatch on pytest-run.yml / guards.yml / pytest-collect.yml against the branch ref. Every required context carries workflow_dispatch precisely because of the 2026-07-30 occurrence, and that provision paid off here. ⚠️ It does NOT satisfy branch protection — a dispatch run is branch-scoped and does not attach to the PR's head sha — so the verification is recoverable while the MERGE is not."
+    },
+    {
+     "at": "2026-08-25T17:15:00+00:00",
+     "by": "claude (system-review fix round)",
+     "note": "THE RECOVERY, and it is NOT the one this row's family documents. Established on PR #10282 today, which merged cleanly once it was applied.\n\n⚠️ `workflow_dispatch` IS THE WRONG WORKAROUND, and recording it as THE remedy is actively misleading. It runs the workflow and verifies the code — which is real and worth having — but a dispatch run is BRANCH-scoped and never attaches to the PR's head sha, so branch protection is untouched. Measured directly: after three green dispatch runs the merge still failed with `405 3 of 3 required status checks are expected`. A session that treats dispatch as the fix will verify its code, believe it is unblocked, and still be unable to merge.\n\nWHAT ACTUALLY WORKS: toggle the PR out of DRAFT. `ready_for_review` is in pytest-run.yml / guards.yml / pytest-collect.yml's `on.pull_request.types` list, so the conversion fires a fresh, PROPERLY ATTACHED run on the head sha. On #10282 it re-attached all four checks within a minute (`event: pull_request`, not `workflow_dispatch`), they went green, and the merge succeeded. If the PR is already non-draft, draft-then-ready is the same lever.\n\n⚠️ IT IS NOT FREE, and the cost is exactly the thing this repo warns about: the conversion CANCELS auto-merge and merge-queue membership. It also fired TWICE here (one set of checks cancelled at 16:53:42 and a second started at 16:53:46), so expect a duplicate round and do not read the cancelled first set as a failure.\n\nWHY THIS BELONGS ON THE ROW RATHER THAN IN A HEAD: the row's criterion (b) asks for a detector because 'a required check silently did not run' is indistinguishable from green. That is still right. But the OPERATOR half — what a blocked session should actually DO — was documented wrong across the whole family, and a wrong remedy costs a session an hour of dispatch rounds that cannot possibly unblock it."
     }
    ],
    "last_verified": "2026-08-25"
@@ -23943,6 +23948,32 @@
     "marker": "/etc/ict-vm-role"
    },
    "next_action": "DONE.",
+   "last_verified": "2026-08-25"
+  },
+  {
+   "id": "BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING",
+   "opened_at": "2026-08-25T17:15:00+00:00",
+   "opened_by": "claude (system-review fix round)",
+   "severity": "medium",
+   "tier": "1 (session tooling / operating practice)",
+   "status": "open",
+   "area": "ops-tooling",
+   "title": "mcp__github check-run and job reads lag by tens of minutes on this repo, so a COMPLETED check reads as `in_progress` — and a session waiting on CI concludes the job is hung",
+   "detail": "SELF-REPORTED, three times in one session on PR #10282, each time leading me to a wrong conclusion I stated out loud before catching it.\n\nMEASURED:\n  * `guards` completed_at 16:55:23 (a 90-SECOND run). `pull_request_read method=get_check_runs` still returned it as `in_progress` with no completed_at at ~17:14 — I reported it as 'hung 20+ minutes'.\n  * `pytest-run` (run 32874604707) completed SUCCESS at 17:05:49, a ~13 minute run. Both `get_check_runs` AND `actions_list method=list_workflow_jobs` kept returning `in_progress` with a frozen step list well past that — I reported '45 minutes on the test step' and opened an investigation into whether my own change had slowed the suite.\n\nWHAT READS CORRECTLY: `actions_get method=get_workflow_run`. Its `status` / `conclusion` / `updated_at` were accurate every time, and `updated_at` is the tell — a run whose `updated_at` is minutes old while `status` says `in_progress` is a STALE READ, not a stalled job.\n\nWHY IT IS WORTH A ROW rather than a shrug: the false reading is systematically in the WRONG DIRECTION. It never shows a running job as finished; it shows a FINISHED job as running. So it does not cause a premature merge — it causes a session to sit blocked on work that is already green, to burn its one sanctioned re-run cancelling a healthy job (I did exactly that, cancelling a run that may well have been about to pass), and to chase a nonexistent performance regression in its own diff. The last of those cost two full local suite runs, ~15 minutes, to refute a hypothesis that only existed because of a stale read.\n\nTHE COMPOUNDING ERROR, worth naming because it is the general lesson: a stale read is only dangerous if you do not check whether it is CURRENT. The same session made the same class of mistake on a second axis — comparing a `-k`-filtered local suite (56s) against a full one (427s) and concluding the suite had slowed. Both are RULE ONE failures: a reading trusted without establishing that it was current, or that it was comparable.",
+   "resolution_criteria": "1. The operating rule, which is the cheap and durable half: when polling CI, read `actions_get method=get_workflow_run` and treat `updated_at` as the freshness signal. Do NOT conclude `in_progress` from `get_check_runs` or `list_workflow_jobs` alone, and NEVER cancel or re-dispatch on that basis. Land it wherever the merge/CI practice is written down so it is reachable by a session that has not read this row.\n2. Establish whether the lag is the hosted GitHub MCP's caching or GitHub's own API. Not attempted here — the direct REST API is unreachable from this sandbox (it 403s, per CLAUDE.md), so the two cannot be compared from a web session. A CLI session could settle it in one call.\n3. If it is MCP-side caching it is not fixable from this repo, and the rule in (1) is the whole remedy — which is fine, and is why (1) does not depend on (2).",
+   "refs": [
+    "BL-20260824-PR-CI-NOT-ATTACHING-RECURRED-ON-A-DELETED-THEN-RECREATED-BRANCH",
+    "BL-20260730-PR-CI-NOT-ATTACHING"
+   ],
+   "evidence": {
+    "guards_true_duration_s": 88,
+    "guards_reported_as": "in_progress ~19min after completion",
+    "pytest_run_true_conclusion": "success at 2026-08-25T17:05:49Z",
+    "pytest_run_reported_as": "in_progress with a frozen step list",
+    "reliable_endpoint": "actions_get method=get_workflow_run (updated_at)",
+    "cost": "one healthy run cancelled; two full local suite runs spent refuting a hypothesis that only existed because of the stale read"
+   },
+   "next_action": "Tier-1 — write rule (1) into the merge/CI practice doc.",
    "last_verified": "2026-08-25"
   }
  ]
