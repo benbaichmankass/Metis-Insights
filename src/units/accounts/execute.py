@@ -233,9 +233,17 @@ def execute_pkg(
             # as placed and never terminalises the package — so the monitor
             # reconciler mis-stamps it 'orphaned — never executed' at +5min. That
             # red-flag status is wrong for a deliberate shadow/dry non-emit, and it
-            # made the shadow prop variants (trend_donchian_{sol,eth}_prop, which
-            # are execution: shadow) surface as alarming "orphaned" rows on
-            # /api/bot/prop/tickets. Terminalise the package accurately with
+            # made a shadow/dry prop leg surface as an alarming "orphaned" row on
+            # /api/bot/prop/tickets. ⚠️ DO NOT NAME THE STRATEGIES HERE — the
+            # previous wording said "the shadow prop variants
+            # (trend_donchian_{sol,eth}_prop, which are execution: shadow)" and
+            # BOTH were `execution: live` when it was checked
+            # (BL-20260823-STALE-COMMENT-CLAIMS-PROP-VARIANTS-ARE-SHADOW). The
+            # gate is per-strategy YAML that moves under Tier-3 decisions, so a
+            # comment naming today's occupants is stale on the next demotion and
+            # asserts a gate state it cannot verify. Read
+            # config/strategies.yaml::<name>.execution for who is here now.
+            # Terminalise the package accurately with
             # status='shadow' (a non-'open' status the orphan sweep + the
             # strategy-monocle both ignore, and distinct from a real 'emitted'
             # ticket) — the mirror of the live-branch prop-package contract below.

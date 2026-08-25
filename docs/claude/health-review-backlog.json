@@ -21600,7 +21600,7 @@
    "opened_by": "s4-pairs-control",
    "severity": "low",
    "tier": "1 (docs / housekeeping)",
-   "status": "open",
+   "status": "resolved",
    "area": "docs drift",
    "title": "A money-path comment names two strategies as `execution: shadow` that are both live",
    "detail": "src/units/accounts/execute.py (the prop no-emit branch, ~:235) documents its own purpose with \"the shadow prop variants (trend_donchian_{sol,eth}_prop, which are execution: shadow)\". MEASURED 2026-08-23 against config/strategies.yaml: BOTH are `execution: live`, as was eth_pullback_prop_2h before this session demoted it — i.e. at the moment of reading, ALL THREE prop-routed strategies were live and NOTHING exercised that branch in production. Field beats comment. Found while verifying, before a Tier-3 demotion, that `execution: shadow` genuinely suppresses prop ticket emission — the branch itself is real and correct by reading; only the claim about who exercises it is stale.",
@@ -21608,7 +21608,15 @@
    "next_action": "Correct the comment to describe the branch's PURPOSE without naming strategies whose gate state drifts, or name them with an as-of date. Do not delete the branch — it is load-bearing and now genuinely in use.",
    "resolution_criteria": "RESOLVED when the comment no longer asserts a gate state it does not verify.",
    "related": [],
-   "evidence": []
+   "evidence": [],
+   "resolved_at": "2026-08-25T19:20:00+00:00",
+   "updates": [
+    {
+     "at": "2026-08-25T19:20:00+00:00",
+     "by": "claude (backlog drain, 2026-08-25)",
+     "note": "RESOLVED. Criterion: 'the comment no longer asserts a gate state it does not verify.'\n\nRE-MEASURED AT HEAD (814d019b) against config/strategies.yaml before editing, because the row is two days old and the gate moves under Tier-3 decisions:\n  trend_donchian_sol_prop  enabled True  execution live\n  trend_donchian_eth_prop  enabled True  execution live\n  eth_pullback_prop_2h     enabled True  execution shadow\nSo the comment is still wrong about BOTH strategies it names, and the demotion this row mentions did land — there IS now exactly one leg exercising that branch, just not either of the two named. The stale claim was therefore wrong in both directions at once.\n\nTHE FIX IS TO STOP NAMING THEM, not to re-name them correctly. src/units/accounts/execute.py now says the branch serves 'a shadow/dry prop leg', records what the previous wording claimed and that it was false, and points the reader at config/strategies.yaml::<name>.execution for who is there now. Re-naming today's occupants would have re-armed the same defect for the next demotion — the comment cannot verify the gate, so it must not assert it. The BRANCH itself was correct by reading and is untouched; only the claim about who exercises it changed."
+    }
+   ]
   },
   {
    "id": "BL-20260823-ZOMBIE-ROUTINES-ENABLED-WITH-NULL-NEXT-RUN",
@@ -22918,12 +22926,20 @@
    "opened_by": "bracket-expectations-session",
    "severity": "low",
    "tier": "1 (docstring only)",
-   "status": "open",
+   "status": "resolved",
    "area": "docs / exit geometry",
    "title": "target_expectation.py docstring quotes 29 of 52 enabled / 26 live sentinel legs; measured today it is 28 / 24",
    "detail": "The module docstring states '29 of 52 enabled legs are here (counted 2026-08-23), 26 of them execution: live'. Measured against config/strategies.yaml at 9544ced: 28 of 52 enabled, 24 of 45 live.\n\nRECONCILED, so this is staleness and not disagreement: at 9544ced~1 the docstring was exactly right (29 enabled / 26 live). PR #10171 then changed xrp_pullback_2h tp_r 50.0 -> 3.0 (removing one sentinel from both populations) and demoted the htf leg (removing a live sentinel and taking live 46 -> 45).\n\nWHY FILE IT AT ALL: the docstring is quoted as a population, and this repo's own rule is to state the population on every number. A count that drifts one commit at a time is how a quoted figure becomes wrong without anyone deciding it should be.",
    "evidence": "docs/research/bracket-expectation-construction-2026-08-23.md section 1.2; scripts/research/bracket_expectation_census.py reproduces 55/52/45 with sentinel 30/28/24 declared and 40/38/34 effective",
-   "resolution_criteria": "Either the docstring cites the census script as the source of truth rather than embedding a snapshot, or the embedded numbers are refreshed AND carry the commit they were measured at, so the next drift is visible rather than silent."
+   "resolution_criteria": "Either the docstring cites the census script as the source of truth rather than embedding a snapshot, or the embedded numbers are refreshed AND carry the commit they were measured at, so the next drift is visible rather than silent.",
+   "resolved_at": "2026-08-25T19:20:00+00:00",
+   "updates": [
+    {
+     "at": "2026-08-25T19:20:00+00:00",
+     "by": "claude (backlog drain, 2026-08-25)",
+     "note": "RESOLVED via the criterion's FIRST branch (cite the census, do not embed a snapshot) — and the re-measurement found something worth more than the staleness.\n\nIT HAD DRIFTED A THIRD TIME. Docstring 29 of 52 enabled / 26 live (2026-08-23); this row recorded 28 of 52 / 24 of 45 at 9544ced; measured at 814d019b it is 28 of 52 / **23 of 44**. Three different answers in two days, none of them from a decision about targets — legs were demoted by unrelated PRs.\n\n⚠️ THE BIGGER FINDING: THE QUOTED NUMBER IS THE WRONG MEASURE, and it under-reports the very problem the module exists to name. scripts/research/bracket_expectation_census.py — which already existed and which this row did not consult — separates sent_DECL from sent_EFF, because 10 pullback legs declare NO target key and INHERIT tp_r = 50.0 from their strategy class. They behave exactly as sentinels and are invisible to a `grep tp_r`. At 814d019b: enabled 52 -> 28 declared / 38 effective; enabled+live 44 -> 23 declared / 33 effective. So the docstring's '29 of 52' was quoting a figure roughly a third below the behavioural population. My own first re-measurement made the SAME mistake (a tp_r scan, 28/23) and was corrected only by running the census — which is the argument for citing it rather than re-deriving it per reader.\n\nWHAT SHIPPED: the docstring no longer carries a count as a claim. It names the census as the authority, states why an embedded snapshot drifts, explains the declared-vs-effective split and why the two are never summed (a leg that writes tp_r: 50.0 CHOSE it; a leg that writes nothing INHERITED it — same behaviour, different remedy, and conflating them accuses legs of a defect they may not have), and gives the current numbers stamped 'for orientation only, measured at 814d019b'.\n\nSCOPE NOTE — one thing fixed beyond this row, deliberately. The CENSUS's own header carried the identical defect (24 of 45 / 34 of 45, now 23 of 44 / 33 of 44) — the source of truth was itself quoting a stale snapshot. Refreshed with its commit stamp, plus a note that the gap is still exactly 10 so the movement is leg demotions and not a change in the phenomenon. Its 'understates by 42%' also never stated its basis; it is gap/declared, now 43%, with gap/effective (30%) given beside it. --selftest 11/11 passes and the headline table is unchanged."
+    }
+   ]
   },
   {
    "id": "BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION",

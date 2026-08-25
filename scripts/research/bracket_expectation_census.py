@@ -14,12 +14,19 @@ the active management infra, not layer on bandaids."*
 handed. This is the FLEET census over `config/strategies.yaml`, and it exists
 because two numbers that ought to agree do not:
 
-  * counting `tp_r >= 50` **in the YAML** gives **24 of 45** enabled+live legs
-  * the number of legs that BEHAVE as sentinels is **34 of 45**
+  * counting `tp_r >= 50` **in the YAML** gives **23 of 44** enabled+live legs
+  * the number of legs that BEHAVE as sentinels is **33 of 44**
+
+(Measured at 814d019b. The earlier figures in this header were 24 of 45 and
+34 of 45; both moved because unrelated PRs demoted a leg, NOT because the gap
+changed — it is still exactly 10. Quote the run, not this paragraph.)
 
 The gap is 10 `pullback` legs that declare no target key at all and inherit
 `tp_r = 50.0` from their strategy class (`htf_pullback_trend_2h.py`), so the
-YAML count understates the population by 42%. The soak confirms it from the
+YAML count understates the population by 43% — stating the basis, because it
+is ambiguous and was not stated before: that is gap/declared (10/23). On
+gap/effective it is 30% (10/33). Either way the direction is the same and the
+declared count is the one that under-reports. The soak confirms it from the
 other side: those legs report `target_source_key: tp_r, target_r: 50.0` on
 rows whose YAML has neither key.
 
