@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-25T21:13:00+00:00",
+  "updated_at": "2026-08-25T21:20:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -25,12 +25,12 @@
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
-      "last_state_change_at": "2026-08-25T19:50:00+00:00",
-      "last_state_change_note": "Re-classified defaulted_to_human, and given a tested decision function + a proposal tool. The item has NOT been remediated — the venue state is unchanged.",
+      "last_state_change_at": "2026-08-25T21:20:00+00:00",
+      "last_state_change_note": "Deferred behind a named trigger by the session that built its wire, rather than carried forward in prose — which is the behaviour this register exists to replace. ⚠️ owner_class stays defaulted_to_human DELIBERATELY. Re-labelling it 'judgement' now that the remaining blocker is a Tier-2 approval would be defensible on its face and is exactly the 'a mislabel buys slack' residual this register documents against itself, so the honest move is to leave the class alone and use the deferral the check already offers. The position is LIVE and severity stays high.",
       "resolved_at": null,
       "resolution": null,
-      "snoozed_until": null,
-      "snooze_trigger": null,
+      "snoozed_until": "2026-08-27T12:00:00+00:00",
+      "snooze_trigger": "An operator OK in chat on the Tier-2 cancel-ib-order dispatch. This is a DEFER BEHIND A NAMED TRIGGER, not a snooze: the wire and the selection both exist now (scripts/ops/over_cover_proposal.py renders the exact issue body; src/runtime/over_cover_decision.py is a tested pure function that KEEPS the journal-matching leg), so the single remaining input is an approval that only a person can give. The date is a re-surface bound, NOT the trigger — if the approval lands sooner, act sooner.",
       "refs": [
         "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG",
         "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
