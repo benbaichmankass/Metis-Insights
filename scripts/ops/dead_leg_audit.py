@@ -61,7 +61,7 @@ from typing import Any, Dict, List, Optional
 # NOT re-exported here: nothing imports them from this module, and a re-export
 # kept "for compatibility" with no importer is just a second name for the same
 # constant, which is the drift this move exists to remove.
-from src.runtime.dead_leg import bucket_for, verdict_for  # noqa: E402
+from src.runtime.dead_leg import bucket_for, eval_state_for, verdict_for  # noqa: E402
 
 
 def _resolve_db(explicit: Optional[str]) -> str:
@@ -90,6 +90,52 @@ def _resolve_db(explicit: Optional[str]) -> str:
             "to an env-read: see canonical-db-resolver."
         )
     return str(trade_journal_db_path())
+
+
+def _eval_liveness(conn: sqlite3.Connection, days: int) -> Optional[Dict[str, Dict[str, Any]]]:
+    """Per-STRATEGY evaluation liveness from the ``signals`` dual-write.
+
+    Returns ``None`` — *we could not look* — when the table is absent or the
+    read raises, so the caller can render `unknown` rather than an all-zero map
+    that would grade every leg `never_evaluated`. That distinction is the whole
+    point: ``SIGNAL_DUAL_WRITE_DISABLED`` is a supported configuration, and a
+    detector that read its absence as "no leg has ever evaluated" would alarm on
+    the entire fleet.
+
+    Keyed by strategy, NOT by (account, strategy): ``signals`` carries no
+    ``account_id``, and a strategy that stops evaluating stops for every account
+    it is routed to. The audit attaches the same state to each of that
+    strategy's legs and the report says so.
+
+    The timestamp normalisation is load-bearing. ``signals.logged_at_utc`` is
+    ISO-8601 with a ``T`` separator and an offset (``2026-08-24T19:59:43.381912+00:00``)
+    while ``datetime('now', ?)`` yields ``YYYY-MM-DD HH:MM:SS``. Compared raw as
+    strings those agree on the date but disagree on character 11 (``T`` 0x54 vs
+    space 0x20), so every row on the boundary DATE would sort as in-window
+    regardless of its time. Normalising both to the same 19-char shape removes
+    that off-by-one-day edge instead of leaving it to be rediscovered.
+    """
+    try:
+        cur = conn.execute(
+            """
+            SELECT strategy,
+                   COUNT(*)                                              AS ever,
+                   SUM(CASE WHEN substr(replace(logged_at_utc,'T',' '),1,19)
+                             >= datetime('now', ?) THEN 1 ELSE 0 END)    AS in_window,
+                   MAX(logged_at_utc)                                    AS last_eval
+              FROM signals
+             WHERE strategy IS NOT NULL
+             GROUP BY strategy
+            """,
+            (f"-{int(days)} days",),
+        )
+        rows = cur.fetchall()
+    except sqlite3.Error:
+        return None
+    return {
+        r[0]: {"ever": r[1] or 0, "in_window": r[2] or 0, "last_eval_utc": r[3]}
+        for r in rows
+    }
 
 
 def audit(db: str, days: int) -> Dict[str, Any]:
@@ -126,45 +172,81 @@ def audit(db: str, days: int) -> Dict[str, Any]:
                 "--db explicitly with the populated journal."
             )
 
+        # `entry_reason` rides the GROUP BY so `bucket_for` can separate a
+        # DECLARED policy skip from a real refusal. Without it this report
+        # called `bucket_for(status)` with no reason and could never reach
+        # `policy_skipped` — so it graded a `mode: dry_run` account
+        # `signalled_never_placed` (maximally alarming, and wrong) while the
+        # live alert that shares this exact vocabulary graded the same rows
+        # `refusing_by_declaration`. `src/runtime/dead_leg.py` exists to stop
+        # the report and the alert disagreeing about a row; the two had drifted
+        # anyway, because only one of them passed the second argument.
         cur = conn.execute(
             """
-            SELECT account_id, strategy_name, status, COUNT(*) AS n
+            SELECT account_id, strategy_name, status, entry_reason, COUNT(*) AS n
               FROM trades
              WHERE is_backtest = 0
                AND COALESCE(created_at, timestamp) >= datetime('now', ?)
-             GROUP BY account_id, strategy_name, status
+             GROUP BY account_id, strategy_name, status, entry_reason
             """,
             (f"-{int(days)} days",),
         )
         rows = cur.fetchall()
+        evals = _eval_liveness(conn, days)
     finally:
         conn.close()
 
     legs: Dict[tuple, Dict[str, Any]] = {}
-    for account_id, strategy, status, n in rows:
+    for account_id, strategy, status, entry_reason, n in rows:
         key = (account_id or "?", strategy or "?")
         leg = legs.setdefault(key, {
             "account_id": key[0], "strategy": key[1],
-            "placed": 0, "refused": 0, "other": 0,
+            "placed": 0, "refused": 0, "policy_skipped": 0, "other": 0,
             "by_status": {},
         })
-        leg["by_status"][status or "?"] = n
+        # ACCUMULATE, never assign. Now that `entry_reason` is in the GROUP BY
+        # one status spans several rows (one per distinct reason), so the
+        # previous `= n` kept only the last reason's count and silently
+        # under-reported every status that had more than one.
+        st = status or "?"
+        leg["by_status"][st] = leg["by_status"].get(st, 0) + n
         # An unrecognised status is NOT silently folded into either bucket — a
         # new status the venue or the reconciler starts writing would otherwise
         # change every leg's verdict invisibly. `bucket_for` owns that rule.
-        leg[bucket_for(status)] += n
+        leg[bucket_for(status, entry_reason)] += n
 
     out: List[Dict[str, Any]] = []
     for leg in legs.values():
-        total = leg["placed"] + leg["refused"] + leg["other"]
+        total = (leg["placed"] + leg["refused"]
+                 + leg["policy_skipped"] + leg["other"])
         leg["total_rows"] = total
         leg["verdict"] = verdict_for(leg)
+        # Evaluation liveness — a SEPARATE axis, never folded into `verdict`.
+        # A leg can be `evaluating` and `signalled_never_placed` at once.
+        ev = (evals or {}).get(leg["strategy"]) or {}
+        leg["eval_state"] = eval_state_for(
+            ev.get("in_window"), ev.get("ever"), table_present=evals is not None,
+        )
+        leg["evals_in_window"] = ev.get("in_window") if evals is not None else None
+        leg["last_eval_utc"] = ev.get("last_eval_utc") if evals is not None else None
         if leg["verdict"] == "partially_refused":
             leg["refusal_rate"] = round(leg["refused"] / total, 4) if total else None
         out.append(leg)
 
     out.sort(key=lambda r: (r["verdict"] != "signalled_never_placed", -r["refused"]))
     dead = [r for r in out if r["verdict"] == "signalled_never_placed"]
+
+    # Strategies that have evaluated before and evaluated ZERO times in the
+    # window. Sourced from `signals`, so it is NOT limited to strategies that
+    # produced a trade row — which is the entire reason it exists.
+    stopped: List[Dict[str, Any]] = []
+    for name, ev in sorted((evals or {}).items()):
+        if eval_state_for(ev.get("in_window"), ev.get("ever")) == "not_evaluating":
+            stopped.append({
+                "strategy": name,
+                "last_eval_utc": ev.get("last_eval_utc"),
+                "evals_ever": ev.get("ever"),
+            })
 
     return {
         "db": db,
@@ -178,10 +260,24 @@ def audit(db: str, days: int) -> Dict[str, Any]:
         "population": (
             f"non-backtest `trades` rows created in the last {days} days, "
             "grouped by (account_id, strategy_name). A leg with zero rows in "
-            "the window is ABSENT, not healthy."
+            "the window is ABSENT, not healthy — see `strategies_not_evaluating`, "
+            "which is sourced from `signals` and therefore CAN see a leg that "
+            "produced no trade row at all. `eval_state` is per STRATEGY (the "
+            "`signals` table carries no account_id), so every leg of one "
+            "strategy shares it."
         ),
         "legs_graded": len(out),
         "dead_legs": len(dead),
+        # Whether the eval axis was READABLE at all. False => every `eval_state`
+        # below is `unknown` and none of them is evidence of anything.
+        "eval_liveness_present": evals is not None,
+        # The case the leg table structurally CANNOT reach. Legs are built from
+        # `trades` rows, so a strategy that stopped running produces no row, no
+        # leg, and no line — it just disappears, which is indistinguishable from
+        # a strategy that ran all week and found no setup. This list is built
+        # from `signals` instead: strategies that HAVE evaluated historically
+        # and evaluated ZERO times in the window.
+        "strategies_not_evaluating": stopped,
         "legs": out,
     }
 
@@ -194,14 +290,21 @@ def _render(report: Dict[str, Any]) -> str:
         f"denominator: {report['nonbacktest_rows_in_db']} non-backtest rows in this DB",
         f"population: {report['population']}",
         "",
-        f"{'verdict':<38} {'account':<22} {'strategy':<30} "
-        f"{'placed':>7} {'refused':>8} {'total':>6}",
-        "-" * 118,
+        "eval axis: " + (
+            "READABLE" if report["eval_liveness_present"]
+            else "UNREADABLE — every eval_state below is `unknown`, not `fine`"
+        ),
+        "",
+        f"{'verdict':<34} {'eval':<16} {'account':<20} {'strategy':<28} "
+        f"{'placed':>7} {'refused':>8} {'skip':>5} {'total':>6}",
+        "-" * 132,
     ]
     for leg in report["legs"]:
         lines.append(
-            f"{leg['verdict']:<38} {leg['account_id']:<22} {leg['strategy']:<30} "
-            f"{leg['placed']:>7} {leg['refused']:>8} {leg['total_rows']:>6}"
+            f"{leg['verdict']:<34} {leg['eval_state']:<16} "
+            f"{leg['account_id']:<20} {leg['strategy']:<28} "
+            f"{leg['placed']:>7} {leg['refused']:>8} "
+            f"{leg['policy_skipped']:>5} {leg['total_rows']:>6}"
         )
     for leg in report["legs"]:
         if leg["verdict"] == "signalled_never_placed":
@@ -213,6 +316,37 @@ def _render(report: Dict[str, Any]) -> str:
             ]
     if not report["dead_legs"]:
         lines += ["", "No signalled-never-placed legs in this window."]
+
+    stopped = report["strategies_not_evaluating"]
+    if stopped:
+        lines += [
+            "",
+            f"STRATEGIES THAT STOPPED EVALUATING ({len(stopped)}) — these produce "
+            "no trade rows, so they appear in NO leg line above:",
+        ]
+        for st in stopped:
+            lines.append(
+                f"  ⚠️  {st['strategy']:<30} last eval {st['last_eval_utc']} "
+                f"({st['evals_ever']} ever)"
+            )
+        lines += [
+            "",
+            "  ⚠️  A leg stops evaluating whenever its VENUE IS SHUT. On a window "
+            "narrower than",
+            "      the longest venue closure this list fills with US-equity legs "
+            "every night and",
+            "      every weekend, correctly and uselessly. Check the window "
+            "against the venue",
+            "      before reading any of these as a defect.",
+        ]
+    elif not report["eval_liveness_present"]:
+        lines += [
+            "",
+            "Evaluation liveness UNREADABLE (no `signals` table, or the read "
+            "raised) — this",
+            "is `we did not look`, NOT `every leg is running`. Check "
+            "SIGNAL_DUAL_WRITE_DISABLED.",
+        ]
     return "\n".join(lines)
 
 

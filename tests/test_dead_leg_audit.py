@@ -16,22 +16,49 @@ import pytest
 from scripts.ops.dead_leg_audit import audit
 
 
-def _db(tmp_path, rows):
-    """rows: (account_id, strategy_name, status, days_ago, n)"""
+def _db(tmp_path, rows, evals=None):
+    """rows: (account_id, strategy_name, status, days_ago, n[, entry_reason])
+
+    *evals* seeds the `signals` dual-write: (strategy, days_ago, n). Left as
+    None the table is ABSENT, which is the `unknown` eval-liveness case — the
+    default here on purpose, so every pre-existing test keeps exercising the
+    "we could not look" branch rather than silently acquiring a healthy one.
+    """
     p = tmp_path / "j.db"
     conn = sqlite3.connect(p)
     conn.execute(
+        # `entry_reason` is REAL — it is in production's `trades` and the audit
+        # reads it to separate a declared policy skip from a real refusal. A
+        # test schema that omits a production column passes against a table
+        # that does not exist (the shape that let the pairs `order_packages`
+        # tests go green on a fictional PK for weeks).
         "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
-        "strategy_name TEXT, status TEXT, is_backtest INT, created_at TEXT, "
-        "timestamp TEXT)"
+        "strategy_name TEXT, status TEXT, entry_reason TEXT, is_backtest INT, "
+        "created_at TEXT, timestamp TEXT)"
     )
-    for acct, strat, status, days_ago, n in rows:
+    for row in rows:
+        acct, strat, status, days_ago, n = row[:5]
+        reason = row[5] if len(row) > 5 else None
         for _ in range(n):
             conn.execute(
-                "INSERT INTO trades (account_id, strategy_name, status, is_backtest, "
-                "created_at, timestamp) VALUES (?,?,?,0, datetime('now', ?), NULL)",
-                (acct, strat, status, f"-{days_ago} days"),
+                "INSERT INTO trades (account_id, strategy_name, status, entry_reason, "
+                "is_backtest, created_at, timestamp) "
+                "VALUES (?,?,?,?,0, datetime('now', ?), NULL)",
+                (acct, strat, status, reason, f"-{days_ago} days"),
             )
+    if evals is not None:
+        conn.execute(
+            "CREATE TABLE signals (id INTEGER PRIMARY KEY, logged_at_utc TEXT, "
+            "strategy TEXT, symbol TEXT, side TEXT, qty REAL, status TEXT, "
+            "reason TEXT, meta TEXT)"
+        )
+        for strat, days_ago, n in evals:
+            for _ in range(n):
+                conn.execute(
+                    "INSERT INTO signals (logged_at_utc, strategy) VALUES "
+                    "(datetime('now', ?) || '.0+00:00', ?)",
+                    (f"-{days_ago} days", strat),
+                )
     conn.commit()
     conn.close()
     return str(p)
@@ -174,9 +201,14 @@ def test_backtest_rows_are_excluded(tmp_path):
     p = tmp_path / "j.db"
     conn = sqlite3.connect(p)
     conn.execute(
+        # `entry_reason` is REAL — it is in production's `trades` and the audit
+        # reads it to separate a declared policy skip from a real refusal. A
+        # test schema that omits a production column passes against a table
+        # that does not exist (the shape that let the pairs `order_packages`
+        # tests go green on a fictional PK for weeks).
         "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
-        "strategy_name TEXT, status TEXT, is_backtest INT, created_at TEXT, "
-        "timestamp TEXT)"
+        "strategy_name TEXT, status TEXT, entry_reason TEXT, is_backtest INT, "
+        "created_at TEXT, timestamp TEXT)"
     )
     conn.execute(
         "INSERT INTO trades (account_id, strategy_name, status, is_backtest, "
@@ -204,3 +236,149 @@ def test_backtest_rows_are_excluded(tmp_path):
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+# ---------------------------------------------------------------------------
+# The offline report and the LIVE alert must grade the same rows the same way.
+# ---------------------------------------------------------------------------
+
+def test_declared_dry_run_skip_is_not_graded_a_dead_leg(tmp_path):
+    """The divergence this whole module exists to prevent, found in its own sibling.
+
+    `src/runtime/dead_leg.py` says the vocabulary lives in one place so the
+    report cannot call a leg healthy while the alert calls it dead. But
+    `bucket_for` grew a second parameter on 2026-08-24 (the declared-policy-skip
+    bucket) and only ONE of the two callers was updated: the live alert passed
+    `entry_reason`, this report did not — so it could never reach
+    `policy_skipped`, and graded a deliberately-shelved `dry_run` account
+    `signalled_never_placed`, the most alarming verdict it has, wearing a
+    `real_money` label. Measured on the live journal 2026-08-25: 156 of
+    `alpaca_live`'s 312 refusals carry the `dry_run_sizing_skip` token.
+    """
+    db = _db(tmp_path, [(
+        "alpaca_live", "spy_pullback_1h", "rejected", 1, 9,
+        "REJECTED: dry_run_sizing_skip: zero_balance: gate_balance=0.00 USD",
+    )])
+    leg = _leg(audit(db, days=7), "spy_pullback_1h")
+
+    assert leg["verdict"] == "refusing_by_declaration"
+    assert leg["policy_skipped"] == 9 and leg["refused"] == 0
+    assert audit(db, days=7)["dead_legs"] == 0
+
+
+def test_a_real_refusal_mixed_in_with_declared_skips_still_counts(tmp_path):
+    """Suppression is per-ROW, never per-account. A switched-off account that
+    also hits a genuine venue refusal must not have it swallowed."""
+    db = _db(tmp_path, [
+        ("alpaca_live", "spy_pullback_1h", "rejected", 1, 9,
+         "REJECTED: dry_run_sizing_skip: zero_balance"),
+        ("alpaca_live", "spy_pullback_1h", "exchange_rejected", 1, 2,
+         "REJECTED: order_qty > max_qty"),
+    ])
+    leg = _leg(audit(db, days=7), "spy_pullback_1h")
+
+    assert leg["policy_skipped"] == 9
+    assert leg["refused"] == 2, "a genuine refusal must survive the suppression"
+    assert leg["verdict"] == "signalled_never_placed"
+
+
+def test_by_status_accumulates_across_distinct_reasons(tmp_path):
+    """`entry_reason` joined the GROUP BY, so one status now spans several rows.
+
+    The pre-existing `by_status[status] = n` kept only the LAST reason's count
+    and silently under-reported every status with more than one reason — a
+    regression the change itself would have introduced.
+    """
+    db = _db(tmp_path, [
+        ("bybit_1", "x", "exchange_rejected", 1, 4, "reason A"),
+        ("bybit_1", "x", "exchange_rejected", 1, 7, "reason B"),
+    ])
+    leg = _leg(audit(db, days=7), "x")
+
+    assert leg["by_status"]["exchange_rejected"] == 11
+    assert leg["refused"] == 11 and leg["total_rows"] == 11
+
+
+# ---------------------------------------------------------------------------
+# Evaluation liveness — a SEPARATE axis from the order verdict.
+# ---------------------------------------------------------------------------
+
+def test_absent_signals_table_is_unknown_never_healthy(tmp_path):
+    """`SIGNAL_DUAL_WRITE_DISABLED` is a supported configuration. Reading its
+    absence as "no leg ever evaluated" would alarm on the whole fleet; reading
+    it as "evaluating" would report legs healthy off a table nobody read."""
+    report = audit(_db(tmp_path, [("bybit_1", "x", "closed", 1, 3)]), days=7)
+
+    assert report["eval_liveness_present"] is False
+    assert _leg(report, "x")["eval_state"] == "unknown"
+    assert report["strategies_not_evaluating"] == []
+
+
+def test_eval_state_is_orthogonal_to_the_order_verdict(tmp_path):
+    """The AVAX shape: a leg can be running perfectly AND placing nothing."""
+    report = audit(
+        _db(tmp_path,
+            [("bybit_1", "ict_scalp_avax_5m", "exchange_rejected", 1, 12,
+              "REJECTED: order_qty > max_qty")],
+            evals=[("ict_scalp_avax_5m", 1, 40)]),
+        days=7,
+    )
+    leg = _leg(report, "ict_scalp_avax_5m")
+
+    assert leg["verdict"] == "signalled_never_placed"
+    assert leg["eval_state"] == "evaluating"
+    assert leg["evals_in_window"] == 40
+
+
+def test_a_strategy_that_stopped_evaluating_is_found_with_no_trade_rows(tmp_path):
+    """THE class the leg table structurally cannot reach.
+
+    Legs are built from `trades` rows, so a strategy that stopped running
+    produces no row, no leg and no line — it simply vanishes from the report,
+    which is byte-identical to a strategy that ran all week and found no setup.
+    This list is sourced from `signals` instead.
+    """
+    report = audit(
+        _db(tmp_path,
+            [("bybit_1", "live_leg", "closed", 1, 3)],
+            evals=[("live_leg", 1, 20), ("ghost_leg_1h", 30, 60)]),
+        days=7,
+    )
+
+    assert [s["strategy"] for s in report["strategies_not_evaluating"]] == ["ghost_leg_1h"]
+    assert "ghost_leg_1h" not in [leg["strategy"] for leg in report["legs"]], (
+        "the point of the list is that this strategy has NO leg line"
+    )
+    assert _leg(report, "live_leg")["eval_state"] == "evaluating"
+
+
+def test_never_evaluated_is_kept_apart_from_stopped_evaluating(tmp_path):
+    """Different owners: never-ran is a wiring question, stopped is a runtime one."""
+    report = audit(
+        _db(tmp_path,
+            [("bybit_1", "wired_but_silent", "closed", 1, 2)],
+            evals=[("someone_else", 1, 5)]),
+        days=7,
+    )
+
+    assert _leg(report, "wired_but_silent")["eval_state"] == "never_evaluated"
+    # never_evaluated is NOT reported as "stopped" — it never started.
+    assert report["strategies_not_evaluating"] == []
+
+
+def test_window_boundary_does_not_swallow_a_day_on_the_iso_separator(tmp_path):
+    """`signals.logged_at_utc` is ISO (`T`, offset); `datetime('now',?)` is not.
+
+    Compared raw, the two agree on the date and disagree on character 11
+    (`T` 0x54 vs space 0x20), so every row on the boundary DATE would sort as
+    in-window whatever its time. Both sides are normalised to the same 19-char
+    shape; this pins that.
+    """
+    report = audit(
+        _db(tmp_path,
+            [("bybit_1", "old", "closed", 1, 2)],
+            evals=[("old", 30, 10)]),
+        days=7,
+    )
+    assert _leg(report, "old")["eval_state"] == "not_evaluating"
+    assert _leg(report, "old")["evals_in_window"] == 0
