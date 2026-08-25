@@ -66,6 +66,12 @@ import subprocess
 import sys
 from typing import Any, Iterable
 
+# `scripts/ops` is on sys.path when this file is RUN directly, but not when it
+# is imported by a harness from elsewhere. Add it explicitly so the guard cannot
+# fail on an ImportError that depends on how it was invoked.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _backlog import UnsupportedCriteriaShape, criteria_text  # noqa: E402
+
 BACKLOGS = (
     "docs/claude/health-review-backlog.json",
     "docs/claude/performance-review-backlog.json",
@@ -139,10 +145,17 @@ def _verdict(row: dict[str, Any]) -> str | None:
     never once been advanced. `severity`/`tier` were added to this guard that
     day (it already held the criteria line since 2026-08-12).
     """
-    raw = row.get("resolution_criteria")
-    if raw is None:
-        return "no resolution_criteria field"
-    text = str(raw).strip()
+    try:
+        text = criteria_text(row).strip()
+    except UnsupportedCriteriaShape as exc:
+        # A dict / an int / a nested list stringifies happily to something that
+        # clears the length floor, so the OLD `str(raw)` accepted it. That was a
+        # pass by accident, not by design — reject the shape explicitly.
+        return str(exc)
+    if not text:
+        if row.get("resolution_criteria") is None:
+            return "no resolution_criteria field"
+        return "resolution_criteria is empty"
     if text.casefold() in _PLACEHOLDERS:
         return f"resolution_criteria is a placeholder ({text!r})"
     if len(text) < _MIN_LEN:
@@ -282,6 +295,35 @@ def _self_test() -> int:
         ),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "tier": 1},
          True, "criteria+tier but no severity"),
+        # SHAPE CASES (added 2026-08-25, closing criterion 2 of
+        # BL-20260823-RESOLUTION-CRITERIA-HAS-TWO-TYPES-AND-ITERATING-IT-YIELDS-CHARACTERS).
+        # `_verdict` used to do `str(raw)`, which is type-agnostic BY LUCK: a
+        # dict or an int stringifies to something that clears the 40-char floor,
+        # so a malformed row passed the guard whose whole job is malformed rows.
+        ({"id": "X", "resolution_criteria": {"a": _GOOD_CRIT},
+          "severity": "high", "tier": 1},
+         True, "criteria is a DICT — must be rejected, not stringified"),
+        ({"id": "X", "resolution_criteria": 12345678901234567890123456789012345678901234,
+          "severity": "high", "tier": 1},
+         True, "criteria is an INT long enough to clear the floor as a repr"),
+        ({"id": "X", "resolution_criteria": [{"a": 1}],
+          "severity": "high", "tier": 1},
+         True, "criteria LIST containing a dict"),
+        # THE ACCIDENTAL-PASS CASE, and the reason criteria_text joins on a
+        # newline instead of using repr: the PROSE here is 21 chars, under the
+        # 40-char floor, but `str(['too', 'short', 'x'])` is 26 and the older
+        # bracket-and-quote punctuation is what a repr-based floor was counting.
+        ({"id": "X", "resolution_criteria": ["too short", "also short"],
+          "severity": "high", "tier": 1},
+         True, "list whose PROSE is under the floor"),
+        # ...and the list shape still passes on real prose, so the fix did not
+        # simply outlaw the minority shape.
+        ({"id": "X", "resolution_criteria": [_GOOD_CRIT, "And a second one."],
+          "severity": "high", "tier": 1},
+         False, "LIST of real criteria is accepted"),
+        ({"id": "X", "resolution_criteria": [None, "", _GOOD_CRIT],
+          "severity": "high", "tier": 1},
+         False, "list with empty/None entries dropped, real prose kept"),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high"},
          True, "criteria+severity but no tier"),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "P1", "tier": 1},

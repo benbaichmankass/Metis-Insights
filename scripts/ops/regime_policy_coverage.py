@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a one-question AUDIT — how much of the live fleet the
+#     regime hard gate governs. The answer changes only when a cell is
+#     authored or a leg is demoted, both Tier-3 events with their own review,
+#     so it is run as part of that review rather than on a cadence.
 """How much of the live fleet does the regime hard gate actually govern?
 
 THE QUESTION, AND WHY NOTHING COULD ANSWER IT

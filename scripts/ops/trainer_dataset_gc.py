@@ -7,6 +7,36 @@ The registry + experiment runs keep the RESULTS; the raw labeled datasets are
 rebuildable from the synced journal/candle history, so an unpinned, aged
 version dir is reclaimable disk, not evidence.
 
+⚠️ **THAT PARAGRAPH DESCRIBES 2026-07-31 AND IS NO LONGER THE STATE. RUNNING
+THIS TOOL WILL NOT FREE THE TRAINER'S DISK** — read this before reaching for it
+as the remedy (BL-20260825-TRAINER-DISK-AT-91PCT-AND-ITS-OWN-GC-RECLAIMS-ALMOST-NOTHING).
+
+Measured report-only on the live trainer 2026-08-25 (trainer-vm-diag #10267):
+
+    scanned 115 · kept 111 · candidates 4 · reclaim_gb 0.09
+    manifest_pins 41 · manifests_parsed 76 of 76
+    and at --min-age-days 30: candidates 0, reclaim_gb 0.0
+
+**This is not a bug in the GC — it is the safety model working.** The keep-set
+grew: 41 manifest pins across 76 manifests now hold 111 of 115 version dirs, so
+there is almost nothing left this tool is ALLOWED to touch. A correct GC over a
+fully-pinned tree reclaims nothing, and that is the right outcome.
+
+WHERE THE SPACE ACTUALLY IS (`du -xh -d 1`, same session; 28 G under the repo of
+a 45 G root):
+
+    datasets-out         12 G   — but only 0.09 G is GC-eligible, per above
+    .venv               5.4 G   — CUDA wheels; a CPU-only wheel was NOT measured
+    ml/experiments-runs 4.5 G   — NO retention tool exists
+    runtime_logs        3.3 G   — NO retention tool exists (2.5 G m20_exit_head)
+    data                2.0 G   — trade_journal.db
+
+So the two genuinely uncovered trees are `ml/experiments-runs` and
+`runtime_logs/m2*_head`. Neither is this tool's job and neither has a tool of
+its own. ⚠️ `m20_exit_head` (2.5 G) is the largest deletable-LOOKING item and
+the one least safe to assume is dead — establish that nothing reads it before
+proposing a deletion.
+
 Safety model (delete only what nothing declares):
   - a version dir referenced by ANY manifest in ml/configs/*.yaml is KEPT
     (the frozen pins v513/v514/v515/v520 etc. stay);

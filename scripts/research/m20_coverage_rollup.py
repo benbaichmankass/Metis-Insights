@@ -804,6 +804,8 @@ def cells(matrix: dict[str, Any], live_only: bool = True):
 # One name, one place. Referenced in an error message a human acts on, so it
 # must resolve — and a backlog id that only ever appears as a wrapped string
 # literal is exactly the fragment artifact-validity-guard exists to reject.
+# Kept WHOLE on one line, for the reason the message below explains.
+_GEOMETRY_SLACK_BACKLOG_ROW = "BL-20260823-TP-GEOMETRY-RATCHET-LOOSENS-WHEN-THE-LIVE-DENOMINATOR-SHRINKS"
 _GEOMETRY_BACKLOG_ROW = (
     "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING"
 )
@@ -861,7 +863,9 @@ def _validate_tp_geometry(matrix: dict[str, Any]) -> list[str]:
                 "tp_geometry NOT validated (this is 'unchecked', not 'clean')"]
 
     unstamped = 0
+    live_cells = 0
     for row, col, _status in cells(matrix, live_only=True):
+        live_cells += 1
         cell = row.get(col)
         if not isinstance(cell, dict):
             continue
@@ -894,6 +898,37 @@ def _validate_tp_geometry(matrix: dict[str, Any]) -> list[str]:
             # resolving to nothing.
             f"{_GEOMETRY_BACKLOG_ROW}) or raise the ceiling in the diff so a "
             "reviewer sees the population growing.")
+    elif unstamped < ceiling:
+        # ⚠️ THE RATCHET IS TWO-SIDED (2026-08-25). It used to check only
+        # `unstamped > ceiling`, so SLACK accumulated in silence — and slack is
+        # precisely what makes this probe go quiet. THREE recorded recurrences,
+        # all found by hand and none by the guard:
+        #   2026-08-17  two cells STAMPED without lowering the ceiling -> 2 slack
+        #   2026-08-23  eth_pullback_prop_2h demoted (live 423->414) -> 2 slack,
+        #               and BOTH planted-omission self-tests then failed with an
+        #               EMPTY problem list: un-stamping one cell no longer breached
+        #   2026-08-24  slv_trend_1h demoted -> 5 slack
+        # (BL-20260823-TP-GEOMETRY-RATCHET-LOOSENS-WHEN-THE-LIVE-DENOMINATOR-SHRINKS,
+        # BL-20260824-DEMOTING-A-LEG-SILENTLY-LOOSENS-THE-M20-RATCHET — one defect,
+        # two rows.) The 2026-08-17 note already described this failure for the
+        # STAMPING case and did not generalise to the population changing; a demote
+        # loosens it identically while looking innocent, which is why prose was not
+        # enough and this is now a NAMED failure.
+        #
+        # The remedy is deliberately "lower it in the diff" rather than
+        # auto-computing the ceiling from the population: a self-computing ceiling
+        # can never fail, which is the same as not having one. The reviewer seeing
+        # the number move IS the mechanism.
+        problems.append(
+            f"only {unstamped} live cells carry no tp_geometry, BELOW the "
+            f"recorded ceiling of {ceiling} — {ceiling - unstamped} cell(s) of "
+            f"SLACK, over a live population of {live_cells}. Slack is not good "
+            "news: within it a live cell can silently lose its tp_geometry stamp "
+            "and this guard stays green. Either cells were stamped or the live "
+            "population shrank (a demote removes a leg's cells from the "
+            f"denominator) — lower _unstamped_ceiling to {unstamped} in this diff "
+            "so the reviewer sees the ratchet tighten. See "
+            f"{_GEOMETRY_SLACK_BACKLOG_ROW}.")
     return problems
 
 

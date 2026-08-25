@@ -1,3 +1,7 @@
+# wiring: manual-only - a Phase-0 registry PROBE run through the
+#     trainer-vm-diag relay to read frozen vol-bucket fields off regime-head
+#     entries. It answers a question about the registry's current contents on
+#     demand; nothing downstream consumes its stdout.
 """Probe the trainer registry for regime-head vol specs (Phase-0 helper).
 
 Run on the trainer VM (via the trainer-vm-diag relay) from the repo root;
