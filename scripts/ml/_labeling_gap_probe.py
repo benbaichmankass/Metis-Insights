@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a DIAGNOSTIC for one named defect (MB-20260627-002 /
+#     MB-20260626-001). Run by hand through the trainer-vm-diag relay when RG4
+#     reports unscoreable rows. A standing runner would alarm on a condition
+#     that is already tracked by the backlog rows it names.
 """Diagnose the MES/ETH live-labeling gap (MB-20260627-002 / MB-20260626-001 #1).
 
 RG4 (replay_pregate_live) labels a logged shadow row by joining it to a realized

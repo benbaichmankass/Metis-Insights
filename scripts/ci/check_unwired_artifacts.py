@@ -78,6 +78,17 @@ _PY_DOCSTRING = re.compile(r'("""|\'\'\')(?:.|\n)*?\1')
 _HASH_COMMENT = re.compile(r"#[^\n]*")
 
 
+#: The three verdicts. `unwired` and `doc_only` are RUST — a capability nothing
+#: invokes. `skill_invoked` is correct work with an UNPROVEN execution record,
+#: and is reported apart from both rather than merged into either.
+V_UNWIRED = "unwired"
+V_DOC = "doc_only"
+V_SKILL = "skill_invoked"
+#: Verdicts that FAIL. `skill_invoked` is deliberately absent.
+RUST = (V_UNWIRED, V_DOC)
+SKILL_PREFIX = ".claude/skills/"
+
+
 def _strip_noncode(text: str, suffix: str) -> str:
     """Remove comments/docstrings so a MENTION is not mistaken for WIRING.
 
@@ -212,10 +223,34 @@ def scan(root: Path, targets):
             continue                       # declared manual-only WITH a reason
         r = [x for x in refs.get(t.stem, []) if x != rel]
         if not r:
-            findings.append((rel, "no runner references it at all"))
+            findings.append((rel, V_UNWIRED, "no runner references it at all"))
         elif all(x.endswith(".md") for x in r):
-            findings.append((rel, "referenced ONLY by docs (%s) — documented, "
-                                  "but nothing runs it" % ", ".join(sorted(r)[:3])))
+            # THREE VERDICTS, NOT TWO (BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER).
+            # A SKILL.md is not prose about a tool — skills are this repo's
+            # binding invocation path ("skill-first lookup is binding",
+            # CLAUDE.md), so a skill IS a runner, just an agent-executed one.
+            # Grading render_system_report.py as rust because only
+            # .claude/skills/system-review/SKILL.md names it inflates the very
+            # count the "stop building things half way" directive is measured
+            # by, and errs in the DANGEROUS direction: it teaches the reader to
+            # discount a list that also holds genuinely-dead tools.
+            #
+            # ⚠️ IT IS A SEPARATE VERDICT, NOT A PROMOTION TO "WIRED". A skill
+            # naming a tool does not prove the tool RUNS —
+            # scripts/ops/trainer_dataset_gc.py is skill-referenced and was
+            # measured with 0 mentions across 7,442 cycle-log rows while the
+            # disk it exists for reached 93%. Folding skill_invoked into wired
+            # would hide exactly that case, which is the real one.
+            skills = sorted(x for x in r if x.startswith(SKILL_PREFIX))
+            if skills:
+                findings.append((rel, V_SKILL,
+                                 "invoked by a binding skill (%s) — a runner, but "
+                                 "agent-executed: that it RAN is unproven"
+                                 % ", ".join(skills[:3])))
+            else:
+                findings.append((rel, V_DOC,
+                                 "referenced ONLY by docs (%s) — documented, "
+                                 "but nothing runs it" % ", ".join(sorted(r)[:3])))
     return findings
 
 
@@ -313,7 +348,7 @@ def _self_test(root: Path) -> int:
             "# from src.prop import prose_only_tool\n"
             "Y = 2\n")
 
-        got = {r for r, _ in scan(fake, [orphan, wired, manual, bare,
+        got = {r for r, *_ in scan(fake, [orphan, wired, manual, bare,
                                          pkgimp, pkgimp2, prose])}
         checks.append(("planted orphan IS flagged",
                        "scripts/ops/orphan_tool.py" in got))
@@ -428,16 +463,24 @@ def main() -> int:
         dirs = [x.strip() for x in a.dirs.split(",") if x.strip()]
         targets = added_targets(a.base, REPO, dirs)
         findings = scan(REPO, targets) if targets else []
+        rust = [f for f in findings if f[1] in RUST]
+        skilled = [f for f in findings if f[1] == V_SKILL]
+        # THE HEADLINE COUNTS RUST ONLY. A skill-invoked tool is wired (by an
+        # agent rather than a timer), so counting it here would fail a PR for
+        # adding a tool its own skill invokes.
         print(f"unwired-artifact (diff-scoped vs {a.base}): {len(targets)} newly "
               f"added tool(s) under {', '.join(d + '/' for d in dirs)}, "
-              f"{len(findings)} with no runner")
-        if not findings:
+              f"{len(rust)} with no runner"
+              + (f" (+{len(skilled)} skill-invoked, not counted)" if skilled else ""))
+        for rel, _v, why in sorted(skilled):
+            print(f"  [skill] {rel}\n      {why}")
+        if not rust:
             # STATE THE DENOMINATOR. "0 findings" over 0 targets and over 12
             # targets are different statements and must not print the same.
             print("OK — nothing this change ADDS is unwired." if targets
                   else "OK — this change adds no new tool under those trees.")
             return 0
-        for rel, why in sorted(findings):
+        for rel, _v, why in sorted(rust):
             print(f"  {rel}\n      {why}")
         print("\n::error::this change ADDS a capability nothing runs. Wire it to a "
               "workflow/unit/caller, delete it, or declare "
@@ -448,14 +491,32 @@ def main() -> int:
     targets = [f for f in (REPO / a.dir).rglob("*.py")
                if "__pycache__" not in f.parts and f.name != "__init__.py"]
     findings = scan(REPO, targets)
+    rust = [f for f in findings if f[1] in RUST]
+    skilled = [f for f in findings if f[1] == V_SKILL]
+    unwired = [f for f in rust if f[1] == V_UNWIRED]
+    doc_only = [f for f in rust if f[1] == V_DOC]
+    # THE HEADLINE IS RUST ONLY, and the three verdicts are always printed
+    # beside it so a shrinking headline cannot hide a growing skill list.
     print(f"unwired-artifact scan: {len(targets)} tool(s) under {a.dir}/, "
-          f"{len(findings)} with no runner\n")
-    for rel, why in sorted(findings):
-        print(f"  {rel}\n      {why}")
-    if findings:
-        print("\nEach is a corpse to remove, a capability to WIRE, or a tool that "
-              "must declare `# wiring: manual-only - <reason>`.")
-    return 1 if findings else 0
+          f"{len(rust)} with no runner\n"
+          f"  {len(unwired):4d} unwired       — no reference anywhere\n"
+          f"  {len(doc_only):4d} doc_only      — prose names it, nothing invokes it\n"
+          f"  {len(skilled):4d} skill_invoked — a binding skill runs it; NOT counted "
+          f"above, and NOT proof it ran\n")
+    for label, group in (("unwired", unwired), ("doc_only", doc_only),
+                         ("skill_invoked", skilled)):
+        if not group:
+            continue
+        print(f"=== {label} : {len(group)} ===")
+        for rel, _v, why in sorted(group):
+            print(f"  {rel}\n      {why}")
+        print()
+    if rust:
+        print("Each RUST entry is a corpse to remove, a capability to WIRE, or a "
+              "tool that must declare `# wiring: manual-only - <reason>`. "
+              "skill_invoked entries are none of those — but that a skill NAMES a "
+              "tool is not evidence the tool has ever run.")
+    return 1 if rust else 0
 
 
 if __name__ == "__main__":

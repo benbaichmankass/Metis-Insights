@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only - an operator DECISION-SUPPORT tool for the standing
+#     'value of liquidating vs holding' ask. It ranks open positions and
+#     recommends nothing; the decision is Tier-3 and human. Wiring it to a
+#     timer would produce a recommendation feed nobody asked for, which is the
+#     desensitized-alarm shape.
 """Rank open positions by whether they still earn the capital they occupy.
 
 `portfolio_conflict_audit.py` says WHICH positions conflict. It does not say
