@@ -155,18 +155,31 @@ codebase, and it is the one input I could not obtain.
 
 ## 8. Noted in passing — a single-owner defect, not part of this proposal
 
-`_TP_SENTINEL_CAP_PCT = 0.099` is **duplicated in five files** —
-`trend_donchian.py:133`, `htf_pullback_trend_2h.py:98`,
-`fade_breakout_4h.py:117`, `squeeze_breakout_4h.py:79`, and
-`position_telemetry.py:72`. Four are strategy units; the fifth is the telemetry
-reader that must agree with them or its `pct_of_cap` is measured against a
-different ceiling than the one applied.
+✅ **RESOLVED 2026-08-25 (#10248, `eebb8ebe`) — and this section undercounted
+by more than half.** It said five files. A mechanical census found **13
+declaration sites under THREE names**: `_TP_SENTINEL_CAP_PCT` (the 4 strategy
+units + `position_telemetry.py`), `TP_VENUE_CAP_PCT` (`target_expectation.py`
++ 2 research scripts) and `LIVE_TP_CAP_PCT` (5 more scripts). All 13 held
+`0.099` — they agreed **by luck**, with no import, no test and no guard binding
+them. ⚠️ The first census probe reported 5, matching this section, because its
+regex required a character before `TP_` and so silently missed both non-
+underscore names; the real number came from cross-checking `grep`. Do not
+re-quote "five".
 
-Five copies of one venue constant is the shape `cost-model-single-owner` and
-`canonical-db-resolver` exist to prevent, and it is also **the thing that makes
-option B cheap if it is ever taken** — the consolidation is worth doing on its
-own merits, independently of the venue question. **Not proposed here**, because
-bundling a refactor with a Tier-3 geometry decision makes both harder to judge.
+**13 → 1.** `src/runtime/tp_venue_cap.py` is the owner; every site imports it.
+Live order geometry is unchanged and asserted mechanically: the units import
+under their existing local name, so all 8 clamp expression lines are
+byte-identical, and every `src/` consumer resolves to the same OBJECT (`is`,
+not `==`). The guard `tp-venue-cap-single-owner` now fails CI on a second
+declaration — the check `m20_fleet_exit_sweep.py` correctly complained did not
+exist ("NOTHING CHECKS THAT THIS STILL MATCHES THE LIVE VALUE").
+
+⚠️ **This resolves the DUPLICATION only. The venue question in § 6 is still
+OPEN** — the consolidation deliberately preserved the single value the fleet
+has always used and answers nothing about whether `0.099`, a Bybit ErrCode
+10001 boundary, is right for the non-Bybit legs it is applied to. Keeping the
+two separate was the point: bundling a refactor with a Tier-3 geometry decision
+makes both harder to judge.
 
 
 ---
