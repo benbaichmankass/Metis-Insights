@@ -203,6 +203,23 @@ ALLOWED_KEYS: tuple[str, ...] = (
     "IB_ACCOUNT_WARMUP_TIMEOUT_S",
     "IB_PLACE_CONFIRM_S",
     "IB_CLOSE_CONFIRM_S",
+    # IB_MD_CLIENT_ID pins the clientId the WEB-API's market-data socket uses so
+    # it cannot collide with the trader's own (exec 497 / md 498 on `ib_paper`).
+    # It is here because the collision is INVISIBLE and the fallback is silent:
+    # `market_data._ib_connection_identity` resolves
+    # `settings -> env -> exec_client_id + 1`, so a caller that passes no
+    # settings (`local_pnl.last_mark_price` passes `{}`) lands on **498** the
+    # moment this var is unset — the trader's live socket — and IB answers
+    # error 326 rather than anything a reader would recognise. Nothing in the
+    # repo provisions this var: the ONLY thing supplying it is a hardcoded
+    # `"600"` default inside `routers/candles.py::_settings()`, which protects
+    # that one caller and no other. So `/api/bot/candles` works while the uPnL
+    # mark-price fallback returns `unavailable`, which is exactly the live
+    # 2026-08-25 reading on all three `ib_paper` legs.
+    # A clientId integer is safe to publish. Cheap to allow, and without it the
+    # question "is the reservation actually set?" has no answer at all
+    # (BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE).
+    "IB_MD_CLIENT_ID",
     # --- Paths (a wrong one is the stray-duplicate-journal class) ---
     "TRADE_JOURNAL_DB",
     "TRAINER_STORE_DB",
