@@ -358,3 +358,54 @@ def test_a_sibling_group_is_not_counted_as_a_survivor_of_a_scoped_cancel():
     assert len(fake.placed) == 2, fake.placed
     remaining = {t.order.ocaGroup for t in fake._resting}
     assert "oca-protect-t9999" in remaining, "sibling protection was destroyed"
+
+
+# ---------------------------------------------------------------------------
+# IBClient.cancel — the ops wire. A refusal must not read as "OK".
+# BL-20260825-CANCEL-IB-ORDER-REPORTS-RETMSG-OK-WHILE-IBKR-REFUSED
+# ---------------------------------------------------------------------------
+
+def test_cancel_reports_the_venue_refusal_instead_of_ok():
+    """The live shape: system-action cancel-ib-order emitted
+    `{'retCode': 0, 'retMsg': 'OK'}` for a cancel IBKR had refused, and only a
+    separate read-back revealed it did nothing (issue #10280)."""
+    fake = FakeIB(_mhg_legs(497, "oca-protect-416", 417, 1179890976),
+                  session_client_id=597)
+    client = _client_for(fake)
+
+    out = client.cancel("417")
+
+    assert out["retCode"] == 1, out
+    assert out["refusal"]["code"] == 10147, out
+    assert "REFUSED" in out["retMsg"], out
+
+
+def test_cancel_still_reports_ok_when_the_venue_accepts():
+    """Control: an accepted cancel must not be mislabelled as a refusal. Its
+    retMsg says 'accepted', not 'confirmed' — acceptance is not confirmation."""
+    fake = FakeIB(_mhg_legs(597, "oca-protect-432", 433, 1649238173),
+                  session_client_id=597)
+    client = _client_for(fake)
+
+    out = client.cancel("433")
+
+    assert out["retCode"] == 0, out
+    assert "refusal" not in out, out
+    assert "accepted" in out["retMsg"], out
+
+
+def test_cancel_does_not_attribute_another_orders_refusal():
+    """The error event is keyed on reqId. A refusal for a DIFFERENT order must
+    not be reported against this one — that would invent a failure."""
+    legs = (_mhg_legs(597, "oca-protect-432", 433, 1649238173)
+            + _mhg_legs(497, "oca-protect-416", 417, 1179890976))
+    fake = FakeIB(legs, session_client_id=597)
+    client = _client_for(fake)
+
+    # Cancel the foreign leg first so a 10147 for 417 is on the wire, then the
+    # session's own leg. The second call must come back clean.
+    assert client.cancel("417")["retCode"] == 1
+    out = client.cancel("433")
+
+    assert out["retCode"] == 0, out
+    assert "refusal" not in out, out

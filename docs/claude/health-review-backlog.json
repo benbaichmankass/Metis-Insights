@@ -23585,7 +23585,7 @@
    "opened_by": "claude (system-review fix round, MHG over-cover apply)",
    "severity": "medium",
    "tier": "1 (ops tooling)",
-   "status": "open",
+   "status": "resolved",
    "area": "ops-tooling",
    "title": "cancel-ib-order's cancel_response says retCode 0 / 'OK' when IBKR refused the cancel -- the envelope reports that the CALL was made, and only the separate read-back reveals it did nothing",
    "detail": "MEASURED on the APPLY run in issue #10280 (2026-08-25T14:51Z). The emitted envelope carried:\n  'cancel_response': {'retCode': 0, 'result': {'orderId': '417'}, 'retMsg': 'OK'}\nalongside 'action': 'cancel_not_effective', 'verify_state': 'still_present'.\n\nThe trader hitting the SAME order one minute later got IBKR's actual answer -- 'Error 10147, reqId 417: OrderId 417 that needs to be cancelled is not found' -- so the venue had refused. The ops envelope had no way to say so: ib_insync's cancelOrder returns None and delivers the refusal on the wrapper error callback, which the script does not subscribe to, so 'OK' means 'we called it'.\n\nTHE READ-BACK DID ITS JOB and this row is not about a missed detection -- verify_state 'still_present' plus a non-zero exit is exactly right, and is why the failure was visible at all. The defect is that a reader of the envelope sees a success line and a failure line and cannot tell which is authoritative, or WHY the cancel failed. 'OK' next to 'cancel_not_effective' reads as a race or a slow venue (that is literally what BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT concluded about an earlier run, and on that occasion it was right) rather than as a refusal that no wait would fix. Diagnostic-provenance sub-class A: a status naming a result no code path observed.\n\nCheap to fix and it makes the retry question decidable: a 10147 must never be retried with a longer window, and a genuine race should be.",
@@ -23601,7 +23601,16 @@
     "verify_state": "still_present",
     "venue_truth": "IBKR Error 10147 (order not found for this client)"
    },
-   "next_action": "Tier-1 -- ships with the ops script, no operator gate."
+   "next_action": "DONE.",
+   "resolved_at": "2026-08-25T15:35:00+00:00",
+   "updates": [
+    {
+     "at": "2026-08-25T15:35:00+00:00",
+     "by": "claude (system-review fix round)",
+     "note": "RESOLVED same day. IBClient.cancel now subscribes to ib.errorEvent for the life of the call, waits the bounded IB_CANCEL_SETTLE_SECONDS (0.5s -- the live rejections landed at 156ms and 239ms, so the previous ib.sleep(0) could not have seen one), and returns retCode 1 with a `refusal` block carrying IBKR's own code when the venue refused. An accepted cancel now says 'OK (accepted -- acceptance is not confirmation; verify with a re-read)' rather than a bare 'OK'.\n\ncancel_ib_order.py gains a distinct `refused_by_venue` action, so the four outcomes stay apart: `cancelled` (accepted AND confirmed gone) / `refused_by_venue` (the venue said no -- permanent, a wider verify window cannot help) / `cancelled_unconfirmed` (accepted, the verification read failed) / `cancel_not_effective` (accepted, still resting -- which IS what a wider window is for). That last distinction is the point of criterion 3: BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT reached the slow-accept conclusion and was RIGHT for its own run, and nothing in the envelope let a later reader tell that case from this one.\n\nTests: three added to tests/test_ib_cancel_verification.py, driven by a simulated IBKR error event rather than a return-value stub -- including a control that a refusal for a DIFFERENT order is not attributed to this one (the error event is keyed on reqId, and mis-attributing it would invent a failure).\n\nWHAT THIS DOES NOT DO, deliberately: it does not make the cancel work. The measured refusal is IBKR 10147, i.e. the submitting clientId no longer holds the order, and no API client can override that -- --perm-id in this script is a SELECTOR only (line 272 still calls client.cancel(str(order_id))), so the wire call is byte-identical either way. Clearing such a leg needs TWS, or reqGlobalCancel, which is account-wide and would strip every position's protection at once."
+    }
+   ],
+   "last_verified": "2026-08-25"
   },
   {
    "id": "BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION",

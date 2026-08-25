@@ -3402,7 +3402,24 @@ class IBClient:
                 return None
 
     def cancel(self, order_id: str) -> Dict[str, Any]:
-        """Cancel an open order by its (parent) order id."""
+        """Cancel an open order by its (parent) order id.
+
+        ⚠️ **A ``retCode 0`` here means the venue ACCEPTED the request, not that
+        the order is gone** — ``ib.cancelOrder`` is fire-and-forget. What this
+        method now adds is the venue's own answer when it REFUSED: IBKR delivers
+        a rejection such as ``Error 10147 — OrderId 417 that needs to be
+        cancelled is not found`` (the cross-clientId case) on the error event
+        and nowhere else, so before this the refusal was unreachable and the
+        envelope said ``OK`` about an outcome nothing observed
+        (BL-20260825-CANCEL-IB-ORDER-REPORTS-RETMSG-OK-WHILE-IBKR-REFUSED).
+
+        A refusal now returns ``retCode 1`` carrying ``refusal`` with IBKR's
+        code, so the caller can tell a PERMANENT refusal — which no longer
+        verify window will fix — from a cancel that is merely slow, which one
+        will. Those want opposite retry behaviour, and conflating them is how
+        BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT's (correct, for its
+        own run) "widen the window" conclusion would be misapplied here.
+        """
         with self._usage_lock:
             return self._locked_cancel(order_id=order_id)
 
@@ -3415,15 +3432,37 @@ class IBClient:
                 break
         if target is None:
             return {"retCode": 1, "retMsg": f"order {order_id} not found among open trades"}
+        refusals, detach = self._cancel_error_capture(ib)
         try:
-            ib.cancelOrder(target)
             try:
-                ib.sleep(0)
-            except Exception:  # noqa: BLE001
-                pass
-        except Exception as exc:  # noqa: BLE001
-            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
-        return {"retCode": 0, "result": {"orderId": str(order_id)}, "retMsg": "OK"}
+                ib.cancelOrder(target)
+                # Give IBKR time to answer. Measured on the live gateway
+                # 2026-08-25, rejections landed 156 ms and 239 ms after the
+                # call, so the previous `ib.sleep(0)` (one loop yield) could
+                # never have seen one.
+                try:
+                    ib.sleep(_IB_CANCEL_SETTLE_S if _IB_CANCEL_SETTLE_S > 0 else 0)
+                except Exception:  # noqa: BLE001
+                    pass
+            except Exception as exc:  # noqa: BLE001
+                return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+            try:
+                refusal = refusals.get(int(float(order_id)))
+            except (TypeError, ValueError):
+                refusal = None
+        finally:
+            detach()
+        if refusal:
+            return {
+                "retCode": 1,
+                "retMsg": (f"venue REFUSED the cancel: IBKR error "
+                           f"{refusal.get('code')} — {refusal.get('message')}"),
+                "result": {"orderId": str(order_id)},
+                "refusal": refusal,
+            }
+        return {"retCode": 0, "result": {"orderId": str(order_id)},
+                "retMsg": "OK (accepted — acceptance is not confirmation; "
+                          "verify with a re-read)"}
 
     def status(self, order_id: str) -> Dict[str, Any]:
         """Return the normalised status of an order by id.

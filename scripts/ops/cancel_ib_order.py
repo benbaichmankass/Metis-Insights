@@ -272,6 +272,24 @@ def main(argv: Optional[list] = None) -> int:
     resp = _cancel_as_owner(acc, owner_client_id=owner,
                             order_id=int(row["order_id"]))
     out["cancel_response"] = resp
+    # A VENUE REFUSAL is not the same failure as "we could not send it", and the
+    # two want opposite follow-ups: a refusal is permanent and no wider verify
+    # window fixes it, whereas a slow accept is exactly what a wider window is
+    # for (BL-20260825-CANCEL-IB-ORDER-REPORTS-RETMSG-OK-WHILE-IBKR-REFUSED,
+    # and see BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT for a run
+    # where the slow-accept reading was the correct one). IBKR answers a
+    # refusal on the error event only; IBClient.cancel now captures it.
+    refusal = resp.get("refusal") if isinstance(resp, dict) else None
+    if refusal:
+        out.update(action="refused_by_venue", verify_state="still_present",
+                   refusal=refusal,
+                   note="IBKR REFUSED this cancel — the order is still resting "
+                        "and re-running with a longer verify window will not "
+                        "change that. Error 10147 specifically means the "
+                        "submitting clientId no longer holds the order, which "
+                        "no API client can override; clearing it needs TWS.")
+        print(json.dumps(out, indent=2))
+        return 1
     if resp.get("retCode") != 0:
         out.update(action="cancel_failed")
         print(json.dumps(out, indent=2))
