@@ -31,10 +31,32 @@ import src.runtime.order_monitor as om
 
 @pytest.fixture()
 def latched(tmp_path, monkeypatch):
-    """Point the latch at a temp dir and stub the outbound page."""
-    monkeypatch.setattr(om, "_target_naked_state_path",
-                        lambda: tmp_path / "target_naked_alert_state.json")
+    """Point the latch at a temp dir and stub the outbound page.
+
+    THE SEAM MOVED 2026-08-25 and this fixture moved with it. The cooldown was
+    generalised from `target_naked` to any alert KIND so a second safety page
+    (`stop_over_cover`) could not reintroduce the per-process latch by being a
+    copy. `_alert_state_path(kind)` is the single owner now;
+    `_target_naked_state_path` survives only as an alias, so patching the alias
+    would leave the real path live and the test would assert against a wiring
+    production does not have.
+
+    Every behavioural assertion below is UNCHANGED — only the injection point.
+    """
+    monkeypatch.setattr(om, "_alert_state_path",
+                        lambda kind: tmp_path / f"{kind}_alert_state.json")
     return tmp_path / "target_naked_alert_state.json"
+
+
+def test_the_live_latch_filename_is_unchanged():
+    """Renaming the file would orphan the latch the trader is holding NOW.
+
+    A rename does not fail loudly: the new path simply does not exist, reads as
+    "never fired", and silently re-arms a cooldown that is currently
+    suppressing — the 2026-08-23 defect returning through the refactor that was
+    meant to prevent it.
+    """
+    assert om._alert_state_path("target_naked").name == om._TARGET_NAKED_STATE_FILENAME
 
 
 def _emit():
@@ -93,9 +115,33 @@ def test_latch_does_not_use_monotonic(latched):
     # Strip comments first: the fix's own explanatory comment says the words
     # "time.monotonic()", and an annotation must never count as evidence for
     # the claim it annotates (the collapsed-state-guard override discipline).
-    code = "\n".join(
-        ln for ln in inspect.getsource(om._emit_target_naked_alert).splitlines()
-        if not ln.strip().startswith("#")
-    )
-    assert "time.monotonic()" not in code
-    assert "time.time()" in code
+    def _stripped(fn):
+        """Executable source only — no comments, NO DOCSTRING.
+
+        Line-stripping `#` alone is not enough: the generalised gate's own
+        docstring says the words "time.monotonic()" while explaining why it
+        does not use it, so a naive strip makes the explanation fail the
+        assertion it explains. Round-trip through the AST with docstrings
+        removed instead — prose can then neither satisfy nor break the claim.
+        """
+        import ast
+        import textwrap
+        tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef, ast.Module)):
+                body = getattr(node, "body", [])
+                if (body and isinstance(body[0], ast.Expr)
+                        and isinstance(body[0].value, ast.Constant)
+                        and isinstance(body[0].value.value, str)):
+                    node.body = body[1:] or [ast.Pass()]
+        return ast.unparse(ast.fix_missing_locations(tree))
+
+    # The wall clock now lives in the shared gate, so assert against the
+    # function that OWNS the latch — asserting `time.time() in` the emit path
+    # after the move would have passed vacuously or failed for the wrong
+    # reason. Both are checked: neither may reach for monotonic.
+    gate = _stripped(om._cooldown_admits)
+    assert "time.monotonic()" not in gate
+    assert "time.time()" in gate
+    assert "time.monotonic()" not in _stripped(om._emit_target_naked_alert)

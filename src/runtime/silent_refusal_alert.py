@@ -409,6 +409,52 @@ def run_silent_refusal_check(
             "verdict": a["verdict"], "updated_at": now.isoformat(),
         }
 
+    # ── A LATCHED ACCOUNT THAT GOES QUIET COULD NEVER CLEAR ────────────────
+    #
+    # The loop above iterates `assessed`, which `assess()` builds ONLY from
+    # rows inside the lookback window. So an account that latched
+    # `alerting: true` and then stopped producing rows entirely never re-enters
+    # the loop: the recovery branch is never evaluated, `state[aid]` is never
+    # rewritten, and the latch stands FOREVER.
+    #
+    # Measured on the live VM 2026-08-25: `alpaca_live` had been latched
+    # `alerting: true, cause: risk_refused` with `updated_at` frozen at
+    # 2026-08-21T12:38:38Z while `__last_check__` advanced to 09:04:05Z the same
+    # day — 3.85 days. `silent_accounts()` is what the review skills read to
+    # decide whether to flag, so it kept reporting that account as silently
+    # refusing on evidence four days old. Two sibling accounts
+    # (`alpaca_paper`, `alpaca_portfolio`) were stuck the same way at
+    # `alerting: false`, benign but equally unreachable.
+    #
+    # ⚠️ THE QUIET STATE IS NOT A RECOVERY, AND MUST NOT BE REPORTED AS ONE.
+    # `assess()` deliberately never grades an account with no rows ("we
+    # observed nothing" is not "it is placing orders again"), so sending the
+    # normal 🟢 [OK] here would assert something nobody measured. The latch is
+    # released with its own explicit message naming the actual reason — the
+    # window went quiet — which is a different fact and the operator can tell
+    # them apart.
+    for aid, prev in list(state.items()):
+        if aid == _LAST_CHECK_KEY or not isinstance(prev, dict):
+            continue
+        if aid in assessed or aid in skip:
+            continue
+        if not bool(prev.get("alerting")):
+            # Not alerting and no longer producing rows — prune it silently so
+            # the latch file does not grow a tail of dead accounts. Nothing was
+            # claimed about it, so nothing needs retracting.
+            state.pop(aid, None)
+            continue
+        _send_alert(
+            f"\U0001F7E2 [OK] {aid} is no longer flagged: it produced NO order "
+            f"rows at all in the last {hours}h, so there is nothing to grade. "
+            f"This is NOT a report that it started placing orders — the account "
+            f"has gone quiet, which is its own condition. Last graded verdict "
+            f"was {prev.get('verdict')!r} (cause {prev.get('cause')!r}) at "
+            f"{prev.get('updated_at')}."
+        )
+        recovered.append(aid)
+        state.pop(aid, None)
+
     _save_state(state)
     return {"checked": True, "alerted": alerted, "recovered": recovered,
             "assessed": len(assessed)}

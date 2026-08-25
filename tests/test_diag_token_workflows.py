@@ -239,6 +239,43 @@ def _shims(tmp_path: Path, *, http_code: str) -> Path:
     return bindir
 
 
+_ENVIRON_READY_TIMEOUT_S = 5.0
+
+
+def _await_served_environ(holder: subprocess.Popen, served_token: str) -> None:
+    """Block until the holder's /proc/<pid>/environ actually carries the token.
+
+    Waits for the exact `DIAG_READ_TOKEN=<value>` pair rather than the bare
+    key: on a host where CPython forks instead of posix_spawn-ing, the pre-exec
+    window can expose the PARENT's environ, and this test runner's own
+    environment may itself carry a DIAG_READ_TOKEN -- so a bare-key wait could
+    be satisfied by the wrong value. (Measured in this sandbox: 0 of 300 trials
+    exposed a wrong value, the window read back empty. The stricter wait costs
+    nothing and does not depend on that holding on every host.)
+    """
+    needle = f"DIAG_READ_TOKEN={served_token}".encode()
+    proc_environ = Path(f"/proc/{holder.pid}/environ")
+    deadline = time.monotonic() + _ENVIRON_READY_TIMEOUT_S
+    while time.monotonic() < deadline:
+        try:
+            if needle in proc_environ.read_bytes():
+                return
+        except OSError:
+            pass  # /proc entry not readable yet, or the pid is already gone
+        time.sleep(0.001)
+    # FAIL LOUDLY rather than fall through. A fixture that never exposes the
+    # token would otherwise hand the script under test an unreadable process,
+    # and the script would correctly report `before_token_source: envfile` --
+    # making a BROKEN FIXTURE indistinguishable from the exact misreading this
+    # wait exists to prevent.
+    holder.kill()
+    holder.wait()
+    raise AssertionError(
+        "holder process never exposed DIAG_READ_TOKEN in /proc/<pid>/environ "
+        "-- the fixture is broken, not the script under test"
+    )
+
+
 def _run_remote(
     tmp_path: Path,
     *,
@@ -322,6 +359,21 @@ def _run_remote(
                 "the script under test"
             )
         env["FAKE_WEBAPI_PID"] = str(holder.pid)
+        # Popen returns after the FORK, not after the execve. Until the child
+        # finishes exec, the kernel has not installed its new mm, so
+        # /proc/<pid>/environ reads back EMPTY -- whereupon `_read_served_token`
+        # in set-diag-token.yml correctly falls through to its envfile branch
+        # and reports `before_token_source: envfile`. The fixtures deliberately
+        # put the SAME token in both places, so every other assertion still
+        # passed and only the source label flipped: that is why this read as a
+        # flake rather than a bug (CI 2026-08-25T10:04:45Z on commit ebaa2c1,
+        # which had passed the identical job 21 minutes earlier). Measured here:
+        # the first read after Popen misses the token in 77/200 = 38.5% of
+        # trials, becoming readable within 0.06 ms. So wait for the state these
+        # tests actually assert about before running the script. NOT a
+        # cargo-cult sleep -- deleting it restores an intermittent, misleading
+        # red that blames the workflow for a fixture race.
+        _await_served_environ(holder, served_token)
     try:
         proc = subprocess.run(
             ["bash", "-s"], input=script, env=env, capture_output=True, text=True

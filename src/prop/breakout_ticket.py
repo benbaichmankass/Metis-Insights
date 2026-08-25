@@ -24,9 +24,14 @@ guards are the safety net, not a manual confirm step.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+from src.prop import prop_risk_gate
+
+logger = logging.getLogger(__name__)
 
 # Bar duration in minutes per strategy timeframe — drives the default TTL.
 _TF_MINUTES = {
@@ -144,6 +149,38 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         f"${c.account_size_usd:.0f} (= ${t.risk_usd:.2f} risk at the stop). "
         f"RECOMPUTE against your live balance (see Sizing)."
     )
+    # THE CUSHION THE SYSTEM ALREADY KNOWS, read at last.
+    #
+    # `daily_cap` / `dd_floor` above are the STATIC rule (3% / 6% of the
+    # nominal account size) — they say what the limits ARE, never how much room
+    # is LEFT. On 2026-08-25 that gap emitted a ticket suggesting $75.00 of risk
+    # against a $64.00 remaining cushion: `compute_rule_distance` had the number
+    # and nothing on this path read it (three display consumers, zero decision
+    # consumers). Measurement + the four states: src/prop/prop_risk_gate.py.
+    #
+    # ⚠️ THE CAVEAT GOES AT THE TOP, NOT IN THE PROP-CONTEXT FOOTER. This
+    # message is read on a phone in Telegram; a "DO NOT PLACE" line 25 rows down
+    # is a line the executor scrolls past, and the whole point is that it is
+    # seen BEFORE the size it contradicts.
+    #
+    # Best-effort and mode-gated: `off` restores the byte-identical old ticket;
+    # the default `annotate` prepends the caveat and leaves the SIZE alone. Any
+    # failure degrades to the un-annotated ticket — never lose the ticket over
+    # its own caveat.
+    caveat: list = []
+    if account_id:
+        try:
+            if prop_risk_gate.mode() != "off":
+                caveat = prop_risk_gate.caveat_lines(
+                    prop_risk_gate.grade_account_ticket_risk(
+                        account_id, risk_usd=t.risk_usd))
+        except Exception:  # noqa: BLE001 — never lose the ticket over its caveat
+            logger.warning(
+                "render_ticket: prop risk-gate annotation failed for %s — "
+                "emitting the ticket WITHOUT a cushion caveat", account_id,
+                exc_info=True,
+            )
+
     lines = [
         "BREAKOUT TRADE SETUP — place a BRACKET order on the Breakout terminal.",
         "RULES (do all): attach SL **and** TP at entry; never place without both. "
@@ -151,6 +188,7 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         "OR the live price is outside the entry band, DO NOT place — reply "
         "'skipped: stale/out-of-range'. Do NOT manage the exit yourself — the "
         "bracket is the exit.",
+        *caveat,
         "",
         f"  Strategy : {s.strategy}",
         f"  Symbol   : {sym}",
