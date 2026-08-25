@@ -102,9 +102,34 @@ _CATALOG_DOC = "docs/github-actions-workflows.md"
 _EXEMPT_WORKFLOWS: Set[str] = set()
 _EXEMPT_TOKENS: Set[str] = set()
 
-# Direction A matches a bare filename anywhere in the doc (a row may cite it in
-# prose rather than in a table cell, and both count as "named").
-_ANY_YML = re.compile(r"[A-Za-z0-9._-]+\.ya?ml")
+# Direction A requires a DELIBERATE CATALOG ENTRY, not a mention.
+#
+# ⚠️ IT USED TO MATCH A BARE FILENAME ANYWHERE IN THE DOC, and that tolerance
+# was paid for on the worst possible file
+# (BL-20260825-WORKFLOW-CATALOG-COUNTS-AN-INCIDENTAL-MENTION-AS-A-CATALOG-ROW).
+# `get-diag-token.yml` — the repo's only deliberate secret-emitter — had NO row
+# in the index table for months while this guard printed "118/118 named,
+# 100.0%". Its single mention was an artifact-RETENTION line ("`get-diag-token.yml`
+# at 1"), which the old regex counted. That is CLAUDE.md's diagnostic-provenance
+# sub-class C: a clean denominator over a population never checked for the
+# property the label implies. The looseness was DECLARED in a comment here, which
+# is why this is a cost that was accepted rather than a bug that was hidden — but
+# the cost came due, so the tolerance is withdrawn.
+#
+# Same lesson as new-table-wiring-guard's presence-only `# data-wiring:` marker,
+# which CLAUDE.md records: a guard cheaper to satisfy INCIDENTALLY than
+# DELIBERATELY drifts toward being satisfied incidentally.
+#
+# TWO shapes count, because both are deliberate acts of cataloguing:
+#   1. a backticked filename in the FIRST CELL of an index-table row, and
+#   2. a backticked filename as its own `####`-style SECTION HEADING — which is
+#      MORE documentation than a table row, not less. Two workflows
+#      (`sync-vm-secrets.yml`, `init-actions-secrets.yml`) are catalogued that
+#      way and requiring a table row would have flagged the best-documented
+#      files in the doc.
+# A filename in running prose counts as neither.
+_TABLE_ROW_YML = re.compile(r"^\|\s*`([A-Za-z0-9._-]+\.ya?ml)`", re.M)
+_SECTION_YML = re.compile(r"^#{2,6}\s+`([A-Za-z0-9._-]+\.ya?ml)`", re.M)
 
 # Direction B is deliberately NARROWER: only *backticked* tokens are read as a
 # claim that a file exists. Un-backticked prose is not a file reference, and
@@ -151,7 +176,12 @@ def tracked_basenames(root: Path | None = None) -> Set[str]:
 
 
 def documented_names(doc_text: str) -> Set[str]:
-    return set(_ANY_YML.findall(doc_text))
+    """Workflows the doc CATALOGUES — a table row or its own section heading.
+
+    Deliberately NOT "every filename that appears in the text"; see the
+    _TABLE_ROW_YML comment for the incident that narrowed it.
+    """
+    return set(_TABLE_ROW_YML.findall(doc_text)) | set(_SECTION_YML.findall(doc_text))
 
 
 def referenced_tokens(doc_text: str) -> Set[str]:
@@ -190,11 +220,11 @@ def _print_coverage(files: Sequence[str], documented: Set[str],
     total = len(files)
     named = total - len(missing)
     pct = (named / total * 100) if total else 100.0
-    print(f"workflow-catalog coverage: {named}/{total} named ({pct:.1f}%)")
-    print(f"  unnamed workflows : {len(missing)}")
+    print(f"workflow-catalog coverage: {named}/{total} catalogued ({pct:.1f}%)")
+    print(f"  uncatalogued workflows : {len(missing)}")
     print(f"  phantom refs      : {len(phantoms)}")
     for f in missing:
-        print(f"    unnamed  {f}")
+        print(f"    uncatalogued  {f}")
     for t in phantoms:
         print(f"    phantom  {t}")
 
@@ -210,8 +240,9 @@ def _self_test() -> int:
     files = ["real-one.yml", "unnamed-one.yml"]
     tracked = {"real-one.yml", "accounts.yaml"}
 
-    # Direction A: a workflow the doc does not name.
-    doc_a = "Index: `real-one.yml` does a thing.\n"
+    # Direction A: a workflow the doc does not CATALOGUE. Note the fixture is a
+    # table row, not prose — since 2026-08-25 prose does not count (see below).
+    doc_a = "| `real-one.yml` | CI guard | AUTO | PR | Does a thing. |\n"
     missing = undocumented_workflows(files, documented_names(doc_a))
     if missing != ["unnamed-one.yml"]:
         print("::error::SELF-TEST FAILED — the completeness direction did not "
@@ -238,8 +269,37 @@ def _self_test() -> int:
               file=sys.stderr)
         return 1
 
+    # ⚠️ THE CASE THIS GUARD EXISTS FOR AS OF 2026-08-25
+    # (BL-20260825-WORKFLOW-CATALOG-COUNTS-AN-INCIDENTAL-MENTION-AS-A-CATALOG-ROW).
+    # A filename mentioned only in RUNNING PROSE is not a catalog entry. The real
+    # instance was an artifact-retention line — "`get-diag-token.yml` at 1" —
+    # which the old anywhere-in-the-doc regex counted, so the repo's only
+    # deliberate secret-emitter sat uncatalogued while this guard printed
+    # "118/118 named (100.0%)". Without this case the narrowing silently reverts.
+    doc_prose = ("Retention: `real-one.yml` at 3; `unnamed-one.yml` at 1. "
+                 "Run logs persist 90 days.\n")
+    prose_missing = undocumented_workflows(files, documented_names(doc_prose))
+    if sorted(prose_missing) != ["real-one.yml", "unnamed-one.yml"]:
+        print("::error::SELF-TEST FAILED — a filename mentioned only in PROSE "
+              f"was accepted as catalogued (got {prose_missing!r}, expected "
+              "both files flagged). This is the exact tolerance that let "
+              "get-diag-token.yml go uncatalogued for months.", file=sys.stderr)
+        return 1
+
+    # A SECTION HEADING is a catalog entry too — more documentation than a table
+    # row, not less. Two real workflows (sync-vm-secrets.yml,
+    # init-actions-secrets.yml) are catalogued this way, and requiring a table
+    # row would have flagged the best-documented files in the doc.
+    doc_section = ("#### `real-one.yml`\n\nWhat it does.\n\n"
+                   "| `unnamed-one.yml` | Ops | AUTO | dispatch | Row form. |\n")
+    if undocumented_workflows(files, documented_names(doc_section)):
+        print("::error::SELF-TEST FAILED — a workflow documented under its own "
+              "section heading was reported uncatalogued.", file=sys.stderr)
+        return 1
+
     # A clean catalog must come back clean, or the guard is a permanent red.
-    doc_ok = "`real-one.yml` and `unnamed-one.yml` both documented.\n"
+    doc_ok = ("| `real-one.yml` | CI | AUTO | PR | x |\n"
+              "| `unnamed-one.yml` | CI | AUTO | PR | y |\n")
     if undocumented_workflows(files, documented_names(doc_ok)):
         print("::error::SELF-TEST FAILED — a complete catalog was reported "
               "incomplete.", file=sys.stderr)
@@ -290,7 +350,7 @@ def main(argv: Sequence[str]) -> int:
 
     if not missing and not phantoms:
         print(f"workflow-catalog: OK — all {len(files)} workflow file(s) are "
-              f"named in {_CATALOG_DOC}, and every file it names exists.")
+              f"catalogued in {_CATALOG_DOC} (a table row or its own section heading — a prose mention does NOT count), and every file it names exists.")
         return 0
 
     print("workflow-catalog guard: FAIL\n", file=sys.stderr)
