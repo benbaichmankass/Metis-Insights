@@ -68,6 +68,32 @@ EXPECTED_DISPATCH_SKIP_REASONS = (
     # 2026-07-20). The coordinator prefixes this token onto the
     # underlying reason, which stays intact for the journal/audit.
     "dry_run_sizing_skip",
+    # The DISPATCH-path sibling of `dry_run_sizing_skip`, and the reason this
+    # set needed a second dry token rather than one (2026-08-25,
+    # BL-20260825-DECLARED-SKIP-SET-MISSES-THE-DISPATCH-PATH-TOKEN). The two are
+    # produced by DIFFERENT code paths for the same declared condition:
+    # `dry_run_sizing_skip` is prefixed by the coordinator when the SIZER runs
+    # on an already-effective-dry account, while this one is set by
+    # `execute.py` when the DISPATCH itself is genuinely dry
+    # (`_genuinely_dry` -> `_rej_reason = "dry_run_no_order_placed"`,
+    # `_rej_is_dry = True`). Recognising only the first left the second grading
+    # as a real refusal.
+    #
+    # Measured live 2026-08-25: `avax_pullback_2h` (config/strategies.yaml
+    # `execution: shadow` — DECLARED OFF) produced 13 rows in the window, all
+    # carrying this token, and `dead_leg.verdict_for` graded the leg
+    # `signalled_never_placed` — the most alarming verdict this family has, for
+    # a strategy the operator switched off on purpose. That is the exact defect
+    # #10257 fixed for the sizing path, reaching the same conclusion through the
+    # other door.
+    #
+    # ⚠️ Its NOT-dry sibling `exchange_client_unavailable_no_order_placed` is
+    # deliberately ABSENT and must stay absent: `execute.py` picks between the
+    # two on `_genuinely_dry` precisely so a gateway-down dispatch is never
+    # mistaken for an intentional dry run. The match is a SUBSTRING test, and
+    # the two strings do not contain one another, so adding this one cannot
+    # silently recognise that one.
+    "dry_run_no_order_placed",
     "SKIP_MISSION_MET",
     "SKIP_OVERNIGHT_RESTRICTED",
     "SKIP_WEEKEND_RESTRICTED",

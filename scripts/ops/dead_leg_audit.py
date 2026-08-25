@@ -241,7 +241,14 @@ def audit(db: str, days: int) -> Dict[str, Any]:
     # produced a trade row — which is the entire reason it exists.
     stopped: List[Dict[str, Any]] = []
     for name, ev in sorted((evals or {}).items()):
-        if eval_state_for(ev.get("in_window"), ev.get("ever")) == "not_evaluating":
+        # `table_present` explicitly, though this loop cannot run with
+        # `evals is None` (it iterates `(evals or {}).items()`). Relying on
+        # that is the implicit coupling that let `bucket_for` drift: the
+        # sibling call site 20 lines up passes it, and a reader comparing
+        # them should not have to derive why one omits it.
+        if eval_state_for(
+            ev.get("in_window"), ev.get("ever"), table_present=evals is not None,
+        ) == "not_evaluating":
             stopped.append({
                 "strategy": name,
                 "last_eval_utc": ev.get("last_eval_utc"),
