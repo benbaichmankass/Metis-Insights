@@ -154,10 +154,29 @@ def scan(root: Path, targets):
     # The import forms are anchored to `import`/`from` so a bare mention of the
     # stem in prose still does not count (and _strip_noncode has already removed
     # comments and docstrings before we get here).
+    #   c) package import  `from src.prop import prop_risk_gate`
+    #                       `from src.prop import prop_balance, prop_journal`
+    #
+    # (c) is a THIRD shape and the guard was blind to it until 2026-08-25, when
+    # it blocked a correct change: `src/prop/prop_risk_gate.py` was imported and
+    # CALLED from `src/prop/breakout_ticket.py` and still graded "no runner
+    # references it at all". In (b) the stem is the tail of the dotted PATH; in
+    # (c) it is one of the imported NAMES, so a path-anchored pattern cannot see
+    # it. This is not a rare form — measured the same day, **368** occurrences of
+    # `from <pkg> import <name>` across src/ and scripts/, i.e. the repo's
+    # dominant intra-package idiom.
+    #
+    # This is the same lesson (b) was added for, one variant on: a corpse-hunter
+    # that cannot see a live caller reports live tools as dead, and once the
+    # guard blocks, that rejects correct work. The name list is matched
+    # non-greedily up to the end of the logical line so `as` aliases and
+    # comma-separated lists both count, while `_strip_noncode` has already
+    # removed comments and docstrings so prose still cannot qualify.
     pat = re.compile(
         r"\b(?:" + alt + r")\.py\b"
         r"|^[ \t]*import[ \t]+(?:[\w.]+\.)?(?:" + alt + r")\b"
-        r"|^[ \t]*from[ \t]+(?:[\w.]+\.)?(?:" + alt + r")[ \t]+import\b",
+        r"|^[ \t]*from[ \t]+(?:[\w.]+\.)?(?:" + alt + r")[ \t]+import\b"
+        r"|^[ \t]*from[ \t]+[\w.]+[ \t]+import[ \t]+\(?[^\n]*?\b(?:" + alt + r")\b",
         re.MULTILINE,
     )
     # `findall` on a pattern with no capturing group returns whole matches, so
@@ -266,9 +285,44 @@ def _self_test(root: Path) -> int:
         bare = fake / "scripts" / "ops" / "bare_tool.py"
         bare.write_text("# wiring: manual-only -\nprint('x')\n")
 
-        got = {r for r, _ in scan(fake, [orphan, wired, manual, bare])}
+        # planted PACKAGE-IMPORTED — must NOT be flagged (the 2026-08-25 blind
+        # spot). `from <pkg> import <module>` puts the stem in the imported
+        # NAMES, not in the dotted path, so the path-anchored (b) branch cannot
+        # see it. Measured that day: 368 occurrences across src/ and scripts/ —
+        # the repo's dominant intra-package idiom, and it graded a live,
+        # imported-and-called module "no runner references it at all".
+        (fake / "src" / "prop").mkdir(parents=True)
+        pkgimp = fake / "src" / "prop" / "pkg_imported_tool.py"
+        pkgimp.write_text("def go():\n    return 1\n")
+        (fake / "src" / "prop" / "caller.py").write_text(
+            "from src.prop import pkg_imported_tool\n"
+            "pkg_imported_tool.go()\n")
+        # ...and the comma-list / alias forms of the same shape.
+        pkgimp2 = fake / "src" / "prop" / "listed_tool.py"
+        pkgimp2.write_text("VALUE = 2\n")
+        (fake / "src" / "prop" / "caller2.py").write_text(
+            "from src.prop import caller, listed_tool as lt\n"
+            "lt.VALUE\n")
+        # A tool named ONLY in prose must still be flagged — the whole point of
+        # _strip_noncode, re-asserted here because the new branch is the
+        # loosest of the four and is the one most able to erode it.
+        prose = fake / "src" / "prop" / "prose_only_tool.py"
+        prose.write_text("X = 1\n")
+        (fake / "src" / "prop" / "prose_caller.py").write_text(
+            '"""See src/prop/prose_only_tool.py for the rationale."""\n'
+            "# from src.prop import prose_only_tool\n"
+            "Y = 2\n")
+
+        got = {r for r, _ in scan(fake, [orphan, wired, manual, bare,
+                                         pkgimp, pkgimp2, prose])}
         checks.append(("planted orphan IS flagged",
                        "scripts/ops/orphan_tool.py" in got))
+        checks.append(("`from <pkg> import <module>` counts as wiring",
+                       "src/prop/pkg_imported_tool.py" not in got))
+        checks.append(("...also in a comma list with an `as` alias",
+                       "src/prop/listed_tool.py" not in got))
+        checks.append(("a tool named only in a comment/docstring is STILL flagged",
+                       "src/prop/prose_only_tool.py" in got))
         checks.append(("workflow-referenced tool is NOT flagged",
                        "scripts/ops/wired_tool.py" not in got))
         checks.append(("manual-only WITH a reason is NOT flagged",

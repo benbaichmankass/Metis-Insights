@@ -6435,14 +6435,29 @@ _TARGET_NAKED_STATE_FILENAME = "target_naked_alert_state.json"
 _TARGET_NAKED_STATE_TTL_S: float = 7 * 24 * 3600.0
 
 
-def _target_naked_state_path():
+# ── The durable alert cooldown, GENERALISED (2026-08-25) ─────────────────────
+# The three functions below were written for `target_naked` alone. A SECOND
+# safety page then needed exactly the same behaviour (`stop_over_cover`), and
+# copy-pasting the latch is how the two drift: the bug the target-naked latch
+# was FIXED for on 2026-08-23 -- a per-PROCESS `time.monotonic()` key on a
+# condition that outlives any process -- is precisely the bug a copy would
+# reintroduce, silently, in the copy. So the mechanism is parameterised by an
+# alert KIND and both callers share one implementation.
+#
+# The filename is `<kind>_alert_state.json`, which reproduces
+# `target_naked_alert_state.json` byte-for-byte for the original caller. That
+# is deliberate and load-bearing: renaming it would orphan the LIVE latch file
+# on the trader and silently re-arm a cooldown that is currently suppressing.
+
+
+def _alert_state_path(kind: str):
     from src.utils.paths import runtime_logs_dir
 
-    return runtime_logs_dir() / _TARGET_NAKED_STATE_FILENAME
+    return runtime_logs_dir() / f"{kind}_alert_state.json"
 
 
-def _load_target_naked_state() -> tuple:
-    """Return ``(state, readable)`` for the durable target-naked cooldown.
+def _load_alert_state(kind: str) -> tuple:
+    """Return ``(state, readable)`` for a durable alert cooldown.
 
     ``readable`` is the *"did we look?"* axis and is deliberately NOT collapsed
     into an empty dict: "the latch has never fired" and "we could not read the
@@ -6452,7 +6467,7 @@ def _load_target_naked_state() -> tuple:
     permanently unreadable latch then announces itself as spam instead of as
     silence.
     """
-    p = _target_naked_state_path()
+    p = _alert_state_path(kind)
     try:
         if not p.exists():
             return {}, True  # we looked; nothing has fired yet
@@ -6460,22 +6475,66 @@ def _load_target_naked_state() -> tuple:
         return (data if isinstance(data, dict) else {}), True
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "target_naked cooldown state unreadable (%s) - alerting rather "
+            "%s cooldown state unreadable (%s) - alerting rather "
             "than suppressing",
-            exc,
+            kind, exc,
         )
         return {}, False
 
 
-def _save_target_naked_state(state: dict) -> None:
+def _save_alert_state(kind: str, state: dict) -> None:
     try:
-        p = _target_naked_state_path()
+        p = _alert_state_path(kind)
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, p)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("target_naked cooldown state save failed: %s", exc)
+        logger.warning("%s cooldown state save failed: %s", kind, exc)
+
+
+def _cooldown_admits(kind: str, key: str, cooldown_s: float,
+                     ttl_s: float = _TARGET_NAKED_STATE_TTL_S) -> bool:
+    """Should ``key`` alert now under ``kind``'s durable cooldown?
+
+    Returns True AND commits the new timestamp when the alert may fire.
+    WALL CLOCK, never ``time.monotonic()``: monotonic is meaningless across
+    processes, and every condition this rate-limits persists across restarts.
+    """
+    now = time.time()
+    state, readable = _load_alert_state(kind)
+    if readable:
+        try:
+            last = float(state.get(key))
+        except (TypeError, ValueError):
+            last = None  # absent or unparseable -> treat as never fired
+        # A FUTURE-dated entry (clock skew, a restored file) yields a negative
+        # delta and must not suppress forever, so the window is bounded below
+        # by 0 as well as above by the cooldown.
+        if last is not None and 0.0 <= (now - last) < cooldown_s:
+            return False
+    state = {
+        k: v
+        for k, v in state.items()
+        if isinstance(v, (int, float)) and (now - float(v)) < ttl_s
+    }
+    state[key] = now
+    _save_alert_state(kind, state)
+    return True
+
+
+# Back-compat aliases. `_TARGET_NAKED_STATE_FILENAME` still names the file the
+# live trader holds, and the existing durable-cooldown tests bind these names.
+def _target_naked_state_path():
+    return _alert_state_path("target_naked")
+
+
+def _load_target_naked_state() -> tuple:
+    return _load_alert_state("target_naked")
+
+
+def _save_target_naked_state(state: dict) -> None:
+    _save_alert_state("target_naked", state)
 
 
 def _emit_target_naked_alert(
@@ -6497,28 +6556,10 @@ def _emit_target_naked_alert(
     (``outcomes._TELEGRAM_LEVELS``) as well as the ``/api/bot/notifications``
     banner. Never raises into the sweep.
     """
-    key = f"{account_id}|{symbol}"
-    # WALL CLOCK, never time.monotonic(): monotonic is meaningless across
-    # processes, and the condition this rate-limits persists across restarts.
-    now = time.time()
-    state, readable = _load_target_naked_state()
-    if readable:
-        try:
-            last = float(state.get(key))
-        except (TypeError, ValueError):
-            last = None  # absent or unparseable -> treat as never fired
-        # A FUTURE-dated entry (clock skew, a restored file) yields a negative
-        # delta and must not suppress forever, so the window is bounded below
-        # by 0 as well as above by the cooldown.
-        if last is not None and 0.0 <= (now - last) < _TARGET_NAKED_ALERT_COOLDOWN_S:
-            return False
-    state = {
-        k: v
-        for k, v in state.items()
-        if isinstance(v, (int, float)) and (now - float(v)) < _TARGET_NAKED_STATE_TTL_S
-    }
-    state[key] = now
-    _save_target_naked_state(state)
+    if not _cooldown_admits(
+        "target_naked", f"{account_id}|{symbol}", _TARGET_NAKED_ALERT_COOLDOWN_S
+    ):
+        return False
     try:
         from src.runtime.outcomes import Level, report
 
@@ -6545,6 +6586,94 @@ def _emit_target_naked_alert(
     except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
         logger.exception(
             "_emit_target_naked_alert: alert failed for %s/%s", account_id, symbol
+        )
+    return True
+
+
+# Cooldown for the disjoint-OCA stop-over-cover page. Same 6h/(account,symbol)
+# shape as the target-naked page and for the same reason: the condition
+# PERSISTS until a human repairs the bracket, so an un-limited alert fires
+# every sweep forever and becomes the thing the operator scrolls past.
+_STOP_OVER_COVER_ALERT_COOLDOWN_S: float = 6 * 3600.0
+
+
+def _emit_stop_over_cover_alert(
+    *,
+    account_id: str,
+    symbol: str,
+    size: float,
+    stop_qty: float,
+    oca_groups: Any,
+    venue: str = "ib",
+) -> bool:
+    """Page the operator that resting stops EXCEED the position across DISJOINT
+    OCA groups. Rate-limited per (account, symbol). Returns whether it alerted.
+
+    WHY THIS EXISTS (2026-08-25). The detection has been correct since
+    BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS: the sweep counts
+    `over_covered` and logs a `logger.error`. But `logger.error` writes to the
+    journal and NOTHING ELSE — it does not reach `outcomes.jsonl`, which is
+    what feeds Telegram, the `/api/bot/notifications` banner and
+    `/api/bot/logs?level=error`. Measured live this session on a 1000-row
+    ERROR+ feed spanning 2026-08-20T07:01Z–2026-08-25T09:28Z (388 rows):
+    **ZERO** rows mention over-cover, while the venue read
+    (`/api/diag/ib_open_orders?account_id=ib_paper`, same session) shows
+    ib_paper MHG holding a 29-lot position against **two disjoint OCA groups**
+    (`oca-protect-416`, `oca-protect-432`) each carrying a 29-lot STP and a
+    29-lot LMT — 58 of stop against 29 of position, **200%**. So the condition
+    was live, detected, and invisible on every surface a human reads.
+
+    WHY IT IS CRITICAL. OCA cancels only WITHIN a group. If 416's stop fires it
+    flattens the position and 432's legs are STILL RESTING, so the next trigger
+    sells another 29 into a **naked short** — an unhedged position in the
+    opposite direction that nothing placed deliberately. That is a
+    money-at-risk state, not a hygiene issue, and CRITICAL is the level that
+    reaches Telegram (`outcomes._TELEGRAM_LEVELS`).
+
+    DETECT-ONLY, deliberately. It pages; it cancels nothing. The one attempt to
+    remediate this class automatically cancelled the leg that MATCHED the
+    journal, which is worse than the divergence — see
+    BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+    Choosing which leg dies is the operator's call.
+
+    Never raises into the sweep.
+    """
+    if not _cooldown_admits(
+        "stop_over_cover",
+        f"{account_id}|{symbol}",
+        _STOP_OVER_COVER_ALERT_COOLDOWN_S,
+    ):
+        return False
+    try:
+        from src.runtime.outcomes import Level, report
+
+        groups = sorted(oca_groups or [])
+        pct = (100.0 * float(stop_qty) / float(size)) if size else None
+        report(
+            f"{venue}_stop_over_cover",
+            "detected",
+            level=Level.CRITICAL,
+            reason=(
+                f"{account_id}/{symbol}: position {size} but resting STOP qty "
+                f"totals {stop_qty}"
+                + (f" ({pct:.0f}%)" if pct is not None else "")
+                + f" across {len(groups)} DISJOINT OCA groups {groups}. OCA "
+                "cancels only within a group, so one stop firing flattens the "
+                "position and leaves the other(s) resting to sell again into a "
+                "naked SHORT. Detect-only: cancel the leg that does NOT match "
+                "trades.stop_loss."
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            size=size,
+            stop_qty=stop_qty,
+            oca_groups=groups,
+            over_cover_pct=pct,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception(
+            "_emit_stop_over_cover_alert: alert failed for %s/%s",
+            account_id, symbol,
         )
     return True
 
@@ -7510,6 +7639,15 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                         "and cancel the leg that does NOT match trades.stop_loss.",
                         account_id, protect_symbol, size, _stop_q, _pct,
                         len(_groups), sorted(_groups),
+                    )
+                    # The logger.error above reaches the journal and NOTHING
+                    # a human reads. This is the operator surface.
+                    _emit_stop_over_cover_alert(
+                        account_id=account_id,
+                        symbol=protect_symbol,
+                        size=size,
+                        stop_qty=_stop_q,
+                        oca_groups=_groups,
                     )
                 else:
                     logger.warning(
