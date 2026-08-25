@@ -108,6 +108,40 @@ _CAUSE_PATTERNS: Tuple[Tuple[str, str], ...] = (
     ("sizing_failed", r"sizing_failed"),
 )
 
+#: PER-CAUSE OVERRIDES for `SILENT_REFUSAL_MIN_ROWS` (2026-08-25, operator
+#: decision on `BL-20260825-BALANCE-UNREADABLE-CAN-NEVER-REACH-ITS-OWN-ALERT-THRESHOLD`).
+#:
+#: The global floor is what separates a PATTERN from one bad order, and it is
+#: right in general. It is categorically wrong for a cause whose whole
+#: signature is that it arrives in ones and twos, weeks apart — because then
+#: the floor is not "wait for a pattern", it is "never fire".
+#:
+#: `balance_unreadable` is that cause, and it is the condition Lane 0 item 0.3
+#: IS. Measured live 2026-08-25 against the FULL journal history (not the
+#: capped diag window the backlog row had to use): 48 rows, 11 distinct
+#: (account, day) occurrences, run lengths
+#: `[1,1,1,1,1,1,2,3,6,11,20]`. At the global floor of 5 that is **3 of 11
+#: lifetime occurrences alerting — and 0 of the 7 since 2026-07-01**, because
+#: every recent occurrence is a run of 1-3. At a floor of 1, all 11.
+#:
+#: ⚠️ THIS MAP CAN ONLY *ADD* ALERTING, NEVER REMOVE IT. `assess` keeps the
+#: global `refused >= min_rows` path untouched and treats a lowered per-cause
+#: floor as an ADDITIONAL way to trip. A value here HIGHER than the global
+#: floor therefore suppresses nothing — deliberately, so this map can never
+#: become a way to quietly silence a cause. Silencing is a decision that
+#: belongs in `SILENT_REFUSAL_SKIP` or in the code, where it is visible.
+CAUSE_MIN_ROWS: Dict[str, int] = {
+    "balance_unreadable": 1,
+}
+
+
+def _cause_floor(cause: str, min_rows: int) -> int:
+    """The alert floor for one cause — the global floor unless overridden."""
+    try:
+        return int(CAUSE_MIN_ROWS.get(cause, min_rows))
+    except (TypeError, ValueError):  # a malformed override must not disarm
+        return min_rows
+
 
 def _state_path():
     return runtime_logs_dir() / _STATE_FILENAME
@@ -234,11 +268,34 @@ def assess(rows: List[Any], *, min_rows: int) -> Dict[str, Dict[str, Any]]:
             max(sorted(a["causes"]), key=lambda c: a["causes"][c])
             if a["causes"] else None
         )
-        # `min_rows` is what separates a PATTERN from a single bad order. Below
-        # it the account is still reported (with its verdict) but never alerts.
-        a["alerting"] = bool(
-            a["verdict"] == "signalled_never_placed" and a["refused"] >= min_rows
+        # Causes carrying a LOWERED per-cause floor that they have reached.
+        # Only a floor strictly BELOW the global one lands here, so this list
+        # is exactly "causes that would otherwise have gone unreported", and
+        # the global path below is untouched — the map can only add alerting.
+        a["priority_causes"] = sorted(
+            c for c, n in a["causes"].items()
+            if _cause_floor(c, min_rows) < min_rows and n >= _cause_floor(c, min_rows)
         )
+        # `min_rows` is what separates a PATTERN from a single bad order. Below
+        # it the account is still reported (with its verdict) but never alerts
+        # — UNLESS a cause with its own lower floor has been reached (see
+        # `CAUSE_MIN_ROWS`).
+        a["alerting"] = bool(
+            a["verdict"] == "signalled_never_placed"
+            and (a["refused"] >= min_rows or a["priority_causes"])
+        )
+        # WHICH floor let it through is a distinct fact from whether it did.
+        # Without this a per-cause trip is indistinguishable from a volume
+        # trip, and the reader cannot tell whether the account is broadly
+        # refusing or carrying one rare, serious cause.
+        if not a["alerting"]:
+            a["alerting_basis"] = None
+        elif a["refused"] >= min_rows and a["priority_causes"]:
+            a["alerting_basis"] = "both"
+        elif a["priority_causes"]:
+            a["alerting_basis"] = "per_cause_floor"
+        else:
+            a["alerting_basis"] = "total_floor"
         # Why we are NOT alerting is itself a state worth naming: "the account
         # is fine", "the account is switched off", and "too few rows to call it
         # a pattern" are three different facts, and collapsing them into a bare
@@ -276,7 +333,12 @@ _CAUSE_HINTS = {
     "balance_unreadable": (
         "balance() returned None while the account itself may read healthy — "
         "check /api/diag/broker_account_status?account_id={acct}, which "
-        "resolves the same credentials and reports the venue's own flags."),
+        "resolves the same credentials and reports the venue's own flags. "
+        "⚠️ The balance SNAPSHOT is NOT evidence either: "
+        "/api/bot/accounts/balances reads the hourly-report DB table, a "
+        "different code path from this sizing call, so it can read green "
+        "beside a broken balance(). This is Lane 0 item 0.3, and it alerts at "
+        "ONE row by per-cause floor — see CAUSE_MIN_ROWS."),
     "zero_balance": (
         "the account has no funded balance to size against, so every signal "
         "is refused before it reaches the venue. This is a FUNDING state, not "
@@ -293,6 +355,23 @@ _CAUSE_HINTS = {
 }
 
 
+def _priority_line(a: Dict[str, Any]) -> str:
+    """Name any cause that tripped its own LOWERED floor.
+
+    THE DOMINANT CAUSE CAN BURY THE SERIOUS ONE. `cause` is whichever bucket
+    is biggest, and the rare causes are rare by nature — measured 2026-08-25,
+    `mgc_trend_1h` carried 3 `balance_unreadable` rows against 7
+    `risk_refused` (the risk manager working correctly), so the dominant-cause
+    line would have named the healthy mechanism and said nothing about the
+    broken one. A reader would have triaged the wrong thing.
+    """
+    pri = a.get("priority_causes") or []
+    if not pri:
+        return ""
+    parts = ", ".join(f"{c} ({a['causes'].get(c, 0)})" for c in pri)
+    return (f"⚠️ Rare cause present — alerting on its OWN lower floor: {parts}\n")
+
+
 def _describe(a: Dict[str, Any], hours: int) -> str:
     acct = a["account_id"]
     legs = a["strategies"]
@@ -305,7 +384,8 @@ def _describe(a: Dict[str, Any], hours: int) -> str:
         f"is not evidence it can trade.\n"
         f"Dominant cause: {a['cause']} ({a['causes'].get(a['cause'], 0)} of "
         f"{a['refused']})\n"
-        f"Legs affected: {leg_txt or '—'}\n"
+        + _priority_line(a)
+        + f"Legs affected: {leg_txt or '—'}\n"
         + (hint.format(acct=acct) if hint else
            "Run scripts/ops/dead_leg_audit.py for the per-leg breakdown.")
     )
@@ -381,9 +461,24 @@ def run_silent_refusal_check(
         prev = state.get(aid) if isinstance(state.get(aid), dict) else {}
         was_alerting = bool(prev.get("alerting"))
         prev_cause = prev.get("cause")
-        # The latch key is (account, cause): a NEW cause on an already-latched
-        # account is a NEW problem and must not be swallowed by the old latch.
-        if a["alerting"] and (not was_alerting or prev_cause != a["cause"]):
+        # ⚠️ NORMALISED WITH `or []`, WHICH IS LOAD-BEARING. A latch written
+        # before `priority_causes` existed has no such key, so a bare
+        # `prev.get(...)` returns None and `None != []` would re-fire the alert
+        # once for EVERY currently-latched account on the deploy that ships
+        # this. A spurious burst of CRITICALs is precisely the desensitized-
+        # alarm failure this repo has paid for twice this month.
+        prev_priority = prev.get("priority_causes") or []
+        # The latch key is (account, cause, priority_causes): a NEW cause on an
+        # already-latched account is a NEW problem and must not be swallowed by
+        # the old latch. `priority_causes` joins the key for the same reason —
+        # an account already latched on a high-volume cause that then develops
+        # a rare, serious one is a NEW problem, and keying on the dominant
+        # cause alone would report it as "already alerting" and say nothing.
+        if a["alerting"] and (
+            not was_alerting
+            or prev_cause != a["cause"]
+            or prev_priority != a["priority_causes"]
+        ):
             _send_alert(_describe(a, hours))
             alerted.append(aid)
         elif was_alerting and not a["alerting"]:
@@ -405,6 +500,8 @@ def run_silent_refusal_check(
             recovered.append(aid)
         state[aid] = {
             "alerting": a["alerting"], "cause": a["cause"],
+            "priority_causes": a["priority_causes"],
+            "alerting_basis": a["alerting_basis"],
             "refused": a["refused"], "placed": a["placed"],
             "verdict": a["verdict"], "updated_at": now.isoformat(),
         }
