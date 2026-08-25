@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only - an M30 S0 FEASIBILITY probe. It answers 'is there
+#     signal in this input class at all', which is a question asked once per
+#     research program, not on a cadence. Scheduling it would re-measure a
+#     settled feasibility verdict forever; its OUTPUT belongs in the research
+#     ledger, not in a timer.
 """M30 S0 — microstructure feasibility probe (higher-frequency OHLCV off Bybit klines).
 
 The M28 signal-research program exhausted the free/cheap **daily-bar macro** input

@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only - the empirical basis of the 2026-07-30
+#     diagnostic-provenance class, run through the trainer-vm-diag relay. It
+#     is a COMMITTED file rather than an inline heredoc precisely because the
+#     relay preserves the cmd: block's indentation and an indented heredoc
+#     terminator never closes — see its own docstring. Invoked by a human
+#     pasting a relay command, by design.
 """Verify — against LIVE trainer data — that the shadow log's ``score`` is not
 P(volatile), and that the fixed diagnostics report the gate's quantity.
 

@@ -1,3 +1,8 @@
+# wiring: manual-only - a one-off FORENSICS extraction for
+#     BL-20260720-ICTSCALP-PASTSTOP-EXITS, run on the trainer VM against the
+#     synced journal. It dumps a fixed Jun-21..23 window; there is nothing for
+#     it to do on a second run, and it is kept as the reproduction path for
+#     that investigation rather than deleted.
 """Forensics extraction for BL-20260720-ICTSCALP-PASTSTOP-EXITS.
 
 Run on the trainer VM (repo root) against the synced trade_journal.db.

@@ -97,21 +97,85 @@ def test_a_null_stamp_is_treated_as_absent_not_as_a_value(matrix):
     assert any("above the recorded ceiling" in p for p in problems), problems
 
 
-def test_stamping_a_cell_does_NOT_fail_the_ratchet(matrix):
-    """The ratchet must not punish progress — only regression.
+def _stamp_one_unstamped_live_cell(m) -> None:
+    """Stamp exactly one unstamped live cell, or fail loudly.
 
-    Without this, the guard would be satisfiable only by never touching the
-    file, and the first person to stamp a cell would be told they broke it.
+    The `else` is the point: a mutation helper that silently mutates nothing
+    turns every test built on it into a vacuous pass.
     """
-    m = copy.deepcopy(matrix)
     for row, col, _status in m20.cells(m, live_only=True):
         cell = row.get(col)
         if isinstance(cell, dict) and cell.get("tp_geometry") is None:
             cell["tp_geometry"] = "live_parity"
+            return
+    raise AssertionError("no unstamped live cell to stamp — test is vacuous")
+
+
+def test_stamping_a_cell_WITHOUT_lowering_the_ceiling_is_a_named_slack_failure(matrix):
+    """⚠️ THIS TEST WAS INVERTED ON 2026-08-25, DELIBERATELY.
+
+    It used to assert `stamping a cell does NOT fail the ratchet`, on the
+    reasoning that the ratchet 'must not punish progress'. That reasoning is
+    right and the assertion was wrong, because the ratchet was ONE-SIDED
+    (`unstamped > ceiling`): stamping dropped the count below the ceiling and
+    left SLACK, and inside that slack a live cell can lose its stamp with the
+    guard still green. The file's own 2026-08-17 note records exactly this —
+    two cells stamped without lowering the ceiling, 'the probe going quiet,
+    exactly the failure mode that file exists to prevent'.
+
+    So progress is still not punished — see the next test, where stamping AND
+    lowering passes. What is now refused is progress that is not RECORDED.
+    """
+    m = copy.deepcopy(matrix)
+    _stamp_one_unstamped_live_cell(m)
+    problems = _geom_problems(m20.validate(m))
+    assert any("SLACK" in p for p in problems), problems
+
+
+def test_stamping_a_cell_AND_lowering_the_ceiling_passes(matrix):
+    """The original intent, preserved: the ratchet must not punish progress.
+
+    Without this the guard would be satisfiable only by never touching the
+    file. The cost of stamping is one number in the same diff, which is the
+    mechanism — a reviewer sees the ratchet tighten.
+    """
+    m = copy.deepcopy(matrix)
+    _stamp_one_unstamped_live_cell(m)
+    m["tp_geometry_legend"]["_unstamped_ceiling"] -= 1
+    assert _geom_problems(m20.validate(m)) == []
+
+
+def test_demoting_a_leg_shrinks_the_population_and_is_a_named_slack_failure(matrix):
+    """THE POPULATION-SHRINK PATH, which no test covered until now.
+
+    Criterion (2) of BL-20260824-DEMOTING-A-LEG-SILENTLY-LOOSENS-THE-M20-RATCHET
+    is explicit that the existing tests caught the stamp-removal path only
+    'because the ceiling happened to be exactly tight' — a coincidence, not a
+    property. This plants the shrink itself: flip a live row to `shadow`, which
+    is exactly what a Tier-3 demote does, so its cells leave the `live_only`
+    denominator.
+
+    Measured instances this reproduces: eth_pullback_prop_2h (2026-08-23, live
+    423 -> 414, 2 cells of slack) and slv_trend_1h (2026-08-24, 5 cells of
+    slack). Both were found by hand; neither was caught by this file.
+    """
+    m = copy.deepcopy(matrix)
+    for row in m["rows"]:
+        if row.get("execution") != "live":
+            continue
+        if any(isinstance(row.get(c), dict) and row[c].get("tp_geometry") is None
+               for c in m["lever_columns"]):
+            row["execution"] = "shadow"        # the demote
             break
     else:
-        raise AssertionError("no unstamped live cell to stamp — test is vacuous")
-    assert _geom_problems(m20.validate(m)) == []
+        raise AssertionError(
+            "no live row carries an unstamped cell — the plant would not move "
+            "the count, so this test would pass vacuously")
+    problems = _geom_problems(m20.validate(m))
+    assert any("SLACK" in p for p in problems), problems
+    # and the message must say WHY the reviewer is seeing it, not just that a
+    # number moved — a demote and a stamping run need different remedies.
+    assert any("population shrank" in p for p in problems), problems
 
 
 def test_a_missing_ceiling_reads_as_UNCHECKED_not_as_clean(matrix):

@@ -35,9 +35,31 @@ FOUR STATES, NEVER COLLAPSED — and the third is the one this exists for
 --------------------------------------------------------------------------
 `sentinel_no_expectation`
     The config declares `tp_r >= SENTINEL_R_FLOOR`. **There was never a
-    prediction.** 29 of 52 enabled legs are here (counted 2026-08-23), 26 of
-    them `execution: live`, so the placed take-profit is `entry × 1.099` — the
-    exchange's rejection threshold wearing the label of a price target.
+    prediction.** The placed take-profit is `entry × 1.099` — the exchange's
+    rejection threshold wearing the label of a price target.
+
+    ⚠️ **DO NOT QUOTE A COUNT FROM THIS DOCSTRING.** The authority is
+    `scripts/research/bracket_expectation_census.py`; run it. A snapshot
+    embedded here drifted three times in two days as unrelated PRs demoted a
+    leg or changed one `tp_r`
+    (BL-20260823-TARGET-EXPECTATION-DOCSTRING-COUNTS-STALE), and a figure that
+    moves one commit at a time is how a quoted population becomes wrong without
+    anyone deciding it should.
+
+    ⚠️ **AND A `tp_r` SCAN OF THE YAML IS THE WRONG MEASURE ANYWAY** — this is
+    the more important half, and it is why the previous snapshot understated
+    the very problem this module exists to name. Some legs declare no target
+    key at all and INHERIT `tp_r = 50.0` from their strategy class, so they
+    behave exactly as sentinels while being invisible to `grep tp_r`. The
+    census reports the two separately as `sent_DECL` and `sent_EFF` and never
+    sums or collapses them — a leg that writes `tp_r: 50.0` made a choice, a
+    leg that writes nothing inherited one; same runtime behaviour, different
+    remedy, and conflating them "would accuse legs of a defect they may not
+    have" (which is what `STATE_NO_TARGET_KEY` exists to keep apart).
+
+    For orientation only, measured at 814d019b: enabled 52 -> 28 declared /
+    38 effective; enabled+live 44 -> 23 declared / 33 effective. The declared
+    figure is the one that drifts AND the one that under-reports.
 `clamped`
     A real `tp_r` was declared and the venue cap binds, so the level that
     actually rests is the **cap**, not the expectation. ⚠️ This is NOT the same

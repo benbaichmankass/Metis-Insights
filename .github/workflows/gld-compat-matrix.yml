@@ -180,25 +180,46 @@ jobs:
               star = " ⭐" if r.get("account") == "alpaca_portfolio" else ""
               L.append(f"| `{r.get('account')}`{star} | {r.get('kind')} | {r.get('class')} | "
                        f"**{r.get('verdict')}** | {r.get('metric')} | {val} | {extra} |")
+          # ⚠️ THE NARRATIVE BELOW USED TO HARDCODE `gld_pullback_1h` WHILE THE TABLE
+          # ABOVE WAS PARAMETERISED. Run for iaum_pullback_1d on 2026-08-25, it
+          # printed an IAUM table under prose making claims about gld_pullback_1h
+          # and its `trending.gld_pullback_1h {short: off}` cell — the label naming
+          # a quantity the code did not compute (unprovenanced-diagnostic sub-class
+          # A, CLAUDE.md). It also ASSERTED "is ALREADY in alpaca_portfolio's
+          # roster", a fact about one strategy that the run never checked for
+          # whichever strategy was passed. Both are fixed: the name comes from the
+          # emit, and the roster claim is READ, with "we could not look" kept
+          # distinct from "it is not there".
+          strat = emit.get("strategy") or os.environ.get("GC_STRAT") or "(unknown)"
+          roster_state, roster_note = "unknown", "could not read config/accounts.yaml"
+          try:
+              import yaml
+              _acc = yaml.safe_load(open("config/accounts.yaml").read())["accounts"]
+              _r = (_acc.get("alpaca_portfolio") or {}).get("strategies") or []
+              roster_state = "in" if strat in _r else "absent"
+              roster_note = ("already in `alpaca_portfolio`'s roster"
+                             if roster_state == "in" else
+                             "NOT in `alpaca_portfolio`'s roster")
+          except Exception as e:
+              roster_note = f"could not read the roster ({e}) — this is 'we did not look', not 'absent'"
           ap = next((r for r in rows if r.get("account") == "alpaca_portfolio"), None)
           L += [""]
           if ap is None:
               L += ["⚠️ **`alpaca_portfolio` not in the account set** — cannot grade the Track-B gate."]
           elif ap.get("verdict") == "ROUTE":
-              L += ["## ⭐ `alpaca_portfolio`: **ROUTE** — the Track-B routing is confirmed sound.",
+              L += [f"## ⭐ `alpaca_portfolio`: **ROUTE** for `{strat}`.",
                     "",
-                    "`gld_pullback_1h` is ALREADY in `alpaca_portfolio`'s roster (config/accounts.yaml, "
-                    "since the 2026-07-16 S-PAPER-PORTFOLIO creation — it mirrors alpaca_live). This "
-                    "corrected-cost compat gate **confirms** that existing paper-money routing under the "
-                    "account's own ruleset. No config edit needed (the roster already carries it, with the "
-                    "confirmed `trending.gld_pullback_1h {short: off}` cell applying globally)."]
+                    f"`{strat}` is {roster_note}. A ROUTE verdict means the ledger clears that "
+                    "account's OWN ruleset at the stated cost — it confirms existing routing where the "
+                    "roster already carries the strategy, and is evidence FOR routing where it does not. "
+                    "It is not itself a routing decision."]
           else:
-              L += [f"## ⭐ `alpaca_portfolio`: **{ap.get('verdict')}** (does NOT route) — FLAG.",
+              L += [f"## ⭐ `alpaca_portfolio`: **{ap.get('verdict')}** (does NOT route) for `{strat}` — FLAG.",
                     "",
-                    "`gld_pullback_1h` is ALREADY in `alpaca_portfolio`'s roster yet FAILS its own ruleset "
-                    "gate at corrected cost — a paper book trading a strategy its ruleset rejects. This is a "
-                    "genuine flag for the operator (Tier-3): consider whether to keep the routing."]
-          L += ["", "**No config edit is made by this run.** Routing/de-routing gld_pullback_1h on an "
+                    f"`{strat}` is {roster_note}. If it IS in the roster, this is a paper book trading a "
+                    "strategy its own ruleset rejects — a genuine Tier-3 flag: consider whether to keep "
+                    "the routing."]
+          L += ["", f"**No config edit is made by this run.** Routing/de-routing `{strat}` on an "
                 "account is a Tier-3 config/accounts.yaml decision the operator owns."]
           print("\n".join(L))
           PYEOF
