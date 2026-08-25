@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260825-092500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-25T09:25:00+00:00",
+      "window_start": "2026-08-24T15:25:00+00:00",
+      "window_end": "2026-08-25T09:25:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "The prop account is still $64 from the line that kills it and the bot emitted a ticket suggesting $75 of risk against it \u2014 the DD-floor measurement has three display consumers and zero decision consumers. ib_paper MHG carries 200% stop cover across two disjoint OCA groups while the sweep that found it printed 'covered=3 ... errors=0'. IB market data is failing ~160x/day in the trader process and has blinded a live exit. Real money: -$0.60 over 3 closes. Exit evaluation now clears its 60s requirement \u2014 the prior review's headline is fixed.",
+      "html_path": "comms/reports/since-last/20260825T092500Z/report.html",
+      "json_path": "comms/reports/since-last/20260825T092500Z/report.json",
+      "md_path": "comms/reports/since-last/20260825T092500Z/report.md"
+    },
+    {
       "id": "RPT-20260824-152500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-24T15:25:00+00:00",
