@@ -24,11 +24,13 @@ and the aggregate is checked by reading the method body.
 from __future__ import annotations
 
 import ast
+import pathlib
 import types
 
-import pytest
-
-_SRC = open("src/units/accounts/ib_client.py").read()
+_REPO = pathlib.Path(__file__).resolve().parents[1]
+# Repo-root-relative, not cwd-relative: a sibling test that chdirs would
+# otherwise fail this module for a reason unrelated to what it asserts.
+_SRC = (_REPO / "src/units/accounts/ib_client.py").read_text()
 
 
 def _load(name: str):
@@ -115,7 +117,7 @@ class TestTheConsumerIsWired:
     def test_the_sweep_forwards_both_fields_to_the_page(self):
         """A field that is written and never read is the shape
         `provenance-consumer-guard` exists to catch."""
-        mon = open("src/runtime/order_monitor.py").read()
+        mon = (_REPO / "src/runtime/order_monitor.py").read_text()
         start = mon.index("_emit_stop_over_cover_alert(\n                        account")
         # A fixed window, not `index(")")` — the first paren inside the call
         # belongs to `cov.get(...)`, so slicing on it truncates the very lines
@@ -127,6 +129,6 @@ class TestTheConsumerIsWired:
     def test_it_uses_get_not_subscript(self):
         """A coverage dict from a client predating these keys must degrade to an
         'unknown' owner, never raise inside a money-at-risk page."""
-        mon = open("src/runtime/order_monitor.py").read()
+        mon = (_REPO / "src/runtime/order_monitor.py").read_text()
         assert 'cov["oca_group_client_ids"]' not in mon
         assert 'cov["reader_client_id"]' not in mon
