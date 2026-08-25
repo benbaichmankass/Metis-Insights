@@ -1,0 +1,161 @@
+{
+  "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused.",
+  "schema_version": 1,
+  "updated_at": "2026-08-25T19:30:00+00:00",
+  "carry_limit": 2,
+  "items": [
+    {
+      "id": "OO-20260825-IB-PAPER-MHG-STOP-OVER-COVER",
+      "opened_at": "2026-08-25T13:33:00+00:00",
+      "title": "ib_paper MHG rests 200% stop cover across two disjoint OCA groups — cancel the leg that does NOT match trades.stop_loss",
+      "detail": "STATE THE POPULATION: n=1 account/symbol, a single point-in-time read of /api/diag/ib_open_orders?account_id=ib_paper on 2026-08-25 — a 29-lot MHG position against two disjoint OCA groups (oca-protect-416, oca-protect-432), each carrying a 29-lot STP and a 29-lot LMT, so 58 of stop against 29 of position = 200%. Not a rate and not a distribution. OCA cancels only WITHIN a group, so one stop firing flattens the position and leaves the other group resting to sell 29 more into a naked SHORT.",
+      "severity": "high",
+      "severity_basis": "ib_paper is a PAPER account, so this is not money-at-risk and is deliberately NOT graded critical — earlier hand-offs called it money-at-risk and that was inherited rather than checked. What keeps it high: the disjoint-OCA hazard is a naked-short shape, and the code path is the one real-money accounts use.",
+      "tier": "2 (a protective cancel on a live position)",
+      "status": "open",
+      "owner_class": "defaulted_to_human",
+      "owner_class_basis": "The WIRE ALREADY EXISTS: cancel-ib-order and attach-ib-target are documented, allowlisted system-actions. This sat in the human column because ONE auto-remediation on 2026-08-20 cancelled the leg that MATCHED the journal (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). That distrusts the SELECTION, not the mechanism — and the repo already answered exactly this in src/runtime/protection_reassert.py by making the decision a pure function with non-collapsed states, so the policy is arguable in tests rather than against a live position. Re-classified from genuinely-human on 2026-08-25 by session 017etXEZ.",
+      "automation_path": "scripts/ops/over_cover_proposal.py — reads /api/diag/ib_open_orders + the journal, runs the pure decision, and emits the exact cancel-ib-order system-action body. Dispatching it is Tier-2 and needs one operator OK.",
+      "tested_decision_function": "src/runtime/over_cover_decision.py",
+      "cannot_automate_reason": null,
+      "next_action": "Operator OK to dispatch cancel-ib-order for the order the proposal names (dry-run first, apply NOT set). The proposal REFUSES rather than guesses when no resting leg matches the journal, or when the match is ambiguous — the 2026-08-20 shape.",
+      "carried_before_register": [
+        "01X2zMCh",
+        "qhpxyh",
+        "018aKyS3"
+      ],
+      "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
+      "last_state_change_at": "2026-08-25T19:30:00+00:00",
+      "last_state_change_note": "Re-classified defaulted_to_human, and given a tested decision function + a proposal tool. The item has NOT been remediated — the venue state is unchanged.",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null,
+      "snooze_trigger": null,
+      "refs": [
+        "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG",
+        "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+        "BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND",
+        "src/runtime/protection_reassert.py"
+      ]
+    },
+    {
+      "id": "OO-20260825-DIAG-READ-TOKEN-ROTATION",
+      "opened_at": "2026-08-25T13:33:00+00:00",
+      "title": "DIAG_READ_TOKEN must be rotated — it was printed into TWO session transcripts on 2026-08-25",
+      "detail": "Two sessions, one day, the same trap: `01X2zMCh` raised it and `018aKyS3` then reproduced the same ${VAR:-...} / ${VAR:+...} presence-test mistake and printed the token into a SECOND transcript. n=2 leaks. The correct presence test is [ -n \"$VAR\" ]. Note the repo is PUBLIC (since 2026-07-07), which is also why get-diag-token now refuses on a public repo (BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE).",
+      "severity": "critical",
+      "severity_basis": "A live bearer for the whole /api/diag/* read surface, disclosed twice in one day. Every hour it is not rotated is an hour the disclosed value still authorizes.",
+      "tier": "2 (set-diag-token pushes the new value to the VM once the operator has minted it)",
+      "status": "open",
+      "owner_class": "secret_origination",
+      "owner_class_basis": "Only a person may MINT the new value and place it in the repo Actions secret — that is the one hand-off the autonomy mandate keeps with the operator, and on a PUBLIC repo get-diag-token deliberately refuses to hand a value back, so there is no session-side path to originate it.",
+      "automation_path": "PARTIAL, and recorded so the human half is not overstated: once the operator has minted the value and set the Actions secret, the set-diag-token system-action pushes it to the VM and no human touches the VM. Only the origination is human.",
+      "tested_decision_function": null,
+      "cannot_automate_reason": null,
+      "next_action": "Operator: mint a new DIAG_READ_TOKEN, set the repo Actions secret and the consuming environment's env var, then a session dispatches set-diag-token to the VM and verifies /api/diag/version answers on the new bearer and refuses the old one.",
+      "carried_before_register": [
+        "01X2zMCh",
+        "qhpxyh",
+        "018aKyS3"
+      ],
+      "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
+      "last_state_change_at": "2026-08-25T13:33:00+00:00",
+      "last_state_change_note": "None since it was first raised. Registered here unchanged.",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null,
+      "snooze_trigger": null,
+      "refs": [
+        "BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE"
+      ]
+    },
+    {
+      "id": "OO-20260825-BREAKOUT-1-BALANCE-REPORT",
+      "opened_at": "2026-08-25T13:33:00+00:00",
+      "title": "breakout_1 needs a balance report (`bal <balance> <equity>`) — the prop cushion is unmeasured while the book is flat",
+      "detail": "The prop bridge has no broker feed, so the account-status snapshot is only ever as fresh as the operator's last report. Measured 2026-08-25: the latest snapshot was 47.4h old against a PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold of 24h. The static DD floor is an ACCOUNT-level line that binds while flat, and flat is exactly when the next ticket is sized against a cushion nobody has measured.",
+      "severity": "high",
+      "severity_basis": "It is an input to prop_balance's sizing-freshness gate AND the /api/bot/prop/status rule-distance panel. A stale cushion renders identically to a live one to any consumer that reads only `present`.",
+      "tier": "1 (the bot already asks; the answer is the operator's)",
+      "status": "open",
+      "owner_class": "physical_or_broker",
+      "owner_class_basis": "The number exists only on the Breakout terminal, for which this repo holds no API — the manual bridge IS the integration. A person must read the terminal and report it; no wire could exist without a broker API we do not have.",
+      "automation_path": null,
+      "tested_decision_function": null,
+      "cannot_automate_reason": "No broker API exists for Breakout — the prop integration is a documented manual bridge by design (Telegram ticket out, operator report back). The bot's half is already automated: prop_status_request asks on its own cadence and prop_fills_staleness alerts when a moved balance goes unreported. There is nothing left on our side to build.",
+      "next_action": "Operator: send `bal <balance> <equity>` to the prop bot, or a terminal screenshot (screenshot_parse reads it). Either lands through the one prop_report.ingest_report chokepoint.",
+      "carried_before_register": [
+        "01X2zMCh",
+        "qhpxyh",
+        "018aKyS3"
+      ],
+      "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
+      "last_state_change_at": "2026-08-25T13:33:00+00:00",
+      "last_state_change_note": "None since it was first raised. Registered here unchanged.",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null,
+      "snooze_trigger": null,
+      "refs": [
+        "BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES"
+      ]
+    },
+    {
+      "id": "OO-20260825-ALPACA-LIVE-DAILY-USD-200-DECISION",
+      "opened_at": "2026-08-25T13:33:00+00:00",
+      "title": "Decide alpaca_live's `daily_usd: 200` — the measured paper drawdowns say it would trip routinely",
+      "detail": "alpaca_live's risk block is exactly {max_dd_pct: 0.05, daily_loss_pct: 0.05, daily_usd: 200, risk_pct: 0.02} — no max_gross_exposure_pct, no max_position_pct, no notional cap. Against it, the paper-portfolio mirror's maxDrawdown is -14,995 (51 trades, window=all, pnlCoverage 0.549) and all-paper is -115,509 (574 trades, pnlCoverage 0.348), versus a proposed real-money funding of roughly $2,500-$25,000. ⚠️ Read the coverage before the PnL: a third to a half of it is measured.",
+      "severity": "medium",
+      "severity_basis": "alpaca_live is not funded, so nothing is at risk today — this gates a FUTURE funding decision rather than describing a live exposure. It is not low because the decision is a precondition of that funding.",
+      "tier": "3 (a risk cap value in config/accounts.yaml)",
+      "status": "open",
+      "owner_class": "judgement",
+      "owner_class_basis": "Setting a risk cap is Tier-3 by the permission tiers — the value expresses how much the operator is willing to lose in a day, which is a preference, not a lookup. A session may analyse and propose the exact change; it may not take it.",
+      "automation_path": null,
+      "tested_decision_function": null,
+      "cannot_automate_reason": null,
+      "next_action": "Operator decision on the value, with the two measured populations above in front of them. A session can prepare the exact diff and the funding-level arithmetic; the number is the operator's.",
+      "carried_before_register": [
+        "01X2zMCh",
+        "qhpxyh",
+        "018aKyS3"
+      ],
+      "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
+      "last_state_change_at": "2026-08-25T13:33:00+00:00",
+      "last_state_change_note": "None since it was first raised. Registered here unchanged.",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null,
+      "snooze_trigger": null,
+      "refs": []
+    },
+    {
+      "id": "OO-20260825-STRAY-BRANCH-IB-BREAKER-PEER-CLOSE",
+      "opened_at": "2026-08-25T14:27:00+00:00",
+      "title": "Delete the stray branch claude/ib-breaker-peer-close — nothing in it is unmerged",
+      "detail": "Session `qhpxyh` pushed one commit to it before remembering its session was pinned to another branch, then could not delete it: `git push --delete` failed with a transport disconnect, and it was handed to a human on that basis.",
+      "severity": "low",
+      "severity_basis": "Repo hygiene. Nothing depends on it and nothing is lost while it stands.",
+      "tier": "1 (repo hygiene)",
+      "status": "open",
+      "owner_class": "defaulted_to_human",
+      "owner_class_basis": "It reached the human column because ONE push failed on a transport error in ONE session — an unretried failure, not a permission boundary. Deleting a branch needs no human judgement, no secret, and no broker; any session with push access can do it once the content is verified merged.",
+      "automation_path": "git push origin --delete claude/ib-breaker-peer-close, after verifying its commits are on main",
+      "tested_decision_function": null,
+      "cannot_automate_reason": null,
+      "next_action": "Verify the branch's commits are on main, then delete it.",
+      "carried_before_register": [
+        "qhpxyh",
+        "018aKyS3"
+      ],
+      "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
+      "last_state_change_at": "2026-08-25T19:30:00+00:00",
+      "last_state_change_note": "Re-classified defaulted_to_human by session 017etXEZ, with the delete named as the wire.",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null,
+      "snooze_trigger": null,
+      "refs": []
+    }
+  ]
+}

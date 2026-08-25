@@ -470,6 +470,63 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "operator_owed.state",
+        "producer": "src/runtime/operator_owed.py",
+        # NARROW on this contract's own tokens. "moved"/"carried"/"resolved"
+        # are ordinary English words that appear all over the repo, so matching
+        # on the STATE WORDS would bind this contract to a dozen unrelated
+        # files — the coincidence-firing this guard's own docstring warns
+        # produces routinely-overridden alarms.
+        "consumer_token": (r"\boperator_owed\b|\bcheck_operator_owed\b|"
+                           r"\bcarries_unchanged\b"),
+        "states": ["moved", "carried", "escalate_carried", "escalate_aged",
+                   "not_measurable", "snoozed", "resolved"],
+        "why": (
+            "Operator-owed items were handed forward in PROSE only — three "
+            "sessions on 2026-08-25 each closed by listing the SAME four items "
+            "with zero state change. The collapse that would make that "
+            "invisible again is `not_measurable` vs `moved`: a brand-new "
+            "register has no history, so no carry EXISTS to count, and "
+            "reporting that as `moved` makes the one state in which the "
+            "register has demonstrated NOTHING read as perfect health — "
+            "exactly the 'green with zero items ever moved' the filing row "
+            "calls unproven rather than successful. The two escalations are "
+            "deliberately separate rather than one `stale`: `escalate_carried` "
+            "is measured from register commits and UNDER-reports (a session "
+            "that never touches the register leaves no commit), while "
+            "`escalate_aged` needs nobody to touch anything — an additional "
+            "trip path that can only ADD escalation, the "
+            "silent_refusal_alert.CAUSE_MIN_ROWS shape. And `snoozed` is not "
+            "`resolved`: a deferral behind a named trigger event is still "
+            "owed, where a resolution is not. Filed as "
+            "BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION."
+        ),
+    },
+    {
+        "name": "over_cover.state",
+        "producer": "src/runtime/over_cover_decision.py",
+        "consumer_token": (r"\bover_cover_decision\b|\bdecide_over_cover\b|"
+                           r"\bover_cover_proposal\b"),
+        "states": ["cancel_group", "no_over_cover", "ambiguous_no_action",
+                   "no_journal_match", "no_declared_stop", "not_graded",
+                   "position_absent"],
+        "why": (
+            "Five of these end in 'do nothing' and only ONE of them means the "
+            "venue was asked and answered clean. `no_over_cover` is a measured "
+            "all-clear; `not_graded` is WE DID NOT LOOK (unreadable prices, no "
+            "tick size, a leg whose side the caller could not classify); "
+            "`no_declared_stop` is that there was no question to ask; "
+            "`no_journal_match` is that we asked and every candidate is a "
+            "stray. Collapsing any of them into `no_over_cover` reports a "
+            "blind read as a clean position. And collapsing "
+            "`ambiguous_no_action` into `cancel_group` IS the recorded "
+            "2026-08-20 failure: a repair picked a leg the journal did not "
+            "single out and cancelled the one that MATCHED trades.stop_loss, "
+            "leaving a 15-lot MES position protected 69 ticks low ($1,289.73). "
+            "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

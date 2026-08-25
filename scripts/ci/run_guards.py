@@ -289,6 +289,31 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "operator-owed-guard",
+        # ⚠️ UNGATED (`when: None`), and that is the whole design. This is
+        # part (d) of
+        # BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION:
+        # it fails when an item is CARRIED without moving. The
+        # condition is the passage of register commits and of time, so a
+        # diff-scoped run would be blind to exactly the case it exists for — an
+        # item rotting while nobody edits the register. Same reasoning as
+        # api-tier-policy's completeness backstop, and the reason a per-step
+        # `when` is wrong here too (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH).
+        "when": None,
+        "steps": [
+            # Self-test FIRST: a guard whose failure path is never exercised is
+            # indistinguishable from one that always passes.
+            ["python3", "scripts/ci/check_operator_owed.py", "--self-test"],
+            ["python3", "scripts/ci/check_operator_owed.py"],
+            ["python3", "-m", "pytest", "tests/test_operator_owed.py",
+             "tests/test_over_cover_decision.py", "-q"],
+        ],
+        # A carried item IS the escalation, and an escalation nobody is told
+        # about is the re-listing this replaces. This is the one guard whose
+        # ping is the point rather than a side effect.
+        "notify": True,
+    },
+    {
         "name": "async-route-blocking-guard",
         "when": {"globs": ["src/web/api/**/*.py", "scripts/ci/check_async_route_blocking.py"]},
         "steps": [["python3", "scripts/ci/check_async_route_blocking.py"]],
