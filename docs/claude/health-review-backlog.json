@@ -24172,6 +24172,34 @@
      "note": "CROSS-REFERENCE / PARTIAL SELF-CORRECTION. This row's detail says of the string-vs-list shape: 'There is no list-vs-string defect and no sweep to do.' That is right about the CONVENTION (string is dominant and spans the full date range) and wrong to stop there. BL-20260823-RESOLUTION-CRITERIA-HAS-TWO-TYPES-AND-ITERATING-IT-YIELDS-CHARACTERS had already identified the real hazard, which is not the polymorphism at rest but the SILENT read: `for c in row['resolution_criteria']` is correct on a list and yields one character per line on a string, without raising. My reading found the shapes and dismissed them; that row found the accessor. Both are now closed the same way — scripts/ops/_backlog.py::criteria_list, with the string shape declared permanently supported. Recorded here so the two rows do not read as contradicting each other."
     }
    ]
+  },
+  {
+   "id": "BL-20260825-COMPAT-MATRIX-SUMMARY-HARDCODES-ONE-STRATEGY-WHILE-ITS-TABLE-IS-PARAMETERISED",
+   "opened_at": "2026-08-25T21:20:00+00:00",
+   "opened_by": "claude (alpaca blocker pass, 2026-08-25)",
+   "status": "resolved",
+   "resolved_at": "2026-08-25T21:20:00+00:00",
+   "severity": "medium",
+   "tier": 1,
+   "area": "ci-workflows / diagnostic provenance",
+   "title": "gld-compat-matrix printed an IAUM verdict table under prose asserting facts about gld_pullback_1h — the label naming a quantity the code did not compute",
+   "detail": "FOUND BY RUNNING IT, not by reading it. Dispatched .github/workflows/gld-compat-matrix.yml for strategy=iaum_pullback_1d / symbol=IAUM (run 32884733084) to re-run the survival gate at alpaca_live's new risk_pct. The run succeeded and its TABLE is correctly parameterised — '`iaum_pullback_1d` · IAUM 1d · 9 emitted trades', 11 accounts scored. The NARRATIVE under it read:\n\n    '`gld_pullback_1h` is ALREADY in `alpaca_portfolio`'s roster (config/accounts.yaml, since the 2026-07-16 S-PAPER-PORTFOLIO creation) ... with the confirmed `trending.gld_pullback_1h {short: off}` cell applying globally.'\n\ngld_pullback_1h was not run. Its name, its roster history and its regime cell were printed as conclusions of an IAUM run.\n\nTHE CLASS: unprovenanced diagnostic output, sub-class A (semantic substitution) — the label names quantity Q, the code computed something else, and nothing in the output reveals the substitution. A reader trusting the ⭐ section reaches a confident WRONG conclusion, and this output is exactly what a Tier-3 routing decision is meant to rest on.\n\nA SECOND DEFECT IN THE SAME SENTENCE: 'is ALREADY in alpaca_portfolio's roster' was ASSERTED, never read. Even for gld_pullback_1h it was a claim the run did not verify; for any other strategy it is simply false-by-default.\n\nFIXED IN THE SAME PASS. The name now comes from the emit payload (falling back to GC_STRAT), and the roster claim is a real read of config/accounts.yaml with THREE states kept apart — `in` / `absent` / `unknown` ('we could not look' is rendered as such, never as 'absent'). The ROUTE prose no longer claims the routing is 'confirmed sound' unconditionally; it says a ROUTE clears that account's own ruleset, which confirms existing routing where the roster carries the strategy and is evidence FOR routing where it does not.\n\nNOT FIXED, AND DELIBERATELY LEFT: the workflow is still NAMED gld-compat-matrix and its header comments still describe the GLD Track-B purpose it was built for. Renaming a workflow breaks every dispatch reference and the issue label; it is a genuinely general per-account compat gate now, and that rename is worth doing on its own rather than inside a fix for the output defect.",
+   "evidence": {
+    "run": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/32884733084",
+    "dispatch_inputs": {
+     "strategy": "iaum_pullback_1d",
+     "symbol": "IAUM",
+     "fee_bps": "0",
+     "days": "730"
+    },
+    "table_was_correct": "iaum_pullback_1d · IAUM 1d · pullback harness · feed yahoo · fidelity approximate · fee 0.0 bps · 9 emitted trades",
+    "narrative_was_wrong": "asserted gld_pullback_1h roster membership and its trending.gld_pullback_1h {short: off} cell"
+   },
+   "resolution_criteria": "RESOLVED: the summary's strategy name is read from the emit rather than hardcoded, and the roster membership is READ from config/accounts.yaml with in/absent/unknown kept distinct. Verified by re-reading the render block; a live re-dispatch on a non-GLD strategy should show the strategy's own name throughout the ⭐ section. The residual — the workflow's GLD-specific NAME and header prose — is recorded above as deliberately out of scope.",
+   "refs": [
+    ".github/workflows/gld-compat-matrix.yml (render summary step)",
+    "CLAUDE.md § 'Diagnostic provenance — does the OUTPUT say what it actually computed?' sub-class A"
+   ]
   }
  ]
 }
