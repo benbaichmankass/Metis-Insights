@@ -6493,32 +6493,95 @@ def _save_alert_state(kind: str, state: dict) -> None:
         logger.warning("%s cooldown state save failed: %s", kind, exc)
 
 
+_SEV_SUFFIX = "|sev="
+
+
 def _cooldown_admits(kind: str, key: str, cooldown_s: float,
-                     ttl_s: float = _TARGET_NAKED_STATE_TTL_S) -> bool:
+                     ttl_s: float = _TARGET_NAKED_STATE_TTL_S,
+                     severity: Optional[int] = None) -> bool:
     """Should ``key`` alert now under ``kind``'s durable cooldown?
 
     Returns True AND commits the new timestamp when the alert may fire.
     WALL CLOCK, never ``time.monotonic()``: monotonic is meaningless across
     processes, and every condition this rate-limits persists across restarts.
+
+    **``severity`` lets a WORSENING break the cooldown**
+    (BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION). Without
+    it, a key that has fired is silent for the whole window however much worse
+    the condition gets — measured live 2026-08-25, the over-cover page fired at
+    12:27:44Z for ib_paper/MHG at 2 disjoint OCA groups / 200% and said nothing
+    when the SAME symbol reached 3 groups / 300% two hours later. "X is
+    over-covered" and "X is over-covered by half again as much" are different
+    facts, and the second is the one saying the condition is being PRODUCED
+    rather than merely standing.
+
+    The rule is deliberately **one-directional**: a strictly HIGHER severity
+    than any live latch for the same ``key`` pages; an equal or LOWER one is
+    suppressed as usual. Both halves matter and neither is decoration —
+
+    * pages on worse, so a growing condition is never silent;
+    * silent on better, so a condition that is *improving* cannot generate
+      CRITICALs. That is not hypothetical for the target-naked sibling, whose
+      coverage moves in both directions: a position going from no target to a
+      partial one is an improvement, and paging on it is exactly the
+      desensitized-alarm P1 the cooldown exists to prevent. That asymmetry is
+      why the two callers share this primitive instead of each inventing a key
+      scheme, and why over-cover's group count could NOT simply be pasted into
+      the key.
+
+    An UNCHANGED severity keeps today's volume exactly: one page per window.
+
+    ``severity`` rides in the stored KEY rather than the stored VALUE so the
+    on-disk shape stays ``{key: float_timestamp}``. That is load-bearing: the
+    live trader holds ``runtime_logs/target_naked_alert_state.json`` right now,
+    the TTL prune filters on the value being a number, and the durable-cooldown
+    tests bind that shape — changing it would orphan a latch that is currently
+    suppressing a CRITICAL.
     """
     now = time.time()
     state, readable = _load_alert_state(kind)
+    stored_key = key if severity is None else f"{key}{_SEV_SUFFIX}{int(severity)}"
     if readable:
-        try:
-            last = float(state.get(key))
-        except (TypeError, ValueError):
-            last = None  # absent or unparseable -> treat as never fired
-        # A FUTURE-dated entry (clock skew, a restored file) yields a negative
-        # delta and must not suppress forever, so the window is bounded below
-        # by 0 as well as above by the cooldown.
-        if last is not None and 0.0 <= (now - last) < cooldown_s:
+        # Every live latch for this key, across severities.
+        live_sevs = []
+        suppress = False
+        for k, v in state.items():
+            if k != key and not k.startswith(f"{key}{_SEV_SUFFIX}"):
+                continue
+            try:
+                last = float(v)
+            except (TypeError, ValueError):
+                continue
+            # A FUTURE-dated entry (clock skew, a restored file) yields a
+            # negative delta and must not suppress forever, so the window is
+            # bounded below by 0 as well as above by the cooldown.
+            if not (0.0 <= (now - last) < cooldown_s):
+                continue
+            if severity is None:
+                if k == key:
+                    suppress = True
+                continue
+            if k == key:
+                # A pre-severity entry from an older build. It says the
+                # condition alerted recently and nothing about how bad it was,
+                # so it suppresses — "we do not know it got worse" must not
+                # become "it got worse".
+                suppress = True
+                continue
+            try:
+                live_sevs.append(int(k.rsplit(_SEV_SUFFIX, 1)[1]))
+            except (IndexError, ValueError):
+                continue
+        if suppress:
+            return False
+        if severity is not None and live_sevs and max(live_sevs) >= int(severity):
             return False
     state = {
         k: v
         for k, v in state.items()
         if isinstance(v, (int, float)) and (now - float(v)) < ttl_s
     }
-    state[key] = now
+    state[stored_key] = now
     _save_alert_state(kind, state)
     return True
 
@@ -6556,8 +6619,22 @@ def _emit_target_naked_alert(
     (``outcomes._TELEGRAM_LEVELS``) as well as the ``/api/bot/notifications``
     banner. Never raises into the sweep.
     """
+    # SEVERITY IS THE UNCOVERED QUANTITY — criterion 4 of
+    # BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION; this latch
+    # shares the shape the over-cover page was fixed for.
+    # A position whose target coverage DROPS is
+    # a new fact and pages; one whose coverage merely persists, or IMPROVES, is
+    # suppressed for the window. That second half is why this uses the shared
+    # one-directional primitive rather than folding the number into the key:
+    # target coverage moves in both directions, and paging CRITICAL on a
+    # position getting BETTER protected is the desensitized-alarm P1 itself.
+    try:
+        shortfall = max(0, int(round(float(size) - float(target_qty))))
+    except (TypeError, ValueError):
+        shortfall = None  # ungradeable — fall back to the plain per-key latch
     if not _cooldown_admits(
-        "target_naked", f"{account_id}|{symbol}", _TARGET_NAKED_ALERT_COOLDOWN_S
+        "target_naked", f"{account_id}|{symbol}", _TARGET_NAKED_ALERT_COOLDOWN_S,
+        severity=shortfall,
     ):
         return False
     try:
@@ -6638,16 +6715,32 @@ def _emit_stop_over_cover_alert(
 
     Never raises into the sweep.
     """
+    groups = sorted(oca_groups or [])
+    # SEVERITY IS THE DISJOINT-GROUP COUNT, so a worsening breaks the cooldown
+    # (BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION). Keyed on
+    # (account, symbol) alone, this page fired once on ib_paper/MHG at
+    # 2026-08-25T12:27:44Z for 2 groups / 200% and then said nothing while the
+    # SAME symbol reached 3 groups / 300% two hours later, because the 6h
+    # cooldown had not elapsed.
+    #
+    # The group count is the right severity here rather than the percentage:
+    # it is what makes the naked-reverse hazard worse (one MORE bracket that a
+    # firing stop cannot cancel), it is an integer so it cannot flap, and it
+    # only grows under the producing defect. The 6h window itself stays, and
+    # must — it is the direct remedy for
+    # BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART, where 202 of
+    # 376 CRITICAL rows (53.7% of the whole operator ERROR+ feed) were one
+    # un-latched alarm. An UNCHANGED count is still one page per 6h.
     if not _cooldown_admits(
         "stop_over_cover",
         f"{account_id}|{symbol}",
         _STOP_OVER_COVER_ALERT_COOLDOWN_S,
+        severity=len(groups),
     ):
         return False
     try:
         from src.runtime.outcomes import Level, report
 
-        groups = sorted(oca_groups or [])
         pct = (100.0 * float(stop_qty) / float(size)) if size else None
         report(
             f"{venue}_stop_over_cover",

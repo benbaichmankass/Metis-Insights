@@ -23618,7 +23618,7 @@
    "opened_by": "claude (system-review fix round, MHG over-cover apply)",
    "severity": "medium",
    "tier": "1 (observability)",
-   "status": "open",
+   "status": "resolved",
    "area": "alerting",
    "title": "The stop-over-cover CRITICAL page latches on (account, symbol) for 6h, so 200% escalating to 300% on the same symbol pages nobody -- a worsening safety condition is indistinguishable from a held one",
    "detail": "Self-reported against the page shipped this morning in PR #10259 (order_monitor._emit_stop_over_cover_alert, durable latch runtime_logs/stop_over_cover_alert_state.json).\n\nMEASURED 2026-08-25. The page fired once, correctly, at 12:27:44Z: 'ib_paper/MHG: position 29.0 but resting STOP qty totals 58.0 (200%) across 2 DISJOINT OCA groups'. By 14:56:17Z the same symbol held THREE groups and 87 lots (300%) and the page did NOT re-fire, because the cooldown key is (account, symbol) and the 6h window had not elapsed. Confirmed against /api/bot/logs?level=error (n=42 rows): exactly one ib_stop_over_cover row in the feed.\n\nThe 6h cooldown itself is right and must stay -- it is the direct remedy for BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART, where 202 of 376 CRITICAL rows (53.7% of the entire operator ERROR+ feed) were one un-latched alarm. The defect is the KEY, not the window: 'MHG is over-covered' and 'MHG is over-covered by half again as much, by a mechanism that adds a group per amend' are different facts, and the second is the one that says the condition is being PRODUCED rather than merely standing.\n\nThe repo already has the shape that fixes this: silent_refusal_alert latches per (account, cause) precisely so 'an account that stops refusing for zero_balance and starts refusing for a venue cap has a NEW problem' is not swallowed as already-alerting. Same argument, same remedy.",
@@ -23637,7 +23637,16 @@
     "error_feed_rows_scanned": 42,
     "over_cover_rows_found": 1
    },
-   "next_action": "Tier-1 -- ships with the alert, no operator gate."
+   "next_action": "DONE.",
+   "resolved_at": "2026-08-25T15:50:00+00:00",
+   "updates": [
+    {
+     "at": "2026-08-25T15:50:00+00:00",
+     "by": "claude (system-review fix round)",
+     "note": "RESOLVED same day, and criterion 4's audit changed the shape of the fix.\n\n`_cooldown_admits` gains an optional `severity: int`. A strictly HIGHER severity than any live latch for the same key PAGES; an equal or LOWER one is suppressed as usual. One-directional, and both halves are load-bearing: it pages on worse so a growing condition is never silent, and stays silent on better so an IMPROVING condition cannot generate CRITICALs.\n\nCRITERION 4 FINDING -- the sibling has the same collapse but NOT the same fix, which is why this is a shared primitive rather than two key schemes. The over-cover page's severity is the disjoint-group count: an integer, unable to flap, and monotonically growing under the producing defect, so folding it straight into the latch key would have been correct. `_emit_target_naked_alert`'s severity is the UNCOVERED QUANTITY, which moves in BOTH directions -- a position going from no target to a partial one is a repair, and a key-folding fix would have paged CRITICAL on it. Paging on an improvement is the desensitized-alarm P1 the cooldown exists to prevent, so copying the over-cover remedy across would have introduced the very failure this row is about.\n\n`severity` rides in the stored KEY, not the stored VALUE, so the on-disk shape stays {key: float_timestamp}. Load-bearing: the live trader is holding runtime_logs/target_naked_alert_state.json right now, the TTL prune filters on the value being a number, and the durable-cooldown tests bind that shape -- changing it would orphan a latch that is currently suppressing a CRITICAL. A PRE-SEVERITY entry written by the old build suppresses: it says the condition alerted recently and nothing about how bad it was, and 'we do not know it got worse' must not become 'it got worse'. Tested.\n\nThe 6h window is UNCHANGED. On a static condition the volume is identical to today -- one page per window -- so this does not weaken BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART's remedy.\n\nSeven tests across both alert modules. Control verified: with severity passed as None, exactly the two worsening-regression tests fail and the invariant tests still pass."
+    }
+   ],
+   "last_verified": "2026-08-25"
   }
  ]
 }
