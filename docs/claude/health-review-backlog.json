@@ -23216,6 +23216,21 @@
    "resolution_criteria": "Either (a) Direction A is narrowed to require a TABLE ROW (a backticked filename in the first cell of a `|`-delimited line in the index table) and the coverage line reports 'catalogued' rather than 'named' -- with any workflow that legitimately lives only in prose moved to the declared `_EXEMPT_WORKFLOWS` set with a comment saying why, which is the guard's own stated escape hatch; or (b) the tolerance is kept and the guard's OUTPUT stops claiming more than it checked, e.g. by splitting the count into 'in the index table' vs 'named only in prose' so a reader can see the difference. (a) is preferred -- the exemption set is 'EMPTY BY DESIGN' today, which makes it the right place for a deliberate exception. Whichever is chosen, the guard's self-test must plant a prose-only mention and show it is graded differently from a table row; today's self-test uses a doc where both fixtures are prose, so it cannot distinguish them and would pass either way.",
    "next_action": "Tier-1 CI change. Not bundled into PR #10251 -- that PR gates a live secret path and a guard-semantics change would widen its blast radius for no security benefit. The one instance found was fixed there (a real catalog row for get-diag-token.yml was added); this row is about the NEXT workflow that lands the same way.",
    "updates": []
+  },
+  {
+   "id": "BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY",
+   "opened_at": "2026-08-25T08:00:00+00:00",
+   "opened_by": "claude (session_01Gi3mgq; found by the new affordability probe)",
+   "status": "open",
+   "severity": "medium",
+   "tier": 1,
+   "area": "research-data",
+   "title": "SPLG — a LIVE real-money cell — returns ONE stale bar from the yfinance lane, so any research on it is measuring a single 2026-07-17 print while the job reports success",
+   "source": "MEASURED 2026-08-25 on a GitHub runner, `yfinance-lane-proof` with `--interval D --days 120`. SPLG returned `rows=1  span=0 d  2026-07-17 -> 2026-07-17`, i.e. ONE bar, 39 days stale, against a request for ~82 trading days. The four symbols probed in the same minute with the identical request returned 83 bars each (SH, PSQ, TBF, TBX), so this is a per-SYMBOL venue data gap and NOT a broken interval or a broken lane.",
+   "why_it_matters": "`splg_trend_long_1d` is a REAL-MONEY cell on alpaca_live, promoted 2026-07-07 as one of the two sub-$100 cells that clear the affordability gate. So the symbol whose research data is missing is one of the few the account can actually trade.\n\n⚠️ THIS IS NOT A LIVE-TRADING BLOCKER, and saying so matters: the trader gets SPLG candles through `connector_for_symbol` -> alpaca, not through yfinance. Live execution is unaffected. What is blocked is RESEARCH — a backtest, a sweep, or an affordability check that reaches for the yfinance lane gets one bar and, before the fix in this PR, got a confident `last_close` printed over it with the job green.\n\nThe generalisable half: the lane's assert catches ZERO rows and cannot catch ONE. That is this job's own stated sin ('it ran' is not 'it worked') reappearing one row above the floor, in the number a human sizes a position from.",
+   "resolution_criteria": "Either (a) establish a working research price source for SPLG — the obvious candidate is the alpaca lane the live trader already uses, which would ALSO remove the yfinance dependency for every US-equity research question; or (b) record SPLG as research-blind on the yfinance lane so no sweep silently reports a one-bar result as a measurement. Whichever, the affordability/backtest tooling must keep declaring a thin or stale book rather than printing a bare number (shipped in this PR: `last_close` now carries an inline UNSOUND caveat plus `as_of` and `bars` when fewer than 15 bars or older than 5 d).",
+   "next_action": "Cheap first probe: re-request SPLG at `--interval 60` (the 1h lane), which returned 3,456 bars for SPY/SH/PSQ/QQQ on the same venue — if 1h works and 1d does not, the gap is narrower than 'SPLG is unavailable' and the workaround is trivial.",
+   "updates": []
   }
  ]
 }

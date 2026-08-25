@@ -103,14 +103,45 @@ jobs:
           # order of magnitude for a go/no-go screen and must not be quoted as
           # the leg's actual risk. Printed, never asserted -- an unaffordable
           # symbol is a fact about the account, not a failure of the lane.
+          # ⚠️ A PRICE IS NOT SOUND JUST BECAUSE A ROW EXISTS. Measured the
+          # first time this probe ran: SPLG returned `rows=1 span=0 d` on a
+          # 120-day DAILY request, one bar dated 2026-07-17 — 39 days stale —
+          # and the job went GREEN and printed `last_close=87.4800` with no
+          # caveat. The existing assert catches ZERO rows; it cannot catch ONE.
+          # That is this job's own stated sin ("it ran" is not "it worked")
+          # reappearing one row above the floor, in the number a human would
+          # size a real position from. Sibling symbols were fine on the same
+          # request (SH/PSQ/TBF/TBX all returned 83 bars), so this is a
+          # per-symbol venue data gap, not a lane failure — which is exactly
+          # why it must be REPORTED per symbol rather than asserted globally.
+          # The caveat rides ON the last_close line: a reader who copies one
+          # number must not be able to leave the warning behind.
           last = float(df["close"].iloc[-1])
+          last_ts = df["timestamp"].max()
+          age_d = (pd.Timestamp.utcnow().tz_localize(None).normalize()
+                   - last_ts.tz_localize(None).normalize()).days
+          thin = len(df) < 15
+          stale = age_d > 5
+          if thin or stale:
+              why = []
+              if thin:
+                  why.append(f"only {len(df)} bar(s)")
+                  if stale:
+                      why.append(f"newest is {age_d} d old")
+              elif stale:
+                  why.append(f"newest bar is {age_d} d old")
+              print(f"last_close={last:.4f}  ⚠️ UNSOUND ({'; '.join(why)}) — "
+                    f"DO NOT SIZE A POSITION FROM THIS NUMBER")
+              print(f"as_of={last_ts.date()}  bars={len(df)}")
+          else:
+              print(f"last_close={last:.4f}  as_of={last_ts.date()}  bars={len(df)}")
+          _printed_last = True
           tr = pd.concat([
               df["high"] - df["low"],
               (df["high"] - df["close"].shift()).abs(),
               (df["low"] - df["close"].shift()).abs(),
           ], axis=1).max(axis=1)
           atr = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 15 else float("nan")
-          print(f"last_close={last:.4f}")
           if atr == atr:  # not NaN
               print(f"atr14={atr:.4f}  atr14_pct={100 * atr / last:.3f}%")
               print(f"AFFORDABILITY: 1 share costs ${last:.2f}; "
