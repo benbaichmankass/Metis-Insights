@@ -236,10 +236,13 @@ def selftest() -> int:
     def chk(label, got, want):
         if got != want:
             fails.append("%s: got %r want %r" % (label, got, want))
-    # the mirrored constants must match the module they mirror
+    # the constants are IMPORTED from the one owner now, not mirrored, so the
+    # check is identity rather than a text search for a literal that no longer
+    # exists in the source (it moved to src/runtime/tp_venue_cap.py).
+    from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT as _owner_cap
+    chk("TP_VENUE_CAP_PCT IS the owner", TP_VENUE_CAP_PCT is _owner_cap, True)
     src = (REPO / "src/runtime/target_expectation.py").read_text()
     chk("SENTINEL_R_FLOOR mirrors module", "SENTINEL_R_FLOOR = 50.0" in src, True)
-    chk("TP_VENUE_CAP_PCT mirrors module", "TP_VENUE_CAP_PCT = 0.099" in src, True)
     # family routing
     chk("ict_scalp by tp_at_r", family_of("x", {"tp_at_r": 1.5}), "ict_scalp")
     chk("donchian by key", family_of("x", {"donchian": 20}), "donchian")

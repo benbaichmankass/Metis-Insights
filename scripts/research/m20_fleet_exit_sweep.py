@@ -51,6 +51,12 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
+# Repo root FIRST: the venue-TP-clamp owner (src/runtime/tp_venue_cap.py) is
+# imported at two separate points below, and the earlier of them runs before
+# any later path setup would. Hoisted here so importing this module from a
+# different cwd -- which check_lever_wiring and check_matrix_config_agreement
+# both do via importlib -- cannot fail on `No module named src`.
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 import exit_capture  # noqa: E402  (the ONE exit-capture definition)
 
@@ -126,12 +132,14 @@ from src.runtime.tp_venue_cap import (  # noqa: E402
 # nothing from `src/` at all. Filed as
 # BL-20260816-TP-SENTINEL-CAP-DECLARED-IN-MULTIPLE-MODULES.
 #
-# ⚠️ **NOTHING CHECKS THAT THIS STILL MATCHES THE LIVE VALUE.** There is no
-# guard, no test, and no import binding them -- stated plainly because the
-# tempting version of this comment ("the guard will catch it") would describe
-# machinery that does not exist, which is the failure this repo files under
-# unprovenanced diagnostic output. If the live constant moves, this silently
-# keeps measuring the OLD book, and the sweep will look correct while doing it.
+# ✅ **THIS IS NOW BOUND TO THE LIVE VALUE** (2026-08-25). The warning that stood
+# here -- "nothing checks that this still matches the live value... there is no
+# guard, no test, and no import binding them" -- was accurate when written and
+# is no longer true, so it is replaced rather than left standing: the value is
+# IMPORTED from the one owner below, `tp-venue-cap-single-owner` fails CI on any
+# second declaration, and a test asserts identity with the units' constant. The
+# failure mode it described (silently measuring the OLD book) now cannot occur
+# without the import itself being removed.
 # The venue TP clamp -- ONE owner: src/runtime/tp_venue_cap.py. IMPORTED, not
 # mirrored. This file used to carry its own `LIVE_TP_CAP_PCT = 0.099`, one of
 # thirteen such literals with nothing binding them -- and this repo's own note
@@ -139,7 +147,6 @@ from src.runtime.tp_venue_cap import (  # noqa: E402
 # the OLD book, and the sweep will look correct while doing it". The owner
 # imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
 # empty, so this adds no heavy dependency.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.runtime.tp_venue_cap import (  # noqa: E402
     TP_VENUE_CAP_PCT as LIVE_TP_CAP_PCT)
 
