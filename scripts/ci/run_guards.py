@@ -289,6 +289,52 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "operator-owed-guard",
+        # ⚠️ UNGATED (`when: None`), and that is the whole design. This is
+        # part (d) of
+        # BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION:
+        # it fails when an item is CARRIED without moving. The
+        # condition is the passage of register commits and of time, so a
+        # diff-scoped run would be blind to exactly the case it exists for — an
+        # item rotting while nobody edits the register. Same reasoning as
+        # api-tier-policy's completeness backstop, and the reason a per-step
+        # `when` is wrong here too (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH).
+        "when": None,
+        "steps": [
+            # Self-test FIRST: a guard whose failure path is never exercised is
+            # indistinguishable from one that always passes.
+            ["python3", "scripts/ci/check_operator_owed.py", "--self-test"],
+            ["python3", "scripts/ci/check_operator_owed.py"],
+            ["python3", "-m", "pytest", "tests/test_operator_owed.py",
+             "tests/test_over_cover_decision.py", "-q"],
+        ],
+        # ⚠️ DELIBERATELY **NOT** `notify: True`, and the reason is the whole
+        # subject of this guard — do not "fix" this by adding it.
+        #
+        # The first draft set it, on the reasoning that an escalation nobody is
+        # told about is the re-listing it replaces. `tests/ci/test_run_guards.py
+        # ::test_notify_set_is_preserved` caught that as an undeclared
+        # behaviour change, correctly, and looking at the notify path settles
+        # it the other way: `guards.yml`'s ping fires **once per PR run, with
+        # no latch and no per-condition dedupe**.
+        #
+        # Every one of the six notify-class guards is DIFF-SCOPED — it trips on
+        # something the PR introduced, so the ping fires once, to the author who
+        # can fix it. This guard is UNGATED and its condition PERSISTS ACROSS
+        # PRs: an aged-out item would ping the operator on every PR from every
+        # session until somebody moved it. That is the shape that put 202
+        # CRITICALs on the operator's channel for two already-filed positions
+        # (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART), and this
+        # register exists to END alarm-fatigue, not to add a source of it.
+        #
+        # So the CI failure IS the escalation. It reaches the session, which is
+        # the right first responder and has all four printed dispositions
+        # available. An operator ping is a legitimate future addition, but it
+        # needs a DURABLE per-item latch (the `_cooldown_admits` shape) that
+        # this notify path does not have — adding the flag without one would be
+        # trading a silent list for a noisy one.
+    },
+    {
         "name": "async-route-blocking-guard",
         "when": {"globs": ["src/web/api/**/*.py", "scripts/ci/check_async_route_blocking.py"]},
         "steps": [["python3", "scripts/ci/check_async_route_blocking.py"]],
