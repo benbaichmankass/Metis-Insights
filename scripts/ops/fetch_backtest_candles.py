@@ -420,6 +420,143 @@ _BYBIT_TO_YF_TIMEFRAME = {
 }
 
 
+# Bybit interval code -> the token `fetch_dukascopy_ohlcv` speaks. Only bars
+# Dukascopy actually serves appear here. ⚠️ `120` (2h) is ABSENT and that is
+# deliberate: the venue's own INTERVALS tuple has no 2h, and a 2h request
+# quietly served as 1h or 4h is a wrong backtest that looks fine — the same
+# reasoning the yfinance map states one screen up.
+_BYBIT_TO_DK_TIMEFRAME = {
+    "1": "1m", "5": "5m", "15": "15m", "60": "1h", "240": "4h",
+    "D": "1d", "1D": "1d",
+}
+
+
+class DkLaneError(RuntimeError):
+    """Base for the Dukascopy lane, carrying the STAGE that failed."""
+
+
+class DkSymbolRefused(DkLaneError):
+    """The adjudication DECIDED this symbol must not be proxied.
+
+    Emphatically not "no data": somebody ruled on it, and the reason travels
+    with the refusal so the caller prints the judgement rather than a shrug.
+    """
+
+
+class DkSymbolUnadjudicated(DkLaneError):
+    """Nobody has ruled on this symbol yet — the remedy is to adjudicate it."""
+
+
+class DkIntervalUnsupported(DkLaneError):
+    """An interval the venue does not serve. REFUSED, never coerced."""
+
+
+class DkDependencyMissing(DkLaneError):
+    """`dukascopy-python` is not installed — the venue was never contacted."""
+
+
+class DkFetchFailed(DkLaneError):
+    """The request reached Dukascopy and the venue/network failed it.
+
+    The ONLY stage for which "dukascopy fetch failed" is a true sentence.
+    """
+
+
+_DK_STAGE_LABEL = {
+    DkSymbolRefused: "dukascopy lane refused the symbol",
+    DkSymbolUnadjudicated: "dukascopy lane has no adjudicated mapping",
+    DkIntervalUnsupported: "dukascopy lane refused the interval",
+    DkDependencyMissing: "dukascopy dependency missing",
+    DkFetchFailed: "dukascopy fetch failed",
+}
+
+
+def fetch_klines_dukascopy(
+    symbol: str,
+    interval: str,
+    start_ms: int,
+    end_ms: int,
+) -> list[dict]:
+    """The DEEP non-crypto lane: equities/ETFs/metals/index CFDs.
+
+    WHY THIS EXISTS. `yfinance` was the only non-crypto lane and it is MEASURED
+    to serve at most ~730 d of 1h history, REFUSING a longer request outright
+    (proof run 32734360738). `e35-bracket-sweep.yml` asks for `days: 1830`, so
+    yfinance cannot serve it at any request size. Dukascopy depth was then
+    MEASURED (run 32788423940, 66 probes, zero errors): every mapped instrument
+    carries bars at the 1830 d anchor — the 9 ETF CFDs to 2555 d, XAU and the
+    S&P index CFD to 3650 d.
+
+    ⚠️ THE SYMBOL MAP IS AN ADJUDICATION, IMPORTED NOT GUESSED. A raw substring
+    match once resolved `MHG` (CME Micro Copper) to a Norwegian salmon farmer.
+    `scripts/ops/dukascopy_instruments.py` is the one owner; a refusal there is
+    a decision and is surfaced as one.
+
+    ⚠️ SEVERAL SYMBOLS RESOLVE TO A PROXY — a DIFFERENT instrument. `MES` is a
+    CME future served here by an index CFD; `SCHA` is served by `IWM`, which
+    tracks a different index entirely. The relation is printed on every fetch so
+    it cannot be mistaken for the real instrument.
+    """
+    tf = _BYBIT_TO_DK_TIMEFRAME.get(str(interval))
+    if tf is None:
+        raise DkIntervalUnsupported(
+            f"dukascopy does not serve interval {interval!r}; "
+            f"mapped: {sorted(_BYBIT_TO_DK_TIMEFRAME)}")
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import dukascopy_instruments as _dk  # noqa: E402  (path shimmed above)
+
+    res = _dk.resolve(symbol)
+    if res.state == _dk.STATE_REFUSED:
+        raise DkSymbolRefused(res.reason or symbol)
+    if res.state == _dk.STATE_UNKNOWN:
+        raise DkSymbolUnadjudicated(res.reason or symbol)
+
+    sys.stderr.write(
+        f"  dukascopy: {symbol} -> {res.instrument} "
+        f"(relation={res.relation}: {res.reason})\n")
+
+    try:
+        from fetch_dukascopy_ohlcv import fetch as _dk_fetch  # noqa: E402
+    except Exception as exc:  # noqa: BLE001  # allow-silent: staged, re-raised
+        raise DkDependencyMissing(
+            f"could not load the dukascopy fetcher ({exc}); "
+            f"`pip install dukascopy-python`") from exc
+
+    start = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
+    end = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
+    try:
+        df = _dk_fetch(res.instrument, start, end, tf)
+    except SystemExit as exc:
+        # fetch() raises SystemExit for a name absent from the instruments
+        # module — that is a MAPPING bug in dukascopy_instruments.py, not a
+        # venue failure, so it must not be reported as one.
+        raise DkSymbolUnadjudicated(
+            f"{res.instrument!r} is not in dukascopy_python.instruments ({exc})") from exc
+    except Exception as exc:  # noqa: BLE001  # allow-silent: staged, re-raised
+        raise DkFetchFailed(str(exc)) from exc
+
+    rows: list[dict] = []
+    if df is None or len(df) == 0:
+        return rows
+    for r in df.to_dict("records"):
+        try:
+            row = {
+                "timestamp": pd.Timestamp(r["timestamp"]).tz_convert(None),
+                "open": float(r["open"]), "high": float(r["high"]),
+                "low": float(r["low"]), "close": float(r["close"]),
+                "volume": float(r.get("volume", 0.0) or 0.0),
+            }
+        except (KeyError, TypeError, ValueError):
+            # A malformed bar is COUNTED by its absence, never zero-filled —
+            # the same rule the yfinance lane states.
+            continue
+        if any(row[k] != row[k] for k in ("open", "high", "low", "close")):
+            continue
+        rows.append(row)
+    return rows
+
+
 def fetch_klines_yfinance(
     symbol: str,
     interval: str,
@@ -570,7 +707,7 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument(
         "--source",
-        choices=["auto", "bybit", "binance_vision", "yfinance"],
+        choices=["auto", "bybit", "binance_vision", "yfinance", "dukascopy"],
         default=os.environ.get("BACKTEST_FEED_SOURCE", "auto"),
         help=(
             "Feed source. 'auto' (default): try Bybit, fall back to Binance's "
@@ -580,7 +717,11 @@ def main(argv: list[str]) -> int:
             "'binance_vision' force one source. 'yfinance' is the NON-CRYPTO "
             "lane (equities/ETFs/futures) that neither Bybit nor Binance can "
             "serve; it is never reached by 'auto', because a crypto symbol "
-            "silently answered from Yahoo would be a different instrument."
+            "silently answered from Yahoo would be a different instrument. "
+            "'dukascopy' is the DEEP non-crypto lane — yfinance serves at "
+            "most ~730 d of 1h and REFUSES more, while Dukascopy was "
+            "MEASURED (run 32788423940) to carry every mapped instrument "
+            "past 1830 d. Like yfinance it is never reached by 'auto'."
         ),
     )
     args = parser.parse_args(argv[1:])
@@ -633,6 +774,25 @@ def main(argv: list[str]) -> int:
             # one level down.
             sys.stderr.write(
                 f"yfinance lane failed at an unclassified stage "
+                f"({type(exc).__name__}): {exc}\n")
+            return 1
+
+    if args.source == "dukascopy":
+        # Explicit, never in the `auto` chain — same reasoning as yfinance: a
+        # crypto symbol quietly answered from a CFD venue would be a different
+        # instrument than the one the strategy trades.
+        try:
+            rows = fetch_klines_dukascopy(
+                args.symbol, args.interval, start_ms, end_ms)
+        except DkLaneError as exc:
+            # Report the STAGE. "dukascopy fetch failed" for a symbol the
+            # adjudication REFUSED would blame a venue that was never asked.
+            stage = _DK_STAGE_LABEL.get(type(exc), "dukascopy lane failed")
+            sys.stderr.write(f"{stage}: {exc}\n")
+            return 1
+        except Exception as exc:  # noqa: BLE001  # allow-silent: reported, exits non-zero
+            sys.stderr.write(
+                f"dukascopy lane failed at an unclassified stage "
                 f"({type(exc).__name__}): {exc}\n")
             return 1
 

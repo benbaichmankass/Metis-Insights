@@ -80,6 +80,56 @@ def fetch_interval(tf: str) -> str:
             f"— known: {sorted(TF_TO_FETCH_INTERVAL)}") from None
 
 
+#: Intervals the Dukascopy lane serves. Mirrors
+#: `scripts/ops/fetch_backtest_candles.py::_BYBIT_TO_DK_TIMEFRAME` and is
+#: ASSERTED against it by a test rather than trusted — a planner that schedules
+#: a leg the fetcher then refuses is exactly the two-copies drift this file
+#: already avoids for leg scope.
+_DK_SERVABLE_INTERVALS = {"1", "5", "15", "60", "240", "D", "1D"}
+
+
+class NoFeedSource(RuntimeError):
+    """No feed can serve this leg. A REFUSAL, carrying why."""
+
+
+def resolve_feed_source(symbol: str, interval: str) -> str:
+    """Which feed serves this leg. RAISES rather than guessing.
+
+    WHY THIS EXISTS (`BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX`).
+    The workflow hardcoded `binance_vision` for the WHOLE matrix. Measured on
+    the first-ever run (32783849276): GLD and GDX are ETFs, Binance does not
+    list them, and each spent **10 minutes** in a retry loop before failing —
+    24 of 43 legs, ~4 runner-hours per dispatch on work that could not succeed.
+
+    ⚠️ IT REFUSES INSTEAD OF FALLING BACK. A leg quietly re-routed to a feed
+    serving a DIFFERENT instrument is a wrong backtest that looks fine — the
+    hazard `fetch_backtest_candles` already states for why `yfinance` is not in
+    its `auto` chain. Three symbols have no honest source (`QLD`/`TQQQ`: a daily
+    leverage reset means the path is not N x the underlying, so a QQQ series is
+    not a substitute; `MHG`: the only catalogue hit was a Norwegian salmon
+    farmer) and are refused BY NAME at plan time rather than scheduled and left
+    to burn a runner.
+
+    Depth is MEASURED, not assumed: run 32788423940 probed all 11 mapped
+    instruments and every one carries bars past the sweep's own 1830 d request.
+    """
+    sym = str(symbol).upper()
+    if sym.endswith("USDT"):
+        return "binance_vision"
+
+    sys.path.insert(0, str(REPO / "scripts" / "ops"))
+    import dukascopy_instruments as _dk  # noqa: E402  (path shimmed above)
+
+    res = _dk.resolve(sym)
+    if res.state != _dk.STATE_MAPPED:
+        raise NoFeedSource(f"{res.state}:{sym} — {res.reason}")
+    if str(interval) not in _DK_SERVABLE_INTERVALS:
+        raise NoFeedSource(
+            f"dukascopy_interval_unsupported:{sym} — the venue does not serve "
+            f"interval {interval!r}")
+    return "dukascopy"
+
+
 def build_matrix(runnable: list[dict]) -> tuple[list[dict], list[dict]]:
     """(include, refused) — one matrix entry per runnable leg.
 
@@ -95,9 +145,19 @@ def build_matrix(runnable: list[dict]) -> tuple[list[dict], list[dict]]:
             refused.append({"leg": p["leg"], "reason": f"unmapped_timeframe:{p['tf']}",
                             "detail": str(exc)})
             continue
+        try:
+            src = resolve_feed_source(p["symbol"], iv)
+        except NoFeedSource as exc:
+            # Refused HERE, before a runner is spent. Counted separately from an
+            # unmapped timeframe: "no feed carries this instrument" and "we do
+            # not know this bar size" are different problems with different
+            # fixes, and folding them would hide both.
+            refused.append({"leg": p["leg"], "reason": f"no_feed_source:{p['symbol']}",
+                            "detail": str(exc)})
+            continue
         include.append({
             "leg": p["leg"], "symbol": p["symbol"], "tf": p["tf"],
-            "family": p["family"], "fetch_interval": iv,
+            "family": p["family"], "fetch_interval": iv, "feed_source": src,
         })
     return include, refused
 
@@ -109,8 +169,8 @@ def census(include: list[dict], skipped: list[dict],
     A bare count of jobs cannot say WHY the other legs are absent, and "19 legs
     skipped" with no breakdown is the kind of number that gets read as fine.
 
-    ``data_pending`` is reported SEPARATELY rather than folded into the job
-    count: "43 jobs, data on disk" and "43 jobs whose data does not exist yet
+    ``data_pending`` counts SCHEDULED legs only — see the caller. It is reported
+    SEPARATELY rather than folded into the job count: "43 jobs, data on disk" and "43 jobs whose data does not exist yet
     and whose first step is to fetch it" are different claims, and a reader who
     cannot tell them apart cannot tell a planned run from a runnable one.
     """
@@ -150,7 +210,15 @@ def main(argv: list[str]) -> int:
         Path(a.data_dir), only, a.tp_cap_pct,
         ignore_missing_data=a.ignore_missing_data)
     include, refused = build_matrix(runnable)
-    pending = sum(1 for r in runnable if r.get("data_pending"))
+    # Counted over what is SCHEDULED, not over everything runnable. A leg
+    # refused for having no feed source is never fetched, so counting it as
+    # "awaiting fetch" would print more pending fetches than there are jobs —
+    # which is what this line did the moment the feed-source refusal was added
+    # ("40 job(s); 43 awaiting fetch"). The population a number describes has to
+    # be the population it is computed over.
+    _scheduled = {r["leg"] for r in include}
+    pending = sum(1 for r in runnable
+                  if r.get("data_pending") and r["leg"] in _scheduled)
     print(census(include, skipped, refused, pending), file=sys.stderr)
     for r in refused:
         print(f"  REFUSED {r['leg']}: {r['reason']}", file=sys.stderr)
@@ -183,11 +251,16 @@ def _selftest() -> int:
             fail += 1
             print(f"FAIL {name}: got {got!r} want {want!r}")
 
-    def raises(name, fn):
+    def raises(name, fn, want=UnknownTimeframe):
+        """`want` defaults to UnknownTimeframe so every pre-existing call site
+        is unchanged. It is a PARAMETER because this file now has two distinct
+        refusals — an unmapped timeframe and no-feed-source — and a helper that
+        accepted either would stop distinguishing them, which is the whole
+        reason they are separate exception types."""
         nonlocal ok, fail
         try:
             fn()
-        except UnknownTimeframe:
+        except want:
             ok += 1
             return
         # allow-silent: this is the OPPOSITE of a silent-empty — the handler's
@@ -199,7 +272,7 @@ def _selftest() -> int:
         # assertion. Nothing is swallowed and nothing returns empty.
         except Exception as exc:  # noqa: BLE001  # allow-silent: inverts the pattern — this handler EXISTS to turn an unexpected exception TYPE into a loud test FAILURE (increments `fail`, names the type). Narrowing it would make the self-test ERROR OUT instead of reporting a fail, i.e. stop being an assertion. Nothing swallowed, nothing returns empty.
             fail += 1
-            print(f"FAIL {name}: raised {type(exc).__name__}, want UnknownTimeframe")
+            print(f"FAIL {name}: raised {type(exc).__name__}, want {want.__name__}")
             return
         fail += 1
         print(f"FAIL {name}: did not raise")
@@ -224,9 +297,41 @@ def _selftest() -> int:
     chk("matrix refuses unmapped leg", [x["leg"] for x in ref], ["b"])
     chk("refusal names the reason", ref[0]["reason"], "unmapped_timeframe:3h")
     chk("entry carries interval", inc[0]["fetch_interval"], "60")
+    # UPDATED 2026-08-24 with `feed_source`. This pin is what forced the change
+    # to be deliberate — the workflow consumes these keys by name, so a silent
+    # schema drift here is a matrix the sweep cannot read.
     chk("entry key set", sorted(inc[0]),
-        ["family", "fetch_interval", "leg", "symbol", "tf"])
+        ["family", "feed_source", "fetch_interval", "leg", "symbol", "tf"])
     chk("empty in -> empty out", build_matrix([]), ([], []))
+
+    # --- per-leg feed source (BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX)
+    chk("crypto routes to binance_vision", resolve_feed_source("BTCUSDT", "60"),
+        "binance_vision")
+    chk("a mapped ETF routes to dukascopy", resolve_feed_source("SPY", "D"),
+        "dukascopy")
+    chk("a mapped PROXY still routes (MES -> index CFD)",
+        resolve_feed_source("MES", "D"), "dukascopy")
+    # The three refusals stay APART from each other and from a successful route.
+    raises("a REFUSED symbol has no feed (QLD, daily leverage reset)",
+           lambda: resolve_feed_source("QLD", "D"), NoFeedSource)
+    raises("an UNADJUDICATED symbol has no feed (NVDA)",
+           lambda: resolve_feed_source("NVDA", "D"), NoFeedSource)
+    raises("an interval dukascopy cannot serve is refused, not coerced (2h)",
+           lambda: resolve_feed_source("SPY", "120"), NoFeedSource)
+    # THE LOAD-BEARING ONE: the planner's servable-interval set must agree with
+    # the fetcher's own map, or the planner schedules legs the fetcher refuses.
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location(
+        "_fbc", str(REPO / "scripts" / "ops" / "fetch_backtest_candles.py"))
+    _fbc = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_fbc)
+    chk("planner's dukascopy intervals == the fetcher's own map",
+        sorted(_DK_SERVABLE_INTERVALS), sorted(_fbc._BYBIT_TO_DK_TIMEFRAME))
+    # A crypto symbol must NEVER reach the CFD venue: that would substitute a
+    # different instrument for the one the strategy actually trades.
+    chk("no crypto symbol can route to dukascopy",
+        [resolve_feed_source(s_, "60") for s_ in ("BTCUSDT", "ETHUSDT", "SOLUSDT")],
+        ["binance_vision"] * 3)
 
     # The census must name the reasons, not just count.
     line = census(inc, [{"reason": "data_missing:SPY"}], ref)
