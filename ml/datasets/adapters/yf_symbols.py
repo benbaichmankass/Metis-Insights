@@ -89,6 +89,59 @@ _DEFAULT_TICKER_MAP: Mapping[str, str] = {
     # (2026-08-25). Mapping it makes it MEASURABLE, which is the point; it is
     # not an endorsement, and liquidity is a gate the backtest must apply.
     **{t: t for t in ("PSQ", "SH", "TBF", "TBX")},
+    # --- AFFORDABILITY CANDIDATES: measurable, NOT declared tradeable --------
+    # Added 2026-08-25, operator-directed. The roster's four unreachable legs
+    # (SPY/QQQ/GLD/IWM) are CASH-bound on a $200 whole-share account, and the
+    # standing answer in the record was "Nasdaq-100 has no sub-$100 ETF; the
+    # QQQ cell stays unaffordable until the account is funded higher"
+    # (S-PROXY-EQUITIES-ALPACA-LIVE-2026-07-07.md).
+    #
+    # ⚠️ THAT IS PROSE, NOT A MEASUREMENT, AND IT IS BEING TESTED RATHER THAN
+    # QUOTED. RULE ONE: read the field, not the comment about it. It was
+    # written 7 weeks earlier, against a ~$150 account, by a session solving a
+    # different problem — and a session repeated it this morning as if it were
+    # a measured fact. These are among the most heavily traded exposures in the
+    # world; that each is reachable by exactly one ticker is a claim with no
+    # denominator behind it. Every name below exists to give it one.
+    #
+    # ⚠️ A PROXY DOES NOT HAVE TO BE A 100% INDEX MATCH (operator directive,
+    # 2026-08-25). SCHA was held off alpaca_live partly for "a looser index
+    # match than the others" — but a loose match that SIZES beats a perfect
+    # match that cannot. These are markers for what an account this size can
+    # actually hold; the strategy params are expected to need re-tuning onto
+    # whichever ones clear, exactly as SPLG/IAUM were.
+    #
+    # ⚠️ MEMBERSHIP HERE IS NOT A DECLARATION OF TRADEABILITY — the same rule
+    # that governs SH/PSQ/TBF/TBX above. None of these appear in
+    # config/instruments.yaml, nothing routes to them, no strategy names them.
+    # They are here so the affordability probe can MEASURE them. Declaring any
+    # of them is Tier-3 and happens only on evidence.
+    **{t: t for t in (
+        # S&P 500 / US large cap  (roster: SPY $745 unreachable, SPLG unmeasured)
+        "VOO", "IVV", "SPTM",
+        # Nasdaq-100 / broad tech (roster: QQQ $689 unreachable; QLD/TQQQ are
+        # LEVERAGED and were excluded on P(breach), PB-20260630-002)
+        "QQQM", "ONEQ", "QQQJ", "XLK", "VGT", "FTEC", "IYW", "IGM", "QTEC", "SMH",
+        # Small cap / Russell 2000 (roster: IWM $303 unreachable; SCHA is
+        # declared + paper-only on PERFORMANCE grounds, not affordability)
+        "VTWO", "IJR", "VB", "SCHX",
+        # Gold (roster: GLD $372 unreachable; IAUM reachable)
+        "GLDM", "IAU", "SGOL", "BAR", "AAAU", "OUNZ",
+        # Silver (roster: SLV reachable)
+        "SIVR",
+        # Energy / oil (roster: USO reachable)
+        "XLE", "XOP", "BNO", "USL", "VDE", "IEO", "OIH",
+        # Treasuries (roster: TLT + IEF both reachable)
+        "SHY", "IEI", "TLH", "SPTL", "VGLT", "GOVT", "BND", "SCHO", "SCHR",
+        # Gold miners (roster: GDX reachable)
+        "GDXJ", "RING", "SGDM", "GOAU",
+        # -1x INVERSE, the short-proxy side for a long-only account. Deliberately
+        # -1x ONLY: -2x/-3x compound path-dependence on multi-day holds far worse
+        # than the -1x decay SH/PSQ already carry, and this account's legs hold
+        # for days. RWM is the IWM short side, DOG the Dow, SEF financials,
+        # DDG energy, DGZ gold, EUM emerging markets.
+        "RWM", "DOG", "SEF", "DDG", "DGZ", "EUM",
+    )},
 }
 
 # yfinance's intraday history caps, which BOUND what this adapter can serve.

@@ -160,6 +160,66 @@ def test_the_inverse_proxies_are_not_yet_tradeable(sym):
             )
 
 
+# The 2026-08-25 affordability candidates (map size 24 -> 74). Same contract as
+# _INVERSE_PROXIES above and asserted the same way: fetchable so the probe can
+# MEASURE them, declared nowhere. They exist because the standing answer in the
+# record — "Nasdaq-100 has no sub-$100 ETF" — is PROSE, and RULE ONE says test
+# the field rather than quote the comment.
+#
+# ⚠️ This list is asserted against the map, so it cannot silently drift out of
+# sync with it: a candidate dropped from the map fails
+# `test_the_affordability_candidates_resolve_to_themselves` rather than quietly
+# stopping being covered by the not-tradeable check.
+_AFFORDABILITY_CANDIDATES = (
+    "VOO", "IVV", "SPTM",
+    "QQQM", "ONEQ", "QQQJ", "XLK", "VGT", "FTEC", "IYW", "IGM", "QTEC", "SMH",
+    "VTWO", "IJR", "VB", "SCHX",
+    "GLDM", "IAU", "SGOL", "BAR", "AAAU", "OUNZ",
+    "SIVR",
+    "XLE", "XOP", "BNO", "USL", "VDE", "IEO", "OIH",
+    "SHY", "IEI", "TLH", "SPTL", "VGLT", "GOVT", "BND", "SCHO", "SCHR",
+    "GDXJ", "RING", "SGDM", "GOAU",
+    "RWM", "DOG", "SEF", "DDG", "DGZ", "EUM",
+)
+
+
+@pytest.mark.parametrize("sym", _AFFORDABILITY_CANDIDATES)
+def test_the_affordability_candidates_resolve_to_themselves(sym):
+    from ml.datasets.adapters.yfinance_offvm import _DEFAULT_TICKER_MAP
+    assert _DEFAULT_TICKER_MAP[sym] == sym
+
+
+@pytest.mark.parametrize("sym", _AFFORDABILITY_CANDIDATES)
+def test_the_affordability_candidates_are_not_yet_tradeable(sym):
+    """Measurable != declared. Promoting any of these is Tier-3, on evidence.
+
+    Written to go RED when that wiring lands — that is the signal to update it
+    deliberately in the same PR, not a reason to loosen it.
+    """
+    instruments = (_ROOT / "config" / "instruments.yaml").read_text()
+    strategies = (_ROOT / "config" / "strategies.yaml").read_text()
+    for name, text in (("instruments.yaml", instruments), ("strategies.yaml", strategies)):
+        for line in text.splitlines():
+            bare = line.split("#", 1)[0]
+            assert not _names_symbol(bare, sym), (
+                f"{sym} now appears in config/{name} — if that is the deliberate "
+                f"Tier-3 wiring, update this test in the same PR; if it is not, "
+                f"a candidate instrument has been declared by accident"
+            )
+
+
+def test_no_affordability_candidate_collides_with_a_roster_symbol():
+    """A candidate that shadows a live roster symbol would silently re-point it."""
+    from ml.datasets.adapters.yfinance_offvm import _DEFAULT_TICKER_MAP
+    roster = {"SPY", "QQQ", "GLD", "IWM", "TLT", "IEF", "SLV", "USO", "GDX",
+              "SPLG", "IAUM", "SCHA", "QLD", "TQQQ", "SH", "PSQ", "TBF", "TBX"}
+    collisions = sorted(set(_AFFORDABILITY_CANDIDATES) & roster)
+    assert not collisions, f"candidate list shadows roster symbols: {collisions}"
+    # and every candidate really is in the map (catches a typo in either list)
+    missing = sorted(s for s in _AFFORDABILITY_CANDIDATES if s not in _DEFAULT_TICKER_MAP)
+    assert not missing, f"candidates absent from the ticker map: {missing}"
+
+
 def _names_symbol(line: str, sym: str) -> bool:
     """True when `line` uses `sym` as a symbol token rather than inside a word."""
     import re

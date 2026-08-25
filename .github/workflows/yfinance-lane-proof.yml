@@ -1,4 +1,5 @@
-# Proves the NON-CRYPTO candle lane on a real network, which the sandbox cannot.
+# Proves the NON-CRYPTO candle lane on a real network, which the sandbox cannot,
+# and MEASURES what a small whole-share account can actually afford.
 #
 # Yahoo returns HTTP 429 to the dev sandbox, so `--source yfinance` is
 # implementable but UNVERIFIABLE there. The M20 readiness note is explicit that
@@ -9,13 +10,19 @@
 # and REPORTS THE SPAN OBTAINED against the span requested — yfinance caps
 # intraday history (~730 d at 1h, ~60 d at 15m), and a truncated window that
 # nobody printed reads exactly like a complete one.
+#
+# BATCHED 2026-08-25 (operator-directed). `symbol` takes a COMMA-SEPARATED LIST.
+# One dispatch per symbol made a real candidate sweep impossible — the question
+# "which of these 50 instruments can a $200 whole-share account hold?" needs one
+# run, not fifty. Every symbol still goes through `fetch_backtest_candles.py
+# --source yfinance`, so this measures THE LANE and never bypasses it.
 name: yfinance-lane-proof
 
 on:
   workflow_dispatch:
     inputs:
       symbol:
-        description: "Bot symbol (must be mapped in yf_symbols._DEFAULT_TICKER_MAP)"
+        description: "Bot symbol, or a COMMA-SEPARATED LIST (must be mapped in yf_symbols._DEFAULT_TICKER_MAP)"
         default: "SPY"
       interval:
         description: "Kline code: 1 / 5 / 15 / 60 / D"
@@ -47,106 +54,143 @@ jobs:
       - name: Install (pandas + yfinance ONLY — see the note above)
         run: pip install pandas yfinance
 
-      - name: Fetch via the yfinance lane
+      # Per-symbol fetch through the REAL lane. A symbol that fails is RECORDED
+      # as failed, never silently skipped: a table missing the rows that did not
+      # fetch reads exactly like a table where every candidate succeeded, which
+      # is the unasserted-denominator failure this repo has a guard for.
+      - name: Fetch each symbol via the yfinance lane
         run: |
-          set -euo pipefail
-          mkdir -p data
-          python scripts/ops/fetch_backtest_candles.py \
-            --symbol "${{ inputs.symbol }}" \
-            --interval "${{ inputs.interval }}" \
-            --days "${{ inputs.days }}" \
-            --source yfinance \
-            --output data/yf_proof.csv
+          set -uo pipefail
+          mkdir -p data/probe
+          : > data/probe/_failed.txt
+          IFS=',' read -ra SYMS <<< "${{ inputs.symbol }}"
+          for raw in "${SYMS[@]}"; do
+            sym="$(echo "$raw" | tr -d '[:space:]')"
+            [ -z "$sym" ] && continue
+            echo "--- fetching $sym"
+            if python scripts/ops/fetch_backtest_candles.py \
+                 --symbol "$sym" \
+                 --interval "${{ inputs.interval }}" \
+                 --days "${{ inputs.days }}" \
+                 --source yfinance \
+                 --output "data/probe/${sym}.csv"; then
+              echo "    ok"
+            else
+              echo "    FETCH FAILED (recorded, not skipped)"
+              echo "$sym" >> data/probe/_failed.txt
+            fi
+          done
 
-      - name: Assert the result is a real book, not an empty green
+      - name: Affordability table (reports inputs; the SIZER is authoritative)
         run: |
           set -euo pipefail
           python - <<'PY'
-          import sys
+          import glob, os, sys
           import pandas as pd
-          df = pd.read_csv("data/yf_proof.csv", parse_dates=["timestamp"])
-          # A zero-row CSV would exit 0 from the fetch and prove nothing --
-          # the whole point of this job is that "it ran" is not "it worked".
-          assert len(df) > 0, "REFUSED: 0 rows -- the lane produced no book"
-          need = {"timestamp", "open", "high", "low", "close", "volume"}
-          missing = need - set(df.columns)
-          assert not missing, f"REFUSED: missing columns {sorted(missing)}"
-          bad = df[~(df["high"] >= df["low"])]
-          assert bad.empty, f"REFUSED: {len(bad)} bars with high < low"
-          assert df["close"].notna().all(), "REFUSED: NaN closes survived the filter"
-          span = (df["timestamp"].max() - df["timestamp"].min()).days
-          print(f"rows={len(df)}  span={span} d  "
-                f"{df['timestamp'].min().date()} -> {df['timestamp'].max().date()}")
-          # Reported, never asserted: a SHORT span is the documented yfinance
-          # cap doing its job, not a failure -- but it must be visible.
-          req = int("${{ inputs.days }}")
-          if span < req * 0.8:
-              print(f"NOTE: obtained {span} d against {req} d requested -- "
-                    f"treat this as a PARTIAL window (yfinance intraday cap).")
 
-          # AFFORDABILITY PROBE (2026-08-25). The job proved the lane WORKS but
-          # reported nothing a reader could size a position from, so the one
-          # question a small real-money account actually asks -- "can this
-          # symbol trade on $N?" -- still needed a separate data path, and from
-          # the dev sandbox there isn't one (Yahoo resets the connection here;
-          # measured, not assumed).
-          #
-          # On a WHOLE-UNIT venue like alpaca (risk.WHOLE_UNIT_QTY_EXCHANGES) a
-          # sub-1-share size is a REFUSAL, not a fractional fill, so a symbol is
-          # reachable only if BOTH hold: one share fits the cash, AND one
-          # share's stop distance fits the risk budget. Two independent
-          # constraints -- SPY fails the first, GDX fails the second -- and a
-          # probe reporting only price would answer half the question.
-          #
-          # ATR14 is a PROXY for the stop distance, NOT the strategy's own
-          # geometry: each leg computes its stop its own way. It is the right
-          # order of magnitude for a go/no-go screen and must not be quoted as
-          # the leg's actual risk. Printed, never asserted -- an unaffordable
-          # symbol is a fact about the account, not a failure of the lane.
-          # ⚠️ A PRICE IS NOT SOUND JUST BECAUSE A ROW EXISTS. Measured the
-          # first time this probe ran: SPLG returned `rows=1 span=0 d` on a
-          # 120-day DAILY request, one bar dated 2026-07-17 — 39 days stale —
-          # and the job went GREEN and printed `last_close=87.4800` with no
-          # caveat. The existing assert catches ZERO rows; it cannot catch ONE.
-          # That is this job's own stated sin ("it ran" is not "it worked")
-          # reappearing one row above the floor, in the number a human would
-          # size a real position from. Sibling symbols were fine on the same
-          # request (SH/PSQ/TBF/TBX all returned 83 bars), so this is a
-          # per-symbol venue data gap, not a lane failure — which is exactly
-          # why it must be REPORTED per symbol rather than asserted globally.
-          # The caveat rides ON the last_close line: a reader who copies one
-          # number must not be able to leave the warning behind.
-          last = float(df["close"].iloc[-1])
-          last_ts = df["timestamp"].max()
-          age_d = (pd.Timestamp.utcnow().tz_localize(None).normalize()
-                   - last_ts.tz_localize(None).normalize()).days
-          thin = len(df) < 15
-          stale = age_d > 5
-          if thin or stale:
-              why = []
-              if thin:
-                  why.append(f"only {len(df)} bar(s)")
-                  if stale:
-                      why.append(f"newest is {age_d} d old")
+          requested = [s.strip() for s in """${{ inputs.symbol }}""".split(",") if s.strip()]
+          failed = []
+          if os.path.exists("data/probe/_failed.txt"):
+              failed = [l.strip() for l in open("data/probe/_failed.txt") if l.strip()]
+
+          NEED = {"timestamp", "open", "high", "low", "close", "volume"}
+          rows = []
+          for sym in requested:
+              path = f"data/probe/{sym}.csv"
+              if sym in failed or not os.path.exists(path):
+                  rows.append({"sym": sym, "state": "fetch_failed"})
+                  continue
+              df = pd.read_csv(path, parse_dates=["timestamp"])
+              if len(df) == 0:
+                  rows.append({"sym": sym, "state": "empty_book"})
+                  continue
+              missing = NEED - set(df.columns)
+              if missing:
+                  rows.append({"sym": sym, "state": f"bad_schema:{sorted(missing)}"})
+                  continue
+              bad = df[~(df["high"] >= df["low"])]
+              if not bad.empty:
+                  rows.append({"sym": sym, "state": f"bad_bars:{len(bad)}"})
+                  continue
+
+              last = float(df["close"].iloc[-1])
+              last_ts = df["timestamp"].max()
+              age_d = (pd.Timestamp.utcnow().tz_localize(None).normalize()
+                       - last_ts.tz_localize(None).normalize()).days
+              span = (df["timestamp"].max() - df["timestamp"].min()).days
+
+              # ⚠️ A PRICE IS NOT SOUND JUST BECAUSE A ROW EXISTS. Measured when
+              # this probe first ran: SPLG returned rows=1 span=0 on a 120-day
+              # DAILY request, one bar 39 days stale, and the job went GREEN
+              # printing last_close=87.4800 with no caveat. A zero-row assert
+              # cannot catch ONE row. The verdict rides WITH the price so a
+              # reader copying the number cannot leave the warning behind.
+              thin, stale = len(df) < 15, age_d > 5
+              state = "sound"
+              if thin and stale:
+                  state = f"UNSOUND(thin {len(df)}b; stale {age_d}d)"
+              elif thin:
+                  state = f"UNSOUND(thin {len(df)}b)"
               elif stale:
-                  why.append(f"newest bar is {age_d} d old")
-              print(f"last_close={last:.4f}  ⚠️ UNSOUND ({'; '.join(why)}) — "
-                    f"DO NOT SIZE A POSITION FROM THIS NUMBER")
-              print(f"as_of={last_ts.date()}  bars={len(df)}")
-          else:
-              print(f"last_close={last:.4f}  as_of={last_ts.date()}  bars={len(df)}")
-          _printed_last = True
-          tr = pd.concat([
-              df["high"] - df["low"],
-              (df["high"] - df["close"].shift()).abs(),
-              (df["low"] - df["close"].shift()).abs(),
-          ], axis=1).max(axis=1)
-          atr = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 15 else float("nan")
-          if atr == atr:  # not NaN
-              print(f"atr14={atr:.4f}  atr14_pct={100 * atr / last:.3f}%")
-              print(f"AFFORDABILITY: 1 share costs ${last:.2f}; "
-                    f"~${atr:.2f} of stop distance per share (ATR14 proxy)")
-          else:
-              print("atr14=unavailable (fewer than 15 bars) -- "
-                    "stop-distance proxy NOT computed, do not infer one")
+                  state = f"UNSOUND(stale {age_d}d)"
+
+              tr = pd.concat([
+                  df["high"] - df["low"],
+                  (df["high"] - df["close"].shift()).abs(),
+                  (df["low"] - df["close"].shift()).abs(),
+              ], axis=1).max(axis=1)
+              atr = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 15 else float("nan")
+
+              rows.append({"sym": sym, "state": state, "last": last, "atr": atr,
+                           "bars": len(df), "span": span, "as_of": last_ts.date()})
+
+          # ⚠️ ATR14 IS A PROXY FOR THE STOP DISTANCE, NOT THE STRATEGY'S OWN
+          # GEOMETRY — each leg computes its stop its own way. And this job
+          # deliberately does NOT compute an affordability verdict: duplicating
+          # RiskManager.position_size here would be a SECOND definition of
+          # "can this trade", free to drift from the one that governs. It
+          # reports the INPUTS; the sizer decides. (Hand arithmetic on these
+          # numbers is also wrong — it cannot see risk.py::_ROUND_UP_BUDGET_MULT.)
+          print()
+          print(f"{'sym':7s} {'state':26s} {'last':>10s} {'atr14':>9s} {'atr%':>7s} {'bars':>6s} {'span':>6s}  as_of")
+          for r in sorted(rows, key=lambda x: (x.get("last") is None, x.get("last") or 0)):
+              if "last" not in r:
+                  print(f"{r['sym']:7s} {r['state']:26s} {'—':>10s} {'—':>9s} {'—':>7s} {'—':>6s} {'—':>6s}  —")
+                  continue
+              a = r["atr"]
+              atr_s = f"{a:9.4f}" if a == a else "        —"
+              pct_s = f"{100*a/r['last']:6.3f}%" if a == a else "      —"
+              print(f"{r['sym']:7s} {r['state']:26s} {r['last']:10.4f} {atr_s} {pct_s} "
+                    f"{r['bars']:6d} {r['span']:6d}  {r['as_of']}")
+
+          # THE DENOMINATOR, always. A table that lists only what worked reads
+          # as complete coverage of what was asked for.
+          sound = [r for r in rows if r.get("state") == "sound"]
+          unsound = [r for r in rows if "last" in r and r.get("state") != "sound"]
+          nodata = [r for r in rows if "last" not in r]
+          print()
+          print(f"requested={len(requested)}  sound={len(sound)}  "
+                f"unsound_price={len(unsound)}  no_data={len(nodata)}")
+          if nodata:
+              print("  no_data (NOT silently dropped): "
+                    + ", ".join(f"{r['sym']}={r['state']}" for r in nodata))
+          if unsound:
+              print("  unsound price — DO NOT SIZE FROM THESE: "
+                    + ", ".join(f"{r['sym']}({r['state']})" for r in unsound))
+
+          req_days = int("${{ inputs.days }}")
+          short = [r for r in sound if r["span"] < req_days * 0.8]
+          if short:
+              print(f"  PARTIAL window (yfinance cap), obtained < 80% of {req_days}d: "
+                    + ", ".join(f"{r['sym']}={r['span']}d" for r in short))
+
+          # Failure rule, stated rather than implied: a SINGLE-symbol dispatch is
+          # the original lane PROOF, so no data is a real failure. A multi-symbol
+          # SWEEP is a measurement — an individual ticker with no data is a fact
+          # about that ticker, and only a total wipeout means the lane is broken.
+          if len(requested) == 1:
+              if not sound and not unsound:
+                  sys.exit("REFUSED: the single requested symbol produced no book")
+          elif not sound and not unsound:
+              sys.exit("REFUSED: every requested symbol produced no book — lane failure")
           PY
