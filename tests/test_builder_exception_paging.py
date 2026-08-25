@@ -1,16 +1,21 @@
 """One persisting builder fault must not bury every other ERROR.
 
-MEASURED 2026-08-25, live ERROR+ feed (`/api/bot/logs?level=error&limit=400`,
-157 rows returned): **131 of them — 83.4% of the entire operator
-ERROR+/CRITICAL feed — were one leg**, `ict_scalp_mgc_15m: no candle data for
-symbol=MGC`, repeating. Sharing that feed were 15 Bybit venue rejections, 2
-over-cover CRITICALs and 8 target-naked pages, all of them buried.
+MEASURED 2026-08-25, live ERROR+ feed. STATE THE POPULATION, and note that a
+first reading of this got it wrong in the more alarming direction: a
+`limit=400` call returned only 157 rows, over which the condition is 131 =
+83.4%. The `limit=1000` call returns **401 rows spanning
+2026-08-20T08:16Z -> 2026-08-25T20:06Z, of which 240 (59.9%) are one leg**
+repeating `ict_scalp_mgc_15m: no candle data for symbol=MGC`. Both are right
+for what they cover; 83.4% is not the feed-wide number.
 
-Same shape and a worse ratio than the `ib_target_naked` flood
-(202/376 = 53.7%, BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART).
+Comparable to the `ib_target_naked` flood (202/376 = 53.7%,
+BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART).
 
-STATE THE POPULATION: `mgc_trend_1h` trades the SAME symbol and is unaffected,
-so this is not a gateway blackout for MGC — it is one leg's timeframe. That is
+THE ATTRIBUTION IS THE LOAD-BEARING HALF and does not move with the
+population: 240 of 240 no-candle rows are `ict_scalp_mgc_15m`, and ZERO ERROR
+rows over the whole 5.5 days mention `mgc_trend_1h` — which trades the SAME
+symbol at the SAME cadence (193 vs 189 evals over an aligned 6h window). A
+gateway blackout blinding every IB leg would hit both; it hits one. That is
 why the latch key is per STRATEGY, not per symbol or account.
 """
 from __future__ import annotations

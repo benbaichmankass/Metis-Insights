@@ -81,19 +81,23 @@ _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
 # every tick for the same reason is ONE condition, and paging it per tick is
 # the desensitized-alarm P1 this repo treats as its own bug.
 #
-# MEASURED 2026-08-25 on the live ERROR+ feed (`/api/bot/logs?level=error`,
-# 157 rows): **131 of them — 83.4% of the entire operator ERROR+/CRITICAL
-# feed — were a single leg**, `ict_scalp_mgc_15m: no candle data for
-# symbol=MGC`, repeating. That is the same shape and a worse ratio than
-# `ib_target_naked` at 53.7% (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART
-# -- kept on one line so the id stays greppable), and it buried every other
-# ERROR on the account: 15 Bybit venue rejections, 2 over-cover CRITICALs and
-# 8 target-naked pages were all sharing a feed with 131 copies of one line.
+# MEASURED 2026-08-25 on the live ERROR+ feed. STATE THE POPULATION -- a first
+# reading of this quoted 83.4%, which is the figure over a TRUNCATED 157-row
+# read (`limit=400`), not the feed. Over the full `limit=1000` read: **401 rows
+# spanning 2026-08-20T08:16Z -> 2026-08-25T20:06Z, of which 240 (59.9%) are one
+# leg** repeating `ict_scalp_mgc_15m: no candle data for symbol=MGC`. Comparable
+# to `ib_target_naked` at 53.7%
+# (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART -- kept on one line
+# so the id stays greppable). It buried the rest of the feed: Bybit venue
+# rejections, over-cover CRITICALs and target-naked pages all shared it.
 #
-# State the population, and the exclusion it implies: `mgc_trend_1h` trades the
-# SAME symbol and is unaffected, so this is NOT a gateway blackout for MGC. It
-# is one leg's timeframe, which is why the key is per STRATEGY and not per
-# symbol or per account.
+# THE ATTRIBUTION IS THE LOAD-BEARING HALF and it does not move with the
+# population: **240 of 240** no-candle rows are `ict_scalp_mgc_15m`, and ZERO
+# ERROR rows over the whole 5.5 days mention `mgc_trend_1h` -- which trades the
+# SAME symbol at the SAME cadence (193 vs 189 evals over an aligned 6h window,
+# so the denominators are measured rather than assumed). A gateway blackout
+# blinding every IB leg would have to hit both; it hits one. That is why the
+# key is per STRATEGY and not per symbol or per account.
 #
 # THE REPEAT IS DOWNGRADED, NOT SUPPRESSED. `Level.WARN` still persists to
 # `outcomes.jsonl`, still reaches `/api/bot/logs` and still renders on the
