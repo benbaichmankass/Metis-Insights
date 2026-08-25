@@ -291,6 +291,21 @@ _PACKAGE_LEG_COVERAGE_STATE = (
 )
 _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 
+# CADENCE + ALERT-LATCH STATE (2026-08-25,
+# BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE).
+# Every one of these decides whether an operator gets pinged, or how long a
+# safety input is allowed to age, and NONE of them was readable. The failure is
+# always the same: "the mechanism stopped firing" and "the mechanism fired and
+# the condition simply persists" are indistinguishable from outside, so a
+# broken cadence looks exactly like a quiet one.
+_DAILY_CAP_ALERT_STATE = runtime_logs_dir() / "daily_cap_alert_state.json"
+_EXIT_LOOP_HEALTH_ALERT_STATE = (
+    runtime_logs_dir() / "exit_loop_health_alert_state.json"
+)
+_PROP_MONITOR_PULSE_STATE = runtime_logs_dir() / "prop_monitor_pulse.json"
+_PROP_SL_TP_ALERT_STATE = runtime_logs_dir() / "prop_sl_tp_alert.json"
+_PROP_STATUS_REQUEST_STATE = runtime_logs_dir() / "prop_status_request.json"
+
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
     "status": _STATUS_JSON,
@@ -417,6 +432,31 @@ _LOG_FILES: dict[str, Path] = {
     # different fact from an interval of zero and is what makes the process
     # boundary visible instead of being mistaken for a real interval.
     "exit_interval_soak": _EXIT_INTERVAL_SOAK_LOG,
+    # The alert LATCH for the above, distinct from the state it grades. A
+    # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
+    # global latch would go silent after the first breach ever) -- which is
+    # only checkable if the latch is readable.
+    "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
+    # Daily-cap alert latch.
+    "daily_cap_alert_state": _DAILY_CAP_ALERT_STATE,
+    # PROP CADENCE STATE. The prop bridge is manual, so these three files are
+    # the only evidence that the bot is still doing its half of it:
+    #   prop_status_request -- when each account was last asked for a balance.
+    #     Read it beside /api/bot/prop/status: a `stale` freshness with a RECENT
+    #     ask means the operator has not answered (normal), and with a stale or
+    #     absent ask means the bot stopped asking (a defect in the input to
+    #     prop_balance's sizing-freshness gate AND to the rule-distance panel).
+    #     Measured 2026-08-25, status was 47.4h old against a 24h threshold and
+    #     those two cases could not be told apart from any surface.
+    #   prop_sl_tp_alert -- which positions have been announced as having
+    #     crossed a bracket. This is a direct INPUT to prop_fills_staleness's
+    #     crossing detector, whose `unknown` state means precisely "no entry
+    #     here", so a reader grading that detector cannot see its denominator.
+    #   prop_monitor_pulse -- when the consolidated monitoring heartbeat last
+    #     went out.
+    "prop_status_request": _PROP_STATUS_REQUEST_STATE,
+    "prop_sl_tp_alert": _PROP_SL_TP_ALERT_STATE,
+    "prop_monitor_pulse": _PROP_MONITOR_PULSE_STATE,
     # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
     # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
     # which accounts / whether the trainer are currently latched down —

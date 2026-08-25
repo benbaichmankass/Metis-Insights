@@ -145,3 +145,47 @@ def test_latch_does_not_use_monotonic(latched):
     assert "time.monotonic()" not in gate
     assert "time.time()" in gate
     assert "time.monotonic()" not in _stripped(om._emit_target_naked_alert)
+
+
+# ---------------------------------------------------------------------------
+# Criterion 4 of BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION:
+# this latch shared the (account, symbol) shape the over-cover page was fixed
+# for. It now carries a severity — the UNCOVERED quantity — so coverage getting
+# worse pages, while the far more common case of it persisting or improving
+# stays silent. Target coverage moves in BOTH directions, which is why the
+# shared primitive is one-directional rather than keying on the number.
+# ---------------------------------------------------------------------------
+
+def _emit_cov(target_qty, size=95.0):
+    return om._emit_target_naked_alert(
+        account_id="ib_paper", symbol="MGC", size=size, target_qty=target_qty,
+        stop_qty=size, declared_tp=4393.02, trade_id=4773,
+    )
+
+
+def test_losing_more_target_coverage_pages_inside_the_cooldown(latched):
+    """95 long with 40 of target is bad; the same position with NONE is worse,
+    and a reader who only ever saw the first page would not know."""
+    assert _emit_cov(40.0) is True, "first page must fire"
+    assert _emit_cov(40.0) is False, "unchanged coverage stays silent"
+    assert _emit_cov(0.0) is True, "coverage DROPPING to zero is a new fact"
+
+
+def test_regaining_target_coverage_does_not_page(latched):
+    """A position going from no target to a partial one is a REPAIR. Paging
+    CRITICAL on an improvement is the desensitized-alarm P1 this latch exists
+    to prevent, and is why severity is one-directional."""
+    assert _emit_cov(0.0) is True
+    assert _emit_cov(40.0) is False, "an improvement must not page"
+    assert _emit_cov(0.0) is False, "back to the already-latched worst: silent"
+
+
+def test_ungradeable_coverage_falls_back_to_the_plain_latch(latched):
+    """A non-numeric qty must not crash the page, and must not invent a
+    severity — it degrades to the pre-existing one-page-per-window behaviour."""
+    assert om._emit_target_naked_alert(
+        account_id="ib_paper", symbol="MGC", size=95.0, target_qty=None,
+        stop_qty=95.0, declared_tp=4393.02, trade_id=4773) is True
+    assert om._emit_target_naked_alert(
+        account_id="ib_paper", symbol="MGC", size=95.0, target_qty=None,
+        stop_qty=95.0, declared_tp=4393.02, trade_id=4773) is False

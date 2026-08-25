@@ -51,15 +51,29 @@ def _seed(path, telemetry_ddl):
     conn.execute(telemetry_ddl)
     conn.execute(_TRADES_DDL)
     # 4585 open · 4697 CLOSED · 9999 has no trade row · one with no trade_id.
+    #
+    # `peak_state` IS SEEDED because production always writes it and the reader
+    # now branches on it (BL-20260820-TELEMETRY-THIN-WINDOW-SENTINEL-LEAKS-INTO-
+    # PEAK-PCT-OF-CAP). Measured on the live table 2026-08-25 over 60 rows: 48
+    # `measured` + 12 `thin_window`, ZERO nulls — so a fixture omitting the
+    # column described a row production does not produce, and any peak
+    # assertion built on it was testing an unreachable state. The sentinel case gets its
+    # OWN fixture below rather than a row here: adding one to this shared seed
+    # would force edits to two unrelated count assertions, and rewriting another
+    # test's population to accommodate your own new row is how a real assertion
+    # gets quietly loosened.
     conn.executemany(
         "INSERT INTO position_telemetry (order_package_id, trade_id, strategy, "
-        "peak_r, cap_r, levers, updated_at) VALUES (?,?,?,?,?,?,?)",
+        "peak_r, peak_state, cap_r, levers, updated_at) VALUES (?,?,?,?,?,?,?,?)",
         [
-            ("pkg-open", "4585", "ada_pullback_2h", 2.874, 3.9205, "{}", "2026-08-17T07:00:00Z"),
-            ("pkg-closed", "4697", "trend_donchian_sol_4h", 0.1822, 5.8294,
+            ("pkg-open", "4585", "ada_pullback_2h", 2.874, "measured", 3.9205,
+             "{}", "2026-08-17T07:00:00Z"),
+            ("pkg-closed", "4697", "trend_donchian_sol_4h", 0.1822, "measured", 5.8294,
              '{"trail_decay_arm_r": 5.57}', "2026-08-17T04:10:00Z"),
-            ("pkg-ghost", "9999", "ghost_leg", 1.0, 2.0, "{}", "2026-08-17T03:00:00Z"),
-            ("pkg-nofill", None, "unfilled_leg", None, None, "{}", "2026-08-17T02:00:00Z"),
+            ("pkg-ghost", "9999", "ghost_leg", 1.0, "measured", 2.0, "{}",
+             "2026-08-17T03:00:00Z"),
+            ("pkg-nofill", None, "unfilled_leg", None, None, None, "{}",
+             "2026-08-17T02:00:00Z"),
         ],
     )
     conn.executemany("INSERT INTO trades (id, status) VALUES (?,?)",
@@ -387,3 +401,100 @@ def test_migration_adds_the_columns_to_a_PRE_EXISTING_table(tmp_path):
     conn.close()
     assert {"terminal_state", "terminal_at"} <= after
     assert kept == ("42", None)  # NULL = not stamped, distinct from 'final'
+
+
+# ---------------------------------------------------------------------------
+# The -1e18 STORAGE SENTINEL must never reach a consumer as a measurement.
+#
+# BL-20260818-TELEMETRY-PEAK-R-STORES-COALESCE-SENTINEL (producer) and
+# BL-20260820-TELEMETRY-THIN-WINDOW-SENTINEL-LEAKS-INTO-PEAK-PCT-OF-CAP
+# (reader) are one defect at two layers. MEASURED on the live table
+# 2026-08-25 over 60 rows: peak_state is 48 `measured` + 12 `thin_window` with
+# ZERO nulls, and every one of the 11 non-measured rows carrying a peak held
+# EXACTLY -1e+18 — served as peak_pct_of_cap values down to -8.2e+19.
+#
+# The stakes are the Check-A invariant: a NEGATIVE sentinel is below 100, so a
+# row whose peak was never measured was counted as WITHIN CAP — an unmeasured
+# row reading as a passing one, on the invariant M31 P4 judges the fleet by.
+# ---------------------------------------------------------------------------
+
+def _seed_sentinel(path):
+    """One measured row and one thin_window row carrying the live sentinel."""
+    conn = sqlite3.connect(path)
+    conn.execute(_TELEMETRY_DDL)
+    conn.execute(_TRADES_DDL)
+    conn.executemany(
+        "INSERT INTO position_telemetry (order_package_id, trade_id, strategy, "
+        "peak_r, peak_state, cap_r, levers, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+        [
+            # The POSITIVE CONTROL. Without it a reader that nulled everything
+            # would pass, and the fix would be indistinguishable from breaking
+            # the field outright.
+            ("pkg-measured", "4585", "ada_pullback_2h", 2.874, "measured",
+             3.9205, "{}", "2026-08-17T07:00:00Z"),
+            # The defect, verbatim from the live rows.
+            ("pkg-thin", "4697", "thin_leg", -1e18, "thin_window", 3.9205,
+             "{}", "2026-08-17T06:00:00Z"),
+            # A peak ABOVE its cap, so `peak_above_cap` has something real to
+            # count and the assertion is not trivially satisfied by zero.
+            ("pkg-over", "9999", "over_leg", 5.0, "measured", 2.0, "{}",
+             "2026-08-17T05:00:00Z"),
+        ],
+    )
+    conn.executemany("INSERT INTO trades (id, status) VALUES (?,?)",
+                     [(4585, "open"), (4697, "open")])
+    conn.commit()
+    conn.close()
+    return str(path)
+
+
+@pytest.fixture()
+def sentinel_db(tmp_path):
+    return _seed_sentinel(tmp_path / "sentinel.db")
+
+
+def test_a_thin_window_row_serves_null_for_both_peak_fields(sentinel_db):
+    """THE REGRESSION. Before this, peak_r came back as -1e+18 and
+    peak_pct_of_cap as -2.55e+19."""
+    rows = {r["order_package_id"]: r
+            for r in read_records(db_path=sentinel_db)["rows"]}
+    thin = rows["pkg-thin"]
+    assert thin["peak_state"] == "thin_window"
+    assert thin["peak_r"] is None, thin
+    assert thin["peak_pct_of_cap"] is None, thin
+
+
+def test_a_measured_row_still_serves_its_peak(sentinel_db):
+    """The positive control — the fix must not blank a real measurement."""
+    rows = {r["order_package_id"]: r
+            for r in read_records(db_path=sentinel_db)["rows"]}
+    m = rows["pkg-measured"]
+    assert m["peak_r"] == pytest.approx(2.874)
+    assert m["peak_pct_of_cap"] == pytest.approx(73.31, abs=0.02)
+
+
+def test_an_ungradeable_row_is_excluded_from_peak_above_cap_not_counted_clean(
+        sentinel_db):
+    """The inversion this fixes: a NEGATIVE sentinel is < 100, so the old count
+    scored a never-measured row as within-cap. It must be excluded from the
+    DENOMINATOR, not silently absorbed into the clean side of it."""
+    summary = read_records(db_path=sentinel_db)["summary"]
+    # pkg-over breaches; pkg-measured does not; pkg-thin is not gradeable.
+    assert summary["peak_above_cap"] == 1, summary
+    assert summary["peak_gradeable_rows"] == 2, summary
+
+
+def test_the_gate_is_keyed_on_the_state_not_on_a_magnitude(sentinel_db):
+    """A `|value| >= 1e17` threshold would be a SECOND definition of the
+    sentinel living apart from the first, and the two would drift. Proof that
+    the state is what decides: a thin_window row carrying an ORDINARY-LOOKING
+    peak is still refused."""
+    conn = sqlite3.connect(sentinel_db)
+    conn.execute("UPDATE position_telemetry SET peak_r = 1.5 "
+                 "WHERE order_package_id = 'pkg-thin'")
+    conn.commit()
+    conn.close()
+    rows = {r["order_package_id"]: r
+            for r in read_records(db_path=sentinel_db)["rows"]}
+    assert rows["pkg-thin"]["peak_r"] is None
+    assert rows["pkg-thin"]["peak_pct_of_cap"] is None
