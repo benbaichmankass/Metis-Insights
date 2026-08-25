@@ -146,6 +146,18 @@ same minute succeeds. The refusal is real; it is a boundary for a *session's
 credential*, not for a runner. The item stayed `defaulted_to_human` — but on
 measured grounds rather than the assumed ones.
 
+**A 47,008-line whole-file reformat of the backlog, caught reading my own diff
+— the same lapse `018aKyS3` recorded hours earlier, reproduced.** Updating one
+row with `json.dumps(indent=2, ensure_ascii=False)` rewrote every line of
+`health-review-backlog.json`, because that file is serialized at `indent=1`.
+Reverted and re-applied surgically: **9 insertions, 1 deletion**. Two notes for
+the next session, since being careful is evidently not sufficient — this is the
+second recurrence in a day: `scripts/ops/backlog_append.py` already carries a
+style-detection candidate list for exactly this, and it should be reached for
+rather than a hand-rolled `json.dump`; and the new register now pins its own
+serialization in its `_comment`, so the next editor is told rather than left to
+infer it.
+
 ## Risks and Follow-Ups
 
 - **The carry count under-reports and can never over-report.** A session that
