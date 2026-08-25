@@ -99,13 +99,13 @@ __all__ = [
 # not a tuning knob, which is why it is a module constant and not an env var.
 SENTINEL_R_FLOOR = 50.0
 
-# The live take-profit clamp. Mirrored from
-# src/units/strategies/{trend_donchian,htf_pullback_trend_2h}.py::_TP_SENTINEL_CAP_PCT
-# and from src/runtime/position_telemetry.py, which already mirrors it and
-# whose agreement is pinned by a test. Kept as a mirror rather than an import
-# because this module is deliberately dependency-free; the agreement is pinned
-# by a test here too.
-TP_VENUE_CAP_PCT = 0.099
+# The venue take-profit clamp -- ONE owner, imported rather than mirrored.
+# This module's dependency-free property is preserved in substance: the owner
+# imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
+# empty, so this costs no heavy dependency. Re-exported via __all__ below,
+# so every existing `from src.runtime.target_expectation import
+# TP_VENUE_CAP_PCT` caller keeps working unchanged.
+from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT  # noqa: E402,F401
 
 STATE_DECLARED = "declared"
 STATE_CLAMPED = "clamped"

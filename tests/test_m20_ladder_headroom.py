@@ -8,7 +8,6 @@ the live cap constant drifting away from the strategy source.
 """
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
@@ -118,14 +117,15 @@ class TestVerdictsAreNeverCollapsed:
 
 
 class TestConstantsDoNotDrift:
-    def test_live_cap_matches_the_strategy_source(self):
-        """The probe hardcodes 0.099 so it runs on a bare checkout; that value
-        must equal the one production actually clamps with."""
-        src = (REPO / "src" / "units" / "strategies" / "trend_donchian.py").read_text()
-        m = re.search(r"_TP_SENTINEL_CAP_PCT\s*=\s*([0-9.]+)", src)
-        assert m, "could not find _TP_SENTINEL_CAP_PCT in trend_donchian.py"
-        assert abs(float(m.group(1)) - LIVE_TP_CAP_PCT) < 1e-9, (
-            f"probe uses {LIVE_TP_CAP_PCT}, strategy uses {m.group(1)}")
+    def test_probe_cap_IS_the_owner_not_a_copy(self):
+        """The probe no longer hardcodes 0.099 -- it imports the one owner.
+
+        The old docstring justified a hardcode with "so it runs on a bare
+        checkout"; the owner imports only `typing`, so a bare checkout is no
+        longer a reason to keep a private literal.
+        """
+        from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
+        assert LIVE_TP_CAP_PCT is TP_VENUE_CAP_PCT
 
     def test_candidate_rungs_are_coarse_and_below_a_typical_cap(self):
         """These decide IF a ladder is worth pursuing, not WHICH one wins — a

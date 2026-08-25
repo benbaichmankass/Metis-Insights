@@ -51,11 +51,17 @@ sys.path.insert(0, str(REPO / "scripts" / "ml"))
 # The live clamp. Mirrored from src/units/strategies/{trend_donchian,
 # htf_pullback_trend_2h}.py::_TP_SENTINEL_CAP_PCT; a test pins the agreement so
 # this constant cannot drift away from the one production clamps with.
-LIVE_TP_CAP_PCT = 0.099
+# The venue TP clamp -- ONE owner: src/runtime/tp_venue_cap.py. IMPORTED, not
+# mirrored. This file used to carry its own `LIVE_TP_CAP_PCT = 0.099`, one of
+# thirteen such literals with nothing binding them -- and this repo's own note
+# on that was right: "if the live constant moves, this silently keeps measuring
+# the OLD book, and the sweep will look correct while doing it". The owner
+# imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
+# empty, so this adds no heavy dependency.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    CLAMPING_FAMILIES, TP_VENUE_CAP_PCT as LIVE_TP_CAP_PCT)
 
-# Families whose live units carry the clamp (the sweep harness's own set —
-# imported below when available so there is exactly one definition).
-FALLBACK_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 
 # Levers that arm by REACHING an MFE-in-R threshold. A "below R" gate
 # (stale_exit_below_r) is the opposite direction and is deliberately absent.
@@ -63,12 +69,13 @@ REACH_GATE_KEYS = ("trail_decay_arm_r", "giveback_min_mfe_r")
 
 
 def _capped_families() -> set:
-    try:
-        sys.path.insert(0, str(REPO / "scripts" / "research"))
-        from m20_fleet_exit_sweep import LIVE_TP_CAPPED_FAMILIES  # noqa
-        return set(LIVE_TP_CAPPED_FAMILIES)
-    except Exception:
-        return set(FALLBACK_CAPPED_FAMILIES)
+    """The clamping families, from the ONE owner.
+
+    Was a try/except import of the sweep harness's set with a private
+    `FALLBACK_CAPPED_FAMILIES` copy behind it -- so a failed import silently
+    swapped in a second declaration that nothing checked. Both are gone.
+    """
+    return set(CLAMPING_FAMILIES)
 
 
 _BUILDERS_SRC = REPO / "src" / "runtime" / "strategy_signal_builders.py"
@@ -88,7 +95,10 @@ def cap_applies(strategy: str) -> tuple:
     * ``builder_unit`` — the family string does not resolve (the equity legs are
       named `qqq_trend_long_1d`, `scha_trend_long_1d`, …), so read which unit
       module the leg's signal builder actually imports `order_package` from and
-      check whether THAT module defines `_TP_SENTINEL_CAP_PCT`. Verified 2026-08-16:
+      check whether THAT module CARRIES `_TP_SENTINEL_CAP_PCT` (it is
+      imported from src/runtime/tp_venue_cap.py, not declared, since
+      2026-08-25 -- the source-anchored probe is unchanged and still
+      correct, but it no longer finds a literal). Verified 2026-08-16:
       `qqq_trend_long_1d_signal_builder` imports it from
       `src.units.strategies.trend_donchian`, which clamps — so those legs are
       capped and the family-only test was under-claiming on all of them.

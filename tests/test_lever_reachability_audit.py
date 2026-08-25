@@ -8,7 +8,6 @@ drifting away from the one production clamps with.
 """
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
@@ -214,13 +213,15 @@ class TestCapResolution:
 
 
 class TestConstantsDoNotDrift:
-    def test_live_cap_matches_the_strategy_source(self):
-        for mod in ("trend_donchian.py", "htf_pullback_trend_2h.py"):
-            src = (REPO / "src" / "units" / "strategies" / mod).read_text()
-            m = re.search(r"_TP_SENTINEL_CAP_PCT\s*=\s*([0-9.]+)", src)
-            assert m, f"could not find _TP_SENTINEL_CAP_PCT in {mod}"
-            assert abs(float(m.group(1)) - LIVE_TP_CAP_PCT) < 1e-9, (
-                f"audit uses {LIVE_TP_CAP_PCT}, {mod} uses {m.group(1)}")
+    def test_the_audit_cap_IS_the_owner_not_a_copy(self):
+        """Was a source regex against a literal; now an identity check.
+
+        The audit no longer carries its own number, so "does the audit agree
+        with production" is answered by object identity rather than by parsing
+        the strategy file and comparing floats.
+        """
+        from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
+        assert LIVE_TP_CAP_PCT is TP_VENUE_CAP_PCT
 
     def test_the_live_config_still_parses_and_grades(self):
         """Smoke: the real YAML must produce records, else the audit is silently

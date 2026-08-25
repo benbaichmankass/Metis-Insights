@@ -55,6 +55,8 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from src.runtime.tp_venue_cap import (  # the ONE owner of the clamp
+    TP_VENUE_CAP_PCT as _TP_SENTINEL_CAP_PCT)
 from src.units.strategies._base import require_candles
 
 _DEFAULTS: Dict[str, Any] = {
@@ -95,7 +97,10 @@ _DEFAULTS: Dict[str, Any] = {
     "vol_pctl_window": 200,
 }
 
-_TP_SENTINEL_CAP_PCT = 0.099
+# The venue TP clamp. ONE owner: src/runtime/tp_venue_cap.py, imported at
+# the top of this file as the same local name, so the clamp expressions
+# below are unchanged. The rationale (Bybit ErrCode 10001), why NO `tp_r`
+# reproduces it, and the open question about non-Bybit legs live there.
 
 
 def _trend_midline(df: "pd.DataFrame", trend_lb: int) -> "pd.Series":

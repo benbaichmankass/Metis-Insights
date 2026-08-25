@@ -51,6 +51,12 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
+# Repo root FIRST: the venue-TP-clamp owner (src/runtime/tp_venue_cap.py) is
+# imported at two separate points below, and the earlier of them runs before
+# any later path setup would. Hoisted here so importing this module from a
+# different cwd -- which check_lever_wiring and check_matrix_config_agreement
+# both do via importlib -- cannot fail on `No module named src`.
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 import exit_capture  # noqa: E402  (the ONE exit-capture definition)
 
@@ -105,7 +111,10 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # four. The entry stays because backtest_fade.py implements the lever and the
 # day fade is promoted this becomes live rather than something to remember;
 # it must not be read as "fade is being measured today".
-LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
+# ONE owner for this set too (src/runtime/tp_venue_cap.py); it was declared
+# here and again as `FALLBACK_CAPPED_FAMILIES` in lever_reachability_audit.py.
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    CLAMPING_FAMILIES as LIVE_TP_CAPPED_FAMILIES)
 
 # The live TP clamp, and the DEFAULT for --tp-cap-pct since 2026-08-16 (Tier-3,
 # operator decision). It defaulted to 0.0, so a sweep run without the flag
@@ -123,13 +132,23 @@ LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 # nothing from `src/` at all. Filed as
 # BL-20260816-TP-SENTINEL-CAP-DECLARED-IN-MULTIPLE-MODULES.
 #
-# ⚠️ **NOTHING CHECKS THAT THIS STILL MATCHES THE LIVE VALUE.** There is no
-# guard, no test, and no import binding them -- stated plainly because the
-# tempting version of this comment ("the guard will catch it") would describe
-# machinery that does not exist, which is the failure this repo files under
-# unprovenanced diagnostic output. If the live constant moves, this silently
-# keeps measuring the OLD book, and the sweep will look correct while doing it.
-LIVE_TP_CAP_PCT = 0.099
+# ✅ **THIS IS NOW BOUND TO THE LIVE VALUE** (2026-08-25). The warning that stood
+# here -- "nothing checks that this still matches the live value... there is no
+# guard, no test, and no import binding them" -- was accurate when written and
+# is no longer true, so it is replaced rather than left standing: the value is
+# IMPORTED from the one owner below, `tp-venue-cap-single-owner` fails CI on any
+# second declaration, and a test asserts identity with the units' constant. The
+# failure mode it described (silently measuring the OLD book) now cannot occur
+# without the import itself being removed.
+# The venue TP clamp -- ONE owner: src/runtime/tp_venue_cap.py. IMPORTED, not
+# mirrored. This file used to carry its own `LIVE_TP_CAP_PCT = 0.099`, one of
+# thirteen such literals with nothing binding them -- and this repo's own note
+# on that was right: "if the live constant moves, this silently keeps measuring
+# the OLD book, and the sweep will look correct while doing it". The owner
+# imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
+# empty, so this adds no heavy dependency.
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    TP_VENUE_CAP_PCT as LIVE_TP_CAP_PCT)
 
 
 def tp_geometry_for(families, tp_cap_pct: float) -> str:

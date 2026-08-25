@@ -66,10 +66,9 @@ from src.runtime.trail_decay import (  # noqa: E402
 
 PEAK_STATES = (PEAK_MEASURED, PEAK_UNANCHORED, PEAK_THIN_WINDOW, PEAK_NO_RISK)
 
-# The live TP clamp. Mirrored from
-# src/units/strategies/{trend_donchian,htf_pullback_trend_2h}.py; a test pins
-# the agreement so it cannot drift from the value production clamps with.
-_TP_SENTINEL_CAP_PCT = 0.099
+# The venue TP clamp -- ONE owner, imported rather than mirrored.
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    TP_VENUE_CAP_PCT as _TP_SENTINEL_CAP_PCT)
 
 
 def _f(v: Any) -> Optional[float]:

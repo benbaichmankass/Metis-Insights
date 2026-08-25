@@ -43,7 +43,16 @@ from typing import Dict, Optional, Tuple
 
 _REPO = Path(__file__).resolve().parents[2]
 
-TP_VENUE_CAP_PCT = 0.099        # Bybit ErrCode 10001 boundary
+# The venue TP clamp -- ONE owner: src/runtime/tp_venue_cap.py. IMPORTED, not
+# mirrored. This file used to carry its own `TP_VENUE_CAP_PCT = 0.099`, one of
+# thirteen such literals with nothing binding them -- and this repo's own note
+# on that was right: "if the live constant moves, this silently keeps measuring
+# the OLD book, and the sweep will look correct while doing it". The owner
+# imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
+# empty, so this adds no heavy dependency.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    TP_VENUE_CAP_PCT as TP_VENUE_CAP_PCT)
 SENTINEL_R_FLOOR = 50.0
 
 # Measured per-leg cap_r AT atr_stop_mult 2.5 (docs/research/

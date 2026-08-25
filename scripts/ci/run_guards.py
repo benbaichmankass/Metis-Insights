@@ -647,6 +647,22 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_cost_model_single_owner.py"]],
     },
     {
+        "name": "tp-venue-cap-single-owner",
+        "when": {"globs": [
+            "src/runtime/tp_venue_cap.py", "src/units/strategies/*.py",
+            "src/runtime/position_telemetry.py", "src/runtime/target_expectation.py",
+            "scripts/research/*.py", "scripts/ops/*.py",
+            "scripts/ci/check_tp_venue_cap_single_owner.py",
+        ]},
+        # Self-test FIRST, same reasoning as the cost-model sibling above: a guard
+        # whose planted controls no longer fire must not report a clean scan. Its
+        # controls earned that placement -- they caught a regex that could never
+        # match the owner's own constant name.
+        "steps": [["python3", "scripts/ci/check_tp_venue_cap_single_owner.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_tp_venue_cap_single_owner.py"]],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read

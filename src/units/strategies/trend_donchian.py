@@ -57,6 +57,8 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from src.runtime.tp_venue_cap import (  # the ONE owner of the clamp
+    TP_VENUE_CAP_PCT as _TP_SENTINEL_CAP_PCT)
 from src.units.strategies._base import require_candles
 
 
@@ -130,7 +132,10 @@ _DEFAULTS: Dict[str, Any] = {
 # value sits ~99% below entry and the exchange refuses it. Cap to ~9.9%
 # from entry so the sentinel is exchange-valid AND still far enough that
 # the monitor's Chandelier trail remains the real profit-exit.
-_TP_SENTINEL_CAP_PCT = 0.099
+# The venue TP clamp. ONE owner: src/runtime/tp_venue_cap.py, imported at
+# the top of this file as the same local name, so the clamp expressions
+# below are unchanged. The rationale (Bybit ErrCode 10001), why NO `tp_r`
+# reproduces it, and the open question about non-Bybit legs live there.
 
 
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
