@@ -94,6 +94,76 @@ New non-collapsed `alerting_basis` ∈ `{total_floor, per_cause_floor, both,
 None}`; `priority_causes` joins the latch key; the alert body names the rare
 cause; `balance_unreadable` gains the `_CAUSE_HINTS` entry it never had.
 
+### PR #10283 — `set-env` gains a scoped `env_file`, and two near-misses at the same gate
+
+The operator approved provisioning `IB_MD_CLIENT_ID`. **I did not execute it as
+specified, twice, for two different reasons — and both would have reported
+success.**
+
+**Near-miss 1 — the wrong instrument.** `set-env` chooses which SERVICE to
+restart and never which FILE to write. `ict-web-api.service` loads the shared
+repo `.env` *by design* (line 49, so operator overrides stay aligned between
+writer and reader), and `ict-trader-live.service` loads it too. Verified
+exhaustively — the only producer of this key into a settings dict is
+`routers/candles.py` (web-api only), so the TRADER reads it from the
+environment and falls to `exec_client_id + 1` = 498. A shared-file write of
+`600` moves the trader onto the web-api's own 600: IB error 326, starving the
+exact MES/MGC/MHG candles the reservation protects. **Worse than doing
+nothing.** Fixed by adding an allowlisted `env_file:`.
+
+**Near-miss 2 — the undeployed mechanism.** `system-actions` runs
+`bash /home/ubuntu/ict-trading-bot/scripts/ops/<script>` from the VM's own
+checkout, with **no `git pull`**. Four minutes after merging #10283 the VM was
+still on `7438eadc`; dispatching then would have run the OLD `set_env.sh`,
+which ignores `ENV_FILE_TARGET` and writes the shared file. **This is the third
+instance today of "an undeployed change and a working one render
+identically"** — and the first where the consequence was live rather than
+cosmetic. Waited for `ict-git-sync` (5-min timer), verified `9c9f8472` on disk,
+then dispatched.
+
+### Lane 0 item 0.5 — CONFIRMED BY INTERVENTION
+
+Three issues, in order, each with the state established before the next:
+
+| # | what | result |
+|---|---|---|
+| #10284 | baseline `get-env` on `ict-web-api` | `process (unset) / declared (unset)`, **both readable** — an observed absence, not an inferred one |
+| #10285 | `set-env … env_file=web-api` | `created in /etc/ict-trader/web-api.env`, unit `active` |
+| #10286 | `get-env` on `ict-trader-live` | **`(unset)` both sides** — the write did NOT reach the trader |
+
+⚠️ **#10286 is the assertion that matters and the web-api could never have
+supplied it.** The web-api reading `600` is consistent with BOTH a correctly
+scoped write and a shared one; only the trader reading `(unset)` separates
+them. Trader stays on 498, web-api on 600, no collision.
+
+**The 0.5 hypothesis was falsifiable and it held.** Before: all three
+`ib_paper` legs read `unavailable` while `/api/bot/candles` returned real bars
+*in the same process*. After: MGC short 51 = −$5,202.00 · MHG long 29 =
++$15,478.75 · MES long 15 = +$4,068.75. Regression check passed in the same
+window — MES/MGC/MHG candles all still real from `bot-exchange`.
+
+⚠️ **A side effect that touched a DEFERRED decision.** Lifting the mask
+re-exposes exactly what `…REPAIRING-THE-UPNL-MASK…` governs, and the operator
+had not taken that call. The mask and the collision are the *same mechanism*,
+so it could not be avoided while fixing 0.5. Surfaced immediately with the
+numbers before anything further; operator chose **leave exposed, decide
+provenance next**.
+
+**And the row's own aggregate was hiding its worst case.** Reproducing the
+basis error live — journal `entryPrice` vs exchange `entry_price`, with
+`contract_value_usd` READ from `config/instruments.yaml` rather than assumed —
+gives **+$1,829.55 net, matching the row to the cent**. Decomposed for the
+first time: **MGC 36.2% · MES 7.1% · MHG 2.2%**. The entry prices differ by
+only 0.05–0.08%; the leverage is that uPnL is a *difference of two large
+numbers*, so a leg near break-even has an unbounded relative error. A
+single-digit aggregate understates the worst leg ~5×.
+
+⚠️ **Broker-truth uPnL is NOT comparable** — `/api/diag/exchange_positions`
+returns `unrealised_pnl: null` for all three legs because the readonly client
+routes through `reqPositions()` (the documented cost of avoiding
+`BL-20260706-IBACCTUPDATES-COLLISION`). That is an honest "not measured". What
+it DID confirm: positions match exactly on direction and size.
+
 ## Validation Performed
 - `tests/test_policy_hold_predicate.py` — **15 passed** (new).
 - `tests/test_silent_refusal_alert.py` — **41 passed** (33 pre-existing + 8
