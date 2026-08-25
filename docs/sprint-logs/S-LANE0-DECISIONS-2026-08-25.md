@@ -260,6 +260,56 @@ it DID confirm: positions match exactly on direction and size.
 - The stray branch `claude/ib-breaker-peer-close` (from `qhpxyh`) still needs
   deleting; nothing in it is unmerged.
 
+## Process lapses in this session, recorded rather than tidied
+
+**1. I re-derived two findings that were already filed — one day earlier.**
+Hitting `BL-20260730-PR-CI-NOT-ATTACHING` on PR #10287, I investigated from
+scratch and wrote it up on the board as though new. Both
+`BL-20260824-PR-CI-NOT-ATTACHING-RECURRED-ON-A-DELETED-THEN-RECREATED-BRANCH`
+and `BL-20260824-THE-CI-NOT-ATTACHING-WORKAROUND-SCANS-THREE-FEWER-GUARDS`
+were **open** and describe exactly what I hit, the second naming the same three
+guards. **I did not search the backlog before investigating.** The second row
+even predicts this: its point is that the workaround's weakness *is not
+discoverable at the moment of use* — and I demonstrated that by rediscovering
+it instead of reading it.
+
+⚠️ The cost was not wasted effort, it was nearly a **wrong attribution**: I told
+the board this was per-PR delivery loss without knowing two prior occurrences
+had been characterised. Both rows now carry today's occurrence.
+
+**What today did add**, and it is the thing the first row explicitly asks for:
+its own titular hypothesis is **refuted as sufficient**. This session pushed
+three PRs off one branch name that was auto-deleted and recreated every time —
+so delete/recreate held for **all three**, and #10281 and #10283 attached while
+#10287 did not. A condition present in the successes cannot explain the
+failure. The one factor that co-varies is **draft-vs-ready at creation**
+(the two drafts attached; the one created `draft: false` did not, while a later
+*push* to it attached normally). **n=3, hypothesis, not a mechanism** — recorded
+that way on the row, with the cheap next test named.
+
+**2. I never registered in `docs/claude/session-board.json`.**
+The live board (#6927) carried every `START` / `🔒 CLAIM` / `🔓 RELEASE` / `DONE`
+in real time, so no other session was uninformed and no merge raced — but the
+durable mirror went untouched across all three merges. That is
+`BL-20260720-MERGE-PROTOCOL-LAPSE` **with the polarity reversed**: there the
+JSON was treated as the claim and the board skipped; here the board was done
+properly and the JSON skipped. Registered retrospectively at session end, and
+labelled as retrospective. `merge_slot` left all-null because it genuinely IS
+free — writing a claim into it now would fabricate a record of a lock nobody
+holds.
+
+**3. Three self-inflicted defects, each caught by a mechanism rather than by
+me** — a truncated backlog id (`check_backlog_refs`, and I had chained the push
+with `;` instead of `&&` so the bad commit landed first), a duplicate dict key
+from a truncated read (`ruff`, which I first misread as pre-existing drift
+because I had installed an unpinned version), and a 46,114-line backlog
+reformat for a 47-line change (caught reading my own diff).
+
+**4. I blamed a merge conflict on a concurrent session before establishing
+cause.** It was my own squash-merge artifact — I kept committing on a branch
+after its squash merge instead of resetting to the new `main`. Corrected
+publicly on the board.
+
 ## Next Recommended Sprint
 `IB_MD_CLIENT_ID` provisioning (Tier-2), ordered: provision the clientId on the
 `ict-web-api` unit and **verify it live** first; only then remove the
