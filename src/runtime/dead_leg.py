@@ -43,6 +43,34 @@ FAIL-SAFE, opposite polarity to ``account_side_filter``. That module is fail-
 PERMISSIVE because it gates an order. This one gates an ALARM, so an
 unrecognised reason stays a real refusal and still alerts: the failure we refuse
 is a genuine outage silenced by a classifier that could not read it.
+
+EVALUATION LIVENESS IS A SEPARATE AXIS FROM ORDER OUTCOME (2026-08-25, Lane 0).
+Everything above grades legs from ``trades`` rows — which can only speak about
+legs that PRODUCED a row. A leg with zero rows is deliberately not graded
+(``verdict_for`` says so, and the audit's population string repeats it), because
+"no rows" is not observable from counts.
+
+But that single absence covers two OPPOSITE facts:
+
+  * the leg RAN and found no actionable setup — the ordinary state of most legs
+    most of the time, and entirely healthy;
+  * the leg DID NOT RUN AT ALL — dropped from the loaded set, throwing, or
+    wedged — which is a real defect.
+
+Both render as "absent from the report", so the second hides inside the first.
+Measured 2026-08-25: all three Alpaca accounts had produced no ``trades`` row
+since 2026-08-21 while bybit and ib journalled normally that morning, which
+reads alarming — and the ``signals`` table showed every one of those legs
+evaluating normally, the last batch stopping within a **13-second band at
+19:59Z**, which is 15:59 ET, the US equity close. Venue-shut, not broken. A
+detector that could not tell those apart would have fired on every US-equity leg
+every night, which is the desensitized-alarm P1 this repo names as its own worst
+failure mode.
+
+So the axis is graded from ``signals`` (the ``*_eval`` dual-write) and kept in
+its own four-state field, NEVER folded into the order verdict. ``unknown`` sits
+on the refusing side: a missing or unreadable ``signals`` table is *we did not
+look*, which is not *the leg is fine*.
 """
 from __future__ import annotations
 
@@ -126,4 +154,54 @@ def verdict_for(counts: Dict[str, int]) -> str:
     return "partially_refused"
 
 
-__all__ = ["PLACED_STATUSES", "REFUSED_STATUSES", "bucket_for", "verdict_for"]
+#: Evaluation-liveness states. A leg's ORDER verdict and its EVAL state answer
+#: different questions and are never merged into one string — a leg can be
+#: `evaluating` and `signalled_never_placed` at once (it runs, and every order
+#: dies), which is precisely the AVAX shape.
+EVAL_STATES = ("evaluating", "not_evaluating", "never_evaluated", "unknown")
+
+
+def eval_state_for(
+    evals_in_window: Any,
+    evals_ever: Any,
+    *,
+    table_present: bool = True,
+) -> str:
+    """Grade one leg's evaluation liveness. See EVAL_STATES.
+
+    ``unknown`` when the ``signals`` dual-write is absent or unreadable — the
+    honest value for *we could not look*, and deliberately NOT ``evaluating``
+    (which would report a leg healthy on the strength of a table nobody read)
+    nor ``not_evaluating`` (which would alarm on every leg the moment
+    ``SIGNAL_DUAL_WRITE_DISABLED`` is set).
+
+    ``never_evaluated`` is kept apart from ``not_evaluating`` because they route
+    to different owners: a leg that has NEVER evaluated is a wiring question
+    (registered? enabled? routed?), while one that evaluated and stopped is a
+    runtime question (throwing? dropped from the loaded set?).
+
+    ⚠️ ``not_evaluating`` IS WINDOW-SENSITIVE AND MEANS NOTHING ON A SHORT ONE.
+    Legs stop evaluating whenever their venue is shut, so on a window narrower
+    than the longest venue closure every US-equity leg grades ``not_evaluating``
+    overnight and every weekend — correctly, and uselessly. The caller owns the
+    window; the audit's default is deliberately wider than any weekend.
+    """
+    if not table_present:
+        return "unknown"
+    try:
+        ever = int(evals_ever or 0)
+        in_window = int(evals_in_window or 0)
+    except (TypeError, ValueError):
+        # A count we cannot read is not a count of zero.
+        return "unknown"
+    if ever <= 0:
+        return "never_evaluated"
+    if in_window > 0:
+        return "evaluating"
+    return "not_evaluating"
+
+
+__all__ = [
+    "PLACED_STATUSES", "REFUSED_STATUSES", "EVAL_STATES",
+    "bucket_for", "verdict_for", "eval_state_for",
+]
