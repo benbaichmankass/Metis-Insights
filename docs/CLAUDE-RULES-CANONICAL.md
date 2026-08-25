@@ -1231,6 +1231,42 @@ the session, Claude must:
      [`docs/claude/ml-review-backlog.json`](claude/ml-review-backlog.json)
      (drained by `/ml-review`).
 
+6. **Anything you are about to hand to the operator goes in the
+   OPERATOR-OWED REGISTER**
+   ([`docs/claude/operator-owed-register.json`](claude/operator-owed-register.json)),
+   not only in a board comment or a sprint log. Naming it in prose is what
+   this rule replaces: on 2026-08-25 three sessions
+   (`01X2zMCh`, `qhpxyh`, `018aKyS3`) each closed by handing forward THE SAME
+   FOUR ITEMS, with zero state change on any of them — n=3 hand-offs of one
+   item set in one day, and no mechanism that could have noticed
+   (`BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION`).
+
+   Every item carries an **owner class**, and the distinction is the point:
+
+   - **genuinely-human** — `secret_origination` (only a person may mint the
+     value), `physical_or_broker` (an action at a venue or console we hold no
+     API for), `judgement` (a decision the system may not take for itself).
+   - **defaulted-to-human** — a wire exists, or could, and nobody built it.
+
+   ⚠️ **"We automated it once and got it wrong, so a human owns it forever"
+   is not a reason** — it distrusts the SELECTION, not the mechanism, and the
+   remedy already exists in this repo: make the decision a pure function with
+   non-collapsed states *"so the policy is arguable in tests rather than
+   against a live position"*
+   ([`src/runtime/protection_reassert.py`](../src/runtime/protection_reassert.py)).
+   A `defaulted_to_human` item resting on a failed remediation must name a
+   tested decision function, and `check_operator_owed.py` verifies the path
+   exists rather than taking the declaration on trust.
+
+   **Enforced by `operator-owed-guard`**
+   ([`scripts/ci/check_operator_owed.py`](../scripts/ci/check_operator_owed.py)),
+   which FAILS when an item has been carried across register commits without
+   a state change — measured from the register's git history, not
+   self-reported. Age is a second, independent trip path, because a session
+   that never touches the register leaves no commit to count. The ways out
+   are act, move, defer behind a **named trigger event**, or withdraw;
+   re-listing it is not one of them.
+
 The Sprint Wrap-Up Requirements section below restates several of
 these duties at the sprint scope. This subsection restates them at
 the session scope because not every session is a full sprint — but

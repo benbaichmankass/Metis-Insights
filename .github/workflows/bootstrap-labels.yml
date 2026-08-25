@@ -45,6 +45,11 @@ jobs:
           script: |
             const LABELS = [
               {
+                name: 'prune-merged-branch',
+                color: 'c2e0c6',
+                description: 'Ask prune-merged-claude-branch.yml to delete a stray claude/** branch whose content is already on main. Dry-run by default.',
+              },
+              {
                 name: 'claude-coordination',
                 color: 'fbca04',
                 description: 'The pinned live cross-session Claude Coordination Board (message board — NOT the merge queue). Post work-start/finish + questions; read at session start.',

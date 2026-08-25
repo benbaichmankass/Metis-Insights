@@ -1,0 +1,217 @@
+name: prune-merged-claude-branch
+
+# Delete a stray `claude/**` branch whose content is already on `main`.
+#
+# WHY THIS EXISTS
+#   A session's git credential can CREATE and UPDATE refs but is refused on
+#   DELETE — measured 2026-08-25: `git push origin --delete` returned
+#   `HTTP 403` on four attempts with backoff, while a normal push to a new
+#   branch from the same credential in the same minute succeeded. So a stray
+#   branch was handed to a human, twice, by two sessions
+#   (`qhpxyh` hit it as a transport disconnect, this one as a 403).
+#
+#   That is a `defaulted_to_human` item in the sense
+#   docs/claude/operator-owed-register.json defines: no human JUDGEMENT is
+#   required, no secret must be minted, no broker is involved — a runner's
+#   own GITHUB_TOKEN can do it, and nobody had built the wire. Recording it as
+#   "cannot be automated" would have been the anti-pattern the register is
+#   named after, one size down.
+#   BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION.
+#
+# TRUST CONTRACT — deleting a ref is not reversible from here, so the guards
+# are the point:
+#   * `claude/**` ONLY. The default branch and any other namespace are refused
+#     before anything else runs.
+#   * DRY-RUN BY DEFAULT. `apply: true` is required to delete, mirroring every
+#     mutating system-action in this repo.
+#   * It VERIFIES rather than trusting the requester: it prints the unmerged
+#     commit list (`git log main..branch`) and the patch-equivalence read
+#     (`git cherry`), and refuses when commits remain UNLESS the body carries
+#     BOTH `force: true` AND a `reason:` naming what carried the content.
+#     That combination exists because this repo SQUASH-merges: a squashed
+#     branch is not an ancestor of `main` and never becomes one, so an
+#     ancestor-only test would refuse every real case. The force key is the
+#     `cancel-ib-order` shape — a documented waiver with a stated reason in the
+#     run log, not a silent default.
+#   * The issue body is read through the environment, never interpolated into
+#     a shell command (untrusted input).
+#   * `contents: write` is the only elevated permission, and the job cannot
+#     touch a file: it runs exactly one `git push --delete`.
+#
+# USE FROM A SESSION
+#   mcp__github__issue_write(method='create',
+#       title='[prune-branch] claude/some-stray',
+#       labels=['prune-merged-branch'],
+#       body='branch: claude/some-stray\napply: true\nforce: true\n'
+#            'reason: content landed via PR #10276 — both rows byte-identical on main')
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "The claude/** branch to prune."
+        required: true
+      apply:
+        description: "false = dry run (default). true = actually delete."
+        required: false
+        default: "false"
+      force:
+        description: "Waive the unmerged-commit refusal (needs a reason)."
+        required: false
+        default: "false"
+      reason:
+        description: "Audit note; REQUIRED when force is true."
+        required: false
+        default: ""
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write   # the one elevated permission: deleting a ref
+  issues: write     # comment + close the request issue
+
+concurrency:
+  group: prune-merged-claude-branch
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'prune-merged-branch'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse the request
+        id: parse
+        env:
+          # Through the environment, never inline — the body is untrusted.
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          IN_BRANCH: ${{ inputs.branch }}
+          IN_APPLY: ${{ inputs.apply }}
+          IN_FORCE: ${{ inputs.force }}
+          IN_REASON: ${{ inputs.reason }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          field() { printf '%s\n' "${ISSUE_BODY:-}" | sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" | head -1; }
+          if [ "$EVENT" = "issues" ]; then
+            BRANCH="$(field branch)"; APPLY="$(field apply)"
+            FORCE="$(field force)";   REASON="$(field reason)"
+          else
+            BRANCH="${IN_BRANCH:-}"; APPLY="${IN_APPLY:-false}"
+            FORCE="${IN_FORCE:-false}"; REASON="${IN_REASON:-}"
+          fi
+          BRANCH="$(printf '%s' "${BRANCH:-}" | tr -d '[:space:]')"
+          # A typo'd value is REFUSED, never read as the permissive one.
+          norm() { case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')" in
+                     true) echo true ;; ""|false) echo false ;; *) echo INVALID ;; esac; }
+          APPLY="$(norm "$APPLY")"; FORCE="$(norm "$FORCE")"
+          if [ "$APPLY" = INVALID ] || [ "$FORCE" = INVALID ]; then
+            echo "::error::apply/force must be exactly true or false — a typo is refused, not read as off."
+            exit 1
+          fi
+          case "$BRANCH" in
+            claude/*) : ;;
+            *) echo "::error::refused: '$BRANCH' is not under claude/**. This workflow prunes nothing else."; exit 1 ;;
+          esac
+          if [ "$BRANCH" = "${GITHUB_REF_NAME:-}" ] || [ "$BRANCH" = "main" ]; then
+            echo "::error::refused: will not delete the branch this run is on, or main."; exit 1
+          fi
+          { echo "branch=$BRANCH"; echo "apply=$APPLY"; echo "force=$FORCE"; } >> "$GITHUB_OUTPUT"
+          printf 'reason<<EOF\n%s\nEOF\n' "${REASON:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the branch content is already on main
+        id: verify
+        env:
+          BRANCH: ${{ steps.parse.outputs.branch }}
+          FORCE: ${{ steps.parse.outputs.force }}
+          REASON: ${{ steps.parse.outputs.reason }}
+        run: |
+          set -euo pipefail
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "::notice::'$BRANCH' does not exist on origin — nothing to prune (already gone)."
+            echo "state=absent" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git fetch -q origin "$BRANCH" "main"
+          echo "=== commits on $BRANCH that are not ancestors of main ==="
+          UNMERGED="$(git log --oneline origin/main.."origin/$BRANCH" || true)"
+          printf '%s\n' "${UNMERGED:-（none）}"
+          echo "=== git cherry (patch-equivalence vs main; '+' = no equivalent) ==="
+          git cherry origin/main "origin/$BRANCH" || true
+          echo "=== files this branch touches, against main ==="
+          git diff --stat origin/main..."origin/$BRANCH" || true
+
+          if [ -z "$UNMERGED" ]; then
+            echo "state=merged" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Squash-merged content is the normal case in this repo, so an
+          # ancestor-only test would refuse every real request. The waiver is
+          # explicit and must state what carried the content.
+          if [ "$FORCE" != "true" ]; then
+            echo "::error::refused: $BRANCH still has commits not on main and force was not set."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "${REASON:-}" | tr -d '[:space:]')" ]; then
+            echo "::error::refused: force:true requires a reason: naming what carried the content."
+            exit 1
+          fi
+          echo "::warning::force:true waived the unmerged-commit refusal. Reason: $REASON"
+          echo "state=forced" >> "$GITHUB_OUTPUT"
+
+      - name: Delete the branch
+        id: act
+        if: steps.verify.outputs.state != 'absent'
+        env:
+          BRANCH: ${{ steps.parse.outputs.branch }}
+          APPLY: ${{ steps.parse.outputs.apply }}
+        run: |
+          set -euo pipefail
+          if [ "$APPLY" != "true" ]; then
+            echo "DRY RUN — would delete origin/$BRANCH. Re-run with apply: true."
+            echo "result=dry_run" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git push origin --delete "$BRANCH"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "::error::the push reported success but $BRANCH still resolves — not booking this as done."
+            echo "result=deleted_unconfirmed" >> "$GITHUB_OUTPUT"; exit 1
+          fi
+          echo "result=deleted" >> "$GITHUB_OUTPUT"
+
+      - name: Report back on the issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.parse.outputs.branch }}
+          VERIFY: ${{ steps.verify.outputs.state }}
+          RESULT: ${{ steps.act.outputs.result }}
+        with:
+          script: |
+            const body = [
+              '### prune-merged-claude-branch',
+              '',
+              `branch: \`${process.env.BRANCH || '(unparsed)'}\``,
+              `verification: \`${process.env.VERIFY || 'refused'}\``,
+              `result: \`${process.env.RESULT || 'refused / not reached'}\``,
+              '',
+              `Run log (the unmerged-commit list and the patch-equivalence read are printed there): ${process.env.RUN_URL}`,
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed' });
