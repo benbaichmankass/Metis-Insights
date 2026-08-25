@@ -440,3 +440,74 @@ def test_recovery_into_declared_dry_run_does_not_claim_orders_were_placed(
     assert "[OK]" in msg
     assert "DECLARED policy skip" in msg
     assert "placing orders again" not in msg
+
+
+# ── A latched account that stops producing rows must be able to clear ───────
+#
+# BL: measured on the live VM 2026-08-25 — `alpaca_live` was latched
+# `alerting: true` with `updated_at` frozen at 2026-08-21T12:38:38Z while
+# `__last_check__` advanced to the same day, 3.85 days later. The loop iterated
+# only `assessed`, which is built from rows INSIDE the window, so an account
+# that goes quiet can never re-enter it and the latch stands forever.
+# `silent_accounts()` — what the review skills read — kept reporting it.
+
+def _quiet_state(tmp_path, monkeypatch, *, alerting: bool):
+    import json
+    from src.runtime import silent_refusal_alert as S
+    p = tmp_path / "silent_refusal_alert_state.json"
+    p.write_text(json.dumps({
+        "__last_check__": "2026-08-25T09:04:05+00:00",
+        "alpaca_live": {
+            "alerting": alerting, "cause": "risk_refused", "refused": 5,
+            "placed": 0, "verdict": "signalled_never_placed",
+            "updated_at": "2026-08-21T12:38:38+00:00",
+        },
+    }))
+    monkeypatch.setattr(S, "_state_path", lambda: p)
+    return S, p
+
+
+def test_a_latched_account_with_no_rows_is_released(tmp_path, monkeypatch):
+    import json
+    S, p = _quiet_state(tmp_path, monkeypatch, alerting=True)
+    sent = []
+    monkeypatch.setattr(S, "_send_alert", lambda m: sent.append(m))
+    out = S.run_silent_refusal_check(rows=[], force=True)
+    assert out["checked"] is True
+    assert "alpaca_live" in out["recovered"]
+    assert "alpaca_live" not in json.loads(p.read_text())
+    assert len(sent) == 1
+
+
+def test_the_release_message_does_NOT_claim_the_account_started_placing(tmp_path, monkeypatch):
+    """`assess()` never grades an account with no rows, so claiming recovery
+    would assert something nobody measured."""
+    S, _ = _quiet_state(tmp_path, monkeypatch, alerting=True)
+    sent = []
+    monkeypatch.setattr(S, "_send_alert", lambda m: sent.append(m))
+    S.run_silent_refusal_check(rows=[], force=True)
+    msg = sent[0]
+    assert "NO order rows at all" in msg
+    assert "NOT a report that it started placing orders" in msg
+    assert "reached the exchange" not in msg, "that is the OTHER recovery path's wording"
+
+
+def test_a_quiet_NON_alerting_row_is_pruned_silently(tmp_path, monkeypatch):
+    """Nothing was claimed about it, so nothing needs retracting — but it must
+    not accumulate in the latch file forever either."""
+    import json
+    S, p = _quiet_state(tmp_path, monkeypatch, alerting=False)
+    sent = []
+    monkeypatch.setattr(S, "_send_alert", lambda m: sent.append(m))
+    out = S.run_silent_refusal_check(rows=[], force=True)
+    assert sent == []
+    assert out["recovered"] == []
+    assert "alpaca_live" not in json.loads(p.read_text())
+
+
+def test_the_last_check_key_is_never_treated_as_an_account(tmp_path, monkeypatch):
+    import json
+    S, p = _quiet_state(tmp_path, monkeypatch, alerting=True)
+    monkeypatch.setattr(S, "_send_alert", lambda m: None)
+    S.run_silent_refusal_check(rows=[], force=True)
+    assert "__last_check__" in json.loads(p.read_text())
