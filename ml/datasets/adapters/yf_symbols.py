@@ -81,7 +81,14 @@ _DEFAULT_TICKER_MAP: Mapping[str, str] = {
     # YF_MAX_HISTORY_DAYS["1h"] below: both legs at stake
     # (`qqq_pullback_1h`, `spy_pullback_1h`) are 1h. State the span obtained,
     # never the span requested — `yfinance-lane-proof.yml` reports both.
-    **{t: t for t in ("PSQ", "SH")},
+    # TBF (-1x TLT) and TBX (-1x IEF) join SH/PSQ for the same research-only
+    # reason: TLT and IEF are two of the five roster symbols that clear a
+    # no-margin $200 account, so they are the legs whose short side a proxy
+    # would actually serve. ⚠️ TBX is THIN -- ~$14M AUM against SH's ~$1B --
+    # and was flagged "flag before use" when the tickers were verified
+    # (2026-08-25). Mapping it makes it MEASURABLE, which is the point; it is
+    # not an endorsement, and liquidity is a gate the backtest must apply.
+    **{t: t for t in ("PSQ", "SH", "TBF", "TBX")},
 }
 
 # yfinance's intraday history caps, which BOUND what this adapter can serve.

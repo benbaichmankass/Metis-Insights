@@ -83,4 +83,39 @@ jobs:
           if span < req * 0.8:
               print(f"NOTE: obtained {span} d against {req} d requested -- "
                     f"treat this as a PARTIAL window (yfinance intraday cap).")
+
+          # AFFORDABILITY PROBE (2026-08-25). The job proved the lane WORKS but
+          # reported nothing a reader could size a position from, so the one
+          # question a small real-money account actually asks -- "can this
+          # symbol trade on $N?" -- still needed a separate data path, and from
+          # the dev sandbox there isn't one (Yahoo resets the connection here;
+          # measured, not assumed).
+          #
+          # On a WHOLE-UNIT venue like alpaca (risk.WHOLE_UNIT_QTY_EXCHANGES) a
+          # sub-1-share size is a REFUSAL, not a fractional fill, so a symbol is
+          # reachable only if BOTH hold: one share fits the cash, AND one
+          # share's stop distance fits the risk budget. Two independent
+          # constraints -- SPY fails the first, GDX fails the second -- and a
+          # probe reporting only price would answer half the question.
+          #
+          # ATR14 is a PROXY for the stop distance, NOT the strategy's own
+          # geometry: each leg computes its stop its own way. It is the right
+          # order of magnitude for a go/no-go screen and must not be quoted as
+          # the leg's actual risk. Printed, never asserted -- an unaffordable
+          # symbol is a fact about the account, not a failure of the lane.
+          last = float(df["close"].iloc[-1])
+          tr = pd.concat([
+              df["high"] - df["low"],
+              (df["high"] - df["close"].shift()).abs(),
+              (df["low"] - df["close"].shift()).abs(),
+          ], axis=1).max(axis=1)
+          atr = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 15 else float("nan")
+          print(f"last_close={last:.4f}")
+          if atr == atr:  # not NaN
+              print(f"atr14={atr:.4f}  atr14_pct={100 * atr / last:.3f}%")
+              print(f"AFFORDABILITY: 1 share costs ${last:.2f}; "
+                    f"~${atr:.2f} of stop distance per share (ATR14 proxy)")
+          else:
+              print("atr14=unavailable (fewer than 15 bars) -- "
+                    "stop-distance proxy NOT computed, do not infer one")
           PY
