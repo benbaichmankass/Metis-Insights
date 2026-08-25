@@ -24389,6 +24389,18 @@
       "why_it_matters": "On a netted IB contract several strategies share ONE broker position while each trade's OCA is sized to its own qty. A symbol-wide pre-cancel from one trade's trailing amend therefore deletes the OTHER trades' resting take-profit legs and replaces them with a bracket covering only the amending trade's qty. That is the documented mechanism behind a take-profit that was reached and never executed. The deterministic group was built precisely to stop it, and the highest-frequency caller does not use it.",
       "not_yet_actioned_because": "Tier-2: it is the live order path, and modify_open_order has no trade-id parameter today, so the fix threads a new kwarg from order_monitor through execute rather than being a one-line addition. Proposing rather than shipping unilaterally.",
       "measured_at": "2026-08-25T22:35:00Z"
+    },
+    {
+      "id": "BL-20260825-THREE-BYBIT-MODIFY-TESTS-FAIL-ONLY-UNDER-A-PARTIAL-SELECTION",
+      "opened_at": "2026-08-25T22:55:00Z",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "title": "Three Bybit modify tests pass alone and in the full suite, and fail under a -k selection",
+      "detail": "tests/test_s030_pr4_exchange_modify_close.py::TestModifyOpenOrder {test_bybit_set_trading_stop_called_with_sl_only, ..._with_tp_only, test_bybit_atomic_sl_and_tp} fail when run under `pytest tests/ -k 'modify or protective or rearm or naked or over_cover or execute'`, and PASS both (a) as a whole file in isolation (32/32, twice) and (b) in the full 12,909-test suite. So some other module in that selection leaves state behind that the full suite happens to overwrite before these run.\n\nNOT CAUSED BY THE oca_key CHANGE, established rather than assumed: the same three fail on a clean tree with the source changes stashed, AND with the new tests/test_ib_rearm_scopes_precancel.py excluded from the selection entirely (`and not test_ib_rearm_scopes`). Both controls run, both reproduce.\n\nWHY IT IS WORTH A ROW despite passing in CI: a test that passes or fails on RUN ORDER is a test whose green is not evidence. It passes in CI today by accident of ordering, and the natural developer habit -- run the subset related to what you touched -- is exactly the invocation that fails, so the next person to touch this area will lose time deciding whether they broke it. I did.",
+      "resolution_criteria": "The three tests pass under `pytest tests/ -k 'modify or protective or rearm or naked or over_cover or execute'` as well as in isolation and in the full suite, with the leaking module identified by bisecting the selection and the leak fixed at its source (a fixture that does not restore, or module-level state mutated at import) rather than by reordering or by marking the tests.",
+      "not_yet_actioned_because": "Found while validating an unrelated change; bisecting a 356-test selection to find the leaking module is its own task. Filed with the reproduction and both controls so it can be picked up without re-deriving them.",
+      "measured_at": "2026-08-25T22:52:00Z"
     }
   ]
 }

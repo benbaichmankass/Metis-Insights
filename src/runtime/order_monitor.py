@@ -1907,6 +1907,9 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
             side=side, qty=qty, cur_sl=cur_sl, cur_tp=cur_tp,
             sl_order_id=matched_trade.get("sl_order_id"),
             tp_order_id=matched_trade.get("tp_order_id"),
+            # Scopes the IB pre-cancel to this trade's own OCA group; ignored by
+            # every non-IB branch. See modify_open_order's IB branch for why.
+            trade_id=matched_trade.get("id"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange modify failed: %s", exc)
@@ -7327,6 +7330,13 @@ def _reassert_from_divergence(
                 "direction": row["direction"],
                 "qty": abs(float(row["position_size"] or 0.0)),
                 "sl": levels["sl"], "tp": levels["tp"],
+                # Same reason as the trailing amend: without this the re-arm's
+                # pre-cancel is SYMBOL-WIDE and can strip a sibling trade's
+                # protective legs on a netted IB contract. This path is inert at
+                # the default PROTECTION_REASSERT_MODE=annotate, which is
+                # exactly why it had to be fixed NOW -- it would have inherited
+                # the defect silently on the flip to `apply`.
+                "oca_key": str(row["id"]),
             })
             call_ok = int((result or {}).get("retCode", 1)) == 0
             rec["result"] = result
