@@ -264,8 +264,21 @@ ON CONFLICT(order_package_id) DO UPDATE SET
     -- after its first pass. COALESCE order is load-bearing — a later pass whose
     -- lookup misses must never wipe an account already established.
     account_id=COALESCE(excluded.account_id, {TABLE}.account_id),
-    open_r=excluded.open_r, peak_r=MAX(COALESCE({TABLE}.peak_r, -1e18),
-                                       COALESCE(excluded.peak_r, -1e18)),
+    open_r=excluded.open_r,
+    -- THE SENTINEL IS A SORT KEY AND MUST NEVER BE PERSISTED AS A VALUE
+    -- (BL-20260818-TELEMETRY-PEAK-R-STORES-COALESCE-SENTINEL). The MAX below
+    -- keeps peak_r a running maximum, and -1e18 exists only so a NULL LOSES to
+    -- any real number. But when BOTH sides are NULL — a row whose peak_state is
+    -- `thin_window`, i.e. never measurable — the MAX has nothing to compare and
+    -- returns the sentinel itself, which is then stored as though it had been
+    -- observed. Measured live 2026-08-18 on trades 4711 and 4710: peak_r
+    -- -1e+18 with peak_state 'thin_window'. The CASE keeps NULL meaning
+    -- "we did not look", which is the whole contract of peak_state.
+    peak_r=CASE
+        WHEN {TABLE}.peak_r IS NULL AND excluded.peak_r IS NULL THEN NULL
+        ELSE MAX(COALESCE({TABLE}.peak_r, -1e18),
+                 COALESCE(excluded.peak_r, -1e18))
+    END,
     peak_state=excluded.peak_state, giveback_r=excluded.giveback_r,
     bars_held=excluded.bars_held, bars_since_peak=excluded.bars_since_peak,
     cap_r=excluded.cap_r, pct_of_cap=excluded.pct_of_cap,
@@ -462,9 +475,39 @@ def enrich_record(row: Dict[str, Any],
     # is a floor, not the MFE.
     out["peak_r_is_lower_bound"] = True
 
-    peak, cap = _f(row.get("peak_r")), _f(row.get("cap_r"))
+    # SANITIZE ON THE STATE, NEVER ON A MAGNITUDE
+    # (BL-20260820-TELEMETRY-THIN-WINDOW-SENTINEL-LEAKS-INTO-PEAK-PCT-OF-CAP).
+    # A `|value| >= 1e17` threshold would be a SECOND definition of the sentinel
+    # living apart from the first, and the two would drift; `peak_state` is the
+    # module's own declared answer to "was the peak measured?", so it is the
+    # only thing worth branching on. Rows written before the producer fix still
+    # carry the stored sentinel, and this is what keeps it off every consumer.
+    #
+    # Observed live 2026-08-20: pkg-6df50f61549b4659 (ada_pullback_2h) served
+    # peak_state 'thin_window' beside peak_r -1e+18 and peak_pct_of_cap
+    # -5.16e+19. The old guard tested only `peak is not None`, so the sentinel
+    # satisfied it and was multiplied. That it was an oversight rather than a
+    # design is visible on the same row: giveback_r and bars_since_peak were
+    # both correctly null.
+    # collapsed-state: thin_window — this derivation asks ONE binary question,
+    # "was the peak measured?", and `unanchored` / `thin_window` / `no_risk`
+    # answer it identically: no MFE exists to divide by a cap. The REASON is not
+    # lost, which is the whole point — `peak_state` is served verbatim on the
+    # same row, so a consumer that needs to tell a thin window from a missing
+    # risk-per-unit still can. This is the `is_measured()` shape the provenance
+    # module already uses: a four-valued vocabulary with a strictly BINARY
+    # gate over it. Branching the three apart here would produce three
+    # identical arms, which is decoration, and the guard's own lesson is that a
+    # decorative branch is worse than an honest annotation.
+    peak_measured = str(row.get("peak_state") or "").strip() == PEAK_MEASURED
+    peak = _f(row.get("peak_r")) if peak_measured else None
+    cap = _f(row.get("cap_r"))
+    out["peak_r"] = peak
     out["peak_pct_of_cap"] = (
         _r(100.0 * peak / cap, 2) if (peak is not None and cap and cap > 0) else None)
+    # The gradeability axis, published so `peak_above_cap` can state its own
+    # denominator instead of silently absorbing ungradeable rows.
+    out["peak_gradeable"] = bool(peak is not None and cap and cap > 0)
 
     arm = None
     try:
@@ -558,9 +601,21 @@ def read_records(db_path: Optional[str] = None,
             "by_finality_source": finality,
             # The Check-A invariant, computed here so every consumer reads the
             # same number: a row whose peak EXCEEDED its own venue ceiling.
+            #
+            # ⚠️ READ IT BESIDE `peak_gradeable_rows`, ALWAYS. The count is over
+            # rows whose peak was actually measured; a row that was not is
+            # EXCLUDED rather than counted as within-cap. That exclusion is the
+            # fix, not a detail: the old `(d.get("peak_pct_of_cap") or 0) > 100`
+            # scored a NEGATIVE sentinel as below the ceiling, so a row whose
+            # peak was never measured read as a PASSING one — the exact
+            # inversion of "unmeasured is never a pass", on the invariant M31 P4
+            # judges the fleet by
+            # (BL-20260820-TELEMETRY-THIN-WINDOW-SENTINEL-LEAKS-INTO-PEAK-PCT-OF-CAP).
+            # `0 breaches` now states how many rows it could grade.
             "peak_above_cap": sum(
                 1 for d in out
-                if (d.get("peak_pct_of_cap") or 0) > 100.0),
+                if d.get("peak_gradeable") and (d.get("peak_pct_of_cap") or 0) > 100.0),
+            "peak_gradeable_rows": sum(1 for d in out if d.get("peak_gradeable")),
             "final_rows": counts.get("closed", 0),
         },
     })

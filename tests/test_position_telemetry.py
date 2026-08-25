@@ -168,6 +168,62 @@ class TestPersistence:
                     f"SELECT peak_r, last_price FROM {pt.TABLE}").fetchone()
             assert abs(got[0] - deep["peak_r"]) < 1e-9, "peak regressed"
 
+    def test_two_unmeasurable_passes_leave_peak_r_NULL_not_the_sentinel(self):
+        """THE PRODUCER REGRESSION
+        (BL-20260818-TELEMETRY-PEAK-R-STORES-COALESCE-SENTINEL).
+
+        The -1e18 in the upsert is a SORT KEY: it exists so a NULL LOSES to any
+        real number and a peak can never walk backwards. But when BOTH sides are
+        NULL — a row whose peak_state is `thin_window`, i.e. never measurable —
+        MAX has nothing to compare and returns the sentinel, which is then
+        persisted as though it had been observed.
+
+        The write path matters: the first pass INSERTs (and correctly stores
+        NULL); only the second pass takes the UPDATE branch that manufactures
+        it. So a single write cannot reproduce this and the test needs two.
+
+        Measured live 2026-08-25 on 60 rows: 11 carried -1e+18, served through
+        peak_pct_of_cap as values down to -8.2e+19.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            thin = pt.build_record(open_pkg=_pkg(), meta=_meta(),
+                                   window=_window([1.0]),
+                                   direction="short", current_price=1.0)
+            assert thin["peak_state"] == pt.PEAK_THIN_WINDOW, thin
+            assert thin["peak_r"] is None, thin
+            assert pt.write_record(thin, db_path=db)      # INSERT
+            assert pt.write_record(thin, db_path=db)      # UPDATE — the branch
+            with sqlite3.connect(db) as c:
+                got = c.execute(
+                    f"SELECT peak_r, peak_state FROM {pt.TABLE}").fetchone()
+            assert got[1] == pt.PEAK_THIN_WINDOW
+            assert got[0] is None, (
+                f"stored {got[0]!r} — the sort sentinel was persisted as a "
+                "measurement")
+
+    def test_a_real_peak_still_survives_an_unmeasurable_later_pass(self):
+        """The control the fix must not break: a NULL arriving later must still
+        LOSE to an established peak. If the CASE were written as a plain
+        `COALESCE(excluded.peak_r, table.peak_r)` this would pass too — but
+        `test_peak_r_never_walks_backwards` is what pins the ordering, and this
+        pins that the NULL-vs-real case is still handled after the change."""
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(tmp)
+            deep = pt.build_record(open_pkg=_pkg(), meta=_meta(),
+                                   window=_window([1.06, 0.95]),
+                                   direction="short", current_price=1.0)
+            thin = pt.build_record(open_pkg=_pkg(), meta=_meta(),
+                                   window=_window([1.0]),
+                                   direction="short", current_price=1.0)
+            assert deep["peak_r"] is not None and thin["peak_r"] is None
+            assert pt.write_record(deep, db_path=db)
+            assert pt.write_record(thin, db_path=db)
+            with sqlite3.connect(db) as c:
+                got = c.execute(f"SELECT peak_r FROM {pt.TABLE}").fetchone()
+            assert abs(got[0] - deep["peak_r"]) < 1e-9, (
+                "an unmeasurable pass wiped an established peak")
+
     def test_a_write_failure_is_survivable(self):
         assert pt.write_record({"order_package_id": "x"},
                                db_path="/nonexistent/dir/j.db") is False
