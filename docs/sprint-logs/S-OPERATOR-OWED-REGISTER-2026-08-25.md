@@ -254,9 +254,10 @@ flag back in.
 
 ## Deferred Items
 
-- **The stray branch is not yet deleted.** An issue trigger and a
-  `workflow_dispatch` both resolve the workflow from the **default** branch, so
-  it fires after merge. A sequencing fact, not a hand-off.
+- ~~**The stray branch is not yet deleted.**~~ ✅ **DONE post-merge** — see
+  "Addendum" below. It was deferred only on sequencing (the workflow resolves
+  from the **default** branch), and that sequencing resolved the moment #10291
+  landed.
 - **The MHG cancel is Tier-2 and was not taken.** The proposal tool emits the
   body; the dispatch needs one operator OK — on the very position whose last
   remediation is the subject of `BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG`.
@@ -281,3 +282,87 @@ works.
       workflow catalog and the register agree with the code.
 - [x] Tier respected: nothing merged that needed an approval it did not have;
       no live-VM dispatch; the order path untouched.
+
+## Addendum — what happened after #10291 merged
+
+Written the same session, an hour later. The two entries below change the
+sprint's own conclusions, so they are recorded here rather than left to a
+reader to reconcile against the backlog.
+
+### The first item travelled the whole register
+
+`claude/ib-breaker-peer-close` is **deleted** (`prune-merged-claude-branch`
+run 32899747507), and `OO-20260825-STRAY-BRANCH-IB-BREAKER-PEER-CLOSE` is
+`resolved`. Confirmed by an independent `git ls-remote` rather than by the
+workflow's own success conclusion.
+
+The **dry run refused first**, which is the guard working: `git cherry`
+returned `-`, meaning a patch-equivalent commit is already on `main`, and
+squash-merge is why the branch is not an ancestor — precisely the case the
+reasoned waiver exists for. Before using it, both rows the branch adds were
+re-verified byte-identical on `main` **in this session** by field-by-field
+JSON comparison, not carried over from the earlier note.
+
+That satisfies the **first** of the filing row's two closing conditions: an
+item demonstrably moved *because of* the register, and nobody was asked to do
+anything.
+
+### ⚠️ The ratchet did NOT fire, and the reason is a defect in this sprint's own work
+
+Two items sat at carry **1/2** with the check printing *"one register commit
+from escalating"*. The next register commit should have escalated one. It did
+not: **`register commits measured` went 3 → 2 across the squash merge** — the
+PR's three in-branch register commits collapsed into one, resetting the carry.
+
+The direction is arguably *correct* (carry means to count SESSIONS, and one
+squashed PR is roughly one session), which is why it is filed `medium` rather
+than `high`. The defect is that **the two views disagree and nothing says which
+is authoritative**, so a session can watch the ratchet approach and never see it
+fire. It is also a **second under-report mechanism** — larger than the one
+`operator_owed.py`'s header documents, and applying to every session that *does*
+use the register rather than only to one that skips it. The "under-reports and
+can never over-report" claim survives; the age axis remains the independent trip
+path. `BL-20260825-CARRY-COUNT-RESETS-ACROSS-A-SQUASH-MERGE` (three candidate
+fixes named, **none chosen** — whoever picks one owns that decision).
+
+**So `operator-owed-guard` has fired on a real carry exactly zero times, and
+the escalation half of the filing row remains UNPROVEN BY OBSERVATION.** The
+row stays open on that half. Its own `verification_obligation` forbids reading
+the current green as success, and that applies to this sprint's green too.
+
+### Two CI traps, both corrections to this session's own conduct
+
+- **`ready_for_review` re-runs the required checks on the UNCHANGED head sha.**
+  7/7 green, flip `draft → ready`, merge returns `405 3 of 3 required status
+  checks have not succeeded` — branch protection reads the *latest* check run
+  per name, and three fresh `in_progress` runs masked the identical green set.
+  Cost a full `pytest-run`, and the 405 reads exactly like a real red.
+  ✅ The rule was then **applied and verified** on #10293: flipping to ready
+  immediately after opening let concurrency cancel the superseded set, so the
+  `ready_for_review` run became the merge run — no duplicate cycle, no 405.
+  `BL-20260825-READY-FOR-REVIEW-RERUNS-REQUIRED-CHECKS-AND-BLOCKS-THE-MERGE`.
+- **`actions_get get_workflow_run` is NOT an escape hatch from the check-run
+  read lag** — it is the workaround the existing lag row recommends. It lagged
+  identically here, returning `in_progress` with a frozen `updated_at` for two
+  jobs that had **already completed**, and that frozen timestamp was asserted as
+  positive evidence of a queued job. Wrong: *"still running"* from **either**
+  surface means *"we could not look"*.
+  `BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS`.
+
+A third measurement lapse belongs with these: a branch-filtered run listing
+taken **seconds** after a push cannot distinguish *"CI did not attach"* from
+*"CI has not attached yet"* (~6 min observed). One such reading was reported as
+a non-attach and corrected on the board. The genuine non-attach on `63c99a8`
+survives re-checking, so `BL-20260730-PR-CI-NOT-ATTACHING` is narrowed by one
+data point, not cleared.
+
+### Disposition of the MHG item
+
+Deferred behind a **named trigger** (an operator OK on the Tier-2
+`cancel-ib-order` dispatch) by the session that built its wire — rather than
+carried forward in prose, which is the behaviour the register replaces. Its
+`owner_class` was deliberately **left** `defaulted_to_human`: re-labelling it
+`judgement` now that the only remaining input is an approval would be
+defensible on its face and is exactly the *"a mislabel buys slack"* residual
+this register documents against itself. The position is live; severity stays
+`high`.
