@@ -109,6 +109,69 @@ def is_expected_dispatch_skip(reason: object) -> bool:
     text = str(reason or "")
     return any(tok in text for tok in EXPECTED_DISPATCH_SKIP_REASONS)
 
+
+#: ``intent_noop:`` IS A DESIGNED NAMESPACE, not a coincidence of naming, and
+#: that is what makes a prefix test safe here rather than sloppy.
+#: ``coordinator.multi_account_execute`` files every deliberate no-op under it
+#: (``at_target``, ``flip_suppressed_hold_policy``,
+#: ``hold_to_bracket_reduce_non_derivative``, ``already_flat_and_target_flat``,
+#: ``conflict_resolved_by_priority`` …) and deliberately names the FAILURE
+#: sibling of the very same branch ``intent_close_flatten_failed:`` — OUTSIDE
+#: the namespace, with the comment *"Failure → a real error so the alert DOES
+#: fire"*. The prefix already carries the meaning; this predicate only reads it.
+#: ``tests/test_policy_hold_predicate.py`` pins that invariant, so a future
+#: failure smuggled into the namespace fails CI rather than going quiet.
+_POLICY_HOLD_PREFIXES = ("intent_noop:", "reentry_suppressed_netting_guard:")
+_POLICY_HOLD_EXACT = ("intent_sub_min_qty_delta",)
+
+
+def is_policy_hold(reason: object) -> bool:
+    """True when *reason* is a declared no-op or hold — the BROAD predicate.
+
+    A strict superset of :func:`is_expected_dispatch_skip`. The two answer
+    different questions and both are needed:
+
+    * ``is_expected_dispatch_skip`` — "is this account/venue DECLARED OFF?"
+      (a ``dry_run`` shelf, a prop mission/session skip). A property of the
+      *account*.
+    * ``is_policy_hold`` — "did the system DECIDE not to send this order?"
+      Everything above, plus the intent layer resolving to a no-op (the
+      position is already at target, ``FLIP_POLICY=hold`` keeping a position,
+      a bracket-reduce held for the broker bracket) and the netting guard
+      suppressing a re-entry. A property of the *decision*.
+
+    ⚠️ **WHY THIS EXISTS AS A MODULE-LEVEL FUNCTION** (2026-08-25,
+    ``BL-20260825-DECLARED-POLICY-HOLDS-GRADE-AS-REFUSALS-IN-THE-DEAD-LEG-VOCABULARY``).
+    This rule is not new — it has been the incumbent since 2026-05/07 in
+    ``enqueue_all_accounts_failed_dispatch``'s ``_is_hold`` and in
+    ``coordinator._is_benign_noop``. But both were NESTED CLOSURES, so nothing
+    could import them, and ``dead_leg`` (written later, needing exactly this
+    question answered) delegated to the only *importable* predicate in this
+    module — the narrower one. Its docstring said it delegated to "the one
+    module that owns 'is this refusal deliberate?'", which was true of the
+    module and false of the predicate: it picked the narrower of two, and the
+    narrower one is a strict subset of what the same module uses for its own
+    alerting.
+
+    Measured cost of that gap, live 2026-08-25 (1000-row diag window,
+    2026-07-26 → 2026-08-25; population stated because the ratio is the point):
+    across all six legs grading ``signalled_never_placed`` — the most alarming
+    verdict this family has — **77 of 93 refused rows (82.8%) carried one of
+    these declared tokens**, and only 3 were a genuine capability failure.
+    ``avax_pullback_2h``, a leg the operator switched off (``execution:
+    shadow``), carried that verdict on the strength of a single row that was
+    itself ``intent_noop:flip_suppressed_hold_policy``.
+
+    Fail-safe and never raises. Accepts the bare reason or a wrapped
+    RiskBreach message.
+    """
+    text = str(reason or "")
+    return (
+        text.startswith(_POLICY_HOLD_PREFIXES)
+        or text in _POLICY_HOLD_EXACT
+        or is_expected_dispatch_skip(text)
+    )
+
 # Durable ring of the operator alerts this module raises (2026-07-08). The
 # pending-ping files are transient (the Telegram sender consumes + deletes
 # them), so they can't back the app's Overview notification banner. Every
@@ -649,15 +712,14 @@ def enqueue_all_accounts_failed_dispatch(
         # (_is_benign_noop guard in multi_account_execute) already suppresses
         # the alert when ALL results are noops; here we split the list so the
         # message only labels policy holds as holds, not failures.
+        # Byte-identical to the four-clause closure this replaces — the rule
+        # simply lives at module level now so `dead_leg` can import it instead
+        # of re-deriving a narrower one (see `is_policy_hold`). A shelved
+        # dry_run account / prop mission-skip is a deliberate policy hold, not
+        # a failure (operator directive 2026-07-15), and remains covered via
+        # `is_expected_dispatch_skip` inside that predicate.
         def _is_hold(err: str) -> bool:
-            return (
-                err.startswith("intent_noop:")
-                or err == "intent_sub_min_qty_delta"
-                or err.startswith("reentry_suppressed_netting_guard:")
-                # A shelved dry_run account / prop mission-skip is a deliberate
-                # policy hold, not a failure (operator directive 2026-07-15).
-                or is_expected_dispatch_skip(err)
-            )
+            return is_policy_hold(err)
 
         genuine = [r for r in results if not _is_hold(str(r.get("error") or ""))]
         held = [r for r in results if _is_hold(str(r.get("error") or ""))]
