@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import sqlite3
 import uuid
@@ -31,8 +32,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
+from src.runtime.provenance import UNMEASURED_MARKER as _UNMEASURED_MARKER
 from src.units.strategies import pairs_engine as pe
 from src.units.strategies import pairs_sizing as psz
+from src.utils.json_notes import dump_capped
+from src.utils.json_notes import load_notes as _decode_notes
 
 logger = logging.getLogger(__name__)
 
@@ -774,11 +778,64 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             pnl = round(sign * (float(last_px) - entry) * qty, 6) if entry > 0 else None
             pnl_pct = (round(sign * (float(last_px) - entry) / entry * 100.0, 4)
                        if entry > 0 else None)
-            db.update_trade(row["id"], {
+            # ── M39(B): stamp provenance on this DECIDED close ──────────
+            # Backlog row on ONE line so the id resolves (a wrapped id reads as
+            # a dangling reference and `check_backlog_refs` refuses it):
+            # BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE
+            #
+            # This write persisted status/exit_price/exit_reason/closed_at/pnl
+            # and NO provenance key, so every pairs close classified UNVERIFIED
+            # -- "we don't know" -- while carrying a real price and a real pnl.
+            # Measured on the live journal 2026-08-25 over the newest 500
+            # trades: of 107 DECIDED closes, 82 were unverified and **all 82
+            # were pairs**, i.e. after the M39(A) monitor fix this site was
+            # 100% of the remaining decided-provenance gap. Every non-pairs
+            # decided path measured 0% unverified.
+            #
+            # THE STAMP GOES AT THIS ONE SITE, NOT PER EXIT REASON. Track B was
+            # scoped as "pairs_revert / pairs_stop", but the live journal also
+            # carries `pairs_timeout` (n=2) -- a fix written against the two
+            # named reasons would have left a third silently unstamped, which
+            # is the residual that survives a fix and reads as fixed. Stamping
+            # where the row is written covers every present and future
+            # `pairs_*` outcome by construction.
+            #
+            # WHY `candle_at_close` AND NOT A FILL. `last_px` is `closes_a[-1]`
+            # / `closes_b[-1]` -- the close of the bar the exit decision was
+            # made on. `close_open_position` is called for the flatten but only
+            # its `ok` flag is read; NO fill price is ever read back. So this
+            # is a bar close, not broker truth, and `candle_at_close` is
+            # already the ESTIMATED source for exactly that (`exit_anchor`).
+            # Stamping a MEASURED source here would be the provenance lie that
+            # demoted `recorded_exit_price` on 2026-08-24 -- verified, not
+            # assumed: `classify_pnl` returns ESTIMATED for this pair of keys
+            # and would return MEASURED for `exchange_fill`.
+            #
+            # THREE-STATE, per `docs/CLAUDE-RULES-CANONICAL.md` § "Collapsed
+            # states": a close whose price is not a usable number declares
+            # `UNMEASURED_MARKER` rather than claiming a bar close it never
+            # had. `pnl_source` is written ONLY when a pnl exists -- claiming
+            # `local_compute` over a NULL pnl would describe arithmetic that
+            # never ran.
+            #
+            # NEVER OVERWRITES a more specific existing stamp -- the sibling
+            # rule `_apply_update` and `_sweep_local_pnl_for_unpriced` both
+            # carry, after an unconditional overwrite laundered a projection
+            # over a broker source.
+            close_updates: Dict[str, Any] = {
                 "status": "closed", "exit_price": float(last_px),
                 "exit_reason": f"pairs_{outcome}", "closed_at": now_iso,
                 "pnl": pnl, "pnl_percent": pnl_pct,
-            })
+            }
+            _notes = _decode_notes(row.get("notes"))
+            _px_ok = math.isfinite(float(last_px)) if last_px is not None else False
+            if not _notes.get("exit_price_source"):
+                _notes["exit_price_source"] = (
+                    "candle_at_close" if _px_ok else _UNMEASURED_MARKER)
+            if pnl is not None and not _notes.get("pnl_source"):
+                _notes["pnl_source"] = "local_compute"
+            close_updates["notes"] = dump_capped(_notes, 2000)
+            db.update_trade(row["id"], close_updates)
             # Package bookkeeping — guarded HERE as well as inside the helper, so
             # the isolation property is STRUCTURAL rather than conventional: it must
             # not depend on a future edit keeping the helper's own guard intact. A

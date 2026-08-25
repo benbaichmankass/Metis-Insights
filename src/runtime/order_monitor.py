@@ -61,6 +61,7 @@ logger = logging.getLogger(__name__)
 
 from src.utils.paths import repo_root as _repo_root_fn  # noqa: E402
 from src.utils.json_notes import dump_capped  # noqa: E402
+from src.utils.json_notes import load_notes as _load_notes  # noqa: E402
 from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
 from src.runtime.monitor_verdict import (  # noqa: E402
     KIND_MODIFY, KIND_PARTIAL_CLOSE, MEANINGFUL_MODIFY_REL_TOL,
@@ -6355,14 +6356,15 @@ def _emit_orphan_cascade_failed_audit(
 
 def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
     """Best-effort decode of a ``trades.notes`` JSON blob; returns an
-    empty dict on missing / malformed content."""
-    if not notes_raw:
-        return {}
-    try:
-        loaded = json.loads(notes_raw)
-        return loaded if isinstance(loaded, dict) else {}
-    except Exception:  # noqa: BLE001
-        return {}
+    empty dict on missing / malformed content.
+
+    Delegates to ``src.utils.json_notes.load_notes`` — the symmetric half of
+    ``dump_capped``, which this module already uses for the write side. Kept as
+    a named local so the many call sites here read unchanged; the BEHAVIOUR is
+    now defined in exactly one place, so the pairs close (M39 track B) and this
+    path cannot drift into two answers about what a malformed blob decodes to.
+    """
+    return _load_notes(notes_raw)
 
 
 _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting

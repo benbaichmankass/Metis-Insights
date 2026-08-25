@@ -78,6 +78,31 @@ def _dumps(obj: Any, ensure_ascii: bool) -> str:
     return json.dumps(sanitize_nonfinite(obj), ensure_ascii=ensure_ascii, default=str)
 
 
+def load_notes(notes_raw: Any) -> dict:
+    """Best-effort decode of a ``trades.notes`` / ``signal_logic`` JSON blob.
+
+    Returns ``{}`` for missing, malformed, or non-dict content — a caller that
+    is about to ADD a key needs a dict to add it to, and a decode failure must
+    not lose the write. It never raises.
+
+    THE SYMMETRIC HALF OF :func:`dump_capped`, and it lives here for that
+    reason. The decode existed only as a private ``_decode_notes`` inside
+    ``order_monitor``, so the second site that needed it (the pairs close, M39
+    track B) faced a choice between a third copy and importing the order path
+    into a strategy module. Neither is acceptable: this repo's own record says
+    a fourth copy is how the existing three drift apart, and the encode side
+    was already centralised here precisely so notes handling has ONE home.
+    ``order_monitor._decode_notes`` now delegates to this.
+    """
+    if not notes_raw:
+        return {}
+    try:
+        loaded = json.loads(notes_raw)
+    except Exception:  # noqa: BLE001
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 def dump_capped(
     obj: Any,
     max_len: int,
