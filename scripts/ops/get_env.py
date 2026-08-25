@@ -509,8 +509,21 @@ def _state_label(entry_side: dict) -> str:
     if state == SET_EMPTY:
         return "'' (SET BUT EMPTY — not the same as unset)"
     if state == UNSET:
-        return "<unset>"
-    return f"<UNREADABLE: {entry_side.get('unreadable_reason')}>"
+        # NOT angle-bracketed. This action's stdout is posted back as a GitHub
+        # issue comment, and GitHub strips <...> as HTML EVEN INSIDE A CODE
+        # FENCE — so "<unset>" rendered as an EMPTY STRING on the only surface a
+        # web session can read (action-output.txt is not reachable through the
+        # GitHub MCP). Measured live on issue #10261: the comment showed
+        # "process :" and "declared:" with nothing after either, and the real
+        # answer had to be recovered by four-way elimination.
+        #
+        # It landed on exactly the two states this module's docstring says must
+        # never be collapsed — "no data here" and "no value" are not the same —
+        # because both were the <...>-wrapped ones. Keep every label
+        # bracket-free; _self_test asserts it.
+        # BL-20260825-GET-ENV-RENDERS-UNSET-AS-BLANK-ON-ITS-ONLY-WEB-CONSUMER
+        return "(unset)"
+    return f"(UNREADABLE: {entry_side.get('unreadable_reason')})"
 
 
 def render_text(report: dict) -> str:
@@ -595,6 +608,32 @@ def _self_test() -> int:
     check("set_empty vs unset -> pending_restart, not agree",
           agreement({"state": SET_EMPTY, "value": ""},
                     {"state": UNSET, "value": None}), "pending_restart")
+
+    # RENDERED form, not just the data. The four states were always
+    # distinguishable in `classify`; they stopped being distinguishable when
+    # PRINTED, because GitHub ate the angle brackets. A label that cannot
+    # survive the transport is not a label.
+    _bracketed = re.compile(r"^<.*>$")
+    for _state, _side in (
+        (SET, {"state": SET, "value": "600"}),
+        (SET_EMPTY, {"state": SET_EMPTY, "value": ""}),
+        (UNSET, {"state": UNSET, "value": None}),
+        (UNREADABLE, {"state": UNREADABLE, "value": None,
+                      "unreadable_reason": "denied"}),
+    ):
+        _label = _state_label(_side)
+        check(f"label for {_state} is not <...>-wrapped (GitHub strips it)",
+              bool(_bracketed.match(_label)), False)
+        check(f"label for {_state} is non-empty", bool(_label.strip()), True)
+    # And they must still be distinguishable FROM EACH OTHER once rendered.
+    _labels = [_state_label(x) for x in (
+        {"state": SET, "value": "600"},
+        {"state": SET_EMPTY, "value": ""},
+        {"state": UNSET, "value": None},
+        {"state": UNREADABLE, "value": None, "unreadable_reason": "denied"},
+    )]
+    check("all four rendered labels are distinct",
+          len(set(_labels)) == 4, True)
 
     print("  self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
