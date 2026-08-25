@@ -22979,7 +22979,7 @@
    "opened": "2026-08-24",
    "opened_at": "2026-08-24T19:35:00+00:00",
    "opened_by": "claude (m20-bracket-candle-feed session, 2026-08-24)",
-   "status": "open",
+   "status": "resolved",
    "severity": "medium",
    "tier": 1,
    "area": "research-tooling",
@@ -22989,7 +22989,12 @@
    "why_it_matters": "The refusal itself is CORRECT — an empty matrix is a green run that tested nothing, and the module deliberately fails rather than emitting an empty include list. The defect is planning on a precondition the plan itself creates. Until fixed, the e35 sharding lane (built to survive sandbox recycles on a multi-hour sweep) is unusable.",
    "resolution_criteria": "e35-bracket-sweep.yml completes a real run with a non-empty matrix, evidenced by a run id. 'Could not reproduce' is NOT a valid close — the reproduction is one command against an empty --data-dir.",
    "proposed_fix": "Add `--ignore-missing-data` to e35_shard_plan.py (default OFF so local behaviour is unchanged) that plans from config alone, mirroring plan_legs' scope EXACTLY — same config read, same fleet.classify family filter, same symbol/timeframe resolution, and deliberately the same absence of an `enabled` check — dropping only the data-presence gate. Set it in the workflow. `scripts/research/pullback_frac_cross_leg_sweep.py::plan_shards` is a working reference implementation.",
-   "notes": "A drafted patch exists but was deliberately NOT bundled into this session's PRs (it is another sweep's tool)."
+   "notes": "A drafted patch exists but was deliberately NOT bundled into this session's PRs (it is another sweep's tool).",
+   "resolved": "2026-08-25",
+   "resolved_at": "2026-08-25T05:10:00+00:00",
+   "resolved_by": "claude (m20-bracket-candle-feed session, 2026-08-24/25)",
+   "resolution": "FIXED in #10239 (`--ignore-missing-data`, default OFF, dropping ONLY the data-presence gate inside `plan_legs` so leg scope stays one loop) and VERIFIED by a real run. ⚠️ READ THE SPLIT, NOT JUST THE RUN ID. Run 32783849276 — the workflow's FIRST EVER execution (`actions_list` total_count was 0 before it, which independently confirms the premise this row was filed on) — COMPLETED with 46 jobs = 1 plan + 43 legs + aggregate + corpus, both terminal jobs green and the corpus job committing its rows. Of the 43 legs: 19 SUCCEEDED (every crypto leg, artifacts uploaded) and 24 FAILED (every non-crypto leg). The 24 failures are NOT this defect and NOT a regression of its fix: they are BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX, a separate pre-existing defect that became observable only BECAUSE the planner started working, and which is itself now fixed in #10244 (19 binance_vision + 21 dukascopy + 3 refused at plan time = 43). Stating the split here so a future reader of a 24-failure run does not read it as either a clean pass or a broken planner. The 19/24 outcome was PREDICTED from the feed analysis before the run finished and matched exactly. Tallied across BOTH pages of the jobs API — page 1 returns 30 of 46, so a one-page read under-counts.",
+   "evidence_run_id": "32783849276"
   },
   {
    "id": "BL-20260824-TP-SENTINEL-CAP-PCT-DUPLICATED-IN-FIVE-FILES",
