@@ -287,6 +287,25 @@ failure. The one factor that co-varies is **draft-vs-ready at creation**
 *push* to it attached normally). **n=3, hypothesis, not a mechanism** — recorded
 that way on the row, with the cheap next test named.
 
+⚠️ **AND I RETRACTED THAT HYPOTHESIS THE SAME SESSION, BEFORE IT MERGED.** It
+recurred a third time on a **force-push** (`3aed31b`), which is not a create
+event at all. Checking all ten of the branch's events properly then showed I
+had reached the hypothesis from **selective evidence**: I looked at the one
+#10287 push that attached (`96c4157`) and not at `53dc9f6`, which did not.
+Full ledger — 3 of 10 events failed to attach, and **two of the three were
+pushes**; `#10288` was created `draft: true` and attached, then its force-push
+did not. Same branch, same PR, same day, opposite outcomes.
+
+**The honest residue is weaker and truer:** intermittent, ~3-in-10, affecting
+both creates and pushes, no discriminator found. It also *raises* the stakes —
+an intermittent no-attach on a PUSH means a PR that was green can silently stop
+being re-checked on its newest commit while the page still shows the old green.
+The detector that row asks for should key on the **head sha**, not the PR.
+
+I did this inside the very row I was writing to complain about a reassuring
+reading being available and wrong. That is the whole lesson of the day, applied
+to me twice in ten minutes.
+
 **2. I never registered in `docs/claude/session-board.json`.**
 The live board (#6927) carried every `START` / `🔒 CLAIM` / `🔓 RELEASE` / `DONE`
 in real time, so no other session was uninformed and no merge raced — but the
