@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T15:10:00+00:00",
+ "updated_at": "2026-08-25T16:55:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -17604,7 +17604,7 @@
    "opened_by": "claude (exit-eval-interval session, found while trying to verify my own deploy)",
    "severity": "high",
    "tier": "1 (the fix is a read surface + a doc correction; no runtime behaviour changes)",
-   "status": "kept_open",
+   "status": "resolved",
    "area": "observability",
    "title": "The post-deploy git_sha round-trip assertion compares on-disk HEAD to on-disk HEAD, so it cannot fail for the incident class it was built to catch - and no read surface exposes what the RUNNING processes are executing",
    "detail": "FOUND WHILE VERIFYING MY OWN MERGE (#9574, squash 5b64edca, merged 08:31Z). I read\n/api/diag/status at 08:32Z and got git_sha 5b64edca - my merge - beside\nbot_uptime_s 1892, i.e. a process started 2026-08-16T08:01:06Z, TWENTY-FIVE MINUTES\nBEFORE that sha existed. A process cannot be running code that did not exist when it\nstarted, so the field is not reporting what a reader takes it to report.\n\nTHE MECHANISM, read from code rather than inferred:\n  src/web/runtime_status.py::_resolve_git_sha shells `git rev-parse --short HEAD`\n  against the working tree, with NO caching. write_status() calls it from\n  src/runtime/pipeline.py:1006 on EVERY tick, and src/web/api/routers/diag.py:1157\n  (/api/diag/version) calls the SAME helper at REQUEST time.\nSo both surfaces answer 'what does the checkout on disk say?', never 'what code is\nthis process executing?'. They diverge for exactly the window between an\nict-git-sync pull and the service restart - which is precisely when someone checks.\n\nTHE PART THAT MAKES THIS HIGH, not a nitpick. scripts/deploy_pull_restart.sh:496-543\nruns a 'post-deploy version round-trip assertion' whose own comment says it\n'Catches the 2026-05-09 incident class - web-api advertised \"running\" via systemd but\nits IN-PROCESS git SHA was 24+h stale because nothing in the deploy chain restarted\nit.' It curls /api/diag/version and compares the reported git_sha to POST_SYNC_HEAD.\nBut that endpoint re-reads on-disk HEAD, which IS POST_SYNC_HEAD by construction at\nthat point in the script. A web-api that was never restarted returns the new sha and\nPASSES. The assertion is vacuously true and cannot detect the failure it names.\nThere is no in-process git SHA anywhere in this codebase to compare against.\n\nWHAT IS NOT BROKEN, so nobody 'fixes' the wrong half: the RESTART DECISION itself is\nsound. deploy_pull_restart.sh:265+ drives it off runtime_logs/deployed_sha.txt - the\nsha the services were last restarted ONTO - which is the correct notion and was added\nfor exactly this class. The defect is that the VERIFICATION step ignores that marker\nand asks a question that answers itself.\n\nSECOND, SEPARATE FINDING, caught by artifact-validity-guard when I cited it: the\ndeploy script attributes that restart-gate work to a backlog id THAT WAS NEVER FILED.\n`BL-2026 0714-DEPLOY-STALE-ON-OOB-SYNC` (written with a space so quoting it here does\nnot itself trip the guard - it cannot distinguish an id cited as an EXAMPLE from one\ncited as TRACKING, and it is right not to try) appears at scripts/deploy_pull_restart.sh\nlines 85, 246 and 559 and resolves to nothing in any of the three backlogs. Three\ncitations in a LIVE DEPLOY SCRIPT that read as 'this is tracked' while being tracked by\nnobody. I reached for the id from that comment and the guard stopped me propagating it -\nthe same trap a session hit on 2026-08-14 reaching for an id from memory\n(S-IB-EXIT-COVERAGE-2026-08-14 § Validation). A comment asserting an id is a CLAIM\nabout a row, not the row.\n\nAND deployed_sha.txt HAS NO READ SURFACE: zero references in\nsrc/web/api/routers/diag.py, and it is not in the /api/diag/log_file allowlist. So the\nVM writes down the right answer and nothing exposes it. From outside, the only way to\ntell whether a trader-side change is actually live is to infer it from bot_uptime_s /\nexit_loop_health.process_started_utc and compare against the merge time by hand -\nwhich is what I did, and only because a 25-minute impossibility made me look.\n\nCLASS: this is 'Diagnostic provenance' sub-class A (CLAUDE.md) - the label names\nquantity Q (running code version), the code called f() (on-disk HEAD), f() != Q - and\nsimultaneously the 'green that checked nothing' failure in CLAUDE-RULES-CANONICAL.\nIt fails in the DANGEROUS direction: it makes an undeployed change look deployed.",
@@ -17622,9 +17622,23 @@
      "at": "2026-08-16T15:40:00+00:00",
      "by": "claude (exit-eval-interval session — the SAME session that filed this row at 08:40Z)",
      "note": "I STEPPED IN THIS EXACT TRAP AGAIN SEVEN HOURS AFTER FILING THIS ROW, which is a fact about the row's effectiveness and not just about me. At 15:20:17Z I read /api/diag/version, got git_sha '7da0842b', and reported to the operator that the #9693 deploy had landed on the trader. Same endpoint, same wrong inference, same day. Then I re-derived the mechanism from source and started filing it a SECOND time as a new row before the artifact-validity-guard tripped on an unrelated dangling id and led me here. The duplicate has been deleted rather than kept.\n\nWHAT THAT SAYS: the row is correct and it did not protect the next reader, because the defect is in a surface you reach for reflexively while doing something else, and nothing at the point of use says so. A backlog row cannot fix that. The resolution criteria should be read as urgent for that reason -- until the endpoint reports process_git_sha beside disk_git_sha, every reader re-derives this or, more likely, does not.\n\nNEW EVIDENCE, the consumer half: scripts/deploy_pull_restart.sh (~lines 499-547) compares the endpoint's git_sha against POST_SYNC_HEAD -- the sha it just pulled to -- while the endpoint computes that same tree's HEAD at request time. POST_SYNC_HEAD vs POST_SYNC_HEAD. The assertion cannot fail, and it reports PASSING, which CLAUDE-RULES-CANONICAL calls the same sin as a red that checked nothing.\n\nADJACENT, PRE-EXISTING, AND NOT FIXED BY ME: that same script cites a `BL-20260714` deploy-stale-on-out-of-band-sync tracking id THREE times (lines 85, 246, 559) to justify its restart-decision gate, and that id is filed in NO backlog. The deploy path's central correctness argument points at a row that does not exist. artifact-validity-guard misses it because the guard is DIFF-SCOPED -- it flags ids a change introduces, so pre-existing dangling citations are grandfathered; it caught me only because I copied the id into a new row. Running that guard with --all as a standing audit would surface this class. I have not filed the missing row: I do not know what that investigation concluded, and inventing one to silence a guard is the 'cheaper to lie to than to satisfy' failure this repo names."
+    },
+    {
+     "at": "2026-08-25T17:00:00+00:00",
+     "by": "claude (system-review fix round, backlog drain)",
+     "note": "RESOLVED — all five criteria, checked one at a time against the live endpoint and the code rather than against the merge that claimed them.\n\n1. READ SURFACE — MET, in the criterion's own stated alternative ('or a field on /api/diag/version'). Live read 2026-08-25T16:3xZ:\n     {\"git_sha\":\"9c9f8472\",\"git_sha_on_disk\":\"9c9f8472\",\n      \"restart_pending\":false,\"captured_at\":\"2026-08-25T16:31:22Z\"}\n2. SELF-DESCRIBING SEPARATE KEYS — MET. `git_sha` is `_RUNNING_GIT_SHA`, captured ONCE AT IMPORT (diag.py:280) so it names the code the process actually loaded; `git_sha_on_disk` resolves the worktree live. 'checkout is at X' and 'the running process was started onto Y' can no longer be read as one number, and X != Y IS the pending-restart signal, exactly as the criterion asked.\n3. THE ASSERTION — MET, and this is the one that mattered. deploy_pull_restart.sh:553 reads `git_sha` from the endpoint and compares it to HEAD. That comparison was VACUOUS while the endpoint shelled `git rev-parse` at request time (X == X over the same tree); with the value import-captured it now compares the RUNNING sha to HEAD and can genuinely fail. The script cites BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE at line 506, so this was addressed deliberately rather than incidentally.\n4. CLAUDE.md — MET. Its /api/diag/version row now carries the ⚠️ correction recording that the endpoint reported the DISK sha until 2026-08-23 and that the deploy assertion was vacuous, with the measured proof (the endpoint returned fced7279 while the same process 400'd a log_file name that exists in fced7279).\n5. THE MISSING ROWS — MET TODAY, and it was still open. Measured by extracting every BL- id cited in scripts/deploy_pull_restart.sh and differencing against the ids filed across all three backlogs: THREE distinct ids resolved to nothing —\n     BL-20260714-DEPLOY-STALE-ON-OOB-SYNC   x3  (the id this row named)\n     BL-20260615-DEPLOY-NOOP                x2\n     BL-20260622-GATEWAY-GIT-SYNC           x1\nAll three are now filed as `resolved` records — the fixes have been in the code for months; what was missing was the row. Filing rather than deleting, per this row's own instruction that the reasoning is the only record of why the restart gate reads deployed_sha.txt.\n\n⚠️ WHY THE GUARD DID NOT CATCH THEM, worth stating because it is the general lesson: `artifact-validity-guard` is DIFF-SCOPED — it fails a change that INTRODUCES an unresolvable id and grandfathers everything already in the tree. So a dangling citation that predates the guard is invisible to it forever, and reads as tracked while being tracked by nobody. A periodic whole-tree sweep is the only thing that finds these; today's was ad hoc."
     }
    ],
-   "updated_at": "2026-08-16T15:40:00+00:00"
+   "updated_at": "2026-08-16T15:40:00+00:00",
+   "resolved_at": "2026-08-25T17:00:00+00:00",
+   "next_action": "DONE. Follow-up worth considering separately: an --all whole-tree mode for artifact-validity-guard, since its diff scoping means a dangling citation older than the guard can never be found by it.",
+   "last_verified": "2026-08-25",
+   "refs": [
+    "BL-20260714-DEPLOY-STALE-ON-OOB-SYNC",
+    "BL-20260615-DEPLOY-NOOP",
+    "BL-20260622-GATEWAY-GIT-SYNC",
+    "BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE"
+   ]
   },
   {
    "id": "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
@@ -23820,6 +23834,81 @@
     "worked_example": "fill 33 reported 2026-08-23T11:04:22Z for a 2026-08-22 07:48->08:10 round trip (27h lag)"
    },
    "next_action": "Tier-2 — a writer change on the prop ingest path; propose with the operator."
+  },
+  {
+   "id": "BL-20260714-DEPLOY-STALE-ON-OOB-SYNC",
+   "opened_at": "2026-08-25T16:55:00+00:00",
+   "opened_by": "claude (system-review fix round, backlog drain)",
+   "severity": "high",
+   "tier": "1 (deploy tooling; the fix predates this row)",
+   "status": "resolved",
+   "resolved_at": "2026-08-25T16:55:00+00:00",
+   "area": "deploy",
+   "title": "The deploy skipped its restart whenever THIS fetch moved nothing, so an out-of-band `git reset --hard` left the long-running Python processes pinned to stale code with every surface reading clean",
+   "detail": "FILED RETROACTIVELY 2026-08-25 to close criterion 5 of BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL, which found that scripts/deploy_pull_restart.sh cites backlog ids that were never filed. The FIX described below is already in the code and has been for months; what was missing was the row. That gap is not cosmetic: a comment saying 'per BL-X' reads as tracked while being tracked by nobody, and `artifact-validity-guard` cannot catch it because the guard is diff-scoped and grandfathers everything that predates it. The row's own criterion is explicit that the reasoning must NOT simply be deleted — it is the only record of why the gate works as it does — so it is preserved here verbatim in substance.\n\nTHE DEFECT. The restart gate skipped whenever PRE_SYNC_HEAD == POST_SYNC_HEAD — 'this fetch pulled nothing new'. But HEAD can advance on disk WITHOUT the long-running Python processes being bounced: a manual `git reset --hard`, or any sync path that moves the worktree without a restart. The processes then hold the OLD in-memory code while HEAD, and this run's PRE==POST comparison, both look clean. The deploy skipped and the change never went live.\n\nNote the shape: it is the same class as BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE — a check that asks about the DISK when the question is about the RUNNING PROCESS.\n\nTHE FIX (live, scripts/deploy_pull_restart.sh). The SHA the services were last (re)started onto is recorded in runtime_logs/deployed_sha.txt and the restart decision is driven off THAT, so drift is caught however HEAD got where it is. The marker sits alongside notify_state.txt and both survive the `git reset --hard` because runtime_logs/ is untracked. FAIL-SAFE: an absent or unresolvable marker falls back to PRE_SYNC_HEAD (the historical behaviour), so a fresh VM never restart-storms on an unknown — only a POSITIVELY-recorded older SHA forces a restart when HEAD did not move. Cited at three sites in that script (the pre-sync capture, the restart-decision gate, and the marker-write band).",
+   "resolution_criteria": "Already met by the deployed_sha.txt gate. This row exists so the three citations resolve; it is not new work.",
+   "refs": [
+    "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL",
+    "BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE",
+    "scripts/deploy_pull_restart.sh"
+   ],
+   "evidence": {
+    "citation_count": 3,
+    "marker": "runtime_logs/deployed_sha.txt"
+   },
+   "next_action": "DONE.",
+   "last_verified": "2026-08-25"
+  },
+  {
+   "id": "BL-20260615-DEPLOY-NOOP",
+   "opened_at": "2026-08-25T16:55:00+00:00",
+   "opened_by": "claude (system-review fix round, backlog drain)",
+   "severity": "high",
+   "tier": "1 (deploy tooling; the fix predates this row)",
+   "status": "resolved",
+   "resolved_at": "2026-08-25T16:55:00+00:00",
+   "area": "deploy",
+   "title": "`systemctl list-units 'ict-*.service'` returned ZERO matches on the Ampere live VM while the units were active, so every code deploy restarted NOTHING and silently pinned the live trader to stale code",
+   "detail": "FILED RETROACTIVELY 2026-08-25 to close criterion 5 of BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL, which found that scripts/deploy_pull_restart.sh cites backlog ids that were never filed. The FIX described below is already in the code and has been for months; what was missing was the row. That gap is not cosmetic: a comment saying 'per BL-X' reads as tracked while being tracked by nobody, and `artifact-validity-guard` cannot catch it because the guard is diff-scoped and grandfathers everything that predates it. The row's own criterion is explicit that the reasoning must NOT simply be deleted — it is the only record of why the gate works as it does — so it is preserved here verbatim in substance.\n\nMEASURED ON THE LIVE VM 2026-06-15. `list-units --all --type=service 'ict-*.service'` returned zero matches even though the units were ACTIVE, so every deploy printed 'enumeration: 0 ict-* unit(s)' and restarted nothing. The live trader stayed on stale code, and the symptom presented as something else entirely — a day of manual restart-bot-service / pull-and-deploy actions that looked like a restart loop.\n\nThe stated invariant is the useful part and is worth quoting: **a deploy must NEVER silently restart nothing.** Zero units enumerated is not a clean 'nothing to do'; it is an unasserted denominator, the same sub-class C shape CLAUDE.md names under diagnostic provenance.\n\nTHE FIX (live). A three-rung fallback: `list-units`, then the unit-FILE view (independent of runtime load state), then an explicit canonical long-running-unit list (ict-trader-live / ict-web-api / ict-telegram-bot) as a last resort, each rung announcing itself. Cited at two sites in scripts/deploy_pull_restart.sh.",
+   "resolution_criteria": "Already met by the three-rung enumeration fallback. This row exists so the two citations resolve; it is not new work.",
+   "refs": [
+    "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL",
+    "BL-20260714-DEPLOY-STALE-ON-OOB-SYNC",
+    "scripts/deploy_pull_restart.sh"
+   ],
+   "evidence": {
+    "citation_count": 2,
+    "fallback_chain": [
+     "list-units",
+     "list-unit-files",
+     "explicit canonical list"
+    ]
+   },
+   "next_action": "DONE.",
+   "last_verified": "2026-08-25"
+  },
+  {
+   "id": "BL-20260622-GATEWAY-GIT-SYNC",
+   "opened_at": "2026-08-25T16:55:00+00:00",
+   "opened_by": "claude (system-review fix round, backlog drain)",
+   "severity": "medium",
+   "tier": "1 (deploy tooling; the fix predates this row)",
+   "status": "resolved",
+   "resolved_at": "2026-08-25T16:55:00+00:00",
+   "area": "deploy",
+   "title": "The trader deploy script ran unmodified on the dedicated IB-Gateway VM, where its pip install and blanket ict-*.service restart could have STARTED the trader on a box never meant to run it",
+   "detail": "FILED RETROACTIVELY 2026-08-25 to close criterion 5 of BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL, which found that scripts/deploy_pull_restart.sh cites backlog ids that were never filed. The FIX described below is already in the code and has been for months; what was missing was the row. That gap is not cosmetic: a comment saying 'per BL-X' reads as tracked while being tracked by nobody, and `artifact-validity-guard` cannot catch it because the guard is diff-scoped and grandfathers everything that predates it. The row's own criterion is explicit that the reasoning must NOT simply be deleted — it is the only record of why the gate works as it does — so it is preserved here verbatim in substance.\n\nTHE DEFECT. The gateway VM is a MINIMAL box — the Docker IB-Gateway container plus a couple of stdlib-only systemd units (ict-ib-gateway-{watchdog,reset}), with NO bot venv and NO .env, deliberately. But scripts/deploy_pull_restart.sh is the TRADER deploy: it `pip install -r requirements.txt` (the full bot dependency tree) and restarts every ENUMERATED ict-*.service. Neither belongs there — the pip install would bloat the minimal box, and the enumeration could START the trader/web-api on the gateway, since their unit FILES are copied there even though they are never meant to run.\n\nTHE FIX (live). A role short-circuit keyed on /etc/ict-vm-role (written by provision_ib_gateway.sh): on the gateway, refresh the unit FILES (install_systemd_units.sh is idempotent and role-gates its own enables) and bounce the gateway timers so a changed cadence/ExecStart takes effect, then exit BEFORE the pip + trader-restart section.\n\n⚠️ THE `[ -r ]` GUARD IS LOAD-BEARING, not defensive decoration (BL-20260623-VMROLE). The live trader VM correctly has NO role marker, and an input redirection `< file` that fails is reported by the SHELL before the command's own `2>/dev/null` takes effect — so an unguarded read leaked a 'No such file or directory' warning on every single trader deploy. The readability test makes a missing marker a clean empty-role default.",
+   "resolution_criteria": "Already met by the /etc/ict-vm-role short-circuit. This row exists so the citation resolves; it is not new work.",
+   "refs": [
+    "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL",
+    "scripts/deploy_pull_restart.sh"
+   ],
+   "evidence": {
+    "citation_count": 1,
+    "marker": "/etc/ict-vm-role"
+   },
+   "next_action": "DONE.",
+   "last_verified": "2026-08-25"
   }
  ]
 }
