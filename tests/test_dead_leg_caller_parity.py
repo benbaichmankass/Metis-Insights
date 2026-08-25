@@ -199,3 +199,45 @@ def test_the_two_real_bucket_for_callers_agree_on_one_fixture() -> None:
         "a genuine venue refusal was bucketed as a declared policy skip — the "
         "suppression is too broad, which is worse than the bug it replaced"
     )
+
+
+def test_both_dry_run_tokens_are_recognised_and_the_notdry_sibling_is_not() -> None:
+    """The declared-skip set must cover BOTH code paths that produce a dry skip.
+
+    `dry_run_sizing_skip` (coordinator, sizing path) was recognised;
+    `dry_run_no_order_placed` (execute.py, dispatch path) was not — so a
+    strategy at `execution: shadow` graded `signalled_never_placed`, the most
+    alarming verdict this family has, for being switched off on purpose.
+
+    Measured live 2026-08-25: `avax_pullback_2h` (`execution: shadow`), 13 rows,
+    every one carrying the dispatch-path token.
+
+    ⚠️ The NOT-dry sibling must stay UNrecognised. `execute.py` chooses between
+    the two on `_genuinely_dry` exactly so a gateway-down dispatch is never read
+    as an intentional dry run; recognising it would suppress a real outage.
+    """
+    from src.runtime.dead_leg import bucket_for
+    from src.runtime.execution_diagnostics import is_expected_dispatch_skip
+
+    dry_tokens = ("dry_run_sizing_skip", "dry_run_no_order_placed")
+    for tok in dry_tokens:
+        assert is_expected_dispatch_skip(f"REJECTED: {tok} | some_strategy signal"), (
+            f"{tok} is a DECLARED dry skip and must be recognised"
+        )
+        assert bucket_for("rejected", f"REJECTED: {tok} | x") == "policy_skipped", (
+            f"{tok} must bucket as policy_skipped, not as a real refusal"
+        )
+
+    # Positive controls, both directions.
+    not_dry = "REJECTED: exchange_client_unavailable_no_order_placed"
+    assert not is_expected_dispatch_skip(not_dry), (
+        "the gateway-down sibling must stay a REAL refusal — suppressing it "
+        "would hide an outage behind a policy label"
+    )
+    assert bucket_for("rejected", not_dry) == "refused"
+
+    venue = "EXCHANGE_REJECTED: RuntimeError: Order submission failed for AVAXUSDT"
+    assert not is_expected_dispatch_skip(venue)
+    assert bucket_for("exchange_rejected", venue) != "policy_skipped", (
+        "a genuine venue rejection must never be laundered into a policy skip"
+    )
