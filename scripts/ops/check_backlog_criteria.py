@@ -256,7 +256,25 @@ def _census() -> int:
             if not rid:
                 continue
             # Only OPEN rows matter: a closed row's criteria are moot.
-            if str(row.get("status", "open")).lower() in {"resolved", "closed", "wontfix"}:
+            #
+            # THROUGH THE CANONICAL PREDICATE, NOT A LOCAL SET
+            # (BL-20260825-TWO-DEFINITIONS-OF-OPEN-DISAGREE-ABOUT-SEVEN-ROWS --
+            # kept on one line so the id stays greppable). This was a hand-rolled
+            # `{"resolved", "closed", "wontfix"}`, a SECOND definition of "is
+            # this row open" living beside `backlog_counts.is_open_status`, and
+            # the two disagreed. It missed `superseded`, `invalid`, `duplicate`,
+            # `fixed`, `measured_no_action` and the `resolved_*` family — and,
+            # precisely, it spelled the one closed status it DID try to handle
+            # as `wontfix` while the corpus writes `wont_fix`, so the underscore
+            # form fell straight through. That is the `WARNING` vs `WARN` shape
+            # this repo has already paid for once.
+            #
+            # Measured 2026-08-25: SEVEN terminal rows (4 `wont_fix`, 2
+            # `superseded`, 1 `invalid`) were being demanded to carry an exit
+            # condition they will never need — 6.4% of a 109-finding census,
+            # inflating the number a reader uses to judge whether the backlog is
+            # improving.
+            if not is_open_status(row.get("status")):
                 continue
             total += 1
             why = _verdict(row)
@@ -264,6 +282,39 @@ def _census() -> int:
                 bad.append((rel, rid, why))
     print(f"backlog-criteria census: {len(bad)} of {total} OPEN row(s) lack usable criteria.")
     return _report(bad, advisory=True)
+
+
+def _load_is_open_status():
+    """The ONE predicate for "is this backlog row still open".
+
+    Imported from `scripts/reports/backlog_counts.py` rather than re-derived:
+    that module's own header carries the incident record for why the token sets
+    are shaped the way they are, and a copy here would be free to drift from it
+    (it already had, silently).
+
+    RAISES rather than falling back to a local approximation. A guard that
+    quietly degrades to a weaker predicate when its canonical one is missing is
+    the "cheaper to lie to than to satisfy" failure this file's own header
+    names — the census would keep printing a number while measuring something
+    else.
+    """
+    import importlib.util
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "_backlog_counts", root / "scripts" / "reports" / "backlog_counts.py")
+    if spec is None or spec.loader is None:  # pragma: no cover - unreachable
+        raise RuntimeError(
+            "check_backlog_criteria: cannot load the canonical open-status "
+            "predicate from scripts/reports/backlog_counts.py. Refusing to "
+            "re-derive it locally — that is how the two definitions drifted."
+        )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.is_open_status
+
+
+is_open_status = _load_is_open_status()
 
 
 _GOOD_CRIT = ("Endpoint /api/bot/x returns field y for a rotated log, verified "
