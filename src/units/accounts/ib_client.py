@@ -155,6 +155,78 @@ _IB_PROBE_CACHE_S = _env_float("IB_PROBE_CACHE_S", 60.0)
 # tick; short enough that a genuine recovery is picked up promptly.
 _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
 
+# ── Liveness-probe outcome, FOUR states, never collapsed ────────────────────
+# BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE (kept on one
+# line so the id stays greppable).
+#
+# `_probe_liveness` returned a bare bool, so a WEDGE and a PEER-CLOSE -- which
+# are OPPOSITE conditions wanting opposite responses -- produced the identical
+# 120s fleet-wide suppression:
+#
+#   * A WEDGE (the gateway accepts the socket and never answers) MUST be backed
+#     off from. Every call would block the trader loop; that is the June 2026
+#     cascade class the breaker exists for.
+#   * A PEER-CLOSE (the gateway actively drops the socket) is the opposite. The
+#     socket is ALREADY GONE, `_is_connected` fails, and the very next
+#     `connect()` builds a fresh one -- that reconnect IS the recovery.
+#     Suppressing every IB call for 120s buys nothing and costs total IB
+#     blindness on an account holding open positions.
+#
+# Measured on the live trader journal, episode start 2026-08-24T23:59:09Z --
+# three consecutive lines, no timeout anywhere in them:
+#     ERROR   ib_insync.client | Peer closed connection.
+#     WARNING IBClient: liveness probe error ...: ConnectionError: Socket disconnect
+#     WARNING IBClient: circuit breaker tripped ...; IB calls suppressed for 120s.
+#
+# `SKIPPED` is the fourth state and it is NOT `OK`: it means we could not probe
+# at all (stub client, operator opt-out, no usable loop, unknown IB
+# implementation). Proceeding is correct there -- but recording it as a
+# verified OK would let `_mark_probe_ok` cache a verdict nobody reached, and
+# "we did not look" must never become "we looked and it was fine".
+PROBE_OK = "ok"
+PROBE_SKIPPED = "skipped"
+PROBE_TIMED_OUT = "timed_out"
+PROBE_DISCONNECTED = "disconnected"
+PROBE_STATES = (PROBE_OK, PROBE_SKIPPED, PROBE_TIMED_OUT, PROBE_DISCONNECTED)
+
+# How many CONSECUTIVE peer-closes may bypass the breaker before it trips
+# anyway. Default 1: the common case costs one reconnect instead of 120s of
+# fleet blindness, and a gateway that peer-closes repeatedly still gets backed
+# off from -- an unbounded reconnect loop against a sick gateway is the very
+# failure class the breaker exists for, so this MUST stay bounded.
+#
+# `0` restores the pre-2026-08-25 behaviour byte-for-byte (every probe failure
+# trips) -- the sanctioned rollback, one env flip + restart, no redeploy. An
+# unparseable value falls back to the default rather than to 0, so a typo
+# cannot silently re-arm the condition this exists to fix.
+_IB_PEER_CLOSE_GRACE_ATTEMPTS = max(
+    0, int(_env_float("IB_PEER_CLOSE_GRACE_ATTEMPTS", 1.0))
+)
+
+# Exception types that mean THE SOCKET IS GONE rather than THE GATEWAY IS MUTE.
+# Matched on type first; the message check is the fallback for ib_insync
+# raising a bare ConnectionError whose text carries the distinction.
+_PEER_CLOSE_EXC_TYPES = (ConnectionError, ConnectionResetError, BrokenPipeError,
+                         EOFError)
+_PEER_CLOSE_SIGNATURES = ("socket disconnect", "peer closed", "connection reset",
+                          "broken pipe", "connection aborted")
+
+
+def _is_peer_close(exc: BaseException) -> bool:
+    """Did the peer DROP the socket (recoverable by reconnecting), or did it
+    merely fail to answer (a wedge)?
+
+    Type first so a real ``ConnectionError`` is caught regardless of wording;
+    the signature list is the fallback for a library that wraps it. Deliberately
+    narrow: anything unrecognised is treated as a WEDGE, which keeps the
+    conservative pre-existing response for every case this does not positively
+    identify.
+    """
+    if isinstance(exc, _PEER_CLOSE_EXC_TYPES):
+        return True
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return any(sig in text for sig in _PEER_CLOSE_SIGNATURES)
+
 # How long to let a batch of cancels SETTLE at the venue before re-reading to
 # see whether they actually removed anything
 # (BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT).
@@ -532,6 +604,11 @@ class IBClient:
         # ``_account_data_ready`` is reset, because both describe the same thing:
         # what we have verified about the handle we currently hold.
         self._probe_ok_until: float = 0.0
+        # Consecutive peer-closes; cleared by any successful connect.
+        self._peer_close_streak: int = 0
+        # Last probe verdict, surfaced on /api/diag/ib_state so a reader can
+        # tell a PEER-CLOSE from a WEDGE without reading the trader journal.
+        self._last_probe_state: str = PROBE_SKIPPED
         # Connection-legibility state (observability only — never gates a
         # connect/place/close decision). ``_last_ok_wall`` is the wall-clock
         # UTC ISO timestamp of the last fully-healthy round-trip (probe +
@@ -663,10 +740,52 @@ class IBClient:
         # A FRESH connect never takes this path — ``_probe_ok_until`` was just
         # reset above — so the case the probe exists for is unaffected.
         if fresh_connect or not self._probe_cache_valid():
-            probe_ok = self._probe_liveness(ib)
+            probe_state = self._probe_liveness(ib)
         else:
-            probe_ok = True
-        if not probe_ok:
+            # A cached verdict IS a previous PROBE_OK re-used inside its window,
+            # not a skip. See `_probe_cache_valid`.
+            probe_state = PROBE_OK
+        self._last_probe_state = probe_state
+        if probe_state == PROBE_DISCONNECTED:
+            # THE SOCKET IS GONE, WHICH IS THE RECOVERABLE FAILURE.
+            # `_is_connected` fails on the next call, so `connect()` builds a
+            # fresh socket — that reconnect IS the fix. A 120s fleet-wide
+            # suppression only delays it while blinding every IB leg on an
+            # account holding open positions
+            # (BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE).
+            #
+            # BOUNDED, because an unbounded reconnect loop against a sick
+            # gateway is precisely the failure class the breaker exists for:
+            # past `_IB_PEER_CLOSE_GRACE_ATTEMPTS` consecutive peer-closes we
+            # stop treating it as transient and trip normally. Any successful
+            # connect clears the streak.
+            self._probe_ok_until = 0.0
+            self._peer_close_streak += 1
+            self._safe_disconnect(ib)
+            if self._peer_close_streak <= _IB_PEER_CLOSE_GRACE_ATTEMPTS:
+                raise IBConnectionError(
+                    f"IBClient: Gateway at {self.host}:{self.port} "
+                    f"(account={self._masked_account()}) CLOSED the socket "
+                    f"(peer-close {self._peer_close_streak} of "
+                    f"{_IB_PEER_CLOSE_GRACE_ATTEMPTS} allowed). NOT tripping "
+                    "the breaker: the socket is already gone, so the next "
+                    "connect rebuilds it and that reconnect is the recovery."
+                )
+            self._trip_breaker(reason="liveness_probe_disconnected")
+            raise IBConnectionError(
+                f"IBClient: Gateway at {self.host}:{self.port} "
+                f"(account={self._masked_account()}) closed the socket "
+                f"{self._peer_close_streak} times in a row, past the "
+                f"{_IB_PEER_CLOSE_GRACE_ATTEMPTS}-attempt grace. Tripping the "
+                "circuit breaker so IB calls do not block the trader loop."
+            )
+        if probe_state == PROBE_SKIPPED:
+            # WE DID NOT LOOK. Proceeding is correct — there was no usable way
+            # to probe — but falling through to `_mark_probe_ok` would cache a
+            # verdict nobody reached, and a cached non-verdict is
+            # indistinguishable from a verified one on /api/diag/ib_state.
+            pass
+        elif probe_state != PROBE_OK:
             # Never carry a verdict forward from a probe that just failed.
             self._probe_ok_until = 0.0
             if (
@@ -706,11 +825,15 @@ class IBClient:
                     "not block the trader loop."
                 )
         else:
-            # Trust this verdict for the window. Set unconditionally rather than
-            # only on the freshly-probed path: when the skip above supplied the
-            # True we are simply re-stamping a live deadline, and when the probe
-            # ran we are recording what it just proved.
+            # Trust this verdict for the window. Reached only on PROBE_OK — a
+            # PROBE_SKIPPED takes the branch above and deliberately does NOT
+            # stamp a deadline, because we verified nothing.
             self._mark_probe_ok()
+            # A healthy connect ends any peer-close streak: the grace is for
+            # CONSECUTIVE drops, so one good connection must clear it or a slow
+            # trickle of unrelated drops would eventually trip the breaker on a
+            # gateway that is working.
+            self._peer_close_streak = 0
 
         # Post-connect account/portfolio warm-up (BL-20260706-IBWARMUP). Runs
         # once per underlying ``ib`` handle (guarded by
@@ -848,12 +971,28 @@ class IBClient:
         remaining = self._probe_ok_until - time.monotonic()
         return remaining if remaining > 0 else None
 
-    def _probe_liveness(self, ib: Any) -> bool:
+    def _probe_liveness(self, ib: Any) -> str:
         """Hard-bounded liveness check on the client's persistent loop.
 
-        Returns True when the gateway answered ``reqCurrentTime`` within
-        :data:`_IB_PROBE_TIMEOUT_S`, False otherwise. Built to be safe in
-        every context:
+        Returns one of :data:`PROBE_STATES`, never a bool
+        (BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE):
+
+        * :data:`PROBE_OK` -- the gateway answered ``reqCurrentTime`` within
+          :data:`_IB_PROBE_TIMEOUT_S`.
+        * :data:`PROBE_SKIPPED` -- we could not probe at all. Proceeding is
+          correct, recording it as OK is not: the caller must not cache a
+          verdict nobody reached.
+        * :data:`PROBE_TIMED_OUT` -- two bounded attempts, no answer. A wedge;
+          back off.
+        * :data:`PROBE_DISCONNECTED` -- the socket is GONE. The next
+          ``connect()`` rebuilds it, so this wants a reconnect, not a 120s
+          fleet-wide suppression.
+
+        The previous bool collapsed the last two, which are opposite conditions
+        wanting opposite responses -- see the vocabulary block above
+        :data:`PROBE_OK` for the measured journal lines.
+
+        Built to be safe in every context:
 
         * Stub clients (``_ib_factory`` set, i.e. the test suite) skip the
           probe — there is no real socket to verify.
@@ -864,7 +1003,7 @@ class IBClient:
           breaker trips, IB is isolated, the loop keeps going.
         """
         if self._ib_factory is not None:
-            return True
+            return PROBE_SKIPPED
         if _IB_PROBE_TIMEOUT_S <= 0:
             # Operator opt-out (IB_PROBE_TIMEOUT_S=0): skip the post-connect
             # liveness probe. Added 2026-06-10 for the gateway-isolation
@@ -877,23 +1016,23 @@ class IBClient:
             # gateway, and the gateway can no longer starve the trader's CPU
             # (separate VM), so skipping the probe is safe here. Default (5s)
             # keeps the probe ON for the same-box / loopback case.
-            return True
+            return PROBE_SKIPPED
         import asyncio
 
         loop = self._loop
         if loop is None or loop.is_closed():
-            return True
+            return PROBE_SKIPPED
         try:
             if loop.is_running():
                 # Can't run_until_complete on a running loop; don't break it.
-                return True
+                return PROBE_SKIPPED
         except Exception:  # noqa: BLE001
-            return True
+            return PROBE_SKIPPED
 
         req = getattr(ib, "reqCurrentTimeAsync", None)
         if req is None:
             # Unknown IB implementation — don't assume it's dead.
-            return True
+            return PROBE_SKIPPED
         # Two attempts (see _IB_PROBE_RETRY_GAP_S above): a timeout on the
         # first, cold-connection attempt is retried once after a short grace
         # gap before condemning the connection. Any non-timeout exception, or
@@ -905,7 +1044,7 @@ class IBClient:
                 loop.run_until_complete(
                     asyncio.wait_for(req(), timeout=_IB_PROBE_TIMEOUT_S)
                 )
-                return True
+                return PROBE_OK
             except asyncio.TimeoutError:
                 if attempt == 1:
                     logger.info(
@@ -924,16 +1063,23 @@ class IBClient:
                     _IB_PROBE_TIMEOUT_S, _IB_PROBE_TIMEOUT_S, self.host,
                     self.port, self._masked_account(),
                 )
-                return False
+                return PROBE_TIMED_OUT
             except Exception as exc:  # noqa: BLE001
+                peer_close = _is_peer_close(exc)
                 logger.warning(
-                    "IBClient: liveness probe error for %s:%s (account=%s): "
+                    "IBClient: liveness probe %s for %s:%s (account=%s): "
                     "%s: %s",
+                    ("saw the peer CLOSE the socket" if peer_close
+                     else "error"),
                     self.host, self.port, self._masked_account(),
                     type(exc).__name__, exc,
                 )
-                return False
-        return False  # pragma: no cover — loop always returns/raises above
+                # A dropped socket is not a mute gateway. Anything we cannot
+                # positively identify as a peer-close stays a wedge, which
+                # keeps the conservative pre-existing response as the default.
+                return PROBE_DISCONNECTED if peer_close else PROBE_TIMED_OUT
+        # pragma: no cover — the loop always returns or raises above
+        return PROBE_TIMED_OUT
 
     def _warm_account_data(self, ib: Any) -> bool:
         """Bounded post-connect account/portfolio warm-up (BL-20260706-IBWARMUP).
@@ -4029,6 +4175,19 @@ class IBClient:
             ),
             "last_fail_utc": self._last_fail_wall,
             "last_fail_reason": self._last_fail_reason,
+            # WHICH failure — a PEER-CLOSE or a WEDGE. Both used to reach the
+            # breaker under the reason literal `liveness_probe_timeout`, so a
+            # reader could not tell a dropped socket (recoverable by
+            # reconnecting) from a mute gateway (must be backed off from), and
+            # the reason string actively asserted the wrong one
+            # (BL-20260825-IB-BREAKER-FAILURE-REASON-IS-MISLABELLED-AS-A-TIMEOUT).
+            # `PROBE_SKIPPED` is its own value here and is NOT `ok`.
+            "last_probe_state": self._last_probe_state,
+            # How many consecutive peer-closes have bypassed the breaker. A
+            # non-zero value beside a CLOSED breaker is the state the grace
+            # exists to produce; read it against `peer_close_grace_attempts`.
+            "peer_close_streak": self._peer_close_streak,
+            "peer_close_grace_attempts": _IB_PEER_CLOSE_GRACE_ATTEMPTS,
         }
 
     def self_test(self) -> Dict[str, Any]:
