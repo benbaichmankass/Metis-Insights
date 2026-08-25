@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T16:55:00+00:00",
+ "updated_at": "2026-08-25T15:45:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -23663,6 +23663,24 @@
    "why_it_matters": "This is exactly the reassuring reading the parent row existed to prevent. 'The detector now covers Lane 0 item 0.3' is true of two of the three accounts in the very occurrence the row is about. A future session reading the closed parent row without this one would state coverage it does not have — the same shape as the original defect one level up.",
    "not_proposed": "Widening the alert to `partially_refused` accounts is NOT proposed. It would change what the detector is FOR — from 'this account places nothing' to 'this account has a serious refusal cause' — a materially larger alerting surface, and lowering the bar on something that pages the operator is how the desensitized-alarm P1 gets manufactured. The measurement above is the evidence such a decision would need.",
    "resolution_criteria": "Either (a) a recorded decision to surface a priority cause independently of the verdict gate, with the expected alert-rate change measured over the same lifetime population (48 rows / 11 occurrences) BEFORE it ships; or (b) an explicit recorded decision that a partially-refused account is out of scope for this detector, with Lane 0 item 0.3's criteria updated to name what does cover that case. Closing this by pointing at the per-cause floor is the failure mode this row exists to prevent."
+  },
+  {
+   "id": "BL-20260825-SET-ENV-CANNOT-TARGET-A-SERVICE-SCOPED-ENV-FILE",
+   "opened_at": "2026-08-25T15:45:00+00:00",
+   "opened_by": "claude (session_018aKyS3, found while preparing the IB_MD_CLIENT_ID provisioning the operator approved)",
+   "severity": "high",
+   "tier": 2,
+   "status": "resolved",
+   "resolved_at": "2026-08-25T15:45:00+00:00",
+   "resolved_by": "claude (session_018aKyS3) — PR pending",
+   "area": "system-actions / set-env — which FILE a key is written to",
+   "title": "set-env chose which SERVICE to restart but not which FILE to write, so a key scoped to one service could only be written to a file BOTH services load",
+   "detail": "`scripts/ops/set_env.sh` hardcoded `ENV_FILE=\"${REPO_DIR}/.env\"`. `ict-web-api.service` loads `/etc/ict-trader/web-api.env` AND, deliberately, that same repo `.env` (so operator overrides stay aligned between writer and reader — the 2026-05-11 DATA_DIR incident is in the unit's own comment). `ict-trader-live.service` loads the repo `.env` too. So there was NO way to set a key for one service without setting it for the other, and the action's only scoping knob (`service:`) controls the RESTART, not the WRITE.",
+   "evidence": "Verified exhaustively rather than inferred: `grep -rn IB_MD_CLIENT_ID` over `--include=*.py --include=*.yaml --include=*.service --include=*.sh` returns exactly five non-doc sites, and the ONLY producer into a settings dict is `src/web/api/routers/candles.py::_settings()` (web-api only). `src/runtime/market_data.py::_ib_connection_identity` resolves `settings -> os.environ -> exec_client_id + 1`. So the TRADER, which never passes the key in settings, resolves 498 today. Setting 600 in the shared `.env` would move the trader's market-data socket to 600 while the web-api is already on 600 (its hardcoded literal), i.e. two PROCESSES on one clientId -> IB error 326. `candles.py`'s own docstring already says the override belongs 'on the ict-web-api unit'. `/etc/ict-trader/web-api.env` is root-owned (sudo-read precedent: `scripts/ops/flatten_alpaca_position_action.sh`).",
+   "why_it_matters": "The operator had approved provisioning IB_MD_CLIENT_ID via set-env. Executing that as specified would have STARVED the MES/MGC/MHG candles the reservation exists to protect — strictly worse than the status quo — and it would have reported success. The action would have done exactly what it was asked and broken the thing it was asked to fix.",
+   "resolution": "`env_file:` parameter added — SYMBOLIC targets only (`shared` default = the repo `.env`, byte-identical to prior behaviour; `web-api` = `/etc/ict-trader/web-api.env`). An unknown target is a HARD ERROR, never a fallback to `shared`. A non-shared target reads/writes through `sudo` and writes via `tee` so the existing inode's owner + mode survive; a missing root-owned file is refused rather than created. Threaded through BOTH workflow paths (workflow_dispatch input + issue-body parse). Audit JSON records the target name. `tests/test_set_env_sh.py` (12 tests) pins it and was run against the PRE-CHANGE script as a positive control: 8 of 12 fail there, and the 4 that pass are exactly the unchanged-behaviour cases.",
+   "resolution_criteria": "A set-env dispatch can write a key to a service-scoped env file without touching the shared one, an unrecognised target fails closed rather than silently writing the shared file, and a test demonstrates the difference against the old script. All three met.",
+   "follow_up": "The IB_MD_CLIENT_ID provisioning itself is the NEXT step and is strictly ordered: (1) dispatch set-env env_key=IB_MD_CLIENT_ID env_value=600 env_file=web-api service=ict-web-api.service; (2) verify via get-env AND /api/bot/candles still returning real MES/MGC bars AND whether /api/bot/positions uPnL stops reading 'unavailable' on the ib_paper legs (that last is the Lane 0 item 0.5 test); (3) ONLY THEN a separate PR removing candles.py's hardcoded '600'. Never step 3 before step 1 — the literal is currently the only thing preventing the collision for the candles caller."
   },
   {
    "id": "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
