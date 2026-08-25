@@ -23235,7 +23235,7 @@
   {
    "id": "BL-20260825-PROXY-UNAFFORDABILITY-CLAIM-REFUTED-BY-MEASUREMENT",
    "opened": "2026-08-25",
-   "severity": "P2",
+   "severity": "medium",
    "tier": 1,
    "status": "open",
    "area": "alpaca_live / affordability / record-integrity",
