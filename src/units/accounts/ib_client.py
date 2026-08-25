@@ -1465,22 +1465,25 @@ class IBClient:
         is possible, so callers must not treat a success return as proof
         that no stale leg survives.
 
-        **The pre-cancel is now VERIFIED, and a verified survivor REFUSES the
-        arm** (2026-08-25,
+        **The pre-cancel is now VERIFIED, and a verified survivor makes the
+        fresh legs JOIN the survivor's OCA group instead of minting a second
+        one** (2026-08-25,
         BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT).
         ``ib.cancelOrder`` returns ``None`` and never raises, and IBKR binds
-        cancel rights to the SUBMITTING clientId — which this trader rotates on
-        reconnect failure — so a bracket placed before a rotation is refused
-        with ``Error 10147`` on an event nothing read, and this method armed
-        another OCA group on top of legs it had not removed. Measured live on
-        ib_paper/MHG: three disjoint groups, 87 lots of stop against a 29-lot
-        position, one new group per trailing amend. Both cancel helpers now
-        re-read the venue and return ``verify_state`` ∈ ``verified`` /
-        ``unverified`` / ``not_attempted`` plus ``still_resting``; only the
-        first state with a non-empty survivor list refuses, and it returns
-        ``retCode 1`` with those legs in ``result``. The other two states arm,
-        deliberately — see the branch comment for why the asymmetry is the safe
-        one in each direction.
+        cancel rights to the SUBMITTING clientId — which turns over on every
+        trader restart — so a bracket left by a retired session is refused with
+        ``Error 10147`` on an event nothing read, and this method armed another
+        OCA group on top of legs it had not removed. ``ocaType=1`` cancels only
+        WITHIN a group, so the position could then be flattened by one stop and
+        sold AGAIN by the other, into an un-hedged reverse. Joining puts every
+        leg in one mutually-cancelling group, which removes the hazard and
+        still lets the re-arm take effect.
+
+        Both cancel helpers now re-read the venue and return ``verify_state`` ∈
+        ``verified`` / ``unverified`` / ``not_attempted`` plus
+        ``still_resting``; only the first state with a non-empty survivor list
+        joins. The other two mint a fresh group, deliberately — see the branch
+        comment for why the asymmetry is the safe one in each direction.
 
         The pre-cancel exists to stop bracket ACCUMULATION
         (BL-20260624-MHG-FLIP): without it, repeated re-arms across an
@@ -1594,57 +1597,80 @@ class IBClient:
             )
 
         # ── THE INVARIANT ────────────────────────────────────────────────────
-        # NEVER arm a fresh bracket while legs we TRIED to cancel are still
-        # resting. See
+        # NEVER let a fresh bracket become a SECOND, non-mutually-cancelling OCA
+        # group. See
         # BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT.
-        # Arming anyway puts the new pair in a SECOND OCA group, and
-        # ocaType=1 only cancels within a group — so one stop firing flattens
-        # the position and the other group is left resting to sell the same size
-        # AGAIN, into an un-hedged reverse nobody requested. Measured live
-        # 2026-08-25 on ib_paper/MHG: three groups, 87 lots of stop against a
-        # 29-lot position, one new group per trailing amend.
+        # ocaType=1 cancels only WITHIN a group, so two groups on one
+        # position means a stop can fire, flatten it, and leave the other group
+        # resting to sell the same size AGAIN into an un-hedged reverse.
         #
-        # REFUSING IS THE SAFE DIRECTION HERE, and only here, because those very
-        # legs ARE the protection: the position is demonstrably still covered,
-        # so the whole cost of refusing is that this re-arm's new levels do not
-        # take effect — visible, alerted, and retried on the next verdict. That
-        # is not true of the two other states, which is why they are separate:
+        # WHEN A SURVIVOR EXISTS WE JOIN ITS GROUP RATHER THAN MINTING ONE.
+        # Both legs go into the group the un-cancellable legs already live in,
+        # so all of them are mutually exclusive: whichever fills first, IBKR
+        # cancels the rest. The hazard disappears AND the re-arm still takes
+        # effect. `place_target_in_group` is the same manoeuvre for a target,
+        # and its docstring makes the same argument.
         #
-        #   unverified  → the re-read failed, so we CANNOT show the position is
-        #                 protected, and the cancel may well have succeeded.
-        #                 ARM. CLAUDE.md is unambiguous that "a live position
-        #                 with no stop is an unacceptable state the system must
-        #                 always correct", and a blind refusal risks exactly
-        #                 that for up to IB_BROKER_NAKED_CHECK_SECONDS (300s)
-        #                 before any sweep would notice — whereas the over-cover
-        #                 it risks instead is paged within one sweep.
-        #   not_attempted → nothing was resting. The position may be naked. ARM.
+        # ⚠️ WHY NOT REFUSE TO ARM. That was the first version of this fix and
+        # it was WRONG, on a mechanism I had backwards. Measured on the live
+        # journal 2026-08-25T16:13:32Z, one pass: orders 463/464 (the session's
+        # OWN clientId 497) went PendingCancel -> Cancelled cleanly, while
+        # 447/448 (clientId 597, the previous DEAD session) went PendingCancel
+        # -> reverted to Submitted. So a re-arm cancels its own previous bracket
+        # fine; a survivor means the bracket belongs to a RETIRED clientId, and
+        # clientIds turn over on every trader restart (five processes in ~10h,
+        # measured 2026-08-16). Refusing would therefore have frozen the
+        # trailing stop on EVERY IB symbol after EVERY deploy, until each orphan
+        # was cleared by hand in TWS -- a fleet-wide exit-quality regression to
+        # avoid a hazard that joining removes outright.
         #
+        # The other two verify states still mint a fresh group, and the
+        # asymmetry is deliberate:
+        #   unverified    -> the re-read failed, so we cannot show ANY leg
+        #                    rests. There may be nothing to join and the
+        #                    position may be naked; CLAUDE.md is unambiguous
+        #                    that a live position with no stop is the state the
+        #                    system must always correct.
+        #   not_attempted -> nothing was resting. Nothing to join.
         # Collapsing "we did not look" into "nothing is left" is the mistake
-        # this whole envelope exists to prevent; do not simplify the branch.
+        # this envelope exists to prevent; do not simplify the branch.
         if isinstance(precancel, dict):
             still_resting = precancel.get("still_resting") or []
             if precancel.get("verify_state") == "verified" and still_resting:
-                refusal_codes = sorted({
-                    (leg.get("refusal") or {}).get("code")
-                    for leg in still_resting
-                    if isinstance(leg.get("refusal"), dict)
-                } - {None})
-                return {
-                    "retCode": 1,
-                    "retMsg": (
-                        f"refusing to arm a duplicate bracket: "
-                        f"{len(still_resting)} {sym} protective leg(s) survived "
-                        f"the pre-cancel and are still resting at the venue"
-                        + (f" (IBKR refusal code(s): {refusal_codes})"
-                           if refusal_codes else "")
-                        + " — the position keeps the protection it already has; "
-                        "arming now would create a second, non-mutually-"
-                        "cancelling OCA group"
-                    ),
-                    "result": {"still_resting": still_resting,
-                               "precancel": precancel},
-                }
+                join_group, group_count = self._select_join_group(still_resting)
+                if join_group:
+                    logger.error(
+                        "place_protective: %d %s leg(s) survived the pre-cancel "
+                        "(owned by a retired clientId); JOINING their OCA group "
+                        "%r instead of minting a second one, so every leg stays "
+                        "mutually cancelling. Survivors: %s",
+                        len(still_resting), sym or "(all)", join_group,
+                        still_resting,
+                    )
+                    if group_count > 1:
+                        logger.error(
+                            "place_protective: survivors on %s span %d DISJOINT "
+                            "OCA groups; joining %r leaves %d group(s) this "
+                            "session cannot merge or cancel. The position is "
+                            "still over-covered and a human must clear the "
+                            "remainder at the venue.",
+                            sym or "(all)", group_count, join_group,
+                            group_count - 1,
+                        )
+                    oca_group = join_group
+                else:
+                    # Survivors with no OCA group at all — a bare protective
+                    # order. There is nothing to join, and refusing would risk
+                    # leaving the position unprotected, so we arm and say so.
+                    logger.error(
+                        "place_protective: %d %s leg(s) survived the pre-cancel "
+                        "and carry NO oca_group, so they cannot be joined. "
+                        "Arming a fresh bracket anyway (a protected position "
+                        "beats an unprotected one) — this position is now "
+                        "OVER-COVERED and needs a human at the venue. "
+                        "Survivors: %s",
+                        len(still_resting), sym or "(all)", still_resting,
+                    )
         contract = self._build_contract(order.get("symbol"))
         tick = tick_size_for(order.get("symbol") or self.symbol)
         tp_price = _round_to_tick(float(tp_raw), tick) if tp_raw else None
@@ -2695,6 +2721,47 @@ class IBClient:
                 "re-read failed, so whether the legs went away was not "
                 "observed. This is not a clean cancel.", scope, sym or "(all)",
             )
+
+    @staticmethod
+    def _select_join_group(still_resting: List[Dict[str, Any]]):
+        """Which surviving OCA group the fresh legs should join, and how many exist.
+
+        Returns ``(group_name_or_None, distinct_group_count)``.
+
+        Picked by the most resting STOP quantity, because that is the leg whose
+        firing creates the reverse-position hazard, then by leg count, then by
+        name so the choice is deterministic rather than dict-order dependent.
+
+        When survivors span several groups, joining one still strictly improves
+        the position — it makes the fresh legs non-additive instead of adding an
+        (N+1)th independent group — but it cannot merge the others, so the
+        caller alerts on the remainder. It does NOT try to pick the "right" leg
+        to keep: choosing which protective leg dies is what went wrong in
+        BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG,
+        and this method cancels nothing.
+        """
+        by_group: Dict[str, List[float]] = {}
+        for leg in still_resting or []:
+            group = str(leg.get("oca_group") or "").strip()
+            if not group:
+                continue
+            kind = str(leg.get("order_type") or "").upper()
+            try:
+                qty = float(leg.get("total_quantity") or 0.0)
+            except (TypeError, ValueError):
+                qty = 0.0
+            # Stop family FIRST: "STP LMT" contains "LMT", so a limit-first test
+            # would file every stop-limit as a target (the classifier bug from
+            # BL-20260816-COVERAGE-IS-ONE-SIDED).
+            is_stop = "STP" in kind or "TRAIL" in kind
+            slot = by_group.setdefault(group, [0.0, 0.0])
+            slot[0] += qty if is_stop else 0.0
+            slot[1] += 1.0
+        if not by_group:
+            return None, 0
+        best = sorted(by_group.items(),
+                      key=lambda kv: (-kv[1][0], -kv[1][1], kv[0]))[0][0]
+        return best, len(by_group)
 
     def _cancel_error_capture(self, ib: Any):
         """Subscribe to IBKR's error event for the life of a cancel batch.

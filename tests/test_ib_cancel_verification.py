@@ -266,8 +266,11 @@ def test_error_handler_is_detached_after_the_batch():
 # The invariant: never arm over a surviving leg
 # ---------------------------------------------------------------------------
 
-def test_place_protective_refuses_to_arm_over_a_surviving_leg():
-    """THE REGRESSION. Before this, place_protective armed group #2 here."""
+def test_place_protective_joins_the_surviving_group_instead_of_minting_one():
+    """THE REGRESSION. Before this, place_protective armed a SECOND OCA group
+    here, and ocaType=1 does not cancel across groups — so one stop could
+    flatten the position and the other sell the same size again into an
+    un-hedged reverse."""
     fake = FakeIB(_mhg_legs(497, "oca-protect-416", 417, 1179890976),
                   session_client_id=597)
     client = _client_for(fake)
@@ -276,10 +279,81 @@ def test_place_protective_refuses_to_arm_over_a_surviving_leg():
         {"symbol": "MHG", "direction": "long", "qty": 29, "sl": 6.255,
          "tp": 7.1415})
 
-    assert resp["retCode"] == 1, resp
-    assert "refusing to arm a duplicate bracket" in resp["retMsg"], resp
-    assert "10147" in resp["retMsg"], resp
-    assert fake.placed == [], "a second OCA group was armed over a live leg"
+    assert resp["retCode"] == 0, resp
+    assert len(fake.placed) == 2, fake.placed
+    # Every leg on the symbol now lives in ONE group, so they are mutually
+    # exclusive: whichever fills, IBKR cancels the rest.
+    groups = {o.ocaGroup for _c, o in fake.placed}
+    assert groups == {"oca-protect-416"}, groups
+    assert resp["result"]["ocaGroup"] == "oca-protect-416", resp
+
+
+def test_the_join_does_not_fire_when_the_precancel_worked():
+    """The control. A clean pre-cancel must still mint its own group — joining
+    a group whose legs are GONE would be joining nothing."""
+    fake = FakeIB(_mhg_legs(597, "oca-protect-432", 433, 1649238173),
+                  session_client_id=597)
+    client = _client_for(fake)
+
+    resp = client.place_protective(
+        {"symbol": "MHG", "direction": "long", "qty": 29, "sl": 6.255,
+         "tp": 7.1415})
+
+    assert resp["retCode"] == 0, resp
+    groups = {o.ocaGroup for _c, o in fake.placed}
+    assert groups != {"oca-protect-432"}, "joined a group it had just emptied"
+
+
+def test_the_join_target_is_the_group_holding_the_most_stop_quantity():
+    """With survivors in several groups, joining one still strictly improves the
+    position — the fresh legs stop being an (N+1)th independent group. The
+    STOP quantity decides, because a stop firing is what creates the reverse."""
+    small = _mhg_legs(597, "oca-protect-100", 101, 1000001)
+    for t in small:
+        t.order.totalQuantity = 5.0
+    big = _mhg_legs(597, "oca-protect-200", 201, 2000001)
+    fake = FakeIB(small + big, session_client_id=999)   # both foreign
+    client = _client_for(fake)
+
+    resp = client.place_protective(
+        {"symbol": "MHG", "direction": "long", "qty": 29, "sl": 6.255,
+         "tp": 7.1415})
+
+    assert resp["retCode"] == 0, resp
+    groups = {o.ocaGroup for _c, o in fake.placed}
+    assert groups == {"oca-protect-200"}, groups
+
+
+def test_a_survivor_with_no_oca_group_is_armed_around_not_refused():
+    """A bare protective order cannot be joined. Arming anyway is the lesser
+    evil — a protected position beats an unprotected one — and the caller says
+    so loudly rather than silently recreating the hazard."""
+    legs = _mhg_legs(597, "oca-protect-777", 778, 7770001)
+    for t in legs:
+        t.order.ocaGroup = ""
+    fake = FakeIB(legs, session_client_id=999)
+    client = _client_for(fake)
+
+    resp = client.place_protective(
+        {"symbol": "MHG", "direction": "long", "qty": 29, "sl": 6.255,
+         "tp": 7.1415})
+
+    assert resp["retCode"] == 0, resp
+    assert len(fake.placed) == 2, fake.placed
+
+
+def test_join_selection_prefers_stops_and_reads_stop_limit_as_a_stop():
+    """`"STP LMT"` contains `"LMT"`, so a limit-first test would file every
+    stop-limit as a target and pick the wrong group to join — the classifier
+    bug from BL-20260816-COVERAGE-IS-ONE-SIDED, in a new place."""
+    from src.units.accounts.ib_client import IBClient
+    survivors = [
+        {"oca_group": "g-target", "order_type": "LMT", "total_quantity": 99.0},
+        {"oca_group": "g-stop", "order_type": "STP LMT", "total_quantity": 10.0},
+    ]
+    group, count = IBClient._select_join_group(survivors)
+    assert group == "g-stop", (group, count)
+    assert count == 2
 
 
 def test_place_protective_arms_when_the_precancel_actually_cleared():
@@ -311,10 +385,10 @@ def test_place_protective_arms_a_naked_position():
 
 
 def test_place_protective_arms_when_the_effect_could_not_be_verified():
-    """'We could not look' must NOT refuse. The cancel may have succeeded, and
-    a blind refusal would leave the position unprotected until the next
-    broker-naked sweep (IB_BROKER_NAKED_CHECK_SECONDS, 300s) — whereas the
-    over-cover it risks instead is paged within one sweep."""
+    """'We could not look' must still ARM, and must not try to join. With no
+    confirmed read there may be no surviving leg to join at all, and the
+    position may be genuinely naked — the one state CLAUDE.md says the system
+    must always correct."""
     fake = FakeIB(_mhg_legs(497, "oca-protect-416", 417, 1179890976),
                   session_client_id=597, reqallopenorders_raises=True)
     client = _client_for(fake)
@@ -329,7 +403,9 @@ def test_place_protective_arms_when_the_effect_could_not_be_verified():
 
 def test_scoped_oca_precancel_also_verifies():
     """The scoped path (oca_key supplied) must carry the same guarantee — it is
-    the path criterion 3 will route the trailing amend through."""
+    the path criterion 3 will route the trailing amend through. Here the scoped
+    name and the survivor's group coincide, which is exactly the point: a
+    deterministic per-trade group makes the join a no-op."""
     legs = _mhg_legs(497, "oca-protect-t4796", 417, 1179890976)
     fake = FakeIB(legs, session_client_id=597)
     client = _client_for(fake)
@@ -338,8 +414,9 @@ def test_scoped_oca_precancel_also_verifies():
         {"symbol": "MHG", "direction": "long", "qty": 29, "sl": 6.255,
          "tp": 7.1415, "oca_key": "4796"})
 
-    assert resp["retCode"] == 1, resp
-    assert fake.placed == [], "scoped path armed over a surviving leg"
+    assert resp["retCode"] == 0, resp
+    groups = {o.ocaGroup for _c, o in fake.placed}
+    assert groups == {"oca-protect-t4796"}, groups
 
 
 def test_a_sibling_group_is_not_counted_as_a_survivor_of_a_scoped_cancel():
