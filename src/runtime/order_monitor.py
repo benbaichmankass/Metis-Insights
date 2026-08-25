@@ -55,7 +55,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -6674,6 +6674,43 @@ def _emit_target_naked_alert(
 _STOP_OVER_COVER_ALERT_COOLDOWN_S: float = 6 * 3600.0
 
 
+def _classify_group_owner(
+    group_client_id: Optional[int], reader_client_id: Optional[int]
+) -> str:
+    """Can THIS session cancel the group submitted under *group_client_id*?
+
+    Three states, never collapsed
+    (BL-20260825-OVER-COVER-PAGE-CANNOT-SAY-WHY-THE-GROUPS-ARE-DISJOINT --
+    kept on one line so the id stays greppable):
+
+    - ``this_session``  -- the ids match, so a cancel from here is addressed
+      correctly. This is the group the operator CAN act on.
+    - ``other_session`` -- a different id. IB binds cancel rights to the
+      submitting clientId, so this group cannot be cancelled from here **at
+      all**, whether that session is a live sibling (the 496/497/498 exec
+      cluster, a readonly diag client) or has retired. Deliberately NOT called
+      "retired": this function cannot tell those apart, and asserting the
+      stronger one would be a claim nothing measured.
+    - ``unknown``       -- an id was unreadable. That is *we could not look*,
+      and it is emphatically not ``this_session``; treating a missing id as
+      ours is how a page would promise an action that then fails.
+
+    NOT registered with ``collapsed-state-guard``, deliberately, and this is the
+    same call the ``BYBIT_HEDGE_MODE_SYMBOLS`` states record. The guard excludes
+    a contract's producer file from its own consumer set, and the only code that
+    branches on these states IS the producer module -- so a contract row today
+    would be satisfied by the test file alone, or would invite a decorative
+    branch elsewhere to feed it. Both are worse than no row. It becomes
+    registrable in the change that first gives another module a real reason to
+    branch on the owner (a remediation path, a soak row, an API field). The
+    collapse that matters -- ``unknown`` read as ``this_session`` -- is pinned
+    directly in tests/test_stop_over_cover_alert.py meanwhile.
+    """
+    if group_client_id is None or reader_client_id is None:
+        return "unknown"
+    return "this_session" if group_client_id == reader_client_id else "other_session"
+
+
 def _emit_stop_over_cover_alert(
     *,
     account_id: str,
@@ -6681,6 +6718,8 @@ def _emit_stop_over_cover_alert(
     size: float,
     stop_qty: float,
     oca_groups: Any,
+    group_client_ids: Optional[Mapping[str, Optional[int]]] = None,
+    reader_client_id: Optional[int] = None,
     venue: str = "ib",
 ) -> bool:
     """Page the operator that resting stops EXCEED the position across DISJOINT
@@ -6713,6 +6752,25 @@ def _emit_stop_over_cover_alert(
     BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
     Choosing which leg dies is the operator's call.
 
+    WHY IT NAMES THE SUBMITTING clientId (2026-08-25,
+    BL-20260825-OVER-COVER-PAGE-CANNOT-SAY-WHY-THE-GROUPS-ARE-DISJOINT). The
+    instruction above — *cancel the leg that does not match trades.stop_loss* —
+    was **un-executable for the leg it names**, and the page gave the operator
+    no way to know that. IB binds cancel rights to the SUBMITTING clientId, so
+    a group placed by a session that has since rotated its id cannot be
+    cancelled from the trader at all; it has to be cleared in TWS. Measured
+    live on ib_paper MHG the same day: the stale group `oca-protect-446` (STP
+    6.2625 — the PREVIOUS trail level) sits on clientId 597 while the live
+    group `oca-protect-465` (STP 6.312, matching `trades.stop_loss`
+    6.31207143) sits on 497.
+
+    That measurement also names the CAUSE, which no field previously carried:
+    the second group is not a duplicate of unknown origin, it is the trailing
+    amend's own cancel-and-re-place with the **cancel half refused** (Error
+    10147). So the group count grows by one per (clientId rotation, trailing
+    amend) pair, and a page that says only "2 disjoint groups" describes a
+    symptom whose mechanism is one field away.
+
     Never raises into the sweep.
     """
     groups = sorted(oca_groups or [])
@@ -6742,6 +6800,41 @@ def _emit_stop_over_cover_alert(
         from src.runtime.outcomes import Level, report
 
         pct = (100.0 * float(stop_qty) / float(size)) if size else None
+        ids = dict(group_client_ids or {})
+        owners = {
+            g: _classify_group_owner(ids.get(g), reader_client_id)
+            for g in groups
+        }
+        # Render as `group(clientId=X, other_session)` so the operator reads the
+        # address and the consequence together. A group we cannot cancel from
+        # here is the actionable half of the page, so say it in words rather
+        # than leaving the reader to compare two ids.
+        rendered = ", ".join(
+            f"{g}(clientId={ids.get(g) if ids.get(g) is not None else '?'}, "
+            f"{owners[g]})"
+            for g in groups
+        )
+        foreign = [g for g in groups if owners[g] == "other_session"]
+        unknown_owner = [g for g in groups if owners[g] == "unknown"]
+        advice = (
+            "Detect-only: cancel the leg that does NOT match trades.stop_loss."
+        )
+        if foreign:
+            advice += (
+                f" NOTE {len(foreign)} group(s) {foreign} were submitted by a "
+                f"DIFFERENT clientId than this session ({reader_client_id}); IB "
+                "refuses a foreign cancel (Error 10147), so those cannot be "
+                "cleared from the trader and must be cancelled in TWS or from "
+                "the submitting session. This is also the likely CAUSE: a "
+                "trailing amend cancel-and-re-places, and when the cancel half "
+                "is refused the re-place leaves a new disjoint group behind."
+            )
+        if unknown_owner:
+            advice += (
+                f" {len(unknown_owner)} group(s) {unknown_owner} reported no "
+                "clientId — that is unreadable, not this session; confirm the "
+                "owner before attempting a cancel."
+            )
         report(
             f"{venue}_stop_over_cover",
             "detected",
@@ -6750,11 +6843,11 @@ def _emit_stop_over_cover_alert(
                 f"{account_id}/{symbol}: position {size} but resting STOP qty "
                 f"totals {stop_qty}"
                 + (f" ({pct:.0f}%)" if pct is not None else "")
-                + f" across {len(groups)} DISJOINT OCA groups {groups}. OCA "
-                "cancels only within a group, so one stop firing flattens the "
-                "position and leaves the other(s) resting to sell again into a "
-                "naked SHORT. Detect-only: cancel the leg that does NOT match "
-                "trades.stop_loss."
+                + f" across {len(groups)} DISJOINT OCA groups "
+                + (rendered or str(groups))
+                + ". OCA cancels only within a group, so one stop firing "
+                "flattens the position and leaves the other(s) resting to sell "
+                "again into a naked SHORT. " + advice
             ),
             account_id=account_id,
             symbol=symbol,
@@ -6762,6 +6855,11 @@ def _emit_stop_over_cover_alert(
             stop_qty=stop_qty,
             oca_groups=groups,
             over_cover_pct=pct,
+            # Structured beside the prose so a consumer can branch without
+            # parsing the reason string.
+            oca_group_client_ids=ids,
+            reader_client_id=reader_client_id,
+            group_owners=owners,
         )
     except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
         logger.exception(
@@ -7741,6 +7839,11 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                         size=size,
                         stop_qty=_stop_q,
                         oca_groups=_groups,
+                        # `.get` rather than `[...]`: a coverage dict from a
+                        # client predating these keys must degrade to an
+                        # "unknown" owner, never raise inside a safety page.
+                        group_client_ids=cov.get("oca_group_client_ids"),
+                        reader_client_id=cov.get("reader_client_id"),
                     )
                 else:
                     logger.warning(

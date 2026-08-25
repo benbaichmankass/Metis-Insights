@@ -197,3 +197,113 @@ def test_a_pre_severity_latch_entry_still_suppresses(tmp_path, monkeypatch):
     assert om._emit_stop_over_cover_alert(
         account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=87.0,
         oca_groups=["a", "b", "c"]) is False
+
+
+# ---------------------------------------------------------------------------
+# The page must say WHO submitted each group, because its own remediation line
+# ("cancel the leg that does NOT match trades.stop_loss") is un-executable for
+# a group whose submitting session has rotated its clientId — IB binds cancel
+# rights to the submitter and refuses a foreign cancel with Error 10147.
+# BL-20260825-OVER-COVER-PAGE-CANNOT-SAY-WHY-THE-GROUPS-ARE-DISJOINT
+#
+# Measured live on ib_paper MHG 2026-08-25 (`/api/diag/ib_open_orders`):
+#   oca-protect-465  STP 6.312   LMT 7.1415  clientId 497   <- matches
+#                                                              trades.stop_loss
+#                                                              6.31207143
+#   oca-protect-446  STP 6.2625  LMT 7.1415  clientId 597   <- the PREVIOUS
+#                                                              trail level
+# 29-lot long, 58 of resting stop = 200%. The second group is the trailing
+# amend's own cancel-and-re-place with the cancel half refused, so the count
+# grows by one per (clientId rotation, trailing amend) pair.
+# ---------------------------------------------------------------------------
+
+class TestGroupOwnershipIsClassifiedNotGuessed:
+    def test_matching_ids_are_this_session(self):
+        assert om._classify_group_owner(497, 497) == "this_session"
+
+    def test_a_different_id_is_other_session_not_retired(self):
+        """`other_session` deliberately does NOT claim the session retired: a
+        live sibling in the 496/497/498 exec cluster is indistinguishable from
+        a dead one here, and either way this client cannot cancel it."""
+        assert om._classify_group_owner(597, 497) == "other_session"
+
+    def test_a_missing_group_id_is_unknown_NOT_this_session(self):
+        """The collapse that would matter: reading 'we could not look' as
+        'ours' makes the page promise a cancel that then fails."""
+        assert om._classify_group_owner(None, 497) == "unknown"
+
+    def test_a_missing_reader_id_is_also_unknown(self):
+        assert om._classify_group_owner(597, None) == "unknown"
+
+
+class TestThePageNamesTheOwnerAndTheMechanism:
+    def _live_case(self):
+        return om._emit_stop_over_cover_alert(
+            account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=58.0,
+            oca_groups={"oca-protect-465": 29.0, "oca-protect-446": 29.0},
+            group_client_ids={"oca-protect-465": 497, "oca-protect-446": 597},
+            reader_client_id=497,
+        )
+
+    def test_the_foreign_group_is_named_with_its_clientId(self, latched, pages):
+        assert self._live_case() is True
+        reason = pages[0][1]["reason"]
+        assert "clientId=597" in reason and "clientId=497" in reason
+        assert "oca-protect-446" in reason
+
+    def test_it_says_the_foreign_group_cannot_be_cancelled_from_here(
+        self, latched, pages,
+    ):
+        """Without this the operator is told to cancel a leg the API refuses."""
+        self._live_case()
+        reason = pages[0][1]["reason"]
+        assert "10147" in reason
+        assert "TWS" in reason, "name where it CAN be cleared, not just where not"
+
+    def test_it_names_the_cause_not_only_the_symptom(self, latched, pages):
+        """'2 disjoint groups' is a symptom. The cause is the refused cancel
+        half of a trailing amend, and it is one field away from the page."""
+        self._live_case()
+        assert "trailing amend" in pages[0][1]["reason"]
+
+    def test_the_owners_ride_structured_beside_the_prose(self, latched, pages):
+        """A consumer must be able to branch without parsing the reason string."""
+        self._live_case()
+        kw = pages[0][1]
+        assert kw["group_owners"] == {
+            "oca-protect-446": "other_session",
+            "oca-protect-465": "this_session",
+        }
+        assert kw["reader_client_id"] == 497
+        assert kw["oca_group_client_ids"]["oca-protect-446"] == 597
+
+    def test_an_all_ours_case_does_not_claim_an_uncancellable_group(
+        self, latched, pages,
+    ):
+        """A false 'you cannot cancel this' would send the operator to TWS for
+        a leg they could have cancelled from here."""
+        om._emit_stop_over_cover_alert(
+            account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=58.0,
+            oca_groups={"a": 29.0, "b": 29.0},
+            group_client_ids={"a": 497, "b": 497}, reader_client_id=497,
+        )
+        reason = pages[0][1]["reason"]
+        assert "10147" not in reason
+        assert "naked SHORT" in reason, "the hazard is unchanged — still page it"
+
+    def test_an_unreadable_owner_is_flagged_as_unreadable(self, latched, pages):
+        om._emit_stop_over_cover_alert(
+            account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=58.0,
+            oca_groups={"a": 29.0, "b": 29.0},
+            group_client_ids={"a": 497}, reader_client_id=497,
+        )
+        reason = pages[0][1]["reason"]
+        assert "unreadable, not this session" in reason
+        assert pages[0][1]["group_owners"]["b"] == "unknown"
+
+    def test_omitting_the_new_fields_still_pages(self, latched, pages):
+        """Back-compat: a coverage dict from a client predating these keys must
+        degrade to 'unknown' owners, never raise inside a safety page."""
+        assert _emit() is True
+        assert set(pages[0][1]["group_owners"].values()) == {"unknown"}
+        assert "naked SHORT" in pages[0][1]["reason"]

@@ -355,6 +355,30 @@ def _round_to_tick(price: float, tick: float = MES_TICK_SIZE) -> float:
     return round(round(float(price) / tick) * tick, max(ndigits, 4))
 
 
+def _readable_client_id(order: Any) -> Optional[int]:
+    """The clientId that SUBMITTED *order*, or ``None`` when it is unreadable.
+
+    ``None`` is a third state, not a default: IB does not always populate
+    ``clientId`` on an order relayed from another session, and reading an
+    absent id as ``0`` would name a real client that did not place it. A
+    caller must branch on ``is None`` rather than comparing the value.
+
+    Load-bearing because IB binds cancel rights to the submitting clientId --
+    ``cancelOrder`` "can only be used to cancel an order that was placed
+    originally by a client with the same client ID" (TWS API) -- so this id is
+    the address at which a resting order can be acted on at all. It is the
+    same field :meth:`IBClient.list_open_orders` surfaces per row
+    (BL-20260816-NO-PER-ORDER-IB-CANCEL); this is the aggregate side.
+    """
+    try:
+        raw = getattr(order, "clientId", None)
+        if raw is None:
+            return None
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _protective_leg_side(order_type: Optional[str]) -> Optional[str]:
     """Classify an IB order type as the ``stop`` side, the ``target`` side, or
     neither — the axis :meth:`IBClient.protection_coverage` was missing.
@@ -3154,7 +3178,10 @@ class IBClient:
         if size <= 0:
             return {
                 "size": 0.0, "covered_qty": 0.0, "legs": 0,
-                "unknown_qty_legs": 0, "oca_groups": {}, "source": "flat",
+                "unknown_qty_legs": 0, "oca_groups": {},
+                "oca_group_client_ids": {},
+                "reader_client_id": self._effective_client_id(),
+                "source": "flat",
             }
 
         # (2) The NUMERATOR: resting protective legs, summed by qty.
@@ -3192,6 +3219,30 @@ class IBClient:
         # behaviour changes.
         stop_prices: List[float] = []
         target_prices: List[float] = []
+        # WHO SUBMITTED EACH GROUP (2026-08-25,
+        # BL-20260825-OVER-COVER-PAGE-CANNOT-SAY-WHY-THE-GROUPS-ARE-DISJOINT --
+        # kept on one line: a line-wrapped id resolves to nothing for a grep, a
+        # reader, or artifact-validity-guard). Quantity, side and price answer
+        # "is protection resting, on the right side, where we declared?". None
+        # of them answers "why are there TWO groups?", which is the question the
+        # over-cover page exists to make actionable -- and its own remediation
+        # line ("cancel the leg that does NOT match trades.stop_loss") is
+        # un-executable for a group whose submitting session has retired, since
+        # IB binds cancel rights to the SUBMITTING clientId and refuses a
+        # foreign cancel with Error 10147.
+        #
+        # Measured live on ib_paper MHG 2026-08-25: a 29-lot long against
+        # `oca-protect-465` (STP 6.312 / LMT 7.1415, clientId 497 -- matching
+        # trades.stop_loss 6.31207143 exactly) and `oca-protect-446` (STP
+        # 6.2625, the PREVIOUS trail level, clientId 597). So the second group
+        # is not a mystery duplicate: it is the trail's own cancel-and-re-place
+        # with the cancel half refused, and it accretes one group per
+        # (clientId rotation, trailing amend) pair.
+        #
+        # `None` is a real value here and means the id was unreadable -- NOT
+        # "this session". Ungrouped legs are deliberately not tracked: this map
+        # is keyed by OCA group, and the disjoint-group hazard is what it feeds.
+        oca_group_client_ids: Dict[str, Optional[int]] = {}
         for trade in trades:
             try:
                 contract = getattr(trade, "contract", None)
@@ -3208,6 +3259,11 @@ class IBClient:
                     unknown += 1
                     continue
                 group = str(getattr(order, "ocaGroup", "") or "")
+                if group and group not in oca_group_client_ids:
+                    # First leg of the group wins; every leg of one bracket is
+                    # submitted by one session, and a disagreement would itself
+                    # be the finding rather than something to average away.
+                    oca_group_client_ids[group] = _readable_client_id(order)
                 # An OCA group is one-fills-cancels-the-rest, so its STOP and
                 # LIMIT legs protect the SAME qty — counting both would double
                 # the coverage and hide a genuinely naked remainder. Take the
@@ -3248,6 +3304,13 @@ class IBClient:
             "legs": legs,
             "unknown_qty_legs": unknown,
             "oca_groups": dict(oca_groups),
+            # {group: clientId|None}. A `None` value is "unreadable", never
+            # "this session" -- see the accumulator comment above.
+            "oca_group_client_ids": dict(oca_group_client_ids),
+            # The id THIS client submits under, so a caller can tell a group it
+            # could cancel from one it could not. Deliberately the effective id
+            # (rotation-aware), because that is what a cancel would go out on.
+            "reader_client_id": self._effective_client_id(),
             "source": "resting_legs",
         }
 
