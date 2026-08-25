@@ -135,10 +135,21 @@ Full evidence in `WORKPLAN-2026-08-14.md` § "Lane 0 re-measured LIVE". Summary:
 - **Exchange truth for `ib_paper` is unreadable** (`positions: null`), so the
   `$119,490` vs `$37.80` contradiction in `BL-20260807` could not be re-measured
   today — only the *presentation* was.
-- **The full pytest suite does not collect in this sandbox** — 103 collection
-  errors, `pyo3_runtime.PanicException` from the pydantic/pyo3 binding.
-  Confirmed **pre-existing and environmental** by reproducing it identically at
-  `HEAD~1`. CI runs it properly.
+- ~~The full pytest suite does not collect in this sandbox~~ — **now measured,
+  not merely asserted.** The sandbox throws 103 collection errors
+  (`pyo3_runtime.PanicException`, the pydantic/pyo3 binding). Rather than
+  hand-wave it as environmental, both commits were run to completion in matched
+  worktrees:
+
+  | | failed | passed | errors |
+  |---|--:|--:|--:|
+  | baseline `3c5338e` (pre-change) | **1011** | 10367 | 103 |
+  | this branch `cf7f83e` | **1011** | 10375 | 103 |
+
+  **Identical failure and error counts; +8 passed — exactly the 8 tests added
+  here.** So the change introduces zero failures, and the 1011 are the
+  sandbox's, not mine. Independently corroborated by CI, where `pytest-collect`
+  passes outright.
 - **`--timeout=300` silently invalidated a run.** pytest rejected the unknown
   flag and the wrapper still exited **0**. Re-run without it. Recording it
   because it is the diagnostic sub-class C shape (an empty result read as a
