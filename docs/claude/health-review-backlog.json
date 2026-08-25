@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T17:15:00+00:00",
+ "updated_at": "2026-08-25T17:25:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -23845,8 +23845,15 @@
     "prop_status_threshold_hours": 24,
     "prop_status_as_of": "2026-08-23T16:10:45Z"
    },
-   "next_action": "After deploy: GET /api/diag/log_file?name=prop_status_request and read it beside /api/bot/prop/status. A RECENT ask beside a stale status is normal (the operator has not answered); a stale or absent ask means the bot stopped asking -- file that as its own Tier-2 row.",
-   "last_verified": "2026-08-25"
+   "next_action": "Criterion 2 DONE — the prop cadence is confirmed healthy (last ask 2026-08-25T16:14:58Z, unanswered, not un-emitted). Remaining: criterion 3, the writer-side guard that every runtime_logs state file must have an allowlist entry or an explicit `# read-surface: none - <reason>` marker.",
+   "last_verified": "2026-08-25",
+   "updates": [
+    {
+     "at": "2026-08-25T17:25:00+00:00",
+     "by": "claude (system-review fix round)",
+     "note": "THE OPEN QUESTION IS ANSWERED, minutes after the read surface deployed — which is the cleanest possible demonstration of why it was worth adding.\n\nThis row shipped with criterion 2 explicitly UNRESOLVED: /api/bot/prop/status read `stale` at 47.4h against a 24h threshold, and two readings fit equally — (a) the bot is asking on its 12h cooldown and the operator has not answered, or (b) run_prop_status_request has stopped emitting, which would be a defect in the input to prop_balance's sizing-freshness gate AND the rule-distance panel. The row said explicitly: do not record the prop cadence as healthy on the strength of this row.\n\nMEASURED 2026-08-25T17:22Z, first read after the deploy landed (/api/diag/log_file?name=prop_status_request, present:true, path /data/bot-data/runtime_logs/prop_status_request.json):\n\n  {\"breakout_1\": \"2026-08-25T16:14:58.303042+00:00\"}\n\nThe bot last asked at 16:14:58Z — about 67 minutes before the read, well inside its 12h PROP_STATUS_REQUEST_COOLDOWN_HOURS. **(a) is correct and (b) is REFUTED**: the cadence is running, the ask is going out, and the snapshot is stale because it is UNANSWERED. No defect in the emitter.\n\nThat distinction was unreachable from any surface before this change — the two cases render identically on /api/bot/prop/status — and it is precisely the 'the mechanism stopped firing vs it fired and the condition persists' collapse this row is about.\n\nCRITERION 2 CLOSED. Criterion 3 (a writer-side guard so a sixth occurrence cannot ship) remains the open half and is unchanged."
+    }
+   ]
   },
   {
    "id": "BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED",
@@ -23974,6 +23981,38 @@
     "cost": "one healthy run cancelled; two full local suite runs spent refuting a hypothesis that only existed because of the stale read"
    },
    "next_action": "Tier-1 — write rule (1) into the merge/CI practice doc.",
+   "last_verified": "2026-08-25"
+  },
+  {
+   "id": "BL-20260825-GIT-FETCH-REF-LOCK-RACE-ABORTS-THE-DEPLOY-UPSTREAM-OF-ITS-OWN-STALE-CODE-GATE",
+   "opened_at": "2026-08-25T17:25:00+00:00",
+   "opened_by": "claude (system-review fix round)",
+   "severity": "medium",
+   "tier": "1 (deploy tooling)",
+   "status": "open",
+   "area": "deploy",
+   "title": "A concurrent-fetch ref-lock race makes `git fetch` exit non-zero, which aborts deploy_pull_restart.sh BEFORE its restart-decision gate — so the worktree advances and the live processes keep running stale code",
+   "detail": "OBSERVED LIVE 2026-08-25, on the deploy of this session's own merge.\n\nict-git-sync.service, 17:15:56:\n  >>> Pre-sync HEAD: 530a3cfe...\n  >>> Fetching latest from origin...\n  error: cannot lock ref 'refs/remotes/origin/main': is at b81458a4... but expected 530a3cfe...\n   ! 530a3cfe..b81458a4  main -> origin/main  (unable to update local ref)\n  ict-git-sync.service: Main process exited, code=exited, status=1/FAILURE\n\nTWO CONCURRENT CLAUDE SESSIONS MERGED INSIDE ONE 5-MINUTE TIMER WINDOW (#10282 and #10287), so a second fetch had already advanced refs/remotes/origin/main and this fetch's compare-and-swap failed. `git fetch` returns non-zero on that, the script exits, and — this is the part that matters — the exit happens UPSTREAM of the restart-decision gate.\n\nSO THE PROTECTION THAT EXISTS FOR EXACTLY THIS STATE NEVER RUNS. BL-20260714-DEPLOY-STALE-ON-OOB-SYNC added a deployed_sha.txt marker precisely so 'HEAD advanced without the processes being bounced' is caught however HEAD got there. That gate is correct and it is simply never reached: it lives after the fetch. Measured state during the window — /api/diag/version returned git_sha 530a3cfe (running) against git_sha_on_disk b81458a4, restart_pending true, for 5.5 minutes.\n\nIT SELF-HEALED ON THE NEXT TICK (17:21:30), because the ref was then already at the newer value so the CAS succeeded. State the severity honestly: the observed cost was ONE TICK, about 5.5 minutes of stale code, not an indefinite stall. That is why this is medium and not high.\n\nWHAT MAKES IT WORTH FIXING ANYWAY: the self-heal is not guaranteed, it is a property of the race not recurring. Merge frequency is what drives it, and on a day when concurrent sessions merge repeatedly (today: at least four merges inside forty minutes) back-to-back races are plausible. A deploy that silently no-ops on a transient git error, on a live trading VM, should not depend on the next attempt being luckier.\n\nALSO WORTH RECORDING: this was only visible BECAUSE `restart_pending` now compares the RUNNING sha to disk. Before BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE was fixed on 2026-08-23 the endpoint compared disk to disk, so it would have read `false` throughout this window and the stale-code state would have been invisible on every surface. The fix earned its keep here.",
+   "resolution_criteria": "1. A fetch failure must not abort the deploy silently. Either retry the fetch once (a ref-lock race is resolved by the next attempt, as this occurrence demonstrates), or let the script CONTINUE to the restart-decision gate — the gate reads deployed_sha.txt against the worktree and does not need the fetch to have succeeded to notice that the running processes are stale.\n2. A FAILED deploy must be loud. `ict-git-sync.service` entering `failed` is currently visible only to someone who reads /api/diag/services or the unit journal; nothing alerts. Note this is the same shape as the over-cover detector before 2026-08-25 — correctly detected, reaching no surface a human reads.\n3. Do NOT 'fix' this by making the fetch non-fatal without also reaching the gate: swallowing the error and proceeding to a hard-reset against a stale ref would be worse than the abort.\n4. Establish whether `git fetch --prune` or a ref-lock retry is the cleaner remedy. Not investigated here.",
+   "refs": [
+    "BL-20260714-DEPLOY-STALE-ON-OOB-SYNC",
+    "BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE",
+    "BL-20260816-DEPLOY-VERSION-ASSERTION-CANNOT-FAIL",
+    "scripts/deploy_pull_restart.sh"
+   ],
+   "evidence": {
+    "failed_at": "2026-08-25T17:15:57Z",
+    "healed_at": "2026-08-25T17:21:30Z",
+    "stale_window_minutes": 5.5,
+    "running_sha_during": "530a3cfe",
+    "disk_sha_during": "b81458a4",
+    "restart_pending_during": true,
+    "concurrent_merges": [
+     "#10282",
+     "#10287"
+    ]
+   },
+   "next_action": "Tier-1 — retry the fetch once, or fall through to the restart gate on a fetch failure. Plus an alert on ict-git-sync.service entering `failed`.",
    "last_verified": "2026-08-25"
   }
  ]
