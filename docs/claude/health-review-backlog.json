@@ -22034,7 +22034,7 @@
    "opened_by": "full-system-audit-2026-08-23 (found while draining the criticals)",
    "severity": "medium",
    "tier": "1 (backlog tooling / docs)",
-   "status": "open",
+   "status": "resolved",
    "area": "backlog hygiene / tooling",
    "title": "`resolution_criteria` is a bare STRING on 752 of 1034 backlog rows and a LIST on the rest, so the obvious `for c in criteria` yields one character per line instead of raising",
    "detail": "Found while draining the critical backlog: I iterated `resolution_criteria` on BL-20260818-ATTACH-IB-TARGET-VERIFY-CANNOT-EXPRESS-FILLED and got ONE CHARACTER PER LINE. The field carries TWO types across the three backlogs and nothing pins it.\n\nMEASURED 2026-08-23 (state the population -- all three backlogs, every row):\n  health        824 rows: 605 string,  16 list, 203 absent\n  performance   106 rows:  69 string,   0 list,  37 absent\n  ml            104 rows:  78 string,   1 list,  25 absent\n\nSo the STRING shape is the MAJORITY (health 73.4%), and both shapes are in active use by rows written days apart -- this is not a legacy tail that new rows have grown out of.\n\nWHY IT IS A DEFECT AND NOT A STYLE NIT. `for c in row['resolution_criteria']` is the obvious read, it is CORRECT for the list shape, and on the string shape it does not raise -- it yields characters. A session rendering a row's criteria gets a column of single letters and either notices (wasted time) or does not (a criteria list silently reported as ~900 empty bullets). That is the unprovenanced-diagnostic sub-class A shape from CLAUDE.md: the accessor does not compute what the label says, and nothing in the output reveals the substitution. It has no runtime blast radius -- these files are read by review sessions and report renderers, not by the trader -- which is why this is medium, not high.\n\nWHAT IS NOT BROKEN, asserted rather than assumed. `scripts/ops/check_backlog_criteria.py` is type-agnostic BY LUCK, not by design: it does `text = str(raw).strip()` and then applies a length floor, so a list stringifies to \"['a', 'b']\" and clears the floor exactly as a sentence does. The guard is therefore NOT the thing to point at as evidence the field is well-formed -- it would pass a list of empty strings too. Verified by reading the function body, not by running it. And no OTHER consumer iterates today: grep over scripts/ src/ .claude/ tests/ returns check_backlog_criteria.py (str()), backlog_counts.py (a comment), render_system_report.py (a comment), check_claim_basis.py (a prose-field name list), and two SKILL.md mentions. The probe is valid -- the same grep shape returns positives for the field it looks for.\n\nSO THE EXPOSURE IS FUTURE AND HUMAN, not present and machine: the next consumer that iterates gets characters for 73% of the corpus, and an ANALYSIS SESSION doing it ad hoc -- which is exactly how this was found -- gets them today.",
@@ -22051,7 +22051,15 @@
     "docs/claude/ml-review-backlog.json",
     "BL-20260818-ATTACH-IB-TARGET-VERIFY-CANNOT-EXPRESS-FILLED"
    ],
-   "last_verified": "2026-08-23"
+   "last_verified": "2026-08-23",
+   "resolved_at": "2026-08-25T18:55:00+00:00",
+   "updates": [
+    {
+     "at": "2026-08-25T18:55:00+00:00",
+     "by": "claude (backlog drain, 2026-08-25)",
+     "note": "RESOLVED — all four criteria, three shipped and the fourth made moot by the decision criterion 3 demanded.\n\nCRITERION 1 — the canonical accessor exists: scripts/ops/_backlog.py::criteria_list(row) returns a list for BOTH shapes (a string becomes a ONE-element list, never split; absent becomes []), plus criteria_text(row) for length/placeholder checks. A shape that is neither str nor list nor absent raises UnsupportedCriteriaShape rather than being coerced — because silently accepting a dict is precisely how a malformed row passes a malformed-row guard.\n\nCRITERION 2 — check_backlog_criteria.py no longer relies on str(raw) by accident. `_verdict` calls criteria_text and returns the shape error as its reason. Note the empty/absent split is kept distinct ('no resolution_criteria field' vs 'resolution_criteria is empty') rather than collapsed into one message. Seven self-test cases added in the existing --self-test harness, all passing: dict rejected; an int long enough to clear the 40-char floor as a repr rejected; a list containing a dict rejected; a list whose PROSE is 21 chars but whose repr is 26 rejected (the accidental-pass case this row names); and two ACCEPT cases proving the list shape still passes on real prose and that empty/None entries are dropped rather than counted.\n\nNO CORPUS REGRESSION, ASSERTED NOT ASSUMED. The switch from str(raw) to criteria_text changes the measured length on every list row (brackets and quotes stop counting toward the floor), which could have flipped a short list row from pass to fail. Ran --all before and after over the same tree and diffed the failing ID SETS, not just the counts: 111 before, 111 after, sets IDENTICAL. So the change closes the hole without moving a single real row.\n\nCRITERION 3 — THE DECISION, and it is recorded in the module docstring so it cannot be re-litigated from taste: THE STRING SHAPE IS PERMANENTLY SUPPORTED AND THE ACCESSOR IS MANDATORY. Not normalised. The basis, re-measured 2026-08-25 across all three backlogs: health 672 str / 36 list / 203 absent, performance 72 str / 0 list, ml 78 str / 1 list. String rows span the full date range INCLUDING the same day as the newest list rows, so there is no 'new rows grew out of it' story that a normalisation would be finishing. A ~750-row prose rewrite would also touch every file that every diff-scoped guard reads, for zero behavioural gain over one accessor. Explicitly NOT half-done, which this row correctly called the worst outcome.\n\nCRITERION 4 is moot by construction: it constrains the normalisation route ('wrap, never split'), and that route was not taken. The accessor wraps at READ time and the corpus is untouched, so no prose can be mangled.\n\nSEE ALSO BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED, filed the same day. It rediscovered the two shapes independently and concluded 'string is the dominant convention, no defect' — correct about the CONVENTION and wrong to stop there, because the hazard was never the polymorphism, it was the silent character-iteration on the majority shape. That row has been annotated so the two do not read as contradicting each other."
+    }
+   ]
   },
   {
    "id": "BL-20260823-MODIFY-IDEMPOTENCE-COMPARES-INTENT-TO-JOURNAL-NEVER-TO-VENUE",
@@ -24096,6 +24104,13 @@
     "scripts/reports/backlog_counts.py (is_open_status - kept_open counts as OPEN; its header records the 96-item under-report incident)",
     ".claude/skills/system-review/SKILL.md, review_coverage.backlog_classes",
     "ROADMAP.md (canonical milestone record, instruction hierarchy #3)"
+   ],
+   "updates": [
+    {
+     "at": "2026-08-25T18:55:00+00:00",
+     "by": "claude (backlog drain, 2026-08-25)",
+     "note": "CROSS-REFERENCE / PARTIAL SELF-CORRECTION. This row's detail says of the string-vs-list shape: 'There is no list-vs-string defect and no sweep to do.' That is right about the CONVENTION (string is dominant and spans the full date range) and wrong to stop there. BL-20260823-RESOLUTION-CRITERIA-HAS-TWO-TYPES-AND-ITERATING-IT-YIELDS-CHARACTERS had already identified the real hazard, which is not the polymorphism at rest but the SILENT read: `for c in row['resolution_criteria']` is correct on a list and yields one character per line on a string, without raising. My reading found the shapes and dismissed them; that row found the accessor. Both are now closed the same way — scripts/ops/_backlog.py::criteria_list, with the string shape declared permanently supported. Recorded here so the two rows do not read as contradicting each other."
+    }
    ]
   }
  ]
