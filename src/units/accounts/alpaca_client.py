@@ -314,6 +314,14 @@ class AlpacaClient:
           ``{status, trading_blocked, account_blocked, trade_suspended_by_user,
              transfers_blocked, shorting_enabled, crypto_status, currency}``
 
+        …plus a nested ``capacity`` block answering the SEPARATE question *"and
+        how much can it place?"* — ``{multiplier, buying_power,
+        regt_buying_power, daytrading_buying_power, cash, equity, last_equity,
+        pattern_day_trader, daytrade_count}``. Kept nested so the eight keys
+        above keep meaning exactly *may this account trade at all*; see the
+        comment at the extraction site for why ``multiplier`` in particular is
+        load-bearing for a gross-exposure ceiling.
+
         Motivation (BL-20260701-ALPACA-STATUS-VISIBILITY): when order placement
         returns 401/403 while balance reads succeed, there was no read path
         exposing WHY — the balance()/buying_power() helpers only extract
@@ -338,7 +346,44 @@ class AlpacaClient:
             "trade_suspended_by_user", "transfers_blocked",
             "shorting_enabled", "crypto_status", "currency",
         )
-        return {k: acct.get(k) for k in keys if k in acct}
+        out: Dict[str, Any] = {k: acct.get(k) for k in keys if k in acct}
+        # CAPACITY — a SECOND question, kept in its own block so the eight keys
+        # above keep meaning exactly "may this account trade at all?".
+        #
+        # WHY (2026-08-25, BL-20260825-ALPACA-CAPACITY-FIELDS-FETCHED-THEN-DISCARDED
+        # -- kept on one line so the id stays greppable). `/v2/account` already
+        # returns all of this and the dict comprehension above threw it away, so
+        # the one question a gross-exposure CEILING depends on had no read
+        # surface anywhere: `multiplier` is the cash-vs-margin discriminator
+        # (1 = cash, 2 = Reg-T, 4 = PDT day-trading), and on a CASH account a
+        # gross-exposure multiple can never exceed 1.0x -- a 2.0x ceiling would
+        # be decorative, while on a Reg-T account the same value binds. Choosing
+        # between them by inference rather than by reading the field is exactly
+        # what `field beats comment` forbids.
+        #
+        # Measured 2026-08-25 on the live fleet: alpaca_live equity $200.10 with
+        # ZERO gross notional across 91 soak rows, while its paper mirrors
+        # alpaca_portfolio ($98,618.60) and alpaca_paper ($83,405.94) both run a
+        # continuous ~2.0x book. So the mirrors cannot supply alpaca_live's
+        # ceiling basis until this field says whether 2.0x is reachable there.
+        #
+        # `pattern_day_trader` + `daytrade_count` ride along because they are the
+        # other structural bound on a sub-$25k account: FINRA caps a
+        # non-PDT-flagged margin account at 3 day trades per 5 days, which no
+        # part of this system models, and 16 strategies route here.
+        #
+        # Absent keys are OMITTED, matching the eight above: a consumer sees the
+        # key missing rather than a fabricated default, and must not read an
+        # absent `multiplier` as "cash".
+        capacity_keys = (
+            "multiplier", "buying_power", "regt_buying_power",
+            "daytrading_buying_power", "cash", "equity", "last_equity",
+            "pattern_day_trader", "daytrade_count",
+        )
+        capacity = {k: acct.get(k) for k in capacity_keys if k in acct}
+        if capacity:
+            out["capacity"] = capacity
+        return out
 
     def positions(self) -> Optional[list]:
         """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``.

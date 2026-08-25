@@ -513,18 +513,18 @@ def test_send_modify_to_exchange_ib_forwards_context(monkeypatch):
 
     def _modify(client, c, *, symbol, sl=None, tp=None,
                 side=None, qty=None, cur_sl=None, cur_tp=None,
-                sl_order_id=None, tp_order_id=None):
+                sl_order_id=None, tp_order_id=None, trade_id=None):
         captured.update(
             symbol=symbol, sl=sl, tp=tp, side=side, qty=qty,
-            cur_sl=cur_sl, cur_tp=cur_tp,
+            cur_sl=cur_sl, cur_tp=cur_tp, trade_id=trade_id,
         )
         return {"ok": True, "error": None}
 
     monkeypatch.setattr("src.units.accounts.execute.modify_open_order", _modify)
 
     res = om._send_modify_to_exchange(
-        {"account_id": "ib_paper", "symbol": "MGC", "direction": "long",
-         "position_size": 3},
+        {"id": 77, "account_id": "ib_paper", "symbol": "MGC",
+         "direction": "long", "position_size": 3},
         sl=1990.0, side="long", qty=3.0, cur_sl=1980.0, cur_tp=2100.0,
     )
     assert res["ok"] is True
@@ -534,6 +534,14 @@ def test_send_modify_to_exchange_ib_forwards_context(monkeypatch):
     assert captured["qty"] == 3.0
     assert captured["cur_sl"] == 1980.0
     assert captured["cur_tp"] == 2100.0
+    # The TRADE ID is context too, and the one with a live consequence:
+    # modify_open_order forwards it as the IB re-arm's `oca_key`, which scopes
+    # the pre-cancel to THIS trade's own OCA group. Without it the re-arm
+    # cancels SYMBOL-WIDE and can strip a sibling strategy's protective legs on
+    # a netted contract -- the mechanism behind a take-profit that was reached
+    # and never executed
+    # (BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE).
+    assert captured["trade_id"] == 77
 
 
 def test_send_modify_to_exchange_alpaca_ok(monkeypatch):

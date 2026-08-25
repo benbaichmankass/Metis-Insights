@@ -2351,6 +2351,7 @@ def modify_open_order(
     cur_tp: Optional[float] = None,
     sl_order_id: Optional[str] = None,
     tp_order_id: Optional[str] = None,
+    trade_id: Optional[Any] = None,
 ) -> dict:
     """Modify SL/TP on an open position on the account's exchange.
 
@@ -2541,13 +2542,46 @@ def modify_open_order(
                 return {"ok": False, "exchange_response": None,
                         "error": (f"IB modify: expected IBClient, got "
                                   f"{type(exchange_client).__name__}")}
-            resp = exchange_client.modify_protective({
+            # SCOPE THE PRE-CANCEL TO THIS TRADE'S OWN OCA GROUP.
+            # `place_protective` (which modify_protective delegates to) cancels
+            # resting legs before arming, and WITHOUT an oca_key that cancel is
+            # SYMBOL-WIDE. IB nets per contract per account, so on a symbol
+            # several strategies trade, a symbol-wide cancel from ONE trade's
+            # trailing amend deletes the OTHER trades' resting take-profit legs
+            # and replaces them with a bracket covering only this trade's qty --
+            # the documented mechanism behind a take-profit that was reached and
+            # never executed (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY).
+            #
+            # #10282 built the deterministic per-trade group for exactly this
+            # and THIS CALLER NEVER PASSED IT, so the highest-frequency re-arm
+            # in the system -- every stop trail -- took the legacy branch
+            # (BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE
+            # -- kept on one line so the id stays greppable). Measured live
+            # 2026-08-25: both resting ib_paper MHG groups were named
+            # `oca-protect-<orderId>`, the no-key form, with no `t` prefix.
+            #
+            # A MISSING trade_id keeps the old symbol-wide behaviour rather than
+            # inventing a key: a fabricated group name would silently stop
+            # cancelling the trade's OWN previous bracket, which is strictly
+            # worse than the gap being closed.
+            _ib_order: dict = {
                 "symbol": symbol,
                 "direction": side,
                 "qty": qty,
                 "sl": eff_sl if has_sl else None,
                 "tp": eff_tp if has_tp else None,
-            }) or {}
+            }
+            if trade_id is not None and str(trade_id).strip():
+                _ib_order["oca_key"] = str(trade_id).strip()
+            else:
+                logger.warning(
+                    "modify_open_order: no trade_id for account=%s symbol=%s — "
+                    "the IB re-arm falls back to the SYMBOL-WIDE pre-cancel, "
+                    "which can strip a sibling strategy's protective legs on a "
+                    "netted contract",
+                    account_cfg.get("account_id"), symbol,
+                )
+            resp = exchange_client.modify_protective(_ib_order) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
                 logger.info(

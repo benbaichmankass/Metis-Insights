@@ -60,13 +60,25 @@ def _client(**kw):
     )
 
 
-def _count_probes(client, *, result=True):
-    """Replace `_probe_liveness` with a counter. Returns the mutable count list."""
+def _count_probes(client, *, result=True, state=None):
+    """Replace `_probe_liveness` with a counter. Returns the mutable count list.
+
+    `_probe_liveness` returns one of `ib_mod.PROBE_STATES`, not a bool, since
+    BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE — a bare bool
+    collapsed a WEDGE and a PEER-CLOSE, which want opposite responses. The
+    legacy `result=` bool is kept so these tests read unchanged and maps to the
+    two states they actually mean: True -> PROBE_OK, False -> PROBE_TIMED_OUT
+    (a wedge, which is the failure this file's cached-handle tests assert
+    condemns). Pass `state=` explicitly to exercise a different one.
+    """
     calls: list[int] = []
+    verdict = state if state is not None else (
+        ib_mod.PROBE_OK if result else ib_mod.PROBE_TIMED_OUT
+    )
 
     def _fake(_ib):
         calls.append(1)
-        return result
+        return verdict
 
     client._probe_liveness = _fake  # type: ignore[method-assign]
     return calls
