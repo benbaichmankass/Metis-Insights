@@ -306,8 +306,79 @@ def test_audit_accepts_a_bybit_payload_alone_and_names_which_were_supplied():
                     {"accounts": [{"account_id": "bybit_2",
                                    "read_state": "orders_read", "result": {}}]})
     assert res["summary"]["broker_supplied"] is True
-    assert res["summary"]["broker_payloads"] == {"ib": False, "bybit": True}
-    assert epc._payloads_label(res["summary"]) == "bybit; ib NOT supplied"
-    none_res = epc.audit({"rows": []}, {}, None, None)
+    assert res["summary"]["broker_payloads"] == {
+        "ib": False, "bybit": True, "alpaca": False}
+    assert epc._payloads_label(res["summary"]) == "bybit; alpaca/ib NOT supplied"
+    none_res = epc.audit({"rows": []}, {}, None, None, None)
     assert none_res["summary"]["broker_supplied"] is False
     assert "NONE" in epc._payloads_label(none_res["summary"])
+
+
+# --------------------------------------------------------------------------
+# Alpaca payload — the third venue, and NOT shaped like the Bybit one
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("order_type,expect", [
+    ("stop", {"stop": True, "target": False}),
+    # Alpaca's own type string. "stop_limit" CONTAINS "limit", so a naive
+    # limit-first test would file it as a take-profit and manufacture target
+    # coverage — the IB "STP LMT" lesson on a second venue.
+    ("stop_limit", {"stop": True, "target": False}),
+    ("trailing_stop", {"stop": True, "target": False}),
+    ("limit", {"stop": False, "target": True}),
+])
+def test_alpaca_stop_family_classified_before_limit(order_type, expect):
+    idx = epc.alpaca_broker_index({"accounts": [
+        {"account_id": "alpaca_paper", "read_state": "orders_read",
+         "result": {"orders": [{"symbol": "GLD", "order_type": order_type}]}}]})
+    assert idx["alpaca_paper"]["by_symbol"]["GLD"] == expect
+
+
+def test_alpaca_positions_are_not_indexed_as_protection():
+    """Alpaca has NO position-level protection. Indexing positions the way the
+    Bybit indexer does would credit coverage that cannot exist on this venue."""
+    idx = epc.alpaca_broker_index({"accounts": [
+        {"account_id": "alpaca_paper", "read_state": "orders_read",
+         "result": {"orders": [],
+                    "positions": [{"symbol": "GLD", "qty": 10.0}],
+                    "position_level_protection_supported": False}}]})
+    # The position exists and contributes NOTHING — so the symbol never enters
+    # the index, and _broker_paths grades it ABSENT on a clean read. That is
+    # the correct answer: an Alpaca position with no resting order IS naked.
+    assert idx["alpaca_paper"]["by_symbol"] == {}
+    assert epc._broker_paths({"account_id": "alpaca_paper", "symbol": "GLD"},
+                             idx, True)[:2] == (epc.ABSENT, epc.ABSENT)
+
+
+def test_a_not_alpaca_sentinel_never_overwrites_a_real_read():
+    ib = {"ib_paper": {"read_state": "orders_read",
+                       "by_symbol": {"MGC": {"stop": True, "target": True}}}}
+    al = {"ib_paper": {"read_state": "not_alpaca", "by_symbol": {}}}
+    assert epc.merge_broker_index(ib, al)["ib_paper"]["read_state"] == "orders_read"
+    assert epc.merge_broker_index(al, ib)["ib_paper"]["read_state"] == "orders_read"
+
+
+def test_all_three_venues_merge_without_displacing_each_other():
+    """The whole point of the merge: three payloads, each carrying `not_*`
+    sentinels for the other two, must yield three graded accounts."""
+    bidx = epc.merge_broker_index(
+        epc.broker_index({"accounts": [
+            {"account_id": "ib_paper", "read_state": "orders_read",
+             "orders": [{"symbol": "MGC", "order_type": "STP"}]},
+            {"account_id": "bybit_2", "read_state": "not_ib"},
+            {"account_id": "alpaca_paper", "read_state": "not_ib"}]}),
+        epc.bybit_broker_index({"accounts": [
+            {"account_id": "bybit_2", "read_state": "orders_read",
+             "result": {"positions": [{"symbol": "BTCUSDT", "stop_loss": 1.0,
+                                       "take_profit": 2.0}], "orders": []}},
+            {"account_id": "ib_paper", "read_state": "not_bybit"}]}),
+        epc.alpaca_broker_index({"accounts": [
+            {"account_id": "alpaca_paper", "read_state": "orders_read",
+             "result": {"orders": [{"symbol": "GLD", "order_type": "stop"}]}},
+            {"account_id": "ib_paper", "read_state": "not_alpaca"}]}))
+    assert {a: e["read_state"] for a, e in bidx.items()} == {
+        "ib_paper": "orders_read", "bybit_2": "orders_read",
+        "alpaca_paper": "orders_read"}
+    assert epc._broker_paths({"account_id": "alpaca_paper", "symbol": "GLD"},
+                             bidx, True) == (epc.LIVE, epc.ABSENT, "orders_read")
+    assert epc._broker_paths({"account_id": "bybit_2", "symbol": "BTCUSDT"},
+                             bidx, True)[:2] == (epc.LIVE, epc.LIVE)

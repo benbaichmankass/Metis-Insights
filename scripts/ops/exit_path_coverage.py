@@ -48,21 +48,20 @@ Usage
 -----
     python3 scripts/ops/exit_path_coverage.py --journal-json trades.json \
         --telemetry-json pt.json [--broker-json ib_open_orders.json] \
-        [--bybit-broker-json bybit_open_orders.json] [--json]
+        [--bybit-broker-json bybit.json] [--alpaca-broker-json alpaca.json] [--json]
     python3 scripts/ops/exit_path_coverage.py --self-test
 
 Inputs are diag payloads so this runs from a sandbox with no VM access:
 ``--journal-json``   ``/api/diag/journal?table=trades&limit=1000``
 ``--telemetry-json`` ``/api/diag/position_telemetry?limit=200``
-``--broker-json``       ``/api/diag/ib_open_orders``     (optional; IB accounts)
-``--bybit-broker-json`` ``/api/diag/bybit_open_orders``  (optional; Bybit accounts)
+``--broker-json``        ``/api/diag/ib_open_orders``      (optional; IB)
+``--bybit-broker-json``  ``/api/diag/bybit_open_orders``   (optional; Bybit)
+``--alpaca-broker-json`` ``/api/diag/alpaca_open_orders``  (optional; Alpaca)
 
 WITHOUT a broker payload every broker path grades ``unknown``. That is the
 point: this file will not print ``absent`` for something it never asked about.
-The two payloads are INDEPENDENT: supplying one grades that venue and leaves
-the other ``unknown``, which is the honest reading and not a partial failure.
-Alpaca still has no such route, so an alpaca row grades ``unknown`` no matter
-what is supplied -- see BL-20260818-NO-BRACKET-READ-SURFACE-FOR-BYBIT-OR-ALPACA.
+The three payloads are INDEPENDENT: supplying one grades that venue and leaves
+the others ``unknown``, which is the honest reading and not a partial failure.
 """
 from __future__ import annotations
 
@@ -254,7 +253,7 @@ def broker_index(payload: Optional[dict]) -> Dict[str, Dict[str, Any]]:
 #: account" -- NOT a failure, and NOT a reading. They must never displace a real
 #: read of the same account from the other venue's payload, which is the one way
 #: merging two broker payloads can silently destroy evidence.
-_NOT_APPLICABLE_READ_STATES = frozenset({"not_ib", "not_bybit"})
+_NOT_APPLICABLE_READ_STATES = frozenset({"not_ib", "not_bybit", "not_alpaca"})
 
 
 def bybit_broker_index(payload: Optional[dict]) -> Dict[str, Dict[str, Any]]:
@@ -325,6 +324,43 @@ def _bybit_leg_side(order: dict) -> Optional[str]:
             and order.get("reduce_only")):
         return "target"
     return None
+
+
+def alpaca_broker_index(payload: Optional[dict]) -> Dict[str, Dict[str, Any]]:
+    """Same shape as :func:`broker_index`, from ``/api/diag/alpaca_open_orders``.
+
+    ⚠️ **ALPACA IS NOT BYBIT.** There is no position-level protection on this
+    venue -- ``/v2/positions`` carries no protective level -- so the resting
+    ORDERS are the whole story, and the payload states that via
+    ``position_level_protection_supported: false`` rather than leaving it to be
+    inferred from an absence. Indexing positions here the way the Bybit indexer
+    does would credit coverage that cannot exist.
+
+    Side classification mirrors the IB one, and the ORDER of the tests is
+    load-bearing: Alpaca's ``stop_limit`` type contains ``"limit"``, so a naive
+    limit-first test would file every stop-limit as a take-profit and
+    MANUFACTURE target coverage -- strictly worse than the gap it replaces.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    if not payload:
+        return out
+    for acct in payload.get("accounts") or []:
+        aid = acct.get("account_id")
+        if not aid:
+            continue
+        by_sym: Dict[str, Dict[str, bool]] = {}
+        for o in ((acct.get("result") or {}).get("orders") or []):
+            sym = str(o.get("symbol") or "").upper()
+            if not sym:
+                continue
+            d = by_sym.setdefault(sym, {"stop": False, "target": False})
+            t = str(o.get("order_type") or "").lower()
+            if "stop" in t or "trail" in t:
+                d["stop"] = True
+            elif "limit" in t:
+                d["target"] = True
+        out[aid] = {"read_state": acct.get("read_state"), "by_symbol": by_sym}
+    return out
 
 
 def merge_broker_index(*indexes: Dict[str, Dict[str, Any]]
@@ -598,10 +634,11 @@ def _broker_rollup(rows: List[Dict[str, Any]]) -> Dict[str, int]:
     2026-08-22 when `/api/diag/bybit_open_orders` shipped, and this tool went on
     grading every bybit row unreadable for three days because the CONSUMER was
     never told -- the route existed and the one audit that reports the gap it
-    closes still reported the gap. Supply `--bybit-broker-json` and those rows
-    grade. ALPACA genuinely has no such route (its only order-state accessor is
-    the reducing boolean `AlpacaClient.has_protective_orders`), so an alpaca row
-    here IS still a missing read surface.
+    closes still reported the gap. All three venues now have a route
+    (`ib_open_orders`, `bybit_open_orders`, `alpaca_open_orders`); supply the
+    matching payload and those rows grade. A basis of `account_not_in_payload`
+    therefore now means a payload was NOT SUPPLIED -- a different fact from the
+    surface not existing, and it must not be read as the latter.
     """
     out: Dict[str, int] = {}
     for r in rows:
@@ -612,20 +649,23 @@ def _broker_rollup(rows: List[Dict[str, Any]]) -> Dict[str, int]:
 
 def audit(journal: Any, telemetry_payload: Any,
           broker_payload: Optional[dict],
-          bybit_broker_payload: Optional[dict] = None) -> Dict[str, Any]:
+          bybit_broker_payload: Optional[dict] = None,
+          alpaca_broker_payload: Optional[dict] = None) -> Dict[str, Any]:
     units, cfg, reach = load_units(), load_cfg(), load_reachability()
     unit_of, builders_src = _resolver()
     tel_rows = (telemetry_payload or {}).get("rows") or []
     telemetry = {str(r["trade_id"]): r for r in tel_rows
                  if r.get("trade_id") is not None}
     bidx = merge_broker_index(broker_index(broker_payload),
-                              bybit_broker_index(bybit_broker_payload))
+                              bybit_broker_index(bybit_broker_payload),
+                              alpaca_broker_index(alpaca_broker_payload))
     # `broker_supplied` stays a single flag deliberately: it gates whether ANY
     # broker payload was offered at all, and an account absent from the ones
     # that were offered already grades `account_not_in_payload`, which names
     # the reason. Splitting it per venue would let a row read "supplied" for a
     # venue whose payload was never passed.
-    supplied = broker_payload is not None or bybit_broker_payload is not None
+    supplied = any(p is not None for p in
+                   (broker_payload, bybit_broker_payload, alpaca_broker_payload))
     rows = [assess_trade(t, units=units, cfg=cfg, reach=reach,
                          telemetry=telemetry, bidx=bidx,
                          broker_supplied=supplied,
@@ -644,7 +684,8 @@ def audit(journal: Any, telemetry_payload: Any,
                                    if r["telemetry"].get("sentinel_peak")],
             "broker_supplied": supplied,
             "broker_payloads": {"ib": broker_payload is not None,
-                                "bybit": bybit_broker_payload is not None},
+                                "bybit": bybit_broker_payload is not None,
+                                "alpaca": alpaca_broker_payload is not None},
             "price_only_trades": [r["trade_id"] for r in rows
                                   if r["verdict"] == "price_only"],
             "no_exit_path_trades": [r["trade_id"] for r in rows
@@ -859,6 +900,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--broker-json", help="/api/diag/ib_open_orders payload")
     ap.add_argument("--bybit-broker-json",
                     help="/api/diag/bybit_open_orders payload")
+    ap.add_argument("--alpaca-broker-json",
+                    help="/api/diag/alpaca_open_orders payload")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--fail-on-price-only", action="store_true",
@@ -872,7 +915,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     def _load(p):
         return json.loads(Path(p).read_text()) if p else None
     res = audit(_load(a.journal_json), _load(a.telemetry_json) or {},
-                _load(a.broker_json), _load(a.bybit_broker_json))
+                _load(a.broker_json), _load(a.bybit_broker_json),
+                _load(a.alpaca_broker_json))
     if a.json:
         print(json.dumps(res, indent=2))
     else:
