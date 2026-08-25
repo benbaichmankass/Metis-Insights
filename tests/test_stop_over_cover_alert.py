@@ -21,6 +21,8 @@ position and leaves the other group resting to sell 29 more into a naked SHORT.
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
 import src.runtime.order_monitor as om
@@ -120,3 +122,78 @@ def test_the_state_file_is_readable_on_the_diag_surface():
     assert "stop_over_cover_alert_state" in _LOG_FILES
     assert (_LOG_FILES["stop_over_cover_alert_state"].name
             == om._alert_state_path("stop_over_cover").name)
+
+
+# ---------------------------------------------------------------------------
+# A WORSENING condition must break the cooldown; an unchanged or improving one
+# must not. BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION.
+#
+# The live miss: the page fired for ib_paper/MHG at 2026-08-25T12:27:44Z at
+# 2 disjoint OCA groups / 200% and stayed silent while the SAME symbol reached
+# 3 groups / 300% two hours later, inside the 6h window.
+# ---------------------------------------------------------------------------
+
+def test_a_third_oca_group_pages_inside_the_cooldown(tmp_path, monkeypatch):
+    monkeypatch.setattr(om, "runtime_logs_dir", lambda: tmp_path, raising=False)
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path)
+    seen = []
+    monkeypatch.setattr("src.runtime.outcomes.report",
+                        lambda *a, **k: seen.append(k.get("reason", "")))
+
+    def _fire(groups):
+        return om._emit_stop_over_cover_alert(
+            account_id="ib_paper", symbol="MHG", size=29.0,
+            stop_qty=29.0 * len(groups),
+            oca_groups=[f"oca-protect-{400 + i}" for i in range(len(groups))])
+
+    assert _fire(["a", "b"]) is True, "first page must fire"
+    assert _fire(["a", "b"]) is False, "unchanged condition must stay silent"
+    assert _fire(["a", "b", "c"]) is True, "a THIRD group is a new fact"
+    assert _fire(["a", "b", "c"]) is False, "still unchanged at 3"
+
+
+def test_an_improving_condition_does_not_page(tmp_path, monkeypatch):
+    """Going from 3 groups back to 2 is a repair, not a new alarm. Paging
+    CRITICAL on an improvement is the desensitized-alarm P1 itself."""
+    monkeypatch.setattr(om, "runtime_logs_dir", lambda: tmp_path, raising=False)
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path)
+    monkeypatch.setattr("src.runtime.outcomes.report", lambda *a, **k: None)
+
+    def _fire(n):
+        return om._emit_stop_over_cover_alert(
+            account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=29.0 * n,
+            oca_groups=[f"oca-protect-{400 + i}" for i in range(n)])
+
+    assert _fire(3) is True
+    assert _fire(2) is False, "an improvement must not page"
+    assert _fire(3) is False, "back to the already-latched worst: still silent"
+    assert _fire(4) is True, "worse than anything latched: pages"
+
+
+def test_severity_is_per_symbol_not_global(tmp_path, monkeypatch):
+    """A 3-group latch on MHG must not suppress a 2-group condition on MES."""
+    monkeypatch.setattr(om, "runtime_logs_dir", lambda: tmp_path, raising=False)
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path)
+    monkeypatch.setattr("src.runtime.outcomes.report", lambda *a, **k: None)
+
+    assert om._emit_stop_over_cover_alert(
+        account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=87.0,
+        oca_groups=["a", "b", "c"]) is True
+    assert om._emit_stop_over_cover_alert(
+        account_id="ib_paper", symbol="MES", size=15.0, stop_qty=30.0,
+        oca_groups=["x", "y"]) is True
+
+
+def test_a_pre_severity_latch_entry_still_suppresses(tmp_path, monkeypatch):
+    """Upgrade path. A latch written by the previous build has no severity, so
+    it says the condition alerted recently and NOTHING about how bad it was.
+    'We do not know it got worse' must not become 'it got worse'."""
+    monkeypatch.setattr(om, "runtime_logs_dir", lambda: tmp_path, raising=False)
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path)
+    monkeypatch.setattr("src.runtime.outcomes.report", lambda *a, **k: None)
+    # exactly the live file shape: {"ib_paper|MHG": <epoch>}
+    om._save_alert_state("stop_over_cover", {"ib_paper|MHG": time.time()})
+
+    assert om._emit_stop_over_cover_alert(
+        account_id="ib_paper", symbol="MHG", size=29.0, stop_qty=87.0,
+        oca_groups=["a", "b", "c"]) is False
