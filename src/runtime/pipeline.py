@@ -129,7 +129,46 @@ def _builder_exception_cause(exc: BaseException) -> str:
 
 
 def _report_builder_exception(strategy_name: str, exc: BaseException) -> None:
-    """Page a strategy-builder exception, ERROR once per window then WARN."""
+    """Page a strategy-builder exception: transient market data is WARN outright,
+    anything else is ERROR once per window then WARN.
+
+    THE TRANSIENT BRANCH IS THE PRIMARY FIX AND THE COOLDOWN IS THE BACKSTOP,
+    which is the opposite of how this function was first written. A candle fetch
+    returning None is a routine, self-recovering outage (usually an IB
+    circuit-breaker backoff) and should never page at all -- the sibling
+    `intent_multiplexer` has graded it WARN since BL-20260525-003, and this
+    legacy path simply never did, so the two multiplexers disagreed about the
+    same exception. The classifier is IMPORTED from there rather than
+    re-derived: two definitions of "is this a market-data outage?" is how they
+    drift, and the defect being fixed here is precisely that kind of drift (its
+    token missed two whole builder families --
+    BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES, kept on one
+    line so the id stays greppable).
+
+    The cooldown still earns its place, and neither module had it: a GENUINE
+    builder bug -- a KeyError in an indicator, say -- also fires every tick, and
+    nothing else stops that from becoming the whole ERROR feed. So a
+    non-transient exception pages once per window per (strategy, cause) and is
+    downgraded, not silenced, thereafter.
+    """
+    try:
+        from src.runtime.intent_multiplexer import (
+            _is_transient_market_data_error,
+        )
+
+        if _is_transient_market_data_error(exc):
+            report(
+                "strategy_builder",
+                "exception",
+                level=Level.WARN,
+                reason=f"transient_market_data_unavailable: {exc}",
+                strategy=strategy_name,
+            )
+            return
+    except Exception:  # noqa: BLE001 -- an import or classifier failure must
+        # never decide whether the trader keeps running, and must fail LOUD:
+        # falling through leaves the exception on the ERROR-then-WARN path.
+        pass
     try:
         from src.runtime.alert_cooldown import cooldown_admits
 

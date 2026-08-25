@@ -37,8 +37,11 @@ def pages(tmp_path, monkeypatch):
 
 class TestTheRepeatIsDowngradedNotSuppressed:
     def test_the_first_occurrence_pages_at_ERROR(self, pages):
+        # A GENUINE builder bug. A no-candle message is deliberately not used
+        # here any more: it is transient and now WARNs outright, which is the
+        # separate branch pinned in TestTransientMarketDataNeverPages below.
         pl._report_builder_exception("ict_scalp_mgc_15m",
-                                     RuntimeError("no candle data for symbol=MGC"))
+                                     RuntimeError("KeyError: 'close' in ADX"))
         assert pages[0]["level"] is pl.Level.ERROR
 
     def test_the_same_cause_again_is_WARN_not_silence(self, pages):
@@ -48,7 +51,7 @@ class TestTheRepeatIsDowngradedNotSuppressed:
         does not Telegram."""
         for _ in range(5):
             pl._report_builder_exception(
-                "ict_scalp_mgc_15m", RuntimeError("no candle data for symbol=MGC"))
+                "ict_scalp_mgc_15m", RuntimeError("KeyError: 'close' in ADX"))
         assert len(pages) == 5, "every occurrence is still RECORDED"
         assert pages[0]["level"] is pl.Level.ERROR
         assert all(p["level"] is pl.Level.WARN for p in pages[1:])
@@ -72,7 +75,10 @@ class TestTheKeyCarriesTheCauseNotJustTheStrategy:
     def test_a_NEW_cause_on_a_latched_strategy_pages_immediately(self, pages):
         """A per-strategy-only latch would report a genuinely new failure as
         'already alerting' and say nothing — the silent_refusal_alert lesson."""
-        pl._report_builder_exception("s", RuntimeError("no candle data"))
+        # Two GENUINE bugs. A no-candle message would take the transient
+        # branch and never reach the cooldown at all, so it cannot exercise
+        # this assertion.
+        pl._report_builder_exception("s", RuntimeError("KeyError: 'close'"))
         pl._report_builder_exception("s", ValueError("something else entirely"))
         assert [p["level"] for p in pages] == [pl.Level.ERROR, pl.Level.ERROR]
 
@@ -132,3 +138,61 @@ def test_the_state_file_is_readable_on_the_diag_surface():
     assert "strategy_builder_exception_alert_state" in _LOG_FILES
     assert (_LOG_FILES["strategy_builder_exception_alert_state"].name
             == f"{pl._BUILDER_EXC_ALERT_KIND}_alert_state.json")
+
+
+# ---------------------------------------------------------------------------
+# The PRIMARY fix, added after the root cause was found:
+# BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES.
+#
+# The 240 rows were never a uniquely broken leg. The sibling
+# `intent_multiplexer` has graded a no-candle exception WARN since
+# BL-20260525-003, its token was `"no candle data returned"`, and 2 of the 35
+# builder raise sites — the two VARIANT FAMILIES — omit the word "returned".
+# This legacy path had no such grading at all, so the two multiplexers
+# disagreed about the same exception on top of that.
+# ---------------------------------------------------------------------------
+
+class TestTransientMarketDataNeverPages:
+    def test_the_variant_family_message_is_WARN_on_the_first_occurrence(
+        self, pages,
+    ):
+        """The exact live message, at the first occurrence — no cooldown
+        involved. A routine self-recovering outage must not page at all."""
+        pl._report_builder_exception(
+            "ict_scalp_mgc_15m",
+            RuntimeError("ict_scalp_mgc_15m: no candle data for symbol=MGC "
+                         "timeframe=15m."))
+        assert pages[0]["level"] is pl.Level.WARN
+        assert "transient_market_data_unavailable" in pages[0]["reason"]
+
+    def test_the_majority_phrasing_is_WARN_too(self, pages):
+        pl._report_builder_exception(
+            "mgc_trend_1h",
+            RuntimeError("mgc_trend_1h: no candle data returned for symbol=MGC"))
+        assert pages[0]["level"] is pl.Level.WARN
+
+    def test_it_uses_the_SHARED_classifier_not_a_second_definition(self):
+        """Two definitions of 'is this a market-data outage?' is how the two
+        multiplexers drifted in the first place."""
+        src = (pathlib.Path(pl.__file__).resolve().parent
+               / "pipeline.py").read_text()
+        assert "_is_transient_market_data_error" in src
+        assert "no candle data" not in src.split(
+            "def _report_builder_exception")[1][:3000], (
+            "the phrase must not be re-derived here — import the classifier"
+        )
+
+    def test_a_classifier_failure_falls_through_to_the_ERROR_path(
+        self, tmp_path, monkeypatch,
+    ):
+        """Fail LOUD. If the import or the classifier raises, the exception
+        must keep its ERROR-then-WARN treatment rather than being silently
+        downgraded to WARN."""
+        monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path)
+        sent = []
+        monkeypatch.setattr(pl, "report", lambda *a, **k: sent.append(k))
+        monkeypatch.setattr(
+            "src.runtime.intent_multiplexer._is_transient_market_data_error",
+            lambda exc: (_ for _ in ()).throw(RuntimeError("boom")))
+        pl._report_builder_exception("s", RuntimeError("no candle data for X"))
+        assert sent[0]["level"] is pl.Level.ERROR

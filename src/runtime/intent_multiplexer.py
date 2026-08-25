@@ -118,23 +118,50 @@ logger = logging.getLogger(__name__)
 IntentBuilder = Callable[[dict], Dict[str, Any]]
 
 
-# Stable shared signature emitted by EVERY builder's ``if candles_df is None:``
-# raise in ``strategy_signal_builders.py`` (the phrase is identical across all
-# ~30 builders — "<strategy>: no candle data returned for symbol=... Check that
-# the <broker> connection is configured ..."). A candle fetch returning None is
-# a TRANSIENT market-data outage (most often an IB circuit-breaker backoff that
+# Shared signature emitted by every builder's ``if candles_df is None:`` raise
+# in ``strategy_signal_builders.py``. A candle fetch returning None is a
+# TRANSIENT market-data outage (most often an IB circuit-breaker backoff that
 # self-recovers in ~90s), so the per-tick builder exception it produces is
 # reclassified below to WARN rather than an ERROR page.
-_TRANSIENT_MARKET_DATA_SIGNATURE = "no candle data returned"
+#
+# ⚠️ THE COMMENT ABOVE THIS LINE USED TO SAY "the phrase is identical across all
+# ~30 builders" AND IT WAS NOT TRUE — the signature was
+# ``"no candle data returned"`` and **2 of the 35 raise sites do not contain the
+# word "returned"**. Both are the VARIANT-FAMILY builders,
+# ``_ict_scalp_variant_builder`` and ``_trend_donchian_variant_builder``, which
+# raise ``"<name>: no candle data for symbol=... timeframe=..."``. Every variant
+# leg — an entire strategy FAMILY, not an edge case — therefore fell through to
+# the ERROR branch during exactly the outages this reclassification exists to
+# quieten.
+#
+# MEASURED 2026-08-25 over the full 401-row ERROR+ feed
+# (2026-08-20T08:16Z -> 2026-08-25T20:06Z): **240 rows, 100% of them
+# `ict_scalp_mgc_15m`** — a variant leg — while `mgc_trend_1h` on the SAME
+# symbol at the SAME evaluation cadence contributed ZERO. That asymmetry reads
+# like one broken leg and is not: the trader journal at 2026-08-25T20:05:43Z
+# shows the breaker tripping and `get_ohlcv` failing for MES 1d and MES 15m in
+# the same seconds, with `mes_trend_long_1d` raising — all correctly graded WARN
+# and so invisible in the ERROR feed. The outage was fleet-wide; only the
+# mis-graded family was audible. (BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES
+# -- kept on one line so the id stays greppable.)
+#
+# The token is now the part all 35 messages actually share. It stays gated on
+# ``RuntimeError`` so a genuine builder bug still pages, and
+# ``tests/test_transient_market_data_signature.py`` asserts it against EVERY
+# raise site in the corpus rather than against one remembered phrasing — a
+# guard over the population is what stops this drifting again the next time a
+# builder is written with different wording.
+_TRANSIENT_MARKET_DATA_SIGNATURE = "no candle data"
 
 
 def _is_transient_market_data_error(exc: Exception) -> bool:
     """True when a builder exception is the transient no-candle-data outage.
 
-    Matches a ``RuntimeError`` whose message carries the stable
-    ``"no candle data returned"`` signature every builder raises when
-    ``fetch_candles`` returns None (case-insensitive substring). Kept narrow
-    (RuntimeError + signature) so a genuine builder bug never matches.
+    Matches a ``RuntimeError`` whose message carries the shared
+    ``"no candle data"`` signature (case-insensitive substring). Kept narrow
+    (RuntimeError + signature) so a genuine builder bug never matches — the
+    previous, NARROWER token silently excluded two whole builder families; see
+    the comment above the constant.
     """
     return (
         isinstance(exc, RuntimeError)
