@@ -89,6 +89,33 @@ def _settings() -> Dict[str, Any]:
     already in use"), starving every MES strategy of candles. Reserving 600
     here (override via the IB_MD_CLIENT_ID env on the ict-web-api unit) keeps
     the dashboard's data socket disjoint from the trader's 497/498.
+
+    ⚠️ **THE ``"600"`` LITERAL IS DEFENCE-IN-DEPTH. DO NOT "TIDY" IT AWAY AS
+    DUPLICATION** (operator decision 2026-08-25, after it was proposed for
+    removal and the proposal was withdrawn on this reasoning).
+
+    The env IS now provisioned — ``IB_MD_CLIENT_ID=600`` in
+    ``/etc/ict-trader/web-api.env``, scoped to this unit so it never reaches
+    the trader (verified live: issues #10285 / #10286). It is read FIRST, so
+    this default is inert in normal operation and looks redundant. It is not.
+
+    It is the only thing standing between a DROPPED env var and a silent
+    regression. ``market_data._ib_connection_identity`` resolves
+    ``settings -> os.environ -> exec_client_id + 1``, so with both the settings
+    key and the env gone this caller lands on **498 — the trader's own
+    socket** — and every MES/MGC/MHG candle request dies with IB error 326.
+    No exception here, no alarm: just the same silent starvation that made
+    ``/api/bot/positions`` uPnL read ``unavailable`` for weeks (Lane 0 item
+    0.5) while THIS route kept working, precisely because of this literal.
+
+    THE REPO HAS ALREADY PAID FOR THIS EXACT CLASS. ``POSITION_NETTING_GUARD_ENABLED``
+    was removed as a gate because the 2026-06-14 Ampere migration dropped the
+    var from ``.env`` and silently reverted a correctness fix — paper netting
+    artifacts reappeared and real-money ``bybit_2`` was exposed. A rebuilt env
+    file, a VM migration, or a hand-edited ``web-api.env`` reproduces it here.
+
+    So: the env is the OPERATIVE source and the literal is the floor. Keeping
+    both is the point, not an oversight.
     """
     return {
         "EXCHANGE": os.environ.get("EXCHANGE", "bybit"),
