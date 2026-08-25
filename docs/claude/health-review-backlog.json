@@ -23301,6 +23301,21 @@
      "consequence_for_this_row": "The row's thesis is UNCHANGED but better supported: restoring the value is still not the safe default. The specific fabrication mechanism feared (a multiplier error) is ruled out; a different, smaller one is now measured. Option (a) in resolution_criteria should therefore require the entry basis to be declared alongside the mark, not just the mark labelled as an estimate."
     }
    ]
+  },
+  {
+   "id": "BL-20260825-GET-ENV-RENDERS-UNSET-AS-BLANK-ON-ITS-ONLY-WEB-CONSUMER",
+   "opened_at": "2026-08-25T11:30:00+00:00",
+   "opened_by": "claude (session_01X2zMCh; hit while reading IB_MD_CLIENT_ID for Lane 0 item 0.5)",
+   "severity": "medium",
+   "tier": 1,
+   "status": "open",
+   "area": "scripts/ops/get_env.py — diagnostic provenance at the ops surface",
+   "title": "get-env renders <unset> and <UNREADABLE: …> as BLANK on the GitHub issue comment that is its only web-session consumer, so the two states meaning 'no value here' both display as nothing",
+   "detail": "scripts/ops/get_env.py::_state_label returns the LITERAL strings '<unset>' and '<UNREADABLE: {reason}>'. The action's stdout is posted back as a GitHub issue comment, and GitHub strips <…> as HTML EVEN INSIDE A CODE FENCE — a hazard this repo already documents in the coordination-board body for the same reason. So the rendered answer to 'is this variable set?' is an empty string. Measured live on 2026-08-25 (issue #10261, get-env IB_MD_CLIENT_ID on ict-web-api): the comment showed 'process :' and 'declared:' with nothing after either. The other two labels are unaffected — SET returns repr(value) and SET_EMPTY returns \"'' (SET BUT EMPTY — not the same as unset)\", both plain text — so the defect lands on EXACTLY the two states the module's own docstring insists must never be collapsed ('no data here' and 'no value' are not the same). The tool built to make env state legible renders its most-asked answer as empty space, and renders 'we could not look' identically to 'we looked and it is not there'.",
+   "why_it_matters": "This is diagnostic-provenance sub-class C (an empty result reads as a clean answer) one level up at the ops surface — the same family as the `curl … || echo '{}'` case in root CLAUDE.md, and the same class get_env.py was itself written to fix at the env layer. get-env exists because a Tier-3 setting could be WRITTEN by set-env and read by nothing; a read surface whose most common answer is invisible only partly closes that. The consumer that matters is a web session, which cannot see the run artifact — action-output.txt is not reachable from the GitHub MCP — so the rendered comment is the whole channel.",
+   "evidence": "I recovered the real answer by four-way ELIMINATION, not by reading it: the header lines 'process env readable : True' and 'declared env readable: True' rule out UNREADABLE on both sides; SET would have printed '600'; SET_EMPTY prints plain text; only <unset> remains. That worked, and it is not a reasonable thing to require of the next reader — and note it only worked because the readable-header happens to exist. Had both sides been unreadable, the blank would have been genuinely ambiguous.",
+   "proposed_fix": "One-line label change in _state_label: '<unset>' -> '(unset)' and '<UNREADABLE: …>' -> '(UNREADABLE: …)'. Angle brackets carry no meaning here. Add an assertion to `python3 scripts/ops/get_env.py --self-test` that NO label matches ^<.*>$, so the next label added cannot silently reintroduce it — the existing self-test already proves the four states stay distinguishable in the DATA, and this extends that guarantee to the RENDERED form, which is where it actually broke.",
+   "resolution_criteria": "get-env's issue comment shows a visibly distinct, non-empty token for each of the four states, verified by an actual dispatched run whose comment is read back — not by a local run, since the defect is introduced by GitHub's rendering and a local run cannot reproduce it. Plus the --self-test assertion above, so this cannot regress via a new label. Closing this on a local-only check would miss the bug entirely, which is the specific trap here."
   }
  ]
 }
