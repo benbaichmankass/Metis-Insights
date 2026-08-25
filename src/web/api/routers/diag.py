@@ -443,6 +443,13 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "prop_fills_staleness_state.json",
     "target_naked_alert_state":
         runtime_logs_dir() / "target_naked_alert_state.json",
+    # Registered IN THE SAME COMMIT that ships its writer. #8778 shipped
+    # `exit_loop_health`'s writer with no allowlist entry, so the state was
+    # written and unreadable on the one surface a relay-bound session can
+    # reach; a latch that suppresses a CRITICAL page and cannot be inspected
+    # is strictly worse than no latch.
+    "stop_over_cover_alert_state":
+        runtime_logs_dir() / "stop_over_cover_alert_state.json",
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by
