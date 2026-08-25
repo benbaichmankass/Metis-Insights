@@ -24310,7 +24310,8 @@
     "The REMEDIATION is still detect-only and correctly so (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). But the page now proves the trader CANNOT clear a foreign group, so the stranded oca-protect-446 needs a TWS action or a cancel-as-the-owning-clientId path. Tier-2/3, not opened here.",
     "The producing defect is upstream of the page: modify_protective cancel-and-re-places, and nothing checks whether the cancel half SUCCEEDED before the re-place lands. A re-place after a refused cancel is what accretes the group. Tier-2 (order path)."
    ],
-   "measured_at": "2026-08-25T20:04:54Z"
+   "measured_at": "2026-08-25T20:04:54Z",
+   "follow_up_2_WITHDRAWN_2026_08_25": "MY SECOND FOLLOW-UP ON THIS ROW WAS WRONG AND IS WITHDRAWN. It said 'modify_protective cancel-and-re-places, and nothing checks whether the cancel half SUCCEEDED before the re-place lands'. That was inferred from the observed two-group state and never checked against the code. Reading it: #10282 (b81458a4, on main 2026-08-25T17:11Z and an ancestor of the deployed sha) already grades the pre-cancel's EFFECT and, when a survivor remains, JOINS its group instead of minting a second one -- BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT. Its own comment records the same 447/448-on-clientId-597 measurement I made independently. The REAL remaining gap is different and is filed as BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE. Lesson, same shape as the ERROR-feed one earlier today: I inferred a code behaviour from an observed outcome instead of reading the code."
   },
   {
    "id": "BL-20260825-ONE-BUILDER-FAULT-WAS-83-PERCENT-OF-THE-OPERATOR-ERROR-FEED",
@@ -24347,6 +24348,19 @@
     "A phrase-matching classifier is the underlying smell. The durable fix is a typed exception (e.g. TransientMarketDataError) raised by the shared candle-fetch helper, which needs no prose at all. Tier-1, larger."
    ],
    "measured_at": "2026-08-25T20:06:07Z"
+  },
+  {
+   "id": "BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE",
+   "opened_at": "2026-08-25T22:40:00Z",
+   "severity": "high",
+   "tier": 2,
+   "status": "open",
+   "title": "The deterministic per-trade OCA group exists, and the trailing-amend path does not use it",
+   "detail": "#10282 gave place_protective a DETERMINISTIC per-trade OCA group -- 'oca-protect-t<oca_key>' -- so a re-arm cancels only THAT trade's group. The fallback when no oca_key is supplied is the legacy SYMBOL-WIDE cancel, which the code itself flags as the path that 'CAN cancel a sibling trade's protective legs on a netted contract' (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). MEASURED BY READING EVERY CALL SITE, 2026-08-25. Three IB callers reach place_protective / modify_protective; ONE passes oca_key and TWO do not: (a) order_monitor.py:7042 _attempt_naked_autoprotect -- PASSES it. (b) execute.py:2544 modify_open_order, the IB branch -- DOES NOT. This is the TRAILING-AMEND path, i.e. the one that runs every time a strategy moves a stop, which is the most frequent re-arm in the system. (c) order_monitor.py:7316 _reassert_from_divergence -- DOES NOT (today inert: PROTECTION_REASSERT_MODE defaults to annotate, so it decides but does not call; it would inherit the defect the moment it is flipped to apply). A fourth site, execute.py:2579, is the ALPACA branch with a different client and signature -- not an IB call site, and not part of this finding. Stating that explicitly because a grep for 'modify_protective(' returns four hits and three-of-four would be the wrong denominator.\n\nLIVE CORROBORATION: on ib_paper at 2026-08-25T20:04:54Z the two resting MHG groups are named 'oca-protect-465' and 'oca-protect-446' -- the legacy 'oca-protect-<orderId>' form with NO 't' prefix. If a trailing amend had supplied oca_key the group would read 'oca-protect-t<trade_id>'. The naming is direct evidence the live re-arms take the symbol-wide branch. (The join fix from #10282 IS deployed -- b81458a4 is an ancestor of the running sha 44b50485, confirmed via /api/diag/version with restart_pending false -- so this is not a deploy lag.)",
+   "resolution_criteria": "execute.modify_open_order accepts a trade identifier and forwards it as oca_key on the IB branch, and order_monitor._reassert_from_divergence does the same, so no IB re-arm reaches the symbol-wide pre-cancel while a trade id is in scope; verified by a test that asserts each IB call site passes oca_key, and by the next live re-arm minting a group named 'oca-protect-t<trade_id>' rather than 'oca-protect-<orderId>'.",
+   "why_it_matters": "On a netted IB contract several strategies share ONE broker position while each trade's OCA is sized to its own qty. A symbol-wide pre-cancel from one trade's trailing amend therefore deletes the OTHER trades' resting take-profit legs and replaces them with a bracket covering only the amending trade's qty. That is the documented mechanism behind a take-profit that was reached and never executed. The deterministic group was built precisely to stop it, and the highest-frequency caller does not use it.",
+   "not_yet_actioned_because": "Tier-2: it is the live order path, and modify_open_order has no trade-id parameter today, so the fix threads a new kwarg from order_monitor through execute rather than being a one-line addition. Proposing rather than shipping unilaterally.",
+   "measured_at": "2026-08-25T22:35:00Z"
   }
  ]
 }
