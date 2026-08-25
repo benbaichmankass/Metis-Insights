@@ -1440,13 +1440,19 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run. checked: docs/research/RESEARCH-CAPABILITY-INDEX.md, src/web/api/routers/performance.py, src/web/api/routers/attribution.py — the capability index was consulted for an existing paged-pull tool (none covers this) and BOTH aggregate routes were read and then queried live via the vm-diag-snapshot relay (issue #9605). This is NOT an untested impossibility claim.\nMEASURED, real-money population (performance.py serves the top-level block real-money-only; paper rides the separate `demo` sub-block): eth_pullback_2h n=6 over 30d, win rate 16.7%, totalPnl -$17.3673, totalPnlMeasured -$17.3673, pnlCoverage 0.833, expectancyR -0.6635. Lifetime real money via attribution.py: 11 closed, 36.4% WR, -$15.16 — so the 30d loss EXCEEDS the lifetime total, and this ONE leg is 90.3% of the entire 30-day real-money loss (-$19.2256 over 19 trades). Routing confirmed against the field (config/accounts.yaml + the real-money-only attribution endpoint), not a comment.\nWHAT IS STILL NOT MEASURED, stated so the row is not read as closed: the full PAPER soak population on bybit_1 since 2026-06-11T16:20Z — the 2026-08-13 attempt returned 13,750 of 182,427 bytes, an unstated-denominator page rather than a measurement. That is a TOOL limitation (the relay's ~55 kB comment budget), NOT accrual: the rows exist. Trigger: one clean paged pull of that population, or the M7 review packet for this leg (never generated)."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
       "tier": 1,
       "severity": "low",
       "disposition": "do_now",
       "next_action": "NO LONGER BLOCKED — the soak clock started 2026-06-11 16:20Z after the #3406 lot-step fix, so 63 days of bybit_1 fills exist. Pull eth_pullback_2h closed trades for the soak window, compare realised expectancy against the k-fold expectation, record keep/tune/drop. Read-only.",
-      "updated_at": "2026-08-13T10:05:00+00:00"
+      "updated_at": "2026-08-13T10:05:00+00:00",
+      "resolution_criteria": "A recorded comparison of eth_pullback_2h's realised expectancy on bybit_1 over the soak window (clock started 2026-06-11T16:20Z, per next_action) against the k-fold expectation, stating n_closed AND the pnl provenance coverage of that window, plus an explicit keep/tune/drop verdict. A verdict with no stated n and no stated coverage does not close this - the comparison IS the deliverable, and an expectancy over unmeasured pnl is not one."
     },
     {
       "id": "PB-20260611-M15-3",
@@ -1540,13 +1546,19 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The 2026-08-13 broker-truth read (/api/diag/exchange_positions?account_id=ib_paper, complete, error:null) returned MGC long 105.0 and MES long 15.0 and NOTHING ELSE — there is no MHG (micro copper) position on ib_paper at all, which answers the original question. Note the 2026-08-13 update text itself mis-transcribes the row's subject as 'the stray THREE-contract MGC position'; this row is about MHG (trade #2539, mhg_pullback_1d), and MGC/MES are different instruments. — CORRECTION worth more than the disposition: the MHG/MGC transcription error made an answerable question look unanswerable-because-netted. Half (1) of the resolution ('the position closes cleanly, churn stops') is positively evidenced — no MHG at the broker. Half (2) (the next adopted-orphan row records symbol=MHG, entry 6.396) is unverified. Trigger: one journal read of ib_paper adopted_orphan rows for MHG confirming symbol/entry recording; the separate MGC/MES journal-vs-broker sum divergence the 08-13 note raised is the netting-divergence track and belongs in its own row, not here."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
       "tier": 1,
       "severity": "low",
       "disposition": "do_now",
       "next_action": "The flap mechanism is fixed; the residual FACTUAL question is answerable in one call. Read /api/diag/exchange_positions?account_id=ib_paper (broker truth, opens no order path): if the stray 3-contract MHG position from trade #2539's Error-10349 desync is gone, close with the evidence; if still there, reconcile open journal row #2575 against it.",
-      "updated_at": "2026-08-13T10:05:00+00:00"
+      "updated_at": "2026-08-13T10:05:00+00:00",
+      "resolution_criteria": "One /api/diag/exchange_positions?account_id=ib_paper read, QUOTED here, settling whether the stray 3-contract MHG position from trade #2539 exists. Gone -> close citing that read. Present -> open journal row #2575 reconciled against it and the reconciliation recorded. A read that came back positions: null does NOT close this: that is 'we could not look', which is the one answer this row must not accept as 'it is gone'."
     },
     {
       "id": "PB-20260616-001",
@@ -1960,6 +1972,11 @@
           "at": "2026-08-16T10:10:00+00:00",
           "by": "claude (sysrev-0816, operator decision in-conversation)",
           "note": "OPERATOR DECISION 2026-08-16 (in-conversation): KEEP LIVE ON REAL MONEY, wait for n>=20. The M7 packet was GENERATED this session (the row's 59-day blocker) and returned action=hold with the explicit reason 'insufficient evidence (n_closed=11 < 20) — no KILL/DEMOTE fires at very low n'. READ THAT AS HOLD-BY-FLOOR, NOT HOLD-ON-MERIT: the matrix DECLINED to judge, it did not clear the leg. Packet headline (90d window 2026-05-18 -> 2026-08-16): n_decisions 92, n_filled 11, n_closed 11, fill_rate 12.0%, win_rate 36.4%, pnl_total -15.16, expectancy -1.3782, max_drawdown -25.74. All 11 closes sit in the `trending` cell; chop (19 decisions) and transitional (5) produced ZERO closes; every cell's policy reads `unknown` (no regime cell authored). Execution is NOT the problem: entry slippage -0.97bps (favourable), dispatch latency 1.88s. CAVEAT ON THE POPULATION: strategy_review_packet.py applies NO account filter, yet its headline reconciles EXACTLY with /api/bot/strategy/attribution, which is real-money-only by contract (11 closed / 36.4% / -15.16). So the verdict is effectively about the real-money book; whether paper closes would count toward n=20 is UNVERIFIED and must be checked before anyone proposes a paper-only routing to accrue evidence. COST OF THE DECISION, stated: ~1 close per 8 days x -$1.3782 expectancy = roughly -$5/month for the ~2.5 months to n=20. TRIGGER: n_closed >= 20, then re-run generate-strategy-review-packets and let the matrix fire a real verdict. NEW FINDING from the packet, tracked separately below: fill_rate is 12.0% — 81 of 92 decisions never became a trade."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
       "severity": "high",
@@ -1970,7 +1987,8 @@
         "at": "2026-08-16T10:10:00+00:00",
         "decision": "keep live on real money; wait for n_closed>=20",
         "decided_by": "operator"
-      }
+      },
+      "resolution_criteria": "A recorded real-money read of eth_pullback_2h on bybit_2: closed-trade count, win rate, pnl WITH its provenance coverage, and the ADX-gate rejection count from the audit log over the SAME window. State the population. This closes on the review being recorded; any parameter change it argues for is a separate Tier-3 item and is explicitly NOT part of this criterion (the row itself splits the Tier-1 read from the Tier-3 half)."
     },
     {
       "id": "PB-20260620-001",

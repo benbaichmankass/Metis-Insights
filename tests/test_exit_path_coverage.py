@@ -221,3 +221,93 @@ def test_cause_rollup_separates_remedies():
 def test_self_test_planted_controls_pass():
     """A probe that cannot find a known positive proves nothing."""
     assert epc._self_test() == 0
+
+
+# --------------------------------------------------------------------------
+# Bybit broker payload (BL-20260818-NO-BRACKET-READ-SURFACE-FOR-BYBIT-OR-ALPACA)
+#
+# /api/diag/bybit_open_orders shipped 2026-08-22 and this tool kept grading every
+# bybit row `not_ib` for three days, because the CONSUMER was never told. These
+# pin the two things that make the bybit read correct rather than merely present.
+# --------------------------------------------------------------------------
+def test_full_mode_protection_lives_on_the_position_not_an_order():
+    """Under BYBIT_TPSL_MODE=full there is NO resting order at all.
+
+    An orders-only indexer reports zero legs for a correctly-protected position,
+    and this audit then grades it ABSENT -- manufacturing an alarm rather than
+    missing one, which is the worse direction.
+    """
+    idx = epc.bybit_broker_index({"accounts": [
+        {"account_id": "bybit_2", "read_state": "orders_read",
+         "result": {"positions": [{"symbol": "BTCUSDT", "stop_loss": 100.0,
+                                   "take_profit": 200.0}],
+                    "orders": []}}]})
+    assert idx["bybit_2"]["by_symbol"]["BTCUSDT"] == {"stop": True, "target": True}
+
+
+def test_a_bybit_position_with_no_levels_is_measured_unprotected():
+    """Distinct from the symbol simply not appearing: this one we DID look at."""
+    idx = epc.bybit_broker_index({"accounts": [
+        {"account_id": "bybit_2", "read_state": "orders_read",
+         "result": {"positions": [{"symbol": "BTCUSDT", "stop_loss": None,
+                                   "take_profit": None}], "orders": []}}]})
+    assert idx["bybit_2"]["by_symbol"]["BTCUSDT"] == {"stop": False, "target": False}
+
+
+@pytest.mark.parametrize("order,expect", [
+    ({"stop_order_type": "StopLoss"}, "stop"),
+    ({"stop_order_type": "PartialStopLoss"}, "stop"),
+    ({"stop_order_type": "TrailingStop"}, "stop"),
+    ({"stop_order_type": "TakeProfit"}, "target"),
+    ({"stop_order_type": "PartialTakeProfit"}, "target"),
+    # A resting reduce-only LIMIT carries no stopOrderType and is invisible to
+    # the StopOrder filter entirely -- reading only that filter under-reports
+    # target protection.
+    ({"order_type": "Limit", "reduce_only": True}, "target"),
+    # NEITHER side. Crediting an unclassifiable leg to one would manufacture
+    # coverage, which is the failure this whole file exists to prevent.
+    ({"order_type": "Limit", "reduce_only": False}, None),
+    ({}, None),
+])
+def test_bybit_leg_side_never_guesses(order, expect):
+    assert epc._bybit_leg_side(order) == expect
+
+
+def test_a_not_applicable_sentinel_never_overwrites_a_real_read():
+    """The one way merging two venue payloads silently destroys evidence.
+
+    An IB account appears in the bybit payload as `not_bybit` and vice versa. A
+    naive dict.update lets that sentinel replace the venue's own `orders_read`
+    entry and turn a graded account back into `unknown` -- the quiet direction.
+    """
+    ib = {"ib_paper": {"read_state": "orders_read",
+                       "by_symbol": {"MGC": {"stop": True, "target": True}}}}
+    by = {"ib_paper": {"read_state": "not_bybit", "by_symbol": {}}}
+    assert epc.merge_broker_index(ib, by)["ib_paper"]["read_state"] == "orders_read"
+    # ...and symmetrically, order of arguments must not decide it.
+    assert epc.merge_broker_index(by, ib)["ib_paper"]["read_state"] == "orders_read"
+
+
+def test_supplying_only_bybit_leaves_an_ib_row_unknown_never_absent():
+    """A payload for one venue is not evidence about another."""
+    bidx = epc.merge_broker_index(epc.bybit_broker_index({"accounts": [
+        {"account_id": "bybit_2", "read_state": "orders_read", "result": {}}]}))
+    assert epc._broker_paths({"account_id": "ib_paper", "symbol": "MGC"},
+                             bidx, True)[:2] == (epc.UNKNOWN, epc.UNKNOWN)
+
+
+def test_audit_accepts_a_bybit_payload_alone_and_names_which_were_supplied():
+    """`broker_supplied` must not read True for a venue never passed.
+
+    A bare "yes" over an IB-only payload is exactly what let every bybit row
+    read as unobservable while the broker side LOOKED checked.
+    """
+    res = epc.audit({"rows": []}, {}, None,
+                    {"accounts": [{"account_id": "bybit_2",
+                                   "read_state": "orders_read", "result": {}}]})
+    assert res["summary"]["broker_supplied"] is True
+    assert res["summary"]["broker_payloads"] == {"ib": False, "bybit": True}
+    assert epc._payloads_label(res["summary"]) == "bybit; ib NOT supplied"
+    none_res = epc.audit({"rows": []}, {}, None, None)
+    assert none_res["summary"]["broker_supplied"] is False
+    assert "NONE" in epc._payloads_label(none_res["summary"])

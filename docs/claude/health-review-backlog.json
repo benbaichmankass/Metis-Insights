@@ -190,8 +190,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Confirmed on disk: scripts/research/m20_fleet_exit_sweep.py records the config axes into the corpus (:2277-2287 — split, split_target_oos, tp_cap_pct, fee_bps_roundtrip, regime_router, min_oos_trades_floor) and greps for frame_fingerprint / data_md5 / data_sha / frame_rows / data_first_ts return nothing. The gap is exactly as filed: structural, with no observed instance. — Duplicate substrate with BL-20260810-SWEEP-VERDICTS-DO-NOT-RECORD-THEIR-DATASET — one change closes both, and that row DOES have an observed near-instance (two different ETHUSDT_15m files in active use with different md5s and different usable-fold counts), which is the better justification."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "Either (a) verdicts.json carries a per-leg frame fingerprint - row count AND first/last bar timestamp AND a content hash, all three, so a truncated frame and a shifted one stay distinguishable - propagated to the corpus row the way fee_bps_roundtrip is, RECORDED and deliberately ABSENT from measurement_key, with a mismatch reported when two rows share a key and differ on frames; or (b) a recorded decision that the structural gap is accepted, naming the observation that would reopen it. Adding the fingerprint TO measurement_key does not satisfy this - the row states why (it would stop a re-run ever superseding an older row)."
     },
     {
       "id": "BL-20260812-DIAG-SHADOW-STATS-MISSING-SOAK-BASIS",
@@ -253,8 +259,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The failure handler now branches on TWO stages (.github/workflows/trainer-vm-diag.yml:329-357: parse-rejected vs post-SSH), which fixed the sibling defect it cites — but not this one. A run where SSH and the command both succeeded and only the result-comment POST failed still lands in the `parsed === true` branch and reads 'this is an infrastructure failure after the request was accepted. Likely: VM_SSH_KEY unset/malformed, SSH timeout (trainer VM down or rebooting), or the command itself exited non-zero on the VM.' And the output is still discarded on the issues path: the `Upload artifact` step (:283-291) is gated on `github.event_name == 'workflow_dispatch'`."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "trainer-vm-diag branches on the failure STAGE, not on CMD_PRESENT: a run whose SSH and command both succeeded but whose comment POST failed emits a message that explicitly states the trainer is NOT implicated; the captured output is written to $GITHUB_STEP_SUMMARY BEFORE the comment is attempted (so a delivery failure can never destroy a successful measurement); and createComment retries once. Verified by exercising the post-failure path - a run or a workflow-level test - NOT by reading the YAML, since the defect is precisely that the YAML reads correct. The sibling vm-diag-snapshot relay carries the same treatment or a recorded reason it does not."
     },
     {
       "id": "BL-20260811-BACKTEST-SIGNAL-CACHE-SILENTLY-INERT-WITHOUT-PARQUET",
@@ -7784,8 +7796,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The defense-in-depth fix is present: src/bot/cloud_notifier.py:44 anchors the canonical inbox on _runtime_logs_dir(), and :51-54/:68/:85/:109/:181 implement the repo-relative twin sweep — deliver a FRESH mis-routed ping, DISCARD a >2h stale straggler. That is exactly the recorded resolution. — needs live data: the row's own VERIFY step ('after deploy the repo-path pending_claude_pings inbox drains to 0', via status-check enumeration) has not been performed from this session. Ends on one status-check showing 0 queued on BOTH paths."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "The repo-relative pending_claude_pings inbox enumerates 0 on a status-check read taken AFTER the PR #7635 drain-sweep deployed, quoted here with the date. The code fix is already in by the row's own resolution field - this row is open ONLY on that post-deploy verification, so citing the code or the PR does not close it."
     },
     {
       "id": "BL-20260726-SMOKE-BYBIT2-PLACE-ORDER-NONETYPE",
@@ -7862,8 +7880,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Measured against /home/user/ict-trader-dashboard/streamlit_app.py this session: 0 hits each for 'strategy/attribution', 'pnl/exchange', 'positions/net', 'allocator/soak', 'pairs/soak', 'fc-geometry/soak'; 1 hit for 'liquidity'. Positive control on the same file: 'api/bot/positions' = 12 hits, so the probe finds real consumers. — Legitimately not actionable now: no correctness risk, pure feature-surfacing, and the row's own action is 'wire the highest-value gaps when a consumer need arises'. Ends when a consumer need appears (or the row is closed as won't-do)."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "A per-gap disposition list, one line each, covering every gap the row names (dashboard /strategy/attribution + /pnl/exchange; android Accounts broker-truth): wired, or closed wont_fix with the reason. 'Wire incrementally when a consumer need arises' is a posture, not an exit condition, and is what has kept this row open - a row that can be satisfied by doing nothing indefinitely cannot be retired."
     },
     {
       "id": "BL-20260726-M27-15M-CHANGELOG-BACKFILL",
@@ -7941,9 +7965,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Verified unchanged: deploy/ict-web-api.service:5 still reads 'binds to 0.0.0.0:8001 so the Vercel React dashboard can reach' and :37 still sets Environment=DASHBOARD_ORIGIN=https://bentzbk-ict-trader-dashboard.vercel.app — a documented no-op, since both live frontends (Streamlit server-side, Svelte via Caddy) do not depend on it. — Proposed change (Tier-2, live-VM unit file, needs an operator OK + a redeploy): rewrite the :5 comment to name the two real consumers (server-side Streamlit + the Svelte SPA through Caddy at ict-bot.duckdns.org) and either drop Environment=DASHBOARD_ORIGIN at :37 or annotate it 'legacy no-op, retained for a future browser-direct consumer'. Cosmetic but it is a live unit file, so it should not be self-applied."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
-      "operator_action_required": true
+      "operator_action_required": true,
+      "resolution_criteria": "An operator-acked unit-file PR is merged that refreshes the stale Vercel comment and either drops or annotates the legacy DASHBOARD_ORIGIN, AND /api/diag/services reads ict-web-api.service active after that deploy. The post-deploy service read is part of the criterion because this is a unit-file change: a merged edit that crashloops the API is not a fix."
     },
     {
       "id": "BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
@@ -7969,8 +7999,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both stale citations confirmed and the row's own target is ALSO stale now: notebooks/operator/update_branch_protection.ipynb:6 still lists four required contexts (pytest-collect / secret-scan / ruff-lint / dry-run-guard) and OWNER='the-lizardking' at :36; docs/sprint-logs/S-CANON-FU-3-branch-protection.md:15/:37/:69/:132 still names the-lizardking. Meanwhile the actual REQUIRED_CONTEXTS at branch-protection-sync.yml:137 is THREE — pytest-collect, pytest-run, guards — not the '9 checks' this row says to update them to."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "The sprint log and notebook state the required-context count taken from a LIVE read of the branch protection settings on the day of the edit, with that read quoted. Deliberately not '9': this row's action says 9 and BL-20260731-AUDIT-0731-NEW-FINDINGS item (12) says 11, so the number is itself contested and copying either would re-file the same staleness under a new date."
     },
     {
       "id": "BL-20260727-IB-LIVENESS-PROBE-CACHED-HANDLE-FALSETRIP",
@@ -7996,8 +8032,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Unfixed and explicitly so: src/units/accounts/ib_client.py:536-552 downgrades a probe timeout to best-effort ONLY when `fresh_connect and _IB_PROBE_TRUST_FRESH_HANDSHAKE and self._is_connected(ib)`, and the in-code comment ends 'A CACHED handle's probe failure still condemns below (a real mid-life wedge, not a cold-start miss)' — which is precisely the filed condition. — Tier-2 live-connection change on the money box: widening the tolerance to cached handles risks weakening genuine mid-life-wedge detection, so it needs a designed bounded-retry plus a soak before deploy. Ends when that change is designed, operator-acked and soaked, or when ib_state relays show the flap has stopped for another reason."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "Either (a) the cached-handle false-trip is root-caused and a bounded tolerance ships, with a test showing a GENUINE wedge - one answering neither attempt - still condemns, so the fix cannot be a blanket weakening of mid-life-wedge detection; or (b) the condition is MEASURED absent over a stated window with a stated n since IB_PROBE_CACHE_S shipped 2026-08-22, and the row closes on that measurement. Note (b) needs the measurement, not the inference: IB_PROBE_CACHE_S changes how OFTEN a cached handle is probed, not what happens when a cached-handle probe fails, so 'the cache fixed it' is a claim about a branch the cache does not touch."
     },
     {
       "id": "BL-20260727-ICT-MES-IBKR-PULL-SERVICE-FAILED",
@@ -8035,8 +8077,14 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: I did not check this — the condition is a systemd unit state on the live VM (ict-mes-ibkr-pull.service = failed while its .timer is active), readable only via /api/diag/services or journalctl through the relay. — needs live data: `/api/diag/services` for ict-mes-ibkr-pull.service plus `/api/diag/journalctl?unit=ict-mes-ibkr-pull.service` to see the last ExecMainStatus. Ends when the sidecar runs clean or is disabled as redundant with the trader's own candle fetch."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
-      ]
+      ],
+      "resolution_criteria": "journalctl -u ict-mes-ibkr-pull.service pulled and quoted, AND a disposition reached: the unit reads active after a fix, or it is deliberately disabled with the redundancy against the trader's own candle fetch stated. A diagnosis with no disposition does not close this - a unit left failed is the state the row is about, and naming its cause does not change it."
     },
     {
       "id": "BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER",
@@ -9726,10 +9774,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The row's stated blocker is now HALF lifted, which is the useful finding: src/runtime/exit_anchor.py:153 `bar_close_at` exists (with the three-way anchored/deferred/no_anchor contract), so a trustworthy close-time exit price is available where it was not when this was filed. The second half — a per-close leg-state record — I did not find and did not verify either way. — needs live data: re-run the scalp hold-time table against exit_anchor-anchored closes rather than sweep-time marks. Ends when the long holds are either explained or shown to be an artifact of the old fabricated exit prices. The 'do NOT tune scalp exit geometry on the current numbers' guidance still holds until that re-run."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
-      "checked": "checked: scripts/research/m20_exit_analysis.py — verified 2026-08-23 (full-system audit). Verified present 2026-08-23, and the row's own note records that it measured this. The title's UNMEASURABLE is stale."
+      "checked": "checked: scripts/research/m20_exit_analysis.py — verified 2026-08-23 (full-system audit). Verified present 2026-08-23, and the row's own note records that it measured this. The title's UNMEASURABLE is stale.",
+      "resolution_criteria": "BLOCKED BY DECLARATION, and that is deliberate. Closes only when a trustworthy close-time exit price AND a per-close leg-state record exist, and the ict_scalp hold-time distribution is re-measured against plausible bracket touches with the population stated. Until then this stays open AND no scalp exit geometry is tuned on the current numbers - that prohibition is part of the row, not advice, because the numbers it would be tuned on are the ones this row says are unmeasurable."
     },
     {
       "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-IN-A-SECOND-WAY",
@@ -9765,9 +9819,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: docs/research/exit-capture-deepdive-2026-07-30.md:3-20 carries a correction banner for the FIRST wrongness only (the BYBIT_TPSL_MODE premise, citing BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE). It points at 'the real cause is still open' and names three sibling rows, but it does not name THIS row or state the second correction (the leak's actual mechanism). — The full rewrite is legitimately blocked on the close-time exit-price measurement landing, per the row's own next_action — but the banner is not."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolution_criteria": "docs/research/exit-capture-deepdive-2026-07-30.md is rewritten with BOTH corrections folded in - the TPSL premise and the leak's actual mechanism - after the close-time exit-price measurement lands. Sequenced behind BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED. A correction note appended to the still-wrong doc does not close it: the row says the doc is wrong in two independent ways, so a partial fix leaves a doc that is still wrong and now also looks corrected."
     },
     {
       "id": "BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED",
@@ -11140,9 +11200,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Spot-checked six named sub-items: FIXED — (1) ict-ib-executions-pull is now in diag's _CANONICAL_UNITS (src/web/api/routers/diag.py:221-222, both .service and .timer); (2) macro-producer-liveness.yml:96-111 now sets `set -uo pipefail` and wires rc into a `vacuous` output feeding the alert/final-fail steps; (3) branch-protection-sync.yml:47-59 now fails RED on a missing BRANCH_PROTECTION_TOKEN; (4) guards.yml:39-40 handles merge_group; (11) both duplicate rows (BRACKET-AUDIT-ROLLUP-MISLEADING, NEW-TABLE-GUARD-MATCHES-PROSE) now read status=resolved. STILL OPEN — (10) ml/promotion/attribution.py:312 still computes `win = pnl > 0` unfiltered. — Register row covering a 12+ item P0-P3 plan; it closes only when the audit doc's plan is worked. Ends per-sub-item. Recommend re-scoping it to the residuals (notably sub-item 10, the promotion gate reading what training refuses) so the closed majority stops being re-triaged each pass."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolution_criteria": "THIS IS A CONTAINER ROW. It closes when each of the 12 enumerated NEW findings carries its own disposition recorded against its number here - fixed, filed as its own backlog row (with the id), or closed with a reason - and not before. It does NOT close on 'the P0-P3 plan was worked': a container that retires while any of the 12 is undisposed silently loses that finding, which is the specific way a consolidated audit row fails."
     },
     {
       "id": "BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION",
@@ -12762,7 +12828,15 @@
       ],
       "resolution": "RESOLVED 2026-08-09 as HOLD-AT-2.5 (operator approved the retune conditional on testing it; the test withdrew it). Re-sweep on the converged engine confirmed the live cell arm6.49/tight2.5 fails the exit gate on IS maxDD (+0.4220R, 14.7968 -> 15.2188) -- reproduced on BOTH the date-restricted and full-tape-split bases (bases_agree: true), so the tuning-basis defect is real. But per-trade attribution (scripts/research/m20_trail_attribution.py; trainer-diag #8672/#8676/#8677) shows the proposed tight_mult 2.0 is NOT the fix: POPULATION 250 trades, only 17 (6.8%) arm the lever and just 3 of 75 OOS. On those 17, 2.0 is WORSE by 1.8395R -- it gains exactly +0.2R on 14 trades (the mechanical (2.5-2.0)*ATR / (2.5*ATR) when both arms stop on the same bar) and loses 4.6395R on 3 where the tighter stop fired earlier. Its apparent +0.2960R aggregate edge is a SEQUENCING artifact: the residual +2.1355R comes from 3 trades present in only one book (2 unique to live, 1 to proposed) after one shifted exit moved next_idx over a week in June 2023. Negative at every arm with a usable sample (3.0/4.0/5.0/6.49); only arm 8.0 is positive and it is TOO_THIN (n=7). Config UNCHANGED. Two bounds: the lever vs OFF is +9.53R at identical full-tape maxDD (27.3002 across all three arms), so the lever earns its place and option B (remove) is also unsupported; and nothing can fire below 6.49R peak, which 2026 has not reached (max 4.593 over 35 trades). Memo: docs/research/M20-trail-decay-resweep-2026-08-09.md (superseding section).",
       "resolved_at": "2026-08-09",
-      "detail": " | STATUS NORMALISED 2026-08-22 (workplan 0.1 Step 0): the free-text status 'resolved_hold' was collapsed to 'kept_open' so the open set is countable. The original wording is preserved here verbatim; the mapping failed TOWARD open wherever the text signalled remaining work."
+      "detail": " | STATUS NORMALISED 2026-08-22 (workplan 0.1 Step 0): the free-text status 'resolved_hold' was collapsed to 'kept_open' so the open set is countable. The original wording is preserved here verbatim; the mapping failed TOWARD open wherever the text signalled remaining work.",
+      "resolution_criteria": "The measurement half is already DONE and recorded in this row's resolution field (HOLD-AT-2.5; re-sweep on the converged engine plus per-trade attribution; config deliberately unchanged). What keeps it open is the row's other half, VERIFIED still outstanding 2026-08-25: src/runtime/trail_decay.py and src/runtime/trail_vol.py both still carry 'Harness reference: ... scripts/backtest_trend.py / scripts/backtest_pullback.py' - the engine the fidelity pipeline never runs. Closes when both docstrings cite the live-faithful harness instead, confirmed by reading the two files, at which point the recorded resolution stands as written.",
+      "updates": [
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
+        }
+      ]
     },
     {
       "id": "BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
@@ -12854,9 +12928,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The specific defect was fixed in #8633; the row was filed for the CLASS. That class is still uncovered: scripts/check_diagnostic_provenance.py's nearest check is D/inert-parameter (:350-380), which only detects a function parameter the body never READS (`if name in body_names: continue`). It cannot see a control-flow predicate whose two branches produce identical output, which is this class. collapsed-state-guard and provenance-consumer-guard do not reach it either."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolution_criteria": "The INSTANCE is fixed by this row's own account. What is open is the CLASS decision, and it closes on a recorded choice: either the review-skill checklist gains the rule - a diff that makes an existing unconditional path conditional must show the MEASURED output of both branches, not assert the intent - or that rule is declined with a reason. A static guard is explicitly ruled out by the row (high false-positive, and a presence-only marker is the new-table-wiring-guard trap), so 'add a guard later' does not close it."
     },
     {
       "id": "BL-20260808-EXIT-HEAD-MANIFEST-RECORDS-NO-TRAINING-WINDOW",
@@ -13550,9 +13630,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: docs/claude/session-board.json still carries a `merge_slot` object ({held_by: null, branch: null, pr: null, claimed_at: null}) in the committed file, so the structural problem is unchanged: claiming it for a merge means committing to the PR branch, which restarts CI and still reaches no other session until the PR merges — at which point the claim is over."
+        },
+        {
+          "at": "2026-08-25T22:45:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolution_criteria": "One of the row's three options is CHOSEN AND IMPLEMENTED - (a) move the durable slot off the merge-gated path, (b) delete merge_slot from the schema, or (c) scope it explicitly to non-PR claims - and the two prior lapse items are closed by pointing at that choice rather than at a behaviour. A decision recorded without implementation does not close it: the field stays in the state the row calls worse than no field, and re-filing the exhortation is what the row forbids."
     },
     {
       "id": "BL-20260810-TICK-CHAIN-260S-PER-TICK",
@@ -19579,7 +19665,19 @@
         "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE",
         "BL-20260816-TARGET-NAKEDNESS-UNDETECTABLE-ON-ALPACA-AND-BYBIT"
       ],
-      "resolution_criteria": "Basis: the /api/diag/ib_open_orders read and the audit rollup above, both taken 2026-08-18 over 34 open non-backtest trades. RESOLVED when a diag route serves resting protective orders for bybit and alpaca accounts with the same three-state read_state discipline (not_applicable / could_not_look / orders_read) and exit_path_coverage's broker_observability count for those venues drops to the genuinely-unreadable remainder."
+      "resolution_criteria": "Basis: the /api/diag/ib_open_orders read and the audit rollup above, both taken 2026-08-18 over 34 open non-backtest trades. RESOLVED when a diag route serves resting protective orders for bybit and alpaca accounts with the same three-state read_state discipline (not_applicable / could_not_look / orders_read) and exit_path_coverage's broker_observability count for those venues drops to the genuinely-unreadable remainder.",
+      "updates": [
+        {
+          "at": "2026-08-25T22:55:00+00:00",
+          "by": "claude (system-review, backlog drive)",
+          "note": "HALF RESOLVED, AND THE OTHER HALF MOVED - re-validated against the code this session, not inferred from the merge.\n\nBYBIT: DONE. /api/diag/bybit_open_orders shipped 2026-08-22 (src/web/api/routers/diag.py:2278, src/units/accounts/clients.py:1771::account_bybit_open_orders) with exactly the three-state read_state discipline this row's criterion asks for (not_bybit / could_not_look / orders_read), and it serves BOTH the Full-mode position-level stop_loss/take_profit AND the Partial-mode resting legs - which matters here, because a surface dumping only orders would report zero legs for a correctly-protected Full-mode position and a consumer would grade it naked.\n\nALPACA: NOT DONE. There is no account_alpaca_open_orders and no route. AlpacaClient's only order-state accessor is has_protective_orders (alpaca_client.py:979) - a BOOLEAN, i.e. the reducing verdict this row exists to be able to contradict. So the Alpaca half is untouched.\n\nAND THE CRITERION'S SECOND CLAUSE IS BLOCKED BY A THIRD THING, WHICH IS THE ACTUAL FINDING. The criterion says exit_path_coverage's broker_observability count must drop for those venues. It has not, and NOT because the capability is missing: scripts/ops/exit_path_coverage.py still reads only --broker-json /api/diag/ib_open_orders (line 56), and its _broker_rollup docstring at line 489 still asserts \"/api/diag/ib_open_orders is IB-only, so a bybit or alpaca position's resting brackets CANNOT BE READ FROM ANY DIAG SURFACE\". That sentence is now FALSE for bybit and the tool acts on it - every bybit position keeps grading `not_ib`, which the same docstring correctly calls \"not a clean negative, it is a missing read surface\". The read surface is no longer missing; the consumer was never told. Field beats comment, and this is the written-and-never-read shape one level up: a route shipped, and the one audit that reports the gap it closes still reports the gap.\n\nREMAINING WORK, in order: (1) teach exit_path_coverage to accept a bybit broker-json and grade from it, and fix the stale impossibility claim in its docstring - this is Tier-1 and is what makes the bybit half VISIBLE rather than merely built; (2) build the Alpaca route. Until (1) lands the bybit route is capability nobody can see the effect of, which is the condition this row was opened about."
+        },
+        {
+          "at": "2026-08-25T23:05:00+00:00",
+          "by": "claude (system-review, backlog drive)",
+          "note": "STEP (1) OF THE PREVIOUS UPDATE IS DONE, AND THE OBSERVABILITY COUNT MOVED - MEASURED, not asserted.\n\nscripts/ops/exit_path_coverage.py now takes --bybit-broker-json (/api/diag/bybit_open_orders) beside the existing --broker-json, and the stale impossibility claim in _broker_rollup's docstring is corrected in place rather than deleted, so the next reader sees WHY it was wrong.\n\nMEASURED ON LIVE PAYLOADS, 2026-08-25 (journal limit=1000, telemetry limit=200, both diag order routes), same journal both arms - 27 open non-backtest trades with unobservable broker-bracket state BEFORE, 15 AFTER:\n  before  {account_not_in_payload: 24, read_state:could_not_look: 3}\n  after   {account_not_in_payload: 12, read_state:could_not_look: 3}\nThe 12 newly graded are bybit_1 (5), bybit_2 (4) and bybit_portfolio (3), ALL reading stop=live AND target=live - so the first thing this surface says is that the bybit book is fully bracketed, which nothing could previously confirm.\n\nSTATE THE RESIDUAL, because 'the count dropped' is not the same as 'the gap closed'. The remaining 15 are exactly two things and neither is a bybit row: 12 ALPACA (alpaca_paper 6, alpaca_portfolio 6) which have no route at all, and 3 ib_paper reading could_not_look because the IB gateway was not answering at read time - an honest 'we did not look', not an absent bracket.\n\nSO THE CRITERION IS NOW HALF-MET AND THE REMAINING HALF IS SHARP: build the Alpaca route. AlpacaClient's only order-state accessor is has_protective_orders, a BOOLEAN - the reducing verdict this row exists to be able to contradict - so the Alpaca half is a genuine build, not a wiring job.\n\nDESIGN NOTES CARRIED, because both are ways the bybit read could have been wrong while looking right: (a) BOTH the position rows and the resting orders are indexed, since under BYBIT_TPSL_MODE=full there is NO resting order and the stop lives on the position row - an orders-only indexer would have graded a correctly-protected position ABSENT, manufacturing an alarm rather than missing one; (b) merging two venue payloads refuses to let a not_ib / not_bybit sentinel overwrite the other venue's real orders_read entry, which a plain dict.update does silently. Both invariants are pinned by tests that were BREAK-TESTED (naive merge, orders-only indexer, and crediting an unclassifiable leg to a side) - each break fails the suite. tests/test_exit_path_coverage.py 20 -> 33; the script's own --self-test 9 -> 19."
+        }
+      ]
     },
     {
       "id": "BL-20260818-RR-FLOOR-MISSING-FROM-THE-HARNESS-ITS-MOTIVATING-LEG-USES",
@@ -21793,7 +21891,14 @@
       "area": "alpaca / paper-portfolio mirror",
       "title": "`alpaca_portfolio` does not mirror the `alpaca_live` roster — 2 of 16 live legs have no forward paper record at all",
       "detail": "MEASURED 2026-08-23 from config/accounts.yaml. alpaca_live declares 16 strategies; alpaca_portfolio (paper_role: portfolio, the account the UIs render as 'Paper' and the one a live-readiness decision reads) declares 14. splg_trend_long_1d and iaum_pullback_1d run on alpaca_live and on NEITHER paper account with a portfolio role. The mirror's whole purpose is to be the forward record of what the live account would do, so a leg absent from it is a leg whose live promotion has no evidence behind it. Compounding: the mirror's positive result is thin and concentrated — closed-with-pnl n=21, long n=14 +$6,392.80, short n=7 -$4,254.23, and uso_trend_1h alone is +$8,822.10 over 10 closed trades, i.e. one leg exceeds the entire positive result.",
-      "resolution_criteria": "alpaca_portfolio's strategy list is a superset of alpaca_live's, verified by a check that compares the two rosters (so the drift cannot recur silently), and the two added legs have accrued a stated soak before any live-promotion decision cites the mirror."
+      "resolution_criteria": "alpaca_portfolio's strategy list is a superset of alpaca_live's, verified by a check that compares the two rosters (so the drift cannot recur silently), and the two added legs have accrued a stated soak before any live-promotion decision cites the mirror.",
+      "updates": [
+        {
+          "at": "2026-08-25T22:40:00+00:00",
+          "by": "claude (system-review, Alpaca blocker-3 re-measurement)",
+          "note": "THE EVIDENCE GAP IS 9 OF 16, NOT 2 - AND THE STATED resolution_criteria ONLY CLOSES 2 OF THEM.\n\nThis row measures the ROSTER (config/accounts.yaml: alpaca_portfolio declares 14, alpaca_live 16, so splg_trend_long_1d + iaum_pullback_1d are unmirrored). Measured against /api/bot/performance?window=all's paperPortfolio.perStrategy on 2026-08-25, only SEVEN of the 16 routed legs have a closed row on the mirror at all. The nine with none are: gdx_pullback_1d, gld_pullback_1d, iaum_pullback_1d, ief_pullback_1d, iwm_trend_long_1d, slv_pullback_1d, splg_trend_long_1d, spy_trend_long_1d, tlt_pullback_1d.\n\nTHOSE NINE ARE TWO DIFFERENT STATES AND MUST NOT BE COUNTED AS ONE. Two (iaum, splg) have no row because they are NOT ROUTED to the mirror - the roster gap this row names. The other SEVEN ARE declared on alpaca_portfolio and have simply never closed a trade there. A roster fix reaches the first pair and does nothing for the second seven: making the roster a superset adds two legs that will then also have no rows.\n\nSo the resolution_criteria as written is necessary and not sufficient. A leg present in the roster with zero closed rows has exactly as much forward evidence as a leg absent from it - none - and the criterion's own second clause ('the two added legs have accrued a stated soak') is the part that actually binds, and it binds on nine legs rather than two. Proposed amendment, not applied: state the criterion over the WHOLE routed set - every alpaca_live leg is declared on alpaca_portfolio AND has a stated non-zero closed-trade count there before any live-promotion decision cites the mirror.\n\nCross-ref BL-20260823-ALPACA-LIVE-STRATEGY-SET-IS-NET-NEGATIVE-EXCEPT-ONE-LEG, re-measured the same session: the seven legs that DO have rows are six negatives and uso_trend_1h."
+        }
+      ]
     },
     {
       "id": "BL-20260823-NO-PDT-MODELLING-ON-ALPACA",
@@ -22663,7 +22768,14 @@
       "title": "the 16 strategies routed to alpaca_live are net-negative on paper except uso_trend_1h — and that one leg carries the entire positive result on n=10",
       "detail": "FOUND answering the operator's pre-funding readiness question. This is the SHOULD-we half; the other two alpaca rows are the CAN-we half.\n\nPOPULATION 1 — paperPortfolio (the alpaca_portfolio mirror of alpaca_live), window=all: 51 trades, winRate 29.4%, totalPnl +1518.47, totalPnlMeasured +4298.07, pnlCoverage 0.549, profitFactor 1.0524, maxDrawdown -14995.42, expectancy 29.77. Restricted to the 16 routed legs: 21 trades, +2138.57 raw / +5548.89 measured — of which uso_trend_1h alone is +9204.34 on 5 trades. EVERY OTHER ROUTED LEG IN THAT BLOCK IS NEGATIVE (slv_trend_1h -3556.21, tlt_pullback_1h -2161.11, gld_pullback_1h -1092.78, spy_pullback_1h -221.14, qqq_trend_long_1d -17.44, qqq_pullback_1h -17.10). Net of uso_trend_1h the routed set is roughly -7065 on 16 trades.\n\nPOPULATION 2 — all paper (wider sample), window=all: 574 trades, winRate 37.8%, profitFactor 0.6674, maxDrawdown -115508.77. Restricted to the 16 routed legs: 76 trades, -6909.13 raw / -39.30 measured. 10 of the 11 legs with data are net negative; uso_trend_1h (+8822.10 on 10 trades, coverage 0.90) is the sole positive of size.\n\nBOTH POPULATIONS AGREE ON THE SHAPE and are reported separately rather than pooled: one leg carries everything, the rest lose.\n\n⚠️ READ THE COVERAGE BEFORE READING THE PNL. pnlCoverage is 0.549 (portfolio) and 0.3484 (all paper) — roughly a third to a half of the PnL is MEASURED, the rest is estimated/fabricated/unverified. Several routed legs report coverage 0.00 (gld_pullback_1h, qqq_trend_long_1d, iwm_trend_long_1d, ief_pullback_1d), so their measured contribution is 0 and we genuinely know nothing about them. Low coverage is a reason for LESS confidence in going live, never more.\n\nSCALE CHECK: the portfolio mirror's maxDrawdown is -14995 and all-paper -115508, against a proposed real-money funding of roughly $2,500-$25,000. Even proportionally scaled, the declared daily_usd 200 and max_dd_pct 0.05 would be tripped routinely.",
       "resolution_criteria": "Either the routed set shows a positive measured record on the alpaca_portfolio mirror at a coverage floor worth trusting, or the routing is narrowed to the legs that do. 'It is only paper so it does not count' is NOT sufficient — the portfolio mirror exists precisely to be the pre-live evidence.",
-      "notes": "Tier-3 (live promotion), proposed NOT applied. TUNE BEFORE DEMOTE is canonical and applies: no leg here has had a genuine multi-axis tuning attempt on this account, so nothing is proposed for demotion — the proposal is to withhold REAL MONEY, which is a different decision from killing a leg. A defensible narrow go-live exists if the operator wants a live-pipeline test sooner: fund and route ONLY uso_trend_1h (100% long in the 32-package sample so the shorting blocker does not bite, the sole profitable leg, the best-measured at coverage 0.90, and 88-90% account notional which is the sanest of the fifteen). Caveat stated plainly: n=10 is thin and one leg is not a portfolio."
+      "notes": "Tier-3 (live promotion), proposed NOT applied. TUNE BEFORE DEMOTE is canonical and applies: no leg here has had a genuine multi-axis tuning attempt on this account, so nothing is proposed for demotion — the proposal is to withhold REAL MONEY, which is a different decision from killing a leg. A defensible narrow go-live exists if the operator wants a live-pipeline test sooner: fund and route ONLY uso_trend_1h (100% long in the 32-package sample so the shorting blocker does not bite, the sole profitable leg, the best-measured at coverage 0.90, and 88-90% account notional which is the sanest of the fifteen). Caveat stated plainly: n=10 is thin and one leg is not a portfolio.",
+      "updates": [
+        {
+          "at": "2026-08-25T22:40:00+00:00",
+          "by": "claude (system-review, Alpaca blocker-3 re-measurement)",
+          "note": "RE-MEASURED TWO DAYS ON (/api/bot/performance?window=all, read direct over the Caddy host). THE SHAPE HELD AND THE EVIDENCE GOT WEAKER, NOT STRONGER.\n\nPOPULATION 1 - paperPortfolio, window=all: headline 58 trades, winRate 31.0, totalPnl -1517.45, totalPnlMeasured +1258.83, pnlCoverage 0.3621, profitFactor 0.9549, maxDrawdown -14995.42. Note the headline totalPnl has FLIPPED SIGN since 2026-08-23 (+1518.47 -> -1517.45) and profitFactor has crossed below 1 (1.0524 -> 0.9549) - the mirror as a whole is no longer positive. Restricted to the 16 routed legs: 23 trades, +2169.32 raw / +5576.32 measured, of which uso_trend_1h alone is +9207.67 on 6 trades. EX-USO the routed set is -7038.34 raw / -3628.02 measured on n=17.\n\nPOPULATION 2 - all paper, window=all: headline 612 trades, winRate 38.4, pnlCoverage 0.1928. Restricted to the routed legs: 79 trades, -6856.25 raw / +10.26 measured. Ten of the eleven legs with rows are net negative; uso_trend_1h (+8825.42 on 11, coverage 0.4545) is the sole positive of size. EX-USO: -15681.68 raw / -8768.20 measured on n=68.\n\nSLV_TREND_1H IS NOW execution: shadow (the 2026-08-24 demotion held, verified in config/strategies.yaml), so the FORWARD routed set is 15 legs, not 16, and its rows above are historical. Excluding it changes nothing that matters: paperPortfolio ex-slv ex-uso is -3509.57 raw / -785.43 measured on n=9, and all-paper ex-slv ex-uso is -9574.67 raw / -4553.35 measured on n=45. Both still negative. One leg still carries the whole result.\n\nWHAT CHANGED IN TWO DAYS IS ALMOST NOTHING, AND THAT IS THE FINDING. The routed set gained 2 trades on the mirror and 3 on all-paper; uso gained one trade worth +3.33. A roster whose live-readiness case rests on n=6 for its only profitable leg accrued one trade in two days - at that rate the evidence the resolution_criteria asks for is months away, not days.\n\nCOVERAGE FELL ON BOTH POPULATIONS: paperPortfolio 0.549 -> 0.3621 and all-paper 0.3484 -> 0.1928. The population grew while the measured fraction shrank, so the pnl figures above are LESS trustworthy than the ones this row was opened with, not more. Read that in the direction the row already states: low coverage argues for less confidence in going live, never more.\n\nVERDICT: resolution_criteria NOT met. The routed set does not show a positive measured record at any coverage worth trusting. The narrow-go-live option in `notes` (fund and route ONLY uso_trend_1h) is the only reading this measurement supports, and it is now thinner-looking than when it was written, not less."
+        }
+      ]
     },
     {
       "id": "BL-20260823-ALPACA-LONG-ONLY-CANNOT-BE-SCOPED-TO-ONE-ACCOUNT",
@@ -24244,8 +24356,14 @@
           "at": "2026-08-25T18:55:00+00:00",
           "by": "claude (backlog drain, 2026-08-25)",
           "note": "CROSS-REFERENCE / PARTIAL SELF-CORRECTION. This row's detail says of the string-vs-list shape: 'There is no list-vs-string defect and no sweep to do.' That is right about the CONVENTION (string is dominant and spans the full date range) and wrong to stop there. BL-20260823-RESOLUTION-CRITERIA-HAS-TWO-TYPES-AND-ITERATING-IT-YIELDS-CHARACTERS had already identified the real hazard, which is not the polymorphism at rest but the SILENT read: `for c in row['resolution_criteria']` is correct on a list and yields one character per line on a string, without raising. My reading found the shapes and dismissed them; that row found the accessor. Both are now closed the same way — scripts/ops/_backlog.py::criteria_list, with the string shape declared permanently supported. Recorded here so the two rows do not read as contradicting each other."
+        },
+        {
+          "at": "2026-08-25T22:50:00+00:00",
+          "by": "claude (system-review, backlog exit-condition authoring)",
+          "note": "DRAINED 17 OF 70. Every open row that carried raw material - an `action`, `next_action`, `resolution` or `proposed_fix` sufficient to derive a falsifiable exit condition - now has a `resolution_criteria` authored FROM THAT MATERIAL. 53 open rows still have none.\n\nTHE REMAINING ROWS ARE NOT A BACKLOG OF TYPING. They carry nothing to derive a criterion from, so giving them one would mean inventing an exit condition for a finding whose author did not state one - which is this row's own defect with a criteria field bolted on, and strictly worse than the honest empty state because the row would then LOOK retirable. They need the finding re-established, which is real work per row.\n\nTwo of the 17 were worth flagging while authoring, because both look closable and are not: BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL carries a full `resolution` dated 2026-08-09 while still kept_open - verified this session that its OTHER half is genuinely outstanding (both src/runtime/trail_decay.py and trail_vol.py still cite scripts/backtest_trend.py, the engine the fidelity pipeline never runs), so the status is correct and the criterion now says which half is load-bearing. And BL-20260731-AUDIT-0731-NEW-FINDINGS is a CONTAINER of 12 undisposed findings; its criterion now forbids closing on 'the plan was worked', which would have silently retired all 12."
         }
-      ]
+      ],
+      "population_characterised_2026_08_25": "MEASURED so the next pass starts informed instead of re-deriving it, and so the size of the job is honest.\n\nPOPULATION: **70** open rows across all three backlogs carry no `resolution_criteria` at all. (It read 77 an hour earlier; BL-20260825-TWO-DEFINITIONS-OF-OPEN-DISAGREE-ABOUT-SEVEN-ROWS removed 18 terminal rows from the open set and the census fell 109 -> 97 findings. Quote 70 against the canonical predicate, not 77.)\n\nTHE JOB DOES NOT DECOMPOSE INTO A TEMPLATE, and that is the load-bearing finding: only **15 of 70** already state a next action or fix under another key (`action` 8, `next_action` 6, `resolution` 2) that could be promoted into a criterion after reading it. The other **55 carry nothing resembling an exit condition anywhere in the row**. So a bulk pass would be inventing 55 closure conditions from titles, which is worse than leaving them: a fabricated criterion makes a row look workable and closes it on the wrong evidence. Author them, or leave them.\n\nOTHER SHAPE: exactly 1 of the 70 is `snoozed_until` (legitimately parked on accrual), so 'they are all waiting on data' is NOT the explanation. Severity splits medium 25 / low 21 / **none 18** / high 5 / `P3` 1 — the 18 unset ones cannot be sorted at all, and the lone `P3` is a foreign vocabulary in a corpus that uses critical|high|medium|low (the same slip this session made once with `P2` and corrected).\n\nSUGGESTED ORDER for whoever takes it: the 5 `high` rows first, then the 15 with raw material (cheapest real progress), then the 18 with no severity (they are invisible to any prioritised read until they have one), then the long tail. Do NOT count a row as drained until its criterion names an OBSERVABLE condition — 'the bug is fixed' is what the criteria guard already rejects."
     },
     {
       "id": "BL-20260825-COMPAT-MATRIX-SUMMARY-HARDCODES-ONE-STRATEGY-WHILE-ITS-TABLE-IS-PARAMETERISED",
@@ -24512,6 +24630,23 @@
         "The remaining 97 findings are the real debt: 77 open rows with no resolution_criteria at all, which is exactly BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED. 70 of them are `kept_open`, concentrated in 2026-07 (41) and 2026-08 (22). Not addressed here — writing 77 exit conditions is its own pass and must not be done by template."
       ],
       "measured_at": "2026-08-25T22:45:00Z"
+    },
+    {
+      "id": "BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT",
+      "opened_at": "2026-08-25T23:15:00+00:00",
+      "opened_by": "claude (system-review; found in my OWN diff, and caused by my own tool use)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 (docs tooling)",
+      "area": "backlog tooling",
+      "title": "backlog_union_merge.py hardcoded indent=2 while asserting parity with backlog_append — and reformatted all 4.8 MB of the health backlog on the one PR that used it",
+      "detail": "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES named the remedy as \"a helper both the session-end routine and any tooling append through\". backlog_append.py implements it correctly: it round-trips the file's OWN bytes against a candidate list and REFUSES when none reproduces them. backlog_union_merge.py — the conflict-resolution tool — did NOT go through it. It called json.dumps(doc, indent=2, ensure_ascii=False) directly, under a docstring asserting \"`ensure_ascii=False` + `indent=2` matches backlog_append.py, so this does not reformat the file and re-attribute unrelated rows to the merging PR\".\n\nTHAT SENTENCE IS THE DEFECT, and it is field-beats-comment in its purest form: backlog_append.py does not HAVE a fixed format to match. Hardcoding indent=2 matches only files that already are indent=2, and docs/claude/health-review-backlog.json is **indent=1 with a trailing newline** on main. So the tool reformatted it on every conflict it resolved, while its own docstring promised the opposite.\n\nMEASURED, on PR #10292, commit 89dac983 (a merge-conflict resolution): **+23,889 / -23,862 on that one file**. git show --numstat isolates it to that single commit; the other twelve backlog-touching commits on the branch are +2 to +25 each, which is what a normal append looks like. Every diff-scoped guard reads added-vs-origin/main, so the whole 927-row file now reads as added by that PR — which is exactly the re-attribution BL-20260820 exists to prevent, and it is why a diff-scoped impossibility-claim run on the branch reported 9 claims at scattered line numbers that belong to rows nobody in this PR wrote.\n\nTWO THINGS MAKE IT WORSE THAN A COSMETIC CHURN. (1) A conflict resolution is the LIKELIEST moment for this class, because it is the only operation that re-serialises the whole file by construction — so the one door left open is the one most likely to be walked through. (2) The helper CANNOT UNDO IT, only avoid causing it: once a reformat lands, detect_format faithfully reproduces the NEW format on every subsequent write. Every helper-routed append I made after 89dac983 was individually clean (136 insertions / 18 deletions against the branch tip) and all of them silently locked the reformat in.\n\nAND THE SELF-TEST COULD NOT HAVE CAUGHT IT. backlog_union_merge's round-trip check plants an indent=2 fixture and asserts an em-dash survives — a probe that cannot find the positive it is looking for. The indent hazard was invisible to it by construction.",
+      "fix": "SHIPPED in the same session. backlog_union_merge.py now imports detect_format and reproduces the SPINE's serialisation (`theirs`, the branch being merged into, so a merge can never change the target branch's format), REFUSES with FormatNotReproducible rather than reformatting, and prints the detected format before writing so the resolution is a stated decision. The false docstring claim is corrected in place, not deleted. Self-test 18 -> 25: it now plants indent=1 / indent=2 / indent=4 fixtures, asserts each round-trips byte-for-byte AND that the detector does not silently emit indent=2 for the other two, and asserts an unreproducible serialisation is refused.",
+      "not_done": "THE EXISTING REFORMAT IS NOT REVERTED, deliberately. Reverting would be a SECOND 24k-line diff over the same file, and two churns are worse than one; after #10292 merges, main carries indent=2 and detect_format reproduces it from then on, so there is no ongoing breakage — only one permanently polluted diff. Content was verified intact rather than assumed: 919 rows on origin/main -> 927 in the working tree, ZERO ids lost, 8 added and all 8 are this session's new rows.",
+      "resolution_criteria": "RESOLVED when a conflict is resolved through backlog_union_merge.py against a file whose on-disk format differs from indent=2, and the resulting diff is confined to the rows that actually changed — verified by git --numstat on that commit, not by reading the tool. Until such a conflict occurs the fix is shipped-but-unexercised and belongs in the review_coverage.unexercised_fixes block, NOT closed on the code landing: this row's own subject is a tool whose docstring asserted a property it did not have, so a code citation is precisely the evidence that should not close it.",
+      "related": [
+        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES"
+      ]
     }
   ]
 }
