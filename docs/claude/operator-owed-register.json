@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused.",
   "schema_version": 1,
-  "updated_at": "2026-08-25T19:30:00+00:00",
+  "updated_at": "2026-08-25T19:50:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -25,7 +25,7 @@
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
-      "last_state_change_at": "2026-08-25T19:30:00+00:00",
+      "last_state_change_at": "2026-08-25T19:50:00+00:00",
       "last_state_change_note": "Re-classified defaulted_to_human, and given a tested decision function + a proposal tool. The item has NOT been remediated — the venue state is unchanged.",
       "resolved_at": null,
       "resolution": null,
@@ -139,23 +139,24 @@
       "tier": "1 (repo hygiene)",
       "status": "open",
       "owner_class": "defaulted_to_human",
-      "owner_class_basis": "It reached the human column because ONE push failed on a transport error in ONE session — an unretried failure, not a permission boundary. Deleting a branch needs no human judgement, no secret, and no broker; any session with push access can do it once the content is verified merged.",
-      "automation_path": "git push origin --delete claude/ib-breaker-peer-close, after verifying its commits are on main",
+      "owner_class_basis": "It reached the human column because a push failed in one session — and MEASURED here 2026-08-25, the failure is real but is not a permission boundary for the SYSTEM: `git push origin --delete` returns HTTP 403 on four attempts with backoff from a session's credential, while a normal push from that same credential in the same minute succeeds. Deleting a branch needs no human judgement, no minted secret and no broker — a runner's own GITHUB_TOKEN can do it. Nobody had built the wire, which is the definition of defaulted_to_human. Recording it as 'cannot be automated' would have been this register's own anti-pattern, one size down.",
+      "automation_path": ".github/workflows/prune-merged-claude-branch.yml — issue-triggered (label `prune-merged-branch`) or workflow_dispatch. Dry-run by default; `claude/**` only; prints the unmerged-commit list and refuses unless it is empty or `force: true` carries a reason.",
       "tested_decision_function": null,
       "cannot_automate_reason": null,
-      "next_action": "Verify the branch's commits are on main, then delete it.",
+      "next_action": "Dispatch it with `branch: claude/ib-breaker-peer-close`, `apply: true`, `force: true` and the reason below. ⚠️ The workflow must be on the DEFAULT branch before an issue trigger or a dispatch can reach it, so this fires after the PR merges — not a hand-off, a sequencing fact.",
       "carried_before_register": [
         "qhpxyh",
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
-      "last_state_change_at": "2026-08-25T19:30:00+00:00",
-      "last_state_change_note": "Re-classified defaulted_to_human by session 017etXEZ, with the delete named as the wire.",
+      "last_state_change_at": "2026-08-25T19:50:00+00:00",
+      "last_state_change_note": "Re-classified defaulted_to_human on MEASURED evidence (the 403), and the missing wire was built rather than handed back: prune-merged-claude-branch.yml. Content verified merged. NOT yet deleted — the workflow reaches nothing until it is on the default branch.",
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null,
       "snooze_trigger": null,
-      "refs": []
+      "refs": [],
+      "content_verified_merged": "2026-08-25 by session 017etXEZ: the branch holds ONE commit touching only docs/claude/health-review-backlog.json (+36 lines), adding BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE and BL-20260825-IB-BREAKER-FAILURE-REASON-IS-MISLABELLED-AS-A-TIMEOUT. Both are on main and compare BYTE-IDENTICAL field-by-field, and the branch introduces no id main lacks. Content carried by PR #10276."
     }
   ]
 }

@@ -145,6 +145,7 @@ which would unlock these.
 | `trainer-vm-diag.yml` | AUTONOMOUS | A | `trainer-vm-diag-request` |
 | `vm-web-api-recover.yml` | AUTONOMOUS | A | `vm-web-api-recover` |
 | `vm-net-diag.yml` | AUTONOMOUS | A | `vm-net-diag-request` |
+| `prune-merged-claude-branch.yml` | AUTONOMOUS | A or `workflow_dispatch` | `prune-merged-branch` |
 | `doc-audit-weekly.yml` | AUTONOMOUS | A or E (Mon 12:00 UTC) | `doc-audit-now` |
 | `vwap-backtest.yml` | AUTONOMOUS | A | `vwap-backtest-trigger` |
 | `provision-training-vm.yml` | AUTONOMOUS | A | `provision-training-vm` |
@@ -522,6 +523,43 @@ body: |
 **Secrets:** `VM_SSH_KEY`, `DIAG_READ_TOKEN`.
 
 ---
+
+#### `prune-merged-claude-branch.yml`
+
+**Delete a stray `claude/**` branch whose content is already on `main`.**
+Dry-run by default; `apply: true` deletes.
+
+Exists because a session's git credential can create and update refs but is
+**refused on delete** — measured 2026-08-25, `git push origin --delete`
+returned `HTTP 403` on four attempts with backoff while a normal push from the
+same credential in the same minute succeeded. A stray branch was therefore
+handed to a human by two separate sessions. No human judgement is required, no
+secret must be minted, no broker is involved: a runner's own `GITHUB_TOKEN` can
+do it and nobody had built the wire, which is precisely the
+`defaulted_to_human` class in
+[`docs/claude/operator-owed-register.json`](claude/operator-owed-register.json).
+
+Guards, because deleting a ref is not reversible from here: `claude/**` only
+(anything else is refused before the checkout is used); dry-run unless
+`apply: true`; a typo'd `apply`/`force` value is REFUSED rather than read as
+off; and the run **prints** the unmerged-commit list plus `git cherry`
+patch-equivalence and refuses when commits remain unless the body carries BOTH
+`force: true` AND a `reason:` naming what carried the content. That waiver
+exists because this repo **squash-merges** — a squashed branch never becomes an
+ancestor of `main`, so an ancestor-only test would refuse every genuine
+request. It is the `cancel-ib-order` shape: a documented override with its
+reason in the run log, never a silent default. The post-delete check re-reads
+the ref and reports `deleted_unconfirmed` rather than success if it still
+resolves.
+
+Issue body:
+
+```
+branch: claude/some-stray
+apply: true
+force: true
+reason: content landed via PR #10276 — both rows byte-identical on main
+```
 
 #### `vm-web-api-recover.yml`
 
