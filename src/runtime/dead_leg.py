@@ -39,6 +39,30 @@ re-derived here — it is imported from ``execution_diagnostics``, because a
 second copy of "is this refusal deliberate?" is free to drift from the first and
 the two would then disagree about whether to wake the operator.
 
+WIDENED 2026-08-25 FROM THE NARROWER OF TWO PREDICATES TO THE BROADER ONE
+(``BL-20260825-DECLARED-POLICY-HOLDS-GRADE-AS-REFUSALS-IN-THE-DEAD-LEG-VOCABULARY``,
+operator decision). Importing rather than re-deriving was right and was not
+enough: ``execution_diagnostics`` holds TWO predicates, and this module imported
+``is_expected_dispatch_skip`` (is the ACCOUNT declared off?) when the question it
+actually asks is ``is_policy_hold``'s (did the system DECIDE not to send this
+order?). The broad rule was already the incumbent in two sibling call sites and
+had been since 2026-05/07 — it was simply trapped in nested closures nothing
+could import, so the third caller re-derived a narrower one. Three vocabularies
+agreed; this one, alone, did not.
+
+Measured before the change (1000-row diag window, 2026-07-26 → 2026-08-25):
+**77 of the 93 refused rows across all six ``signalled_never_placed`` legs —
+82.8% — carried a declared token**, against 3 genuine capability failures. The
+worst leg, ``mgc_trend_1h``, graded on 68 refusals of which 58 were the system
+deliberately holding; it now grades on 10, and the real-signal density on that
+leg goes from 3/68 to 3/10.
+
+⚠️ **This does NOT by itself make item 0.3's condition the thing that pages.**
+``mgc_trend_1h`` still clears ``SILENT_REFUSAL_MIN_ROWS`` after the change (10 ≥
+5) and its dominant cause becomes ``risk_refused`` — the risk manager working.
+That is the second half of the same finding and it is a separate decision; see
+``BL-20260825-BALANCE-UNREADABLE-CAN-NEVER-REACH-ITS-OWN-ALERT-THRESHOLD``.
+
 FAIL-SAFE, opposite polarity to ``account_side_filter``. That module is fail-
 PERMISSIVE because it gates an order. This one gates an ALARM, so an
 unrecognised reason stays a real refusal and still alerts: the failure we refuse
@@ -112,20 +136,31 @@ def bucket_for(status: Any, reason: Any = None) -> str:
 
 
 def _is_declared_policy_skip(reason: Any) -> bool:
-    """True when *reason* is a declared, expected policy skip.
+    """True when *reason* is a declared, expected policy skip OR a declared
+    no-op — i.e. the system decided not to send this order, rather than trying
+    and failing.
 
-    Delegates to ``execution_diagnostics.is_expected_dispatch_skip`` — the one
-    module that owns "is this refusal deliberate?". Imported lazily so this
-    module stays cheap for the live tick, and fail-SAFE: if the predicate cannot
-    be loaded the row counts as a REAL refusal, because silencing a genuine
-    outage is the worse error.
+    Delegates to ``execution_diagnostics.is_policy_hold``. ⚠️ **Note which of
+    the two predicates that is.** Until 2026-08-25 this delegated to
+    ``is_expected_dispatch_skip`` and said it was calling "the one module that
+    owns 'is this refusal deliberate?'" — true of the module, false of the
+    predicate. That module holds TWO answers to the question, and this picked
+    the narrower one, which is a strict subset of the rule the same module
+    already used for its own operator alerting. The broader rule was
+    unimportable (a nested closure), which is the mechanical reason the
+    vocabularies diverged rather than anyone deciding they should
+    (``BL-20260825-DECLARED-POLICY-HOLDS-GRADE-AS-REFUSALS-IN-THE-DEAD-LEG-VOCABULARY``).
+
+    Imported lazily so this module stays cheap for the live tick, and
+    fail-SAFE: if the predicate cannot be loaded the row counts as a REAL
+    refusal, because silencing a genuine outage is the worse error.
     """
     try:
-        from src.runtime.execution_diagnostics import is_expected_dispatch_skip
+        from src.runtime.execution_diagnostics import is_policy_hold
     except Exception:  # noqa: BLE001
         return False
     try:
-        return bool(is_expected_dispatch_skip(reason))
+        return bool(is_policy_hold(reason))
     except Exception:  # noqa: BLE001
         return False
 

@@ -511,3 +511,141 @@ def test_the_last_check_key_is_never_treated_as_an_account(tmp_path, monkeypatch
     monkeypatch.setattr(S, "_send_alert", lambda m: None)
     S.run_silent_refusal_check(rows=[], force=True)
     assert "__last_check__" in json.loads(p.read_text())
+
+
+# ── per-cause alert floors (2026-08-25, operator decision) ────────────
+#
+# `BL-20260825-BALANCE-UNREADABLE-CAN-NEVER-REACH-ITS-OWN-ALERT-THRESHOLD`.
+# The global floor separates a pattern from one bad order and is right in
+# general. For a cause that arrives in ones and twos weeks apart it does not
+# mean "wait for a pattern", it means "never fire" — and that cause is Lane 0
+# item 0.3's own condition.
+
+# The exact string the sizer emits, taken from a live journal row rather than
+# invented, so a change to the message breaks this test loudly.
+_BAL_NONE = ("REJECTED: sizing_failed: RuntimeError: balance() returned None "
+             "for ib_paper (exchange=interactive_brokers): API error or "
+             "unreachable")
+
+
+def test_a_single_balance_unreadable_row_alerts(isolated) -> None:
+    from src.runtime.silent_refusal_alert import assess
+
+    a = assess([_row("ib_paper", "rejected", _BAL_NONE)], min_rows=5)["ib_paper"]
+    assert a["cause"] == "balance_unreadable"
+    assert a["alerting"] is True
+    assert a["alerting_basis"] == "per_cause_floor"
+    assert a["priority_causes"] == ["balance_unreadable"]
+
+
+def test_positive_control_the_old_semantics_would_not_have_fired(isolated) -> None:
+    """The probe must be shown to detect a change, not just to pass.
+
+    One row is FAR below the global floor of 5, so the pre-2026-08-25
+    condition (`refused >= min_rows`) is false on this exact input. If a future
+    edit collapses the per-cause path back into the global one, the assertion
+    above starts passing for the wrong reason — this pins that it cannot.
+    """
+    from src.runtime.silent_refusal_alert import assess
+
+    a = assess([_row("ib_paper", "rejected", _BAL_NONE)], min_rows=5)["ib_paper"]
+    assert a["refused"] == 1
+    assert a["refused"] < 5, "the old total-floor path must NOT explain this alert"
+
+
+def test_the_lowered_floor_is_scoped_to_its_cause(isolated) -> None:
+    """A different rare cause at one row still does NOT alert."""
+    from src.runtime.silent_refusal_alert import assess
+
+    a = assess([_row("b", "rejected", "REJECTED: venue_max_qty")], min_rows=5)["b"]
+    assert a["alerting"] is False
+    assert a["priority_causes"] == []
+    assert a["alert_disposition"] == "below_min_rows"
+
+
+def test_a_rare_cause_is_not_buried_behind_a_louder_dominant_one(isolated) -> None:
+    """The mgc_trend_1h shape, measured live 2026-08-25.
+
+    7 `risk_refused` (the risk manager working correctly) against 3
+    `balance_unreadable` (the genuine defect). The dominant-cause line names
+    the HEALTHY mechanism, so without the priority line a reader triages the
+    wrong thing.
+    """
+    from src.runtime.silent_refusal_alert import _describe, assess
+
+    rows = ([_row("ib_paper", "rejected", "REJECTED: RiskBreach: INTRADAY_DRAWDOWN")] * 7
+            + [_row("ib_paper", "rejected", _BAL_NONE)] * 3)
+    a = assess(rows, min_rows=5)["ib_paper"]
+    assert a["cause"] == "risk_refused"          # dominant, and healthy
+    assert a["priority_causes"] == ["balance_unreadable"]
+    assert a["alerting_basis"] == "both"
+    body = _describe(a, 24)
+    assert "balance_unreadable (3)" in body
+    assert "OWN lower floor" in body
+
+
+def test_the_map_can_only_add_alerting_never_suppress(isolated, monkeypatch) -> None:
+    """A per-cause floor ABOVE the global one must not silence anything.
+
+    Otherwise this map becomes a quiet way to disarm a cause, which is a
+    decision that belongs somewhere visible.
+    """
+    from src.runtime import silent_refusal_alert as s
+
+    monkeypatch.setitem(s.CAUSE_MIN_ROWS, "venue_max_qty", 99)
+    a = s.assess([_row("b", "rejected", "REJECTED: venue_max_qty")] * 6,
+                 min_rows=5)["b"]
+    assert a["alerting"] is True
+    assert a["alerting_basis"] == "total_floor"
+    assert a["priority_causes"] == []
+
+
+def test_a_malformed_override_does_not_disarm_the_cause(isolated, monkeypatch) -> None:
+    from src.runtime import silent_refusal_alert as s
+
+    monkeypatch.setitem(s.CAUSE_MIN_ROWS, "balance_unreadable", "not-a-number")
+    a = s.assess([_row("ib_paper", "rejected", _BAL_NONE)] * 6, min_rows=5)["ib_paper"]
+    assert a["alerting"] is True, "a typo must fall back to the global floor"
+
+
+def test_a_pre_existing_latch_does_not_spuriously_refire(isolated, sent) -> None:
+    """The deploy that ships this must not re-page every latched account.
+
+    A latch written before `priority_causes` existed has no such key. If the
+    comparison read it as None the first tick after deploy would re-fire every
+    currently-latched account — the desensitized-alarm failure, self-inflicted.
+    """
+    from src.runtime.silent_refusal_alert import _save_state, run_silent_refusal_check
+
+    _save_state({"b": {"alerting": True, "cause": "venue_max_qty",
+                       "refused": 6, "placed": 0,
+                       "verdict": "signalled_never_placed",
+                       "updated_at": "2026-08-24T00:00:00+00:00"}})
+    rows = [_row("b", "rejected", "REJECTED: venue_max_qty")] * 6
+    run_silent_refusal_check(rows=rows, force=True)
+    assert sent == [], f"a pre-existing latch must stay latched silently: {sent}"
+
+
+def test_the_verdict_gate_still_applies_and_this_is_a_known_residual(isolated) -> None:
+    """⚠️ MEASURED RESIDUAL, pinned so it is not mistaken for coverage.
+
+    The floor is only HALF the gate — `verdict == signalled_never_placed` must
+    also hold, so an account that placed even one order in the window does not
+    alert however rare its cause. Measured live 2026-08-25 over the three
+    accounts carrying `balance_unreadable` on 2026-08-13: `ib_paper` and
+    `alpaca_portfolio` both graded `signalled_never_placed` (so the floor
+    change reaches them), but `alpaca_paper` graded `partially_refused`
+    (1 placed / 4 refused) and is STILL not covered.
+
+    So "0.3 is covered by this detector" is true of two of the three accounts
+    in the very event the row is about, and must not be stated unqualified.
+    Widening to `partially_refused` is a separate decision, not this one.
+    """
+    from src.runtime.silent_refusal_alert import assess
+
+    rows = [_row("alpaca_paper", "closed")] + [_row("alpaca_paper", "rejected", _BAL_NONE)] * 4
+    a = assess(rows, min_rows=5)["alpaca_paper"]
+    assert a["verdict"] == "partially_refused"
+    assert a["priority_causes"] == ["balance_unreadable"]
+    assert a["alerting"] is False, "documents the residual — not an endorsement"
+    assert a["alert_disposition"] == "not_a_finding"
