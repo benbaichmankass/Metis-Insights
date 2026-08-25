@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-25T20:05:00+00:00",
+  "updated_at": "2026-08-25T21:30:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -24299,9 +24299,14 @@
           "at": "2026-08-25T20:00:00+00:00",
           "by": "claude (session_017etXEZ, operator-directed)",
           "note": "MECHANISM SHIPPED — PR #10291. (a) docs/claude/operator-owed-register.json: every item carries an owner class (genuinely_human split into secret_origination / physical_or_broker / judgement, vs defaulted_to_human) and an age; 'unclassified' is REFUSED, because an unclassified item silently reads as somebody else's problem — which is how the MHG over-cover sat in the human column while its wire had shipped months earlier. (b)+(d) The escalation is a CI failure and it is MEASURED: scripts/ci/check_operator_owed.py counts, from the register's OWN git history, the commits since an item's content last changed — a register commit that leaves an item alone IS one session carrying it unmoved. operator-owed-guard is UNGATED in run_guards.py, because a diff-scoped run is blind to the passage of time. (c) Both defaulted_to_human items were given a wire rather than a reason.\n\nTHE SHAPE CHOICE THIS ROW DELIBERATELY LEFT OPEN, decided and recorded: a committed JSON file. NOT a field on the backlog rows — the backlogs hold DEFECTS, and most operator-owed items are not defects, so admitting them re-creates the un-workable-row problem § 'Backlog governance' exists to stop. NOT a labelled-issue queue — it cannot be read deterministically by CI and, decisively, it cannot MEASURE carry; a comment thread can only be asserted about. Git history is what turns (d) into a measurement.\n\n⚠️ THE COUNT UNDER-REPORTS AND CAN NEVER OVER-REPORT: a session that never touches the register leaves no commit and is invisible to it. That residual is why age is a SECOND, independent trip path — the silent_refusal_alert.CAUSE_MIN_ROWS shape, where an added path can only ADD escalation, never suppress one.\n\nTHE SHARPEST INSTANCE IS RE-CLASSIFIED, and this row's reading of it is confirmed: cancel-ib-order and attach-ib-target had existed all along, so the MHG over-cover was defaulted_to_human. The missing piece was the SELECTION, and it now exists as src/runtime/over_cover_decision.py — a pure function with seven non-collapsed states, the protection_reassert pattern this row named. tests/test_over_cover_decision.py replays the 2026-08-20 failure's own measured inputs (ib_paper MES 15 long, declared stop 7533.69642857, order 338 @ 7516.50 in oca-protect-336 vs order 375 @ 7533.75 in oca-protect-373, MES tick 0.25) and asserts the journal-matching leg is KEPT. It also pins that the selection does not fall out of order id or input order — 375 happens to be BOTH the higher id and the journal match, so an implicit input selection would have passed the anchor test by coincidence.\n\nSTATE THE POPULATION for this update's own numbers: n=5 registered items, one register, two commits of register history. Reading at session end — moved=2, carried=3, escalate_carried=0, escalate_aged=0, not_measurable=0, observed_transitions=2 across 2 items. The three carried items sit at 1 of a limit of 2, so the NEXT register commit that leaves them alone fails CI.\n\n⚠️ NOT CLOSED, DELIBERATELY — this row's own verification_obligation is why. Two items moved BECAUSE the register exists (both re-classified on measured evidence, one gaining a wire), which is more than zero and is NOT yet an item leaving the register. The terminal proof is pending on two SEQUENCING facts, not hand-offs: the branch-prune workflow cannot be reached until it is on the default branch, and the MHG cancel is Tier-2 and needs one operator OK. CLOSE THIS ROW ONLY ON (1) an item reaching a terminal status through the register, and (2) the standing check having FAILED at least once on a real carry and been cleared by a real disposition — a green that has never fired is not evidence the escalation works."
+        },
+        {
+          "at": "2026-08-25T21:30:00+00:00",
+          "by": "claude (session_017etXEZ)",
+          "note": "CONDITION 1 MET, CONDITION 2 NOT MET. The row stays OPEN, and the split is the point. MET — an item has now travelled the whole register to a terminal status: OO-20260825-STRAY-BRANCH-IB-BREAKER-PEER-CLOSE is `resolved`. It was seeded as a human hand-off by two sessions, re-classified defaulted_to_human on MEASURED evidence (a session credential gets HTTP 403 on `git push --delete` across four attempts while a normal push from the same credential in the same minute succeeds — a boundary for that credential, not for a runner), had its missing wire built, and was then dispatched and confirmed deleted by an independent `git ls-remote` rather than by the workflow's own conclusion. Nobody was asked to do anything. The check reports `observed transitions = 1` and `1 item RESOLVED and out of the open set`. NOT MET — the standing check has still NEVER FAILED on a real carry, so the escalation half remains UNPROVEN BY OBSERVATION. This session expected to observe it: two items sat at carry 1/2 on the feature branch and the next register commit should have escalated one. It did not, and the reason is a defect in the measurement, now filed as BL-20260825-CARRY-COUNT-RESETS-ACROSS-A-SQUASH-MERGE — the PR's three in-branch register commits collapsed to ONE on squash-merge, so `register commits measured` went 3 -> 2 and the carry reset. A session can therefore watch the ratchet approach and never see it fire. ⚠️ DO NOT read the current green as evidence the escalation works. It has fired exactly zero times on a real carry, which is the state this row's own verification_obligation names as unproven rather than successful. Also disposed rather than carried: OO-20260825-IB-PAPER-MHG-STOP-OVER-COVER is now DEFERRED BEHIND A NAMED TRIGGER (an operator OK on the Tier-2 cancel-ib-order dispatch), by the same session that built its wire. Its owner_class was deliberately LEFT as defaulted_to_human: re-labelling it `judgement` now that the only remaining input is an approval would be defensible on its face and is exactly the 'a mislabel buys slack' residual this register documents against itself."
         }
       ],
-      "last_reviewed": "2026-08-25T20:00:00+00:00"
+      "last_reviewed": "2026-08-25T21:30:00+00:00"
     },
     {
       "id": "BL-20260825-A-BACKLOG-REFORMAT-COLLAPSES-A-DIFF-SCOPED-GUARDS-GRANDFATHERING",
@@ -24320,6 +24325,52 @@
         "scripts/ops/check_backlog_criteria.py",
         "scripts/ops/backlog_append.py",
         "BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION"
+      ]
+    },
+    {
+      "id": "BL-20260825-CARRY-COUNT-RESETS-ACROSS-A-SQUASH-MERGE",
+      "opened_at": "2026-08-25T21:25:00+00:00",
+      "severity": "medium",
+      "tier": "1 (observability / CI tooling)",
+      "status": "open",
+      "area": "ci/operator-owed-register",
+      "title": "operator-owed carry count is not monotonic across a squash merge — N in-branch register commits collapse to 1",
+      "detail": "MEASURED 2026-08-25 on the register shipped hours earlier by PR #10291. scripts/ci/check_operator_owed.py measures carry from commits touching docs/claude/operator-owed-register.json. On the feature branch it read \"register commits measured = 3\" and put two items at carry 1/2 with the message \"one register commit from escalating\". After the PR SQUASH-merged, the same check on main read \"register commits measured = 2\" and the same items were back at 1/2 — the branch's three register commits had become one. THE DIRECTION IS ARGUABLY CORRECT AND THAT IS WHY THIS IS MEDIUM, NOT HIGH: carry is meant to count SESSIONS that came and went without moving an item, and under squash-merge one PR is roughly one session, so post-merge history counts closer to intent than the in-branch view did. The DEFECT is that the two views disagree and nothing says which is authoritative — an item can read \"one commit from escalating\" during a PR and then silently reset, so a session can watch the ratchet approach and never see it fire. This is a SECOND under-report mechanism the module header does not account for. It documents only \"a session that skips the register leaves no commit\"; the squash collapse is larger and applies to every session that DOES use the register. The \"under-reports and can never over-report\" claim still holds — this makes it under-report more — so the age axis remains the independent trip path, and no escalation is manufactured by it.",
+      "evidence": "Branch claude/operator-owed-register-8lu2w9 head 2e26e33: \"register commits measured = 3\", OO-20260825-IB-PAPER-MHG-STOP-OVER-COVER(1/2) and OO-20260825-STRAY-BRANCH-IB-BREAKER-PEER-CLOSE(1/2). main at 7603112 (the squash of that branch) plus one new register commit: \"register commits measured = 2\", MHG back at 1/2.",
+      "resolution_criteria": "Decide and DOCUMENT which history is authoritative, then make the check say so rather than leaving a reader to infer it. Candidates, none yet chosen: count only commits on the default branch (stable, but blind during a PR, which is when the pressure is meant to be felt); count distinct PRs rather than commits; or keep commits and have the check PRINT that an in-branch count is provisional and will collapse on squash. Whatever is chosen, the check must not report a carry number whose meaning changes under the reader without saying so — that is the unstated-population problem this repo already has a rule for.",
+      "found_by": "session_017etXEZ, while resolving the first item through the register",
+      "refs": [
+        "BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION"
+      ]
+    },
+    {
+      "id": "BL-20260825-READY-FOR-REVIEW-RERUNS-REQUIRED-CHECKS-AND-BLOCKS-THE-MERGE",
+      "opened_at": "2026-08-25T21:26:00+00:00",
+      "severity": "medium",
+      "tier": "1 (CI / session procedure)",
+      "status": "open",
+      "area": "ci/merge-procedure",
+      "title": "Marking a draft PR ready re-runs the required checks on the UNCHANGED head sha, and the resulting 405 is indistinguishable from a real red",
+      "detail": "MEASURED 2026-08-25 on PR #10291. All seven checks were success on head 2e26e33, read run-by-run. The PR was then flipped draft -> ready and the squash merge returned 405 '3 of 3 required status checks have not succeeded'. CAUSE: the ready_for_review transition fires a fresh pull_request event on the SAME head sha. Three new guards/pytest-run/pytest-collect runs started at 20:55:02Z, and branch protection evaluates the LATEST check run per NAME — so the identical green set underneath was masked by three in_progress ones. Nothing about the code or the sha changed; the gate was re-armed by the draft flag alone. Cost: one full pytest-run (~14 min) and a 405 whose text reads exactly like a genuine red. PROCEDURE FIX (no code change needed): flip draft -> ready BEFORE the CI you intend to merge on, not after it goes green.",
+      "evidence": "Green set on 2e26e33: pytest-run 32896600141 (event: pull_request), guards 32896600098, pytest-collect 32896600132, repo-inventory 32896600105 — all success. ready_for_review at 20:54:58Z; new runs 32898087986 / 32898087907 / 32898087870 all started 20:55:02Z on the same sha; merge 405 in between; merge succeeded at 21:10Z once they completed.",
+      "resolution_criteria": "Either (a) record the procedure rule where a session will read it before merging — the session-coordination skill's merge protocol and the merge-guard deny message both enumerate merge preconditions and neither mentions the draft flag; or (b) establish that the required workflows can skip the ready_for_review type so the flip does not re-arm the gate, and say why if they cannot. Closing this needs one of those two, not just this row.",
+      "found_by": "session_017etXEZ, on its own merge",
+      "refs": []
+    },
+    {
+      "id": "BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS",
+      "opened_at": "2026-08-25T21:27:00+00:00",
+      "severity": "medium",
+      "tier": "1 (CI observability)",
+      "status": "open",
+      "area": "ci/read-lag",
+      "title": "actions_get get_workflow_run is NOT an escape hatch from the check-run read lag — it lagged identically, and its frozen updated_at is not evidence of a stalled job",
+      "detail": "BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING recommends actions_get get_workflow_run as the way around a check-run read that says in_progress. MEASURED 2026-08-25 that this workaround can fail the same way. At ~21:03Z, guards and pytest-collect on PR #10291 read in_progress via get_check_runs. Following the row, actions_get was called on run 32898087907 and returned status: in_progress with updated_at frozen at its start time (20:55:03Z) — which was read as positive evidence the jobs were queued for a runner rather than a read artifact. THAT INFERENCE WAS WRONG: guards had completed at 20:56:43Z and pytest-collect at 20:56:28Z, both BEFORE the read that reported them running. So a frozen updated_at means only that the read is stale — it is not a signal about the job. The practical consequence is that neither surface can be trusted to say a run is still going; only a COMPLETED reading is trustworthy, and 'still running' must be treated as 'unknown', which is the collapsed-state problem applied to a CI read.",
+      "evidence": "get_check_runs at ~21:03Z: guards + pytest-collect in_progress. actions_get 32898087907 at ~21:04Z: status in_progress, updated_at 2026-08-25T20:55:03Z. Actual completed_at from the later read: guards 20:56:43Z, pytest-collect 20:56:28Z.",
+      "resolution_criteria": "Amend BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING so it no longer presents actions_get as a reliable second opinion, and state the safe reading rule: a 'completed' verdict from either surface is trustworthy; an 'in_progress' verdict from EITHER is 'we could not look', not 'it is running'. Any poller that branches on in_progress needs a wait-and-recheck rather than a conclusion.",
+      "found_by": "session_017etXEZ, correcting its own assertion",
+      "refs": [
+        "BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING"
       ]
     },
     {
