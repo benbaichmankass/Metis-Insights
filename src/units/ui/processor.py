@@ -1704,9 +1704,23 @@ def close_open_positions(
             })
             continue
 
+        # BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES.
+        # Same defect and same remedy as pairs_executor._close_pair: `row` is
+        # already in scope (id / account_id / symbol / direction /
+        # position_size / strategy_name are all read off it above), and this is
+        # a FULL close — `qty` IS `row["position_size"]` — so after a confirmed
+        # flat the trade's own qty-scoped Bybit legs have nothing left to
+        # protect and must not keep resting against the netted position.
+        #
+        # ⚠️ The partial-close path (order_monitor.py:1764) deliberately does
+        # NOT do this: there the position is still open afterwards, so
+        # cancelling would strip protection from the remainder. That one needs
+        # an amend-down, not a cancel.
         outcome = close_open_position(
             client, account_cfg,
             symbol=symbol, side=direction, qty=qty,
+            sl_order_id=row.get("sl_order_id") if hasattr(row, "get") else None,
+            tp_order_id=row.get("tp_order_id") if hasattr(row, "get") else None,
         )
         ok = bool(outcome.get("ok"))
         order_id = outcome.get("exchange_order_id")
