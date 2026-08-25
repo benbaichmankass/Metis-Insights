@@ -118,7 +118,7 @@
       "tier": 3,
       "trigger_condition": "Next /system-review (explicit operator pickup); or any /ml-review touching the MES regime fleet.",
       "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 is demoted (candidate / killed) with the decision recorded OR its inversion is root-caused + fixed and a retrain re-earns shadow; the two MES 15m heads' CLEARED status is noted (no action). The system review records the call.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "status_history": "open 2026-06-26 (flagged 2 MES 15m heads for demote) -> REVISED 2026-06-26 (MES candle fix + RG4 re-run cleared both 15m heads; re-targeted to mes-regime-5m-lgbm-yz-v1, now anti-predictive 0.17 on fixed data).",
       "evidence_log": [
@@ -154,7 +154,10 @@
       "severity": "medium",
       "disposition": "do_now",
       "next_action": "Read the registry stage via `python -m ml list-models` on the trainer relay; if it reads shadow, demote mes-regime-5m-lgbm-yz-v1 to candidate and record the decision. An anti-predictive head (0.17 on ~1460 labeled rows) is worse than a useless one. NOTE the manifest is NOT authoritative here — it declares research_only, but the head was scoreable on live shadow rows, so the REGISTRY may still hold it at shadow (the same manifest/registry drift MB-20260601-002 was about). The trainer registry could not be read from the triage session.",
-      "operator_action_required": true
+      "operator_action_required": true,
+      "resolved_at": "2026-08-25T11:20:00+00:00",
+      "resolved_by": "claude (/system-review 2026-08-25, RPT-20260825-092500-since-last)",
+      "resolution": "RESOLVED — the criterion's first clause is met: `mes-regime-5m-lgbm-yz-v1` IS demoted. Read from the live registry mirror 2026-08-25T11:1xZ (`/api/bot/ml/registry`, 95 rows): `status: candidate`, `deployment_bucket: OFFLINE`, `linked_strategies: []`. At `candidate` the shadow factory refuses it and it is wired to no strategy, so the anti-predictive head (0.17 live) can influence nothing and logs nothing.\n\nState the population for the sibling clause: the other three MES 5m rows in the same read are `mes-regime-5m-lgbm-v2` (LIVE), `mes-regime-5m-baseline-v1` (SHADOW), `mes-regime-5m-lgbm-macro-v1` (OFFLINE). The two MES 15m heads' CLEARED status needs no action and none was taken.\n\n⚠️ WHAT THIS ROW DOES NOT ESTABLISH: the criterion also offered 'OR its inversion is root-caused + fixed and a retrain re-earns shadow'. That branch was NOT taken and the inversion is NOT root-caused — the head was demoted, not understood. Closing on the demotion clause is the honest disposition; anyone retraining a 5m MES regime head should treat the inversion as an open question, not a settled one."
     },
     {
       "id": "MB-20260626-003",
@@ -3278,12 +3281,15 @@
     {
       "id": "MB-20260822-ML-STATUS-NULLS-STALENESS-THE-LOG-CARRIES",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "opened": "2026-08-22",
       "detail": "/api/bot/ml/status publishes training_staleness as an ALL-NULL block (scanned/stale/never_trained/awaiting_source/threshold_days every one null) while the underlying cycle log CARRIES the data. Measured 2026-08-22T06:0xZ, mirror_age 117s: /api/bot/ml/cycle holds two training_staleness_summary rows, 01:40:47Z and 05:45:35Z, both reading scanned 76, stale 7, never_trained 2, unresolvable 0, awaiting_source 1, registry_files 95, threshold_days 7.0. So the trainer measured it, published it, and the status endpoint nulls it. On 2026-08-21 the same block on the same endpoint was POPULATED (scanned 76, stale 7), so this is a regression, not a field that never worked. WHY IT MATTERS: a consumer reading ml/status.training_staleness cannot distinguish 'no staleness data exists' from '7 manifests are stale' -- the collapsed-state class (docs/CLAUDE-RULES-CANONICAL.md). The /system-review coverage guard reads this surface, so a stale fleet can read as an unmeasured one. Found while testing whether trainer disk pressure causes the training refusals (it does not -- see MB-20260821-TRAINER-DISK-93PCT-AND-THE-GC-CANNOT-HELP).",
       "resolution_criteria": "/api/bot/ml/status.training_staleness reports the same scanned/stale/never_trained/awaiting_source/threshold_days values the newest training_staleness_summary row in /api/bot/ml/cycle carries, for the same mirror; and when the summary is genuinely absent the block says so distinguishably rather than emitting nulls that read the same as 'nothing is stale'. Verify by comparing the two surfaces on one mirror read, not by inspecting the parser.",
       "tier": "1 (read path — the trainer already measures and publishes it; only the status endpoint drops it)",
-      "title": "/api/bot/ml/status nulls training_staleness that the cycle log carries"
+      "title": "/api/bot/ml/status nulls training_staleness that the cycle log carries",
+      "resolved_at": "2026-08-25T11:20:00+00:00",
+      "resolved_by": "claude (/system-review 2026-08-25, RPT-20260825-092500-since-last)",
+      "resolution": "RESOLVED — `/api/bot/ml/status.training_staleness` now carries the values the cycle log's `training_staleness_summary` row carries, rather than nulls. Read live 2026-08-25T11:1xZ (mirror_age 55.5 s): `{present: true, detail: null, summary: {status: training_staleness_summary, scanned: 76, stale: 7, never_trained: 2, awaiting_source: 1, unresolvable: 0, registry_files: 95, threshold_days: 7.0, ts: 2026-08-25T05:15:17Z}}` — every field the criterion named (scanned / stale / never_trained / awaiting_source / threshold_days) is populated, and the block ships a `present` flag so a genuinely-absent summary says so distinguishably instead of emitting nulls that read the same as 'nothing is stale'.\n\n⚠️ The metric is now readable and reports 7 stale + 2 never_trained of 76 scanned against a 7-day threshold. That is a live condition, not a clean bill; it belongs to ML training health, not to this observability row."
     },
     {
       "id": "MB-20260822-ETH-15M-HEAD-IS-AT-CANDIDATE-NOT-SHADOW",
