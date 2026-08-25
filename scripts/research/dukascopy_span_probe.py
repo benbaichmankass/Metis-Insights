@@ -70,40 +70,22 @@ from typing import Callable, Dict, List, Optional
 REPO_ROOT = __file__.rsplit("/scripts/", 1)[0]
 sys.path.insert(0, f"{REPO_ROOT}/scripts/ops")
 
-#: The adjudicated mapping, from
-#: docs/research/dukascopy-coverage-adjudication-2026-08-24.md.
-#:
-#: `relation` is the adjudication's own verdict and is carried through to the
-#: output so a reader never sees a proxy's depth under the real symbol's name:
-#:   same_ticker_cfd - same underlying, but still a CFD (financing/fees differ)
-#:   relaxed         - matched only via the punctuation-insensitive form
-#:   proxy           - a DIFFERENT instrument that tracks something related
-#:
-#: Keyed by INSTRUMENT, not by our symbol, because several of our symbols share
-#: one instrument (SPLG->SPY, IAUM->GLD, SCHA->IWM, MGC->XAU_USD) and probing
-#: the same instrument once per symbol would multiply the request count while
-#: measuring the same thing.
-INSTRUMENTS: Dict[str, Dict[str, object]] = {
-    "INSTRUMENT_ETF_CFD_US_GDX_US_USD": {"serves": ["GDX"], "relation": "same_ticker_cfd"},
-    "INSTRUMENT_ETF_CFD_US_GLD_US_USD": {"serves": ["GLD", "IAUM"], "relation": "same_ticker_cfd+proxy"},
-    "INSTRUMENT_ETF_CFD_US_IEF_US_USD": {"serves": ["IEF"], "relation": "same_ticker_cfd"},
-    "INSTRUMENT_ETF_CFD_US_IWM_US_USD": {"serves": ["IWM", "SCHA"], "relation": "same_ticker_cfd+proxy"},
-    "INSTRUMENT_ETF_CFD_US_QQQ_US_USD": {"serves": ["QQQ"], "relation": "same_ticker_cfd"},
-    "INSTRUMENT_ETF_CFD_US_SLV_US_USD": {"serves": ["SLV"], "relation": "same_ticker_cfd"},
-    "INSTRUMENT_ETF_CFD_US_SPY_US_USD": {"serves": ["SPY", "SPLG"], "relation": "same_ticker_cfd+proxy"},
-    "INSTRUMENT_ETF_CFD_US_TLT_US_USD": {"serves": ["TLT"], "relation": "same_ticker_cfd"},
-    "INSTRUMENT_ETF_CFD_US_USO_US_USD": {"serves": ["USO"], "relation": "same_ticker_cfd"},
-    "INSTRUMENT_FX_METALS_XAU_USD": {"serves": ["XAUUSD", "MGC"], "relation": "relaxed+proxy"},
-    "INSTRUMENT_IDX_AMERICA_E_SANDP_500": {"serves": ["MES"], "relation": "proxy"},
-}
+import dukascopy_instruments as _dk  # noqa: E402  (path shimmed above)
 
-#: Symbols the adjudication REFUSED a proxy for -- carried so the output can say
+#: The adjudicated mapping comes from ONE owner —
+#: `scripts/ops/dukascopy_instruments.py`, which transcribes
+#: docs/research/dukascopy-coverage-adjudication-2026-08-24.md. It is imported,
+#: never restated: a second copy is how this probe would measure the depth of a
+#: different instrument than the fetcher actually pulls.
+#:
+#: Keyed by INSTRUMENT, not by our symbol, because several symbols share one
+#: (SPLG->SPY, IAUM->GLD, SCHA->IWM, MGC->XAU_USD); a per-symbol loop would
+#: double the requests while measuring the same thing.
+INSTRUMENTS: Dict[str, Dict[str, object]] = _dk.instruments_with_symbols()
+
+#: Symbols the adjudication REFUSED a proxy for — carried so the output can say
 #: why they are absent rather than leaving a reader to wonder.
-REFUSED = {
-    "QLD": "ProShares Ultra QQQ (2x) - daily leverage reset, path != 2x underlying",
-    "TQQQ": "ProShares UltraPro QQQ (3x) - daily leverage reset, path != 3x underlying",
-    "MHG": "CME Micro Copper - the only ticker hit was Mowi ASA, a salmon farmer",
-}
+REFUSED = dict(_dk.REFUSED)
 
 #: Look-back anchors in days. 1830 is the span `e35-bracket-sweep.yml` requests,
 #: so it is the one that decides whether this feed unblocks that sweep; the

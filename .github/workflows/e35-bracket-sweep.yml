@@ -68,6 +68,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
+        # NO dukascopy-python here, deliberately. The planner only needs the
+        # adjudicated symbol MAP (scripts/ops/dukascopy_instruments.py imports
+        # nothing but `typing`), never the venue client — installing a package
+        # this job cannot use would imply the plan step talks to Dukascopy.
         run: pip install --quiet pandas numpy requests pyyaml
 
       # The planner resolves legs through the sweep's OWN plan_legs, so this job
@@ -124,18 +128,34 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
-        run: pip install --quiet pandas numpy requests pyyaml
+        # dukascopy-python is needed only by the non-crypto legs, but a single
+        # unconditional install keeps one step and costs a few seconds.
+        run: pip install --quiet pandas numpy requests pyyaml dukascopy-python
 
-      # GitHub runners are US Azure IPs and Bybit geoblocks the US
-      # (BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER), so the source is PINNED to
-      # Binance's public archive rather than left to `auto` — pinning also skips
-      # the doomed ~14s Bybit retry loop. The interval code comes from the
-      # planner, which REFUSES an unmapped timeframe rather than defaulting: a
-      # wrong interval does not error, it silently measures a different
-      # population.
+      # THE SOURCE IS PER-LEG, RESOLVED BY THE PLANNER
+      # (BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX).
+      # It used to be `binance_vision` for the WHOLE matrix. GitHub runners are
+      # US Azure IPs and Bybit geoblocks the US
+      # (BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER), so pinning away from `auto` was
+      # right — but Binance lists no
+      # ETFs, so on the first-ever run (32783849276) GLD and GDX each spent TEN
+      # MINUTES in a retry loop before failing, 24 of 43 legs, ~4 runner-hours
+      # per dispatch on work that could not succeed.
+      #
+      # `matrix.feed_source` now carries the planner's decision: crypto ->
+      # binance_vision, adjudicated non-crypto -> dukascopy (MEASURED to carry
+      # every mapped instrument past this workflow's own 1830 d request, run
+      # 32788423940). A leg no feed can serve is REFUSED AT PLAN TIME by name
+      # and never reaches a runner — it is not re-routed, because a leg quietly
+      # served by a feed carrying a DIFFERENT instrument is a wrong backtest
+      # that looks fine.
+      #
+      # The interval code likewise comes from the planner, which REFUSES an
+      # unmapped timeframe rather than defaulting: a wrong interval does not
+      # error, it silently measures a different population.
       - name: Fetch this leg's candles (free lane — no VM, no trainer)
         env:
-          BACKTEST_FEED_SOURCE: binance_vision
+          BACKTEST_FEED_SOURCE: ${{ matrix.feed_source }}
         run: |
           set -euo pipefail
           mkdir -p data
