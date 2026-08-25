@@ -134,7 +134,7 @@ dropped from the coverage sum (dropping it would under-count and could turn a
 real over-cover into a clean `no_over_cover`, the reassuring value fabricated).
 
 **A truncated backlog id, caught by the guard that exists for it.** Three files
-wrapped `BL-20260825-OPERATOR-OWED-…-NO-ESCALATION` across a line, so
+wrapped the filing row's 72-character id across a line, so
 `check_backlog_refs` saw truncated ids. This is the exact lapse `018aKyS3`
 recorded hours earlier. Fixed by spelling the id once as a module constant.
 
@@ -154,9 +154,25 @@ Reverted and re-applied surgically: **9 insertions, 1 deletion**. Two notes for
 the next session, since being careful is evidently not sufficient — this is the
 second recurrence in a day: `scripts/ops/backlog_append.py` already carries a
 style-detection candidate list for exactly this, and it should be reached for
-rather than a hand-rolled `json.dump`; and the new register now pins its own
+rather than a hand-rolled `json.dump` (the follow-up row below was filed WITH
+it, at 20 insertions / 1 deletion); and the new register now pins its own
 serialization in its `_comment`, so the next editor is told rather than left to
 infer it.
+
+**And the reformat has a second-order effect neither this session nor the
+previous one knew about, measured on this PR's own CI run.** The reformat
+commit `bb0f2c2` failed `guards` — `PASS 51 · FAIL 1`, the single failure being
+`artifact-validity-guard: check_backlog_refs.py --base origin/main exited 1`.
+The guard passed on the commit before it and on the commit that reverted the
+reformat. **A whole-file re-serialization makes every row read as an added
+line, so a deliberately DIFF-SCOPED guard grades the entire backlog as
+introduced by the PR and fails on the pre-existing debt it was designed to
+grandfather** — and the failure names dangling references in rows the PR never
+touched, i.e. it points at the wrong cause. Filed as
+`BL-20260825-A-BACKLOG-REFORMAT-COLLAPSES-A-DIFF-SCOPED-GUARDS-GRANDFATHERING`.
+The costly part is the misleading message, not the failure: "my row has a bad
+ref" and "this guard is flaky" are both wrong, and the second is how a guard
+starts getting routed around.
 
 ## Risks and Follow-Ups
 

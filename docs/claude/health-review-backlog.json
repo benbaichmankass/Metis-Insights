@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T17:15:00+00:00",
+ "updated_at": "2026-08-25T20:05:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -24007,6 +24007,25 @@
     }
    ],
    "last_reviewed": "2026-08-25T20:00:00+00:00"
+  },
+  {
+   "id": "BL-20260825-A-BACKLOG-REFORMAT-COLLAPSES-A-DIFF-SCOPED-GUARDS-GRANDFATHERING",
+   "opened_at": "2026-08-25T20:05:00+00:00",
+   "opened_by": "claude (session_017etXEZ) — found by its own CI run",
+   "severity": "medium",
+   "tier": "1",
+   "status": "open",
+   "area": "CI guards / backlog tooling",
+   "title": "A whole-file reformat of a backlog silently converts every diff-scoped backlog guard from grandfathered to whole-tree, and the failure names the wrong cause",
+   "detail": "check_backlog_refs.py and check_backlog_criteria.py are deliberately DIFF-SCOPED: the docstrings say so, and say why — 'a guard that fails everywhere on day one gets switched off or routed around, which is strictly worse than no guard'. Grandfathering the past is what makes them survivable, and it rests entirely on `git diff --base` seeing only the lines a PR actually touched.\n\nA whole-file re-serialization removes that footing. Every row reads as an added line, so the guard grades the ENTIRE backlog as introduced by the PR and fails on the pre-existing debt — 114 of 262 rows lacked resolution_criteria when that population was last measured (2026-08-12), and the standing dangling-reference count is non-zero by design (the --all sweep is registered `allow_fail` for exactly that reason).\n\nMEASURED, on this session's own PR #10291. STATE THE POPULATION: one commit, one guards run (32892050803, head bb0f2c2, 2026-08-25T19:54Z), n=1. Result `PASS 51 · FAIL 1`, the single failure `artifact-validity-guard: python3 scripts/ops/check_backlog_refs.py --base origin/main exited 1`. The same guard passed on the commit before (f0aeab15) and the commit after the reformat was reverted (807e18f). The only difference between them is the serialization of docs/claude/health-review-backlog.json: the file is written at indent=1 and the session re-dumped it at indent=2, producing 23,508 insertions / 23,500 deletions for a 9-line row update.",
+   "why_it_matters": "The failure is real but it NAMES THE WRONG CAUSE. It points at dangling references — pre-existing ones, in rows the PR never touched — so the obvious readings are 'my row has a bad ref' (it does not) or 'the guard is flaky' (it is not). Both are wrong and both cost a debugging cycle; the second is worse, because concluding a guard is noisy is the first step to routing around it, which is the exact outcome its diff-scoping was designed to prevent.\n\nIt also compounds a lapse this repo has now recorded TWICE IN ONE DAY (session 018aKyS3: 'a 46,114-line backlog reformat for a 47-line change — caught reading my own diff'; this session reproduced it hours later). Both were caught by a human reading the diff. Nothing mechanical catches it, and the second-order effect above was not known to either.",
+   "resolution_criteria": "Either (a) the backlog guards detect a whole-file re-serialization and say so explicitly — e.g. when the added-line count exceeds some large fraction of the file, report 'this looks like a reformat, not N new rows' and grade against the PARSED rows rather than the diff lines, so the message names the real cause; or (b) a guard fails a PR that re-serializes a backlog with different json.dumps options, pointing at scripts/ops/backlog_append.py, which already carries a style-detection candidate list for exactly this and is the tool a session should be reaching for. (a) is the more useful of the two because it fixes the misleading MESSAGE, which is the costly part. Verified by a test that reformats a fixture backlog and asserts the guard's output names the reformat rather than listing rows.",
+   "refs": [
+    "scripts/ops/check_backlog_refs.py",
+    "scripts/ops/check_backlog_criteria.py",
+    "scripts/ops/backlog_append.py",
+    "BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION"
+   ]
   }
  ]
 }
