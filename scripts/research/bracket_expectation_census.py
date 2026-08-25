@@ -58,7 +58,16 @@ REPO = Path(__file__).resolve().parents[2]
 # Mirrors src/runtime/target_expectation.py. Kept as a mirror rather than an
 # import so this stays runnable standalone; agreement is asserted in selftest.
 SENTINEL_R_FLOOR = 50.0
-TP_VENUE_CAP_PCT = 0.099
+# The venue TP clamp -- ONE owner: src/runtime/tp_venue_cap.py. IMPORTED, not
+# mirrored. This file used to carry its own `TP_VENUE_CAP_PCT = 0.099`, one of
+# thirteen such literals with nothing binding them -- and this repo's own note
+# on that was right: "if the live constant moves, this silently keeps measuring
+# the OLD book, and the sweep will look correct while doing it". The owner
+# imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
+# empty, so this adds no heavy dependency.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    TP_VENUE_CAP_PCT as TP_VENUE_CAP_PCT)
 TARGET_KEYS = ("target_r", "tp_r", "tp_at_r")
 
 # Class-level defaults, read from the strategy modules rather than hardcoded

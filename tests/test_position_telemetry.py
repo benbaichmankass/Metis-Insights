@@ -8,7 +8,6 @@ peak coming from a SECOND definition instead of the lever's own.
 """
 from __future__ import annotations
 
-import re
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -205,12 +204,13 @@ class TestOneDefinition:
             pt.since_entry_peak = real
         assert called.get("yes"), "build_record did not use since_entry_peak"
 
-    def test_cap_constant_matches_the_strategy_source(self):
-        for mod in ("trend_donchian.py", "htf_pullback_trend_2h.py"):
-            src = (REPO / "src" / "units" / "strategies" / mod).read_text()
-            m = re.search(r"_TP_SENTINEL_CAP_PCT\s*=\s*([0-9.]+)", src)
-            assert m, f"no _TP_SENTINEL_CAP_PCT in {mod}"
-            assert abs(float(m.group(1)) - pt._TP_SENTINEL_CAP_PCT) < 1e-9
+    def test_cap_constant_IS_the_owner_not_a_copy(self):
+        """Identity, replacing a source-regex comparison of literals."""
+        from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
+        from src.units.strategies.trend_donchian import (
+            _TP_SENTINEL_CAP_PCT as donchian_cap)
+        assert pt._TP_SENTINEL_CAP_PCT is TP_VENUE_CAP_PCT
+        assert donchian_cap is TP_VENUE_CAP_PCT
 
 
 class TestWiredIntoBothFamilies:

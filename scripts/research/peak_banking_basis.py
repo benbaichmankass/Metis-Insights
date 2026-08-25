@@ -47,6 +47,8 @@ Usage
 """
 from __future__ import annotations
 
+import sys
+
 import argparse
 import json
 import statistics
@@ -55,7 +57,16 @@ from typing import Any, Dict, List, Optional
 
 #: The live venue TP clamp — the same constant the reachability audit mirrors
 #: from the unit modules' `_TP_SENTINEL_CAP_PCT`.
-LIVE_TP_CAP_PCT = 0.099
+# The venue TP clamp -- ONE owner: src/runtime/tp_venue_cap.py. IMPORTED, not
+# mirrored. This file used to carry its own `LIVE_TP_CAP_PCT = 0.099`, one of
+# thirteen such literals with nothing binding them -- and this repo's own note
+# on that was right: "if the live constant moves, this silently keeps measuring
+# the OLD book, and the sweep will look correct while doing it". The owner
+# imports only `typing`, and src/__init__.py + src/runtime/__init__.py are
+# empty, so this adds no heavy dependency.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.runtime.tp_venue_cap import (  # noqa: E402
+    TP_VENUE_CAP_PCT as LIVE_TP_CAP_PCT)
 
 #: Cap fractions to report. Chosen to bracket the live XRP reading (76%) and to
 #: span the range where a ceiling could plausibly bind, NOT tuned to a result.

@@ -86,17 +86,27 @@ class TestCapR:
         assert r["cap_price"] == pytest.approx(90.1)
         assert r["placed_price"] == pytest.approx(90.1)
 
-    def test_the_cap_mirrors_the_value_production_clamps_with(self):
-        """Pinned, because this module deliberately mirrors rather than imports."""
+    def test_the_cap_IS_the_owner_not_a_copy_of_it(self):
+        """Identity, not equality.
+
+        This used to regex the strategy source for a literal, because the value
+        was declared in thirteen places and a test comparing numbers was the
+        only available binding. There is one owner now, so the far stronger
+        claim is available: every consumer must be the SAME object. A
+        re-introduced copy would still compare equal and would fail this.
+        """
+        from src.runtime import tp_venue_cap
         from src.runtime.position_telemetry import _TP_SENTINEL_CAP_PCT
-        assert te.TP_VENUE_CAP_PCT == _TP_SENTINEL_CAP_PCT
-        import re
-        for path in ("src/units/strategies/trend_donchian.py",
-                     "src/units/strategies/htf_pullback_trend_2h.py"):
-            src = open(path, encoding="utf-8").read()
-            m = re.search(r"_TP_SENTINEL_CAP_PCT\s*=\s*([0-9.]+)", src)
-            assert m, path
-            assert float(m.group(1)) == te.TP_VENUE_CAP_PCT, path
+        from src.units.strategies.htf_pullback_trend_2h import (
+            _TP_SENTINEL_CAP_PCT as pullback_cap)
+        from src.units.strategies.trend_donchian import (
+            _TP_SENTINEL_CAP_PCT as donchian_cap)
+        owner = tp_venue_cap.TP_VENUE_CAP_PCT
+        for name, value in (("target_expectation", te.TP_VENUE_CAP_PCT),
+                            ("position_telemetry", _TP_SENTINEL_CAP_PCT),
+                            ("trend_donchian", donchian_cap),
+                            ("htf_pullback_trend_2h", pullback_cap)):
+            assert value is owner, f"{name} does not resolve to the one owner"
 
 
 class TestExtension:
@@ -171,14 +181,64 @@ class TestPurity:
             te.evaluate_extension(r, price=None, entry=None, direction=None,
                                   thesis_intact=None)
 
-    def test_the_module_imports_nothing_from_the_repo(self):
-        """Pure + dependency-free, so it is import-safe from any layer."""
+    def test_the_module_stays_import_safe_from_any_layer(self):
+        """Dependency-freedom, asserted TRANSITIVELY rather than by a blanket ban.
+
+        This used to assert `not mod.startswith("src")` outright. That was a
+        PROXY for the real property in the docstring -- "import-safe from any
+        layer" -- and the proxy became wrong on 2026-08-25, when the venue TP
+        clamp got a single owner (`src/runtime/tp_venue_cap.py`) and this module
+        started importing it instead of mirroring the literal.
+
+        Weakening the test to whitelist that one module by name would assert
+        nothing about it. So the check now walks the repo imports it makes and
+        requires each to be dependency-free itself: no third-party import, and
+        no onward `src.` import. A leaf constants module passes; anything that
+        would drag runtime machinery in here still fails, which is the property
+        that was actually being protected.
+        """
         import ast
-        tree = ast.parse(open("src/runtime/target_expectation.py",
-                              encoding="utf-8").read())
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                mod = getattr(node, "module", None) or ""
-                names = [a.name for a in node.names]
-                assert not mod.startswith("src"), mod
-                assert not any(n.startswith("src") for n in names), names
+        import pathlib
+        import sys
+
+        stdlib = set(getattr(sys, "stdlib_module_names", ())) | {"typing"}
+        seen: set[str] = set()
+
+        def repo_imports(rel_path):
+            tree = ast.parse(pathlib.Path(rel_path).read_text(encoding="utf-8"))
+            repo, foreign = set(), set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    mod = node.module or ""
+                    if node.level:            # a relative import is a repo import
+                        repo.add(mod or rel_path)
+                    elif mod.startswith("src"):
+                        repo.add(mod)
+                    elif mod.split(".")[0] not in stdlib:
+                        foreign.add(mod)
+                elif isinstance(node, ast.Import):
+                    for a in node.names:
+                        if a.name.startswith("src"):
+                            repo.add(a.name)
+                        elif a.name.split(".")[0] not in stdlib:
+                            foreign.add(a.name)
+            return repo, foreign
+
+        def check(rel_path, depth=0):
+            if rel_path in seen:
+                return
+            seen.add(rel_path)
+            repo, foreign = repo_imports(rel_path)
+            if depth:                       # the module under test may use pandas etc.
+                assert not foreign, (
+                    f"{rel_path} is imported by target_expectation but pulls in "
+                    f"third-party deps {sorted(foreign)} -- it is not a safe leaf")
+            for mod in sorted(repo):
+                child = pathlib.Path(mod.replace(".", "/") + ".py")
+                assert child.is_file(), f"{rel_path} imports unresolvable {mod}"
+                check(child.as_posix(), depth + 1)
+
+        check("src/runtime/target_expectation.py")
+        # Positive control: the walk must actually have visited the owner, or a
+        # clean result would only mean the traversal found nothing.
+        assert "src/runtime/tp_venue_cap.py" in seen, seen
