@@ -39,6 +39,11 @@ Wire shape (camelCase):
         {"name": "vwap", "trades": 120, "wins": 70, "winRate": 58.3,
          "totalPnl": 540.2, "expectancy": 4.5}
       ],
+      "perExitPath": [                  # worst coverage FIRST, not best PnL
+        {"exitPath": "pairs_stop", "trades": 40, "wins": 12, "winRate": 30.0,
+         "totalPnl": -80.1, "totalPnlMeasured": 0.0,
+         "pnlMeasuredCount": 0, "pnlEstimatedCount": 0, "pnlCoverage": 0.0}
+      ],
       "equity": [{"t": "2026-05-22T09:01:00+00:00", "cum": 12.5}]  # oldest→newest
     }
 
@@ -148,6 +153,7 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "profitFactor": None,
         "maxDrawdown": None,
         "perStrategy": [],
+        "perExitPath": [],
         "perAssetClass": [],
         "perSymbol": [],
         "equity": [],
@@ -224,10 +230,20 @@ def _query(
         # A missing column degrades pnlCoverage to 0/unverified (the honest
         # reading: no provenance was recorded) and leaves the rest intact.
         notes_select = "\n                   t.notes AS notes," if "notes" in avail else""
+        # `exit_reason` backs `perExitPath` and is selected UNCONDITIONALLY —
+        # deliberately NOT wrapped in the `avail` guard that `notes` and the R
+        # inputs use. Those are genuinely optional; this one is not: the
+        # reset-flat exclusion appended below
+        # (`_clean_trades.exclude_reset_flat_predicate`) already references
+        # `t.exit_reason` on every query, so a trades table without the column
+        # has never been able to serve this endpoint at all. A guard that cannot
+        # fire is worse than no guard — it advertises a degradation path that
+        # does not exist, and the next reader would trust it.
+        exit_select = "\n                   t.exit_reason AS exit_reason,"
         sql = f"""
             SELECT t.strategy_name,
                    t.symbol AS symbol,
-                   t.pnl AS pnl,{r_select}{notes_select}
+                   t.pnl AS pnl,{r_select}{notes_select}{exit_select}
                    {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
             LEFT JOIN (
@@ -291,6 +307,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     per: Dict[str, Dict[str, float]] = {}
     per_class: Dict[str, Dict[str, float]] = {}
     per_symbol: Dict[str, Dict[str, Any]] = {}
+    per_exit: Dict[str, Dict[str, float]] = {}
     equity: List[Dict[str, Any]] = []
     cum = 0.0
     peak = 0.0           # running equity peak for max-drawdown
@@ -354,6 +371,32 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         if rr is not None:
             bucket["r"] += rr
             bucket["rc"] += 1
+        # Per-EXIT-PATH provenance (2026-08-25,
+        # BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO).
+        # Coverage is published per STRATEGY above and was published nowhere per
+        # exit path, so a path that has NEVER been measured could not be told
+        # from one merely below a floor. Measured over all 1,347 closed
+        # non-backtest rows on 2026-08-25: six paths sat at 0.0% broker truth
+        # across 267 closes (the whole pairs sleeve, the whole intent-reduce
+        # path, netting_attributed, reconciler_incomplete) while the global
+        # figure read 42.9% — an average of a 66.9% path and a 0.0% path
+        # describes neither.
+        exit_path = str(_rget(r, "exit_reason") or "(unrecorded)")
+        ebucket = per_exit.setdefault(
+            exit_path,
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
+             "pnl_measured": 0.0, "pnl_estimated": 0.0},
+        )
+        ebucket["trades"] += 1
+        if pnl > 0:
+            ebucket["wins"] += 1
+        ebucket["pnl"] += pnl
+        if pnl_bucket == MEASURED:
+            ebucket["pnl_measured"] += 1
+        elif pnl_bucket == ESTIMATED:
+            ebucket["pnl_estimated"] += 1
+        if pnl_is_measured:
+            ebucket["pnl_measured_sum"] += pnl
         # asset-class breakdown (crypto / index / commodity / equity / fx)
         cls = asset_class_for_symbol(r["symbol"])
         cbucket = per_class.setdefault(
@@ -438,6 +481,44 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         for name, b in per.items()
     ]
     per_strategy.sort(key=lambda s: s["totalPnl"], reverse=True)
+
+    # Per-EXIT-PATH coverage. Same field vocabulary as `perStrategy` on purpose —
+    # a second vocabulary for the same quantity is how two surfaces drift into
+    # disagreeing about one number.
+    #
+    # ⚠️ READ `trades` BESIDE `pnlCoverage`, ALWAYS. `pnlCoverage: 0.0` over 115
+    # trades and `0.0` over 2 are not the same claim, and this breakdown exists
+    # precisely because the global figure hid that distinction.
+    #
+    # ⚠️ THE POPULATION IS `/performance`'s, NOT the trades table's. `_query`
+    # excludes `pnl IS NULL`, so `reconciler_incomplete` — 93 rows, 0.0% broker
+    # truth in the 2026-08-25 table-wide cut — does NOT appear here at all. That
+    # is not a contradiction between the two readings; it is two populations, and
+    # anyone reconciling them needs to know which they are holding.
+    per_exit_path = [
+        {
+            "exitPath": path,
+            "trades": int(b["trades"]),
+            "wins": int(b["wins"]),
+            "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
+            "totalPnl": round(b["pnl"], 4),
+            "totalPnlMeasured": round(b["pnl_measured_sum"], 4),
+            # MEASURED-only, like every other pnlCoverage in this file — ESTIMATED
+            # is deliberately NOT "covered", and `totalPnlMeasured` above sums
+            # MEASURED+ESTIMATED. The asymmetry is load-bearing (see the long note
+            # on the per-strategy dict); neither may be harmonised to the other.
+            "pnlMeasuredCount": int(b["pnl_measured"]),
+            "pnlEstimatedCount": int(b["pnl_estimated"]),
+            "pnlCoverage": (
+                round(b["pnl_measured"] / b["trades"], 4) if b["trades"] else None
+            ),
+        }
+        for path, b in per_exit.items()
+    ]
+    # Worst coverage first: the point of the breakdown is to surface the paths
+    # nobody has measured, so sorting by PnL would bury them.
+    per_exit_path.sort(key=lambda e: (e["pnlCoverage"] if e["pnlCoverage"] is not None
+                                      else 1.0, -e["trades"]))
 
     per_asset_class = [
         {
@@ -524,6 +605,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         "profitFactor": profit_factor,
         "maxDrawdown": max_drawdown,
         "perStrategy": per_strategy,
+        "perExitPath": per_exit_path,
         "perAssetClass": per_asset_class,
         "perSymbol": per_symbol_list,
         "equity": _downsample(equity, _MAX_EQUITY_POINTS),
