@@ -24715,6 +24715,26 @@
         "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
         "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE"
       ]
+    },
+    {
+      "id": "BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES",
+      "opened_at": "2026-08-25T23:45:00+00:00",
+      "opened_by": "claude (system-review; root-caused from a live 167% over-cover, then AST-audited every call site)",
+      "status": "open",
+      "severity": "high",
+      "tier": "2 (order path)",
+      "area": "order path / bybit leg lifecycle",
+      "title": "The 2026-07-21 close-side leg-cancel fix is passed at 1 of 10 close_open_position call sites — the pairs sleeve was one of the nine, and it leaked 12 legs onto a live position",
+      "detail": "ROOT CAUSE of BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING, which has been open since 2026-07-30 labelled 'worsening' with no cause recorded.\n\n`close_open_position(..., sl_order_id=, tp_order_id=)` cancels the closing trade's own tracked Bybit Partial-tpsl legs after a confirmed close — shipped 2026-07-21 as the structural half of BL-20260721-BYBIT2-XRP-TPSL-LEGCAP and described in CLAUDE.md and ROADMAP.md as done. AST-audited 2026-08-25 across src/ and scripts/: **10 call sites, and exactly ONE passes the ids** (order_monitor.py:1666, which reads them off `matched_trade`). The parameter exists, the cancel logic exists, and nine callers do not use it — the written-and-never-read shape one level up, at the call site rather than the field.\n\nMEASURED CONSEQUENCE, live on bybit_1/ETHUSDT 2026-08-25T23:09Z. Position 5.59 Buy; the trader's own sweep reports resting SL legs totalling 9.33 across 9 legs = **167%**, and logs 'a trip would over-close and strand the rest'. Of 14 resting legs readable, 2 belong to the one OPEN row (4921) and **12 belong to SIX CLOSED rows** — 5003, 4998, 4974, 4937, 4932, 4909, every one closed by `pairs_revert` / `pairs_stop` / `pairs_half_open_cleanup`. **ZERO orphans**: every resting leg maps to a journal row, so the leaked-close path is the WHOLE cause, not a contributing one.\n\n⚠️ THE NINE ARE NOT ONE PROBLEM — dispositioned individually, because a blanket 'pass the ids everywhere' would be wrong at most of them:\n  FIXED  src/units/strategies/pairs_executor.py:768 (_close_pair) — the row was ALREADY in scope (`direction`, `position_size`, `entry_price` all read off it three lines up), so this was never a missing-context problem. Two kwargs. Fixed this session.\n  EXEMPT src/units/strategies/pairs_executor.py:631 (_unwind_placed_legs) — iterates (symbol, direction, qty) tuples from a partial-placement failure and holds no row.\n  EXEMPT scripts/ops/flatten_{ib,alpaca}_position.py — non-Bybit; the kwarg is ignored by every other exchange branch.\n  OPEN   src/core/coordinator.py:2074 — the flip_flat close. Works from net signed qty and genuinely has NO trade row; its own comment says the row is closed later by the reconciler's close-on-disappear. A real gap needing a design answer, not a two-line fix.\n  OPEN   src/runtime/order_monitor.py:1764, src/units/ui/processor.py:1707, scripts/ops/flatten_bybit_position.py:87 — Bybit-reachable, row availability NOT yet established at each. Do not assume they are all like the pairs one.\n  N/A    scripts/sprint047/spot_margin_smoke.py:219 — a smoke script.",
+      "why_it_matters": "On a one-way netted book the legs of a CLOSED trade do not expire — they keep resting against the SURVIVING position. That is over-coverage, and the trader's own message states the consequence: one leg trips, the position flattens, and the remaining legs are still resting to sell qty that no longer exists. bybit_1 is demo; bybit_2 and bybit_portfolio run the same close path and bybit_2 is MAINNET.",
+      "not_done": "Only the pairs `_close_pair` site is fixed. The four OPEN sites above are untouched — each needs its own row-availability check first, and coordinator.py:2074 needs a design answer rather than a kwarg. The 12 legs ALREADY stranded on bybit_1/ETHUSDT are NOT cleaned up by this fix (it only stops new ones); that backlog is the `cancel-stale-tpsl-legs` system-action, Tier-2, dry-run by default — which is wired and was genuinely used in July, so it is a remedy that exists rather than one that needs building.",
+      "resolution_criteria": "RESOLVED when a pairs close on bybit_1 is followed by a read showing that trade's tracked leg ids NO LONGER resting — measured on a real close, not a unit test — AND the four OPEN call sites above each carry a recorded disposition (fixed, or exempt with the reason its row is unavailable). A code citation does not close it: the fix being 'shipped' at one of ten sites is exactly what this row is about.",
+      "related": [
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+        "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
+        "BL-20260825-THE-ENTIRE-BYBIT-NAKED-SWEEP-PAGES-NOBODY",
+        "BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO"
+      ]
     }
   ]
 }

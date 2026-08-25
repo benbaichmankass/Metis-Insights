@@ -765,8 +765,28 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             direction = str(row.get("direction") or "").lower()
             qty = float(row.get("position_size") or 0.0)
             entry = float(row.get("entry_price") or 0.0)
+            # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP: pass this leg's OWN tracked
+            # Bybit Partial-tpsl order ids so `close_open_position` cancels them
+            # after a confirmed close. Without them the venue keeps the legs of a
+            # closed trade resting forever, and on a netted one-way book they
+            # accumulate against the SURVIVING position.
+            #
+            # MEASURED 2026-08-25 on bybit_1/ETHUSDT: 12 legs still resting for
+            # SIX closed pairs rows (5003, 4998, 4974, 4937, 4932, 4909 — all
+            # pairs_revert / pairs_stop / pairs_half_open_cleanup), against a
+            # 5.59 position carrying 9.33 of stop = 167%. Zero of the resting
+            # legs were orphans: every one mapped to a journal row, so this is
+            # the whole cause and not a contributing one.
+            #
+            # The row is ALREADY in scope here — `direction`, `position_size` and
+            # `entry_price` are read off it three lines up — so this was never a
+            # missing-context problem. `close_open_position` treats a cancel
+            # failure as logged-not-fatal (the position IS flat either way), so
+            # passing them cannot turn a good close into a failed one.
             res = close_open_position(client, account_cfg, symbol=symbol,
-                                      side=direction, qty=qty)
+                                      side=direction, qty=qty,
+                                      sl_order_id=row.get("sl_order_id"),
+                                      tp_order_id=row.get("tp_order_id"))
             if not res.get("ok"):
                 logger.warning("pairs: leg close not confirmed %s (%s): %s — row left open",
                                symbol, strat, res.get("error"))
