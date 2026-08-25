@@ -24664,6 +24664,57 @@
       "related": [
         "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES"
       ]
+    },
+    {
+      "id": "BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN",
+      "opened_at": "2026-08-25T23:30:00+00:00",
+      "opened_by": "claude (system-review; found by cross-checking the route against the trader's own sweep, 9 seconds apart)",
+      "status": "open",
+      "severity": "high",
+      "tier": "1 (a read surface; no order path)",
+      "area": "diag read surfaces / exit coverage verification",
+      "title": "/api/diag/bybit_open_orders reports FEWER resting legs than the venue holds for a symbol its settleCoin page DOES return — 3.02 across 7 vs the trader's 9.33 across 9, same position, 9s apart",
+      "detail": "MEASURED 2026-08-25 on bybit_1/ETHUSDT, position size 5.59 Buy, two independent reads nine seconds apart:\n\n  23:09:13Z  order_monitor._check_broker_naked_bybit_positions (SYMBOL-SCOPED read):\n             'resting SL legs total 9.33 (167%) across 9 leg(s)'  -> OVER-covered\n  23:09:22Z  /api/diag/bybit_open_orders (settleCoin=USDT account-wide page):\n             7 PartialStopLoss legs summing 3.02  -> reads as 54% covered, UNDER-covered\n\nSame account, same symbol, same position size (both report 5.59). The route is missing legs the venue holds.\n\n⚠️ THE ERROR IS IN THE DANGEROUS DIRECTION. A consumer doing the obvious arithmetic on this route concludes the position is PARTIALLY NAKED with 2.57 ETH unprotected, when the truth is the opposite — it is over-covered at 167%, which is a different defect with a different remedy (cancel-stale-tpsl-legs, not a top-up). I made exactly that error while writing this row and caught it only because the trader's own journal disagreed; a session without that cross-check would have filed a naked-position alarm on a position that has too much protection, not too little.\n\nROOT CAUSE, read from the code rather than inferred: `account_bybit_open_orders` (src/units/accounts/clients.py, shipped 2026-08-22) reads POSITIONS with a per-symbol cross-check and reads ORDERS with NONE. The positions half carries the BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND remedy — 'a settleCoin=USDT page can silently OMIT a live symbol', so every CONFIGURED symbol the page missed is re-read symbol-scoped and flagged `settlecoin_blind`. The orders half is a single account-wide `get_open_orders(settleCoin='USDT', orderFilter=...)` page with no equivalent. The reasoning was right and was never carried across.\n\nAND THE EXISTING CROSS-CHECK COULD NOT CATCH THIS ANYWAY, because it is guarded by `if not sym or sym in seen: continue` — it re-reads only symbols the page OMITTED ENTIRELY. Here the page RETURNED ETHUSDT, with fewer legs than exist. 'Present but incomplete' is a third state neither the page nor the cross-check can express, and it is invisible to both.",
+      "evidence": [
+        "trader journal 2026-08-25T23:09:13Z: '_check_broker_naked_bybit_positions: LEG OVER-ACCUMULATION bybit_1/ETHUSDT — position size=5.59 but resting SL legs total 9.33 (167%) across 9 leg(s)'",
+        "/api/diag/bybit_open_orders captured_at 2026-08-25T23:09:22.182455+00:00: bybit_1/ETHUSDT 14 legs total, of which 7 PartialStopLoss summing 3.02 and 7 PartialTakeProfit summing 3.02",
+        "every returned leg carried a parseable qty (0 nulls), so the 3.02 is not an artifact of null-as-zero — checked explicitly before concluding",
+        "order_monitor._SL_LEG_TYPES_MON = {'stoploss','partialstoploss'} — the sweep and this arithmetic classify the same leg types, so the gap is the leg SET, not the classifier"
+      ],
+      "impact": "Scoped honestly: this is a READ surface, so nothing acts on it automatically and no order path is affected. But it is consumed by analysis sessions that cannot see the query they got, and it was built precisely to be the substrate that CONTRADICTS the reducing verdicts (`_bybit_position_protection` -> a covered quantity). A substrate that under-reports the thing it exists to verify is worse than no substrate, because it is trusted. scripts/ops/exit_path_coverage.py now consumes this route (this session) — its PRESENCE grading (does any stop / any target rest?) survives an incomplete leg set, but any QUANTITY read off it does not.",
+      "not_done": "NOT FIXED IN-SESSION. The fix is to re-read symbol-scoped for every symbol holding an OPEN POSITION and prefer that result, flagging which source served each symbol's legs (`legs_source` ∈ symbol_scoped / settlecoin_page) rather than silently merging — the same never-collapse discipline the rest of the route already follows. Bounded cost: one extra call per open position (9 across 3 accounts at the time of measurement). Left unfixed because the correct shape needs a decision about whether to keep the page read at all, and filing it beats a rushed patch to a surface whose whole value is being trustworthy.",
+      "resolution_criteria": "RESOLVED when a read of /api/diag/bybit_open_orders and the trader's own symbol-scoped sweep report the SAME leg count and summed qty for the same position within one sweep interval, demonstrated on a symbol where they currently disagree (bybit_1/ETHUSDT is the recorded instance), AND the payload names which read served each symbol's legs so a future divergence is attributable rather than merely absent. A code citation does not close it: the defect is that the route already LOOKS like it cross-checks.",
+      "related": [
+        "BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND",
+        "BL-20260818-NO-BRACKET-READ-SURFACE-FOR-BYBIT-OR-ALPACA",
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING"
+      ]
+    },
+    {
+      "id": "BL-20260825-THE-ENTIRE-BYBIT-NAKED-SWEEP-PAGES-NOBODY",
+      "opened_at": "2026-08-25T23:35:00+00:00",
+      "opened_by": "claude (system-review; the third instance of this class in one session, so filed as the CLASS)",
+      "status": "open",
+      "severity": "high",
+      "tier": "2 (alert path on the live trader)",
+      "area": "alerting / exit-coverage",
+      "title": "_check_broker_naked_bybit_positions reaches the systemd journal and NOTHING ELSE — 365 lines, 3 logger.error, zero emit(); a live 167% over-covered position alarmed to an audience of nobody",
+      "detail": "THIS IS THE SAME DEFECT THE IB SIDE HAD, ON THE VENUE WHERE ONE ACCOUNT IS MAINNET. `_emit_stop_over_cover_alert` was added to the IB sweep earlier today for exactly this: `logger.error` reaches the systemd journal and never writes `outcomes.jsonl`, which is what feeds Telegram, the /api/bot/notifications banner and /api/bot/logs?level=error. The Bybit sweep was not given the same treatment and nobody checked whether it needed it.\n\nMEASURED by reading the function: `_check_broker_naked_bybit_positions` is 365 lines and contains 3 `logger.error`, 7 `logger.warning`, and ZERO of `emit(` / `Level.CRITICAL` / `Level.ERROR` / `_cooldown_admits` / any outcomes call. Every condition it detects is journal-only.\n\nCONFIRMED LIVE, with a working control. Over the operator ERROR+ feed (/api/bot/logs?level=error&limit=1000 — 405 rows spanning 2026-08-20T08:16Z -> 2026-08-25T22:48Z, 5.6 days):\n    LEG OVER-ACCUMULATION      0\n    PARTIALLY NAKED            0\n    _check_broker_naked_bybit  0\n    CONTROL ib_target_naked  141   <- the feed DOES carry protection alerts\n    CONTROL 'bybit' anywhere   18   <- and DOES carry bybit content\nThe controls are the point: a zero over a feed that carries neither would prove nothing. This feed carries both, so the zero is a real absence.\n\nAND THE CONDITION WAS FIRING INSIDE THAT WINDOW. Trader journal, 2026-08-25T23:09:13Z: 'LEG OVER-ACCUMULATION bybit_1/ETHUSDT — position size=5.59 but resting SL legs total 9.33 (167%) across 9 leg(s). Legs have piled up; a trip would over-close and strand the rest.' That is a live position carrying 167% of stop cover, detected correctly, and invisible on every surface a human reads.\n\nWHY IT MATTERS AT THE SAME SEVERITY AS THE IB CASE: the message names the consequence itself — a trip over-closes and strands the remainder. On a netted one-way book that is the naked-reverse shape. `bybit_1` is demo, but `bybit_2` and `bybit_portfolio` run the same code path and `bybit_2` is MAINNET.",
+      "class": "UNPAGED DETECTION — a condition is detected correctly and emitted with a bare `logger.*`, so it reaches the systemd journal and no operator surface. Third instance in one session, which is why this is filed as the class rather than the row.",
+      "class_members": [
+        "IB stop over-cover — detected since BL-20260816, logger.error only; FIXED 2026-08-25 by _emit_stop_over_cover_alert with a durable cooldown",
+        "Bybit LEG OVER-ACCUMULATION — detected, logger.error only; measured firing 2026-08-25T23:09:13Z, zero operator rows in 5.6 days",
+        "Bybit PARTIALLY NAKED — same function, same logger.error-only emission; not observed firing in the sampled window, so its absence from the feed is not yet evidence either way"
+      ],
+      "structural_fix": "The one-line-per-site fix (wrap each in emit()) is what produced three instances. The class retires when a DETECTOR CANNOT SHIP WITHOUT DECLARING ITS AUDIENCE — e.g. a guard that flags a `logger.error` inside a function whose name matches the naked/protection/coverage sweep family and which contains no outcomes emission, in the shape of the existing provenance-consumer-guard (a signal written and never read). Until such a guard exists the next sweep added will be journal-only too, and nobody will notice for the same reason nobody noticed these.",
+      "not_done": "NOT FIXED IN-SESSION. Adding an operator page to a live alert path is Tier-2, and the cooldown has to be the SHARED durable `_cooldown_admits` rather than a copy — copy-pasting a latch is how the per-PROCESS time.monotonic() defect that put 202 CRITICALs on the operator's channel would return in the copy (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART). Proposed, not applied.",
+      "resolution_criteria": "RESOLVED when a bybit over-accumulation or partially-naked condition that fires in the trader journal ALSO appears in /api/bot/logs?level=error within the same window — demonstrated on a real firing, not on a unit test — AND the emission goes through the shared `_cooldown_admits` with a durable state file that is readable on /api/diag/log_file. A code citation does not close it: every instance of this class was already 'implemented' and detecting correctly.",
+      "related": [
+        "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+        "BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART",
+        "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+        "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE"
+      ]
     }
   ]
 }
