@@ -877,24 +877,87 @@ accounts:
                                        # (mirrors alpaca_paper; sub-$100 proxies SPLG/IAUM
                                        # added 2026-07-07 for the promotion).
     risk:
-      # RISK NORMALIZATION for the sub-$100 proxy promotion (2026-07-07, Tier-3,
-      # operator-approved). SUPERSEDES the 2026-06-30 "test-account escalation"
-      # (0.10 / 0.10 / 0.10) — that 10% per-trade budget was a hack to force the
-      # unaffordable $300-700 ETFs to fire even one share; it blew the survival
-      # gate (survival 0.69, well under the 0.90 floor). With the cheap proxies
-      # SPLG (~$84) + IAUM (~$41) now routed, 2% risk is enough to afford ≥1 whole
-      # share at ~$150 (affordability threshold: SPLG 1.93%, IAUM 1.03%) while
-      # BOTH proxies pass the compat survival gate under the RESTORED 5% caps
-      # (SPLG survival 1.00 / P(breach) 0.093; IAUM 1.00 / 0.035 — both ROUTE).
-      # Evidence: risk_pct sweep #5911, research doc #5916. Sizing is fail-safe:
-      # if real equity can't afford a share, the RiskManager refuses (0 shares),
-      # never oversizes. ROLLBACK: restore 0.10 / 0.10 / 0.10.
-      max_dd_pct: 0.05                 # 5% max intra-day drawdown (restored from the 0.10 hack)
-      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity (restored from the 0.10 hack)
-      daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.02                   # 2% balance risked per trade — max that keeps SPLG+IAUM
-                                       # inside the survival gate under the 5% caps, and ≥ the
-                                       # ≥1-whole-share affordability threshold at ~$150.
+      # DEMONSTRATION-ACCOUNT RISK (2026-08-25, Tier-3, operator-directed:
+      # "because this account is still a small demonstration account, we can
+      # raise the risk threshold to 5% of account per trade" + "keep the caps
+      # at 5% daily loss and 10% max drawdown" + "set daily to 10% as well").
+      # The account is funded at $200, so 5%/trade = $10 of risk budget.
+      #
+      # ⚠️ THE BINDING CONSTRAINT ON THIS ACCOUNT IS CASH, NOT RISK — raising
+      # risk_pct does not fix it, and MEASURED, THE RAISE ADDS NO SYMBOL. On a
+      # whole-unit venue (risk.WHOLE_UNIT_QTY_EXCHANGES) a sub-1-share size is
+      # a REFUSAL, so a symbol is reachable only if BOTH one share fits the cash
+      # AND one share's stop distance fits the risk budget. Measured 2026-08-25
+      # by running THIS config through RiskManager.position_size at $200 equity
+      # (prices + ATR14 stop proxies from yfinance-lane-proof), the reachable
+      # set is IDENTICAL at 2% and at 5%:
+      #   reachable : TLT IEF SLV USO IAUM GDX
+      #   refused   : SPY $745.01 · QQQ $688.87 · GLD $371.52 · IWM $303.03
+      #               — all CASH-bound (one share exceeds the whole account),
+      #               so no risk setting reaches them. Only funding, a cheaper
+      #               proxy, or a fractional-capable venue does.
+      #
+      # ⚠️ DO NOT REPEAT THE CLAIM THAT 5% "ADDS GDX" — it is false and was
+      # asserted here for one commit. GDX ($74.59, ~$5.28/share stop) was
+      # ALREADY reachable at 2%, via the round-up-to-one-share relaxation
+      # (risk.py::_ROUND_UP_BUDGET_MULT = 1.5, operator directive 2026-06-24):
+      # its ideal size was 0.76 shares and $5.28 <= 1.5 x the $4.00 budget, so
+      # it rounded up and OVERSHOT its declared per-trade risk by 1.32x. Hand
+      # arithmetic (budget / stop >= 1) misses that path and says "refused";
+      # the sizer is authoritative.
+      #
+      # What the raise ACTUALLY buys, measured: (a) GDX comes off the round-up
+      # crutch — at 5% its ideal is 1.89 shares, so it is genuinely risk-sized
+      # rather than an over-budget rounding; (b) sizes grow where the budget
+      # was the binding term — IAUM 2 -> 4 shares. Nothing else moves: TLT/IEF/
+      # SLV/USO are capped by whole-share granularity and cash, not by risk.
+      #
+      # ⚠️ THE SURVIVAL-GATE EVIDENCE IS FOR 2% AND HAS NOT BEEN RE-RUN AT 5%.
+      # Prior record (2026-07-07, #5911/#5916): at 2% under 5%/5% caps SPLG
+      # survival 1.00 / P(breach) 0.093, IAUM 1.00 / 0.035 (both ROUTE); the
+      # 2026-06-30 escalation to 0.10/0.10/0.10 measured survival 0.69, under
+      # the 0.90 floor. This setting sits between those two measured points and
+      # is UNMEASURED. Re-run scripts/prop/account_compat_matrix.py before
+      # treating any leg here as gate-cleared.
+      #
+      # DAILY-CAP INTERACTION, measured rather than assumed. The cap is a
+      # POST-BREACH check on cumulative daily_pnl (risk.py::evaluate ->
+      # `daily_pnl < -effective_daily_loss_usd()`), not a pre-check on
+      # remaining headroom. At $200 the budget is $10/trade and $20/day, but
+      # the roster's realised per-trade risk is well under budget — the largest
+      # is IAUM at $5.48 (2.7% of equity), then GDX $5.28 — so it takes ~4
+      # losing trades, not 2, to trip DAILY_LOSS_CAP. The theoretical worst
+      # case is the round-up ceiling: 1.5 x $10 = $15 = 7.5% of the account in
+      # ONE trade. No symbol on the current roster reaches it (GDX at $5.28 is
+      # the widest stop that is also affordable); a future wide-stop addition
+      # could, which is why the ceiling is written down here.
+      #
+      # Sizing stays fail-safe: if real equity can't afford a whole share the
+      # RiskManager refuses (0 shares), never oversizes.
+      # ROLLBACK: restore 0.05 / 0.05 / 0.02 (the 2026-07-07 gate-cleared set).
+      max_dd_pct: 0.10                 # 10% max intra-day drawdown ($20 at $200)
+      daily_loss_pct: 0.10             # daily-loss cap = 10% of equity ($20 at $200)
+      daily_usd: 200                   # absolute fallback, used ONLY when no equity
+                                       # snapshot is readable. ⚠️ On a $200 account this
+                                       # fallback is 100% of the account — i.e. no
+                                       # effective daily cap on exactly the reads where
+                                       # equity could not be measured. NOT hypothetical
+                                       # here — see
+                                       # BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE
+                                       # (⚠️ NEVER line-wrap a backlog id: a split id
+                                       # resolves to NOTHING and reads as tracked while
+                                       # being tracked by nobody — artifact-validity-guard
+                                       # caught exactly that here). Left UNCHANGED because
+                                       # the operator named three values and this is not
+                                       # one of them; flagged for a decision (10% of $200
+                                       # would be 20).
+      risk_pct: 0.05                   # 5% balance risked per trade ($10 at $200) —
+                                       # operator-directed 2026-08-25 for the
+                                       # demonstration account. ⚠️ Adds NO symbol: the
+                                       # reachable set is identical at 2% and 5% (see
+                                       # above). It takes GDX off the round-up crutch
+                                       # and grows IAUM 2 -> 4 shares; SPY/QQQ/GLD/IWM
+                                       # stay cash-bound at any risk setting.
 
   # alpaca_options_paper: Phase-1 Slice-3b (Alpaca L3 options) — an Alpaca PAPER
   # account that EXPRESSES its equity signals as defined-risk DEBIT VERTICALS
