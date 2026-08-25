@@ -395,19 +395,55 @@ SSHing the VM by hand:
 - **`get-diag-token`** (label `get-diag-token`) — resolves the current
   `DIAG_READ_TOKEN` value (from the repo secret if set, else read off
   the VM) and delivers it to the repo owner as a short-retention
-  artifact (dispatch) or an issue comment (issue path). Use it to fill
-  a cloud environment's `DIAG_READ_TOKEN` env var for Transport A.
+  artifact (dispatch) or an issue comment (issue path).
+  ⚠️ **GATED ON `repository.private`, FAIL-CLOSED — and this repo is
+  PUBLIC (measured 2026-08-25), so both delivery paths REFUSE today.**
+  Do not reach for it here; the refusal is the feature, not an outage.
+  Three states, never collapsed: `private` delivers · `public` refuses ·
+  `unknown` (**we could not read the visibility**) refuses too, because
+  a delivery justified by an unverified visibility claim is exactly the
+  defect. Its header used to justify itself with *"this repo has exactly
+  two principals … the audience is the owner only"* — a claim about
+  visibility written into a comment, which went stale silently when the
+  repo flipped public → private (2026-07-06) → public (2026-07-07). The
+  cost was measured, not theoretical: a live bearer sat readable in
+  issue #1615 comment 4507810670 from 2026-05-21 and still returned 200
+  against the live VM on 2026-08-18
+  (`BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE`,
+  `BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED`).
+  **On a public repo the operator originates the value and sets it in
+  both places by hand** — the repo Actions secret AND the consuming
+  environment's `DIAG_READ_TOKEN` — then runs `set-diag-token` to push
+  it to the VM. If the repo is ever made private again the workflow
+  starts delivering on its own; nothing else needs changing.
   Delete the run/issue afterward to clear the at-rest copy.
 - **`set-diag-token`** (label `set-diag-token`) — pushes the
   `DIAG_READ_TOKEN` repo secret onto the VM
   (`/etc/ict-trader/web-api.env`, atomic write + backup) and restarts
   `ict-web-api`, validating by `/api/diag/status` HTTP code only. The
   token flows one way (GitHub secret → VM) and is never printed.
+  ⚠️ **READ THE `rotation_state`, NOT THE FACT THAT THE RUN WAS GREEN.**
+  It fingerprints (sha256, 12-hex prefix — never the value) what the VM
+  **serves** before the install and after it, and reports four states:
+  `rotated` (the served fingerprint CHANGED and the new one authorizes) ·
+  `unchanged` (identical — a **no-op**, reported loudly as one, never as
+  a rotation) · `unknown_before` (**we could not read the pre-state**, so
+  the run cannot say which happened — do not record it as a rotation) ·
+  `failed`. It used to print *"authorized with the new token"* after
+  testing only that the token authorizes, which is equally true of a
+  value that never changed: run 32117038449 (2026-08-18) was green over
+  an **unchanged** secret and a live token exposure stayed open behind
+  the green (`BL-20260818-SET-DIAG-TOKEN-REPORTS-NEW-ON-UNCHANGED-VALUE`).
 
 To **rotate**: `openssl rand -hex 32` → set the `DIAG_READ_TOKEN` repo
-secret to it (Settings → Secrets → Actions) → run `set-diag-token` to
-push it to the VM → set the same value as the `DIAG_BASE_URL` consumer's
-`DIAG_READ_TOKEN` env var. The relay (Transport B) reads the repo secret
+secret to it (Settings → Secrets → Actions — confirm it is the
+**repository** Actions secret, not an environment-scoped one, and that
+the edit saved) → run `set-diag-token` to push it to the VM → **confirm
+it reported `rotation_state: rotated`, not `unchanged`** → set the same
+value as the `DIAG_BASE_URL` consumer's `DIAG_READ_TOKEN` env var.
+The pass condition is the **three-way probe**, not a green run: the OLD
+token → 401, garbage → 401, and the NEW token → 200. A green run over an
+unchanged secret is a state that has actually happened here. The relay (Transport B) reads the repo secret
 directly, so it picks up the new value on its next run automatically.
 
 ## Failure modes
