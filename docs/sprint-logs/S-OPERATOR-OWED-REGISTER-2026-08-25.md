@@ -174,16 +174,55 @@ The costly part is the misleading message, not the failure: "my row has a bad
 ref" and "this guard is flaky" are both wrong, and the second is how a guard
 starts getting routed around.
 
+**The guard fired on its OWN register within hours, and it was right to — the
+design was wrong, not the alarm.** Three items (`DIAG_READ_TOKEN` rotation, the
+`breakout_1` balance report, the `daily_usd` decision) hit `escalate_carried`
+on register commits that had nothing to do with them. The correction, and why
+it is not a softening:
+
+**Carry counts REGISTER COMMITS — that is, sessions that came and went without
+moving the item.** That is exactly the right pressure on a
+`defaulted_to_human` item, where a session could have built the wire and did
+not. It is a **category error** on a genuinely-human one: no session can mint
+a secret, read a broker terminal, or take a Tier-3 judgement, so the only move
+available to the session the alarm lands on is a snooze — an alarm whose sole
+available response is to mute it, **manufactured by the mechanism built to
+prevent exactly that**. Left alone it would have become the desensitized-alarm
+P1 in a new costume, inside a week.
+
+A genuinely-human item is now graded on **AGE alone**, which measures the thing
+that matters for it: how long the HUMAN has had it. **The pressure moves axis;
+it does not go away** — `DIAG_READ_TOKEN` is `critical`, so it escalates at one
+day, and the age clock only resets on a real `last_state_change_at`, so a
+cosmetic edit cannot clear it either. Pinned by
+`test_the_carry_exemption_does_not_weaken_escalation`.
+
+⚠️ **The residual, stated rather than buried:** this makes `owner_class`
+load-bearing for how hard an item is pushed, so mislabelling one as
+genuinely-human buys it slack — which is the register's own subject matter.
+Two defences: `owner_class_basis` is required and substantive, and the check
+**prints every genuinely-human item with its age budget on every run**, so a
+mislabelled one is examined rather than silent. `unclassified` is deliberately
+NOT granted the exemption.
+
+Two smaller defects were found downstream of that fix and fixed with it: the
+"one register commit from escalating" line was printed over BOTH populations
+(a label not describing what was computed — diagnostic-provenance sub-class A,
+in the new code), and both test fixtures defaulted to `judgement`, which would
+have silently exempted every carry-ladder assertion from the thing it tests.
+The checker's own `--self-test` caught the second one.
+
 ## Risks and Follow-Ups
 
 - **The carry count under-reports and can never over-report.** A session that
   never touches the register leaves no commit. Age is the second, independent
   trip path for exactly that reason.
-- **Three items sit at `carried` 1 of 2.** The next register commit that leaves
-  them alone fails CI. That is the designed pressure, and the four ways out are
-  printed by the guard — act, move, defer behind a **named trigger**, withdraw.
-  If it proves too aggressive for genuinely-human items in practice, the fix is
-  a per-owner-class limit, not a raised global one.
+- **Two items sit at `carried` 1 of 2 on the carry axis** (the MHG over-cover
+  and the stray branch, both `defaulted_to_human`). The next register commit
+  that leaves them alone fails CI — the designed pressure, with four printed
+  ways out: act, move, defer behind a **named trigger**, withdraw.
+- **The three genuinely-human items are on the age clock**, at 0.27d of budgets
+  of 1d / 3d / 7d. The `DIAG_READ_TOKEN` rotation escalates first, tomorrow.
 - **`DEFAULT_CARRY_LIMIT = 2` is a chosen value with a measured basis, not a
   tuned one.** n=1 incident, 3 sessions. A limit of 3 would have graded that
   entire day green.

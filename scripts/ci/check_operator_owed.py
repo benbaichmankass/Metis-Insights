@@ -278,12 +278,36 @@ def check(
               f"count. This is 'we did not look', NOT a pass: "
               + ", ".join(g["id"] for g in not_measurable))
 
+    # The two CARRIED populations are reported SEPARATELY because they are
+    # approaching different things. Printing one list headed "one register
+    # commit from escalating" over both would be a label that does not
+    # describe what was computed — the diagnostic-provenance sub-class A this
+    # repo has a guard for — since a genuinely-human item never escalates on
+    # carry at all.
     carried = [g for g in grades if g["state"] == STATE_CARRIED]
-    if carried:
-        print(f"operator-owed: {len(carried)} item(s) CARRIED and one register "
-              f"commit from escalating — move, dispose or defer them now: "
+    carried_on_carry = [g for g in carried if g.get("carry_axis_applies")]
+    carried_on_age = [g for g in carried if not g.get("carry_axis_applies")]
+
+    if carried_on_carry:
+        print(f"operator-owed: {len(carried_on_carry)} item(s) CARRIED and one "
+              f"register commit from escalating — move, dispose or defer them "
+              f"now: "
               + ", ".join(f"{g['id']}({g['carries_unchanged']}/{carry_limit})"
-                          for g in carried))
+                          for g in carried_on_carry))
+
+    if carried_on_age:
+        # PRINTED EVERY RUN, deliberately. `owner_class` decides how hard an
+        # item is pushed, so a mislabelled one buys itself slack — and the one
+        # defence against that is that these never go unexamined.
+        print(f"operator-owed: {len(carried_on_age)} item(s) need a PERSON, so "
+              f"they are graded on AGE and never on register carry. Check the "
+              f"class is honest — a `defaulted_to_human` item mislabelled here "
+              f"is the exact miscategorisation this register exists to end:")
+        for grade in carried_on_age:
+            print(f"    - {grade['id']}: "
+                  f"{grade['age_days']:.2f}d of a {grade['age_limit_days']:.2f}d "
+                  f"budget (severity {grade.get('severity') or ''}"
+                  .rstrip() + ")")
 
     snoozed = [g for g in grades if g["state"] == STATE_SNOOZED]
     if snoozed:
@@ -363,10 +387,14 @@ def _self_test() -> int:
             "last_state_change_at": "2026-08-25T18:00:00+00:00",
             "severity": "high",
             "status": "open",
-            "owner_class": "judgement",
+            # `defaulted_to_human` DELIBERATELY: the carry axis applies only
+            # to that class, so a fixture defaulting to a genuinely-human one
+            # would exempt every carry assertion below from what it tests.
+            "owner_class": OWNER_DEFAULTED,
             "owner_class_basis": (
                 "a long enough basis string to clear the minimum length bar set "
                 "by the module"),
+            "automation_path": "scripts/ops/some_wire.py",
         }
         item.update(over)
         return item
@@ -423,17 +451,31 @@ def _self_test() -> int:
                       carries_unchanged=2, now=now)["state"],
            STATE_SNOOZED)
 
+    # --- the carry axis is scoped to the class it means something for ---
+    for human_class in ("secret_origination", "physical_or_broker", "judgement"):
+        expect(f"{human_class} is not carried",
+               grade_item(base(owner_class=human_class), carries_unchanged=99,
+                          now=now)["escalates"],
+               False)
+    expect("a genuinely-human item still escalates on AGE",
+           grade_item(base(owner_class="secret_origination", severity="critical",
+                           last_state_change_at="2026-08-23T18:00:00+00:00"),
+                      carries_unchanged=0, now=now)["state"],
+           STATE_ESCALATE_AGED)
+    expect("unclassified is NOT granted the exemption",
+           grade_item(base(owner_class="unclassified"), carries_unchanged=2,
+                      now=now)["state"],
+           STATE_ESCALATE_CARRIED)
+
     # --- structural refusals ---
     if not validate_item(base(owner_class="unclassified")):
         failures.append("an unclassified item must be refused")
-    if not validate_item(base(owner_class="defaulted_to_human",
-                              automation_path=None,
+    if not validate_item(base(automation_path=None,
                               cannot_automate_reason=None)):
         failures.append(
             "a defaulted_to_human item with neither wire nor reason must be refused")
     # THE ANTI-PATTERN GATE: a failed remediation is not a sufficient reason.
     anti = base(
-        owner_class="defaulted_to_human",
         automation_path=None,
         cannot_automate_reason=(
             "an auto-remediation attempt cancelled the wrong leg once, so this "

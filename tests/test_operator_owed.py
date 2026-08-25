@@ -42,6 +42,12 @@ REL = "docs/claude/operator-owed-register.json"
 
 
 def _item(**over):
+    """A well-formed item. Defaults to `defaulted_to_human` DELIBERATELY.
+
+    The carry axis applies only to that class (a genuinely-human item is graded
+    on age — no session can move it), so a fixture defaulting to `judgement`
+    would silently exempt every carry-ladder test from the thing it is testing.
+    """
     item = {
         "id": "OO-TEST",
         "title": "a test item",
@@ -49,8 +55,9 @@ def _item(**over):
         "last_state_change_at": "2026-08-25T18:00:00+00:00",
         "severity": "high",
         "status": "open",
-        "owner_class": "judgement",
+        "owner_class": OWNER_DEFAULTED,
         "owner_class_basis": "a basis long enough to clear the minimum length bar",
+        "automation_path": "scripts/ops/some_wire.py",
     }
     item.update(over)
     return item
@@ -89,6 +96,63 @@ def test_age_is_an_independent_trip_path():
     old = _item(last_state_change_at="2026-08-20T18:00:00+00:00")
     assert grade_item(old, carries_unchanged=0, now=NOW)["state"] == STATE_ESCALATE_AGED
     assert grade_item(old, carries_unchanged=None, now=NOW)["state"] == STATE_ESCALATE_AGED
+
+
+def test_carry_does_not_apply_to_a_genuinely_human_item():
+    """Carry counts SESSIONS that came and went. No session can mint a secret,
+    read a broker terminal, or take a Tier-3 judgement — so counting sessions
+    against such an item would leave the session it fires on with exactly one
+    available response, a snooze, which is a mute button manufactured by the
+    mechanism meant to prevent mute buttons.
+
+    Found by the guard firing on its own register hours after it shipped.
+    """
+    for owner_class in ("secret_origination", "physical_or_broker", "judgement"):
+        grade = grade_item(_item(owner_class=owner_class),
+                           carries_unchanged=99, now=NOW)
+        assert grade["state"] == STATE_CARRIED, owner_class
+        assert grade["escalates"] is False, owner_class
+        assert grade["carry_axis_applies"] is False, owner_class
+
+
+def test_the_carry_exemption_does_not_weaken_escalation():
+    """A genuinely-human item still escalates — on AGE, at its own budget.
+
+    This is the half that makes the exemption a correction rather than a
+    softening: the pressure moves axis, it does not go away.
+    """
+    old = _item(owner_class="secret_origination", severity="critical",
+                last_state_change_at="2026-08-23T18:00:00+00:00")
+    grade = grade_item(old, carries_unchanged=0, now=NOW)
+    assert grade["state"] == STATE_ESCALATE_AGED
+    assert grade["escalates"] is True
+
+
+def test_carry_still_applies_to_a_defaulted_item():
+    """The axis is kept exactly where it means something: a session COULD have
+    built the wire and did not."""
+    item = _item(owner_class=OWNER_DEFAULTED,
+                 automation_path="scripts/ops/x.py")
+    grade = grade_item(item, carries_unchanged=2, now=NOW)
+    assert grade["state"] == STATE_ESCALATE_CARRIED
+    assert grade["carry_axis_applies"] is True
+
+
+def test_an_unclassified_item_is_not_granted_the_exemption():
+    """`unclassified` must never be the cheap way to buy carry slack — it gets
+    the STRICTER treatment, and validate_item refuses it outright besides."""
+    grade = grade_item(_item(owner_class="unclassified"),
+                       carries_unchanged=2, now=NOW)
+    assert grade["state"] == STATE_ESCALATE_CARRIED
+    assert grade["carry_axis_applies"] is True
+
+
+def test_a_genuinely_human_item_with_no_readable_date_is_not_graded_clean():
+    grade = grade_item(_item(owner_class="judgement", opened_at="nope",
+                             last_state_change_at="nope"),
+                       carries_unchanged=1, now=NOW)
+    assert grade["state"] == STATE_NOT_MEASURABLE
+    assert grade["escalates"] is False
 
 
 def test_severity_sets_the_age_budget():
@@ -163,15 +227,14 @@ def test_every_owner_class_is_accepted():
         if owner_class == "unclassified":
             continue
         item = _item(owner_class=owner_class)
-        if owner_class == OWNER_DEFAULTED:
-            item["automation_path"] = "scripts/ops/something.py"
         assert validate_item(item) == [], owner_class
 
 
 def test_a_defaulted_item_needs_a_wire_or_a_reason():
-    assert validate_item(_item(owner_class=OWNER_DEFAULTED))
-    assert validate_item(_item(owner_class=OWNER_DEFAULTED,
-                               automation_path="scripts/ops/x.py")) == []
+    bare = _item()
+    bare.pop("automation_path")
+    assert validate_item(bare)
+    assert validate_item(_item(automation_path="scripts/ops/x.py")) == []
 
 
 def test_the_anti_pattern_gate():
@@ -181,7 +244,7 @@ def test_the_anti_pattern_gate():
     remedy has a precedent in this repo (src/runtime/protection_reassert.py).
     """
     excuse = _item(
-        owner_class=OWNER_DEFAULTED,
+        automation_path=None,
         cannot_automate_reason=(
             "an auto-remediation cancelled the wrong leg once, so a human owns "
             "this from now on"),
@@ -195,7 +258,7 @@ def test_the_anti_pattern_gate():
 def test_a_genuine_reason_is_not_caught_by_the_anti_pattern_gate():
     """A reason that does not rest on a failed attempt needs no decision fn."""
     genuine = _item(
-        owner_class=OWNER_DEFAULTED,
+        automation_path=None,
         cannot_automate_reason=(
             "no broker API exists for this venue; the integration is a "
             "documented manual bridge by design"),
@@ -205,7 +268,7 @@ def test_a_genuine_reason_is_not_caught_by_the_anti_pattern_gate():
 
 def test_placeholder_reasons_are_refused():
     for junk in ("TBD", "n/a", "unknown", "  "):
-        assert validate_item(_item(owner_class=OWNER_DEFAULTED,
+        assert validate_item(_item(automation_path=junk,
                                    cannot_automate_reason=junk))
 
 
@@ -322,7 +385,15 @@ def test_the_check_fails_on_a_carried_item_and_says_how_to_clear_it(tmp_path, ca
 
 
 def test_the_check_passes_a_register_whose_items_are_moving(tmp_path, capsys):
-    repo = _repo(tmp_path, [_item(id="A"), _item(id="B")])
+    # No `automation_path`: the fixture's placeholder does not exist inside a
+    # temporary repo, and this check verifies the path rather than trusting the
+    # declaration — which is the behaviour a sibling test pins.
+    items = [_item(id="A"), _item(id="B")]
+    for item in items:
+        item.pop("automation_path")
+        item["cannot_automate_reason"] = (
+            "no broker API exists for this venue; it is a manual bridge by design")
+    repo = _repo(tmp_path, items)
     _commit(repo, "register")
     assert check(repo, now=NOW, path=REL) == 0
     assert "UNPROVEN" in capsys.readouterr().out, (

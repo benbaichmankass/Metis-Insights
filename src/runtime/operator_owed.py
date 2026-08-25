@@ -232,6 +232,7 @@ def grade_item(
     """
     out: Dict[str, Any] = {
         "id": item.get("id"),
+        "severity": item.get("severity"),
         "state": STATE_NOT_MEASURABLE,
         "carries_unchanged": carries_unchanged,
         "carry_limit": carry_limit,
@@ -239,6 +240,10 @@ def grade_item(
         "age_limit_days": age_limit_days(item.get("severity")),
         "age_basis": None,
         "escalates": False,
+        # Does the carry axis apply at all? False for a genuinely-human item,
+        # which is graded on age alone (see the block below). Explicit so a
+        # reader never has to infer WHY a carried item did not escalate.
+        "carry_axis_applies": None,
         "reason": None,
     }
 
@@ -268,6 +273,57 @@ def grade_item(
         out["age_days"] = max(0.0, (now - changed_at).total_seconds() / 86400.0)
 
     # --- the CARRY axis -------------------------------------------------
+    # ⚠️ THE CARRY AXIS APPLIES TO defaulted_to_human ONLY, AND THAT IS NOT A
+    # SOFTENING — it is a category error to do otherwise, found by this guard
+    # FIRING ON ITS OWN REGISTER hours after it shipped. Carry counts REGISTER
+    # COMMITS, i.e. sessions that came and went without moving the item. That
+    # is exactly the right pressure on a `defaulted_to_human` item, where a
+    # session could have built the wire and did not. It is meaningless on a
+    # genuinely-human one: no session can mint a secret, read a broker
+    # terminal, or take a Tier-3 judgement, so the only move available to the
+    # session the alarm lands on is a snooze — and an alarm whose sole
+    # available response is to mute it is the desensitized-alarm P1 in a new
+    # costume, manufactured by the very mechanism meant to prevent it.
+    #
+    # A genuinely-human item is therefore graded on AGE alone, which measures
+    # the thing that actually matters for it: how long the HUMAN has had it.
+    # It still escalates — `critical` at one day — and that escalation cannot
+    # be cleared by a cosmetic edit either, because the age clock only resets
+    # on a real `last_state_change_at`.
+    #
+    # ⚠️ THE RESIDUAL, STATED: this makes `owner_class` load-bearing for how
+    # hard an item is pushed, so mislabelling one as genuinely-human buys it
+    # slack. That is the register's whole subject matter, which is why
+    # `owner_class_basis` is required and substantive, and why the check
+    # PRINTS every genuinely-human item with its age budget on every run
+    # rather than letting one sit unexamined.
+    owner_class = str(item.get("owner_class") or "").strip()
+    carry_applies = owner_class not in GENUINELY_HUMAN_CLASSES
+    out["carry_axis_applies"] = carry_applies
+    if not carry_applies:
+        out["carries_unchanged"] = carries_unchanged
+        if out["age_days"] is not None and out["age_days"] > out["age_limit_days"]:
+            out["state"] = STATE_ESCALATE_AGED
+            out["escalates"] = True
+            out["reason"] = (
+                f"owner_class={owner_class!r} needs a person, so it is graded on "
+                f"AGE, not on register carry — and no state change in "
+                f"{out['age_days']:.2f}d exceeds the {out['age_limit_days']:.2f}d "
+                f"budget for severity {item.get('severity')!r}")
+            return out
+        if out["age_days"] is None:
+            out["reason"] = (
+                f"owner_class={owner_class!r} is graded on age, and this item "
+                f"carries no readable date — we could not look")
+            return out
+        out["state"] = STATE_CARRIED if carries_unchanged else STATE_MOVED
+        out["reason"] = (
+            f"owner_class={owner_class!r} needs a person; graded on AGE only "
+            f"({out['age_days']:.2f}d of a {out['age_limit_days']:.2f}d budget). "
+            f"Carry is not applied — no session can move this item, so counting "
+            f"sessions would only manufacture a mute button.")
+        return out
+
     if carries_unchanged is None:
         # We could not measure carry. Age may still decide, and if it cannot
         # either, the honest answer is `not_measurable`.
