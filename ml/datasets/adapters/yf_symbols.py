@@ -54,6 +54,34 @@ _DEFAULT_TICKER_MAP: Mapping[str, str] = {
         "GDX", "GLD", "IAUM", "IEF", "IWM", "QLD", "QQQ",
         "SCHA", "SLV", "SPLG", "SPY", "TLT", "TQQQ", "USO",
     )},
+    # --- INVERSE ETFs: fetchable for RESEARCH, deliberately NOT tradeable ----
+    # SH (-1x S&P 500) and PSQ (-1x QQQ) are the M15 alpaca short-PROXY
+    # candidates: alpaca is long-only with short proxies, permanently
+    # (standing operator directive, reaffirmed 2026-08-25 — shorting is never
+    # enabled broker-side), so a leg that would go SHORT SPY/QQQ instead goes
+    # LONG SH/PSQ.
+    #
+    # ⚠️ MEMBERSHIP HERE IS NOT A DECLARATION THAT THESE ARE TRADEABLE, and
+    # `known_symbols()` must not be read as one. Neither appears in
+    # `config/instruments.yaml`; nothing routes to them; no strategy names
+    # them. They are here for exactly one reason — the M15 proxy backtest
+    # needs their price history, and per the evidence gate that backtest runs
+    # BEFORE anything is built (`BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED`,
+    # operator decision 2026-08-25). Declaring the instruments, the strategy
+    # legs, the intent-multiplexer registration and the account_compat_matrix
+    # run are Tier-3 and happen only if the evidence clears.
+    #
+    # ⚠️ AND THEY ARE NOT SHORTS. Both are DAILY-REBALANCED, so -1x is
+    # path-dependent over the multi-day holds these legs run — far less decay
+    # than a 2x/3x fund, but not zero — and the expense ratios (SH 0.89%,
+    # PSQ 0.95%) are a real drag. Both must sit INSIDE the backtest, not in a
+    # footnote. A close substitute, never a short.
+    #
+    # ⚠️ THE BACKTEST WINDOW IS BOUNDED AT ~730 d, not by these entries but by
+    # YF_MAX_HISTORY_DAYS["1h"] below: both legs at stake
+    # (`qqq_pullback_1h`, `spy_pullback_1h`) are 1h. State the span obtained,
+    # never the span requested — `yfinance-lane-proof.yml` reports both.
+    **{t: t for t in ("PSQ", "SH")},
 }
 
 # yfinance's intraday history caps, which BOUND what this adapter can serve.

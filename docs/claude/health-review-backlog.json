@@ -23134,7 +23134,31 @@
    "evidence": "The 95 errors are collection-time `pyo3_runtime.PanicException` in every test importing pydantic-core / FastAPI (tests/test_web_api_*.py, test_prop_report_ingest.py, test_s067_*, test_trade_scores_symbol_filter.py, …). CONFIRMED PRE-EXISTING, not caused by any change: stashing the working-tree edit and collecting tests/test_prop_report_ingest.py on pristine main reproduces the identical error. The 34 FAILURES are separate and their names were NOT captured (the background run piped through `tail`, so only the summary line survived) — so this row states the count and explicitly does NOT claim they are all environmental.",
    "why_it_matters": "A session that runs the suite locally and sees green is not seeing what CI sees, and one that sees red cannot tell its own breakage from the sandbox's. Today that cost a wrong inference in both directions: the pyo3 errors had to be re-verified against pristine main to be dismissed, and the 34 failures could not be attributed at all. The practical effect is that the sandbox suite cannot gate a push — only CI can — which is fine as a policy but is nowhere written down, so each session rediscovers it.",
    "resolution_criteria": "EITHER (a) root-cause the pyo3/pydantic-core panic so a local run matches CI, and confirm by running the full suite in-sandbox to the same pass/fail counts CI reports on the same commit; OR (b) if it cannot be fixed in this environment, record the limitation where a session will read it BEFORE trusting a local run (the session-coordination preflight is the natural home) and name CI as the only gate. Either way the 34 failures must be enumerated once against a pristine-main baseline, so the claim 'they are environmental' is measured rather than assumed.",
-   "detail": "Operator decision 2026-08-24: file it and keep trusting CI for now, over identifying the 34 immediately (~16 min of runtime) or fixing the sandbox (its own piece of work)."
+   "detail": "Operator decision 2026-08-24: file it and keep trusting CI for now, over identifying the 34 immediately (~16 min of runtime) or fixing the sandbox (its own piece of work).",
+   "updates": [
+    {
+     "at": "2026-08-25T07:15:00+00:00",
+     "by": "claude (session_01Gi3mgq; hit this class three times while validating the diag-token gate)",
+     "state": "A ROOT CAUSE THE ROW DOES NOT HAVE — the divergence is partly WHICH PYTHON, and `pytest` on PATH is the wrong one",
+     "note": "MEASURED 2026-08-25, same sandbox, same commit, whole suite, `--collect-only`:\n  `pytest`            (the binary on PATH) -> 7,875 collected, **327 collection errors**\n  `python3 -m pytest` (the system python)  -> 11,280 collected, **104 collection errors**\nSame repo, same moment, 3.1x the errors and 3,405 fewer tests -- decided entirely by how pytest was invoked.\n\nCAUSE, read from the field: `/root/.local/bin/pytest` is shebanged to `/root/.local/share/uv/tools/pytest/bin/python`, a uv TOOL venv. `sys.path` carries NO dist-packages (verified directly), so it can import nothing the repo depends on -- yaml, pandas, numpy, httpx and fastapi are all ABSENT from it while `yaml` is PRESENT on the system interpreter. A session that types `pytest`, reads the failures and reports them is measuring the TOOL VENV, not the repo. This is invocation-dependent and therefore applies whatever the missing-package set happens to be.\n\nTHE 104 ERRORS ENUMERATED BY CAUSE, which criterion (b) asks for and this row says was never captured (a `tail` ate the names). Under `python3 -m pytest --collect-only`:\n  pandas 45 - fastapi.testclient 31 - numpy 19 - httpx 3 - _cffi_backend 3 - ccxt 2 - fastapi 1\nSo the row's framing -- 'httpx and fastapi are absent' -- is right but is the MINORITY: those three names total 35 of 104, while pandas+numpy alone are 64 and are not mentioned. A remedy scoped to installing httpx+fastapi would fix a third of it and read as done.\n\nSTATE THE POPULATION, AND A CAVEAT THAT CUTS AGAINST CRITERION (a): these are COLLECTION errors under `--collect-only`, NOT the 34 test FAILURES this row is about -- different quantities, and I am not claiming to have identified those. And this sandbox's failures are plain `ModuleNotFoundError`, whereas the 2026-08-24 measurement recorded 95 `pyo3_runtime.PanicException` from pydantic-core. Neither reading is wrong: the sandbox image is NOT identical across sessions, so 'root-cause the pyo3 panic so a local run matches CI' may be chasing a target that moves between sessions. That is an argument for criterion (b) over (a), not a claim (a) is impossible.\n\nCONCRETE SUGGESTION FOR CRITERION (b): whatever preflight text lands must name the INVOCATION, not only the limitation -- `python3 -m pytest`, never bare `pytest` -- because a session that follows 'CI is the only gate' will still run something locally, and today the default thing to type is the worse of the two.\n\nONE MORE INSTANCE OF THIS ROW'S OWN WARNING, paid today: `ruff check . | tail` reports tail's exit code. My PR #10251 went red on `guards` for a single F401, and the local reproduction only found it because ruff's rc was read directly. The row already records this shape; it recurs because the piped idiom is the natural one to type.",
+     "environment_measured": {
+      "pytest_on_path": "/root/.local/share/uv/tools/pytest/bin/python 3.11.15, isolated (no dist-packages)",
+      "system_python": "/usr/bin/python3 3.11.15",
+      "absent_from_system_python": [
+       "pandas",
+       "numpy",
+       "httpx",
+       "fastapi",
+       "ruff",
+       "import-linter"
+      ],
+      "present_on_system_python": [
+       "yaml",
+       "pytest (after an explicit install this session)"
+      ]
+     }
+    }
+   ]
   },
   {
    "id": "BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX",
