@@ -76,6 +76,83 @@ _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
 }
 
 
+# ── Builder-exception paging: one page per (strategy, cause) per window ──────
+# A builder exception IS an ERROR the first time. A builder exception REPEATING
+# every tick for the same reason is ONE condition, and paging it per tick is
+# the desensitized-alarm P1 this repo treats as its own bug.
+#
+# MEASURED 2026-08-25 on the live ERROR+ feed (`/api/bot/logs?level=error`,
+# 157 rows): **131 of them — 83.4% of the entire operator ERROR+/CRITICAL
+# feed — were a single leg**, `ict_scalp_mgc_15m: no candle data for
+# symbol=MGC`, repeating. That is the same shape and a worse ratio than
+# `ib_target_naked` at 53.7% (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART
+# -- kept on one line so the id stays greppable), and it buried every other
+# ERROR on the account: 15 Bybit venue rejections, 2 over-cover CRITICALs and
+# 8 target-naked pages were all sharing a feed with 131 copies of one line.
+#
+# State the population, and the exclusion it implies: `mgc_trend_1h` trades the
+# SAME symbol and is unaffected, so this is NOT a gateway blackout for MGC. It
+# is one leg's timeframe, which is why the key is per STRATEGY and not per
+# symbol or per account.
+#
+# THE REPEAT IS DOWNGRADED, NOT SUPPRESSED. `Level.WARN` still persists to
+# `outcomes.jsonl`, still reaches `/api/bot/logs` and still renders on the
+# `/api/bot/notifications` banner (as `warning`, deduped digit-normalised) --
+# it simply does not Telegram. Nothing is lost; the page stops being noise.
+# Suppressing outright would have made a persisting fault invisible, which is
+# the opposite failure and just as bad.
+#
+# The key carries the CAUSE, not just the strategy: a NEW kind of exception on
+# an already-latched strategy is a new fact and pages immediately. That is the
+# `silent_refusal_alert` (account, cause) lesson -- a per-strategy-only latch
+# would report a genuinely new failure as "already alerting" and say nothing.
+_BUILDER_EXC_ALERT_KIND = "strategy_builder_exception"
+_BUILDER_EXC_COOLDOWN_S: float = 6 * 3600.0
+
+
+def _builder_exception_cause(exc: BaseException) -> str:
+    """A stable latch key for *exc*: its class plus its message with every run
+    of digits normalised away.
+
+    Digits are the part that varies without the condition changing (a bar
+    count, a timestamp, a price), so keying on the raw message would defeat the
+    latch entirely -- the same trap `/api/bot/notifications` already avoids by
+    deduping its operator-warning banner digit-normalised.
+    """
+    import re
+
+    return f"{type(exc).__name__}:{re.sub(r'[0-9]+', 'N', str(exc))}"[:200]
+
+
+def _report_builder_exception(strategy_name: str, exc: BaseException) -> None:
+    """Page a strategy-builder exception, ERROR once per window then WARN."""
+    try:
+        from src.runtime.alert_cooldown import cooldown_admits
+
+        first = cooldown_admits(
+            _BUILDER_EXC_ALERT_KIND,
+            f"{strategy_name}|{_builder_exception_cause(exc)}",
+            _BUILDER_EXC_COOLDOWN_S,
+        )
+    except Exception:  # noqa: BLE001 -- the latch must never decide whether the
+        # trader keeps running. Fail LOUD: an unreachable latch pages, matching
+        # alert_cooldown's own unreadable-state behaviour rather than inventing
+        # a quieter one here.
+        first = True
+    report(
+        "strategy_builder",
+        "exception",
+        level=Level.ERROR if first else Level.WARN,
+        reason=f"{type(exc).__name__}: {exc}"
+        + ("" if first else
+           " [repeat: same cause already paged within the last "
+           f"{int(_BUILDER_EXC_COOLDOWN_S // 3600)}h — downgraded to WARN so "
+           "one persisting fault cannot bury every other ERROR. A NEW cause on "
+           "this strategy still pages immediately.]"),
+        strategy=strategy_name,
+    )
+
+
 def _report_pipeline_outcome(result: Dict[str, Any], signal: Dict[str, Any]) -> None:
     """Translate the run_pipeline result dict into an outcomes.report() call.
 
@@ -316,13 +393,7 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             signal = builder(settings)
         except Exception as exc:
             logger.warning("Multiplexer: strategy '%s' raised %s — skipping", strategy_name, exc)
-            report(
-                "strategy_builder",
-                "exception",
-                level=Level.ERROR,
-                reason=f"{type(exc).__name__}: {exc}",
-                strategy=strategy_name,
-            )
+            _report_builder_exception(strategy_name, exc)
             continue
 
         if signal.get("side") in ("buy", "sell"):

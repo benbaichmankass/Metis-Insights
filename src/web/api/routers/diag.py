@@ -490,6 +490,12 @@ _LOG_FILES: dict[str, Path] = {
     # is strictly worse than no latch.
     "stop_over_cover_alert_state":
         runtime_logs_dir() / "stop_over_cover_alert_state.json",
+    # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
+    # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
+    # "the latch is holding" and "the latch is broken and everything is WARN"
+    # are indistinguishable from outside.
+    "strategy_builder_exception_alert_state":
+        runtime_logs_dir() / "strategy_builder_exception_alert_state.json",
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by
