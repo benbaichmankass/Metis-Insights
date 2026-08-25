@@ -149,6 +149,83 @@ state the test asserts about, with an `else` clause so a genuinely broken
 fixture stays **loud** instead of degrading into a silent `envfile` reading.
 Stressed 5×, plus the full 24-test file.
 
+### 5. The session continued past #10257 — six more PRs, and the class kept recurring
+
+The log above covers **#10257** only. What followed, in order:
+
+| PR | merged | what |
+|---|---|---|
+| #10260 | `6217f14` | the three Lane 0 rows, filed on the CLASS not the instance |
+| #10262 | `9f0aea7` | 0.5's criterion **discharged**; 0.3's verdict |
+| #10263 | `492d89e` | the `get-env` rendering defect, filed |
+| #10264 | `f2fcd1d` | 2 rows fixed, 4 filed, 3 self-corrections |
+| #10271 | `dfe0c05` | `get-env` row closed on a **dispatched** run |
+| #10272 | `2927c3b` | caller-parity row closed — I had left it open |
+
+**0.5 — criterion DISCHARGED.** The blocker cleared mid-session
+(`/api/diag/exchange_positions` went `positions: null` → all three legs), so the
+measurement was taken rather than left as a caveat. Journal and exchange **agree**
+on direction and size, so it is not a divergence problem. **The multiplier is
+RULED OUT** — `local_pnl` applies `contract_value_usd` and negates for shorts,
+verified by reading the function. **New, smaller mechanism measured:** the
+estimate's *entry* term is also approximate — `markprice_local` prices against
+the JOURNAL's entry while the real cost basis is the EXCHANGE's, and basis choice
+alone moves the total **$1,829.55 = 11.4%** (journal $16,052.00 / exchange
+$17,881.55, marks read once at ~11:2xZ).
+
+**0.3 — the detector cannot fire on 0.3's own event.** Positive control first:
+all four Alpaca accounts answer, `api_ok: true`. Then the measurement — 1000
+journal rows, 2026-07-26 → 2026-08-25 (diag cap), 549 refusals:
+`balance_unreadable` is **6 rows / 1.1%**, per-`(account, day)` run lengths
+**1, 1, 1, 1, 2** against `MIN_ROWS` **5** → **0 of 5 occurrences would alert.**
+Hole 2 (the un-clearable latch) was closed by #10259; hole 1 is covered by the
+journal path — *and the alert still cannot fire.*
+
+**0.4 — premise STALE.** `ict_scalp_avax_5m` **places**: 23 refused / **10
+placed** → `partially_refused`. The 23 are two things one framing hid — **15**
+venue `max_qty`, **8** `flip_suppressed_hold_policy` (the hold policy working).
+
+**The class recurred twice more.** #10257 fixed the CALLER drift; then the
+PREDICATE was found missing the dispatch-path token (`dry_run_no_order_placed`,
+`execute.py:442`) so `avax_pullback_2h` — `execution: shadow`, declared OFF —
+graded `signalled_never_placed`; then **three more declared-policy holds**
+(`flip_suppressed_hold_policy` 132, `hold_to_bracket_reduce_non_derivative` 87,
+`reentry_suppressed_netting_guard` 15) were found still grading as refusals, with
+`paper_record_classifier._REFUSAL_MARKERS` **already listing all three**. Filed,
+not bulk-suppressed.
+
+### 6. Four corrections to my own work, all recorded rather than quietly fixed
+
+1. **A false positive in my own guard** — matched bare names, flagged
+   `m20_ladder_headroom.py`'s unrelated `verdict_for`. Now resolves through the
+   real `ImportFrom`.
+2. **Implicit coupling in my own #10257 code** — `dead_leg_audit.py:244` omitted
+   `table_present`, correct only by context. Made explicit.
+3. **I proposed work that already existed** — `balance_unreadable` had been
+   `_CAUSE_PATTERNS`' first entry all along. The Lane-4/5 planning error, made
+   while writing the section after them.
+4. **The merge-slot release was dropped twice.** Named as a reproducible failure
+   mode with a specific trigger (merge → pivot to next task), not as an
+   incident, because "be more careful" had already failed once.
+
+### 7. A verification false negative — the most reusable thing here
+
+The `get-env` fix's first dispatched verification came back **BLANK, byte-identical
+to the broken output**, and proved nothing: dispatched ~30 s after the merge,
+`/api/diag/version` showed deployed `d4bf2648` / on-disk `e4c0a2e7` — one commit
+**behind** the fix. It ran the old script.
+
+⚠️ **A broken fix and an undeployed fix render identically**, so the output alone
+cannot separate them; the discriminator is `/api/diag/version`, checked BEFORE
+interpreting. Reading that blank as "the fix failed" would have filed a false
+negative against a correct change.
+
+⚠️ **Second trap:** `get_env.py` is a SCRIPT the system-action runs from the
+**working tree**, not the running service — it needs the DISK at the fix's sha;
+`restart_pending` describes `ict-web-api` and is irrelevant. The re-run once
+`on-disk == running == f2fcd1d3` passed first time and rendered
+`process : (unset)` / `declared: (unset)`.
+
 ## Validation Performed
 - Tests run: `tests/test_dead_leg_audit.py` **18 pass** (10 pre-existing + 8
   new); `tests/test_silent_refusal_alert.py` green.
