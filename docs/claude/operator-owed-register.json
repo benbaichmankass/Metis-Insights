@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-25T19:50:00+00:00",
+  "updated_at": "2026-08-25T21:20:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -25,12 +25,12 @@
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
-      "last_state_change_at": "2026-08-25T19:50:00+00:00",
-      "last_state_change_note": "Re-classified defaulted_to_human, and given a tested decision function + a proposal tool. The item has NOT been remediated — the venue state is unchanged.",
+      "last_state_change_at": "2026-08-25T21:20:00+00:00",
+      "last_state_change_note": "Deferred behind a named trigger by the session that built its wire, rather than carried forward in prose — which is the behaviour this register exists to replace. ⚠️ owner_class stays defaulted_to_human DELIBERATELY. Re-labelling it 'judgement' now that the remaining blocker is a Tier-2 approval would be defensible on its face and is exactly the 'a mislabel buys slack' residual this register documents against itself, so the honest move is to leave the class alone and use the deferral the check already offers. The position is LIVE and severity stays high.",
       "resolved_at": null,
       "resolution": null,
-      "snoozed_until": null,
-      "snooze_trigger": null,
+      "snoozed_until": "2026-08-27T12:00:00+00:00",
+      "snooze_trigger": "An operator OK in chat on the Tier-2 cancel-ib-order dispatch. This is a DEFER BEHIND A NAMED TRIGGER, not a snooze: the wire and the selection both exist now (scripts/ops/over_cover_proposal.py renders the exact issue body; src/runtime/over_cover_decision.py is a tested pure function that KEEPS the journal-matching leg), so the single remaining input is an approval that only a person can give. The date is a re-surface bound, NOT the trigger — if the approval lands sooner, act sooner.",
       "refs": [
         "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG",
         "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
@@ -137,7 +137,7 @@
       "severity": "low",
       "severity_basis": "Repo hygiene. Nothing depends on it and nothing is lost while it stands.",
       "tier": "1 (repo hygiene)",
-      "status": "open",
+      "status": "resolved",
       "owner_class": "defaulted_to_human",
       "owner_class_basis": "It reached the human column because a push failed in one session — and MEASURED here 2026-08-25, the failure is real but is not a permission boundary for the SYSTEM: `git push origin --delete` returns HTTP 403 on four attempts with backoff from a session's credential, while a normal push from that same credential in the same minute succeeds. Deleting a branch needs no human judgement, no minted secret and no broker — a runner's own GITHUB_TOKEN can do it. Nobody had built the wire, which is the definition of defaulted_to_human. Recording it as 'cannot be automated' would have been this register's own anti-pattern, one size down.",
       "automation_path": ".github/workflows/prune-merged-claude-branch.yml — issue-triggered (label `prune-merged-branch`) or workflow_dispatch. Dry-run by default; `claude/**` only; prints the unmerged-commit list and refuses unless it is empty or `force: true` carries a reason.",
@@ -149,10 +149,10 @@
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
-      "last_state_change_at": "2026-08-25T19:50:00+00:00",
-      "last_state_change_note": "Re-classified defaulted_to_human on MEASURED evidence (the 403), and the missing wire was built rather than handed back: prune-merged-claude-branch.yml. Content verified merged. NOT yet deleted — the workflow reaches nothing until it is on the default branch.",
-      "resolved_at": null,
-      "resolution": null,
+      "last_state_change_at": "2026-08-25T21:13:00+00:00",
+      "last_state_change_note": "Resolved. THE FIRST ITEM TO TRAVEL THE WHOLE REGISTER: seeded as a human hand-off, re-classified defaulted_to_human on measured evidence (HTTP 403 from a session credential, which is a boundary for that credential and not for a runner), the missing wire built, then dispatched and confirmed. Nobody was asked to do anything.",
+      "resolved_at": "2026-08-25T21:13:00+00:00",
+      "resolution": "DELETED via .github/workflows/prune-merged-claude-branch.yml, run 32899747507 (workflow_dispatch, apply:true force:true). The dry run (32899662020) REFUSED first and printed its evidence: one commit 89ceea0b not an ancestor of main, and git cherry '-' meaning a patch-equivalent IS on main. That refusal is the guard working, not an obstacle: squash-merge is why the branch is not an ancestor, which is exactly the case the reasoned waiver exists for. Before forcing, both rows the branch adds were re-verified byte-identical on main by field-by-field JSON comparison IN THIS SESSION (not taken from the earlier note), with zero branch rows absent from main. Deletion confirmed independently afterwards: git ls-remote --heads for the ref returns nothing. The waiver reason is recorded in the run log.",
       "snoozed_until": null,
       "snooze_trigger": null,
       "refs": [],
