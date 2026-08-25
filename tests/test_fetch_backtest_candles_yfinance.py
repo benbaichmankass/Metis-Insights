@@ -119,6 +119,53 @@ def test_futures_translate_rather_than_pass_through(sym, want):
     assert _DEFAULT_TICKER_MAP[sym] == want
 
 
+# --------------------------------------------------------------------------
+# 3b. the inverse-ETF entries are RESEARCH-ONLY, and that claim is falsifiable
+# --------------------------------------------------------------------------
+# SH / PSQ were added 2026-08-25 so the M15 alpaca short-proxy BACKTEST can
+# obtain their history. alpaca is long-only with short proxies, permanently
+# (standing operator directive) — a leg that would short SPY/QQQ instead goes
+# long SH/PSQ. The evidence gate is explicit that the backtest runs BEFORE
+# anything is built (BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED).
+#
+# The risk these tests exist to kill is a reader treating map membership as
+# "wired". The source comment says it is not; a comment is a claim, so the two
+# tests below MEASURE it. If the Tier-3 build later declares these instruments
+# for real, `test_the_inverse_proxies_are_not_yet_tradeable` SHOULD fail — that
+# is the signal to update it deliberately, in the PR that does the wiring.
+_INVERSE_PROXIES = ("PSQ", "SH")
+
+
+@pytest.mark.parametrize("sym", _INVERSE_PROXIES)
+def test_the_inverse_proxies_resolve_to_themselves(sym):
+    from ml.datasets.adapters.yfinance_offvm import _DEFAULT_TICKER_MAP
+    assert _DEFAULT_TICKER_MAP[sym] == sym
+
+
+@pytest.mark.parametrize("sym", _INVERSE_PROXIES)
+def test_the_inverse_proxies_are_not_yet_tradeable(sym):
+    """Fetchable != declared. Nothing may route to these until the gate clears."""
+    instruments = (_ROOT / "config" / "instruments.yaml").read_text()
+    strategies = (_ROOT / "config" / "strategies.yaml").read_text()
+    # A crude substring test is the right strength here: it cannot miss a
+    # declaration, and a false positive (the letters appearing inside another
+    # token) would only make the test fail loudly rather than pass wrongly.
+    for name, text in (("instruments.yaml", instruments), ("strategies.yaml", strategies)):
+        for line in text.splitlines():
+            bare = line.split("#", 1)[0]
+            assert f"{sym}USD" not in bare and not _names_symbol(bare, sym), (
+                f"{sym} now appears in config/{name} — if that is the deliberate "
+                f"Tier-3 wiring, update this test in the same PR; if it is not, "
+                f"an inverse instrument has been declared by accident"
+            )
+
+
+def _names_symbol(line: str, sym: str) -> bool:
+    """True when `line` uses `sym` as a symbol token rather than inside a word."""
+    import re
+    return re.search(rf"(?<![A-Za-z0-9_]){re.escape(sym)}(?![A-Za-z0-9_])", line) is not None
+
+
 def test_the_puller_does_not_carry_its_own_ticker_map():
     """A fourth copy is how the existing three drift apart."""
     src = (_ROOT / "scripts" / "ops" / "fetch_backtest_candles.py").read_text()

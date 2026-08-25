@@ -9,17 +9,34 @@ name: get-diag-token
 #   2. Fallback: read it off the live VM (env file, or the running
 #      web-api process environment) over SSH.
 #
-# Delivery:
-#   * workflow_dispatch -> uploaded as the `diag-env` artifact (download
-#     from the run page).
+# Delivery — GATED ON REPOSITORY VISIBILITY, FAIL-CLOSED
+# (BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE):
+#   * workflow_dispatch -> uploaded as the `diag-env` artifact.
 #   * issue-driven (label `get-diag-token`) -> posted back as an issue
 #     comment, then the issue is closed.
 #
-#   This repo has exactly two principals (owner + Claude), so the
-#   artifact / comment audience is the owner only. The value is NOT
-#   echoed to the run log (it would be masked if registered, and we
-#   avoid printing it regardless). After retrieving it you may delete
-#   the run / issue to remove the at-rest copy.
+#   BOTH of those are repo-visible surfaces, so BOTH are refused unless
+#   the repository is PRIVATE. This workflow used to justify itself with
+#   "this repo has exactly two principals (owner + Claude), so the
+#   artifact / comment audience is the owner only." That sentence was a
+#   CLAIM ABOUT VISIBILITY written into a comment, and the field it
+#   described moved out from under it: the repo went public -> private
+#   2026-07-06 -> public again 2026-07-07, and nothing here noticed.
+#   The result was a live DIAG_READ_TOKEN sitting in a world-readable
+#   issue comment (#1615 comment 4507810670) from 2026-05-21 onward,
+#   still authorizing against the live VM three months later.
+#
+#   FIELD BEATS COMMENT. The rule is now read from `repository.private`
+#   at run time instead of asserted here, and the gate is three-state:
+#     private -> deliver
+#     public  -> REFUSE, naming the reason
+#     unknown -> REFUSE (we could not look, which is NOT "it is private")
+#   The interaction limit ("Limit to repository collaborators") restricts
+#   who may COMMENT, not who may READ, so it does not substitute for this.
+#
+#   The value is NOT echoed to the run log (it would be masked if
+#   registered, and we avoid printing it regardless). After retrieving it
+#   you may delete the run / issue to remove the at-rest copy.
 #
 # Required repo secrets:
 #   * DIAG_READ_TOKEN   — preferred source (if set)
@@ -62,6 +79,73 @@ jobs:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
+      # ──────────────────────────────────────────────────────────────
+      # GATE — this workflow's whole job is to put a LIVE SECRET onto a
+      # repo-visible surface. Refuse unless the repository is PRIVATE.
+      # BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE
+      #
+      # Three states, never collapsed: private / public / unknown. The
+      # third is "we could not look", and it is NOT "it is private" —
+      # collapsing it into the permissive branch would recreate the exact
+      # defect (a delivery justified by an unverified visibility claim).
+      # ──────────────────────────────────────────────────────────────
+      - name: Read repository visibility (live)
+        id: visibility_live
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Read the CURRENT visibility from the API rather than trusting
+            // the event payload alone. The payload is a snapshot from when
+            // the event fired; this is the field as it stands right now.
+            // A read failure leaves this output EMPTY on purpose, which the
+            // gate below grades as `unknown` and refuses.
+            const { data } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            core.setOutput('private', String(data.private));
+
+      - name: Gate delivery on repository visibility
+        id: gate
+        env:
+          # Renders as the string 'true'/'false'. An absent repository
+          # object in the payload renders as the empty string.
+          PAYLOAD_PRIVATE: ${{ github.event.repository.private }}
+          LIVE_PRIVATE: ${{ steps.visibility_live.outputs.private }}
+        run: |
+          set -uo pipefail
+          echo "payload repository.private = '${PAYLOAD_PRIVATE:-}'"
+          echo "live    repository.private = '${LIVE_PRIVATE:-}'"
+
+          # BOTH sources must independently say private. They can disagree
+          # only if the repo flipped between the event firing and this job
+          # running — and a visibility flip is precisely the condition this
+          # gate exists for, so a disagreement refuses rather than picks a
+          # winner. An empty value is a read that did not happen.
+          state=unknown
+          if [ "${PAYLOAD_PRIVATE:-}" = "true" ] && [ "${LIVE_PRIVATE:-}" = "true" ]; then
+            state=private
+          elif [ "${PAYLOAD_PRIVATE:-}" = "false" ] || [ "${LIVE_PRIVATE:-}" = "false" ]; then
+            state=public
+          fi
+          echo "visibility_state=${state}" >> "$GITHUB_OUTPUT"
+          echo ">>> visibility_state: ${state}"
+
+          case "${state}" in
+            private)
+              echo ">>> repository is PRIVATE — delivery permitted."
+              ;;
+            public)
+              echo "::error::REFUSING TO DELIVER — this repository is PUBLIC. This workflow writes a live DIAG_READ_TOKEN into an issue comment or a run artifact; on a public repo both are world-readable. That is how BL-20260818-DIAG-READ-TOKEN-PUBLIC-EXPOSURE-UNREMEDIATED happened (a token readable in issue #1615 since 2026-05-21 and still authorizing). Delivering the token here would re-leak it immediately. To get the diag bearer to a session WITHOUT emitting it: set it as the DIAG_READ_TOKEN repo secret yourself and paste the same value into the consuming environment, then use set-diag-token.yml to push it to the VM (that workflow moves the value one way only, GitHub -> VM, and never hands it back)."
+              exit 1
+              ;;
+            *)
+              echo "::error::REFUSING TO DELIVER — could not establish repository visibility (payload='${PAYLOAD_PRIVATE:-}' live='${LIVE_PRIVATE:-}'). We did not look successfully, which is NOT the same as looking and finding the repo private, so this fails closed. If the live read simply hiccupped, re-run; if the two sources disagree, the repository visibility changed mid-run and should be checked by hand before retrying."
+              exit 1
+              ;;
+          esac
+
       - name: Resolve token + write env block
         id: resolve
         env:
@@ -140,8 +224,13 @@ jobs:
           echo ">>> resolved DIAG_READ_TOKEN from: $src"
           echo ">>> wrote diag-env.txt ($(wc -c < diag-env.txt) bytes); value intentionally not printed here"
 
+      # The `if:` repeats the visibility gate deliberately. The gate step
+      # above already fails the job, but this step used to carry
+      # `always()` — which runs a step even after an earlier failure. A
+      # delivery step that opts out of failure propagation must carry its
+      # own gate, or the gate is one reordering away from being bypassed.
       - name: Upload env block artifact
-        if: always() && github.event_name == 'workflow_dispatch' && steps.resolve.outputs.resolved == 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.visibility_state == 'private' && steps.resolve.outputs.resolved == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: diag-env
@@ -150,7 +239,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Reply to issue with the env block
-        if: github.event_name == 'issues' && success()
+        if: github.event_name == 'issues' && success() && steps.gate.outputs.visibility_state == 'private'
         uses: actions/github-script@v7
         env:
           SOURCE: ${{ steps.resolve.outputs.source }}
@@ -167,6 +256,9 @@ jobs:
               `Full (or Custom allowlisting the host):\n\n` +
               '```\n' + block + '\n```\n\n' +
               `_Security note: this comment contains a live read-only token. ` +
+              `It was delivered only because the visibility gate read this ` +
+              `repository as **private** at run time — the audience is whoever ` +
+              `can read a private-repo issue, not \"the owner\" by assumption. ` +
               `Delete this issue after copying it to remove the at-rest copy._`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -182,17 +274,55 @@ jobs:
               state_reason: 'completed'
             });
 
+      # The failure comment BRANCHES ON THE ACTUAL FAILURE STAGE. It used
+      # to name one cause ("secret unset, or SSH unreachable") for every
+      # failure — a message describing a code path that was never reached
+      # is the unprovenanced-diagnostic class this repo has a guard family
+      # for, and here it would actively mislead: a visibility refusal is
+      # not a VM problem and re-running will not fix it.
       - name: Reply to issue with failure
         if: github.event_name == 'issues' && failure()
         uses: actions/github-script@v7
+        env:
+          VISIBILITY_STATE: ${{ steps.gate.outputs.visibility_state }}
+          RESOLVED: ${{ steps.resolve.outputs.resolved }}
         with:
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const vis = process.env.VISIBILITY_STATE || '';
+            let reason;
+            if (vis === 'public') {
+              reason =
+                `**Refused: this repository is PUBLIC.**\n\n` +
+                `This workflow delivers a live \`DIAG_READ_TOKEN\` into an issue ` +
+                `comment or a run artifact — both world-readable here — so it is ` +
+                `gated on \`repository.private == true\` and fails closed. This is ` +
+                `not a VM or credential problem and re-running will not change it ` +
+                `(BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE).\n\n` +
+                `To get the diag bearer to a session without emitting it: set the ` +
+                `value as the \`DIAG_READ_TOKEN\` repo secret AND paste the same ` +
+                `value into the consuming environment yourself, then run ` +
+                `\`set-diag-token.yml\` to push it to the VM — that workflow moves ` +
+                `the value one way only (GitHub → VM) and never hands it back.`;
+            } else if (vis === '' || vis === 'unknown') {
+              reason =
+                `**Refused: repository visibility could not be established.**\n\n` +
+                `"We could not look" is not "the repo is private", so the gate ` +
+                `fails closed. See the run log for the two values it compared ` +
+                `(event payload vs a live API read). If the live read hiccupped, ` +
+                `re-run; if the two disagreed, visibility changed mid-run and ` +
+                `should be checked by hand first.`;
+            } else {
+              reason =
+                `Visibility gate passed (\`private\`), so the failure is downstream ` +
+                `of it. Either the \`DIAG_READ_TOKEN\` repo secret is unset and the ` +
+                `VM read returned nothing, or SSH/VM was unreachable. See the run log.`;
+            }
             const body =
-              `❌ **get-diag-token** failed to resolve the token.\n` +
-              `Run: ${runUrl}\n\n` +
-              `Either the DIAG_READ_TOKEN repo secret is unset and the VM read ` +
-              `returned nothing, or SSH/VM was unreachable. See the run log.`;
+              `❌ **get-diag-token** did not deliver a token.\n` +
+              `Run: ${runUrl}\n` +
+              `Visibility gate: \`${vis || '(not reached)'}\`\n\n` +
+              reason;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

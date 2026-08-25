@@ -140,6 +140,52 @@ jobs:
           ENVFILE=/etc/ict-trader/web-api.env
           UNIT=ict-web-api.service
 
+          # 0. FINGERPRINT WHAT THE VM SERVES, BEFORE WE TOUCH ANYTHING.
+          #    BL-20260818-SET-DIAG-TOKEN-REPORTS-NEW-ON-UNCHANGED-VALUE:
+          #    this script used to validate only that the installed token
+          #    AUTHORIZES, and then print "authorized with the new token".
+          #    That sentence is equally true of a value that never changed,
+          #    and on 2026-08-18 it was printed over exactly that -- run
+          #    32117038449 was green, the secret was unchanged, and a live
+          #    public token exposure stayed open behind the green.
+          #    "Does it work?" and "did it CHANGE?" are different questions,
+          #    and rotation is the one operation where the second IS the
+          #    question. So we measure it instead of labelling it.
+          #    Fingerprints only, never the value: a 12-hex prefix of a
+          #    sha256 over a >=128-bit token carries nothing recoverable
+          #    (the same form the backlog row itself used).
+          _fp() { printf '%s' "$1" | sha256sum | cut -c1-12; }
+
+          _read_served_token() {
+            # Prefer the RUNNING process environment over the env file: the
+            # file is what a restart WOULD serve, the process is what is
+            # being served right now. Echoes "<source>:<value>"; a source of
+            # `unresolved` means WE COULD NOT LOOK -- which is a different
+            # fact from "the token is empty" and must not collapse into it.
+            local pid out=""
+            pid="$(pgrep -f 'ict.web.api|web.api.main|uvicorn' 2>/dev/null | head -1 || true)"
+            if [ -n "$pid" ]; then
+              out="$(sudo cat "/proc/$pid/environ" 2>/dev/null | tr '\0' '\n' | grep -m1 '^DIAG_READ_TOKEN=' | cut -d= -f2- || true)"
+              if [ -n "$out" ]; then printf 'process:%s' "$out"; return 0; fi
+            fi
+            if sudo test -f "$ENVFILE" 2>/dev/null; then
+              out="$(sudo grep -m1 '^DIAG_READ_TOKEN=' "$ENVFILE" 2>/dev/null | cut -d= -f2- || true)"
+              if [ -n "$out" ]; then printf 'envfile:%s' "$out"; return 0; fi
+            fi
+            printf 'unresolved:'
+          }
+
+          before_raw="$(_read_served_token)"
+          before_src="${before_raw%%:*}"
+          before_val="${before_raw#*:}"
+          if [ -z "$before_val" ]; then before_src=unresolved; fi
+          if [ "$before_src" = unresolved ]; then before_fp=""; else before_fp="$(_fp "$before_val")"; fi
+          new_fp="$(_fp "$NEW_TOKEN")"
+          unset before_val before_raw
+          echo "before_token_source: $before_src"
+          echo "before_token_fp: ${before_fp:-(unresolved)}"
+          echo "incoming_token_fp: $new_fp"
+
           # 1. Back up the existing env file (or create it 600 root:root).
           if sudo test -f "$ENVFILE"; then
             sudo cp -a "$ENVFILE" "$ENVFILE.bak.$(date +%s)"
@@ -181,13 +227,63 @@ jobs:
           rm -f "$cfg"
           echo "diag_status_http: $code"
 
-          if [ "$post" = active ] && [ "$code" = 200 ]; then
-            echo "RESULT: ok — web-api active and /api/diag/status authorized with the new token."
-            exit 0
+          # 5. Re-read what the VM serves NOW, then grade rotation as its
+          #    own question. FOUR states, never collapsed into one label:
+          #      rotated        - the served fingerprint changed AND it authorizes
+          #      unchanged      - the fingerprint is identical; a NO-OP, said loudly
+          #      unknown_before - the install worked but we could not read the
+          #                       pre-state, so we CANNOT say which of the two
+          #                       above happened. Not "rotated" by default.
+          #      failed         - the unit is not active, or the token does not
+          #                       authorize
+          after_raw="$(_read_served_token)"
+          after_src="${after_raw%%:*}"
+          after_val="${after_raw#*:}"
+          if [ -z "$after_val" ]; then after_src=unresolved; fi
+          if [ "$after_src" = unresolved ]; then after_fp=""; else after_fp="$(_fp "$after_val")"; fi
+          unset after_val after_raw
+          echo "after_token_source: $after_src"
+          echo "after_token_fp: ${after_fp:-(unresolved)}"
+
+          if [ "$post" != active ] || [ "$code" != 200 ]; then
+            state=failed
+          elif [ "$before_src" = unresolved ]; then
+            state=unknown_before
+          elif [ "$before_fp" = "$new_fp" ]; then
+            state=unchanged
+          else
+            state=rotated
           fi
-          echo "RESULT: problem — is-active=$post diag_status_http=$code"
-          echo "  (401 = token mismatch, 503 = DIAG disabled on VM, 000 = web-api unreachable)"
-          exit 1
+          printf 'ROTATION_STATE=%s\n' "$state"
+
+          if [ -n "$after_fp" ] && [ "$after_fp" != "$new_fp" ]; then
+            echo "WARNING: the running process serves ${after_fp}, not the value we installed (${new_fp}) - the restart may not have picked up the env file."
+          fi
+
+          case "$state" in
+            rotated)
+              echo "RESULT: rotated - served fingerprint ${before_fp} -> ${new_fp}, web-api active, /api/diag/status authorized."
+              echo "  The OLD value is now dead. Update every consumer that still holds it."
+              exit 0
+              ;;
+            unchanged)
+              echo "RESULT: unchanged - NO-OP. The repo secret holds the SAME value the VM was already serving (fingerprint ${new_fp} before and after)."
+              echo "  NOTHING WAS ROTATED. If you intended to rotate, the new value did NOT reach the REPOSITORY Actions secret named DIAG_READ_TOKEN"
+              echo "  (Settings -> Secrets and variables -> Actions). Check it is repo-scoped, not an environment secret, and that the edit was saved."
+              exit 0
+              ;;
+            unknown_before)
+              echo "RESULT: unknown_before - the install succeeded (web-api active, /api/diag/status authorized with fingerprint ${new_fp}),"
+              echo "  but the token the VM served BEFORE could not be read, so we CANNOT say whether this was a rotation or a no-op."
+              echo "  Do NOT record this as a rotation. To settle it, probe the OLD value directly: it must now return 401."
+              exit 0
+              ;;
+            *)
+              echo "RESULT: failed - is-active=$post diag_status_http=$code"
+              echo "  (401 = token mismatch, 503 = DIAG disabled on VM, 000 = web-api unreachable)"
+              exit 1
+              ;;
+          esac
           REMOTE
           )"
           remote_script="${template//__TOKEN__/$DIAG_READ_TOKEN}"
@@ -203,8 +299,15 @@ jobs:
           rc=$?
           set -e
           echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
-          # action-output.txt carries NO token (only HTTP codes +
-          # messages); the secret is masked even if something slipped.
+          # Lift the remote verdict out of the transcript. Default
+          # `unknown` when the sentinel is absent (an old VM copy of the
+          # script, or a failure before it printed) -- an absent verdict
+          # is its own state and must never default to `rotated`.
+          state="$(sed -n 's/^ROTATION_STATE=//p' action-output.txt | head -1)"
+          echo "rotation_state=${state:-unknown}" >>"$GITHUB_OUTPUT"
+          # action-output.txt carries NO token -- only HTTP codes, messages
+          # and 12-hex sha256 PREFIXES (not the value); the secret is
+          # masked even if something slipped.
           cat action-output.txt
           exit "${rc}"
 
@@ -217,6 +320,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+          ROTATION_STATE: ${{ steps.exec.outputs.rotation_state }}
         with:
           script: |
             const fs = require('fs');
@@ -224,13 +328,25 @@ jobs:
             const MAX_BODY = 50_000;
             const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // The headline states the MEASURED rotation verdict, not the
+            // fact that the run was green. A green run over an unchanged
+            // secret is exactly what happened on 2026-08-18, and the old
+            // headline ("authorized with the new token") made it read as a
+            // completed rotation -- BL-20260818-SET-DIAG-TOKEN-REPORTS-NEW-ON-UNCHANGED-VALUE.
+            const state = process.env.ROTATION_STATE || 'unknown';
+            const HEAD = {
+              rotated: '✅ **set-diag-token — ROTATED.** The value the VM serves CHANGED and the new one authorizes. The old token is now dead; update every consumer that still holds it.',
+              unchanged: '⚠️ **set-diag-token — UNCHANGED (no-op).** The repo secret holds the SAME value the VM was already serving. **Nothing was rotated.** If you meant to rotate, the new value did not reach the *repository* Actions secret `DIAG_READ_TOKEN` (Settings → Secrets and variables → Actions) — check it is repo-scoped, not an environment secret, and that the edit saved.',
+              unknown_before: '⚠️ **set-diag-token — INSTALLED, rotation UNVERIFIED.** The token authorizes, but the value the VM served *before* could not be read, so this run cannot say whether anything changed. **Do not record it as a rotation** — settle it by probing the old value directly (it must return 401).',
+              unknown: '⚠️ **set-diag-token — verdict MISSING.** The run finished but printed no `ROTATION_STATE`. Treat rotation as unverified.',
+            };
             const body =
-              `✅ **set-diag-token** completed.\n` +
+              `${HEAD[state] || HEAD.unknown}\n\n` +
               `Run: ${runUrl}\n` +
-              `Exit code: ${process.env.EXIT_CODE}\n\n` +
-              `The DIAG_READ_TOKEN repo secret is now installed on the VM and ` +
-              `/api/diag/status authorized with it. Set the SAME value as the ` +
-              `DIAG_READ_TOKEN env var wherever you consume the diag API.\n` +
+              `Exit code: ${process.env.EXIT_CODE} · rotation_state: \`${state}\`\n\n` +
+              `Set the SAME value as the \`DIAG_READ_TOKEN\` env var wherever you ` +
+              `consume the diag API. The transcript below carries 12-hex sha256 ` +
+              `**prefixes** for comparison — never the token itself.\n` +
               `\n\`\`\`\n${tail}\n\`\`\``;
             await github.rest.issues.createComment({
               owner: context.repo.owner,

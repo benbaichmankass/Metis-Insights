@@ -1185,8 +1185,21 @@ Two transports, identical JSON — **try direct, fall back to the relay.**
 Full flow, the direct/relay contract, token management
 (`get-diag-token` / `set-diag-token`), and failure modes are in
 `docs/claude/diag-relay.md`. The bearer lives in repo secrets
-(`VM_SSH_KEY`, `DIAG_READ_TOKEN`) and on the VM; deliver it for a cloud
-env var via the `get-diag-token` workflow, not by hand-copying.
+(`VM_SSH_KEY`, `DIAG_READ_TOKEN`) and on the VM. ⚠️ **`get-diag-token`
+REFUSES on a public repo as of 2026-08-25, so on this repo it is not a
+delivery path — do not reach for it** (`BL-20260818-GET-DIAG-TOKEN-EMITS-SECRET-TO-PUBLIC-SURFACE`).
+This row previously read *"deliver it for a cloud env var via the
+`get-diag-token` workflow, not by hand-copying"*, which was written when
+the repo was private and stayed after it went public on 2026-07-07 — the
+workflow duly wrote a live bearer into a **world-readable** issue comment
+(#1615, 2026-05-21) that still authorized three months later. The
+workflow now reads `repository.private` at run time and fails closed on
+`public` **and** on an unreadable visibility, so the value only ever
+lands on a repo-visible surface when that surface is private. **On a
+public repo the operator originates the value and puts it in both places
+themselves** (the repo Actions secret, and the consuming environment's
+`DIAG_READ_TOKEN`); `set-diag-token` then pushes it to the VM, moving it
+one way only and never handing it back.
 
 **Trainer VM** has no HTTP diag API — read it via the `trainer-vm-diag`
 relay (arbitrary SSH bash, label `trainer-vm-diag-request`). SSH from a
