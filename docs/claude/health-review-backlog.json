@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T16:20:00+00:00",
+ "updated_at": "2026-08-25T16:40:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -21822,7 +21822,7 @@
    "opened_by": "full-system-audit-2026-08-23",
    "severity": "critical",
    "tier": "2 (prop journal completeness)",
-   "status": "open",
+   "status": "resolved",
    "area": "prop / manual bridge / report-back completeness",
    "title": "The prop journal's newest fill is 2026-08-19 while the operator's terminal shows trades on 2026-08-22 — the broken screenshot reader has cost three days of unrecorded prop trading",
    "detail": "MEASURED 2026-08-23 against /api/bot/prop/fills (32 fills) and /api/bot/prop/tickets (72 tickets). The newest fill of any status is 2026-08-19T21:31:42Z. The operator's Breakout terminal screenshot, sent the same morning, shows trade-history rows dated 22/08/26 08:10 (SOLUSD Sell Closing 20.00 @ 95.00, commission -0.76) and 22/08/26 07:48 (SOLUSD Buy Opening 20.00 @ 100.51, commission -0.81) — a complete round trip that does NOT appear in the journal. So the prop book has traded for three days with no record reaching the money DB. THIS IS THE THIRD CONSEQUENCE OF ONE ROOT CAUSE: the manual bridge has no broker feed, the screenshot reader IS the data-entry path, and it has been failing (BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE — both model ids were wrong). The other two are the 61-hour-stale safety cushion (BL-20260823-PROP-CUSHION-COMPUTED-FROM-A-61-HOUR-OLD-BALANCE) and the operator being told to 'type the report instead' twice in twelve minutes. WHAT IS NOT WRONG, checked rather than assumed: (a) the two SOLUSDT fills 14 seconds apart on 2026-08-19T21:31 are NOT a double-report — the terminal shows two genuinely separate 83-lot positions that day (opened 15:50 @ 78.52 and closed 15:51 @ 78.51; a second closed 20:01 @ 81.50), so both journal rows are real, and one of them simply carries ticket_id=None; (b) completion integrity on what DID land is clean — all 13 closed fills carry a pnl AND an exit_price, and 12 of 13 link to a ticket; (c) the PnL basis reconciles to the venue: journal +242.02 vs terminal Closed P&L +247.34, and journal -6.05 vs terminal -0.83, a consistent -5.32 / -5.22 delta on two independent trades that matches round-trip commission (2.61 x 2 = 5.22), i.e. the journal is booking NET of fees while the terminal column is gross. That is correct behaviour and should not be 'fixed'. SEPARATELY, 17 tickets remain at status=emitted spanning 2026-06-21 to 2026-08-21 — the stuck population whose DETECTION was fixed this session (the unacted-ticket fallback had no time bound and hid all 17); the tickets themselves are still stuck and still suppress new tickets on their symbol.",
@@ -21837,9 +21837,20 @@
      "at": "2026-08-23T11:06:00+00:00",
      "by": "full-system-audit-2026-08-23",
      "note": "DATA HALF NOW DONE. The operator supplied the Breakout Trade History screenshot directly, so the round trip was read from a primary source rather than transcribed from this row.\n\nPOSTED via the prop-report relay (issue #10170) and INGESTED: HTTP 200, {ok:true, kind:'fill', id:33, status:'closed', ticket_id:'prop-manual-3265eed44039', notified:{push:true, telegram:true}}. Verified on /api/bot/prop/fills — newest row is now 2026-08-23T11:04:22Z SOLUSDT long closed entry 100.51 exit 95.0 qty 20.0 pnl -111.77, linked to a ticket rather than orphaned.\n\n⚠️ pnl IS THE NET FIGURE (-111.77), NOT THE GROSS (-110.20), and the mapping was verified against the journal rather than assumed: the two 08-19 fills already stored carry 242.02 and -6.05, which equal the screenshot's *Net* Closed P&L column exactly while its *Closed P&L* column reads 247.34 and -0.83. So the journal books net of commission. This row's earlier analysis had already reasoned to the same conclusion from a -5.32/-5.22 delta; the screenshot confirms it directly.\n\nCOMPLETENESS, which is why posting was safe where it was not before: the screenshot's range is 'Last Week' and its newest row IS the 08-22 08:10 close, with nothing between the 08-19 20:01 close and the 08-22 07:48 open. One round trip was the whole gap. Posting a partial repair would have left the journal wrong while making it look repaired, which is why the previous update declined to act on a second-hand transcription.\n\nFIRST ATTEMPT FAILED AND THE CAUSE WAS MINE (issue #10168): the prop-report workflow strips fence LINES and passes the entire remaining body to `jq -e 'type==\"object\"'`, so the explanatory prose I put under the JSON broke validation before SSH ever ran. docs/claude/system-actions.md states the requirement plainly ('whose body is a single JSON object'); I did not read it closely enough. Retried clean in #10170.\n\nTHE DETECTOR STILL GRADES `unreported` ON THAT PAIR, AND THAT IS CORRECT — not a residual defect. Re-run against live data after the ingest: delta -111.86 over the window (08-20T18:57, 08-23T08:11], fills_in_window 0. The new fill's `reported_at` is 11:04Z, AFTER the 08:11Z snapshot that closes the window, so it cannot retroactively explain it — and the honest reading of that window is still 'at the time of the 08:11 report, nothing had been reported'. It self-clears on the next operator balance report, exactly as this row's design intends (a balance_moved_unreported latch is pruned silently rather than cleared with a false [OK]). Worth stating so the next reader does not treat a persisting `unreported` as evidence the repair failed.\n\nSTRUCTURAL HALF was already MET and live-verified in the previous update. Both halves of the criterion are now satisfied; leaving the row open only until the next snapshot confirms the grade moves off `unreported` on its own."
+    },
+    {
+     "at": "2026-08-25T16:40:00+00:00",
+     "by": "claude (system-review fix round, backlog drain)",
+     "note": "RESOLVED — both halves of the criterion, verified against the live journal 2026-08-25T16:3xZ (/api/bot/prop/fills?limit=200, 35 fills, count 35 so NOT truncated).\n\nTHE INSTANCE. The row named one specific missing round trip: 22/08/26 07:48 SOLUSD Buy Opening 20.00 @ 100.51 commission -0.81, and 08:10 Sell Closing 20.00 @ 95.00 commission -0.76. It is now FILL ID 33, reported 2026-08-23T11:04:22Z, status closed, pnl -111.77, whose reason reads 'operator terminal trade-history screenshot 2026-08-23; round trip opened 2026-08-22 07:48 Buy Opening 20 @ 100.51 commission -0.81, closed 2026-08-22 08:10 Sell Closing 20 @ 95.00 commission -0.76' — every figure matching the screenshot this row was filed from. The gap was backfilled the same day the row was written.\n\nTHE STRUCTURAL HALF, which is what the criterion actually turns on ('closed when a multi-day gap between terminal activity and the newest journal fill is detectable without an operator noticing it'): `prop_fills_staleness` shipped 2026-08-23 and is that detector. Its B arm — two consecutive operator-reported balance snapshots differing by >= $25 with ZERO fills reported in between — is exactly 'the book traded and nothing was recorded', and it caught this very incident.\n\n⚠️ RECORD THE BLIND SPOT RATHER THAN CLOSING OVER IT. Arm B **requires the operator to have reported a balance**, and arm A requires `prop_sl_tp_alert` to have announced a crossing. So a total REPORTING blackout — no balance, no screenshots — is invisible to both, by construction. That is not a defect in this detector (it is the correct scope: it must never key on unacted tickets, which are the expected shape on a manual bridge and would be the desensitized-alarm P1); the cover for a blackout is the balance ASK, `prop_status_request`. And measured TODAY the status is stale at 47.4h against a 24h threshold with no way to tell whether the bot is still asking — which is why BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE matters and carries that open question. This row closes; that one holds it.\n\nNOT CLOSED BY THIS ROW, and separately filed: 26 of the 35 fills (74.3%) carry NO trade timestamp at all — see BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED. The 17 stuck `emitted` tickets this row's detail also mentions remain their own item."
     }
    ],
-   "last_verified": "2026-08-23"
+   "last_verified": "2026-08-25",
+   "resolved_at": "2026-08-25T16:40:00+00:00",
+   "next_action": "DONE.",
+   "refs": [
+    "BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE",
+    "BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED"
+   ]
   },
   {
    "id": "BL-20260823-NO-FILLS-STALENESS-ALERT-ON-THE-PROP-BRIDGE",
@@ -23686,6 +23697,33 @@
    },
    "next_action": "After deploy: GET /api/diag/log_file?name=prop_status_request and read it beside /api/bot/prop/status. A RECENT ask beside a stale status is normal (the operator has not answered); a stale or absent ask means the bot stopped asking -- file that as its own Tier-2 row.",
    "last_verified": "2026-08-25"
+  },
+  {
+   "id": "BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED",
+   "opened_at": "2026-08-25T16:40:00+00:00",
+   "opened_by": "claude (system-review fix round, backlog drain)",
+   "severity": "medium",
+   "tier": "2 (prop journal schema/writer)",
+   "status": "open",
+   "area": "prop",
+   "title": "74% of prop fills carry NO trade timestamp — the journal records when a trade was REPORTED, not when it happened, so prop hold time and report latency are unmeasurable",
+   "detail": "MEASURED 2026-08-25T16:3xZ against /api/bot/prop/fills?limit=200 — 35 fills, endpoint count 35, so the whole population and NOT a truncated page.\n  carrying opened_at OR closed_at:  9 / 35  = 25.7%\n  CLOSED fills carrying closed_at:  4 / 15  = 26.7%\nEvery row carries `reported_at`. So for three quarters of the prop book the journal can say when the operator told us, and cannot say when the venue traded.\n\nWHY IT MATTERS ON THIS ACCOUNT SPECIFICALLY. On an API account the two are the same instant and the distinction is academic. The prop bridge is MANUAL and the lag is real and large: fill id 33 was REPORTED 2026-08-23T11:04:22Z for a round trip its own reason text dates to 2026-08-22 07:48 -> 08:10 — a 27-hour gap, and that gap is only knowable because a human wrote the times into free text. Consequences:\n  * prop hold time cannot be computed, so the prop sleeve is absent from every bars-held / execution-capture measurement the review mandate requires of the other sleeves;\n  * report LATENCY — the health metric of a manual bridge, and the thing BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES was about — cannot be trended, so 'reporting is getting slower' is undetectable until it becomes 'reporting stopped';\n  * a reconciliation against the terminal export has to match on price and size alone, because the time axis is missing on 74% of rows.\n\nNOT A DETECTOR REGRESSION, checked rather than assumed. `prop_fills_staleness` is unaffected: its B arm asks 'were any fills REPORTED between these two balance snapshots', for which `reported_at` is the correct field, and its A arm times from `prop_sl_tp_alert`'s crossing record, not from fill rows. So this is a measurement gap, not a broken alarm.\n\nTHE COLUMNS EXIST — `opened_at` and `closed_at` are already in the prop_fills schema and are populated on 9 rows, so the writer CAN fill them. This is an ingest gap (the structured report and the screenshot parser do not populate them), not a schema change.",
+   "resolution_criteria": "1. The report-back ingest populates opened_at/closed_at when the source carries them — the terminal screenshot shows trade-history timestamps and the parser already reads that panel, so the data is present on the image and is being dropped, not absent.\n2. THE MISSING VALUE MUST STAY NULL, never backfilled from reported_at. Substituting the report time for the trade time is the FABRICATED bucket exactly — a defensible-looking number with no anchor to the event — and it would silently make every historical latency read as zero. A null here is the honest 'we were not told'.\n3. State the population on any prop timing claim until coverage is high: report n_with_trade_time / n_total beside it, the rCoverage/pnlCoverage discipline. Coverage is 25.7% today.\n4. Do NOT retro-fill the 26 existing rows from their free-text `reason` by machine. Several DO contain the venue times in prose (fill 33 is one), but a regex over operator prose is a reconstruction presented as a record; if it is done at all it is stamped ESTIMATED with the extraction basis, never as a measured timestamp.",
+   "refs": [
+    "BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES",
+    "src/prop/prop_report.py",
+    "src/prop/screenshot_parse.py",
+    "src/prop/prop_journal.py",
+    "src/runtime/provenance.py"
+   ],
+   "evidence": {
+    "population": "all 35 prop fills (endpoint count 35, untruncated)",
+    "with_trade_time": 9,
+    "coverage_pct": 25.7,
+    "closed_with_closed_at": "4/15",
+    "worked_example": "fill 33 reported 2026-08-23T11:04:22Z for a 2026-08-22 07:48->08:10 round trip (27h lag)"
+   },
+   "next_action": "Tier-2 — a writer change on the prop ingest path; propose with the operator."
   }
  ]
 }
