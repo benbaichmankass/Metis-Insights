@@ -258,7 +258,28 @@ class TestThePageNamesTheOwnerAndTheMechanism:
         self._live_case()
         reason = pages[0][1]["reason"]
         assert "10147" in reason
-        assert "TWS" in reason, "name where it CAN be cleared, not just where not"
+
+    def test_it_names_the_REPO_PATH_not_a_manual_one(self, latched, pages):
+        """An earlier draft said the group 'must be cancelled in TWS'. That was
+        wrong and in the expensive direction: `cancel-ib-order` reads the owning
+        clientId account-wide and CONNECTS AS IT, so the repo has an audited,
+        allowlisted path. A CRITICAL page that sends the operator to a manual
+        tool when a workflow exists is pressure toward the riskier option."""
+        self._live_case()
+        reason = pages[0][1]["reason"]
+        assert "cancel-ib-order" in reason
+        assert "force_client_id" in reason
+        assert "TWS" not in reason, (
+            "do not send the operator to a manual tool when the action exists"
+        )
+
+    def test_it_states_the_cost_of_the_override(self, latched, pages):
+        """`force_client_id` on a trader-band id (below 9000) EVICTS the
+        trader's live IB session. A page naming the override without its cost
+        invites waiving a guard blind."""
+        self._live_case()
+        reason = pages[0][1]["reason"]
+        assert "9000" in reason and "EVICT" in reason.upper()
 
     def test_it_names_the_cause_not_only_the_symptom(self, latched, pages):
         """'2 disjoint groups' is a symptom. The cause is the refused cancel

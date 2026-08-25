@@ -6735,12 +6735,21 @@ def _emit_stop_over_cover_alert(
         if foreign:
             advice += (
                 f" NOTE {len(foreign)} group(s) {foreign} were submitted by a "
-                f"DIFFERENT clientId than this session ({reader_client_id}); IB "
-                "refuses a foreign cancel (Error 10147), so those cannot be "
-                "cleared from the trader and must be cancelled in TWS or from "
-                "the submitting session. This is also the likely CAUSE: a "
-                "trailing amend cancel-and-re-places, and when the cancel half "
-                "is refused the re-place leaves a new disjoint group behind."
+                f"DIFFERENT clientId than this session ({reader_client_id}), so "
+                "the trader cannot cancel them itself — IB binds cancel rights "
+                "to the submitter and refuses a foreign cancel (Error 10147). "
+                "Use the `cancel-ib-order` system-action, which reads the "
+                "owning clientId account-wide and CONNECTS AS IT: one issue per "
+                "order, `force_protective: true` + `force_client_id: true`, "
+                "DRY-RUN first. ⚠️ An owning id below 9000 is in the trader's "
+                "execution band and connecting as it EVICTS the trader's live "
+                "IB session — that is what the second override is asking about, "
+                "so read the dry run before waiving it. "
+                "`scripts/ops/over_cover_proposal.py` emits the issue bodies "
+                "with the group selection already made. This is also the likely "
+                "CAUSE of the split: a trailing amend cancel-and-re-places, and "
+                "when the cancel half is refused the re-place leaves a new "
+                "disjoint group behind."
             )
         if unknown_owner:
             advice += (
