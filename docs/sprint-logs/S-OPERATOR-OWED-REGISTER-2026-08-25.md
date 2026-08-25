@@ -212,6 +212,31 @@ in the new code), and both test fixtures defaulted to `judgement`, which would
 have silently exempted every carry-ladder assertion from the thing it tests.
 The checker's own `--self-test` caught the second one.
 
+**An undeclared behaviour change — a new operator Telegram ping — caught by
+`test_notify_set_is_preserved`, and reversed rather than declared.** The first
+draft set `notify: True` on `operator-owed-guard`, reasoning that an escalation
+nobody is told about is the re-listing it replaces. CI failed on exactly that
+(`1 failed, 12967 passed`), with the test's own message: *"the set of guards
+that ping the operator changed; that is a behaviour change, not packaging."*
+
+Reading the notify path settled it the other way, and this is the more useful
+half. `guards.yml` sends its ping **once per PR run, with no latch and no
+per-condition dedupe**. All six existing notify-class guards are **diff-scoped**
+— they trip on something the PR introduced, so the ping fires once, to the
+author who can fix it. This guard is **ungated and its condition persists across
+PRs**: an aged-out item would have pinged the operator on every PR from every
+session until somebody moved it. That is the shape that put 202 CRITICALs on the
+operator's channel for two already-filed positions
+(`BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART`) — and a register
+built to end alarm fatigue must not ship a new source of it.
+
+So the CI failure IS the escalation: it reaches the session, which is the right
+first responder and has all four dispositions available. A latched operator ping
+stays a legitimate future addition; it needs the durable per-item
+`_cooldown_admits` shape the guards notify path does not have. The reasoning is
+recorded at the registry entry so a later session does not "fix" the missing
+flag back in.
+
 ## Risks and Follow-Ups
 
 - **The carry count under-reports and can never over-report.** A session that

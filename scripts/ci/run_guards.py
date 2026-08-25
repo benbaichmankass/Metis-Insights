@@ -308,10 +308,31 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "-m", "pytest", "tests/test_operator_owed.py",
              "tests/test_over_cover_decision.py", "-q"],
         ],
-        # A carried item IS the escalation, and an escalation nobody is told
-        # about is the re-listing this replaces. This is the one guard whose
-        # ping is the point rather than a side effect.
-        "notify": True,
+        # ⚠️ DELIBERATELY **NOT** `notify: True`, and the reason is the whole
+        # subject of this guard — do not "fix" this by adding it.
+        #
+        # The first draft set it, on the reasoning that an escalation nobody is
+        # told about is the re-listing it replaces. `tests/ci/test_run_guards.py
+        # ::test_notify_set_is_preserved` caught that as an undeclared
+        # behaviour change, correctly, and looking at the notify path settles
+        # it the other way: `guards.yml`'s ping fires **once per PR run, with
+        # no latch and no per-condition dedupe**.
+        #
+        # Every one of the six notify-class guards is DIFF-SCOPED — it trips on
+        # something the PR introduced, so the ping fires once, to the author who
+        # can fix it. This guard is UNGATED and its condition PERSISTS ACROSS
+        # PRs: an aged-out item would ping the operator on every PR from every
+        # session until somebody moved it. That is the shape that put 202
+        # CRITICALs on the operator's channel for two already-filed positions
+        # (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART), and this
+        # register exists to END alarm-fatigue, not to add a source of it.
+        #
+        # So the CI failure IS the escalation. It reaches the session, which is
+        # the right first responder and has all four printed dispositions
+        # available. An operator ping is a legitimate future addition, but it
+        # needs a DURABLE per-item latch (the `_cooldown_admits` shape) that
+        # this notify path does not have — adding the flag without one would be
+        # trading a silent list for a noisy one.
     },
     {
         "name": "async-route-blocking-guard",
