@@ -24876,6 +24876,20 @@
         "/api/diag/bybit_open_orders?account_id=bybit_1 post-run - ETHUSDT 3 PartialStopLoss + 3 PartialTakeProfit, combined 6 of 20, stop qty 7.48 vs position 5.78"
       ],
       "resolution_criteria": "A 110001 on a leg the same run already removed via its paired sibling is classified as already_gone rather than failed, so a run that reaches its intended post-state reports success. The states stay separate: already_gone (we removed it via its pair) must not be merged into cancelled (we cancelled it directly) nor into failed (the venue refused). A test asserts a run whose targets all return 110001 after their stops cancelled OK does not report partial_cancel."
+    },
+    {
+      "id": "BL-20260825-ROADMAP-LAST-UPDATED-LAGS-ITS-OWN-LEDGER-ROWS",
+      "opened_at": "2026-08-25T21:40:00+00:00",
+      "severity": "low",
+      "tier": "1 (doc drift)",
+      "status": "open",
+      "area": "docs/roadmap",
+      "title": "ROADMAP.md 'Last Updated' reads 2026-08-23 while four 2026-08-25 ledger rows sit below it",
+      "detail": "MEASURED 2026-08-25 during a doc-freshness sweep: ROADMAP.md line 9 declares 'Last Updated: 2026-08-23' while `grep -c '^> - 2026-08-25'` returns 4. At least three separate sessions added a 2026-08-25 ledger row and none advanced the field. It is LOW because the ledger rows themselves are dated and are the real record, so nothing is lost — but the field is the first thing a reader sees and it understates the roadmap's currency by two days, which is the wrong direction for a doc whose job is to be the centralized record. NOT fixed unilaterally: the field carries a HEADLINE summary, not just a date, so advancing it means choosing which of four sessions' work is the headline — a content decision that belongs to whoever is summarising, not to a passing sweep. Three sessions apparently made the same judgement, which is itself the signal that the field's update rule is unclear.",
+      "evidence": "ROADMAP.md:9 'Last Updated: 2026-08-23'; four rows matching '^> - 2026-08-25' (Lane 0 decisions, Lane 0 continuation, diag-token gate, operator-owed register).",
+      "resolution_criteria": "Either (a) state the update rule where an editor will see it — whether 'Last Updated' tracks the newest ledger row automatically or is a deliberately-curated headline that may lag — and if the former, add it to the canonical-doc-coherence checks so it cannot drift silently; or (b) decide it may lag and say so in the field itself, so a reader does not mistake it for the roadmap's currency. Closing this needs the rule written down, not just one date bumped.",
+      "found_by": "session_017etXEZ, doc-freshness sweep at session close",
+      "refs": []
     }
   ]
 }

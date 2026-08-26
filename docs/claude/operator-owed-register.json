@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-25T21:20:00+00:00",
+  "updated_at": "2026-08-26T04:50:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -18,24 +18,27 @@
       "automation_path": "scripts/ops/over_cover_proposal.py — reads /api/diag/ib_open_orders + the journal, runs the pure decision, and emits the exact cancel-ib-order system-action body. Dispatching it is Tier-2 and needs one operator OK.",
       "tested_decision_function": "src/runtime/over_cover_decision.py",
       "cannot_automate_reason": null,
-      "next_action": "Operator OK to dispatch cancel-ib-order for the order the proposal names (dry-run first, apply NOT set). The proposal REFUSES rather than guesses when no resting leg matches the journal, or when the match is ambiguous — the 2026-08-20 shape.",
+      "next_action": "A NEW decision on the widened state — not a re-run of the approved cancel, which has already been attempted and did not clear. Two things must be settled first, and #10312 filed both: cancel-ib-order reported lookup_state 'not_found' for order 448 while four independent reads show it resting (a false not_found in a safety tool says a stranded protective order is gone when it is not), and it labels IBKR 202 — the cancel CONFIRMATION code — as 'venue REFUSED'. Until those are resolved the tool's own report cannot be read as the outcome. Re-run scripts/ops/over_cover_proposal.py against the CURRENT three-group state before proposing anything; the group that matched the journal when this was registered no longer does.",
       "carried_before_register": [
         "01X2zMCh",
         "qhpxyh",
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
-      "last_state_change_at": "2026-08-25T21:20:00+00:00",
-      "last_state_change_note": "Deferred behind a named trigger by the session that built its wire, rather than carried forward in prose — which is the behaviour this register exists to replace. ⚠️ owner_class stays defaulted_to_human DELIBERATELY. Re-labelling it 'judgement' now that the remaining blocker is a Tier-2 approval would be defensible on its face and is exactly the 'a mislabel buys slack' residual this register documents against itself, so the honest move is to leave the class alone and use the deferral the check already offers. The position is LIVE and severity stays high.",
+      "last_state_change_at": "2026-08-26T04:50:00+00:00",
+      "last_state_change_note": "OFF SNOOZE — THE NAMED TRIGGER FIRED AND THE OUTCOME WAS NEGATIVE. The operator OK was given and another session dispatched the Tier-2 cancel-ib-order (PR #10312, merged 2026-08-26T04:43Z). The Bybit half cleared; the IB half DID NOT: oca-protect-446 orders 447 (STP) and 448 (LMT) still rest, confirmed by FOUR readonly account-wide reads spanning 03:51Z-04:37Z, and that route has no cache. ⚠️ THE CONDITION HAS ALSO WIDENED SINCE THE STATE THE APPLY WAS APPROVED AGAINST: there are now THREE full 29-lot groups against one 29 position (87 lots of stop, up from the 58/29 = 200% originally registered), and the journal's declared stop has trailed to 6.35257143, which matches the NEW oca-protect-t4796 group — so the group previously identified as the keeper is STALE too. #10312 states plainly that the widening is NOT acted on and needs its own decision. Clearing the snooze rather than letting it run to 2026-08-27 is the point of a NAMED trigger over a date: the trigger is what the deferral was conditioned on, it has resolved, and a register still showing 'waiting for an operator OK' would be asserting something false about a live over-covered position. Severity stays HIGH, not raised to critical: ib_paper is a PAPER account, which this item's own severity_basis established by checking rather than inheriting from earlier hand-offs. The widening makes it worse in degree, not in funding class.",
       "resolved_at": null,
       "resolution": null,
-      "snoozed_until": "2026-08-27T12:00:00+00:00",
-      "snooze_trigger": "An operator OK in chat on the Tier-2 cancel-ib-order dispatch. This is a DEFER BEHIND A NAMED TRIGGER, not a snooze: the wire and the selection both exist now (scripts/ops/over_cover_proposal.py renders the exact issue body; src/runtime/over_cover_decision.py is a tested pure function that KEEPS the journal-matching leg), so the single remaining input is an approval that only a person can give. The date is a re-surface bound, NOT the trigger — if the approval lands sooner, act sooner.",
+      "snoozed_until": null,
+      "snooze_trigger": null,
       "refs": [
         "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG",
         "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
         "BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND",
-        "src/runtime/protection_reassert.py"
+        "src/runtime/protection_reassert.py",
+        "PR #10312",
+        "BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL",
+        "BL-20260826-CANCEL-IB-ORDER-NOT-FOUND-IS-CLIENT-SCOPED-NOT-ACCOUNT-WIDE"
       ]
     },
     {
