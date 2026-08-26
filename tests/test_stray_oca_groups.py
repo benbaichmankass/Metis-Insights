@@ -83,7 +83,7 @@ def test_live_mhg_300pct_scenario_cancels_both_legacy_groups():
     assert sorted(out["stray_groups"]) == ["oca-protect-446", "oca-protect-465"]
     assert len(out["cancel"]) == 4
     # the keep group is re-placed by the existing keyed pre-cancel, never here
-    assert all(l["oca_group"] != keep for l in out["cancel"])
+    assert all(row["oca_group"] != keep for row in out["cancel"])
     assert out["by_state"][KEEP_TARGET] == 2
     assert out["by_state"][STRAY_UNKEYED] == 4
 
