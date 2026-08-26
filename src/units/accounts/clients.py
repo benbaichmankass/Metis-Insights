@@ -1889,10 +1889,33 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                     aid, sym, exc,
                 )
 
+        def _shape_order(o, ofilter, blind=False):
+            row = {
+                "symbol": o.get("symbol"),
+                "order_id": o.get("orderId"),
+                "order_filter": ofilter,
+                "order_type": o.get("orderType"),
+                "stop_order_type": o.get("stopOrderType") or None,
+                "side": o.get("side"),
+                "qty": _price(o.get("qty")),
+                "trigger_price": _price(o.get("triggerPrice")),
+                "price": _price(o.get("price")),
+                "trigger_direction": o.get("triggerDirection"),
+                "reduce_only": o.get("reduceOnly"),
+                "tpsl_mode": o.get("tpslMode") or None,
+                "order_status": o.get("orderStatus"),
+                "created_time": o.get("createdTime"),
+                "updated_time": o.get("updatedTime"),
+            }
+            if blind:
+                row["settlecoin_blind"] = True
+            return row
+
         # Resting orders, BOTH filters. "StopOrder" carries the conditional
         # SL/TP legs; "Order" carries a resting limit take-profit, which is a
         # different object and is invisible to the StopOrder filter -- reading
         # only the first would under-report target protection.
+        seen_order_ids: set = set()
         for ofilter in ("StopOrder", "Order"):
             try:
                 oresp = client.get_open_orders(
@@ -1905,27 +1928,71 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                 )
                 continue
             for o in (((oresp or {}).get("result") or {}).get("list") or []):
-                orders.append({
-                    "symbol": o.get("symbol"),
-                    "order_id": o.get("orderId"),
-                    "order_filter": ofilter,
-                    "order_type": o.get("orderType"),
-                    "stop_order_type": o.get("stopOrderType") or None,
-                    "side": o.get("side"),
-                    "qty": _price(o.get("qty")),
-                    "trigger_price": _price(o.get("triggerPrice")),
-                    "price": _price(o.get("price")),
-                    "trigger_direction": o.get("triggerDirection"),
-                    "reduce_only": o.get("reduceOnly"),
-                    "tpsl_mode": o.get("tpslMode") or None,
-                    "order_status": o.get("orderStatus"),
-                    "created_time": o.get("createdTime"),
-                    "updated_time": o.get("updatedTime"),
-                })
+                row = _shape_order(o, ofilter)
+                seen_order_ids.add(str(row["order_id"]))
+                orders.append(row)
+
+        # THE ORDERS HALF INHERITED THE settleCoin BLINDNESS THE POSITIONS HALF
+        # WAS FIXED FOR (2026-08-26, BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND).
+        # The cross-check above was applied to `get_positions` only, so this
+        # surface answered the position question completely and the PROTECTION
+        # question partially -- which is the worse half to under-report, since
+        # a missing leg reads as missing protection. Measured on bybit_1/ETHUSDT
+        # 2026-08-26: the settleCoin page returned 7 SL legs where the trader's
+        # own symbol-scoped read saw 9.
+        #
+        # The denominator is the symbols we KNOW hold a position (`seen`, itself
+        # already cross-checked above), NOT every configured symbol: protection
+        # is a property of a position, so a flat symbol's resting orders are not
+        # what this surface is for, and widening the denominator would spend a
+        # broker call per configured instrument for rows nobody grades.
+        order_symbols_unchecked: list = []
+        for sym in sorted(seen):
+            if not sym:
+                continue
+            for ofilter in ("StopOrder", "Order"):
+                try:
+                    one = client.get_open_orders(
+                        category=category, symbol=sym, orderFilter=ofilter,
+                    )
+                except Exception as exc:  # noqa: BLE001  # allow-silent: recorded in order_symbols_unchecked so the gap is not silent
+                    logger.warning(
+                        "account_bybit_open_orders(%s): order cross-check %s/%s "
+                        "failed: %s", aid, sym, ofilter, exc,
+                    )
+                    order_symbols_unchecked.append(f"{sym}/{ofilter}")
+                    continue
+                for o in (((one or {}).get("result") or {}).get("list") or []):
+                    oid = str(o.get("orderId"))
+                    if oid in seen_order_ids:
+                        continue
+                    seen_order_ids.add(oid)
+                    orders.append(_shape_order(o, ofilter, blind=True))
+        # A symbol the page DID return can still be under-reported by it, so
+        # this is not skipped for symbols already present -- dedup is by
+        # order id, which is what actually distinguishes a re-read from a find.
+        newly_found = sorted(
+            {str(r.get("symbol")) for r in orders if r.get("settlecoin_blind")})
+        if newly_found:
+            logger.warning(
+                "account_bybit_open_orders(%s): settleCoin order page under-"
+                "reported legs for %s (found only by the symbol-scoped "
+                "cross-check)", aid, ", ".join(newly_found),
+            )
     except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the caller's documented degraded state
         logger.warning("account_bybit_open_orders(%s): read failed: %s", aid, exc)
         return None
-    return {"category": category, "positions": positions, "orders": orders}
+    return {
+        "category": category,
+        "positions": positions,
+        "orders": orders,
+        # The DENOMINATOR for the orders read. Empty = every position-bearing
+        # symbol was cross-checked, so `orders` is complete for them. Non-empty
+        # names exactly the (symbol, filter) pairs we could NOT look at -- so a
+        # short `orders` list is never mistaken for a complete one.
+        "order_symbols_unchecked": order_symbols_unchecked,
+        "order_symbols_cross_checked": sorted(s for s in seen if s),
+    }
 
 
 def account_alpaca_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:

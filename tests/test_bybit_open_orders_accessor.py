@@ -172,3 +172,84 @@ def test_zero_size_positions_are_dropped(monkeypatch):
     _patch_client(monkeypatch, fake)
     out = accounts_clients.account_bybit_open_orders(_acct())
     assert [p["symbol"] for p in out["positions"]] == ["B"]
+
+
+# ---------------------------------------------------------------------------
+# The ORDERS half inherited the settleCoin blindness the POSITIONS half was
+# fixed for (2026-08-26). Measured on bybit_1/ETHUSDT: the settleCoin order
+# page returned 7 SL legs where the trader's own symbol-scoped read saw 9 — and
+# a missing leg reads as MISSING PROTECTION, which is the worse direction.
+# ---------------------------------------------------------------------------
+class _BlindOrderPage:
+    """settleCoin returns a partial order list; the symbol-scoped read is whole."""
+
+    def __init__(self, page_orders, symbol_orders, *, symbol_raises=False):
+        self._page = page_orders
+        self._symbol = symbol_orders
+        self._symbol_raises = symbol_raises
+        self.symbol_order_reads: list = []
+
+    def get_positions(self, category=None, settleCoin=None, symbol=None):
+        if symbol is not None:
+            return {"result": {"list": []}}
+        return {"result": {"list": [
+            {"symbol": "ETHUSDT", "side": "Buy", "size": "5.59",
+             "avgPrice": "4000", "stopLoss": "", "takeProfit": "",
+             "tpSlMode": "Partial"}]}}
+
+    def get_open_orders(self, category=None, settleCoin=None, symbol=None,
+                        orderFilter=None):
+        if symbol is not None:
+            self.symbol_order_reads.append((symbol, orderFilter))
+            if self._symbol_raises:
+                raise RuntimeError("symbol-scoped read failed")
+            return {"result": {"list": self._symbol.get(orderFilter, [])}}
+        return {"result": {"list": self._page.get(orderFilter, [])}}
+
+
+def _leg(oid, qty):
+    return {"symbol": "ETHUSDT", "orderId": oid, "qty": str(qty),
+            "stopOrderType": "StopLoss", "triggerPrice": "3900",
+            "orderStatus": "Untriggered"}
+
+
+def test_symbol_scoped_reread_finds_legs_the_settlecoin_page_omitted(monkeypatch):
+    fake = _BlindOrderPage(
+        page_orders={"StopOrder": [_leg("a", 0.19)], "Order": []},
+        # The venue actually holds three; the page showed one.
+        symbol_orders={"StopOrder": [_leg("a", 0.19), _leg("b", 1.18),
+                                     _leg("c", 4.41)], "Order": []})
+    _patch_client(monkeypatch, fake)
+    out = accounts_clients.account_bybit_open_orders(_acct())
+    ids = [o["order_id"] for o in out["orders"]]
+    assert sorted(ids) == ["a", "b", "c"], ids          # the two hidden legs surfaced
+    assert len(ids) == len(set(ids))                    # and NOT double-counted
+    blind = {o["order_id"] for o in out["orders"] if o.get("settlecoin_blind")}
+    assert blind == {"b", "c"}                          # only the re-read ones marked
+    assert out["order_symbols_unchecked"] == []
+    assert out["order_symbols_cross_checked"] == ["ETHUSDT"]
+
+
+def test_a_failed_cross_check_is_recorded_not_silent(monkeypatch):
+    """A short `orders` list must never be mistaken for a complete one."""
+    fake = _BlindOrderPage(
+        page_orders={"StopOrder": [_leg("a", 0.19)], "Order": []},
+        symbol_orders={}, symbol_raises=True)
+    _patch_client(monkeypatch, fake)
+    out = accounts_clients.account_bybit_open_orders(_acct())
+    assert out is not None                              # still a usable read
+    assert [o["order_id"] for o in out["orders"]] == ["a"]
+    assert out["order_symbols_unchecked"] == [
+        "ETHUSDT/StopOrder", "ETHUSDT/Order"]
+
+
+def test_a_flat_account_spends_no_cross_check_calls(monkeypatch):
+    """The denominator is position-bearing symbols: protection is a property of
+    a position, so a flat book must not cost a broker call per instrument."""
+    fake = _FakeBybit(positions=[], orders_by_filter={"StopOrder": [], "Order": []})
+    _patch_client(monkeypatch, fake)
+    out = accounts_clients.account_bybit_open_orders(
+        _acct(symbols=["ETHUSDT", "BTCUSDT", "SOLUSDT"]))
+    assert out["order_symbols_cross_checked"] == []
+    assert out["order_symbols_unchecked"] == []
+    assert out["orders"] == []

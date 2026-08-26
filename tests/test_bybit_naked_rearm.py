@@ -509,3 +509,83 @@ def test_overcover_detector_still_fires_alongside_divergence(tmp_path, monkeypat
     summary = om._check_broker_naked_bybit_positions(db)
     assert summary["journal_qty_divergent"] == 1
     assert summary["over_covered"] == 1
+
+
+def test_over_accumulation_PAGES_the_operator_not_just_the_journal(
+        tmp_path, monkeypatch, caplog):
+    """The detection was correct and INVISIBLE for four weeks.
+
+    `summary["over_covered"]` and a `logger.error` reach the systemd journal and
+    nothing else — not `outcomes.jsonl`, so not Telegram, not
+    `/api/bot/notifications`, not `/api/bot/logs?level=error`. Measured
+    2026-08-26 over the 401-row operator ERROR+ feed spanning
+    2026-08-20T09:42Z-2026-08-26T00:33Z: **zero** Bybit rows, against three
+    `ib_stop_over_cover` rows in the same feed — a positive control proving the
+    probe finds a positive, so the silence is the Bybit page's absence and not
+    an empty feed.
+
+    ⚠️ THIS TEST EXISTS BECAUSE THE UNIT TESTS DID NOT COVER THE WIRING.
+    `tests/test_bybit_over_cover_alert.py` calls the pager directly, so deleting
+    the sweep's call to it left all ten of those green — a mechanism that exists
+    and is never exercised, which is the exact class this whole change is about.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="short",
+            position_size=32557.2, stop_loss=1.094, take_profit_1=1.054,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "32557.2", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "58686.8", "orderId": "a"},
+            {"stopOrderType": "PartialStopLoss", "qty": "86102.5", "orderId": "b"},
+        ]},
+    )
+    _patch_accounts(monkeypatch, client)
+    om._TICK_ACTIVE_CLOSE_AT.clear()
+
+    # Durable latch into tmp_path so a real state file cannot suppress this.
+    monkeypatch.setattr(om, "_alert_state_path",
+                        lambda kind: tmp_path / f"{kind}_alert_state.json")
+    sent = []
+    import src.runtime.outcomes as outcomes
+    monkeypatch.setattr(outcomes, "report", lambda *a, **k: sent.append((a, k)))
+
+    with caplog.at_level("ERROR"):
+        summary = om._check_broker_naked_bybit_positions(db)
+
+    assert summary["over_covered"] == 1
+    assert summary["over_cover_alerted"] == 1, (
+        "the sweep must CALL the pager, not merely count the condition")
+    assert [a[0] for a, _ in sent] == ["bybit_over_cover"]
+    kwargs = sent[0][1]
+    assert kwargs["account_id"] == "bybit_2" and kwargs["symbol"] == "XRPUSDT"
+    assert kwargs["sl_leg_count"] == 2
+    # Still detect-only: it pages, it cancels nothing.
+    assert summary["rearmed"] == 0 and summary["topped_up"] == 0
+    assert client.stops_set == []
+
+
+def test_a_healthy_symbol_pages_nothing(tmp_path, monkeypatch):
+    """The denominator for the test above: the sweep must not page on a
+    correctly-covered position, or the page is noise rather than a signal."""
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="short",
+            position_size=100.0, stop_loss=1.094, take_profit_1=1.054,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "100.0", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "100.0", "orderId": "a"}]},
+    )
+    _patch_accounts(monkeypatch, client)
+    om._TICK_ACTIVE_CLOSE_AT.clear()
+    monkeypatch.setattr(om, "_alert_state_path",
+                        lambda kind: tmp_path / f"{kind}_alert_state.json")
+    sent = []
+    import src.runtime.outcomes as outcomes
+    monkeypatch.setattr(outcomes, "report", lambda *a, **k: sent.append((a, k)))
+
+    summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["over_covered"] == 0
+    assert summary["over_cover_alerted"] == 0
+    assert sent == []
