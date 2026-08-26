@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-26T05:10:00+00:00",
+  "updated_at": "2026-08-26",
   "carry_limit": 2,
   "items": [
     {
@@ -106,7 +106,8 @@
       "snooze_trigger": null,
       "refs": [
         "BL-20260823-PROP-JOURNAL-MISSING-THREE-DAYS-OF-TERMINAL-TRADES"
-      ]
+      ],
+      "escalated_2026_08_26": "STILL OPEN AND NOW MATERIAL, not merely stale. On 2026-08-26T22:18Z the operator opened a prop position against this unmeasured cushion: breakout_1 SOLUSD long 25.00 @ 99.94 (fill id 36, ticket prop-manual-784e35819c9f). At the ticket's declared stop 96.33535714 that position risks (99.94 - 96.33535714) * 25 = $90.12. The ONLY account-status snapshot in the journal -- balance 4764.00, reported 2026-08-23T16:10:45Z, 78.2h old, freshness 'stale' -- leaves $64.00 to the static drawdown floor of $4,700. On those figures a full stop-out BREACHES the floor by about $26 and permanently disables the account. STATE THE POPULATION: that $64.00 is derived from ONE snapshot, three days old; the balance can only have moved since, and the emitted ticket carried this same CUSHION UNKNOWN warning in its own text. This is why the row is owed."
     },
     {
       "id": "OO-20260825-ALPACA-LIVE-DAILY-USD-200-DECISION",
@@ -116,7 +117,7 @@
       "severity": "medium",
       "severity_basis": "alpaca_live is not funded, so nothing is at risk today — this gates a FUTURE funding decision rather than describing a live exposure. It is not low because the decision is a precondition of that funding.",
       "tier": "3 (a risk cap value in config/accounts.yaml)",
-      "status": "open",
+      "status": "resolved",
       "owner_class": "judgement",
       "owner_class_basis": "Setting a risk cap is Tier-3 by the permission tiers — the value expresses how much the operator is willing to lose in a day, which is a preference, not a lookup. A session may analyse and propose the exact change; it may not take it.",
       "automation_path": null,
@@ -132,7 +133,7 @@
       "last_state_change_at": "2026-08-26T18:00:00+00:00",
       "last_state_change_note": "Operator set funding at $200 and chose to LEAVE daily_usd at 200 (inert below $2,000 equity; no config change). The stale risk block in this row was corrected against config/accounts.yaml. Row stays OPEN: the cap decision is settled at the CURRENT funding only, and the sizing floor filed alongside is unresolved.",
       "resolved_at": null,
-      "resolution": null,
+      "resolution": "ANSWERED by the operator 2026-08-26 and shipped as record in #10347: funding is $200 and daily_usd STAYS at 200. Recorded honestly as a decision with a consequence rather than as a tidy close: at $200 funding, daily_usd: 200 is INERT -- it equals 100% of the account while daily_loss_pct: 0.1 binds first at $20 -- and it arms itself only above $2,000 equity (200 / 0.10). Left in place as a dormant backstop, per the operator. config/accounts.yaml and config/strategies.yaml were NOT touched. The sizing consequence of the same funding level is filed separately and is NOT closed by this decision: BL-20260826-ALPACA-LIVE-AT-200-USD-CANNOT-SIZE-ITS-LARGEST-SYMBOLS (population: the 10 of 11 declared symbols for which /api/bot/candles returned a close on 2026-08-26; at a 5% stop 4 of 10 round to ZERO shares). Inert while the account is mode: dry_run; it binds the moment it goes live at this funding.",
       "snoozed_until": null,
       "snooze_trigger": null,
       "refs": []
