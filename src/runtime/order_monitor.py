@@ -7238,7 +7238,11 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None) -> bool:
                 "oca_key": str(row["id"]),
                 # Scopes the stray-group sweep's CANCEL to the allowlist
                 # (PROTECTION_STRAY_GROUP_ACCOUNTS). Absent -> never cancels.
-                "account_id": row.get("account_id"),
+                # ⚠️ `account_id`, the local, NOT `row.get(...)` — `row` is a
+                # sqlite3.Row, which has no `.get`. Using it raised into this
+                # function's broad `except` and silently failed EVERY naked
+                # re-arm; caught by tests/test_ib_naked_rearm.py.
+                "account_id": account_id,
             }
         )
         if not resp or resp.get("retCode") != 0:
@@ -7514,7 +7518,8 @@ def _reassert_from_divergence(
                 "oca_key": str(row["id"]),
                 # Same as the naked re-arm above: scopes the stray-group
                 # sweep's CANCEL. Absent -> never cancels.
-                "account_id": row.get("account_id"),
+                # ⚠️ Bracket access — `row` is a sqlite3.Row with no `.get`.
+                "account_id": row["account_id"],
             })
             call_ok = int((result or {}).get("retCode", 1)) == 0
             rec["result"] = result

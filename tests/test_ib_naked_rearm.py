@@ -385,3 +385,29 @@ def test_ib_sweep_no_ib_accounts_noop(tmp_path, monkeypatch):
     summary = om._check_broker_naked_ib_positions(db)
     assert summary["checked"] == 0
     assert summary["broker_naked"] == 0
+
+
+def test_rearm_threads_account_id_into_the_order_dict(tmp_path, monkeypatch):
+    """The re-arm must NAME its account, or the stray-group sweep is inert.
+
+    `PROTECTION_STRAY_GROUP_ACCOUNTS` is an allowlist whose empty/unknown case
+    means NONE, so an order dict that omits `account_id` can never be
+    allowlisted — the sweep would read as armed and cancel nothing. That is the
+    "inert but looks live" shape, so the threading is pinned rather than
+    assumed.
+
+    ⚠️ This also guards the regression that produced it: `row` is a
+    `sqlite3.Row`, which has NO `.get()`. A `row.get("account_id")` here raises
+    into `_attempt_naked_autoprotect`'s broad `except` and silently fails EVERY
+    naked re-arm — the safety path that re-arms an unprotected live position.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="ib_paper", symbol="MHG", direction="long",
+            position_size=1, stop_loss=4.0, take_profit_1=6.0,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    fake = _FakeIBClient(protected=False)
+    _patch_accounts(monkeypatch, fake)
+
+    summary = om._check_broker_naked_ib_positions(db)
+    assert summary["rearmed"] == 1, "the re-arm itself must still succeed"
+    assert fake.rearmed[0]["account_id"] == "ib_paper"
