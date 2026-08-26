@@ -214,6 +214,18 @@ GUARDS: List[Dict[str, Any]] = [
     },
     {
         # A repeated mistake must produce a PREVENTION, not another row.
+        # GATE 0 item G4. Operator-approved 2026-08-26 on the test "if it's
+        # affecting things that are being read or filed before they're actually
+        # merged, then that's worth keeping" -- a population-less number lands in
+        # a backlog row or doc and is then READ by later sessions as fact.
+        "name": "stated-population-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_stated_population.py", "--self-test"],
+            ["python3", "scripts/ci/check_stated_population.py", "{pr_diff}"],
+        ],
+    },
+    {
         "name": "recurrence-ledger-guard",
         "when": None,
         "steps": [

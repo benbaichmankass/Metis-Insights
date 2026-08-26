@@ -219,8 +219,8 @@ Three corrections were needed to get there, and each one changed the answer:
 | bybit_2 is where the problem is | a **measurement artifact** — bybit is the only broker-truth PnL reader, so a measured exit can only be bybit |
 
 And the obvious cause is **refuted**: overlapping same-(account,symbol) trades
-appear on 4.2% of overshooting rows vs 23.3% of clean ones (−19.2pp). Netted
-siblings correlate with CLEAN exits.
+appear on 3 of 72 overshooting rows (4.2%) vs 28 of 120 sampled clean ones
+(23.3%) — −19.2pp. Netted siblings correlate with CLEAN exits.
 
 The duplicate pre-check shipped in Part 1 earned its keep within the hour:
 searching before filing surfaced `PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R`,
