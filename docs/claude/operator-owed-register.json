@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-26T04:55:00+00:00",
+  "updated_at": "2026-08-26T05:00:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -18,15 +18,15 @@
       "automation_path": "scripts/ops/over_cover_proposal.py — reads /api/diag/ib_open_orders + the journal, runs the pure decision, and emits the exact cancel-ib-order system-action body. Dispatching it is Tier-2 and needs one operator OK.",
       "tested_decision_function": "src/runtime/over_cover_decision.py",
       "cannot_automate_reason": null,
-      "next_action": "Re-run scripts/ops/over_cover_proposal.py against the CURRENT two-group state, using a FRESH client read — not /api/diag/ib_open_orders, which is the surface that produced the wrong picture — then take the result to the operator as a new Tier-2 dispatch. This is NOT a replay of the approved cancel: that one succeeded and its target is gone. The open question is 465 vs t4796, and the journal now matches t4796, so the group the earlier selection would have kept is the stale one. ⚠️ Read BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL (raised to high) before trusting the tool's own verdict: it reported this SUCCESSFUL cancel as 'venue REFUSED', which invites either a retry of a cancel that already worked or the conclusion that a stranded leg cannot be cleared at all — and that second reading points at flatten-ib-position, which PLACES an order.",
+      "next_action": "NOT an operator dispatch — there is nothing to approve, because no repair path reaches this group. This item is BLOCKED ON WORK, not on a decision, and that work is BL-20260816-NO-PER-ORDER-IB-CANCEL's residual: a cancel path that can reach a leg owned by the LIVE execution clientId without evicting the trader's session. Until that exists the honest state is 'detected, correctly refused, unreachable'. ⚠️ Do NOT let the absence of a path become a reason to reach for flatten-ib-position — that PLACES an order and is a different and larger action than clearing a stray protective leg. #10317 deliberately does NOT claim this is a generator: the keyed naming shipped recently and t4796 proves it is exercised, so 465 may simply pre-date it. Whether this is a finite backlog or ongoing is the first thing to MEASURE — count the legacy-named groups still resting and check whether any NEW one appeared after the keyed path deployed. That measurement, not a dispatch, is the next action.",
       "carried_before_register": [
         "01X2zMCh",
         "qhpxyh",
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
-      "last_state_change_at": "2026-08-26T04:55:00+00:00",
-      "last_state_change_note": "⚠️ CORRECTED — MY PREVIOUS NOTE ON THIS ITEM WAS WRONG IN ITS HEADLINE CLAIM AND IS REPLACED. It said the IB cancel DID NOT clear. It DID. The session that ran it corrected itself in #10314 (merged AFTER my #10311, so the register carried the refuted version for one commit) and settled it with a read-only dry run, #10313: a FRESHLY BUILT client that never connected as the owning clientId returns 8 orders with 447 not_found, while /api/diag/ib_open_orders returns 10 across four reads. The two views differ by EXACTLY the two legs of oca-protect-446 and agree on all six other orders — so the cancel succeeded, 446 is gone, and the DIAG ROUTE is carrying the cancelled pair forward (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW). THE '87 LOTS ACROSS THREE GROUPS' FIGURE I RECORDED IS ALSO AN ARTIFACT OF THAT STALE READ and must not be re-quoted: MHG holds TWO groups (465 and t4796) and 58 lots against a 29 position — the over-cover is real at 200%, which is the figure this item was ORIGINALLY registered with. It did not widen. WHAT SURVIVES UNCHANGED: the journal's declared stop has trailed to 6.35257143 and matches t4796, so 465 is the STALE group and is no longer the keeper the 2026-08-20 selection would have named — the reason a fresh proposal run is required rather than a replay. MY OWN LAPSE, RECORDED RATHER THAN TIDIED: I took a sibling session's reported outcome as measured fact and wrote it into the register without independently checking the read surface it rested on. It was attributed, which is why the correction was cheap — but 'a previous session measured it' is explicitly not verification under RULE ONE, and this is what that costs.",
+      "last_state_change_at": "2026-08-26T05:00:00+00:00",
+      "last_state_change_note": "NO REPAIR PATH EXISTS — the previous next_action asked for a dispatch that cannot be dispatched, and is replaced. #10317 confirms from a FRESH client (#10315) that the stray group is 465 / order 466, STP 29 @ 6.312, owner clientId 497. Neither repair reaches it, for two INDEPENDENT reasons: (1) the trader's own re-arm cancels `oca-protect-t<trade_id>` and cannot match a legacy `oca-protect-<reqId>` name; (2) cancel-ib-order REFUSES because 497 is inside the trader's execution band and connecting as it would evict the live IB session. That refusal is CORRECT — the point is that it leaves no path at all. So the class cancel-ib-order was expected to close is closed only for legs owned by a RETIRED clientId (447/597 cleared today); a leg owned by the LIVE 497 cannot be. ⚠️ STRUCTURAL CHANGE TO HOW THIS ITEM IS WRITTEN, because the fact-level notes kept going stale: this is the THIRD correction to this entry in about an hour (cleared / did-not-clear / no-path), each because the entry RESTATED another session's live mechanics instead of pointing at them. An operator-owed register's job is to carry the OWNER CLASS, the age, and what is BLOCKING — not to mirror a fast-moving investigation. The mechanics now live in the refs and the next_action names the blocking WORK rather than a procedure; re-read the rows for current detail. The 200% / two-group / 58-lot figure from my previous correction STANDS and is independently confirmed here.",
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null,
@@ -40,7 +40,10 @@
         "BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL",
         "PR #10314",
         "PR #10313",
-        "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
+        "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW",
+        "PR #10317",
+        "PR #10315",
+        "BL-20260816-NO-PER-ORDER-IB-CANCEL"
       ]
     },
     {
