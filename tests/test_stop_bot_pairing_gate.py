@@ -29,7 +29,8 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "ops" / "stop_bot.sh"
 
 
-def _shim(tmp_path: Path, *, watchdog_active: str, trader_active: str = "active") -> dict:
+def _shim(tmp_path: Path, *, watchdog_active: str, trader_active: str = "active",
+          force_nonroot: bool = False) -> dict:
     """PATH with a fake `systemctl` (and `sudo`) answering the two state reads."""
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -47,10 +48,48 @@ def _shim(tmp_path: Path, *, watchdog_active: str, trader_active: str = "active"
     )
     (bindir / "systemctl").chmod(0o755)
     # Force the non-root branch to resolve to our shim rather than real sudo.
-    (bindir / "sudo").write_text('#!/usr/bin/env bash\nexec "$@"\n')
+    #
+    # ⚠️ IT MUST STRIP SUDO'S OWN FLAGS FIRST. The script probes with
+    # `sudo -n systemctl --version`, and a naive `exec "$@"` stub hands `-n` to
+    # bash's `exec`, which rejects it ("invalid option") -- so the probe fails,
+    # the script takes its "passwordless sudo unavailable" branch, and exits 1
+    # BEFORE the pairing gate is ever evaluated. Every assertion below would
+    # then be measuring an abort, not the gate. That is the same
+    # tests-that-cannot-fail shape as the root-skip this file already removed,
+    # just on the other branch -- and it is precisely what CI caught.
+    (bindir / "sudo").write_text(
+        "#!/usr/bin/env bash\n"
+        "while [ $# -gt 0 ]; do\n"
+        "  case \"$1\" in\n"
+        "    -*) shift ;;\n"
+        "    *) break ;;\n"
+        "  esac\n"
+        "done\n"
+        'exec "$@"\n'
+    )
     (bindir / "sudo").chmod(0o755)
     env = dict(os.environ)
     env["PATH"] = f"{bindir}:{env['PATH']}"
+    # record_audit() writes under ${REPO_DIR}/runtime_logs/operator_actions, which
+    # defaults to the VM path /home/ubuntu/ict-trading-bot and does not exist on a
+    # runner. Point it at the tmp tree so the audit write is real and assertable
+    # rather than an mkdir error the script has to tolerate.
+    if force_nonroot:
+        # Shim `id` so the script takes its `sudo systemctl` branch even when the
+        # test host IS root. Without this the branch a runner actually uses is
+        # only ever exercised on a runner -- which is how the `exec "$@"` sudo
+        # stub above reached CI green locally and failed there. `id` is not a
+        # bash builtin, so a PATH stub genuinely intercepts it.
+        (bindir / "id").write_text(
+            "#!/usr/bin/env bash\n"
+            'case "$*" in\n'
+            "  *-u*) echo 1000 ;;\n"
+            "  *) echo runner ;;\n"
+            "esac\n"
+        )
+        (bindir / "id").chmod(0o755)
+    env["REPO_DIR"] = str(tmp_path / "repo")
+    (tmp_path / "repo").mkdir(exist_ok=True)
     return env
 
 
@@ -88,3 +127,20 @@ def test_an_unreadable_watchdog_state_does_not_silently_proceed_as_active(tmp_pa
     combined = r.stdout + r.stderr
     assert "is-active=unknown" in combined, "the observed watchdog state must be reported verbatim"
     assert r.returncode == 0
+
+
+def test_the_gate_holds_on_the_sudo_branch_too(tmp_path):
+    """The refusal must not depend on which privilege branch the script took.
+
+    CI runs as a non-root user and the sandbox that wrote this file runs as root,
+    so a fixture that only ever exercises one branch leaves the other untested on
+    every host that could catch it. Forcing `id -u` non-zero pins the sudo branch
+    regardless of who is running, which is the branch the runner uses.
+    """
+    r = _run(_shim(tmp_path, watchdog_active="active", force_nonroot=True))
+    combined = r.stdout + r.stderr
+    # The abort must be the pairing gate, NOT the "passwordless sudo" bail-out —
+    # those are different exits and only one of them is the property under test.
+    assert "passwordless sudo" not in combined, combined[-2000:]
+    assert r.returncode == 4, (r.returncode, combined[-2000:])
+    assert "STOP-ISSUED" not in combined

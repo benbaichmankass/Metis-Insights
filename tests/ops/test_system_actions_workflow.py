@@ -67,6 +67,11 @@ EXPECTED_ACTIONS = {
     # Tier 2 — mutating / restart / derived-artifact writes
     "pull-and-deploy": "pull_and_deploy.sh",
     "restart-bot-service": "restart_bot.sh",
+    # The lifecycle pair. stop/start are SEPARATE actions, not a restart with a
+    # timeout: a stop whose start is bundled into it cannot be held open for the
+    # work the stop was taken for (an IB cancel needs the trader's clientId free).
+    "stop-bot-service": "stop_bot.sh",
+    "start-bot-service": "start_bot.sh",
     "reboot-vm": "reboot_vm.sh",
     "enable-closed-flat-invariant": "enable_closed_flat_invariant.sh",
     "disable-closed-flat-invariant": "disable_closed_flat_invariant.sh",
@@ -304,6 +309,8 @@ EXPECTED_ACTIONS = {
 TIER_2_ACTIONS = {
     "pull-and-deploy",
     "restart-bot-service",
+    "stop-bot-service",
+    "start-bot-service",
     "reboot-vm",
     "enable-closed-flat-invariant",
     "disable-closed-flat-invariant",
