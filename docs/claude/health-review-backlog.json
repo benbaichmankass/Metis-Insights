@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-25T21:30:00+00:00",
+  "updated_at": "2026-08-26T04:40:00Z",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -24830,6 +24830,52 @@
       "resolution": "FIXED. `_bybit_position_protection` now also returns `protective_leg_count` (SL + TP), counted from rows it already had, and the page uses it for headroom and for severity.\n\nTWO QUANTITIES, NEVER COLLAPSED, and the split is the point: `covered_qty`/`sl_leg_ids` answer a STOP-COVERAGE question and stay SL-only; `protective_leg_count` answers a CAP-PROXIMITY question and is combined. The page prints both ('18 of Bybit's 20-leg COMBINED TP+SL cap are used (2 left; 9 of them are stop legs)') so neither can be mistaken for the other.\n\nAN UNCOUNTABLE TARGET SIDE PUBLISHES NO HEADROOM. `leg_cap_headroom` is None - never `20 - stop_count` - and the prose says 'UNKNOWN (not large)'. Substituting the measurable half for the whole is the defect itself, so the fallback refuses rather than estimates. Severity still falls back to the stop count, so an uncountable target side can never SILENCE a worsening.\n\nBREAK-TESTED IN BOTH HALVES, and the second one was needed: removing the sweep's `protective_leg_count=state.get(...)` argument left all 37 pager+sweep tests GREEN, because the pager's own tests pass the value directly. test_the_page_receives_the_COMBINED_leg_count_not_just_the_stops drives the whole sweep and fails both when the wiring is removed AND when the counter itself is narrowed back to SL-only. That is the SECOND uncovered-wiring gap found in this file today by the same technique.",
       "not_done": "✅ EXERCISED AND VERIFIED 2026-08-26T02:19:58Z (deploy 084be99e, restart_pending false). And the corrected page did not merely reproduce the old one — it immediately surfaced a live condition the defect had been CONCEALING. Same position, 14 minutes apart:\n    02:06:00 (old) : '10 of Bybit's 20-leg cap are used (10 left)'\n    02:19:58 (new) : '20 of Bybit's 20-leg COMBINED TP+SL cap are used\n                      (0 left; 10 of them are stop legs)'\nbybit_1/ETHUSDT is AT THE CAP. `set_trading_stop` refuses at 20 (110061), so a genuine protective tightening on that position FAILS SILENTLY right now — which is precisely the money-at-risk state the cap warning exists to announce, and the SL-only count reported ten legs of headroom over it.\n\n⚠️ STATE THE POPULATION, because it bounds the urgency: this is `bybit_1`, the DEMO account. Real money was checked in the same pass and is CLEAN — `bybit_2` ETHUSDT 4 legs / XRPUSDT 2 legs, `bybit_portfolio` ETHUSDT 4 / XRPUSDT 2, i.e. 16-18 legs of headroom each (/api/diag/bybit_open_orders, 2026-08-26T02:35Z, read_state orders_read on both). The saturation is confined to demo.\n\nIT IS ALSO STILL ACCUMULATING: SL legs went 9 -> 10 between 01:16 and 02:06 and the combined count reached 20. The cleanup dry-run (#10303) is clean and would take it from 20 legs to 4, but the apply is Tier-2 and awaits an operator decision.",
       "resolution_criteria": "MET 2026-08-26T02:19:58Z — a real bybit_over_cover row naming the COMBINED cap, whose headroom (0 of 20) matches an independent venue read of TP+SL legs for the same symbol. Exercised, not merely deployed."
+    },
+    {
+      "id": "BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL",
+      "opened_at": "2026-08-26T04:40:00Z",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "title": "cancel-ib-order labels IBKR 202 (the cancel CONFIRMATION) as \"venue REFUSED\", and cites 10147 whatever code arrived",
+      "detail": "Measured live 2026-08-26 on ib_paper/MHG order 447 (issue #10309). IBClient._locked_cancel installs _cancel_error_capture and treats ANY code that lands on the error channel, keyed to the orderId, as a refusal. IBKR delivers informational notices on that same channel, and code 202 is 'Order Canceled' - the cancel CONFIRMATION, not a rejection. The run therefore returned retCode 1 with retMsg 'venue REFUSED the cancel: IBKR error 202'. Compounding it, the wrapper's note is emitted unconditionally and names a DIFFERENT code: 'Error 10147 specifically means the submitting clientId no longer holds the order' - 10147 was not the code received. That is the unprovenanced-diagnostic sub-class A already canonical in CLAUDE.md: a failure message naming a cause no code path tested. STATE THE POPULATION: this is ONE observation of code 202 on one order, not a rate. The refusal-capture defect is established by reading the code; whether 202 in this instance meant the cancel succeeded is NOT established - four account-wide readonly reads over 12 minutes still show 447 and 448 resting (see the sibling row on the read disagreement), so the outcome remains genuinely unknown and the two questions must not be collapsed.",
+      "evidence": [
+        "issue #10309 - apply run, cancel_response.refusal {code: 202, message: 'Order Canceled - reason:'}, action 'refused_by_venue', verify_state 'still_present'",
+        "src/units/accounts/ib_client.py::_locked_cancel - `if refusal:` branch treats any captured code as a refusal",
+        "src/units/accounts/ib_client.py cancel() docstring - documents 10147 as the motivating case; the note text is not conditioned on the code"
+      ],
+      "resolution_criteria": "_cancel_error_capture (or its consumer) distinguishes IBKR INFORMATIONAL codes - 202 at minimum - from genuine rejections, so a 202 no longer produces retCode 1 / 'venue REFUSED'; and the 10147 note is emitted ONLY when the captured code is 10147. A test asserts both: a captured 202 does not render as a refusal, and a captured non-10147 refusal does not print the 10147 sentence."
+    },
+    {
+      "id": "BL-20260826-CANCEL-IB-ORDER-NOT-FOUND-IS-CLIENT-SCOPED-NOT-ACCOUNT-WIDE",
+      "opened_at": "2026-08-26T04:40:00Z",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "title": "cancel-ib-order reported lookup_state not_found - 'confirmed clean account-wide read' - for an order four independent reads show resting",
+      "detail": "Measured live 2026-08-26 on ib_paper/MHG (issues #10309, #10310). Two producers disagree about the same account at the same time. cancel-ib-order, connected AS the owning clientId 597, reported orders_on_account: 8 and lookup_state 'not_found' for order 448, whose documented meaning is 'confirmed clean account-wide read; no order with that id'. The readonly diag route /api/diag/ib_open_orders reported count 10 including BOTH 447 and 448 in oca-protect-446, on four separate reads spanning 03:51Z-04:37Z. account_ib_open_orders has NO caching (verified by reading it), so the diag side is a live read each time. WHY IT IS P1: this is a SAFETY tool and the failure direction is the dangerous one - a false not_found tells an operator a stranded protective order is gone when it is still resting, which is exactly the state the action exists to clear. It is the IB analogue of the settleCoin page blindness already canonical for Bybit (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND): a read that is scoped to what one session was shown, presented as account-wide truth. NOT YET ESTABLISHED: which of the two reads is right, and whether connecting as a RETIRED rotation clientId is what narrows the set. Both are open questions - do not assume the diag side is authoritative merely because it is the purpose-built surface.",
+      "evidence": [
+        "issue #10310 - orders_on_account: 8, lookup_state 'not_found' for order 448",
+        "/api/diag/ib_open_orders?account_id=ib_paper - count 10, oca-protect-446 carrying 447 (STP 6.2625) + 448 (LMT 7.1415), read at 03:51Z, 04:35Z, 04:36Z and 04:37Z",
+        "src/units/accounts/clients.py::account_ib_open_orders - no cache; one live list_open_orders() per call",
+        "scripts/ops/cancel_ib_order.py - the 'not_found' note text asserting a confirmed clean account-wide read"
+      ],
+      "resolution_criteria": "Establish which read is authoritative by reading the same account from both a 9000-band readonly client and a retired-rotation-id client in one run and diffing the sets. Then either (a) cancel-ib-order's lookup reads through the same accessor the diag route uses, or (b) its 'not_found' stops claiming 'confirmed clean account-wide read' and becomes a three-state verdict that can say 'this session was shown no such order', which is not the same fact. A test pins whichever contract is chosen."
+    },
+    {
+      "id": "BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE",
+      "opened_at": "2026-08-26T04:40:00Z",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "title": "cancel-stale-tpsl-legs reported 'partial_cancel - 7 failed' on a run that fully achieved its goal",
+      "detail": "Measured live 2026-08-26 on bybit_1/ETHUSDT (issue #10308). The run reported action 'partial_cancel', 'cancelled 7/14 stale legs (7 failed)'. All 7 'failures' were TAKE-PROFIT legs and all 7 carried Bybit ErrCode 110001 'order not exists or too late to cancel'. Each shares a createdTime with the stop leg cancelled immediately before it, i.e. Bybit places a Partial SL/TP pair such that cancelling the stop removes its paired target, so the subsequent explicit target cancel is a no-op on an order that is already gone. The OUTCOME was complete and was verified independently of the tool: /api/diag/bybit_open_orders afterwards shows 6 legs (3 SL + 3 TP), exactly the 6 the decision chose to keep, restoring 14 of headroom under Bybit's 20-leg combined cap, with 7.48 of stop resting against the 5.78 position. So the label is a FALSE NEGATIVE on a fully successful run. That direction is less dangerous than the inverse but it is not harmless: it trains an operator to read 'partial_cancel - 7 failed' as routine, which is the desensitized-alarm shape, and it would mask a genuinely partial run.",
+      "evidence": [
+        "issue #10308 - action 'partial_cancel', detail 'cancelled 7/14 stale legs (7 failed)', cancel_results showing all 7 as ErrCode 110001 on PartialTakeProfit legs",
+        "the 7 failing TP legs each share createdTime with a stop leg cancelled OK in the same run (e.g. 1787619902658, 1787612573717, 1787529902746)",
+        "/api/diag/bybit_open_orders?account_id=bybit_1 post-run - ETHUSDT 3 PartialStopLoss + 3 PartialTakeProfit, combined 6 of 20, stop qty 7.48 vs position 5.78"
+      ],
+      "resolution_criteria": "A 110001 on a leg the same run already removed via its paired sibling is classified as already_gone rather than failed, so a run that reaches its intended post-state reports success. The states stay separate: already_gone (we removed it via its pair) must not be merged into cancelled (we cancelled it directly) nor into failed (the venue refused). A test asserts a run whose targets all return 110001 after their stops cancelled OK does not report partial_cancel."
     }
   ]
 }
