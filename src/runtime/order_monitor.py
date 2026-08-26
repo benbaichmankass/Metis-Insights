@@ -7236,6 +7236,9 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None) -> bool:
                 # strategies' take-profit legs
                 # (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY).
                 "oca_key": str(row["id"]),
+                # Scopes the stray-group sweep's CANCEL to the allowlist
+                # (PROTECTION_STRAY_GROUP_ACCOUNTS). Absent -> never cancels.
+                "account_id": row.get("account_id"),
             }
         )
         if not resp or resp.get("retCode") != 0:
@@ -7509,6 +7512,9 @@ def _reassert_from_divergence(
                 # exactly why it had to be fixed NOW -- it would have inherited
                 # the defect silently on the flip to `apply`.
                 "oca_key": str(row["id"]),
+                # Same as the naked re-arm above: scopes the stray-group
+                # sweep's CANCEL. Absent -> never cancels.
+                "account_id": row.get("account_id"),
             })
             call_ok = int((result or {}).get("retCode", 1)) == 0
             rec["result"] = result

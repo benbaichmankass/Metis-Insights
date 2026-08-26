@@ -2571,6 +2571,10 @@ def modify_open_order(
                 "sl": eff_sl if has_sl else None,
                 "tp": eff_tp if has_tp else None,
             }
+            # Scopes the stray-group sweep's CANCEL to the allowlist
+            # (PROTECTION_STRAY_GROUP_ACCOUNTS). Absent -> never cancels, so a
+            # caller that cannot name its account can never arm the order path.
+            _ib_order["account_id"] = account_cfg.get("account_id")
             if trade_id is not None and str(trade_id).strip():
                 _ib_order["oca_key"] = str(trade_id).strip()
             else:
