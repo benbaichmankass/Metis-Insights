@@ -287,6 +287,57 @@ repo-wide errors against the `ruff` binary's 1. `requirements-dev.txt` pins
 `>=0.15.0,<0.16` precisely because 0.16 expanded the default ruleset. Use the
 binary; a sandbox `-m` invocation can resolve to a different install.
 
+### VERIFIED ON A REAL RUNNER — and the smoke leg caught a second defect of mine
+
+The offline tests prove the sweep RESOLVES the file; only a runner proves the
+**fetch**. So one leg was dispatched before the full matrix
+(`only=mes_trend_long_1d, singles_only=true`), deliberately the hardest case: a
+`PROXY_DATA` symbol, newly routed to yfinance, whose file must land as
+`ES_F_1d.csv`.
+
+**Run 32972018506 FAILED, exactly as the smoke existed to find out:**
+
+```
+BACKTEST_FEED_SOURCE: yfinance
+Fetching MES D candles 2021-08-22 -> 2026-08-26 (source=yfinance) …
+dependency missing (nothing was fetched): the yfinance package is not
+installed (No module named 'yfinance')
+```
+
+The job name — `sweep (mes_trend_long_1d, MES, 1d, donchian, D, yfinance,
+ES_F_1d)` — confirms the routing and the stem were both right. **I had routed to
+a feed the job could not run**: the install step still carried
+`dukascopy-python` alone. Across 22 shards that is 22 wasted runners; one smoke
+leg cost 40 seconds.
+
+⚠️ **Worth recording for its own sake:** the fetcher said *"dependency missing
+(NOTHING WAS FETCHED)"*, not *"fetch failed"*. That is the three-stage
+`YfDependencyMissing` / `YfRefused` / `YfFetchFailed` split shipped 2026-08-24
+doing precisely its job — a single "fetch failed" label would have sent me to
+Yahoo, the ticker and the span before the dependency. The earlier session's
+diagnostic-provenance work paid for itself here.
+
+**Run 32972413593, after adding `yfinance`: all four jobs green** — plan ✅ ·
+sweep ✅ (fetch 2 s, sweep 15 s) · aggregate ✅ · corpus ✅. The corpus job
+committed **15 measured cells** for `mes_trend_long_1d`, every one
+`state: measured`:
+
+| | |
+|---|---|
+| base `net_total_r` | **7.1785** |
+| best cell | `tp2.5` at **7.7002** (`d_net_r` +0.5217) |
+| worst | `sm3.5` at 5.0862 (−2.0923) |
+| axes covered | stop (4) · timeout (4) · tp (7) |
+
+So a leg that was recorded `blocked:no_free_lane_candle_feed`, and which under
+the old code fetched candles and then measured nothing while passing, is now
+**measured end-to-end**.
+
+⚠️ **Note for anyone dispatching this workflow from a branch:** the `corpus` job
+**commits and pushes** to the ref it ran on, so a dispatch adds a commit to your
+branch. My next push was rejected as behind until I pulled it — expected
+behaviour, not a conflict.
+
 ### Not done, deliberately
 
 **The 25 cells are still blocked.** Nothing here measured a bracket. The
