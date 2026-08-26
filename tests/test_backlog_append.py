@@ -117,3 +117,85 @@ def test_duplicate_ids_are_refused(tmp_path):
 def test_self_test_passes():
     from scripts.ops.backlog_append import _self_test
     assert _self_test() == 0
+
+
+# --- the near-duplicate refusal -------------------------------------------
+# Operator, 2026-08-26: "We aren't using the backlog/lessons learned logs
+# correctly if we still keep running into the same fuck ups." The id check
+# above catches only an EXACT repeat, which never happens — ids carry the
+# filing date. With 951 / 109 / 104 rows, checking by hand is impractical, so
+# nobody does, so the log accumulates lessons and teaches none.
+
+def _seed_backlog(tmp_path, rows):
+    p = tmp_path / "b.json"
+    p.write_text(json.dumps({"schema_version": 1, "items": rows}, indent=2) + "\n")
+    return p
+
+
+_EXISTING = {
+    "id": "BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE",
+    "status": "kept_open",
+    "title": "exit reason frozen when the price arrives late",
+    "detail": "the sweep fills exit_price after the close and never re-runs the "
+              "classifier, so broker-truth rows keep a reconciler_filled label",
+}
+
+
+def test_a_row_restating_an_existing_one_is_refused(tmp_path):
+    """The real 2026-08-26 duplicate, reproduced."""
+    from scripts.ops.backlog_append import SimilarRowExists
+
+    p = _seed_backlog(tmp_path, [_EXISTING])
+    with pytest.raises(SimilarRowExists) as exc:
+        append_row(p, {
+            "id": "BL-20260826-EXIT-REASON-FROZEN-AFTER-A-LATE-PRICE",
+            "title": "the exit reason is frozen when price arrives late",
+            "detail": "a sweep fills the exit_price after close and never re-runs "
+                      "the classifier, so rows keep a reconciler_filled label",
+        })
+    # The refusal must NAME the candidate — a bare "too similar" teaches nothing
+    # and the reader cannot judge duplicate-vs-recurrence without it.
+    assert _EXISTING["id"] in str(exc.value)
+    assert "RECURRENCE" in str(exc.value)
+
+
+def test_a_recurrence_can_be_filed_once_acknowledged(tmp_path):
+    """The override is the point: a recurrence is a VALUABLE row, not noise.
+
+    A refusal with no way through would push sessions to stop filing, which is
+    strictly worse than the duplicate it prevents.
+    """
+    p = _seed_backlog(tmp_path, [_EXISTING])
+    n = append_row(p, {
+        "id": "BL-20260826-EXIT-REASON-FROZEN-AGAIN",
+        "title": "the exit reason is frozen when price arrives late — AGAIN",
+        "detail": "same sweep, same classifier, after the 08-22 fix: it did not hold",
+    }, similar_ok=True)
+    assert n == 2
+
+
+def test_a_genuinely_new_row_is_not_blocked(tmp_path):
+    """The check must not tax ordinary filing."""
+    p = _seed_backlog(tmp_path, [_EXISTING])
+    assert append_row(p, {
+        "id": "BL-20260826-INGRESS-CERT-UNMONITORED",
+        "title": "ingress certificate expiry is unmonitored",
+        "detail": "nothing watches the edge cluster's cert expiry date",
+    }) == 2
+
+
+def test_the_precheck_never_blocks_when_it_cannot_run(tmp_path, monkeypatch):
+    """A broken pre-check must not become a filing outage.
+
+    Fail-PERMISSIVE, the opposite polarity to most guards here — this gates
+    the recording of a finding, and losing the finding is worse than
+    recording a duplicate.
+    """
+    import scripts.ops.backlog_search as bs
+
+    def _boom(*a, **kw):
+        raise RuntimeError("search is broken")
+
+    monkeypatch.setattr(bs, "search", _boom)
+    p = _seed_backlog(tmp_path, [_EXISTING])
+    assert append_row(p, dict(_EXISTING, id="BL-20260826-NEAR-IDENTICAL")) == 2

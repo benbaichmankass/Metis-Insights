@@ -203,6 +203,10 @@ GUARDS: List[Dict[str, Any]] = [
         "when": None,
         "steps": [
             ["python3", "scripts/ops/check_artifact_validity.py", "--allow-missing"],
+            # The duplicate pre-check `backlog_append` refuses on. Its
+            # self-test proves it can find a positive — a similarity probe
+            # that silently matches nothing would make every filing look novel.
+            ["python3", "scripts/ops/backlog_search.py", "--self-test"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],

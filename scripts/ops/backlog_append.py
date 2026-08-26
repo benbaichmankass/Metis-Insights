@@ -73,11 +73,51 @@ def detect_format(raw: str, doc: Any) -> Tuple[Dict[str, Any], str]:
     )
 
 
+class SimilarRowExists(Exception):
+    """A row already in this backlog reads like the one being filed.
+
+    Raised so the caller must LOOK before filing. It is not a verdict that the
+    row is a duplicate — see :mod:`scripts.ops.backlog_search`: a duplicate
+    should be dropped, while a RECURRENCE is evidence the first fix did not
+    hold and is one of the most valuable rows there is. Only a human reading
+    both can tell, which is exactly why this raises instead of dropping the row.
+    """
+
+
+#: Overlap above which :func:`append_row` refuses without acknowledgement.
+#: CHOSEN, not tuned: the duplicate that motivated this (an exit-label row
+#: filed 2026-08-26 that restated two 2026-08-22 rows) scores 0.80 and 0.70
+#: against them, while the unrelated neighbours in the same result sit at 0.60
+#: and below. There is no larger labelled set behind it — it is one worked
+#: example, and the override exists because the threshold will be wrong
+#: sometimes.
+SIMILAR_REFUSE_SCORE = 0.65
+
+
 def append_row(path: pathlib.Path, row: Dict[str, Any],
-               *, updated_at: Optional[str] = None) -> int:
+               *, updated_at: Optional[str] = None,
+               similar_ok: bool = False) -> int:
     """Append *row* to the backlog at *path*. Returns the new item count.
 
     Raises :class:`FormatNotReproducible` rather than writing a reformatted file.
+
+    Also raises :class:`SimilarRowExists` when an existing row in the SAME
+    backlog overlaps this one's text above :data:`SIMILAR_REFUSE_SCORE` — pass
+    ``similar_ok=True`` once you have read the candidates and decided.
+
+    WHY THE SECOND REFUSAL EXISTS. Operator directive 2026-08-26: *"We aren't
+    using the backlog/lessons learned logs correctly if we still keep running
+    into the same fuck ups."* The id check above catches only an EXACT repeat,
+    which never happens — ids carry the filing date. The backlogs are 951 / 109
+    / 104 rows, so checking by hand is not practical, so nobody does, so the
+    log accumulates lessons and teaches none. Measured the same day: a row was
+    filed as a fresh discovery that restated two rows from four days earlier
+    whose mechanism was already named and half already fixed. It was caught by
+    accident, not by any check.
+
+    ⚠️ **Silence here is not proof of novelty.** The probe is token overlap; a
+    row phrased in different words scores zero. It makes the cheap check
+    unavoidable — it does not make the expensive one unnecessary.
     """
     raw = path.read_text()
     doc = json.loads(raw)
@@ -88,6 +128,27 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
     existing = {i.get("id") for i in items if isinstance(i, dict)}
     if row.get("id") in existing:
         raise ValueError(f"{row['id']} is already filed — refusing to duplicate")
+
+    if not similar_ok:
+        try:
+            from scripts.ops.backlog_search import format_hits, search
+            hits = [h for h in search(
+                " ".join(str(row.get(k) or "") for k in ("id", "title", "detail")),
+                paths=[str(path)], limit=5)
+                # provenance: score — |query tokens ∩ row tokens| /
+                # |query tokens|; LEXICAL overlap, never a semantic verdict
+                if (h.get("score") or 0) >= SIMILAR_REFUSE_SCORE]
+        except Exception:  # noqa: BLE001  # allow-silent: the pre-check must never block a legitimate file
+            hits = []
+        if hits:
+            raise SimilarRowExists(
+                f"{len(hits)} existing row(s) in {path.name} read like this one.\n"
+                + format_hits(hits)
+                + "\n\nIf it is a DUPLICATE, drop yours and update the existing "
+                  "row instead. If it is a RECURRENCE, say so IN the new row — "
+                  "that the earlier fix did not hold is the finding — and "
+                  "re-file with similar_ok=True."
+            )
     items.append(row)
     if isinstance(doc, dict) and updated_at:
         doc["updated_at"] = updated_at
