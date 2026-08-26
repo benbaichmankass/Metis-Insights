@@ -223,6 +223,7 @@ GUARDS: List[Dict[str, Any]] = [
             # self-test proves it can find a positive — a provenance probe that
             # silently matches nothing would make every column look unambiguous.
             ["python3", "scripts/ops/column_provenance.py", "--self-test"],
+            ["python3", "scripts/ops/strategy_liveness.py", "--self-test"],
         ],
     },
     {
