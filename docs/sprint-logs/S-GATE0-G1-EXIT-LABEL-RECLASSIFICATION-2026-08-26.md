@@ -76,15 +76,35 @@ that partition `trades` exactly. **No ratio**, deliberately: an AUTHORED path
 never reaches the classifier, so a `labelCoverage` of 0.0 would read as a gap on a
 path that has none.
 
-**5. Filed two backlog rows** through `backlog_append.append_row` (both accepted
+**5. G3 first slice — `/api/bot/stats` now states its own provenance.** The
+headline surface both apps render first published a sum and a rate over journal
+`pnl` with no coverage at all, while `/performance` has carried `pnlCoverage`
+since 2026-07-31. Added `pnlCoverage` / `pnlMeasuredCount` / `pnlEstimatedCount`
+/ `totalPnLMeasured` to the real-money block and, separately, to the `paper`
+sub-block (P4: never blended — a paper book with perfect coverage must not
+flatter the real-money caveat). `/performance`'s definitions are **imported, not
+re-derived**, so the two surfaces cannot disagree.
+
+**6. Filed two backlog rows** through `backlog_append.append_row` (both accepted
 by the G6 similarity gate as novel).
 
 ## Validation Performed
 
 - **Tests run:** `tests/test_json_notes.py` (15), `tests/ops/test_backfill_exit_labels.py`
   (5), `tests/test_performance_exit_label_attestation.py` (5),
-  `tests/test_performance_per_exit_path.py` + `tests/test_performance_pnl_coverage.py`
-  (25, pre-existing, unchanged). **50 passed.**
+  `tests/test_stats_pnl_provenance.py` (6, new), plus
+  `tests/test_performance_per_exit_path.py`, `test_performance_pnl_coverage.py`,
+  `test_ltmgmt_p4_metric_separation.py` and `test_dashboard_data_contract.py`
+  (pre-existing). **All green.**
+- **A pre-existing test that my change broke was STRENGTHENED, not loosened.**
+  `test_stats_missing_db_zeroes_both_blocks` asserted whole-dict equality on the
+  `paper` block, which additive keys break. It now asserts the four money keys
+  exactly (so a real real/paper blend still fails it) plus the new keys' values.
+  Writing it surfaced a genuine inconsistency in my own helper: a MISSING DB
+  returned the all-`None` "we could not look" shape, when `_pnl_stats_for`
+  already reads that same state as "no trades yet on a fresh install". Split
+  into `_looked_and_found_nothing()` (real zero counts, `None` ratio) vs the
+  all-`None` could-not-look shape.
 - **Every new test verified to FAIL without its fix**, not merely to pass with it:
   - the truncation tests fail on the pre-fix `_DEFAULT_PROTECTED`;
   - the backfill subprocess tests fail on the original `sys.path` line, while the
@@ -113,9 +133,13 @@ ROWS THAT WOULD CHANGE exit_reason: 191
   homework.
 - **Manual code verification:** all six `exit_price` write sites in
   `order_monitor.py` were read; every late-price path re-classifies going forward.
-- **Gaps not yet verified:** the new `/performance` fields are proven against a
-  synthetic journal only — they have not been read off the deployed route,
-  because the code is not deployed until this PR merges.
+- **Cost measured, not assumed:** classifying the full closed population through
+  `provenance.classify_pnl` costs **19.8 ms median / 434 KiB** — cheap for a
+  30s-polled route. That measurement is why the design classifies in Python
+  through the canonical module instead of re-deriving the vocabulary in SQL.
+- **Gaps not yet verified:** the new `/performance` and `/stats` fields are
+  proven against synthetic journals only — they have not been read off the
+  deployed routes, because the code is not deployed until this PR merges.
 
 ## Documentation Updated
 - Rules doc updates: none needed.
@@ -150,7 +174,10 @@ ROWS THAT WOULD CHANGE exit_reason: 191
   plan's headline is computed off exactly these labels.
 
 ## Deferred Items
-- **G3** (provenance on aggregates) — untouched, still open.
+- **G3 is PARTIAL, not done.** `/api/bot/stats` shipped. Still uncovered, from
+  a measured inventory: `attribution.py`, `pnl_history.py`, `strategies.py`,
+  and the session-gated `pnl.py` (no consumer calls it). `backtests.py` and
+  `pnl_broker_truth.py` are exempt — neither reads journal `pnl`.
 - Repairing the two truncated markers as a standalone job — unnecessary; the
   backfill subsumes it.
 

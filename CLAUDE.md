@@ -965,10 +965,48 @@ Unauthenticated GET routes — Tier 1 read surface. See
   "status": "running",
   "datasource": "live",
   "vmHealth": { "cpu": 32.1, "memory": 48.5, "disk": 21.0 },
+  "pnlCoverage": 0.768,
+  "pnlMeasuredCount": 331,
+  "pnlEstimatedCount": 15,
+  "totalPnLMeasured": -45.63,
   "paperOpenTrades": 1,
-  "paper": { "pnl24h": 0.0, "totalPnL": 0.0, "openTrades": 1, "winRate": 0.0 }
+  "paper": { "pnl24h": 0.0, "totalPnL": 0.0, "openTrades": 1, "winRate": 0.0,
+             "pnlCoverage": 0.0, "pnlMeasuredCount": 0,
+             "pnlEstimatedCount": 0, "totalPnLMeasured": 0.0 }
 }
 ```
+
+**`pnlCoverage` / `pnlMeasuredCount` / `pnlEstimatedCount` / `totalPnLMeasured`
+(added 2026-08-26, GATE 0 / G3) state how much of `totalPnL` was ever a
+MEASUREMENT.** `/stats` is the FIRST number both apps render and it published a
+sum and a rate over journal `pnl` with no provenance at all, while
+`/api/bot/performance` has carried `pnlCoverage` since 2026-07-31. ⚠️ **The
+count and the sum are over DIFFERENT populations, deliberately, and the
+definitions are copied from `/performance` rather than re-derived** —
+`pnlCoverage`/`pnlMeasuredCount` are MEASURED-only, `totalPnLMeasured` sums
+MEASURED+ESTIMATED; two surfaces reporting the same population under the same
+key must not disagree, and neither may be harmonised to the other. ⚠️ **`None`
+means WE COULD NOT LOOK, never `0.0`** — an older journal with no `notes`
+column is ungradeable, and reporting zeros there would assert an observation
+nobody made; a MISSING DB file is instead "no trades yet" (the same reading
+`_pnl_stats_for` already takes), so its COUNTS are real zeros while the ratio
+stays `None`, because a coverage ratio over an empty population does not exist.
+The keys are always PRESENT — a key that vanishes makes a consumer branch on
+absence, and absence is not one of the states. The block is computed
+**outside** the raising path: `_pnl_stats_for` 503s on a broken schema because a
+fabricated `pnl24h: 0` reads as "no trades today", but a failed provenance read
+leaves the money numbers intact and only the caveat missing, so it degrades to
+nulls rather than taking the route down. Measured live 2026-08-26 — population:
+closed, non-backtest, `pnl NOT NULL`, real-money, **n=431** — coverage
+**0.768**, with `totalPnL` moving **−$23.22 → −$45.63** restricted to
+measured+estimated. ⚠️ **That coverage figure is population-specific and must
+not be quoted as the journal's**: the same classifier reads **0.425** over all
+accounts (n=1,187) and **0.257** over the package-joined population the
+2026-08-26 workplan cites as fact 2 (n=806, reproducing its 25.6%). The case
+for this block is the SUM nearly doubling, not the coverage being alarming —
+and the real-money win rate moves only **0.1pp**, so do not carry the
+workplan's "win rate moves 9 points" across to this surface; that contrast is
+between the ESTIMATED and MEASURED buckets on a different population.
 
 The top-level `pnl24h` / `totalPnL` / `openTrades` / `winRate` are **real-money
 only** — paper rows are excluded (account_class-authoritative, is_demo
