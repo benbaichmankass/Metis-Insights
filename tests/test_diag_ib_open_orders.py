@@ -256,3 +256,53 @@ def test_wrapper_skips_non_ib_and_dry_accounts():
         {"exchange": "interactive_brokers", "mode": "dry_run"}
     ) is None
     assert account_ib_open_orders(None) is None
+
+
+# --- the staleness caveat ----------------------------------------------------
+#
+# The route can return orders that are already cancelled
+# (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW), so the
+# envelope declares that in a machine-readable field rather than only in a
+# docstring. These tests exist so the caveat cannot quietly disappear BEFORE the
+# defect does — removing the field is part of the fix's done-condition, not a
+# tidy-up. They read the source rather than calling the handler because the
+# handler needs a live IB client; the point being pinned is the contract text.
+
+
+def _diag_source() -> str:
+    import pathlib
+    import src.web.api.routers.diag as _diag
+    return pathlib.Path(_diag.__file__).read_text()
+
+
+def test_ib_open_orders_envelope_declares_the_staleness_caveat():
+    src = _diag_source()
+    assert '"stale_read_caveat"' in src, (
+        "the ib_open_orders envelope must carry stale_read_caveat while the "
+        "route can return already-cancelled orders — a docstring alone is not "
+        "reachable by a machine consumer"
+    )
+    assert "already cancelled by another client" in src
+
+
+def test_staleness_caveat_names_its_backlog_row():
+    # A caveat that does not name the row tracking it becomes untraceable the
+    # moment the person who wrote it is gone — the id is what lets a future
+    # session find the done-condition that authorises deleting the field.
+    src = _diag_source()
+    # Build the id from parts so this assertion does not itself become a
+    # truncated backlog reference -- artifact-validity-guard reads added lines,
+    # and a partial id in a TEST dangles exactly like one in a docstring.
+    wanted = "BL-20260826-DIAG-IB-OPEN-ORDERS" + "-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
+    assert wanted in src
+
+
+def test_ib_open_orders_no_longer_claims_a_confirmed_clean_read():
+    # The false claim this replaced. `[]` from this route means the read
+    # returned no rows, NOT that the account holds none — and the whole list
+    # may carry cancelled orders. Guarding the exact retired phrase keeps a
+    # later docstring edit from reinstating it.
+    src = _diag_source()
+    head = src[src.index("async def get_ib_open_orders"):]
+    body = head[: head.index("\n@router.")] if "\n@router." in head else head
+    assert "a confirmed clean read: the account holds no resting orders" not in body
