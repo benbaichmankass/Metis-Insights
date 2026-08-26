@@ -648,9 +648,44 @@ def gate(leg: dict, cells: list[dict], split_mode: str, split: str,
         rec["dd_rate_is"] = fleet.drawdown_exchange_rate(c_is, b_is)
         rec["dd_rate_oos"] = fleet.drawdown_exchange_rate(c_oos, b_oos)
         usable = wf.get("usable") or 0
-        # The ~2/3 tally, and the EFFECTIVE tally beside it. Never one without
-        # the other (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS).
-        passed = usable > 0 and wf["wins"] >= math.ceil(2 * usable / 3)
+        # The ~2/3 tally, graded on the EFFECTIVE win count.
+        #
+        # ⚠️ This comment used to say "the ~2/3 tally, and the EFFECTIVE tally
+        # beside it, never one without the other" while the line below read the
+        # RAW `wins`. The comment asserted the fix and the code did not do it —
+        # field beats comment, and the field was wrong.
+        # (BL-20260826-E35-GATE-COUNTS-INERT-FOLDS-AS-WALKFORWARD-WINS,
+        #  the live recurrence of BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS.)
+        #
+        # An INERT fold is one where the cell and the base produce the SAME
+        # book, so it is not evidence the cell generalises — it is evidence the
+        # cell did nothing that fold. `m20_fleet_exit_sweep.walkforward` has
+        # computed `wins_effective = wins - inert_wins` since 2026-08-17 for
+        # exactly this reason, and this gate imported that function and then
+        # read the field the fix replaced.
+        #
+        # ⚠️ `walkforward`'s own comment says re-grading INSIDE it would be a
+        # silent side effect and therefore the operator's call. That reasoning
+        # is about LIVE LEVERS and is respected: `wins`, `ok` and `summary` are
+        # still untouched there. Grading HERE is a different thing — an e35
+        # `wf_pass` reaches `passed_unshipped` in the coverage matrix, which
+        # means "validated, AWAITING APPROVAL" and ships nothing. This only ever
+        # makes the evidence bar STRICTER (a cell can lose a pass, never gain
+        # one), which is the conservative direction for a claim of validation.
+        #
+        # BOTH tallies are recorded, and `verdict_basis` names which decided, so
+        # a row where they disagree is findable rather than inferred.
+        wins_effective = wf.get("wins_effective")
+        if wins_effective is None:  # a pre-fix `walkforward` — we cannot look.
+            wins_effective = wf["wins"]
+            basis = "raw_wins_no_effective_field"
+        else:
+            basis = "wins_effective"
+        threshold = math.ceil(2 * usable / 3)
+        passed = usable > 0 and wins_effective >= threshold
+        rec["wf_threshold"] = threshold
+        rec["wf_passed_on_raw_wins"] = usable > 0 and wf["wins"] >= threshold
+        rec["verdict_basis"] = basis
         rec["verdict"] = (("wf_pass" if path_a else "path_b_wf_pass")
                           if passed else "wf_fail")
         out.append(rec)

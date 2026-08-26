@@ -236,3 +236,187 @@ def test_the_union_outcome_does_not_depend_on_which_side_is_into():
     # and the shared key resolved to the NEWER row in both orders
     shared = [r for r in a if r["leg"] == "shared"]
     assert len(shared) == 1 and _tp_count(shared[0]) == 8
+
+
+# ---------------------------------------------------------------------------
+# The corpus selector (2026-08-26).
+#
+# `BL-20260826-E35-CORPUS-BRANCH-STRANDED-1629-MEASURED-CELLS-…` needs this
+# same union for the e35 family. The two corpora differ in exactly one thing —
+# which extractor owns `measurement_key` — so the tool was PARAMETERISED rather
+# than copied. These tests pin the two properties that make that safe.
+# ---------------------------------------------------------------------------
+
+def test_module_import_is_lazy_so_the_m20_runner_path_still_works():
+    """Importing this module must not import ANY extractor.
+
+    Load-bearing, not style. The m20 sweep workflow's conflict re-derive copies
+    only `m20_corpus_extract.py` onto the runner's sys.path (see the comment at
+    `m20-exit-lever-sweep.yml`'s `cp` block). An eager `import
+    e35_corpus_extract` at module scope would raise ImportError there and break
+    the corpus recovery path at exactly the moment it is needed.
+
+    Asserted by re-importing in a CLEAN interpreter, because this test process
+    has almost certainly imported both extractors already for other reasons —
+    checking `sys.modules` in-process would pass vacuously.
+    """
+    probe = (
+        "import sys; sys.path.insert(0, %r);"
+        "import m20_corpus_union;"
+        "bad=[m for m in sys.modules if m.endswith('_corpus_extract')];"
+        "print('LEAKED:'+','.join(sorted(bad)) if bad else 'CLEAN')"
+        % str(SCRIPT.parent)
+    )
+    out = subprocess.run([sys.executable, "-c", probe],
+                         capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "CLEAN", (
+        "importing m20_corpus_union pulled in an extractor at module scope; "
+        "the m20 runner only has m20_corpus_extract.py available. "
+        f"got: {out.stdout.strip()}")
+
+
+def test_key_fn_resolves_each_family_to_its_own_extractor():
+    from m20_corpus_union import CORPUS_EXTRACTORS, key_fn
+
+    assert set(CORPUS_EXTRACTORS) == {"m20", "e35"}
+    for family, module in CORPUS_EXTRACTORS.items():
+        fn = key_fn(family)
+        assert fn.__module__ == module, (
+            f"--corpus {family} must key with {module}.measurement_key, "
+            f"got {fn.__module__}")
+
+
+def test_unknown_corpus_refuses_rather_than_defaulting():
+    """A typo'd family must NOT silently fall back to m20.
+
+    Keying an e35 corpus with the m20 function would collapse distinct
+    measurements onto one key (m20's key reads fields e35 rows do not carry, so
+    every row would key identically) and the union would discard nearly all of
+    them under a success message.
+    """
+    from m20_corpus_union import key_fn
+
+    with pytest.raises(ValueError, match="unknown corpus"):
+        key_fn("e35_bracket")
+
+
+def test_default_key_is_m20_so_existing_callers_are_unchanged():
+    """`union_rows` with no key argument must behave exactly as before.
+
+    The m20 workflow calls the CLI with no `--corpus`, and the pre-existing
+    tests above call `union_rows` positionally.
+    """
+    from m20_corpus_union import DEFAULT_CORPUS, key_fn
+
+    assert DEFAULT_CORPUS == "m20"
+    rows = [_row(stamp="2026-08-15T00:00:00+00:00")]
+    implicit, _ = union_rows(list(rows), [])
+    explicit, _ = union_rows(list(rows), [],
+                             measurement_key=key_fn("m20"))
+    assert implicit == explicit
+
+
+def test_e35_rows_union_on_the_e35_key():
+    """An end-to-end union over real e35-shaped rows.
+
+    e35's `measurement_key` reads (leg, cell, tp_cap_pct, split_mode,
+    split_target_oos) and returns a STRING, where m20's returns a tuple — so
+    this also proves the union does not assume a tuple key anywhere.
+    """
+    from m20_corpus_union import key_fn
+
+    def e35_row(leg, cell, *, stamp):
+        return {"leg": leg, "cell": cell, "tp_cap_pct": 0.099,
+                "split_mode": "expanding", "split_target_oos": 0.3,
+                "state": "measured", "sweep_generated_at": stamp}
+
+    into = [e35_row("spy_trend_long_1d", "tp2.5", stamp="2026-08-26T00:00:00+00:00")]
+    incoming = [
+        # same key, OLDER -> incumbent must survive
+        e35_row("spy_trend_long_1d", "tp2.5", stamp="2026-08-24T00:00:00+00:00"),
+        # new key -> appended
+        e35_row("eth_pullback_2h", "sm3.0", stamp="2026-08-24T00:00:00+00:00"),
+    ]
+    out, stats = union_rows(into, incoming, measurement_key=key_fn("e35"))
+
+    assert stats["shared_keys"] == 1
+    assert stats["replaced_by_incoming"] == 0, "a stale challenger won"
+    assert stats["appended_from_incoming"] == 1
+    assert len(out) == 2
+    assert out[0]["sweep_generated_at"] == "2026-08-26T00:00:00+00:00"
+
+
+def test_e35_rows_keyed_with_the_m20_function_would_collapse():
+    """Positive control for `test_unknown_corpus_refuses_rather_than_defaulting`.
+
+    Shows the damage the wrong key does, so the refusal above is protecting
+    something real rather than being defensive for its own sake.
+
+    ⚠️ The hazard is NARROWER than "every e35 row collapses", and this test was
+    written wrong once by assuming that. m20's key DOES read `leg` and `cell`,
+    so e35 rows differing in either are told apart by it. What m20's key cannot
+    see is `split_mode` / `split_target_oos` — fields that are part of e35's
+    identity and absent from m20's. Two measurements of the SAME leg+cell under
+    DIFFERENT splits are distinct e35 measurements and collapse to one key under
+    m20's function, and the union then silently discards one under a success
+    message. That is the real loss, and it is the one worth refusing on.
+    """
+    from m20_corpus_union import key_fn
+
+    def e35_row(*, split_mode, oos, stamp):
+        return {"leg": "spy_trend_long_1d", "cell": "tp2.5", "tp_cap_pct": 0.099,
+                "split_mode": split_mode, "split_target_oos": oos,
+                "sweep_generated_at": stamp}
+
+    a = e35_row(split_mode="expanding", oos=0.3,
+                stamp="2026-08-26T00:00:00+00:00")
+    b = e35_row(split_mode="rolling", oos=0.5,
+                stamp="2026-08-24T00:00:00+00:00")
+
+    m20_key, e35_key = key_fn("m20"), key_fn("e35")
+    assert m20_key(a) == m20_key(b), (
+        "this control assumes m20's key cannot see split_mode/split_target_oos; "
+        "if that stopped being true the refusal test needs re-justifying")
+    assert e35_key(a) != e35_key(b), (
+        "e35's own key must distinguish two splits of the same leg+cell")
+
+    # THE SILENT LOSS. Distinct stamps let the timestamp rule order them, so
+    # the union resolves the false collision as a supersede and drops `b`
+    # entirely — under a success message reporting one shared key.
+    out, stats = union_rows([a], [b], measurement_key=m20_key)
+    assert len(out) == 1 and stats["shared_keys"] == 1, (
+        "expected the silent collapse this control exists to show")
+
+    out_ok, stats_ok = union_rows([a], [b], measurement_key=e35_key)
+    assert len(out_ok) == 2 and stats_ok["shared_keys"] == 0, (
+        "the correct key must keep both measurements")
+
+
+def test_the_wrong_key_can_also_REFUSE_rather_than_lose_a_row():
+    """The other half of the wrong-key outcome, recorded because it surprised me.
+
+    Where the falsely-collided rows carry the SAME `sweep_generated_at` — the
+    common case for two splits measured in one sweep run — the timestamp cannot
+    order them and neither field set is a strict superset, so the union raises
+    `AmbiguousUnion` instead of dropping one.
+
+    That is the tool's refusal rule working, and it means the wrong key is not
+    uniformly silent. Both outcomes are bad and neither is a reason to relax
+    `--corpus` validation: one loses a measurement, the other fails a recovery
+    that had nothing wrong with it.
+    """
+    from m20_corpus_union import key_fn
+
+    def e35_row(*, split_mode, oos):
+        return {"leg": "spy_trend_long_1d", "cell": "tp2.5", "tp_cap_pct": 0.099,
+                "split_mode": split_mode, "split_target_oos": oos,
+                "sweep_generated_at": "2026-08-26T00:00:00+00:00"}
+
+    a = e35_row(split_mode="expanding", oos=0.3)
+    b = e35_row(split_mode="rolling", oos=0.5)
+
+    with pytest.raises(AmbiguousUnion):
+        union_rows([a], [b], measurement_key=key_fn("m20"))
+
+    out, _ = union_rows([a], [b], measurement_key=key_fn("e35"))
+    assert len(out) == 2
