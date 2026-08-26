@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-26T04:50:00+00:00",
+  "updated_at": "2026-08-26T04:55:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -18,15 +18,15 @@
       "automation_path": "scripts/ops/over_cover_proposal.py — reads /api/diag/ib_open_orders + the journal, runs the pure decision, and emits the exact cancel-ib-order system-action body. Dispatching it is Tier-2 and needs one operator OK.",
       "tested_decision_function": "src/runtime/over_cover_decision.py",
       "cannot_automate_reason": null,
-      "next_action": "A NEW decision on the widened state — not a re-run of the approved cancel, which has already been attempted and did not clear. Two things must be settled first, and #10312 filed both: cancel-ib-order reported lookup_state 'not_found' for order 448 while four independent reads show it resting (a false not_found in a safety tool says a stranded protective order is gone when it is not), and it labels IBKR 202 — the cancel CONFIRMATION code — as 'venue REFUSED'. Until those are resolved the tool's own report cannot be read as the outcome. Re-run scripts/ops/over_cover_proposal.py against the CURRENT three-group state before proposing anything; the group that matched the journal when this was registered no longer does.",
+      "next_action": "Re-run scripts/ops/over_cover_proposal.py against the CURRENT two-group state, using a FRESH client read — not /api/diag/ib_open_orders, which is the surface that produced the wrong picture — then take the result to the operator as a new Tier-2 dispatch. This is NOT a replay of the approved cancel: that one succeeded and its target is gone. The open question is 465 vs t4796, and the journal now matches t4796, so the group the earlier selection would have kept is the stale one. ⚠️ Read BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL (raised to high) before trusting the tool's own verdict: it reported this SUCCESSFUL cancel as 'venue REFUSED', which invites either a retry of a cancel that already worked or the conclusion that a stranded leg cannot be cleared at all — and that second reading points at flatten-ib-position, which PLACES an order.",
       "carried_before_register": [
         "01X2zMCh",
         "qhpxyh",
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported from the three ✅ DONE board comments of 2026-08-25, recorded as the seed evidence only. The MEASURED carry count comes from this file's git history — see scripts/ci/check_operator_owed.py.",
-      "last_state_change_at": "2026-08-26T04:50:00+00:00",
-      "last_state_change_note": "OFF SNOOZE — THE NAMED TRIGGER FIRED AND THE OUTCOME WAS NEGATIVE. The operator OK was given and another session dispatched the Tier-2 cancel-ib-order (PR #10312, merged 2026-08-26T04:43Z). The Bybit half cleared; the IB half DID NOT: oca-protect-446 orders 447 (STP) and 448 (LMT) still rest, confirmed by FOUR readonly account-wide reads spanning 03:51Z-04:37Z, and that route has no cache. ⚠️ THE CONDITION HAS ALSO WIDENED SINCE THE STATE THE APPLY WAS APPROVED AGAINST: there are now THREE full 29-lot groups against one 29 position (87 lots of stop, up from the 58/29 = 200% originally registered), and the journal's declared stop has trailed to 6.35257143, which matches the NEW oca-protect-t4796 group — so the group previously identified as the keeper is STALE too. #10312 states plainly that the widening is NOT acted on and needs its own decision. Clearing the snooze rather than letting it run to 2026-08-27 is the point of a NAMED trigger over a date: the trigger is what the deferral was conditioned on, it has resolved, and a register still showing 'waiting for an operator OK' would be asserting something false about a live over-covered position. Severity stays HIGH, not raised to critical: ib_paper is a PAPER account, which this item's own severity_basis established by checking rather than inheriting from earlier hand-offs. The widening makes it worse in degree, not in funding class.",
+      "last_state_change_at": "2026-08-26T04:55:00+00:00",
+      "last_state_change_note": "⚠️ CORRECTED — MY PREVIOUS NOTE ON THIS ITEM WAS WRONG IN ITS HEADLINE CLAIM AND IS REPLACED. It said the IB cancel DID NOT clear. It DID. The session that ran it corrected itself in #10314 (merged AFTER my #10311, so the register carried the refuted version for one commit) and settled it with a read-only dry run, #10313: a FRESHLY BUILT client that never connected as the owning clientId returns 8 orders with 447 not_found, while /api/diag/ib_open_orders returns 10 across four reads. The two views differ by EXACTLY the two legs of oca-protect-446 and agree on all six other orders — so the cancel succeeded, 446 is gone, and the DIAG ROUTE is carrying the cancelled pair forward (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW). THE '87 LOTS ACROSS THREE GROUPS' FIGURE I RECORDED IS ALSO AN ARTIFACT OF THAT STALE READ and must not be re-quoted: MHG holds TWO groups (465 and t4796) and 58 lots against a 29 position — the over-cover is real at 200%, which is the figure this item was ORIGINALLY registered with. It did not widen. WHAT SURVIVES UNCHANGED: the journal's declared stop has trailed to 6.35257143 and matches t4796, so 465 is the STALE group and is no longer the keeper the 2026-08-20 selection would have named — the reason a fresh proposal run is required rather than a replay. MY OWN LAPSE, RECORDED RATHER THAN TIDIED: I took a sibling session's reported outcome as measured fact and wrote it into the register without independently checking the read surface it rested on. It was attributed, which is why the correction was cheap — but 'a previous session measured it' is explicitly not verification under RULE ONE, and this is what that costs.",
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null,
@@ -38,7 +38,9 @@
         "src/runtime/protection_reassert.py",
         "PR #10312",
         "BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL",
-        "BL-20260826-CANCEL-IB-ORDER-NOT-FOUND-IS-CLIENT-SCOPED-NOT-ACCOUNT-WIDE"
+        "PR #10314",
+        "PR #10313",
+        "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
       ]
     },
     {
