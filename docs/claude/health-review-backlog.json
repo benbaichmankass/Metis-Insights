@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-26T08:40:00Z",
+  "updated_at": "2026-08-26",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -25294,6 +25294,18 @@
         "src/runtime/order_monitor.py -- journal_qty_divergent lives in _check_broker_naked_bybit_positions only"
       ],
       "resolution_criteria": "Two separable halves. (1) DETECTION: give the IB sweep the journal-vs-exchange quantity comparison its Bybit sibling already has, so a divergence is observable at all; ends when a deliberately divergent IB row is reported on a surface a human reads, asserted by a test. (2) THIS ROW: trade 5007 reads the same size as the exchange, or is closed, verified from a fresh client -- and the decision on how to reconcile it (the fill was real, so the exit price and 1-lot pnl are a MEASURED broker fact that should not be discarded) is recorded rather than silently applied. Do NOT resolve (2) by editing the row to 50 without accounting for the filled contract."
+    },
+    {
+      "id": "BL-20260826-ROADMAP-HEADER-CITES-LEDGER-ROWS-THAT-DO-NOT-EXIST",
+      "opened": "2026-08-26",
+      "severity": "low",
+      "tier": 1,
+      "area": "docs",
+      "title": "ROADMAP.md's header says 'see the S-WORKPLAN-GATE0-2026-08-26 and S-GATE0-MEASUREMENT-TRUST-2026-08-26 ledger rows' and neither row exists in the Historical Sprint Ledger.",
+      "detail": "The 'Last Updated' header routes a reader to named Historical Sprint Ledger rows for detail. Measured 2026-08-26 by grep: the string 'S-WORKPLAN-GATE0-2026-08-26' appears exactly ONCE in ROADMAP.md -- in the header that cites it -- and 'S-GATE0-MEASUREMENT-TRUST-2026-08-26' appears zero times outside it. The ledger's newest row before this session was S-M20-FEED-AND-TP-CAP-OWNER-2026-08-25, so SIX sprint logs that exist on disk are absent from it: S-DIAGTOKEN-GATE-AND-ALPACA-AFFORDABILITY-2026-08-25, S-LANE0-DECISIONS-2026-08-25, S-LANE0-STANDING-CHECK-BLINDSPOTS-2026-08-25, S-OPERATOR-OWED-REGISTER-2026-08-25, S-GATE0-MEASUREMENT-TRUST-2026-08-26, S-GATE0-G1-EXIT-LABEL-RECLASSIFICATION-2026-08-26 (plus S-WORKPLAN-GATE0-2026-08-26). WHY IT IS NOT COSMETIC: the header is what a session reads first, and a dangling cross-reference is indistinguishable from a row that was read and found empty -- the same 'we did not look' vs 'we looked and found nothing' collapse this repo enforces elsewhere. The header also carries the ONLY prose summary of those sessions, so the detail it promises to defer to does not exist anywhere. NOT BACKFILLED BY THIS SESSION deliberately: writing six ledger rows for sessions I did not run would be summarising work I have not read, which is the class GATE 0 exists to stop. This session added its OWN row (S-WORKPLAN-G1-2026-08-26).",
+      "resolution_criteria": "Either the six missing sprint logs have Historical Sprint Ledger rows written by someone who read them, or the header stops citing rows it does not create. A CI check that every `see the <SPRINT-ID> ledger row` reference in ROADMAP.md resolves to a `| **<SPRINT-ID>** |` row would make it mechanical rather than a rule -- the same diff-scoped family as canonical-doc-coherence.",
+      "status": "open",
+      "found_by": "session b9kyip while adding its own ledger row during the session wrap"
     }
   ]
 }

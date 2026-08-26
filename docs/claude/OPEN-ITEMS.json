@@ -20,7 +20,7 @@
    ],
    "check_every_days": 2,
    "verified_at": "2026-08-26",
-   "observation": "2026-08-26: cleared the symptom by hand (issues #10332-#10338). MHG now rests under ONE OCA group (oca-protect-t4796: STP 6.364 + LMT 7.1415) matching journal trade 4796's declared stop 6.36407143, down from 58 lots across two disjoint groups. MECHANISM STILL UNOBSERVED: no NEW over-cover has been detected-and-paged since, and cancel-ib-order's 202 fix has run against a fake venue only.",
+   "observation": "2026-08-26: cleared the symptom by hand (issues #10332-#10338). MHG now rests under ONE OCA group (oca-protect-t4796: STP 6.364 + LMT 7.1415) matching journal trade 4796's declared stop 6.36407143, down from 58 lots across two disjoint groups. MECHANISM STILL UNOBSERVED: no NEW over-cover has been detected-and-paged since, and cancel-ib-order's 202 fix has run against a fake venue only. || 2026-08-26 (b9kyip, later): CRITERION (b) IS NOW EXERCISED ON THE REAL GATEWAY, and the row STILL stays open because (a) is not met. cancel-ib-order ran against the live ib_paper gateway on MGC order 422 (the bare-numeric stray group 834864174, STP BUY 50 @ 4699.9). The venue returned error 202 and the fix's premise held -- 202 was NOT a refusal, the cancel took effect. But the IMMEDIATE verification re-read CONTRADICTED that, and settling it took two fresh-process dry runs (not_found; account order count 8 -> 6). So the 202 handling is confirmed on a real event while the verification read it depends on is not trustworthy -- see OI-20260826-DIAG-IB-ORDER-READ-IS-STALE. (a) REMAINS UNMET: no NEW disjoint-group over-cover has been detected-and-paged since the clear.",
    "last_checked": "2026-08-26"
   },
   {
@@ -49,7 +49,9 @@
    "affects": "Any session reasoning about IB resting orders — including over-cover analysis, which is what it was used for on 2026-08-26.",
    "refs": [
     "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
-   ]
+   ],
+   "observation": "2026-08-26 (b9kyip): the caveat BIT AGAIN, in the exact way the row predicts. After cancelling MGC order 422 against the real gateway the immediate verification re-read still showed the leg, contradicting the venue's own error-202 acknowledgement; two fresh-process dry runs (not_found, order count 8 -> 6) established the cancel HAD taken effect. Do not conclude an order's presence from this route -- verify against a FRESH client.",
+   "verified_at": "2026-08-26"
   },
   {
    "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
@@ -58,13 +60,45 @@
    "check_every_days": 3,
    "verified_at": "2026-08-26",
    "summary": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states; only a real session acting on the block settles it.",
-   "observation": "2026-08-26: verified only by SIMULATION, not by a session. render_session_brief --self-test shows the block is quiet on 08-26 and 08-27 and renders OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED on 08-28 when its 2-day cadence expires. --check confirms the committed CLAUDE.md matches the registers. The block is currently EMPTY (nothing due), so a session reading it today observes nothing and demonstrates nothing. || 2026-08-26 (session b9kyip, the first session after the mechanism shipped): I DID read the generated block at session start, before my first substantive tool call, and it correctly reported 'No monitoring item is due' — which matched render_session_brief's own cadence prediction for 08-26. **This does NOT clear the row, and I am recording that rather than claiming it.** My handoff prompt named OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED explicitly, exactly as the clears_when warning anticipated, so I cannot be the clean test: I would have known about that item with or without the block. What this session DOES establish is weaker and worth stating precisely -- the block RENDERS, is reachable at session start, and its empty state was read as 'nothing due' rather than as a broken renderer. The load-bearing half (a session learning of a due item it was NOT otherwise told about) remains unobserved, and 08-28 is the first date that can settle it.",
+   "observation": "2026-08-26: verified only by SIMULATION, not by a session. render_session_brief --self-test shows the block is quiet on 08-26 and 08-27 and renders OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED on 08-28 when its 2-day cadence expires. --check confirms the committed CLAUDE.md matches the registers. The block is currently EMPTY (nothing due), so a session reading it today observes nothing and demonstrates nothing. || 2026-08-26 (session b9kyip, the first session after the mechanism shipped): I DID read the generated block at session start, before my first substantive tool call, and it correctly reported 'No monitoring item is due' — which matched render_session_brief's own cadence prediction for 08-26. **This does NOT clear the row, and I am recording that rather than claiming it.** My handoff prompt named OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED explicitly, exactly as the clears_when warning anticipated, so I cannot be the clean test: I would have known about that item with or without the block. What this session DOES establish is weaker and worth stating precisely -- the block RENDERS, is reachable at session start, and its empty state was read as 'nothing due' rather than as a broken renderer. The load-bearing half (a session learning of a due item it was NOT otherwise told about) remains unobserved, and 08-28 is the first date that can settle it. || 2026-08-26 (b9kyip, session close): STILL NOT A CLEAN TEST, recorded honestly rather than cleared. My own handoff prompt named this item, so my reading of the block proves only that the block renders and is legible -- not that a cold session finds it. The uncontaminated observation is still owed by a later session that arrived without being told.",
    "clears_when": "A session that was NOT pointed at this mechanism by its prompt reports on a due monitoring item, citing the CLAUDE.md brief as where it saw it. WARNING: the handoff prompt written at the end of this session names the MHG item explicitly, so the FIRST session after this one cannot be the clean test -- it has been told. The uncontaminated observation is a later session that arrived cold. Record which it was.",
    "why_it_matters": "If the block is not read, the register is exactly the thing it replaced: a file that looks like a follow-up mechanism and is not one. That failure is invisible -- an unread brief and a brief with nothing due are byte-identical from outside, which is the 'we did not look' vs 'we looked and found nothing' collapse this repo has a guard family for.",
    "links": [
     "scripts/ops/render_session_brief.py",
     "docs/claude/RECURRENCE-LEDGER.json",
     "docs/sprint-logs/S-GATE0-MEASUREMENT-TRUST-2026-08-26.md"
+   ],
+   "last_checked": "2026-08-26"
+  },
+  {
+   "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+   "opened": "2026-08-26",
+   "kind": "monitoring",
+   "check_every_days": 3,
+   "verified_at": "2026-08-26",
+   "last_checked": "2026-08-26",
+   "summary": "The stray-OCA-group sweep that fixes the over-cover GENERATOR shipped at annotate and is armed on NO account. Do not arm it before reading the MES finding below -- as written it would cancel MES's only protection.",
+   "detail": "PRs #10352 + #10353 shipped src/runtime/stray_oca_groups.py and wired it into IBClient.place_protective. It closes the generator caught in the act at 2026-08-26T02:08:35Z on ib_paper/MHG: place_protective's keyed pre-cancel is scoped BY NAME to oca-protect-t<trade_id>, so a group resting under a legacy (oca-protect-<reqId>) or bare-numeric (e.g. 834864174) name is never a cancellation candidate and the re-arm mints a SECOND, non-mutually-cancelling group beside it -- 300% across 3 groups, with no 'no oca_key' warning, no Error 10147 and no survivor-join log, i.e. none of the three signatures of the previously-known defect. LIVE STATE: PROTECTION_STRAY_GROUP_MODE=annotate (the shipped default -- the decision runs in full and cancels NOTHING) and PROTECTION_STRAY_GROUP_ACCOUNTS is UNSET, which for this knob means NONE (deliberately the opposite polarity to CONVICTION_SIZING_ACCOUNTS / NETTING_ATTRIBUTION_ACCOUNTS). TWO THINGS TO READ BEFORE ARMING. (1) ib_paper/MES rests a single LEGACY-named group oca-protect-408, which the sweep classifies stray_unkeyed and would CANCEL -- and it is MES's ONLY protection. Arming without resolving that trades one safety defect for a worse one. (2) annotate writes NO durable soak file (unlike PROTECTION_REASSERT_MODE, which writes protection_reassert_soak.jsonl), only a trader-journal WARNING -- so 'observe first' means a journalctl pull, not a log endpoint.",
+   "clears_when": "The sweep is armed on ib_paper AND a row is observed in which it classified a real leg and acted -- naming the trade, the stray group and the preserved group. Shipping is not the observable; a cancel that happened is. Alternatively, the row clears if the operator decides not to arm it, recorded as that decision.",
+   "why_it_cannot_be_closed_by_time": "annotate and apply are byte-identical from every surface except the trader journal, so a sweep that is silently mis-scoped looks exactly like one that found nothing to do.",
+   "observation": "2026-08-26: shipped and merged (#10352, #10353); NOTHING observed from it. Mode is annotate, allowlist empty (= none). The MES oca-protect-408 finding was made by reading ib_paper's resting orders, and is the reason the arm was not taken this session.",
+   "refs": [
+    "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+    "BL-20260826-OPEN-TRADES-COLLAPSES-A-READ-FAILURE-INTO-AN-EMPTY-BOOK",
+    "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED"
+   ]
+  },
+  {
+   "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+   "opened": "2026-08-26",
+   "kind": "background_awareness",
+   "verified_at": "2026-08-26",
+   "summary": "ib_paper/MGC: the exchange holds 50 and the journal declares 51, and NO IB-side detector covers that. It did not self-heal.",
+   "detail": "After the 2026-08-26 stray-leg cancellation on ib_paper/MGC, the exchange position read short 50 while journal trade 5007 declares position_size 51 -- still divergent ~1h25m later (re-read 21:05Z), so this is not a settlement lag. CONTROL: MHG 29/29 and MES 15/15 agree exactly on the same read, so it is not a reader artefact. Protection rests at 51 against a position of 50 = 102%, which is over-covered by one lot. NOTHING DETECTS IT: the IB over-cover page requires DISJOINT OCA groups and there is only one group here, and journal_qty_divergent -- the detector that would catch exactly this -- exists only in _check_broker_naked_bybit_positions, never on the IB path. The likely origin is that a stray leg FILLED for one lot and the journal never learned (BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED).",
+   "clears_when": "Either the journal row is reconciled to the exchange quantity, or an IB-side journal_qty_divergent detector exists and reports on this position. A later read that happens to agree does NOT clear it -- the position closing would make the divergence unobservable rather than resolved.",
+   "affects": "Any session quoting ib_paper position sizes or grading MGC protection coverage. 102% here is the journal over-declaring, not the venue over-protecting.",
+   "refs": [
+    "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED"
    ]
   }
  ],
