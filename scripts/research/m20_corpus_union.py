@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Union one M20 sweep corpus into another, newest measurement wins.
+"""Union one sweep corpus into another, newest measurement wins.
+
+SERVES BOTH SWEEP FAMILIES — `--corpus m20` (default) and `--corpus e35`.
+The filename says m20 because that is the failure it was built for and the
+m20 workflow references it by path; it is NOT m20-only. If you arrived here
+looking for an e35 corpus union, this is it — do not write a second one
+(`RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`). The two families differ in
+exactly one thing, which extractor owns `measurement_key`, and that is the
+only thing `--corpus` selects; the merge rule below is identical for both.
 
 WHY THIS EXISTS
 ---------------
@@ -34,8 +42,11 @@ broken ONLY by a strict superset of keys — objectively more information, no
 judgement — and otherwise the union REFUSES (exit 2) naming the key. "We could
 not compare" is its own outcome, not a licence to pick a side.
 
-Identity is `m20_corpus_extract.measurement_key` — imported, never re-derived,
-so this can never drift from what the extractor considers the same measurement.
+Identity is the selected family's own `measurement_key` — imported, never
+re-derived, so this can never drift from what that extractor considers the same
+measurement. Both sides of a union are keyed with the SAME function: two
+corpora from different families have no comparable identity and must never be
+unioned, which is why `--corpus` is chosen once rather than sniffed per row.
 """
 from __future__ import annotations
 
@@ -46,9 +57,39 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from m20_corpus_extract import measurement_key  # noqa: E402
-
 TIMESTAMP_FIELD = "sweep_generated_at"
+
+# Which extractor owns "the same measurement" for each corpus family. The value
+# is the MODULE NAME, resolved lazily in `key_fn` — never imported at module
+# scope. That is load-bearing, not style: the m20 sweep workflow's conflict
+# re-derive copies ONLY `m20_corpus_extract.py` onto the runner's path, so an
+# eager `import e35_corpus_extract` here would break the recovery path at
+# exactly the moment it is needed. Pinned by
+# `test_module_import_is_lazy_so_the_m20_runner_path_still_works`.
+CORPUS_EXTRACTORS = {
+    "m20": "m20_corpus_extract",
+    "e35": "e35_corpus_extract",
+}
+DEFAULT_CORPUS = "m20"
+
+
+def key_fn(corpus: str):
+    """Return the `measurement_key` callable that owns identity for `corpus`.
+
+    Imported from the family's own extractor, never re-derived here, so this
+    can never drift from what that extractor considers the same measurement.
+    The two families key DIFFERENTLY — m20 returns a tuple, e35 a string — and
+    that is fine: the union only ever needs them hashable and comparable within
+    one corpus. It must never compare keys ACROSS families, which is why the
+    corpus is chosen once, at the top, and applied to both sides.
+    """
+    try:
+        module = CORPUS_EXTRACTORS[corpus]
+    except KeyError:
+        raise ValueError(
+            f"unknown corpus {corpus!r}; known: "
+            f"{', '.join(sorted(CORPUS_EXTRACTORS))}") from None
+    return __import__(module).measurement_key
 
 
 class AmbiguousUnion(RuntimeError):
@@ -101,14 +142,20 @@ def _pick(a: dict, b: dict, key: tuple) -> dict:
         "a strict superset of the other. Refusing rather than picking a side.")
 
 
-def union_rows(into: list[dict], incoming: list[dict]) -> tuple[list[dict], dict]:
+def union_rows(into: list[dict], incoming: list[dict],
+               measurement_key=None) -> tuple[list[dict], dict]:
     """Union `incoming` into `into`. Returns (rows, stats).
 
     `into`'s ORDER is preserved and its rows come first, so when nothing on the
     incoming side is newer the result is `into` plus appended rows — a purely
     additive diff, which is what makes the change reviewable.
+
+    `measurement_key` defaults to the m20 family's, so every pre-existing
+    caller keeps its exact behaviour; pass `key_fn("e35")` for that corpus.
     """
-    by_key_incoming: dict[tuple, dict] = {}
+    if measurement_key is None:
+        measurement_key = key_fn(DEFAULT_CORPUS)
+    by_key_incoming: dict = {}
     for row in incoming:
         by_key_incoming[measurement_key(row)] = row
 
@@ -151,6 +198,12 @@ def main(argv: list[str]) -> int:
                     help="corpus to update in place (the incumbent side)")
     ap.add_argument("--from", dest="src", required=True,
                     help="corpus to union in (the challenger side)")
+    ap.add_argument("--corpus", default=DEFAULT_CORPUS,
+                    choices=sorted(CORPUS_EXTRACTORS),
+                    help="which sweep family owns measurement identity "
+                         f"(default: {DEFAULT_CORPUS}). BOTH sides of the "
+                         "union are keyed with this one function — a corpus "
+                         "may never be unioned against another family.")
     ap.add_argument("--dry-run", action="store_true",
                     help="report the union without writing")
     a = ap.parse_args(argv)
@@ -166,7 +219,8 @@ def main(argv: list[str]) -> int:
         return 1
 
     try:
-        rows, stats = union_rows(_load(into_path), _load(src_path))
+        rows, stats = union_rows(_load(into_path), _load(src_path),
+                                 measurement_key=key_fn(a.corpus))
     except AmbiguousUnion as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -178,7 +232,8 @@ def main(argv: list[str]) -> int:
     # Labels name what was COMPUTED: `replaced` counts keys where the incoming
     # row won on sweep_generated_at, `appended` counts keys absent from --into.
     print(
-        f"corpus union{' (dry-run)' if a.dry_run else ''}: "
+        f"corpus union{' (dry-run)' if a.dry_run else ''} "
+        f"[corpus={a.corpus}]: "
         f"into {stats['into_rows']} + from {stats['incoming_rows']} "
         f"-> {stats['total_rows']} rows; "
         f"shared keys: {stats['shared_keys']}, "
