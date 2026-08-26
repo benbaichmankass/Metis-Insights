@@ -32,10 +32,12 @@ def pages(monkeypatch):
     return sent
 
 
-def _emit(symbol="ETHUSDT", leg_count=7, covered=9.32, size=5.59):
+def _emit(symbol="ETHUSDT", leg_count=9, covered=9.33, size=5.59,
+          protective_leg_count=18):
     return om._emit_bybit_over_cover_alert(
         account_id="bybit_1", symbol=symbol, size=size,
-        covered=covered, leg_count=leg_count)
+        covered=covered, leg_count=leg_count,
+        protective_leg_count=protective_leg_count)
 
 
 def test_it_reaches_the_operator_path(latched, pages):
@@ -82,15 +84,63 @@ def test_it_is_not_the_ib_page_reworded(latched, pages):
     assert "closed trade" in low       # the second, non-cap hazard
 
 
-def test_the_page_states_the_measurement_and_the_cap_headroom(latched, pages):
-    assert _emit(leg_count=7, covered=9.32, size=5.59) is True
+def test_headroom_is_computed_from_the_COMBINED_count_not_the_stop_count(
+        latched, pages):
+    """⚠️ THIS TEST PREVIOUSLY ASSERTED THE DEFECT. It read
+    `leg_cap_headroom == 13` from an SL-only count of 7 — encoding exactly the
+    substitution that shipped: Bybit's cap is 20 COMBINED TP+SL legs, so an
+    SL-only count overstates headroom by however many targets rest.
+
+    Measured live on bybit_1/ETHUSDT hours after the page shipped: 9 SL + 9 TP
+    = 18 of 20, TWO left, while the page reported "9 of 20 used, 11 left". A
+    cap-proximity alarm that overstates headroom by 9 legs is worse than none,
+    because it reads as a measurement.
+    """
+    assert _emit(leg_count=9, covered=9.33, size=5.59,
+                 protective_leg_count=18) is True
     args, kwargs = pages[0]
-    assert kwargs["size"] == 5.59 and kwargs["covered_qty"] == 9.32
-    assert kwargs["sl_leg_count"] == 7
+    assert kwargs["size"] == 5.59 and kwargs["covered_qty"] == 9.33
+    assert kwargs["sl_leg_count"] == 9           # the STOP count, for coverage
+    assert kwargs["protective_leg_count"] == 18  # the COMBINED count, for the cap
     assert kwargs["leg_cap"] == 20
-    assert kwargs["leg_cap_headroom"] == 13      # the actionable urgency
+    assert kwargs["leg_cap_headroom"] == 2       # NOT 11
     assert round(kwargs["over_cover_pct"]) == 167
-    assert "167%" in kwargs["reason"]
+    reason = kwargs["reason"]
+    assert "167%" in reason
+    assert "COMBINED" in reason                  # names which cap it is
+    assert "9 of them are stop legs" in reason   # both counts stay legible
+
+
+def test_an_uncountable_target_side_publishes_NO_headroom(latched, pages):
+    """*We did not count the targets* must not render as a large headroom.
+    Publishing `20 - stop_count` there is the fabrication the fix removed, so
+    the field is None and the prose says UNKNOWN."""
+    assert _emit(leg_count=9, protective_leg_count=None) is True
+    kwargs = pages[0][1]
+    assert kwargs["protective_leg_count"] is None
+    assert kwargs["leg_cap_headroom"] is None, "a fabricated headroom is the defect"
+    reason = kwargs["reason"]
+    assert "UNKNOWN (not large)" in reason
+    assert "COMBINED" in reason
+
+
+def test_severity_tracks_the_combined_count(latched, pages):
+    """The combined count is what worsens toward the cap, so it is what must
+    break the cooldown."""
+    assert _emit(protective_leg_count=18) is True
+    assert _emit(protective_leg_count=18) is False   # unchanged -> suppressed
+    assert _emit(protective_leg_count=20) is True    # worsening -> pages
+    assert len(pages) == 2
+
+
+def test_an_uncountable_target_side_still_falls_back_to_the_stop_count(
+        latched, pages):
+    """A missing combined count must not silence a worsening — severity falls
+    back to the stop count rather than to nothing."""
+    assert _emit(leg_count=9, protective_leg_count=None) is True
+    assert _emit(leg_count=9, protective_leg_count=None) is False
+    assert _emit(leg_count=12, protective_leg_count=None) is True
+    assert len(pages) == 2
 
 
 def test_the_remedy_carries_its_own_caveat(latched, pages):
@@ -121,20 +171,25 @@ def test_cooldown_is_durable_and_shared_not_copied(latched, pages):
         om._cooldown_admits = saved
     assert calls[0][0] == "bybit_over_cover"
     assert calls[0][1] == "bybit_1|ETHUSDT"
-    assert calls[0][2] == 7                # severity IS the leg count
+    # Severity is the COMBINED leg count — the quantity that nears the cap —
+    # not the stop count. See test_severity_tracks_the_combined_count.
+    assert calls[0][2] == 18
     assert len(pages) == 1
 
 
 def test_a_worsening_leg_count_pages_inside_the_cooldown(latched, pages):
-    assert _emit(leg_count=7) is True
-    assert _emit(leg_count=7) is False     # unchanged -> still suppressed
-    assert _emit(leg_count=9) is True      # WORSENING breaks the window
+    """⚠️ Varying only `leg_count` no longer moves severity — that is the
+    corrected behaviour, not a regression: the COMBINED count is what nears the
+    cap. Both counts move together here, as they do on a real book."""
+    assert _emit(leg_count=7, protective_leg_count=14) is True
+    assert _emit(leg_count=7, protective_leg_count=14) is False   # unchanged
+    assert _emit(leg_count=9, protective_leg_count=18) is True    # WORSENING
     assert len(pages) == 2
 
 
 def test_an_improving_count_does_not_page(latched, pages):
-    assert _emit(leg_count=9) is True
-    assert _emit(leg_count=7) is False
+    assert _emit(leg_count=9, protective_leg_count=18) is True
+    assert _emit(leg_count=7, protective_leg_count=14) is False
     assert len(pages) == 1
 
 

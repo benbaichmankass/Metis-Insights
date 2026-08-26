@@ -6376,6 +6376,10 @@ _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 # Bybit conditional-order types that constitute a STOP (protection). Mirrors
 # execute.py's ``_SL_LEG_TYPES`` — a divergence here would misgrade coverage.
 _SL_LEG_TYPES_MON = {"stoploss", "partialstoploss"}
+#: The TAKE-PROFIT half. Used ONLY to count legs against Bybit's
+#: 20-COMBINED-leg-per-symbol cap — never for stop coverage, which is an
+#: SL-only question and must stay one.
+_TP_LEG_TYPES_MON = {"takeprofit", "partialtakeprofit"}
 
 # Tolerance when comparing summed protective-leg qty against the netted IB
 # position size (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Futures trade
@@ -6817,6 +6821,7 @@ def _emit_bybit_over_cover_alert(
     size: float,
     covered: float,
     leg_count: int,
+    protective_leg_count: Optional[int] = None,
 ) -> bool:
     """Page the operator that resting Bybit SL legs EXCEED the position.
     Rate-limited per (account, symbol). Returns whether it alerted.
@@ -6880,20 +6885,47 @@ def _emit_bybit_over_cover_alert(
         "bybit_over_cover",
         f"{account_id}|{symbol}",
         _STOP_OVER_COVER_ALERT_COOLDOWN_S,
-        severity=int(leg_count or 0),
+        # Severity tracks the COMBINED count when we have it: that is the
+        # quantity that worsens toward the cap. Falls back to the stop count
+        # rather than to nothing, so an uncountable target side never silences
+        # a worsening.
+        severity=int(protective_leg_count
+                     if protective_leg_count is not None else (leg_count or 0)),
     ):
         return False
     try:
         from src.runtime.outcomes import Level, report
 
         pct = (100.0 * float(covered) / float(size)) if size else None
-        headroom = _BYBIT_LEG_CAP - int(leg_count or 0)
-        cap_note = (
-            f" {leg_count} of Bybit's {_BYBIT_LEG_CAP}-leg cap are used "
-            f"({headroom} left); at the cap `set_trading_stop` refuses "
-            "(ErrCode 110061) and a genuine protective tightening fails "
-            "SILENTLY."
-        )
+        # ⚠️ THE CAP IS 20 COMBINED TP+SL LEGS, so the headroom must be computed
+        # from the COMBINED count — never from `leg_count`, which is SL-only.
+        # Fixed 2026-08-26, hours after this page shipped: it reported
+        # "9 of 20 used, 11 left" on bybit_1/ETHUSDT while the venue actually
+        # held 9 SL + 9 TP = 18 of 20, TWO left. A cap-proximity alarm that
+        # overstates headroom by 9 legs is worse than none, because it reads as
+        # a measurement.
+        combined = (int(protective_leg_count)
+                    if protective_leg_count is not None else None)
+        if combined is not None:
+            headroom = _BYBIT_LEG_CAP - combined
+            cap_note = (
+                f" {combined} of Bybit's {_BYBIT_LEG_CAP}-leg COMBINED TP+SL "
+                f"cap are used ({headroom} left; {leg_count} of them are stop "
+                "legs); at the cap `set_trading_stop` refuses (ErrCode 110061) "
+                "and a genuine protective tightening fails SILENTLY."
+            )
+        else:
+            # We could not count the target legs. Say so — do NOT publish a
+            # headroom derived from the stop count alone, which is exactly the
+            # substitution this branch exists to stop.
+            headroom = None
+            cap_note = (
+                f" {leg_count} STOP leg(s) rest; the target legs were not "
+                f"counted, so headroom against Bybit's {_BYBIT_LEG_CAP}-leg "
+                "COMBINED TP+SL cap is UNKNOWN (not large). At the cap "
+                "`set_trading_stop` refuses (ErrCode 110061) and a genuine "
+                "protective tightening fails SILENTLY."
+            )
         report(
             "bybit_over_cover",
             "detected",
@@ -6920,7 +6952,10 @@ def _emit_bybit_over_cover_alert(
             # Structured beside the prose so a consumer can branch without
             # parsing the reason string.
             sl_leg_count=leg_count,
+            protective_leg_count=combined,
             leg_cap=_BYBIT_LEG_CAP,
+            # None, never a number, when the targets were not counted — a
+            # fabricated headroom is the whole defect this replaced.
             leg_cap_headroom=headroom,
         )
     except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
@@ -8198,8 +8233,26 @@ def _bybit_position_protection(client, category: str, symbol: str):
     leg_prices: List[float] = []
     leg_ids = set()
     unknown = 0
+    # ⚠️ TWO DIFFERENT QUANTITIES, NEVER COLLAPSED (2026-08-26).
+    # `covered_qty`/`sl_leg_ids` answer a STOP-COVERAGE question and are
+    # deliberately SL-only. `protective_leg_count` answers a CAP-PROXIMITY
+    # question, and Bybit's cap is 20 COMBINED TP+SL legs per symbol — so an
+    # SL-only count over-states the headroom by however many targets rest.
+    #
+    # Measured live the day this was added: bybit_1/ETHUSDT held 9 SL and 9 TP
+    # legs, i.e. 18 of 20 with TWO left, while the over-cover page (which was
+    # fed the SL count) reported "9 of 20 used, 11 left". A safety page whose
+    # whole point is cap proximity understated it by 9 legs.
+    #
+    # This costs NO extra broker call: `orderFilter="StopOrder"` already
+    # returns PartialTakeProfit rows alongside PartialStopLoss, and they were
+    # being discarded by the SL filter below before anything counted them.
+    protective_legs = 0
     for o in legs:
-        if str(o.get("stopOrderType") or "").lower() not in _SL_LEG_TYPES_MON:
+        _kind = str(o.get("stopOrderType") or "").lower()
+        if _kind in _SL_LEG_TYPES_MON or _kind in _TP_LEG_TYPES_MON:
+            protective_legs += 1
+        if _kind not in _SL_LEG_TYPES_MON:
             continue
         oid = o.get("orderId")
         if oid:
@@ -8216,6 +8269,8 @@ def _bybit_position_protection(client, category: str, symbol: str):
         "size": size, "side": side, "covered_qty": covered,
         "source": "partial_sl_legs",
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
+        # Combined TP+SL, for the 20-leg cap only. NOT a coverage figure.
+        "protective_leg_count": protective_legs,
         # A Partial-mode SL leg is a conditional order, so its level is the
         # TRIGGER price, not the limit — the same distinction IB's STP LMT
         # forces. Sorted for a stable read; empty means no leg carried a
@@ -9113,6 +9168,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         size=size,
                         covered=covered,
                         leg_count=len(state["sl_leg_ids"]),
+                        protective_leg_count=state.get("protective_leg_count"),
                     ):
                         summary["over_cover_alerted"] = (
                             summary.get("over_cover_alerted", 0) + 1)

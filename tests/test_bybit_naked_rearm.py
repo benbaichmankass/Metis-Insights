@@ -589,3 +589,51 @@ def test_a_healthy_symbol_pages_nothing(tmp_path, monkeypatch):
     assert summary["over_covered"] == 0
     assert summary["over_cover_alerted"] == 0
     assert sent == []
+
+
+def test_the_page_receives_the_COMBINED_leg_count_not_just_the_stops(
+        tmp_path, monkeypatch):
+    """Bybit's cap is 20 COMBINED TP+SL legs, so the sweep must hand the page
+    the combined count.
+
+    ⚠️ THIS TEST EXISTS BECAUSE THE WIRING WAS UNCOVERED, for the second time in
+    this file: deleting `protective_leg_count=state.get(...)` from the call site
+    left all 37 pager+sweep tests green. The pager's own tests pass the value
+    directly, so only a sweep-level test can prove the sweep supplies it.
+
+    The `StopOrder` filter returns PartialTakeProfit rows alongside
+    PartialStopLoss — which is why counting them costs no extra broker call, and
+    why they were being silently discarded before anything counted them.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="short",
+            position_size=32557.2, stop_loss=1.094, take_profit_1=1.054,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "32557.2", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "58686.8", "orderId": "a"},
+            {"stopOrderType": "PartialStopLoss", "qty": "86102.5", "orderId": "b"},
+            # The target legs occupy the SAME cap and were previously discarded.
+            {"stopOrderType": "PartialTakeProfit", "qty": "58686.8", "orderId": "c"},
+            {"stopOrderType": "PartialTakeProfit", "qty": "86102.5", "orderId": "d"},
+            {"stopOrderType": "PartialTakeProfit", "qty": "100.0", "orderId": "e"},
+        ]},
+    )
+    _patch_accounts(monkeypatch, client)
+    om._TICK_ACTIVE_CLOSE_AT.clear()
+    monkeypatch.setattr(om, "_alert_state_path",
+                        lambda kind: tmp_path / f"{kind}_alert_state.json")
+    sent = []
+    import src.runtime.outcomes as outcomes
+    monkeypatch.setattr(outcomes, "report", lambda *a, **k: sent.append((a, k)))
+
+    summary = om._check_broker_naked_bybit_positions(db)
+
+    assert summary["over_cover_alerted"] == 1
+    kwargs = sent[0][1]
+    assert kwargs["sl_leg_count"] == 2, "coverage stays an SL-only question"
+    assert kwargs["protective_leg_count"] == 5, (
+        "the sweep must hand the page the COMBINED TP+SL count")
+    assert kwargs["leg_cap_headroom"] == 15          # 20 - 5, not 20 - 2
+    assert "COMBINED" in kwargs["reason"]
