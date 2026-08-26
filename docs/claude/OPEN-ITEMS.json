@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "what_this_is": "The SHORT list every session reads at START. Items that are IN FLIGHT — a fix deployed but not yet proven to work, a soak accruing, a decision pending — that a new session must know about before it plans anything. This is NOT the backlog: the backlog is 951 rows of things to fix, and nobody reads 951 rows at session start, which is exactly why items were being lost across sessions (operator, 2026-08-26).",
+  "the_cap_is_the_feature": "MAX_ITEMS is 12 and is ENFORCED by scripts/ci/check_open_items.py. A register that can grow becomes a second backlog and stops being read. Adding a 13th item means clearing one first — that pressure is the mechanism, not a limitation of it.",
+  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
+  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
+  "updated_at": "2026-08-26T12:40:00Z",
+  "items": [
+    {
+      "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
+      "opened": "2026-08-26",
+      "loud": true,
+      "kind": "awaiting_verification",
+      "summary": "The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.",
+      "detail": "ib_paper MHG held a 29-lot position against TWO disjoint OCA groups — 58 lots of resting stop, 200%. OCA cancels only WITHIN a group, so one stop firing flattens the position and the other group's legs sell another 29 into a naked SHORT. The stranded leg was cancelled 2026-08-26 in a maintenance window (issues #10332-#10338) and the position now rests under ONE group (oca-protect-t4796, STP 6.364 + LMT 7.1415) matching journal trade 4796. THAT IS THE SYMPTOM CLEARED, NOT THE MECHANISM VERIFIED. Two mechanisms remain unproven on a real event: (1) _emit_stop_over_cover_alert — shipped 2026-08-25, reaches the operator feed, and has never fired on a NEW over-cover; the three ib_stop_over_cover rows in the feed predate the clear. (2) cancel-ib-order's reporting — it read the successful cancel as refused_by_venue (fixed 2026-08-26, BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL), and that fix has run against a fake venue only.",
+      "clears_when": "BOTH: (a) a NEW disjoint-group over-cover is detected and PAGES the operator through outcomes.jsonl — verified by finding the row in /api/bot/logs?level=error, not by reading the code; and (b) cancel-ib-order is exercised against the real gateway and reports a cancel's outcome correctly. A synthetic test passing is NOT either half.",
+      "why_it_cannot_be_closed_by_time": "A deployed fix and a working fix are indistinguishable from every surface we have. Only the mechanism firing on a real event settles it — the system-review skill's `unexercised_fixes` rule, applied here.",
+      "refs": ["BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS", "BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL", "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG"]
+    },
+    {
+      "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+      "opened": "2026-08-26",
+      "loud": false,
+      "kind": "background_awareness",
+      "summary": "journalTrust now flags accounts whose journal disagrees with the broker — but the ledger it reads has exactly ONE account in it.",
+      "detail": "/api/bot/trades/closed and /api/bot/performance now carry journalTrust, resolved from comms/broker_truth_ledger.json. That ledger lists bybit_2 and nothing else, because it is populated BY HAND from an operator's venue export. So every other account grades `no_record`, which means NOBODY HAS RECONCILED IT — never that it reconciles. A session reading `no_record` as a clean bill of health has reintroduced the exact bug the field was built to fix.",
+      "clears_when": "Either every real-money account has been reconciled against its venue at least once (so `no_record` on a real-money account becomes a genuine anomaly), or an automated reconciliation replaces the hand-populated ledger.",
+      "affects": "Any session quoting a per-account PnL figure. Read the journalTrust state before quoting a sum; `no_record` is not evidence of agreement.",
+      "refs": ["BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER", "BL-20260713-BYBIT2-PNL-UNDERRECORD"]
+    },
+    {
+      "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
+      "opened": "2026-08-26",
+      "loud": false,
+      "kind": "background_awareness",
+      "summary": "/api/diag/ib_open_orders serves a STALE, monotonically-growing order view. Do not conclude an order's absence or presence from it.",
+      "detail": "ib_insync's openTrades() reads an ACCUMULATED cache and reqAllOpenOrders only ADDS to it, while cancel callbacks reach the SUBMITTING client only — so the read-only client the route uses never learns of a cancel it did not issue. Measured: the route and a fresh client differed by EXACTLY a cancelled pair while agreeing on all six other orders. The envelope now carries a stale_read_caveat. The ENFORCING path (the naked sweep, on the trader's own client) is unaffected.",
+      "clears_when": "The route builds a FRESH client per read and a measurement shows it agreeing with a known-current view. Needs a real gateway to verify, so it cannot be closed from a sandbox.",
+      "affects": "Any session reasoning about IB resting orders — including over-cover analysis, which is what it was used for on 2026-08-26.",
+      "refs": ["BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"]
+    }
+  ]
+}
