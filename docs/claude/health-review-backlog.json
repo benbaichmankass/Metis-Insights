@@ -25275,6 +25275,25 @@
         "src/units/accounts/ib_client.py::_cancel_resting_orders_for_symbol docstring -- 'cancelled every leg' and 'could not see a single leg' were the same observable outcome ... This now reports counts so a caller can tell them apart"
       ],
       "resolution_criteria": "Make the read three-state at the HELPER (`orders` / `could_not_look` / `empty`) or give it a sibling that raises, then update every caller to branch on it -- `_cancel_resting_orders_for_symbol` and `_cancel_oca_group_for_symbol` at minimum. Ends when a forced `openTrades()` failure makes each of those callers report a read failure rather than a clean zero, asserted by a test per caller. Registering the state with `collapsed-state-guard` is the durable half."
+    },
+    {
+      "id": "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED",
+      "opened_at": "2026-08-26T19:50:00Z",
+      "opened_by": "claude (exit-label-reclassification-g1 session, Lane C)",
+      "severity": "high",
+      "tier": 2,
+      "status": "open",
+      "area": "exit-coverage",
+      "title": "The MGC over-cover was not merely a hazard -- a stray group's duplicate LIMIT partially FILLED, and the resulting 1-contract journal/exchange divergence is invisible to every IB detector",
+      "detail": "MEASURED 2026-08-26, ib_paper/MGC, all from FRESH-CLIENT reads (the diag route is excluded as stale per BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW).\n\nWHAT HAPPENED. Trade 5007 (ict_scalp_mgc_15m, short 51 @ 4660.9) carried TWO protective groups: the journal-matching `oca-protect-t5007` (STP BUY 51 @ 4653.9 / LMT BUY 51 @ 4602.4, clientId 497) and the stray `834864174` (STP BUY 50 @ 4699.9 / LMT BUY 51 @ 4602.4, clientId 597). BOTH groups held an identical LMT BUY 51 @ 4602.4, and OCA cancels only WITHIN a group. The cancel-ib-order APPLY run (#10349) read the stray limit as `filled: 1.0, remaining: 50.0` -- so it had ALREADY begun filling. The over-cover class is therefore not purely prospective on this account; it has produced an unintended fill.\n\nTHE RESIDUE, AND IT IS THE PART NOTHING WATCHES. `/api/diag/exchange_positions` now reads MGC **short 50** while `trades` row 5007 still reads `position_size 51.0`. The surviving `oca-protect-t5007` therefore rests 51 of stop and 51 of target against a 50 position -- 102% -- so a stop fire over-closes by one contract into a naked LONG 1.\n\nWHY NO DETECTOR SEES IT. (a) The IB over-cover page (`_emit_stop_over_cover_alert`) keys on DISJOINT OCA GROUPS; with the stray group now gone there is exactly ONE group, so it will not fire on a single group at 102%. (b) `journal_qty_divergent` -- the detector that compares summed open journal rows against the netted exchange size -- is implemented in `_check_broker_naked_bybit_positions` and is **Bybit-only**; the IB sweep has no equivalent. So an IB journal/exchange quantity divergence has no detector at all, which is the same shape as the Bybit-only gap `_emit_bybit_over_cover_alert` was added for one day earlier.\n\nSTATE THE POPULATION: one account (ib_paper, PAPER -- no real money), one symbol, one contract of divergence. The SIZE is trivial; the CLASS is not, because the same mechanism on a real-money netted account would diverge silently and un-detected.\n\nNOT ESTABLISHED: whether the reconciler will converge trade 5007 to 50 on its own, and how many other IB rows currently diverge from their exchange size -- nobody has ever measured that, because nothing computes it.",
+      "evidence": [
+        "issue #10349 (APPLY) -- order 422 LMT BUY 51 @ 4602.4, oca_group 834864174, filled 1.0, remaining 50.0",
+        "issue #10350 / #10351 (fresh-client DRY RUNs) -- orders 422 and 423 both lookup_state not_found, orders_on_account 8 -> 6",
+        "/api/diag/exchange_positions?account_id=ib_paper 2026-08-26T19:50Z -- MGC short 50.0",
+        "/api/bot/db/table/trades filter_state=applied -- trade 5007 position_size 51.0, status open",
+        "src/runtime/order_monitor.py -- journal_qty_divergent lives in _check_broker_naked_bybit_positions only"
+      ],
+      "resolution_criteria": "Two separable halves. (1) DETECTION: give the IB sweep the journal-vs-exchange quantity comparison its Bybit sibling already has, so a divergence is observable at all; ends when a deliberately divergent IB row is reported on a surface a human reads, asserted by a test. (2) THIS ROW: trade 5007 reads the same size as the exchange, or is closed, verified from a fresh client -- and the decision on how to reconcile it (the fill was real, so the exit price and 1-lot pnl are a MEASURED broker fact that should not be discarded) is recorded rather than silently applied. Do NOT resolve (2) by editing the row to 50 without accounting for the filled contract."
     }
   ]
 }
