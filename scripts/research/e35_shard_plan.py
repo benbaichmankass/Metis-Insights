@@ -88,8 +88,45 @@ def fetch_interval(tf: str) -> str:
 _DK_SERVABLE_INTERVALS = {"1", "5", "15", "60", "240", "D", "1D"}
 
 
+#: Intervals the yfinance lane serves. Mirrors
+#: `scripts/ops/fetch_backtest_candles.py::_BYBIT_TO_YF_TIMEFRAME` and is
+#: ASSERTED against it by a test, for the same reason the Dukascopy set above
+#: is: a planner that schedules a leg the fetcher then refuses is the
+#: two-copies drift this file already avoids for leg scope.
+_YF_SERVABLE_INTERVALS = {"1", "5", "15", "60", "D", "1D"}
+
+
 class NoFeedSource(RuntimeError):
     """No feed can serve this leg. A REFUSAL, carrying why."""
+
+
+def data_basename(symbol: str, tf: str) -> str:
+    """The file stem the SWEEP will actually look for. One definition, not two.
+
+    ⚠️ **THIS EXISTS BECAUSE THERE WERE TWO, AND THEY DISAGREED**
+    (`BL-20260826-E35-RUNNER-WRITES-A-FILENAME-THE-SWEEP-NEVER-READS`).
+    `e35-bracket-sweep.yml` wrote `data/{SYMBOL}_{tf}.csv`, while
+    `m20_fleet_exit_sweep.resolve_data` applies `PROXY_DATA`
+    (`MES->ES_F`, `MGC`/`XAUUSD->GC_F`, `MHG->HG_F`) **unconditionally and with
+    no native fallback** — so it looked for `ES_F_1d.csv` and never for the
+    `MES_1d.csv` the runner had just fetched.
+
+    The failure is silent in the worst way. Measured 2026-08-26 by invoking the
+    sweep exactly as the workflow does, with `MES_1d.csv` present::
+
+        plan: 0 legs runnable, 1 skipped
+          SKIP mes_trend_long_1d: data_missing:MES
+        EXIT CODE = 0     report.json -> legs= 0
+
+    The leg pays the fetch, the job goes **GREEN**, and the artifact holds a
+    report with an empty ``legs`` list. Four of the 25 cells recorded
+    `blocked:no_free_lane_candle_feed` behaved this way.
+
+    Deriving the stem from `fleet.PROXY_DATA` — the map `resolve_data` itself
+    reads — is what makes the two unable to drift again. A literal
+    ``f"{symbol}_{tf}"`` here would just recreate the second copy.
+    """
+    return f"{fleet.PROXY_DATA.get(str(symbol).upper(), str(symbol))}_{tf}"
 
 
 def resolve_feed_source(symbol: str, interval: str) -> str:
@@ -116,6 +153,45 @@ def resolve_feed_source(symbol: str, interval: str) -> str:
     sym = str(symbol).upper()
     if sym.endswith("USDT"):
         return "binance_vision"
+
+    # ⚠️ A `PROXY_DATA` SYMBOL GOES TO YFINANCE, AND THAT IS A PROVENANCE
+    # DECISION RATHER THAN A PREFERENCE (operator-approved 2026-08-26).
+    #
+    # `resolve_data` will only ever look for these under their PROXY stem
+    # (`ES_F`/`GC_F`/`HG_F` — see `data_basename`), so whatever feed serves the
+    # leg gets WRITTEN under that name. Those stems mean one specific thing in
+    # this repo: the yfinance full-size contract. `yf_symbols` maps
+    # `MES->ES=F`, `MGC`/`XAUUSD->GC=F`, `MHG->HG=F`, which is exactly that
+    # series — root `CLAUDE.md` records `datasets-out/market_raw/MGC/1d` as
+    # "byte-for-byte the proxy: 2,511 of 2,512 overlapping closes identical to
+    # `GC_F_1d.csv`". So yfinance-under-the-proxy-stem is self-consistent.
+    #
+    # Dukascopy is NOT, for these four, even though it maps them and carries
+    # more depth: it would serve `MES` from an S&P **index CFD** and `MGC` from
+    # **spot** XAU_USD, then write them into a file whose name asserts the
+    # futures contract. That is a file "whose NAME asserts a provenance its
+    # CONTENT does not have" — the exact trap `resolve_data`'s own docstring
+    # warns about, and the reason this function refuses rather than re-routes.
+    #
+    # COST, STATED: yfinance caps intraday history (~730 d at 1h), so the two
+    # 1h legs get a PARTIAL window against the sweep's 1830 d request. The
+    # fetcher clamps and says so on stderr, so a short span is never silently
+    # read as a full one; the 1d legs are uncapped and unaffected.
+    #
+    # ⚠️ `MHG` rides this route too, as a CONSEQUENCE of applying the rule
+    # uniformly rather than as a separate decision — it is in `PROXY_DATA`, and
+    # `HG=F` is the honest series for `HG_F`. It was previously refused because
+    # Dukascopy's only catalogue hit was a Norwegian salmon farmer; that
+    # refusal was about Dukascopy, never about the leg being unservable.
+    # `QLD`/`TQQQ` are NOT in `PROXY_DATA`, so this rule does not touch them and
+    # they stay refused — correctly: a daily leverage reset means the path is
+    # not N x the underlying, so no proxy is honest.
+    if sym in fleet.PROXY_DATA:
+        if str(interval) not in _YF_SERVABLE_INTERVALS:
+            raise NoFeedSource(
+                f"yfinance_interval_unsupported:{sym} — the lane does not "
+                f"serve interval {interval!r}")
+        return "yfinance"
 
     sys.path.insert(0, str(REPO / "scripts" / "ops"))
     import dukascopy_instruments as _dk  # noqa: E402  (path shimmed above)
@@ -158,6 +234,11 @@ def build_matrix(runnable: list[dict]) -> tuple[list[dict], list[dict]]:
         include.append({
             "leg": p["leg"], "symbol": p["symbol"], "tf": p["tf"],
             "family": p["family"], "fetch_interval": iv, "feed_source": src,
+            # The runner writes `data/{data_basename}.csv`. Carried in the
+            # matrix rather than rebuilt in YAML so the workflow cannot hold a
+            # second opinion about where a leg's candles live — see
+            # `data_basename`, which is where the first two disagreed.
+            "data_basename": data_basename(p["symbol"], p["tf"]),
         })
     return include, refused
 
@@ -301,7 +382,10 @@ def _selftest() -> int:
     # to be deliberate — the workflow consumes these keys by name, so a silent
     # schema drift here is a matrix the sweep cannot read.
     chk("entry key set", sorted(inc[0]),
-        ["family", "feed_source", "fetch_interval", "leg", "symbol", "tf"])
+        ["data_basename", "family", "feed_source", "fetch_interval", "leg",
+         "symbol", "tf"])
+    chk("entry carries the stem the SWEEP reads", inc[0]["data_basename"],
+        "BTCUSDT_1h")
     chk("empty in -> empty out", build_matrix([]), ([], []))
 
     # --- per-leg feed source (BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX)
@@ -309,8 +393,45 @@ def _selftest() -> int:
         "binance_vision")
     chk("a mapped ETF routes to dukascopy", resolve_feed_source("SPY", "D"),
         "dukascopy")
-    chk("a mapped PROXY still routes (MES -> index CFD)",
-        resolve_feed_source("MES", "D"), "dukascopy")
+    # ⚠️ CHANGED 2026-08-26: MES no longer routes to dukascopy. The previous
+    # line asserted `"dukascopy"` and was CORRECT about the routing while the
+    # leg was nonetheless unservable — dukascopy's S&P index CFD would be
+    # written under `ES_F_1d.csv`, a name asserting the futures contract. See
+    # `resolve_feed_source` for why a PROXY_DATA symbol goes to yfinance.
+    chk("a PROXY_DATA symbol routes to yfinance, not dukascopy",
+        resolve_feed_source("MES", "D"), "yfinance")
+    chk("MGC likewise", resolve_feed_source("MGC", "60"), "yfinance")
+    chk("XAUUSD likewise (spot gold still writes the GC_F stem)",
+        resolve_feed_source("XAUUSD", "60"), "yfinance")
+    chk("MHG rides the same rule (HG=F is the honest HG_F series)",
+        resolve_feed_source("MHG", "D"), "yfinance")
+    # A non-PROXY_DATA symbol is untouched by that rule.
+    chk("a plain mapped ETF still routes to dukascopy",
+        resolve_feed_source("GLD", "D"), "dukascopy")
+    # An interval the yfinance lane cannot serve is REFUSED, not coerced —
+    # the same discipline the dukascopy branch already applies. 2h/4h have no
+    # yfinance mapping, so a PROXY_DATA leg at those bars must not be scheduled.
+    raises("yfinance 4h is refused, not coerced",
+           lambda: resolve_feed_source("MGC", "240"), NoFeedSource)
+    raises("yfinance 2h is refused, not coerced",
+           lambda: resolve_feed_source("MES", "120"), NoFeedSource)
+
+    # --- data_basename: ONE definition of where a leg's candles live
+    # (BL-20260826-E35-RUNNER-WRITES-A-FILENAME-THE-SWEEP-NEVER-READS)
+    chk("a plain symbol keeps its own stem", data_basename("SPY", "1d"),
+        "SPY_1d")
+    chk("a PROXY_DATA symbol takes the proxy stem",
+        data_basename("MES", "1d"), "ES_F_1d")
+    chk("MGC -> GC_F", data_basename("MGC", "1h"), "GC_F_1h")
+    chk("XAUUSD -> GC_F too", data_basename("XAUUSD", "1h"), "GC_F_1h")
+    chk("lower-case symbol still resolves the proxy",
+        data_basename("mes", "1d"), "ES_F_1d")
+    # The stem is DERIVED from the map the sweep reads, never a literal — this
+    # is the assertion that keeps the two from drifting apart again.
+    chk("derived from fleet.PROXY_DATA, not a copy",
+        {s_: data_basename(s_, "1d").rsplit("_", 1)[0]
+         for s_ in sorted(fleet.PROXY_DATA)},
+        {s_: fleet.PROXY_DATA[s_] for s_ in sorted(fleet.PROXY_DATA)})
     # The three refusals stay APART from each other and from a successful route.
     raises("a REFUSED symbol has no feed (QLD, daily leverage reset)",
            lambda: resolve_feed_source("QLD", "D"), NoFeedSource)
