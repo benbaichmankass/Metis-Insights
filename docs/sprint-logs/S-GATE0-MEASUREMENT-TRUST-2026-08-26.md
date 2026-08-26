@@ -240,3 +240,29 @@ unrestricted −12.54R arm. Measured-only collapses it to −1.86R.
   them before anything is proposed.
 - **`OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`** is next due 2026-08-28
   and will render into `CLAUDE.md` then.
+- **`OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION`** — the mechanism
+  this session shipped in place of a cap and an adjective is itself
+  **unexercised**. It is verified by SIMULATION only (quiet 08-26/08-27, the MHG
+  item renders 08-28), and the block is empty today, so a session reading it now
+  observes nothing and proves nothing. Shipped and working are different states.
+  ⚠️ The handoff prompt written at the end of this session **names the MHG item
+  explicitly**, so the next session cannot be the clean test — it has been told.
+  The uncontaminated observation is a later session that arrived cold; the row
+  says so, and asks whoever clears it to record which session it was.
+- **`BYBIT_TPSL_MODE` re-arm gate for vwap** (operator-directed 2026-08-26):
+  reopening or re-litigating vwap requires the **exit-geometry review**
+  (`docs/design/exit-mechanism-construction-PROCESS.md`) first. Recorded on the
+  backlog row's `resolution_criteria` and in `WORKPLAN-2026-08-26.md` — in two
+  places deliberately, because the workplan is what a planning session reads and
+  the backlog row is what a fixing session reads.
+
+## Closing state — what is NOT cleared
+
+GATE 0 is **not** cleared. **G1** (exit-label re-classification) and **G3**
+(provenance on aggregates) remain open; **G5** is blocked on G1; lanes B/C/D stay
+blocked behind the gate. **G2** is live-verified on the deployed route
+(`bybit_2` 200/200 `known_divergent`, with `bybit_1`/`alpaca_paper`/`ib_paper`
+all `no_record` as the negative control). **G4** and **G6/G7** shipped.
+
+Stating this plainly because the failure mode here is a session reading a long
+list of merged PRs and concluding the gate is done. It is not.
