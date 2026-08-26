@@ -25091,6 +25091,18 @@
         }
       ],
       "resolved_at": "2026-08-26T09:25:00Z"
+    },
+    {
+      "id": "BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL",
+      "opened": "2026-08-26",
+      "severity": "high",
+      "tier": "1 — reporting only. `IBClient.cancel` has exactly ONE consumer (scripts/ops/cancel_ib_order.py); the runtime cancel paths branch on `verify_state` + `still_resting` from the venue re-read, never on `refusal`, so no order-path behaviour changes — the same call is sent, only the envelope classification is corrected.",
+      "status": "resolved",
+      "title": "cancel-ib-order reported a SUCCESSFUL cancel as refused_by_venue, and told the operator not to retry",
+      "detail": "IBKR delivers acceptance and rejection on ONE event channel, keyed to the same orderId, and only the CODE distinguishes them. `_cancel_error_capture` filed EVERY event as a refusal, so error 202 — \"Order Canceled - reason:\", the venue CONFIRMING the cancel landed — surfaced as a rejection. MEASURED LIVE 2026-08-26 during the MHG over-cover repair: issue #10335 returned `action: refused_by_venue`, `verify_state: still_present`, `refusal: {code: 202}` and a note reading \"the order is still resting and re-running with a longer verify window will not change that\". A re-run seconds later (#10336) read `lookup_state: not_found` with the account's order count down 8 → 6. The cancel had worked; only the report was wrong. This is the worse direction of the two: an operator acting on the report either re-issues a cancel already executed, or believes a live position's protection repair failed when it succeeded. Two contributing shapes, both fixed: (a) the wrapper's refusal note asserted the 10147 story under EVERY code (diagnostic-provenance sub-class A — a cause no code path tested); (b) the post-cancel verification reads through `ib_read_client_for`, whose order view is accumulated and never learns of a cancel it did not issue (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW), so `still_present` after a CONFIRMED cancel is a contradiction rather than a failure and is now graded `cancelled_readback_contradicted`.",
+      "resolution_criteria": "A venue confirmation never surfaces as a refusal; a genuine refusal still reports retCode 1; the refusal note names the code that actually came back; the confirmed-but-still-on-the-readback case is its own state rather than collapsed into either `gone` or `cancel_not_effective`. All four pinned by tests, and the confirmation test break-tested to reproduce the #10335 payload byte-for-byte against the old code.",
+      "resolved_at": "2026-08-26T11:40:00Z",
+      "resolution": "`_classify_ib_cancel_event` + `_IB_CANCEL_CONFIRMED_CODES` (an ALLOWLIST of confirmation codes, so an unrecognised code stays a refusal and a rejection this repo has never seen fails loud rather than being swallowed as success). `_cancel_error_capture` now returns `(refusals, confirmations, detach)`; `IBClient.cancel` surfaces a `confirmation` key. Tests: tests/test_ib_cancel_verification.py (`ConfirmingIB` models a venue that acknowledges a successful cancel — the original `FakeIB` emitted an event only on the refusal path, which is why the broken capture looked correct against it) + tests/test_cancel_ib_order.py."
     }
   ]
 }
