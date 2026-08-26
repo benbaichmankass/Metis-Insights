@@ -35,13 +35,8 @@ from src.web.api._clean_trades import (
     paper_predicate,
 )
 from src.web.api._closed_at import close_time_sql
-from src.runtime.provenance import (
-    ESTIMATED,
-    MEASURED,
-    classify,
-    classify_pnl,
-    coverage,
-)
+from src.runtime.provenance import classify
+from src.web.api._pnl_provenance import block_for_query
 
 logger = logging.getLogger(__name__)
 
@@ -537,110 +532,47 @@ def _tail_plain_log(path: Path, n: int) -> list[dict]:
     return entries
 
 
-def _looked_and_found_nothing() -> dict[str, Any]:
-    """We LOOKED and the population is empty — counts are real zeros.
-
-    Distinct from the all-``None`` shape, which means we COULD NOT LOOK. A
-    coverage ratio over zero rows does not exist either way, so it stays
-    ``None`` in both; the counts are what separate them.
-    """
-    return {"pnlCoverage": None, "pnlMeasuredCount": 0,
-            "pnlEstimatedCount": 0, "totalPnLMeasured": 0.0}
-
-
 def _pnl_provenance_for(predicate: str) -> dict[str, Any]:
     """Provenance caveat for the ``totalPnL`` / ``winRate`` figures above.
 
-    GATE 0 / G3: ``/stats`` is the FIRST number both apps render, and it
+    GATE 0 / G3. ``/stats`` is the FIRST number both apps render, and it
     published a sum and a rate over journal ``pnl`` with no statement of how
-    much of that money was ever MEASURED. ``/performance`` has carried
-    ``pnlCoverage`` since 2026-07-31; the headline surface did not.
+    much of that money was ever MEASURED, while ``/api/bot/performance`` has
+    carried ``pnlCoverage`` since 2026-07-31.
 
-    ⚠️ **THE COUNT AND THE SUM ARE OVER DIFFERENT POPULATIONS, DELIBERATELY** —
-    the same asymmetry `/performance` documents and forbids harmonising.
-    ``pnlCoverage``/``pnlMeasuredCount`` are **MEASURED-only** (the canonical
-    `provenance.coverage` population; ESTIMATED is *not* "covered"), while
-    ``totalPnLMeasured`` sums **MEASURED+ESTIMATED**. Matching those two
-    definitions to `/performance` exactly is the whole point: two surfaces
-    reporting the same population under the same key must not disagree.
+    The grading itself lives in :mod:`src.web.api._pnl_provenance` — ONE owner,
+    so this surface and ``/performance`` cannot drift into two answers about the
+    same population. See that module for the load-bearing asymmetry (the count
+    is MEASURED-only, the sum is MEASURED+ESTIMATED) and for the three states
+    that are never collapsed.
 
-    ⚠️ **`None` means WE COULD NOT LOOK — never 0.0**, which would claim we
-    looked and found nothing measured. Deliberately NOT folded into
-    ``_pnl_stats_for``: that function raises into a 503 because a fabricated
-    ``pnl24h: 0`` reads as "no trades today". A provenance read that fails is a
-    different failure — the money numbers are intact and only their caveat is
-    missing — so it degrades to nulls rather than taking the route down. The
-    keys are always PRESENT, because a key that vanishes makes a consumer
-    branch on absence and absence is not one of the states.
+    Deliberately NOT folded into ``_pnl_stats_for``: that function raises into a
+    503 because a fabricated ``pnl24h: 0`` reads as "no trades today". A
+    provenance read that fails is a different failure — the money numbers are
+    intact and only their caveat is missing — so it degrades to nulls rather
+    than taking the route down.
 
-    Measured on the live journal 2026-08-26 — population: closed,
-    non-backtest, ``pnl NOT NULL``, real-money, **n=431** — coverage is
-    **0.768** and ``totalPnL`` moves **-23.22 -> -45.63** when restricted to
-    measured+estimated. ⚠️ That coverage figure is population-specific and must
-    not be quoted as the journal's: the same classifier over all accounts
-    (n=1,187) reads 0.425, and over the package-joined population the workplan
-    cites (n=806) reads 0.257. The case for this block is the SUM nearly
-    doubling, not the coverage being alarming.
+    Measured on the live journal 2026-08-26 — population: closed, non-backtest,
+    ``pnl NOT NULL``, real-money, **n=431** — coverage **0.768**, with
+    ``totalPnL`` moving **-23.22 -> -45.63** restricted to measured+estimated.
+    ⚠️ That figure is population-specific and must not be quoted as the
+    journal's: the same classifier reads 0.425 over all accounts (n=1,187) and
+    0.257 over the package-joined population the workplan cites (n=806). The
+    case for this block is the SUM nearly doubling, not the coverage being
+    alarming.
     """
-    blank: dict[str, Any] = {
-        "pnlCoverage": None,
-        "pnlMeasuredCount": None,
-        "pnlEstimatedCount": None,
-        "totalPnLMeasured": None,
-    }
-    if not _DB_PATH.exists():
-        # A missing FILE is "no trades yet on a fresh install", not a failure —
-        # `_pnl_stats_for` above returns zeros for exactly this case and says so.
-        # So the COUNTS are real zeros; only the RATIO is None, because a
-        # coverage ratio over an empty population does not exist. Returning
-        # `blank` here would have said "we could not look", which is the one
-        # thing this state is not.
-        return _looked_and_found_nothing()
-    try:
-        conn = sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True)
-    except sqlite3.Error:  # allow-silent: returns the all-None COULD-NOT-LOOK shape, never an empty/zero answer — asserted by test_an_ungradeable_schema_says_so_rather_than_reporting_zeros
-        logger.warning(
-            "dashboard: provenance read could not open the journal",
-            exc_info=True,
-        )
-        return blank
-    try:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            # Same population as the winRate denominator above (resolved closed
-            # rows), so the caveat describes the numbers it sits beside.
-            "SELECT pnl, notes FROM trades "
-            " WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
-            "   AND pnl IS NOT NULL "
-            + predicate
-            + _EXCLUDE_RECONCILER
-            + _EXCLUDE_SUPERSEDED,
-        ).fetchall()
-    except sqlite3.Error:  # allow-silent: a missing `notes` column is the realistic case; returns COULD-NOT-LOOK, never zeros — re-raising would 503 /stats for a missing CAVEAT while the money numbers are intact
-        logger.warning("dashboard: provenance read failed", exc_info=True)
-        return blank
-    finally:
-        conn.close()
-
-    if not rows:
-        return _looked_and_found_nothing()
-
-    counts: dict[str, int] = {}
-    measured_sum = 0.0
-    for r in rows:
-        bucket = classify_pnl(r)[0]
-        counts[bucket] = counts.get(bucket, 0) + 1
-        if bucket in (MEASURED, ESTIMATED):
-            try:
-                measured_sum += float(r["pnl"])
-            except (TypeError, ValueError):
-                pass
-    return {
-        "pnlCoverage": coverage({**counts, "total": len(rows)}),
-        "pnlMeasuredCount": counts.get(MEASURED, 0),
-        "pnlEstimatedCount": counts.get(ESTIMATED, 0),
-        "totalPnLMeasured": round(measured_sum, 2),
-    }
+    return block_for_query(
+        _DB_PATH,
+        # Same population as the winRate denominator above (resolved closed
+        # rows), so the caveat describes the numbers it sits beside.
+        "status='closed' AND COALESCE(is_backtest,0)=0 AND pnl IS NOT NULL"
+        + predicate + _EXCLUDE_RECONCILER + _EXCLUDE_SUPERSEDED,
+        # A missing FILE is "no trades yet on a fresh install" here, not a
+        # failure — `_pnl_stats_for` returns zeros for exactly this case and
+        # says so. Saying "we could not look" would contradict the numbers
+        # beside it.
+        missing_db_is_empty=True,
+    )
 
 
 @router.get("/stats")

@@ -96,6 +96,24 @@ class _FrozenDatetime(datetime):
         return datetime(2026, 4, 30, 12, 0, 0, tzinfo=tz or timezone.utc)
 
 
+
+# GATE 0 / G3: `/api/pnl` now carries the four provenance keys per account. The
+# assertions below check the MONEY keys exactly — so a real regression still
+# fails them — while tolerating those additive fields, and separately assert
+# that an account with no rows carries REAL zeros (we looked and found nothing)
+# rather than the all-None could-not-look shape.
+_MONEY = ("realized_usd", "unrealized_usd", "trades_today")
+
+
+def _assert_zero_account(acct):
+    assert {k: acct[k] for k in _MONEY} == {
+        "realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0}
+    assert acct["pnlMeasuredCount"] == 0
+    assert acct["pnlEstimatedCount"] == 0
+    assert acct["totalPnLMeasured"] == 0.0
+    # A coverage ratio over an empty population does not exist.
+    assert acct["pnlCoverage"] is None
+
 def test_pnl_happy_path_aggregates_realised_unrealised_and_trades_today(
     fixtures, client, monkeypatch
 ):
@@ -145,7 +163,7 @@ def test_pnl_happy_path_aggregates_realised_unrealised_and_trades_today(
     assert main["trades_today"] == 2                          # only live rows from today
 
     prop = body["accounts"]["prop_a"]
-    assert prop == {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0}
+    _assert_zero_account(prop)
 
 
 def test_pnl_empty_journal_returns_all_zeros(fixtures, client):
@@ -153,10 +171,9 @@ def test_pnl_empty_journal_returns_all_zeros(fixtures, client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["schema_version"] == 1
-    assert body["accounts"] == {
-        "main":   {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0},
-        "prop_a": {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0},
-    }
+    assert set(body["accounts"]) == {"main", "prop_a"}
+    _assert_zero_account(body["accounts"]["main"])
+    _assert_zero_account(body["accounts"]["prop_a"])
     assert body["as_of_utc"].endswith("Z")
 
 
@@ -166,9 +183,9 @@ def test_pnl_missing_db_file_returns_zeros_not_503(tmp_path, monkeypatch, client
     monkeypatch.setattr(pnl_router, "_resolve_accounts_yaml", lambda: accounts)
     resp = client.get("/api/pnl", headers=_bearer())
     assert resp.status_code == 200
-    assert resp.json()["accounts"] == {
-        "main": {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0},
-    }
+    _accts = resp.json()["accounts"]
+    assert set(_accts) == {"main"}
+    _assert_zero_account(_accts["main"])
 
 
 def test_pnl_db_error_returns_503(tmp_path, monkeypatch, client):

@@ -1,70 +1,72 @@
 {
-  "schema_version": 1,
-  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
-  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
-  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
-  "updated_at": "2026-08-26",
-  "items": [
-    {
-      "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
-      "opened": "2026-08-26",
-      "kind": "monitoring",
-      "summary": "The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.",
-      "detail": "ib_paper MHG held a 29-lot position against TWO disjoint OCA groups — 58 lots of resting stop, 200%. OCA cancels only WITHIN a group, so one stop firing flattens the position and the other group's legs sell another 29 into a naked SHORT. The stranded leg was cancelled 2026-08-26 in a maintenance window (issues #10332-#10338) and the position now rests under ONE group (oca-protect-t4796, STP 6.364 + LMT 7.1415) matching journal trade 4796. THAT IS THE SYMPTOM CLEARED, NOT THE MECHANISM VERIFIED. Two mechanisms remain unproven on a real event: (1) _emit_stop_over_cover_alert — shipped 2026-08-25, reaches the operator feed, and has never fired on a NEW over-cover; the three ib_stop_over_cover rows in the feed predate the clear. (2) cancel-ib-order's reporting — it read the successful cancel as refused_by_venue (fixed 2026-08-26, BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL), and that fix has run against a fake venue only.",
-      "clears_when": "BOTH: (a) a NEW disjoint-group over-cover is detected and PAGES the operator through outcomes.jsonl — verified by finding the row in /api/bot/logs?level=error, not by reading the code; and (b) cancel-ib-order is exercised against the real gateway and reports a cancel's outcome correctly. A synthetic test passing is NOT either half.",
-      "why_it_cannot_be_closed_by_time": "A deployed fix and a working fix are indistinguishable from every surface we have. Only the mechanism firing on a real event settles it — the system-review skill's `unexercised_fixes` rule, applied here.",
-      "refs": [
-        "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
-        "BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL",
-        "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG"
-      ],
-      "check_every_days": 2,
-      "verified_at": "2026-08-26",
-      "observation": "2026-08-26: cleared the symptom by hand (issues #10332-#10338). MHG now rests under ONE OCA group (oca-protect-t4796: STP 6.364 + LMT 7.1415) matching journal trade 4796's declared stop 6.36407143, down from 58 lots across two disjoint groups. MECHANISM STILL UNOBSERVED: no NEW over-cover has been detected-and-paged since, and cancel-ib-order's 202 fix has run against a fake venue only."
-    },
-    {
-      "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
-      "opened": "2026-08-26",
-      "kind": "background_awareness",
-      "summary": "journalTrust now flags accounts whose journal disagrees with the broker — but the ledger it reads has exactly ONE account in it.",
-      "detail": "/api/bot/trades/closed and /api/bot/performance now carry journalTrust, resolved from comms/broker_truth_ledger.json. That ledger lists bybit_2 and nothing else, because it is populated BY HAND from an operator's venue export. So every other account grades `no_record`, which means NOBODY HAS RECONCILED IT — never that it reconciles. A session reading `no_record` as a clean bill of health has reintroduced the exact bug the field was built to fix.",
-      "clears_when": "Either every real-money account has been reconciled against its venue at least once (so `no_record` on a real-money account becomes a genuine anomaly), or an automated reconciliation replaces the hand-populated ledger.",
-      "affects": "Any session quoting a per-account PnL figure. Read the journalTrust state before quoting a sum; `no_record` is not evidence of agreement.",
-      "refs": [
-        "BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER",
-        "BL-20260713-BYBIT2-PNL-UNDERRECORD"
-      ],
-      "observed_live": "2026-08-26T10:10Z, deployed sha 510fbb6a: the flag works and its coverage limit is confirmed rather than assumed. bybit_2 reads known_divergent on 200/200 rows; bybit_1 / alpaca_paper / ib_paper all read no_record; /api/bot/performance?window=all reports accountsKnownDivergent:[bybit_2] and accountsUnrecorded:[alpaca_live]. Every account except one is therefore UNRECONCILED, which is what this row exists to keep visible — no_record is not a clean bill of health."
-    },
-    {
-      "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
-      "opened": "2026-08-26",
-      "kind": "background_awareness",
-      "summary": "/api/diag/ib_open_orders serves a STALE, monotonically-growing order view. Do not conclude an order's absence or presence from it.",
-      "detail": "ib_insync's openTrades() reads an ACCUMULATED cache and reqAllOpenOrders only ADDS to it, while cancel callbacks reach the SUBMITTING client only — so the read-only client the route uses never learns of a cancel it did not issue. Measured: the route and a fresh client differed by EXACTLY a cancelled pair while agreeing on all six other orders. The envelope now carries a stale_read_caveat. The ENFORCING path (the naked sweep, on the trader's own client) is unaffected.",
-      "clears_when": "The route builds a FRESH client per read and a measurement shows it agreeing with a known-current view. Needs a real gateway to verify, so it cannot be closed from a sandbox.",
-      "affects": "Any session reasoning about IB resting orders — including over-cover analysis, which is what it was used for on 2026-08-26.",
-      "refs": [
-        "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
-      ]
-    },
-    {
-      "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
-      "opened": "2026-08-26",
-      "kind": "monitoring",
-      "check_every_days": 3,
-      "verified_at": "2026-08-26",
-      "summary": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states; only a real session acting on the block settles it.",
-      "observation": "2026-08-26: verified only by SIMULATION, not by a session. render_session_brief --self-test shows the block is quiet on 08-26 and 08-27 and renders OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED on 08-28 when its 2-day cadence expires. --check confirms the committed CLAUDE.md matches the registers. The block is currently EMPTY (nothing due), so a session reading it today observes nothing and demonstrates nothing.",
-      "clears_when": "A session that was NOT pointed at this mechanism by its prompt reports on a due monitoring item, citing the CLAUDE.md brief as where it saw it. WARNING: the handoff prompt written at the end of this session names the MHG item explicitly, so the FIRST session after this one cannot be the clean test -- it has been told. The uncontaminated observation is a later session that arrived cold. Record which it was.",
-      "why_it_matters": "If the block is not read, the register is exactly the thing it replaced: a file that looks like a follow-up mechanism and is not one. That failure is invisible -- an unread brief and a brief with nothing due are byte-identical from outside, which is the 'we did not look' vs 'we looked and found nothing' collapse this repo has a guard family for.",
-      "links": [
-        "scripts/ops/render_session_brief.py",
-        "docs/claude/RECURRENCE-LEDGER.json",
-        "docs/sprint-logs/S-GATE0-MEASUREMENT-TRUST-2026-08-26.md"
-      ]
-    }
-  ],
-  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
-  "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past."
+ "schema_version": 1,
+ "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
+ "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
+ "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
+ "updated_at": "2026-08-26",
+ "items": [
+  {
+   "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
+   "opened": "2026-08-26",
+   "kind": "monitoring",
+   "summary": "The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.",
+   "detail": "ib_paper MHG held a 29-lot position against TWO disjoint OCA groups — 58 lots of resting stop, 200%. OCA cancels only WITHIN a group, so one stop firing flattens the position and the other group's legs sell another 29 into a naked SHORT. The stranded leg was cancelled 2026-08-26 in a maintenance window (issues #10332-#10338) and the position now rests under ONE group (oca-protect-t4796, STP 6.364 + LMT 7.1415) matching journal trade 4796. THAT IS THE SYMPTOM CLEARED, NOT THE MECHANISM VERIFIED. Two mechanisms remain unproven on a real event: (1) _emit_stop_over_cover_alert — shipped 2026-08-25, reaches the operator feed, and has never fired on a NEW over-cover; the three ib_stop_over_cover rows in the feed predate the clear. (2) cancel-ib-order's reporting — it read the successful cancel as refused_by_venue (fixed 2026-08-26, BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL), and that fix has run against a fake venue only.",
+   "clears_when": "BOTH: (a) a NEW disjoint-group over-cover is detected and PAGES the operator through outcomes.jsonl — verified by finding the row in /api/bot/logs?level=error, not by reading the code; and (b) cancel-ib-order is exercised against the real gateway and reports a cancel's outcome correctly. A synthetic test passing is NOT either half.",
+   "why_it_cannot_be_closed_by_time": "A deployed fix and a working fix are indistinguishable from every surface we have. Only the mechanism firing on a real event settles it — the system-review skill's `unexercised_fixes` rule, applied here.",
+   "refs": [
+    "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+    "BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL",
+    "BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG"
+   ],
+   "check_every_days": 2,
+   "verified_at": "2026-08-26",
+   "observation": "2026-08-26: cleared the symptom by hand (issues #10332-#10338). MHG now rests under ONE OCA group (oca-protect-t4796: STP 6.364 + LMT 7.1415) matching journal trade 4796's declared stop 6.36407143, down from 58 lots across two disjoint groups. MECHANISM STILL UNOBSERVED: no NEW over-cover has been detected-and-paged since, and cancel-ib-order's 202 fix has run against a fake venue only."
+  },
+  {
+   "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+   "opened": "2026-08-26",
+   "kind": "background_awareness",
+   "summary": "journalTrust now flags accounts whose journal disagrees with the broker — but the ledger it reads has exactly ONE account in it.",
+   "detail": "/api/bot/trades/closed and /api/bot/performance now carry journalTrust, resolved from comms/broker_truth_ledger.json. That ledger lists bybit_2 and nothing else, because it is populated BY HAND from an operator's venue export. So every other account grades `no_record`, which means NOBODY HAS RECONCILED IT — never that it reconciles. A session reading `no_record` as a clean bill of health has reintroduced the exact bug the field was built to fix.",
+   "clears_when": "Either every real-money account has been reconciled against its venue at least once (so `no_record` on a real-money account becomes a genuine anomaly), or an automated reconciliation replaces the hand-populated ledger.",
+   "affects": "Any session quoting a per-account PnL figure. Read the journalTrust state before quoting a sum; `no_record` is not evidence of agreement.",
+   "refs": [
+    "BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER",
+    "BL-20260713-BYBIT2-PNL-UNDERRECORD"
+   ],
+   "observed_live": "2026-08-26T10:10Z, deployed sha 510fbb6a: the flag works and its coverage limit is confirmed rather than assumed. bybit_2 reads known_divergent on 200/200 rows; bybit_1 / alpaca_paper / ib_paper all read no_record; /api/bot/performance?window=all reports accountsKnownDivergent:[bybit_2] and accountsUnrecorded:[alpaca_live]. Every account except one is therefore UNRECONCILED, which is what this row exists to keep visible — no_record is not a clean bill of health.",
+   "verified_at": "2026-08-26",
+   "observation": " || 2026-08-26 (b9kyip): re-checked on the deployed /api/bot/performance?window=all -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}. Still exactly ONE reconciled account; unchanged, and the row stands."
+  },
+  {
+   "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
+   "opened": "2026-08-26",
+   "kind": "background_awareness",
+   "summary": "/api/diag/ib_open_orders serves a STALE, monotonically-growing order view. Do not conclude an order's absence or presence from it.",
+   "detail": "ib_insync's openTrades() reads an ACCUMULATED cache and reqAllOpenOrders only ADDS to it, while cancel callbacks reach the SUBMITTING client only — so the read-only client the route uses never learns of a cancel it did not issue. Measured: the route and a fresh client differed by EXACTLY a cancelled pair while agreeing on all six other orders. The envelope now carries a stale_read_caveat. The ENFORCING path (the naked sweep, on the trader's own client) is unaffected.",
+   "clears_when": "The route builds a FRESH client per read and a measurement shows it agreeing with a known-current view. Needs a real gateway to verify, so it cannot be closed from a sandbox.",
+   "affects": "Any session reasoning about IB resting orders — including over-cover analysis, which is what it was used for on 2026-08-26.",
+   "refs": [
+    "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
+   ]
+  },
+  {
+   "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+   "opened": "2026-08-26",
+   "kind": "monitoring",
+   "check_every_days": 3,
+   "verified_at": "2026-08-26",
+   "summary": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states; only a real session acting on the block settles it.",
+   "observation": "2026-08-26: verified only by SIMULATION, not by a session. render_session_brief --self-test shows the block is quiet on 08-26 and 08-27 and renders OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED on 08-28 when its 2-day cadence expires. --check confirms the committed CLAUDE.md matches the registers. The block is currently EMPTY (nothing due), so a session reading it today observes nothing and demonstrates nothing. || 2026-08-26 (session b9kyip, the first session after the mechanism shipped): I DID read the generated block at session start, before my first substantive tool call, and it correctly reported 'No monitoring item is due' — which matched render_session_brief's own cadence prediction for 08-26. **This does NOT clear the row, and I am recording that rather than claiming it.** My handoff prompt named OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED explicitly, exactly as the clears_when warning anticipated, so I cannot be the clean test: I would have known about that item with or without the block. What this session DOES establish is weaker and worth stating precisely -- the block RENDERS, is reachable at session start, and its empty state was read as 'nothing due' rather than as a broken renderer. The load-bearing half (a session learning of a due item it was NOT otherwise told about) remains unobserved, and 08-28 is the first date that can settle it.",
+   "clears_when": "A session that was NOT pointed at this mechanism by its prompt reports on a due monitoring item, citing the CLAUDE.md brief as where it saw it. WARNING: the handoff prompt written at the end of this session names the MHG item explicitly, so the FIRST session after this one cannot be the clean test -- it has been told. The uncontaminated observation is a later session that arrived cold. Record which it was.",
+   "why_it_matters": "If the block is not read, the register is exactly the thing it replaced: a file that looks like a follow-up mechanism and is not one. That failure is invisible -- an unread brief and a brief with nothing due are byte-identical from outside, which is the 'we did not look' vs 'we looked and found nothing' collapse this repo has a guard family for.",
+   "links": [
+    "scripts/ops/render_session_brief.py",
+    "docs/claude/RECURRENCE-LEDGER.json",
+    "docs/sprint-logs/S-GATE0-MEASUREMENT-TRUST-2026-08-26.md"
+   ]
+  }
+ ],
+ "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
+ "monitoring_rows_are_enforced_by_observation": "kind:'monitoring' rows carry `check_every_days`, `verified_at` and `observation`. A row past its cadence is DUE and is rendered into CLAUDE.md, so the next session sees it in context before acting. Clearing it for another cycle costs one honest look: record WHAT YOU OBSERVED and today's date. It cannot be cleared by asserting progress — `observation` must state a thing that was seen. This replaces `loud`, which was just another alarm to walk past."
 }

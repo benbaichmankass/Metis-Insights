@@ -8,6 +8,7 @@ Empty journal → all zeros (200). DB file unreachable → 503.
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +22,14 @@ from src.web.api._clean_trades import (
     exclude_superseded_predicate,
     not_paper_predicate,
 )
+from src.web.api._pnl_provenance import (
+    block_for_rows,
+    could_not_look,
+    looked_and_found_nothing,
+)
 from src.web.api.auth import require_session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["pnl"])
 
@@ -59,8 +67,12 @@ def _load_account_ids(accounts_yaml: Path) -> list[str]:
     return list(result.keys())
 
 
-def _zero_account() -> Dict[str, float]:
-    return {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0}
+def _zero_account() -> Dict[str, Any]:
+    """An account with no rows. The provenance keys carry REAL zeros, not
+    ``None``: this is "we looked and there is nothing here", not "we could not
+    look" (GATE 0 / G3)."""
+    return {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0,
+            **looked_and_found_nothing()}
 
 
 def _query_pnl(
@@ -115,6 +127,39 @@ def _query_pnl(
             (today_iso,),
         )
         counts = {row[0]: int(row[1]) for row in cur.fetchall()}
+
+        # ── Per-account PnL provenance (GATE 0 / G3) ────────────────────────
+        # `realized_usd` is a sum over journal `pnl` and said nothing about how
+        # much of it was ever MEASURED. Scoped to the REALISED rows only — the
+        # unrealised half is an open-position mark, a different question this
+        # block does not claim to answer.
+        #
+        # Same predicates as the sum above, VERBATIM, so graded and summed rows
+        # cannot drift. Grading delegated to the one owner.
+        try:
+            cur.execute(
+                """
+                SELECT account_id, pnl, notes
+                  FROM trades
+                 WHERE COALESCE(is_backtest, 0) = 0
+                   AND status != 'open'
+                   AND pnl IS NOT NULL
+                """
+                + not_paper_predicate("")
+                + exclude_reconciler_predicate("")
+                + exclude_superseded_predicate("")
+            )
+            grouped: Dict[str, list] = {}
+            for aid, pnl_v, notes_v in cur.fetchall():
+                grouped.setdefault(aid, []).append({"pnl": pnl_v, "notes": notes_v})
+            prov = {k: block_for_rows(v) for k, v in grouped.items()}
+        except sqlite3.Error:  # allow-silent: degrades to could-not-look per account, never zeros; re-raising would 5xx the route over a missing CAVEAT
+            # allow-silent: a journal with no `notes` column cannot be graded.
+            # Degrades to could-not-look per account — never zeros, which would
+            # assert an observation nobody made — and never costs the money
+            # numbers already read above.
+            logger.warning("pnl: provenance read failed", exc_info=True)
+            prov = {}
     finally:
         conn.close()
 
@@ -129,6 +174,13 @@ def _query_pnl(
         out[aid]["unrealized_usd"] = round(unrealized, 2)
     for aid, cnt in counts.items():
         out[aid]["trades_today"] = cnt
+    for aid in out:
+        if aid in prov:
+            out[aid].update(prov[aid])
+        elif prov == {} and aid in sums:
+            # The provenance read failed outright and this account HAS rows —
+            # say we could not look rather than claim a clean zero.
+            out[aid].update(could_not_look())
     return out
 
 

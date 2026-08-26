@@ -52,6 +52,12 @@ from src.web.api._clean_trades import (
     not_paper_predicate,
 )
 
+from src.web.api._pnl_provenance import (
+    block_for_rows,
+    could_not_look,
+    looked_and_found_nothing,
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
@@ -154,6 +160,40 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
                 GROUP BY strategy_name, exit_reason
                 """
             ).fetchall()
+
+            # ── Per-strategy PnL provenance (GATE 0 / G3) ───────────────────
+            # This tab's lifetime `total_pnl` / `win_rate_pct` are sums over
+            # journal `pnl` with no statement of how much was ever MEASURED.
+            # `/api/bot/performance` carries per-strategy coverage for a
+            # WINDOW; this is the LIFETIME cut, a different population.
+            #
+            # Same WHERE as the aggregate above, VERBATIM, so graded and summed
+            # rows cannot drift. Grading delegated to the one owner.
+            try:
+                prov_rows = conn.execute(
+                    """
+                    SELECT COALESCE(strategy_name, 'unknown') AS strategy_name,
+                           pnl, notes
+                    FROM trades
+                    WHERE status = 'closed'
+                      AND COALESCE(is_backtest, 0) = 0
+                      AND pnl IS NOT NULL
+                    """
+                    + not_paper_predicate("")
+                    + exclude_reconciler_predicate("")
+                    + exclude_superseded_predicate("")
+                    + exclude_reset_flat_predicate("")
+                ).fetchall()
+                grouped: Dict[str, list] = {}
+                for r in prov_rows:
+                    grouped.setdefault(r["strategy_name"], []).append(r)
+                prov = {k: block_for_rows(v) for k, v in grouped.items()}
+            except sqlite3.Error:  # allow-silent: degrades to could-not-look per strategy, never zeros; re-raising would 5xx the route over a missing CAVEAT
+                # allow-silent: a journal with no `notes` column cannot be
+                # graded at all. Degrades to could-not-look per strategy —
+                # never zeros, which would assert an observation nobody made.
+                logger.warning("strategies: provenance read failed", exc_info=True)
+                prov = {}
         finally:
             conn.close()
     except sqlite3.Error:  # allow-silent: best-effort db read; logs + returns safe empty default
@@ -198,6 +238,10 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
             "total_pnl": total_pnl,
             "avg_pnl_per_trade": round(total_pnl / resolved, 4) if resolved else 0.0,
             "exit_reasons": s["exit_reasons"],
+            # A strategy with closed rows but none resolved has no population
+            # to grade -> real zeros; an ungradeable journal -> could-not-look.
+            **(prov.get(name) or (looked_and_found_nothing() if not resolved
+                                  else could_not_look())),
         }
     return result
 

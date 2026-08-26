@@ -14,9 +14,10 @@
   silently skipped.
 
 ## Tier
-- **Tier 1** for everything shipped. The one Tier-2 item — running the backfill
-  with `--apply` against the money DB — was deliberately **NOT** done and is
-  handed to the operator with exact projected numbers.
+- **Tier 1** for everything shipped in the PR. The one **Tier-2** item — running
+  the backfill with `--apply` against the money DB — was proposed with exact
+  projected numbers, **approved by the operator in-conversation**, and then run
+  and verified within this session.
 - Justification: a protected-key tuple, a script's `sys.path`, additive
   read-surface fields, tests, and docs. No order path, no config, no VM mutation.
 
@@ -174,22 +175,24 @@ ROWS THAT WOULD CHANGE exit_reason: 191
   plan's headline is computed off exactly these labels.
 
 ## Deferred Items
-- **G3 is PARTIAL, not done.** `/api/bot/stats` shipped. Still uncovered, from
-  a measured inventory: `attribution.py`, `pnl_history.py`, `strategies.py`,
-  and the session-gated `pnl.py` (no consumer calls it). `backtests.py` and
-  `pnl_broker_truth.py` are exempt — neither reads journal `pnl`.
+- **Nothing deferred.** G3 was PARTIAL mid-session and was then completed: one
+  owner (`src/web/api/_pnl_provenance.py`) wired into all five remaining
+  aggregates. `backtests.py` and `pnl_broker_truth.py` are exempt — verified,
+  neither reads journal `pnl`.
 - Repairing the two truncated markers as a standalone job — unnecessary; the
   backfill subsumes it.
 
 ## Next Recommended Sprint
-- Suggested next sprint: the Tier-2 `backfill-exit-labels` apply run, then **G5**
-  (re-state the 08-21 headline off corrected labels), then **G3**.
-- Why next: G1's code half is done and G5 unblocks the moment the labels are
-  corrected. G3 is the last open GATE 0 item.
-- Required verification before starting: after the apply run, confirm
-  `notes.pre_backfill_exit_reason` is non-zero on the live journal and re-read
-  `perExitPath` — `labelAttestedCount` on `reconciler_filled` should move from
-  its current 0 to ~191, and `labelRefusedCount` to ~105.
+- Suggested next sprint: **Lane B**, whose top item (B1, the non-crypto candle
+  feed on a runner) is the single highest-leverage remaining item in the plan —
+  it unblocks 25 M20 cells and M31 P5 precondition 3b.
+- Why next: **GATE 0 is cleared** — all of G1–G7 shipped this session, so Lanes
+  B/C/D are unblocked for the first time.
+- ⚠️ **Required framing before starting:** "cleared" means the instruments now
+  state their own provenance, NOT that the numbers are good. The re-derived
+  exit-path split still puts cleanup machinery at **671 of 1,363 (49.2%)** of
+  closes, and real-money `pnlCoverage` is **0.768** against **0.425** across all
+  accounts (n=1,187). Acting on what the instruments now say is the next job.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
