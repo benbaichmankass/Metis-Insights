@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-26T05:00:00+00:00",
+  "updated_at": "2026-08-26T05:10:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -54,7 +54,7 @@
       "severity": "critical",
       "severity_basis": "A live bearer for the whole /api/diag/* read surface, disclosed twice in one day. Every hour it is not rotated is an hour the disclosed value still authorizes.",
       "tier": "2 (set-diag-token pushes the new value to the VM once the operator has minted it)",
-      "status": "open",
+      "status": "resolved",
       "owner_class": "secret_origination",
       "owner_class_basis": "Only a person may MINT the new value and place it in the repo Actions secret — that is the one hand-off the autonomy mandate keeps with the operator, and on a PUBLIC repo get-diag-token deliberately refuses to hand a value back, so there is no session-side path to originate it.",
       "automation_path": "PARTIAL, and recorded so the human half is not overstated: once the operator has minted the value and set the Actions secret, the set-diag-token system-action pushes it to the VM and no human touches the VM. Only the origination is human.",
@@ -67,10 +67,10 @@
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
-      "last_state_change_at": "2026-08-25T13:33:00+00:00",
-      "last_state_change_note": "None since it was first raised. Registered here unchanged.",
-      "resolved_at": null,
-      "resolution": null,
+      "last_state_change_at": "2026-08-26T05:10:00+00:00",
+      "last_state_change_note": "Resolved by operator instruction. The item is closed and out of the open set; it does not need raising again.",
+      "resolved_at": "2026-08-26T05:10:00+00:00",
+      "resolution": "Closed on the operator's instruction, 2026-08-26: \"it's done\". ⚠️ RECORDED AS STATED, NOT AS VERIFIED — and the distinction is written here rather than smoothed over because a future session will read this row as the reason not to chase it. A session cannot read a secret's value, so no measurement of this was available to me either way; the basis is the operator's statement, which is the correct and sufficient basis for a secret_origination item, since originating and rotating the value is theirs alone to do.",
       "snoozed_until": null,
       "snooze_trigger": null,
       "refs": [
