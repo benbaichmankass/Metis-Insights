@@ -74,6 +74,32 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    stop-bot-service)
+        # A SUCCESSFUL stop is deliberately `high`, not `normal`. The trader is
+        # now DOWN and evaluating no exits — only broker-side resting brackets
+        # protect an open position — so the ping that says it worked is exactly
+        # the one the operator must not scroll past. Reporting a live trader
+        # being stopped at the same priority as a restart that came back up
+        # would understate the state the system is actually in.
+        tier=2
+        case "${exit_code}" in
+            0) result="STOPPED — trader is down, exits ride broker-side brackets only"; priority="high" ;;
+            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            # 4 is a REFUSAL, not a failure: the pairing gate found the liveness
+            # watchdog still active and declined a stop it would have undone.
+            # Paging `urgent` for a guard doing its job is the desensitized-alarm
+            # shape; the operator just needs pause-autoheal first.
+            4) result="refused — liveness watchdog still active, run pause-autoheal first"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    start-bot-service)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — trader started (resume-autoheal separately if still paused)"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     pull-and-deploy)
         tier=2
         case "${exit_code}" in

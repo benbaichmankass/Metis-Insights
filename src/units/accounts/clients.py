@@ -1768,6 +1768,70 @@ def account_position_present(
 # a worse one, because it would drive a re-arm on a position that is already
 # protected. So the payload carries BOTH collections, distinguished, and a
 # consumer that reads only one of them is reading half the protection.
+def _bybit_venue_price(value: Any) -> Optional[float]:
+    """A venue price, or None. `""`, `"0"` and `0` are NOT prices.
+
+    Bybit reports an unset stop as an empty string or a zero. Coercing
+    either to 0.0 would publish a stop AT ZERO -- a number a consumer can
+    compare against a declared level and find hugely divergent, when the
+    truth is that no stop is set at all.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        num = float(text)
+    except (TypeError, ValueError):
+        return None
+    return None if num == 0.0 else num
+
+
+def _bybit_position_row(
+    p: Dict[str, Any], *, settlecoin_blind: bool = False
+) -> Dict[str, Any]:
+    """Build ONE diag position row from a Bybit ``/v5/position/list`` entry.
+
+    ONE builder, because there are two read paths -- the account-wide
+    ``settleCoin`` page and the per-symbol cross-check that recovers what that
+    page omits (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND). They carried
+    duplicate field lists, so a field added to one and missed on the other
+    would go silently absent on exactly the rows the cross-check exists to
+    recover -- the rows a reader is most likely to be reasoning about.
+
+    ``position_idx`` is THE VENUE'S POSITION MODE (0 = one-way netting,
+    1 = hedge-long, 2 = hedge-short). Bybit returns it on every position row
+    and this extraction dropped it, so "is this account one-way or hedge?" was
+    answerable only from prose -- while that question GATES a Tier-3 change
+    (arming ``BYBIT_HEDGE_MODE_SYMBOLS`` flips a live-order setting we could
+    neither confirm beforehand nor verify afterwards).
+
+    ⚠️ ``None`` means the venue did not report it -- WE DID NOT LOOK. It must
+    never be read as 0/one-way: defaulting an unread mode to the netting value
+    is precisely the reading that would make a hedge account look safe to treat
+    as netted.
+
+    ⚠️ PARTIAL BY CONSTRUCTION: both callers skip ``size <= 0``, so this reports
+    the mode only for symbols that HOLD a position. A flat symbol is absent
+    entirely, which is why this does not settle the BTCUSDT question --
+    ``bybit_2`` is flat on BTC. See
+    BL-20260826-BYBIT-POSITION-MODE-UNREADABLE-FOR-A-FLAT-SYMBOL.
+    """
+    raw_idx = str(p.get("positionIdx", "")).strip()
+    return {
+        "symbol": p.get("symbol"),
+        "side": p.get("side"),
+        "size": _f(p.get("size")),
+        "entry_price": _f(p.get("avgPrice")),
+        "stop_loss": _bybit_venue_price(p.get("stopLoss")),
+        "take_profit": _bybit_venue_price(p.get("takeProfit")),
+        "tpsl_mode": p.get("tpSlMode") or None,
+        "position_idx": int(raw_idx) if raw_idx.lstrip("-").isdigit() else None,
+        **({"settlecoin_blind": True} if settlecoin_blind else {}),
+    }
+
+
 def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Bybit resting orders + position-level protection, or ``None``.
 
@@ -1811,24 +1875,6 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
         # protection question to answer -- mirrors account_open_positions.
         return None
 
-    def _price(value: Any) -> Optional[float]:
-        """A venue price, or None. `""`, `"0"` and `0` are NOT prices.
-
-        Bybit reports an unset stop as an empty string or a zero. Coercing
-        either to 0.0 would publish a stop AT ZERO -- a number a consumer can
-        compare against a declared level and find hugely divergent, when the
-        truth is that no stop is set at all.
-        """
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            return None
-        try:
-            num = float(text)
-        except (TypeError, ValueError):
-            return None
-        return None if num == 0.0 else num
 
     positions: list = []
     orders: list = []
@@ -1847,15 +1893,7 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
             if sym in seen:
                 continue
             seen.add(sym)
-            positions.append({
-                "symbol": sym,
-                "side": p.get("side"),
-                "size": size,
-                "entry_price": _f(p.get("avgPrice")),
-                "stop_loss": _price(p.get("stopLoss")),
-                "take_profit": _price(p.get("takeProfit")),
-                "tpsl_mode": p.get("tpSlMode") or None,
-            })
+            positions.append(_bybit_position_row(p))
 
         # BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND: a single settleCoin page can
         # silently OMIT a live symbol -- a real-money bybit_2 BTCUSDT position
@@ -1873,16 +1911,9 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                     if _f(p.get("size")) <= 0:
                         continue
                     seen.add(sym)
-                    positions.append({
-                        "symbol": p.get("symbol"),
-                        "side": p.get("side"),
-                        "size": _f(p.get("size")),
-                        "entry_price": _f(p.get("avgPrice")),
-                        "stop_loss": _price(p.get("stopLoss")),
-                        "take_profit": _price(p.get("takeProfit")),
-                        "tpsl_mode": p.get("tpSlMode") or None,
-                        "settlecoin_blind": True,
-                    })
+                    positions.append(
+                        _bybit_position_row(p, settlecoin_blind=True)
+                    )
             except Exception as exc:  # noqa: BLE001  # allow-silent: per-symbol cross-check; the settleCoin page already answered
                 logger.warning(
                     "account_bybit_open_orders(%s): symbol cross-check %s failed: %s",
@@ -1897,9 +1928,9 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                 "order_type": o.get("orderType"),
                 "stop_order_type": o.get("stopOrderType") or None,
                 "side": o.get("side"),
-                "qty": _price(o.get("qty")),
-                "trigger_price": _price(o.get("triggerPrice")),
-                "price": _price(o.get("price")),
+                "qty": _bybit_venue_price(o.get("qty")),
+                "trigger_price": _bybit_venue_price(o.get("triggerPrice")),
+                "price": _bybit_venue_price(o.get("price")),
                 "trigger_direction": o.get("triggerDirection"),
                 "reduce_only": o.get("reduceOnly"),
                 "tpsl_mode": o.get("tpslMode") or None,
