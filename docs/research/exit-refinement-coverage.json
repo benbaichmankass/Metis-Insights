@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW. ⚠️ EVERY `exit_head_ml` VERDICT IN THIS MATRIX WAS MEASURED UNDER AN ORDER-DEPENDENT TIE-BREAK (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER, 2026-08-15). The E1 fold sort is stable and keyed on entry time alone, so trades sharing a bar inherit the order their legs were passed on the command line; on a pooled family every leg entering on the same bar ties. Measured: the same 7 legs in two orders gave identical trade counts, rows and fold shape, yet 8 of 43 folds differed, mean_auc moved up to 0.0331, and two legs lost a usable fold. 27 of the 33 committed rounds are multi-leg `family_pooled` and so exposed; `per_leg` rounds are immune. NO STATUS HERE HAS BEEN RE-GRADED ON THIS — both orders are equally valid and the AUC term is one of four in the gate, so this is a caveat on provenance, NOT a claim that any cell is wrong. `train_exit_head.py --total-sort` fixes it and is DEFAULT-OFF pending an operator-approved re-measure; rounds now stamp `total_sort` so re-measured and legacy rows stay distinguishable.",
-  "updated_at": "2026-08-24T15:55:00+00:00",
+  "updated_at": "2026-08-26T14:40:00+00:00",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -882,8 +882,8 @@
         "ref": "BLOCKED: insufficient OOS base. OOS n=4 at the corpus-standard split 2025-07-01 and n=12 at 2023-01-01, both under the floor of 25; leg lifetime is 33 trades. Measured twice, PR #8849: split 2025-07-01 (run 31655236776) and again at split 2023-01-01 (run 31655318804) to test whether the window, not the data, was binding. LIVE-PARITY geometry tp_cap_pct=0.099. Rows in docs/research/m20-sweep-corpus.jsonl. Moving the split is NOT the fix: it lifted OOS n from 4 to 12, still short, while shrinking IS. Unblocks when either the leg accrues more OOS trades or the operator settles the evidence standard for low-frequency legs. WHY THIS IS NOT `honest_negative`: the cell terminated at `insufficient_base` — the OOS base is under MIN_OOS_TRADES=25 — which is 'we did not have enough trades to look', the opposite claim from 'we looked and the lever failed'. Recording it as a negative would be the same collapse BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS names. AND the walk-forward — the test whose folds span the FULL history and which this leg's lifetime CAN support — is skipped by that same branch (m20_fleet_exit_sweep.py:1442-1451, `if _thin: ... elif candidate: walkforward(...)`), so the leg is refused the one test its data would sustain. See BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS. || STATUS SUFFIX ADDED 2026-08-13 (no re-measurement — the ref already named the cause; only the status string was silent). This cell read a BARE `blocked`, the one cell in the matrix whose status did not carry its reason. That is a collapsed state by the repo's own rule: the roll-up normalises via `base()` (split on ':'), so a bare `blocked` is indistinguishable in the per-reason breakdown from a cell whose cause was never established — 'we know exactly why and it is a thin OOS base' and 'nobody recorded why' landed in the same bucket. Suffix chosen to match what was MEASURED, not what is likely: the sweep ran at EXPLICIT splits (2025-07-01, 2023-01-01) and terminated at insufficient_base with OOS n=4 and n=12 against MIN_OOS_TRADES=25, which is the same terminal state as the mes/mhg `giveback_stop` cells already carrying this suffix. DELIBERATELY NOT `insufficient_lifetime_trades`, even though that is probably where a re-run would land: lifetime 33 is under resolve_split's `2 x target` requirement (2 x 25 = 50), so a derived-split re-run would very likely fall back `leg_too_thin` exactly as spy (48) and qld (31) did in the 2026-08-13 re-sweep. But that is ARITHMETIC ON A RECORDED LIFETIME, NOT A RUN — the cell was measured under fixed splits before PR #8965's resolve_split existed, and stamping the projected reason would be recording a verdict the harness never returned. Consequence worth stating for whoever picks this up: re-running this cell under split-mode=oos-trades is NOT expected to unblock it, so it is a poor candidate for the next sweep. The headline is unmoved (`base()` maps both spellings to `blocked`); only the per-reason breakdown changes, 1 bare -> 0."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1_sm2_to24** (path B) passed: d_net_R 1.0387, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -932,8 +932,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp6_sm1.5** (path B) passed: d_net_R 3.8246, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -982,8 +982,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1027,8 +1027,8 @@
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — split FELL BACK to 2025-07-01, reason leg_too_thin, MEASURED lifetime 48. A 25-trade OOS target needs >=50 lifetime or the IS side fits nothing. All 3 cells insufficient_base. NOTE: this row's PRIOR ref stated 'leg lifetime is 60' — the harness measures 48. The stale figure is why this leg was screened as eligible; the governing number is the sweep harness's own, and it agrees with the E1 exit-head count, not the old ref."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5** (path B) passed: d_net_R 8.1565, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1072,8 +1072,8 @@
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — PASS. vt_hot90_t2 walk-forward 6/6 on a DERIVED boundary 2019-10-25 (lifetime 60, no fallback). vt_hot80_t2 + vt_cold10_t2 both is_oos_fail, so the PASS is the hot90 cell specifically, not the lever family. Was blocked on 'OOS n=4 at the fixed 2025-07-01 split'; the per-leg boundary is what made it gradeable. Awaiting Tier-3 apply."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 6.1948, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1211,8 +1211,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 4.0387, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1256,8 +1256,8 @@
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — boundary DERIVED (2020-07-20, lifetime 72, no fallback), cells still insufficient_base. Same state as iwm: the split is no longer the binding constraint. (Prior ref said lifetime 77; harness measures 72.) || **WE LOOKED — THE BLOCK REASON NO LONGER HOLDS — BUT GRADING IS WITHHELD, AND THE STATUS IS DELIBERATELY LEFT BLOCKED.** Re-swept at live parity 2026-08-17 (run 2026-08-17T01:23:16Z, tp_cap_pct=0.099 APPLIED, MEASURED live-TP-reach median 5.126R), base OOS n=35, above the MIN_OOS_TRADES=25 floor at the sanctioned `DEFAULT_SPLIT_TARGET_OOS = 50`. So `insufficient_oos_base_at_derived_split` is factually stale. It is NOT being replaced with a verdict, because the verdict is not trustworthy: vt_cold10_t2 and vt_hot90_t2 are `is_oos_fail`, and the third cell vt_hot80_t2 reads `PASS` on `wf_summary: 6/6` whose SIX FOLDS ALL CARRY `d_net_r == 0.0` — six folds in which the lever changed nothing, scored as six out-of-sample confirmations. That is BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, filed against the grader itself. Recording `honest_negative` here would assert a negative this run did not establish; recording the PASS would ship a lever on six no-ops. Both are wrong, so the cell keeps its blocked status while its REF stops claiming we could not look. THIS IS THE STATE THE ENUM CANNOT EXPRESS — 'measured, but the grader is under question' is neither `blocked` (we did not look) nor a verdict — and it is the operator's call whether the enum gains a value or this waits on the grader fix. Re-grade once that defect is resolved; the measurement itself does not need re-running. || LIVE-PARITY EVIDENCE EXISTS FOR THIS BLOCKED CELL: cell **vt_hot80_t2**, verdict **PASS**, run **2026-08-17** (sweep_generated_at 2026-08-17T01:23:16Z), **base_trades_OOS=35** against the MIN_OOS_TRADES=25 floor, at live parity (measured live-TP-reach median 5.126R). **WHY THE STATUS STAYS BLOCKED ANYWAY, which is the whole point of this acknowledgement:** that PASS rests on `wf_summary: 6/6` whose SIX FOLDS ALL CARRY `d_net_r == 0.0` — six folds in which the lever changed nothing, scored as six out-of-sample confirmations (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, filed against the grader itself). The two sibling cells vt_cold10_t2 and vt_hot90_t2 are `is_oos_fail`. So the BLOCK REASON is stale — we did look, above the floor, at the geometry production places — while the cell remains UNGRADEABLE: recording `honest_negative` would assert a negative this run did not establish, and recording the PASS would ship a lever on six no-ops. Re-grade once the grader defect is resolved; the measurement itself does not need re-running. Whether the matrix enum should gain a value for 'measured, but the grader is under question' is an OPERATOR decision, deliberately not taken here."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on an INERT-FOLD-HONEST basis. Its only gate-'pass' (**tp2.5**) carries wf_wins=5 but wins_effective=2/6 with 3 INERT folds — the gate compares RAW wins against ceil(2*usable/3) (`e35_bracket_geometry_sweep.py:653`), so inert folds count as wins. Recorded as a negative rather than `passed_unshipped`, because recording it as validated is precisely BL-20260817."
       }
     },
     {
@@ -1301,8 +1301,8 @@
         "ref": "M20 vol_trail re-sweep 2026-08-13 (relay #8980, split-mode=oos-trades target=25, PR #8965 resolve_split) — MEASURED, all 3 cells is_oos_fail on a DERIVED boundary 2019-11-01 (lifetime 63, no fallback). Was blocked on 'OOS n=5 at the fixed split'; now graded and negative."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1.5_sm3** (path A) passed: d_net_R 3.9995, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1348,8 +1348,8 @@
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1398,8 +1398,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5_to24** (path B) passed: d_net_R 8.2232, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1445,8 +1445,8 @@
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:49:28Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_hot80_t2.5 verdict=PASS wf=5/6 base_trades_OOS=36 (dnetR IS 13.4985 / OOS 3.4123; dmaxDD IS -5.352 / OOS -3.8988). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) THE WIN TOTAL IS NOT A COUNT OF WINS: 3 of 6 walk-forward folds (2024, 2025, 2026) are inert — the lever never fired, d_net_r=0 and d_max_dd=0 — and an inert fold still counts ok. So 5/6 is really 2 real win(s). (2) DIFFERENT PARTITION, NOT A RERUN: split 2017-01-20, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1495,8 +1495,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1542,8 +1542,8 @@
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (run 2026-08-15T22:49:25Z, docs/research/m20-sweep-corpus.jsonl). Cell vt_hot90_t2 verdict=PASS wf=5/6 base_trades_OOS=32 (dnetR IS 1.3336 / OOS 0.9922; dmaxDD IS -0.2915 / OOS 0.0). THE STATUS IS DELIBERATELY NOT FLIPPED: a passing cell is not a passing lever disposition, and a live-leg status change is Tier-3 — queued for the operator, not decided here. CAVEATS, measured from the row rather than inferred: (1) THE WIN TOTAL IS NOT A COUNT OF WINS: 5 of 6 walk-forward folds (2021, 2022, 2023, 2024, 2026) are inert — the lever never fired, d_net_r=0 and d_max_dd=0 — and an inert fold still counts ok. So 5/6 is really 0 real win(s). (2) DIFFERENT PARTITION, NOT A RERUN: split 2022-12-06, derived per leg (split_mode=oos-trades) — the pre-cutover evidence this contradicts was cut elsewhere, so the two are different partitions of the same book."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1588,8 +1588,8 @@
         "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep) || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1635,8 +1635,8 @@
         "ref": "M20-X vol_trail #6510: LONE PASS qqq_pullback_1h ['vt_hot80_t2.5'] (hot-tail); gld/spy/tlt pullback-1h all honest_negative. PASS is wf-UNVERIFIED — needs the yearly walk-forward detail (>=4/6) before any Tier-3 declare, same gate as the ETH cold cell. slv/uso TREND-1h legs not in the pullback sweep. || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || LIVE-PARITY COUNTER-EVIDENCE ALREADY IN THE CORPUS (annotated 2026-08-14, BL-20260814-STALE-CELL-BACKLOG-IS-HALF-ANSWERED-BY-THE-CORPUS-ALREADY): this cell's status stays `honest_negative` and NOTHING here re-grades it, but docs/research/m20-sweep-corpus.jsonl holds a LIVE-PARITY (tp_cap_pct 0.099) row for this exact (leg, lever) that PASSES, while the status above rests on pre-cutover no-take-profit evidence. Row: cell=vt_hot90_t2 verdict=PASS run=2026-08-10 wf=4/6 d_net_r_IS=8.1389 d_net_r_OOS=8.2672 d_max_dd_OOS=0.0 base_trades_OOS=31. On the floor: its run predates the floor (min_oos_trades_floor: null) BUT its base_OOS 31 clears the current MIN_OOS_TRADES=25, so the floor would not refuse it; whether other gate logic moved since 2026-08-10 is NOT established here. READ THIS AS 'the newer evidence disagrees and nobody has adjudicated it', NOT as a verdict: a passing CELL is not automatically a passing LEVER disposition, this is a full PASS, and any status change on a live leg is Tier-3 and belongs to the operator."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp6_sm1.5_to24** (path B) passed: d_net_R 65.3506, walk-forward 6/6 effective wins (0 inert). 4 of 4 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1685,8 +1685,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm1.5_to400** (path B) passed: d_net_R 29.9646, walk-forward 5/6 effective wins (0 inert). 3 of 3 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1735,8 +1735,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -1785,8 +1785,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm2** (path B) passed: d_net_R 11.5134, walk-forward 5/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1832,8 +1832,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **sm1.5** (path B) passed: d_net_R 46.1961, walk-forward 5/6 effective wins (0 inert). 3 of 3 gate-passing cell(s) on this leg survive the inert-fold check."
       },
       "execution_note": "live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77; the kill gate had been MET across two consecutive reviews with no decision. The leg still evaluates and logs order packages (shadow, not disabled) so the exit-refinement denominator keeps accruing data on it, but it places no live order. Recorded here because the coverage matrix's execution column IS the denominator and must not disagree with config/strategies.yaml."
     },
@@ -1880,8 +1880,8 @@
         "tp_geometry": "live_parity"
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "passed_unshipped",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp4_sm2** (path A) passed: d_net_R 23.6075, walk-forward 5/6 effective wins (0 inert). 2 of 3 gate-passing cell(s) on this leg survive the inert-fold check."
       }
     },
     {
@@ -1965,8 +1965,8 @@
         "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS) || MERGED 2026-08-09: kept from the stale standalone `xauusd_trend_1h` row, which carried a verdict the bundled row did not. Its other cells were `blocked: candle coverage (task #27)`, superseded by the 2026-07-12 GC=F-proxy fleet sweep. || EXPLODED 2026-08-09 from bundled row 'xauusd_trend_1h / mgc_trend_1h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). ⚠️ DATA CAVEAT: this leg is served by the yfinance lane (PROXY_DATA stem), which caps intraday history at ~730 d, so the 1830 d requested was CLAMPED — this verdict rests on ~2 y, not the ~5 y the daily legs used. NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
@@ -2009,8 +2009,8 @@
         "ref": "FIXED 2026-08-12 (was `status: null`, not a legend value). The 2026-08-09 explosion kept the standalone row's vol_trail verdict for `xauusd_trend_1h` (KEEP_FROM_STANDALONE) but the bundle's per-column dict named only `trail_geometry`, so this leg's vol_trail resolved to None and was written as null rather than defaulting. `pending` is this ref's OWN documented rule applied, not a new inference: 'silent or un-run -> `pending`, never an inherited verdict'. Inheriting the sibling's `honest_negative` is exactly what that rule forbids — M20-X #6507's wording covers xauusd, and is silent on mgc_trend_1h. || EXPLODED 2026-08-09 from bundled row 'xauusd_trend_1h / mgc_trend_1h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict."
       },
       "bracket_geometry": {
-        "status": "blocked:no_free_lane_candle_feed",
-        "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
+        "status": "honest_negative",
+        "ref": "run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). ⚠️ DATA CAVEAT: this leg is served by the yfinance lane (PROXY_DATA stem), which caps intraday history at ~730 d, so the 1830 d requested was CLAMPED — this verdict rests on ~2 y, not the ~5 y the daily legs used. NO cell cleared the gate on this leg: all 7 gated cells returned is_oos_fail/wf_fail."
       }
     },
     {
