@@ -72,6 +72,7 @@ from src.web.api._clean_trades import (
     r_multiple,
 )
 from src.web.api._closed_at import close_time_sql
+from src.runtime.broker_truth import journal_trust_for, journal_trust_map
 from src.runtime.provenance import (
     ESTIMATED,
     FABRICATED,
@@ -127,6 +128,15 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "window": window,
         "since": since,
         "error": error,
+        # Present even here: a key that disappears on an empty/errored window
+        # makes a consumer branch on absence, and absence is not one of the
+        # states. No rows means no accounts to grade — NOT "nothing diverges".
+        "journalTrust": {
+            "readState": journal_trust_map().get("read_state"),
+            "accountsKnownDivergent": [],
+            "accountsUnrecorded": [],
+            "accountsUnreadable": [],
+        },
         "totalTrades": 0,
         "wins": 0,
         "losses": 0,
@@ -243,6 +253,7 @@ def _query(
         sql = f"""
             SELECT t.strategy_name,
                    t.symbol AS symbol,
+                   t.account_id AS account_id,
                    t.pnl AS pnl,{r_select}{notes_select}{exit_select}
                    {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
@@ -563,10 +574,41 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # Max drawdown is <= 0; None when there were no trades.
     max_drawdown: Optional[float] = round(max_dd, 4) if total else None
 
+    # --- journal trust (2026-08-26) ------------------------------------
+    # `totalPnl` / `totalPnlMeasured` above sum this window's journal rows.
+    # `pnlCoverage` says how much of that is a MEASUREMENT; this says whether
+    # the ACCOUNTS those rows belong to reconcile with the venue's wallet at
+    # all. They are different questions: a row can be `measured` on an account
+    # whose journal sum is ~8x smaller than broker truth, which is exactly what
+    # `bybit_2` is (wallet -$262.52). A session read this window, quoted the
+    # journal sum, and reported the account flat; the operator had to correct
+    # it from the venue UI
+    # (BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER).
+    #
+    # Scoped to the accounts ACTUALLY IN THIS WINDOW, so a paper-only window
+    # does not carry a real-money account's caveat.
+    #
+    # ⚠️ `accountsUnrecorded` IS NOT `accountsTrusted`, and is deliberately not
+    # named that. The ledger is populated BY HAND from an operator's venue
+    # export, so an unrecorded account means nobody has reconciled it — never
+    # that it reconciles. `readState: "unreadable"` means we could not look,
+    # which is a third thing again.
+    _trust_map = journal_trust_map()
+    _by_state: Dict[str, List[str]] = {}
+    for _aid in sorted({str(_rget(r, "account_id") or "") for r in rows} - {""}):
+        _by_state.setdefault(
+            journal_trust_for(_aid, _trust_map)["state"], []).append(_aid)
+
     return {
         "window": window,
         "since": since,
         "error": False,
+        "journalTrust": {
+            "readState": _trust_map.get("read_state"),
+            "accountsKnownDivergent": _by_state.get("known_divergent", []),
+            "accountsUnrecorded": _by_state.get("no_record", []),
+            "accountsUnreadable": _by_state.get("unreadable", []),
+        },
         "totalTrades": total,
         "wins": wins,
         "losses": losses,

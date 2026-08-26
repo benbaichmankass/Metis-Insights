@@ -44,6 +44,7 @@ from src.web.api._closed_at import (
     normalize_closed_at_value,
 )
 from src.runtime.provenance import classify_pnl
+from src.runtime.broker_truth import journal_trust_for, journal_trust_map
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,8 @@ def _decode_notes_closed_at(notes: Any) -> Optional[str]:
     return str(val) if val is not None else None
 
 
-def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
+def _row_to_wire(row: sqlite3.Row,
+                 trust_map: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     notes_closed_at = _decode_notes_closed_at(row["notes"])
     # Prefer the canonical closed_at COLUMN (P1-B); fall back to the legacy
     # derivation (order_packages.updated_at -> notes.closed_at) for rows that
@@ -183,6 +185,25 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
         "pnlProvenance": (
             classify_pnl(row)[0].lower() if raw_pnl is not None else None
         ),
+        # ``journalTrust`` — is this ACCOUNT's per-row pnl known to disagree
+        # with the broker? (2026-08-26.) ``pnlProvenance`` above grades how
+        # THIS ROW's number was derived; this grades whether the account's
+        # rows reconcile with the venue's wallet at all. They are different
+        # questions and a row can be `measured` on an account that does not
+        # reconcile — `bybit_2` is exactly that, wallet-truth −$262.52 against
+        # a per-row journal sum ~8× smaller.
+        #
+        # ⚠️ `no_record` IS NOT "trusted". comms/broker_truth_ledger.json is
+        # populated by hand from an operator's venue export, so an absent
+        # record means nobody has reconciled the account — never that it
+        # reconciles. `unreadable` means we could not look. Three states,
+        # never collapsed; a consumer that renders anything but
+        # `known_divergent` as a clean bill of health has reintroduced the
+        # bug (BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER).
+        "journalTrust": journal_trust_for(
+            row["account_id"], trust_map if trust_map is not None
+            else {"read_state": "unreadable", "accounts": {}},
+        )["state"],
         "realizedPnlPct": (
             round(float(row["pnl_percent"]), 6)
             if row["pnl_percent"] is not None else None
@@ -255,7 +276,9 @@ def _query_closed_trades(
         rows = cur.fetchall()
     finally:
         conn.close()
-    return [_row_to_wire(r) for r in rows]
+    # ONE ledger read per request, not one per row.
+    trust_map = journal_trust_map()
+    return [_row_to_wire(r, trust_map) for r in rows]
 
 
 @router.get("/trades/closed")
