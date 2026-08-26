@@ -128,9 +128,27 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
-        # dukascopy-python is needed only by the non-crypto legs, but a single
+        # Each venue client is needed by only SOME legs, but a single
         # unconditional install keeps one step and costs a few seconds.
-        run: pip install --quiet pandas numpy requests pyyaml dukascopy-python
+        #
+        # ⚠️ `yfinance` IS LOAD-BEARING — DO NOT DROP IT AS "unused".
+        # `PROXY_DATA` legs (MES/MGC/MHG/XAUUSD) route to the yfinance lane, and
+        # this step previously installed `dukascopy-python` alone. Measured on
+        # run 32972018506, the first dispatch after that routing landed:
+        #   BACKTEST_FEED_SOURCE: yfinance
+        #   Fetching MES D candles 2021-08-22 -> 2026-08-26 (source=yfinance) …
+        #   dependency missing (nothing was fetched): the yfinance package is
+        #   not installed (No module named 'yfinance')
+        # i.e. a route to a feed the job could not run. Caught by dispatching
+        # ONE leg before the full matrix, which is the cheap habit here: the
+        # same mistake across 22 shards is 22 wasted runners.
+        #
+        # Note the fetcher said "dependency missing (NOTHING WAS FETCHED)"
+        # rather than "fetch failed" — the three-stage YfDependencyMissing /
+        # YfRefused / YfFetchFailed split doing its job. A single "fetch
+        # failed" label would have sent the reader to Yahoo, the ticker and the
+        # span before the dependency.
+        run: pip install --quiet pandas numpy requests pyyaml dukascopy-python yfinance
 
       # THE SOURCE IS PER-LEG, RESOLVED BY THE PLANNER
       # (BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX).
@@ -159,7 +177,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p data
-          OUT="data/${{ matrix.symbol }}_${{ matrix.tf }}.csv"
+          # ⚠️ THE STEM COMES FROM THE PLANNER, NEVER FROM `symbol` + `tf` HERE.
+          # It used to be built inline as `{symbol}_{tf}`, which is a SECOND
+          # opinion about where a leg's candles live — and it disagreed with
+          # the sweep's. `m20_fleet_exit_sweep.resolve_data` applies
+          # `PROXY_DATA` (MES->ES_F, MGC/XAUUSD->GC_F, MHG->HG_F) with no
+          # native fallback, so it looked for `ES_F_1d.csv` and never for the
+          # `MES_1d.csv` this step had just written. The leg then read
+          # `data_missing`, the sweep exited 0 with an empty `legs` list, and
+          # the job went GREEN having measured nothing.
+          # `e35_shard_plan.data_basename` derives it from that same map.
+          OUT="data/${{ matrix.data_basename }}.csv"
           python scripts/ops/fetch_backtest_candles.py \
             --symbol "${{ matrix.symbol }}" \
             --interval "${{ matrix.fetch_interval }}" \
@@ -219,22 +247,46 @@ jobs:
           import json, pathlib
           planned = int("${{ needs.plan.outputs.count }}" or 0)
           reports = sorted(pathlib.Path("collected").rglob("report.json"))
-          print(f"### e35 bracket sweep — {len(reports)} of {planned} leg(s) returned a report\n")
-          # STATE THE DENOMINATOR. A table of the legs that finished, with no
-          # count of the ones that did not, reads as a complete sweep.
-          if len(reports) < planned:
-              print(f"> ⚠️ **{planned - len(reports)} leg(s) produced no report** — "
-                    f"read every number below as covering {len(reports)}/{planned} legs.\n")
+
+          # ⚠️ COUNT LEGS MEASURED, NOT REPORTS RETURNED. This used to read
+          # `len(reports) of {planned} leg(s) returned a report`, and a report
+          # can be REAL AND EMPTY: a leg whose data did not resolve makes the
+          # sweep exit 0 with `legs: []`, which still uploads a `report.json`.
+          # So the file count could equal `planned` while legs measured nothing,
+          # the shortfall warning never fired, and the table below — which
+          # iterates `legs` — simply printed no row for them. Four legs vanished
+          # from a summary that read as complete coverage
+          # (BL-20260826-E35-RUNNER-WRITES-A-FILENAME-THE-SWEEP-NEVER-READS).
+          # `measured` and `skipped_in_report` are counted separately because
+          # "the runner died" and "the runner ran and the leg had no data" are
+          # different failures with different fixes.
+          measured, skipped_in_report = [], []
+          for path in reports:
+              d = json.loads(path.read_text())
+              measured.extend(d.get("legs", []))
+              skipped_in_report.extend(d.get("skipped", []))
+
+          print(f"### e35 bracket sweep — {len(measured)} of {planned} leg(s) MEASURED\n")
+          if len(measured) < planned:
+              print(f"> ⚠️ **{planned - len(measured)} leg(s) produced no measurement** — "
+                    f"read every number below as covering {len(measured)}/{planned} legs. "
+                    f"({len(reports)} report file(s) returned; "
+                    f"{len(skipped_in_report)} leg(s) were skipped INSIDE a report.)\n")
+          # Name them. A count says how many are missing; only the reasons say
+          # whether it was a dead runner or a leg the sweep refused.
+          for sk in skipped_in_report:
+              print(f"> - `{sk.get('leg')}` skipped: `{sk.get('reason')}`")
+          if skipped_in_report:
+              print()
+
           print("| leg | base net_R | grid min | grid max | **spread** | best cell |")
           print("|---|---|---|---|---|---|")
-          for p in reports:
-              d = json.loads(p.read_text())
-              for leg in d.get("legs", []):
-                  s = leg.get("surface")
-                  if not s:
-                      print(f"| `{leg.get('leg')}` | ERROR | | | | |"); continue
-                  print(f"| `{leg['leg']}` | {s['base_net_r']} | {s['net_r_min']} | "
-                        f"{s['net_r_max']} | **{s['net_r_spread']}** | `{s['best_cell']}` |")
+          for leg in measured:
+              surf = leg.get("surface")
+              if not surf:
+                  print(f"| `{leg.get('leg')}` | ERROR | | | | |"); continue
+              print(f"| `{leg['leg']}` | {surf['base_net_r']} | {surf['net_r_min']} | "
+                    f"{surf['net_r_max']} | **{surf['net_r_spread']}** | `{surf['best_cell']}` |")
           PY
       - uses: actions/upload-artifact@v4
         with:

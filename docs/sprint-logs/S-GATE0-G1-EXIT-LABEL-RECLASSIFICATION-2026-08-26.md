@@ -194,6 +194,158 @@ ROWS THAT WOULD CHANGE exit_reason: 191
   closes, and real-money `pnlCoverage` is **0.768** against **0.425** across all
   accounts (n=1,187). Acting on what the instruments now say is the next job.
 
+## Addendum — GATE 0 cleared, then Lane B / B1 measured (same session)
+
+With GATE 0 cleared (PR #10343, squash `d20ff991`) the lanes unblocked, and the
+plan's own ordering puts **B1** first. It was **stale in the same way G1 was**,
+and the correction is a different one than the plan anticipates.
+
+**B1 is not "build a feed".** The non-crypto lane was proven on a runner on
+2026-08-24 and `e35-bracket-sweep.yml` already fetches per-leg through it.
+Established by running the sweep's **own** planner, not by reading prose.
+
+**Population: the 25 cells recorded `blocked:no_free_lane_candle_feed` in
+`docs/research/exit-refinement-coverage.json` (`updated_at` 2026-08-24T15:55Z).
+All 25 sit in ONE lever column — `bracket_geometry` — across 25 distinct legs.**
+
+| | before | after |
+|---|---|---|
+| schedulable by the planner | 21 of 25 | **22** of 25 |
+| …resolve after the workflow's own fetch | 17 | **22** |
+| …fetch-then-fail | **4** | **0** |
+
+### The defect: a green job that measured nothing
+
+The workflow wrote `data/{SYMBOL}_{tf}.csv`; `m20_fleet_exit_sweep.resolve_data`
+applies `PROXY_DATA` (`MES→ES_F`, `MGC`/`XAUUSD→GC_F`, `MHG→HG_F`)
+**unconditionally, with no native fallback**, so it looked only for the proxy
+stem. Two definitions of where a leg's candles live.
+
+Reproduced by invoking the sweep exactly as the workflow does, with
+`MES_1d.csv` on disk — this is the whole finding:
+
+```
+plan: 0 legs runnable, 1 skipped
+  SKIP mes_trend_long_1d: data_missing:MES
+EXIT CODE = 0     report.json -> legs= 0
+```
+
+The leg pays the fetch, the job **passes**, and the artifact holds a report with
+an empty `legs` list.
+
+⚠️ **A second, independent defect made it unobservable.** `aggregate` counted
+`report.json` **files** — an empty report is still a returned one, so the count
+could equal `planned`, the shortfall warning never fired, and the table (which
+iterates `legs`) printed no row. **4 legs vanished from a summary that read as
+complete coverage.** Notable because it is the unasserted-denominator class this
+same workflow *already guards against elsewhere in its own file*: the guard
+existed and simply did not cover "the report is real and the measurement is
+absent".
+
+### What shipped
+
+- `e35_shard_plan.data_basename` — the ONE definition of the stem, **derived
+  from `fleet.PROXY_DATA`** rather than restated, and carried in the matrix so
+  the workflow cannot hold a second opinion.
+- `PROXY_DATA` symbols route to **yfinance** (operator-approved). Those stems
+  mean the yfinance full-size contract, and `yf_symbols` maps `MES→ES=F`,
+  `MGC`/`XAUUSD→GC=F`, `MHG→HG=F` — exactly that series. Dukascopy carries more
+  depth but would write an S&P **index CFD** and **spot** XAU under names
+  asserting the futures contract.
+- `aggregate` counts legs **MEASURED**, not reports returned, and **names** each
+  skipped leg's reason.
+
+**Cost stated rather than hidden:** yfinance caps 1h at ~730 d, so the two 1h
+legs take a PARTIAL window against the sweep's 1830 d request. The fetcher
+already clamps and says so on stderr, so a short span is never silently read as
+a full one.
+
+⚠️ **`MHG` joined the servable set as a CONSEQUENCE of applying the rule
+uniformly, not as a separate decision.** It is in `PROXY_DATA` and `HG=F` is the
+honest `HG_F` series; its prior refusal was about Dukascopy (whose only
+catalogue hit was a Norwegian salmon farmer), never about the leg. `QLD`/`TQQQ`
+are **not** in `PROXY_DATA`, so the rule does not reach them and they stay
+refused — correctly: a daily leverage reset means the path is not N × the
+underlying.
+
+### Validation
+
+- Each fix confirmed to **FAIL against the pre-fix code** and pass against the
+  fix — the naive stem reverted (1 test fails), the rollup reverted (3 fail).
+- `test_the_naive_stem_is_what_used_to_break` is a **positive control**: it
+  asserts the old derivation genuinely fails, so the main assertion cannot go
+  vacuous if `PROXY_DATA` is ever emptied. It also names the failing set rather
+  than counting it.
+- The rollup test **lifts its python out of the shipping YAML** rather than
+  copying it (the `test_merge_slot_guard.py` discipline) — a pasted duplicate
+  would pass while the thing CI runs drifted.
+- Planner self-test 44/44; `run_guards.py` **PASS 41 · FAIL 0**; `ruff` clean on
+  the pinned 0.15.8.
+
+⚠️ **Local `python3 -m ruff` is NOT the pinned ruff** — it reported 12,924
+repo-wide errors against the `ruff` binary's 1. `requirements-dev.txt` pins
+`>=0.15.0,<0.16` precisely because 0.16 expanded the default ruleset. Use the
+binary; a sandbox `-m` invocation can resolve to a different install.
+
+### VERIFIED ON A REAL RUNNER — and the smoke leg caught a second defect of mine
+
+The offline tests prove the sweep RESOLVES the file; only a runner proves the
+**fetch**. So one leg was dispatched before the full matrix
+(`only=mes_trend_long_1d, singles_only=true`), deliberately the hardest case: a
+`PROXY_DATA` symbol, newly routed to yfinance, whose file must land as
+`ES_F_1d.csv`.
+
+**Run 32972018506 FAILED, exactly as the smoke existed to find out:**
+
+```
+BACKTEST_FEED_SOURCE: yfinance
+Fetching MES D candles 2021-08-22 -> 2026-08-26 (source=yfinance) …
+dependency missing (nothing was fetched): the yfinance package is not
+installed (No module named 'yfinance')
+```
+
+The job name — `sweep (mes_trend_long_1d, MES, 1d, donchian, D, yfinance,
+ES_F_1d)` — confirms the routing and the stem were both right. **I had routed to
+a feed the job could not run**: the install step still carried
+`dukascopy-python` alone. Across 22 shards that is 22 wasted runners; one smoke
+leg cost 40 seconds.
+
+⚠️ **Worth recording for its own sake:** the fetcher said *"dependency missing
+(NOTHING WAS FETCHED)"*, not *"fetch failed"*. That is the three-stage
+`YfDependencyMissing` / `YfRefused` / `YfFetchFailed` split shipped 2026-08-24
+doing precisely its job — a single "fetch failed" label would have sent me to
+Yahoo, the ticker and the span before the dependency. The earlier session's
+diagnostic-provenance work paid for itself here.
+
+**Run 32972413593, after adding `yfinance`: all four jobs green** — plan ✅ ·
+sweep ✅ (fetch 2 s, sweep 15 s) · aggregate ✅ · corpus ✅. The corpus job
+committed **15 measured cells** for `mes_trend_long_1d`, every one
+`state: measured`:
+
+| | |
+|---|---|
+| base `net_total_r` | **7.1785** |
+| best cell | `tp2.5` at **7.7002** (`d_net_r` +0.5217) |
+| worst | `sm3.5` at 5.0862 (−2.0923) |
+| axes covered | stop (4) · timeout (4) · tp (7) |
+
+So a leg that was recorded `blocked:no_free_lane_candle_feed`, and which under
+the old code fetched candles and then measured nothing while passing, is now
+**measured end-to-end**.
+
+⚠️ **Note for anyone dispatching this workflow from a branch:** the `corpus` job
+**commits and pushes** to the ref it ran on, so a dispatch adds a commit to your
+branch. My next push was rejected as behind until I pulled it — expected
+behaviour, not a conflict.
+
+### Not done, deliberately
+
+**The 25 cells are still blocked.** Nothing here measured a bracket. The
+coverage matrix must not be flipped until `e35-bracket-sweep.yml` is dispatched
+and returns verdicts — marking cells resolved on a code change would assert a
+measurement nobody took. The reachable ceiling on this lever is **22 of 25**,
+not 25.
+
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
 - [x] Documentation was reviewed and updated as part of the sprint.
