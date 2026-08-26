@@ -3,7 +3,7 @@
   "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
   "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
   "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
-  "updated_at": "2026-08-26T13:30:00Z",
+  "updated_at": "2026-08-26T10:12:00Z",
   "items": [
     {
       "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
@@ -33,7 +33,8 @@
       "refs": [
         "BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER",
         "BL-20260713-BYBIT2-PNL-UNDERRECORD"
-      ]
+      ],
+      "observed_live": "2026-08-26T10:10Z, deployed sha 510fbb6a: the flag works and its coverage limit is confirmed rather than assumed. bybit_2 reads known_divergent on 200/200 rows; bybit_1 / alpaca_paper / ib_paper all read no_record; /api/bot/performance?window=all reports accountsKnownDivergent:[bybit_2] and accountsUnrecorded:[alpaca_live]. Every account except one is therefore UNRECONCILED, which is what this row exists to keep visible — no_record is not a clean bill of health."
     },
     {
       "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
