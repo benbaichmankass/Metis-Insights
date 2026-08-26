@@ -35,6 +35,32 @@ where none is stated at all, which is the cheap half. A guard that tried to
 judge correctness would fire constantly and be switched off within a day, which
 is this repo's documented alarm-fatigue failure.
 
+KNOWN FALSE NEGATIVE, MEASURED AND DELIBERATELY NOT FIXED (2026-08-26). Any
+incidental integer in the context suppresses the check, because the denominator
+test is "is there a second number". So these three shapes pass while stating no
+population::
+
+    Coverage is 42.9% and the win rate moves 9 points.   # an unrelated count
+    Measured on 2026-08-26, coverage is 42.9%.           # a DATE
+    Coverage is 42.9% (see BL-20260817 for context).     # a BACKLOG ID
+
+That reads alarming — dates and backlog ids are everywhere in these documents —
+and the intuition is WRONG, which is why the number is recorded here rather
+than the worry. **Population: all 875 watched files at 2026-08-26, 3,549 lines
+containing a percentage. Exactly 9 (0.25%) have a date/backlog-id/PR-number as
+their ONLY denominator**, and inspecting those 9, most are legitimate (a year
+used as a data label — ``2011 (3.327%)`` in a regime analysis — or a citation
+year, or a config threshold). ⚠️ That is a corpus measurement over EXISTING
+lines used as a proxy for what this diff-scoped guard would see on ADDED ones;
+it is the right shape of text, not the literal population the guard scans.
+
+Tightening to exclude year-shaped and id-shaped integers would fire on
+``2011 (3.327%)`` — a correct line — and this repo's documented failure mode is
+the alarm nobody reads, not the miss nobody noticed. 0.25% is below the rate at
+which a stricter rule pays for itself. Pinned by
+``test_stated_population_known_limits.py`` so the behaviour stays deliberate
+rather than becoming accidental.
+
 Escape hatch: ``<!-- population-ok: <reason> -->`` on or just above the line,
 for a number that genuinely has no population (a threshold, a config value, a
 version). The reason is visible in the diff so a reviewer can see it.
