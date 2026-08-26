@@ -15,9 +15,13 @@ accumulate without bound until Bybit's 20-combined-leg-per-symbol cap
 tightening, which then silently fails (order_monitor logs the error and
 leaves the DB/live stop unchanged).
 
-Live-confirmed 2026-07-21: bybit_2 XRPUSDT accumulated 23 legs, all sharing
-the qty of the account's single real position — i.e., duplicate/stale legs
-stacked on one position, not separate positions.
+Live-confirmed 2026-07-21: bybit_2 XRPUSDT accumulated 23 legs. ⚠️ This
+paragraph used to add "all sharing the qty of the account's SINGLE real
+position", and that assumption is what made a newest-wins rule look safe. It
+does not hold in general: under one-way netting a symbol is ONE exchange
+position holding N journal rows and N qty-scoped legs of DIFFERENT sizes —
+measured 2026-08-26 on bybit_1/ETHUSDT as 0.19 / 0.21 / 0.22 / 0.30 / 1.18 /
+4.41 against one 5.59 position.
 
 What it does
 ------------
@@ -28,10 +32,20 @@ order-ID-tracking + amend-in-place design). It:
 1. Lists the symbol's live conditional (StopOrder-filtered) orders on the
    account via the bot's own Bybit client factory.
 2. Splits them into SL legs and TP legs (by ``stopOrderType``).
-3. Within each group, keeps the MOST RECENTLY created leg (the newest
-   trailing-stop/take-profit level is the one the strategy currently
-   intends — earlier legs are stale duplicates from prior ticks) and marks
-   every older leg in that group as a cancel candidate.
+3. Decides which legs are stale **by OWNERSHIP** — via the pure
+   ``src.runtime.stale_leg_decision.decide_stale_legs``: a leg is cancelled
+   because the journal row that owns it (``trades.sl_order_id`` /
+   ``tp_order_id``) is CLOSED, and every leg owned by an OPEN row is kept.
+
+   ⚠️ This REPLACED a newest-wins rule that sorted on Bybit's ``createdTime``
+   and kept ``ordered[0]``, with no journal awareness. Measured against the
+   live book on 2026-08-26 (``bybit_1``/``ETHUSDT``, position 5.59, two open
+   rows 4921 qty 1.18 + 4903 qty 4.41) the newest leg was **0.19, owned by
+   CLOSED trade 5003** — newest-wins would have kept it and cancelled trade
+   4921's live 1.18, taking a 167%-over-covered position to **3.4% covered**.
+   That is ``BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG``
+   on the other venue. Age is not ownership: a leg is old because its trade has
+   been open a long time, which is the *opposite* of stale.
 4. DRY-RUN by default: prints every leg found + exactly what would be kept
    vs cancelled. ``--apply`` actually cancels the stale legs.
 5. Refuses to run if there are zero SL legs (the position may already be
@@ -42,7 +56,8 @@ order-ID-tracking + amend-in-place design). It:
 6. Re-reads the leg list after an apply and reports the post-state so the
    caller can confirm exactly one SL (and at most one TP) leg remains.
 
-Never cancels the leg(s) it decided to KEEP. Best-effort per-cancel (one
+Never cancels a leg owned by an OPEN row, and refuses outright rather than
+guessing when a resting leg is claimed by no row at all. Best-effort per-cancel (one
 failed cancel doesn't abort the rest); every raw response is reported.
 
 Usage (on the live VM, via the ``cancel-stale-tpsl-legs`` system-action):
@@ -118,10 +133,43 @@ def _leg_group(order: Dict[str, Any]) -> Optional[str]:
 
 
 def _created_ms(order: Dict[str, Any]) -> int:
+    """Bybit's own creation stamp. Reported for the operator to read; it is
+    NOT the selection axis — see the module docstring's step 3."""
     try:
         return int(order.get("createdTime") or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _journal_leg_rows(account_id: str, symbol: str) -> Optional[List[Dict[str, Any]]]:
+    """Every journal row for (account, symbol) that claims a tracked leg id.
+
+    Returns ``None`` when the journal could not be read — *we did not look* —
+    which the decision reports as ``not_graded`` rather than as "no row claims
+    this leg". Deliberately NOT filtered to open rows: a CLOSED row is exactly
+    what makes a leg stale, so filtering here would turn every stale leg into an
+    unattributable one and the script would refuse on every real cleanup.
+    """
+    try:
+        import sqlite3
+
+        from src.utils.paths import trade_journal_db_path
+
+        path = trade_journal_db_path()
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                "SELECT id, status, position_size, sl_order_id, tp_order_id "
+                "FROM trades WHERE account_id = ? AND UPPER(symbol) = ? "
+                "AND (sl_order_id IS NOT NULL OR tp_order_id IS NOT NULL)",
+                (account_id, symbol.upper()),
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _summarize(order: Dict[str, Any]) -> Dict[str, Any]:
@@ -195,35 +243,58 @@ def cancel_stale_legs(account_id: str, symbol: str, *, apply: bool) -> Dict[str,
                          "(naked-position auto-protect is IB-only, does not cover Bybit).")
         return out
 
-    def _keep_and_stale(group: List[Dict[str, Any]]):
-        if not group:
-            return None, []
-        ordered = sorted(group, key=_created_ms, reverse=True)
-        return ordered[0], ordered[1:]
+    # ---- the SELECTION lives in a pure, separately-tested module ----------
+    from src.runtime.stale_leg_decision import (
+        STATE_CANCEL_LEGS, STATE_NO_STALE_LEGS, decide_stale_legs)
 
-    keep_sl, stale_sl = _keep_and_stale(groups["sl"])
-    keep_tp, stale_tp = _keep_and_stale(groups["tp"])
-    stale = stale_sl + stale_tp
+    journal_rows = _journal_leg_rows(account_id, symbol)
+    decision = decide_stale_legs(
+        position_qty=size,
+        legs=[{"order_id": o.get("orderId"),
+               "side": "stop" if _leg_group(o) == "sl" else "target",
+               "qty": o.get("qty")}
+              for o in groups["sl"] + groups["tp"]],
+        journal_rows=journal_rows,
+    )
+    out["decision"] = decision
+
+    by_id = {str(o.get("orderId")): o for o in groups["sl"] + groups["tp"]}
+    stale = [by_id[oid] for oid in decision["cancel_order_ids"] if oid in by_id]
 
     out["plan"] = {
-        "keep_sl": _summarize(keep_sl) if keep_sl else None,
-        "keep_tp": _summarize(keep_tp) if keep_tp else None,
+        "keep": [_summarize(by_id[r["order_id"]])
+                 for r in decision["keep_legs"] if r["order_id"] in by_id],
         "cancel": [_summarize(o) for o in stale],
+        "unattributable": [_summarize(by_id[r["order_id"]])
+                           for r in decision["unattributable_legs"]
+                           if r["order_id"] in by_id],
     }
 
-    if not stale:
+    if decision["state"] == STATE_NO_STALE_LEGS:
         out["action"] = "noop_already_clean"
         out["ok"] = True
         out["detail"] = (f"{symbol} on {account_id} has {len(groups['sl'])} SL leg(s) + "
-                         f"{len(groups['tp'])} TP leg(s), no duplicates to cancel.")
+                         f"{len(groups['tp'])} TP leg(s), and every one is owned by an "
+                         f"OPEN journal row — nothing stale to cancel.")
+        return out
+
+    if decision["state"] != STATE_CANCEL_LEGS:
+        # Every other state ends in "cancel nothing", and they are deliberately
+        # distinct: refusing because a leg is unattributable is not the same
+        # answer as refusing because we could not read the journal at all.
+        out["action"] = f"abort_{decision['state']}"
+        out["ok"] = False
+        out["detail"] = decision["reason"]
         return out
 
     if not apply:
         out["action"] = "dry_run"
         out["ok"] = True
-        out["detail"] = (f"DRY-RUN — would cancel {len(stale)} stale leg(s) for {symbol} on "
-                         f"{account_id}, keeping the most-recent SL"
-                         f"{' + TP' if keep_tp else ''}. Re-run with --apply to execute.")
+        out["detail"] = (f"DRY-RUN — would cancel {len(stale)} leg(s) owned by CLOSED journal "
+                         f"rows for {symbol} on {account_id}, keeping "
+                         f"{len(decision['keep_legs'])} leg(s) owned by OPEN rows "
+                         f"({decision['stop_qty_kept']} of stop against a {size} position). "
+                         "Re-run with --apply to execute.")
         return out
 
     cancel_results = []

@@ -1889,10 +1889,33 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                     aid, sym, exc,
                 )
 
+        def _shape_order(o, ofilter, blind=False):
+            row = {
+                "symbol": o.get("symbol"),
+                "order_id": o.get("orderId"),
+                "order_filter": ofilter,
+                "order_type": o.get("orderType"),
+                "stop_order_type": o.get("stopOrderType") or None,
+                "side": o.get("side"),
+                "qty": _price(o.get("qty")),
+                "trigger_price": _price(o.get("triggerPrice")),
+                "price": _price(o.get("price")),
+                "trigger_direction": o.get("triggerDirection"),
+                "reduce_only": o.get("reduceOnly"),
+                "tpsl_mode": o.get("tpslMode") or None,
+                "order_status": o.get("orderStatus"),
+                "created_time": o.get("createdTime"),
+                "updated_time": o.get("updatedTime"),
+            }
+            if blind:
+                row["settlecoin_blind"] = True
+            return row
+
         # Resting orders, BOTH filters. "StopOrder" carries the conditional
         # SL/TP legs; "Order" carries a resting limit take-profit, which is a
         # different object and is invisible to the StopOrder filter -- reading
         # only the first would under-report target protection.
+        seen_order_ids: set = set()
         for ofilter in ("StopOrder", "Order"):
             try:
                 oresp = client.get_open_orders(
@@ -1905,24 +1928,207 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                 )
                 continue
             for o in (((oresp or {}).get("result") or {}).get("list") or []):
-                orders.append({
-                    "symbol": o.get("symbol"),
-                    "order_id": o.get("orderId"),
-                    "order_filter": ofilter,
-                    "order_type": o.get("orderType"),
-                    "stop_order_type": o.get("stopOrderType") or None,
-                    "side": o.get("side"),
-                    "qty": _price(o.get("qty")),
-                    "trigger_price": _price(o.get("triggerPrice")),
-                    "price": _price(o.get("price")),
-                    "trigger_direction": o.get("triggerDirection"),
-                    "reduce_only": o.get("reduceOnly"),
-                    "tpsl_mode": o.get("tpslMode") or None,
-                    "order_status": o.get("orderStatus"),
-                    "created_time": o.get("createdTime"),
-                    "updated_time": o.get("updatedTime"),
-                })
+                row = _shape_order(o, ofilter)
+                seen_order_ids.add(str(row["order_id"]))
+                orders.append(row)
+
+        # THE ORDERS HALF INHERITED THE settleCoin BLINDNESS THE POSITIONS HALF
+        # WAS FIXED FOR (2026-08-26, BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND).
+        # The cross-check above was applied to `get_positions` only, so this
+        # surface answered the position question completely and the PROTECTION
+        # question partially -- which is the worse half to under-report, since
+        # a missing leg reads as missing protection. Measured on bybit_1/ETHUSDT
+        # 2026-08-26: the settleCoin page returned 7 SL legs where the trader's
+        # own symbol-scoped read saw 9.
+        #
+        # The denominator is the symbols we KNOW hold a position (`seen`, itself
+        # already cross-checked above), NOT every configured symbol: protection
+        # is a property of a position, so a flat symbol's resting orders are not
+        # what this surface is for, and widening the denominator would spend a
+        # broker call per configured instrument for rows nobody grades.
+        order_symbols_unchecked: list = []
+        for sym in sorted(seen):
+            if not sym:
+                continue
+            for ofilter in ("StopOrder", "Order"):
+                try:
+                    one = client.get_open_orders(
+                        category=category, symbol=sym, orderFilter=ofilter,
+                    )
+                except Exception as exc:  # noqa: BLE001  # allow-silent: recorded in order_symbols_unchecked so the gap is not silent
+                    logger.warning(
+                        "account_bybit_open_orders(%s): order cross-check %s/%s "
+                        "failed: %s", aid, sym, ofilter, exc,
+                    )
+                    order_symbols_unchecked.append(f"{sym}/{ofilter}")
+                    continue
+                for o in (((one or {}).get("result") or {}).get("list") or []):
+                    oid = str(o.get("orderId"))
+                    if oid in seen_order_ids:
+                        continue
+                    seen_order_ids.add(oid)
+                    orders.append(_shape_order(o, ofilter, blind=True))
+        # A symbol the page DID return can still be under-reported by it, so
+        # this is not skipped for symbols already present -- dedup is by
+        # order id, which is what actually distinguishes a re-read from a find.
+        newly_found = sorted(
+            {str(r.get("symbol")) for r in orders if r.get("settlecoin_blind")})
+        if newly_found:
+            logger.warning(
+                "account_bybit_open_orders(%s): settleCoin order page under-"
+                "reported legs for %s (found only by the symbol-scoped "
+                "cross-check)", aid, ", ".join(newly_found),
+            )
     except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the caller's documented degraded state
         logger.warning("account_bybit_open_orders(%s): read failed: %s", aid, exc)
         return None
-    return {"category": category, "positions": positions, "orders": orders}
+    return {
+        "category": category,
+        "positions": positions,
+        "orders": orders,
+        # The DENOMINATOR for the orders read. Empty = every position-bearing
+        # symbol was cross-checked, so `orders` is complete for them. Non-empty
+        # names exactly the (symbol, filter) pairs we could NOT look at -- so a
+        # short `orders` list is never mistaken for a complete one.
+        "order_symbols_unchecked": order_symbols_unchecked,
+        "order_symbols_cross_checked": sorted(s for s in seen if s),
+    }
+
+
+def account_alpaca_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Alpaca resting orders + open positions, or ``None``.
+
+    The third sibling of :func:`account_ib_open_orders` /
+    :func:`account_bybit_open_orders`, closing the Alpaca half of
+    BL-20260818-NO-BRACKET-READ-SURFACE-FOR-BYBIT-OR-ALPACA. It exists for the
+    reason both of those do: **every existing consumer of Alpaca order state
+    REDUCES it before anyone sees it.** ``has_protective_orders`` returns a
+    boolean and ``protection_state`` a pair of booleans -- neither can be
+    contradicted from outside, and an unreadable verdict is exactly how the
+    stripped MGC take-profit sat undetected for seven days on the IB side.
+    This returns the rows those verdicts get CHECKED against; it grades nothing.
+
+    ⚠️ **ALPACA IS NOT BYBIT: THERE IS NO POSITION-LEVEL PROTECTION HERE.**
+    Bybit's Full mode carries ``stopLoss``/``takeProfit`` on the position row,
+    so that surface must read BOTH collections or it reads half. Alpaca has no
+    such field -- ``/v2/positions`` carries no protective level at all -- so on
+    this venue the resting ORDERS are the whole story. ``positions`` is returned
+    anyway, because knowing WHAT SHOULD be protected is half of grading whether
+    it is, but a reader must not infer a Bybit-style symmetry from the shape.
+
+    Three-state, matching its siblings:
+
+    * ``None``  -- could not look (not an Alpaca account, creds missing, or the
+      ORDERS read failed). Never the same as "nothing is resting".
+    * ``{...}`` -- a confirmed clean read of the orders; an empty ``orders``
+      list genuinely means nothing rests.
+
+    ⚠️ **A POSITIONS failure does NOT null the whole payload, and must not.**
+    The protection question is answered by the orders read, so a positions
+    outage leaves that answer intact -- but reporting ``positions: []`` would
+    claim the account is flat. It is reported ``None`` with
+    ``positions_state: "could_not_look"`` beside it, so "we did not look" and
+    "there are none" stay distinguishable at BOTH levels rather than only the
+    outer one.
+
+    Never raises: a read failure is a ``None``, not an exception into the
+    caller.
+    """
+    if not isinstance(account, dict):
+        return None
+    if (account.get("exchange") or "unknown").lower() != "alpaca":
+        return None
+    aid = account.get("account_id") or "unknown"
+    client = alpaca_client_for(account)
+    if client is None:
+        return None
+
+    def _price(value: Any) -> Optional[float]:
+        """A price, or None. ``""``, ``"0"`` and ``0`` are NOT prices.
+
+        Same rule as the Bybit sibling: a zero would publish a stop AT ZERO,
+        which a consumer can compare against a declared level and find hugely
+        divergent, when the truth is that no such level is set.
+        """
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            num = float(text)
+        except (TypeError, ValueError):
+            return None
+        return None if num == 0.0 else num
+
+    # ORDERS FIRST -- this is the read that answers the protection question, so
+    # its failure is what makes the whole payload "could not look".
+    try:
+        env = client._request(
+            "GET", "/v2/orders?status=open&nested=true")
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the documented degraded state
+        logger.warning("account_alpaca_open_orders(%s): orders read raised: %s", aid, exc)
+        return None
+    if (env or {}).get("retCode") != 0:
+        logger.warning("account_alpaca_open_orders(%s): orders read failed: %s",
+                       aid, (env or {}).get("retMsg"))
+        return None
+
+    orders: list = []
+    def _emit(o: Dict[str, Any], parent_id: Any = None) -> None:
+        orders.append({
+            "symbol": o.get("symbol"),
+            "order_id": o.get("id"),
+            "client_order_id": o.get("client_order_id"),
+            "order_type": o.get("type") or o.get("order_type"),
+            "order_class": o.get("order_class"),
+            "side": o.get("side"),
+            "qty": _price(o.get("qty")),
+            "filled_qty": _price(o.get("filled_qty")),
+            "stop_price": _price(o.get("stop_price")),
+            "limit_price": _price(o.get("limit_price")),
+            "trail_percent": _price(o.get("trail_percent")),
+            "time_in_force": o.get("time_in_force"),
+            "status": o.get("status"),
+            "parent_id": parent_id,
+            "submitted_at": o.get("submitted_at"),
+        })
+    for o in (env.get("result") or []):
+        if not isinstance(o, dict):
+            continue
+        _emit(o)
+        # `nested=true` attaches an un-triggered bracket's children to the
+        # parent; once the entry fills they ALSO surface as top-level orders.
+        # Both forms are emitted with parent_id set on the nested one, so a
+        # consumer can see the relationship without the flattening hiding it.
+        for leg in (o.get("legs") or []):
+            if isinstance(leg, dict):
+                _emit(leg, parent_id=o.get("id"))
+
+    # POSITIONS SECOND -- context, not the answer. `positions()` already returns
+    # None on a read failure rather than [], so that distinction is preserved
+    # rather than re-derived here.
+    positions: Optional[list] = None
+    positions_state = "could_not_look"
+    try:
+        raw = client.positions()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: positions are context; the orders read already answered the protection question
+        logger.warning("account_alpaca_open_orders(%s): positions raised: %s", aid, exc)
+        raw = None
+    if raw is not None:
+        positions_state = "positions_read"
+        positions = [{
+            "symbol": pos.get("symbol"),
+            "side": pos.get("side"),
+            "qty": _price(pos.get("qty")),
+            "entry_price": _price(pos.get("avg_price") or pos.get("avg_entry_price")),
+            "unrealised_pnl": _price(pos.get("unrealized_pnl")),
+        } for pos in raw if isinstance(pos, dict)]
+
+    return {
+        "orders": orders,
+        "positions": positions,
+        "positions_state": positions_state,
+        # Stated so a consumer never mistakes the shape for the Bybit one.
+        "position_level_protection_supported": False,
+    }

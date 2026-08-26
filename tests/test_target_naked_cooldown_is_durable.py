@@ -137,14 +137,31 @@ def test_latch_does_not_use_monotonic(latched):
                     node.body = body[1:] or [ast.Pass()]
         return ast.unparse(ast.fix_missing_locations(tree))
 
-    # The wall clock now lives in the shared gate, so assert against the
-    # function that OWNS the latch — asserting `time.time() in` the emit path
-    # after the move would have passed vacuously or failed for the wrong
-    # reason. Both are checked: neither may reach for monotonic.
-    gate = _stripped(om._cooldown_admits)
+    # OWNERSHIP MOVED TWICE, and this assertion follows it rather than being
+    # weakened. The wall clock left the emit path for `om._cooldown_admits`
+    # (2026-08-23), and left THAT for the shared
+    # `src.runtime.alert_cooldown.cooldown_admits` (2026-08-25) when a third
+    # caller — pipeline's builder-exception page — needed the same latch and
+    # copying it would have reintroduced the per-process defect this whole
+    # file exists to pin. Asserting `time.time() in` a thin wrapper would pass
+    # vacuously; asserting it against the wrong module would fail for the
+    # wrong reason. So: assert against the OWNER, and separately assert the
+    # wrapper really delegates rather than quietly re-implementing.
+    import src.runtime.alert_cooldown as ac
+
+    gate = _stripped(ac.cooldown_admits)
     assert "time.monotonic()" not in gate
     assert "time.time()" in gate
+
+    wrapper = _stripped(om._cooldown_admits)
+    assert "alert_cooldown.cooldown_admits" in wrapper, (
+        "the wrapper must DELEGATE — a re-implementation here is the copy "
+        "this move exists to prevent"
+    )
+    assert "time.monotonic()" not in wrapper
     assert "time.monotonic()" not in _stripped(om._emit_target_naked_alert)
+    # ...and no caller may reach for monotonic in its own latch either.
+    assert "time.monotonic()" not in _stripped(ac.load_state)
 
 
 # ---------------------------------------------------------------------------

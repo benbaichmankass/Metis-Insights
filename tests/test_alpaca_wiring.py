@@ -368,16 +368,28 @@ def test_client_account_status_surfaces_authorization_flags(monkeypatch):
             "account_blocked": False, "trade_suspended_by_user": False,
             "transfers_blocked": False, "shorting_enabled": True,
             "crypto_status": "ACTIVE", "currency": "USD",
-            "equity": "150.09", "cash": "150.09",  # extra fields ignored
+            # No longer ignored: these are CAPACITY fields and now ride in
+            # their own nested block (2026-08-25,
+            # BL-20260825-ALPACA-CAPACITY-FIELDS-FETCHED-THEN-DISCARDED).
+            "equity": "150.09", "cash": "150.09",
         }, status=200),
     )
     cli = AlpacaClient(api_key="k", api_secret="s")
     st = cli.account_status()
-    assert st == {
+    # The eight AUTHORIZATION flags are unchanged and stay top-level — that is
+    # the contract this test guards, and capacity must not dilute it.
+    assert {k: v for k, v in st.items() if k != "capacity"} == {
         "status": "ACTIVE", "trading_blocked": False, "account_blocked": False,
         "trade_suspended_by_user": False, "transfers_blocked": False,
         "shorting_enabled": True, "crypto_status": "ACTIVE", "currency": "USD",
     }
+    # ...and the capacity fields are CAPTURED rather than dropped. `multiplier`
+    # is the one a gross-exposure ceiling depends on (1 = cash, so the multiple
+    # can never exceed 1.0x; 2 = Reg-T, where a 2.0x ceiling binds) — it is
+    # absent from this payload, so it must be ABSENT from the block rather than
+    # defaulted, since reading an absent multiplier as "cash" is the collapse.
+    assert st["capacity"] == {"equity": "150.09", "cash": "150.09"}
+    assert "multiplier" not in st["capacity"]
 
 
 def test_client_account_status_reports_restricted_account(monkeypatch):

@@ -490,6 +490,12 @@ _LOG_FILES: dict[str, Path] = {
     # is strictly worse than no latch.
     "stop_over_cover_alert_state":
         runtime_logs_dir() / "stop_over_cover_alert_state.json",
+    # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
+    # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
+    # "the latch is holding" and "the latch is broken and everything is WARN"
+    # are indistinguishable from outside.
+    "strategy_builder_exception_alert_state":
+        runtime_logs_dir() / "strategy_builder_exception_alert_state.json",
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by
@@ -2362,6 +2368,111 @@ async def get_bybit_open_orders(
             ),
             "result": result,
             "position_count": (len(result.get("positions") or []) if ok else None),
+            "order_count": (len(result.get("orders") or []) if ok else None),
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "count": len(out),
+        "accounts": out,
+    }
+
+
+@router.get("/alpaca_open_orders")
+async def get_alpaca_open_orders(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **Alpaca resting orders + open positions**.
+
+    The third and last sibling of ``/api/diag/ib_open_orders`` and
+    ``/api/diag/bybit_open_orders``, closing the Alpaca half of
+    BL-20260818-NO-BRACKET-READ-SURFACE-FOR-BYBIT-OR-ALPACA. Measured on
+    2026-08-25, Alpaca was the entire remaining gap: of 15 open trades whose
+    broker-bracket state ``scripts/ops/exit_path_coverage.py`` could not
+    observe, **12 were alpaca** (``alpaca_paper`` 6, ``alpaca_portfolio`` 6) and
+    the other 3 were an ``ib_paper`` gateway that was not answering.
+
+    Every existing consumer of Alpaca order state REDUCES it first --
+    ``has_protective_orders`` to a boolean, ``protection_state`` to a pair of
+    booleans -- so no session could contradict either verdict. These are the
+    rows they get checked against. This route grades nothing and re-arms
+    nothing.
+
+    ⚠️ **ALPACA HAS NO POSITION-LEVEL PROTECTION.** Do not read this payload as
+    the Bybit one: there, Full mode puts ``stopLoss``/``takeProfit`` on the
+    position row, so reading only orders reads half. Here ``/v2/positions``
+    carries no protective level at all and the resting ORDERS are the whole
+    story. ``position_level_protection_supported: false`` says so in the
+    payload rather than leaving it to be inferred from an absence.
+
+    Per-account ``result`` is three-state, never collapsed, with ``read_state``
+    naming which so a consumer never infers it from a null:
+
+    * ``not_alpaca``     -- nothing to read here; NOT a failure.
+    * ``could_not_look`` -- ``result: null``; creds missing or the ORDERS read
+      failed. Emphatically not "the account holds nothing".
+    * ``orders_read``    -- a confirmed clean read; an empty ``orders`` list
+      genuinely means nothing rests.
+
+    ``order_count`` is ``null`` -- never ``0`` -- when we could not look.
+    ``position_count`` is ``null`` whenever the positions half specifically
+    could not be read, **even on an otherwise clean orders read**: the two
+    sub-reads fail independently, and a positions outage must not be rendered
+    as a flat account. ``result.positions_state`` names that inner state.
+    An unset price is ``null``, never ``0.0``.
+
+    Opens a brief read-only client per account and places NO order. Tier 1 --
+    read-only, token-gated, best-effort per account.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_alpaca_open_orders
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_alpaca_open_orders: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_alpaca_open_orders: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        is_alpaca = ((acc or {}).get("exchange") or "unknown").lower() == "alpaca"
+        result: Any = None
+        err: str | None = None
+        if is_alpaca:
+            try:
+                result = await run_account_read(account_alpaca_open_orders, acc)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + result=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_alpaca_open_orders: %s raised %s", aid, exc)
+        ok = isinstance(result, dict)
+        positions_ok = ok and result.get("positions") is not None
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            "account_class": (acc or {}).get("account_class"),
+            "read_state": (
+                "not_alpaca" if not is_alpaca
+                else "orders_read" if ok
+                else "could_not_look"
+            ),
+            "result": result,
+            # null, never 0, when THAT half could not be read -- independently
+            # of the orders half, which may well have succeeded.
+            "position_count": (len(result["positions"]) if positions_ok else None),
             "order_count": (len(result.get("orders") or []) if ok else None),
             "error": err,
         })

@@ -169,6 +169,10 @@ def decide_over_cover(
         "stop_qty": None,
         "over_cover_pct": None,
         "groups": {},
+        # Partial groups the decision judged safe to cancel BECAUSE the keeper
+        # carries an equivalent correct leg. Published so a cancelled partial
+        # is never indistinguishable from a plain stray in an audit.
+        "partial_groups_covered_by_keep": [],
         "reason": None,
     }
 
@@ -288,6 +292,15 @@ def decide_over_cover(
         out["groups"][name]["stop_state"] = stop_verdict["state"]
         out["groups"][name]["target_state"] = (
             target_verdict["state"] if target_verdict else None)
+        # WHICH sides this group agrees with the journal on. Needed below to
+        # ask whether cancelling it would LOSE anything, rather than only
+        # whether it HOLDS something.
+        agrees_on = set()
+        if stop_ok:
+            agrees_on.add("stop")
+        if target_ok:
+            agrees_on.add("target")
+        out["groups"][name]["agrees_on"] = sorted(agrees_on)
 
         if not stop_readable or not target_readable:
             ungradeable.append(name)
@@ -307,14 +320,14 @@ def decide_over_cover(
             f"read — we did not look, and a partial read must not drive a cancel")
         return out
 
-    if partial:
+    if partial and not matches:
+        # No keeper to compare against, so we cannot show that cancelling a
+        # partial loses nothing. Distinct from the resolvable case below.
         out["state"] = STATE_AMBIGUOUS
         out["reason"] = (
             f"group(s) {sorted(partial)} match the journal on ONE side only "
-            f"(the declared stop or the declared target, not both). Cancelling "
-            f"such a group strips a leg that was correct — the 2026-08-20 "
-            f"failure shape. Refusing; this needs a human eye on which side is "
-            f"authoritative.")
+            f"and NO group matches it on the stop side, so there is no group "
+            f"whose survival could make a partial safe to cancel. Refusing.")
         return out
 
     if not matches:
@@ -336,7 +349,55 @@ def decide_over_cover(
         return out
 
     keep = matches[0]
-    cancel = sorted(matches_nothing)
+
+    # --- resolve the PARTIAL groups against the keeper --------------------
+    # ⚠️ THE QUESTION IS "WOULD CANCELLING THIS LOSE A CORRECT LEG?", NOT
+    # "DOES IT HOLD ONE?" — 2026-08-26, and the row id is kept WHOLE on one
+    # line because a wrapped id reads as a dangling reference to any grep of
+    # the source, and to `artifact-validity-guard`, which caught exactly that
+    # here (the second time this session; the first was a wrapped id inside a
+    # string, fixed with a module constant):
+    # BL-20260825-OVER-COVER-DECISION-REFUSES-ITS-OWN-MOTIVATING-CASE
+    # The original rule refused any group agreeing
+    # with the journal on one side, reasoning that cancelling it "strips a leg
+    # that was correct". That is right in general and WRONG when the surviving
+    # group carries an equivalent leg on that same side — nothing is stripped,
+    # because the correct leg is duplicated.
+    #
+    # It refused its own motivating case. Measured live on ib_paper/MHG
+    # 2026-08-26T01:00Z, journal stop 6.31207143 / target 7.141302:
+    #     oca-protect-465  STP 6.312   LMT 7.1415   <- agrees on BOTH
+    #     oca-protect-446  STP 6.2625  LMT 7.1415   <- agrees on TARGET only
+    # 446's stop is 49 ticks low and its target is BYTE-IDENTICAL to 465's, so
+    # cancelling 446 loses nothing at all — yet the tool refused, and the
+    # 200% over-cover stood for six days across three sessions.
+    #
+    # The rule is deliberately CONSERVATIVE in the same direction as before: a
+    # partial is cancellable ONLY when EVERY side it agrees on is also agreed
+    # on by the keeper. A partial agreeing on a side the keeper does NOT hold
+    # still refuses — there the original reasoning stands untouched.
+    unresolved_partial = []
+    covered_partial = []
+    keep_agrees = set(out["groups"][keep].get("agrees_on") or [])
+    for name in partial:
+        p_agrees = set(out["groups"][name].get("agrees_on") or [])
+        if p_agrees and p_agrees <= keep_agrees:
+            covered_partial.append(name)
+        else:
+            unresolved_partial.append(name)
+
+    if unresolved_partial:
+        out["state"] = STATE_AMBIGUOUS
+        out["reason"] = (
+            f"group(s) {sorted(unresolved_partial)} match the journal on a side "
+            f"that the surviving group {keep!r} does NOT also match, so "
+            f"cancelling them would strip a leg that was correct — the "
+            f"2026-08-20 failure shape. Refusing; this needs a human eye on "
+            f"which side is authoritative.")
+        return out
+
+    cancel = sorted(matches_nothing + covered_partial)
+    out["partial_groups_covered_by_keep"] = sorted(covered_partial)
     out["state"] = STATE_CANCEL_GROUP
     out["keep_groups"] = [keep]
     out["cancel_groups"] = cancel
@@ -344,10 +405,22 @@ def decide_over_cover(
         order_id for name in cancel for order_id in groups[name]["order_ids"]
         if order_id is not None
     ]
+    strays = sorted(matches_nothing)
+    # ⚠️ The two cancel reasons are stated SEPARATELY. Folding a covered partial
+    # into "matches nothing declared" would be false on its face — it does carry
+    # a leg agreeing with the journal — and an operator reads this line before
+    # firing a cancel against a live position.
+    why_cancel = []
+    if strays:
+        why_cancel.append(f"group(s) {strays} match nothing declared")
+    if covered_partial:
+        why_cancel.append(
+            f"group(s) {sorted(covered_partial)} DO carry a leg agreeing with "
+            f"the journal, but only on side(s) that {keep!r} also carries, so "
+            f"cancelling them loses nothing")
     out["reason"] = (
         f"over-covered at {out['over_cover_pct']:.0f}% ({stop_qty} of stop "
         f"against {qty} of position). Group {keep!r} matches the journal's "
-        f"declared stop {declared_stop_f}; group(s) {cancel} match nothing "
-        f"declared. Cancel the latter, WHOLE — a group's stop and target go "
-        f"together.")
+        f"declared stop {declared_stop_f}. Cancel " + "; ".join(why_cancel)
+        + ". Cancel each WHOLE — a group's stop and target go together.")
     return out

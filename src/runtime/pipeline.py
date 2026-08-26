@@ -76,6 +76,126 @@ _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
 }
 
 
+# ── Builder-exception paging: one page per (strategy, cause) per window ──────
+# A builder exception IS an ERROR the first time. A builder exception REPEATING
+# every tick for the same reason is ONE condition, and paging it per tick is
+# the desensitized-alarm P1 this repo treats as its own bug.
+#
+# MEASURED 2026-08-25 on the live ERROR+ feed. STATE THE POPULATION -- a first
+# reading of this quoted 83.4%, which is the figure over a TRUNCATED 157-row
+# read (`limit=400`), not the feed. Over the full `limit=1000` read: **401 rows
+# spanning 2026-08-20T08:16Z -> 2026-08-25T20:06Z, of which 240 (59.9%) are one
+# leg** repeating `ict_scalp_mgc_15m: no candle data for symbol=MGC`. Comparable
+# to `ib_target_naked` at 53.7%
+# (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART -- kept on one line
+# so the id stays greppable). It buried the rest of the feed: Bybit venue
+# rejections, over-cover CRITICALs and target-naked pages all shared it.
+#
+# THE ATTRIBUTION IS THE LOAD-BEARING HALF and it does not move with the
+# population: **240 of 240** no-candle rows are `ict_scalp_mgc_15m`, and ZERO
+# ERROR rows over the whole 5.5 days mention `mgc_trend_1h` -- which trades the
+# SAME symbol at the SAME cadence (193 vs 189 evals over an aligned 6h window,
+# so the denominators are measured rather than assumed). A gateway blackout
+# blinding every IB leg would have to hit both; it hits one. That is why the
+# key is per STRATEGY and not per symbol or per account.
+#
+# THE REPEAT IS DOWNGRADED, NOT SUPPRESSED. `Level.WARN` still persists to
+# `outcomes.jsonl`, still reaches `/api/bot/logs` and still renders on the
+# `/api/bot/notifications` banner (as `warning`, deduped digit-normalised) --
+# it simply does not Telegram. Nothing is lost; the page stops being noise.
+# Suppressing outright would have made a persisting fault invisible, which is
+# the opposite failure and just as bad.
+#
+# The key carries the CAUSE, not just the strategy: a NEW kind of exception on
+# an already-latched strategy is a new fact and pages immediately. That is the
+# `silent_refusal_alert` (account, cause) lesson -- a per-strategy-only latch
+# would report a genuinely new failure as "already alerting" and say nothing.
+_BUILDER_EXC_ALERT_KIND = "strategy_builder_exception"
+_BUILDER_EXC_COOLDOWN_S: float = 6 * 3600.0
+
+
+def _builder_exception_cause(exc: BaseException) -> str:
+    """A stable latch key for *exc*: its class plus its message with every run
+    of digits normalised away.
+
+    Digits are the part that varies without the condition changing (a bar
+    count, a timestamp, a price), so keying on the raw message would defeat the
+    latch entirely -- the same trap `/api/bot/notifications` already avoids by
+    deduping its operator-warning banner digit-normalised.
+    """
+    import re
+
+    return f"{type(exc).__name__}:{re.sub(r'[0-9]+', 'N', str(exc))}"[:200]
+
+
+def _report_builder_exception(strategy_name: str, exc: BaseException) -> None:
+    """Page a strategy-builder exception: transient market data is WARN outright,
+    anything else is ERROR once per window then WARN.
+
+    THE TRANSIENT BRANCH IS THE PRIMARY FIX AND THE COOLDOWN IS THE BACKSTOP,
+    which is the opposite of how this function was first written. A candle fetch
+    returning None is a routine, self-recovering outage (usually an IB
+    circuit-breaker backoff) and should never page at all -- the sibling
+    `intent_multiplexer` has graded it WARN since BL-20260525-003, and this
+    legacy path simply never did, so the two multiplexers disagreed about the
+    same exception. The classifier is IMPORTED from there rather than
+    re-derived: two definitions of "is this a market-data outage?" is how they
+    drift, and the defect being fixed here is precisely that kind of drift (its
+    token missed two whole builder families --
+    BL-20260825-TRANSIENT-CLASSIFIER-MISSES-THE-VARIANT-FAMILIES, kept on one
+    line so the id stays greppable).
+
+    The cooldown still earns its place, and neither module had it: a GENUINE
+    builder bug -- a KeyError in an indicator, say -- also fires every tick, and
+    nothing else stops that from becoming the whole ERROR feed. So a
+    non-transient exception pages once per window per (strategy, cause) and is
+    downgraded, not silenced, thereafter.
+    """
+    try:
+        from src.runtime.intent_multiplexer import (
+            _is_transient_market_data_error,
+        )
+
+        if _is_transient_market_data_error(exc):
+            report(
+                "strategy_builder",
+                "exception",
+                level=Level.WARN,
+                reason=f"transient_market_data_unavailable: {exc}",
+                strategy=strategy_name,
+            )
+            return
+    except Exception:  # noqa: BLE001 -- an import or classifier failure must
+        # never decide whether the trader keeps running, and must fail LOUD:
+        # falling through leaves the exception on the ERROR-then-WARN path.
+        pass
+    try:
+        from src.runtime.alert_cooldown import cooldown_admits
+
+        first = cooldown_admits(
+            _BUILDER_EXC_ALERT_KIND,
+            f"{strategy_name}|{_builder_exception_cause(exc)}",
+            _BUILDER_EXC_COOLDOWN_S,
+        )
+    except Exception:  # noqa: BLE001 -- the latch must never decide whether the
+        # trader keeps running. Fail LOUD: an unreachable latch pages, matching
+        # alert_cooldown's own unreadable-state behaviour rather than inventing
+        # a quieter one here.
+        first = True
+    report(
+        "strategy_builder",
+        "exception",
+        level=Level.ERROR if first else Level.WARN,
+        reason=f"{type(exc).__name__}: {exc}"
+        + ("" if first else
+           " [repeat: same cause already paged within the last "
+           f"{int(_BUILDER_EXC_COOLDOWN_S // 3600)}h — downgraded to WARN so "
+           "one persisting fault cannot bury every other ERROR. A NEW cause on "
+           "this strategy still pages immediately.]"),
+        strategy=strategy_name,
+    )
+
+
 def _report_pipeline_outcome(result: Dict[str, Any], signal: Dict[str, Any]) -> None:
     """Translate the run_pipeline result dict into an outcomes.report() call.
 
@@ -316,13 +436,7 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             signal = builder(settings)
         except Exception as exc:
             logger.warning("Multiplexer: strategy '%s' raised %s — skipping", strategy_name, exc)
-            report(
-                "strategy_builder",
-                "exception",
-                level=Level.ERROR,
-                reason=f"{type(exc).__name__}: {exc}",
-                strategy=strategy_name,
-            )
+            _report_builder_exception(strategy_name, exc)
             continue
 
         if signal.get("side") in ("buy", "sell"):

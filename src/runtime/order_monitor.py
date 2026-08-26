@@ -55,7 +55,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,7 @@ from src.utils.paths import repo_root as _repo_root_fn  # noqa: E402
 from src.utils.json_notes import dump_capped  # noqa: E402
 from src.utils.json_notes import load_notes as _load_notes  # noqa: E402
 from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
+from src.runtime import alert_cooldown as _alert_cooldown  # noqa: E402
 from src.runtime.monitor_verdict import (  # noqa: E402
     KIND_MODIFY, KIND_PARTIAL_CLOSE, MEANINGFUL_MODIFY_REL_TOL,
     interpret_verdict,
@@ -1906,6 +1907,9 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
             side=side, qty=qty, cur_sl=cur_sl, cur_tp=cur_tp,
             sl_order_id=matched_trade.get("sl_order_id"),
             tp_order_id=matched_trade.get("tp_order_id"),
+            # Scopes the IB pre-cancel to this trade's own OCA group; ignored by
+            # every non-IB branch. See modify_open_order's IB branch for why.
+            trade_id=matched_trade.get("id"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange modify failed: %s", exc)
@@ -6372,6 +6376,10 @@ _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 # Bybit conditional-order types that constitute a STOP (protection). Mirrors
 # execute.py's ``_SL_LEG_TYPES`` — a divergence here would misgrade coverage.
 _SL_LEG_TYPES_MON = {"stoploss", "partialstoploss"}
+#: The TAKE-PROFIT half. Used ONLY to count legs against Bybit's
+#: 20-COMBINED-leg-per-symbol cap — never for stop coverage, which is an
+#: SL-only question and must stay one.
+_TP_LEG_TYPES_MON = {"takeprofit", "partialtakeprofit"}
 
 # Tolerance when comparing summed protective-leg qty against the netted IB
 # position size (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Futures trade
@@ -6451,49 +6459,35 @@ _TARGET_NAKED_STATE_TTL_S: float = 7 * 24 * 3600.0
 
 
 def _alert_state_path(kind: str):
+    """``runtime_logs/<kind>_alert_state.json``.
+
+    Kept HERE, and kept module-level, on purpose: it is the seam the durable-
+    cooldown tests patch, and the live trader holds
+    ``target_naked_alert_state.json`` under exactly this name. The logic below
+    lives in :mod:`src.runtime.alert_cooldown` — see that module for why it is
+    shared rather than copied — and every wrapper threads this resolver back in
+    so patching it still works.
+    """
     from src.utils.paths import runtime_logs_dir
 
     return runtime_logs_dir() / f"{kind}_alert_state.json"
 
 
-def _load_alert_state(kind: str) -> tuple:
-    """Return ``(state, readable)`` for a durable alert cooldown.
+def _resolver(kind: str):
+    # Late-bound on purpose: resolving `_alert_state_path` at CALL time is what
+    # keeps `monkeypatch.setattr(om, "_alert_state_path", ...)` effective.
+    return _alert_state_path(kind)
 
-    ``readable`` is the *"did we look?"* axis and is deliberately NOT collapsed
-    into an empty dict: "the latch has never fired" and "we could not read the
-    latch" are both ``{}`` and must not be treated the same way. The caller
-    ALERTS when ``readable`` is False — suppressing a CRITICAL safety page
-    because a file read failed is the wrong direction to fail, and a
-    permanently unreadable latch then announces itself as spam instead of as
-    silence.
-    """
-    p = _alert_state_path(kind)
-    try:
-        if not p.exists():
-            return {}, True  # we looked; nothing has fired yet
-        data = json.loads(p.read_text(encoding="utf-8"))
-        return (data if isinstance(data, dict) else {}), True
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "%s cooldown state unreadable (%s) - alerting rather "
-            "than suppressing",
-            kind, exc,
-        )
-        return {}, False
+
+def _load_alert_state(kind: str) -> tuple:
+    return _alert_cooldown.load_state(kind, _resolver)
 
 
 def _save_alert_state(kind: str, state: dict) -> None:
-    try:
-        p = _alert_state_path(kind)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, p)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("%s cooldown state save failed: %s", kind, exc)
+    _alert_cooldown.save_state(kind, state, _resolver)
 
 
-_SEV_SUFFIX = "|sev="
+_SEV_SUFFIX = _alert_cooldown.SEV_SUFFIX
 
 
 def _cooldown_admits(kind: str, key: str, cooldown_s: float,
@@ -6501,89 +6495,15 @@ def _cooldown_admits(kind: str, key: str, cooldown_s: float,
                      severity: Optional[int] = None) -> bool:
     """Should ``key`` alert now under ``kind``'s durable cooldown?
 
-    Returns True AND commits the new timestamp when the alert may fire.
-    WALL CLOCK, never ``time.monotonic()``: monotonic is meaningless across
-    processes, and every condition this rate-limits persists across restarts.
-
-    **``severity`` lets a WORSENING break the cooldown**
-    (BL-20260825-OVER-COVER-LATCH-CANNOT-SEE-A-WORSENING-CONDITION). Without
-    it, a key that has fired is silent for the whole window however much worse
-    the condition gets — measured live 2026-08-25, the over-cover page fired at
-    12:27:44Z for ib_paper/MHG at 2 disjoint OCA groups / 200% and said nothing
-    when the SAME symbol reached 3 groups / 300% two hours later. "X is
-    over-covered" and "X is over-covered by half again as much" are different
-    facts, and the second is the one saying the condition is being PRODUCED
-    rather than merely standing.
-
-    The rule is deliberately **one-directional**: a strictly HIGHER severity
-    than any live latch for the same ``key`` pages; an equal or LOWER one is
-    suppressed as usual. Both halves matter and neither is decoration —
-
-    * pages on worse, so a growing condition is never silent;
-    * silent on better, so a condition that is *improving* cannot generate
-      CRITICALs. That is not hypothetical for the target-naked sibling, whose
-      coverage moves in both directions: a position going from no target to a
-      partial one is an improvement, and paging on it is exactly the
-      desensitized-alarm P1 the cooldown exists to prevent. That asymmetry is
-      why the two callers share this primitive instead of each inventing a key
-      scheme, and why over-cover's group count could NOT simply be pasted into
-      the key.
-
-    An UNCHANGED severity keeps today's volume exactly: one page per window.
-
-    ``severity`` rides in the stored KEY rather than the stored VALUE so the
-    on-disk shape stays ``{key: float_timestamp}``. That is load-bearing: the
-    live trader holds ``runtime_logs/target_naked_alert_state.json`` right now,
-    the TTL prune filters on the value being a number, and the durable-cooldown
-    tests bind that shape — changing it would orphan a latch that is currently
-    suppressing a CRITICAL.
+    Thin wrapper over :func:`src.runtime.alert_cooldown.cooldown_admits`, which
+    holds the behaviour and the reasoning (wall-clock not monotonic; a
+    WORSENING `severity` breaks the window while an equal or improving one does
+    not; an unreadable latch alerts rather than suppressing).
     """
-    now = time.time()
-    state, readable = _load_alert_state(kind)
-    stored_key = key if severity is None else f"{key}{_SEV_SUFFIX}{int(severity)}"
-    if readable:
-        # Every live latch for this key, across severities.
-        live_sevs = []
-        suppress = False
-        for k, v in state.items():
-            if k != key and not k.startswith(f"{key}{_SEV_SUFFIX}"):
-                continue
-            try:
-                last = float(v)
-            except (TypeError, ValueError):
-                continue
-            # A FUTURE-dated entry (clock skew, a restored file) yields a
-            # negative delta and must not suppress forever, so the window is
-            # bounded below by 0 as well as above by the cooldown.
-            if not (0.0 <= (now - last) < cooldown_s):
-                continue
-            if severity is None:
-                if k == key:
-                    suppress = True
-                continue
-            if k == key:
-                # A pre-severity entry from an older build. It says the
-                # condition alerted recently and nothing about how bad it was,
-                # so it suppresses — "we do not know it got worse" must not
-                # become "it got worse".
-                suppress = True
-                continue
-            try:
-                live_sevs.append(int(k.rsplit(_SEV_SUFFIX, 1)[1]))
-            except (IndexError, ValueError):
-                continue
-        if suppress:
-            return False
-        if severity is not None and live_sevs and max(live_sevs) >= int(severity):
-            return False
-    state = {
-        k: v
-        for k, v in state.items()
-        if isinstance(v, (int, float)) and (now - float(v)) < ttl_s
-    }
-    state[stored_key] = now
-    _save_alert_state(kind, state)
-    return True
+    return _alert_cooldown.cooldown_admits(
+        kind, key, cooldown_s, ttl_s=ttl_s, severity=severity,
+        path_resolver=_resolver,
+    )
 
 
 # Back-compat aliases. `_TARGET_NAKED_STATE_FILENAME` still names the file the
@@ -6674,6 +6594,43 @@ def _emit_target_naked_alert(
 _STOP_OVER_COVER_ALERT_COOLDOWN_S: float = 6 * 3600.0
 
 
+def _classify_group_owner(
+    group_client_id: Optional[int], reader_client_id: Optional[int]
+) -> str:
+    """Can THIS session cancel the group submitted under *group_client_id*?
+
+    Three states, never collapsed
+    (BL-20260825-OVER-COVER-PAGE-CANNOT-SAY-WHY-THE-GROUPS-ARE-DISJOINT --
+    kept on one line so the id stays greppable):
+
+    - ``this_session``  -- the ids match, so a cancel from here is addressed
+      correctly. This is the group the operator CAN act on.
+    - ``other_session`` -- a different id. IB binds cancel rights to the
+      submitting clientId, so this group cannot be cancelled from here **at
+      all**, whether that session is a live sibling (the 496/497/498 exec
+      cluster, a readonly diag client) or has retired. Deliberately NOT called
+      "retired": this function cannot tell those apart, and asserting the
+      stronger one would be a claim nothing measured.
+    - ``unknown``       -- an id was unreadable. That is *we could not look*,
+      and it is emphatically not ``this_session``; treating a missing id as
+      ours is how a page would promise an action that then fails.
+
+    NOT registered with ``collapsed-state-guard``, deliberately, and this is the
+    same call the ``BYBIT_HEDGE_MODE_SYMBOLS`` states record. The guard excludes
+    a contract's producer file from its own consumer set, and the only code that
+    branches on these states IS the producer module -- so a contract row today
+    would be satisfied by the test file alone, or would invite a decorative
+    branch elsewhere to feed it. Both are worse than no row. It becomes
+    registrable in the change that first gives another module a real reason to
+    branch on the owner (a remediation path, a soak row, an API field). The
+    collapse that matters -- ``unknown`` read as ``this_session`` -- is pinned
+    directly in tests/test_stop_over_cover_alert.py meanwhile.
+    """
+    if group_client_id is None or reader_client_id is None:
+        return "unknown"
+    return "this_session" if group_client_id == reader_client_id else "other_session"
+
+
 def _emit_stop_over_cover_alert(
     *,
     account_id: str,
@@ -6681,6 +6638,8 @@ def _emit_stop_over_cover_alert(
     size: float,
     stop_qty: float,
     oca_groups: Any,
+    group_client_ids: Optional[Mapping[str, Optional[int]]] = None,
+    reader_client_id: Optional[int] = None,
     venue: str = "ib",
 ) -> bool:
     """Page the operator that resting stops EXCEED the position across DISJOINT
@@ -6713,6 +6672,25 @@ def _emit_stop_over_cover_alert(
     BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
     Choosing which leg dies is the operator's call.
 
+    WHY IT NAMES THE SUBMITTING clientId (2026-08-25,
+    BL-20260825-OVER-COVER-PAGE-CANNOT-SAY-WHY-THE-GROUPS-ARE-DISJOINT). The
+    instruction above — *cancel the leg that does not match trades.stop_loss* —
+    was **un-executable for the leg it names**, and the page gave the operator
+    no way to know that. IB binds cancel rights to the SUBMITTING clientId, so
+    a group placed by a session that has since rotated its id cannot be
+    cancelled from the trader at all; it has to be cleared in TWS. Measured
+    live on ib_paper MHG the same day: the stale group `oca-protect-446` (STP
+    6.2625 — the PREVIOUS trail level) sits on clientId 597 while the live
+    group `oca-protect-465` (STP 6.312, matching `trades.stop_loss`
+    6.31207143) sits on 497.
+
+    That measurement also names the CAUSE, which no field previously carried:
+    the second group is not a duplicate of unknown origin, it is the trailing
+    amend's own cancel-and-re-place with the **cancel half refused** (Error
+    10147). So the group count grows by one per (clientId rotation, trailing
+    amend) pair, and a page that says only "2 disjoint groups" describes a
+    symptom whose mechanism is one field away.
+
     Never raises into the sweep.
     """
     groups = sorted(oca_groups or [])
@@ -6742,6 +6720,50 @@ def _emit_stop_over_cover_alert(
         from src.runtime.outcomes import Level, report
 
         pct = (100.0 * float(stop_qty) / float(size)) if size else None
+        ids = dict(group_client_ids or {})
+        owners = {
+            g: _classify_group_owner(ids.get(g), reader_client_id)
+            for g in groups
+        }
+        # Render as `group(clientId=X, other_session)` so the operator reads the
+        # address and the consequence together. A group we cannot cancel from
+        # here is the actionable half of the page, so say it in words rather
+        # than leaving the reader to compare two ids.
+        rendered = ", ".join(
+            f"{g}(clientId={ids.get(g) if ids.get(g) is not None else '?'}, "
+            f"{owners[g]})"
+            for g in groups
+        )
+        foreign = [g for g in groups if owners[g] == "other_session"]
+        unknown_owner = [g for g in groups if owners[g] == "unknown"]
+        advice = (
+            "Detect-only: cancel the leg that does NOT match trades.stop_loss."
+        )
+        if foreign:
+            advice += (
+                f" NOTE {len(foreign)} group(s) {foreign} were submitted by a "
+                f"DIFFERENT clientId than this session ({reader_client_id}), so "
+                "the trader cannot cancel them itself — IB binds cancel rights "
+                "to the submitter and refuses a foreign cancel (Error 10147). "
+                "Use the `cancel-ib-order` system-action, which reads the "
+                "owning clientId account-wide and CONNECTS AS IT: one issue per "
+                "order, `force_protective: true` + `force_client_id: true`, "
+                "DRY-RUN first. ⚠️ An owning id below 9000 is in the trader's "
+                "execution band and connecting as it EVICTS the trader's live "
+                "IB session — that is what the second override is asking about, "
+                "so read the dry run before waiving it. "
+                "`scripts/ops/over_cover_proposal.py` emits the issue bodies "
+                "with the group selection already made. This is also the likely "
+                "CAUSE of the split: a trailing amend cancel-and-re-places, and "
+                "when the cancel half is refused the re-place leaves a new "
+                "disjoint group behind."
+            )
+        if unknown_owner:
+            advice += (
+                f" {len(unknown_owner)} group(s) {unknown_owner} reported no "
+                "clientId — that is unreadable, not this session; confirm the "
+                "owner before attempting a cancel."
+            )
         report(
             f"{venue}_stop_over_cover",
             "detected",
@@ -6750,11 +6772,11 @@ def _emit_stop_over_cover_alert(
                 f"{account_id}/{symbol}: position {size} but resting STOP qty "
                 f"totals {stop_qty}"
                 + (f" ({pct:.0f}%)" if pct is not None else "")
-                + f" across {len(groups)} DISJOINT OCA groups {groups}. OCA "
-                "cancels only within a group, so one stop firing flattens the "
-                "position and leaves the other(s) resting to sell again into a "
-                "naked SHORT. Detect-only: cancel the leg that does NOT match "
-                "trades.stop_loss."
+                + f" across {len(groups)} DISJOINT OCA groups "
+                + (rendered or str(groups))
+                + ". OCA cancels only within a group, so one stop firing "
+                "flattens the position and leaves the other(s) resting to sell "
+                "again into a naked SHORT. " + advice
             ),
             account_id=account_id,
             symbol=symbol,
@@ -6762,10 +6784,183 @@ def _emit_stop_over_cover_alert(
             stop_qty=stop_qty,
             oca_groups=groups,
             over_cover_pct=pct,
+            # Structured beside the prose so a consumer can branch without
+            # parsing the reason string.
+            oca_group_client_ids=ids,
+            reader_client_id=reader_client_id,
+            group_owners=owners,
         )
     except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
         logger.exception(
             "_emit_stop_over_cover_alert: alert failed for %s/%s",
+            account_id, symbol,
+        )
+    return True
+
+
+#: The backlog row for the selector defect the remedy advice below must carry.
+#: Held whole in ONE constant rather than split across a string concatenation:
+#: a wrapped id reads as a DANGLING reference to any grep of the source (and to
+#: `artifact-validity-guard`, which caught exactly that here), even though the
+#: concatenation joins fine at runtime.
+_STALE_LEG_SELECTOR_BACKLOG_ID = (
+    "BL-20260826-CANCEL-STALE-TPSL-LEGS-WOULD-KEEP-A-CLOSED-TRADES-LEG-AND-CANCEL-THE-LIVE-ONE"
+)
+
+#: Bybit's combined TP+SL leg cap per symbol. Proximity to it is the actionable
+#: urgency on an over-accumulated symbol: once it is reached, `set_trading_stop`
+#: refuses (ErrCode 110061) and a GENUINE protective tightening silently fails
+#: (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP).
+_BYBIT_LEG_CAP = 20
+
+
+def _emit_bybit_over_cover_alert(
+    *,
+    account_id: str,
+    symbol: str,
+    size: float,
+    covered: float,
+    leg_count: int,
+    protective_leg_count: Optional[int] = None,
+) -> bool:
+    """Page the operator that resting Bybit SL legs EXCEED the position.
+    Rate-limited per (account, symbol). Returns whether it alerted.
+
+    WHY THIS EXISTS (2026-08-26). The Bybit sweep has counted `over_covered`
+    since BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING and reports it with a
+    `logger.error` — which reaches the systemd journal and NOTHING ELSE. It
+    never writes `outcomes.jsonl`, which is what feeds Telegram, the
+    `/api/bot/notifications` banner and `/api/bot/logs?level=error`. This is the
+    same defect fixed for IB one day earlier (`_emit_stop_over_cover_alert`),
+    and that fix explicitly left Bybit unchecked.
+
+    MEASURED with a POSITIVE CONTROL, because a quiet feed proves nothing on its
+    own. Over the 401-row operator ERROR+ feed spanning
+    2026-08-20T09:42Z-2026-08-26T00:33Z: three `ib_stop_over_cover` rows (the IB
+    page, firing correctly on ib_paper/MHG) and **ZERO** from Bybit — while the
+    trader's own symbol-scoped read had `bybit_1`/ETHUSDT at 167% over-covered.
+    So the probe finds a positive; Bybit simply never had a page to find.
+
+    ⚠️ THIS IS DELIBERATELY *NOT* `_emit_stop_over_cover_alert(venue="bybit")`.
+    That function's entire hazard argument is IB-specific and would be FALSE
+    here: it warns that one stop firing leaves a disjoint OCA group resting to
+    sell again into a **naked SHORT**, and it routes the operator to
+    `cancel-ib-order` over IB's clientId cancel-rights rule (Error 10147).
+    Bybit has no OCA groups, and every resting Bybit SL leg is `reduceOnly`
+    (measured on all four live `bybit_1` symbols, 2026-08-26) so it CANNOT flip
+    the position. Reusing the IB page would be a semantic substitution: a
+    confident label over a quantity the code did not compute.
+
+    THE BYBIT HAZARD, stated for what it is:
+
+    1. **The 20-leg cap.** Legs pile up until `set_trading_stop` refuses, at
+       which point a genuine protective tightening fails *silently* — the stop
+       the strategy believes it moved never moved. That is the money-at-risk
+       half, and it is why `leg_count` is on the page.
+    2. **A dead trade's leg cutting a live position.** Reduce-only legs owned by
+       CLOSED rows still trigger, so a live position gets cut at a level chosen
+       by a trade that no longer exists.
+
+    LEVEL IS `ERROR`, NOT `CRITICAL`, and that is a judgement worth stating.
+    Both reach Telegram (`outcomes._TELEGRAM_LEVELS` = {ERROR, CRITICAL}), so
+    nothing is lost in delivery. CRITICAL is reserved here for a position that
+    is UNPROTECTED or REVERSED; this one is over-protected and reduce-only.
+    Spending CRITICAL on it is how the channel gets trained away — 202 of 376
+    CRITICAL rows were once a single un-latched alarm
+    (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART), which is the
+    desensitized-alarm P1 this repo names.
+
+    SEVERITY IS THE LEG COUNT, so a WORSENING breaks the 6h cooldown while a
+    steady or improving one does not — the same reasoning as the IB page's
+    group count: it is an integer (cannot flap), it only grows under the
+    producing defect, and it is what moves the symbol toward the cap.
+
+    ⚠️ THE COOLDOWN IS THE SHARED `_cooldown_admits`, NEVER A COPY. Copy-pasting
+    a latch is exactly how the per-PROCESS `time.monotonic()` defect that put
+    202 CRITICALs on the operator's channel would return in the copy.
+
+    Never raises into the sweep.
+    """
+    if not _cooldown_admits(
+        "bybit_over_cover",
+        f"{account_id}|{symbol}",
+        _STOP_OVER_COVER_ALERT_COOLDOWN_S,
+        # Severity tracks the COMBINED count when we have it: that is the
+        # quantity that worsens toward the cap. Falls back to the stop count
+        # rather than to nothing, so an uncountable target side never silences
+        # a worsening.
+        severity=int(protective_leg_count
+                     if protective_leg_count is not None else (leg_count or 0)),
+    ):
+        return False
+    try:
+        from src.runtime.outcomes import Level, report
+
+        pct = (100.0 * float(covered) / float(size)) if size else None
+        # ⚠️ THE CAP IS 20 COMBINED TP+SL LEGS, so the headroom must be computed
+        # from the COMBINED count — never from `leg_count`, which is SL-only.
+        # Fixed 2026-08-26, hours after this page shipped: it reported
+        # "9 of 20 used, 11 left" on bybit_1/ETHUSDT while the venue actually
+        # held 9 SL + 9 TP = 18 of 20, TWO left. A cap-proximity alarm that
+        # overstates headroom by 9 legs is worse than none, because it reads as
+        # a measurement.
+        combined = (int(protective_leg_count)
+                    if protective_leg_count is not None else None)
+        if combined is not None:
+            headroom = _BYBIT_LEG_CAP - combined
+            cap_note = (
+                f" {combined} of Bybit's {_BYBIT_LEG_CAP}-leg COMBINED TP+SL "
+                f"cap are used ({headroom} left; {leg_count} of them are stop "
+                "legs); at the cap `set_trading_stop` refuses (ErrCode 110061) "
+                "and a genuine protective tightening fails SILENTLY."
+            )
+        else:
+            # We could not count the target legs. Say so — do NOT publish a
+            # headroom derived from the stop count alone, which is exactly the
+            # substitution this branch exists to stop.
+            headroom = None
+            cap_note = (
+                f" {leg_count} STOP leg(s) rest; the target legs were not "
+                f"counted, so headroom against Bybit's {_BYBIT_LEG_CAP}-leg "
+                "COMBINED TP+SL cap is UNKNOWN (not large). At the cap "
+                "`set_trading_stop` refuses (ErrCode 110061) and a genuine "
+                "protective tightening fails SILENTLY."
+            )
+        report(
+            "bybit_over_cover",
+            "detected",
+            level=Level.ERROR,
+            reason=(
+                f"{account_id}/{symbol}: position {size} but resting SL legs "
+                f"total {covered}"
+                + (f" ({pct:.0f}%)" if pct is not None else "")
+                + f" across {leg_count} leg(s)." + cap_note
+                + " The legs are reduceOnly, so this is NOT a naked-reverse "
+                "hazard (that is the IB/OCA shape) — the harm is the cap above "
+                "and a leg owned by a CLOSED trade cutting this live position "
+                "at a dead trade's level. Remedy: `cancel-stale-tpsl-legs`, "
+                "DRY-RUN first, and CHECK ITS PLAN AGAINST THE JOURNAL. Its "
+                "selector was ownership-based only from 2026-08-26; before that "
+                "it kept the NEWEST leg by createdTime and would have cancelled "
+                f"the live trade's leg ({_STALE_LEG_SELECTOR_BACKLOG_ID})."
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            size=size,
+            covered_qty=covered,
+            over_cover_pct=pct,
+            # Structured beside the prose so a consumer can branch without
+            # parsing the reason string.
+            sl_leg_count=leg_count,
+            protective_leg_count=combined,
+            leg_cap=_BYBIT_LEG_CAP,
+            # None, never a number, when the targets were not counted — a
+            # fabricated headroom is the whole defect this replaced.
+            leg_cap_headroom=headroom,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception(
+            "_emit_bybit_over_cover_alert: alert failed for %s/%s",
             account_id, symbol,
         )
     return True
@@ -7307,6 +7502,13 @@ def _reassert_from_divergence(
                 "direction": row["direction"],
                 "qty": abs(float(row["position_size"] or 0.0)),
                 "sl": levels["sl"], "tp": levels["tp"],
+                # Same reason as the trailing amend: without this the re-arm's
+                # pre-cancel is SYMBOL-WIDE and can strip a sibling trade's
+                # protective legs on a netted IB contract. This path is inert at
+                # the default PROTECTION_REASSERT_MODE=annotate, which is
+                # exactly why it had to be fixed NOW -- it would have inherited
+                # the defect silently on the flip to `apply`.
+                "oca_key": str(row["id"]),
             })
             call_ok = int((result or {}).get("retCode", 1)) == 0
             rec["result"] = result
@@ -7741,6 +7943,11 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                         size=size,
                         stop_qty=_stop_q,
                         oca_groups=_groups,
+                        # `.get` rather than `[...]`: a coverage dict from a
+                        # client predating these keys must degrade to an
+                        # "unknown" owner, never raise inside a safety page.
+                        group_client_ids=cov.get("oca_group_client_ids"),
+                        reader_client_id=cov.get("reader_client_id"),
                     )
                 else:
                     logger.warning(
@@ -8026,8 +8233,26 @@ def _bybit_position_protection(client, category: str, symbol: str):
     leg_prices: List[float] = []
     leg_ids = set()
     unknown = 0
+    # ⚠️ TWO DIFFERENT QUANTITIES, NEVER COLLAPSED (2026-08-26).
+    # `covered_qty`/`sl_leg_ids` answer a STOP-COVERAGE question and are
+    # deliberately SL-only. `protective_leg_count` answers a CAP-PROXIMITY
+    # question, and Bybit's cap is 20 COMBINED TP+SL legs per symbol — so an
+    # SL-only count over-states the headroom by however many targets rest.
+    #
+    # Measured live the day this was added: bybit_1/ETHUSDT held 9 SL and 9 TP
+    # legs, i.e. 18 of 20 with TWO left, while the over-cover page (which was
+    # fed the SL count) reported "9 of 20 used, 11 left". A safety page whose
+    # whole point is cap proximity understated it by 9 legs.
+    #
+    # This costs NO extra broker call: `orderFilter="StopOrder"` already
+    # returns PartialTakeProfit rows alongside PartialStopLoss, and they were
+    # being discarded by the SL filter below before anything counted them.
+    protective_legs = 0
     for o in legs:
-        if str(o.get("stopOrderType") or "").lower() not in _SL_LEG_TYPES_MON:
+        _kind = str(o.get("stopOrderType") or "").lower()
+        if _kind in _SL_LEG_TYPES_MON or _kind in _TP_LEG_TYPES_MON:
+            protective_legs += 1
+        if _kind not in _SL_LEG_TYPES_MON:
             continue
         oid = o.get("orderId")
         if oid:
@@ -8044,6 +8269,8 @@ def _bybit_position_protection(client, category: str, symbol: str):
         "size": size, "side": side, "covered_qty": covered,
         "source": "partial_sl_legs",
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
+        # Combined TP+SL, for the 20-leg cap only. NOT a coverage figure.
+        "protective_leg_count": protective_legs,
         # A Partial-mode SL leg is a conditional order, so its level is the
         # TRIGGER price, not the limit — the same distinction IB's STP LMT
         # forces. Sorted for a stable read; empty means no leg carried a
@@ -8697,7 +8924,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         # Detect-only anomalies found live by bybit-bracket-audit 2026-07-30:
         # resting legs summing far over the position (accumulation), and open
         # journal qty exceeding the netted exchange size (phantom rows).
-        "over_covered": 0, "journal_qty_divergent": 0,
+        "over_covered": 0, "over_cover_alerted": 0, "journal_qty_divergent": 0,
         "journal_qty_divergent_pairs": 0,
     }
     try:
@@ -8923,12 +9150,28 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         "_check_broker_naked_bybit_positions: LEG OVER-ACCUMULATION "
                         "%s/%s — position size=%s but resting SL legs total %s "
                         "(%.0f%%) across %d leg(s). Legs have piled up; a trip "
-                        "would over-close and strand the rest. Run "
-                        "cancel-stale-tpsl-legs.",
+                        "would over-close and strand the rest. Remedy: "
+                        "cancel-stale-tpsl-legs, DRY-RUN first and check its "
+                        "plan against the journal.",
                         account_id, symbol, size, covered,
                         (100.0 * covered / size) if size else 0.0,
                         len(state["sl_leg_ids"]),
                     )
+                    # ...and PAGE the operator. The logger.error above reaches
+                    # the systemd journal and nothing else, so this condition
+                    # was detected and invisible on every surface a human reads
+                    # (measured: 0 Bybit rows in a 401-row operator ERROR+ feed
+                    # while the IB equivalent fired 3 times in the same feed).
+                    if _emit_bybit_over_cover_alert(
+                        account_id=account_id,
+                        symbol=symbol,
+                        size=size,
+                        covered=covered,
+                        leg_count=len(state["sl_leg_ids"]),
+                        protective_leg_count=state.get("protective_leg_count"),
+                    ):
+                        summary["over_cover_alerted"] = (
+                            summary.get("over_cover_alerted", 0) + 1)
             # An SL leg whose qty we could not parse makes coverage ungradeable.
             # Do NOT re-arm on a guess (a Full-mode re-arm would stamp ONE
             # trade's levels over the whole netted position); surface it instead.

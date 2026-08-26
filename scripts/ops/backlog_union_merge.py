@@ -62,8 +62,25 @@ Ordering: `theirs` is the spine (so their row EDITS survive verbatim), with our
 new rows appended. That is deliberate — we assert we edited nothing, so nothing
 of ours can be overwritten by taking their spine.
 
-`ensure_ascii=False` + `indent=2` matches `backlog_append.py`, so this does not
-reformat the file and re-attribute unrelated rows to the merging PR.
+FORMAT IS DETECTED, NEVER HARDCODED. ⚠️ This block used to read "`ensure_ascii=False`
++ `indent=2` matches `backlog_append.py`, so this does not reformat the file" — and
+that was FALSE in the one way that matters. `backlog_append.py` does not HAVE a
+fixed format; it round-trips the file's own bytes against a candidate list and
+REFUSES when none reproduces them. Hardcoding indent=2 matches only files that
+happen to already be indent=2, and `docs/claude/health-review-backlog.json` is
+**indent=1 with a trailing newline** on `main`.
+
+So this tool reformatted that file on every conflict it resolved, which is exactly
+`BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES` recurring through the one
+door the helper left open — and a conflict resolution is the LIKELIEST moment for
+it, because it is the only time the whole file is re-serialised. Measured on
+PR #10292: **+23,889 / −23,862 on one file**, re-attributing the entire backlog to
+that PR for every diff-scoped guard. It is also the reason the helper cannot undo
+it: once a reformat lands, `detect_format` faithfully reproduces the NEW format on
+every subsequent write.
+
+The reference format comes from `theirs` — the spine, i.e. the branch being merged
+into — so the merge cannot change the format the target branch uses.
 
 Usage (mid-conflict, from the repo root):
     python3 scripts/ops/backlog_union_merge.py            # health-review backlog
@@ -81,6 +98,11 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ops.backlog_append import (  # noqa: E402
+    FormatNotReproducible, detect_format,
+)
 
 DEFAULT_PATH = "docs/claude/health-review-backlog.json"
 
@@ -181,11 +203,16 @@ def union(anc: Any, ours: Any, theirs: Any) -> Tuple[Any, Dict[str, Any]]:
 
 
 def _show(ref: str, path: str) -> Any:
+    return json.loads(_show_raw(ref, path))
+
+
+def _show_raw(ref: str, path: str) -> str:
+    """The file's BYTES at *ref* — the only thing its serialisation is knowable from."""
     r = subprocess.run(["git", "show", f"{ref}:{path}"],
                        capture_output=True, text=True)
     if r.returncode != 0:
         raise UnionRefusal(f"cannot read {path} at {ref}: {r.stderr.strip()[:200]}")
-    return json.loads(r.stdout)
+    return r.stdout
 
 
 def main(argv: List[str]) -> int:
@@ -220,7 +247,20 @@ def main(argv: List[str]) -> int:
     if a.dry_run:
         print(f"DRY RUN — would write {prov['merged']} rows to {a.path}")
         return 0
-    Path(a.path).write_text(json.dumps(doc, indent=2, ensure_ascii=False))
+    # Reproduce the SPINE's serialisation, never a hardcoded one. `theirs` is
+    # the branch being merged into, so its format is the one the target branch
+    # uses; matching it is what keeps the merge diff to the rows that changed.
+    theirs_raw = _show_raw(a.theirs, a.path)
+    try:
+        kw, trailing = detect_format(theirs_raw, json.loads(theirs_raw))
+    except FormatNotReproducible as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        print("Resolving would reformat the whole file and re-attribute every "
+              "pre-existing row to this PR. Resolve by hand.", file=sys.stderr)
+        return 2
+    print(f"FORMAT   reproducing {a.theirs}'s serialisation: "
+          f"{kw} trailing={trailing!r}")
+    Path(a.path).write_text(json.dumps(doc, **kw) + trailing, encoding="utf-8")
     back = _items(json.loads(Path(a.path).read_text()))
     if len(back) != prov["merged"]:
         print(f"REFUSED: read-back {len(back)} != {prov['merged']}", file=sys.stderr)
@@ -311,6 +351,29 @@ def _selftest() -> int:
         d, _ = union(doc([r("A")]), doc([r("A"), r("O", "em—dash")]), doc([r("A")]))
         p.write_text(json.dumps(d, indent=2, ensure_ascii=False))
         ck("writes a real em-dash, not \\u2014", "em—dash" in p.read_text())
+
+    # THE INDENT HAZARD. The em-dash check above plants an indent=2 fixture and
+    # so could NEVER have caught this: a probe that cannot find a positive
+    # proves nothing. `health-review-backlog.json` is indent=1 + trailing
+    # newline on main, and hardcoding indent=2 reformatted all 4.8 MB of it.
+    for kw_in, trailing_in, label in (
+            ({"indent": 1, "ensure_ascii": False}, "\n", "indent=1 + trailing newline"),
+            ({"indent": 2, "ensure_ascii": False}, "", "indent=2 + no trailing newline"),
+            ({"indent": 4, "ensure_ascii": False}, "\n", "indent=4 + trailing newline")):
+        raw = json.dumps(doc([r("A"), r("B")]), **kw_in) + trailing_in
+        kw_out, trailing_out = detect_format(raw, json.loads(raw))
+        rt = json.dumps(json.loads(raw), **kw_out) + trailing_out
+        ck(f"detect_format round-trips {label} byte-for-byte", rt == raw)
+        ck(f"...and does NOT silently emit indent=2 for {label}",
+           kw_out["indent"] == kw_in["indent"])
+
+    # A file whose bytes match NO candidate must be refused, not reformatted.
+    weird = json.dumps(doc([r("A")]), indent=3, ensure_ascii=False) + "\n\n"
+    try:
+        detect_format(weird, json.loads(weird))
+        ck("refuses a serialisation it cannot reproduce", False)
+    except FormatNotReproducible:
+        ck("refuses a serialisation it cannot reproduce", True)
 
     ok = sum(1 for _, c in checks if c)
     for name, c in checks:

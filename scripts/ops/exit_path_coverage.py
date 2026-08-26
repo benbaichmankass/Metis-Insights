@@ -47,16 +47,21 @@ every new declare remains Tier-3.
 Usage
 -----
     python3 scripts/ops/exit_path_coverage.py --journal-json trades.json \
-        --telemetry-json pt.json [--broker-json ib_open_orders.json] [--json]
+        --telemetry-json pt.json [--broker-json ib_open_orders.json] \
+        [--bybit-broker-json bybit.json] [--alpaca-broker-json alpaca.json] [--json]
     python3 scripts/ops/exit_path_coverage.py --self-test
 
 Inputs are diag payloads so this runs from a sandbox with no VM access:
 ``--journal-json``   ``/api/diag/journal?table=trades&limit=1000``
 ``--telemetry-json`` ``/api/diag/position_telemetry?limit=200``
-``--broker-json``    ``/api/diag/ib_open_orders``  (optional; IB accounts only)
+``--broker-json``        ``/api/diag/ib_open_orders``      (optional; IB)
+``--bybit-broker-json``  ``/api/diag/bybit_open_orders``   (optional; Bybit)
+``--alpaca-broker-json`` ``/api/diag/alpaca_open_orders``  (optional; Alpaca)
 
-WITHOUT ``--broker-json`` every broker path grades ``unknown``. That is the
+WITHOUT a broker payload every broker path grades ``unknown``. That is the
 point: this file will not print ``absent`` for something it never asked about.
+The three payloads are INDEPENDENT: supplying one grades that venue and leaves
+the others ``unknown``, which is the honest reading and not a partial failure.
 """
 from __future__ import annotations
 
@@ -244,6 +249,141 @@ def broker_index(payload: Optional[dict]) -> Dict[str, Dict[str, Any]]:
     return out
 
 
+#: read_state values meaning "this payload has nothing to say about this
+#: account" -- NOT a failure, and NOT a reading. They must never displace a real
+#: read of the same account from the other venue's payload, which is the one way
+#: merging two broker payloads can silently destroy evidence.
+_NOT_APPLICABLE_READ_STATES = frozenset({"not_ib", "not_bybit", "not_alpaca"})
+
+
+def bybit_broker_index(payload: Optional[dict]) -> Dict[str, Dict[str, Any]]:
+    """Same shape as :func:`broker_index`, from ``/api/diag/bybit_open_orders``.
+
+    BOTH COLLECTIONS ARE THE PROTECTION, and reading one is reading half. Under
+    ``BYBIT_TPSL_MODE=full`` there is no resting order at all -- the stop lives
+    on the POSITION row as ``stop_loss``/``take_profit``. An indexer that read
+    only ``orders`` would report zero legs for a correctly-protected position
+    and this audit would grade it ``absent``: the inverse of the finding, and
+    worse, because it manufactures an alarm rather than missing one.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    if not payload:
+        return out
+    for acct in payload.get("accounts") or []:
+        aid = acct.get("account_id")
+        if not aid:
+            continue
+        by_sym: Dict[str, Dict[str, bool]] = {}
+        result = acct.get("result") or {}
+        # Full mode: protection on the position row. A symbol with a position
+        # and no levels is recorded with both False -- that is a measured
+        # "unprotected", distinct from the symbol simply not appearing.
+        for pos in result.get("positions") or []:
+            sym = str(pos.get("symbol") or "").upper()
+            if not sym:
+                continue
+            d = by_sym.setdefault(sym, {"stop": False, "target": False})
+            if pos.get("stop_loss") is not None:
+                d["stop"] = True
+            if pos.get("take_profit") is not None:
+                d["target"] = True
+        # Partial mode: qty-scoped resting legs.
+        for o in result.get("orders") or []:
+            sym = str(o.get("symbol") or "").upper()
+            if not sym:
+                continue
+            d = by_sym.setdefault(sym, {"stop": False, "target": False})
+            side = _bybit_leg_side(o)
+            if side:
+                d[side] = True
+        out[aid] = {"read_state": acct.get("read_state"), "by_symbol": by_sym}
+    return out
+
+
+def _bybit_leg_side(order: dict) -> Optional[str]:
+    """``"stop"`` / ``"target"`` / ``None`` for one resting Bybit order.
+
+    ``stopOrderType`` is the venue's OWN classification, so it is read first and
+    the shape of the order is only a fallback. TAKEPROFIT is tested before the
+    stop family deliberately rather than incidentally: it is the IB ``"STP LMT"
+    contains "LMT"`` lesson in the other direction, and stating the order here
+    means a later edit cannot reverse it without noticing.
+
+    ``None`` is a real answer -- an order we cannot classify contributes to
+    NEITHER side, because crediting it to one would manufacture coverage.
+    """
+    sot = str(order.get("stop_order_type") or "").upper().replace("_", "")
+    if "TAKEPROFIT" in sot:
+        return "target"
+    if "STOP" in sot:            # StopLoss, PartialStopLoss, TrailingStop, Stop
+        return "stop"
+    # A resting reduce-only LIMIT under the plain "Order" filter is a take
+    # profit; it carries no stopOrderType and is invisible to the StopOrder
+    # filter entirely.
+    if (str(order.get("order_type") or "").upper() == "LIMIT"
+            and order.get("reduce_only")):
+        return "target"
+    return None
+
+
+def alpaca_broker_index(payload: Optional[dict]) -> Dict[str, Dict[str, Any]]:
+    """Same shape as :func:`broker_index`, from ``/api/diag/alpaca_open_orders``.
+
+    ⚠️ **ALPACA IS NOT BYBIT.** There is no position-level protection on this
+    venue -- ``/v2/positions`` carries no protective level -- so the resting
+    ORDERS are the whole story, and the payload states that via
+    ``position_level_protection_supported: false`` rather than leaving it to be
+    inferred from an absence. Indexing positions here the way the Bybit indexer
+    does would credit coverage that cannot exist.
+
+    Side classification mirrors the IB one, and the ORDER of the tests is
+    load-bearing: Alpaca's ``stop_limit`` type contains ``"limit"``, so a naive
+    limit-first test would file every stop-limit as a take-profit and
+    MANUFACTURE target coverage -- strictly worse than the gap it replaces.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    if not payload:
+        return out
+    for acct in payload.get("accounts") or []:
+        aid = acct.get("account_id")
+        if not aid:
+            continue
+        by_sym: Dict[str, Dict[str, bool]] = {}
+        for o in ((acct.get("result") or {}).get("orders") or []):
+            sym = str(o.get("symbol") or "").upper()
+            if not sym:
+                continue
+            d = by_sym.setdefault(sym, {"stop": False, "target": False})
+            t = str(o.get("order_type") or "").lower()
+            if "stop" in t or "trail" in t:
+                d["stop"] = True
+            elif "limit" in t:
+                d["target"] = True
+        out[aid] = {"read_state": acct.get("read_state"), "by_symbol": by_sym}
+    return out
+
+
+def merge_broker_index(*indexes: Dict[str, Dict[str, Any]]
+                       ) -> Dict[str, Dict[str, Any]]:
+    """Combine per-venue broker indexes without letting a non-read overwrite a read.
+
+    An IB account appears in the Bybit payload as ``not_bybit`` and vice versa.
+    A naive ``dict.update`` would let that sentinel replace the venue's own
+    ``orders_read`` entry and turn a graded account back into ``unknown``, which
+    is the quiet direction of failure. A genuine conflict -- the same account
+    read by BOTH payloads -- is left at whichever entry is already present and
+    is NOT silently resolved; that state means the payloads disagree about what
+    venue an account is, which is a finding rather than a merge question.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    for idx in indexes:
+        for aid, entry in (idx or {}).items():
+            if entry.get("read_state") in _NOT_APPLICABLE_READ_STATES:
+                continue
+            out.setdefault(aid, entry)
+    return out
+
+
 def _broker_paths(trade: dict, bidx: Dict[str, Dict[str, Any]],
                   broker_supplied: bool) -> Tuple[str, str, str]:
     """(stop_state, target_state, basis)."""
@@ -252,7 +392,8 @@ def _broker_paths(trade: dict, bidx: Dict[str, Dict[str, Any]],
         return UNKNOWN, UNKNOWN, "no_broker_payload"
     acct = bidx.get(aid)
     if acct is None:
-        # The payload covered IB accounts; a bybit/alpaca row is simply not in it.
+        # No supplied payload carried this account -- an alpaca row always,
+        # and an IB/Bybit row when that venue's payload was not supplied.
         return UNKNOWN, UNKNOWN, "account_not_in_payload"
     if acct.get("read_state") != "orders_read":
         return UNKNOWN, UNKNOWN, f"read_state:{acct.get('read_state')}"
@@ -486,9 +627,18 @@ def _cause_rollup(rows: List[Dict[str, Any]]) -> Dict[str, List[str]]:
 def _broker_rollup(rows: List[Dict[str, Any]]) -> Dict[str, int]:
     """How many open trades have UNOBSERVABLE broker-bracket state, and why.
 
-    `/api/diag/ib_open_orders` is IB-only, so a bybit or alpaca position's
-    resting brackets cannot be read from any diag surface — `not_ib` here is
-    not a clean negative, it is a missing read surface.
+    A basis here is NOT a clean negative -- it says the state was never read.
+
+    ⚠️ THIS DOCSTRING PREVIOUSLY ASSERTED that a bybit position's resting
+    brackets "cannot be read from any diag surface". That became FALSE on
+    2026-08-22 when `/api/diag/bybit_open_orders` shipped, and this tool went on
+    grading every bybit row unreadable for three days because the CONSUMER was
+    never told -- the route existed and the one audit that reports the gap it
+    closes still reported the gap. All three venues now have a route
+    (`ib_open_orders`, `bybit_open_orders`, `alpaca_open_orders`); supply the
+    matching payload and those rows grade. A basis of `account_not_in_payload`
+    therefore now means a payload was NOT SUPPLIED -- a different fact from the
+    surface not existing, and it must not be read as the latter.
     """
     out: Dict[str, int] = {}
     for r in rows:
@@ -498,16 +648,27 @@ def _broker_rollup(rows: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def audit(journal: Any, telemetry_payload: Any,
-          broker_payload: Optional[dict]) -> Dict[str, Any]:
+          broker_payload: Optional[dict],
+          bybit_broker_payload: Optional[dict] = None,
+          alpaca_broker_payload: Optional[dict] = None) -> Dict[str, Any]:
     units, cfg, reach = load_units(), load_cfg(), load_reachability()
     unit_of, builders_src = _resolver()
     tel_rows = (telemetry_payload or {}).get("rows") or []
     telemetry = {str(r["trade_id"]): r for r in tel_rows
                  if r.get("trade_id") is not None}
-    bidx = broker_index(broker_payload)
+    bidx = merge_broker_index(broker_index(broker_payload),
+                              bybit_broker_index(bybit_broker_payload),
+                              alpaca_broker_index(alpaca_broker_payload))
+    # `broker_supplied` stays a single flag deliberately: it gates whether ANY
+    # broker payload was offered at all, and an account absent from the ones
+    # that were offered already grades `account_not_in_payload`, which names
+    # the reason. Splitting it per venue would let a row read "supplied" for a
+    # venue whose payload was never passed.
+    supplied = any(p is not None for p in
+                   (broker_payload, bybit_broker_payload, alpaca_broker_payload))
     rows = [assess_trade(t, units=units, cfg=cfg, reach=reach,
                          telemetry=telemetry, bidx=bidx,
-                         broker_supplied=broker_payload is not None,
+                         broker_supplied=supplied,
                          unit_of=unit_of, builders_src=builders_src)
             for t in _open_rows(journal)]
     by_verdict: Dict[str, int] = {v: 0 for v in VERDICTS}
@@ -521,7 +682,10 @@ def audit(journal: Any, telemetry_payload: Any,
             "telemetry_present": sum(1 for r in rows if r["telemetry"]["present"]),
             "sentinel_peak_rows": [r["trade_id"] for r in rows
                                    if r["telemetry"].get("sentinel_peak")],
-            "broker_supplied": broker_payload is not None,
+            "broker_supplied": supplied,
+            "broker_payloads": {"ib": broker_payload is not None,
+                                "bybit": bybit_broker_payload is not None,
+                                "alpaca": alpaca_broker_payload is not None},
             "price_only_trades": [r["trade_id"] for r in rows
                                   if r["verdict"] == "price_only"],
             "no_exit_path_trades": [r["trade_id"] for r in rows
@@ -575,6 +739,66 @@ def _self_test() -> int:
          _broker_paths({"account_id": "a", "symbol": "X"},
                        {"a": {"read_state": "could_not_look", "by_symbol": {}}},
                        True)[:2] == (UNKNOWN, UNKNOWN)),
+        # --- bybit half (BL-20260818): Full mode has NO resting order, so an
+        # orders-only indexer would grade a protected position `absent`.
+        ("positive: bybit FULL-mode position-level levels ARE protection",
+         bybit_broker_index({"accounts": [{"account_id": "b",
+             "read_state": "orders_read",
+             "result": {"positions": [{"symbol": "SOLUSDT", "stop_loss": 1.0,
+                                       "take_profit": 2.0}], "orders": []}}]}
+         )["b"]["by_symbol"]["SOLUSDT"] == {"stop": True, "target": True}),
+        ("positive: a bybit position with NO levels is measured unprotected, "
+         "not merely absent from the index",
+         bybit_broker_index({"accounts": [{"account_id": "b",
+             "read_state": "orders_read",
+             "result": {"positions": [{"symbol": "SOLUSDT", "stop_loss": None,
+                                       "take_profit": None}], "orders": []}}]}
+         )["b"]["by_symbol"]["SOLUSDT"] == {"stop": False, "target": False}),
+        ("negative: PartialTakeProfit is a target, never a stop "
+         "(it contains no 'STOP' -- but the order of the tests is stated, "
+         "not incidental)",
+         _bybit_leg_side({"stop_order_type": "PartialTakeProfit"}) == "target"),
+        ("positive: PartialStopLoss and TrailingStop are both stops",
+         _bybit_leg_side({"stop_order_type": "PartialStopLoss"}) == "stop"
+         and _bybit_leg_side({"stop_order_type": "TrailingStop"}) == "stop"),
+        ("positive: a reduce-only LIMIT with no stopOrderType is a target "
+         "(invisible to the StopOrder filter entirely)",
+         _bybit_leg_side({"order_type": "Limit", "reduce_only": True})
+         == "target"),
+        ("negative: an unclassifiable leg credits NEITHER side",
+         _bybit_leg_side({"order_type": "Limit", "reduce_only": False})
+         is None),
+        # --- merge: the one way combining two payloads destroys evidence.
+        ("negative: a not_bybit sentinel cannot overwrite a real IB read",
+         merge_broker_index(
+             {"ib_paper": {"read_state": "orders_read",
+                           "by_symbol": {"MGC": {"stop": True, "target": True}}}},
+             {"ib_paper": {"read_state": "not_bybit", "by_symbol": {}}},
+         )["ib_paper"]["read_state"] == "orders_read"),
+        ("negative: a not_ib sentinel cannot overwrite a real bybit read",
+         merge_broker_index(
+             {"bybit_2": {"read_state": "not_ib", "by_symbol": {}}},
+             {"bybit_2": {"read_state": "orders_read", "by_symbol": {}}},
+         )["bybit_2"]["read_state"] == "orders_read"),
+        ("positive: a bybit account graded by the bybit payload is no longer "
+         "account_not_in_payload",
+         _broker_paths(
+             {"account_id": "bybit_2", "symbol": "SOLUSDT"},
+             merge_broker_index(
+                 {"bybit_2": {"read_state": "not_ib", "by_symbol": {}}},
+                 bybit_broker_index({"accounts": [{"account_id": "bybit_2",
+                     "read_state": "orders_read",
+                     "result": {"positions": [{"symbol": "SOLUSDT",
+                                               "stop_loss": 1.0,
+                                               "take_profit": None}],
+                                "orders": []}}]})),
+             True) == (LIVE, ABSENT, "orders_read")),
+        ("negative: supplying only the bybit payload leaves an IB row unknown, "
+         "never absent",
+         _broker_paths({"account_id": "ib_paper", "symbol": "MGC"},
+                       bybit_broker_index({"accounts": [{"account_id": "bybit_2",
+                           "read_state": "orders_read", "result": {}}]}),
+                       True)[:2] == (UNKNOWN, UNKNOWN)),
     ]
     ok = 0
     for label, passed in checks:
@@ -587,11 +811,26 @@ def _self_test() -> int:
 _G = {LIVE: "LIVE", ABSENT: "—", UNKNOWN: "?", NA: "n/a"}
 
 
+def _payloads_label(summary: Dict[str, Any]) -> str:
+    """Name WHICH venue payloads were supplied, never just "yes".
+
+    A bare "yes" over an IB-only payload is what let every bybit row read as
+    unobservable while looking like the broker side had been checked.
+    """
+    have = summary.get("broker_payloads") or {}
+    got = [k for k, v in sorted(have.items()) if v]
+    if not got:
+        return "NONE (every broker path unknown)"
+    missing = [k for k, v in sorted(have.items()) if not v]
+    tail = f"; {'/'.join(missing)} NOT supplied" if missing else ""
+    return "/".join(got) + tail
+
+
 def _render(res: Dict[str, Any]) -> None:
     s = res["summary"]
     print(f"\nOpen non-backtest trades: {res['open_trades']}   "
           f"telemetry rows matched: {s['telemetry_present']}   "
-          f"broker payload: {'yes' if s['broker_supplied'] else 'NO (broker paths unknown)'}")
+          f"broker payloads: {_payloads_label(s)}")
     print("\nverdicts: " + "  ".join(
         f"{k}={v}" for k, v in s["by_verdict"].items()))
     hdr = (f"\n{'trade':>6} {'strategy':22} {'symbol':10} {'bStop':>5} {'bTgt':>5} "
@@ -658,7 +897,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--journal-json")
     ap.add_argument("--telemetry-json")
-    ap.add_argument("--broker-json")
+    ap.add_argument("--broker-json", help="/api/diag/ib_open_orders payload")
+    ap.add_argument("--bybit-broker-json",
+                    help="/api/diag/bybit_open_orders payload")
+    ap.add_argument("--alpaca-broker-json",
+                    help="/api/diag/alpaca_open_orders payload")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--fail-on-price-only", action="store_true",
@@ -672,7 +915,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     def _load(p):
         return json.loads(Path(p).read_text()) if p else None
     res = audit(_load(a.journal_json), _load(a.telemetry_json) or {},
-                _load(a.broker_json))
+                _load(a.broker_json), _load(a.bybit_broker_json),
+                _load(a.alpaca_broker_json))
     if a.json:
         print(json.dumps(res, indent=2))
     else:
