@@ -1,7 +1,7 @@
 {
  "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
  "schema_version": 1,
- "updated_at": "2026-08-25T21:30:00+00:00",
+ "updated_at": "2026-08-25T21:40:00+00:00",
  "generated_at": "2026-08-18T09:35:00+00:00",
  "items": [
   {
@@ -24351,6 +24351,20 @@
    "refs": [
     "BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING"
    ]
+  },
+  {
+   "id": "BL-20260825-ROADMAP-LAST-UPDATED-LAGS-ITS-OWN-LEDGER-ROWS",
+   "opened_at": "2026-08-25T21:40:00+00:00",
+   "severity": "low",
+   "tier": "1 (doc drift)",
+   "status": "open",
+   "area": "docs/roadmap",
+   "title": "ROADMAP.md 'Last Updated' reads 2026-08-23 while four 2026-08-25 ledger rows sit below it",
+   "detail": "MEASURED 2026-08-25 during a doc-freshness sweep: ROADMAP.md line 9 declares 'Last Updated: 2026-08-23' while `grep -c '^> - 2026-08-25'` returns 4. At least three separate sessions added a 2026-08-25 ledger row and none advanced the field. It is LOW because the ledger rows themselves are dated and are the real record, so nothing is lost — but the field is the first thing a reader sees and it understates the roadmap's currency by two days, which is the wrong direction for a doc whose job is to be the centralized record. NOT fixed unilaterally: the field carries a HEADLINE summary, not just a date, so advancing it means choosing which of four sessions' work is the headline — a content decision that belongs to whoever is summarising, not to a passing sweep. Three sessions apparently made the same judgement, which is itself the signal that the field's update rule is unclear.",
+   "evidence": "ROADMAP.md:9 'Last Updated: 2026-08-23'; four rows matching '^> - 2026-08-25' (Lane 0 decisions, Lane 0 continuation, diag-token gate, operator-owed register).",
+   "resolution_criteria": "Either (a) state the update rule where an editor will see it — whether 'Last Updated' tracks the newest ledger row automatically or is a deliberately-curated headline that may lag — and if the former, add it to the canonical-doc-coherence checks so it cannot drift silently; or (b) decide it may lag and say so in the field itself, so a reader does not mistake it for the roadmap's currency. Closing this needs the rule written down, not just one date bumped.",
+   "found_by": "session_017etXEZ, doc-freshness sweep at session close",
+   "refs": []
   }
  ]
 }
