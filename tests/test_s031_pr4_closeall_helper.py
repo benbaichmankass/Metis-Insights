@@ -197,13 +197,27 @@ class TestDispatchThroughExecutePkg:
         # Spy on the canonical close helper.
         captured = {}
 
-        def fake_close_open_position(client, account_cfg, *, symbol, side, qty):
+        # A SENTINEL default, not None. `=None` populates `captured` whether or
+        # not the caller passed the kwarg, so `"sl_order_id" in captured` is
+        # true either way — an assertion that cannot fail. Caught by
+        # break-testing this very test against the reverted fix: it passed.
+        unset = object()
+
+        def fake_close_open_position(client, account_cfg, *, symbol, side, qty,
+                                     sl_order_id=unset, tp_order_id=unset):
             captured["called"] = True
             captured["client"] = client
             captured["account_id"] = account_cfg.get("account_id")
             captured["symbol"] = symbol
             captured["side"] = side
             captured["qty"] = qty
+            # BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES:
+            # captured (not just tolerated) so this stays COVERAGE. A fake that
+            # merely accepted the kwargs would go green whether or not the
+            # caller passes them, which is how the leg leak survived a green
+            # suite for five weeks.
+            captured["sl_order_id"] = sl_order_id
+            captured["tp_order_id"] = tp_order_id
             return {
                 "ok": True, "exchange_response": {"retCode": 0},
                 "exchange_order_id": "order-abc", "error": None,
@@ -222,6 +236,20 @@ class TestDispatchThroughExecutePkg:
         assert captured["account_id"] == "bybit_2"
         assert captured["symbol"] == "BTCUSDT"
         assert captured["side"] == "long"
+        # This is a FULL close (qty IS the row's position_size), so the trade's
+        # own qty-scoped Bybit legs have nothing left to protect afterwards and
+        # must be cancelled — otherwise they keep resting against the netted
+        # position. Measured consequence of NOT doing this, on the sibling pairs
+        # path: bybit_1/ETHUSDT carried 9.33 of stop against a 5.59 position
+        # (167%), 12 of the resting legs belonging to six already-closed rows.
+        assert captured.get("sl_order_id", unset) is not unset, (
+            "the caller no longer passes the tracked stop-leg id; a full close "
+            "that leaves it resting is the leg-accumulation defect"
+        )
+        assert captured.get("tp_order_id", unset) is not unset, (
+            "passing only the stop leg strands the take-profit — the same leak, "
+            "half the size"
+        )
         assert captured["qty"] == 0.005
         # Bot's render layer expects ok + order_id.
         assert len(rows) == 1
