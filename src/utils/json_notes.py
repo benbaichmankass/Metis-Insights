@@ -36,9 +36,29 @@ from typing import Any, Iterable
 # Keys whose value we never trim or drop — consumers read these verbatim
 # (e.g. closed_flat_invariant + trades_closed extract `closed_at`). Trimming
 # them would defeat the whole point of preferring a valid, useful blob.
+#
+# ⚠️ EVERY PROVENANCE MARKER BELONGS HERE, AND `exit_reason_source` DID NOT
+# (added 2026-08-26, BL-20260826-EXIT-REASON-SOURCE-TRUNCATED-BY-THE-NOTES-CAP).
+# A provenance marker is a SENTINEL: a consumer compares it for equality against
+# a fixed vocabulary, so a trimmed value is not a shorter answer — it is an
+# unreadable third state that matches nothing. `_shrink_dict` picks the longest
+# *unprotected* string, and `price_vs_pkg_bracket` (20 chars) is routinely the
+# longest thing left on a `trades.notes` blob once `signal_logic` has been shed.
+# Its two siblings `pnl_source` and `exit_price_source` were protected from the
+# start; this one was added later (2026-08-23/25) and nobody extended the set.
+#
+# Measured on the live journal 2026-08-26 — population: the 25 `trades` rows
+# whose notes carry a RESOLVED `exit_reason_source` — **2 (8.0%) stored
+# `"price_vs_p…"`** (trades 4961 `bybit_1`/AVAXUSDT and 4978
+# `bybit_portfolio`/BTCUSDT, both also carrying `_truncated: true`). That value
+# equals neither `price_vs_pkg_bracket` nor `unresolved`, so a reader testing
+# for the former counts the row as never-classified and one testing `is None`
+# counts it as classified-but-unknown. Both readings are wrong, and the ABSENCE
+# of this key is load-bearing evidence elsewhere (the 562/589 never-reached-the-
+# classifier signature), so corrupting it corrupts that denominator too.
 _DEFAULT_PROTECTED: tuple[str, ...] = (
     "closed_at", "closed_by", "closed_reason", "pnl_source",
-    "exit_price_source", "trade_id",
+    "exit_price_source", "exit_reason_source", "trade_id",
 )
 _ELLIPSIS = "…"
 # Hard stop on the trim loop so a pathological payload can never spin.

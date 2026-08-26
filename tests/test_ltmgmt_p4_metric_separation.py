@@ -175,9 +175,24 @@ def test_stats_missing_db_zeroes_both_blocks(client: TestClient, isolated_db: Pa
     body = client.get("/api/bot/stats").json()
     assert body["openTrades"] == 0
     assert body["paperOpenTrades"] == 0
-    assert body["paper"] == {
-        "pnl24h": 0, "totalPnL": 0, "openTrades": 0, "winRate": 0,
-    }
+    # The P4 invariant this test exists for: the paper block's own money
+    # figures, never blended with the real-money ones. Asserted key-by-key
+    # rather than by whole-dict equality so an ADDITIVE field cannot fail it
+    # — but still exactly, so a real blend would.
+    paper = body["paper"]
+    assert (paper["pnl24h"], paper["totalPnL"],
+            paper["openTrades"], paper["winRate"]) == (0, 0, 0, 0)
+    # GATE 0 / G3: a MISSING DB file is "no trades yet on a fresh install"
+    # (`_pnl_stats_for` returns zeros for exactly this case), so the counts are
+    # real zeros — NOT the all-None "we could not look" shape. A coverage ratio
+    # over an empty population does not exist, so it is None in both; the
+    # counts are what tell the two states apart.
+    assert paper["pnlMeasuredCount"] == 0
+    assert paper["pnlEstimatedCount"] == 0
+    assert paper["totalPnLMeasured"] == 0.0
+    assert paper["pnlCoverage"] is None
+    # …and the same block rides the real-money top level, never merged into it.
+    assert body["pnlMeasuredCount"] == 0 and body["pnlCoverage"] is None
 
 
 def test_stats_broken_schema_still_503(client: TestClient, isolated_db: Path):

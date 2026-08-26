@@ -14,7 +14,11 @@ import json
 
 import pytest
 
-from src.utils.json_notes import dump_capped, sanitize_nonfinite
+from src.utils.json_notes import (
+    _DEFAULT_PROTECTED,
+    dump_capped,
+    sanitize_nonfinite,
+)
 
 
 def test_short_payload_passthrough():
@@ -164,3 +168,80 @@ def test_sanitize_nonfinite_is_noop_on_finite_data():
     assert sanitize_nonfinite(obj) == obj
     # And the serialization is byte-identical to a plain dumps (passthrough).
     assert dump_capped(obj, 2000) == json.dumps(obj, ensure_ascii=False, default=str)
+
+
+# ── Provenance markers are SENTINELS and must never be trimmed ───────────────
+# BL-20260826-EXIT-REASON-SOURCE-TRUNCATED-BY-THE-NOTES-CAP.
+
+#: The `trades.notes` payload of live row 4961 (`bybit_1`/AVAXUSDT, closed
+#: 2026-08-23), reconstructed pre-truncation: every key and every non-trimmed
+#: value is verbatim from the stored blob, with `signal_logic` and
+#: `entry_exec_time` restored to a plausible full length. Encoded at the
+#: production cap of 500 this reproduces the stored corruption EXACTLY —
+#: `"price_vs_p…"` — rather than approximating it.
+_LIVE_4961_NOTES = {
+    "trade_id": "bc68b4c5-a635-402c-932f-cb65ff3046dd",
+    "is_dry": False,
+    "confidence": 0.7,
+    "signal_logic": (
+        "ict_scalp_5m: sweep of 2026-08-23T00:45 low then FVG "
+        "displacement long; killzone=london; bias=bullish; " * 4
+    ),
+    "closed_at": "2026-08-23T02:54:47.981860+00:00",
+    "entry_exec_time": "2026-08-23T01:08:11.402913+00:00",
+    "closed_by": "monitor_reconciler",
+    "closed_reason": "reconciler — Bybit reports order filled and position flat",
+    "exit_price_source": "recorded_exit_price",
+    "close_exec_type": "Trade",
+    "exit_reason_source": "price_vs_pkg_bracket",
+    "pnl_source": "local_compute",
+    "contract_value_usd": 1.0,
+}
+
+
+def test_exit_reason_source_survives_the_real_live_payload():
+    """A trimmed provenance marker is an unreadable third state, not a shorter
+    answer — it matches neither the resolved sentinel nor ``unresolved``.
+
+    Uses the DEFAULT protected set deliberately (no ``protected=`` kwarg), so
+    this asserts the shipped behaviour and fails if the key is dropped again.
+    """
+    parsed = json.loads(dump_capped(_LIVE_4961_NOTES, 500))
+    # The payload really was cut — otherwise the assertion below is vacuous.
+    assert parsed["_truncated"] is True
+    # The cut reached deep into the payload: the longest unprotected string
+    # is down from ~420 chars to a stub, i.e. the trimmer was working hard
+    # enough that the 20-char marker was the next thing it would have taken.
+    assert len(parsed["signal_logic"]) < 20, parsed["signal_logic"]
+    # …and the marker is still readable by an equality test.
+    assert parsed["exit_reason_source"] == "price_vs_pkg_bracket"
+    # Its two siblings, protected since the beginning, are the positive control.
+    assert parsed["exit_price_source"] == "recorded_exit_price"
+    assert parsed["pnl_source"] == "local_compute"
+
+
+def test_unprotecting_the_marker_reproduces_the_stored_corruption():
+    """The negative control: with the pre-fix protected set, this same payload
+    yields the exact string found on live rows 4961 and 4978. Without it, the
+    test above could pass for reasons unrelated to the fix.
+    """
+    pre_fix = (
+        "closed_at", "closed_by", "closed_reason", "pnl_source",
+        "exit_price_source", "trade_id",
+    )
+    parsed = json.loads(
+        dump_capped(_LIVE_4961_NOTES, 500, protected=pre_fix)
+    )
+    assert parsed["exit_reason_source"] == "price_vs_p\u2026"
+    # It matches NEITHER member of the vocabulary — the point of the finding.
+    assert parsed["exit_reason_source"] not in (
+        "price_vs_pkg_bracket", "price_vs_pkg_bracket_est_price", "unresolved",
+    )
+
+
+def test_every_provenance_marker_is_protected():
+    """Guard the SET, not one member. ``exit_reason_source`` was missing for
+    three days because the set is extended by hand and this did not exist.
+    """
+    for key in ("pnl_source", "exit_price_source", "exit_reason_source"):
+        assert key in _DEFAULT_PROTECTED, f"{key} must never be trimmed"

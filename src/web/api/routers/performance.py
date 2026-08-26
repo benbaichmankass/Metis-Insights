@@ -42,7 +42,13 @@ Wire shape (camelCase):
       "perExitPath": [                  # worst coverage FIRST, not best PnL
         {"exitPath": "pairs_stop", "trades": 40, "wins": 12, "winRate": 30.0,
          "totalPnl": -80.1, "totalPnlMeasured": 0.0,
-         "pnlMeasuredCount": 0, "pnlEstimatedCount": 0, "pnlCoverage": 0.0}
+         "pnlMeasuredCount": 0, "pnlEstimatedCount": 0, "pnlCoverage": 0.0,
+         # Is the bucket KEY itself evidence? Counts, never a ratio — an
+         # AUTHORED path (pairs_*, sl_cross, ...) never reaches the exit
+         # classifier, so ~100% unattested is CORRECT there. The number that
+         # matters sits on `reconciler_filled`.
+         "labelAttestedCount": 0, "labelRefusedCount": 0,
+         "labelUnresolvedCount": 0, "labelUnattestedCount": 40}
       ],
       "equity": [{"t": "2026-05-22T09:01:00+00:00", "cum": 12.5}]  # oldest→newest
     }
@@ -74,11 +80,18 @@ from src.web.api._clean_trades import (
 from src.web.api._closed_at import close_time_sql
 from src.runtime.broker_truth import journal_trust_for, journal_trust_map
 from src.runtime.provenance import (
+    # The "no value present" sentinel `classify_row` returns as its raw half.
+    # Imported rather than re-spelled: a second copy of "(none)" here would be
+    # free to drift from the producer's, and this comparison is what separates
+    # "the classifier never ran" from "it ran and declined".
+    _ABSENT_RAW as _ABSENT_LABEL_SOURCE,
     ESTIMATED,
+    EXIT_LABEL_REFUSED_UNMEASURED,
     FABRICATED,
     MEASURED,
     UNVERIFIED,
     classify_pnl,
+    classify_row,
     coverage,
 )
 
@@ -396,9 +409,47 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         ebucket = per_exit.setdefault(
             exit_path,
             {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
-             "pnl_measured": 0.0, "pnl_estimated": 0.0},
+             "pnl_measured": 0.0, "pnl_estimated": 0.0,
+             "label_attested": 0.0, "label_refused": 0.0,
+             "label_unresolved": 0.0, "label_unattested": 0.0},
         )
         ebucket["trades"] += 1
+        # LABEL attestation — is this row's membership of THIS BUCKET evidence,
+        # or a default? (GATE 0 / G1.) `pnlCoverage` beside it grades the row's
+        # MONEY; this grades the row's BUCKET KEY, and the two are independent:
+        # a row can carry broker-truth pnl and still sit under a label nothing
+        # ever checked. `exit_reason` is the bucket key here, and it is exactly
+        # the field BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE shows
+        # wrong for the majority of the rows it is applied to: the no-record
+        # close path hard-codes `reconciler_filled` before any price exists, and
+        # until #10262 nothing re-ran the classifier when the price arrived.
+        #
+        # FOUR STATES, NEVER COLLAPSED — `attested` (the classifier ran and
+        # resolved) · `refused` (it ran and DECLINED, because the price it would
+        # have compared was FABRICATED) · `unresolved` (it ran and the price sat
+        # mid-bracket — a genuine non-bracket close) · `unattested` (it never
+        # ran). Folding `refused` or `unresolved` into `unattested` would erase
+        # the distinction between "we looked" and "we did not", which is the
+        # absence semantics the whole defect class was found through.
+        #
+        # ⚠️ NO RATIO IS PUBLISHED, DELIBERATELY. A `labelCoverage` would imply
+        # one denominator for every path, and there is not one: `sl_cross`,
+        # `pairs_stop` and friends are AUTHORED by the producer that closed the
+        # trade and never pass through `_classify_broker_exit` at all, so
+        # `unattested` is the CORRECT state there, not a gap. Only the
+        # reconciler-derived buckets ("", `reconciler_filled`) are ones the
+        # classifier was ever meant to reach. Publishing a rate would re-commit
+        # the exact error this block exists to expose — reading a number off a
+        # population it does not describe.
+        _label_src = str(classify_row(r, "exit_reason_source")[1] or "")
+        if not _label_src or _label_src == _ABSENT_LABEL_SOURCE:
+            ebucket["label_unattested"] += 1
+        elif _label_src == EXIT_LABEL_REFUSED_UNMEASURED:
+            ebucket["label_refused"] += 1
+        elif _label_src == "unresolved":
+            ebucket["label_unresolved"] += 1
+        else:
+            ebucket["label_attested"] += 1
         if pnl > 0:
             ebucket["wins"] += 1
         ebucket["pnl"] += pnl
@@ -523,6 +574,23 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "pnlCoverage": (
                 round(b["pnl_measured"] / b["trades"], 4) if b["trades"] else None
             ),
+            # ── Is this bucket's own KEY evidence? (GATE 0 / G1) ────────────
+            # Counts, never a ratio — see the long note at the tally site. The
+            # four sum to `trades` by construction, so a reader can check the
+            # partition rather than take it on faith.
+            #
+            # ⚠️ `labelUnattestedCount` is NOT a defect on an AUTHORED path.
+            # `sl_cross`, `tp_cross`, `pairs_*`, `netting_attributed` and the
+            # rest are written by the producer that closed the trade and never
+            # reach `_classify_broker_exit`, so they are expected to be ~100%
+            # unattested and that is correct. It IS the defect population on
+            # the reconciler-derived buckets — `reconciler_filled` and the
+            # empty label — which is where a fired bracket gets filed as
+            # cleanup machinery, dragging this breakdown's premise with it.
+            "labelAttestedCount": int(b["label_attested"]),
+            "labelRefusedCount": int(b["label_refused"]),
+            "labelUnresolvedCount": int(b["label_unresolved"]),
+            "labelUnattestedCount": int(b["label_unattested"]),
         }
         for path, b in per_exit.items()
     ]

@@ -51,13 +51,23 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sqlite3
 import sys
+from pathlib import Path
 from collections import Counter
 from typing import Any, Dict, Optional, Tuple
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# ``parents[2]`` — scripts/ops/<file> -> repo root. It walked only TWO levels
+# (landing on ``scripts/``) from the day this shipped, so ``import src`` raised
+# ModuleNotFoundError and the script could not run AT ALL: not from the repo
+# root, not from the Tier-2 wrapper, which invokes it by absolute path with no
+# PYTHONPATH and no cd. Every sibling backfill in this directory uses
+# ``parents[2]``; this was the only one that did not. The wrapper runs
+# ``--self-test`` as a precondition and aborts on a non-zero exit, so the action
+# was fail-SAFE — it could never half-apply — but it was also inert, which is
+# why 0 rows on the live journal carried ``pre_backfill_exit_reason`` three days
+# after the tool merged. BL-20260826-BACKFILL-EXIT-LABELS-CANNOT-IMPORT-SRC.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.runtime import provenance as prov  # noqa: E402
 
