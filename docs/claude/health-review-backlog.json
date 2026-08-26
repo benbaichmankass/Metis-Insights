@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-26T04:40:00Z",
+  "updated_at": "2026-08-26T04:55:00Z",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -24893,6 +24893,22 @@
       "resolution_criteria": "Either (a) state the update rule where an editor will see it — whether 'Last Updated' tracks the newest ledger row automatically or is a deliberately-curated headline that may lag — and if the former, add it to the canonical-doc-coherence checks so it cannot drift silently; or (b) decide it may lag and say so in the field itself, so a reader does not mistake it for the roadmap's currency. Closing this needs the rule written down, not just one date bumped.",
       "found_by": "session_017etXEZ, doc-freshness sweep at session close",
       "refs": []
+    },
+    {
+      "id": "BL-20260826-A-LEGACY-NAMED-STRAY-GROUP-OWNED-BY-THE-TRADER-IS-UNREACHABLE-BY-BOTH-REPAIRS",
+      "opened_at": "2026-08-26T04:55:00Z",
+      "severity": "high",
+      "tier": 2,
+      "status": "open",
+      "title": "A stray legacy-named OCA group owned by the trader's OWN live clientId can be cleared by neither repair path",
+      "detail": "Measured live 2026-08-26 on ib_paper/MHG (issue #10315). Trade 4796 is 29 long and carries TWO resting 29-lot groups - oca-protect-t4796 (STP 486 @ 6.3525, matching the journal's declared 6.35257143) and oca-protect-465 (STP 466 @ 6.312, superseded when the stop trailed up). 58 lots of stop against a 29 position, confirmed from a FRESH client, not the stale diag route. NEITHER repair reaches the stray group, and the two blockers are independent: (1) the trader's own re-arm cannot. place_protective is reached with oca_key=trade_id so it cancels `oca-protect-t<id>`, which does not match a legacy `oca-protect-<reqId>` name - the mismatch is already documented in order_monitor.py's target-naked branch, which cites BL-20260816-NO-PER-ORDER-IB-CANCEL as the repair that would close it. (2) that repair landed as the cancel-ib-order action, and it REFUSES here: order 466's owning clientId is 497, inside the trader's execution band (<9000), because connecting as it would evict the trader's live IB session. The refusal is correct - the point is that it leaves no path. So the class the 2026-08-16 comment expected cancel-ib-order to close is closed only for legs owned by a RETIRED clientId. Order 447 in oca-protect-446 was owned by 597 and was cleared today; 466 is owned by the live 497 and cannot be. WHY IT MATTERS: OCA cancels only WITHIN a group, so if one group's stop fires and flattens the position, the other group's 29-lot stop is still resting and can fill into a naked SHORT. That is the same hazard BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS names, now with a demonstrated instance that no existing tool can remediate. NOT ESTABLISHED: how the stray group arises. The keyed naming shipped recently and t4796 proves it is exercised, so 465 may simply pre-date it - in which case this is a finite backlog, not a generator. Do not assume either without measuring how many legacy-named groups still rest and whether any NEW one appears after the keyed path deployed.",
+      "evidence": [
+        "issue #10315 - fresh-client dry run, orders_on_account 8, order 466 found, oca_group 'oca-protect-465', client_id 497.0, action 'refused' with both blockers named",
+        "src/runtime/order_monitor.py target-naked branch - the comment documenting that place_protective's keyed cancel cannot match a legacy `oca-protect-<reqId>` group",
+        "src/units/accounts/ib_client.py:1750 - `oca-protect-t{oca_key}` keyed form vs :1862 `oca-protect-{reqId}` legacy form",
+        "issue #10313 - the same fresh-client read showing 8 orders on the account (2 MES + 2 MGC + 4 MHG)"
+      ],
+      "resolution_criteria": "First MEASURE the population: how many legacy-named `oca-protect-<reqId>` groups still rest across ib_paper, and whether any appeared AFTER the keyed path deployed - that decides whether this is a finite cleanup or an ongoing generator, and the two want different fixes. Then a stray group owned by the trader's own live clientId has SOME reachable path: either the trader cancels by resolved oca_group name rather than only the keyed one, or the repair runs in a maintenance window with the trader stopped, or cancel-ib-order gains a route that does not require assuming the owning id. Ends when ib_paper/MHG holds exactly ONE protective group for trade 4796, verified from a fresh client."
     }
   ]
 }
