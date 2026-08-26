@@ -199,6 +199,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The registers only work if their contents reach a session BEFORE it
+        # acts. Hooks do not run on Claude Code on the web (verified
+        # 2026-08-26) and CI fires at merge, so CLAUDE.md's inlined SESSION
+        # BRIEF is the only channel that arrives in time. This guard keeps that
+        # block in sync — a STALE brief is worse than none, because a session
+        # would read something no longer true and act on it.
+        "name": "session-brief-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/render_session_brief.py", "--self-test"],
+            ["python3", "scripts/ops/render_session_brief.py", "--check"],
+        ],
+    },
+    {
+        # A repeated mistake must produce a PREVENTION, not another row.
+        "name": "recurrence-ledger-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_recurrence_ledger.py", "--self-test"],
+            ["python3", "scripts/ci/check_recurrence_ledger.py"],
+            # The prevention named by RC-STORED-FIELD-READ-AS-ITS-NAME. Its
+            # self-test proves it can find a positive — a provenance probe that
+            # silently matches nothing would make every column look unambiguous.
+            ["python3", "scripts/ops/column_provenance.py", "--self-test"],
+        ],
+    },
+    {
         "name": "artifact-validity-guard",
         "when": None,
         "steps": [

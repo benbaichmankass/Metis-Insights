@@ -50,8 +50,14 @@ from pathlib import Path
 
 _REGISTER = Path("docs/claude/OPEN-ITEMS.json")
 
-#: Hard ceiling. See the module docstring — this is the mechanism.
-MAX_ITEMS = 12
+#: DELIBERATELY NO CAP (operator-directed 2026-08-26: "we don't want to cap the
+#: number of bugs we can track, we want to ensure that they are actually being
+#: tracked, fixed, and learned from"). An earlier version capped this at 12 and
+#: that was a bandaid: it bounded the LIST rather than making anything get read
+#: or fixed, and a cap on a register of KNOWN PROBLEMS just deletes knowledge.
+#: What bounds the register instead is that a `monitoring` row must be
+#: RE-OBSERVED on its own cadence — it cannot be carried by doing nothing.
+MAX_ITEMS = None
 
 #: How long a row may sit without being re-affirmed. Chosen, not measured:
 #: long enough that an ordinary week of sessions does not churn it, short
@@ -59,7 +65,11 @@ MAX_ITEMS = 12
 _STALE_DAYS = 21
 
 _REQUIRED = ("id", "opened", "kind", "summary", "clears_when")
-_KINDS = {"awaiting_verification", "background_awareness", "pending_decision"}
+#: `monitoring` is the enforced kind: it must be re-OBSERVED on a cadence and is
+#: rendered into CLAUDE.md when due. The others are context a session should
+#: know but need not act on.
+_KINDS = {"monitoring", "awaiting_verification", "background_awareness",
+          "pending_decision"}
 
 
 def _parse_day(value: object) -> date | None:
@@ -90,14 +100,6 @@ def check(path: Path, today: date | None = None) -> list[str]:
     items = data.get("items")
     if not isinstance(items, list):
         return [f"{path}: 'items' is not a list"]
-
-    if len(items) > MAX_ITEMS:
-        problems.append(
-            f"{len(items)} items — the cap is {MAX_ITEMS}. THE CAP IS THE "
-            f"FEATURE: clear one before adding another. A register that grows "
-            f"becomes a second backlog and stops being read, which is the "
-            f"failure it exists to fix, not a rule to route around."
-        )
 
     seen: set[str] = set()
     for i, row in enumerate(items):
@@ -133,8 +135,29 @@ def check(path: Path, today: date | None = None) -> list[str]:
                     f"condition — nobody can tell when this row is finished, "
                     f"so it will be carried forever")
 
+        if row.get("kind") == "monitoring":
+            # A monitoring row is only worth anything if it records WHAT WAS SEEN.
+            # `loud: true` used to stand here and it enforced nothing — it was an
+            # adjective, and an alarm nobody must answer is one more alarm to walk
+            # past (operator, 2026-08-26). The cadence + observation pair is what
+            # makes carrying the row cost an honest look.
+            try:
+                every = int(row.get("check_every_days"))
+            except (TypeError, ValueError):
+                every = 0
+            if every <= 0:
+                problems.append(
+                    f"{rid}: kind 'monitoring' needs a positive 'check_every_days' "
+                    f"— without a cadence it can be carried forever by doing nothing")
+            obs = row.get("observation")
+            if not isinstance(obs, str) or len(obs.strip()) < 40:
+                problems.append(
+                    f"{rid}: kind 'monitoring' needs an 'observation' saying what was "
+                    f"actually SEEN at the last check. A claim of progress is not an "
+                    f"observation, and an empty one makes the cadence decorative")
+
         opened = _parse_day(row.get("opened"))
-        reaffirmed = _parse_day(row.get("reaffirmed"))
+        reaffirmed = _parse_day(row.get("reaffirmed")) or _parse_day(row.get("verified_at"))
         anchor = reaffirmed or opened
         if anchor is None:
             problems.append(
@@ -167,9 +190,10 @@ def main(argv: list[str] | None = None) -> int:
         for p in problems:
             print(f"  - {p}")
         return 1
-    n = len(json.loads(Path(args.path).read_text(encoding="utf-8"))["items"])
-    print(f"open-items-guard: OK — {n}/{MAX_ITEMS} items, every one workable "
-          f"and affirmed within {_STALE_DAYS} days.")
+    items = json.loads(Path(args.path).read_text(encoding="utf-8"))["items"]
+    mon = sum(1 for i in items if i.get("kind") == "monitoring")
+    print(f"open-items-guard: OK — {len(items)} items ({mon} monitoring), every one "
+          f"workable and affirmed within {_STALE_DAYS} days.")
     return 0
 
 
@@ -190,8 +214,17 @@ def _self_test() -> int:
 
         cases = [
             ("clean register passes", run([good]), False),
-            ("over the cap is a finding", run([{**good, "id": f"OI-{i}"}
-                                               for i in range(MAX_ITEMS + 1)]), True),
+            ("there is NO cap — many rows is fine",
+             run([{**good, "id": f"OI-{i}"} for i in range(40)]), False),
+            ("a monitoring row with no cadence is a finding",
+             run([{**good, "kind": "monitoring",
+                   "observation": "x" * 50, "verified_at": "2026-08-26"}]), True),
+            ("a monitoring row with no observation is a finding",
+             run([{**good, "kind": "monitoring", "check_every_days": 2,
+                   "verified_at": "2026-08-26"}]), True),
+            ("a complete monitoring row passes",
+             run([{**good, "kind": "monitoring", "check_every_days": 2,
+                   "verified_at": "2026-08-26", "observation": "x" * 50}]), False),
             ("missing clears_when is a finding",
              run([{k: v for k, v in good.items() if k != "clears_when"}]), True),
             ("a non-observable clears_when is a finding",

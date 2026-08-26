@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "what_this_is": "Mistake CLASSES that have happened more than once. Not bugs in the system — bugs in how sessions WORK, which is why they are not in the review backlogs. Operator-directed 2026-08-26: 'we aren't using the backlog/lessons learned logs correctly if we still keep running into the same fuck ups and aren't implementing better practces'.",
+  "why_the_backlogs_do_not_cover_this": "A backlog row records ONE instance and is closed when that instance is fixed. Nothing there asks 'has this shape happened before, and what stops the NEXT one?' — so the same class recurs under a new id forever. 1,164 rows have never once produced the sentence 'this is the third time; here is the check that ends it'.",
+  "the_rule": "Every class here MUST name its `prevention` — an EXECUTABLE check (a guard, a test, a refusal in a tool) that makes the next instance fail loudly — or set `prevention: null` with `unpreventable_because` stating honestly why no check can catch it. A class with neither is a lesson nobody learned, and `recurrence-ledger-guard` fails CI on it.",
+  "a_prevention_must_be_executable": "'be more careful', 'remember to check', 'read the docs first' are NOT preventions. The test is: if a future session makes this mistake, does something FAIL without a human noticing first? If no, it is not a prevention.",
+  "rendered_into_claude_md": "Classes whose `prevention` is null are rendered into CLAUDE.md by scripts/ops/render_session_brief.py, so every session sees the un-prevented ones in context before its first tool call. The list SHRINKS as preventions land — it is a work queue, not an archive.",
+  "updated_at": "2026-08-26T14:30:00Z",
+  "classes": [
+    {
+      "id": "RC-STORED-FIELD-READ-AS-ITS-NAME",
+      "title": "A stored field is read as the quantity it is named after, without checking what actually writes it",
+      "occurrences": 9,
+      "first_seen": "2026-07-30",
+      "last_seen": "2026-08-26",
+      "evidence": [
+        "2026-07-30 `max(proba)` printed as `P(volatile)` — inverted; a 97%-CALM head read as saturated-volatile (BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA)",
+        "2026-08-24 `recorded_exit_price` treated as broker truth; it outnumbered every genuine broker source combined and was none of them",
+        "2026-08-26 journal `pnl` on bybit_2 quoted as the account's result; broker truth is ~8x larger (this session, operator had to correct it)",
+        "2026-08-26 `trades.stop_loss` used as the decision-time risk denominator; it carries the TRAILED stop, so 95 correctly-trailed rows graded as inverted brackets (this session, caught in-flight)"
+      ],
+      "prevention": "scripts/ops/column_provenance.py <table>.<column> — reports every module that WRITES the column and EXITS 2 when more than one does, because a name cannot describe two writers. Verified against the column that caused this session's instance: trades.stop_loss has 10 writing modules (strategies compute it at entry, the monitor overwrites it on every trailing amend), which is exactly why reading it as the DECISION-TIME risk mis-graded 95 correctly-trailed rows as inverted brackets. Exit 1 is 'no writer found' and is explicitly NOT 'nothing writes it'.",
+      "why_it_recurs": "Every instance felt like verification: a journal query IS a measurement — of the journal. RULE ONE was in force for all nine and prevented none, because the rule tells you to check and the mistake IS a check, aimed one level too shallow.",
+      "residual_risk": "A LOOKUP cannot force itself to be run, so this is the mechanical half only. The forcing half is the SESSION BRIEF: while any class here lacks a prevention it is rendered into CLAUDE.md, which is the one surface that reaches a session before its first tool call. Naming this tool does NOT claim the class is closed — it claims the question now has a cheap mechanical answer where before it had none. If a 10th instance occurs, the honest next step is a guard over analysis scripts, not a stronger adjective on this row."
+    },
+    {
+      "id": "RC-STATE-COLLAPSED-INSIDE-THE-FIX-FOR-COLLAPSED-STATES",
+      "title": "A three-state field is added whose third state is unreachable, because a layer beneath it folds the cases",
+      "occurrences": 2,
+      "first_seen": "2026-08-09",
+      "last_seen": "2026-08-26",
+      "evidence": [
+        "2026-08-09 five collapsed-state instances in two days while the remedy sat correctly implemented in exactly one module (exit_anchor.py)",
+        "2026-08-26 `journal_trust`'s `unreadable` state was UNREACHABLE — `load_ledger` folds missing/corrupt/empty into one envelope. Written INSIDE the fix for this very class; caught only because a test asserted the state rather than the code path (this session)"
+      ],
+      "prevention": "scripts/ci/check_collapsed_states.py — per registered contract the producer must emit every state and a real consumer must branch on each.",
+      "gap": "The guard covers REGISTERED contracts only. `journal_trust` was not registered when it shipped, which is exactly how its unreachable state got through. Registering it is tracked as OI-20260826-JOURNAL-TRUST-STATES-UNREGISTERED."
+    },
+    {
+      "id": "RC-TEST-SCHEMA-PRODUCTION-DOES-NOT-HAVE",
+      "title": "A test declares its own table schema, so it passes against a shape production does not have",
+      "occurrences": 4,
+      "first_seen": "2026-08-10",
+      "last_seen": "2026-08-26",
+      "evidence": [
+        "2026-08-10 pairs tests declared `order_packages(id INTEGER PRIMARY KEY, account_id TEXT)` — two columns that table does not have; the real query raised on EVERY live tick and `max_hold_bars` was never once evaluated (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED)",
+        "2026-08-26 a hand-rolled trades schema missed `exit_price` (this session)",
+        "2026-08-26 lifting the CREATE TABLE text missed the migration-added `reconcile_status` — the documented remedy for the first instance was itself insufficient (this session)",
+        "2026-08-23 a fixture MISSING a production column failed SILENTLY — sqlite's 'no such column' swallowed into a generic scan failure (BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY); found by the duplicate pre-check while filing the guard's own audit row, not by anyone recalling it"
+      ],
+      "prevention": "scripts/ci/check_test_schema_fidelity.py — SHIPPED PR #10201, registered in scripts/ci/run_guards.py, diff-scoped with --all as the standing audit. It asks whether a fixture declares a COLUMN production lacks, resolving production as every CREATE TABLE in src/ UNION every ALTER TABLE ADD COLUMN migration — which is exactly the subtlety that made the 2026-08-26 instance recur (trades.reconcile_status is added by migration, so lifting the CREATE TABLE text alone still missed it). Standing audit 2026-08-26: clean over 965 test files.",
+      "why_it_recurs": "The second instance was the fix for the first (lift the real DDL) and still failed, because the real schema is CREATE TABLE **plus migrations** — so the lesson as recorded was incomplete, and a session following it exactly still got it wrong.",
+      "occurrences_vs_sites": "⚠️ A '180 sites' figure was briefly filed and is WITHDRAWN — it came from a duplicate checker written in ignorance of this one and counted any CREATE TABLE for a production table, which flags legitimate fixtures. The real guard reports CLEAN. See BL-20260826-ML-DATASET-TESTS-HAND-DECLARE-PRODUCTION-SCHEMAS (status: invalid)."
+    },
+    {
+      "id": "RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED",
+      "title": "A capability is built from scratch because its absence was assumed rather than searched for",
+      "occurrences": 2,
+      "first_seen": "2026-08-26",
+      "last_seen": "2026-08-26",
+      "evidence": [
+        "2026-08-26 wrote scripts/ci/check_test_schema_fidelity.py from scratch AND OVERWROTE the existing one of the same name (PR #10201, already registered in run_guards.py) with `cat >`. The replacement asked a cruder question and produced a false '180 sites' finding; the original was restored byte-identical from origin/main.",
+        "2026-08-26 recorded `prevention: null` in this very ledger for RC-TEST-SCHEMA-PRODUCTION-DOES-NOT-HAVE — a class that ALREADY HAD a working, registered prevention. The ledger's first version therefore asserted that no check existed for a defect a check was already catching."
+      ],
+      "prevention": "scripts/ci/check_recurrence_ledger.py rejects a prevention naming a file that does not exist, which catches the INVENTED-name half. ⚠️ It does NOT catch this class's other half — claiming `prevention: null` when a prevention exists — and cannot, since proving absence is the very thing that failed. See unpreventable_because.",
+      "unpreventable_because": "No check can prove a capability does NOT exist; that is the halting-problem shape of 'a search returning nothing is not proof of absence' (RULE ONE, first bullet). What IS mechanical is the cost of looking: `ls scripts/ci/`, `grep -n <name> scripts/ci/run_guards.py`, and `git cat-file -e origin/main:<path>` before `cat >`. The last one would have prevented the destructive half outright, and is now stated in CLAUDE.md § Every session.",
+      "why_it_recurs": "Both instances happened while BUILDING anti-recurrence machinery, in a session whose whole subject was 'stop repeating mistakes'. Writing a new file feels like progress; searching for an existing one feels like delay — and the repo is large enough that the search genuinely is slower than the write."
+    }
+  ]
+}
