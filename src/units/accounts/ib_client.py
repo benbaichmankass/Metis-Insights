@@ -1826,7 +1826,8 @@ class IBClient:
         # symbol-wide fallback, whose hazard is different and already documented;
         # widening it from here would strip a sibling's legs.
         if oca_group:
-            self._sweep_stray_oca_groups(ib, sym, oca_group)
+            self._sweep_stray_oca_groups(
+                ib, sym, oca_group, order.get("account_id"))
 
         # ── THE INVARIANT ────────────────────────────────────────────────────
         # NEVER let a fresh bracket become a SECOND, non-mutually-cancelling OCA
@@ -3048,7 +3049,8 @@ class IBClient:
         return refusals, confirmations, _detach
 
     def _sweep_stray_oca_groups(
-        self, ib: Any, symbol: str, keep_group: str
+        self, ib: Any, symbol: str, keep_group: str,
+        account_id: Any = None,
     ) -> Dict[str, Any]:
         """Cancel NON-KEYED protective groups on *symbol* — the strays a keyed
         re-arm cannot see. Best-effort; never raises into the order path.
@@ -3064,10 +3066,31 @@ class IBClient:
         rather than against a live position — the lesson of
         BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
         """
-        mode = stray_oca_groups.resolve_mode(
+        global_mode = stray_oca_groups.resolve_mode(
             os.environ.get("PROTECTION_STRAY_GROUP_MODE"))
-        if mode == stray_oca_groups.MODE_OFF:
-            return {"mode": mode, "acted": False}
+        if global_mode == stray_oca_groups.MODE_OFF:
+            return {"mode": global_mode, "global_mode": global_mode,
+                    "acted": False}
+
+        # ⚠️ THE ALLOWLIST SCOPES THE CANCEL, NEVER THE MEASUREMENT.
+        # A held-back account is still READ and still ANNOTATED, so the rows a
+        # reviewer needs before widening actually exist — the correction
+        # NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09, where intersecting
+        # the account set at the top of the pass made the account being staged
+        # TOWARD invisible. `apply_scope` records WHY the effective mode differs
+        # from the global one, so a held-back row can never read as an applied
+        # one.
+        if global_mode == stray_oca_groups.MODE_APPLY:
+            if stray_oca_groups.account_may_apply(
+                    account_id, os.environ.get("PROTECTION_STRAY_GROUP_ACCOUNTS")):
+                mode = stray_oca_groups.MODE_APPLY
+                apply_scope = stray_oca_groups.SCOPE_ALLOWLISTED
+            else:
+                mode = stray_oca_groups.MODE_ANNOTATE
+                apply_scope = stray_oca_groups.SCOPE_NOT_ALLOWLISTED
+        else:
+            mode = global_mode
+            apply_scope = stray_oca_groups.SCOPE_NOT_APPLY
 
         sym = str(symbol or "").upper()
         legs: List[Dict[str, Any]] = []
@@ -3094,11 +3117,16 @@ class IBClient:
             logger.warning(
                 "place_protective: stray-group sweep could not read resting %s "
                 "legs (%s) — skipping; NOT evidence that none rest", sym, exc)
-            return {"mode": mode, "acted": False, "read_state": "could_not_look"}
+            return {"mode": mode, "global_mode": global_mode,
+                    "apply_scope": apply_scope, "account_id": account_id,
+                    "acted": False, "read_state": "could_not_look"}
 
         plan = stray_oca_groups.plan_stray_cancels(
             legs, keep_group, _protective_leg_side)
         plan["mode"] = mode
+        plan["global_mode"] = global_mode
+        plan["apply_scope"] = apply_scope
+        plan["account_id"] = account_id
         plan["read_state"] = "legs_read"
 
         if not plan["stray_groups"]:
@@ -3110,11 +3138,13 @@ class IBClient:
                 "place_protective: %s holds %d NON-KEYED protective group(s) "
                 "%s beside the keyed %r — this trade's prior protection under an "
                 "old name, which the keyed pre-cancel cannot match. "
-                "PROTECTION_STRAY_GROUP_MODE=annotate, so NOTHING was cancelled "
-                "and the position stays OVER-COVERED. Preserved sibling groups: "
-                "%s; ungrouped legs seen (never cancelled): %d.",
+                "effective mode=%s (global=%s, apply_scope=%s, account=%s), so "
+                "NOTHING was cancelled and the position stays OVER-COVERED. "
+                "Preserved sibling groups: %s; ungrouped legs seen (never "
+                "cancelled): %d.",
                 sym or "(all)", len(plan["stray_groups"]), plan["stray_groups"],
-                keep_group, plan["preserved_groups"], plan["ungrouped_seen"])
+                keep_group, mode, global_mode, apply_scope, account_id,
+                plan["preserved_groups"], plan["ungrouped_seen"])
             plan["acted"] = False
             return plan
 

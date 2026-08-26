@@ -57,6 +57,11 @@ STRAY_UNKEYED = "stray_unkeyed"    # no owning trade identity — the finding
 UNGROUPED = "ungrouped"            # no ocaGroup at all — REPORT, never cancel
 NOT_PROTECTIVE = "not_protective"  # not a stop/target leg — leave alone
 
+#: Why the EFFECTIVE mode differs from the global one, never collapsed.
+SCOPE_ALLOWLISTED = "allowlisted"          # apply was asked for AND permitted
+SCOPE_NOT_ALLOWLISTED = "not_allowlisted"  # apply was asked for and HELD BACK
+SCOPE_NOT_APPLY = "not_apply"              # apply was never asked for
+
 MODE_OFF = "off"
 MODE_ANNOTATE = "annotate"
 MODE_APPLY = "apply"
@@ -74,6 +79,39 @@ def resolve_mode(raw: Any) -> str:
     """
     text = str(raw or "").strip().lower()
     return text if text in _MODES else MODE_ANNOTATE
+
+
+def account_may_apply(account_id: Any, allowlist_raw: Any) -> bool:
+    """Is this account allowed to have the stray sweep CANCEL at the venue?
+
+    ⚠️ **AN EMPTY ALLOWLIST MEANS *NONE*, AND THAT IS DELIBERATELY THE OPPOSITE
+    OF SOME OF ITS SIBLINGS.** ``CONVICTION_SIZING_ACCOUNTS`` and
+    ``NETTING_ATTRIBUTION_ACCOUNTS`` both read empty as ALL — and CLAUDE.md
+    already flags that for what it is: *"an empty allowlist is not a safe
+    default, it is the widest one"*. Those widen a size and a DB write. This one
+    CANCELS a live position's resting protective legs, so an unset variable must
+    not arm an order path on every account. This copies
+    ``protection_reassert.account_may_apply`` deliberately, for the same reason
+    and with the same polarity.
+
+    **Why it exists at all**, rather than relying on the global mode: the two IB
+    accounts are ``ib_paper`` (``mode: live``, account_class **paper**) and
+    ``ib_live`` (``mode: dry_run``, account_class **real_money**). A bare global
+    flip is safe TODAY only because ``ib_live`` happens to be ``dry_run`` — an
+    argument from current config, not a gate. Staging on ``ib_paper`` has to be
+    expressible, or "stage it on ib_paper first" is a sentence in a doc rather
+    than a property of the system.
+
+    An unknown/absent ``account_id`` returns **False** — we cannot show the
+    account is allowlisted, and the fail-safe direction for a cancel is to
+    decline.
+    """
+    account_id = str(account_id or "").strip()
+    allow = {
+        part.strip() for part in str(allowlist_raw or "").split(",")
+        if part.strip()
+    }
+    return bool(account_id) and account_id in allow
 
 
 def is_keyed_group(name: Any) -> bool:

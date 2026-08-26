@@ -115,8 +115,8 @@ def test_annotate_default_cancels_nothing(client, monkeypatch):
 def test_off_does_not_even_read(client, monkeypatch):
     monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "off")
     ib = FakeIB(live_mhg_book())
-    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796")
-    assert plan == {"mode": "off", "acted": False}
+    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", "ib_paper")
+    assert plan == {"mode": "off", "global_mode": "off", "acted": False}
     assert ib.cancelled == []
 
 
@@ -124,10 +124,12 @@ def test_off_does_not_even_read(client, monkeypatch):
 
 def test_apply_cancels_only_the_stray_legs(client, monkeypatch):
     monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
     _stub_verify(client, monkeypatch)
     ib = FakeIB(live_mhg_book())
-    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796")
+    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", "ib_paper")
     assert plan["acted"] is True
+    assert plan["apply_scope"] == "allowlisted"
     assert sorted(ib.cancelled) == [447, 448, 466, 467]
     # the trade's OWN keyed legs are untouched by this sweep
     assert 493 not in ib.cancelled and 494 not in ib.cancelled
@@ -136,45 +138,94 @@ def test_apply_cancels_only_the_stray_legs(client, monkeypatch):
 def test_apply_never_touches_a_siblings_keyed_group(client, monkeypatch):
     """The BL-20260814 guard, at the wiring level."""
     monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
     _stub_verify(client, monkeypatch)
     ib = FakeIB([
         FakeTrade(493, "oca-protect-t4796", "STP"),
         FakeTrade(600, "oca-protect-t5150", "STP"),
         FakeTrade(601, "oca-protect-t5150", "LMT"),
     ])
-    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796")
+    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", "ib_paper")
     assert ib.cancelled == []
     assert plan["preserved_groups"] == ["oca-protect-t5150"]
 
 
 def test_apply_ignores_other_symbols(client, monkeypatch):
     monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
     _stub_verify(client, monkeypatch)
     ib = FakeIB([
         FakeTrade(493, "oca-protect-t4796", "STP", symbol="MHG"),
         FakeTrade(423, "834864174", "STP", symbol="MGC"),
     ])
-    client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796")
+    client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", "ib_paper")
     assert ib.cancelled == []
 
 
 def test_read_failure_is_not_evidence_of_no_strays(client, monkeypatch):
     monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
     _stub_verify(client, monkeypatch)
 
     class Boom(FakeIB):
         def openTrades(self):
             raise RuntimeError("gateway wedged")
 
-    plan = client._sweep_stray_oca_groups(Boom([]), "MHG", "oca-protect-t4796")
+    plan = client._sweep_stray_oca_groups(
+        Boom([]), "MHG", "oca-protect-t4796", "ib_paper")
     assert plan["read_state"] == "could_not_look"
     assert plan["acted"] is False
 
 
 def test_returned_plan_carries_no_live_handles(client, monkeypatch):
     monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
     _stub_verify(client, monkeypatch)
     plan = client._sweep_stray_oca_groups(
-        FakeIB(live_mhg_book()), "MHG", "oca-protect-t4796")
+        FakeIB(live_mhg_book()), "MHG", "oca-protect-t4796", "ib_paper")
     for leg in plan["cancel"]:
         assert not any(k.startswith("_") for k in leg)
+
+
+# ── the allowlist: apply is asked for, the account is NOT permitted ──────────
+
+def test_apply_is_held_back_on_a_non_allowlisted_account(client, monkeypatch):
+    """THE STAGING CONTROL. `ib_live` is account_class real_money; a bare global
+    flip is safe today only because it happens to be `mode: dry_run`, which is
+    an argument from current config rather than a gate."""
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
+    _stub_verify(client, monkeypatch)
+    ib = FakeIB(live_mhg_book())
+    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", "ib_live")
+    assert ib.cancelled == []
+    assert plan["acted"] is False
+    assert plan["mode"] == "annotate"          # EFFECTIVE
+    assert plan["global_mode"] == "apply"      # what was ASKED for
+    assert plan["apply_scope"] == "not_allowlisted"
+    # ⚠️ still MEASURED and ANNOTATED — a staging control that blinds you to the
+    # account you are staging toward is self-defeating (the 2026-08-09
+    # NETTING_ATTRIBUTION_ACCOUNTS correction).
+    assert sorted(plan["stray_groups"]) == ["oca-protect-446", "oca-protect-465"]
+
+
+def test_empty_allowlist_means_none_not_all(client, monkeypatch):
+    """Deliberately the OPPOSITE polarity to CONVICTION_SIZING_ACCOUNTS."""
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.delenv("PROTECTION_STRAY_GROUP_ACCOUNTS", raising=False)
+    _stub_verify(client, monkeypatch)
+    ib = FakeIB(live_mhg_book())
+    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", "ib_paper")
+    assert ib.cancelled == []
+    assert plan["apply_scope"] == "not_allowlisted"
+
+
+def test_an_unnamed_account_can_never_arm_the_cancel(client, monkeypatch):
+    """A caller that cannot name its account must not act on a live order path."""
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_MODE", "apply")
+    monkeypatch.setenv("PROTECTION_STRAY_GROUP_ACCOUNTS", "ib_paper")
+    _stub_verify(client, monkeypatch)
+    ib = FakeIB(live_mhg_book())
+    plan = client._sweep_stray_oca_groups(ib, "MHG", "oca-protect-t4796", None)
+    assert ib.cancelled == []
+    assert plan["apply_scope"] == "not_allowlisted"
