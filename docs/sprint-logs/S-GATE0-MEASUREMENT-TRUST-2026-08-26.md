@@ -2,7 +2,7 @@
 
 ## Date Range
 - Start: 2026-08-26T10:30Z
-- End: 2026-08-26T13:00Z
+- End: 2026-08-26T16:00Z
 
 ## Objective
 Operator-directed, after the MHG maintenance window, in their stated priority
@@ -148,3 +148,95 @@ That is the argument for GATE 0 being mechanical rather than exhortative.
 - **`OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`** — loud, every session,
   until the page fires on a real event AND `cancel-ib-order` runs against the
   real gateway.
+
+
+---
+
+# Part 2 — the operator rejected three of the four mechanisms above
+
+Delivered after PR #10339 merged (`510fbb6a`). Continued on PR #10340.
+
+## What was wrong with Part 1
+
+> *"capping the backlogs is not the right answer here — forcing claude sessions
+> to read through it before adding new items is"* · *"calling it 'loud' is not
+> an enforcement mechanism, it is another alarm that will get ignored"* ·
+> *"CI is not the answer here. It has to be something that will force Claude to
+> use it at the very beginning of every session."*
+
+All three land. Part 1 shipped a **cap** — which bounds the LIST, not the
+problem, and on a register of known problems just deletes knowledge — and an
+**adjective** (`loud: true`) that enforces nothing.
+
+## Which channel actually reaches a session — measured
+
+| channel | verdict |
+|---|---|
+| Hooks | **Do not run here.** The SessionStart contract's output was ABSENT from this session's context; the repo already records 1,379 consecutive `Found 0 total hooks in registry` lines. Not weak — **invisible**. |
+| CI guards | Fire at **merge**, after the wrong work is built. |
+| `CLAUDE.md` | Injected verbatim, before the first tool call. |
+
+So the registers' **content** is rendered INTO `CLAUDE.md`. A link is exactly the
+step that gets skipped. Only what is DUE or UNPREVENTED renders, so the block
+shrinks as work lands rather than becoming another wall of text.
+
+## Three findings against this session's own work
+
+**1. I overwrote a working guard.** `scripts/ci/check_test_schema_fidelity.py`
+already existed (PR #10201), was already registered, and asks a BETTER question
+than the replacement I wrote — does a fixture declare a COLUMN production lacks,
+resolved over `CREATE TABLE` **plus** ALTER TABLE migrations, which is precisely
+the subtlety that had bitten me an hour earlier. Destroyed with `cat >` without
+looking. Restored byte-identical from `origin/main`, file mode included.
+
+**2. A false finding, published.** My cruder replacement reported "180 sites";
+the real guard reports **clean over 965 test files**. The backlog row is kept at
+`status: invalid` rather than deleted, so the number stays attributable.
+
+**3. My own ledger asserted absence without searching** — `prevention: null` for
+a class that already had a working, registered prevention.
+
+All three are one class, now filed as `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`,
+with the honest limit recorded: **no check can prove a capability does not
+exist**. What IS mechanical is the one-line existence check before `cat >`
+(`git cat-file -e origin/main:<path>`), now in `CLAUDE.md` § Every session.
+
+⚠️ Note where these happened: **while building anti-recurrence machinery, in a
+session whose entire subject was "stop repeating mistakes"**. Writing a new file
+feels like progress; searching for an existing one feels like delay.
+
+## The deep dive — why trades close at the wrong levels
+
+**`bybit_2/vwap` exits past its decision-time stop on 44.2% of measured closes
+(65/147)**, vs 20.0% for the next strategy and 0–12.5% elsewhere.
+
+Three corrections were needed to get there, and each one changed the answer:
+
+| I first reported | the measurement said |
+|---|---|
+| 22.7% past-stop, from `trades.stop_loss` | that column carries the TRAILED stop (10 writing modules) — it also graded **95 correctly-trailed rows as inverted brackets** |
+| "71 of 72 are bybit_2, 65 of 72 are vwap" | counts with no denominator; the CLEAN rows are also bybit_2/vwap |
+| bybit_2 is where the problem is | a **measurement artifact** — bybit is the only broker-truth PnL reader, so a measured exit can only be bybit |
+
+And the obvious cause is **refuted**: overlapping same-(account,symbol) trades
+appear on 4.2% of overshooting rows vs 23.3% of clean ones (−19.2pp). Netted
+siblings correlate with CLEAN exits.
+
+The duplicate pre-check shipped in Part 1 earned its keep within the hour:
+searching before filing surfaced `PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R`,
+whose retracted −8.41R headline is the same artifact class as my own
+unrestricted −12.54R arm. Measured-only collapses it to −1.86R.
+
+## Validation
+- `run_guards.py` **PASS 55 · FAIL 0** on the replayed branch; 183 tests; lint clean.
+- Every new guard ships a self-test proving it finds a positive before its
+  silence is trusted.
+- The restored guard verified **zero diff** against `main`, content and mode.
+
+## Follow-ups
+- **`BL-20260826-ONE-THIRD-OF-MEASURED-CLOSES-LAND-BEYOND-THE-DECISION-TIME-STOP`**
+  — vwap's own stop geometry is the remaining candidate. A too-tight stop and an
+  enforcement failure need OPPOSITE fixes; the criteria require distinguishing
+  them before anything is proposed.
+- **`OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`** is next due 2026-08-28
+  and will render into `CLAUDE.md` then.
