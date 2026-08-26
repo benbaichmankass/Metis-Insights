@@ -162,7 +162,19 @@ def test_history_aggregates_realized_per_day_ignores_open_and_backtest(
 
     assert by_date["2026-04-30"]["pnl"] == pytest.approx(10.25)
     assert by_date["2026-04-30"]["trades"] == 2
-    assert by_date["2026-04-29"] == {"date": "2026-04-29", "pnl": 0.0, "trades": 0}
+    # Asserted key-by-key rather than by whole-dict equality so an ADDITIVE
+    # field cannot fail it — but still exactly, so a real regression would.
+    zero_day = by_date["2026-04-29"]
+    assert (zero_day["date"], zero_day["pnl"], zero_day["trades"]) == (
+        "2026-04-29", 0.0, 0)
+    # GATE 0 / G3: a zero-filled day has no rows to grade, so it carries the
+    # real-zero "we looked and found nothing" shape — NOT the all-None
+    # "we could not look" shape, which would be a different claim.
+    assert zero_day["pnlMeasuredCount"] == 0
+    assert zero_day["pnlEstimatedCount"] == 0
+    assert zero_day["totalPnLMeasured"] == 0.0
+    # A coverage ratio over an empty population does not exist.
+    assert zero_day["pnlCoverage"] is None
     assert by_date["2026-04-28"]["pnl"] == pytest.approx(-7.00)
     assert by_date["2026-04-28"]["trades"] == 1
     assert "2026-04-23" not in by_date

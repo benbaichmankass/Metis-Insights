@@ -38,7 +38,16 @@ from src.web.api._clean_trades import (
     not_paper_predicate,
 )
 from src.web.api._closed_at import close_time_sql
+import logging
+
+from src.web.api._pnl_provenance import (
+    block_for_rows,
+    could_not_look,
+    looked_and_found_nothing,
+)
 from src.web.api.routers import pnl as pnl_module
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["pnl"])
 
@@ -119,6 +128,47 @@ def _query_history(
             params,
         )
         rows = {r[0]: (float(r[1]), int(r[2])) for r in cur.fetchall()}
+
+        # ── Per-day PnL provenance (GATE 0 / G3) ────────────────────────────
+        # The chart both apps render is a sum per day over journal `pnl`, and
+        # it said nothing about how much of that money was ever MEASURED.
+        # `/api/bot/performance` has carried `pnlCoverage` since 2026-07-31.
+        #
+        # A SECOND query, additive, reusing `close_day` and `base_where`
+        # VERBATIM — the same strings, so the graded population cannot drift
+        # from the summed one. Grading is delegated to the one owner
+        # (`_pnl_provenance`), never re-derived here.
+        #
+        # ⚠️ Per DAY, not per window, because the route returns a bare LIST and
+        # a window-level summary would mean changing the response from a list
+        # to an object — which breaks both consumers. Per-point keys are
+        # additive and safe.
+        try:
+            cur.execute(
+                f"""
+                SELECT {close_day} AS day, pnl, notes
+                  FROM trades
+                  LEFT JOIN (
+                      SELECT linked_trade_id, MIN(updated_at) AS updated_at
+                      FROM order_packages
+                      WHERE linked_trade_id IS NOT NULL
+                      GROUP BY linked_trade_id
+                  ) op ON op.linked_trade_id = trades.id
+                 WHERE {base_where}
+                """,
+                params,
+            )
+            by_day: dict = {}
+            for r in cur.fetchall():
+                by_day.setdefault(r[0], []).append({"pnl": r[1], "notes": r[2]})
+            prov = {d: block_for_rows(rs) for d, rs in by_day.items()}
+        except sqlite3.Error:  # allow-silent: degrades to could-not-look per point, never zeros; re-raising would 5xx the chart over a missing CAVEAT
+            # allow-silent: a journal with no `notes` column cannot be graded at
+            # all. Degrades to the could-not-look shape per point — never zeros,
+            # which would assert an observation nobody made — and never costs
+            # the money numbers, which are already read above.
+            logger.warning("pnl_history: provenance read failed", exc_info=True)
+            prov = {}
     finally:
         conn.close()
 
@@ -129,11 +179,17 @@ def _query_history(
     for offset in range(days):
         d = (start + timedelta(days=offset)).isoformat()
         realized, trades = rows.get(d, (0.0, 0))
-        points.append({
+        point = {
             "date": d,
             "pnl": round(realized, 2),
             "trades": trades,
-        })
+        }
+        # A zero-filled day has no rows to grade, so it gets the real-zero
+        # "we looked, nothing here" shape rather than could-not-look.
+        point.update(prov.get(d) or (
+            could_not_look() if prov == {} and trades else looked_and_found_nothing()
+        ))
+        points.append(point)
     return points
 
 

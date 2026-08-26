@@ -36,6 +36,12 @@ from src.web.api._clean_trades import (
     not_paper_predicate,
 )
 
+from src.web.api._pnl_provenance import (
+    block_for_rows,
+    could_not_look,
+    looked_and_found_nothing,
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["attribution"])
@@ -150,6 +156,42 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
                 GROUP BY strategy
                 """
             ).fetchall()
+
+            # ── Per-strategy PnL provenance (GATE 0 / G3) ───────────────────
+            # This route publishes a lifetime `total_pnl` and `win_rate` per
+            # strategy with no statement of how much of that money was ever
+            # MEASURED. `/api/bot/performance` carries per-strategy coverage
+            # for a WINDOW; this is the lifetime cut, so it is a different
+            # population and needs its own.
+            #
+            # Same WHERE as the aggregate above, VERBATIM, so the graded rows
+            # and the summed rows cannot drift. Grading is delegated to the one
+            # owner (`_pnl_provenance`), never re-derived here.
+            try:
+                prov_rows = conn.execute(
+                    f"""
+                    SELECT COALESCE(strategy_name, 'unknown') AS strategy,
+                           pnl, notes
+                    FROM trades
+                    WHERE status = 'closed'
+                      AND COALESCE(is_backtest, 0) = 0
+                      AND pnl IS NOT NULL
+                      {_not_paper}
+                      {_excl}
+                    """
+                ).fetchall()
+                grouped: dict = {}
+                for r in prov_rows:
+                    grouped.setdefault(r["strategy"], []).append(r)
+                prov = {k: block_for_rows(v) for k, v in grouped.items()}
+            except sqlite3.Error:  # allow-silent: degrades to could-not-look per strategy, never zeros; re-raising would 5xx the route over a missing CAVEAT while the money numbers are intact
+                # allow-silent: a journal with no `notes` column cannot be
+                # graded. Degrades to could-not-look per strategy — never
+                # zeros, which would assert an observation nobody made — and
+                # never costs the money numbers already read above.
+                logger.warning("_query_attribution: provenance read failed",
+                               exc_info=True)
+                prov = {}
         finally:
             conn.close()
     except sqlite3.Error as exc:  # allow-silent: best-effort read; DB errors must never 5xx the attribution endpoint
@@ -175,6 +217,7 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
                 "losing_trades": int(row["losing"]),
                 "win_rate": win_rate,
                 "total_pnl": round(float(row["total_pnl"] or 0.0), 4),
+                **(prov.get(strategy) or could_not_look()),
             }
         )
 
@@ -190,6 +233,9 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
                     "losing_trades": 0,
                     "win_rate": 0.0,
                     "total_pnl": 0.0,
+                    # Open trades only, so there is no CLOSED population to
+                    # grade — real zeros, not could-not-look.
+                    **looked_and_found_nothing(),
                 }
             )
 
