@@ -6794,6 +6794,143 @@ def _emit_stop_over_cover_alert(
     return True
 
 
+#: The backlog row for the selector defect the remedy advice below must carry.
+#: Held whole in ONE constant rather than split across a string concatenation:
+#: a wrapped id reads as a DANGLING reference to any grep of the source (and to
+#: `artifact-validity-guard`, which caught exactly that here), even though the
+#: concatenation joins fine at runtime.
+_STALE_LEG_SELECTOR_BACKLOG_ID = (
+    "BL-20260826-CANCEL-STALE-TPSL-LEGS-WOULD-KEEP-A-CLOSED-TRADES-LEG-AND-CANCEL-THE-LIVE-ONE"
+)
+
+#: Bybit's combined TP+SL leg cap per symbol. Proximity to it is the actionable
+#: urgency on an over-accumulated symbol: once it is reached, `set_trading_stop`
+#: refuses (ErrCode 110061) and a GENUINE protective tightening silently fails
+#: (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP).
+_BYBIT_LEG_CAP = 20
+
+
+def _emit_bybit_over_cover_alert(
+    *,
+    account_id: str,
+    symbol: str,
+    size: float,
+    covered: float,
+    leg_count: int,
+) -> bool:
+    """Page the operator that resting Bybit SL legs EXCEED the position.
+    Rate-limited per (account, symbol). Returns whether it alerted.
+
+    WHY THIS EXISTS (2026-08-26). The Bybit sweep has counted `over_covered`
+    since BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING and reports it with a
+    `logger.error` — which reaches the systemd journal and NOTHING ELSE. It
+    never writes `outcomes.jsonl`, which is what feeds Telegram, the
+    `/api/bot/notifications` banner and `/api/bot/logs?level=error`. This is the
+    same defect fixed for IB one day earlier (`_emit_stop_over_cover_alert`),
+    and that fix explicitly left Bybit unchecked.
+
+    MEASURED with a POSITIVE CONTROL, because a quiet feed proves nothing on its
+    own. Over the 401-row operator ERROR+ feed spanning
+    2026-08-20T09:42Z-2026-08-26T00:33Z: three `ib_stop_over_cover` rows (the IB
+    page, firing correctly on ib_paper/MHG) and **ZERO** from Bybit — while the
+    trader's own symbol-scoped read had `bybit_1`/ETHUSDT at 167% over-covered.
+    So the probe finds a positive; Bybit simply never had a page to find.
+
+    ⚠️ THIS IS DELIBERATELY *NOT* `_emit_stop_over_cover_alert(venue="bybit")`.
+    That function's entire hazard argument is IB-specific and would be FALSE
+    here: it warns that one stop firing leaves a disjoint OCA group resting to
+    sell again into a **naked SHORT**, and it routes the operator to
+    `cancel-ib-order` over IB's clientId cancel-rights rule (Error 10147).
+    Bybit has no OCA groups, and every resting Bybit SL leg is `reduceOnly`
+    (measured on all four live `bybit_1` symbols, 2026-08-26) so it CANNOT flip
+    the position. Reusing the IB page would be a semantic substitution: a
+    confident label over a quantity the code did not compute.
+
+    THE BYBIT HAZARD, stated for what it is:
+
+    1. **The 20-leg cap.** Legs pile up until `set_trading_stop` refuses, at
+       which point a genuine protective tightening fails *silently* — the stop
+       the strategy believes it moved never moved. That is the money-at-risk
+       half, and it is why `leg_count` is on the page.
+    2. **A dead trade's leg cutting a live position.** Reduce-only legs owned by
+       CLOSED rows still trigger, so a live position gets cut at a level chosen
+       by a trade that no longer exists.
+
+    LEVEL IS `ERROR`, NOT `CRITICAL`, and that is a judgement worth stating.
+    Both reach Telegram (`outcomes._TELEGRAM_LEVELS` = {ERROR, CRITICAL}), so
+    nothing is lost in delivery. CRITICAL is reserved here for a position that
+    is UNPROTECTED or REVERSED; this one is over-protected and reduce-only.
+    Spending CRITICAL on it is how the channel gets trained away — 202 of 376
+    CRITICAL rows were once a single un-latched alarm
+    (BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART), which is the
+    desensitized-alarm P1 this repo names.
+
+    SEVERITY IS THE LEG COUNT, so a WORSENING breaks the 6h cooldown while a
+    steady or improving one does not — the same reasoning as the IB page's
+    group count: it is an integer (cannot flap), it only grows under the
+    producing defect, and it is what moves the symbol toward the cap.
+
+    ⚠️ THE COOLDOWN IS THE SHARED `_cooldown_admits`, NEVER A COPY. Copy-pasting
+    a latch is exactly how the per-PROCESS `time.monotonic()` defect that put
+    202 CRITICALs on the operator's channel would return in the copy.
+
+    Never raises into the sweep.
+    """
+    if not _cooldown_admits(
+        "bybit_over_cover",
+        f"{account_id}|{symbol}",
+        _STOP_OVER_COVER_ALERT_COOLDOWN_S,
+        severity=int(leg_count or 0),
+    ):
+        return False
+    try:
+        from src.runtime.outcomes import Level, report
+
+        pct = (100.0 * float(covered) / float(size)) if size else None
+        headroom = _BYBIT_LEG_CAP - int(leg_count or 0)
+        cap_note = (
+            f" {leg_count} of Bybit's {_BYBIT_LEG_CAP}-leg cap are used "
+            f"({headroom} left); at the cap `set_trading_stop` refuses "
+            "(ErrCode 110061) and a genuine protective tightening fails "
+            "SILENTLY."
+        )
+        report(
+            "bybit_over_cover",
+            "detected",
+            level=Level.ERROR,
+            reason=(
+                f"{account_id}/{symbol}: position {size} but resting SL legs "
+                f"total {covered}"
+                + (f" ({pct:.0f}%)" if pct is not None else "")
+                + f" across {leg_count} leg(s)." + cap_note
+                + " The legs are reduceOnly, so this is NOT a naked-reverse "
+                "hazard (that is the IB/OCA shape) — the harm is the cap above "
+                "and a leg owned by a CLOSED trade cutting this live position "
+                "at a dead trade's level. Remedy: `cancel-stale-tpsl-legs`, "
+                "DRY-RUN first, and CHECK ITS PLAN AGAINST THE JOURNAL. Its "
+                "selector was ownership-based only from 2026-08-26; before that "
+                "it kept the NEWEST leg by createdTime and would have cancelled "
+                f"the live trade's leg ({_STALE_LEG_SELECTOR_BACKLOG_ID})."
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            size=size,
+            covered_qty=covered,
+            over_cover_pct=pct,
+            # Structured beside the prose so a consumer can branch without
+            # parsing the reason string.
+            sl_leg_count=leg_count,
+            leg_cap=_BYBIT_LEG_CAP,
+            leg_cap_headroom=headroom,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception(
+            "_emit_bybit_over_cover_alert: alert failed for %s/%s",
+            account_id, symbol,
+        )
+    return True
+
+
 def _ib_broker_naked_check_interval_seconds() -> float:
     """Min seconds between IB broker-side naked sweeps.
 
@@ -8732,7 +8869,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         # Detect-only anomalies found live by bybit-bracket-audit 2026-07-30:
         # resting legs summing far over the position (accumulation), and open
         # journal qty exceeding the netted exchange size (phantom rows).
-        "over_covered": 0, "journal_qty_divergent": 0,
+        "over_covered": 0, "over_cover_alerted": 0, "journal_qty_divergent": 0,
         "journal_qty_divergent_pairs": 0,
     }
     try:
@@ -8958,12 +9095,27 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         "_check_broker_naked_bybit_positions: LEG OVER-ACCUMULATION "
                         "%s/%s — position size=%s but resting SL legs total %s "
                         "(%.0f%%) across %d leg(s). Legs have piled up; a trip "
-                        "would over-close and strand the rest. Run "
-                        "cancel-stale-tpsl-legs.",
+                        "would over-close and strand the rest. Remedy: "
+                        "cancel-stale-tpsl-legs, DRY-RUN first and check its "
+                        "plan against the journal.",
                         account_id, symbol, size, covered,
                         (100.0 * covered / size) if size else 0.0,
                         len(state["sl_leg_ids"]),
                     )
+                    # ...and PAGE the operator. The logger.error above reaches
+                    # the systemd journal and nothing else, so this condition
+                    # was detected and invisible on every surface a human reads
+                    # (measured: 0 Bybit rows in a 401-row operator ERROR+ feed
+                    # while the IB equivalent fired 3 times in the same feed).
+                    if _emit_bybit_over_cover_alert(
+                        account_id=account_id,
+                        symbol=symbol,
+                        size=size,
+                        covered=covered,
+                        leg_count=len(state["sl_leg_ids"]),
+                    ):
+                        summary["over_cover_alerted"] = (
+                            summary.get("over_cover_alerted", 0) + 1)
             # An SL leg whose qty we could not parse makes coverage ungradeable.
             # Do NOT re-arm on a guess (a Full-mode re-arm would stamp ONE
             # trade's levels over the whole netted position); surface it instead.
