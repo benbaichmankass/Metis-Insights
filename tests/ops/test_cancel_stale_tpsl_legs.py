@@ -78,7 +78,7 @@ def test_does_not_cancel_the_live_trades_leg(wired):
 
 def test_apply_cancels_exactly_the_closed_owned_legs(monkeypatch, wired):
     # After the cancels, only the two open rows' legs rest.
-    remaining = [l for l in _LEGS if l["orderId"] in ("leg-4921", "leg-4903")]
+    remaining = [x for x in _LEGS if x["orderId"] in ("leg-4921", "leg-4903")]
     calls = {"n": 0}
 
     def _stop_orders(c, cat, sym):
