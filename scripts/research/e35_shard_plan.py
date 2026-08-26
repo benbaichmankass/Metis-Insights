@@ -125,8 +125,22 @@ def data_basename(symbol: str, tf: str) -> str:
     Deriving the stem from `fleet.PROXY_DATA` — the map `resolve_data` itself
     reads — is what makes the two unable to drift again. A literal
     ``f"{symbol}_{tf}"`` here would just recreate the second copy.
+
+    ⚠️ **THE LOOKUP IS CASE-SENSITIVE ON PURPOSE, MIRRORING `resolve_data`
+    EXACTLY** (`alt = PROXY_DATA.get(symbol)`, no `.upper()`). A first draft of
+    this function normalised the key, which looks strictly more helpful and is
+    the divergence again in miniature: for a lowercase ``mes`` the runner would
+    write ``ES_F_1d.csv`` while `resolve_data` — not normalising — would look
+    for ``mes_1d`` and find nothing, i.e. **the very green-job-measures-nothing
+    failure this function exists to prevent**. Verified divergent before the
+    change and identical after.
+
+    Being *more permissive than the thing you mirror* is not a safe direction
+    here; it is how the two copies come apart. Inert today (all 24 configured
+    symbols are uppercase) — which is exactly why it had to be fixed by reading
+    rather than waiting for a failure.
     """
-    return f"{fleet.PROXY_DATA.get(str(symbol).upper(), str(symbol))}_{tf}"
+    return f"{fleet.PROXY_DATA.get(symbol, symbol)}_{tf}"
 
 
 def resolve_feed_source(symbol: str, interval: str) -> str:
@@ -424,8 +438,11 @@ def _selftest() -> int:
         data_basename("MES", "1d"), "ES_F_1d")
     chk("MGC -> GC_F", data_basename("MGC", "1h"), "GC_F_1h")
     chk("XAUUSD -> GC_F too", data_basename("XAUUSD", "1h"), "GC_F_1h")
-    chk("lower-case symbol still resolves the proxy",
-        data_basename("mes", "1d"), "ES_F_1d")
+    # ⚠️ A lowercase symbol must NOT resolve the proxy — `resolve_data` does not
+    # normalise either, and being more permissive than the map we mirror is the
+    # divergence this function exists to prevent. See the docstring.
+    chk("lower-case symbol does NOT resolve the proxy (mirrors resolve_data)",
+        data_basename("mes", "1d"), "mes_1d")
     # The stem is DERIVED from the map the sweep reads, never a literal — this
     # is the assertion that keeps the two from drifting apart again.
     chk("derived from fleet.PROXY_DATA, not a copy",

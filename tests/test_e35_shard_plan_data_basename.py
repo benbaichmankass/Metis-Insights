@@ -95,6 +95,28 @@ def test_the_naive_stem_is_what_used_to_break(tmp_path):
     assert {j["leg"] for j in include if j["symbol"] in fleet.PROXY_DATA} == set(missing)
 
 
+def test_data_basename_agrees_with_resolve_data_on_casing(tmp_path):
+    """The stem helper must not be MORE PERMISSIVE than the map it mirrors.
+
+    A first draft normalised the lookup key (`PROXY_DATA.get(symbol.upper())`),
+    which reads as strictly more helpful and is the divergence again in
+    miniature: `resolve_data` does `PROXY_DATA.get(symbol)` with no `.upper()`,
+    so for a lowercase `mes` the runner would write `ES_F_1d.csv` while the
+    sweep looked for `mes_1d` — the green-job-measures-nothing failure this
+    module exists to prevent, reintroduced by a "safe" normalisation.
+
+    Inert in production (all 24 configured symbols are uppercase), which is
+    exactly why it needs a test rather than a comment.
+    """
+    for sym in ("mes", "MES", "mgc", "MGC", "spy", "SPY"):
+        stem = plan.data_basename(sym, "1d")
+        data = _written([stem], tmp_path / sym)
+        resolved, _proxy, _rs = fleet.resolve_data(sym, "1d", data)
+        assert resolved is not None, (
+            f"data_basename({sym!r}) produced {stem!r}, which resolve_data "
+            f"does not find — the two have drifted apart again")
+
+
 def test_yfinance_interval_set_matches_the_fetchers_own_map():
     """Anti-drift, mirroring the Dukascopy assertion this file's sibling makes.
 
