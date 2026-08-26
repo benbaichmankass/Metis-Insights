@@ -60,7 +60,7 @@ import time
 from datetime import datetime, time as dt_time, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from src.runtime import ib_trading_hours
+from src.runtime import ib_trading_hours, stray_oca_groups
 from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
 
 logger = logging.getLogger(__name__)
@@ -1809,6 +1809,25 @@ class IBClient:
                 "(proceeding to arm fresh bracket): %s", sym, exc,
             )
 
+        # ── CLEAR THIS TRADE'S OWN PRIOR PROTECTION UNDER A *DIFFERENT* NAME ──
+        # The keyed pre-cancel above is scoped BY NAME to `oca-protect-t<key>`,
+        # so a group holding this trade's earlier bracket under a legacy
+        # `oca-protect-<reqId>` name — or the bare-numeric form measured live on
+        # MGC — is never a cancellation candidate and survives as a second,
+        # non-mutually-cancelling group. Captured in the act 2026-08-26T02:08:35Z
+        # on ib_paper/MHG: a routine trailing amend armed `oca-protect-t4796`
+        # beside `oca-protect-446` + `oca-protect-465`, taking the position to
+        # 300%. See `src/runtime/stray_oca_groups` for why the rule is
+        # "cancel NON-KEYED groups" rather than "cancel every other group" —
+        # a sibling trade's keyed group is self-identifying and is preserved by
+        # construction, with no journal read on the order path.
+        #
+        # ⚠️ Runs ONLY on the keyed path. Without an `oca_key` this is the
+        # symbol-wide fallback, whose hazard is different and already documented;
+        # widening it from here would strip a sibling's legs.
+        if oca_group:
+            self._sweep_stray_oca_groups(ib, sym, oca_group)
+
         # ── THE INVARIANT ────────────────────────────────────────────────────
         # NEVER let a fresh bracket become a SECOND, non-mutually-cancelling OCA
         # group. See
@@ -3027,6 +3046,108 @@ class IBClient:
                 pass
 
         return refusals, confirmations, _detach
+
+    def _sweep_stray_oca_groups(
+        self, ib: Any, symbol: str, keep_group: str
+    ) -> Dict[str, Any]:
+        """Cancel NON-KEYED protective groups on *symbol* — the strays a keyed
+        re-arm cannot see. Best-effort; never raises into the order path.
+
+        Gated by ``PROTECTION_STRAY_GROUP_MODE`` (``off`` / ``annotate``
+        (default) / ``apply``) — a ``*_MODE`` knob, not a default-off
+        ``*_ENABLED`` gate. **At the shipped default the decision runs in full
+        and cancels nothing**, so landing this changes no live behaviour and the
+        flip to ``apply`` is a separate, reviewable decision.
+
+        The decision itself is a pure function in
+        :mod:`src.runtime.stray_oca_groups`, so the policy is arguable in tests
+        rather than against a live position — the lesson of
+        BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+        """
+        mode = stray_oca_groups.resolve_mode(
+            os.environ.get("PROTECTION_STRAY_GROUP_MODE"))
+        if mode == stray_oca_groups.MODE_OFF:
+            return {"mode": mode, "acted": False}
+
+        sym = str(symbol or "").upper()
+        legs: List[Dict[str, Any]] = []
+        try:
+            # ⚠️ `ib.openTrades()` DIRECTLY, deliberately NOT `self._open_trades`.
+            # That helper swallows the exception and returns `[]`, which collapses
+            # "we could not look" into "nothing rests" — and this sweep's whole
+            # contract is that an unreadable book must NOT read as "no strays".
+            # Caught by `test_read_failure_is_not_evidence_of_no_strays`.
+            for trade in list(ib.openTrades() or []):
+                contract = getattr(trade, "contract", None)
+                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                if sym and trade_sym and trade_sym != sym:
+                    continue
+                order = getattr(trade, "order", None)
+                legs.append({
+                    "oca_group": getattr(order, "ocaGroup", "") or "",
+                    "order_type": getattr(order, "orderType", "") or "",
+                    "order_id": getattr(order, "orderId", None),
+                    "_trade": trade,
+                    "_order": order,
+                })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "place_protective: stray-group sweep could not read resting %s "
+                "legs (%s) — skipping; NOT evidence that none rest", sym, exc)
+            return {"mode": mode, "acted": False, "read_state": "could_not_look"}
+
+        plan = stray_oca_groups.plan_stray_cancels(
+            legs, keep_group, _protective_leg_side)
+        plan["mode"] = mode
+        plan["read_state"] = "legs_read"
+
+        if not plan["stray_groups"]:
+            plan["acted"] = False
+            return plan
+
+        if mode == stray_oca_groups.MODE_ANNOTATE:
+            logger.warning(
+                "place_protective: %s holds %d NON-KEYED protective group(s) "
+                "%s beside the keyed %r — this trade's prior protection under an "
+                "old name, which the keyed pre-cancel cannot match. "
+                "PROTECTION_STRAY_GROUP_MODE=annotate, so NOTHING was cancelled "
+                "and the position stays OVER-COVERED. Preserved sibling groups: "
+                "%s; ungrouped legs seen (never cancelled): %d.",
+                sym or "(all)", len(plan["stray_groups"]), plan["stray_groups"],
+                keep_group, plan["preserved_groups"], plan["ungrouped_seen"])
+            plan["acted"] = False
+            return plan
+
+        attempted: Dict[str, Dict[str, Any]] = {}
+        refusals, _confirmations, detach = self._cancel_error_capture(ib)
+        cancelled = 0
+        try:
+            for leg in plan["cancel"]:
+                try:
+                    order = leg.get("_order")
+                    key = self._leg_identity(order)
+                    if key:
+                        attempted[key] = self._leg_descriptor(leg.get("_trade"))
+                    ib.cancelOrder(order)
+                    cancelled += 1
+                except Exception:  # noqa: BLE001 — one leg never aborts the arm
+                    continue
+            verdict = self._verify_cancel_effect(ib, sym, attempted, refusals)
+        finally:
+            detach()
+
+        plan.update(verdict)
+        plan["cancelled"] = cancelled
+        plan["acted"] = True
+        # Drop the live ib_insync handles before the dict reaches a log or a
+        # caller: they are not serialisable and would make the verdict line
+        # unreadable. The DECISION is already fully described by the states.
+        plan["cancel"] = [
+            {k: v for k, v in leg.items() if not k.startswith("_")}
+            for leg in plan.get("cancel") or []
+        ]
+        self._log_cancel_verdict(sym, f"stray groups {plan['stray_groups']}", plan)
+        return plan
 
     def _cancel_oca_group_for_symbol(
         self, ib: Any, symbol: str, oca_group: str
