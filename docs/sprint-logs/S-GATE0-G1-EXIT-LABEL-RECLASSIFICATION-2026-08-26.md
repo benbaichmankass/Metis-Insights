@@ -14,9 +14,10 @@
   silently skipped.
 
 ## Tier
-- **Tier 1** for everything shipped. The one Tier-2 item — running the backfill
-  with `--apply` against the money DB — was deliberately **NOT** done and is
-  handed to the operator with exact projected numbers.
+- **Tier 1** for everything shipped in the PR. The one **Tier-2** item — running
+  the backfill with `--apply` against the money DB — was proposed with exact
+  projected numbers, **approved by the operator in-conversation**, and then run
+  and verified within this session.
 - Justification: a protected-key tuple, a script's `sys.path`, additive
   read-surface fields, tests, and docs. No order path, no config, no VM mutation.
 
@@ -182,14 +183,15 @@ ROWS THAT WOULD CHANGE exit_reason: 191
   backfill subsumes it.
 
 ## Next Recommended Sprint
-- Suggested next sprint: the Tier-2 `backfill-exit-labels` apply run, then **G5**
-  (re-state the 08-21 headline off corrected labels), then **G3**.
-- Why next: G1's code half is done and G5 unblocks the moment the labels are
-  corrected. G3 is the last open GATE 0 item.
-- Required verification before starting: after the apply run, confirm
-  `notes.pre_backfill_exit_reason` is non-zero on the live journal and re-read
-  `perExitPath` — `labelAttestedCount` on `reconciler_filled` should move from
-  its current 0 to ~191, and `labelRefusedCount` to ~105.
+- Suggested next sprint: **G5** (re-state the 08-21 headline off the now-corrected
+  labels) and the rest of **G3** (`attribution.py`, `pnl_history.py`,
+  `strategies.py`, the session-gated `pnl.py`).
+- Why next: G1 is fully done — code shipped AND the backfill applied and verified
+  — so G5's premise can finally be re-derived from labels that mean what they say.
+  G3 is the last partially-open GATE 0 item.
+- Required verification before starting: none outstanding for G1. For G5, re-derive
+  the "8.1% of closes use a declared bracket" figure from scratch; do NOT quote the
+  old number, and state the population.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
