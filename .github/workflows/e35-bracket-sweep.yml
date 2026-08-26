@@ -128,9 +128,27 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
-        # dukascopy-python is needed only by the non-crypto legs, but a single
+        # Each venue client is needed by only SOME legs, but a single
         # unconditional install keeps one step and costs a few seconds.
-        run: pip install --quiet pandas numpy requests pyyaml dukascopy-python
+        #
+        # ⚠️ `yfinance` IS LOAD-BEARING — DO NOT DROP IT AS "unused".
+        # `PROXY_DATA` legs (MES/MGC/MHG/XAUUSD) route to the yfinance lane, and
+        # this step previously installed `dukascopy-python` alone. Measured on
+        # run 32972018506, the first dispatch after that routing landed:
+        #   BACKTEST_FEED_SOURCE: yfinance
+        #   Fetching MES D candles 2021-08-22 -> 2026-08-26 (source=yfinance) …
+        #   dependency missing (nothing was fetched): the yfinance package is
+        #   not installed (No module named 'yfinance')
+        # i.e. a route to a feed the job could not run. Caught by dispatching
+        # ONE leg before the full matrix, which is the cheap habit here: the
+        # same mistake across 22 shards is 22 wasted runners.
+        #
+        # Note the fetcher said "dependency missing (NOTHING WAS FETCHED)"
+        # rather than "fetch failed" — the three-stage YfDependencyMissing /
+        # YfRefused / YfFetchFailed split doing its job. A single "fetch
+        # failed" label would have sent the reader to Yahoo, the ticker and the
+        # span before the dependency.
+        run: pip install --quiet pandas numpy requests pyyaml dukascopy-python yfinance
 
       # THE SOURCE IS PER-LEG, RESOLVED BY THE PLANNER
       # (BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX).
