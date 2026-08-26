@@ -486,3 +486,96 @@ def test_cancel_does_not_attribute_another_orders_refusal():
 
     assert out["retCode"] == 0, out
     assert "refusal" not in out, out
+
+
+# ---------------------------------------------------------------------------
+# BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL
+#
+# The fix above made the venue's answer READABLE. It then filed EVERY answer as
+# a refusal — and IBKR sends acceptance down the same channel. Error 202,
+# "Order Canceled - reason:...", is the venue confirming the cancel LANDED.
+#
+# Measured live 2026-08-26 on `ib_paper` MHG order 466: `cancel-ib-order`
+# returned `action: refused_by_venue` / `verify_state: still_present` with a
+# note telling the operator a retry would not help, while a re-run from a fresh
+# process read `lookup_state: not_found` and the account's order count had gone
+# 8 -> 6. The cancel had worked. Reporting a successful repair on a live
+# position's protection as a failure is the worse direction of the two.
+# ---------------------------------------------------------------------------
+
+class ConfirmingIB(FakeIB):
+    """A venue that ACKNOWLEDGES a successful cancel on the error channel.
+
+    This is the real behaviour the original FakeIB did not model: it emitted an
+    event only on the refusal path, so a capture that filed every event as a
+    refusal looked correct against it.
+    """
+
+    def cancelOrder(self, order):
+        if order.clientId != self.session_client_id:
+            return super().cancelOrder(order)
+        self.cancel_calls.append(order.orderId)
+        self._resting = [t for t in self._resting
+                         if t.order.orderId != order.orderId]
+        self.errorEvent.emit(order.orderId, 202, "Order Canceled - reason:", None)
+        return None
+
+
+def test_event_classifier_keeps_confirmation_and_refusal_apart():
+    from src.units.accounts.ib_client import _classify_ib_cancel_event
+
+    assert _classify_ib_cancel_event(202) == "confirmed"
+    assert _classify_ib_cancel_event("202") == "confirmed"
+    # An ALLOWLIST: anything unrecognised stays a refusal, so a rejection this
+    # repo has never seen is reported loudly rather than swallowed as success.
+    assert _classify_ib_cancel_event(10147) == "refused"
+    assert _classify_ib_cancel_event(201) == "refused"
+    assert _classify_ib_cancel_event(None) == "refused"
+    assert _classify_ib_cancel_event("nonsense") == "refused"
+
+
+def test_venue_confirmation_is_not_reported_as_a_refusal():
+    """The live shape: cancel succeeds, IBKR answers 202."""
+    fake = ConfirmingIB(_mhg_legs(597, "oca-protect-465", 466, 743292101),
+                        session_client_id=597)
+    client = _client_for(fake)
+    out = client.cancel("466")
+
+    assert out["retCode"] == 0, out
+    assert "refusal" not in out
+    assert out["confirmation"]["code"] == 202
+    assert "CONFIRMED" in out["retMsg"]
+
+
+def test_a_real_refusal_still_reports_retcode_1():
+    """The fix must not blind the tool to a genuine rejection."""
+    fake = ConfirmingIB(_mhg_legs(497, "oca-protect-416", 417, 1179890976),
+                        session_client_id=597)
+    client = _client_for(fake)
+    out = client.cancel("417")
+
+    assert out["retCode"] == 1, out
+    assert out["refusal"]["code"] == 10147
+    assert "confirmation" not in out
+
+
+def test_a_confirmed_leg_is_not_counted_as_still_resting_with_a_refusal():
+    """The batch path shares the capture — a 202 must not poison it either.
+
+    `_verify_cancel_effect` stamps `refusal` on any leg still resting. If a
+    confirmation were filed as a refusal, a leg that a DIFFERENT client's 10147
+    left resting could be reported under the wrong code.
+    """
+    ct = _Contract("MHG")
+    legs = [
+        _Trade(_Order(466, 743292101, 597, "oca-protect-465", "STP"), ct),
+        _Trade(_Order(417, 1179890976, 497, "oca-protect-416", "STP"), ct),
+    ]
+    fake = ConfirmingIB(legs, session_client_id=597)
+    client = _client_for(fake)
+    ib = client.connect()
+    result = client._cancel_resting_orders_for_symbol(ib, "MHG")
+
+    still = {int(r["order_id"]): r for r in result["still_resting"]}
+    assert 466 not in still, "the confirmed cancel actually removed the leg"
+    assert still[417]["refusal"]["code"] == 10147

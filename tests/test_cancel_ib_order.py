@@ -178,3 +178,70 @@ def test_protective_classification_covers_both_signals():
     assert mod._is_protective({"oca_group": None, "order_type": "trail"})
     assert not mod._is_protective({"oca_group": None, "order_type": "MKT"})
     assert not mod._is_protective({"oca_group": "", "order_type": "MKT"})
+
+
+# --- BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL ---------------
+# IBKR sends acceptance and rejection down ONE event channel. Error 202 is
+# "Order Canceled - reason:..." — the venue confirming the cancel LANDED. It
+# was filed as a refusal, so the tool reported a successful repair as a failure
+# and told the operator a retry would not help. Measured live on `ib_paper` MHG
+# order 466 (2026-08-26): reported `refused_by_venue` / `still_present`, while a
+# re-run from a fresh process read `not_found` with the account's order count
+# down 8 -> 6.
+
+_CONFIRMED = {"retCode": 0, "retMsg": "OK (venue CONFIRMED the cancel)",
+              "confirmation": {"code": 202, "message": "Order Canceled - reason:"}}
+_REFUSED = {"retCode": 1, "retMsg": "venue REFUSED the cancel",
+            "refusal": {"code": 10147,
+                        "message": "OrderId 466 that needs to be cancelled is not found"}}
+
+
+def test_venue_confirmation_is_not_a_refusal(monkeypatch):
+    """A 202 must never surface as `refused_by_venue`."""
+    rc, out = _run(monkeypatch, [[_ORDER_6], []], ["--order-id", "6", "--apply"],
+                   cancel=_CONFIRMED)
+    assert rc == 0
+    assert out["action"] == "cancelled"
+    assert out["confirmation"]["code"] == 202
+
+
+def test_confirmed_cancel_still_on_a_stale_readback_is_its_own_state(monkeypatch):
+    """Confirmed by the venue + still on the re-read == contradiction, not failure.
+
+    The verification read runs on a read-only client whose order view is
+    accumulated and never learns of a cancel it did not issue
+    (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW), so
+    it goes stale in exactly this direction. Collapsing this into `gone` would
+    claim an absence nobody observed; collapsing it into `cancel_not_effective`
+    is what produced the false failure report.
+    """
+    rc, out = _run(monkeypatch, [[_ORDER_6], [_ORDER_6]],
+                   ["--order-id", "6", "--apply"], cancel=_CONFIRMED)
+    assert rc == 0
+    assert out["action"] == "cancelled_readback_contradicted"
+    assert out["verify_state"] == "contradicted"
+    assert out["remaining"]
+    assert "fresh process" in out["note"]
+
+
+def test_genuine_refusal_still_reports_refused(monkeypatch):
+    """The fix must not make the tool blind to a real rejection."""
+    rc, out = _run(monkeypatch, [[_ORDER_6]], ["--order-id", "6", "--apply"],
+                   cancel=_REFUSED)
+    assert rc == 1
+    assert out["action"] == "refused_by_venue"
+    assert out["refusal"]["code"] == 10147
+
+
+def test_refusal_note_names_the_code_that_came_back(monkeypatch):
+    """The 10147 story must not be asserted under an unrelated code."""
+    other = {"retCode": 1, "retMsg": "venue REFUSED the cancel",
+             "refusal": {"code": 201, "message": "Order rejected - reason:"}}
+    _, out = _run(monkeypatch, [[_ORDER_6]], ["--order-id", "6", "--apply"],
+                  cancel=other)
+    assert "error 201" in out["note"]
+    assert "10147" not in out["note"]
+
+    _, out = _run(monkeypatch, [[_ORDER_6]], ["--order-id", "6", "--apply"],
+                  cancel=_REFUSED)
+    assert "10147" in out["note"]

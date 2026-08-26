@@ -124,6 +124,151 @@ def summarize_broker_truth(
     }
 
 
+#: The three states a journal-trust verdict can take. NEVER collapsed to a
+#: boolean: "we have no ledger record for this account" and "this account's
+#: journal agrees with the broker" are opposite claims, and only one of them is
+#: evidence of anything.
+TRUST_KNOWN_DIVERGENT = "known_divergent"
+TRUST_NO_RECORD = "no_record"
+TRUST_UNREADABLE = "unreadable"
+
+
+def _ledger_read_state(path: str | os.PathLike[str] | None = None) -> str:
+    """Did we actually obtain the ledger's contents? ``read``/``absent``/``unreadable``.
+
+    ⚠️ This asks the FILE directly rather than reading it off
+    :func:`summarize_broker_truth`, and that is the whole point.
+    :func:`load_ledger` funnels a missing file, an unparseable file and a file
+    listing nothing into one identical empty envelope (``present: False``), so
+    a verdict derived from that envelope CANNOT distinguish "we could not look"
+    from "we looked and the ledger is empty". Measured while writing the tests
+    for this module: a deliberately corrupted ledger graded ``read`` with an
+    empty account map, i.e. every account came back "unrecorded" — the exact
+    collapse the three verdict states exist to prevent, one layer down.
+
+    ``load_ledger``'s own contract is deliberately NOT changed: it is
+    best-effort by design and has a live consumer
+    (``/api/bot/pnl/broker-truth``) that wants the degraded envelope.
+    """
+    p = Path(path) if path is not None else ledger_path()
+    try:
+        if not p.is_file():
+            return "absent"
+        json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return "unreadable"
+    except Exception:  # noqa: BLE001  # allow-silent: never break a trade read over a ledger
+        return "unreadable"
+    return "read"
+
+
+def journal_trust_map(
+    path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Read the ledger ONCE and return every account known not to reconcile.
+
+    ``{"read_state": "read" | "absent" | "unreadable",
+       "accounts": {<id>: <record>}}``.
+
+    Separate from :func:`journal_trust` because the natural per-row call site
+    is a loop over a trade page: resolving the verdict per row would re-read
+    the ledger file once per trade. Resolve the map once per request, then
+    grade rows against it with :func:`journal_trust_for`.
+
+    ``read_state`` is NOT collapsed into an empty ``accounts``. "the ledger
+    listed nothing", "the ledger is not there" and "the ledger would not parse"
+    are three different facts, and an empty map from a failed read would
+    silently grade every account as merely unrecorded — which reads, to anyone
+    skimming, as *fine*. ``absent`` on the live VM means the committed ledger
+    did not reach the deploy, which is a deploy failure, not a data state.
+    """
+    state = _ledger_read_state(path)
+    if state != "read":
+        return {"read_state": state, "accounts": {}}
+    try:
+        accounts = summarize_broker_truth(path).get("accounts") or []
+    except Exception:  # noqa: BLE001  # allow-silent: a ledger read failure must never break a trade read
+        return {"read_state": "unreadable", "accounts": {}}
+    out: dict[str, Any] = {}
+    for rec in accounts:
+        aid = rec.get("account_id")
+        if aid:
+            out[str(aid)] = rec
+    return {"read_state": state, "accounts": out}
+
+
+_NO_RECORD_NOTE = (
+    "no broker-truth record for this account. NOT a clean bill of health — the "
+    "ledger is populated by hand from an operator's venue export, so this means "
+    "nobody has reconciled this account, never that it reconciles"
+)
+_DIVERGENT_NOTE = (
+    "this account has a recorded broker wallet-truth figure BECAUSE its per-row "
+    "journal pnl is known not to reconcile. Do not quote a sum over these rows "
+    "as the account's result — read /api/bot/pnl/broker-truth beside it"
+)
+_UNREADABLE_NOTE = (
+    "the broker-truth ledger could not be read — WE DID NOT LOOK, which is not "
+    "the same as finding no record"
+)
+
+
+def journal_trust_for(
+    account_id: str | None,
+    trust_map: dict[str, Any],
+) -> dict[str, Any]:
+    """Grade ONE account against a map from :func:`journal_trust_map`."""
+    # BOTH `absent` and `unreadable` mean we never obtained a verdict for this
+    # account. `read_state` on the map keeps WHY they differ; the per-account
+    # verdict does not need to, and must not report either as `no_record`.
+    if trust_map.get("read_state") not in (None, "read"):
+        return {"state": TRUST_UNREADABLE, "account_id": account_id,
+                "realized_usd": None, "as_of": None, "source": None,
+                "note": _UNREADABLE_NOTE}
+    rec = (trust_map.get("accounts") or {}).get(str(account_id)) if account_id else None
+    if rec is None:
+        return {"state": TRUST_NO_RECORD, "account_id": account_id,
+                "realized_usd": None, "as_of": None, "source": None,
+                "note": _NO_RECORD_NOTE if account_id
+                        else "no account id on the row; nothing to look up"}
+    return {"state": TRUST_KNOWN_DIVERGENT, "account_id": account_id,
+            "realized_usd": rec.get("realized_usd"),
+            "as_of": rec.get("as_of"),
+            "source": rec.get("source"),
+            "note": _DIVERGENT_NOTE}
+
+
+def journal_trust(
+    account_id: str | None,
+    path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Is this account's per-row journal ``pnl`` known to disagree with the broker?
+
+    WHY THIS EXISTS. ``comms/broker_truth_ledger.json`` has recorded since
+    2026-07-13 that ``bybit_2``'s journal UNDER-RECORDS — wallet-truth
+    −$262.52 against a per-row journal sum of roughly −$33, an ~8× gap — and
+    the ONLY consumer was its own read-only route. Nothing on the journal read
+    path consulted it, so a reader querying that account's closed trades got a
+    confident number and no warning. On 2026-08-26 a session duly reported that
+    account as "+$0.88, flat, no problem" and the operator had to correct it
+    from the venue UI. A ledger that records which accounts cannot be trusted,
+    and is not consulted where they are read, is a fact nobody receives.
+
+    ⚠️ ``no_record`` IS NOT A CLEAN BILL OF HEALTH. The ledger is populated by
+    hand from an operator's venue export, so an absent record means only that
+    nobody has reconciled this account — never that it reconciles. Rendering
+    ``no_record`` as "trusted" is the exact collapse this three-state return
+    exists to prevent.
+
+    Returns ``{state, account_id, realized_usd, as_of, source, note}``.
+    ``realized_usd``/``as_of``/``source`` are populated only for
+    ``known_divergent``. Best-effort — never raises. For a loop over many rows
+    use :func:`journal_trust_map` + :func:`journal_trust_for` instead, which
+    read the ledger once.
+    """
+    return journal_trust_for(account_id, journal_trust_map(path))
+
+
 def upsert_account_truth(
     record: dict[str, Any],
     path: str | os.PathLike[str] | None = None,

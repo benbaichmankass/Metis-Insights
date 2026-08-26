@@ -242,6 +242,49 @@ def _is_peer_close(exc: BaseException) -> bool:
 # back in. Unparseable falls back to the default rather than to zero.
 _IB_CANCEL_SETTLE_S = _env_float("IB_CANCEL_SETTLE_SECONDS", 0.5)
 
+# IBKR delivers CONFIRMATIONS on the SAME event channel as rejections, keyed to
+# the same orderId, and nothing in the payload distinguishes them — only the
+# CODE does (BL-20260826-CANCEL-IB-ORDER-READS-ERROR-202-AS-A-REFUSAL).
+# `202 — "Order Canceled - reason:..."` is IBKR acknowledging that the cancel
+# LANDED. Reading it as a refusal is the worst available direction: it reports a
+# successful repair as a failure AND, because the refusal note says a longer
+# verify window will not help, tells the operator not to retry a cancel that had
+# already succeeded. Measured live 2026-08-26 on `ib_paper` MHG order 466 — the
+# tool returned `action: refused_by_venue`, `verify_state: still_present`, and a
+# re-run seconds later found `lookup_state: not_found` with the account's order
+# count down 8 -> 6. The cancel worked; only the report was wrong.
+#
+# THREE STATES, NEVER COLLAPSED — an absent event is the third:
+#   * `refused`   — the venue rejected the request (e.g. 10147: the submitting
+#                   clientId no longer holds the order). Permanent; no wider
+#                   verify window fixes it.
+#   * `confirmed` — the venue says the order was cancelled. POSITIVE evidence
+#                   the cancel landed, which is the opposite of a refusal.
+#   * (no event)  — we heard nothing. Acceptance is not confirmation; verify by
+#                   re-reading. This is the absence of a key, not a code.
+#
+# Membership is an ALLOWLIST of confirmation codes rather than a denylist of
+# refusals, deliberately: an unrecognised code stays a refusal, so a future
+# IBKR rejection this repo has never seen is reported loudly rather than
+# silently swallowed as success. Erring toward "refused" costs a false alarm;
+# erring the other way hides a live order that was never cancelled.
+_IB_CANCEL_CONFIRMED_CODES = frozenset({202})
+
+
+def _classify_ib_cancel_event(code: Any) -> str:
+    """Grade one IBKR error-channel event for a cancel: ``confirmed``/``refused``.
+
+    See ``_IB_CANCEL_CONFIRMED_CODES`` for why this is an allowlist. An
+    unparseable code grades ``refused`` — we could not read it, and the
+    fail-loud direction on an order-cancel report is to keep the alarm.
+    """
+    try:
+        return ("confirmed" if int(code) in _IB_CANCEL_CONFIRMED_CODES
+                else "refused")
+    except (TypeError, ValueError):
+        return "refused"
+
+
 # BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE — clientId rotation on reconnect.
 # After a gateway (container) restart under the socat relay, the trader's old
 # socket can go half-open: isConnected() reads False (so connect() attempts a
@@ -2936,22 +2979,35 @@ class IBClient:
     def _cancel_error_capture(self, ib: Any):
         """Subscribe to IBKR's error event for the life of a cancel batch.
 
-        Returns ``(refusals, detach)``. ``refusals`` maps the erroring
-        ``reqId`` — which for a cancel rejection is the ORDER id — to
-        ``{"code", "message"}``. ``detach`` must be called in a ``finally``.
+        Returns ``(refusals, confirmations, detach)``. Both maps are keyed on
+        the erroring ``reqId`` — which for a cancel event is the ORDER id — and
+        carry ``{"code", "message"}``. ``detach`` must be called in a
+        ``finally``.
 
         Without this the venue's answer is unreachable: ``ib.cancelOrder``
-        returns ``None``, and the rejection arrives only here.
+        returns ``None``, and the answer arrives only here.
+
+        ⚠️ **The two maps are the whole point and must not be merged back.**
+        IBKR sends acceptance and rejection down this one channel, so a capture
+        that files every event as a refusal reports a cancel IBKR CONFIRMED as
+        one it refused — see ``_classify_ib_cancel_event`` for the measured
+        instance. A key present in neither map is the third state: we heard
+        nothing, which is not evidence either way.
         """
         refusals: Dict[int, Dict[str, Any]] = {}
+        confirmations: Dict[int, Dict[str, Any]] = {}
 
         def _on_error(reqId=None, errorCode=None, errorString=None,
                       contract=None, *_a, **_kw):
             try:
-                refusals[int(reqId)] = {"code": int(errorCode),
-                                        "message": str(errorString)}
+                key = int(reqId)
+                event = {"code": int(errorCode), "message": str(errorString)}
             except (TypeError, ValueError):
-                pass
+                return
+            if _classify_ib_cancel_event(event["code"]) == "confirmed":
+                confirmations[key] = event
+            else:
+                refusals[key] = event
 
         event = getattr(ib, "errorEvent", None)
         attached = False
@@ -2970,7 +3026,7 @@ class IBClient:
             except Exception:  # noqa: BLE001
                 pass
 
-        return refusals, _detach
+        return refusals, confirmations, _detach
 
     def _cancel_oca_group_for_symbol(
         self, ib: Any, symbol: str, oca_group: str
@@ -3002,7 +3058,7 @@ class IBClient:
                     "account_wide_seen": None}
         cancelled = 0
         attempted: Dict[str, Dict[str, Any]] = {}
-        refusals, detach = self._cancel_error_capture(ib)
+        refusals, confirmations, detach = self._cancel_error_capture(ib)
         try:
             for trade in self._open_trades(ib):
                 try:
@@ -3078,7 +3134,7 @@ class IBClient:
         cancelled = 0
         failed = 0
         attempted: Dict[str, Dict[str, Any]] = {}
-        refusals, detach = self._cancel_error_capture(ib)
+        refusals, confirmations, detach = self._cancel_error_capture(ib)
         try:
             for trade in self._open_trades(ib):
                 try:
@@ -3708,7 +3764,7 @@ class IBClient:
                 break
         if target is None:
             return {"retCode": 1, "retMsg": f"order {order_id} not found among open trades"}
-        refusals, detach = self._cancel_error_capture(ib)
+        refusals, confirmations, detach = self._cancel_error_capture(ib)
         try:
             try:
                 ib.cancelOrder(target)
@@ -3723,9 +3779,11 @@ class IBClient:
             except Exception as exc:  # noqa: BLE001
                 return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
             try:
-                refusal = refusals.get(int(float(order_id)))
+                key = int(float(order_id))
             except (TypeError, ValueError):
-                refusal = None
+                key = None
+            refusal = refusals.get(key) if key is not None else None
+            confirmation = confirmations.get(key) if key is not None else None
         finally:
             detach()
         if refusal:
@@ -3735,6 +3793,20 @@ class IBClient:
                            f"{refusal.get('code')} — {refusal.get('message')}"),
                 "result": {"orderId": str(order_id)},
                 "refusal": refusal,
+            }
+        if confirmation:
+            # The venue said the order was cancelled. Still `retCode 0` rather
+            # than a new code, because every caller already treats 0 as "the
+            # request went through" and this is strictly better evidence than
+            # the silent case — but the envelope says WHICH, so a caller need
+            # not infer confirmation from the absence of a refusal.
+            return {
+                "retCode": 0,
+                "result": {"orderId": str(order_id)},
+                "retMsg": (f"OK (venue CONFIRMED the cancel: IBKR "
+                           f"{confirmation.get('code')} — "
+                           f"{confirmation.get('message')})"),
+                "confirmation": confirmation,
             }
         return {"retCode": 0, "result": {"orderId": str(order_id)},
                 "retMsg": "OK (accepted — acceptance is not confirmation; "

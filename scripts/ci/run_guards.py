@@ -186,10 +186,27 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/arch_doc_guard.py", "--changed-files={changed_files}"]],
     },
     {
+        # The register EVERY session reads at start. This guard is what stops
+        # it becoming the 951-row backlog it exists to replace — see the
+        # script's docstring: the cap is the mechanism, not a limitation.
+        # `when: None` so it runs on every diff: a register that is only
+        # checked when someone happens to touch it is not a register.
+        "name": "open-items-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_open_items.py", "--self-test"],
+            ["python3", "scripts/ci/check_open_items.py"],
+        ],
+    },
+    {
         "name": "artifact-validity-guard",
         "when": None,
         "steps": [
             ["python3", "scripts/ops/check_artifact_validity.py", "--allow-missing"],
+            # The duplicate pre-check `backlog_append` refuses on. Its
+            # self-test proves it can find a positive — a similarity probe
+            # that silently matches nothing would make every filing look novel.
+            ["python3", "scripts/ops/backlog_search.py", "--self-test"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],

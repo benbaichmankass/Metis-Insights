@@ -91,6 +91,14 @@ def test_returns_closed_trade_with_full_shape(db, client):
         # no provenance recorded in this seed's notes — honestly "unverified",
         # never promoted to measured (P0.3, 2026-07-31)
         "pnlProvenance": "unverified",
+        # ``journalTrust`` — does this ACCOUNT's journal reconcile with the
+        # broker's wallet? A different question from pnlProvenance above,
+        # which grades how THIS ROW's number was derived. `bybit_2` carries a
+        # broker-truth record precisely because its per-row pnl does not
+        # reconcile (wallet −$262.52 vs a journal sum ~8× smaller), so the
+        # seed account here is the divergent one
+        # (BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER).
+        "journalTrust": "known_divergent",
     }
 
 

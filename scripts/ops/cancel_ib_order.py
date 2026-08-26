@@ -281,13 +281,19 @@ def main(argv: Optional[list] = None) -> int:
     # refusal on the error event only; IBClient.cancel now captures it.
     refusal = resp.get("refusal") if isinstance(resp, dict) else None
     if refusal:
+        # Name the code that actually came back. This note used to assert the
+        # 10147 story under EVERY refusal, which reads as a diagnosis of the
+        # run rather than as background -- the sub-class-A shape in CLAUDE.md
+        # § "Diagnostic provenance".
+        note = (f"IBKR REFUSED this cancel (error {refusal.get('code')}) — the "
+                "order is still resting and re-running with a longer verify "
+                "window will not change that.")
+        if str(refusal.get("code")) == "10147":
+            note += (" 10147 means the submitting clientId no longer holds the "
+                     "order, which no API client can override; clearing it "
+                     "needs TWS.")
         out.update(action="refused_by_venue", verify_state="still_present",
-                   refusal=refusal,
-                   note="IBKR REFUSED this cancel — the order is still resting "
-                        "and re-running with a longer verify window will not "
-                        "change that. Error 10147 specifically means the "
-                        "submitting clientId no longer holds the order, which "
-                        "no API client can override; clearing it needs TWS.")
+                   refusal=refusal, note=note)
         print(json.dumps(out, indent=2))
         return 1
     if resp.get("retCode") != 0:
@@ -306,11 +312,56 @@ def main(argv: Optional[list] = None) -> int:
         return 3
     still = _find(after, order_id=args.order_id, perm_id=args.perm_id)
     out["orders_on_account_after"] = len(after)
-    out.update(action="cancelled" if not still else "cancel_not_effective",
-               verify_state="gone" if not still else "still_present",
-               remaining=still or None)
+    confirmation = resp.get("confirmation") if isinstance(resp, dict) else None
+    if confirmation:
+        out["confirmation"] = confirmation
+
+    if not still:
+        out.update(action="cancelled", verify_state="gone", remaining=None)
+        print(json.dumps(out, indent=2))
+        return 0
+
+    # The order is still on the re-read. That is NOT automatically evidence the
+    # cancel failed, and the two cases want opposite follow-ups:
+    #
+    # `_read_orders` goes through `ib_read_client_for`, whose `openTrades()`
+    # cache is ACCUMULATED and only ever grows -- IBKR delivers cancel
+    # callbacks to the SUBMITTING client only, so a read-only client never
+    # learns of a cancel it did not issue
+    # (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW).
+    # So when the venue explicitly CONFIRMED the cancel and the re-read still
+    # shows the order, the re-read is the thing that is wrong, not the cancel.
+    # Measured 2026-08-26 on `ib_paper` MHG 466: confirmed by IBKR, reported
+    # `still_present` here, and a re-run in a FRESH process read `not_found`
+    # with the account's order count down 8 -> 6.
+    #
+    # Three states, never collapsed. `contradicted` is deliberately NOT folded
+    # into `gone`: we did not observe the order's absence, we observed a
+    # contradiction, and a caller re-reading from a fresh process is how it
+    # gets settled.
+    if confirmation:
+        out.update(action="cancelled_readback_contradicted",
+                   verify_state="contradicted",
+                   remaining=still,
+                   note="IBKR CONFIRMED this cancel (error "
+                        f"{confirmation.get('code')}) but the verification "
+                        "re-read still shows the order. That read runs on a "
+                        "read-only client whose order view is accumulated and "
+                        "never learns of a cancel it did not issue, so it goes "
+                        "stale in exactly this direction. Re-run the DRY-RUN "
+                        "from a fresh process to settle it -- do NOT re-issue "
+                        "the cancel on this evidence alone.")
+        print(json.dumps(out, indent=2))
+        return 0
+
+    out.update(action="cancel_not_effective", verify_state="still_present",
+               remaining=still,
+               note="the venue neither refused nor confirmed, and the order is "
+                    "still on the re-read. Acceptance is not confirmation; "
+                    "re-run the dry-run from a fresh process before concluding "
+                    "either way.")
     print(json.dumps(out, indent=2))
-    return 0 if not still else 1
+    return 1
 
 
 if __name__ == "__main__":  # pragma: no cover
