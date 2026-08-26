@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-26T05:15:00Z",
+  "updated_at": "2026-08-26T05:23:00Z",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -24934,6 +24934,21 @@
         "issue #10315 - order 466, owner_client_id 497, the same message emitted where it IS true"
       ],
       "resolution_criteria": "The blocker message distinguishes three states, never collapsed, read from runtime_logs/ib_state.json: `live_session` (the owning id appears among the current clients - the existing wording is correct here), `retired_band_id` (in the band, NOT currently connected - say so, and do not tell the operator to stop the trader), and `unknown` (ib_state absent, stale, or unreadable - 'we could not look', which must read as the cautious case, not as retired). The refusal itself stays default-on in all three. A test asserts the message differs across the three and that none of them drops the refusal."
+    },
+    {
+      "id": "BL-20260826-RESTART-THE-BRANCH-FROM-MAIN-SILENTLY-DISCARDS-AN-UNMERGED-PR",
+      "opened_at": "2026-08-26T05:23:00Z",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "title": "The documented 'restart your branch from the default branch' step discards the previous PR when it has not merged yet, and a successful push looks identical",
+      "detail": "The session workflow tells a session to restart its designated branch from the latest default branch and push follow-up work there. That is correct AFTER a merge. Applied while the PREVIOUS PR is still open, it resets the branch past that PR's commit, the force-push moves the head away from it, and GitHub closes the PR WITHOUT MERGING - the change is gone and nothing failed. HAPPENED 2026-08-26, measured not supposed: #10323 (the MHG population measurement) closed 'closed without merging' at 05:15:40Z after its CI had already passed at 05:14:08Z. origin/main then carried 941 items with that row showing ZERO updates, i.e. the content never landed, while the session had already reported it as done. Recovered on #10326. The same pattern ran four times that night and was safe three times purely because the prior PR happened to merge in the interim - so the failure is intermittent and timing-dependent, which is what makes it worth a row rather than a note. THE DETECTION GAP IS THE REAL DEFECT, not the git step. `git push` succeeding is evidence the BRANCH moved, and nothing more; it is not evidence the content reached main. Every signal a session normally trusts stayed green - guards passed, push succeeded, CI passed - and the PR still closed empty. The one signal that told the truth was the close notification's wording, 'closed without merging' rather than 'merged', which is a single word's difference in a body that is otherwise identical. SCOPE: this is a session-workflow trap, not a runtime bug. It costs silently lost work and, worse, a session reporting work as landed when it is not - which is the reporting-honesty failure the operating rules exist to prevent.",
+      "evidence": [
+        "PR #10323 - closed without merging 2026-08-26T05:15:40Z; check_suite.completed on its head 6026b608 had passed at 05:14:08Z",
+        "origin/main immediately after - 941 items, and the MHG stray-group row (the one #10323 was updating) carried zero updates",
+        "PR #10326 - the recovery, restoring the same measurement onto a branch based on the then-current main"
+      ],
+      "resolution_criteria": "The workflow instruction states the precondition explicitly - restart the branch from the default branch only once the previous PR has MERGED, and check that rather than assuming it - and pairs it with the verification that actually settles the question: after a push, confirm the content is present on origin/main (or that the PR is open and its head carries the commit), never treat a successful push as a landing. Ends when a session following the written steps cannot lose a commit this way without something saying so."
     }
   ]
 }
