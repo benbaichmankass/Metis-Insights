@@ -3,7 +3,7 @@
   "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
   "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
   "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
-  "updated_at": "2026-08-26T10:12:00Z",
+  "updated_at": "2026-08-26",
   "items": [
     {
       "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
@@ -46,6 +46,22 @@
       "affects": "Any session reasoning about IB resting orders — including over-cover analysis, which is what it was used for on 2026-08-26.",
       "refs": [
         "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
+      ]
+    },
+    {
+      "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+      "opened": "2026-08-26",
+      "kind": "monitoring",
+      "check_every_days": 3,
+      "verified_at": "2026-08-26",
+      "summary": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states; only a real session acting on the block settles it.",
+      "observation": "2026-08-26: verified only by SIMULATION, not by a session. render_session_brief --self-test shows the block is quiet on 08-26 and 08-27 and renders OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED on 08-28 when its 2-day cadence expires. --check confirms the committed CLAUDE.md matches the registers. The block is currently EMPTY (nothing due), so a session reading it today observes nothing and demonstrates nothing.",
+      "clears_when": "A session that was NOT pointed at this mechanism by its prompt reports on a due monitoring item, citing the CLAUDE.md brief as where it saw it. WARNING: the handoff prompt written at the end of this session names the MHG item explicitly, so the FIRST session after this one cannot be the clean test -- it has been told. The uncontaminated observation is a later session that arrived cold. Record which it was.",
+      "why_it_matters": "If the block is not read, the register is exactly the thing it replaced: a file that looks like a follow-up mechanism and is not one. That failure is invisible -- an unread brief and a brief with nothing due are byte-identical from outside, which is the 'we did not look' vs 'we looked and found nothing' collapse this repo has a guard family for.",
+      "links": [
+        "scripts/ops/render_session_brief.py",
+        "docs/claude/RECURRENCE-LEDGER.json",
+        "docs/sprint-logs/S-GATE0-MEASUREMENT-TRUST-2026-08-26.md"
       ]
     }
   ],
