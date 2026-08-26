@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-26T05:23:00Z",
+  "updated_at": "2026-08-26T06:45:00Z",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -24949,6 +24949,23 @@
         "PR #10326 - the recovery, restoring the same measurement onto a branch based on the then-current main"
       ],
       "resolution_criteria": "The workflow instruction states the precondition explicitly - restart the branch from the default branch only once the previous PR has MERGED, and check that rather than assuming it - and pairs it with the verification that actually settles the question: after a push, confirm the content is present on origin/main (or that the PR is open and its head carries the commit), never treat a successful push as a landing. Ends when a session following the written steps cannot lose a commit this way without something saying so."
+    },
+    {
+      "id": "BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION",
+      "opened_at": "2026-08-26T06:45:00Z",
+      "severity": "high",
+      "tier": 3,
+      "status": "open",
+      "title": "ict_scalp_5m and trend_donchian both trade BTCUSDT live on one-way-netting Bybit accounts, so two strategies share ONE exchange position and neither one's per-strategy PnL is an exclusive measurement",
+      "detail": "Operator directive 2026-08-26: separate the BTC scalp from trend_donchian, as its OWN tracked item. MEASURED, not supposed - config/strategies.yaml: trend_donchian symbols [BTCUSDT] timeframe 1h execution live; ict_scalp_5m symbols [BTCUSDT] timeframe 5m execution live. Both are routed together on bybit_2 (real money), bybit_1 (demo) and bybit_portfolio (paper). Bybit here is ONE-WAY NETTING, which this repo already documents as the mechanism behind the netting partial-close class: a symbol is ONE exchange position holding N journal rows, close detection is per-ORDER, and a position-level exit shrinks a position the siblings still claim in full. So on BTCUSDT the 5m scalp and the 1h trend leg are not two books - they are one, and each strategy's per-strategy PnL is a journal-side ATTRIBUTION over a position neither one exclusively owns. WHY THIS MATTERS RIGHT NOW. The operator flagged 'a lot of losses on BTC' and asked for a full investigation before any demotion. This row is the reason a per-strategy PnL number cannot by itself answer that question: the split between 'the scalp lost this' and 'the shared BTCUSDT position lost this and the scalp was charged for it' is UNMEASURED. A demotion decided on the attributed figure alone could remove the wrong leg, and an entry-gate fix evaluated against the same figure could be scored against noise it does not control. THIS IS NOT A CLAIM THAT THE SCALP IS FINE. The aggregate BTCUSDT book is losing; what is unestablished is the attribution between the two legs. Both readings survive the evidence so far and the measurement below is what separates them.",
+      "evidence": [
+        "config/strategies.yaml - trend_donchian: symbols [BTCUSDT], timeframe 1h, enabled true, execution live; ict_scalp_5m: symbols [BTCUSDT], timeframe 5m, enabled true, execution live",
+        "config/accounts.yaml - both legs co-route on bybit_2 (mode live, account_class real_money), bybit_1 (mode live, account_class paper) and bybit_portfolio (mode live, account_class paper, paper_role portfolio)",
+        "fvg_range_15m is the third BTCUSDT leg on all three accounts but is execution: shadow, so it places nothing and is NOT part of the collision - stated so the population is not over-counted",
+        "The netting mechanism is already documented and measured in this repo (NETTING_ATTRIBUTION_MODE / the per-ORDER close-detection class); this row applies that mechanism to a specific live pair, it is not a new hypothesis about Bybit"
+      ],
+      "resolution_criteria": "Two things, and the FIRST is Tier-1 and must come first. (1) MEASURE the collision on BTCUSDT: over the shared-position history, how much of each leg's attributed PnL is exclusive vs shared, and how often did one leg's exit move the other's position? Until that number exists, every per-strategy BTCUSDT figure is quoted with the caveat. (2) DECIDE the separation (Tier-3, operator-gated): route the two legs to accounts that do not net against each other, arm hedge mode for the pair (BYBIT_HEDGE_MODE_SYMBOLS exists and is deliberately EMPTY - the plumbing is not the switch, and switching a venue's position mode is itself Tier-3), or accept one live BTCUSDT leg per netting account as policy. Closing this by demoting either leg does NOT satisfy it: that removes the collision from one account and leaves it standing on the other two, and leaves the attribution question unanswered for whichever leg remains.",
+      "notes": "Operator-directed 2026-08-26 ('separate it from trend_donchian'), filed as a separate tracked item at the operator's explicit instruction. The operator subsequently directed that NO demotion happen before a full investigation - 'it could be that it just needs better entry gates' - so this row is an input to that investigation, not a consequence of a demotion. No config change was made."
     }
   ]
 }
