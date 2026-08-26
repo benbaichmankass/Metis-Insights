@@ -1688,6 +1688,12 @@ async def get_venue_session(
     }
 
 
+# The id lives in a module constant so it is never split across a line break.
+# A wrapped backlog id reads as a DANGLING REFERENCE to artifact-validity-guard,
+# and "tracked by BL-X" where BL-X resolves to nothing is worse than silence.
+_STALE_READ_BACKLOG_ID = "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW"
+
+
 @router.get("/ib_open_orders")
 async def get_ib_open_orders(
     request: Request,
@@ -1709,7 +1715,8 @@ async def get_ib_open_orders(
     * ``null``  — **could not look** (non-IB account, gateway unreachable,
       breaker open, ``ib_port`` unset, or a dry/shelved account we never
       dial). NOT the same as "no orders".
-    * ``[]``    — a confirmed clean read: the account holds no resting orders.
+    * ``[]``    — the read succeeded and returned no rows. ⚠️ NOT "a confirmed
+      clean read" — see the staleness caveat below.
     * ``[{...}]`` — the rows: ``symbol``/``local_symbol``/``sec_type``,
       ``order_id``/``perm_id``, ``order_type``, ``action``,
       ``total_quantity``, ``aux_price``/``lmt_price``, ``oca_group``, ``tif``,
@@ -1718,6 +1725,31 @@ async def get_ib_open_orders(
     ``read_state`` names WHICH of the three a row is (``orders_read`` /
     ``could_not_look`` / ``not_ib``) so a consumer never has to infer it from
     a null, and ``count`` is ``null`` — never ``0`` — when we could not look.
+
+    ⚠️ **THIS ROUTE CAN RETURN ORDERS THAT ARE ALREADY CANCELLED.** Until that
+    is fixed, ``orders_read`` means "we read this client's order book", NEVER
+    "this is what the broker currently holds". Measured 2026-08-26 on
+    ``ib_paper``: after order 447 was cancelled, four reads here kept returning
+    it while two fresh-client reads did not — the two views differed by exactly
+    the cancelled pair and agreed on all six other orders.
+
+    Mechanism and the specified fix:
+    ``BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW``.
+    ``IBClient._open_trades`` reads ib_insync's ACCUMULATED ``Trade`` cache and
+    ``reqAllOpenOrders`` only ADDS — nothing prunes an order absent from the
+    response — so a cancel this client did not submit never updates its local
+    status and the view only ever GROWS.
+
+    The envelope carries ``stale_read_caveat`` so a MACHINE consumer sees this
+    too, not only a human reading a docstring. Removing that field is part of
+    the fix's done-condition.
+
+    The ENFORCING path is unaffected, and the distinction matters:
+    ``order_monitor._check_broker_naked_ib_positions`` grades with
+    ``ib_client_for(readonly=False)`` — the trader's OWN client, which
+    submitted the brackets and does receive their cancel callbacks. Naked
+    detection and the over-cover page are sound; what is affected is any human
+    or session reasoning about live IB order state from this route.
 
     Reads account-wide via ``reqAllOpenOrders`` (IB order visibility is
     per-client-session, so a readonly client's own ``openTrades()`` would miss
@@ -1782,6 +1814,17 @@ async def get_ib_open_orders(
         "requested_account_id": account_id,
         "count": len(out),
         "accounts": out,
+        # A KNOWN-DEFECTIVE-ROUTE marker, not a permanent field: this view
+        # can carry orders that were already cancelled, so `orders_read`
+        # means "we read the order book", never "this is what the broker
+        # holds now". DELETE THIS KEY as part of landing the fresh-client
+        # fix tracked by _STALE_READ_BACKLOG_ID; a caveat that outlives its
+        # defect is the desensitized-alarm shape.
+        "stale_read_caveat": (
+            "may include orders already cancelled by another client - "
+            "verify a specific order against a fresh client before acting "
+            "on its absence or presence (see " + _STALE_READ_BACKLOG_ID + ")"
+        ),
     }
 
 
