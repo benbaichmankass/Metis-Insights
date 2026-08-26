@@ -230,3 +230,96 @@ def test_the_decision_never_takes_a_level_from_the_caller():
     flipped = _mes(declared_stop=7516.50)
     assert flipped["keep_groups"] == ["oca-protect-336"]
     assert flipped["cancel_order_ids"] == [375]
+
+
+# ---------------------------------------------------------------------------
+# The module REFUSED ITS OWN MOTIVATING CASE for six days across three sessions
+# (BL-20260825-OVER-COVER-DECISION-REFUSES-ITS-OWN-MOTIVATING-CASE), because it
+# asked "does this group HOLD a correct leg?" instead of "would cancelling it
+# LOSE one?". Measured live on ib_paper/MHG 2026-08-26T01:00Z via
+# /api/diag/ib_open_orders + /api/bot/positions.
+# ---------------------------------------------------------------------------
+MHG_DECLARED_STOP = 6.31207143
+MHG_DECLARED_TARGET = 7.141302
+MHG_TICK = 0.0005
+
+def _mhg(group, stop_px, target_px):
+    return [
+        {"order_id": f"{group}-stp", "side": "stop", "action": "SELL",
+         "total_quantity": 29.0, "aux_price": stop_px, "oca_group": group},
+        {"order_id": f"{group}-lmt", "side": "target", "action": "SELL",
+         "total_quantity": 29.0, "lmt_price": target_px, "oca_group": group},
+    ]
+
+
+def _decide_mhg(legs):
+    return decide_over_cover(
+        position_qty=29.0, direction="long",
+        declared_stop=MHG_DECLARED_STOP, declared_target=MHG_DECLARED_TARGET,
+        legs=legs, tick_size=MHG_TICK)
+
+
+def test_the_live_mhg_case_now_resolves_instead_of_refusing():
+    """465 agrees on BOTH sides; 446's stop is 49 ticks low and its target is
+    IDENTICAL to 465's — so cancelling 446 loses nothing at all."""
+    out = _decide_mhg(_mhg("oca-protect-465", 6.312, 7.1415)
+                      + _mhg("oca-protect-446", 6.2625, 7.1415))
+    assert out["state"] == STATE_CANCEL_GROUP, out["reason"]
+    assert out["keep_groups"] == ["oca-protect-465"]
+    assert out["cancel_groups"] == ["oca-protect-446"]
+    # A cancelled partial must never read as a plain stray in an audit.
+    assert out["partial_groups_covered_by_keep"] == ["oca-protect-446"]
+    assert "loses nothing" in out["reason"]
+    # WHOLE groups: the stray's target goes with its stop.
+    assert sorted(out["cancel_order_ids"]) == [
+        "oca-protect-446-lmt", "oca-protect-446-stp"]
+
+
+def test_a_partial_the_keeper_does_not_cover_still_refuses():
+    """The 2026-08-20 reasoning is untouched where it actually applies.
+
+    ⚠️ Getting to this branch takes care, and the first attempt at this test did
+    not reach it: a keeper with the right stop and a WRONG target is itself
+    graded `partial`, so BOTH groups were partial and the run fell into the
+    no-keeper refusal instead. The reachable shape is a keeper carrying NO
+    target leg at all — then it agrees only on `stop`, while the stray carries
+    the declared TARGET, and cancelling the stray would strip the only correct
+    target on the book.
+    """
+    out = decide_over_cover(
+        position_qty=29.0, direction="long",
+        declared_stop=MHG_DECLARED_STOP, declared_target=MHG_DECLARED_TARGET,
+        legs=([{"order_id": "keeper-stp", "side": "stop", "action": "SELL",
+                "total_quantity": 29.0, "aux_price": 6.312,
+                "oca_group": "keeper"}]              # right stop, NO target leg
+              + _mhg("stray", 6.2625, 7.1415)),      # wrong stop, RIGHT target
+        tick_size=MHG_TICK)
+    assert out["state"] == STATE_AMBIGUOUS, out["reason"]
+    assert out["cancel_groups"] == []
+    assert "does NOT also match" in out["reason"]
+
+
+def test_a_partial_with_no_keeper_at_all_is_its_own_refusal():
+    """Distinct from `no_journal_match`: there we looked and every group was a
+    stray; here a group agrees on one side but nothing agrees on the stop, so
+    there is no survivor whose coverage could make a cancel safe."""
+    out = decide_over_cover(
+        position_qty=29.0, direction="long",
+        declared_stop=MHG_DECLARED_STOP, declared_target=MHG_DECLARED_TARGET,
+        legs=(_mhg("a", 6.20, 7.1415)               # wrong stop, right target
+              + _mhg("b", 6.10, 8.888)),            # wrong both
+        tick_size=MHG_TICK)
+    assert out["state"] == STATE_AMBIGUOUS, out["reason"]
+    assert "no group whose survival" in out["reason"]
+    assert out["cancel_groups"] == []
+
+
+def test_a_plain_stray_is_not_reported_as_a_covered_partial():
+    """The denominator for the field: a group agreeing on NOTHING must stay out
+    of `partial_groups_covered_by_keep`, or the audit key means nothing."""
+    out = _decide_mhg(_mhg("keeper", 6.312, 7.1415)
+                      + _mhg("stray", 6.10, 8.888))
+    assert out["state"] == STATE_CANCEL_GROUP, out["reason"]
+    assert out["cancel_groups"] == ["stray"]
+    assert out["partial_groups_covered_by_keep"] == []
+    assert "loses nothing" not in out["reason"]
