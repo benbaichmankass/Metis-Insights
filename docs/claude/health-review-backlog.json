@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-08-26T04:55:00Z",
+  "updated_at": "2026-08-26T05:15:00Z",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -24914,6 +24914,22 @@
         "issue #10313 - the same fresh-client read showing 8 orders on the account (2 MES + 2 MGC + 4 MHG)"
       ],
       "resolution_criteria": "First MEASURE the population: how many legacy-named `oca-protect-<reqId>` groups still rest across ib_paper, and whether any appeared AFTER the keyed path deployed - that decides whether this is a finite cleanup or an ongoing generator, and the two want different fixes. Then a stray group owned by the trader's own live clientId has SOME reachable path: either the trader cancels by resolved oca_group name rather than only the keyed one, or the repair runs in a maintenance window with the trader stopped, or cancel-ib-order gains a route that does not require assuming the owning id. Ends when ib_paper/MHG holds exactly ONE protective group for trade 4796, verified from a fresh client."
+    },
+    {
+      "id": "BL-20260826-CANCEL-IB-ORDER-BAND-GUARD-ASSERTS-A-LIVE-SESSION-IT-NEVER-CHECKED",
+      "opened_at": "2026-08-26T05:15:00Z",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "title": "cancel-ib-order's clientId guard tests a BAND but tells the operator the trader owns the order and is live",
+      "detail": "cancel_ib_order.py's second blocker fires on `owner < _TRADER_CLIENT_ID_CEILING` (9000) - a pure BAND test - and then states three things that test never established: 'connecting as it would evict the trader's live IB session', 'The trader itself owns this order', and 'pass --force-client-id only with the trader stopped'. All three are true only when the owning id is CURRENTLY CONNECTED. The band also contains RETIRED reconnect-rotation ids, and those are exactly the ones a stranded protective leg tends to be owned by. MEASURED BOTH WAYS ON THE SAME ACCOUNT, 2026-08-26, which is what makes this a real defect and not a wording quibble: order 447 (ib_paper/MHG) was owned by clientId 597, which was NOT in the live client set - /api/diag/ib_state at 03:51:13Z listed 497, 498 and 9372 - so connecting as 597 evicted nothing and the cancel succeeded (#10309). Order 466 is owned by 497, which IS live, so the same sentence is true there (#10315). The guard emitted the identical message for both. WHY IT MATTERS: this message is what an operator reads when deciding whether to force past the guard, and it names a remedy - stop the trader - that is unnecessary and disruptive in the retired-id case, which is the common one for stranded legs. Under-stating risk would be worse; this over-states it, and the cost is that the cheap safe path looks like the expensive dangerous one. It is the unprovenanced-diagnostic class this repo already has a guard for (sub-class A: a message naming a cause no code path tested). THE MEANS TO DISTINGUISH ALREADY EXIST AND ARE ALREADY ON THE VM: the trader writes runtime_logs/ib_state.json each tick (the file /api/diag/ib_state serves), listing every live client id. The script runs on the VM and can read it. THE REFUSAL SHOULD NOT CHANGE - it must stay default-on in every case, including 'we could not look'. Only the MESSAGE needs to stop asserting a fact it did not check.",
+      "evidence": [
+        "scripts/ops/cancel_ib_order.py - `if owner < _TRADER_CLIENT_ID_CEILING and not args.force_client_id:` and the blocker text that follows it",
+        "issue #10309 - order 447, owner_client_id 597, forced, cancel succeeded (confirmed by #10310/#10313 fresh reads showing 8 orders and 447 not_found)",
+        "/api/diag/ib_state at 2026-08-26T03:51:13Z - live clients 498, 9372, 497; 597 absent",
+        "issue #10315 - order 466, owner_client_id 497, the same message emitted where it IS true"
+      ],
+      "resolution_criteria": "The blocker message distinguishes three states, never collapsed, read from runtime_logs/ib_state.json: `live_session` (the owning id appears among the current clients - the existing wording is correct here), `retired_band_id` (in the band, NOT currently connected - say so, and do not tell the operator to stop the trader), and `unknown` (ib_state absent, stale, or unreadable - 'we could not look', which must read as the cautious case, not as retired). The refusal itself stays default-on in all three. A test asserts the message differs across the three and that none of them drops the refusal."
     }
   ]
 }
