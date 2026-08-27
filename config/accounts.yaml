@@ -1093,8 +1093,25 @@ accounts:
       # SCOPE: breakout_1 ONLY. trend_donchian_sol and trend_donchian_eth stay
       # execution: live on their bybit routes and are untouched here.
       # ROLLBACK: re-add the two names above this comment.
-      - eth_pullback_prop_2h           #   ETH pullback swap-robust variant,
-                                       #   execution: live (operator-approved 2026-06-25).
+      - eth_pullback_prop_2h           #   ETH pullback swap-robust variant.
+                                       #   ⚠️ execution: **shadow** since 2026-08-23
+                                       #   (Tier-3, operator-approved) — DEMOTED on OOS
+                                       #   net_R -11.78 over a 13,206-bar corpus, carved
+                                       #   out from the "retune first" family disposition
+                                       #   because a prop breach is TERMINAL. This comment
+                                       #   read "execution: live (operator-approved
+                                       #   2026-06-25)" until 2026-08-27; field beats
+                                       #   comment, and strategies.yaml is the field.
+                                       #   CONSEQUENCE, stated because the removal note
+                                       #   below no longer reads correctly on its own:
+                                       #   eth_pullback_2h was dropped from breakout_1 on
+                                       #   2026-07-20 precisely so THIS leg would be the
+                                       #   emitting ETH-pullback leg. With this one at
+                                       #   shadow, **no ETH-pullback leg emits a prop
+                                       #   ticket at all** — the lane is dormant, not
+                                       #   improved. Re-arming means promoting this back
+                                       #   to live on fresh evidence, not re-adding the
+                                       #   worse twin.
                                        #   At Breakout's real 0.033%/day swap the funded-EV
                                        #   gate is strong (realised +$421, 12-mo EV +$603
                                        #   @75.9%, 4/4 folds, break-even swap 0.10%/day = 3x

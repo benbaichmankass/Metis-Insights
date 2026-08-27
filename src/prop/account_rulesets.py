@@ -72,6 +72,43 @@ def _standard_ruleset(account_id: str, risk_block: Dict[str, Any],
     drawdown + daily-loss limits so a survival/sizing check can still consult
     them; there is no profit target and ``economics`` stays at its zero default
     (a real account is not a disposable, re-buyable prop account).
+
+    ⚠️ **THE ``max_dd_pct`` MAPPING IS A SEMANTIC SUBSTITUTION, AND EVERY
+    STANDARD-ARM ``p_breach`` / ``survival`` FIGURE INHERITS IT.**
+    Filed 2026-08-27 as
+    ``BL-20260827-STANDARD-ARM-MISMODELS-INTRADAY-MAX-DD-AS-A-TERMINAL-FLOOR``.
+    Documented here rather than fixed because changing it CHANGES GATE VERDICTS
+    on the real-money promotion path — Tier-3 research, not a doc edit.
+
+    What this function builds is ``drawdown_type="static"``: a **permanent**
+    floor a fixed fraction below the **starting balance**, which the evaluator
+    treats as terminal — the prop-firm rule. What ``max_dd_pct`` actually means
+    on a standard account is the opposite on both axes
+    (``src/units/accounts/risk.py`` line 21, and the ``accounts.yaml`` header):
+    *"max **INTRA-DAY** equity drawdown **from today's high**"* — it resets at
+    UTC midnight, it is measured from a rolling daily high rather than from the
+    start, and breaching it **refuses one trade**; it never disables the
+    account. So the arm grades a resetting per-trade brake as an
+    account-killer.
+
+    Two consequences a reader must not skip:
+
+    * ``p_breach`` here is close to structurally forced. At the configured
+      ``risk_pct`` a handful of consecutive losses crosses a never-resetting
+      floor, so over a multi-hundred-trade ledger the probability approaches 1
+      for strategies that are perfectly viable in reality. The ROUTE gate asks
+      for ``p_breach <= 0.10`` **and** ``survival >= 0.90`` against that model.
+    * ``account_size_usd`` is ``_DEFAULT_STANDARD_SIZE`` ($10,000) for any
+      account whose ``risk`` block omits it — which today is every standard
+      account. The figure is a placeholder notional, not the account's equity.
+
+    Until the arm is corrected, a standard-account row from
+    ``scripts/prop/account_compat_matrix.py`` is **UNGRADED**, not a negative
+    verdict. Do not cite a standard ``skip`` as evidence that a strategy is
+    unfit for real money, and do not infer from a prop ``ROUTE`` beside a
+    standard ``skip`` that the prop gate is a lower bar — the design standard
+    (``prop-dynamic-exits-faster-banking-DESIGN.md`` § 6) is strict improvement
+    at **equal-or-better survival**, which is not a lower bar at all.
     """
     return PropRuleset(
         ruleset=f"standard:{account_id}",

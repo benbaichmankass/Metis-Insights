@@ -714,6 +714,31 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_prop_identity_single_home.py"]],
     },
     {
+        "name": "artifact-caveat-guard",
+        # Registered 2026-08-27 on operator decision. Fires on the matrix, on
+        # every tool that PRODUCES it, and on the three backlogs — the backlogs
+        # deliberately, because a NEW row filed against a producer is exactly
+        # the event that must reach the artifact, and that is the direction the
+        # drift actually travels (the same reasoning risk-basis-agreement uses
+        # for putting config/accounts.yaml in its own trigger set).
+        "when": {"globs": [
+            "docs/research/exit-refinement-coverage.json",
+            "docs/claude/*-backlog.json",
+            "scripts/backtest_system.py", "scripts/capital_efficiency.py",
+            "scripts/research/m20_*.py", "scripts/research/e35_*.py",
+            "src/research/risk_basis.py",
+            "scripts/ci/check_artifact_caveats.py",
+            "scripts/research/m20_coverage_base_counts.py",
+        ]},
+        # Self-test FIRST — a guard whose planted controls no longer fire must
+        # not report a clean scan.
+        "steps": [["python3", "scripts/ci/check_artifact_caveats.py", "--self-test"],
+                  ["python3", "scripts/ci/check_artifact_caveats.py"],
+                  # The denominator half: a base count stated in prose must also
+                  # be a FIELD, or the extraction silently rots back to prose.
+                  ["python3", "scripts/research/m20_coverage_base_counts.py", "--check"]],
+    },
+    {
         "name": "risk-basis-agreement",
         # Fires on the harness fleet, the live risk config, and itself. The
         # SOURCE of truth (config/accounts.yaml) is in the trigger set
