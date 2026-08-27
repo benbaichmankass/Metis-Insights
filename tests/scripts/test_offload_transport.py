@@ -409,5 +409,6 @@ def test_the_publish_gate_only_fires_when_opted_in_and_a_run_exists(
                         env=env, capture_output=True, text=True)
     assert rc.returncode == 0, f"{case}: the gate must never fail the job\n{rc.stderr}"
     out = (tmp_path / "out.txt").read_text()
-    got = dict(l.split("=", 1) for l in out.strip().splitlines() if "=" in l)["publish"]
+    pairs = dict(ln.split("=", 1) for ln in out.strip().splitlines() if "=" in ln)
+    got = pairs["publish"]
     assert got == expect, f"{case}: expected publish={expect}, got {got}"
