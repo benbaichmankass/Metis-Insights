@@ -88,15 +88,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: artifact -> the tools whose defects it inherits. An artifact is registered
 #: here when a decision is read off it; the producer list is what wrote it.
-ARTIFACTS: Dict[str, Tuple[str, ...]] = {
+ARTIFACTS: dict[str, tuple[str, ...]] = {
     "docs/research/exit-refinement-coverage.json": (
         "scripts/backtest_system.py",
         "scripts/research/m20_exit_sweep.py",
@@ -125,15 +124,15 @@ def _load(path: Path) -> Any:
 
 
 def _open_rows_naming_producers(
-    backlog_paths: List[Path], producers: Tuple[str, ...]
-) -> Dict[str, List[str]]:
+    backlog_paths: list[Path], producers: tuple[str, ...]
+) -> dict[str, list[str]]:
     """Return {row_id: [producer, ...]} for OPEN rows naming any producer.
 
     Matches on the tool's BASENAME inside the row's serialised text: rows cite
     tools inconsistently (full path, bare name, backticked), and a basename is
     the one form all of them share.
     """
-    found: Dict[str, List[str]] = {}
+    found: dict[str, list[str]] = {}
     for bp in backlog_paths:
         if not bp.exists():
             continue
@@ -151,21 +150,19 @@ def _open_rows_naming_producers(
     return found
 
 
-def _adjudicated(caveats: Dict[str, Any]) -> Tuple[Set[str], Dict[str, str]]:
-    """Return (every adjudicated id, {id: bucket})."""
-    seen: Set[str] = set()
-    where: Dict[str, str] = {}
+def _adjudicated(caveats: dict[str, Any]) -> set[str]:
+    """Return every row id placed in ANY of the three buckets."""
+    seen: set[str] = set()
     for bucket in _BUCKETS:
         for entry in caveats.get(bucket) or []:
             rid = entry.get("id") if isinstance(entry, dict) else str(entry)
             if rid:
                 seen.add(rid)
-                where[rid] = bucket
-    return seen, where
+    return seen
 
 
-def check(repo_root: Path, artifacts: Dict[str, Tuple[str, ...]]) -> List[str]:
-    errors: List[str] = []
+def check(repo_root: Path, artifacts: dict[str, tuple[str, ...]]) -> list[str]:
+    errors: list[str] = []
     backlogs = [repo_root / b for b in BACKLOGS]
     for art_rel, producers in artifacts.items():
         art = repo_root / art_rel
@@ -183,7 +180,7 @@ def check(repo_root: Path, artifacts: Dict[str, Tuple[str, ...]]) -> List[str]:
             continue
 
         rows = _open_rows_naming_producers(backlogs, producers)
-        adjudicated, where = _adjudicated(caveats)
+        adjudicated = _adjudicated(caveats)
 
         missing = sorted(set(rows) - adjudicated)
         if missing:
