@@ -104,7 +104,7 @@ def _standard_ruleset(account_id: str, risk_block: Dict[str, Any],
     ⚠️ **THE ``max_dd_pct`` MAPPING WAS A SEMANTIC SUBSTITUTION. FIXED
     2026-08-27; the history is kept because the mechanism recurs.**
     ``BL-20260827-STANDARD-ARM-MISMODELS-INTRADAY-MAX-DD-AS-A-TERMINAL-FLOOR``
-    and ``BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE``.
+    and ``BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE-WITH-NO-MEMBER-FOR-ITS-CONCEPT``.
 
     This function used to build ``drawdown_type="static"``: a **permanent**
     floor a fixed fraction below the **starting balance**, which the evaluator

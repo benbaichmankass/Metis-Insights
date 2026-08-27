@@ -57,7 +57,27 @@ def build_account_leg(
     entry_band_frac: float = 0.25,
     ttl_bars: float = 1.0,
 ) -> AccountLeg:
-    """Size one account's leg from its :class:`AccountBacktestUnit`."""
+    """Size one account's leg from its :class:`AccountBacktestUnit`.
+
+    ⚠️ **AN UNGRADEABLE UNIT IS REFUSED HERE, EXPLICITLY** (2026-08-27).
+    ``AccountBacktestUnit.account_size_usd`` became nullable when the standard
+    arm stopped inventing a synthetic $10,000 for accounts whose size cannot be
+    established. Today this path only ever receives PROP units (``breakout_executor``
+    resolves a prop account, whose plan declares its size), so this branch does
+    not fire — verified, not assumed. It exists because the failure without it
+    is quiet in the worst way: ``risk_pct / 100 * None`` raises inside the
+    ``try`` below and the leg degrades to a generic "skip" with no indication
+    that the SIZE was the problem. A live order path should not size from a
+    number nobody established, and should say so when it declines.
+    """
+    if not unit.gradeable:
+        return AccountLeg(
+            account_id=unit.account_id, account_class=unit.account_class,
+            decision="skip", ticket=None,
+            reason=(f"account size could not be established "
+                    f"({unit.size_state}: {unit.size_reason or 'no reason recorded'}) "
+                    f"— refusing to size a ticket from an unestablished balance"),
+        )
     cfg = TicketConfig(
         account_size_usd=unit.account_size_usd,
         risk_pct=unit.risk_pct,

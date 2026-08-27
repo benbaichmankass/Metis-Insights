@@ -53,7 +53,7 @@ DRAWDOWN_REFERENCES = ("static", "trailing", "intraday_high")
 #: a permanent terminal floor, the opposite on BOTH axes. For two months every
 #: standard-arm ``p_breach``/``survival`` figure graded a per-trade brake as an
 #: account-killer. The lesson, from
-#: ``BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE``:
+#: ``BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE-WITH-NO-MEMBER-FOR-ITS-CONCEPT``:
 #:
 #:   *A type system with no member for a new concept will silently absorb it
 #:   into the nearest existing member. An enum that CANNOT represent the rule

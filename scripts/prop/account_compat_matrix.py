@@ -274,8 +274,16 @@ def run(args: argparse.Namespace) -> int:
             extra = f"P(breach)={r.get('p_breach')}, surv={r.get('survival')}"
         val = "—" if r["value"] is None else (f"${r['value']:,.0f}" if r["metric"] == "ev_net_usd"
                                               else f"{r['value']*100:.1f}%")
+        # ⚠️ An UNGRADED row carries `account_size_usd: None` — `f"{None:.0f}"`
+        # raises TypeError, so this MUST be guarded rather than formatted
+        # directly. Render the refusal's own state instead of a number, so the
+        # table says WHY there is no size rather than showing a blank cell.
+        if r["account_size_usd"] is None:
+            size_cell = f"— ({r.get('size_state') or 'unresolved'})"
+        else:
+            size_cell = f"{r['account_size_usd']:,.0f}"
         L.append(f"| {r['account']} | {r['kind']} | {r['class']} | {r['risk_pct']} | "
-                 f"{r['account_size_usd']:.0f} | {r['metric']} | {val} | {extra} | **{r['verdict']}** |")
+                 f"{size_cell} | {r['metric']} | {val} | {extra} | **{r['verdict']}** |")
     L += ["", "Verdict: **ROUTE** = positive under the account's own ruleset "
           "(prop: +EV @ P(net>0) ≥ threshold; standard: positive mean end-return "
           "AND survival ≥ --min-survival AND P(breach) ≤ --max-p-breach). "
