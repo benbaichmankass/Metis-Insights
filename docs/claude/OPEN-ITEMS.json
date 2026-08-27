@@ -3,7 +3,7 @@
  "what_this_is": "The SHORT list every session reads at START — and its live contents are RENDERED INTO CLAUDE.md by scripts/ops/render_session_brief.py, because CLAUDE.md is the only channel that reliably reaches a session before its first tool call. Hooks do NOT run on Claude Code on the web (verified 2026-08-26: the SessionStart contract's output was absent from the session context; 1,379 consecutive 'Found 0 total hooks in registry' log lines on 2026-08-20), and CI guards fire at MERGE, which is far too late to make the work correct in the first place.",
  "every_row_declares_how_it_leaves": "`clears_when` names the OBSERVABLE condition that removes the row. 'the fix works' is not one; 'the mechanism is seen acting on a named trade' is. A row nobody can tell is finished never gets cleared.",
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
- "updated_at": "2026-08-26",
+ "updated_at": "2026-08-27",
  "items": [
   {
    "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
@@ -100,6 +100,22 @@
    "refs": [
     "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED"
    ]
+  },
+  {
+   "id": "OI-20260827-RESEARCH-QUEUE-DISPATCHER-NEVER-FIRED",
+   "opened": "2026-08-27",
+   "kind": "awaiting_verification",
+   "summary": "The T2 research queue + dispatcher is built and green but has NEVER dispatched anything; its cron has never fired and its GPU route has never been exercised.",
+   "detail": "PR #10365 (draft) ships research/queue/*.yaml, the R4 power gate (5 states), the routing decision (4 states), scripts/research/dispatch_queue.py and a daily cron workflow. 51 tests pass and guards are PASS 41/FAIL 0 — but EVERY dispatch so far has been a dry run or a stubbed _fire in a test. Nothing has been routed to a real runner, a real trainer job, or a real GPU burst. ⚠️ THE GPU PATH IS THE ONE THAT MATTERS: the operator chose 'fire everything including GPU', so the first real armed run is the first time this spends money unattended. Three gates are supposed to bound it — the burst workflow's ledger preflight against the $10/month cap, its GPU_BURST_ARMED gate, and the dispatcher's own --max-gpu-dispatches-per-run — and NONE of the three has been observed holding against this dispatcher. A test with a stubbed _fire proves the counter advances; it proves nothing about the ledger preflight. Also unproven: the last_dispatched_at stamp round-trip. It lands via the commit-to-main auto-merge PR, so a second dispatcher run inside that PR's window would RE-FIRE the same job. That race is documented in the module and has never been observed either way.",
+   "clears_when": "BOTH: (a) a queued job is dispatched for real by the dispatcher (not a dry run, not a stubbed _fire) and its rows land in the store the job declares in `lands.store`, verified by reading that store — not by the workflow exiting 0; and (b) a recurring (non-`once`) job is observed NOT re-firing on the dispatcher run immediately after its first fire, which is the stamp race actually being exercised. Until a GPU-routed job has been fired once with the ledger preflight observed refusing or admitting it, do not describe the spend gates as verified."
+  },
+  {
+   "id": "OI-20260827-LANE-P-COMPAT-VERDICTS-UNMEASURED",
+   "opened": "2026-08-27",
+   "kind": "pending_decision",
+   "summary": "Lane P (#10364, Tier-3) is green and awaiting operator approval; NOBODY has measured which compat-matrix verdicts it actually moves.",
+   "detail": "PR #10364 changes the standard arm so it stops grading an intra-day resetting brake as a terminal account-killer, and REFUSES (verdict UNGRADED) instead of sizing off a synthetic $10,000 when the live balance cannot be established. All four checks are green as of 2026-08-27T11:02Z. ⚠️ THE CASE FOR IT IS ARGUED FROM THE MECHANISM, NOT FROM A MEASURED BEFORE/AFTER. The session that wrote it could not run the compat matrix (no numpy in the sandbox), so the number of verdicts that flip, and their direction, is UNKNOWN. That is exactly the evidence an operator approving a Tier-3 sizing/gating change should have. research/queue/RQ-20260827-001.yaml exists precisely to produce it — a deterministic re-grade routed to a runner — but it cannot run until #10365 merges and the dispatcher is armed, so the two PRs are coupled in that one direction.",
+   "clears_when": "The before/after verdict diff has been produced and read — either by RQ-20260827-001 running, or by dispatching gld-compat-matrix.yml by hand on the Lane P branch — AND the operator has made the approve/decline call on #10364 with that diff in front of them. Approving without it is a choice the operator may make, but this row does not clear on approval alone."
   }
  ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
