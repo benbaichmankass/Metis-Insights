@@ -72,6 +72,38 @@ for _name in (
     "telegram.constants",
     "dotenv",
     "requests",
+    # --- added 2026-08-27, BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME
+    #
+    # These four are NOT here because anything in conftest needs them. They are
+    # here to WIN THE SLOT before ~8 test modules run their own copy-pasted
+    # stub block at import time:
+    #
+    #     for _mod in ("pandas", ..., "sklearn", ...):
+    #         sys.modules.setdefault(_mod, MagicMock())
+    #
+    # `setdefault` guards on ALREADY-IMPORTED, not on IMPORTABLE — so on a box
+    # where the real sklearn IS installed but simply has not been imported yet,
+    # the MagicMock wins and every later `import sklearn.linear_model` dies with
+    # "'sklearn' is not a package". `ml/calibration/fit.py::_fit_platt` imports
+    # sklearn LOCALLY inside the function, which is exactly what makes it lose
+    # that race: nothing imports sklearn during collection.
+    #
+    # `_stub_optional` above is the CORRECT form of the same idea — it tries the
+    # real import first and stubs only on ImportError. Running it here for these
+    # names puts the REAL module in sys.modules before any test module is
+    # imported, which makes all eight `setdefault` calls no-ops without touching
+    # them. This conftest's own header already records that it exists to
+    # centralise stubs "~10 test files were copy-pasting"; those copies were
+    # never removed, and this closes the gap from the one place that is
+    # guaranteed to run first.
+    #
+    # Measured before/after: `pytest tests/ml/calibration/ tests/test_outcomes_integration.py`
+    # went 5 failed / 17 passed -> 0 failed. On a lean box with no sklearn the
+    # behaviour is unchanged: _stub_optional catches ImportError and stubs it.
+    "numpy",
+    "pandas",
+    "scipy",
+    "sklearn",
 ):
     _stub_optional(_name)
 
