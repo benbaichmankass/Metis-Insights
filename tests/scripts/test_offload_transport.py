@@ -364,3 +364,50 @@ def test_the_publish_job_asserts_its_own_landing():
     assert "--store ml/offload-inbox/index.jsonl" in asserted[0]["run"], (
         "the landing assertion must name the store the job actually commits"
     )
+
+
+# ------------------------------------------------- the publish gate, EXECUTED
+# The gate decides whether anything is committed to permanent history at all.
+# A YAML parse proves it is well-formed; only running it proves it is right.
+# Extracted from the workflow rather than duplicated, so the test cannot pass
+# against a copy of the logic that has drifted from the shipped one.
+def _publish_gate_script() -> str:
+    import yaml
+    wf = yaml.safe_load((_ROOT / ".github/workflows/trainer-offload-train.yml").read_text())
+    step = next(s for s in wf["jobs"]["train"]["steps"] if s.get("id") == "publish_gate")
+    return step["run"]
+
+
+@pytest.mark.parametrize("case,want,train_out,make_dir,expect", [
+    ("opted in, train produced a run", "true",
+     {"experiment_dir": "ml/experiments-runs/m/RUN1"}, True, "true"),
+    ("NOT opted in", "false",
+     {"experiment_dir": "ml/experiments-runs/m/RUN1"}, True, "false"),
+    # exit 78 — dataset absent / 0 rows. A real outcome, not a failure, and it
+    # must publish nothing rather than fail the job.
+    ("train SKIPPED", "true", {"skipped": True, "reason": "dataset_absent"}, True, "false"),
+    ("train DIED (no stdout at all)", "true", None, True, "false"),
+    # A dir the CLI named but that is not on disk: publish nothing rather than
+    # let the artifact upload fail the run.
+    ("dir reported but absent on disk", "true",
+     {"experiment_dir": "ml/experiments-runs/m/RUN1"}, False, "false"),
+])
+def test_the_publish_gate_only_fires_when_opted_in_and_a_run_exists(
+    tmp_path, case, want, train_out, make_dir, expect
+):
+    import json as _json
+    import os
+    import subprocess
+    (tmp_path / "artifacts/offload").mkdir(parents=True)
+    if train_out is not None:
+        (tmp_path / "artifacts/offload/train_out.json").write_text(_json.dumps(train_out))
+    if make_dir and train_out and train_out.get("experiment_dir"):
+        (tmp_path / train_out["experiment_dir"]).mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, of_publish=want, of_manifest="m", of_symbol="BTCUSDT",
+               of_timeframe="5m", GITHUB_OUTPUT=str(tmp_path / "out.txt"))
+    rc = subprocess.run(["bash", "-c", _publish_gate_script()], cwd=tmp_path,
+                        env=env, capture_output=True, text=True)
+    assert rc.returncode == 0, f"{case}: the gate must never fail the job\n{rc.stderr}"
+    out = (tmp_path / "out.txt").read_text()
+    got = dict(l.split("=", 1) for l in out.strip().splitlines() if "=" in l)["publish"]
+    assert got == expect, f"{case}: expected publish={expect}, got {got}"
