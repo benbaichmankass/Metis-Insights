@@ -168,6 +168,101 @@ more guards do not fix a degraded checker.
 
 Mirrored at the top of the root `CLAUDE.md`.
 
+## MEASURED / INFERRED / DECIDED — mark what kind of statement you are making (operator directive 2026-08-27, binding)
+
+**Every durable statement in this repo is one of three things, and it must say
+which.** Not a metadata field — the mark goes in the sentence, where it is read.
+
+| mark | what it is | what a later session may do with it |
+|---|---|---|
+| **MEASURED** | a number, **with its population, how it was obtained, and WHERE THE MEASUREMENT LIVES** | trust it within the stated population; go to the named source to re-check or refresh |
+| **INFERRED** | a conclusion drawn **from named measurements** | **check the inference**; it is falsifiable and may be wrong while its inputs are right |
+| **DECIDED** | an operator/Tier-3 choice, **with date and what would reverse it** | **do not re-litigate**; change it only through the tier that set it |
+
+### The incident this comes from
+
+`config/strategies.yaml` carried, on the `execution:` line of both live prop legs
+— the most-read comment on a Tier-3 routing decision — one sentence containing
+**both** kinds and marking neither:
+
+> *"ev_net_usd +$483, P(net>0)=0.7427 over 602 trades"* — **MEASURED**, reproducible.
+> *"So this is `+EV to buy accounts and run this`, NOT `this is safe`."* — **INFERRED**, and wrong.
+
+A session read the pair, inherited both at the same confidence, relayed the
+conclusion to the operator as established fact, and proposed **retiring working
+infrastructure** on it. The design doc the comment itself cited said the opposite,
+one section along. Only the operator's pushback caused anyone to open it.
+
+Operator, 2026-08-27: *"if I hadn't pushed we would have retired good infra
+instead of realizing the actual underlying issue … the fix can't just be more
+guards or another exclamation mark in the CLAUDE.md."*
+
+### Why this rule and not another guard
+
+This repo already answers structural problems by adding CI checks — 48 registered
+guards — and this class is not reachable that way: **no checker can tell a correct
+inference from an incorrect one.** What a checker cannot do, a *form* can. Marking
+a statement INFERRED does not make it true; it tells the next reader that checking
+it is in scope, which is the entire failure above.
+
+It is also the fix for carrying work across sessions. Prose does not carry: the
+next session cannot tell what it may trust, what it should re-derive, and what is
+not its to reopen — so it either re-derives everything (and does not, because the
+registers are too large to read) or trusts everything (and inherits this). The
+three marks answer exactly that question at the point of reading.
+
+### A MEASURED must say WHERE THE MEASUREMENT LIVES (operator addition, 2026-08-27)
+
+**A number whose source cannot be found is not MEASURED — it is INFERRED from an
+unstated one.** The locator is part of the mark, not a nicety, because the whole
+value of MEASURED is that a later session can *go and look* instead of re-deriving
+or trusting. Without it the mark degrades to "someone once computed this", which
+is the state that caused the incident above.
+
+Name whichever applies — a path, and enough to find the row:
+
+| the measurement is | name |
+|---|---|
+| a committed artifact | the path (`runtime_logs/e35_bracket/…`, `comms/reports/<window>/<ts>/`) |
+| a workflow run | the workflow + run id (`e35-bracket-sweep.yml` run 32975514836) |
+| a relay pull | the issue number (`trainer-diag #8975`) |
+| a live endpoint | the endpoint **and the date read** (`/api/bot/performance?window=all`, read 2026-08-27) — an endpoint alone is not a locator, because the answer moves |
+| a query you wrote | the query, or the script that runs it |
+
+⚠️ **"Measured on the live journal" is NOT a locator.** Neither is a bare date.
+The test is whether a session with no memory of this one can reach the same rows.
+
+⚠️ **If the measurement is genuinely unreachable, say THAT.** An artifact that
+exists only as an expired CI artifact is a real and common state in this repo —
+`BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH` records 3,781 measured cells
+in exactly that condition. Mark it `MEASURED (source not durably retrievable:
+<why>)`. That is honest and actionable; a locator-free number is neither.
+
+### How to apply it
+
+- **Do not retrofit everything.** Apply it where a statement GATES A DECISION: an
+  `execution:` line, a routing comment, a promotion verdict, a roadmap status, a
+  backlog row's headline. Those are the statements that get read and acted on.
+- **An INFERRED must name its inputs.** *"Inferred from the 2026-08-13 gate run
+  (ev_net_usd +$483) and `breakout.yaml`'s economics block"* — so the inference is
+  re-checkable without re-deriving the measurement.
+- **A DECIDED must carry its reversal condition.** A decision nobody can tell how
+  to reverse becomes folklore, and folklore is what gets relayed as fact.
+- **When you cannot mark it, that is the finding.** A statement that is neither
+  measured, inferred from something named, nor decided by someone is an assertion
+  with no owner. Say so rather than writing it unmarked.
+- **The marks compose with `Always state the population`** — a MEASURED without a
+  population is not MEASURED, it is INFERRED from an unstated one.
+
+### What this does NOT do
+
+It does not make INFERRED statements second-class or discourage drawing
+conclusions — the repo needs them. It makes the *kind* legible so the reader
+applies the right scepticism. An INFERRED that turns out wrong, marked honestly,
+costs a re-check; the same statement unmarked cost this repo two weeks of work
+aimed at the wrong target and nearly cost it a working promotion gate.
+
+
 ## If you see something, say something (operator directive 2026-07-19, binding)
 
 **Don't leave bugs lying around: fix them, or log them correctly so a review

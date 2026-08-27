@@ -52,33 +52,23 @@ research question. It enforces only that the decision was MADE and is VISIBLE in
 the artifact a reader opens. A wrong adjudication is a reviewable line; an absent
 one is invisible.
 
-STATUS — DELIBERATELY NOT REGISTERED IN ``run_guards.py``
---------------------------------------------------------
-# wiring: manual-only - awaiting an operator decision (2026-08-27) on whether a
-# guard is the right instrument here at all; run by hand until then.
+STATUS — REGISTERED (operator decision, 2026-08-27)
+---------------------------------------------------
+Registered in ``run_guards.py`` as ``artifact-caveat-guard``. It was written and
+committed PARKED on 2026-08-27, because the operator's directive on the same audit
+was: *"the fix can't just be more guards or another exclamation mark in the
+CLAUDE.md — we need to fix how Claude understands context in this repo."* They
+then chose to register it, alongside the structural fix (the
+MEASURED / INFERRED / DECIDED convention, ``CLAUDE-RULES-CANONICAL``).
 
-This tool is COMPLETE and self-tested, and it is parked on purpose. The operator's
-2026-08-27 directive on the same audit: *"the fix can't just be more guards or
-another exclamation mark in the CLAUDE.md — we need to fix how Claude understands
-context in this repo."*
+⚠️ **It is ONE instrument, not the fix.** No checker can tell a correct inference
+from an incorrect one, which is the class that caused the incident — this guard
+forces a JUDGEMENT to be made and made visible, and cannot judge.
 
-They are right, and this file is the reflex they named: it was written mid-audit,
-by the session that had just documented that this repo answers structural problems
-by adding CI checks (48 registered guards, 975 backlog rows, and the problem
-persists). Registering it would let a guard stand in for the structural fix, which
-is the failure one level up.
-
-What it does address is narrow and real: ~50 open backlog rows name a producing
-tool of the coverage matrix and NONE is visible in it. That is worth forcing a
-decision on. It is not worth calling a solution.
-
-Run by hand:
-
-    python3 scripts/ci/check_artifact_caveats.py --self-test
-    python3 scripts/ci/check_artifact_caveats.py
-
-Registering it is a one-line addition to ``run_guards.py`` if the operator decides
-it earns a slot.
+First real run, on the artifact it was written for: **50 open rows required
+adjudication; 40 condition the verdicts, 11 were dismissed with stated reasons,
+and it caught one the author had missed** (``BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES``
+— the row Path B itself descends from).
 
 Exit codes: 0 clean · 1 finding · 2 could not measure (an ABSENT result, not a
 clean one).
