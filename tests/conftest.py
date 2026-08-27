@@ -98,14 +98,54 @@ for _name in (
     # guaranteed to run first.
     #
     # Measured before/after: `pytest tests/ml/calibration/ tests/test_outcomes_integration.py`
-    # went 5 failed / 17 passed -> 0 failed. On a lean box with no sklearn the
-    # behaviour is unchanged: _stub_optional catches ImportError and stubs it.
-    "numpy",
-    "pandas",
-    "scipy",
-    "sklearn",
+    # went 5 failed / 17 passed -> 0 failed.
 ):
     _stub_optional(_name)
+
+
+def _preimport_if_available(name: str) -> None:
+    """Import *name* if it is installed. If it is NOT, do NOTHING — never stub.
+
+    ⚠️ **THE "NEVER STUB" HALF IS LOAD-BEARING AND WAS LEARNED THE HARD WAY.**
+    An earlier version of this fix routed these four through `_stub_optional`,
+    which installs a `MagicMock` when the import fails. That broke `pytest.approx`
+    outright in any environment WITHOUT numpy — `_pytest.python_api.is_bool` does::
+
+        if np := sys.modules.get("numpy"):
+            return isinstance(val, np.bool_)
+
+    so a MagicMock in that slot makes `np.bool_` a MagicMock, which is not a
+    type, and `isinstance()` raises `TypeError`. Caught by the `guards` CI job,
+    which installs only ruff/import-linter/pyyaml/pytest and therefore has no
+    numpy: `tests/test_over_cover_decision.py::test_reproduces_the_2026_08_20_failure`
+    died on a `pytest.approx` comparison of `200.0`. `pytest-run` stayed green
+    because it installs the full requirements — so the leaner job was the only
+    thing that could see it.
+
+    Pre-importing is all that is actually needed. The goal is only to make the
+    REAL module win the `sys.modules` slot before ~8 test modules run their own
+    copy-pasted `sys.modules.setdefault(_mod, MagicMock())` at import time —
+    `setdefault` guards on ALREADY-IMPORTED rather than IMPORTABLE, so without
+    this the mock shadows an installed package and a later
+    `import sklearn.linear_model` dies with "'sklearn' is not a package".
+
+    When the package is genuinely absent there is nothing to protect: leaving
+    `sys.modules` untouched is both correct and strictly safer, and those test
+    modules' own stubs still cover the tests that need them.
+    """
+    try:
+        __import__(name)
+    except Exception:  # allow-silent: absence is the expected case and is a no-op
+        # Deliberately broad and deliberately silent. A heavy optional package
+        # can fail to import for reasons beyond ImportError (a partial install,
+        # a binary/ABI mismatch), and NONE of them should take the whole suite
+        # down at conftest time — the pre-import is an optimisation, not a
+        # dependency. Nothing is stubbed on this path.
+        return
+
+
+for _name in ("numpy", "pandas", "scipy", "sklearn"):
+    _preimport_if_available(_name)
 
 
 # ---------------------------------------------------------------------------
