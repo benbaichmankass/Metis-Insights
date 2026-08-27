@@ -64,6 +64,35 @@ def reporter(tmp_path: Path):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_durable_alert_latches(tmp_path, monkeypatch):
+    """Point every durable alert latch at ``tmp_path`` for this module.
+
+    ⚠️ **WITHOUT THIS, THIS FILE POISONS ITS OWN NEXT RUN.**
+    ``test_strategy_exception_pages_with_strategy_name`` drives the real
+    ``pipeline._report_builder_exception``, whose latch resolves through
+    ``alert_cooldown.state_path`` -> ``src.utils.paths.runtime_logs_dir`` -> the
+    REAL ``runtime_logs/strategy_builder_exception_alert_state.json``. The latch
+    is WALL-CLOCK keyed with a 6h window (``_BUILDER_EXC_COOLDOWN_S``), so the
+    first run commits ``_test_explode|ValueError:strategy borked`` and every run
+    for the next six hours gets the WARN downgrade instead of the ERROR the test
+    asserts. Measured: latch present -> FAIL, delete it -> PASS, run again ->
+    FAIL, with the captured log showing WARNING rather than ERROR.
+
+    Invisible in CI, which checks out a fresh tree per run — so the whole cost
+    lands on local verification, where it renders as a real regression.
+
+    The production latch is CORRECT and must not be weakened to suit a test:
+    ``BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART`` records that a
+    per-process ``time.monotonic()`` version put 202 CRITICALs — 53.7% of the
+    operator's ERROR+ feed — on the channel because every restart re-armed it.
+    The TEST is what has to isolate, which is exactly what
+    ``tests/test_builder_exception_paging.py`` already does.
+    """
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _silence_existing_telegram():
     """The pipeline already sends a per-tick Telegram message via send_to_operator.
     Patch it for every test in this file so we can assert on outcomes-driven sends only.

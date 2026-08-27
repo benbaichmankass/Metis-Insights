@@ -72,8 +72,80 @@ for _name in (
     "telegram.constants",
     "dotenv",
     "requests",
+    # --- added 2026-08-27, BL-20260827-TEST-MODULES-STUB-SKLEARN-INTO-SYS-MODULES-AT-IMPORT-TIME
+    #
+    # These four are NOT here because anything in conftest needs them. They are
+    # here to WIN THE SLOT before ~8 test modules run their own copy-pasted
+    # stub block at import time:
+    #
+    #     for _mod in ("pandas", ..., "sklearn", ...):
+    #         sys.modules.setdefault(_mod, MagicMock())
+    #
+    # `setdefault` guards on ALREADY-IMPORTED, not on IMPORTABLE — so on a box
+    # where the real sklearn IS installed but simply has not been imported yet,
+    # the MagicMock wins and every later `import sklearn.linear_model` dies with
+    # "'sklearn' is not a package". `ml/calibration/fit.py::_fit_platt` imports
+    # sklearn LOCALLY inside the function, which is exactly what makes it lose
+    # that race: nothing imports sklearn during collection.
+    #
+    # `_stub_optional` above is the CORRECT form of the same idea — it tries the
+    # real import first and stubs only on ImportError. Running it here for these
+    # names puts the REAL module in sys.modules before any test module is
+    # imported, which makes all eight `setdefault` calls no-ops without touching
+    # them. This conftest's own header already records that it exists to
+    # centralise stubs "~10 test files were copy-pasting"; those copies were
+    # never removed, and this closes the gap from the one place that is
+    # guaranteed to run first.
+    #
+    # Measured before/after: `pytest tests/ml/calibration/ tests/test_outcomes_integration.py`
+    # went 5 failed / 17 passed -> 0 failed.
 ):
     _stub_optional(_name)
+
+
+def _preimport_if_available(name: str) -> None:
+    """Import *name* if it is installed. If it is NOT, do NOTHING — never stub.
+
+    ⚠️ **THE "NEVER STUB" HALF IS LOAD-BEARING AND WAS LEARNED THE HARD WAY.**
+    An earlier version of this fix routed these four through `_stub_optional`,
+    which installs a `MagicMock` when the import fails. That broke `pytest.approx`
+    outright in any environment WITHOUT numpy — `_pytest.python_api.is_bool` does::
+
+        if np := sys.modules.get("numpy"):
+            return isinstance(val, np.bool_)
+
+    so a MagicMock in that slot makes `np.bool_` a MagicMock, which is not a
+    type, and `isinstance()` raises `TypeError`. Caught by the `guards` CI job,
+    which installs only ruff/import-linter/pyyaml/pytest and therefore has no
+    numpy: `tests/test_over_cover_decision.py::test_reproduces_the_2026_08_20_failure`
+    died on a `pytest.approx` comparison of `200.0`. `pytest-run` stayed green
+    because it installs the full requirements — so the leaner job was the only
+    thing that could see it.
+
+    Pre-importing is all that is actually needed. The goal is only to make the
+    REAL module win the `sys.modules` slot before ~8 test modules run their own
+    copy-pasted `sys.modules.setdefault(_mod, MagicMock())` at import time —
+    `setdefault` guards on ALREADY-IMPORTED rather than IMPORTABLE, so without
+    this the mock shadows an installed package and a later
+    `import sklearn.linear_model` dies with "'sklearn' is not a package".
+
+    When the package is genuinely absent there is nothing to protect: leaving
+    `sys.modules` untouched is both correct and strictly safer, and those test
+    modules' own stubs still cover the tests that need them.
+    """
+    try:
+        __import__(name)
+    except Exception:  # allow-silent: absence is the expected case and is a no-op
+        # Deliberately broad and deliberately silent. A heavy optional package
+        # can fail to import for reasons beyond ImportError (a partial install,
+        # a binary/ABI mismatch), and NONE of them should take the whole suite
+        # down at conftest time — the pre-import is an optimisation, not a
+        # dependency. Nothing is stubbed on this path.
+        return
+
+
+for _name in ("numpy", "pandas", "scipy", "sklearn"):
+    _preimport_if_available(_name)
 
 
 # ---------------------------------------------------------------------------

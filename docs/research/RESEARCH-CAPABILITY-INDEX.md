@@ -232,6 +232,15 @@ verify-the-source-before-you-build.
 
 ---
 
+## 11. Running the research itself — the standing queue (R4 + R5)
+
+| question | tool |
+|---|---|
+| **Which queued experiment may run, and where should it run?** The two decisions the queue exists to make, kept as PURE FUNCTIONS so the policy is arguable in tests rather than against a live dispatch. Grades a job's declared `power` block into five states that are never collapsed — `cleared` / `underpowered` / `undeclared` / `unverifiable` / `not_applicable` — and routes it by its DECLARED resource needs into `runner` / `trainer` / `gpu` / `unroutable`. ⚠️ **`not_applicable` is NOT `cleared`**: a `kind: deterministic` job faced no power bar, a cleared one faced it and met it, and tallying them together would report "N jobs cleared the gate" over a population where some never took the test. ⚠️ **`unroutable` is a REFUSAL, never a fallback to the runner** — a job declaring both a GPU and trainer-resident data names no destination that exists, and one declaring more memory than any destination has is refused rather than sent to be OOM-killed on the 6 GB trainer. ⚠️ **The `required_n` floor is the NORMAL approximation and assumes iid draws**; backtest trades are autocorrelated and walk-forward folds overlap, so the true requirement is HIGHER, never lower — clearing it is necessary, not sufficient, and it adjusts nothing for multiplicity. An untabulated alpha/power RAISES rather than interpolating a quantile nobody chose | `scripts/research/research_queue.py` (library; the queue lives in `research/queue/*.yaml`, one file per job) |
+| **What is due right now, and fire it.** Reads the queue, applies the two gates above, and dispatches via `gh workflow run`. ⚠️ **DRY RUN IS THE DEFAULT** — `--fire` is opt-in, and the daily cron passes nothing, so a scheduled run reports and spends nothing. Exits **2** when it could not READ the queue, which is deliberately distinct from an empty one (exit 0 with an explicit "EMPTY, not a read failure" line), and **1** on an invalid job — a malformed entry is reported, never skipped, because a dispatcher that drops what it cannot parse reports "nothing to do" for a queue that holds work. Stamps `last_dispatched_at` only on a SUCCESSFUL fire (stamping a failure would mark the job run and drop it for a full cadence period) and warns loudly when the stamp itself fails, since an unstamped job re-fires. ⚠️ **GPU routes spend real money** — measured 2026-08-27 from `comms/gpu_spend_ledger.json`: 7 RunPod runs in 2026-07, lifetime $0.2164, largest single run $0.0987, against a $10/month cap. `--max-gpu-dispatches-per-run` is the third gate, because the ledger cap is *monthly* and cannot bound a loop inside one run | `scripts/research/dispatch_queue.py` -> `.github/workflows/research-queue-dispatch.yml`, contract in `research/queue/README.md` |
+
+---
+
 ## Maintaining this index
 
 It is only useful while it is complete, and a stale index that *looks* complete is worse
