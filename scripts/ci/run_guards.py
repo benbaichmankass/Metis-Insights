@@ -739,6 +739,24 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/research/m20_coverage_base_counts.py", "--check"]],
     },
     {
+        "name": "rows-landed-guard",
+        # Registered 2026-08-27. This guard runs the SELF-TEST only — the live
+        # assertion belongs INSIDE the producing workflow (e35-bracket-sweep's
+        # corpus job), because the question "did THIS run's rows arrive" can only
+        # be asked by the run that produced them. What CI protects here is the
+        # instrument: a landing check whose planted controls stopped firing would
+        # report every run clean, which is worse than not having it.
+        #
+        # Fires on the tool and on the workflows that call it, so removing the
+        # call site or breaking the tool both re-run the controls.
+        "when": {"globs": [
+            "scripts/ci/assert_rows_landed.py",
+            ".github/workflows/e35-bracket-sweep.yml",
+            ".github/workflows/m20-exit-lever-sweep.yml",
+        ]},
+        "steps": [["python3", "scripts/ci/assert_rows_landed.py", "--self-test"]],
+    },
+    {
         "name": "risk-basis-agreement",
         # Fires on the harness fleet, the live risk config, and itself. The
         # SOURCE of truth (config/accounts.yaml) is in the trigger set

@@ -398,3 +398,49 @@ jobs:
             # A loud, accurate hand-off beats a claim that is not true.
             echo "::notice::corpus rows are on '${TARGET}'. A HUMAN OR A SESSION must open the PR — this job cannot, and no workflow will fire from its push."
           fi
+          echo "CORPUS_TARGET=${TARGET}" >> "$GITHUB_ENV"
+
+      # ------------------------------------------------------------- landing
+      # WHY THIS STEP EXISTS. Until 2026-08-27 this job ended above, and "the
+      # push succeeded" was treated as "the rows arrived". Those are different
+      # claims, and only one of them is what a later session depends on.
+      #
+      #   A job that exits 0 having landed nothing is a FAILED job.
+      #
+      # ⚠️ THE MOTIVATING EXAMPLE ORIGINALLY GIVEN HERE WAS FALSE, AND THE
+      # RETRACTION IS KEPT BECAUSE IT IS THE BETTER LESSON. This comment used to
+      # read that the corpus job shipped 08-23, the sweep ran 08-26, and
+      # m20-sweep-corpus.jsonl was "still 1,379 rows with ZERO cells naming a
+      # stop". Every one of those numbers is real and the CONCLUSION was wrong:
+      # this sweep does not write that file. It writes
+      # docs/research/e35-bracket-corpus.jsonl, which on origin/main holds 8,211
+      # rows / 6,581 stop cells / 41 legs, 4,378 of them from the 08-26 run. The
+      # rows landed on the day they were measured.
+      #
+      # The author probed the LEVER corpus for BRACKET cells because a backlog
+      # row's resolution_criteria SUGGESTED that filename, and read a suggested
+      # criterion as a description of the implementation. A positive control was
+      # run (`--contains trail` -> 212 rows) — but in that same wrong file, so it
+      # controlled for the PROBE and not for the POPULATION.
+      #
+      # THAT IS EXACTLY THE FAILURE THIS STEP CATCHES, which is why it is worth
+      # having anyway: the assertion below names the store THIS WORKFLOW WRITES,
+      # taken from the `git add` above rather than from prose. The first version
+      # of this step pointed at m20-sweep-corpus.jsonl and would have graded a
+      # perfectly healthy sweep `absent`, forever.
+      #
+      # `--pushed-ref` is what makes the verdict fair rather than merely strict.
+      # When this workflow is dispatched on the protected default branch it
+      # RETARGETS the corpus push to a side branch (see above), so the rows are
+      # genuinely written and genuinely unreadable. That is `pending_merge` — its
+      # own state, non-zero, and deliberately NOT reported as `absent`, which
+      # would blame the job for work it actually did.
+      - name: assert the corpus rows landed
+        if: always()
+        run: |
+          git fetch origin "${DEFAULT_BRANCH:-main}" "${CORPUS_TARGET}" 2>/dev/null || true
+          python3 scripts/ci/assert_rows_landed.py \
+            --store docs/research/e35-bracket-corpus.jsonl \
+            --ref "origin/${DEFAULT_BRANCH:-main}" \
+            --pushed-ref "origin/${CORPUS_TARGET}" \
+            --field cell --contains sm --min-rows 1
