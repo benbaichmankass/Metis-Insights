@@ -125,6 +125,47 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # sending TRADE DATA to a hosted model. It was unreadable from outside too.
     # A mode name is not a secret.
     "INSIGHTS_MODEL_MODE",
+    # --- Added 2026-08-27: EIGHT keys shipped 2026-08-13..08-26 with no read
+    # surface. This is the THIRD recurrence of
+    # BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE, and the comment on
+    # PROP_SCREENSHOT_BACKEND above already records the second one as
+    # "self-inflicted on the same day". The pattern is now the rule, not the
+    # exception, so treat "does this key need an allowlist row?" as part of
+    # shipping the key, not as follow-up.
+    #
+    # PROP_TICKET_RISK_GATE_MODE is the sharpest of the eight: it decides
+    # whether a prop ticket whose risk EXCEEDS the account's remaining cushion
+    # is merely annotated or actually capped. Measured 2026-08-27, breakout_1
+    # sat $64.00 from its $4,700 static-DD floor with an open ticket risking
+    # $90.12 — so which mode is live is the difference between a warning and a
+    # permanently disabled account, and it could not be read from outside.
+    # `off`/`annotate`/`enforce` is not a secret.
+    "PROP_TICKET_RISK_GATE_MODE",
+    # PROTECTION_STRAY_GROUP_* cancels a live position's resting protective
+    # legs. Its EMPTY `..._ACCOUNTS` means NONE (inverted from its
+    # CONVICTION_SIZING_/NETTING_ATTRIBUTION_ siblings, where empty means ALL),
+    # so "unset" and "armed everywhere" are opposite readings of the same
+    # blank — the same reason the PROTECTION_REASSERT_* pair is here.
+    "PROTECTION_STRAY_GROUP_MODE",
+    "PROTECTION_STRAY_GROUP_ACCOUNTS",
+    # BYBIT_HEDGE_MODE_SYMBOLS decides which `positionIdx` a live order names.
+    # Empty is the shipped state and is CORRECT; the point is being able to
+    # show that it is still empty rather than asserting it.
+    "BYBIT_HEDGE_MODE_SYMBOLS",
+    # The IB venue-session gate + probe cache. IB_SESSION_CHECK_DISABLED is a
+    # kill-switch on the only thing stopping a close firing into a shut venue;
+    # IB_CLOSE_OUTSIDE_RTH decides whether the order acts on the field the gate
+    # graded; IB_PROBE_CACHE_S bounds how long a liveness verdict stands in for
+    # a probe. All three govern live behaviour on the exit path.
+    "IB_SESSION_CHECK_DISABLED",
+    "IB_CLOSE_OUTSIDE_RTH",
+    "IB_PROBE_CACHE_S",
+    # PROP_STATUS_REQUEST_MAX_AGE_HOURS is ONE threshold with FOUR consumers
+    # (the status ask, the fill-ack nudge, prop_balance's sizing-freshness
+    # refusal, and /api/bot/prop/status's `status_freshness` verdict). A single
+    # unreadable value therefore governs whether sizing may run off a stale
+    # balance on the account with the terminal breach rule.
+    "PROP_STATUS_REQUEST_MAX_AGE_HOURS",
     "PROTECTION_REASSERT_MODE",
     "PROTECTION_REASSERT_ACCOUNTS",
     "PROTECTION_REASSERT_COOLDOWN_S",

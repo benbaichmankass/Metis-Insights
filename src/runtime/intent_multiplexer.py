@@ -248,9 +248,34 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # established member. Builder honours the YAML `enabled` flag.
         "trend_donchian_1h": trend_donchian_1h_signal_builder,
         # trend_donchian_sol / _eth: PROP-account alt variants (PB-20260616-004)
-        # on the Breakout manual-bridge account. SOL live, ETH shadow. Each is
-        # sole on its (symbol, prop-account) so arbitration never fires. Builders
-        # honour the YAML `enabled` flag.
+        # on the Breakout manual-bridge account. Builders honour the YAML
+        # `enabled` flag.
+        #
+        # ⚠️ THIS BLOCK USED TO CLAIM "Each is sole on its (symbol,
+        # prop-account) so arbitration never fires." THAT IS MEASURED FALSE and
+        # the claim is withdrawn 2026-08-27
+        # (BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING). It reasons about a
+        # `(symbol, ACCOUNT)` scope THE AGGREGATOR DOES NOT HAVE:
+        # `aggregate_intents` collapses to ONE winner per **SYMBOL, globally**,
+        # BEFORE account fan-out (`intents_to_signal_packages`: "intents are not
+        # account-bound at the multiplexer"). Six strategies now contend for
+        # SOLUSDT, all at DEFAULT_PRIORITIES 0.
+        #
+        # Measured on the live audit, SOLUSDT buy-side winners 2026-08-01..08-27
+        # (`event=pipeline_result`, n=60): ict_scalp_sol_5m 23 ·
+        # trend_donchian_sol_prop 15 · ict_scalp_sol_15m 14 ·
+        # trend_donchian_sol_4h 6 · **trend_donchian_sol 0**.
+        #
+        # The consequence is the one that matters: on the 15 ticks the
+        # PROP-ONLY twin wins, the winner routes to `breakout_1` alone, so
+        # `bybit_1` receives nothing — even though nothing on bybit_1 was
+        # contending for that slot. `trend_donchian_sol` has produced **120 buy
+        # signals since 2026-08-01 and ZERO journal rows on bybit_1 since it was
+        # routed there on 2026-07-07**, so the paper soak its real-money
+        # promotion depends on cannot accrue. Nothing alerts: `silent_refusal_alert`
+        # needs journal rows to grade, and zero rows is its "we observed nothing"
+        # bucket; the strategy-silence check reads `*_eval`, which is healthy.
+        # Fixing the arbitration scope is Tier-3 (it changes live routing).
         "trend_donchian_sol": trend_donchian_sol_signal_builder,
         "trend_donchian_eth": trend_donchian_eth_signal_builder,
         # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29; DRAFT
