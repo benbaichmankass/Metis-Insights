@@ -310,3 +310,77 @@ def test_static_pass_with_deep_peak_to_trough_in_profit():
     assert v["eval"]["static_dd_off_start_pct"] == 0.0
     # Eval-pass equity recorded at the +10% crossing.
     assert v["eval"]["equity_at_eval_pass"] == 28_000.0
+
+
+# --- 2026-08-27: a `refusal` drawdown does not kill the account -------------
+
+def _curve():
+    """Intraday points so an `intraday_high` reference has something to see.
+
+    day0 1000 -> 1050 -> 990  (5.71% off today's high; 1.0% off start)
+    day2 1020 -> 940          (7.84% off today's high; 6.0% off start)
+    """
+    from datetime import datetime, timezone, timedelta
+    start = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    pts = [(0, 0, 1000), (0, 6, 1050), (0, 12, 990), (0, 18, 1000),
+           (1, 0, 1005), (1, 12, 1010),
+           (2, 0, 1020), (2, 8, 940), (2, 16, 1000)]
+    return [(start + timedelta(days=d, hours=h), float(e)) for d, h, e in pts]
+
+
+def test_same_ledger_opposite_verdicts_under_the_two_regimes():
+    """The whole point of the change, on ONE ledger.
+
+    A prop static/terminal floor kills the account; the standard
+    intraday/refusal brake fires twice and the account keeps trading. Before
+    2026-08-27 the standard arm was graded with the prop arm's row and read
+    DEAD too.
+    """
+    from src.prop.ruleset import parse_ruleset
+    from src.prop.evaluator import evaluate
+    curve = _curve()
+    prop = parse_ruleset({"ruleset": "p", "plan": "1", "account_size_usd": 1000,
+                          "limits": {"max_drawdown_pct": 0.05, "drawdown_type": "static"}})
+    std = parse_ruleset({"ruleset": "s", "plan": "standard", "account_size_usd": 1000,
+                         "limits": {"max_drawdown_pct": 0.05,
+                                    "drawdown_type": "intraday_high",
+                                    "drawdown_breach": "refusal"}})
+
+    p = evaluate(prop, curve, [], account_size=1000.0)["eval"]
+    assert p["first_breach"] is not None
+    assert p["first_breach"]["rule"] == "max_drawdown"
+    assert p["drawdown_refusals"]["episodes"] == 0   # terminal ends the walk
+
+    s = evaluate(std, curve, [], account_size=1000.0)["eval"]
+    assert s["first_breach"] is None                 # the account SURVIVES
+    assert s["drawdown_refusals"]["episodes"] == 2
+    assert s["drawdown_refusals"]["days_with_refusal"] == 2
+    assert s["drawdown_refusals"]["worst_depth_pct"] > 0.05
+
+
+def test_refusal_block_is_present_on_every_ruleset():
+    """A consumer must never branch on the key's ABSENCE."""
+    from src.prop.ruleset import parse_ruleset
+    from src.prop.evaluator import evaluate
+    rs = parse_ruleset({"ruleset": "p", "plan": "1", "account_size_usd": 1000,
+                        "limits": {"max_drawdown_pct": 0.05, "drawdown_type": "static"}})
+    block = evaluate(rs, _curve(), [], account_size=1000.0)["eval"]["drawdown_refusals"]
+    assert block["drawdown_breach"] == "terminal"    # says WHICH regime made the 0
+    assert block["episodes"] == 0
+
+
+def test_intraday_reference_sees_nothing_on_a_daily_close_curve():
+    """A stated limitation, locked so nobody reads the 0 as a strategy fact."""
+    from datetime import datetime, timezone, timedelta
+    from src.prop.ruleset import parse_ruleset
+    from src.prop.evaluator import evaluate
+    start = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    daily = [(start + timedelta(days=i), float(e))
+             for i, e in enumerate([1000, 900, 1000, 850, 1000])]
+    std = parse_ruleset({"ruleset": "s", "plan": "standard", "account_size_usd": 1000,
+                         "limits": {"max_drawdown_pct": 0.05,
+                                    "drawdown_type": "intraday_high",
+                                    "drawdown_breach": "refusal"}})
+    block = evaluate(std, daily, [], account_size=1000.0)["eval"]["drawdown_refusals"]
+    # One point per day => today's high IS today's only point => 0 by construction.
+    assert block["episodes"] == 0

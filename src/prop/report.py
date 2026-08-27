@@ -68,7 +68,8 @@ def render_markdown(
             f"- **Limits:** profit target {_fmt_pct(ev.get('profit_target_pct'))}, "
             f"daily-loss {_fmt_pct(lims.get('daily_loss_pct'))}, "
             f"max-DD {_fmt_pct(lims.get('max_drawdown_pct'))} "
-            f"({lims.get('drawdown_type', '?')}), "
+            f"({lims.get('drawdown_type', '?')}, "
+            f"{lims.get('drawdown_breach', '?')}), "
             f"funded soak {ruleset_view.get('funded_soak_days', '?')}d"
         )
     if data_window:
@@ -90,7 +91,18 @@ def render_markdown(
     # peak-to-trough only as a labelled secondary stat. The header names the
     # rule measure so the matrix is unambiguous.
     dd_type = (ruleset_view or {}).get("limits", {}).get("drawdown_type", "static")
-    rule_dd_label = "Off-start DD" if dd_type == "static" else "Trailing DD"
+    # ⚠️ An explicit map, not an if/else. This was
+    # `"Off-start DD" if dd_type == "static" else "Trailing DD"`, so the moment
+    # a third reference existed (`intraday_high`, 2026-08-27) an intra-day
+    # brake would have been LABELLED "Trailing DD" — a column header naming a
+    # measure the number is not, which is sub-class A of the
+    # diagnostic-provenance class (`semantic substitution`). An unknown
+    # reference now says so rather than borrowing a neighbour's name.
+    rule_dd_label = {
+        "static": "Off-start DD",
+        "trailing": "Trailing DD",
+        "intraday_high": "Intraday DD (from today's high)",
+    }.get(dd_type, f"DD (unknown reference {dd_type!r})")
 
     # The matrix. The verdict-measure DD column comes FIRST (off-start for
     # static — what the pass/fail is judged on); peak-to-trough is a clearly
