@@ -26,6 +26,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from src.config.accounts_loader import load_accounts_dict
+from src.prop.standard_account_size import (
+    load_balance_snapshots,
+    resolve_standard_account_size,
+)
 from src.prop.ruleset import (
     Economics,
     LimitRules,
@@ -59,56 +63,92 @@ class AccountBacktestUnit:
     kind: str                       # "prop" | "standard"
     ruleset: PropRuleset
     risk_pct: float                 # PERCENT per trade (e.g. 1.0 == 1%)
-    account_size_usd: float
+    #: ⚠️ **NULLABLE, and ``None`` means the size could not be ESTABLISHED** —
+    #: never "small", never "zero". A prop account always has one (the plan
+    #: declares it); a standard account's comes from the balance snapshot and
+    #: can legitimately refuse. Check :attr:`gradeable`, not this field.
+    account_size_usd: Optional[float]
     account_class: str              # "paper" | "real_money"
     source: str                     # ruleset file path, or "standard:<account>"
+    #: Provenance of ``account_size_usd`` — one of
+    #: ``standard_account_size.{DECLARED,MEASURED,STALE,UNREADABLE}``. Prop
+    #: units report ``declared`` (the plan states the size).
+    size_state: str = "declared"
+    size_source: str = ""
+    size_as_of: Optional[str] = None
+    size_age_hours: Optional[float] = None
+    size_reason: str = ""
+
+    @property
+    def gradeable(self) -> bool:
+        """True only when this account can actually be graded.
+
+        ⚠️ **EVERY CONSUMER MUST CHECK THIS BEFORE READING A VERDICT.** Before
+        2026-08-27 there was nothing to check: an unestablished size silently
+        became ``_DEFAULT_STANDARD_SIZE`` ($10,000), so an ungraded account and
+        a graded one produced identically confident rows. That is the whole
+        defect — see ``_standard_ruleset``.
+        """
+        return self.account_size_usd is not None and self.account_size_usd > 0
 
 
 def _standard_ruleset(account_id: str, risk_block: Dict[str, Any],
                       account_size: float) -> PropRuleset:
     """Synthesize a no-target/no-economics ruleset from an account's risk block.
 
-    The account's own ``max_dd_pct`` / ``daily_loss_pct`` become the (static)
-    drawdown + daily-loss limits so a survival/sizing check can still consult
-    them; there is no profit target and ``economics`` stays at its zero default
-    (a real account is not a disposable, re-buyable prop account).
+    The account's own ``max_dd_pct`` / ``daily_loss_pct`` become its limits so
+    a survival/sizing check can consult them; there is no profit target and
+    ``economics`` stays at its zero default (a real account is not a
+    disposable, re-buyable prop account).
 
-    ⚠️ **THE ``max_dd_pct`` MAPPING IS A SEMANTIC SUBSTITUTION, AND EVERY
-    STANDARD-ARM ``p_breach`` / ``survival`` FIGURE INHERITS IT.**
-    Filed 2026-08-27 as
-    ``BL-20260827-STANDARD-ARM-MISMODELS-INTRADAY-MAX-DD-AS-A-TERMINAL-FLOOR``.
-    Documented here rather than fixed because changing it CHANGES GATE VERDICTS
-    on the real-money promotion path — Tier-3 research, not a doc edit.
+    ⚠️ **THE ``max_dd_pct`` MAPPING WAS A SEMANTIC SUBSTITUTION. FIXED
+    2026-08-27; the history is kept because the mechanism recurs.**
+    ``BL-20260827-STANDARD-ARM-MISMODELS-INTRADAY-MAX-DD-AS-A-TERMINAL-FLOOR``
+    and ``BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE-WITH-NO-MEMBER-FOR-ITS-CONCEPT``.
 
-    What this function builds is ``drawdown_type="static"``: a **permanent**
+    This function used to build ``drawdown_type="static"``: a **permanent**
     floor a fixed fraction below the **starting balance**, which the evaluator
     treats as terminal — the prop-firm rule. What ``max_dd_pct`` actually means
     on a standard account is the opposite on both axes
-    (``src/units/accounts/risk.py`` line 21, and the ``accounts.yaml`` header):
+    (``src/units/accounts/risk.py``, and the ``accounts.yaml`` header):
     *"max **INTRA-DAY** equity drawdown **from today's high**"* — it resets at
-    UTC midnight, it is measured from a rolling daily high rather than from the
+    UTC midnight, it measures from a rolling daily high rather than from the
     start, and breaching it **refuses one trade**; it never disables the
-    account. So the arm grades a resetting per-trade brake as an
-    account-killer.
+    account. So the arm graded a resetting per-trade brake as an
+    account-killer, and every standard ``p_breach``/``survival`` figure
+    inherited that.
 
-    Two consequences a reader must not skip:
+    **Why it happened, which is the transferable part:** the 2026-06-17 design
+    says twice that a standard account gets *"a no-breach ruleset"*.
+    ``PB-20260618-012`` then deliberately added survival/breach so *"a
+    positive-but-fragile cell can't route onto live capital"* — sound intent.
+    But ``PropRuleset`` offered only ``static`` and ``trailing``, neither of
+    which is an intraday resetting brake, so the new concept was absorbed into
+    the nearest member.
 
-    * ``p_breach`` here is close to structurally forced. At the configured
-      ``risk_pct`` a handful of consecutive losses crosses a never-resetting
-      floor, so over a multi-hundred-trade ledger the probability approaches 1
-      for strategies that are perfectly viable in reality. The ROUTE gate asks
-      for ``p_breach <= 0.10`` **and** ``survival >= 0.90`` against that model.
-    * ``account_size_usd`` is ``_DEFAULT_STANDARD_SIZE`` ($10,000) for any
-      account whose ``risk`` block omits it — which today is every standard
-      account. The figure is a placeholder notional, not the account's equity.
+      *A type system with no member for a new concept will silently absorb it
+      into the nearest existing member. An enum that CANNOT represent the rule
+      raises an error; one that APPROXIMATELY can returns a confident wrong
+      number for two months.*
 
-    Until the arm is corrected, a standard-account row from
-    ``scripts/prop/account_compat_matrix.py`` is **UNGRADED**, not a negative
-    verdict. Do not cite a standard ``skip`` as evidence that a strategy is
-    unfit for real money, and do not infer from a prop ``ROUTE`` beside a
-    standard ``skip`` that the prop gate is a lower bar — the design standard
-    (``prop-dynamic-exits-faster-banking-DESIGN.md`` § 6) is strict improvement
-    at **equal-or-better survival**, which is not a lower bar at all.
+    **What it builds now:** ``drawdown_type="intraday_high"`` with an explicit
+    ``drawdown_breach="refusal"``. The reference and the consequence are
+    separate fields precisely so the second cannot be inherited by accident —
+    adding ``intraday_high`` to the single old enum would have repeated the
+    mistake one level down. See ``ruleset.DRAWDOWN_REFERENCES`` /
+    ``DRAWDOWN_BREACHES``.
+
+    ⚠️ **THE SURVIVAL GATE IS NOT RETIRED, AND MUST NOT BE.** An earlier
+    suggestion in the 2026-08-27 session that it be dropped was withdrawn: the
+    fragility question is the only thing standing between a
+    positive-but-fragile cell and live capital. What was wrong was the MODEL,
+    not the intent to model it.
+
+    ⚠️ **A ``refusal`` LIMIT IS NOT MODELLED BY ``p_breach``.** The Monte Carlo
+    reports ``dd_model_state: "not_terminal"`` for this shape, meaning the
+    drawdown contributed nothing to that figure. Read the state beside the
+    number; ``evaluate()``'s ``drawdown_refusals`` block is what measures this
+    limit, as a refusal RATE rather than a breach probability.
     """
     return PropRuleset(
         ruleset=f"standard:{account_id}",
@@ -119,7 +159,8 @@ def _standard_ruleset(account_id: str, risk_block: Dict[str, Any],
         limits=LimitRules(
             daily_loss_pct=_as_float(risk_block.get("daily_loss_pct")),
             max_drawdown_pct=_as_float(risk_block.get("max_dd_pct")),
-            drawdown_type="static",
+            drawdown_type="intraday_high",
+            drawdown_breach="refusal",
         ),
         economics=Economics(),
     )
@@ -142,8 +183,21 @@ def _resolve_ruleset_path(spec: str) -> Path:
     return p
 
 
-def unit_for_account(account_id: str, account: Dict[str, Any]) -> AccountBacktestUnit:
-    """Build the :class:`AccountBacktestUnit` for one parsed account mapping."""
+def unit_for_account(
+    account_id: str,
+    account: Dict[str, Any],
+    *,
+    snapshots: Optional[Dict[str, Dict[str, Any]]] = None,
+    size_override: Optional[float] = None,
+) -> AccountBacktestUnit:
+    """Build the :class:`AccountBacktestUnit` for one parsed account mapping.
+
+    ``snapshots`` is the balance-snapshot mapping used to size a STANDARD
+    account. Passing ``None`` means *the caller could not read the store*,
+    which refuses — deliberately distinct from ``{}`` (read, empty). Callers
+    that grade many accounts should read it ONCE and pass it in, rather than
+    letting each account re-open the DB.
+    """
     risk_block = account.get("risk") or {}
     risk_pct = _as_float(risk_block.get("risk_pct"))
     if risk_pct is None:
@@ -180,21 +234,42 @@ def unit_for_account(account_id: str, account: Dict[str, Any]) -> AccountBacktes
             account_class=account_class, source=str(path),
         )
 
-    # Backtest/compat-matrix notional for a STANDARD account. This is a
-    # research sizing input, NOT a live cap (the live notional cap pos_size
-    # was removed 2026-06-24). Prefer an explicit ``account_size_usd`` if the
-    # risk block declares one, else the standard default; never the removed
-    # ``pos_size`` (a per-trade cap conflated with account equity).
-    size = _as_float(risk_block.get("account_size_usd")) or _DEFAULT_STANDARD_SIZE
-    rs = _standard_ruleset(account_id, risk_block, size)
+    # Grading size for a STANDARD account. This is a research sizing input,
+    # NOT a live cap (the live notional cap pos_size was removed 2026-06-24).
+    #
+    # ⚠️ **THERE IS NO DEFAULT ANY MORE, DELIBERATELY.** This line used to read
+    # ``_as_float(risk_block.get("account_size_usd")) or _DEFAULT_STANDARD_SIZE``
+    # and 0 of 11 accounts declare that key, so EVERY standard account was
+    # graded against a synthetic $10,000 while real balances spanned $200.10 to
+    # $1,341,065.16 — a 6,700x range, wrong in both directions by one to two
+    # orders of magnitude. Risk per trade is ``risk_pct x size`` and the
+    # drawdown floor is a fraction of the same size, so the placeholder did not
+    # nudge the survival figures, it decided them.
+    #
+    # An unresolvable size now REFUSES: the unit comes back with
+    # ``account_size_usd=None`` and ``gradeable == False``. A default is what
+    # made the original defect invisible — every row carried a confident
+    # number, so nothing in the output distinguished a graded account from an
+    # ungraded one.
+    sz = resolve_standard_account_size(
+        account_id, risk_block, snapshots=snapshots, override_usd=size_override
+    )
+    rs = _standard_ruleset(account_id, risk_block, sz.size_usd or 0.0)
     return AccountBacktestUnit(
         account_id=account_id, kind="standard", ruleset=rs,
-        risk_pct=risk_pct, account_size_usd=size,
+        risk_pct=risk_pct, account_size_usd=sz.size_usd,
         account_class=account_class, source=f"standard:{account_id}",
+        size_state=sz.size_state, size_source=sz.size_source,
+        size_as_of=sz.size_as_of, size_age_hours=sz.size_age_hours,
+        size_reason=sz.reason,
     )
 
 
-def all_account_units(accounts_path: Optional[Path] = None) -> Dict[str, AccountBacktestUnit]:
+def all_account_units(
+    accounts_path: Optional[Path] = None,
+    *,
+    snapshots: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, AccountBacktestUnit]:
     """Resolve a backtest unit for EVERY account in ``accounts.yaml``.
 
     Reads through the canonical ``src.config.accounts_loader.load_accounts_dict``
@@ -204,8 +279,10 @@ def all_account_units(accounts_path: Optional[Path] = None) -> Dict[str, Account
     picked up with no code change.
     """
     accounts = load_accounts_dict(accounts_path)
+    # ONE balance read for the whole roster, not one per account.
+    snaps = load_balance_snapshots() if snapshots is None else snapshots
     out: Dict[str, AccountBacktestUnit] = {}
     for acct_id, acct in accounts.items():
         if isinstance(acct, dict):
-            out[acct_id] = unit_for_account(acct_id, acct)
+            out[acct_id] = unit_for_account(acct_id, acct, snapshots=snaps)
     return out

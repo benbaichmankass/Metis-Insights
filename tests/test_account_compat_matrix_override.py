@@ -31,6 +31,7 @@ import pytest
 
 import scripts.backtest_system as bt
 from scripts.prop.account_compat_matrix import run
+from src.prop.account_rulesets import AccountBacktestUnit
 
 
 # --------------------------------------------------------------------------
@@ -109,13 +110,38 @@ def test_override_naming_another_strategy_is_refused(capsys):
 # --------------------------------------------------------------------------
 # 3. The passthrough reaches the engine, and is stamped on the output
 # --------------------------------------------------------------------------
-class _FakePropUnit:
-    kind = "prop"
-    account_id = "fake_prop"
-    account_class = "prop"
-    risk_pct = 1.5
-    account_size_usd = 5000.0
-    ruleset = {"fake": True}
+def _fake_prop_unit() -> AccountBacktestUnit:
+    """A prop unit built from the REAL dataclass, never a hand-rolled stand-in.
+
+    ⚠️ **THIS USED TO BE A BARE `class _FakePropUnit` WITH SIX HAND-COPIED
+    ATTRIBUTES, AND THAT IS WHY IT IS A FUNCTION NOW.** When
+    `AccountBacktestUnit` grew the `gradeable` property (2026-08-27), the stub
+    did not — so every test here raised `AttributeError` against a field
+    production has and the fake did not. That is the same shape as the pairs
+    tests that declared their own `order_packages` schema with `id INTEGER
+    PRIMARY KEY` and passed for months against a table production never had
+    (`BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED`): a test asserting against a
+    fictional schema is not evidence about the real one, in EITHER direction —
+    it can pass on a broken system or fail on a working one.
+
+    Constructing the real dataclass makes that class of drift impossible: a new
+    REQUIRED field breaks this call loudly at the constructor, and a new derived
+    property is inherited for free.
+
+    `ruleset` stays a duck-typed sentinel rather than a real `PropRuleset`
+    because `run_ev_montecarlo` — its only consumer on this path — is
+    monkeypatched below; a real one would assert nothing extra and would couple
+    these override tests to ruleset parsing, which they are not about.
+    """
+    return AccountBacktestUnit(
+        account_id="fake_prop",
+        kind="prop",
+        ruleset={"fake": True},  # type: ignore[arg-type]
+        risk_pct=1.5,
+        account_size_usd=5000.0,
+        account_class="prop",
+        source="test:fake_prop",
+    )
 
 
 def _patch_engine(monkeypatch, seen):
@@ -126,7 +152,7 @@ def _patch_engine(monkeypatch, seen):
     )
     monkeypatch.setattr(
         "scripts.prop.account_compat_matrix.all_account_units",
-        lambda: {"fake_prop": _FakePropUnit()},
+        lambda: {"fake_prop": _fake_prop_unit()},
     )
     monkeypatch.setattr(
         "scripts.prop.account_compat_matrix.run_ev_montecarlo",

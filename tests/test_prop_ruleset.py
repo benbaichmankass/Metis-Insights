@@ -81,3 +81,59 @@ def test_rejects_bad_drawdown_type():
 def test_missing_file_raises():
     with pytest.raises(FileNotFoundError):
         load_ruleset(_REPO_ROOT / "config" / "prop_rulesets" / "does_not_exist.yaml")
+
+
+# --- 2026-08-27: the drawdown REFERENCE and its CONSEQUENCE are two axes -----
+# BL-20260827-COMPAT-MATRIX-STANDARD-ARM-BORROWED-A-TYPE. `LimitRules` offered
+# `static | trailing`, both terminal, so an intraday resetting brake had no
+# member to be and was absorbed into `static`.
+
+def _rs(**limits):
+    from src.prop.ruleset import parse_ruleset
+    return parse_ruleset({"ruleset": "t", "plan": "p", "account_size_usd": 1000,
+                          "limits": limits})
+
+
+def test_intraday_high_is_a_valid_reference():
+    r = _rs(max_drawdown_pct=0.05, drawdown_type="intraday_high",
+            drawdown_breach="refusal")
+    assert r.limits.drawdown_type == "intraday_high"
+    assert r.limits.drawdown_breach == "refusal"
+    assert r.limits.drawdown_is_terminal is False
+
+
+def test_intraday_high_REQUIRES_an_explicit_consequence():
+    """The core guard: the new reference must not inherit `terminal`.
+
+    Defaulting it would silently rebuild the original defect, so the loader
+    refuses rather than assuming.
+    """
+    from src.prop.ruleset import RulesetValidationError
+    import pytest
+    with pytest.raises(RulesetValidationError, match="drawdown_breach"):
+        _rs(max_drawdown_pct=0.05, drawdown_type="intraday_high")
+
+
+def test_static_and_trailing_still_default_to_terminal():
+    """Back-compat: every ruleset written before this field is a prop one."""
+    for t in ("static", "trailing"):
+        r = _rs(max_drawdown_pct=0.05, drawdown_type=t)
+        assert r.limits.drawdown_breach == "terminal"
+        assert r.limits.drawdown_is_terminal is True
+
+
+def test_an_unknown_consequence_is_refused():
+    from src.prop.ruleset import RulesetValidationError
+    import pytest
+    with pytest.raises(RulesetValidationError, match="drawdown_breach"):
+        _rs(max_drawdown_pct=0.05, drawdown_type="static", drawdown_breach="maybe")
+
+
+def test_the_real_breakout_ruleset_is_unchanged():
+    """The prop arm was always correct and must not move."""
+    from pathlib import Path
+    from src.prop.ruleset import load_ruleset
+    r = load_ruleset(Path("config/prop_rulesets/breakout.yaml"))
+    assert r.limits.drawdown_type == "static"
+    assert r.limits.drawdown_breach == "terminal"
+    assert r.limits.max_drawdown_pct == 0.06

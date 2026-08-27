@@ -101,7 +101,26 @@ def synth_ledger_from_emit(
 
 
 def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
-    """Evaluate the strategy ledger against one account's ruleset → a matrix row."""
+    """Evaluate the strategy ledger against one account's ruleset → a matrix row.
+
+    ⚠️ **AN UNGRADEABLE ACCOUNT RETURNS ``UNGRADED``, NOT ``skip``.** Those are
+    different verdicts and conflating them is the defect this whole change
+    exists to remove: ``skip`` asserts *we measured this and it did not clear
+    the bar*, while ``UNGRADED`` says *we could not establish what to measure
+    against*. Until 2026-08-27 an account whose size could not be established
+    was silently graded against a synthetic $10,000 and emitted a confident
+    ``skip`` — and those skips were then cited as evidence that a strategy was
+    unfit for real money.
+    """
+    if not unit.gradeable:
+        return {
+            "account": unit.account_id, "kind": unit.kind, "class": unit.account_class,
+            "risk_pct": unit.risk_pct, "account_size_usd": None,
+            "metric": "ungraded", "value": None,
+            "size_state": unit.size_state, "size_source": unit.size_source,
+            "size_as_of": unit.size_as_of, "size_reason": unit.size_reason,
+            "verdict": "UNGRADED",
+        }
     common = dict(
         risk_pct=unit.risk_pct, base_risk_pct=args.base_risk_pct,
         account_size=unit.account_size_usd, n_paths=args.n_paths,
@@ -116,6 +135,7 @@ def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
         return {
             "account": unit.account_id, "kind": "prop", "class": unit.account_class,
             "risk_pct": unit.risk_pct, "account_size_usd": unit.account_size_usd,
+            "size_state": unit.size_state, "size_as_of": unit.size_as_of,
             "metric": "ev_net_usd", "value": mean_net, "p_profitable": p_prof,
             "mean_accounts": h.get("mean_accounts"), "roi_on_fees": h.get("roi_on_fees"),
             "verdict": "ROUTE" if route else "skip",
@@ -136,7 +156,13 @@ def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
     return {
         "account": unit.account_id, "kind": "standard", "class": unit.account_class,
         "risk_pct": unit.risk_pct, "account_size_usd": unit.account_size_usd,
+        "size_state": unit.size_state, "size_as_of": unit.size_as_of,
         "metric": "end_return_mean", "value": er, "p_breach": p_breach,
+        # ⚠️ Read `dd_model_state` beside `p_breach`: on a `refusal`-consequence
+        # drawdown it reads `not_terminal`, meaning the drawdown limit did NOT
+        # contribute to p_breach at all. A low p_breach there is not evidence
+        # of a durable account.
+        "dd_model_state": mc.get("dd_model_state"),
         "survival": survival, "asset_class": args.asset_class,
         "net_of_fee_bps": args.fee_bps_roundtrip,
         "verdict": "ROUTE" if route else "skip",
@@ -248,8 +274,16 @@ def run(args: argparse.Namespace) -> int:
             extra = f"P(breach)={r.get('p_breach')}, surv={r.get('survival')}"
         val = "—" if r["value"] is None else (f"${r['value']:,.0f}" if r["metric"] == "ev_net_usd"
                                               else f"{r['value']*100:.1f}%")
+        # ⚠️ An UNGRADED row carries `account_size_usd: None` — `f"{None:.0f}"`
+        # raises TypeError, so this MUST be guarded rather than formatted
+        # directly. Render the refusal's own state instead of a number, so the
+        # table says WHY there is no size rather than showing a blank cell.
+        if r["account_size_usd"] is None:
+            size_cell = f"— ({r.get('size_state') or 'unresolved'})"
+        else:
+            size_cell = f"{r['account_size_usd']:,.0f}"
         L.append(f"| {r['account']} | {r['kind']} | {r['class']} | {r['risk_pct']} | "
-                 f"{r['account_size_usd']:.0f} | {r['metric']} | {val} | {extra} | **{r['verdict']}** |")
+                 f"{size_cell} | {r['metric']} | {val} | {extra} | **{r['verdict']}** |")
     L += ["", "Verdict: **ROUTE** = positive under the account's own ruleset "
           "(prop: +EV @ P(net>0) ≥ threshold; standard: positive mean end-return "
           "AND survival ≥ --min-survival AND P(breach) ≤ --max-p-breach). "

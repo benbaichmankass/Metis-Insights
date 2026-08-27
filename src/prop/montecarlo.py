@@ -316,6 +316,50 @@ def _pctile(vals: Sequence[float], q: float) -> Optional[float]:
     return float(np.percentile(np.asarray(vals, dtype=float), q))
 
 
+def _resolve_terminal_dd_pct(ruleset) -> "tuple":
+    """Return ``(terminal_dd_pct_or_None, dd_model_state)``.
+
+    ⚠️ **THIS EXISTS BECAUSE ``None`` WAS AMBIGUOUS AND THE AMBIGUITY WAS
+    SILENT.** Both call sites used to read::
+
+        static_dd_pct = (ruleset.limits.max_drawdown_pct
+                         if ruleset.limits.drawdown_type == "static" else None)
+
+    so ``None`` meant three different things at once — *this ruleset declares
+    no drawdown limit*, *it declares a TRAILING one this model does not
+    implement*, and (once a third reference existed) *it declares an intraday
+    brake that is not a terminal floor at all*. A reader of the output could
+    not tell "no limit" from "a limit we dropped", which is precisely the
+    collapsed state ``docs/CLAUDE-RULES-CANONICAL.md`` § "Collapsed states"
+    forbids — and it is how a new ``drawdown_type`` would have had its limit
+    silently vanish from every survival figure.
+
+    Four states, never collapsed:
+
+      ``modelled_terminal``   — a static terminal floor; the pct is returned
+                                and the simulation honours it.
+      ``no_limit_declared``   — ``max_drawdown_pct`` is None. Genuinely no
+                                limit. The only state where ``None`` means
+                                "nothing to model".
+      ``not_terminal``        — a ``refusal``-consequence limit. Correctly NOT
+                                a terminal floor, so ``p_breach`` from this
+                                model does not describe it. The limit is real;
+                                this model is simply not the one that measures
+                                it (``evaluate()``'s ``drawdown_refusals`` is).
+      ``unmodelled_trailing`` — a terminal TRAILING floor. Real, terminal, and
+                                **not implemented here**. The honest label for
+                                a gap, rather than a None that reads as "fine".
+    """
+    lim = ruleset.limits
+    if lim.max_drawdown_pct is None:
+        return None, "no_limit_declared"
+    if not lim.drawdown_is_terminal:
+        return None, "not_terminal"
+    if lim.drawdown_type == "static":
+        return lim.max_drawdown_pct, "modelled_terminal"
+    return None, "unmodelled_trailing"
+
+
 def run_montecarlo(
     closed_trades: Sequence[Any],
     ruleset: PropRuleset,
@@ -351,11 +395,7 @@ def run_montecarlo(
     acct = float(account_size) if account_size is not None else float(ruleset.account_size_usd)
     target_pct = ruleset.evaluation.profit_target_pct or 0.0
     daily_loss_pct = ruleset.limits.daily_loss_pct
-    static_dd_pct = (
-        ruleset.limits.max_drawdown_pct
-        if ruleset.limits.drawdown_type == "static"
-        else None
-    )
+    static_dd_pct, dd_model_state = _resolve_terminal_dd_pct(ruleset)
 
     r_seq = ledger_to_r_sequence(
         closed_trades, initial_balance=acct, base_risk_pct=base_risk_pct
@@ -368,6 +408,7 @@ def run_montecarlo(
             "n_paths": n_paths,
             "n_ledger_trades": 0,
             "error": "empty_ledger",
+            "dd_model_state": dd_model_state,
             "p_pass": 0.0,
             "p_breach": 0.0,
             "breach_by_cause": {},
@@ -427,6 +468,15 @@ def run_montecarlo(
         "path_trades": path_trades,
         "block_len": block_len,
         "account_size": acct,
+        # ⚠️ READ `dd_model_state` BEFORE READING `p_breach`.
+        # `p_breach` counts TERMINAL breaches only. On a ruleset whose
+        # drawdown limit is a `refusal` brake (`not_terminal`) or a trailing
+        # floor this model does not implement (`unmodelled_trailing`), the
+        # drawdown contributes NOTHING to this figure — so a low `p_breach`
+        # there is not evidence of a durable account, it is evidence that the
+        # limit was not part of the simulation. Only `modelled_terminal` and
+        # `no_limit_declared` make `p_breach` a complete statement.
+        "dd_model_state": dd_model_state,
         "p_pass": round(n_pass / n, 4) if n else 0.0,
         "p_breach": round(n_breach / n, 4) if n else 0.0,
         "breach_by_cause": {
@@ -633,9 +683,7 @@ def run_ev_montecarlo(
     acct = float(account_size) if account_size is not None else float(ruleset.account_size_usd)
     target_pct = ruleset.evaluation.profit_target_pct or 0.0
     daily_loss_pct = ruleset.limits.daily_loss_pct
-    static_dd_pct = (
-        ruleset.limits.max_drawdown_pct if ruleset.limits.drawdown_type == "static" else None
-    )
+    static_dd_pct, dd_model_state = _resolve_terminal_dd_pct(ruleset)
     econ = ruleset.economics
 
     r_seq = ledger_to_r_sequence(closed_trades, initial_balance=acct, base_risk_pct=base_risk_pct)
@@ -643,6 +691,8 @@ def run_ev_montecarlo(
     base = {
         "risk_pct": risk_pct, "base_risk_pct": base_risk_pct, "n_paths": n_paths,
         "n_ledger_trades": n_trades, "account_size": acct,
+        # See the note on `dd_model_state` in run_montecarlo — same contract.
+        "dd_model_state": dd_model_state,
         "profit_split": ruleset.profit_split,
         "account_fee_usd": econ.account_fee_usd, "rebuy_fee_usd": econ.rebuy_fee_usd,
     }
