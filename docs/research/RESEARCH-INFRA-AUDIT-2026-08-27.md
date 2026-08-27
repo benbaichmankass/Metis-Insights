@@ -336,13 +336,104 @@ Cheap fix: a one-line `# wiring:` declaration per file. It is not a rewrite.
 
 Stated so the audit's coverage is not overread:
 
-- **Harness fidelity** — whether the sweeps are config-exact, and whether fee /
-  slippage models match live. ⚠️ There is a known live instance:
-  `accounts.yaml::risk_pct: 0.015` is a **fraction** while five research/prop
-  files compute `rpct / 100.0` as a **percent** — 100× apart under one flag name
-  (audit F-37..F-40, 2026-08-20). Unverified this session.
+- ~~**Harness fidelity**~~ — **now covered; see § 8.** The 100× unit claim I
+  carried into this memo from audit F-37..F-40 was **stale**, and correcting it
+  is § 8's first result.
 - **The ML/trainer pipeline** — 95 registry models, last cycle **trained 0**,
   trainer disk at 91.2%.
 - **The candle data layer** — coverage, gaps, and the MGC outage now blinding 3
   live legs.
 
+
+---
+
+## 8. Phase 2 — harness fidelity. The debt is registered; its CONSEQUENCE is not.
+
+Phase 2's result is again not the expected one. **The harness-fidelity problems
+are found, single-owned, CI-guarded, declared as debt, and filed.** The discipline
+here is good. What is missing is one step later, and it is the step that explains
+the operator's complaint.
+
+### 8.1 The 100× unit claim is FIXED — I withdraw my own § 7 caveat
+
+Phase 1 of this memo repeated audit F-37..F-40's finding that `risk_pct` is a
+**fraction** live and a **percent** in five research/prop files — *"100× apart
+under one flag name"* — and flagged it unverified. **Verified this session, and it
+is resolved:**
+
+- `src/research/risk_basis.py` is the **single owner**: it *reads* the live value
+  from `accounts.yaml` (never transcribes it), converts through explicit
+  `to_percent` / `to_fraction`, resolves three-state (`resolved` /
+  `account_absent` / `unreadable`) with **no fallback constant**.
+- `scripts/ci/check_risk_basis_agreement.py` is registered in `run_guards.py` and
+  **passes**: *"11 risk default(s) checked against live risk basis: 1.5%
+  (fraction 0.015) from `accounts.yaml::accounts.bybit_2.risk.risk_pct` … clean."*
+- `scripts/backtest_system.py:78` imports it and stamps
+  `risk_basis.compare_to_live(risk_pct)` into every run's output.
+
+Carrying that claim forward unchecked is exactly the failure the operator named.
+Recorded here so the next reader does not inherit it a third time.
+
+### 8.2 But the guard registers an ACCEPTED deviation — it does not require parity
+
+⚠️ **`clean` does not mean "the harness runs at live risk."** The guard holds a
+`KNOWN_DIVERGENCES` table of *accepted ratios*, whose own comment reads:
+
+> *"These are **DEBT**: each one is a harness whose default answer is about a risk
+> setting production does not use."*
+
+**Measured, the full table — 10 registered sites, harness ÷ live:**
+
+| ratio (harness ÷ live) | share of the 10 | sites |
+|---|--:|---|
+| **0.2** — harness 0.3% vs live 1.5% | 5 of 10 | `backtest_system.py` ← **the fleet engine**, `build_backtest_panel.py`, `allocator_multisymbol_backtest.py`, `walkforward_flip_policy.py`, `evaluate_prop.py` |
+| 0.3333 — harness 0.5% vs live 1.5% | 3 of 10 | `account_compat_matrix.py`, `validate_alt_prop.py`, `montecarlo_prop.py` |
+| 0.6667 — harness 1.0% vs live 1.5% | 2 of 10 | `record_harness_trades.py`, `backtest_augment_runner.py` |
+
+So the fleet engine's default answer is about **one fifth of live risk**, and the
+guard is green because that ratio is *registered*, not because it is *small*.
+
+### 8.3 And the engine cannot model the thing that makes risk non-neutral
+
+`scripts/backtest_system.py:1752`, in its own words:
+
+> *"`_risk_qty` returns a **CONTINUOUS** quantity: no whole-contract floor, no
+> `min_qty`, no margin cap. Production quantizes and **REFUSES** sub-1-contract
+> futures orders outright … So below some threshold a real trade does not shrink —
+> **it does not happen**, and this harness would still book it. **The error is
+> FLATTERING**."*
+
+Already filed: `BL-20260820-HARNESS-DOES-NOT-MODEL-QUANTIZATION-REFUSAL`.
+
+This is precisely why the standard *"it's R-normalised so risk doesn't matter"*
+defence does not discharge § 8.2 — a claim `exit-refinement/SKILL.md` § 7 also
+rejects explicitly. R-normalisation assumes the **trade set** is invariant to
+risk. At 1/5 live risk with no refusal model, it is not.
+
+### 8.4 The systemic finding: **filed ≠ propagated**
+
+Take § 8.2 and § 8.3 together with § 2, and the 468-cell coverage matrix —
+the artifact every active-management decision is read from — was produced:
+
+1. at a **median OOS base of 33 trades** (§ 2), by a harness
+2. defaulting to **one fifth of live risk** (§ 8.2), which
+3. **cannot model the refusal** that makes that difference material (§ 8.3), with
+4. an error that is **flattering** in the same direction.
+
+**Every one of those three is already documented, honestly, at its own source.**
+None of them appears in the coverage matrix, in its legend, or beside the
+`honest_negative` verdicts that inherit them.
+
+> **A defect filed against a PRODUCER does not reach the ARTIFACTS it already
+> produced.** The backlog records the defect; the artifact keeps being read as if
+> it did not exist. This repo is unusually good at the first half and has no
+> mechanism at all for the second.
+
+That is the answer to *"why do we keep tripping over ourselves."* It is not that
+things are unknown. It is that a finding lands next to the tool and never travels
+to the conclusions the tool already wrote — the same shape as § 2's recurrence,
+where a power finding filed for one lever column never reached the other eight.
+
+**The remedy is a propagation step, not another guard on the producer:** when a
+row is filed against a research tool, the artifacts it produced must inherit a
+caveat — mechanically, in the artifact, where the decision is made.
