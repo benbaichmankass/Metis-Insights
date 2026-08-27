@@ -116,6 +116,40 @@ class TestNotifyImportIsLightweight(unittest.TestCase):
     import surface down.
     """
 
+    def _pop_and_restore(self, names):
+        """Pop *names* from ``sys.modules`` and RESTORE them when the test ends.
+
+        ⚠️ **THIS USED TO POP AND NEVER RESTORE, AND IT BROKE FIVE LATER TESTS.**
+        `SCRIPT_FORBIDDEN` includes ``dotenv``, which `tests/conftest.py` stubs
+        (`_stub_optional`) precisely because python-dotenv is NOT in
+        requirements-test.txt. Popping it deleted that stub for the rest of the
+        session, so `tests/test_send_ping.py` — which runs later, s > n — hit
+        `src/bot/claude_bridge.py:45: from dotenv import load_dotenv` and died
+        with ModuleNotFoundError. Measured: `pytest tests/test_[d-n]*.py
+        tests/test_send_ping.py` failed 10; with this restore, 0.
+
+        Invisible in CI, which installs requirements.txt (python-dotenv IS
+        there), so the real module is importable and the pop is harmless. The
+        cost falls entirely on a local run, where it renders as five unrelated
+        tests failing for no reason a reader can see.
+
+        The check these tests perform is legitimate and unchanged — asserting
+        the Stop-hook ping path stays import-light is exactly right. Only the
+        global mutation needed containing.
+        """
+        import sys as _s
+
+        saved = {n: _s.modules[n] for n in names if n in _s.modules}
+
+        def _restore():
+            for n in names:
+                _s.modules.pop(n, None)
+            _s.modules.update(saved)
+
+        self.addCleanup(_restore)
+        for n in names:
+            _s.modules.pop(n, None)
+
     FORBIDDEN = ("matplotlib", "pandas", "src.runtime.signal_notifications")
     SCRIPT_FORBIDDEN = (
         "matplotlib",
@@ -128,9 +162,7 @@ class TestNotifyImportIsLightweight(unittest.TestCase):
     def test_notify_does_not_pull_heavy_deps(self):
         import importlib
 
-        for mod in self.FORBIDDEN:
-            sys.modules.pop(mod, None)
-        sys.modules.pop("src.runtime.notify", None)
+        self._pop_and_restore(list(self.FORBIDDEN) + ["src.runtime.notify"])
 
         importlib.import_module("src.runtime.notify")
 
@@ -145,9 +177,7 @@ class TestNotifyImportIsLightweight(unittest.TestCase):
     def test_notify_session_script_does_not_pull_dotenv_or_alert_manager(self):
         import importlib
 
-        for mod in self.SCRIPT_FORBIDDEN:
-            sys.modules.pop(mod, None)
-        sys.modules.pop("scripts.notify_session", None)
+        self._pop_and_restore(list(self.SCRIPT_FORBIDDEN) + ["scripts.notify_session"])
 
         importlib.import_module("scripts.notify_session")
 
