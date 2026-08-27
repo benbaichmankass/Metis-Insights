@@ -1,0 +1,114 @@
+name: research-queue-dispatch
+
+# R5 of docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md — the
+# scheduler. Reads research/queue/*.yaml, grades each job against the R4 power
+# gate, routes it by its DECLARED resource needs, and dispatches.
+#
+# ⚠️ THE SCHEDULED RUN IS A DRY RUN. `fire` defaults to false and cron passes
+# nothing, so the cron reports what it WOULD do and spends nothing. Firing is an
+# explicit workflow_dispatch with fire=true. A scheduler whose default action is
+# to spend is one typo away from spending; this one is not.
+#
+# Why a dry cron is still worth running: it is the only thing that surfaces a
+# queue that has gone invalid, unroutable, or quietly all-blocked. The dispatcher
+# exits non-zero on an invalid job and on a queue it could not READ (exit 2,
+# distinct from an empty one) — so a broken queue shows up as a red scheduled run
+# instead of as silence.
+#
+# Tier-1: reads the repo, grades, and (only when fired) dispatches other
+# workflows. It writes nothing to the live VM and touches no order path.
+
+on:
+  schedule:
+    # 06:20 UTC daily — after the IB gateway's 06:05 reset window, so a red run
+    # here is never just the gateway restarting.
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+    inputs:
+      fire:
+        description: "Actually dispatch (default: dry run that reports only)"
+        type: boolean
+        default: false
+      only:
+        description: "Dispatch just this job id (e.g. RQ-20260827-001)"
+        default: ""
+      max_gpu:
+        description: "Per-run cap on GPU bursts"
+        default: "1"
+
+concurrency:
+  # Two dispatchers running at once could fire the same job twice — the ledger
+  # cap is monthly and would not stop it inside one window.
+  group: research-queue-dispatch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write   # `gh workflow run` on the routed workflow
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # PAT so the stamp auto-merge PR (commit-to-main) triggers checks —
+          # mirrors gpu-burst-train.yml's checkout for the same reason.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pyyaml
+        run: pip install --quiet pyyaml
+
+      - name: Grade and dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}")
+          if [ "${{ inputs.fire }}" = "true" ]; then ARGS+=(--fire); fi
+          if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
+          python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
+
+      # The dispatcher stamps `last_dispatched_at` on any job it fired. `main`
+      # is branch-protected, so this lands through the shared commit-to-main
+      # action as an auto-merge PR rather than a direct push — the same wire
+      # BL-20260706-GPU-BURST-LEDGER-PUSH-RACE established for the spend ledger
+      # after a direct `git push HEAD:main` was rejected (GH006) and silently
+      # dropped billed rows.
+      #
+      # ⚠️ Only on a REAL fire. A dry run stamps nothing, so there is nothing to
+      # land and this step is skipped rather than opening an empty PR.
+      - name: Land the dispatch stamps on main
+        if: inputs.fire == true
+        uses: ./.github/actions/commit-to-main
+        with:
+          # A PAT, not GITHUB_TOKEN: a PR authored by GITHUB_TOKEN does not
+          # trigger checks, so its auto-merge would sit forever waiting on
+          # required checks that never start. Same reason gpu-burst-train.yml
+          # passes it for the spend ledger.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: research/queue
+          message: "chore(research-queue): stamp last_dispatched_at for run ${{ github.run_id }}"
+          pr-title: "chore(research-queue): dispatch stamps (auto)"
+          pr-body: >-
+            Automated `last_dispatched_at` stamps from the research-queue
+            dispatcher. Data-only; it drives the cadence check so a recurring
+            job does not re-fire every run.
+          branch-prefix: automation/research-queue-stamp
+
+      - name: Summarize in the job summary
+        if: always()
+        run: |
+          {
+            echo "### research-queue dispatch"
+            echo
+            echo '```'
+            cat /tmp/dispatch.txt 2>/dev/null || echo "(the dispatcher produced no output — see the step log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

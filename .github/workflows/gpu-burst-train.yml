@@ -13,8 +13,17 @@ name: gpu-burst-train
 #   2. ARM GATE — even past preflight, nothing launches unless the repo variable
 #      GPU_BURST_ARMED == '1'. Unarmed = a **dry preflight only** (budget check +
 #      comment, ZERO spend). Set it to 1 only after a provider adapter is verified.
-#   3. run_burst.sh launches the ONLY pod, tears it down in a bash EXIT trap, and
-#      currently aborts (adapter pending) — so it can't spend even if armed early.
+#   3. run_burst.sh launches the ONLY pod and tears it down in a bash EXIT trap,
+#      so a crash or timeout cannot leak a running pod. It aborts with no spend
+#      when GPU_PROVIDER is unset or names a provider with no verified adapter.
+#      ⚠️ THIS LINE USED TO READ "currently aborts (adapter pending) — so it
+#      can't spend even if armed early", AND THAT IS FALSE. Field beats comment:
+#      comms/gpu_spend_ledger.json records SEVEN RunPod runs in 2026-07 with
+#      real billed costs (lifetime $0.2164, largest single run $0.0987). The
+#      adapter is verified and has spent. The claim was stale in the REASSURING
+#      direction, which is the dangerous one — a reader deciding how much to
+#      trust an automated dispatch would have under-estimated the exposure to
+#      zero. What actually bounds spend is (1) and (2) above, not this step.
 #   4. RECORD — the actual billed cost is appended to the ledger + committed, so
 #      the dashboard GPU-spend panel shows every session's cost.
 #
