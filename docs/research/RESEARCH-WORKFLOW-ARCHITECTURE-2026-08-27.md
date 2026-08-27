@@ -15,14 +15,55 @@ live API, or the trainer box this session.
 
 ---
 
-## 1. The finding: compute is solved. Landing is not. Three times.
+## 0. ⚠️ CORRECTION, 2026-08-27 — instance 1 below is WRONG and is retracted
+
+**I claimed the e35 sweep's rows never landed. They landed, on main, on the day
+the sweep ran.** Measured after the claim was already in this doc, a commit
+message, a PR body and a backlog row:
+
+`docs/research/e35-bracket-corpus.jsonl` **on `origin/main`** holds **8,211 rows ·
+6,581 stop cells (`sm*`) · 41 legs**, of which **4,378 carry
+`sweep_generated_at` 2026-08-26** — the very run I said had produced nothing
+readable.
+
+**How I got it wrong, because the mechanism is the lesson.** I probed
+`m20-sweep-corpus.jsonl` for `sm*` cells, found zero, and called it absence. That
+file is the M20 **lever** corpus; e35 bracket cells go to a **separate** store.
+Its lack of stop cells is *correct*. I anchored on that filename because
+`BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH`'s resolution criteria
+*suggested* it (*"Acceptable: an e35-shaped extractor writing into
+m20-sweep-corpus.jsonl"*) — and never checked what the implementer actually
+chose. They chose a separate file, which is **better**: separate stores cannot
+silently merge, which was that row's own stated worry.
+
+⚠️ **AND MY "NEGATIVE CONTROL" DID NOT COVER THIS.** I verified the probe could
+find positives (`--contains trail` → 212 rows) *in that file*. That controls for
+the **probe** and not for the **population**. `CLAUDE.md` § RULE ONE says a
+search returning nothing is not proof of absence and *"a negative needs a
+denominator"* — the denominator I owed was **"is this the store e35 writes to?"**,
+and I never asked it.
+
+**Consequences, stated rather than quietly fixed:**
+- `BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH` is **RESOLVED**, not open.
+- The finding below is **TWO** instances, not three.
+- **R2 (`assert_rows_landed.py`) loses its strongest case.** Instance 2 still
+  justifies it and the tool is sound, but its headline example was mine and it
+  was wrong. Whether it keeps its priority is the operator's call, not a
+  conclusion this doc should carry as if unaffected.
+
+---
+
+## 1. The finding: compute is solved. Landing is not. ~~Three~~ **Two** times.
 
 The system has repeatedly moved work to the right tool and repeatedly failed to make
-the **result** arrive. Three independent instances, all found this session:
+the **result** arrive. Three instances were filed this session and **one was
+retracted the same day (§ 0)** — the two that survive are below, and the
+retracted row is kept in the table rather than deleted so the correction is
+visible where the claim was made:
 
 | # | compute | landing |
 |---|---|---|
-| **e35 bracket sweep** | ✅ runs as a 19-leg parallel matrix on free runners | ❌ corpus job shipped 2026-08-23, sweep ran 08-26, and `m20-sweep-corpus.jsonl` is **still 1,379 rows with ZERO stop cells** — byte-identical population to the 08-23 measurement |
+| ~~e35 bracket sweep~~ | ✅ 19-leg parallel matrix on free runners | ✅ **RETRACTED — see § 0.** The rows landed on main the day the sweep ran: 8,211 rows / 6,581 stop cells / 41 legs, 4,378 of them from the 08-26 run. This instance was my error, not the system's. |
 | **`trainer-offload-train.yml`** | ✅ trains an OOM-prone manifest on a 4 vCPU / 16 GB runner | ❌ runs `--no-register`; its own header calls wiring the model back *"the documented **v2 slice**"* — so the model is trained and never joins the fleet |
 | **M20 coverage matrix** | ✅ 468 cells graded | ❌ the three defects that condition every verdict live in the backlog, not in the matrix |
 
@@ -105,7 +146,7 @@ schema**, and a row is not admissible unless it carries:
 This is the `MEASURED` mark made executable: a number that cannot say what it measured,
 on what, with what power, is not a result.
 
-### R2 — Landing is part of the run *(fixes all three instances in § 1)*
+### R2 — Landing is part of the run *(motivated by § 1; see § 0 — its strongest example was retracted)*
 
 A run's final step **re-reads the committed store from `main` and asserts its own rows
 are present**, failing loudly if not. Cheap, mechanical, and it is precisely what would
