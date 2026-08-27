@@ -45,6 +45,19 @@ email-validator>=2.0.0
 # single-command install covers it for lean sandbox sessions.
 pyyaml>=6.0
 
+# psutil is a production runtime dep (requirements.txt) but is ALSO
+# needed here, and the reason is not "some tests happen to import it":
+# tests/test_vm_health_helper.py and tests/test_s067_silent_empty_fixes.py
+# exist to assert vm_health returns None PER FIELD when psutil raises, so
+# without the real package those two never exercise the failure they were
+# written for -- they error on import instead. Measured 2026-08-27: after a
+# FULL install of this file, 8 tests still failed with
+# ModuleNotFoundError: No module named 'psutil' (6 in tests/test_send_ping.py
+# plus those two); installing psutil alone took the same three files to
+# 30 passed, so the attribution is measured rather than inferred.
+# Floor matches requirements.txt.
+psutil>=5.9.0
+
 # ccxt is a production runtime dep but not in the default sandbox;
 # coordinator and exchange-integration tests import it at the top level.
 ccxt>=4.0.0
