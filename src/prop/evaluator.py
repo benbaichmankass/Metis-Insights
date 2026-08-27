@@ -115,20 +115,66 @@ def _scan_equity_breaches(
     curve: Sequence[EquityPoint],
     ruleset: PropRuleset,
     account_size: float,
-) -> Optional[Dict[str, Any]]:
-    """Walk the equity curve once, in order, returning the FIRST daily-loss or
-    max-drawdown breach (whichever happens earlier in time), else None.
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+    """Walk the equity curve once, in order.
 
-    Both checks share one ordered pass so "first breach wins" is honoured
-    across rule types, not just within one rule.
+    Returns ``(first_terminal_breach_or_None, drawdown_refusals)``.
+
+    Both the daily-loss and max-drawdown checks share one ordered pass so
+    "first breach wins" is honoured across rule types, not just within one rule.
+
+    ⚠️ **THE DRAWDOWN LIMIT IS TWO INDEPENDENT QUESTIONS** (2026-08-27,
+    ``BL-20260827-STANDARD-ARM-MISMODELS-INTRADAY-MAX-DD-AS-A-TERMINAL-FLOOR``):
+    *where does it measure from* (``limits.drawdown_type``) and *what does
+    breaching it do* (``limits.drawdown_breach``). This function used to answer
+    only the first, with ``ref = peak if trailing else account_size`` and an
+    unconditional ``return`` — i.e. terminal, always. That is right for a prop
+    firm and wrong for a standard account, whose ``max_dd_pct`` is an
+    intra-day brake measured from TODAY'S high that resets at UTC midnight and
+    **refuses one trade** rather than killing the account.
+
+    A ``refusal``-consequence drawdown therefore does NOT return: it is counted
+    and the walk continues, because the account keeps trading. The counts come
+    back in the second element so a caller can report a refusal RATE — a
+    different statistic from a breach probability, and reporting one under the
+    other's name is the semantic substitution this whole change is about.
+
+    ⚠️ **AN ``intraday_high`` REFERENCE MEASURES NOTHING ON A DAILY-CLOSE
+    CURVE.** If the equity curve carries one point per day then today's high
+    IS today's only point, every intra-day drop is 0, and ``episodes`` comes
+    back 0 for a book that would really have tripped the brake repeatedly.
+    That zero is a property of the INPUT, not of the strategy. Read
+    ``episodes`` beside the curve's own granularity; the compat matrix feeds a
+    per-closed-trade curve, which is why it can see anything at all.
+
+    ⚠️ The refusal count is a LOWER BOUND on how often the brake would fire.
+    The curve is a per-close equity ledger, so an excursion that crosses the
+    limit and recovers between two closes is invisible here, and consecutive
+    marks inside one breach episode are counted once per episode rather than
+    per attempted trade. Read ``episodes`` beside ``worst_depth_pct``; do not
+    read either as "this many trades were refused".
     """
     daily_loss_pct = ruleset.limits.daily_loss_pct
     max_dd_pct = ruleset.limits.max_drawdown_pct
     dd_type = ruleset.limits.drawdown_type
+    dd_terminal = ruleset.limits.drawdown_is_terminal
 
     day: Optional[date] = None
     day_start_eq: float = account_size
+    day_high_eq: float = account_size
     peak: float = account_size
+
+    refusals: Dict[str, Any] = {
+        "drawdown_type": dd_type,
+        "drawdown_breach": ruleset.limits.drawdown_breach,
+        "episodes": 0,
+        "worst_depth_pct": None,
+        "first_ts": None,
+        "last_ts": None,
+        "days_with_refusal": 0,
+    }
+    _ref_days: set = set()
+    _in_episode = False
 
     for ts, eq in curve:
         eq = float(eq)
@@ -136,6 +182,10 @@ def _scan_equity_breaches(
         if d != day:
             day = d
             day_start_eq = eq
+            # The intraday reference resets with the day — that IS the rule.
+            day_high_eq = eq
+            _in_episode = False
+        day_high_eq = max(day_high_eq, eq)
         peak = max(peak, eq)
 
         # (1) daily-loss: drop from this day's starting equity.
@@ -148,22 +198,44 @@ def _scan_equity_breaches(
                     f"day {d} loss {day_dd * 100:.2f}% > {daily_loss_pct * 100:.2f}%",
                     day=str(d),
                     loss_pct=round(day_dd, 6),
-                )
+                ), refusals
 
         # (2) max-drawdown: below the reference by more than the limit.
         if max_dd_pct is not None:
-            ref = peak if dd_type == "trailing" else account_size
+            if dd_type == "trailing":
+                ref = peak
+            elif dd_type == "intraday_high":
+                ref = day_high_eq
+            else:
+                ref = account_size
             if ref > 0:
                 dd = (ref - eq) / ref
                 if dd > max_dd_pct + 1e-12:
-                    return _breach(
-                        "max_drawdown",
-                        ts,
-                        f"{dd_type} DD {dd * 100:.2f}% > {max_dd_pct * 100:.2f}%",
-                        depth_pct=round(dd, 6),
-                        drawdown_type=dd_type,
+                    if dd_terminal:
+                        return _breach(
+                            "max_drawdown",
+                            ts,
+                            f"{dd_type} DD {dd * 100:.2f}% > {max_dd_pct * 100:.2f}%",
+                            depth_pct=round(dd, 6),
+                            drawdown_type=dd_type,
+                        ), refusals
+                    # REFUSAL: the brake fires, the account lives on.
+                    if not _in_episode:
+                        refusals["episodes"] += 1
+                        _in_episode = True
+                        if refusals["first_ts"] is None:
+                            refusals["first_ts"] = str(ts)
+                    refusals["last_ts"] = str(ts)
+                    _ref_days.add(d)
+                    prev = refusals["worst_depth_pct"]
+                    refusals["worst_depth_pct"] = (
+                        round(dd, 6) if prev is None else max(prev, round(dd, 6))
                     )
-    return None
+                else:
+                    _in_episode = False
+
+    refusals["days_with_refusal"] = len(_ref_days)
+    return None, refusals
 
 
 def _position_size_breach(
@@ -341,7 +413,7 @@ def evaluate(
 
     # --- EVAL phase: ordered first-breach across daily-loss + max-DD, then
     #     position-size, then profit-target, then consistency. ---
-    eq_breach = _scan_equity_breaches(curve, ruleset, acct)
+    eq_breach, dd_refusals = _scan_equity_breaches(curve, ruleset, acct)
     ps_breach = _position_size_breach(ledger, ruleset, acct)
     target_info = _eval_target(curve, ledger, ruleset, acct)
     cons_breach, worst_share = _consistency_breach(ledger, ruleset)
@@ -389,6 +461,13 @@ def evaluate(
         "static_dd_off_start_pct": static_dd_off_start,
         "equity_at_eval_pass": equity_at_eval_pass,
         "first_breach": first_breach,
+        # ⚠️ NON-TERMINAL drawdown activity, and it is NOT a breach.
+        # Present on every ruleset so a consumer never branches on absence:
+        # a `terminal` ruleset reports `episodes: 0` because a terminal
+        # drawdown ends the walk rather than accruing, which is a different
+        # fact from "the brake never fired" — `drawdown_breach` says which
+        # regime produced the zero. Read them together.
+        "drawdown_refusals": dd_refusals,
     }
 
     # --- FUNDED soak: only meaningful if eval passed. Re-run checks 1-3 + 5
@@ -399,7 +478,7 @@ def evaluate(
             curve, ledger, target_info["target_ts"], ruleset.funded_soak_days
         )
         if f_curve:
-            f_eq_breach = _scan_equity_breaches(f_curve, ruleset, f_start)
+            f_eq_breach, _f_dd_refusals = _scan_equity_breaches(f_curve, ruleset, f_start)
             f_ps_breach = _position_size_breach(f_trades, ruleset, acct)
             f_cons_breach, _ = _consistency_breach(f_trades, ruleset)
             f_cands = [b for b in (f_eq_breach, f_ps_breach, f_cons_breach) if b]
