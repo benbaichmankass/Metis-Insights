@@ -7,19 +7,44 @@ Operator directive, 2026-08-27: *"more consistent, higher frequency training and
 backtesting … with actual usable results that are recorded correctly."*
 
 The 2026-08-27 architecture review
-(``docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md``) found the same
-defect three times, in three well-built and honestly-documented components: the
-compute was moved to the right tool, and the RESULT never arrived.
+(``docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md``) filed three
+instances of one defect — compute moved to the right tool, RESULT never
+arrived. **One of the three was retracted the same day, and the retraction is
+the more instructive half; it is kept here rather than tidied away.**
 
-  1. ``e35-bracket-sweep.yml`` — a corpus job to commit per-cell rows shipped
-     2026-08-23; the sweep RAN 2026-08-26; ``docs/research/m20-sweep-corpus.jsonl``
-     is still 1,379 rows with **zero** cells naming a stop.
-  2. ``trainer-offload-train.yml`` — trains on a runner, then ``--no-register``.
+  1. ``e35-bracket-sweep.yml`` — **RETRACTED, this instance was never real.**
+     The claim was that a corpus job shipped 2026-08-23, the sweep ran
+     2026-08-26, and ``docs/research/m20-sweep-corpus.jsonl`` was "still 1,379
+     rows with zero cells naming a stop". The numbers were real; the conclusion
+     was wrong. That file is the M20 **lever** corpus. e35 writes
+     ``docs/research/e35-bracket-corpus.jsonl``, which on ``origin/main`` holds
+     **8,211 rows / 6,581 stop cells / 41 legs**, 4,378 of them from the 08-26
+     run. The rows landed the day they were measured.
+  2. ``trainer-offload-train.yml`` — trains on a runner, then ``--no-register``,
+     uploads an artifact, and pushes nothing. **The one confirmed instance.**
   3. The M20 coverage matrix — 468 verdicts whose conditioning defects live in
      the backlog, not the matrix.
 
-None was noticed by its own workflow, because **a job exiting 0 is treated as
-done**. This asserts the other half:
+⚠️ **HOW INSTANCE 1 WAS GOT WRONG IS WHY THIS MODULE STILL EARNS ITS KEEP.** The
+author probed the LEVER corpus for BRACKET cells because a backlog row's
+``resolution_criteria`` *suggested* that filename, and read a suggested
+criterion as a description of the implementation. A positive control WAS run
+(``--contains trail`` → 212 rows) — inside the same wrong file. That controls
+for the **probe**, never for the **population**, and ``CLAUDE.md`` § RULE ONE is
+explicit that *"a negative needs a denominator"*.
+
+So the operative warning for any caller of this module is:
+
+    ⚠️ ``--store`` MUST NAME THE PATH THE PRODUCER ACTUALLY WRITES, read off the
+    producer's own ``git add`` — never off a doc, a backlog row, or a sibling
+    workflow. A landing assertion pointed at the wrong store is worse than no
+    assertion: it grades a healthy run ``absent`` forever, or an empty one
+    ``landed`` by coincidence. The first wiring of this module into
+    ``e35-bracket-sweep.yml`` made exactly that mistake and was corrected the
+    same day.
+
+Neither surviving instance was noticed by its own workflow, because **a job
+exiting 0 is treated as done**. This asserts the other half:
 
     A job that exits 0 having landed nothing is a FAILED job.
 
