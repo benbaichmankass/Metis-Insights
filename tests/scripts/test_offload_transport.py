@@ -93,8 +93,19 @@ def test_cross_machine_round_trip(tmp_path):
     entry = ModelRegistry(reg_root).get(f"{MID}{drain_inbox.OFFLOAD_SUFFIX}")
     # THE BAR: load the artifact from the path a consumer would literally use.
     assert json.loads(Path(entry.model_state_path).read_text()) == STATE
-    # ...and no trace of the machine that trained it leaked into the entry.
-    assert "runner" not in entry.model_state_path
+    # ...and the entry points at the DESTINATION, not at the machine that
+    # trained. Asserted as a positive (it is under the trainer root) plus an
+    # exact inequality against the emitting path.
+    #
+    # ⚠️ THIS WAS FIRST WRITTEN AS `assert "runner" not in entry.model_state_path`
+    # AND THAT PASSED LOCALLY AND FAILED ON A REAL GITHUB RUNNER — where the
+    # pytest tmpdir is `/tmp/pytest-of-runner/...` because the OS user IS
+    # `runner`. The check matched the username, not a leaked path: incidental
+    # text standing in for the property. Same class as the posture tests that
+    # graded comments instead of directives, and it could only surface on the
+    # machine the transport is actually about. A substring is not a property.
+    assert entry.model_state_path.startswith(str(trainer)), entry.model_state_path
+    assert entry.model_state_path != runner_abs_state
 
 
 def test_unarmed_drain_writes_nothing(tmp_path):
