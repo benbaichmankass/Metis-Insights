@@ -82,6 +82,7 @@ def run(check_only: bool) -> int:
     doc: Any = json.loads(MATRIX.read_text())
     levers = doc["lever_columns"]
     added = drift = unstated = resolved = 0
+    scanned = stated = 0
 
     for row in doc["rows"]:
         for lever in levers:
@@ -89,7 +90,10 @@ def run(check_only: bool) -> int:
             if not isinstance(cell, dict):
                 continue
             status = str(cell.get("status") or "")
+            scanned += 1
             got = _counts(cell.get("ref") or "")
+            if got:
+                stated += 1
             if got:
                 is_n, oos_n = got
                 if cell.get("base_is") != is_n or cell.get("base_oos") != oos_n:
@@ -111,10 +115,23 @@ def run(check_only: bool) -> int:
                     cell.pop("denominator_unstated", None)
 
     if check_only:
+        # The denominator is printed on BOTH paths, deliberately. A bare "OK -
+        # every stated base count is also a field" is a universal with no
+        # population in scope: if a refactor made this scan ZERO cells it would
+        # print the same clean pass. Caught by diagnostic-provenance-guard
+        # sub-class C on this very file, 2026-08-27 - in the tool written to fix
+        # exactly this class of defect.
         if drift:
-            print(f"m20-coverage-base-counts: {drift} cell(s) whose prose and fields disagree")
+            print(f"m20-coverage-base-counts: {drift} of {stated} stated count(s) "
+                  f"disagree with their fields (over {scanned} cells scanned)")
             return 1
-        print("m20-coverage-base-counts: OK — every stated base count is also a field")
+        if not scanned:
+            print("::error::m20-coverage-base-counts: scanned ZERO cells — the "
+                  "matrix is empty or its shape changed. That is an ABSENT "
+                  "result, not a clean one.")
+            return 1
+        print(f"m20-coverage-base-counts: OK — {stated} of {scanned} cells state a "
+              f"base count, and every one is also a field")
         return 0
 
     MATRIX.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n")
