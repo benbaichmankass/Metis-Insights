@@ -106,6 +106,36 @@ def test_the_discriminator_does_not_consult_sys_modules():
             sys.modules[name] = saved
 
 
+def test_a_name_made_importable_by_a_TEST_mutating_sys_path_is_still_synthetic():
+    """Pins the second half of the discriminator.
+
+    ⚠️ At least five tests insert ``scripts/research`` into ``sys.path``, which
+    makes their own scripts-under-test (``m20_fleet_exit_sweep``,
+    ``m20_dispersion_rate``) genuinely importable partway through the run.
+    Asking the LIVE ``sys.path`` grades those as real shared modules — which
+    produced 36 undeclared findings, all correct behaviour, in a full-suite run
+    AFTER the ``find_spec`` defect was already fixed. The audit pins the path as
+    it was before any test ran.
+    """
+    assert not iso.is_real_module_name("m20_fleet_exit_sweep")
+    saved = list(sys.path)
+    sys.path.insert(0, "scripts/research")
+    try:
+        assert not iso.is_real_module_name("m20_fleet_exit_sweep"), (
+            "a name importable only because a test mutated sys.path must not "
+            "be graded as a real shared module"
+        )
+    finally:
+        sys.path[:] = saved
+
+
+def test_the_pinned_base_path_still_resolves_genuine_first_party_roots():
+    """The negative control for the pin: over-pinning would grade everything
+    synthetic and silently switch the whole audit off."""
+    for name in ("src.runtime.notify", "ml.datasets", "scripts.notify_session"):
+        assert iso.is_real_module_name(name), name
+
+
 def test_a_builtin_is_real_even_though_it_has_no_file_on_sys_path():
     """PathFinder cannot see builtins; without the explicit check a replaced
     ``sys`` would be dismissed as a synthetic name."""

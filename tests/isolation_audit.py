@@ -57,6 +57,25 @@ import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# The import path AS IT WAS BEFORE ANY TEST RAN.
+#
+# ⚠️ **THIS IS PINNED AT IMPORT TIME AND NEVER REFRESHED, WHICH IS THE POINT.**
+# Tests insert their own directories into ``sys.path`` — measured: at least five
+# add ``scripts/research`` — which makes names like ``m20_fleet_exit_sweep`` and
+# ``m20_dispersion_rate`` genuinely importable partway through the run. Asking
+# the LIVE ``sys.path`` therefore grades a test's own script-under-test as a
+# real shared module and reports it, which is how a full-suite run still
+# produced **36 undeclared findings that were all correct behaviour** after the
+# ``find_spec`` defect was already fixed.
+#
+# Pinning the base path asks the question that actually matters: *could this
+# name have been imported before any test meddled with the interpreter?*
+# ``src`` resolves on the base path; ``m20_fleet_exit_sweep`` does not.
+# ---------------------------------------------------------------------------
+_BASE_SYS_PATH: list[str] = list(sys.path)
+
+
+# ---------------------------------------------------------------------------
 # States. Never collapsed — "we did not look" is not "we looked and found
 # nothing", and "a synthetic name was re-created" is not "a real module was
 # shadowed".
@@ -117,6 +136,10 @@ def is_real_module_name(name: str) -> bool:
     (``_fc_probe``) from a real family (``src.*``, ``ml.*``, ``scripts.*``), and
     when it errs it errs toward REPORTING — the safe direction for a detector.
 
+    ⚠️ **It searches the PINNED base ``sys.path``, not the live one.** Tests add
+    their own directories mid-run, which makes a test's own script-under-test
+    importable and therefore "real". See ``_BASE_SYS_PATH`` above.
+
     ⚠️ Builtins are checked separately because they have no file on ``sys.path``
     and ``PathFinder`` cannot see them; without this a replaced ``sys`` would be
     dismissed as a synthetic name.
@@ -135,7 +158,7 @@ def is_real_module_name(name: str) -> bool:
     if root in sys.builtin_module_names:
         return True
     try:
-        return PathFinder().find_spec(root, None) is not None
+        return PathFinder().find_spec(root, _BASE_SYS_PATH) is not None
     except Exception:
         return False
 
