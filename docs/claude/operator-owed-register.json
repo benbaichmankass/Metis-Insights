@@ -85,7 +85,7 @@
       "severity": "high",
       "severity_basis": "It is an input to prop_balance's sizing-freshness gate AND the /api/bot/prop/status rule-distance panel. A stale cushion renders identically to a live one to any consumer that reads only `present`.",
       "tier": "1 (the bot already asks; the answer is the operator's)",
-      "status": "open",
+      "status": "resolved",
       "owner_class": "physical_or_broker",
       "owner_class_basis": "The number exists only on the Breakout terminal, for which this repo holds no API — the manual bridge IS the integration. A person must read the terminal and report it; no wire could exist without a broker API we do not have.",
       "automation_path": null,
@@ -98,10 +98,10 @@
         "018aKyS3"
       ],
       "carried_before_register_note": "Self-reported seed; the measured carry comes from git history.",
-      "last_state_change_at": "2026-08-25T13:33:00+00:00",
-      "last_state_change_note": "None since it was first raised. Registered here unchanged.",
-      "resolved_at": null,
-      "resolution": null,
+      "last_state_change_at": "2026-08-28T18:24:08+00:00",
+      "last_state_change_note": "Operator reported the terminal state; journalled through prop_report.ingest_report.",
+      "resolved_at": "2026-08-28",
+      "resolution": "ACTED, not re-listed. The operator sent Breakout terminal screenshots 2026-08-28; the state was journalled through the one prop_report.ingest_report chokepoint as three reports: SOLUSDT close (exit 103.07, +78.25, fill id 38), ETHUSDT close (exit 2480.00, -77.22, fill id 39), and an account_status of balance/equity 4757.93 flat. Both closes reconcile EXACTLY against the already-journalled entries: (103.07-99.94)*25.0=+78.25 and (2480.00-2531.48)*1.5=-77.22. /api/bot/prop/status now reads freshness 'ok' (was 'stale' at 31.1h). WHAT THE ANSWER CHANGED, and it is not the reassuring direction: the book is FLAT and the static-DD cushion is $57.93 (4757.93 - 4700.00), NOT the $176 the 08-27 snapshot implied and NOT the $64 this row recorded from 08-25. The ETHUSDT position closed at 2480.00 against a declared stop of 2480.71535714 -- a stop-out. distance_to_daily_loss_usd remains None (day_pnl_state 'realized_unreported'), so the daily-loss cushion is still unmeasured even now. Two defects were found BY DOING THIS and are filed separately: BL-20260828-PROP-REPORT-CONCURRENCY-SILENTLY-CANCELS-A-QUEUED-REPORT and BL-20260828-RULE-DISTANCE-DOUBLE-COUNTS-A-LATE-REPORTED-EARLIER-FILL.",
       "snoozed_until": null,
       "snooze_trigger": null,
       "refs": [
