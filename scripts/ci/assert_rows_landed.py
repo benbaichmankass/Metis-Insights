@@ -98,8 +98,51 @@ ABSENT = "absent"
 COULD_NOT_READ = "could_not_read"
 
 
+def _ref_resolves(ref: str) -> bool:
+    """Does ``ref`` name a real commit? Used to tell a MISSING PATH apart from an
+    UNREADABLE REF.
+
+    ⚠️ Deliberately asks git a structured question instead of matching the prose
+    of ``git show``'s error. Grading on the message text ("exists on disk, but
+    not in ...") would key the verdict on English that varies by git version and
+    locale — the same "a check that matches incidental text rather than the
+    property" defect this module exists to make loud.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return out.returncode == 0
+
+
 def read_store_at_ref(ref: str, path: str) -> tuple[list[dict[str, Any]] | None, str]:
-    """Return (rows, note). rows is None when the ref/store could not be read."""
+    """Return (rows, note). rows is None ONLY when we could not look.
+
+    ⚠️ A STORE THAT DOES NOT EXIST AT A RESOLVABLE REF IS AN EMPTY READ, NOT AN
+    UNREADABLE ONE — and getting that wrong made ``pending_merge`` unreachable in
+    exactly the case it was built for.
+
+    Measured 2026-08-28 on the first real offload drop (run 33150949388): the job
+    pushed its rows to ``claude/offload-inbox``, the pushed ref read back 1 row,
+    and the verdict came out ``could_not_read`` (exit 2) instead of
+    ``pending_merge`` (exit 1). Cause: ``git show origin/main:<new store>`` exits
+    128 for a path that is not on that ref yet, this function reported ANY
+    non-zero as unreadable, and :func:`check` returns ``COULD_NOT_READ`` *before*
+    it ever consults ``pushed_rows``. So the FIRST drop of any NEW store — the
+    canonical retarget case — could never report ``pending_merge``.
+
+    It also contradicted this module's own docstring, where ``absent`` is
+    *"readable, and the rows are on NEITHER ref"*. A missing path at a ref that
+    resolves is precisely that: we looked, and the rows are not there.
+
+    So:
+      * ref resolves, path absent   -> ``([], note)``   — a readable empty store.
+      * ref does not resolve        -> ``(None, note)`` — we could not look.
+      * content is not JSON         -> ``(None, note)`` — we could not parse it.
+    """
     try:
         out = subprocess.run(
             ["git", "show", f"{ref}:{path}"],
@@ -108,6 +151,11 @@ def read_store_at_ref(ref: str, path: str) -> tuple[list[dict[str, Any]] | None,
     except (OSError, subprocess.SubprocessError) as exc:
         return None, f"git show failed: {exc}"
     if out.returncode != 0:
+        if _ref_resolves(ref):
+            return [], (
+                f"{path} does not exist at {ref} (the ref resolves, so this is an "
+                f"empty read, not an unreadable one)"
+            )
         return None, f"git show {ref}:{path} exited {out.returncode}: {out.stderr.strip()[:200]}"
 
     rows: list[dict[str, Any]] = []
@@ -237,11 +285,39 @@ def _self_test() -> int:
     if rows is not None:
         fails.append("control 7: a bogus ref returned rows instead of None")
 
+    # --- the 2026-08-28 regression, planted so it cannot come back ---
+    # A path that is not on a RESOLVABLE ref is an EMPTY read, not an unreadable
+    # one. Reported could_not_read before the fix, which made pending_merge
+    # unreachable for the first drop of any new store.
+    rows, note = read_store_at_ref("HEAD", "definitely/not/a/real/store.jsonl")
+    if rows != []:
+        fails.append(
+            f"control 11: a missing path at a RESOLVABLE ref must read as an empty "
+            f"store, got {rows!r} ({note})"
+        )
+
+    # ...and the two must stay distinguishable: a bad ref is still None, above.
+    if read_store_at_ref("refs/does/not/exist", "x.jsonl")[0] is not None:
+        fails.append("control 12: an unresolvable ref must still be could_not_read")
+
+    # The exact production shape: the store does not exist on the SHARED ref yet
+    # (first drop of a new store), and the rows ARE on the ref the job pushed to.
+    # This is pending_merge — the job did its part and nobody can read the rows.
+    st, n, _ = check([], field="run_id", contains="20260828T072009Z", min_rows=1,
+                     pushed_rows=[{"run_id": "20260828T072009Z"}], same_ref=False)
+    if st != PENDING_MERGE:
+        fails.append(
+            f"control 13: a first drop of a NEW store, absent from the shared ref "
+            f"and present on the pushed ref, must be `pending_merge`, got {st}"
+        )
+    if n != 0:
+        fails.append(f"control 13b: matched count must report the SHARED ref (0), got {n}")
+
     if fails:
         for f in fails:
             print(f"::error::self-test: {f}")
         return 1
-    print("assert-rows-landed: self-test OK — 10 planted controls all fire")
+    print("assert-rows-landed: self-test OK — 13 planted controls all fire")
     return 0
 
 

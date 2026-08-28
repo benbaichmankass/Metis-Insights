@@ -1,0 +1,26 @@
+# ============================================
+# Cadence for the offload drain (R3).
+#
+# ⚠️ NOT ENABLED BY ANY INSTALLER. Enabling this timer is half of arming the
+# drain; the other half is OFFLOAD_DRAIN_APPLY=1. See the .service header.
+#
+# 20 minutes is chosen to sit just above trainer_git_sync.sh's 15-minute
+# force-checkout, so a drop is on disk before the drain looks for it. It is a
+# CHOSEN value, not a measured one: the drain is idempotent per (model_id,
+# run_id), so a pass that runs before the sync simply finds nothing and the next
+# one picks it up — the cadence trades latency, never correctness.
+#
+# Save to (trainer VM): /etc/systemd/system/ict-offload-drain.timer
+# Install: see ict-offload-drain.service header.
+# ============================================
+
+[Unit]
+Description=Periodic ICT offload-inbox drain
+
+[Timer]
+OnCalendar=*:0/20
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

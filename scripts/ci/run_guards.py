@@ -753,6 +753,17 @@ GUARDS: List[Dict[str, Any]] = [
             "scripts/ci/assert_rows_landed.py",
             ".github/workflows/e35-bracket-sweep.yml",
             ".github/workflows/m20-exit-lever-sweep.yml",
+            # R3's offload publish job asserts its drop landed, so it is a call
+            # site and belongs here by this guard's own rule.
+            # ⚠️ THIS LIST IS HAND-MAINTAINED AND SILENTLY DRIFTS. The R3 PR
+            # added a call site and this guard went on SKIPping until the list
+            # was updated by hand — i.e. the omission is invisible, which is the
+            # failure mode the guard itself exists to prevent one level down.
+            # BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+            # will add ~18 more call sites; that lane should replace this list
+            # with a scan for the tool's name across .github/workflows/ rather
+            # than extend it eighteen times.
+            ".github/workflows/trainer-offload-train.yml",
         ]},
         "steps": [["python3", "scripts/ci/assert_rows_landed.py", "--self-test"]],
     },

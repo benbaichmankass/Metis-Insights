@@ -1,0 +1,68 @@
+# ============================================
+# ICT OFFLOAD DRAIN (R3 — close the offload loop)
+#
+# Ingests models trained on a free GitHub runner and committed into the
+# tracked `ml/offload-inbox/` by `.github/workflows/trainer-offload-train.yml`.
+# `scripts/ops/trainer_git_sync.sh` (15-min force-checkout of origin/main)
+# already puts those drops on this box's disk; this unit is what turns a drop
+# into a registry entry.
+#
+# ⚠️ SHIPPED UNARMED — INSTALLED, DISABLED, AND PLAN-ONLY.
+#   1. The timer is NOT enabled by any installer or by the cloud-init, the same
+#      posture ict-drift-retrain uses ("installed, disabled ... RETRAIN_PLAN_ONLY=1
+#      by default").
+#   2. Even if enabled, `OFFLOAD_DRAIN_APPLY=0` means the drain GRADES every
+#      pending drop and writes NOTHING. Arming needs BOTH.
+# Operator decision, 2026-08-27: build the transport, leave the drain unarmed.
+# A runner-trained model joining the live shadow fleet is TIER-2 and gets an
+# explicit operator OK — it is not slipped in as plumbing.
+#
+# ⚠️ WHY THIS IS NOT A LINE IN trainer_git_sync.sh. That script is CODE-ONLY by
+# contract and `exit 0`s on ANY error by design, so a sync failure never leaves
+# a failed unit alarming. A registry write inside a script that swallows its own
+# errors is the silent-landing defect wearing the fix's clothes — precisely what
+# R2 exists to stop. So the sync delivers and this drains, declared here from
+# birth (unlike the 8 undeclared units in
+# BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET).
+#
+# WHAT IT WILL DO ONCE ARMED, and what it can never do: it registers under a
+# NAMESPACED id (`<model_id>-offload`) at a FORCED `candidate` stage, which the
+# shadow factory REFUSES to load — so an ingested model observes nothing until an
+# operator promotes it. It refuses outright to refresh an id someone has already
+# advanced past candidate. Guards copied from scripts/ml/gpu_burst/ingest_bundle.py
+# and pinned against it by tests/scripts/test_offload_transport.py.
+#
+# **TRAINER VM ONLY** — lives in deploy/trainer/ so the live-VM unit installer
+# (scripts/install_systemd_units.sh, which globs deploy/*.service) never picks
+# it up.
+#
+# Save to (trainer VM): /etc/systemd/system/ict-offload-drain.service
+# Install (does NOT arm):
+#   cp deploy/trainer/ict-offload-drain.{service,timer} /etc/systemd/system/
+#   && systemctl daemon-reload
+# Dry pass, any time, safe:
+#   systemctl start ict-offload-drain.service && journalctl -u ict-offload-drain -n 50
+# Arming (TIER-2, needs an operator OK — BOTH steps):
+#   mkdir -p /etc/systemd/system/ict-offload-drain.service.d
+#   printf '[Service]\nEnvironment=OFFLOAD_DRAIN_APPLY=1\n' \
+#     > /etc/systemd/system/ict-offload-drain.service.d/apply.conf
+#   systemctl daemon-reload && systemctl enable --now ict-offload-drain.timer
+# ============================================
+
+[Unit]
+Description=ICT offload drain — ingest runner-trained models into the registry (UNARMED by default)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# 0 = grade only, write nothing. This is the shipped value; see the header.
+Environment=OFFLOAD_DRAIN_APPLY=0
+ExecStart=/bin/bash scripts/ops/run_offload_drain.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

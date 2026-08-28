@@ -94,7 +94,11 @@ don't route around it.
 
 This block is rendered from `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** because `CLAUDE.md` is the only surface that reaches a session before it acts — project **hooks do not run on Claude Code on the web** (verified 2026-08-26: the SessionStart contract's output was absent from the session context), and CI guards fire at merge, which is after the wrong work is already built. It lists only what is DUE or UNPREVENTED, so it shrinks as work lands.
 
-**No monitoring item is due.** (The section is generated — an empty list here means nothing is past its cadence, not that the renderer failed.)
+**1 monitoring item(s) DUE — check and record what you OBSERVED:**
+
+- **`OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`** — The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
+  - **Clears when:** BOTH: (a) a NEW disjoint-group over-cover is detected and PAGES the operator through outcomes.jsonl — verified by finding the row in /api/bot/logs?level=error, not by reading the code; and (b) cancel-ib-order is exercised against the real gateway and reports a cancel's outcome correctly. A synthetic test passing is NOT either half.
+  - Last observed: `2026-08-26`. To clear for another cycle, set `verified_at` to today AND write what you saw into `observation` — a claim of progress is not an observation.
 
 **Every recorded repeated-mistake class has an executable prevention.**
 
