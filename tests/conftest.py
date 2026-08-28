@@ -288,3 +288,118 @@ def _reset_intent_emission_debounce():
     _clear()
     yield
     _clear()
+
+
+# ---------------------------------------------------------------------------
+# Test-isolation audit (Lane A, 2026-08-28).
+#
+# Detects a test that leaves ``sys.modules`` or ``runtime_logs/`` changed —
+# the CLASS behind three separate defects found on 2026-08-27, each of which
+# was fixed only as an instance. Rationale, the cheap-detect/expensive-classify
+# split, and why "replaced" alone is not the finding: ``tests/isolation_audit``.
+#
+# ⚠️ DEFAULT IS ``annotate`` — it REPORTS and fails nothing. Blast radius is
+# 13,334 tests, and the baseline was measured on ONE sandbox while this repo's
+# own history says a sandbox and CI disagree about exactly this class in BOTH
+# directions. ``TEST_ISOLATION_AUDIT=enforce`` opts in; ``off`` disables.
+# The same annotate-then-apply discipline the runtime uses for
+# ``NETTING_ATTRIBUTION_MODE`` / ``PROTECTION_STRAY_GROUP_MODE``.
+# ---------------------------------------------------------------------------
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from tests import isolation_audit as _iso  # noqa: E402
+from tests.isolation_baseline import is_baselined as _is_baselined  # noqa: E402
+
+_ISO_MODE = _iso.resolve_mode(os.environ.get("TEST_ISOLATION_AUDIT"))
+_ISO_RUNTIME_LOGS = Path(os.environ.get("RUNTIME_LOGS_DIR", "runtime_logs"))
+
+# ⚠️ THE runtime_logs TREE WALK IS OPT-IN, AND THE REASON IS MEASURED COST.
+# It is an rglob of a growing directory run TWICE per test — ~27k directory
+# walks over a 13.4k-test suite. Measured on CI: pytest-run went 719 s (#10373)
+# to 892 s with it on, +24% on EVERY PR, against ~1% for the sys.modules half
+# alone. It found exactly one mechanism (every finding under
+# runtime_logs/pending_pings/), that measurement is filed as
+# BL-20260828-TEST-SUITE-WRITES-INTO-THE-LIVE-PENDING-PINGS-OUTBOX, and the
+# finding is REPORTED not enforced — so paying three minutes of every
+# contributor's CI to keep re-measuring a filed finding is not a fair trade.
+# Set TEST_ISOLATION_AUDIT_TREE=1 to re-measure it (that is how the fix for
+# that row will check itself).
+_ISO_TREE = os.environ.get("TEST_ISOLATION_AUDIT_TREE", "").strip() == "1"
+_iso_findings: list[tuple[str, str, str]] = []
+_iso_state: dict[str, object] = {}
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    if _ISO_MODE == _iso.MODE_OFF:
+        return
+    _iso_state["modules"] = _iso.snapshot_modules()
+    _iso_state["tree"] = _iso.snapshot_tree(_ISO_RUNTIME_LOGS) if _ISO_TREE else None
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Compare after the test's own fixtures have finalised.
+
+    ``trylast`` matters: fixture teardown runs inside the default
+    ``pytest_runtest_teardown`` implementation, so running last is what lets a
+    ``monkeypatch``-restored entry correctly report CLEAN rather than as a leak.
+    """
+    if _ISO_MODE == _iso.MODE_OFF:
+        return
+    before = _iso_state.get("modules")
+    if before is None:
+        _iso_findings.append((item.nodeid, _iso.NOT_MEASURED, "no setup snapshot"))
+        return
+
+    for state, names in _iso.diff_modules(before).items():
+        if state == _iso.MODULE_REPLACED_SYNTHETIC:
+            continue  # a test-local loader name re-created by design
+        _iso_findings.append((item.nodeid, state, ",".join(sorted(names)[:10])))
+
+    if not _ISO_TREE:
+        return
+    tree_before = _iso_state.get("tree")
+    tree_after = _iso.snapshot_tree(_ISO_RUNTIME_LOGS)
+    if tree_before is None or tree_after is None:
+        _iso_findings.append((item.nodeid, _iso.NOT_MEASURED, "runtime_logs unreadable"))
+    else:
+        changed = (tree_after - tree_before) | (tree_before - tree_after)
+        if changed:
+            _iso_findings.append(
+                (item.nodeid, _iso.RUNTIME_LOGS_WRITTEN, ",".join(sorted(changed)[:10]))
+            )
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if _ISO_MODE == _iso.MODE_OFF or not _iso_findings:
+        return
+    undeclared = [
+        (n, s, d)
+        for n, s, d in _iso_findings
+        if s in _iso.HARMFUL and not _is_baselined(n, s)
+    ]
+    counts: dict[str, int] = {}
+    for _, s, _d in _iso_findings:
+        counts[s] = counts.get(s, 0) + 1
+
+    tw = getattr(session.config, "get_terminal_writer", lambda: None)()
+    def _say(line: str) -> None:
+        if tw is not None:
+            tw.line(line)
+        else:  # pragma: no cover - non-terminal runners
+            print(line)
+
+    _say("")
+    _say(f"test-isolation audit [{_ISO_MODE}]: " + ", ".join(
+        f"{k}={v}" for k, v in sorted(counts.items())))
+    if undeclared:
+        _say(f"  ⚠️ {len(undeclared)} UNDECLARED harmful finding(s) — not in tests/isolation_baseline.py:")
+        for nodeid, state, detail in undeclared[:20]:
+            _say(f"    [{state}] {nodeid}\n        {detail}")
+        if _ISO_MODE == _iso.MODE_ENFORCE:
+            raise SystemExit(
+                f"test-isolation audit: {len(undeclared)} undeclared harmful finding(s). "
+                "Restore what the test changed, or declare it in tests/isolation_baseline.py."
+            )
