@@ -25645,6 +25645,32 @@
       "proposed_fix": "Add an optional event-time field to the fill report shape (e.g. `event_at` / `closed_at`, ISO-8601) and prefer it over `reported_at` when deciding whether a fill post-dates the snapshot; fall back to reported_at when absent, which preserves today's behaviour for every existing row. ⚠️ It must stay THREE-state rather than silently falling back: a fill with no event time is 'we cannot place this in time', which is a different fact from 'it happened after the snapshot' — and the panel should say which basis it used, the way balance_basis already names snapshot vs snapshot_plus_fills. The screenshot parser should populate event_at where the terminal shows it (the History rows carry a timestamp per trade).",
       "resolution_criteria": "A fill whose event time PRECEDES the latest snapshot but is reported AFTER it does not move distance_to_dd_floor_usd, and the panel names the basis it used. Reproduce with the measured case: snapshot 4757.93 at T, then a -77.22 close with event_at 07:09Z reported at T+4min, must still read +57.93 rather than -19.29.",
       "evidence": "/api/bot/prop/status?account_id=breakout_1 2026-08-28: distance_to_dd_floor_usd -19.29 with fills_applied_since_snapshot 1 / fills_pnl_since_snapshot_usd -77.22 / balance_basis snapshot_plus_fills; after re-asserting the snapshot at 18:24:08Z, +57.93 with fills_applied 0 / balance_basis snapshot. src/prop/prop_reconcile.py:311-345 (`at <= snap_at` on reported_at)."
+    },
+    {
+      "id": "BL-20260828-OFFLOAD-DRAIN-UNIT-DESCRIPTION-SAYS-UNARMED-WHILE-ARMED",
+      "status": "open",
+      "severity": "low",
+      "area": "ml",
+      "tier": 1,
+      "source": "session-2026-08-28-r3-arm",
+      "title": "ict-offload-drain.service's Description still reads '(UNARMED by default)' on a trainer where it IS armed — every journal line contradicts the next one",
+      "detail": "OBSERVED 2026-08-28 in the trainer journal immediately after arming. systemd logs the unit Description on start and finish, so the journal now reads: 'Starting ICT offload drain — ingest runner-trained models into the registry (UNARMED by default)...' followed one line later by the script's own 'offload-drain: ARMED (OFFLOAD_DRAIN_APPLY=1) — the registry WILL be written.' Both lines are emitted by the same run, one contradicting the other. The Description was accurate when the unit shipped (installed-disabled + Environment=OFFLOAD_DRAIN_APPLY=0) and became wrong the moment a drop-in armed it. ⚠️ THIS IS COSMETIC BUT IT IS THE REPO'S OWN DEFECT CLASS — prose asserting a property the mechanism does not have — sitting on the log surface an operator reads when they want to know whether the drain is writing. The runtime is correct and self-describing (the script prints its real state from the env var), so nothing is mis-behaving; the risk is a reader trusting the Description over the line under it.",
+      "proposed_fix": "Drop '(UNARMED by default)' from the unit Description — the DEFAULT is a property of the shipped Environment line and of the wrapper's own fail-safe, not something the Description should assert, because a drop-in can change it without touching the unit. State what it does, not what it is set to; the script already prints the live state on every run. Note the arming lives in /etc/systemd/system/ict-offload-drain.service.d/armed.conf so `systemctl cat` shows both.",
+      "resolution_criteria": "`journalctl -u ict-offload-drain.service` shows no line claiming UNARMED on a trainer where `systemctl show ict-offload-drain.service -p Environment` returns OFFLOAD_DRAIN_APPLY=1.",
+      "evidence": "Trainer journal 2026-08-28T19:51:11Z: 'Starting ICT offload drain — ... (UNARMED by default)...' immediately followed by 'offload-drain: ARMED (OFFLOAD_DRAIN_APPLY=1)'. deploy/trainer/ict-offload-drain.service Description line."
+    },
+    {
+      "id": "BL-20260828-DRAIN-REPORTS-INGESTED-BEFORE-THE-REGISTRY-ROW-IS-READABLE",
+      "status": "open",
+      "severity": "low",
+      "area": "ml",
+      "tier": 1,
+      "source": "session-2026-08-28-r3-arm",
+      "title": "The armed drain printed [ingested] and exited 0, but a wc -l in the very next shell command still read the OLD registry line count — unexplained, and it makes the obvious post-write check unreliable",
+      "detail": "OBSERVED, and I could not explain it, so it is filed rather than smoothed over. Sequence in ONE trainer command: `wc -l registry.jsonl` -> 95; `OFFLOAD_DRAIN_APPLY=1 bash scripts/ops/run_offload_drain.sh` -> '[ingested] ... registered ... and verified loadable', summary {\"ingested\": 1}, exit 0; `wc -l registry.jsonl` -> **95 again**. A separate dispatch ~4 minutes later read 96, with `grep -c '^{'` also 96 and the file confirmed to end in a newline, and exactly 1 offload row. So the write DID land and the end state is correct and triple-checked — but the count taken immediately after the drain reported success did not reflect it. ⚠️ WHY IT MATTERS DESPITE BEING BENIGN HERE: 'run the drain, then assert the registry grew' is the natural verification an operator or a future automation writes, and on this evidence that assertion can read stale and be WRONG in the reassuring-then-alarming direction (it looks like the ingest silently did nothing). Candidate causes NOT established: an atomic temp-file+rename whose visibility lagged the process exit; a buffered write flushed at interpreter teardown after the wrapper's `exec`ed python returned; or an NFS/overlay stat cache on the trainer's filesystem. I did not instrument any of them.",
+      "proposed_fix": "Establish the cause before changing anything — re-run the drain on a fresh drop with `stat`/`ls -i` and an `fsync` check around the write, and confirm whether the registry writer uses temp+rename. If it does and the rename is the lag, the fix is for the drain to re-read and REPORT the post-write row count itself (it already knows what it wrote), so callers never need a separate shell-level count that can race it.",
+      "resolution_criteria": "A `wc -l` taken in the same command immediately after an armed drain that reports `ingested` reflects the new row count — OR the drain prints the authoritative post-write count itself and the docs tell callers to read that rather than counting the file.",
+      "evidence": "trainer-vm-diag #10386 (drain reports ingested, wc -l 95 before AND after) vs #10387 four minutes later (wc -l 96, grep -c '^{' 96, trailing newline present, 1 offload row)."
     }
   ]
 }
