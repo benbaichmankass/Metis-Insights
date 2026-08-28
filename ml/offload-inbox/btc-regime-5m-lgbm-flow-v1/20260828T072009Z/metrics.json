@@ -1,0 +1,14 @@
+{
+  "accuracy": 0.9948211332578989,
+  "f1_range": 0.9974028241559177,
+  "f1_volatile": 0.13138686131386862,
+  "macro_f1": 0.5643948427348932,
+  "n_eval": 22978.0,
+  "precision_range": 0.9986015208460799,
+  "precision_volatile": 0.09375,
+  "recall_range": 0.9962070017875049,
+  "recall_volatile": 0.21951219512195122,
+  "support_range": 22937.0,
+  "support_volatile": 41.0,
+  "weighted_f1": 0.9958575785089283
+}
