@@ -31,13 +31,40 @@ name: trainer-offload-train
 #   timeframe: 5m
 #   days: 2200
 #
-# Safety: READS the repo + fetches PUBLIC candles + trains on historical data +
-# uploads an artifact. It does NOT push, deploy, touch config/, or register into
-# the live registry (--no-register). Wiring the trained model back into the
-# trainer's registry/mirror (so it joins the live shadow fleet) is the documented
-# v2 slice; a promotion past shadow stays Tier-3. NOTE the flow head additionally
-# needs the trainer-resident `market_microstructure` capture for its full-history
-# shard (v2) — on public data alone its ofi/vpin cols are 0 pre-capture.
+# R3 — THE OFFLOAD LOOP IS NOW CLOSED ON THIS SIDE (2026-08-27).
+#
+# Until now this workflow trained, `--no-register`ed, uploaded an artifact and
+# pushed NOTHING — the one confirmed instance of the defect
+# docs/research/RESEARCH-WORKFLOW-ARCHITECTURE-2026-08-27.md files as R2:
+#
+#     A job that exits 0 having landed nothing is a FAILED job.
+#
+# The `publish` input (default FALSE) adds a second job that commits the trained
+# model into the tracked `ml/offload-inbox/`, from which the trainer's existing
+# 15-minute `trainer_git_sync.sh` force-checkout puts it on disk. ⚠️ WITH
+# `publish=false` THIS WORKFLOW BEHAVES EXACTLY AS BEFORE — the publish job does
+# not run at all, so the default path is byte-for-byte unchanged.
+#
+# ⚠️ NOTHING HERE REGISTERS A MODEL, AND `--no-register` STAYS. The trainer-side
+# drain (scripts/ml/offload/drain_inbox.py) re-registers ON THE TRAINER, which is
+# what makes the registered path resolve there BY CONSTRUCTION — see
+# BL-20260827-R3-OFFLOAD-LANDING-HAS-TWO-MEASURED-BLOCKERS Blocker 1, where a
+# copied entry carries /home/runner/work/... and is registered-and-unloadable.
+# That drain ships UNARMED and its unit installs disabled; a runner-trained model
+# joining the live shadow fleet is Tier-2 and gets an explicit operator OK.
+#
+# WHY publish DEFAULTS TO FALSE. Operator decision, 2026-08-27: commit the
+# artifact only for runs that update a registry entry, never every run. Measured:
+# model_state.json is p50 1.34 MB (n=5,419) and the trainer turns over ~52
+# runs/day, i.e. ~70 MB/day of PERMANENT git history. A runner cannot check the
+# trainer's registry (it is untracked — `git ls-files ml/registry-store` -> 0
+# against 96 on-disk entries), so the bound is this opt-in, not a lookup.
+#
+# Safety: READS the repo + fetches PUBLIC candles + trains on historical data.
+# It does NOT deploy, touch config/, or register into any live registry. Only the
+# `publish` job may write, and only to the inbox path. NOTE the flow head
+# additionally needs the trainer-resident `market_microstructure` capture for its
+# full-history shard — on public data alone its ofi/vpin cols are 0 pre-capture.
 
 on:
   workflow_dispatch:
@@ -54,6 +81,10 @@ on:
       days:
         description: "Trailing days of candles to fetch (~2200 = ~6y of 5m)"
         default: "2200"
+      publish:
+        description: "Commit the trained model into ml/offload-inbox/ (default false — see the header)"
+        type: boolean
+        default: false
   issues:
     types: [opened]
 
@@ -75,6 +106,14 @@ jobs:
        contains(github.event.issue.labels.*.name, 'trainer-offload-train-request'))
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    outputs:
+      # env vars do not cross jobs; these carry the publish decision + the run
+      # dir the CLI reported, so the publish job never has to GLOB for a run.
+      publish: ${{ steps.publish_gate.outputs.publish }}
+      run_dir: ${{ steps.publish_gate.outputs.run_dir }}
+      model_id: ${{ steps.publish_gate.outputs.model_id }}
+      symbol: ${{ steps.publish_gate.outputs.symbol }}
+      timeframe: ${{ steps.publish_gate.outputs.timeframe }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,19 +129,26 @@ jobs:
           SYMBOL=$(get symbol);       [ -z "${SYMBOL}" ] && SYMBOL="BTCUSDT"
           TIMEFRAME=$(get timeframe); [ -z "${TIMEFRAME}" ] && TIMEFRAME="5m"
           DAYS=$(get days);           [ -z "${DAYS}" ] && DAYS="2200"
+          PUBLISH=$(get publish);     [ -z "${PUBLISH}" ] && PUBLISH="false"
           # sanity-validate so a malformed body can't inject args
           printf '%s' "${MANIFEST}" | grep -qE '^[a-z0-9][a-z0-9._-]*$' || MANIFEST="btc-regime-5m-lgbm-flow-v1"
           printf '%s' "${SYMBOL}" | grep -qE '^[A-Z0-9]+$' || SYMBOL="BTCUSDT"
           printf '%s' "${TIMEFRAME}" | grep -qE '^[0-9]+[mhdMHD]$' || TIMEFRAME="5m"
           printf '%s' "${DAYS}" | grep -qE '^[0-9]+$' || DAYS="2200"
+          # Anything that is not exactly `true` is false. A malformed value must
+          # never resolve to "publish" — the permissive direction here is the one
+          # that writes to permanent git history.
+          [ "${PUBLISH}" = "true" ] || PUBLISH="false"
           { echo "of_manifest=${MANIFEST}"; echo "of_symbol=${SYMBOL}";
-            echo "of_timeframe=${TIMEFRAME}"; echo "of_days=${DAYS}"; } >> "$GITHUB_ENV"
+            echo "of_timeframe=${TIMEFRAME}"; echo "of_days=${DAYS}";
+            echo "of_publish=${PUBLISH}"; } >> "$GITHUB_ENV"
 
       - name: Set params from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
         run: |
           { echo "of_manifest=${{ inputs.manifest }}"; echo "of_symbol=${{ inputs.symbol }}";
-            echo "of_timeframe=${{ inputs.timeframe }}"; echo "of_days=${{ inputs.days }}"; } >> "$GITHUB_ENV"
+            echo "of_timeframe=${{ inputs.timeframe }}"; echo "of_days=${{ inputs.days }}";
+            echo "of_publish=${{ inputs.publish }}"; } >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -240,6 +286,56 @@ jobs:
           print("\n".join(L))
           PYEOF
 
+      # ----------------------------------------------------------- R3 publish
+      # `ml train` prints {"experiment_dir": ..., "model_id": ...} on stdout
+      # (ml/cli.py:91), so the run dir is READ, never guessed by globbing
+      # experiments-runs for the newest mtime — a glob would silently pick a
+      # different run on a re-dispatch and publish the wrong model.
+      #
+      # A SKIP (exit 78: dataset absent / 0 rows) prints no experiment_dir. That
+      # is a real outcome, not a failure, and it must not publish: `publish` is
+      # forced to false rather than letting a missing dir fail the job.
+      - name: Decide whether there is anything to publish
+        id: publish_gate
+        if: always()
+        run: |
+          set -euo pipefail
+          RUN_DIR=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('artifacts/offload/train_out.json'))
+          except Exception: d={}
+          print(d.get('experiment_dir') or '')
+          " 2>/dev/null || true)
+          WANT="${of_publish:-false}"
+          PUBLISH="false"
+          if [ "$WANT" = "true" ] && [ -n "$RUN_DIR" ] && [ -d "$RUN_DIR" ]; then
+            PUBLISH="true"
+          elif [ "$WANT" = "true" ]; then
+            echo "::warning::publish was requested but the train step produced no "\
+                 "experiment_dir (a skip or a failure) — publishing nothing."
+          fi
+          echo "publish=${PUBLISH}"   >> "$GITHUB_OUTPUT"
+          echo "run_dir=${RUN_DIR}"   >> "$GITHUB_OUTPUT"
+          echo "model_id=${of_manifest}" >> "$GITHUB_OUTPUT"
+          echo "symbol=${of_symbol}"     >> "$GITHUB_OUTPUT"
+          echo "timeframe=${of_timeframe}" >> "$GITHUB_OUTPUT"
+          echo "publish=${PUBLISH} run_dir=${RUN_DIR}"
+
+      # The run dir hops to the publish job as an artifact. ⚠️ THIS IS NOT THE
+      # REJECTED "fetch-from-artifact" DESIGN. That one was declined because a
+      # GitHub artifact EXPIRES at 30-90 days while a registry entry does not, so
+      # a model would outlive its artifact and become registered-and-unloadable
+      # on a delay. This hop lasts MINUTES, between two jobs of one run; the
+      # DURABLE copy is the git commit the publish job makes.
+      - name: Upload the run dir for the publish job
+        if: steps.publish_gate.outputs.publish == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: offload-run-${{ github.run_id }}
+          path: ${{ steps.publish_gate.outputs.run_dir }}
+          retention-days: 14
+          if-no-files-found: error
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -282,4 +378,184 @@ jobs:
               issue_number: context.issue.number,
               body: `🔴 **trainer-offload-train ${state}.**\nRun: ${runUrl}\n\n`
                 + `This run produced **no verdict** — if you were waiting on it, it is **dead, not still running**. Read the run log, fix the cause, and re-fire the request. A cancel is usually the job time budget (\`timeout-minutes: 330\`) or a manual cancel.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`
+            });
+
+  # ------------------------------------------------------------------ publish
+  # R3's transport half. Commits the trained model into the tracked
+  # `ml/offload-inbox/`, which the trainer's 15-minute `trainer_git_sync.sh`
+  # force-checkout (`git checkout --force -B main origin/main`) puts on its disk.
+  # The trainer-side drain then re-registers it THERE — see
+  # scripts/ml/offload/drain_inbox.py. That drain is UNARMED and its unit ships
+  # disabled; this job is the transport and nothing more.
+  publish:
+    needs: train
+    if: needs.train.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # The ONLY job here that writes, kept off the workflow's top-level
+      # `contents: read` so the train job stays read-only — the same split
+      # e35-bracket-sweep.yml uses for its corpus job.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: offload-run-${{ github.run_id }}
+          path: offload-run
+
+      - name: Emit the run into the offload inbox
+        id: emit
+        env:
+          MODEL_ID: ${{ needs.train.outputs.model_id }}
+          RUN_DIR: ${{ needs.train.outputs.run_dir }}
+          SYMBOL: ${{ needs.train.outputs.symbol }}
+          TIMEFRAME: ${{ needs.train.outputs.timeframe }}
+        run: |
+          set -euo pipefail
+          # download-artifact flattens to the artifact root, so the run_id — which
+          # is the run dir's BASENAME and the drain's idempotency key — is not in
+          # the downloaded path. Restore it from the dir the train job reported
+          # rather than inventing a new one, or a re-publish would land as a
+          # second run of the same model.
+          RUN_ID="$(basename "${RUN_DIR}")"
+          STAGED="staged/${MODEL_ID}/${RUN_ID}"
+          mkdir -p "$(dirname "${STAGED}")"
+          mv offload-run "${STAGED}"
+          # --require-publishable: reaching this job means the train step DID
+          # produce a run, so a refusal here is a genuine fault, not the ordinary
+          # "nothing to publish" the gate already filtered out.
+          python3 scripts/ml/offload/emit_bundle.py \
+            --run-dir "${STAGED}" \
+            --inbox ml/offload-inbox \
+            --source trainer-offload-train \
+            --code-revision "${GITHUB_SHA}" \
+            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --symbol "${SYMBOL}" \
+            --timeframe "${TIMEFRAME}" \
+            --dataset-version v002 \
+            --emitted-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --require-publishable | tee emit.out
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit + push the inbox drop
+        id: push
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_ID: ${{ steps.emit.outputs.run_id }}
+          MODEL_ID: ${{ needs.train.outputs.model_id }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ml/offload-inbox
+          if git diff --cached --quiet; then
+            echo "::error::nothing staged — emit_bundle reported success but wrote no tracked file. Check that ml/offload-inbox is not gitignored."
+            exit 1
+          fi
+          # WHERE IT LANDS. A dispatch on the default branch cannot push there:
+          # branch protection declines a bare commit it cannot give required
+          # checks to (GH006). That is STRUCTURAL, so retarget — never retry
+          # (BL-20260812-SWEEP-CORPUS-CANNOT-PUSH-TO-MAIN).
+          TARGET="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          RETARGETED=0
+          if [ "$TARGET" = "${DEFAULT_BRANCH:-main}" ]; then
+            TARGET="claude/offload-inbox"
+            RETARGETED=1
+            echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — routing the drop to '$TARGET' to preserve it."
+          fi
+          {
+            echo "offload: ${MODEL_ID} @ ${RUN_ID}"
+            echo
+            cat emit.out
+            echo
+            echo "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+          } > .commitmsg
+          git commit -F .commitmsg
+          # Unlike the protection refusal above, losing a race with a concurrent
+          # dispatch IS retryable. The inbox is append-only per (model_id, run_id)
+          # and emit_bundle is idempotent, so replaying the append onto a fresh
+          # tip is safe — that is why this re-emits rather than rebasing, which
+          # would conflict on every concurrent append to index.jsonl.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/${TARGET}"; then
+              echo "pushed to ${TARGET} on attempt ${attempt}"
+              break
+            fi
+            if [ "$attempt" = "3" ]; then
+              echo "::error::could not push the drop to ${TARGET} after 3 attempts — the model is in this run's artifact and is NOT lost, but nothing has recorded it"
+              exit 1
+            fi
+            git fetch origin "${TARGET}" || true
+            git reset --hard "origin/${TARGET}" || true
+            python3 scripts/ml/offload/emit_bundle.py \
+              --run-dir "staged/${MODEL_ID}/${RUN_ID}" \
+              --inbox ml/offload-inbox --code-revision "${GITHUB_SHA}" \
+              --emitted-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null
+            git add ml/offload-inbox
+            git diff --cached --quiet || git commit -F .commitmsg
+            sleep $((attempt * 5))
+          done
+          if [ "$RETARGETED" = "1" ]; then
+            # A push made with GITHUB_TOKEN starts NO workflows (the recursion
+            # guard), so this job cannot open or green its own PR
+            # (BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR). A loud,
+            # accurate hand-off beats a claim that is not true.
+            echo "::notice::the drop is on '${TARGET}'. A HUMAN OR A SESSION must open the PR — this job cannot, and no workflow will fire from its push."
+          fi
+          echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
+
+      # --------------------------------------------------------------- landing
+      # R2: a run is not done until its rows are READABLE from the shared ref.
+      # ⚠️ --store names the path the step above literally `git add`s, not a path
+      # taken from prose — the mistake assert_rows_landed.py's own docstring
+      # records from its first wiring.
+      #
+      # `pending_merge` (exit 1) is the EXPECTED verdict for a default-branch
+      # dispatch, because the push retargets. That is not a broken run; it means
+      # the merge is owed. Reported under its own name so the fix is obvious.
+      - name: assert the drop landed
+        if: always()
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          TARGET: ${{ steps.push.outputs.target }}
+          RUN_ID: ${{ steps.emit.outputs.run_id }}
+        run: |
+          git fetch origin "${DEFAULT_BRANCH:-main}" "${TARGET}" 2>/dev/null || true
+          python3 scripts/ci/assert_rows_landed.py \
+            --store ml/offload-inbox/index.jsonl \
+            --ref "origin/${DEFAULT_BRANCH:-main}" \
+            --pushed-ref "origin/${TARGET}" \
+            --field run_id --contains "${RUN_ID}" --min-rows 1
+
+      - name: Comment the publish outcome on the issue
+        if: github.event_name == 'issues' && always()
+        uses: actions/github-script@v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+          MODEL_ID: ${{ needs.train.outputs.model_id }}
+          RUN_ID: ${{ steps.emit.outputs.run_id }}
+          TARGET: ${{ steps.push.outputs.target }}
+        with:
+          script: |
+            const { JOB_STATUS, MODEL_ID, RUN_ID, TARGET } = process.env;
+            const ok = JOB_STATUS === 'success';
+            const body = [
+              `${ok ? '📦' : '🔴'} **offload publish ${JOB_STATUS}** — \`${MODEL_ID}\` @ \`${RUN_ID}\``,
+              '',
+              ok
+                ? `The model is committed to \`ml/offload-inbox/\` on \`${TARGET}\`. It is **not registered anywhere yet**: the trainer-side drain is UNARMED, and arming it is Tier-2.`
+                : `Nothing durable was recorded. The model is still in this run's artifact (14d). Read the run log — do not assume it landed.`,
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
             });
