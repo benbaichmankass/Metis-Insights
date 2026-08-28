@@ -176,18 +176,39 @@ def test_real_first_party_names_measured_in_the_real_suite_are_classified_real()
 
 
 def test_is_real_module_name_never_raises_on_a_poisoned_parent():
-    """`find_spec` RAISES rather than returning None when a parent is a mock —
-    which is exactly the polluted state this audit runs in."""
+    """The property is NON-RAISING. The verdict is environment-dependent.
+
+    ⚠️ **THIS ASSERTED ``is False`` AND CI CORRECTED IT.** The discriminator
+    resolves the ROOT package, so ``telegram.nonexistent_submodule`` answers on
+    ``telegram`` — absent on a lean sandbox (False) but INSTALLED on CI, which
+    installs the full requirements (True). The old assertion encoded THIS BOX's
+    dependency set rather than a property of the code, and passed locally for
+    the wrong reason. That is the same sandbox/CI divergence
+    BL-20260827-TEST-MODULES-STUB-SKLEARN-... and
+    BL-20260822-TEST-SUITE-CROSS-FILE-SYS-MODULES-POLLUTION both record, landing
+    here on the audit's own test.
+
+    The import machinery raises rather than returning ``None`` when a parent is
+    a mock — the polluted state this audit runs in — so what must hold on every
+    box is that the probe returns a verdict instead of exploding.
+    """
     from unittest.mock import MagicMock
     saved = sys.modules.get("telegram")
     sys.modules["telegram"] = MagicMock()
     try:
-        assert iso.is_real_module_name("telegram.nonexistent_submodule") is False
+        result = iso.is_real_module_name("telegram.nonexistent_submodule")
     finally:
         if saved is None:
             sys.modules.pop("telegram", None)
         else:
             sys.modules["telegram"] = saved
+    assert isinstance(result, bool)
+
+
+def test_a_root_that_exists_on_no_box_is_never_real():
+    """The environment-INDEPENDENT half of the check above."""
+    assert not iso.is_real_module_name("_iso_no_such_root_xyz")
+    assert not iso.is_real_module_name("_iso_no_such_root_xyz.sub")
 
 
 # --------------------------------------------------------------------------
@@ -260,11 +281,15 @@ _LEAKY = textwrap.dedent(
         sys.modules.pop("json", None)
     def test_clean_control():
         assert 1 + 1 == 2
+    def test_writes_a_durable_runtime_logs_file():
+        from pathlib import Path as _P
+        d = _P("runtime_logs/_iso_probe"); d.mkdir(parents=True, exist_ok=True)
+        (d / "probe.json").write_text("{}")
     """
 )
 
 
-def _run(tmp_path: Path, mode: str) -> subprocess.CompletedProcess:
+def _run(tmp_path: Path, mode: str, **extra_env: str) -> subprocess.CompletedProcess:
     """Run the probe UNDER ``tests/`` so the REAL ``tests/conftest.py`` loads.
 
     ⚠️ A ``/tmp`` tmp_path does NOT pick up ``tests/conftest.py`` — conftest
@@ -288,7 +313,7 @@ def _run(tmp_path: Path, mode: str) -> subprocess.CompletedProcess:
         return subprocess.run(
             [sys.executable, "-m", "pytest", str(t), "-q", "-p", "no:cacheprovider"],
             capture_output=True, text=True, cwd=Path.cwd(),
-            env={**os.environ, "TEST_ISOLATION_AUDIT": mode},
+            env={**os.environ, "TEST_ISOLATION_AUDIT": mode, **extra_env},
         )
     finally:
         shutil.rmtree(probe_dir, ignore_errors=True)
@@ -319,3 +344,34 @@ def test_the_clean_test_in_the_same_file_is_NOT_reported(tmp_path):
     pass every positive control above and still be useless."""
     r = _run(tmp_path, "annotate")
     assert "test_clean_control" not in r.stdout, r.stdout[-3000:]
+
+
+def test_the_runtime_logs_tree_walk_is_OFF_by_default(tmp_path):
+    """⚠️ Pins the cost decision, not a preference.
+
+    The walk is an rglob run twice per test — ~27k directory walks over a 13.4k
+    suite. Measured on CI: pytest-run 719 s -> 892 s, **+24% on every PR**,
+    against ~1% for the sys.modules half alone. Its one finding is already
+    measured and filed (BL-20260828-TEST-SUITE-WRITES-INTO-THE-LIVE-PENDING-
+    PINGS-OUTBOX) and is reported rather than enforced.
+    """
+    import shutil
+    from pathlib import Path as _P
+    r = _run(tmp_path, "annotate")
+    try:
+        assert iso.RUNTIME_LOGS_WRITTEN not in r.stdout, r.stdout[-2000:]
+        assert iso.MODULE_REMOVED in r.stdout, "the sys.modules half must still run"
+    finally:
+        shutil.rmtree(_P("runtime_logs/_iso_probe"), ignore_errors=True)
+
+
+def test_the_runtime_logs_tree_walk_still_WORKS_when_opted_in(tmp_path):
+    """The negative control for the opt-out: a switch that can never be turned
+    back on is a deletion wearing a flag's clothes."""
+    import shutil
+    from pathlib import Path as _P
+    r = _run(tmp_path, "annotate", TEST_ISOLATION_AUDIT_TREE="1")
+    try:
+        assert iso.RUNTIME_LOGS_WRITTEN in r.stdout, r.stdout[-2000:]
+    finally:
+        shutil.rmtree(_P("runtime_logs/_iso_probe"), ignore_errors=True)

@@ -313,6 +313,19 @@ from tests.isolation_baseline import is_baselined as _is_baselined  # noqa: E402
 
 _ISO_MODE = _iso.resolve_mode(os.environ.get("TEST_ISOLATION_AUDIT"))
 _ISO_RUNTIME_LOGS = Path(os.environ.get("RUNTIME_LOGS_DIR", "runtime_logs"))
+
+# ⚠️ THE runtime_logs TREE WALK IS OPT-IN, AND THE REASON IS MEASURED COST.
+# It is an rglob of a growing directory run TWICE per test — ~27k directory
+# walks over a 13.4k-test suite. Measured on CI: pytest-run went 719 s (#10373)
+# to 892 s with it on, +24% on EVERY PR, against ~1% for the sys.modules half
+# alone. It found exactly one mechanism (every finding under
+# runtime_logs/pending_pings/), that measurement is filed as
+# BL-20260828-TEST-SUITE-WRITES-INTO-THE-LIVE-PENDING-PINGS-OUTBOX, and the
+# finding is REPORTED not enforced — so paying three minutes of every
+# contributor's CI to keep re-measuring a filed finding is not a fair trade.
+# Set TEST_ISOLATION_AUDIT_TREE=1 to re-measure it (that is how the fix for
+# that row will check itself).
+_ISO_TREE = os.environ.get("TEST_ISOLATION_AUDIT_TREE", "").strip() == "1"
 _iso_findings: list[tuple[str, str, str]] = []
 _iso_state: dict[str, object] = {}
 
@@ -322,7 +335,7 @@ def pytest_runtest_setup(item):
     if _ISO_MODE == _iso.MODE_OFF:
         return
     _iso_state["modules"] = _iso.snapshot_modules()
-    _iso_state["tree"] = _iso.snapshot_tree(_ISO_RUNTIME_LOGS)
+    _iso_state["tree"] = _iso.snapshot_tree(_ISO_RUNTIME_LOGS) if _ISO_TREE else None
 
 
 @pytest.hookimpl(trylast=True)
@@ -345,6 +358,8 @@ def pytest_runtest_teardown(item, nextitem):
             continue  # a test-local loader name re-created by design
         _iso_findings.append((item.nodeid, state, ",".join(sorted(names)[:10])))
 
+    if not _ISO_TREE:
+        return
     tree_before = _iso_state.get("tree")
     tree_after = _iso.snapshot_tree(_ISO_RUNTIME_LOGS)
     if tree_before is None or tree_after is None:
