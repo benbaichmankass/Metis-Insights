@@ -1,0 +1,74 @@
+{
+  "dataset": {
+    "family": "market_features",
+    "symbol_scope": "BTCUSDT",
+    "timeframe": "5m",
+    "version": "v002"
+  },
+  "description": "Order-flow-augmented regime classifier for BTCUSDT 5m \u2014 adds Cont OFI + Easley-LdP-O'Hara VPIN + taker order-imbalance + spread + Stoikov micro-price lean to the v2 head. A/B vs btc-regime-5m-lgbm-v2 once the order-flow capture side-car has accrued enough forward data (S-MLOPT-S10, Phase 2.2, gap G5).",
+  "evaluator": "ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator",
+  "evaluator_config": {
+    "holdout_fraction": 0.2,
+    "split_strategy": "time_aware_holdout",
+    "target_column": "regime_label",
+    "time_column": "ts"
+  },
+  "manifest_version": "v1",
+  "model_family": "classification_lightgbm",
+  "model_id": "btc-regime-5m-lgbm-flow-v1",
+  "notes": "S-MLOPT-S10 Phase 2.2. Clean A/B vs btc-regime-5m-lgbm-v2: identical trainer,\nsplit, recency + class weighting, dataset \u2014 the ONLY change is adding the\norder-flow / microstructure columns. REQUIRES market_features rebuilt on\nbuilder_version v5 with a market_microstructure side-stream joined; without it\nthe columns are 0.0 and this collapses to the v2 head. The capture is FORWARD-\nONLY (no L2 history), so evaluate on the captured window. Leakage gate forbids\nforward_log_return / forward_log_return_vol / regime_label. If `f1_volatile`\nimproves under the Phase-0 CV, propose promotion to shadow (operator-gated).\n",
+  "target_deployment_stage": "candidate",
+  "trainer": "ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer",
+  "trainer_config": {
+    "categorical_columns": [
+      "vol_bucket",
+      "hour_of_day",
+      "dayofweek"
+    ],
+    "class_weight": {
+      "range": 1.0,
+      "volatile": 50.0
+    },
+    "expected_optional_features": [
+      "ofi",
+      "ofi_zscore",
+      "vpin",
+      "order_imbalance",
+      "rel_spread_mean",
+      "microprice_dev"
+    ],
+    "feature_columns": [
+      "vol_bucket",
+      "rolling_log_return_vol",
+      "ofi",
+      "ofi_zscore",
+      "vpin",
+      "order_imbalance",
+      "rel_spread_mean",
+      "microprice_dev",
+      "log_return",
+      "log_return_lag_1",
+      "log_return_lag_2",
+      "hour_of_day",
+      "dayofweek"
+    ],
+    "freeze_regime_spec": true,
+    "lgbm_params": {
+      "bagging_fraction": 0.9,
+      "bagging_freq": 5,
+      "feature_fraction": 0.9,
+      "learning_rate": 0.05,
+      "min_data_in_leaf": 50,
+      "num_leaves": 31
+    },
+    "n_iter": 200,
+    "sample_weight": {
+      "half_life_days": 60,
+      "time_column": "ts"
+    },
+    "seed": 42,
+    "target_column": "regime_label",
+    "vol_feature_column": "rolling_log_return_vol",
+    "vol_window_n": 20
+  }
+}
