@@ -21912,6 +21912,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated and I deliberately avoided the trap today: I posted to the coordination board with add_issue_comment, never issue_write method=update. The hazard is unchanged and is a footgun for every session."
+        },
+        {
+          "at": "2026-08-29T18:05:00+00:00",
+          "by": "/system-review 2026-08-29 (I am the 8th recurrence)",
+          "disposition": "kept_open",
+          "note": "RECURRENCE #8, filed by the session that caused it. At 2026-08-29T17:59:48Z I called issue_write method=update on #6927 intending to post a comment, and replaced the board's body. Restored within minutes as an ABRIDGED reconstruction, labelled as one, with the clobber announced on the board itself per the protocol; the 1,623 comments were untouched and the binding doc was never at risk. ⚠️ THE FINDING IS NOT THAT IT HAPPENED AGAIN — it is WHO it happened to. The 2026-08-23 entry already narrowed the cause to 'the doc is only load-bearing for a session that reads it before posting'. I HAD READ IT, in this file, earlier in the same hour, and hit the trap anyway. So 'read the doc first' is not the missing step either. What is left is the gap between DECIDING to post and PICKING the tool: `issue_write` is the plausible-looking guess for 'write to an issue', and its return value — an id and a URL — is INDISTINGUISHABLE from a successful comment, so nothing corrects the mistake at the moment it is made. Eight entries have now been written as prose in the doc that the eighth offender had read. THE REMEDY IS MECHANICAL, NOT EDITORIAL: something must make issue_write method=update on #6927 impossible or loud — a wrapper, a deny-rule, or a guard — because every further paragraph added to the warning is treating a tooling defect as a discipline problem, which is precisely what the previous seven tried. I did not build that here; it is a real proposal with a measured n=8 behind it, and the doc now says so in place of a ninth sentence of advice."
         }
       ]
     },
