@@ -332,3 +332,47 @@ jobs:
               issue_number: context.issue.number,
               body: body.slice(0, 60000) + footer,
             });
+
+      # ONE machine-readable line, LAST in the job, so a reader sweeping N legs
+      # pulls the verdict with a 10-line tail instead of an 85-line one.
+      # It RE-READS the compat JSON rather than echoing the summary step's prose,
+      # so it cannot drift from the graded rows, and it names the leg it read so
+      # a verdict is never attributed to the wrong strategy by dispatch order.
+      #
+      # ⚠️ It carries `dd` (dd_model_state) because account_compat_matrix.py says
+      # to read it BESIDE p_breach: on a `refusal`-consequence drawdown it reads
+      # `not_terminal`, meaning the drawdown limit did not contribute to p_breach
+      # at all — so a low p_breach there is NOT evidence of a durable account.
+      # A compact line that dropped it would be the more dangerous summary.
+      - name: One-line verdict (VERDICT_LINE)
+        if: always()
+        run: |
+          set +e
+          python - <<'PYEOF'
+          import glob, json, os
+          strat = os.environ.get("GC_STRAT", "(unset)")
+          files = sorted(glob.glob("artifacts/gld/compat_*.json"))
+          if not files:
+              # "we could not look" — NOT "every account refused".
+              print(f"VERDICT_LINE strategy={strat} state=no_compat_json")
+              raise SystemExit(0)
+          try:
+              d = json.loads(open(files[0]).read())
+          except Exception as exc:                          # noqa: BLE001
+              print(f"VERDICT_LINE strategy={strat} state=unreadable detail={exc}")
+              raise SystemExit(0)
+          rows = d.get("rows") or []
+          if not rows:
+              print(f"VERDICT_LINE strategy={strat} state=no_rows")
+              raise SystemExit(0)
+          def cell(acct):
+              r = next((x for x in rows if x.get("account") == acct), None)
+              if r is None:
+                  return f"{acct}=ABSENT"
+              return (f"{acct}={r.get('verdict')}|ret={r.get('value')}"
+                      f"|surv={r.get('survival')}|pb={r.get('p_breach')}"
+                      f"|dd={r.get('dd_model_state')}|size={r.get('size_state')}")
+          print(f"VERDICT_LINE strategy={d.get('strategy', strat)} state=read "
+                f"n={d.get('n_ledger_trades')} sym={d.get('symbol')} "
+                f"{cell('alpaca_portfolio')} {cell('alpaca_live')}")
+          PYEOF
