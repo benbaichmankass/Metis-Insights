@@ -14,16 +14,27 @@ work."*
 The register is the log. **This guard is what stops it becoming the thing it
 replaced.** `docs/claude/health-review-backlog.json` is 951 rows and 5.1 MB —
 nobody reads that at session start, which is precisely why items were being
-lost between sessions. A register with no cap follows it there, and a register
-nobody reads is worse than none: it *looks* like the follow-up mechanism
-exists.
+lost between sessions. A register nobody reads is worse than none: it *looks*
+like the follow-up mechanism exists.
 
-So the cap is the feature, not a limitation of it. Adding a 13th item means
-clearing one first, and that pressure is the whole design.
+⚠️ **THE CAP IS GONE, and this paragraph used to argue for it.** It read "the
+cap is the feature, not a limitation of it. Adding a 13th item means clearing
+one first, and that pressure is the whole design" — describing a `MAX_ITEMS`
+that was set to `None` on 2026-08-26 by operator direction (*"we don't want to
+cap the number of bugs we can track, we want to ensure that they are actually
+being tracked, fixed, and learned from"*). See the `MAX_ITEMS` comment below
+for the reasoning; FIELD BEATS COMMENT, and this comment was the field's
+loudest contradiction. Corrected 2026-08-29 by /system-review, together with
+the same false claim in `CLAUDE.md`'s SESSION BRIEF. It is not a cosmetic
+edit: a session that believes a cap is enforced either declines to file a row
+it should file, or DELETES a live row to make room — a register of known
+problems that deletes knowledge to stay short is the bandaid the operator
+removed.
 
-THREE CHECKS, and each maps to a way the register dies:
+WHAT BOUNDS THE REGISTER INSTEAD is that a `monitoring` row must be RE-OBSERVED
+on its own cadence: it cannot be carried by doing nothing.
 
-* **cap**          — it grows into a second backlog and stops being read.
+TWO CHECKS, and each maps to a way the register dies:
 * **workability**  — a row with no `clears_when` names no observable end
                      condition, so nobody can ever tell it is finished and it
                      is carried forever. Same failure `check_backlog_criteria`
