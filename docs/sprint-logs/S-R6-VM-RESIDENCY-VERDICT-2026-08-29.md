@@ -142,3 +142,85 @@ into the file `trainer_reachability_alert` already reads. After that: **Lane C**
 - [x] `open-items-guard` + `session-brief --check` green
 - [x] Refuted a hypothesis I could have confirmed cheaply, and said so plainly
 - [x] Nothing armed, nothing retired, no VM state mutated
+
+
+---
+
+# Continuation — overnight autonomous run (operator-directed)
+
+**Trigger:** operator, *"keep moving with the workplan overnight… You can make a tested and
+evidence-based decision about the VM if you need to in order to continue the work. Otherwise, hold
+Tier-3 decisions for me in the morning."* Then, mid-run: *"let's also try to get alpaca real money
+ready to flip to live — we seem to be going in circles a bit there."*
+
+## The VM authorisation — not exercised, and why
+
+The grant was **conditional**: *"if you need to in order to continue the work."* **The condition was
+not met.** Lanes B and C are entirely independent of the trainer's fate, so no VM decision was
+required to continue, and retiring the box is irreversible and would end the 85.6-day forward-only
+capture. **Held for the operator.**
+
+## Work completed (continuation)
+
+1. **`alpaca_live` go-live — unblocked to ONE decision.**
+   [`ALPACA-LIVE-GOLIVE-STATUS-2026-08-29.md`](../research/ALPACA-LIVE-GOLIVE-STATUS-2026-08-29.md).
+   The circling has a mechanical cause: STEP 1's decision input (`capacity.multiplier`) was readable
+   from 2026-08-25 and **nobody read it for four days**. Read: **`1` → CASH**. That **voids STEP 1 as
+   written** and **couples STEP 1 to STEP 2** (you cannot short in a cash account, so STEP 2 is an
+   account conversion — and that conversion is what makes STEP 1's instrument correct again).
+2. **The mirror does not mirror the risk**, and it kills the proposed ceiling basis.
+   `risk_pct` 0.05 live vs 0.02/0.015 mirrors; and from `_size_unbounded`,
+   `exposure_multiple = risk_pct × entry / risk_distance` — **equity cancels, so it is linear in
+   `risk_pct`**. The mirrors' 1.84–2.01× was measured at 0.02, so at 0.05 the same signals demand
+   ≈4.6–5.0× and a 2.0 ceiling would clamp nearly everything. Filed.
+3. **Lane B measured** — [`lane-p-compat-verdict-diff-2026-08-29.md`](../research/lane-p-compat-verdict-diff-2026-08-29.md).
+   3 of 11 verdicts move on a positive book, 1 of 11 on a negative one, **all conservative**; nothing
+   moved `skip → ROUTE`. **No revert conversation.**
+4. **Lane C triaged** — [`evidence-workflow-landing-triage-2026-08-29.md`](../research/evidence-workflow-landing-triage-2026-08-29.md).
+   (a) 10 / (b) 7 / (c) 0-proposed. **No assertions wired**, per the row's own "NOT sufficient" clause
+   and the 2026-08-27 operator decision that R1 precedes R2.
+5. **R6 doc corrected** — the capture window was "not established" and now is: 85.6 days at 98.2 %.
+
+## Validation (continuation)
+
+- **The 08-27 "no numpy" blocker was re-tested, not inherited.** It was a missing *dependency*, and
+  `requirements-test.txt` supplies numpy/pandas/scipy/sklearn — so Lane B did **not** need the
+  dispatcher armed. **The dispatcher stays dry.**
+- **Lane B's A/B varies only the code**: worktree at `f2ea9e44^`, ledger byte-identical (sha256
+  pinned), `accounts.yaml` copied into the before-tree, real balances seeded with DDL **lifted
+  verbatim** from `database.py:868` and read back through the repo's **own** reader, seed fixed.
+  **Positive control run first** — the Lane P files differ and `standard_account_size.py` is absent
+  in the before-tree, so the A/B is not measuring nothing. **Two ledgers** bracket the outcome space.
+- **A stale-checkout trap was caught by a positive control**: an early Lane C probe returned zero
+  hits from local `main` at `beb1547` (stale), not `76d14af`. The control (`ls` the file that should
+  exist) exposed it. Without it I would have filed a false absence.
+- **Two guards caught me and both corrections improved the work** — `impossibility-claim-guard`
+  (my "cannot be measured" was too strong; the *demanded* multiple **is** computable, and is a
+  better basis than the mirrors) and `stated-population-guard` (a percentage with no denominator).
+
+## Contradictions or drift found (continuation)
+
+- **`BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127` describes a state that no longer holds** —
+  it says `mode:live`; the account is `dry_run` on both the live diag and in config. Its own
+  disposition was taken and the row never updated. A live source of the circling.
+- **`BL-20260827`'s inventory was stale in its own headline case** — `trainer-offload-train` now
+  lands, one day after filing. A hand-typed denominator is a snapshot.
+- **`BL-20260824`'s own text says "three steps" in its title and "four steps" in its criteria.**
+
+## Deferred (continuation)
+
+- **The true GLD verdict set** — Lane B's ledger is synthetic by construction (it isolates the
+  account-side change). `gld-compat-matrix.yml` still wants dispatching; its emit half needs Yahoo.
+- **Lane P's drawdown-type half** — moved no verdict on either ledger; recorded **unmeasured**, not
+  no-effect. A book with a deep early drawdown is the probe.
+- **`OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED`** — came due mid-session, **not re-checked, so
+  deliberately not stamped**.
+- **(c) DEAD classification** — no run-history evidence gathered.
+
+## Wrap-Up Check (continuation)
+
+- [x] The conditional VM authorisation was read as conditional, and the condition was not met
+- [x] Every Tier-2/Tier-3 action held for the morning; nothing armed, funded, flipped or routed
+- [x] Both standing operator decisions honoured (dispatcher dry; offloaded model at `candidate`)
+- [x] An owned finding (`bybit_1` over-cover 167 % → 809 %) **not re-filed** — a `kept_open` row owns it
+- [x] Guards green on every commit; registers edited only through the tool
