@@ -208,6 +208,45 @@ you want to proceed.
 
 ---
 
+## ⬛ SUPERSEDED — the fork is DECIDED (CASH), and §5 below is stale
+
+**Operator, 2026-08-29, in conversation: *"we already said cash a million times, that's not
+gonna change."*** Recorded here because not recording it is what made it get re-asked.
+
+**§5's row 0 is closed, and three of its other rows are stale** — that table was written at
+06:34Z and the config moved at 09:07Z (`624d8841`). Read this section, not the table:
+
+| §5 row | actual state |
+|---|---|
+| **0** — decide cash or margin | ✅ **DECIDED: CASH.** Settled, not provisional. Do not re-ask. |
+| 1 — convert to margin | ❌ **N/A** — not happening. |
+| 2 — declare the size bound | 🔁 **Restated:** under cash the multiple can never exceed 1.0×, so the bound is a **per-trade cap as a PERCENT OF EQUITY** (operator's choice — scales if funded, and sizes oversized intents DOWN rather than letting the venue refuse them). Value unchosen; Tier-3. |
+| 3 — reconcile `risk_pct` | ✅ **DONE** at `624d8841` — `alpaca_live` is `risk_pct: 0.02`, matching the gate-cleared mirror value. |
+| 4 — model the path's constraint | ⛔ **THE BLOCKER.** Operator chose to **model T+1 BEFORE any leg goes live**, declining the cheaper "restrict to 1d legs and defer" option. Tier-2, mine. |
+| 5 — the routing question | 🔁 **Answered as a plumbing test** — see below. |
+| 6 — deposit, then `set-account-mode` | ⚠️ **The mode half is ALREADY DONE.** `624d8841` set `mode: live` with `strategies: []`. There is no `set-account-mode` step left; **the empty roster is the entire gate and adding the first leg IS the live-trading moment.** Funding: **keep $200.10** for now. |
+| 7 — verify | unchanged. |
+
+**PDT is INERT under this branch.** `BL-20260823-NO-PDT-MODELLING-ON-ALPACA` describes Path B and
+does not apply. `BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED` is the one that binds.
+
+### The roster intent, stated so it cannot be mistaken for an edge claim
+
+One cheap, affordable, **non-USO**, daily-cadence leg, routed **as a plumbing test** — to prove
+real fills reconcile against exchange truth, that whole-share sizing behaves on a cash book, and
+that `silent_refusal_alert` grades the account healthy. Those are things paper cannot answer.
+
+**It is not a bet on edge, and must not be reported as one.** Stripped of `uso_trend_1h` — which
+carries the entire positive result and is excluded from real money on standing non-financial
+grounds — the 16-leg candidate set has **no positive measured record on either paper population**.
+The specific leg is unchosen; adding it is Tier-3.
+
+⚠️ At the 0.9 cash wall, $200.10 leaves ~$180 usable, so any instrument above that is untradeable
+at one whole share. Indicative prices from the retracted Phase 3 doc put GLD ~$423 and SPY ~$640 in
+that bracket — **not re-measured**, so re-read live prices before selecting the leg.
+
+---
+
 ## 5. What remains, in order, with owners
 
 | # | Action | Owner | Tier | Status |
