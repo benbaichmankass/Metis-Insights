@@ -361,9 +361,34 @@ jobs:
           TARGET="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           RETARGETED=0
           if [ "$TARGET" = "${DEFAULT_BRANCH:-main}" ]; then
-            TARGET="claude/e35-bracket-corpus"
+            # ⚠️ THE TARGET IS PER-RUN, AND A FIXED NAME IS WHY THIS STEP KEPT
+            # THROWING AWAY A COMPLETED SWEEP. It used to be the constant
+            # "claude/e35-bracket-corpus". That branch is long-lived and has
+            # DIVERGED from the default branch, so a push of default-branch
+            # history to it is a non-fast-forward and is rejected — measured
+            # 2026-08-29 at 3,625 branch-only commits against 57 default-only,
+            # with BOTH sides touching docs/research/e35-bracket-corpus.jsonl.
+            #
+            # The retry loop below cannot fix that and makes it worse: it
+            # rebases default-branch history onto the divergent branch, hits a
+            # conflict in the corpus file itself, aborts, and re-pushes the same
+            # non-fast-forward. Three attempts, then exit 1 — a 43-minute,
+            # 41-leg sweep discarded at the last step with every artifact green
+            # (run 33274767713; run 32783849276 the same way on 2026-08-24).
+            #
+            # This is the SAME CLASS the comment above already names for GH006:
+            # a structural refusal that a retry cannot clear. The fix there was
+            # to retarget rather than retry; the fix here is that the retarget
+            # must land somewhere a fast-forward is guaranteed. A per-run branch
+            # is empty until this push creates it, so it cannot diverge from
+            # anything and the push cannot be non-fast-forward.
+            #
+            # NOT force-push: that would silently discard whatever a previous
+            # run had landed on a shared name, which is the failure mode this
+            # whole job exists to prevent.
+            TARGET="claude/e35-bracket-corpus-${GITHUB_RUN_ID}"
             RETARGETED=1
-            echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — routing the corpus to '$TARGET' to preserve the rows."
+            echo "::notice::dispatched on ${DEFAULT_BRANCH:-main} (protected) — routing the corpus to the per-run branch '$TARGET' to preserve the rows."
           fi
           echo "corpus target branch: $TARGET (retargeted=$RETARGETED)"
           {
