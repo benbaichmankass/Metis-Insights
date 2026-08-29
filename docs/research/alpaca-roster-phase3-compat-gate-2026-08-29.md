@@ -1,4 +1,4 @@
-# Phase 3: the per-account compat gate — ⚠️ HEADLINE RETRACTED (same day)
+# Phase 3: the per-account compat gate — ⚠️ HEADLINE RETRACTED, then RE-GRADED (same day)
 
 > # 🛑 RETRACTED — DO NOT CITE THE VERDICTS BELOW
 >
@@ -44,8 +44,101 @@
 >
 > BL-20260829-COMPAT-MATRIX-RESCALES-R-BY-ACCOUNT-SIZE-SO-THE-VERDICT-TRACKS-BALANCE
 >
-> The five legs need re-grading once the round-trip is fixed. Until then no
-> routing conclusion follows from this document in either direction.
+> **The five legs HAVE been re-graded on the fixed tool — read
+> § "CORRECTED VERDICTS" immediately below, not this box's successor text and
+> not the retracted original.** The corrected result reverses the headline: no
+> cell is size-bound, every refusal is a negative mean end-return, and the
+> `tlt_pullback_1d` flag comes back on a sound basis.
+
+## ✅ CORRECTED VERDICTS (re-graded on the fixed tool, same day)
+
+Round-trip fixed in `92458d64`; all five legs re-emitted and re-scored on that
+sha. Runs
+[33252004498](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33252004498) (TQQQ) ·
+[33252007816](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33252007816) (SLV) ·
+[33252011005](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33252011005) (GLD) ·
+[33252014088](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33252014088) (TLT) ·
+[33252017891](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33252017891) (SCHA).
+Fee 0 bps, 730 d, `--base-account-size 5000.0`, live balances (`size=measured`
+on every cell — no default stood in).
+
+**Population of every cell:** one Monte-Carlo over that leg's own emitted
+ledger of `n` trades, scored against that account's ruleset at its live
+balance. `ret` is the mean end-return over the simulated paths **as a fraction
+of the starting balance**; `surv` is horizon survival; `pb` is breach
+probability. All three are the same population and the gate reads all three
+(ROUTE requires `ret > 0` **AND** `surv ≥ 0.9` **AND** `pb ≤ 0.1`).
+
+⚠️ **THIS COVERS 2 OF THE 11 ACCOUNTS.** The one-line verdict prints
+`alpaca_portfolio` and `alpaca_live` only — the two the routing question is
+actually about. The other nine accounts are graded in each run's
+`compat_*.json` artifact, which this session cannot download (no artifact-read
+MCP), so **no post-fix claim is made about them here.** The retracted
+eleven-account table below must not be read as standing in for them.
+
+| leg | n | `alpaca_portfolio` (paper, $95.5k, dd 5%) | `alpaca_live` (real, $200.10, dd 10%) | binding term |
+|---|---|---|---|---|
+| `tqqq_trend_long_1d` TQQQ | **8** | **ROUTE** · ret 2.3418 · surv 1.0 · pb 0.0 | **ROUTE** · ret 2.3418 · surv 1.0 · pb 0.0 | — |
+| `slv_trend_1h` SLV | **109** | **ROUTE** · ret 0.683 · surv 1.0 · pb 0.0 | **ROUTE** · ret 0.683 · surv 1.0 · pb 0.0 | — |
+| `gld_pullback_1h` GLD | **124** | **ROUTE** · ret 0.706 · surv 1.0 · pb 0.0 | **ROUTE** · ret 0.706 · surv 1.0 · pb 0.0 | — |
+| `tlt_pullback_1d` TLT | **13** | **skip** · ret **−0.3297** · surv 1.0 · pb 0.041 | **skip** · ret **−0.3333** · surv 1.0 · pb 0.0 | negative return |
+| `scha_trend_long_1d` SCHA | **12** | **skip** · ret **−0.139** · surv 1.0 · pb 0.0 | **skip** · ret **−0.139** · surv 1.0 · pb 0.0 | negative return |
+
+`dd=not_terminal` on all ten cells (the drawdown model is not the deciding term
+anywhere here).
+
+### The corrected finding: the verdict does NOT split on account size
+
+**Every skip is now bound by the leg's own mean end-return, and nothing is
+bound by survival or breach.** `surv = 1.0` and `pb ≈ 0` on all ten cells, and
+the two refusals are refusals because the strategy loses money in simulation —
+on a $95.5k book exactly as much as on a $200 one.
+
+That is the whole retracted headline reversed. The claim was *"the account size
+is the binding constraint"*; the measurement now says **account size binds
+nothing in this set**, and the previous split was the R-rescaling artifact
+wearing a plausible story.
+
+**Arithmetic check that the fix is real, not just different.** `alpaca_live`'s
+declared limits are strictly **looser** than `alpaca_portfolio`'s
+(`max_dd_pct` 0.10 / `daily_loss_pct` 0.10 vs 0.05 / 0.05, read from
+`config/accounts.yaml`). On one shared R sequence that *requires*
+`pb_live ≤ pb_portfolio`. Observed: TLT **0.0 ≤ 0.041**, and equal at 0.0 on
+the other four. **The pre-fix run inverted exactly this** — `alpaca_live` read
+`pb = 1.0` while `alpaca_portfolio` read `0.0`, i.e. the looser-limit account
+breaching more often, which is impossible on a shared sequence and is what
+first exposed the bug.
+
+### What this changes
+
+- **The Phase 2 shortlist is NOT overturned.** `tqqq_trend_long_1d` clears its
+  own account's ruleset after all; so do `slv_trend_1h` and `gld_pullback_1h`.
+  The "both candidates are refused on `alpaca_live`" conclusion is withdrawn in
+  full.
+- **The "size-bound vs return-bound" split collapses to one group.** There is no
+  size-bound group. SCHA and TLT are return-bound, which is the one half of
+  that framing that reproduces.
+- **The `tlt_pullback_1d` Tier-3 flag is REINSTATED, on a sound basis.**
+  `tlt_pullback_1d` is in `alpaca_portfolio`'s 14-leg roster (verified in
+  `config/accounts.yaml`) and that account's own ruleset refuses it — now at
+  `ret −0.3297` with `surv 1.0`, i.e. refused for *losing money*, not for the
+  0.052×-R artifact the flag originally rested on. `scha_trend_long_1d` skips
+  too and is still **not** a flag: it is not in that roster.
+- **The TQQQ evidence caveat survives unchanged.** n=8 over 730 d is below the
+  `MIN_OOS_TRADES = 25` floor the exit work uses, and it is now the *most
+  favourable* cell in the table (ret 2.3418) — a thin ledger producing the
+  biggest number is the cell to trust least, not most. TLT (n=13) and SCHA
+  (n=12) are thin too. Only SLV (109) and GLD (124) are solidly evidenced.
+- **The granularity hypothesis stays refuted, and now for a stated reason.** The
+  extension section below refuted it on the grounds that survival did not track
+  share price. Post-fix, survival does not track anything: it is 1.0
+  everywhere. The refutation holds; its original reasoning was luck.
+
+**Still not a routing proposal.** `alpaca_live` carries `strategies: []` and
+nothing here changes it. Clearing the compat gate is one of the constraints a
+leg must satisfy, not the decision.
+
+---
 
 ## (original, retained unedited below as the record of what was claimed)
 
