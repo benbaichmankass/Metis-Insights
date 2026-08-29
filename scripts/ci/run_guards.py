@@ -478,6 +478,34 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_matrix_config_agreement.py"]],
     },
     {
+        # matrix-bracket-values — the SIBLING of matrix-config-agreement, on the
+        # column that guard structurally cannot cover.
+        #
+        # matrix-config-agreement grades whether a lever is ARMED, over exactly four
+        # levers. `bracket_geometry` is not one, and correctly so: its `_arms()` tests
+        # key PRESENCE and every leg always declares tp_r/atr_stop_mult, so including
+        # the column would demand `shipped` everywhere. The cost was a column with NO
+        # staleness detector: #10419 declared validated geometry on 8 LIVE legs, real
+        # money, and the matrix carried all 8 as `passed_unshipped` for the rest of
+        # the day while matrix-config-agreement stayed GREEN — because arming was
+        # never the question.
+        #
+        # This asks the question that IS falsifiable there: the cell id encodes the
+        # geometry (`tp3_sm2` => tp_r 3.0 AND atr_stop_mult 2.0), so a `shipped` cell
+        # is a checkable claim about the declare. Registered in the same change that
+        # reconciled the 8 cells, so its first CI run is green — the discipline this
+        # guard's own sibling header argues for.
+        "name": "matrix-bracket-values",
+        "when": {"globs": ["docs/research/exit-refinement-coverage.json",
+                           "config/strategies.yaml",
+                           "scripts/ci/check_matrix_bracket_values.py"]},
+        # Relevance follows config/strategies.yaml as well as the matrix: a DECLARE
+        # landing in config falsifies a `shipped` cell with nobody editing the matrix,
+        # which is exactly the drift this exists to catch.
+        "steps": [["python3", "scripts/ci/check_matrix_bracket_values.py", "--self-test"],
+                  ["python3", "scripts/ci/check_matrix_bracket_values.py"]],
+    },
+    {
         "name": "canonical-doc-coherence",
         # The `declared values` check reads .github/workflows/ + src/web/api/
         # sources, so a change THERE can falsify a doc without touching one —
