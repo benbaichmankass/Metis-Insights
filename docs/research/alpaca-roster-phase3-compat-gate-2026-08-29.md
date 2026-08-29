@@ -76,7 +76,7 @@ actually about. The other nine accounts are graded in each run's
 MCP), so **no post-fix claim is made about them here.** The retracted
 eleven-account table below must not be read as standing in for them.
 
-| leg | n | `alpaca_portfolio` (paper, $95.5k, dd 5%) | `alpaca_live` (real, $200.10, dd 10%) | binding term |
+| leg | n | `alpaca_portfolio` (paper, $95,542.76, `max_dd_pct` 0.05) | `alpaca_live` (real money, $200.10, `max_dd_pct` 0.10) | binding term |
 |---|---|---|---|---|
 | `tqqq_trend_long_1d` TQQQ | **8** | **ROUTE** · ret 2.3418 · surv 1.0 · pb 0.0 | **ROUTE** · ret 2.3418 · surv 1.0 · pb 0.0 | — |
 | `slv_trend_1h` SLV | **109** | **ROUTE** · ret 0.683 · surv 1.0 · pb 0.0 | **ROUTE** · ret 0.683 · surv 1.0 · pb 0.0 | — |
