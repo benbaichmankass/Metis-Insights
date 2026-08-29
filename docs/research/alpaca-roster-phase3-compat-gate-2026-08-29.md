@@ -109,6 +109,16 @@ the other four. **The pre-fix run inverted exactly this** — `alpaca_live` read
 breaching more often, which is impossible on a shared sequence and is what
 first exposed the bug.
 
+### ➡️ SUPERSEDED IN SCOPE by the full-roster run
+
+The operator's call on the `tlt_pullback_1d` flag was **widen the evidence
+first** rather than decide one leg at a time. All 14 `alpaca_portfolio` roster
+legs have since been graded on the same fixed sha —
+**[`alpaca-portfolio-roster-compat-gate-2026-08-29.md`](./alpaca-portfolio-roster-compat-gate-2026-08-29.md)**.
+Read that for the roster verdicts. Two things it adds: the flag is **three**
+legs (`tlt_pullback_1d`, `ief_pullback_1d`, `spy_pullback_1h`), and the
+size-story stays dead across 14 legs on books differing by 477x.
+
 ### What this changes
 
 - **The Phase 2 shortlist is NOT overturned.** `tqqq_trend_long_1d` clears its
