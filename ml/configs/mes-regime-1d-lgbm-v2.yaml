@@ -88,7 +88,15 @@ target_deployment_stage: shadow
 notes: |
   v2 LightGBM head, MES @ 1d. Recurring successor to the orphaned
   mes-regime-classifier-baseline-v0 (MB-20260528-001). Trains on the
-  deep daily ES=F window built by build_mes_1d (yfinance 1d). hour_of_day
-  is constant on a daily bar (kept for schema parity with the 5m/15m
-  manifests; the booster will simply ignore it). Leakage gate forbids
+  deep daily ES=F window built by build_mes_1d (yfinance 1d).
+  hour_of_day was REMOVED from feature_columns and categorical_columns on
+  2026-08-29. This note previously said it was "kept for schema parity with
+  the 5m/15m manifests; the booster will simply ignore it" - and that belief
+  is precisely what cost this manifest 34 days. The BOOSTER would indeed have
+  ignored it; the DATASET AUDIT did not. It flagged the column dead
+  (zero_fraction 1.0000, n_unique 1, variance 0.0 over n_rows 2908), which
+  drives manifest_audit_skipped_enforced, so the manifest was skipped entirely
+  and never trained - while the cycle reported rc=0 and the service read green.
+  Schema parity across timeframes is not a reason to declare a column that
+  cannot vary at this one. Leakage gate forbids
   forward_log_return / forward_log_return_vol / regime_label.
