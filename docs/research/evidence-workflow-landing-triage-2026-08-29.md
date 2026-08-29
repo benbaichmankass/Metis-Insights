@@ -138,3 +138,49 @@ exactly one bucket, with a reason.
   is meaningful. That is the operator-decided ordering, unchanged.
 - **(c)** — no run-history evidence gathered; § 2 says what would settle it.
 - **The stale-inventory problem itself** (§ 1). The fix is a script, not a better-typed list.
+
+---
+
+## 5. § 4's last item, done: the inventory now re-measures itself
+
+§ 4 left *"the stale-inventory problem itself. The fix is a script, not a better-typed list."*
+That script is [`scripts/ops/evidence_workflow_inventory.py`](../../scripts/ops/evidence_workflow_inventory.py).
+
+It **asserts nothing and gates nothing** — the operator decision of 2026-08-27 against wiring R2
+assertions into these workflows is untouched, and remains R1's question. It reports.
+
+- **Landing predicate taken verbatim from the backlog row**, so the row and the script cannot drift
+  into two disagreeing denominators.
+- **Positive control runs first and short-circuits everything.** If the four known landers stop
+  classifying as landing, it prints *no counts at all* and exits non-zero — because a predicate that
+  silently stopped matching would otherwise report "nothing lands" and look like a dramatic finding.
+- **Three states, never collapsed:** `lands` · `does_not_land` · `unreadable` (*we could not look* —
+  not "it does not land").
+- **`--self-test` with planted controls**, including one that pins a **known over-report**: the
+  predicate is a substring match, so a comment merely *mentioning* `git push` reads as landing. That
+  case asserts the wrong-but-actual behaviour deliberately, so anyone tightening the predicate sees
+  it fail and learns why it was there. It can only over-report landing, never under-report — it
+  cannot manufacture a "nothing lands" finding, which is the direction that would matter.
+
+### 5.1 First run — and it does not reproduce the 22, which is itself the finding
+
+Positive control **OK**. Population: **40 workflows upload an artifact**, of **120** workflow files;
+**7 land, 33 do not, 0 unreadable**.
+
+**40 ≠ the 22 counted in § 1, and narrowing the regex until it returned 22 would have been the wrong
+fix** — that is a differently-typed hand list wearing a script's clothes. Uploading an artifact is
+**necessary but not sufficient** for producing research evidence: `get-diag-token`, `prop-report`,
+`llm-delegate`, `continue-work` and `health-snapshot` all match and are plainly operational.
+
+> **The repo has no mechanical definition of "evidence workflow."** That is precisely why the 22 was
+> hand-curated, and why it went stale in a day. The script reports the superset and says so; the
+> (a)/(b) judgement stays here, where it can be argued with.
+
+Supplying that definition — a marker in the workflow header, say — is the natural R1 companion, and
+is **not done here**: it is a convention that needs deciding, not inferring.
+
+### 5.2 It independently reproduces § 1's correction
+
+`trainer-offload-train` comes back **`lands`** from the mechanical scan, with no hand input —
+the same correction § 1 had to make by hand against the backlog row's headline case. That is the
+script doing the job the list could not.
