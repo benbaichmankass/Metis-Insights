@@ -131,3 +131,187 @@ refusals would page the operator on every signal once `alpaca_live` is live. Fal
 gradeable row in the window refused, so one placed order and it never fires. The
 hazard is window-level, not leg-level. The narrowed version is what shipped in
 #10411.
+
+---
+
+# PART 2 — M20 B4 shipped (same session, after the first wrap)
+
+The session was wrapped and handed off, then reopened when the operator
+approved B4. Recorded here rather than as a second log: it is the same session
+and the same context.
+
+## Additional objective
+Ship the validated `bracket_geometry` cells (M20 B4) the first wrap had
+recommended as the next sprint.
+
+## Tier
+**Tier-3.** `config/strategies.yaml` — real-money order geometry on 8 live legs.
+Operator approved B4, then approved the reduced 8-leg scope after I reported
+that 6 of the 14 could not be shipped, then gave standing approval to merge on
+green.
+
+## Work completed
+- **#10419** — 14 fields across 8 legs. Selection rule stated rather than
+  improvised (highest `wf_wins_effective`, tie-break `d_net_r`, over
+  `wf_pass`/`path_b_wf_pass`); every value traced to `e35-bracket-corpus.jsonl`;
+  each edit carries its cell, verdict and walk-forward inline in the YAML.
+- Re-pinned four `test_yaml_entries_pin_validated_params` tests. They pin the
+  2026-06-20 sweeps' geometry, which B4 supersedes. Pins were **updated to the
+  new validated values, not loosened or deleted**, and only for legs B4 actually
+  changed. `test_m15_etf_wiring` needed a structural change — `spy` and `qqq`
+  shared one loop assertion and now diverge — so it became a per-leg
+  parametrised tuple with `tp_r` added.
+- **#10420** — the `timeout_bars` finding + the docstring correction.
+
+## Validation Performed
+- YAML round-trip verification **twice** (working tree, then re-applied against
+  `origin/main`): exactly 14 fields changed file-wide, all intended, **zero
+  unexpected**. This was the guard that mattered: my first line-window probe
+  **bled across strategy block boundaries** and would have edited neighbouring
+  live strategies.
+- `run_guards.py --base-ref main` — PASS 42 · FAIL 0 (B4), PASS 44 · FAIL 0 (the
+  finding). `strategy-risk-guard` and `exit-coverage-matrix-guard` both ran.
+- Full local suite — **13,426 passed / 15 skipped / 0 failed**.
+- Verified on `main` after merge by counting the annotations — **14**.
+
+## Contradictions or Drift Found
+- `htf_pullback_trend_2h.py:49` asserted a "`timeout_bars` backstop" in its Exit
+  docstring. No code implements it and the module has no bars-held logic.
+  Corrected.
+- The M20 coverage matrix does not distinguish "validated and awaiting approval"
+  from "validated against a lever production does not have". 4–6 cells are the
+  latter. New workplan row B9.
+
+## Risks and Follow-Ups
+- **B6 is no longer independent of B4.** Two of its cells are trail3 on
+  `tlt_pullback_1h` and `uso_trend_1h` — legs whose `atr_stop_mult` B4 just
+  changed. Validated at the old stop; re-sweep before shipping.
+- The permission guard **blocked** the first attempt to commit
+  `config/strategies.yaml`. I did not work around it; I saved the patch, reverted
+  the tree, and reported. The operator then authorised it explicitly.
+
+## The two claims I had to narrow, both load-bearing
+1. **B4 declares targets on 6 legs, not 14.** I recommended it over the smaller
+   cells *because* bracket geometry "is the only lever that declares a target".
+   5 of the 14 winning cells are stop-or-timeout-only; of the 8 shipped, 6
+   declare a real `tp_r`. The operator approved on the broader claim.
+2. **The six unshipped legs are not "blocked on wiring".** The harnesses model
+   `timeout_bars` and the live units implement no bar-count exit at all, so those
+   cells measure an exit production cannot perform.
+
+## A verification bug worth recording
+Checking the merge landed, my first `grep` returned **0** for the docstring and I
+nearly reported it missing. Backticks inside a double-quoted pattern get
+command-substituted by bash, so the pattern never matched. With single quotes it
+returns 1. **The failure mode is indistinguishable from a change that did not
+land** — verify the verification.
+
+## Merge-protocol honesty
+Four merges today (#10393, #10408, #10411, #10416) went through with **no
+`🔒 MERGE SLOT CLAIM`** and the audit workflow caught every one. Real lapses,
+owned on board #6927. #10412, #10419 and #10420 were claimed properly, with the
+board tail read to its actual end (proven by a short page, not by N-items-back).
+
+---
+
+## PART 3 — the operator decides the order-flow capture's home (same session)
+
+### Objective
+
+Record an operator decision correctly, and verify the thing it commits us to.
+
+`OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED` was `loud: true` and the only
+thing standing between the current state and reclaiming the trainer's
+1 OCPU / 6 GB. The operator answered it:
+
+> *"we can keep the training in the meantime. That's the recommendation. Just
+> make sure that everything is logged correctly and wrapped up correctly."*
+
+That is **clears_when option (c)** exactly — *the trainer is kept for this
+purpose as a stated decision rather than by default*. Interim, not permanent.
+
+### Why this was not a one-line edit
+
+The row's own `why_it_cannot_be_closed_by_time` said the failure mode is *"a full
+disk stalling the capture silently"*. Recording *"keep the trainer"* while the
+box sits at 92 % full (42 G used of 45 G, 3.8 G free) with **nothing monitoring the
+capture** would satisfy the row on
+paper and leave the stream we just chose to preserve undefended. So the decision
+was recorded **and** the dependency re-measured, in the same hour rather than
+inherited from R6's day-old reading.
+
+### The false negative, and the control that caught it
+
+The first read-only relay (#10422) probed `runtime_logs/orderflow/` and returned
+**nothing** — no directory listing, no recent `.jsonl`, no size.
+
+**That result is byte-identical to a dead capture,** and reporting it as one was
+the available mistake. It was not made, because the repo's own rule applies
+directly: *a search returning nothing is not proof of absence; show the probe can
+find a positive first.* A second relay (#10423) carried a **positive control** —
+`find -newermt '-2 hours'` across the tree — which returned **88 files**. The
+probe worked; the silence was the *path*.
+
+The real path comes from the unit's own `ExecStart --out`, which is the
+authority:
+
+```
+datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl
+```
+
+| | measured 2026-08-29 |
+|---|---|
+| freshness | modified **17:30:00Z** vs same-command `date -u` **17:30:17Z** — 17 s before the reference clock, on the 5m bar boundary |
+| process | PID 728, 91.6 MB RSS, `active` 45 days |
+| disk | 42 G / 45 G, **3.8 G free, 92 %** (unchanged) |
+
+This is R6 § 4's finding recurring one level down: there, `du` answered a
+question about *processes*; here, a **path assumption** answered a question about
+*liveness*. Also recorded because it looks like a signal and is not:
+`journalctl -u ict-orderflow-capture` returns `-- No entries --` over 3 h **on a
+healthy capture**, so an empty journal cannot separate healthy from wedged
+either.
+
+### A second finding, found while acting on the first
+
+`CLAUDE.md` instructed every session that `OPEN-ITEMS.json` *"is capped at 12 rows
+and `open-items-guard` enforces that … adding a row means clearing one"*.
+
+**The guard sets `MAX_ITEMS = None`.** The cap was removed by operator direction
+on **2026-08-26** — three days before — with the reasoning written into the guard:
+a cap on a register of *known problems* just deletes knowledge.
+
+Stale in the dangerous direction: it tells a session to **evict a valid row**
+to satisfy a rule nothing checks. Not hypothetical — this session was reasoning
+from it (*"cap is 12, we're at 10, so clearing one and adding one keeps us at
+10"*) before reading the guard. **Field beats comment**; `CLAUDE.md` corrected.
+
+### A near-miss worth recording: I clobbered the register's serialisation
+
+The first write of `OPEN-ITEMS.json` used `json.dump(indent=2)`. The file is
+`indent=1`, so a 1-row change produced **152 insertions / 150 deletions** — the
+exact serialisation-clobber that `scripts/ops/backlog_append.py` exists to
+prevent, reproduced by hand on the register that tool does *not* cover.
+
+Reverted, then redone with a **byte-exact round-trip assertion before writing**:
+parse → re-serialise → `assert == original`, and only then apply the edit. Final
+diff **10 insertions / 8 deletions**. The assertion is the part worth copying —
+it makes the clobber impossible rather than noticed afterwards.
+
+### Shipped
+
+- `OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED` **cleared** via option (c),
+  replaced by `OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED`
+  (`loud`, `kind: monitoring`, `check_every_days: 3` — **chosen, not measured**:
+  two free-space readings a day apart are two points, not a fill-rate trend).
+- R6 verdict doc **§ 8** — the decision, the re-measurement, the canonical path.
+- Architecture doc + `ROADMAP.md` M40 — R6's open question marked answered.
+- `CLAUDE.md` — the cap claim corrected.
+
+### What the decision does NOT settle
+
+Keeping the box **raises** the stakes on both open findings, because the trainer
+is now load-bearing *by decision* rather than by inertia: nothing monitors the
+capture, and it writes into `datasets-out/` — **inside** the 28 G repo tree that
+*is* the 92 % disk. The tree that fills the disk and the stream that dies when it
+fills are the same tree.
