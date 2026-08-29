@@ -43,11 +43,15 @@ def test_builders_us_session_gate(monkeypatch):
 
 def test_yaml_entries_pin_validated_params():
     cfg = yaml.safe_load(open("config/strategies.yaml"))["strategies"]
-    for name in ("spy_trend_long_1d", "qqq_trend_long_1d"):
+    # M20 B4 (2026-08-29) gave these two DIFFERENT validated stops -- spy won on
+    # cell tp2_sm1.5 and qqq on tp3_sm2 -- so the shared assertion the earlier
+    # sweep could use no longer holds. Pinned per leg rather than loosened.
+    for name, stop, tp in (("spy_trend_long_1d", 1.5, 2.0), ("qqq_trend_long_1d", 2.0, 3.0)):
         s = cfg[name]
         assert s["execution"] == "live" and s["enabled"] is True
         assert s["long_only"] is True
-        assert (s["donchian"], s["atr_stop_mult"], s["trail_mult"]) == (30, 2.5, 4.0)
+        assert (s["donchian"], s["atr_stop_mult"], s["trail_mult"]) == (30, stop, 4.0)
+        assert s["tp_r"] == tp
         assert s["timeframe"] == "1d"
     g = cfg["gld_pullback_1d"]
     assert g["execution"] == "live"

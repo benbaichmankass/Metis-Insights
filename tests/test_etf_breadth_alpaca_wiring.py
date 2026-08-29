@@ -73,8 +73,8 @@ def test_yaml_entries_pin_validated_params():
     assert iwm["long_only"] is True
     assert iwm["symbols"] == ["IWM"]
     assert iwm["signal_prefixes"] == ["iwm_trend_long", "iwm_trend"]
-    assert (iwm["donchian"], iwm["atr_period"], iwm["atr_stop_mult"]) == (30, 14, 2.5)
-    assert (iwm["trail_mult"], iwm["tp_r"]) == (4.0, 50.0)
+    assert (iwm["donchian"], iwm["atr_period"], iwm["atr_stop_mult"]) == (30, 14, 2.0)  # M20 B4 (supersedes the earlier sweep's pin)
+    assert (iwm["trail_mult"], iwm["tp_r"]) == (4.0, 3.0)  # M20 B4 (supersedes the earlier sweep's pin)
     assert iwm["timeframe"] == "1d"
     assert iwm["min_confidence"] == 0.0 and iwm["shadow_model_ids"] == []
     assert iwm["model"] is None
