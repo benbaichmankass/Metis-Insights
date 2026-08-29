@@ -660,7 +660,7 @@
       "title": "[direction] Make Alpaca OPTIONS-ONLY - migrate the equity/ETF strategies to IBKR (ib_paper), leaving Alpaca just the options book",
       "description": "OPERATOR-DECIDED DIRECTION (2026-07-26). Alpaca caps the account at 3 paper logins (all in use), so a dedicated 4th for options isolation (old BL-20260627-OPTIONS-SEPARATE-ACCT) can't be created. Chosen resolution: shrink Alpaca to OPTIONS-ONLY and run the equity/ETF strategies on IBKR instead. IBKR equity/ETF (STK) support already exists (S-IBKR-EQUITY-ETF-SUPPORT-2026-07-07; ib_paper trades SPY/QQQ/IWM/TLT). Migrate the alpaca_paper / alpaca_portfolio equity+ETF strategies onto ib_paper (Tier-3 account routing, config/accounts.yaml + config/strategies.yaml hard-limit files, operator-approved PR + per-account compat matrix). END-STATE: Alpaca = the options book only (1 paper login) -> the 3-account cap is a non-issue AND options has no Alpaca equity positions to collide with (structural isolation for free). CAVEATS: (1) options stay on Alpaca - IBKR options is NOT built (overlay is Alpaca-specific: AlpacaOptionsData/AlpacaOptionsExecutor); (2) alpaca_live real-money is separately auth-blocked ('request is not authorized'); (3) decide alpaca_portfolio's fate (it mirrors alpaca_live, which isn't trading). Sequencing + compat-matrix + rollback = a dedicated session (suggest branch claude/alpaca-options-only-ibkr). INTERIM: Alpaca options stays on the shared alpaca_paper login, isolated by the asset-class filters (status quo).",
       "tier": 3,
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -680,7 +680,8 @@
           "note": "Re-validated: an operator DECISION or an operator-only action, not work a review can drain. A direction/architecture decision. Note its dependency PB-20260707-IBKR-STK-ETF-SUPPORT is also parked."
         }
       ],
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
@@ -1532,7 +1533,7 @@
       "tier": 3,
       "trigger_condition": "Next /system-review (raise to operator); or before alpaca_live options go-live; or any session touching the alpaca shared-login asset-class isolation.",
       "resolution_criteria": "Either (a) the operator decides to wire a dedicated Alpaca paper login for alpaca_options_paper and that lands (own key pair, accounts.yaml api_key_env, secret propagation, verified isolation), OR (b) the operator explicitly decides the shared-login + dual-filter design is acceptable to keep and that decision is recorded here — at which point close.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -1571,7 +1572,8 @@
       "resolved_at": "2026-07-26T12:10:00+00:00",
       "resolved_by": "claude (operator Alpaca-account direction decision 2026-07-26)",
       "resolution_note": "Operator decision 2026-07-26: the dedicated-4th-Alpaca-paper-account approach is DROPPED. Alpaca is capped at 3 paper accounts (all in use), so a 4th can't be created. Chosen direction: make Alpaca OPTIONS-ONLY by migrating the equity/ETF strategies to IBKR (ib_paper STK support already built 2026-07-07) - once Alpaca holds no equities, the options book has no equity positions to collide with, achieving the structural isolation this item wanted WITHOUT a 4th account. INTERIM (until equities migrate): options stays on the shared alpaca_paper login, isolated by the two asset-class filters (status quo since the 2026-06-27 fix). Superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR. NOTE: the empty ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS placeholders created this session are now inert/unneeded (harmless).",
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260626-MES-BASE-STALE",
@@ -1789,7 +1791,7 @@
       "trigger_condition": "Next session touching ict-trader-android, or next /health-review.",
       "resolution_criteria": "Operator has done the on-device visual check on #56 (or its successor) and it is merged or closed; OR Claude has asked and is awaiting the operator's eyeball.",
       "check_log": [],
-      "status": "snoozed",
+      "status": "kept_open",
       "resolved_at": "2026-07-22T18:20:00+00:00",
       "resolved_by": null,
       "resolution": null,
@@ -1812,7 +1814,8 @@
           "note": "Re-validated: an operator DECISION or an operator-only action, not work a review can drain. The Android repo is additionally ON ICE by operator directive (2026-08-13), so this should not be scheduled at all."
         }
       ],
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260617-MHGN6-CANDLEROUTE",
@@ -4046,7 +4049,7 @@
       "tier": 1,
       "trigger_condition": "A future health-review or session notices the 23 stale queued runs and considers re-attempting cancellation, or wonders whether cancel-queued-runs is broken.",
       "resolution_criteria": "The 23 stale 2026-05-15 queued runs no longer appear in the Actions list (GitHub-side GC or Support purge). No repo change is expected to satisfy this; close when the runs are gone or the operator decides to leave them.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "resolved_at": "2026-08-13T10:30:00+00:00",
       "resolved_by": "claude (system-audit-review-oy5kon) — operator-directed forced-disposition pass",
@@ -4819,7 +4822,7 @@
       "title": "Live IBKR login blocked: bot user's IB Key 2FA is challenge/response (Seamless Authentication OFF) -> headless gateway can't complete a live login",
       "description": "Paper logins are 2FA-exempt so ib_paper is unaffected and healthy. LIVE logins require 2FA; the bot user's IB Key is in CHALLENGE/RESPONSE mode (Seamless OFF), so IBKR issues no push and the headless gateway (Xvfb) can neither read the on-screen challenge nor type the response -> hangs at 'Authenticating...' and times out. Pinning IBC SecondFactorDevice='IB Key Security via IBKR Mobile' changed nothing (no device-selection dialog ever appeared), confirming the block is upstream of device selection (no push challenge issued). FIX (operator-only, broker-side): enable SEAMLESS (push) authentication for the bot user in IBKR (account-specific; confirm exact steps with IBKR client services -- it is NOT the IBKR-Mobile Security page; involves Client Portal Secure Login + the bot user being registered for IBKR-Mobile push). Seamless push is REQUIRED for live anyway because the gateway re-logs in unattended daily after IBKR's reset; challenge/response cannot be automated. Then re-run via the vm-ib-gateway-live-login-test label and tap the push. NOT URGENT: ib_live is mode:dry_run (not trading); this is a pre-flight for a future capability. Tooling is built + verified. Full runbook: docs/runbooks/ib-live-login-2fa.md. Tier: operator broker-side action + Tier-1 doc (this entry + runbook).",
       "tier": 1,
-      "status": "snoozed",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -5085,7 +5088,7 @@
       "trigger_condition": "Next android CI/quality pass.",
       "resolution_criteria": "lintDebug is a blocking PR gate with a clean baseline; abortOnError=true.",
       "check_log": [],
-      "status": "snoozed",
+      "status": "kept_open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
@@ -6314,7 +6317,7 @@
       "title": "[ops] Monitor GitHub Actions minutes burn-rate for real after the CI short-circuit + diag-relay-batching fix (PR #5789) lands",
       "description": "PR #5789 landed two fixes aimed at cutting Actions minutes consumption: (1) a changed-files short-circuit on the 9 required + 7 non-required CI workflows so a docs-only push skips expensive pip-install/run steps (est. ~25-35 min/push -> ~10-12 min/push), and (2) multi-path batching support in vm-diag-snapshot.yml so a review session can pull several diag paths in one issue/one SSH session instead of one issue per path (relay batching is opt-in via the issue BODY carrying multiple paths -- the single-path title fallback still works, so adoption is not automatically enforced). Combined estimate was directional only (~100-230 min/day, ~3,000-7,000 min/month) since GitHub Actions was billing-blocked at investigation time and none of it could be exercised live. Operator decision (2026-07-06): hold off on the bigger VM-ops-API build (a direct authenticated interface on the live VM bypassing GitHub Actions for reads/mutations) and watch the REAL numbers for a few days first before deciding if it is still needed. ACTION FOR THE NEXT FEW /health-review, /performance-review, /ml-review, and /system-review runs: check Settings -> Billing -> Actions usage (or ask the operator to share the day-by-day minutes graph, since no billing API is exposed to these tools) and report the actual post-fix daily/monthly burn rate against the ~100-230 min/day estimate. Also spot-check whether recent review sessions are actually using the new batched vm-diag-snapshot.yml pattern (one issue, multiple paths in the body) instead of the old one-issue-per-path pattern documented pre-fix -- if not, note that adoption gap explicitly, since the relay-batching saving is opt-in only. Close this item once 3-5 real days of post-fix data confirms the estimate held (or note where it diverged) and the operator has decided whether the VM-ops-API build is still warranted.",
       "tier": 1,
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -6351,7 +6354,8 @@
         }
       ],
       "severity": "low",
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB",
@@ -8459,7 +8463,7 @@
       "tier": 2,
       "trigger_condition": "Operator sets IB_FLEX_TOKEN + IB_FLEX_QUERY_ID (creates an Activity Flex Query + Flex Web Service token in IB Account Management).",
       "resolution_criteria": "Capture a real Flex XML fixture, then build scripts/pull_ib_flex_fills.py (2-step SendRequest→GetStatement) + src/runtime/exchange_fills_ib_flex.py mapper (Trade -> exchange_fills, real ibCommission) + a 3rd ExecStart on ict-exchange-fills-pull.service + add the 2 secrets to sync-vm-secrets OPTIONAL_SECRETS. Takes broker-truth coverage 6/8 -> 7/8. Separately, bybit_2 lifetime wallet-truth stays UM-export-only (structural, not this item).",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -8500,7 +8504,8 @@
       "severity": "low",
       "updated_at": "2026-08-10T05:05:00+00:00",
       "operator_action_required": true,
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260730-PRODUCER-VACUITY-GUARD",
@@ -9622,7 +9627,7 @@
       "title": "[macro/M1] a FIXED release lag cannot join a MONTHLY series — BLS/CPI release day drifts, so the join needs a tolerance window",
       "description": "Weekly series are safe: DoL/EIA publish on a fixed weekday, so reference + constant lag lands exactly every week (verified -- claims now join). MONTHLY is different: the BLS CPI release falls roughly the 10th-15th of the following month and MOVES, so no single constant hits every month. A fixed lag will join some months and silently miss others, and a partial join looks like a small sample rather than a systematic miss -- the same read-it-wrong failure mode as the rest of this class. FIX: the consumer should join on NEAREST RELEASE WITHIN A TOLERANCE WINDOW (e.g. +/- 5 trading days) instead of exact-date equality, and REPORT the matched offset distribution so a systematic bias is visible rather than absorbed. That belongs in the M3 validator + the event study, not in the backfill (the backfill's job is to emit an honest modeled date; the consumer's job is to match tolerantly). Until then cpi_yoy's contribution to any overlap is unreliable even though 43d happens to hit the one captured month -- do NOT read a cpi_yoy join count as complete. The clean long-term answer is the same one already documented for vintages: ALFRED / the FRED releases API give TRUE release dates and remove the need to model this at all.",
       "severity": "low",
-      "status": "snoozed",
+      "status": "kept_open",
       "area": "macro",
       "refs": [
         "config/macro_econ_series.yaml",
@@ -9662,7 +9667,8 @@
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE",
@@ -9962,7 +9968,7 @@
       "opened_at": "2026-07-30T13:30:00+00:00",
       "opened_by": "claude (research program)",
       "severity": "medium",
-      "status": "snoozed",
+      "status": "kept_open",
       "source": "M3 first real verdict at n=1263 after the FXStreet survey backfill (#8024/#8025). Pooled: Spearman 0.5885 / sign agreement 0.720 / slope 0.9335 -> model_tracks_survey (bars 0.50 / 0.70). PER KIND: initial_jobless_claims 0.6312/0.791 slope 0.936 TRACKS (n=586); cpi_yoy 0.5176/0.753 slope 1.364 TRACKS (n=127); continuing_jobless_claims 0.4239/0.640 slope 0.5234 DOES NOT TRACK (n=550).",
       "title": "[macro/M3] the pooled M3 pass is carried by 2 of 3 kinds — the model expectation does NOT track survey consensus for continuing_jobless_claims",
       "description": "The M1 gate's option-(b) satisfiability condition PASSES pooled, but the pass is not uniform and the failing kind is 550 of 1263 pairs. continuing_jobless_claims misses BOTH pre-registered bars individually (Spearman 0.4239 < 0.50, sign agreement 0.640 < 0.70) CORRECTION (same day, before this row was acted on): the OLS slope of 0.5234 was first written up here as 'the model surprise is roughly HALF the survey surprise in magnitude -- a scale error'. THAT IS WRONG and it pointed at the wrong fix. slope = pearson x sd(model)/sd(survey), so it conflates correlation with scale. Measured: sd(model)=0.4258 vs sd(survey)=0.3126, i.e. the model surprises are MORE dispersed (ratio 1.362), and the sub-unit slope is WEAK CORRELATION (pearson ~0.384), not compression. The validator now reports dispersion_ratio (scale only) and rmse_model/rmse_survey (accuracy) so the slope cannot be misread this way again. CONSEQUENCE: any M1/M2 consumer that uses the MODEL expectation as a stand-in for survey consensus on continuing claims is measuring a systematically undersized surprise. Do not read the pooled `model_tracks_survey` as licence for that kind; the validator now names it in `kinds_not_tracking` and in the rendered note. WHAT THIS IS NOT: it is not a reason to lower a bar or to re-pool. The bars were pre-registered before the first run and the pooled rule was deliberately left unchanged when the per-kind split was added, so the goalposts have not moved. NEXT: (a) investigate the 0.52 slope — continuing claims is a LEVEL series with strong autocorrelation, so the seasonal-AR expectation may be over-smoothing (a period/harmonics question in econ_expectation, testable offline against the 550 pairs already committed); (b) until it tracks, prefer the real survey consensus for this kind and treat model-expectation rows for it as unusable. A NOTE ON READING THE SCORECARD: mean_abs_gap CANNOT rank kinds (it is in each kind's own units) — that column made initial_jobless_claims look like the weak kind (gap 26.6) when it is the STRONGEST tracker, while continuing claims has the SMALLEST gap (0.11) and the worst tracking. Use the scale-free columns. || THE BIGGER FINDING, which the pooled pass concealed and which the correlation bars never test: the MODEL EXPECTATION IS A WORSE PREDICTOR THAN THE SURVEY ON ALL THREE KINDS. Since surprise = actual - expectation, the RMSE of a surprise series is that expectation's own error against what happened: initial_jobless_claims model 227.62 vs survey 174.62 (1.304x), continuing_jobless_claims 0.4261 vs 0.3137 (1.358x), cpi_yoy 0.3526 vs 0.1354 (2.603x). So option (b) is not merely 'noisier on one kind' -- it is a strictly worse expectation than the survey everywhere both exist, worst by far on CPI. This does NOT overturn the gate as written (the gate asks whether model-surprise TRACKS survey-surprise, and pooled it does), but it bounds what a downstream M1/M2 result may claim: an edge measured against model surprises is measured against a noisier yardstick than the market's own, so a null is weaker evidence of no-edge than it looks. It also kills the tempting alternative reading of continuing claims -- 'the model beats the survey on a smooth autocorrelated series, so M3 is just measuring survey noise'. It does not beat it anywhere. PROPOSED NEXT (offline, no runner): the CPI 2.6x gap is the biggest and CPI is the kind with the fewest pairs and a real release-date drift, so start there -- check whether yoy_pct_from_level plus the modeled_lag join is degrading the CPI expectation before touching the seasonal-AR parameterization for claims.",
@@ -10004,7 +10010,8 @@
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260730-M3-VALIDATOR-READ-ONE-SURVEY-SOURCE",
@@ -10052,7 +10059,7 @@
       "opened_at": "2026-07-30T14:40:00+00:00",
       "opened_by": "claude (research program)",
       "severity": "high",
-      "status": "snoozed",
+      "status": "kept_open",
       "source": "Naive-baseline floor test added to the M3 validator and run at n=1263. RMSE of the model expectation vs a NAIVE RANDOM WALK ('assume no change since last release', same information set): initial_jobless_claims 227.62 vs 206.83 = model 1.101x WORSE; continuing_jobless_claims 0.4261 vs 0.4701 = 0.906x better; cpi_yoy 0.3526 vs 0.3702 = 0.952x better. Survey consensus beats all three everywhere (174.62 / 0.3137 / 0.1354). Computed independently by hand first, then reproduced by the tool to the third decimal.",
       "title": "[macro/M1][gate] the operator-approved M1 gate tests whether the model TRACKS the survey, not whether it is USEFUL — and the best-tracking kind is worse than a random walk",
       "description": "OPERATOR DECISION NEEDED — this is about the gate's wording, which the operator approved, so it is not mine to change. THE FINDING: M3's pre-registered bars ask whether model-surprise tracks survey-surprise. `initial_jobless_claims` PASSES them most convincingly of all three kinds (Spearman 0.6312, sign agreement 0.791) and is SIMULTANEOUSLY the one kind whose model expectation is FURTHER from the outcome than 'assume no change since last release' (1.101x worse RMSE). The other two clear the naive floor only narrowly (0.906x, 0.952x). So the gate as written can be satisfied by an expectation model that adds no information at all, and on one kind demonstrably does not. WHY BOTH CAN BE TRUE: tracking is about the CORRELATION of two error series; the naive floor is about the MAGNITUDE of one of them. A model that errs in the same direction as the survey, but by more, tracks well and predicts badly. Nothing in the gate's bars separates those. WHAT THIS DOES AND DOES NOT INVALIDATE: it does NOT invalidate the M3 measurement (the verdict is honest about what it measured) and it does NOT retroactively break the gate change. It DOES bound every downstream M1/M2 claim: a surprise computed against the model is computed against a yardstick that is noisier than the survey everywhere and worse than no-model on initial claims, so a NULL result (which is what the full-scale event study returned: no_edge_at_tested_horizons at n=1349) is much weaker evidence of no-edge than it appears. MITIGATED IN TOOLING (not in the gate): the validator now computes rmse_naive / rmse_ratio_model_over_naive / model_beats_naive per kind, lists kinds_worse_than_naive next to the verdict, and renders a loud block, so a tracking pass can never again be read as usefulness. PROPOSED (operator call): add a floor condition to the gate — a kind may only use the MODEL surprise where the model beats the naive random walk on that kind — which would today exclude initial_jobless_claims. THE BETTER ALTERNATIVE, now cheap: 12,076 survey rows exist, so for the overlap period the study can use REAL survey consensus and skip the stand-in entirely; the model is then only needed OUTSIDE the survey window. That converts the weakest part of the macro line into its strongest.",
@@ -10094,7 +10101,8 @@
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
-      "snoozed_at": "2026-08-29T16:47:02+00:00"
+      "snoozed_at": "2026-08-29T16:47:02+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
@@ -15784,7 +15792,7 @@
     {
       "id": "BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET",
       "severity": "low",
-      "status": "snoozed",
+      "status": "kept_open",
       "tier": 1,
       "area": "android/ci",
       "opened_at": "2026-08-13T11:00:00+00:00",
@@ -15813,7 +15821,8 @@
           "note": "Re-validated: the Android repo is ON ICE by operator directive (2026-08-13) and its own CLAUDE.md names this row as the known-open item. Correctly not scheduled."
         }
       ],
-      "snoozed_at": "2026-08-29T16:53:04+00:00"
+      "snoozed_at": "2026-08-29T16:53:04+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",

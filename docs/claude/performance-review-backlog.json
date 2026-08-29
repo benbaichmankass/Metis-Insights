@@ -38,7 +38,7 @@
       "tier": 3,
       "trigger_condition": "Every /performance-review while any real-money account is shelved (currently alpaca_live) or any candidate is queued for live promotion.",
       "resolution_criteria": "RECURRING — not closed by a single run. Retire only if the operator drops the real-money-allocation gate. Each run records real_money_allocation_benchmark in the response and refreshes this item's verdict.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -64,7 +64,8 @@
           "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. Recurring benchmark; trigger = a real-money book large enough to compare."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-SPLG-IAUM-LIVE-REVALIDATION",
@@ -109,7 +110,7 @@
       "tier": 3,
       "trigger_condition": "A dedicated session picks up the IBKR-STK build, OR the operator wants IBKR as a real-money ETF venue.",
       "resolution_criteria": "IBClient supports STK/ETF contracts (tested), the chosen ETF strategies run on ib_paper end-to-end (real paper fills journaled), and account_compat_matrix has scored ib_paper for them — OR a documented decision not to pursue it.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -166,7 +167,8 @@
         }
       ],
       "severity": "low",
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-IB-METALS-NO-BACKTEST-DATA",
@@ -217,7 +219,7 @@
       "trigger_condition": "Every /performance-review and /system-review until resolved; specifically once tqqq_trend_long_1d and/or qld_trend_long_1d accrue real paper fills on alpaca_paper (US RTH only — equity ETF cells place 13:30-20:00 UTC). Check order_packages + trades + the signal audit for TQQQ/QLD disposition (fill vs no_fill vs no_signal).",
       "resolution_criteria": "Either (a) a Tier-3 PR proposes promoting tqqq_trend_long_1d / qld_trend_long_1d onto a real-money Alpaca account, citing >=20-30 clean closed paper trades per cell that track the backtest + a current account_compat_matrix ROUTE verdict (see promotion_prerequisite below — the risk adjustment is REQUIRED for that ROUTE) — and the operator approves; OR (b) a documented decision here that the paper soak diverged from the backtest (decay/gap drag, whipsaw) and the cells stay paper-only / are removed, with the evidence recorded.",
       "promotion_prerequisite": "REQUIRED RISK ADJUSTMENT BEFORE ANY alpaca_live PROMOTION (operator-flagged 2026-06-30): the account_compat_matrix run 2026-06-30 returned **SKIP** for BOTH cells on alpaca_live AT ITS CURRENT 10% per-trade risk (config/accounts.yaml::alpaca_live.risk.risk_pct = 0.10) — TQQQ P(breach)=10.8%, QLD P(breach)=20.3%, both above the 10% breach cap — because a 3x/2x leveraged instrument at 10% risk has too high a chance of tripping the account's daily-loss/static-DD limits. The SKIP is driven by the RISK SETTING, not the edge: at 1.5% risk (the alpaca_paper basis) both cells ROUTE with P(breach) ~0. SO: when promoting TQQQ/QLD to alpaca_live, FIRST lower alpaca_live.risk_pct (Tier-3 risk-cap change, operator-approved) to a level where account_compat_matrix returns ROUTE for these cells (sweep 0.02->0.05 and pick the highest that keeps P(breach)<=0.10 + survival>=0.90 for BOTH), THEN flip the routing. Do NOT add TQQQ/QLD to alpaca_live.strategies at the current 10% risk — the compat gate says it would risk a limit breach. Note this also affects the existing unleveraged alpaca_live cells' breach math; re-run the full etf_account_compat.sh after any risk_pct change.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -248,7 +250,8 @@
           "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. TQQQ/QLD soak on alpaca_paper; gate is a clean live record + account_compat_matrix."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260630-001",
@@ -446,7 +449,7 @@
       "tier": 3,
       "trigger_condition": "First real prop fills/closes accrue on breakout_1 for either ETH leg, OR a prop account-status report exposes the actual swap debit.",
       "resolution_criteria": "Real Breakout swap confirmed (≈0.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": "2026-10-01",
       "updates": [
         {
@@ -526,7 +529,7 @@
       "tier": 3,
       "trigger_condition": "Enough live closed-trade history accrues for tlt_pullback_1d (e.g. >= 20-30 closed) to compare low- vs high-confidence TLT entry outcomes, OR a fresh out-of-sample min_confidence sweep is run to test stability of the 0.10 optimum.",
       "resolution_criteria": "Either a Tier-3 PR proposing a TLT-only min_confidence floor citing live + out-of-sample evidence, OR a documented decision (here) that the in-sample edge does not hold up and the sleeve stays uniformly min_confidence: 0.0.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": "2026-10-15",
       "updates": [
         {
@@ -2147,7 +2150,7 @@
       "tier": 3,
       "trigger_condition": "Perp funding rates elevate to a regime comparable to the 2023-24 edge window, OR a future research session re-runs the carry harness on fresh data.",
       "resolution_criteria": "Either a re-run of scripts/backtest_funding_carry.py on an elevated-funding window clears the robustness bar and a market-neutral carry cell is proposed (Tier-3, account_compat-gated), or the carry idea is re-confirmed dormant with fresh evidence and snoozed again.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": "2026-11-13",
       "updates": [
         {
@@ -2224,7 +2227,7 @@
       "source": "scripts/portfolio_combine.py + backtest_vol_target.py (PR #4672) on a 9-sleeve BTC/ETH/MES book, 2818 trades 2021-06->2026-06; relays #4674 (emit) + #4675 (combine+overlay).",
       "title": "[DOWNGRADED] P1 vol-target overlay — marginal on the LIVE book; do NOT graduate",
       "detail": "CORRECTION: the graduate-to-shadow recommendation was based on a PROXY book (Sharpe 0.27, overlay +0.17-0.20). The live-param re-run (PB-005, relay #4686) shows the live book is healthy (Sharpe 1.33) and the overlay adds only +0.079 Sharpe weekly / ~0 monthly, RAISES vol, and does NOT cut drawdown. Not worth wiring a live-path sizing multiplier. At most an optional observe-only shadow soak. See docs/research/P1-vol-target-LIVE-PARAM-correction-2026-06-26.md.",
-      "status": "snoozed",
+      "status": "kept_open",
       "category": "sizing-overlay",
       "tier": 3,
       "next_step": "Operator decision to build the shadow overlay; then design the book-vol estimator + multiplier wiring (observe-only) per the Prime-Directive soak pattern.",
@@ -2243,7 +2246,8 @@
         }
       ],
       "resolved_at": "2026-07-22T18:35:00+00:00",
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260626-003",
@@ -2503,7 +2507,7 @@
       "title": "ETH book: re-run the M7 gate when live n accrues (>=20 closed across the ETH strategies), anchored on the 2026-07-06 backtest fold evidence",
       "description": "When the ETH strategies (trend_donchian_eth, trend_donchian_eth_4h, eth_pullback_2h) reach a meaningful live sample (~>=20 closed trades combined, or any single strategy >=10 closed), re-dispatch generate-strategy-review-packets with backtest_anchor context from docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md (3/4 ungated folds net-negative; maxDD 15.7% full-history). If the live sample confirms the backtest shape, the expected Tier-3 proposal is demote_shadow for trend_donchian_eth (its trending|calm|long cell is the dominant loser). Do NOT act on backtest evidence alone - the M7 low-n hold stands until live n accrues. Note live fill rates are tiny (0-4.5% of decisions), so accrual may take weeks; if fill rate itself looks broken, that is a health-review item, not a performance one.",
       "tier": 3,
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": "2026-08-01T00:00:00+00:00",
       "updates": [
         {
@@ -2529,7 +2533,8 @@
           "note": "Re-validated this review; still accruing/awaiting the live n it names. Real-money volume remains the binding constraint — only 6 real-money trades closed in this review's 4.3-day window, so live-n-gated rows cannot move on a review cadence. Gate is n>=20 closed across the ETH strategies."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
@@ -2549,7 +2554,7 @@
       "tier": 3,
       "trigger_condition": "next IB-research session",
       "resolution_criteria": "walk-forward + account_compat run; either a Tier-3 proposal PR opened or a documented reject",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2575,7 +2580,8 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
@@ -2595,7 +2601,7 @@
       "tier": 3,
       "trigger_condition": "next IB-research session",
       "resolution_criteria": "matched-session comparison run; driver identified; keep-shadow-or-propose decision recorded",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2621,7 +2627,8 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Note mgc_trend_1h is also one of the 5 IB legs logging transient_market_data_unavailable (154 WARN rows over 9 days), so its data path is intermittent independent of this row."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-NATIVE-MES-PULL",
@@ -2640,7 +2647,7 @@
       "tier": 1,
       "trigger_condition": "next IB-research session / weekend CME break",
       "resolution_criteria": "native MES per-contract shard pulled + cells re-backtested; verdict recorded",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2666,7 +2673,8 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260707-SPLG-IAUM-PROMOTION",
@@ -2686,7 +2694,7 @@
       "tier": 3,
       "trigger_condition": "operator go-signal + paper soak accrued",
       "resolution_criteria": "paper soak reviewed; Tier-3 promotion PR proposed or deferred with reason",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2712,7 +2720,8 @@
           "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. alpaca_live is additionally sizing-walled at $200.10 equity with zero gross notional, so a real-money promotion there has no headroom regardless."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260710-ETF-PULLBACK-ZEROWIN",
@@ -2860,7 +2869,7 @@
       "title": "Maker-executed market-neutral funding-carry sleeve — the reliable small-TF direction from M22",
       "detail": "M22 finding: fee-drag is the UNIVERSAL small-TF killer. The maker re-scorer confirms nearly every small-TF cell is GROSS-positive (fade_5m +338R, pullback_5m +350R, trend_5m +284R, squeeze_5m +241R over 3yr BTC) — taker fees flip them negative. Maker execution CANNOT rescue the stop-based scalps: their exit is inherently a taker event, so maker-entry/taker-exit (realistic bound) stays net-negative; only both-legs-maker clears them, which stop strategies can't do. The one class that CAN be both-legs-maker is the market-neutral FUNDING CARRY (exits on funding-decay/timeout, no price stop). RESOLVED (trainer #6493, neutral carry at TAKER 7.5 vs MAKER 1.0 vs ZERO, 3yr + OOS 2025-01+): maker execution IS the lever — at 1.0bps full-history net recovers ~70% of the gross funding harvest with tiny drawdown: ETH +0.70→+7.72R, SOL +0.98→+6.46R, BNB -1.87→+11.03R (maxDD 0.05–0.68R). BUT the current-regime OOS (2025-01+) maker net is thin-to-negative: ETH +0.40R, SOL +0.07R (flat), BNB -0.61R — the win is front-loaded 2023-24; funding compressed post-2024 (confirms PB-20260620-002). VERDICT: real, regime-gated candidate, NOT live-now. RE-TRIGGER: re-run the neutral-carry OOS maker net when funding elevates; only if a CURRENT-regime OOS maker net clears a meaningful bar (not the front-loaded 3yr average) is a Tier-3 proposal warranted for (a) a post-only/limit carry executor + (b) wiring the neutral-carry sleeve (incl. account_compat_matrix). Do NOT build post-only entry for the stop-based scalps (exits stay taker). Xsec momentum parked (4-symbol universe too small).",
       "severity": "medium",
-      "status": "snoozed",
+      "status": "kept_open",
       "updated_at": "2026-07-15T13:10:00+00:00",
       "updates": [
         {
@@ -2886,7 +2895,8 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260715-PAIRS-SLEEVE",
@@ -2987,7 +2997,7 @@
       "tier": 3,
       "trigger_condition": "each performance-review: pull alpaca_options_paper closed options trades (Slice-4 reconciler-closed rows) and grade the vertical soak",
       "resolution_criteria": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options.",
-      "status": "snoozed",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
@@ -3012,7 +3022,8 @@
           "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. alpaca_options_paper holds 0 open positions right now, so the soak this row assesses is not accruing."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260720-M27-SCALP-EXPANSION",
@@ -3026,7 +3037,7 @@
       },
       "created": "2026-07-20",
       "priority": "P1",
-      "status": "snoozed",
+      "status": "kept_open",
       "title": "M27 Scalp Expansion — generalize the ict_scalp Phase-0->4 methodology across symbols, timeframes, and new scalp archetypes (operator-directed milestone)",
       "detail": "Operator directive 2026-07-20 (same session as the ict_scalp arc, PR #7115): expand today's work into a milestone. Design doc: docs/research/M27-scalp-expansion-DESIGN.md; ROADMAP row M27. OPERATOR BROADENED SAME-DAY: P0 covers the FULL traded universe (24 symbols, 5 venue families) with a committed coverage table (docs/research/artifacts/m27/coverage.md) where every symbol has a row — batches by data availability: Batch 1 crypto (ETH/SOL/XRP/ADA/AVAX), Batch 2 IBKR futures (MES/MGC/MHG, session-aware, per-contract commission cost model), Batch 3 equities/ETFs (base symbols SPY/QQQ/IWM/TLT/GLD/SLV/GDX/USO/IEF first; levered wrappers TQQQ/QLD/SCHA/IAUM/SPLG gated on their base passing), Batch 4 XAUUSD (OANDA). Blocked-with-reason rows recorded for the prop bridge @5m and the options expression as a scalp vehicle. Phases: P0 cross-symbol transfer of the existing 5m logic to the universe above (config-exact, net-of-fee, per-(trend,vol) cells, k-fold OOS of the OFF-cell rule per symbol; 5m data pulled trainer-side — the sandbox proxy blocks exchange endpoints; per-symbol vol edges from the registry spec where present, else frozen from the training window and committed in the artifact); P1 timeframe sweep (15m/1m on BTC + P0 passers; re-validate the M15 finding that ict_scalp 15m XAUUSD survives fees +39R/+10R toward an OANDA leg; SPY intraday via Alpaca second); P2 geometry/cost tweaks (the ~0.20R/trade taker fee load at 5m stop widths is the binding constraint — maker-entry variant, stop/R:R grids, BE behavior, M20 exit levers on scalp legs); P3 new scalp archetypes (ORB, LTF VWAP-reversion, sweep-reversal + killzone-scoped variants) on the same harness; P4 per-leg promotion (alt-variant strategy entries via the new-strategy skill, shadow soak, own regime cells from own k-fold evidence, prop account-compat matrix, M20 exit processing, one Tier-3 packet per leg). Binding discipline (from the 2026-07-20 lessons): config-exact or it doesn't count; decision-time regime stamps only; fees always netted; R from price geometry never journal pnl; k-fold OOS before any proposal. Reusable assets: scripts/backtest_ict_scalp.py (--stamp-regime/--vol-spec-json/--sim-breakeven, mfe/mae emit), scripts/research/ict_scalp_phase0/{build_percell,kfold_oos,stamp_vol_post}.py, the Phase-4 packet template. Done-condition: committed coverage table (symbol x timeframe x variant), every cell promoted/rejected/blocked with numbers. Each work session logs its own sprint log and updates the M27 row.",
       "next_step": "P0 + re-pull follow-ups COMPLETE (2026-07-21) — all four batches resolved with evidenced verdicts, coverage.md fully updated: Batch-1 crypto (BTC done pre-M27; ETH/SOL/XRP/AVAX PASS — SOL/XRP/AVAX promoted execution:live on bybit_1; ADA mixed, gate doesn't transfer), Batch-2 futures (MES/MGC/MHG rejected at both 5m AND 15m — the 15m re-run confirmed the low signal count is a genuine liquidity characteristic, not a data-pull artifact; futures family closed, PB-20260721-M27-FUTURES-5M-LOWSIGNAL resolved), Batch-3 equities (re-run at 1h — GLD STRONG PASS 4/4 folds +0.49R/trade exp, SPY/TLT weak PASS, IWM/SLV/USO mixed, QQQ/GDX reject, IEF still underpowered; PB-20260721-M27-EQUITIES-DATACAP resolved), Batch-4 XAUUSD (STRONG PASS — ungated baseline 4/4 k-fold folds positive, +44.35R net over 240 OOS trades, exp +0.1848R/trade at 15m; re-validates the M15 Phase-0 screening finding under proper walk-forward; promotion is venue-blocked, not evidence-blocked — OANDA US can't trade XAU_USD, BL-20260611-007). GLD 1h is the standout uncommitted P4 candidate. Next session: P1 (15m/1m timeframe sweep on BTC + P0 passers) per the DESIGN doc, or a P4 promotion packet for GLD 1h.",
@@ -3054,7 +3065,8 @@
           "note": "Re-validated; this is an operator DECISION (Tier-3), not work a review can drain. Carried with the blocker named. Operator-directed milestone; program-level, not a review-drainable row."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260721-M27-FUTURES-5M-LOWSIGNAL",
@@ -3268,7 +3280,7 @@
       "title": "Allocator EV scorer fee term is not venue-aware — over-charges commission-free equities (parallel to the trade_costs fix)",
       "description": "src/runtime/allocator_ev.py::candidate_ev_score computes fee_R with a flat 7.5-bps roundtrip on the entry notional, regardless of venue. For US equities/ETFs on Alpaca (commission-free) this over-charges the EV cost term ~25x — the same bug just fixed on the close-path estimate (trade_costs, via profile_loader.roundtrip_fee_bps_for). HARMLESS TODAY: the M18 allocator is observe-only/parked (P2/P3 selection does not beat dumb priority; graduation is backtest-gated). But when the allocator graduates to actually select/size, its equity candidates would be systematically penalized vs crypto/futures, and decision-time cost would disagree with the logged (venue-aware) close-path cost. FIX: have candidate_ev_score resolve the per-symbol roundtrip bps via profile_loader.roundtrip_fee_bps_for (falling back to DEFAULT_FEE_BPS_ROUNDTRIP) so the two cost models agree.",
       "tier": "Tier-1 (observability; the allocator is parked so no live-routing impact until it graduates — then it becomes part of the Tier-3 graduation gate)",
-      "status": "snoozed",
+      "status": "kept_open",
       "trigger_condition": "Before the M18 allocator graduates past observe-only (P2+ selection/sizing), OR any allocator-EV backtest that includes equity candidates.",
       "resolution_criteria": "candidate_ev_score's fee_R uses the venue-aware per-symbol roundtrip bps (equities → ~0), verified by a test that an equity candidate's EV cost term is ~0 while a crypto candidate's is unchanged.",
       "updates": [
@@ -3298,7 +3310,8 @@
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
@@ -3853,7 +3866,7 @@
       "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
       "opened_at": "2026-08-17",
       "opened_by": "S-M31-P4-MFE-PARITY-2026-08-17",
-      "status": "snoozed",
+      "status": "kept_open",
       "severity": "low",
       "tier": 1,
       "area": "m20-exit-refinement",
@@ -3881,13 +3894,14 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs a trainer-side sweep re-run."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
       "opened_at": "2026-08-17",
       "opened_by": "S-M31-P5-RR-FLOOR-HARNESS-2026-08-17",
-      "status": "snoozed",
+      "status": "kept_open",
       "severity": "medium",
       "tier": 1,
       "area": "m31-position-telemetry / m20-exit-levers",
@@ -3910,7 +3924,8 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs per-leg candles via the trainer relay."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD",
@@ -4046,7 +4061,7 @@
       "opened": "2026-08-24",
       "severity": "medium",
       "tier": 3,
-      "status": "snoozed",
+      "status": "kept_open",
       "area": "research/bracket-geometry",
       "summary": "The e35 bracket joint grid walks atr_stop_mult {1.5, 2.0, 3.0, 3.5} and OMITS the live value 2.5 on all four clamp-dominated donchian 4h legs (eth/xrp/ada/sol). Every joint cell therefore changes the stop AND the target together, so 'does declaring a target at the geometry we actually run help?' is unmeasured — measured 2026-08-24 over 1,540 joint cells with a book. The per-leg deltas in docs/research/bracket-target-reachability-2026-08-24.md section 4 (sol_4h helps at 4/4 stops, ada_4h hurts at 3/4) are all joint-change results and must not be quoted as target-only effects.",
       "evidence": "docs/research/bracket-target-reachability-2026-08-24.md section 7; scripts/research/bracket_reachability_audit.py --corpus docs/research/e35-bracket-corpus.jsonl; stop_mult values present per leg = [1.5, 2.0, 3.0, 3.5], live = 2.5, present = False on all four legs.",
@@ -4059,7 +4074,8 @@
           "note": "Re-validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs a re-gridded sweep including the live stop."
         }
       ],
-      "snoozed_at": "2026-08-29T17:05:00+00:00"
+      "snoozed_at": "2026-08-29T17:05:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS",

@@ -269,6 +269,9 @@
       },
       {
         "note": "A FOURTH CORRECTION TO MY OWN OUTPUT, found after the report was first rendered and fixed in the same run. 513 timestamps I wrote into docs/claude/health-review-backlog.json were dated in the FUTURE \u2014 the triage batches carry `at` / `resolved_at` values from 17:15Z to 18:20Z, while `date -u` at the time of the check read 17:17Z and the commits that introduced them are stamped 16:47:02 through 17:06:59. So the record asserted observations at times that had not happened, on up to 455 rows. The performance and ml backlogs are clean (0 future stamps), which is the positive control that says this was a bad clock in one pass rather than a systematic habit. FIXED, not annotated: each fake value was mapped back to the AUTHOR TIME of the specific commit that introduced it, derived empirically by diffing each triage commit against its parent rather than guessed \u2014 17:15->16:47:02 (58b81b7), 17:25 and 17:35->16:53:04 (ff37907), 17:45->16:55:45 (d691542), 17:55->16:59:08 (259fc50), 18:05->17:02:42 (702176e), 18:15 and 18:20->17:06:59 (f8fe620). Every stamp is now verifiable against git rather than against my assertion. The batch shares one value per commit, which is honest: the rows in a batch were written together and I cannot reconstruct per-row times, so a shared true timestamp is the most precision the evidence supports. Recorded here because a triage note's whole value is that it says WHEN a row was last re-validated, and a future date makes that claim unfalsifiable."
+      },
+      {
+        "note": "A FIFTH CORRECTION, and the one with teeth: my triage wrote status:\"snoozed\" on 43 rows and `snoozed` is not in the backlog schema's status enum. `snoozed` appears ZERO times on origin/main, so all 43 were mine, introduced in commits that landed AFTER the last green CI \u2014 which is why 3083f34 passed Guards and this did not. claim-basis-guard, run locally against origin/main, named the consequence precisely: 'a free-text status makes the open count uncomputable'. It was ALREADY costing me accuracy in this very report \u2014 the 483-triaged-vs-456-open discrepancy I attributed to a terminal-status filter was mostly these 43 rows dropping out of the tally, and I explained the number away instead of chasing it. That is the failure mode RULE ONE names: a discrepancy in my OWN output, rationalised rather than verified. Fixed to \"kept_open\" with every snooze fact preserved elsewhere; the counts now reconcile against an independent raw scan (open 457 = 457 rows carrying a triage update; drained 67 = 67 rows with resolved_at in-window), where before they did not."
       }
     ],
     "pnl_by_class": {
@@ -2968,7 +2971,7 @@
         "total": 1007,
         "open": 457,
         "resolved": 550,
-        "drained": 55
+        "drained": 67
       },
       "performance": {
         "total": 109,
@@ -2982,7 +2985,7 @@
         "resolved": 83,
         "drained": 3
       },
-      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z, RE-RUN at 2026-08-29T17:18Z after merging origin/main into the review branch. The health figures moved 1006/456/50 -> 1007/457/55: main's #10420 added BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES mid-run (+1 total, +1 open), and the earlier count was taken before this run's last five resolutions landed.",
+      "_computed_by": "scripts/reports/backlog_counts.py --since 2026-08-25T09:25:00Z, RE-RUN at 2026-08-29T17:22Z after (a) merging origin/main and (b) fixing an off-enum status I had introduced. Health moved 1006/456/50 -> 1007/457/67. TWO separate causes, and the second was a defect in my own triage: main's #10420 added one open row mid-run (+1 total, +1 open); and my triage had written status:\"snoozed\" on 43 rows across all three files, which is NOT in the schema enum (invalid|kept_open|open|resolved|superseded|wont_fix), so those rows fell out of every tally the counter computes. claim-basis-guard caught it locally with exactly the right diagnosis \u2014 'a free-text status makes the open count uncomputable'. It had already bitten me: the 483-triaged vs 456-open gap this field previously explained away as a terminal-status filter was substantially THIS. Fixed by setting status:\"kept_open\" (a snoozed row IS still open) with every snooze fact preserved outside `status` \u2014 snoozed_at, snoozed_until, disposition:\"snoozed\", and the update note naming the trigger. The figures now RECONCILE: open 457 equals exactly the 457 open+kept_open health rows carrying a triage update, and drained 67 matches an independent raw scan of resolved_at in-window. `snoozed` appears zero times on origin/main, so all 43 were mine.",
       "_note": "`open` here excludes the terminal statuses invalid/wont_fix/superseded (10 health rows); my triage filter counted those as open, which is why it covered 483 health rows against this 456."
     },
     "tier3_proposals_pending": [
@@ -3613,7 +3616,8 @@
               "reason": "awaiting an operator promotion decision, or the registry stage field being populated (it reads None on all 96 rows) so soak age becomes readable."
             }
           ]
-        }
+        },
+        "schema_correction": "43 rows (12 health / 19 performance / 12 ml) were written with status:\"snoozed\", an off-enum value I invented during this triage. Moved to the in-enum \"kept_open\" with the snooze recorded in disposition/snoozed_until/the update note. This does not change WHICH rows were triaged or their dispositions \u2014 count_untriaged stays 0 in every domain \u2014 it changes whether a counter can SEE them, which is the whole point of the enum."
       },
       "authored_cells": {
         "assessed": false,

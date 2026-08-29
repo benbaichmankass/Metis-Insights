@@ -989,7 +989,7 @@
       "tier": 1,
       "trigger_condition": "market_microstructure side-car has accrued >= a few months of forward bars.",
       "resolution_criteria": "f1_volatile rises off the floor under purged CV with class weighting AND forward A/B is non-negative -> propose shadow.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": "2026-11-01",
       "evidence_log": [
         {
@@ -1269,7 +1269,7 @@
       "trigger_condition": "The D2a cross-asset shadow soak has accrued a few days of eth-regime-1h-lgbm-xasset-v1 predictions in shadow_predictions.jsonl with sane score distributions (no drift blow-up).",
       "resolution_criteria": "c_reg is populated from the cross-asset regime read in the observe-only conviction (visible in the conviction_sizing soak log) and verified sane; D4 (actual sizing influence) remains separately M16-P2+ backtest-gated + operator-approved.",
       "tier": 1,
-      "status": "snoozed",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:30:00+00:00",
@@ -1952,7 +1952,7 @@
       "tier": "Tier 1 (research; candidate-stage, offline)",
       "trigger_condition": "A daily or cross-asset head (daily direction/risk, or the M18 ranker revival) becomes an active experiment.",
       "resolution_criteria": "Either: corpus_emb clears the beat-BOTH-baselines gate on a task-matched head (→ promote-candidate), OR a task-matched head is A/B'd and corpus_emb still misses (→ T1.2 closes as a full negative, price+context representation exhausted for boosting heads).",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "evidence_log": [
         "2026-07-04: BTC-15m regime head — clean negative across 13- and 28-series corpus widths (evidence doc + S-M19-T1.2-SSL-AB-2026-07-04).",
@@ -1990,7 +1990,8 @@
           "note": "Re-validated: offline research, candidate-stage. Trigger: a task-matched-head A/B run. Trainer-blocked on disk (91.7%)."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260705-FC-SLTP-GEOMETRY",
@@ -2002,7 +2003,7 @@
       "tier": "Tier-1 (research/observability); any eventual fc→SL/TP-geometry order change would be Tier-3.",
       "trigger_condition": "Revisit if/when a live observe-only fc-geometry shadow-soak is built, OR if the offline simulator is made faithful (reproduces live exit behavior so fixed-resim matches real-realized).",
       "resolution_criteria": "Either (a) a live fc-geometry shadow-soak (exit_ladder_soak shape: log the fc-scaled SL/TP alongside the placed SL/TP per opening order, compare realized outcomes) shows a real net-R/maxDD improvement under the account rulesets, gating a Tier-3 proposal; or (b) the lever is closed as not-worth-pursuing after the soak shows no edge. A pure offline backtest is NOT sufficient (proven unfaithful here).",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "evidence_log": [
         "docs/research/T0.4-fc-sltp-geometry-evidence-2026-07-05.md — full 3-arm table + interpretation + reproduce steps.",
@@ -2042,7 +2043,8 @@
           "note": "Re-validated: the fc_geometry_soak surface exists and is the declared path (a). Trigger: enough soak volume to compare realized outcomes. Observe-only until then."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260705-FC-ADVISORY-READINESS",
@@ -2104,7 +2106,7 @@
       "tier": "Tier 1 (offline research; candidate-stage).",
       "trigger_condition": "Re-run when the harness's pre-cutoff paper n_train approaches ~1x the real n_train (contemporaneous accrual), or a new paper account back-fills history.",
       "resolution_criteria": "Either (a) a pooled-label head clears purged-CV on the real-money slice with a defensible n -> promote-candidate + shadow-soak proposal; or (b) paper->real transfer fails on the real slice -> D2 closes until real labels accrue (account-sizing decision), recorded as an honest negative.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "evidence_log": [
         "2026-07-05: ranked D2/priority-3 with full external citations in docs/research/M19-next-direction-recommendation-2026-07-05.md section 2 (meta-labeling evidence base, EPV/sample-size arithmetic, augmentation counter-evidence).",
@@ -2139,7 +2141,8 @@
         }
       ],
       "resolved_at": "2026-07-22T18:30:00+00:00",
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260712-EXIT-ANALYSIS-COVERAGE",
@@ -2206,7 +2209,7 @@
       "title": "Shadow-prediction history horizon limits trade-vs-score research joins",
       "detail": "Confirm whether the live VM rotates/truncates shadow_predictions.jsonl (or whether the sync started fresh); if history exists elsewhere (backfill log, rotated files), extend the sync so research joins reach further back. Also note the vol-regime heads' scores cluster >= 0.6 in the current window - worth a calibration look in the next /ml-review.",
       "severity": "low",
-      "status": "snoozed",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:30:00+00:00",
@@ -2231,7 +2234,8 @@
           "note": "Re-validated: a data-horizon limit, not a defect. Trigger: enough shadow history to make the trade-vs-score join viable."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260712-EXIT-HEAD-REMAINING-ROUNDS",
@@ -2322,7 +2326,7 @@
       "source": "ROADMAP M24 + docs/research/M24-net-r-cost-aware-DESIGN.md; unblocked by Slice B broker-truth cost capture (PR #6780)",
       "title": "M24 Net-R / cost-aware modeling — build the net-of-cost R label + reopen the cost-label-blocked tracks",
       "description": "Slice B delivered clean per-trade broker-truth fees (fee_taker_usd/fee_maker_usd) + funding (funding_paid_usd). P1: build a pure net_R=(gross_pnl-fees-funding)/risk_usd label pipeline + coverage report (broker vs estimate vs uncosted, by cell). P2: net-R re-grade of the M7 review aggregates + exit-refinement matrix (flag sign-flips vs estimate). P3: feed measured net-R + the correlation feature (MB-20260629-ALLOC-CORR) into allocator_ev + re-run the sizing-normalized A/B. P4: within-tick contrastive net-R ranker (the other T1.3 unlock). P1/P2 Tier-1 offline; P3/P4 observe-only until a sizing-normalized A/B passes + operator. Anchors MB-20260629-ALLOC-COSTCAP (delivered), MB-20260629-ALLOC-CORR, MB-20260530-001.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2348,7 +2352,8 @@
           "note": "Re-validated: blocked behind cost-label coverage (see MB-20260717-M24-FUNDING-VISIBILITY). Trigger: that row's coverage gap closing."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260717-M23-META-LABEL",
@@ -2357,7 +2362,7 @@
       "source": "ROADMAP M23 + docs/research/M23-meta-labeling-DESIGN.md; formalizes MB-20260705-META-LABEL-WALL",
       "title": "M23 Meta-labeling program — per-signal take/skip head; P2 next lever is label volume",
       "description": "P1 (in-distribution backtest-augmented meta-label pipeline) built this session; honest result: the pooled multi-strategy head's edge is base-rate-between-cells not a within-cell take/skip edge (the M18-ranker failure mode) -> thin signal at current label volume. P2 = label-volume expansion (extend market_raw coverage MB-20260712-EXIT-ANALYSIS-COVERAGE + per-trade backtest rows MB-20260530-001 + backtest/live label parity gate before pooling). P3 = per-cell/per-family heads (within-cell edge, not global pool) -> shadow. P4 soak->advisory. P5 gate a live entry (reductive-only *_MODE, Tier-3, backtest-A/B-gated). Trains against M24's net_R label.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -2393,7 +2398,8 @@
           "note": "Re-validated: P2's stated lever is label volume, which accrues with trading. Trigger: label volume."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260717-M25-PROMO-CONSOLIDATE",
@@ -3049,7 +3055,7 @@
       "tier": 1,
       "trigger_condition": "P1a landed. Next: P1b — wire an injected point-in-time EIA-storage/weather/NG-price reader and run the holdout calibration gate on gas_storage_price_v1; blocked on the same real point-in-time macro data as the M28 producer (MB-20260723-M28-VALUATION-PRODUCER-UNWIRED). Then P2 (AI sysID over real fits) -> P3 scenario soak -> P4 gate.",
       "resolution_criteria": "M29 P4 backtest run with a recorded verdict: PASS -> a Tier-3 c_macro graduation proposal; FAIL -> an honest findings doc and the capability stays observe-only research. A rigorous negative is a completed outcome.",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -3081,7 +3087,8 @@
         }
       ],
       "resolved_at": null,
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260726-XSYMYZ-RANGEVOL-DEAD",
@@ -3145,7 +3152,7 @@
       "title": "Bybit open-interest history only covers recent months — open_interest_change reads ~99.6% dead over the >=5y funding training window",
       "description": "The funding/OI side-stream IS wired (ICT_BUILD_FUNDING_OI=1) and funding_rate/_zscore/_abs_z populate correctly across the window. But Bybit's V5 open-interest-history endpoint (ccxt fetch_open_interest_history) only serves ~recent months regardless of the `since` cursor, while the funding manifests train on the rolling >=5y window (MARKET_START = 5 years ago). So open_interest_change / open_interest_change_zscore are 0.0 for the pre-OI-availability ~99% of rows — the audit correctly flags them dead. This is an upstream data-coverage limit, not a pipeline bug (silenced as open_interest_* only on btc-regime-1h-lgbm-funding-v1; funding_rate* left live). OPTIONS for whoever picks this up: (i) re-scope the funding manifests' dataset window to the OI-available window (a few months of 1h bars) so OI is dense — at the cost of a much shorter training set; (ii) source a deeper OI history from another provider; (iii) accept OI as a sparse recent-only feature and drop the OI columns from the funding manifests, keeping only funding_rate. The funding heads are research_only/offline (zero live-order impact), so this is not urgent. Also affects btc-regime-1h-lgbm-funding-svble-v1 (same 1h dataset).",
       "tier": 1,
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -3171,7 +3178,8 @@
           "note": "Re-validated: an upstream venue data-horizon limit (Bybit OI history), not something this repo can fix. Trigger: a longer OI source, or the training window shortening to where OI is populated."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260727-CONVICTION-AB-AUC",
@@ -3181,7 +3189,7 @@
       "title": "M16 conviction A/B: matched-holdout AUC read (both models on identical live rows)",
       "description": "The A/B verdict was NEGATIVE on accuracy (v1-bt 0.5247 <= v1 0.5250, both below the ~0.64-0.66 majority-class baseline); conviction-meta-v1-bt stays candidate/observe-only. The rigorous cut NOT yet run: evaluate BOTH models on the IDENTICAL held-out live rows and compare AUC / log-loss (the metric the conviction stacker is actually used for — ranking/sizing, not 0.5-threshold classification). The current A/B used each model's own time_aware_holdout (n=385 union vs n=80 live-only), so the holdout row sets differ. Method: build the live conviction_meta dataset once (db_path pointed at the pulled trainer journal), take a fixed time-ordered live split, score v1-bt and v1 on the SAME eval rows, report AUC + log-loss + calibration by source. LOW priority + LOW expected value: the promotion verdict is very unlikely to flip (both at/below coin-flip on accuracy; augmentation gave no lift), so this is rigor/completeness, not a live decision — and the real bottleneck is the tiny live label pool (~400 rows), so also revisit only if that grows materially. Parent (resolved): BL-20260727-CONVICTION-UNION-NO-LIVE-ROWS (health-review-backlog). Recipe + verdict: docs/research/m30-to-m16-integration-backbone-DESIGN.md sec 5.4/6.",
       "tier": "Tier-1 (research; any eventual promotion past candidate is Tier-3/operator)",
-      "status": "snoozed",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -3210,7 +3218,8 @@
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
@@ -3336,7 +3345,7 @@
       "opened_at": "2026-08-14T05:40:00+00:00",
       "opened_by": "claude (M20 overnight session 2026-08-13)",
       "severity": "low",
-      "status": "snoozed",
+      "status": "kept_open",
       "title": "The 'exit_head_ml only works on ict_scalp' read was formed entirely on NO-TAKE-PROFIT books -- the first round run at live-parity TP returned a non-scalp candidate at equal AUC",
       "source": "The standing read, recorded on the ict_scalp_sol_5m coverage cell, is 'all 5 surviving candidates are ict_scalp; every non-scalp family in the re-run is honest_negative'. It is the basis of the operator-queued question 'is exit_head_ml scalp-family-scoped?'.\n\nOn 2026-08-14 m20_exit_head_round.py was found STRUCTURALLY unable to pass a take-profit cap (BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP): it called base_args positionally so tp_cap_pct defaulted to 0.0, and its argparse had no --tp-cap-pct at all. Measured: 11 of 13 audited round dirs contain ZERO take-profit exits over full populations (n=100..1992). So EVERY non-scalp honest_negative behind the scalp-scoping read was measured on a book production does not run.\n\nThe first round built after the fix, at live parity, returned trend_donchian_eth_prop as a CANDIDATE -- n_oos=902, auc=0.6138, beats_actual=20/24, beats_hard=16/24 -- against ict_scalp_sol_5m's auc=0.6149 on n_oos=800. That is the first non-scalp E1 candidate.\n\nWHAT THIS IS AND IS NOT. It is NOT a like-for-like counterexample and must not be cited as 'donchian passes too': the two are on different geometries and therefore different populations. What it establishes is that the scalp-scoping read rests on geometry-conditioned evidence and has never been tested at the geometry production actually runs. One leg is not that test.",
       "resolution_criteria": "Observable: the non-scalp legs that returned honest_negative in the pre-fix E1 re-run are re-run at live-parity TP (the driver now DEFAULTS to it, so this is a re-run and not a code change), and the scalp-scoping question is answered against that population -- either 'the read holds at correct geometry' or 'it does not'. The comparison must state its geometry on BOTH sides; a mixed-geometry table would reproduce the exact error this row exists to prevent. Scale note: this is a fleet-wide re-run and the DISPOSITION of anything it promotes is Tier-3. NOT resolution: treating the single trend_donchian_eth_prop candidate as having settled it in either direction.",
@@ -3360,7 +3369,8 @@
           "note": "Re-validated: this is a RE-RUN at live-parity TP, so it needs trainer capacity. Trigger: trainer disk headroom. Blocked behind the same 91.7% disk as MB-20260712-EXIT-ANALYSIS-COVERAGE."
         }
       ],
-      "snoozed_at": "2026-08-29T17:00:00+00:00"
+      "snoozed_at": "2026-08-29T17:00:00+00:00",
+      "disposition": "snoozed"
     },
     {
       "id": "MB-20260821-CYCLE-TRAINED-ZERO-AND-SEVEN-MANIFESTS-STALE",
