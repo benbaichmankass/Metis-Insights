@@ -1560,6 +1560,52 @@ class Coordinator:
                             "fetch failed for %s: %s — sizer falls back to buffer",
                             (account.exchange or "").lower(), account.name, _bp_exc,
                         )
+
+                    # T+1 CASH SETTLEMENT. Backlog row:
+                    # BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED
+                    # On a CASH account, sale proceeds
+                    # are not spendable until they settle, and buying with
+                    # unsettled funds is a good-faith violation that gets the
+                    # account restricted. `available_usd` above is the venue's
+                    # buying power, which MAY still include unsettled proceeds
+                    # — we could not establish whether Alpaca nets them out,
+                    # because the live account has never held an unsettled
+                    # balance (see src/runtime/cash_settlement.py).
+                    #
+                    # The measurement runs for every alpaca account; only the
+                    # ALLOWLIST decides whether it may bind. That split is
+                    # deliberate: scoping the measurement to the allowlist is
+                    # the mistake NETTING_ATTRIBUTION_ACCOUNTS had to correct,
+                    # because it made the account being staged TOWARD invisible.
+                    if (account.exchange or "").lower() == "alpaca":
+                        try:
+                            from src.runtime import cash_settlement as _cs
+
+                            if _cs.settlement_mode() != "off":
+                                _sb = _cs.resolve_for_account(account.name, client)
+                                _bind = _cs.may_apply(account.name)
+                                if (
+                                    _bind
+                                    and _sb.basis_usd is not None
+                                    and (
+                                        available_usd is None
+                                        or _sb.basis_usd < available_usd
+                                    )
+                                ):
+                                    available_usd = _sb.basis_usd
+                                _cs.record_observation(
+                                    account_id=account.name,
+                                    basis=_sb,
+                                    available_usd=available_usd,
+                                    applied=bool(_bind),
+                                )
+                        except Exception as _cs_exc:  # noqa: BLE001
+                            # Never break dispatch on an observability path.
+                            logger.warning(
+                                "multi_account_execute: cash-settlement basis "
+                                "failed for %s: %s — sizer keeps the venue figure",
+                                account.name, _cs_exc,
+                            )
                 from src.units.accounts.risk import requires_whole_unit_qty
                 if _is_prop_bridge:
                     # Sentinel: the real (ruleset) size is computed in
