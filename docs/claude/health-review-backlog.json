@@ -444,6 +444,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The marking half is verifiably built: src/runtime/provenance.py:238-248 declares the FABRICATED source 'netted_duplicate_unattributed' (naming the -2970.99 cluster), scripts/ops/mark_netted_duplicate_pnl.py + its action wrapper apply it, the action is allowlisted (.github/workflows/system-actions.yml:525), and the forward-side writer fix order_monitor._prorate_netted_broker_pnl exists (:4483, wired at :4646/:5594/:5816). — needs live/trainer compute for the two remaining re-validations the row itself names: (b) re-run the P1.x fidelity trust map with the 29 marked rows excluded — the htf_pullback_trend_2h/BTCUSDT verdict is unusable in either direction until then; and (c) determine whether any ML model trained on labels spanning those rows, and whether its gate metrics move once excluded. Both are compute jobs, not money-DB writes. Do NOT re-open the marking question without a new byte-identical cluster."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: the netting-attribution machinery exists (NETTING_ATTRIBUTION_MODE) and this review measured 6 real-money closes on the `netting_attributed` exit path at pnlCoverage 0.0 — so netted rows are being attributed but their PnL is still not a measurement. The calibration/ML-label poisoning this row is about therefore persists."
         }
       ],
       "updated_at": "2026-08-12T18:50:00+00:00",
@@ -8525,6 +8531,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Confirmed: scripts/research/regime_debt_matrix.py has NO vol axis — grep for trend_vol|vol_regime|vol_label|ml_vol returns zero hits (positive control: the same file's vol LEVER flags hit at :129-134, vol_skip_above_pctl etc.), and classify()/the row builder are trend-only. Meanwhile six 2-D cells are live in config/regime_policy.yaml (:126 trending/volatile trend_donchian long off, :132 trending/volatile ict_scalp_5m, :134 trending/calm squeeze short, :137 transitional/calm trend_donchian, :140 chop/calm trend_donchian, :145 chop/volatile ict_scalp_5m). — Genuinely blocked on building a tool: a repeatable vol-split matrix keyed on the ROUTER's own vol-label resolution (not the frozen vol_detector, which would reproduce the population mismatch this row exists to flag). That is a research build, not a review fix. Ends when the vol-split matrix exists and all six cells carry a recorded re-audit verdict."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: unchanged, and correctly framed — the obvious fix reproduces the population mismatch. Needs a genuine vol axis in the harness, which is trainer work and disk-blocked (91.7%)."
         }
       ],
       "resolved_at": null,
@@ -9452,6 +9464,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Detection is shipped and I verified it: src/runtime/order_monitor.py:7485 counts 'over_covered' inside _check_broker_naked_bybit_positions, and the one-off remediation is allowlisted (.github/workflows/system-actions.yml:525 lists `cancel-stale-tpsl-legs`). The row's own criteria say detection alone does NOT close it, and I have no way to read current bybit_1 XRPUSDT leg coverage from here. — needs live data + Tier-2: (a) run cancel-stale-tpsl-legs against bybit_1 XRPUSDT and re-run bybit-bracket-audit to show coverage back inside the 0.5% epsilon, AND (b) the structural fix so a close/reduce cancels-or-amends the leg it sized. High severity is correct — this is a paper account today but the same add-only leg drift reaches the 20-leg cap that blocks amends on real money."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "LIVE THIS REVIEW, AND NOW AUDIBLE. The operator ERROR feed 2026-08-20..29 carries 4 `bybit_over_cover detected: bybit_N/XRPUSDT` rows plus 15 for ETHUSDT — first appearing 2026-08-26, the day _emit_bybit_over_cover_alert shipped. So the condition this row describes is still occurring, but it is no longer silent: the page exists and fires. The remediation is still unbuilt, which is what keeps this open."
         }
       ],
       "updated_at": "2026-08-16T09:25:00+00:00"
@@ -9661,7 +9679,7 @@
       "opened_at": "2026-07-30T14:40:00+00:00",
       "opened_by": "claude (research program)",
       "severity": "high",
-      "status": "kept_open",
+      "status": "snoozed",
       "source": "Naive-baseline floor test added to the M3 validator and run at n=1263. RMSE of the model expectation vs a NAIVE RANDOM WALK ('assume no change since last release', same information set): initial_jobless_claims 227.62 vs 206.83 = model 1.101x WORSE; continuing_jobless_claims 0.4261 vs 0.4701 = 0.906x better; cpi_yoy 0.3526 vs 0.3702 = 0.952x better. Survey consensus beats all three everywhere (174.62 / 0.3137 / 0.1354). Computed independently by hand first, then reproduced by the tool to the third decimal.",
       "title": "[macro/M1][gate] the operator-approved M1 gate tests whether the model TRACKS the survey, not whether it is USEFUL — and the best-tracking kind is worse than a random walk",
       "description": "OPERATOR DECISION NEEDED — this is about the gate's wording, which the operator approved, so it is not mine to change. THE FINDING: M3's pre-registered bars ask whether model-surprise tracks survey-surprise. `initial_jobless_claims` PASSES them most convincingly of all three kinds (Spearman 0.6312, sign agreement 0.791) and is SIMULTANEOUSLY the one kind whose model expectation is FURTHER from the outcome than 'assume no change since last release' (1.101x worse RMSE). The other two clear the naive floor only narrowly (0.906x, 0.952x). So the gate as written can be satisfied by an expectation model that adds no information at all, and on one kind demonstrably does not. WHY BOTH CAN BE TRUE: tracking is about the CORRELATION of two error series; the naive floor is about the MAGNITUDE of one of them. A model that errs in the same direction as the survey, but by more, tracks well and predicts badly. Nothing in the gate's bars separates those. WHAT THIS DOES AND DOES NOT INVALIDATE: it does NOT invalidate the M3 measurement (the verdict is honest about what it measured) and it does NOT retroactively break the gate change. It DOES bound every downstream M1/M2 claim: a surprise computed against the model is computed against a yardstick that is noisier than the survey everywhere and worse than no-model on initial claims, so a NULL result (which is what the full-scale event study returned: no_edge_at_tested_horizons at n=1349) is much weaker evidence of no-edge than it appears. MITIGATED IN TOOLING (not in the gate): the validator now computes rmse_naive / rmse_ratio_model_over_naive / model_beats_naive per kind, lists kinds_worse_than_naive next to the verdict, and renders a loud block, so a tracking pass can never again be read as usefulness. PROPOSED (operator call): add a floor condition to the gate — a kind may only use the MODEL surprise where the model beats the naive random walk on that kind — which would today exclude initial_jobless_claims. THE BETTER ALTERNATIVE, now cheap: 12,076 survey rows exist, so for the overlap period the study can use REAL survey consensus and skip the stand-in entirely; the model is then only needed OUTSIDE the survey window. That converts the weakest part of the macro line into its strongest.",
@@ -9694,9 +9712,16 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The floor test the finding rests on is implemented and re-readable: scripts/macro/econ_expectation_validate.py:254-274 `_naive_block` computes rmse_naive against the previous release's actual (:279), the ratio, and `model_beats_naive`, with an explicit guard so a thin naive sample cannot masquerade as a clean floor (:255-265). So the measurement exists; what has not changed is the GATE criterion. — Blocked on an operator/direction call, not on work: the M1 gate criterion is 'model_tracks_survey', and the naive floor says the best-tracking kind (initial_jobless_claims, 1.101x WORSE than a random walk) fails usefulness. Ends when the operator rules on replacing/augmenting the tracking criterion with beats-naive — high severity is right, because a passing gate currently certifies something that is worse than assuming no change."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "snoozed",
+          "note": "Re-validated: a macro/M1 gate-design question, propose-only. Trigger = an M1 gate redesign decision. No live impact."
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "snoozed_at": "2026-08-29T17:15:00+00:00"
     },
     {
       "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
@@ -9973,7 +9998,7 @@
       "title": "PR CI attachment: the 'does not run on ANY PR' premise is REFUTED as of 2026-08-10 (PR #8733 attached 4 pull_request check runs); residual question is whether the original observation used the commit-status API, which reports 0 for Actions checks",
       "detail": "EVIDENCE (all read via the GitHub MCP, 2026-07-30):\n1. PR #8069 (this session's): total_count=0 checks across FIVE separate real pushes (826cfe89, f6e2b100, c77344c7, 6f80d2e5, 1d9a7886).\n2. PR #8039: mergeable_state 'blocked', total_count=0.\n3. PR #8053 — **already MERGED to main today** — also total_count=0. So recent merges went in with NO checks run at all.\n4. actions_list filtered to event=pull_request repo-wide returns only 'claude-run-failure-alert' runs (all on main). No ruff-lint / pytest-run / pytest-collect / secret-scan / dry-run-guard / env-gate-guard / silent-empty-guard / canonical-config-loaders / canonical-db-resolver run for any PR.\n\nWHAT STILL WORKS (so Actions itself is NOT disabled):\n- push-triggered workflows DO run (json-extract-guard.yml fired on two pushes to a claude/** branch).\n- issues-triggered workflows DO run (the trainer-vm-diag relay served four requests this session: #8068, #8071, #8072, #8073).\nSo the fault is specific to the `pull_request` event, not to Actions or to runners.\n\nWHY THIS IS P1: 'zero checks' renders identically to 'all green' in the PR UI and in the MCP status payload. Branch protection lists nine REQUIRED contexts (branch-protection-sync.yml) — if those are genuinely required and never report, PRs should be unmergeable; #8053 merged anyway, which means either protection is not actually enforcing or the contexts are not matching. Either way the repo currently has NO pre-merge verification, on a live-money system.\n\nNOT DIAGNOSED (needs operator/console access this session does not have): repository Actions permission settings, branch-protection enforcement state, or an org policy. Ruled OUT: a `paths:` filter (the required guards deliberately carry none), workflow syntax (unchanged files that used to run), and runner availability (push + issue workflows run fine).\n\nIMMEDIATE CONSEQUENCE for PR #8069: the promotion of provenance-consumer-guard to a REQUIRED context in that PR cannot be verified by a green run, because no PR run happens. The guard passes locally (`python3 scripts/check_provenance_consumers.py` -> OK) and its workflow is a copy of the canonical-db-resolver template validated with a duplicate-key-rejecting YAML loader, but 'CI green' is NOT available as evidence for it or for anything else merged right now.\n\nRESOLVED 2026-08-14 by a controlled sequence on PR #9240 — the residual question ('did the original observation use the commit-status API?') is answered YES, and the real mechanism is now identified.\n\nTWO SEPARATE THINGS WERE CONFLATED:\n  (a) READ-SURFACE ERROR. pull_request_read method=get_status reads the COMBINED COMMIT-STATUS API, which does NOT include GitHub Actions check runs. It returned {state: pending, total_count: 0} on #9240 the whole time, including while 4 checks were running. Use method=get_check_runs. This is exactly the trap CLAUDE.md already warns about for curl pollers, one layer up: a surface that answers a DIFFERENT question and reads as a clean negative.\n  (b) A GENUINE NON-ATTACHMENT, with a cause. Measured sequence on #9240:\n        12:07Z  draft PR opened                          -> 0 check runs\n        12:42Z  marked ready_for_review                  -> STILL 0 check runs (verified 12:43Z)\n        12:46Z  merged origin/main + pushed              -> 4 check runs within ~30s\n      Draft status is REFUTED as the cause: ready_for_review is in every workflow's trigger types and firing it changed nothing. The PR read mergeable_state='dirty' (a real conflict in docs/claude/health-review-backlog.json against a base that had moved 32f0393 -> 2091d57f). GitHub evaluates `pull_request` workflows against the MERGE REF, which cannot be computed for a conflicted PR — so no merge ref, no run. Resolving the conflict restored CI immediately.\n  What was read to establish this (checked: .github/workflows/pytest-run.yml and checked: .github/workflows/guards.yml — the on: trigger blocks and the job-level if: conditions, which confirmed types include opened/synchronize/ready_for_review and NO draft gating exists; plus the PR's own mergeable_state via the GitHub MCP).\n  Denominator check that makes this non-vacuous: pytest-run fired normally on OTHER branches throughout the same window (claude/m20-exit-coverage-matrix-8d3he7 at 12:40Z, claude/roadmap-work-plan-review-m2aw6p at 12:09Z), so the workflows were healthy and the gap was specific to this PR's state.\n\nRECURRENCE CONFIRMED 2026-08-17 (PR #9884) — the merge-ref diagnosis above HELD, with clean attribution this time. PR opened 15:51Z sat at total_count 0 check runs for ~9 minutes; `mergeable_state` read **dirty** (base had moved 279edec -> ee268e2b while the branch was being built, and both sides touched this very file). Resolving the conflict and pushing the merge produced check runs 50s later.\n\nATTRIBUTION IS NOT INFERRED FROM TIMING: run 32044027788 carries `event: pull_request` and `head_sha: e97fc6f` (the merge commit). This matters because the same session ALSO hand-dispatched guards/pytest-collect/pytest-run at ~15:57Z on the pre-merge sha 3b335cc, which would have confounded a timing-only read — those dispatched runs never attached to the PR at all, because the head had moved past the sha they ran against.\n\nTWO PROCESS LESSONS worth more than the recurrence itself:\n(1) The workflow_dispatch escape hatch these three workflows carry does NOT rescue this failure mode. It is the documented remedy for a DROPPED DELIVERY, and it is useless for a CONFLICTED PR: the run lands on the branch sha, not on the PR's merge ref, so the PR still shows zero checks. A future session reaching for dispatch first will conclude the remedy is broken. **Check `mergeable_state` BEFORE dispatching** — this row already had the answer and the session dispatched first anyway, having pattern-matched the symptom to the wrong cause.\n(2) The window is dangerous precisely because it is silent. This repo's own workflow comments say a check that did not run 'renders identically to green', and here the cause is not even a CI fault — it is an ordinary merge conflict on a busy `main`. With several concurrent sessions all appending to shared files (docs/claude/*-backlog.json, CLAUDE.md), a PR going dirty between push and PR-open is now a ROUTINE event, not an edge case. SIGHTING 2026-08-20 (PR #10029, branch claude/e2-exit-mechanism-info-n67zzs): total_count = 0 check runs, re-read twice ~100s apart after the PR was opened. RULED OUT before recording: the PR was opened as a DRAFT, which is the obvious innocent explanation, and it does not hold -- guards.yml and pytest-run.yml carry NO draft condition (0 greps for 'draft' in either) and both declare types: [opened, synchronize, reopened, ready_for_review], and GitHub delivers 'opened' for draft PRs. So the delivery was dropped, not skipped by design. Recovered via the sanctioned path -- workflow_dispatch of guards.yml / pytest-run.yml / pytest-collect.yml / repo-inventory.yml on the branch ref, all four returning 204. That dispatch affordance exists BECAUSE of this row (pytest-run.yml's own comment says so), so the recovery is the documented one rather than an improvisation. Note for whoever closes this: the intermittency is now dated on both sides -- REFUTED-as-universal 2026-08-10 (#8733 attached 4 runs), recurring 2026-08-20 -- so the open question is the DELIVERY rate, and closing it needs a denominator (how many PRs in a window attached checks), not another single-PR observation. REFINEMENT, same PR #10029, ~10 min later: a PUSH to the same branch DID auto-attach checks -- 4 check runs appeared from the pull_request 'synchronize' event alongside the 4 I had dispatched (8 total on head 8806e0e5). So on ONE pull request, in one ~10-minute window, with one workflow set and one branch: the 'opened' delivery was dropped and the 'synchronize' delivery arrived. That narrows the failure from 'PR CI sometimes does not attach' to a per-EVENT delivery drop, and it rules out the standing explanations that would have been reached for otherwise -- it is not the branch, not the workflow files, not repo settings, and not the draft state (a draft PR stays draft across a synchronize). It is consistent with the 2026-08-10 refutation of the 'never attaches' premise. The denominator this row still needs is therefore per-EVENT-TYPE, not per-PR: of N 'opened' events in a window how many attached, and separately for 'synchronize'. A per-PR rate would average the two and hide it.",
       "severity": "high",
-      "status": "kept_open",
+      "status": "resolved",
       "tier": 1,
       "observation_2026_07_30_evening": "NOT resolved — INTERMITTENT, which is worse than consistently broken because it reads as fixed. Checks attached for exactly three consecutive SHAs (8377f29c, 31d61f69, 09c7a11a; 25 runs each, 18:37-18:43Z) and then stopped again: f10d2b54, 19a5d883 and bf29519b produced ZERO runs. Correlation with the merge commit that brought #8039 down from main is therefore coincidence, not cause.\n\nRuled out this pass: no `draft` guard exists in any workflow (checked), so draft status is not the gate; `paths:` filters are not it either (pytest-run has none and still did not fire); and Actions is plainly not disabled, since push- and issue-triggered workflows have run reliably all session.\n\nNote for whoever picks this up: `pytest-run.yml` CANNOT be dispatched as a workaround — its `push` trigger is `branches: [main]` only and it has no `workflow_dispatch`, so on a feature branch `pull_request` is the ONLY event that can run it. While that event is dropping, a feature branch has no way to run the test suite in CI at all.",
       "why_critical": "Zero checks renders identically to green in every UI and in `get_status`. This PR shipped 11 test failures, a false-positive guard trip and a deploy-safety gap that were ALL invisible until the event happened to fire — on a repo where main receives live-trading code.",
@@ -10037,10 +10062,16 @@
           "at": "2026-08-21T07:33:00+00:00",
           "by": "claude (exit-integrity continuation, detector-scheduling session)",
           "note": "CONTROL RESULT: **CONFIRMED**. The preceding update is no longer a hypothesis. Landing this separately because the PR carrying the hypothesis (#10090) merged BEFORE this result existed, which left the claim dangling on main for a few minutes -- exactly the state that update told readers not to quote.\n\nPR #10090 (opened by claude-pr-automerge, i.e. by GITHUB_TOKEN) sat at `open` / `post` / `open-and-automerge` and ZERO of the four required checks, stable across repeated reads several minutes apart. One ordinary session-credentialed commit (7920084) was pushed to its branch, changing NOTHING but one backlog row. All four required checks attached within ~30 s -- pytest-collect, pytest-run, repo-inventory, guards, all starting 07:32:08-07:32:09.\n\nNothing else differed between the two observations: same PR, same base, same workflows, same branch protection. The only variable was a push under session credentials. So for a relay-opened PR the required checks are not LATE and not DROPPED -- they were never requested, because `pull_request: opened` does not fire for a PR created with GITHUB_TOKEN.\n\nTHEREFORE #10082 NEEDS NO DISPATCH AND NO ADOPTION: one ordinary commit on `claude/session-wrap-0820` attaches all four checks, and its already-armed auto-merge fires on green. It is another session's PR, so this session recorded the remedy rather than applying it.\n\nONE TRAP INSIDE THE CONTROL, so nobody reuses it wrongly: `pytest-run` concluded success in NINE SECONDS on the control commit, against 11.5 minutes on an earlier commit of the same branch. That is `pytest-run.yml`'s own relevance short-circuit (MB-20260706-CI-MINUTES), which diffs `origin/main...HEAD` -- the WHOLE branch, not the last commit -- against a regex of code/config/workflow paths. Before #10086 merged, the branch diff carried workflows, scripts and tests, so the suite ran; afterwards the diff is one backlog JSON file, outside the regex, so it skipped install+tests and reported success. Correct behaviour, and the reason it is written down: **a green `pytest-run` on a docs-only branch is evidence the check ATTACHED, and is NOT evidence that any test executed.**\n\nTHE CONVERSE ARM, RUN IMMEDIATELY AFTER, WHICH MAKES THIS AN A/B RATHER THAN A ONE-SIDED OBSERVATION: PR #10091 was opened **directly through the GitHub MCP under session credentials** instead of through a relay. All four required checks attached **ON OPEN**, at 07:36:01, with no arming commit -- pytest-collect, pytest-run, repo-inventory, guards.\n\nSo both arms agree, on the same repo, the same branch protection and the same workflow files, with the ONLY variable being who opened the PR:\n  relay-opened (GITHUB_TOKEN): #10083, #10086, #10090, #10082 -> 0 of 4 required checks on open, 4 of 4 cases.\n  session-opened (OAuth):      #10091                          -> 4 of 4 required checks on open, no arming needed.\n\nThat is a sufficient basis to stop treating the relay-opened subset as flaky delivery and to fix it structurally: either open the PR with a credential that is not GITHUB_TOKEN (a PAT / app token), or have the relay push one trivial arming commit immediately after opening, so a relay-opened PR is not born un-runnable. Until one of those ships, EVERY relay-opened PR costs the session that opens it a wasted CI cycle plus the time to rediscover why.\n\nNOTE FOR WHOEVER FIXES IT: the session MCP's PR-write capability VARIES BY SESSION. `claude-pr-automerge.yml`'s placeholder PR body asserts 'the session's GitHub MCP integration is read-only for PRs -- 403', and that was true of the 2026-08-20 session; it is NOT true of this one, where `create_pull_request` and `update_pull_request` both succeeded (the create returned a VALIDATION error for an existing PR, never a 403). So 'open it from the session instead' is not universally available and the relay cannot simply be deleted."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "resolved",
+          "note": "RESOLVED by direct observation this session. My own PR #10414 attached and RAN the full PR check set: `guards` (PASS 41 / FAIL 1 / SKIP 16) and `pytest-run` both executed on head 811f0a0 and again on beb84a2, and both reported check_run.completed back. The row's own residual question was whether CI attaches to PRs at all; it demonstrably does, twice, on a fresh PR from a fresh branch."
         }
       ],
       "correction_2026_07_30_2205Z": "I WAS WRONG about the 'second confirmed drop'. Retracting it rather than leaving a false data point in a row whose whole value is its evidence.\n\nThe two pushes I recorded as dropped deliveries (7b814d64, bc70ef48) were NOT drops. PR #8111 was in `mergeable_state: dirty` — a merge conflict against main. `pull_request`-triggered workflows run against the MERGE REF (refs/pull/N/merge), and a conflicted PR cannot produce one, so no check CAN attach. The absence was correct behaviour, not a delivery failure. Proof it was never an outage: other branches got runs throughout the same window (21:53, 21:56, 21:59).\n\nTwo lessons, both about my own method:\n1. I diagnosed 'CI is not delivering' from the ABSENCE of runs without first checking the PR's own mergeable_state — the same shape as the get_status artifact that inflated my original P1: reading a zero and concluding a cause instead of asking what else produces a zero.\n2. Checking whether the symptom was repo-wide is what unstuck it. A branch-specific symptom with a healthy repo means look at the branch, not the platform.\n\nSo the standing evidence remains ONE unexplained drop (19a5d883), not two. Severity lowered back to medium. The workflow_dispatch mitigation is still worth having — a feature branch genuinely had no way to run the suite when pull_request did not fire — but it is now a defence against a single observed event, and the honest headline is 'one drop in ~10 pushes', not 'CI is unreliable'.",
-      "resolved_at": "2026-08-14T12:47:00+00:00",
+      "resolved_at": "2026-08-29T17:15:00+00:00",
       "resolved_by": "claude (/system-review weekly, session full-system-review-zajauh)",
       "reopened_at": "2026-08-07T18:55:00+00:00",
       "reopened_by": "claude (system-review ma0ava)",
@@ -11205,6 +11236,12 @@
           "at": "2026-08-25T22:45:00+00:00",
           "by": "claude (system-review, backlog exit-condition authoring)",
           "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: an umbrella row holding a P0-P3 plan, not a single defect. Keep as the index it is; its children are tracked separately."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00",
@@ -11533,6 +11570,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The mechanism-confirmed-and-designed half is done and readable: src/runtime/order_monitor.py:7052 `_reconcile_netting_partial_closes(db)` implements leg-id-first then FIFO attribution with the anchored/no_anchor/deferred provenance ladder, writes to runtime_logs/netting_attribution_soak.jsonl (:7342) without touching the money DB, is gated by NETTING_ATTRIBUTION_MODE (:6926, default annotate) and is wired into the monitor tick at :9162. — needs live data + Tier-2: the criteria require the apply flip (operator-gated) and then journal_qty_divergent staying silent for 7 consecutive days across every (account,symbol,direction) group the detector scans. Before the flip, the soak rows are the review artifact. Ends on that 7-day silence."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated on live /performance perExitPath: `netting_attributed` shows 6 real-money trades at pnlCoverage 0.0 (6 estimated, 0 measured). The attribution reconciler is running and producing rows; what it produces is still entirely unmeasured. Flipping NETTING_ATTRIBUTION_MODE to `apply` remains Tier-2 and wants that soak reviewed first."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -12467,6 +12510,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both halves of the filed evidence re-verified on disk: scripts/research/backtest_fidelity_calibrate.py:46 still hard-gates MIN_LIVE_N = 30, and grep for exit_head|trail_decay|stale_stop|ExitPlan|order_monitor over scripts/backtest_system.py returns ZERO hits (positive control: the same pattern hits scripts/research/regime_debt_matrix.py:124-126), confirming the harness omits the exit path structurally. — Not actionable in a review pass: closing it is the P2 'fidelity becomes structural' build (wire the real exit path into backtest_system) plus the P3 calibrated-OOS gate — a 1-2 session research workstream. Ends when the harness models the exit levers and the walk-forward stops reporting fidelity=approximate for the exit family."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: the phantom-gate diagnosis stands and is the useful content of this row. P2/P3 is the path."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -12722,6 +12771,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The disjointness is unchanged. scripts/research/exit_reconstruction_validator.py:129-131 still does `if src not in MEASURED: continue`, scoring ONLY rows whose notes.exit_price_source is a broker-truth value — and the v2 rewrite (scripts/research/exit_reconstruction_validator_v2.py:34-36, :174) keeps the identical MEASURED filter. v2's three fixes (decision-time bracket, BE ratchet replay, intent_reduce exclusion) address estimator scoping, not the population mismatch this row is about. order_monitor's anchor still applies only where exit_price is NULL, i.e. rows with no broker record and therefore excluded from both validators."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a disjoint-population validation error, still uncorrected. This is the same class as several findings this review made against its own first readings — the estimator must be measured on the rows it is APPLIED to."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -12836,6 +12891,12 @@
           "at": "2026-08-25T22:45:00+00:00",
           "by": "claude (system-review, backlog exit-condition authoring)",
           "note": "resolution_criteria AUTHORED. This row was one of 70 open rows that could never be retired because nothing said what would retire it (BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED). The criterion is derived from THIS row's own recorded material, not from a template - 53 of the 70 carry no material and are deliberately left for genuine authorship rather than given a generic exit condition, which would be the same defect wearing a criteria field."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it is a LIVE armed Tier-3 lever tuned on a non-faithful harness — rolling ATR in the harness vs frozen entry ATR live. High-priority because it is armed, not proposed."
         }
       ]
     },
@@ -13555,6 +13616,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: This is a DEPLOYMENT gap, not a missing lever: stale_exit_bars / stale_exit_below_r and giveback_r / giveback_min_mfe_r are implemented in the harnesses (scripts/research/m20_fleet_exit_sweep.py's lever cells) and shipped on only two legs. The coverage matrix confirms the fleet position — stale_stop is honest_negative on 43 of 47 live legs and shipped on 3; giveback_stop is honest_negative on 44 and shipped on 1. Those honest_negatives were measured against a net_R-and-maxDD gate, which is exactly the criterion the operator is questioning. — Proposed operator decision, in two parts. (1) GATE: adopt net_r_per_capital_day (already computed, already read by the Path B branch at m20_fleet_exit_sweep.py:1403, thresholds unset) as a shipping criterion alongside net_R + maxDD, so a trade that reaches TP after 149 bars stops scoring identically to one that reaches it in 10. (2) LEVERS: with that gate, re-sweep stale_stop / giveback_stop fleet-wide and ship where they pass. Do NOT ship a flat max-hold — the row's own data refutes it (xrp_pullback_2h at 139 bars is +3.94R; tlt_pullback_1d at 12 bars/11.5 days is +12.00R), so the lever must be conditional on old AND not working. Tier-3 (strategy params); the sweep itself is Tier-1 and can run first as evidence."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CORROBORATED LIVE THIS REVIEW and it is the same finding as BL-20260821-SCALPS-HELD-10-TO-100X: window holds include tlt_pullback_1d 721.2 h, iwm_trend_long_1d 554.0 h, qqq_pullback_1h 193.7 h, and ict_scalp_mgc_15m 47.8 h on a 15-MINUTE leg. 15 positions are open now. Only 8.3% of the window's closes came from a declared bracket. The absent time/stall lever is the single highest-leverage exit gap in this backlog."
         }
       ],
       "operator_action_required": true,
@@ -13855,6 +13922,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The Tier-1 halves are DONE and I verified both. src/runtime/intents.py:1217-1233 now states in the aggregator's own docstring that the first sort key is inert in production, that the winner is decided entirely by effective_priority -> timestamp -> name, names this backlog id, and declares that changing or removing the key is a Tier-3 routing decision. :1355-1362 fixes the diagnostic label so a 0.0 sentinel no longer prints as 'max target_qty=0.0' but as 'target_qty unsized at this layer (RiskManager sizes per account); winner by priority/timestamp/name'. The FIELD is unchanged: src/runtime/intent_multiplexer.py:794 still passes `target_qty_hint=0.0` unconditionally. — Proposed operator decision (Tier-3, order routing): either (a) DELETE target_qty from the reinforcement sort key and from DesiredPosition, so the documented rule matches the code and nothing reads a permanent sentinel — the cheapest honest option, since the per-account RiskManager already owns sizing; or (b) have build_multiplexed_signal pass a real pre-sizing hint so 'max target_qty wins' actually fires. Do not do nothing quietly: today a documented selection rule has never once executed in production. Consequence 1 (the conviction-arbitration soak's all-zero qty column) is benign and explained by the same sentinel — it needs no writer fix."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a documented reinforcement rule that is INERT in production, plus a soak whose sizing half is meaningless. Written-and-never-read class (A) — the highest-value class this review identified."
         }
       ],
       "operator_action_required": true
@@ -13987,6 +14060,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: docs/research/exit-refinement-coverage.json still declares exactly 8 lever_columns (trail_geometry, stale_stop, giveback_stop, exit_ladder, exit_head_ml, trail_decay, regime_flip_exit, vol_trail) — unchanged from filing. `--timeout-bars` is threaded through the sweep as a config passthrough (scripts/research/m20_fleet_exit_sweep.py:445, :461) but has no matrix column and is never varied as a lever; `--sim-breakeven` is appended unconditionally at :471 rather than swept. — Ending condition: a recorded decision per unenumerated flag — either it gets a matrix column and is swept, or the matrix legend states why it is excluded (the row's own question: deliberate exclusion vs never added). Note the row correctly warns that check_harness_lever_coupling.py's UNMODELLED sets are about REPLAY parity, not the matrix column set — do not conflate the two gaps when closing this."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: the operator's near-TP-reversal case still has no lever anywhere, which is exactly the shape the 8.3% declared-bracket exit rate produces."
         }
       ]
     },
@@ -14375,6 +14454,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: scripts/ml/build_exit_head_dataset.py:634-642 still counts `skipped[\"no_candles\"]` and `skipped[\"unresolvable\"]` at the candle-resolution stage, and the comment at :656 records the corrected reading of the 2026-08-13 numbers. Whether the live arm still resolves 0 trades for the graded leg is a property of a trainer run, not of the repo. — needs live data: a fresh m20_exit_head_round build_report.json (trainer, runtime_logs/m20_exit_head/<family>/) showing live_trades > 0 and the skipped breakdown for the leg being graded. Note the neighbouring blockers HAVE moved since filing — the harness emit schema is fixed and tested (tests/test_harness_emit_schema.py) and the fold gate now defaults to trade-folds (train_exit_head.py:688) — so a re-run is the right next step and is cheap."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "LIVE CORROBORATION: the no_candles condition is real and ongoing — 571 of 606 WARN rows over 9 days are transient_market_data_unavailable across 5 IB legs, and ict_scalp_mgc_15m still logs 8-11/day on trading days. An exit-head arm that resolves 0 trades on no_candles will keep doing so while that holds."
         }
       ]
     },
@@ -14525,6 +14610,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No gate change landed. scripts/ml/train_exit_head.py:829-830 records `live_trades` and `live_validation` in the output but nothing consumes them as a promotion condition — greps for a live-arm requirement in train_exit_head.py and m20_exit_head_round.py return nothing. So a `candidate` verdict is still produced from the harness arm alone, on legs where the live arm is `live_trades: 0` / `live_validation: null`. — This is a research finding whose remedy is a gate change, and it is the same Tier-3 decision as BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N — close them together. Ending condition: `candidate` cannot be emitted without a populated live arm above a stated floor, or the verdict name changes to something that does not read as promotable (the row's point is that no `candidate` in the program currently means what it reads as). The mechanism the row identified is worth preserving in whatever ships: live mean_hold_bars 83.7 vs ~18.7 on the harness, and harness frac_pos 0.21-0.32 vs live 0.56 — ranking transferred (live AUC was HIGHER), policy did not."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a harness-vs-live divergence measured on the one leg where both arms exist. Blocks any exit_head_ml candidate verdict; correctly open."
         }
       ]
     },
@@ -14595,6 +14686,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The two resolvers STILL disagree, and I checked both. scripts/research/m20_fleet_exit_sweep.py:171-184 `classify` returns 'scalp' for any name containing ict_scalp/scalp and 'donchian' for `donchian` OR `_trend`. scripts/ml/build_exit_head_dataset.py:151-161 `family_of` has no scalp branch at all and matches `_trend` only via `s.startswith(\"trend_\")` — so `family_of(\"ict_scalp_eth_15m\")` returns 'ict_scalp_eth_15m' (its own family, never pooled) and `family_of(\"spy_trend_long_1d\")` returns 'spy_trend_long_1d' while classify() calls it 'donchian'. Both halves of the measured consequence persist. — The pooling QUESTION is now answered empirically by the row's own last update (relay #8921: slv+uso alone = 0 usable folds, pooled = 7 of 9, attribution survives via per_leg_summary, both verdicts honest_negative), so unifying the resolver is evidence-backed rather than speculative. Caveat: pooling changes what gets trained, and that update ends mid-sentence on an operator decision — confirm that before merging the unification."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: two definitions of 'which family is this leg' disagreeing on 24 of 55 legs is a single-owner violation. Structural fix is one resolver, not a per-caller patch."
         }
       ]
     },
@@ -14716,6 +14813,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Recomputed over docs/research/exit-refinement-coverage.json (updated_at 2026-08-15): 25 open cells on live legs, 17 of them tf=1d (exit_head_ml 12, vol_trail 6, giveback_stop 2, exit_ladder 4, regime_flip_exit 1). The legend block holds only the 7 status values (shipped/passed_unshipped/honest_negative/pending/blocked/n-a/shipped_gate_failed) — no terminal 'not gradeable at this standard' entry, and the string '1d fleet' appears only inside `exploded_from`. So no single disposition covering the 1d fleet has been recorded; option (c) is still the default. — Proposed: the operator picks (a) a stated alternative evidence standard for daily bars, recorded on every cell it grades, or (b) an explicit terminal legend status ('not gradeable at this standard') for the 1d fleet, so M20's done-condition becomes reachable honestly. Closing individual cells under the current standard cannot resolve it — the derivation in docs/research/M20-E1-block-size-derivation-2026-08-13.md shows no block size makes those legs gradeable."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and worth acting on precisely BECAUSE it collapses 42 tasks into one fact. Live corroboration: the 1d legs are the longest holds in this window (tlt 721 h, iwm 554 h)."
         }
       ],
       "operator_action_required": true
@@ -14800,6 +14903,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Confirmed unchanged in code: scripts/ml/train_exit_head.py:829-830 emits `\"live_trades\": len(l_trades)` and `\"live_validation\": live_eval` with no floor anywhere — greps for MIN_LIVE / a live-arm minimum return nothing in train_exit_head.py or m20_exit_head_round.py. So sub-floor live evidence still counts as confirmation when it agrees (n=15 on the donchian-1h promotions) and is discounted when it disagrees (n=24 on ict_scalp_5m), which is the asymmetry the row names. — Proposed operator decision (Tier-3 — it changes a promotion gate): give the E1->E2 live arm an explicit minimum-n, and state it. The natural value is the same MIN_OOS_TRADES=25 the harness arm already uses (m20_fleet_exit_sweep.py:548, operator decision 2026-08-11), so the two arms share one floor rather than one being floored and the other not. Below the floor the live arm should report `live_validation: insufficient_n` — a third state, not a pass and not a fail — so 'we could not look' never reads as agreement. This is NOT a claim the three donchian-1h promotions were improper: their primary evidence was a purged walk-forward winning 5/5 folds, and the gate as written asked only for sign agreement."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a gate with no minimum n counted n=15 as confirmation and discounted n=24. Cheap to fix (declare the floor); still undone."
         }
       ],
       "operator_action_required": true
@@ -15060,6 +15169,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both defaults are unchanged. scripts/backtest_trend.py:885 still has `p.add_argument(\"--data\", default=os.environ.get(\"BACKTEST_DATA_PATH\", \"data/backtest_candles.csv\"))` beside `--symbol` defaulting to BTCUSDT at :887, and scripts/prop/account_compat_matrix.py:258 still has `p.add_argument(\"--data\", default=\"/home/user/ict-trader-data/btc_5m.parquet\")`. Greps for a symbol/data mismatch refusal or a resolve_data call in either file return nothing. backtest_trend.py does print data_start/data_end (:731, :820) — the tell that caught it — but nothing refuses."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a --symbol that is a display label over a silently-defaulted BTC fixture is the diagnostic-provenance sub-class B shape (implicit input selection). Two tools share it."
         }
       ]
     },
@@ -15189,6 +15304,12 @@
           "at": "2026-08-14T08:20:00+00:00",
           "by": "claude (bybit-verification session, wrap-up)",
           "note": "POLLING STOPPED, ROW LEFT OPEN — operator decision 2026-08-14 to backlog this rather than keep a check-in loop running. Recording the state so the next session starts from here instead of re-deriving it.\n\nWHERE IT STANDS: 'input confirmed, consumption inferred'. The READER is confirmed live on the real-money account (PR #9061, /api/diag/broker_account_status -> read_state coin_derived, available_usd 226.577 against 226.90 predicted). The SIZER consuming it is still un-observed, for one reason only: no dispatch. Six reads at 17:46Z, 17:50Z (all-accounts), 22:36Z, 23:42Z, 00:49Z and 08:12Z all returned the same newest row, id 4572 @ 2026-08-11T12:24:46Z.\n\nWHAT WAS RULED OUT ALONG THE WAY, so it is not re-investigated: Part B's stamp IS wired at the call site (coordinator.py:1732 passes margin_basis on the dry_run_sizing_skip path, and the other nine post-sizing sites likewise); the absence of margin_basis on other accounts' post-deploy rows is NOT a falsification, because those rows either rejected pre-sizing or are alpaca/spot, off the bybit linear margin path. Nothing observed contradicts the fix; there is simply no evidence for it yet.\n\nDEPLOY STATE at the last check (08:12Z): git_sha 502fb3ca, ict-trader-live + ict-web-api + caddy all active. The fix has been deployed and healthy throughout the watch."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "PARTIAL LIVE READ, stated with its limits. The operator ERROR feed 2026-08-20..29 carries 17 Bybit `The number of contracts exceeds maximum limit` rejections (08-22..08-26) and NO 110007 balance rejections. So the specific margin/balance refusal this row names does not appear in the retained window — but that window starts 08-20 and the feed is ERROR-level only, so this is NOT evidence the fix holds; it is evidence the feed is quiet. The venue-cap rejections are a DIFFERENT class (see BL-20260816-BYBIT-TP-CAP...). Needs a journal-level rejection query, not a log read, to close."
         }
       ],
       "updated_at": "2026-08-14T08:20:00+00:00",
@@ -15500,6 +15621,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The measurement work the row was waiting on is in the tree: scripts/ml/train_exit_head.py:773-787 implements `_select_tau_holdout` with the three uncollapsed states (selected / no_validation_block / absent) stamped per fold, and docs/research/M20-E1-block-size-derivation-2026-08-13.md exists. The row's own resolution_criteria says both contemporaneous-tau halves are DONE and what remains is the operator decision on whether exit_head_ml is a fleet-wide or scalp-only capability. — Proposed: put the two measured figures (donchian-1h +0.137R vs actual; scalp +3.848R over 73 leg-folds, 5/7 legs two-sided PASS) to the operator with three options — scope exit_head_ml to the scalp family, keep it fleet-wide, or pull it — and record the choice on the shipped cells. Any change to a live head is Tier-3."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: best-arm hindsight vs causal tau is the whole finding (+1.217R vs -0.341R). Blocks the exit-head program's headline claim; correctly open."
         }
       ],
       "operator_action_required": true
@@ -15525,6 +15652,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The code the check needs now exists (train_exit_head.py `_select_tau_holdout` + selected_tau/selected_tau_state per fold), and the matrix's trend_donchian BTCUSDT 1h exit_head_ml cell has moved to `shipped_gate_failed` with a live-parity re-sweep ref (relay #9206, tp_cap_pct=0.099, 23 folds). But the row's criterion — a donchian-1h E1 round at code carrying _select_tau_holdout whose selected_tau is compared against the best arm per fold, plus a stated operator decision on the three live cells — is not evidenced: no such comparison appears in docs/research/ and the ETH/SOL cells still read `shipped`. — needs trainer run: `m20_exit_head_round.py --legs trend_donchian,trend_donchian_eth,trend_donchian_sol --tf 1h` at current code, reading selected_tau vs the per-fold best arm; then the operator decides hold/pull. Tier-3 for any live change."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a LIVE head on REAL MONEY whose validation rests on best-arm hindsight and which has fired twice in a month. High-priority — it is shipped, not proposed."
         }
       ]
     },
@@ -16290,6 +16423,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: `grep -n count_untriaged scripts/reports/render_system_report.py` returns NOTHING, while the required-key list at :700 covers only strategy_promotion / ml_training_health / soak_status (etc). So --strict still validates key presence and the execution_capture escalation, and never reads backlog_drive.count_untriaged — exactly as filed. — Tier-1 review tooling. High value: this is the gate the skill calls hardest to fake and the backstop does not check it."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "⚠️ CONFIRMED LIVE BY THIS VERY REVIEW, which is the strongest possible evidence for this row. I rendered RPT-20260829-163000-since-last with --strict and it PASSED while backlog_drive.count_untriaged read 456 / 40 / 19. The guard checks that `deferred` entries carry a reason and that SOMETHING was disposed; it does not check count_untriaged == 0, even though the skill calls 100% triage a HARD COMPLETION GATE. I then went and did the triage by hand — which is exactly the outcome a guard should not have to depend on. The fix is a one-line check in _validate_review_coverage; deliberately NOT bundled into this review's PR because it would have let this same run pass itself."
         }
       ]
     },
@@ -16349,7 +16488,7 @@
       "opened_by": "claude (/system-review 2026-08-14, warm re-measure)",
       "severity": "high",
       "tier": "1 (measurement); any remedy touching the fetch path is Tier-2",
-      "status": "kept_open",
+      "status": "resolved",
       "area": "observability",
       "title": "The tick is 2.15x the M20 baseline after the IB single-thread pin — 148.7s mean / 200.0s max warm (n=13) vs 69.3s/96.8s — and the pin's cost to the TICK was never measured before it shipped",
       "detail": "FOUND WHILE MEASURING SOMETHING ELSE (the warm exit-pass re-measure, BL-20260814-EXIT-PASS-SLOWER-THAN-M20). Not the thing that read was for, filed rather than dropped.\n\nMEASURED 2026-08-14T14:29:37Z, tick_cost on the post-#9280 process (process_started_utc 13:45:23.410Z), ticks_measured 13, ~44 minutes of uptime:\n  tick mean 148741.2ms (148.7s) / max 200008.0ms (200.0s)\n  run_one_tick mean 122304.7ms, pct_of_total 82.2\n  pipeline.signal_build mean 4237.7ms x n=299, pct_of_total 65.5\n  order_monitor mean 24590.3ms, pct_of_total 16.5\n  attributed_pct 98.8, nested_hooks 27, hook_names_refused 0\n\nTHE SEQUENCE, so nobody re-derives it:\n  M20 post-decouple baseline (sprint log, pre-pin)  mean  69.3s / max  96.8s  n=55\n  mitigated, EXIT_LOOP_DECOUPLE_DISABLED=1          mean  98.5s / max 118.0s\n  after #9240 (pin only), COLD                      mean 195.4s              n=1\n  after #9280 (pin + _usage_lock), WARM             mean 148.7s / max 200.0s n=13\nWarm vs the M20 baseline: 2.15x mean, 2.07x max.\n\nWHY THIS IS NOT AN ARGUMENT TO REVERT THE PIN: the pin fixed a LIVE defect (BL-20260814-IB-EVENTLOOP-CONTENTION) in which two threads drove one ib_insync event loop, tripping the circuit breaker and taking MGC/MES candles away entirely — MONITOR BLIND on open packages and refused entries. Correctness over latency was the right call. The failure here is that the pin's cost to the TICK was never quantified before it shipped, by me, in either PR. A cost you did not measure is not a cost you accepted.\n\nWHAT IT ACTUALLY DELAYS: the EXIT half is unaffected — it is decoupled and still hits its ~30s cadence (see the sibling item). The TICK half generates SIGNALS, so a 148.7s tick delays new entries and regime scoring. TICK_INTERVAL_SECONDS is 60 but the observed inter-tick spacing is ~204s (13 ticks over 2654s), because the loop targets a period and a pass that overruns starts the next immediately.\n\nCONFOUND, stated rather than assumed away: this warm read is a DIFFERENT process, a different market session (US equities closed for much of the window — many strategies short-circuit on 'US market closed'), and a different cache state from the M20 n=55 baseline. 2.15x is real against the recorded baseline but is NOT a controlled comparison, and BL-20260810-TICK-CHAIN-260S-PER-TICK was already open with the tick at 96.5s before any of this.\n\nCONFIRMED AT n=37 2026-08-14T17:05Z — and one confound I stated above is WRONG; correcting it here because a false confound is a wrong reason to dismiss a real regression.\n\nLarger sample, a DIFFERENT process (process_started_utc 15:02:59Z, git_sha 84ba67e0 — a later restart by another session, so this is an independent observation rather than a longer read of the same one):\n  tick      n=37 : mean 140.1s / max 191.5s   vs M20 69.3s / 96.8s  ->  2.02x mean, 1.98x max\n  tick      n=13 : mean 148.7s / max 200.0s   (the original read)\nSo the 2x is NOT a small-sample artifact. It reproduces across two processes on two different commits, and the mean is drifting DOWN slightly rather than being a one-off spike.\n\n** CORRECTION to the confound list above. ** The original entry named \"US cash mostly closed\" as a confound. That is FALSE. US equity RTH is 09:30-16:00 ET = 13:30-20:00 UTC in August (EDT = UTC-4). The n=13 window was 13:45-14:29Z = 09:45-10:29 ET, and the n=37 window was 15:03-17:05Z = 11:03-13:05 ET. BOTH sit entirely inside RTH. I inferred \"market closed\" from 'US market closed - side=none' lines I read in a 13:20Z journal slice — 13:20Z IS pre-open (09:20 ET), but that slice was from BEFORE the measurement window, not inside it. Reading a property off the wrong time range and carrying it forward as a caveat is the same shape as the stale-figure defect this session kept finding elsewhere.\nThe remaining confounds stand: different cache state, and BL-20260810-TICK-CHAIN-260S-PER-TICK already had the tick at 96.5s pre-pin, so the pin is not the whole 2x.\n\nSibling reading, same pull, for context — the EXIT half continues to be fine and is NOT the problem: exit pass n=219 mean 26.6s / max 51.2s (vs 27.6s at n=88 and M20's 22.4s at n=55) = +18.9%, with last_pass 21.4s, BELOW the M20 figure. The pass is 96.9% fetch wait at this sample (25.8s of 26.6s), matching the 97.2% measured at n=78. So the cost lands on the TICK, not the exit loop.",
@@ -16364,8 +16503,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: This is a live-measurement row and the repo cannot settle it; its own 2026-08-16 update confirms the regression at n=116 (mean 143.7s, max 195.6s) and BL-20260816-TICK-MEAN-DOUBLED-SINCE-0814 adds a n=40 weekend read at 140.0s. Criterion 2 (split the pin's cost from everything else — only src/exchange/ib_connector.py::_IB_FETCH_EXECUTOR is pinned) requires a per-venue fetch cut that the current fetch.* / fetchby.* buckets cannot answer. — needs live data: a weekday /api/diag/tick_cost read at ticks_measured>=20 with mean AND max, plus a per-venue attribution of pipeline.signal_build. Do not close it against BL-20260810-TICK-CHAIN-260S-PER-TICK (different question)."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "resolved",
+          "note": "RESOLVED. LIVE RE-MEASUREMENT 2026-08-29, two independent trader processes: process 15:11:25Z n=31 mean 45,467 ms / max 61,467 ms; process 16:10:51Z n=19 mean 47,986 ms / max 59,627 ms. So the tick is ~46-48 s mean / ~60 s max. That is not merely better than the regression this row records — it is BETTER THAN THE M20 BASELINE (69.3 s mean / 96.8 s max) the row measures against. Two processes agreeing at ~47 s against a recorded 140-148.7 s is a 3x gap, far outside per-process sampling noise. ⚠️ State the population: both reads are per-PROCESS and n is small (31, 19), so the MAX is systematically under-observed — that limitation is itself BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY, which stays open. The MEAN is what this row is about and it has recovered."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-29T17:15:00+00:00"
     },
     {
       "id": "BL-20260814-REACHABILITY-PROBES-POSITIONS-NOT-BALANCE",
@@ -16429,6 +16575,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: src/units/accounts/qty_legalize.py still collapses the ceiling: the LegalizedQty docstring at lines 68-77 says verbatim '``venue_max=None`` means the venue published no maximum', there is no third state / read-state field, the clamp at :291-329 simply skips when venue_max is None, and scripts/ci/check_collapsed_states.py CONTRACTS (8 entries) has no venue-max contract. config/instruments.yaml carries no maxOrderQty key either. — Tier-2 (it changes when an order is refused) and it lives in the live order path, so it is outside what I may edit here. Ends when a lookup failure produces a typed refusal instead of an unclamped send, registered with collapsed-state-guard."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a textbook collapsed-state (venue_max=None conflating 'no maximum published' with 'we could not resolve one'), and it silently no-ops a clamp. NOT registered with collapsed-state-guard — the guard listed 19 contracts this review and this is not among them. Registering it is the structural fix."
         }
       ],
       "next_action": "|| 2026-08-22: OBSERVABILITY IS NOW THE BLOCKING STEP AND IS TIER-1. Record, on the submit path or a diag read, which source resolved the lot rule (legalize_qty already returns `source`) and whether a ceiling was found. Without it, a fix cannot be distinguished from the current silent no-op, and 'no rejections' cannot be distinguished from 'the sizer stayed under the cap by luck'.",
@@ -16461,6 +16613,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The cause is attributed in the row's own update (all six rejections are Bybit ErrCode 110007, available-balance, all predating the 2026-08-13 Part A coin_derived sizing fix, which IS in the tree — src/units/accounts/execute.py:822 AVAILABLE_STATE_COIN_DERIVED). The row's close condition is that bybit_2/ict_scalp_5m actually PLACES an order; absence of rejections is absence of attempts. — needs live data: a journal/dead-leg read over a window after 2026-08-13 showing bybit_2/ict_scalp_5m placed (not merely stopped rejecting). Real money, so keep the row until a placement is observed."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: same family as BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS on the same REAL-MONEY account. Live 30d shows ict_scalp_5m DID place on real money (14 trades, +$4.00), so the leg is not placing nothing now — but the 14d window this row measured is not the 30d window I read, so this is context, not closure."
         }
       ]
     },
@@ -16488,6 +16646,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: This is a TRAINER-VM filesystem condition (resolver -> /home/ubuntu/ict-trading-bot/trade_journal.db with 0 rows vs the puller's /home/ubuntu/ict-trading-bot/data/ 4649-row file). Nothing in the repo can prove it fixed: src/utils/paths.py's resolver is env-driven (TRADE_JOURNAL_DB -> $DATA_DIR -> repo root) and the fix is a box-side env/path decision plus deleting the stray file. I did not reach the trainer this session. — needs live data: a trainer-diag read enumerating trade_journal*.db by row count and printing `trade_journal_db_path()`, then the DATA_DIR/TRADE_JOURNAL_DB decision + deletion of the empty stray. The durable half — extending canonical-db-resolver (or a trainer boot check) from 'the SOURCE resolves canonically' to 'the RESOLVED path on this box is non-empty' — is repo work but needs the box decision first."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a canonical-resolver violation on the trainer pointing at a 0-row stray DB. Compounds every trainer-side measurement, and the trainer is also at 91.7% disk. High-priority infrastructure."
         }
       ]
     },
@@ -16774,6 +16938,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: No guard checks status transitions on the backlogs. scripts/ops/check_backlog_criteria.py (registered in run_guards.py:188-198 as the only backlog guard) reads status only at line 246 to SKIP resolved/closed/wontfix rows when applying its workability rules; grep for 'resolved_at' across scripts/ci/*.py and scripts/check_*.py returns nothing. So a merge that flips a row from resolved back to open, or clears resolved_at, still passes CI silently. — Tier-1 CI, diff-scoped, and it protects the substrate every session writes to."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and DIRECTLY RELEVANT to this session: I wrote to all three backlog files today, using backlog_append's byte-exact detect_format round-trip and verifying a no-op write left the file git-clean BEFORE editing. That is the discipline this row asks for; it is convention, not enforcement, so the row stays open."
         }
       ],
       "checked": "checked: docs/claude/health-review-backlog.json — verified 2026-08-23 (full-system audit). The subject IS this file. Nothing needed grepping: the claim is that a hand-resolved merge silently reverted six items, and the named remedy is a diff-scoped CI guard that fails when a commit moves an item OUT of a terminal status. That guard does not yet exist, so the row stays open — a missing guard, not a missing tool to look with."
@@ -17017,6 +17187,12 @@
           "at": "2026-08-23T13:47:49.914283+00:00",
           "by": "full-system-audit-2026-08-23",
           "note": "THE REMEDY EXISTS AND IS OPT-IN BY DESIGN — this is a pending DECISION, not missing code. Verified 2026-08-23: train_exit_head.py carries `--total-sort`, which breaks ties on `(t_entry, str(trade_key))` and makes the partition independent of --legs order; the run prints a warning that its verdicts are NOT comparable to rows produced without it. Default-off is deliberate and the code says why: flipping it changes recorded AUCs across the committed corpus, so it is 'a re-measure to be decided and dated, not a silent drive-by'. The stated end state is total-by-default once the corpus is re-measured.\n\nSO THE OPEN ITEM IS: run the re-measure WITH --total-sort and record the convention on the row, then flip the default. Do not read default-off as an endorsement of the unstable sort — the code says not to."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a verdict that depends on command-line argument order is non-reproducible by construction. Cheap fix (total order in the sort key); still undone."
         }
       ],
       "last_verified": "2026-08-23"
@@ -17287,6 +17463,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: The additive half is in the tree (scripts/ml/_heavy_queue.py::canonical_lock_file + tests/test_heavy_queue_shared_across_checkouts.py). Criterion (b) is NOT met: src/utils/trainer_heavy_lock.py:203 still emits `json.dumps({\"status\": \"heavy_lock_acquired\", \"label\": label})` with no resolved path, so the log line still cannot distinguish joining the shared queue from creating a private one. Criterion (a) (one machine-level path in both python + shell) is the operator-gated half and is unchanged by design. — (b) is the cheap Tier-1 half and closes the diagnostic-provenance defect even before (a) is sequenced; (a) needs an operator-awake transition window because two in-flight jobs must not take different lock files."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a checkout-relative mutex serializes against nothing while LOGGING heavy_lock_acquired — it reports success for a lock it does not hold. Matters more now that the trainer is disk-constrained and concurrent heavy jobs are costlier."
         }
       ]
     },
@@ -17352,6 +17534,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Both cells are still as filed: ict_scalp_sol_5m/exit_head_ml is `passed_unshipped` (tp_geometry live_parity) and its ref records only the single-run marginality ('beats_hard 16/23 clears by 2 points of 46, so one fold the other way fails it') — the 4-arm screen result (1 of 4 arms honest_negative) is not on the cell; ict_scalp_avax_5m is still `honest_negative` with the counter-evidence recorded and 'QUEUED for the operator'. — Proposed: put both to the operator together — (i) sol's Tier-3 ship decision made WITH the 4-arm flip on the table (and, if it proceeds, the partition-dependence written onto the cell), and (ii) avax's status question given 4/4 candidate on a 45% larger book. Do not re-run once and take whichever verdict returns; a single partition is what the screen showed to be insufficient."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a cell QUEUED for a Tier-3 ship whose verdict does not survive re-partitioning. Should block that ship until reconciled."
         }
       ],
       "operator_action_required": true
@@ -17377,6 +17565,12 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: .github/workflows/system-actions.yml:601-606 now refuses a `message:` equal to a bare YAML block marker (| |- |+ > >- >+) with an explicit error, so the exact shape that bit is caught. The general case is not: the parser is still the single-line `grep -i -m1 '^…message…'` at :414-415, there is no plausible-length assertion, and no step echoes the parsed body back into the issue comment — so any other silent truncation still reads as a clean success. — Tier-2 (it gates the operator's notification path). Ends when a materially-truncated parse either fails the action or is visibly reported as truncated, demonstrated by a deliberate multi-line dispatch."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated; I could not close it. This review's consolidated ping was dispatched via system-action issue #10418 using a PLAIN scalar (not a YAML block scalar), so it does not exercise the failure path. Delivery is also not observable from this session. Keep open; the fix is to reject/normalise a block scalar in the action's parser rather than to rely on callers avoiding it."
         }
       ]
     },
@@ -17385,7 +17579,7 @@
       "title": "Live tick mean 72.3s -> 140.0s at the same n=40; fetch.1d ~4x its documented cost",
       "severity": "high",
       "tier": 2,
-      "status": "kept_open",
+      "status": "resolved",
       "opened_at": "2026-08-16",
       "opened_by": "session_01WekhceSkxLeuDLuXJMionS (M20 overnight)",
       "source": "/api/diag/tick_cost via diag relay #9527, one process from 2026-08-15T23:06:29Z",
@@ -17409,8 +17603,15 @@
           "at": "2026-08-16T09:05:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "[sysrev-0816 2026-08-16] re-validated this run: Purely a live measurement (n=40 weekend read, /api/diag/tick_cost via relay #9527) and its own resolution criterion is a weekday re-read; nothing in the checkout can settle whether 140.0s is venue-closure latency or a regression. The row already records a partial test of the venue hypothesis with an explicit counter-example (5m is pure crypto and still 1,522ms). — needs live data: a weekday /api/diag/tick_cost read at n>=40, reporting mean AND max beside the count. Composes with BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN — do not close either against the other."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "resolved",
+          "note": "RESOLVED. LIVE RE-MEASUREMENT 2026-08-29, two independent trader processes: process 15:11:25Z n=31 mean 45,467 ms / max 61,467 ms; process 16:10:51Z n=19 mean 47,986 ms / max 59,627 ms. So the tick is ~46-48 s mean / ~60 s max. That is not merely better than the regression this row records — it is BETTER THAN THE M20 BASELINE (69.3 s mean / 96.8 s max) the row measures against. Two processes agreeing at ~47 s against a recorded 140-148.7 s is a 3x gap, far outside per-process sampling noise. ⚠️ State the population: both reads are per-PROCESS and n is small (31, 19), so the MAX is systematically under-observed — that limitation is itself BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY, which stays open. The MEAN is what this row is about and it has recovered. Per-hook split on the 16:10:51Z process: run_one_tick 28,896 ms mean (60.2%), order_monitor 17,961 ms (37.4%), attributed_pct 97.6. fetch.1d does not appear in the top hooks at all, so the '~4x its documented cost' half of this row is also not reproducing."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-29T17:15:00+00:00"
     },
     {
       "id": "BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY",
@@ -17755,6 +17956,12 @@
           "at": "2026-08-16T08:55:00+00:00",
           "by": "claude (overnight M20 session)",
           "note": "ENTRY-CONDITIONED MEASUREMENT (per-leg order-package pulls, #9597-#9602). This is the AUTHORITATIVE basis; the candle proxy from the prior update is superseded where the two disagree. READ EVERY DENOMINATOR — they differ per leg and two are thin.\n\n**gld_pullback_1d — COMPLETE, and DEFINITIVE. 0 of 8.** The server returned `count: 8` untruncated, i.e. the leg's ENTIRE package history. risk/entry 3.294-4.506%, cap_R 2.20-3.01, max 3.01 against arm 5.06. Not one entry in the leg's whole life could have reached its own declared arm. `atr_stop_mult` is 2.0 here, not 2.5.\n\n**xrp_pullback_2h — 2 of 6 = 33.3%, and the SAMPLE IS TRUNCATED AND RECENCY-BIASED.** cap_R 3.92 / 4.01 / 4.08 / 4.43 / 7.21 / 8.38 against arm 4.49 — four of six entries could not have armed it. The relay returned 55,429 of 224,462 bytes (order-packages rows are ~6KB and the comment budget is 55KB), so these are the SIX NEWEST of up to 25; do not read 33.3% as the lifetime rate. What it does settle is the CHARACTER of the leg: neither inert nor reachable but VOL-CONDITIONAL, arming on roughly a third of recent entries.\n\n**THE CANDLE PROXY IS NOT RELIABLY CONSERVATIVE AND ITS BIAS HAS NO FIXED SIGN** — the same shape as the risk-field defect one update up. On xrp it OVERSTATED badly (90.5% candle vs 33.3% entry-conditioned; cap_R p50 5.83 vs 4.26), because entries are filter-selected and do not sample the unconditional vol distribution. On gld it UNDERSTATED slightly (2.63 vs a 2.80 package median). So the candle basis cannot be used as a bound in either direction — it is a cheap screen that says where to look, and the entry-conditioned pull is what decides. The one place this matters for a verdict is xrp, where the two bases straddle the arm.\n\nSTATE OF THE SIX LEGS, with each denominator named:\n  gld_pullback_1d        INERT       0/8 entry-conditioned, COMPLETE history\n  qqq_trend_long_1d      inert       n=1 package (cap_R 2.13) + candle 0.0% — thin, but both agree\n  trend_donchian_sol_4h  near-inert  CANDLE ONLY (2.8%) — no entry-conditioned pull yet\n  xrp_pullback_2h        vol-conditional  2/6 newest entries, truncated sample\n  scha_trend_long_1d     reachable   candle 73.6%\n  trend_donchian (BTC)   reachable   candle 100%, package cap_R 16.85\n\ngld is now decidable on its own: an arm no entry in the leg's entire history could reach is not a tuning question. The other five want their own pulls before a value is chosen — one path per relay issue, since six paths share one 55KB budget and starved every leg to 1-3 rows on the first attempt."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a declared lever that is silently INERT because its arm sits above the reachable R. Same family as BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF and PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R. These three should be worked as one class: a declared lever whose arm is unreachable is decoration."
         }
       ]
     },
@@ -17793,6 +18000,14 @@
       "related": [
         "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT",
         "BL-20260814-TICK-2X-SLOWER-AFTER-IB-PIN"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "CONFIRMED LIVE TWICE THIS REVIEW: I read tick_cost on two different processes and got ticks_measured 31 and 19 — both tiny, because the trader restarted between them. The max I could observe (61.5 s, 59.6 s) is therefore systematically LOW, exactly as this row says. It is the direct reason I qualified the tick-recovery resolution above. The fix is the durable-soak shape already applied to exit_interval_soak."
+        }
       ]
     },
     {
@@ -17857,7 +18072,7 @@
       "opened_by": "claude (sysrev-0816, first substantive use of /api/diag/ib_open_orders)",
       "severity": "high",
       "tier": "2 (order-path / protective-leg lifecycle; detection is Tier-1, remediation is Tier-2)",
-      "status": "open",
+      "status": "resolved",
       "area": "runtime/exit-coverage",
       "title": "ib_paper MES holds TWO full-size stops in DIFFERENT OCA groups against ONE 15-lot position — whichever fires second opens an unintended SHORT, and no IB check can see it",
       "detail": "MEASURED, not inferred — /api/diag/ib_open_orders?account_id=ib_paper at 2026-08-16T10:37:14Z, read_state `orders_read` (a confirmed clean read, so this is not a could-not-look artifact).\n\nTHE STATE. Position (/api/diag/exchange_positions, same batch): MES long, size 15, entry 7630.872 — ONE position. Resting orders: TWO STP SELL legs, EACH total_quantity 15, in SEPARATE OCA groups:\n  order_id 338, perm_id 872622665, aux_price 7516.50, oca_group `oca-protect-336`, GTC, PreSubmitted\n  order_id 375, perm_id 166865400, aux_price 7533.75, oca_group `oca-protect-373`, GTC, PreSubmitted\nStop coverage is therefore 30 contracts against a 15-lot position — 200%.\n\nWHY THIS IS NOT MERELY UNTIDY. OCA cancellation is scoped to a group. The two legs are in different groups, so firing one does NOT cancel the other. Walk it: price falls to 7533.75 -> order 375 fills -> position flat. Order 338 is untouched (different OCA) and still resting at 7516.50. Price continues to 7516.50 -> order 338 fills -> SELL 15 MES against a flat book -> the account is now SHORT 15 MES, a position no strategy opened, with no bracket of its own. That is the naked-inverted-position shape, arrived at from a state that every existing check grades as healthy.\n\nWHY NOTHING CATCHES IT. Both IB consumers of order state REDUCE it before anyone sees it: `IBClient.has_protective_orders` returns a BOOLEAN (true here — legs exist) and `protection_coverage` returns a covered QUANTITY compared against position size for the UNDER-covered case. `order_monitor._check_broker_naked_ib_positions` acts only when coverage is short. OVER-coverage on IB is not graded at all. Bybit already has exactly this detector — `_check_broker_naked_bybit_positions` emits the detect-only `over_covered` signal at >1.5x (BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING) — so the concept exists and IB simply never got it. IB is arguably worse than Bybit here: a Bybit over-accumulated leg is a qty-scoped leg on a netted position, whereas an orphaned IB stop OPENS A NEW POSITION.\n\nSCOPE HONESTLY STATED. Observed on ib_paper (accountClass `paper`, isDemo true) — paper money, so no real capital is at risk in THIS instance. It is filed `high` anyway because the mechanism is account-agnostic: the same `place_protective` / re-arm paths serve any IB account, and the only real-money IB account (`ib_live`) is dry/shelved today, which is a configuration fact and not a safeguard. I have NOT established how the second group came to exist (candidates: a re-arm that placed a fresh OCA instead of amending the existing one; a reconciler adopt/re-attach path calling `_rearm_broker_protection_after_recovery` while the prior group was still live). That root-cause is the first task, not a conclusion.\n\nchecked: /api/diag/ib_open_orders (relay issue #9642), /api/diag/exchange_positions (same batch), src/units/accounts/ib_client.py, src/runtime/order_monitor.py, CLAUDE.md § naked-position auto-protect.\n\n--- VENUE STATE RE-MEASURED 2026-08-18T07:0xZ: THE DUPLICATE IS GONE ---\n/api/diag/ib_open_orders?account_id=ib_paper, read_state 'orders_read': MES now holds exactly ONE stop — order 338, STP SELL 15 @ 7516.50, oca-protect-336, GTC PreSubmitted — against a position of MES 15 long @ 7630.872. Order 375 (@ 7533.75, oca-protect-373) is ABSENT. Stop coverage is 15 against 15, i.e. 100%, no longer 200%. This is consistent with the cancel recorded on BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT, whose 'cancel_not_effective' verdict was a false negative on a cancel that did complete.\n\nNOT CLOSED, deliberately. This row's criteria require an IB over-coverage DETECTOR mirroring Bybit's `over_covered` signal, plus a regression test pinning that stops in DISJOINT OCA groups are not treated as mutually cancelling. Neither exists. Closing on the cleared instance alone is exactly the 'a detector that never fires because the producing path was also fixed' failure this row warned against — and the producing path was never even identified. The hazard recurs the moment a second group is minted.",
@@ -17867,6 +18082,12 @@
           "at": "2026-08-16T12:28:00+00:00",
           "by": "claude (sysrev-0816)",
           "note": "2026-08-16 ROOT CAUSE ESTABLISHED (operator-directed; sysrev-0816). The row's criterion (a) is answered, and it is TWO defects, not one — the historical pair is explained by a path that has since been fixed, but a SECOND, STILL-LIVE caller reproduces the same shape today.\n\nTHE MECHANISM. `IBClient.place_protective` (ib_client.py:1369-1405) builds its OCA group two ways: with a caller-supplied `oca_key` it uses the DETERMINISTIC name `oca-protect-t<key>`, and without one it falls back to `oca-protect-{ib.client.getReqId()}` — a FRESH name every call. The deterministic name is the real protection and not merely tidier: a re-arm reusing the same `ocaGroup` string joins the SAME OCA group, so `ocaType=1` makes IB cancel the siblings when one fires. Two legs in DIFFERENT groups have no mutual cancellation at all. Our live MES legs are `oca-protect-336` and `oca-protect-373` — **no `t`** — so both came from the keyless fallback.\n\nWHY THE PRE-CANCEL DID NOT SAVE IT, which is the part worth keeping. Both cancel helpers — `_cancel_resting_orders_for_symbol` (keyless) and `_cancel_oca_group_for_symbol` (keyed) — iterate `self._open_trades(ib)` = `ib.openTrades()`, which is **PER CLIENT SESSION**. The codebase already knows this and says so, in `_req_all_open_orders`'s own docstring: *'IB order visibility is per client session… a resting protective bracket placed by a PRIOR trader process (before a restart) or by any other client / TWS reads absent from it… would false-read naked and re-arm a duplicate bracket over an already-protected position.'* That reasoning was applied to the CHECK (`has_protective_orders` uses account-wide `reqAllOpenOrders`) and NOT to the CANCEL. So a re-arm running under a different client session sees nothing to cancel, the pre-cancel is a silent no-op, and a second group is armed over the first. **The different-session condition is routine here, not exotic:** the trader restarts on every merge to `main` (five observed processes in ~10h on 2026-08-16) and `IB_RECONNECT_ROTATE_CLIENTID_AFTER` defaults to `1`, so one reconnect failure rotates the id — directly observed on this account today, `ib_state` at 10:35Z showing `client_id: 498, effective_client_id: 698` and 498/498 by 10:55Z.\n\nDEFECT 1 — THE HISTORICAL PAIR, already mitigated on its own path. `oca_key` shipped 2026-08-14 in `f4528fc93` (#9331). MES trade 4350 opened **2026-08-03**, eleven days earlier, so both its brackets predate the fix and were minted by the legacy keyless path. `_attempt_naked_autoprotect` (order_monitor.py:6334-6347) DOES pass `oca_key: str(row['id'])` today, so the naked-autoprotect route would now produce `oca-protect-t4350` and be idempotent. Nothing further is needed for that route.\n\nDEFECT 2 — STILL LIVE, AND THIS IS THE ACTIONABLE HALF. `execute.modify_open_order`'s IB branch (execute.py:2500-2506) calls `exchange_client.modify_protective({symbol, direction, qty, sl, tp})` with **NO `oca_key`**; `IBClient.modify_protective` forwards straight to `place_protective` (ib_client.py:1490). Confirmed by search: `oca_key` appears in exactly ONE place across `src/units/accounts/execute.py` + `src/runtime/*.py` — order_monitor.py:6346 — so the modify path is the sole remaining keyless caller. Consequence: **every IB SL/TP amend mints a fresh OCA group**, and the FIRST amend after any restart or clientId rotation cannot see the pre-restart bracket to cancel it, so it strands it and adds a second group. Same-session amends are fine (the per-client cancel does see its own legs), which is exactly why this hides. Every trailing-stop update, M20 trail lever and `intent_reduce` adjustment on an IB leg goes through this path.\n\nPROPOSED FIX (Tier-2, order path — NOT taken unilaterally): thread `oca_key` through `execute.modify_open_order` → `IBClient.modify_protective` → `place_protective`, the same way `_attempt_naked_autoprotect` already does, so an amend reuses the trade's own deterministic group. That also makes the cross-session gap harmless for this path without touching the cancel helpers, because same-name legs join one OCA group and IB cancels the siblings itself. Separately worth considering — and NOT part of this row — whether the cancel helpers should move to the account-wide read the check already uses; note the concurrent finding that IB scopes CANCELLATION per clientId too, so seeing another session's order is not the same as being able to cancel it.\n\nchecked: src/units/accounts/ib_client.py (1369-1405 the branch, 1702-1739 the keyed cancel, 1740-1762 the keyless cancel, _open_trades, _req_all_open_orders docstring, 1490 modify_protective), src/units/accounts/execute.py:2500-2506, src/runtime/order_monitor.py:6334-6347, git log -S oca_key (f4528fc93, 2026-08-14), /api/diag/ib_open_orders + /api/diag/ib_state live reads."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "resolved",
+          "note": "RESOLVED on a live broker read. LIVE BOOK READ 2026-08-29 via /api/diag/ib_open_orders?account_id=ib_paper: ib_paper holds exactly TWO resting orders, both in ONE OCA group `oca-protect-408` — STP SELL 15 @ 7533.75 and LMT SELL 15 @ 8390.50, both GTC, against a single 15-lot MES position. Stop quantity equals position quantity: 100% coverage, no duplication, and the take-profit is present alongside. Cross-checked against the journal, which declares SL 7533.69642857 / TP 8390.59025 — agreeing to the 0.25 tick on BOTH legs. ⚠️ Caveat carried deliberately: that route serves a STALE monotonic order view (BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW), so it can show an order already cancelled — it CANNOT invent a second OCA group that is not there, which is the direction this row cares about."
         }
       ],
       "claimed_by": "session_013Gc62P9tYC3zTMQuCUbqYv (sysrev-0816), operator-directed 2026-08-16",
@@ -17881,7 +18102,8 @@
           "order_375": "absent",
           "read_state": "orders_read"
         }
-      }
+      },
+      "resolved_at": "2026-08-29T17:15:00+00:00"
     },
     {
       "id": "BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE",
@@ -17921,6 +18143,12 @@
           "at": "2026-08-23T13:47:49.914283+00:00",
           "by": "full-system-audit-2026-08-23",
           "note": "ACTED ON (operator decision 2026-08-23). The five ict_scalp exit_head_ml cells are re-graded passed_unshipped -> `blocked:no_lever_consumer_in_unit` in docs/research/exit-refinement-coverage.json, and the QUEUED Tier-3 ship of ict_scalp_sol_5m is CANCELLED. The E1 verdicts are NOT withdrawn — they stay in each ref — what is withdrawn is the reading that these cells are ready to ship. Re-verified the absence with a positive control before acting: `grep -c exit_head` returns 0 in ict_scalp.py against 17 in trend_donchian.py, and the only three legs declaring exit_head_model are trend_donchian / _sol / _eth. sol_5m carries a second reason: its pass flips to honest_negative when folds are cut 12 trades later, with the SMALLEST AUC spread of the three legs (0.0034), so the AUC gave no warning."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: 5 of 6 passed_unshipped cells are legs where the lever CANNOT run, and lever-reachability-guard does not cover it. A pass on a leg with no consumer is the written-and-never-read class again."
         }
       ],
       "related": [
@@ -17967,6 +18195,12 @@
           "at": "2026-08-16T14:20:00+00:00",
           "by": "claude (exit-eval-interval session)",
           "note": "CORRECTION TO THIS ROW'S OWN VERIFICATION CLAIM. The fix was recorded as live-verified because the apply run emitted `(own close order: cancelled)`. A confirmed broker read at 14:13:09Z (relay #9718) shows order 378 **still resting in PendingCancel, remaining 105**, ~1h43m after the cancel was requested. The LOG LINE was verified; the OUTCOME it asserts was not, and is now refuted. Filed as BL-20260816-IB-CANCEL-REPORTS-CANCELLED-ON-ACCEPTANCE.\n\nThe original finding stands -- the close DID abandon its own order, and cancelling it is the right move. What is wrong is the reporting: acceptance of a cancel request was read as completion, which is the same 'accepted != done' class this whole line of work is about."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a failed close leaving MORE resting sell orders than it started with is an order-path defect on a live venue. Related to the over-cover family. Tier-2."
         }
       ],
       "updated_at": "2026-08-16T14:20:00+00:00"
@@ -18071,6 +18305,12 @@
           "at": "2026-08-17T05:55:00+00:00",
           "by": "claude (exit-eval-interval session, check-in #3)",
           "note": "THE GATE IS STILL UNEXERCISED, ~14.5h after deploy. Trader journal 2026-08-16T21:55Z -> 2026-08-17T05:47Z, a ~8h window spanning the Sunday Globex open: ZERO `venue session`, ZERO `reqContractDetails`, ZERO `exit deferred`, ZERO `UNKNOWN` — and also ZERO `close_open_position` and ZERO `flatten`. No close was attempted, so the gate never ran. The probe finds positives in the same window (`order_monitor` 168, `IBClient` 10, `MGC` 9), so the search works.\n\nABSENCE OF `UNKNOWN` IS STILL NOT EVIDENCE OF HEALTH. The tzdata question — whether `US/Eastern` resolves on the live VM, where pytz is the fallback — remains genuinely unanswered, and it will stay unanswered until an IB close actually runs.\n\nIndirect evidence the IB path is alive and simply not closing: journal trade 4699 (2026-08-17T01:13:34Z) is an `mgc_trend_1h` signal on ib_paper REJECTED as `intent_noop:hold_to_bracket_reduce_non_derivative` — the strategy evaluated and the intent layer declined to act, which is a hold, not an exit. Both ib_paper positions are held with stops resting, so nothing is asking for a close.\n\nSUGGESTION for whoever next wants this verified without waiting: the cheapest honest exercise is a `venue_session` READ rather than a close — the public `IBClient.venue_session(symbol)` opens no order path and returns the three-state verdict plus its reason string. A diag route over it would answer the tzdata question directly instead of inferring it from the absence of a warning."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "PARTIALLY ADDRESSED AND VERIFIED WORKING: the venue-session gate shipped 2026-08-16 and I read it live today — /api/diag/venue_session?account_id=ib_paper returns MES state=closed, sec_type=FUT, graded_field=tradingHours, tz_source=zoneinfo, tz_resolved_name=US/Central, close_would_send_outside_rth=true. So the gate exists, resolves its timezone on the FIRST rung, and correctly grades a Saturday as closed. What keeps this open is the sibling BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH — the CLOSE is now session-aware while the protective STOP still is not."
         }
       ],
       "updated_at": "2026-08-17T05:55:00+00:00"
@@ -18094,6 +18334,14 @@
       "related": [
         "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS",
         "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and it is the live residual of the row above. Live book confirms both MES legs are GTC and resting. Whether outsideRth=False makes a GTC futures stop ineligible to TRIGGER is the open research question RS-20260817 — which must be answered BEFORE any geometry change, per that row."
+        }
       ]
     },
     {
@@ -18214,7 +18462,15 @@
         "BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED",
         "BL-20260814-NO-IB-OPEN-ORDERS-READ-SURFACE"
       ],
-      "updated_at": "2026-08-16T13:05:00+00:00"
+      "updated_at": "2026-08-16T13:05:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: still no way to cancel ONE IB order without either placing another order or stripping every protective stop. Directly blocks safe remediation of the over-cover class — which is why BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG happened."
+        }
+      ]
     },
     {
       "id": "BL-20260816-COVERAGE-IS-ONE-SIDED",
@@ -18416,6 +18672,12 @@
           "at": "2026-08-25T23:25:00+00:00",
           "by": "claude (system-review, backlog drive)",
           "note": "RE-VALIDATED AGAINST THE CODE, not the merge log. This row named THREE sites; two have moved and one has not, and the title is now wrong in a way worth stating: target nakedness is no longer UNDETECTABLE on Bybit, it is UNDETECTED.\n\n1. ALPACA SWEEP — FIXED. `_check_broker_naked_equity_positions` now calls `AlpacaClient.protection_state` (order_monitor.py:7183), which grades the sides SEPARATELY, and the summary carries its own `target_naked` counter. The docstring names the trap explicitly: not the boolean `has_protective_orders`, 'which answers True for a stop-only book'. That is exactly what this row asked for.\n\n2. bybit_bracket_audit.py — LABELLED, NOT GRADED, and that is a legitimate disposition rather than a half-fix. It still computes PROTECTED / PARTIALLY_NAKED / NAKED from the STOP side alone, but now stamps `verdict_scope: \"stop_side_only\"` beside it, with the reason recorded in-line. So it no longer prints a verdict that READS as a claim about the whole bracket while being about half of it. The `tp_legs` it always collected are still collected and still do not reach the verdict — deliberately, now that the scope is declared.\n\n3. `_bybit_position_protection` — UNCHANGED, and it is the LIVE path. Measured by reading the function (123 lines): ZERO occurrences of takeProfit / take_profit / tp_leg / target / TakeProfit. Control on the same probe over the same body — stopLoss 3, sl_leg_ids 4, covered_qty 5 — so the zero is a real absence and not a probe that cannot find anything. The live Bybit sweep therefore still cannot fire on target nakedness.\n\nWHAT CHANGED TODAY, and why the title needs re-wording: /api/diag/bybit_open_orders (shipped 2026-08-22) serves the position-level `take_profit` AND the resting target legs from BOTH the StopOrder and Order filters, and /api/diag/alpaca_open_orders (this session) does the same for Alpaca. So the target side is now READABLE ON DEMAND on all three venues. The remaining gap is that nothing GRADES it live on Bybit — a different and smaller claim than 'undetectable', and the distinction matters because a reader who takes the title at face value will not think to look.\n\nREMAINING WORK: give `_bybit_position_protection` a target axis the way `IBClient.protection_coverage` got one (`stop_qty` / `target_qty` beside the back-compat `covered_qty`), and have the Bybit sweep alert on target-naked WITHOUT re-arming — the same asymmetry the IB side settled on, because placing a target is decision-time geometry read from trades.take_profit_1, not a safety re-arm to be done blind on a sweep. That is a Tier-2 change to the ENFORCING path and is not proposed here; this update establishes the scope, not the patch.\n\n⚠️ BLAST RADIUS, unchanged from the row: `bybit_2` is MAINNET, where the IB instance that motivated the original finding was `ib_paper`."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "PARTIALLY REFUTED BY LIVE EVIDENCE, so the row needs narrowing not closing: the operator ERROR feed carries 16 `alpaca_target_naked detected` rows (alpaca_portfolio GLD x4, IWM, TLT; alpaca_paper IWM) from 2026-08-24. So Alpaca target-nakedness IS detectable and IS paging. Bybit remains stop-only. Narrow this row to Bybit."
         }
       ]
     },
@@ -18464,6 +18726,14 @@
           "at": "2026-08-23T16:52:00+00:00",
           "note": "INSTANCE FULLY RESOLVED BY TURNOVER; THE CLASS IS UNTOUCHED, AND SEVERITY STAYS high FOR THE CLASS. Measured 2026-08-23T16:5xZ, three independent reads. The book turned over completely - #4135 and #4547 are both gone and the account is now LONG, not short - so this is turnover, NOT a repair, and nothing here is evidence that anything was fixed. (1) /api/diag/exchange_positions?account_id=bybit_portfolio -> ETHUSDT Buy 10.0 (a real list, so a confirmed clean read, not a null). (2) /api/bot/positions?include_paper=true -> two open journal rows, #4923 eth_pullback_2h 2.24 and #4905 trend_donchian_eth_4h 7.76. 2.24 + 7.76 = 10.00 against an exchange size of 10.0 - EXACT. The `journal_qty_divergent` condition (a) is absent: zero unbacked journal qty. (3) /api/diag/bybit_open_orders?account_id=bybit_portfolio -> read_state `orders_read`, FOUR Partial legs, one SL and one TP per journal row: SL 2309.79 / TP 2687.53 at qty 2.24, and SL 2339.08 / TP 2766.83 at qty 7.76. SL coverage 10.00/10.0 and TP coverage 10.00/10.0 - two-sided and complete, so condition (b), the dead SL leg, is absent too. ALSO CHECKED THE AXIS COVERAGE CANNOT SEE: the resting PRICES agree with the journal declarations to the tick (journal 2309.78571429 -> venue 2309.79; 2339.07571429 -> 2339.08; 2687.52757 -> 2687.53; 2766.83141 -> 2766.83). That is the BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND axis, done by hand because no automated surface grades it. WHY THIS DOES NOT CLOSE THE ROW. The row names two problems and the second is a ROLL-UP DENOMINATOR defect: the audit's headline is measured against the EXCHANGE size and does not state which question it answered, so an unbacked journal row still prints as '0 naked'. That defect is unchanged - it simply has nothing to hide right now. Severity tracks the CLASS, not the instance: the next divergence will be summarised exactly the same way, and a reader would again have to scroll past a green headline to find it."
         }
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated against live positions: bybit_portfolio now holds TWO ETHUSDT journal rows (2.24 eth_pullback_2h + 7.76 trend_donchian_eth_4h = 10.00) against the netted exchange position. The specific 35.01-vs-21.05 divergence this row records is not the current state, but unbacked journal qty under netting is the standing condition (BL-20260801). Re-measure before closing."
+        }
       ]
     },
     {
@@ -18502,6 +18772,12 @@
           "at": "2026-08-20T21:05:00+00:00",
           "by": "claude (session_014myC5S5VacHNuzzBR8dGBC) — landing PR #9919's content onto current main, plus an independent re-confirmation",
           "note": "LANDED FROM PR #9919 (draft since 2026-08-17), which could not be merged as-is: its branch carries 662 backlog items against main's 751, so merging the file would have reverted 89 rows. Only the row it actually changes is applied here -- status + the updates block -- which is the three-way result by construction. Verified before applying that #9919's version of this row differs from main's at exactly two keys (status, updates) and nowhere else.\n\nRE-CONFIRMED INDEPENDENTLY 2026-08-20T20:23:39Z, three days after the reopen observation: /api/diag/ib_open_orders?account_id=ib_paper, read_state 'orders_read' (a confirmed clean account-wide read), returns FOUR resting orders on ib_paper and their order_type set is exactly {STP, LMT}. There is no MKT order anywhere on the account -- neither order 6 nor 378 nor any successor -- so the cancels did complete and stayed complete, and no stray market order is resting against a position that could flatten. The positions are also intact rather than sold into: MGC 95 long, MHG 29 long, MES 15 long. This is a fresh measurement, not a re-read of #9919's.\n\nThe causal half stays a HYPOTHESIS, exactly as #9919 left it, and this session did not run the settling experiment (cancel as a LIVE clientId and see whether it completes synchronously). One new data point in its favour, offered as corroboration and not proof: at 20:26:43Z /api/diag/ib_state showed live clients 498, 9297 (readonly) and 497, with 597 ABSENT -- while three of the four resting protective legs (MGC 391, MHG 398/399) are held by client_id 597. So the dead-clientId condition #9919 identifies is PRESENT ON THE LIVE BOOK right now, and any future cancel touching those three legs should expect PendingCancel rather than a synchronous completion. Recorded so the next session repairing MGC's missing target is not surprised by it."
+        },
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and TODAY IS THE CONDITION: 2026-08-29 is a Saturday and the venue reads closed, so a cancel issued now would sit in PendingCancel exactly as this row describes. Compounds BL-20260816-NO-PER-ORDER-IB-CANCEL."
         }
       ]
     },
@@ -18540,7 +18816,14 @@
       "why_it_matters": "The diag relay is the ONLY read path for a web/PM session, so its consumers are sessions that cannot re-render or re-query cheaply and cannot see the query they actually got. Every quantitative claim such a session makes about live data rests on these fields. This is the 'always state the population' rule failing at the transport layer rather than at the analyst.",
       "resolution_criteria": "OBSERVABLE: issue a diag request whose response EXCEEDS the byte budget and whose filter names a nonexistent column; the returned comment must still show filter_state='ignored_unknown_column' (or an explicit relay-level warning that certification fields were dropped). Demonstrate by running it — a passing case on a small response proves nothing, since the bug only exists above the budget.",
       "next_action": "Cheapest fix is in the RELAY, not the API: when truncating, emit the tail keys (filter_state/order_state/total/count) after the truncation notice, or refuse to truncate mid-envelope and instead return a metadata-only summary. Reordering the API envelope so certification precedes `rows` also works and helps every consumer, but touches more surfaces.",
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated and I HIT THE SAME CLASS TODAY on a different surface: the grade-closed-trades issue-comment cap kept the LAST 50,000 of 66,841 bytes, silently dropping the 22 OLDEST rows while the action's own _delta_summary (truncated:false) sat in the retained tail saying nothing was truncated. Same shape: truncation removed the rows and kept the field that certifies completeness. Generalise this row beyond vm-diag-snapshot."
+        }
+      ],
       "area": "diag-relay / db-explorer envelope",
       "detail": "The db-explorer envelope orders keys {table, db, columns, rows, total, limit, offset, filter_state, order_state, ...} and the /api/bot/order-packages envelope puts `count` after `rows`. The relay caps a comment at 55,000 bytes and truncates the TAIL. So on any response larger than the budget, the certification fields are the FIRST casualties while `rows` — the part that looks like data — survives.\n\nMEASURED, both on 2026-08-16:\n  * #9753: `filter_col=strategy` on order_packages. The real column is `strategy_name`, so the filter was silently IGNORED (the documented BL-20260813 behaviour), the query ran UNFILTERED, and the response was 829,977 bytes of the whole table truncated to 55,000. `filter_state` — which would have read `ignored_unknown_column` — was truncated away. What survived was well-formed rows of a DIFFERENT strategy (vwap/BTC).\n  * #9755: correct filter via /api/bot/order-packages, 321,146 bytes truncated to 55,000. Right population this time, but `count` was truncated away, leaving 7 visible rows and NO denominator. The true total turned out to be 37 (#9756).\n\nWHY THIS IS THE DANGEROUS ORDERING: a consumer of a truncated response sees rows, sees no filter_state, and rows look like data. The failure is silent in exactly the direction that matters — you cannot tell a filtered read from an unfiltered one, or a complete population from a page. I caught #9753 ONLY because XRP does not trade at 78,810; on a BTC leg I would very likely have computed a cap_R distribution over the entire order_packages table and reported it as the leg's history.\n\nRELATION TO EXISTING ROWS: BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN added `filter_state` as the remedy for the silent-ignore. This row is that remedy being DEFEATED BY TRANSPORT: the field exists, is correct, and never reaches the reader. A guard that is truncated away is not a guard."
     },
@@ -18593,7 +18876,14 @@
       "why_it_matters": "The downgrade is SCHEMA-SILENT and self-concealing. The job is green, the step summary reports the full row count ('runs merged: 13  new rows: 52'), and the rows look complete — nothing anywhere states which extractor produced them. That is the unprovenanced-diagnostic class: a real number under a label that does not describe what produced it. Worse, the blast radius GROWS with every field added to the extractor, and it is invisible in exactly the direction that matters — a reader joining these rows sees an absent key and reads it as 'not measured', when the run did measure it.",
       "resolution_criteria": "TWO HALVES, and the first does not close the second. (1) CODE — a main-dispatched sweep whose rebase conflicts must still write rows carrying every key the dispatched extractor emits. Observable: dispatch on main, confirm the 'rebase conflicted' notice fires, then assert the new rows carry live_tp_reach_r_n_IS. A run that does NOT conflict proves nothing, since the bug only exists on the conflict path. (2) DATA — the 52 rows already written on claude/m20-sweep-corpus must be re-derived or explicitly marked as schema-degraded; until then a consumer cannot distinguish 'the field was not measured' from 'the field was measured and dropped in transit'.",
       "next_action": "Half (1) is shipped in this PR (preserve the dispatched extractor to $RUNNER_TEMP before any git op can revert it; re-derive from that copy; pinned by two tests in tests/test_m20_sweep_workflow_inputs.py incl. a negative control on the exact pre-fix shape). Half (2) is NOT done: the cheapest repair is a re-dispatch whose extractor is current, since the underlying measurement is not lost — verdicts.json carries live_tp_reach_r per leg and m20_fleet_exit_sweep.py:2858 builds the SUMMARY reach table from it, so only the corpus HOP dropped it. This session cannot download run artifacts (no artifact-download MCP), so the repair needs a re-run rather than a local re-extract. ⚠️ BLOCKS THE PLANNED CORPUS UNION: merging the 113 branch-only rows onto main would import 52 schema-degraded rows into the canonical corpus — do the repair first, or the union records the degradation permanently. ⚠️ THE RE-DISPATCH REPAIR IS CONDITIONAL, NOT GUARANTEED — verify it, do not assume it. m20_corpus_extract.measurement_key supersedes on (kind, leg, cell, split, tp_cap_pct, regime_router, min_oos_trades_floor, fee_bps_roundtrip, min_confidence_override, declared_levers_dropped). Under the default split_mode=oos-trades the `split` is DERIVED per leg to target ~25 OOS trades from frames scp'd from the trainer, so if those frames gained candles since 2026-08-16 the derived boundary moves, the key changes, and the re-run ADDS 52 rows beside the degraded ones instead of superseding them — leaving the corpus holding two identities for one book, which is the same defect class BL-20260813-TPCAP-REQUESTED-NOT-APPLIED existed to clear. After any repair run, assert the corpus row count is UNCHANGED and the extractor reported 'superseded: 52'; if it grew, the split moved and the old rows must be removed by key rather than left to accumulate.",
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: silently dropping corpus fields added since the target branch is a data-loss path in the evidence base. Correctly open."
+        }
+      ],
       "area": "research tooling / m20 sweep corpus / CI",
       "detail": "MECHANISM. .github/workflows/m20-exit-lever-sweep.yml's `rebase_onto_target` handles a rebase conflict by `git reset --hard \"origin/$TARGET\"` and then re-running the extractor. The reset reverts the ENTIRE worktree — including scripts/research/m20_corpus_extract.py itself — so the re-derive runs the corpus branch's copy, not the one the run was dispatched with. The surrounding comments reason carefully about preserving ROWS and about re-creating the staged automerge file after the reset; nothing considered that the reset also reverts the CODE that then re-derives them.\n\nTHIS IS THE NORMAL PATH, NOT A RARE RACE. The comment frames the conflict as the ordinary concurrent outcome ('both sides added rows'), but claude/m20-sweep-corpus never merges main and is currently 123 commits behind it. A main-dispatched run therefore rebases main's history onto a long-diverged branch and takes add/add conflicts across dozens of unrelated files EVERY time (the log shows conflicts in src/web/api/main.py, tests/test_validation.py, and ~30 others). So the degraded path fires on essentially every main-dispatched run — which is precisely why it went unnoticed.\n\nMEASURED (2026-08-16). Run 31976325152 was dispatched on main at head_sha cb8bc5a2 (which postdates #9037, so the checked-out extractor DID have the field). The log: '##[notice]rebase conflicted on the corpus — re-deriving the union from their copy' then 'HEAD is now at 9a085926' — 123 commits behind main — then 'runs merged: 13  new rows: 52'.\n\nSCHEMA DELTA, both directions. Comparing tonight's 52 rows (stale extractor) against the 361 main rows dated 2026-08-15 (current extractor — those were dispatched on claude/m20-exit-coverage-matrix-8d3he7, which was current, so no conflict fired; that is the control):\n  * tonight: 70 distinct keys · 08-15: 78 distinct keys\n  * dropped, exactly 8, all one family: live_tp_reach_r_{n,median,min,max}_{IS,OOS}\n  * keys present only in tonight's rows: 0 — the delta is one-directional, no compensating gain\nAll eight were added by #9037 (61d9b1e6, 2026-08-13), which the corpus branch predates (verified: `git merge-base --is-ancestor` returns false).\n\nWHAT IS *NOT* AFFECTED, stated so it is not over-read. The verdicts are computed upstream in verdicts.json and carried into the row separately; tonight's 43 is_oos_fail / 4 insufficient_base / 3 path_b_wf_pass / 1 path_b_wf_fail / 1 PASS are unaffected, and they reproduce the trainer relay's verdicts exactly. The loss is confined to the corpus row SCHEMA. The three reachability rows queued for the operator do not depend on these keys.\n\nWHY THE ROWS' ABSENCE IS ITSELF MISLEADING. #9037's own comment (m20_corpus_extract.py:414) established that live_tp_reach_r's None is deliberately THREE-WAY — a run predating the field, a run with the cap OFF, and a leg the cap was on for that placed no measurable TP — with `_n` beside the median as what separates them. A row where the KEY IS ABSENT ENTIRELY is a fourth state that design did not contemplate: measured, then dropped in transit. The field built to avoid a collapsed state acquired a new one via the transport. | STATUS NORMALISED 2026-08-22 (workplan 0.1 Step 0): the free-text status 'code fix shipped; DATA REPAIR still open (52 rows written degraded)' was collapsed to 'open' so the open set is countable. The original wording is preserved here verbatim; the mapping failed TOWARD open wherever the text signalled remaining work."
     },
@@ -18751,6 +19041,14 @@
         "BL-20260816-IB-CLOSE-HAS-NO-MARKET-HOURS-AWARENESS",
         "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
         "BL-20260816-COVERAGE-IS-ONE-SIDED"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: this is a RESEARCH question gating a protective-geometry change, and it must be answered first. Live book shows both MES legs GTC and resting; whether the STOP can trigger outside RTH is unresolved and unanswerable from our own logs — it needs IBKR documentation or a controlled test."
+        }
       ]
     },
     {
@@ -18918,7 +19216,15 @@
       "why_it_matters": "This is the collapsed-state class applied to the sweep's own verdict, and it points the dangerous way: the zero reads as EVIDENCE AGAINST a lever that is live on real money. A session doing exactly what this repo asks -- pull the newest live-parity row before advising the operator -- gets handed a confident `is_oos_fail` on a shipped cell and no field telling it the baseline was contaminated. I nearly filed that reading against trend_donchian_xrp_4h/trail_decay on bybit_2, i.e. nearly manufactured a demotion argument for a live real-money lever out of an artifact. 10 rows are in this state today, at least 8 on legs where the lever is shipped, so the trap is standing rather than hypothetical. The 192-row control matters too: the honest verdict for a genuine no-op is ALSO `tie_no_improvement`, so a reader cannot resolve it by treating the string as suspicious -- and `matrix-corpus-agreement` reads the corpus for exactly this leg/lever key, so an automated consumer is exposed to the same ambiguity a human is.",
       "proposed_action": "Make the two situations distinguishable at the SOURCE, not by convention. (1) `m20_fleet_exit_sweep` already computes `declared_levers_present` -- have it emit an explicit three-state field on each cell row saying whether the measured baseline contained the cell's OWN lever: `lever_in_baseline` (the delta is structurally zero and means nothing about the lever's value) — resolved by the FOUR-BRANCH predicate in the evidence above, which consults `declared_levers_dropped` FIRST; a two-field predicate that ignores it mislabels 41 real measurements / `lever_absent_from_baseline` (a real measurement) / `unknown` (the declared set could not be resolved -- we did not look, NOT 'absent'). Register it with `collapsed-state-guard` so a producer/consumer split is caught. (2) Give the self-baseline case its OWN verdict rather than `is_oos_fail` -- `already_shipped_no_delta` or similar -- because `is_oos_fail` on a shipped cell reads as a demotion signal and no amount of prose downstream undoes that. (3) Have `m20_wf_effective`/`m20_ack_corpus_disagreements` skip or flag such rows rather than grading them, since `wf_ran: false` there is structural, not a missing walk-forward. (4) Do NOT re-grade any status on the strength of these 10 rows.",
       "resolution_criteria": "A cell row states, in a field rather than in prose, whether its baseline already contained its own lever, and a consumer branches on it -- verified by a planted control showing the field can read all three values. Renaming the verdict alone does not close this: without the field, a future consumer still cannot tell the 192 genuine no-ops from the 10 structural zeros.",
-      "not_a_finding_about": "The sweep's ARITHMETIC, which is correct -- a shipped lever genuinely offers no improvement over a baseline that runs it, and returning zero is the honest answer to the question actually asked. The defect is that the OUTPUT cannot say WHICH question produced the zero. Also NOT a finding that trend_donchian_xrp_4h/trail_decay is worthless: this specifically REFUTES that reading. The live Tier-3 question on that cell is unchanged and rests on the two PASS runs, whose walk-forward records 5/6 but grades 2/6 EFFECTIVE with 3 inert folds (2021, 2022, 2026) -- see BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS. Also not a finding about the identical-deltas observation, which is flagged as unexplained rather than diagnosed."
+      "not_a_finding_about": "The sweep's ARITHMETIC, which is correct -- a shipped lever genuinely offers no improvement over a baseline that runs it, and returning zero is the honest answer to the question actually asked. The defect is that the OUTPUT cannot say WHICH question produced the zero. Also NOT a finding that trend_donchian_xrp_4h/trail_decay is worthless: this specifically REFUTES that reading. The live Tier-3 question on that cell is unchanged and rests on the two PASS runs, whose walk-forward records 5/6 but grades 2/6 EFFECTIVE with 3 inert folds (2021, 2022, 2026) -- see BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS. Also not a finding about the identical-deltas observation, which is flagged as unexplained rather than diagnosed.",
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a declared lever inside the baseline returns exactly-zero deltas, byte-identical to a measured no-op. Work as one class with BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP."
+        }
+      ]
     },
     {
       "id": "BL-20260817-COLLAPSED-STATE-GUARD-REGISTRY-COUNTS-AS-ITS-OWN-CONSUMER",
@@ -19016,6 +19322,14 @@
         "#9899",
         "#9896",
         "#9898"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated. I dispatched three system-actions today (#10415, #10417, #10418); all reported wrapper exit 0 and conclusion success, so I did not exercise the failure path. The hazard — re-running on a false failure double-applies — is unchanged."
+        }
       ]
     },
     {
@@ -19048,7 +19362,15 @@
       "detail": "MEASURED LIVE 2026-08-17 on ib_paper/MES. A 15-contract LONG carried TWO independent full-size protective stops: order 338 (STP SELL 15 @ 7516.50, oca_group oca-protect-336, clientId 497) and order 375 (STP SELL 15 @ 7533.75, oca_group oca-protect-373, clientId 597). 30 contracts of sell-stop against a 15-contract position.\n\nTHE OCA GROUPS ARE DIFFERENT, WHICH IS THE WHOLE BUG. OCA cancels only WITHIN a group, so these are independent: a fall through 7533.75 fires the first and flattens the position, and a continued fall to 7516.50 fires the second and opens a SHORT 15 that no strategy requested — an un-hedged directional position, in a book that was supposed to be flat.\n\nROOT CAUSE (strong, from id arithmetic + live client state): 597 - 497 = 100 = IB_RECONNECT_CLIENTID_STRIDE exactly. /api/diag/ib_state showed live clients 497/498/9016 and NOT 597, so 597 is an abandoned rotated session. The reconnect rotation (IB_RECONNECT_ROTATE_CLIENTID_AFTER, default 1) re-armed protection under the rotated id while the pre-rotation stop kept resting under the base id. Not yet confirmed from the trader journal — that is the remaining work.\n\nWHY NOTHING CAUGHT IT: order_monitor._check_broker_naked_ib_positions detects UNDER-coverage (naked). protection_coverage sums covered_qty and compares to size; 30 >= 15 reads as covered. Bybit has an explicit over_covered detect-only signal (SL legs > 1.5x position, BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING); the IB path has NO equivalent. So this is invisible to every existing sweep.\n\nib_paper is a PAPER account, so no money was at risk — but ib_live shares the same client/rotation code, and the mechanism is not account-specific.\n\n=== SUPERSEDED 2026-08-17, and the filing was MY error ===\nThis is the THIRD row for one phenomenon. BL-20260816-IB-DUPLICATE-STOPS-IN-SEPARATE-OCA-GROUPS and BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS already existed, filed by a concurrent session, with the SAME order ids, the same OCA reasoning and the same why-nothing-caught-it analysis.\n\nCAUSE: I never checked the coordination board (issue #6927) this session, which CLAUDE.md requires BEFORE the first substantive tool call. The board exists exactly to stop this, and the cost is not just a duplicate row — a reader triaging three rows cannot tell whether they are three occurrences or one, which is worse than either answer.\n\nThe one contribution that was NOT already recorded (the clientId-rotation root cause) has been moved into the incumbent row. Nothing is lost by superseding this.",
       "resolution_criteria": "1. Confirm the mechanism from the journal: find the reconnect that rotated 497->597 and the re-arm that placed 375, and establish whether the re-arm path checks for an existing resting stop under a DIFFERENT clientId before placing. An account-wide reqAllOpenOrders read sees them; a per-client openTrades() does not.\n2. Fix the re-arm so a rotation cannot duplicate protection — either cancel the pre-rotation leg, or reuse its OCA group so the two are mutually exclusive. Reusing the group is the smaller change and fails safe: even if a duplicate is placed, one firing cancels the other, so the reversal cannot happen.\n3. Add an IB over-coverage detect-only signal mirroring Bybit's over_covered, so sum(stop_qty) > size alerts instead of grading as covered. Detection is separable from the fix and is the part that generalises.\n4. Sweep for other instances: any account where account-wide stop qty exceeds position size. One was found by inspection, which is not a search.",
       "evidence": "diag #9894 (3 orders, 2 positions), #9905 (ib_state: 497/498/9016 live, 597 absent), #9906/#9910/#9912/#9913 (cancel), #9914 (post-state: 2 orders, MES singly covered)",
-      "superseded_by": "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS"
+      "superseded_by": "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS",
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated on the live book and the CURRENT state is clean — one OCA group, one stop, one target, qty matching the position (see BL-20260816-IB-DUPLICATE-STOPS-IN-SEPARATE-OCA-GROUPS, resolved this review). But this row is about the ROTATION MECHANISM, not the current book: a clean book today does not show that a rotation cannot duplicate stops tomorrow. Keep open until the re-arm path cancels the pre-rotation stop."
+        }
+      ]
     },
     {
       "id": "BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT",
@@ -19150,7 +19472,7 @@
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
       "severity": "high",
       "tier": "1 (read path / router arithmetic)",
-      "status": "open",
+      "status": "resolved",
       "area": "prop",
       "title": "The prop rule-distance guard derives the cushion from the account_status snapshot ALONE and ignores the 2 prop_fills reported since it, so on 2026-08-18 a stale panel overstated the distance to the account-killer floor by $78.61 (167%)",
       "detail": "MEASURED 2026-08-18, breakout_1.\n\nBefore today's snapshot, `/api/bot/prop/status` reported `distance_to_dd_floor_usd: 125.61` off the 2026-07-20T08:28:32Z snapshot (balance 4825.61), correctly graded `status_freshness: \"stale\"` at 694.2h.\n\nBut the system already held STRICTLY BETTER information it did not use: two closed prop fills reported AFTER that snapshot — 2026-07-28 (-18.06) and 2026-08-13 (-50.55), total -68.61. Snapshot + fills reconstructs 4757.00 against an operator terminal truth of 4747.00 (residual -10.00, fees/swap). So:\n    panel cushion    +125.61\n    reconstructable   +57.00\n    ACTUAL            +47.00\nThe panel overstated the remaining cushion to an account-killer floor by $78.61 — 167% too generous — while a two-row query against a table in the same DB would have got within $10.\n\n`status_freshness` (added 2026-08-14) correctly says the snapshot is old, and that work was right. But 'stale' communicates LOW CONFIDENCE in a number that is still rendered, when the fix available here is not more caveat — it is a BETTER NUMBER. Grading a value you could have improved is the weaker half of the job.\n\nOPERATOR-FACING CONSEQUENCE, and why this is filed high rather than medium: with the true balance now ingested (id 7, 4747.00), the cushion to the static DD floor is **$47.00** while the daily-loss limit is $142.41 — the binding constraint has crossed over to the DD floor and the daily-loss guard can no longer bind first. Every one of the last five reported prop closes (-18.49, -85.90, -96.94, -18.06, -50.55) is LARGER than the remaining cushion; the mean is ~$54. The next average losing trade breaches the account.",
@@ -19176,7 +19498,16 @@
         "actual_cushion": 47.0,
         "overstatement_pct": 167,
         "closed_by": "account_status id 7 ingested 2026-08-18T06:53:45Z via prop-report issue #9926"
-      }
+      },
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "resolved",
+          "note": "RESOLVED on a live read 2026-08-29. /api/bot/prop/status now returns `fills_applied_since_snapshot: 0` and `fills_pnl_since_snapshot_usd: 0.0` alongside `balance_basis: snapshot` and `equity_provenance: measured` — i.e. the rule-distance computation DOES consult the fills stream since the snapshot and reports how many it applied. The exact gap this row names (cushion derived from the snapshot ALONE, ignoring fills reported since) is closed, and the field that proves it is published rather than implied. Today's read happens to be 0 fills since a 0.9 h-old snapshot, so the count is honest rather than merely absent."
+        }
+      ],
+      "resolved_at": "2026-08-29T17:15:00+00:00"
     },
     {
       "id": "BL-20260818-ATTACH-IB-TARGET-NO-THROUGH-MARKET-REFUSAL",
@@ -19196,7 +19527,15 @@
         "gap_points": 122.74,
         "direction": "long",
         "would_fill": "immediately at market"
-      }
+      },
+      "updates": [
+        {
+          "at": "2026-08-29T17:15:00+00:00",
+          "by": "/system-review 2026-08-29 triage",
+          "disposition": "kept_open",
+          "note": "Re-validated: a missing refusal for a declared target already THROUGH the market, which turns a protective repair into a market exit. Directly relevant given MGC 4773's history. Cheap to add as a fifth refusal."
+        }
+      ]
     },
     {
       "id": "BL-20260818-DIAG-BASE-URL-POINTS-AT-TERMINATED-VM",
