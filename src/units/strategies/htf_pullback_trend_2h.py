@@ -45,8 +45,19 @@ Exit
 ----
 The VERBATIM shared Chandelier ATR trail (copied from trend_donchian) — let
 the continuation run; NOT a tight target (the program's iron law: every
-tight-target strategy died on BTC fees). Far ~50R ``tp`` sentinel +
-``timeout_bars`` backstop. Frozen entry-time ATR in ``meta``.
+tight-target strategy died on BTC fees). Far ~50R ``tp`` sentinel. Frozen
+entry-time ATR in ``meta``.
+
+⚠️ THERE IS NO ``timeout_bars`` BACKSTOP ON THIS UNIT, and this docstring
+claimed one until 2026-08-29. Nothing here reads ``timeout_bars`` and there is
+no bars-held logic at all, so a trade is never closed on bar count live. The
+BACKTEST harness is the opposite -- ``scripts/backtest_pullback.py:496`` force
+-closes at ``min(i + timeout_bars, n - 1)`` with a default of 200 -- so the
+harness models a time exit production does not have. A leg may still DECLARE
+``timeout_bars`` in ``config/strategies.yaml`` (``mgc_pullback_1d`` carries
+200); it is inert here. Full account, blast radius and the two directions it
+could be closed in:
+``BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES``.
 """
 from __future__ import annotations
 

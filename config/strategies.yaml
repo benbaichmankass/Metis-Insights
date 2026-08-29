@@ -1535,10 +1535,10 @@ strategies:
     pullback_lookback: 15
     pullback_frac: 0.618
     atr_period: 14
-    atr_stop_mult: 2.0
+    atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell tp6_sm1.5 (path_b_wf_pass, wf 4/6); was 2.0
     trail_mult: 4.0
     timeout_bars: 200
-    tp_r: 50.0
+    tp_r: 6.0  # M20 B4 bracket geometry: cell tp6_sm1.5 (path_b_wf_pass, wf 4/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
@@ -1709,9 +1709,9 @@ strategies:
       - SPY
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell tp2_sm1.5 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
-    tp_r: 50.0
+    tp_r: 2.0  # M20 B4 bracket geometry: cell tp2_sm1.5 (path_b_wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1732,11 +1732,11 @@ strategies:
       - QQQ
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     trail_decay_arm_r: 3.56   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.0
-    tp_r: 50.0
+    tp_r: 3.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1812,11 +1812,11 @@ strategies:
       - IWM
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
-    tp_r: 50.0
+    tp_r: 3.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1968,7 +1968,7 @@ strategies:
       - SLV
     donchian: 24
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell sm1.5 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     tp_r: 50.0
     # 0.0 -> 0.3 (2026-08-01, PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE): 2
@@ -2087,7 +2087,7 @@ strategies:
     pullback_lookback: 12
     pullback_frac: 0.5
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 3.0
     trail_decay_stall_bars: 6   # M20 P4.1 decay cell (stall6 tight1.5 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 1.5
@@ -2116,7 +2116,7 @@ strategies:
       - USO
     donchian: 24
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp4_sm2 (wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
     # M20 giveback-stop (fleet sweep 2026-07-12, cell gb1R_afterMFE1R):
     # once the trade has seen >= 1R of open profit, exit at bar close when
@@ -2126,7 +2126,7 @@ strategies:
     # _giveback_verdict; remove these two lines to roll back.
     giveback_min_mfe_r: 1.0
     giveback_r: 1.0
-    tp_r: 50.0
+    tp_r: 4.0  # M20 B4 bracket geometry: cell tp4_sm2 (wf_pass, wf 5/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2267,11 +2267,11 @@ strategies:
       - SCHA
     donchian: 30
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 3.0  # M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6); was 2.5
     trail_mult: 4.0
     trail_decay_arm_r: 2.0   # M20 P4.1 decay cell (arm2R tight2 wf 6/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
-    tp_r: 50.0
+    tp_r: 1.5  # M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 
