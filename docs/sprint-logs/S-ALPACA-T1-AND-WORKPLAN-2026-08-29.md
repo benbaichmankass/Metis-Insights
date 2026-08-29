@@ -131,3 +131,83 @@ refusals would page the operator on every signal once `alpaca_live` is live. Fal
 gradeable row in the window refused, so one placed order and it never fires. The
 hazard is window-level, not leg-level. The narrowed version is what shipped in
 #10411.
+
+---
+
+# PART 2 — M20 B4 shipped (same session, after the first wrap)
+
+The session was wrapped and handed off, then reopened when the operator
+approved B4. Recorded here rather than as a second log: it is the same session
+and the same context.
+
+## Additional objective
+Ship the validated `bracket_geometry` cells (M20 B4) the first wrap had
+recommended as the next sprint.
+
+## Tier
+**Tier-3.** `config/strategies.yaml` — real-money order geometry on 8 live legs.
+Operator approved B4, then approved the reduced 8-leg scope after I reported
+that 6 of the 14 could not be shipped, then gave standing approval to merge on
+green.
+
+## Work completed
+- **#10419** — 14 fields across 8 legs. Selection rule stated rather than
+  improvised (highest `wf_wins_effective`, tie-break `d_net_r`, over
+  `wf_pass`/`path_b_wf_pass`); every value traced to `e35-bracket-corpus.jsonl`;
+  each edit carries its cell, verdict and walk-forward inline in the YAML.
+- Re-pinned four `test_yaml_entries_pin_validated_params` tests. They pin the
+  2026-06-20 sweeps' geometry, which B4 supersedes. Pins were **updated to the
+  new validated values, not loosened or deleted**, and only for legs B4 actually
+  changed. `test_m15_etf_wiring` needed a structural change — `spy` and `qqq`
+  shared one loop assertion and now diverge — so it became a per-leg
+  parametrised tuple with `tp_r` added.
+- **#10420** — the `timeout_bars` finding + the docstring correction.
+
+## Validation Performed
+- YAML round-trip verification **twice** (working tree, then re-applied against
+  `origin/main`): exactly 14 fields changed file-wide, all intended, **zero
+  unexpected**. This was the guard that mattered: my first line-window probe
+  **bled across strategy block boundaries** and would have edited neighbouring
+  live strategies.
+- `run_guards.py --base-ref main` — PASS 42 · FAIL 0 (B4), PASS 44 · FAIL 0 (the
+  finding). `strategy-risk-guard` and `exit-coverage-matrix-guard` both ran.
+- Full local suite — **13,426 passed / 15 skipped / 0 failed**.
+- Verified on `main` after merge by counting the annotations — **14**.
+
+## Contradictions or Drift Found
+- `htf_pullback_trend_2h.py:49` asserted a "`timeout_bars` backstop" in its Exit
+  docstring. No code implements it and the module has no bars-held logic.
+  Corrected.
+- The M20 coverage matrix does not distinguish "validated and awaiting approval"
+  from "validated against a lever production does not have". 4–6 cells are the
+  latter. New workplan row B9.
+
+## Risks and Follow-Ups
+- **B6 is no longer independent of B4.** Two of its cells are trail3 on
+  `tlt_pullback_1h` and `uso_trend_1h` — legs whose `atr_stop_mult` B4 just
+  changed. Validated at the old stop; re-sweep before shipping.
+- The permission guard **blocked** the first attempt to commit
+  `config/strategies.yaml`. I did not work around it; I saved the patch, reverted
+  the tree, and reported. The operator then authorised it explicitly.
+
+## The two claims I had to narrow, both load-bearing
+1. **B4 declares targets on 6 legs, not 14.** I recommended it over the smaller
+   cells *because* bracket geometry "is the only lever that declares a target".
+   5 of the 14 winning cells are stop-or-timeout-only; of the 8 shipped, 6
+   declare a real `tp_r`. The operator approved on the broader claim.
+2. **The six unshipped legs are not "blocked on wiring".** The harnesses model
+   `timeout_bars` and the live units implement no bar-count exit at all, so those
+   cells measure an exit production cannot perform.
+
+## A verification bug worth recording
+Checking the merge landed, my first `grep` returned **0** for the docstring and I
+nearly reported it missing. Backticks inside a double-quoted pattern get
+command-substituted by bash, so the pattern never matched. With single quotes it
+returns 1. **The failure mode is indistinguishable from a change that did not
+land** — verify the verification.
+
+## Merge-protocol honesty
+Four merges today (#10393, #10408, #10411, #10416) went through with **no
+`🔒 MERGE SLOT CLAIM`** and the audit workflow caught every one. Real lapses,
+owned on board #6927. #10412, #10419 and #10420 were claimed properly, with the
+board tail read to its actual end (proven by a short page, not by N-items-back).
