@@ -110,9 +110,30 @@ passed, so a failure is most likely base-branch; verify that before assuming.
 the night. `e35-bracket-sweep.yml`, `workflow_dispatch`, `only=""` (every runnable leg),
 defaults otherwise (`days=1830`, `gate_top=2`, `singles_only=false`, `max_parallel=6`).
 **Done when:** the run completes and its per-leg artifacts are collected.
-**⚠️ Do not overwrite `docs/research/e35-bracket-corpus.jsonl` in place.** Write the new
-rows beside it; N7 needs both to diff. The committed corpus is the ONLY durable copy of
-3,781 measured cells (`BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH`).
+
+⚠️ **CORRECTED 2026-08-29T20:57Z — this row previously said "do not overwrite
+`docs/research/e35-bracket-corpus.jsonl` in place; write the new rows beside it". THAT
+INSTRUCTION IS UNENFORCEABLE and following it would have wasted time at 03:00.** The
+workflow's corpus job **unions into that file IN PLACE and commits+pushes to the ref it
+ran on** — run #5's own commit message reads `corpus …/e35-bracket-corpus.jsonl:
+2204 -> 2219 rows (15 added, 15 superseded)`. Rows sharing a `measurement_key` are
+**superseded**, which is exactly the "before" state N7 needs. Found by reading that
+commit message, not by it going wrong.
+
+**Git already solves it — but only because the baseline was named BEFORE the sweep
+committed.** It is:
+
+> **N7's BEFORE = `git show a986ac3:docs/research/e35-bracket-corpus.jsonl`**
+> Measured at that sha: **8,211 rows · 8,211 unique `measurement_key` (zero duplicates)
+> · 41 legs · 8,199 `measured` + 12 `inert_equals_base`.**
+
+The sweep runs on `main`, so its corpus commit lands as a child of `a986ac3` and the
+before/after pair is a plain two-sha diff. Also posted on board #6927 at 20:57Z so the
+baseline survives this file.
+
+⚠️ The committed corpus is still the ONLY durable copy of the measured cells
+(`BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH`) — which is *why* the before-sha
+must be named rather than assumed recoverable.
 
 ### N3 — B10: the `bracket_geometry` staleness detector · Tier 1
 The gap that let the matrix carry 8 cells as `passed_unshipped` while they were live on
@@ -159,7 +180,10 @@ first. `tlt_pullback_1h` and `uso_trend_1h` are CLEAN; `mhg_pullback_1d` is CLEA
 **ungraded on that axis — which is not the same as clean.**
 
 ### N7 — D2 deliverable: the old-vs-new verdict diff · Tier 1
-**Gated on N2.** Produce and commit the per-leg, per-cell verdict diff.
+**Gated on N2.** Produce and commit the per-leg, per-cell verdict diff, **BEFORE =
+`git show a986ac3:docs/research/e35-bracket-corpus.jsonl`** (8,211 rows / 41 legs), AFTER
+= the corpus at `main` once the sweep's own commit lands. See N2's correction — the file
+is unioned in place, so the diff is a two-sha comparison, not two files.
 **Run the CLEAN-leg control FIRST** (§ 0): 23 legs must reproduce identically. State the
 control's result before any other number.
 **⚠️ Applying any resulting verdict change to `config/strategies.yaml` is Tier-3 and is
@@ -206,6 +230,12 @@ or that live behaviour changed. None of that is autonomous.
 - **A negative needs a denominator.** Never grade `clean` off silence; show the probe can
   find a positive.
 - **Verify a merge by reading `origin/main`**, never off the merge event.
+- **Never push to a branch armed for auto-merge** — a new head SHA strands the arm and
+  invalidates its CI. A follow-up PR is the way (this correction is one).
+- **A plan instruction can be unenforceable.** N2's original "write the rows beside it"
+  described behaviour the workflow does not have. Check what the tooling actually does
+  before writing an instruction that depends on it — reading run #5's commit message cost
+  one minute and would have cost a confused hour at 03:00.
 
 ---
 
