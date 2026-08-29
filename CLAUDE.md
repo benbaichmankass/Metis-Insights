@@ -96,8 +96,8 @@ This block is rendered from `docs/claude/OPEN-ITEMS.json` + `docs/claude/RECURRE
 
 **1 monitoring item(s) DUE — check and record what you OBSERVED:**
 
-- **`OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED`** — The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
-  - **Clears when:** BOTH: (a) a NEW disjoint-group over-cover is detected and PAGES the operator through outcomes.jsonl — verified by finding the row in /api/bot/logs?level=error, not by reading the code; and (b) cancel-ib-order is exercised against the real gateway and reports a cancel's outcome correctly. A synthetic test passing is NOT either half.
+- **`OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED`** — The stray-OCA-group sweep that fixes the over-cover GENERATOR shipped at annotate and is armed on NO account. Do not arm it before reading the MES finding below -- as written it would cancel MES's only protection.
+  - **Clears when:** The sweep is armed on ib_paper AND a row is observed in which it classified a real leg and acted -- naming the trade, the stray group and the preserved group. Shipping is not the observable; a cancel that happened is. Alternatively, the row clears if the operator decides not to arm it, recorded as that decision.
   - Last observed: `2026-08-26`. To clear for another cycle, set `verified_at` to today AND write what you saw into `observation` — a claim of progress is not an observation.
 
 **Every recorded repeated-mistake class has an executable prevention.**
