@@ -112,10 +112,20 @@ these particular verdicts as settled.
 
 ## What this does NOT say
 
-- **A ROUTE is not a routing proposal.** `alpaca_live` carries
-  `strategies: []` and nothing here changes it. Clearing this gate is one
+- **A ROUTE is not a routing proposal, and on `alpaca_live` the stakes changed
+  TODAY.** That account is now **`mode: live` with `strategies: []`**
+  (`config/accounts.yaml`, commit `624d8841`, operator-directed 2026-08-29 —
+  read from the field, not inferred). The empty list is **the only thing keeping
+  it flat**: `src/units/accounts/__init__.py` preserves the `None` / `[]`
+  distinction, and an explicit `[]` blocks all while an *absent* key falls
+  through to allow. **So adding the first leg to that roster is the
+  live-trading moment on real money, with no mode flip in front of it, and is
+  Tier-3 in its own right.** This page produces 11 ROUTE verdicts for that
+  account; not one of them is a reason to add a leg. Clearing this gate is one
   constraint among several (the Phase 2 capital-efficiency work and the exit
-  Path A/B gates are separate), not the decision.
+  Path A/B gates are separate), and the cash-vs-margin decision in
+  `OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-CASH-VS-MARGIN` sits in front of all of
+  them.
 - **`uso_trend_1h` ROUTEs, and that is not a real-money green light.** The
   operator's standing exclusion of USO from real money is on non-financial
   grounds and survives any backtest result. This row is a paper-account
