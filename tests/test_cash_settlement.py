@@ -1,12 +1,20 @@
 """T+1 settlement basis: the arithmetic, the states, and the documented limits."""
 from __future__ import annotations
 
+import json
+import sqlite3
 from datetime import date, datetime, timezone
 
 import pytest
 
 from src.runtime.cash_settlement import (
     STATES,
+    _parse_closed_at,
+    may_apply,
+    recent_sales,
+    record_observation,
+    resolve_for_account,
+    settlement_mode,
     conservative_settlement_date,
     settled_basis,
     settlement_date,
@@ -251,19 +259,6 @@ def test_basis_clamps_at_zero_rather_than_going_negative():
 # --------------------------------------------------------------------------
 # The I/O half: readers, the gate, and the orchestrator's failure states.
 # --------------------------------------------------------------------------
-import json
-import sqlite3
-
-from src.runtime.cash_settlement import (
-    _parse_closed_at,
-    may_apply,
-    recent_sales,
-    record_observation,
-    resolve_for_account,
-    settlement_mode,
-)
-
-
 @pytest.mark.parametrize(
     "raw, expected",
     [

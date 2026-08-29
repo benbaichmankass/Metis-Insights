@@ -1561,8 +1561,9 @@ class Coordinator:
                             (account.exchange or "").lower(), account.name, _bp_exc,
                         )
 
-                    # T+1 CASH SETTLEMENT (BL-20260823-ALPACA-CASH-ACCOUNT-
-                    # SETTLEMENT-UNMODELLED). On a CASH account, sale proceeds
+                    # T+1 CASH SETTLEMENT. Backlog row:
+                    # BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED
+                    # On a CASH account, sale proceeds
                     # are not spendable until they settle, and buying with
                     # unsettled funds is a good-faith violation that gets the
                     # account restricted. `available_usd` above is the venue's

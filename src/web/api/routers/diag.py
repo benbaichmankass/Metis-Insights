@@ -437,8 +437,9 @@ _LOG_FILES: dict[str, Path] = {
     # breach alerts once per PROCESS (max_interval_ms resets on restart, so a
     # global latch would go silent after the first breach ever) -- which is
     # only checkable if the latch is readable.
-    # T+1 CASH-SETTLEMENT soak (BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-
-    # UNMODELLED). One row per order-path evaluation on an alpaca account:
+    # T+1 CASH-SETTLEMENT soak. Backlog row:
+    # BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED
+    # One row per order-path evaluation on an alpaca account:
     # what the settled basis WOULD be, and whether it actually bound. Added in
     # the SAME change that ships the writer -- a log that gates an order path
     # and cannot be inspected is the exit_loop_health #8778 shape, which this
