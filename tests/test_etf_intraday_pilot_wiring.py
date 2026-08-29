@@ -106,7 +106,7 @@ def test_yaml_entries_pin_validated_params():
     assert "long_only" not in slv
     assert slv["symbols"] == ["SLV"]
     assert slv["signal_prefixes"] == ["slv_trend"]
-    assert (slv["donchian"], slv["atr_period"], slv["atr_stop_mult"]) == (24, 14, 2.5)
+    assert (slv["donchian"], slv["atr_period"], slv["atr_stop_mult"]) == (24, 14, 1.5)  # M20 B4 (supersedes the earlier sweep's pin)
     assert (slv["trail_mult"], slv["tp_r"]) == (4.0, 50.0)
     assert slv["timeframe"] == "1h"
     # 0.0 -> 0.3 floor (2026-08-01, PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE):
