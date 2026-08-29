@@ -82,9 +82,18 @@ _spec.loader.exec_module(_rdm)
 # fvg_range_15m.py and fade_breakout_4h.py, each from its own _DEFAULTS, with no
 # generic reader — so live's effective timeout is INFINITE. Promoting the key to
 # LEVER_FLAG would stop regime_debt_matrix naming it in `omitted_levers` and would
-# UPGRADE mgc_pullback_1d / mhg_pullback_1d (the two legs that declare
-# `timeout_bars: 200`, decoratively) from `approximate` to full fidelity for a key
-# production never reads.
+# UPGRADE any trend/pullback leg declaring the key from `approximate` to full
+# fidelity for a key production never reads.
+#
+# ⚠️ NO ENABLED trend/pullback LEG CARRIES THE KEY ANY MORE (2026-08-29,
+# operator-approved): `mgc_pullback_1d` and `mhg_pullback_1d` declared
+# `timeout_bars: 200` and NOTHING read it -- not the live unit, and not the
+# pullback branch of `m20_fleet_exit_sweep.base_args` either (only its `squeeze`
+# and `fvg` branches emit `--timeout-bars`; verified by calling base_args on both
+# legs with and without the key and diffing the arg list). Both were deleted.
+# The entries below therefore have no carrier today and are DELIBERATELY KEPT:
+# they are what stops a future leg re-declaring the key from tripping the guard
+# as an unclassified gap, and deleting them would make that a silent re-entry.
 #
 # So the key stays UNMODELLED, for a corrected reason: not that the harness cannot
 # model it, but that the harness models an exit the LIVE unit does not have, so

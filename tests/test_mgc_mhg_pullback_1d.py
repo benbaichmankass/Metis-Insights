@@ -24,19 +24,32 @@ import pytest
 import src.runtime.strategy_signal_builders as ssb
 
 
-# Validated WS-A configs (mirror config/strategies.yaml; scripts/backtest_pullback.py
-# mirrors htf_pullback_trend_2h.order_package exactly, so the unit must accept these).
+# Representative WS-A-era configs the unit must ACCEPT. `scripts/backtest_pullback.py`
+# mirrors `htf_pullback_trend_2h.order_package` exactly, so a config the harness ran
+# must not be rejected here.
+#
+# ⚠️ THESE ARE NOT A LIVE MIRROR, and this comment claimed they were until
+# 2026-08-29. They had already drifted: #10419 (M20 B4, Tier-3) moved
+# `mgc_pullback_1d` to `atr_stop_mult: 1.5` / `tp_r: 6.0` that morning and nothing
+# updated these dicts. Read `config/strategies.yaml` for live values — never this
+# file. What these assert is the unit's ACCEPTANCE of the shape, which is
+# value-independent, so the drift never made the test wrong, only its label.
+#
+# `timeout_bars` was dropped from both dicts on 2026-08-29 with the config keys
+# themselves: the pullback unit has no reader for it (nor does the pullback branch
+# of `fleet.base_args`), so carrying it here implied a consumer that does not exist.
+# BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
 _MGC_CFG = {
     "symbol": "MGC", "timeframe": "1d",
     "trend_lookback": 40, "pullback_lookback": 15, "pullback_frac": 0.618,
     "atr_period": 14, "atr_stop_mult": 2.0, "trail_mult": 4.0,
-    "timeout_bars": 200, "tp_r": 50.0, "min_confidence": 0.0,
+    "tp_r": 50.0, "min_confidence": 0.0,
 }
 _MHG_CFG = {
     "symbol": "MHG", "timeframe": "1d",
     "trend_lookback": 40, "pullback_lookback": 15, "pullback_frac": 0.5,
     "atr_period": 14, "atr_stop_mult": 2.0, "trail_mult": 4.0,
-    "timeout_bars": 200, "tp_r": 50.0, "min_confidence": 0.0,
+    "tp_r": 50.0, "min_confidence": 0.0,
 }
 
 

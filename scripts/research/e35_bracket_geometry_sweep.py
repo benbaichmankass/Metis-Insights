@@ -114,14 +114,50 @@ import m20_fleet_exit_sweep as fleet  # noqa: E402
 #                 tracked while being tracked by nobody):
 # BL-20260820-E2-LABEL-BARRIER-DOES-NOT-MATCH-THE-LIVE-EXIT-POLICY
 #   atr_stop_mult live is 2.5 on every leg in scope. Symmetric either side.
-#   timeout_bars  live is the harness default (200 trend/pullback, 48 squeeze);
-#                 the grid reaches well below it because the census records
-#                 timeout as a near-empty exit bucket (5 of 284 on the E0 leg),
-#                 i.e. the current value is far outside the binding region.
+#   timeout_bars  ⚠️ THIS ROW USED TO SAY the harness default is "far outside the
+#                 binding region", citing "5 of 284 on the E0 leg". That was ONE
+#                 leg generalised to the fleet, and it was taken over
+#                 `exit_reason`, which is the exit loop's DEFAULT label and so
+#                 conflates a bar-count exit with running off the end of the
+#                 data. MEASURED 2026-08-29 across this corpus
+#                 (`scripts/research/timeout_binding_audit.py`, 41 legs / 1,588
+#                 graded pairs): the default BINDS on 439 pairs (27.6%) and on
+#                 18 of 41 legs. Write-up:
+#                 docs/research/timeout-bars-harness-vs-live-2026-08-29.md
+#                 BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
+#
+#                 The BASE ARM therefore pins `--timeout-bars` to
+#                 NO_BAR_COUNT_EXIT below, so it matches production. The grid
+#                 points are all TIGHTENINGS of that, which is what they were
+#                 always meant to be.
 # ---------------------------------------------------------------------------
 TP_R_GRID = (1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 6.0)
 STOP_MULT_GRID = (1.5, 2.0, 3.0, 3.5)
 TIMEOUT_GRID = (24, 48, 96, 400)
+
+# The BASE arm's `--timeout-bars`. Live is the reference: no trend/pullback/squeeze
+# unit implements a bar-count exit at all (`timeout_bars` is read only by
+# fvg_range_15m.py and fade_breakout_4h.py, each from its own _DEFAULTS, with no
+# generic reader), so production's effective timeout is INFINITE and a base arm
+# that force-closes at the harness default is not live-parity.
+#
+# ⚠️ 0 IS NOT "NO TIMEOUT" AND MUST NEVER BE USED HERE. Both harnesses compute
+# `exit_idx = min(entry_i + timeout_bars, n - 1)` and loop
+# `range(entry_i + 1, min(entry_i + timeout_bars + 1, n))`, so 0 exits every trade
+# ON ITS OWN ENTRY BAR — silently, with no error. `tests/trend_harness_engine.py`
+# documents the same trap for its own RIDE_TO_TAPE_END constant; that one is 10_000,
+# which is sized for a synthetic ~50-bar tape and is NOT safe here (a 5-year 15m
+# series is ~175,000 bars). This value is a sentinel, not a tuning knob.
+#
+# ⚠️ SCOPED TO THIS SWEEP BY OPERATOR DECISION (2026-08-29). The obvious
+# alternative — flipping the harnesses' own argparse default — was REJECTED:
+# 9 other entry points invoke them without the flag and inherit that default,
+# including scripts/ml/strategy_tune_sweep.py (behind the live
+# /api/bot/strategies/{name}/tune surface) and scripts/research/m20_trail_resweep.py
+# (which grades a LIVE lever), and their sensitivity to it is UNMEASURED.
+# Reverse by deleting the `cell_args(..., NO_BAR_COUNT_EXIT)` wrap at the base-arm
+# call site; nothing else depends on it.
+NO_BAR_COUNT_EXIT = 10**9
 
 # Harness `--timeout-bars` defaults, MEASURED by reading each parser (2026-08-20),
 # not assumed to be shared: backtest_trend.py:982 and backtest_pullback.py:961 are
@@ -422,8 +458,15 @@ def plan_legs(data_dir: Path, only: list[str] | None,
         harness = fleet.FAMILY_HARNESS[fam]
         # A base without data would be a fiction, so it is None and SAYS so
         # rather than being half-built from defaults.
+        # Pin the base arm's bar-count exit to non-binding so it matches
+        # production (see NO_BAR_COUNT_EXIT). Routed through `cell_args`
+        # deliberately: it STRIPS an existing `--timeout-bars` before appending,
+        # so a leg whose config carries one (the squeeze/fvg branches of
+        # `fleet.base_args` emit it) cannot end up with the flag twice.
         base = (None if data is None
-                else fleet.base_args(name, c, fam, data, resample, tp_cap_pct))
+                else cell_args(
+                    fleet.base_args(name, c, fam, data, resample, tp_cap_pct),
+                    None, None, NO_BAR_COUNT_EXIT))
         runnable.append({
             "leg": name, "family": fam, "symbol": sym, "tf": tf,
             "harness": harness, "data": data, "proxy": proxy,
@@ -910,6 +953,34 @@ def _selftest() -> int:
     chk("stop value", a2[a2.index("--atr-stop-mult") + 1], "1.5")
     chk("timeout appended", a2[a2.index("--timeout-bars") + 1], "96")
     chk("tp preserved", a2[a2.index("--tp-r") + 1], "50.0")
+
+    # The BASE ARM must carry a non-binding timeout (NO_BAR_COUNT_EXIT), so the
+    # corpus is measured against production's infinite one rather than the
+    # harness default. Asserted on the REAL wrap used at the call site, and on
+    # a base that ALREADY carries the flag (the squeeze/fvg branches of
+    # fleet.base_args emit it) so the strip-then-append is proven, not assumed.
+    pinned = cell_args(["--data", "d", "--tp-r", "50.0"], None, None,
+                       NO_BAR_COUNT_EXIT)
+    chk("base arm pins timeout", pinned.count("--timeout-bars"), 1)
+    chk("base arm timeout value",
+        pinned[pinned.index("--timeout-bars") + 1], str(NO_BAR_COUNT_EXIT))
+    repinned = cell_args(["--data", "d", "--timeout-bars", "48"], None, None,
+                         NO_BAR_COUNT_EXIT)
+    chk("pre-existing timeout replaced not duplicated",
+        repinned.count("--timeout-bars"), 1)
+    chk("pre-existing timeout value replaced",
+        repinned[repinned.index("--timeout-bars") + 1], str(NO_BAR_COUNT_EXIT))
+    chk("sentinel is never 0 (0 exits on the entry bar)",
+        NO_BAR_COUNT_EXIT > 0, True)
+    chk("sentinel exceeds any real series",
+        NO_BAR_COUNT_EXIT > 1_000_000, True)
+    chk("pinned base reads back as base_args, not harness_default",
+        base_geometry("scripts/backtest_trend.py", pinned)["timeout_source"],
+        "base_args")
+    chk("every grid point now moves the timeout axis",
+        all(axis_of(None, None, g,
+                    base_geometry("scripts/backtest_trend.py", pinned))
+            == "timeout" for g in TIMEOUT_GRID), True)
 
     geo = base_geometry("scripts/backtest_trend.py", base)
     chk("geo tp_r", geo["tp_r"], 50.0)

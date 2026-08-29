@@ -1537,7 +1537,6 @@ strategies:
     atr_period: 14
     atr_stop_mult: 1.5  # M20 B4 bracket geometry: cell tp6_sm1.5 (path_b_wf_pass, wf 4/6); was 2.0
     trail_mult: 4.0
-    timeout_bars: 200
     tp_r: 6.0  # M20 B4 bracket geometry: cell tp6_sm1.5 (path_b_wf_pass, wf 4/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
@@ -1578,7 +1577,6 @@ strategies:
     trail_mult: 3.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight1.5 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 1.5
-    timeout_bars: 200
     tp_r: 50.0
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
