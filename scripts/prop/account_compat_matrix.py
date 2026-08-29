@@ -125,6 +125,13 @@ def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
         risk_pct=unit.risk_pct, base_risk_pct=args.base_risk_pct,
         account_size=unit.account_size_usd, n_paths=args.n_paths,
         block_len=args.block_len, horizons_months=(horizon,), seed=args.seed,
+        # THE LEDGER'S OWN BUILD BALANCE, not this account's size. This tool
+        # scores ONE ledger against EVERY account, so the two are equal only by
+        # coincidence -- and they were, for the prop arm only: breakout_1 is a
+        # $5,000 account and --base-account-size defaults to 5000.0, so the arm
+        # this tool was BUILT for was exact while every standard account (200 /
+        # 305 / 95,542 / 1,342,713) had its R rescaled by built_at/size.
+        ledger_initial_balance=args.base_account_size,
     )
     if unit.kind == "prop":
         ev = run_ev_montecarlo(ledger, unit.ruleset, **common)

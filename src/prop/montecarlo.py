@@ -372,6 +372,7 @@ def run_montecarlo(
     horizons_months: Sequence[float] = (3.0, 6.0, 12.0),
     seed: int = 1234,
     path_trades: Optional[int] = None,
+    ledger_initial_balance: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Run the block-bootstrap survival+speed Monte-Carlo for one combo+sizing.
 
@@ -397,8 +398,19 @@ def run_montecarlo(
     daily_loss_pct = ruleset.limits.daily_loss_pct
     static_dd_pct, dd_model_state = _resolve_terminal_dd_pct(ruleset)
 
+    # ⚠️ The ledger's `pnl` was computed against the balance it was BUILT at,
+    # which is NOT necessarily this account's size. R_k = pnl_k /
+    # (balance_before_k * base_risk_pct/100), so recovering R at a balance the
+    # ledger was not built at rescales EVERY R by roughly built_at/initial_balance
+    # — measured 24.99x at $200 against a $5,000 ledger and 0.052x at $95,542 —
+    # which turns the survival verdict into a function of the account's BALANCE.
+    # Defaults to `acct`, which is correct for a caller that generated the ledger
+    # at the account's own size (validate_alt_prop does) and byte-identical to the
+    # pre-2026-08-29 behaviour for every existing caller.
+    # BL-20260829-COMPAT-MATRIX-RESCALES-R-BY-ACCOUNT-SIZE-SO-THE-VERDICT-TRACKS-BALANCE
+    _ledger_bal = float(ledger_initial_balance) if ledger_initial_balance is not None else acct
     r_seq = ledger_to_r_sequence(
-        closed_trades, initial_balance=acct, base_risk_pct=base_risk_pct
+        closed_trades, initial_balance=_ledger_bal, base_risk_pct=base_risk_pct
     )
     n_trades = len(r_seq)
 
@@ -667,6 +679,7 @@ def run_ev_montecarlo(
     horizons_months: Sequence[float] = (3.0, 6.0, 12.0),
     seed: int = 1234,
     path_trades: Optional[int] = None,
+    ledger_initial_balance: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Cost-aware EV sweep for one combo+sizing.
 
@@ -686,7 +699,18 @@ def run_ev_montecarlo(
     static_dd_pct, dd_model_state = _resolve_terminal_dd_pct(ruleset)
     econ = ruleset.economics
 
-    r_seq = ledger_to_r_sequence(closed_trades, initial_balance=acct, base_risk_pct=base_risk_pct)
+    # ⚠️ The ledger's `pnl` was computed against the balance it was BUILT at,
+    # which is NOT necessarily this account's size. R_k = pnl_k /
+    # (balance_before_k * base_risk_pct/100), so recovering R at a balance the
+    # ledger was not built at rescales EVERY R by roughly built_at/initial_balance
+    # — measured 24.99x at $200 against a $5,000 ledger and 0.052x at $95,542 —
+    # which turns the survival verdict into a function of the account's BALANCE.
+    # Defaults to `acct`, which is correct for a caller that generated the ledger
+    # at the account's own size (validate_alt_prop does) and byte-identical to the
+    # pre-2026-08-29 behaviour for every existing caller.
+    # BL-20260829-COMPAT-MATRIX-RESCALES-R-BY-ACCOUNT-SIZE-SO-THE-VERDICT-TRACKS-BALANCE
+    _ledger_bal = float(ledger_initial_balance) if ledger_initial_balance is not None else acct
+    r_seq = ledger_to_r_sequence(closed_trades, initial_balance=_ledger_bal, base_risk_pct=base_risk_pct)
     n_trades = len(r_seq)
     base = {
         "risk_pct": risk_pct, "base_risk_pct": base_risk_pct, "n_paths": n_paths,
