@@ -136,6 +136,58 @@ facts from coverage, so they are being MEASURED (`yfinance-lane-proof`, D,
 3650 d) rather than assumed. No roster claim rests on this section until that
 run reports.
 
+## AND THE FREE DAILY LANE DELIVERS — measured 2026-08-29
+
+Run [33248184564](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33248184564),
+job 99089175375, `yfinance-lane-proof` D / 3650 d, ref `main@76d14af5`.
+**Population: all 16 candidates. `requested=16 sound=15 unsound_price=1 no_data=0`.**
+
+| sym | last | atr14 | atr% | bars | span (d) |
+|---|---|---|---|---|---|
+| DGZ | 4.83 | 0.2936 | 6.078% | 2511 | 3648 |
+| RWM | 13.41 | 0.1214 | 0.906% | 2511 | 3648 |
+| EUM | 15.62 | 0.2236 | 1.431% | 2511 | 3648 |
+| DOG | 21.28 | 0.1386 | 0.651% | 2511 | 3648 |
+| TBF | 25.18 | 0.2271 | 0.902% | 2511 | 3648 |
+| PSQ | 25.65 | 0.2857 | 1.114% | 2511 | 3648 |
+| TBX | 28.74 | 0.1136 | 0.395% | 2511 | 3648 |
+| SEF | 29.26 | 0.2264 | 0.774% | 2511 | 3648 |
+| SCHX | 30.41 | 0.1871 | 0.615% | 2511 | 3648 |
+| SH | 32.25 | 0.2021 | 0.627% | 2511 | 3648 |
+| SCHA | 34.77 | 0.3757 | 1.081% | 2511 | 3648 |
+| IAUM | 45.93 | 0.7430 | 1.618% | **1295** | **1883** |
+| TQQQ | 73.30 | 2.4471 | 3.339% | 2511 | 3648 |
+| **SPLG** | 87.48 | — | — | **1** | **0** |
+| QLD | 91.38 | 2.0364 | 2.229% | 2511 | 3648 |
+| VTWO | 121.21 | 1.0357 | 0.854% | 2511 | 3648 |
+
+**~10 years of daily history (2511 bars / 3648 d) for 14 of the 16**, on the
+free lane, with no map edit and no new vendor.
+
+**Every one is affordable at one share** under the measured `$200 × 0.9 = $180`
+cash wall — the dearest is VTWO at $121.21. That is the *opposite* of the
+constraint that priced 7 of the 16 existing `alpaca_live` legs out.
+
+### The two exceptions, kept apart
+
+- **`SPLG` reproduced its known scar** — `UNSOUND(thin 1b; stale 43d)`, one bar,
+  as_of 2026-07-17. **Do not size from it.** This is the lane's own positive
+  control that "sound" is a real grade and not a rubber stamp.
+- **`IAUM` is PARTIAL, and that is the fund's age, not a lane failure** — 1883 d
+  of a 3650 d request. The job flagged it (`obtained < 80%`) rather than letting
+  a short window read as a complete one. Still `sound`; just 5.2 y deep.
+
+⚠️ **THIS IS A DAILY RESULT AND DOES NOT TRANSFER TO 1h.** yfinance's ~730 d
+intraday cap is untouched by any of the above, and Dukascopy carries none of
+these tickers. An **hourly** leg on any of these 16 still has no free deep lane.
+
+⚠️ **AND DEPTH IS NOT TRADE COUNT.** The binding scarcity in the exit work is
+OOS *trades*, not bars — `exit-refinement-coverage.json` has a median OOS base
+of 33 with 94.7% of rows under 50. A daily leg trades far less often than an
+hourly one, so 10 y of daily bars can still land under `MIN_OOS_TRADES = 25`.
+Depth removes one blocker; it does not remove that one, and no candidate is a
+"winner" until its own OOS trade count is measured.
+
 ## What would make this a genuine new-source question
 
 *(Written before the probe ran; the trigger it names has now FIRED — Dukascopy does not carry
