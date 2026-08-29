@@ -105,3 +105,55 @@ The `$200` account cannot currently carry either candidate under its own
 ruleset. That is a real result, not a blocker to route around — and it makes
 the go-live question *"what size does this account need, or what does a leg
 need to look like to fit it?"* rather than *"which of these two do we wire?"*.
+
+
+---
+
+## Extension: three more legs, and the granularity hypothesis is REFUTED
+
+I hypothesised the refusal was **share granularity** — one whole share of a
+dear instrument being a huge slice of a $200 book — and tested it on two
+cheaper symbols rather than asserting it.
+
+| leg | emitted n | `alpaca_live` | `alpaca_portfolio` (paper) |
+|---|---|---|---|
+| `tqqq_trend_long_1d` (TQQQ $73.30) | 8 | skip · surv **0.4997** | ROUTE · ret 6.9% |
+| `slv_trend_1h` (SLV $62.77) | 109 | skip · surv **0.0** | ROUTE · ret 3.0% |
+| `gld_pullback_1h` (GLD $422.60) | 124 | skip · surv **0.001** · ret 26.8% | ROUTE · ret 3.2% |
+| `scha_trend_long_1d` (SCHA $34.77) | 12 | skip · surv **0.172** · ret −14.8% | **skip** · ret −0.8% |
+| `tlt_pullback_1d` (TLT $83.13) | not read | skip | **skip — FLAGGED** |
+
+**The hypothesis does not survive its own test.** Survival against
+`alpaca_live` runs 0.4997 (TQQQ, dearest but one, 1 share) · 0.172 (SCHA,
+cheapest, 5 shares) · 0.001 (GLD, dearest) · 0.0 (SLV, 2 shares). There is **no
+monotone relationship with share price or share count**, and the emitted-ledger
+sizes differ by more than an order of magnitude (8 / 12 / 109 / 124), which
+moves a Monte-Carlo survival on its own. So "buy cheaper shares and it will fit"
+is **not** supported by this data and must not be carried forward as if it were.
+
+## What IS supported: two DIFFERENT failure modes, and they need different answers
+
+- **Size-bound (TQQQ · SLV · GLD).** Positive mean end-return on every account;
+  every paper book ROUTEs; both real-money books breach with P=1.0. These legs
+  work and the $200/$305 accounts cannot carry them.
+- **Return-bound (SCHA · TLT).** Negative mean end-return on **every** account
+  including the $82k–$1.34M paper books. Nothing about account size saves these
+  — they simply do not clear a positive-return bar anywhere.
+
+Conflating the two would be the expensive mistake: funding the account higher
+fixes the first group and does nothing for the second.
+
+## ⚠️ A genuine Tier-3 flag the run raised on its own
+
+**`tlt_pullback_1d` IS in `alpaca_portfolio`'s roster and that account's own
+ruleset REJECTS it** (measured against its real $95,542.76 balance, not a
+default). The workflow's own words: *"a paper book trading a strategy its own
+ruleset rejects — a genuine Tier-3 flag: consider whether to keep the routing."*
+
+`scha_trend_long_1d` also skips there but is **not** in that roster, so it is
+not a flag — it is in `alpaca_paper`'s 19-leg roster, which is the data-only
+soak book that deliberately trades the full instrument set to accrue ML data.
+Those two cases must not be reported the same way.
+
+**No config edit is proposed here.** De-routing `tlt_pullback_1d` from
+`alpaca_portfolio` is Tier-3 and the operator's call.
