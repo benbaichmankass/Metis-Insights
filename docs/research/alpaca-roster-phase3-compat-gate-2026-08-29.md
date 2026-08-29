@@ -28,18 +28,25 @@ Gate for a standard account: positive mean end-return **AND** survival ≥ 0.9
 [33249723196](https://github.com/benbaichmankass/Metis-Insights/actions/runs/33249723196)
 (SLV), fee 0 bps, 730 d, ref `830154ba`.
 
+**Population of every cell below:** one Monte-Carlo over the leg's own emitted
+ledger, scored against that account's ruleset at its live balance. TQQQ =
+**8 emitted trades**; the SLV emit count is on the run's own summary line and I
+did not read it back, so it is not quoted here. `ret` is the mean end-return
+over the simulated paths, `P(b)` the breach probability, `surv` the horizon
+survival — **all three are the same population**, and the gate reads all three.
+
 | account | class | `tqqq_trend_long_1d` | `slv_trend_1h` |
 |---|---|---|---|
 | **`alpaca_live`** | **real_money** | **skip** — ret 94.5%, P(breach) **1.0**, surv **0.4997** | **skip** — ret 40.7%, P(breach) **1.0**, surv **0.0** |
 | `bybit_2` | real_money | **skip** — ret 48.2%, P(breach) 1.0, surv 0.4997 | **skip** — ret 13.7%, P(breach) 1.0, surv 0.0 |
 | `ib_live` | real_money | UNGRADED (balance unreadable) | UNGRADED |
 | `alpaca_portfolio` | paper | ROUTE — 6.9%, P(b) 0.0, surv 1.0 | ROUTE — 3.0%, P(b) 0.0, surv 1.0 |
-| `alpaca_paper` | paper | ROUTE — 6.0% | ROUTE — 2.6% |
-| `alpaca_options_paper` | paper | ROUTE — 4.9% | ROUTE — 2.1% |
-| `bybit_1` | paper | ROUTE — 2.8% | ROUTE — 1.2% |
-| `bybit_portfolio` | paper | ROUTE — 5.3% | ROUTE — 2.3% |
-| `ib_paper` | paper | ROUTE — 0.4% | ROUTE — 0.2% |
-| `oanda_practice` | paper | ROUTE — 4.9% | ROUTE — 2.1% |
+| `alpaca_paper` | paper | ROUTE — ret 6.0%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.6%, P(b) 0.0, surv 1.0 |
+| `alpaca_options_paper` | paper | ROUTE — ret 4.9%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.1%, P(b) 0.0, surv 1.0 |
+| `bybit_1` | paper | ROUTE — ret 2.8%, P(b) 0.0, surv 1.0 | ROUTE — ret 1.2%, P(b) 0.0, surv 1.0 |
+| `bybit_portfolio` | paper | ROUTE — ret 5.3%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.3%, P(b) 0.0, surv 1.0 |
+| `ib_paper` | paper | ROUTE — ret 0.4%, P(b) 0.0, surv 1.0 | ROUTE — ret 0.2%, P(b) 0.0, surv 1.0 |
+| `oanda_practice` | paper | ROUTE — ret 4.9%, P(b) 0.0, surv 1.0 | ROUTE — ret 2.1%, P(b) 0.0, surv 1.0 |
 | `breakout_1` | prop | skip — EV −$45, P(net>0) 0.0 | ROUTE — EV $1,040, P(net>0) 0.8983 |
 
 ## The finding: BOTH candidates are refused on `alpaca_live`, and the reason is size
@@ -50,8 +57,9 @@ split on strategy — it split on account size.** The paper books hold $82k–$1
 `as_of 2026-08-29T11:01:03Z`).
 
 ⚠️ **Read the end-return beside the survival, never alone.** `alpaca_live` shows
-the **highest** mean end-return in the whole table (94.5% on TQQQ) *and* a
-survival of 0.4997 with P(breach) 1.0. Those are not in tension — they are the
+the **highest** mean end-return of the 11 accounts scored (94.5% on TQQQ, over
+that leg's 8-trade emitted ledger) *and* a survival of 0.4997 with
+P(breach) 1.0 over the same paths. Those are not in tension — they are the
 same fact: at one whole share of a $73.30 instrument on a $200 book, a single
 position is ~37% of the account, so the paths that survive compound hard and the
 rest breach. A mean end-return read on its own would have said this is the best
