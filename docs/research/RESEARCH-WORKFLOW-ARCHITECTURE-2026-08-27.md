@@ -226,14 +226,24 @@ trained on columns only that 24/7 capture produces; its manifest says that witho
 microstructure side-stream *"the columns are 0.0 and this collapses to the v2 head."*
 Reading "a runner trained a model" as "the trainer is disposable" inverts what was shown.
 
-**The question R6 replaces itself with, and it is an operator call, not a measurement:**
-**where does the order-flow capture live if the trainer does not?** It needs 87 MB of RAM
-and 0.37 % of a core — it does not need *this* VM, it needs *an* always-on host.
-**Recommendation: do not retire the trainer until that is decided** — doing so silently
-ends the one data stream nothing can reproduce. ⚠️ The trainer disk is at **92 % (42 G used of 45 G,
+**The question R6 replaced itself with — ✅ ANSWERED 2026-08-29, it was an operator call
+and the operator made it.** The question was *where does the order-flow capture live if the
+trainer does not?* (87 MB of RAM, 0.37 % of a core — not *this* VM, but *an* always-on host).
+**Decision: keep the trainer, for the capture, `"in the meantime"`** — recorded as
+option (c) of the retired `OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED`: kept *as a stated
+decision rather than by default*, and **interim, not permanent**. Full record:
+[`R6-VM-RESIDENCY-VERDICT-2026-08-28.md` § 8](R6-VM-RESIDENCY-VERDICT-2026-08-28.md).
+So the standing recommendation *"do not retire the trainer"* is now a **decision**, not a
+pending caveat — but note what that changes: the box is load-bearing **by choice**, which
+raises the stakes on the two findings below rather than closing them. ⚠️ The trainer disk is at **92 % (42 G used of 45 G,
 3.9 G free — one `df -h` reading, not a trend)** and a full disk stalls that capture
 *silently*, since nothing monitors it —
-both filed (`BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE`, `BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED`).
+both filed (`BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE`, `BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED`)
+and both now ride `OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED` (`loud`, re-observed every 3 days).
+⚠️ **Re-measured 2026-08-29 (relays #10422 + #10423): the capture is ALIVE and WRITING** — `datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl`
+at `17:30:00Z` against a same-command `date -u` of `17:30:17Z`; disk still 3.8 G free / 92 %. ⚠️ **That path is the canonical one and is worth copying rather than guessing:**
+the first probe assumed `runtime_logs/orderflow/`, which does not exist, and its empty result was **byte-identical to a dead capture** — separable only because the
+second probe carried a positive control (88 files in the same window). A monitor keyed on the wrong path pages forever or never.
 
 ---
 

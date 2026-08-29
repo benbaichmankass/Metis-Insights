@@ -225,3 +225,74 @@ state and reclaiming the pool.
 **Recommendation: do not retire the trainer on this evidence.** Decide the capture's
 home first. Retiring the box before that silently ends the one data stream nothing else
 can reproduce — and § 6.1 says the disk may force the question sooner than a plan would.
+
+---
+
+## 8. 🟢 DECIDED — the operator answered it (2026-08-29)
+
+§ 7 handed the operator a question and called it *"an operator call, not a
+measurement"*. It has been answered:
+
+> **"we can keep the training in the meantime. That's the recommendation."**
+> — operator, 2026-08-29
+
+That is **option (c)** of `OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED`'s
+`clears_when`: *the trainer is kept for this purpose as a stated decision rather
+than by default*. The distinction that row exists to protect is preserved — the
+box is retained **deliberately, for a named reason**, not left alone because
+nobody got round to retiring it.
+
+**Scope: interim.** *"In the meantime"* is not *"permanently"*. Reclaiming the
+1 OCPU / 6 GB remains available whenever the capture has somewhere else to live;
+what is settled is that it does not get retired *first*.
+
+### 8.1 The capture was re-measured the same hour, not carried forward
+
+§ 2's evidence was a day old, and § 6.1 warned the disk could answer the question
+by accident. Two read-only relays (#10422, #10423):
+
+| | measured 2026-08-29 |
+|---|---|
+| data freshness | `datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl` modified **17:30:00Z** against a same-command `date -u` of **17:30:17Z** — 17 s before the reference clock, on the 5m bar boundary |
+| process | PID 728, **91.6 MB** RSS, `active` since 2026-07-15 (45 days) |
+| capture size | 5.9 MB total |
+| disk | 42 G / 45 G, **3.8 G free, 92 %** — unchanged from § 6.1 |
+
+Freshness is read the way § 2 insists on: **a fresh row's timestamp against a
+clock from the same command**, never the unit reporting `active`.
+
+### 8.2 The path is written down here because guessing it produced a false negative
+
+The first probe looked in `runtime_logs/orderflow/`. **That directory does not
+exist**, so the freshness check returned *nothing* — and nothing is
+**byte-identical to a dead capture**. The only reason it was not reported as one
+is that the second probe carried a **positive control**: 88 files modified in the
+same 2 h window, proving the `-newermt` probe worked and that its silence on the
+capture was the *path*, not the *stream*.
+
+This is § 4's finding recurring one level down. There it was `du` answering a
+question about processes; here it was a path assumption answering a question
+about liveness. **The canonical output path is
+`datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl`** — from the
+unit's own `ExecStart --out`, which is the authority. Any monitor built for
+§ 6.2 must key on *that* path, and must be shown to fire against planted
+staleness; one built on the wrong path pages forever or never.
+
+Note also what does **not** work as a signal: `journalctl -u
+ict-orderflow-capture` returns `-- No entries --` over 3 h on a **healthy**
+capture, so an empty journal cannot distinguish healthy from wedged either.
+
+### 8.3 What the decision does NOT settle
+
+Keeping the box **raises** the stakes on § 6's two findings rather than closing
+them, because the system now depends on the trainer by decision rather than by
+inertia:
+
+- **Nothing monitors the capture** (`BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED`).
+- **The disk is at 92 %**, and the capture writes into `datasets-out/` — *inside*
+  the 28 G repo tree that is itself the full disk (`BL-20260829-TRAINER-DISK-92-PCT-THREATENS-THE-UNBACKFILLABLE-CAPTURE`).
+  The tree that fills the disk and the stream that dies when it fills are the
+  same tree.
+
+Both now ride `OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED`
+(`loud`, re-observed every 3 days), which replaces the decision row.

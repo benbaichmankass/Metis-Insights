@@ -211,3 +211,107 @@ Four merges today (#10393, #10408, #10411, #10416) went through with **no
 `🔒 MERGE SLOT CLAIM`** and the audit workflow caught every one. Real lapses,
 owned on board #6927. #10412, #10419 and #10420 were claimed properly, with the
 board tail read to its actual end (proven by a short page, not by N-items-back).
+
+---
+
+## PART 3 — the operator decides the order-flow capture's home (same session)
+
+### Objective
+
+Record an operator decision correctly, and verify the thing it commits us to.
+
+`OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED` was `loud: true` and the only
+thing standing between the current state and reclaiming the trainer's
+1 OCPU / 6 GB. The operator answered it:
+
+> *"we can keep the training in the meantime. That's the recommendation. Just
+> make sure that everything is logged correctly and wrapped up correctly."*
+
+That is **clears_when option (c)** exactly — *the trainer is kept for this
+purpose as a stated decision rather than by default*. Interim, not permanent.
+
+### Why this was not a one-line edit
+
+The row's own `why_it_cannot_be_closed_by_time` said the failure mode is *"a full
+disk stalling the capture silently"*. Recording *"keep the trainer"* while the
+box sits at 92 % full (42 G used of 45 G, 3.8 G free) with **nothing monitoring the
+capture** would satisfy the row on
+paper and leave the stream we just chose to preserve undefended. So the decision
+was recorded **and** the dependency re-measured, in the same hour rather than
+inherited from R6's day-old reading.
+
+### The false negative, and the control that caught it
+
+The first read-only relay (#10422) probed `runtime_logs/orderflow/` and returned
+**nothing** — no directory listing, no recent `.jsonl`, no size.
+
+**That result is byte-identical to a dead capture,** and reporting it as one was
+the available mistake. It was not made, because the repo's own rule applies
+directly: *a search returning nothing is not proof of absence; show the probe can
+find a positive first.* A second relay (#10423) carried a **positive control** —
+`find -newermt '-2 hours'` across the tree — which returned **88 files**. The
+probe worked; the silence was the *path*.
+
+The real path comes from the unit's own `ExecStart --out`, which is the
+authority:
+
+```
+datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl
+```
+
+| | measured 2026-08-29 |
+|---|---|
+| freshness | modified **17:30:00Z** vs same-command `date -u` **17:30:17Z** — 17 s before the reference clock, on the 5m bar boundary |
+| process | PID 728, 91.6 MB RSS, `active` 45 days |
+| disk | 42 G / 45 G, **3.8 G free, 92 %** (unchanged) |
+
+This is R6 § 4's finding recurring one level down: there, `du` answered a
+question about *processes*; here, a **path assumption** answered a question about
+*liveness*. Also recorded because it looks like a signal and is not:
+`journalctl -u ict-orderflow-capture` returns `-- No entries --` over 3 h **on a
+healthy capture**, so an empty journal cannot separate healthy from wedged
+either.
+
+### A second finding, found while acting on the first
+
+`CLAUDE.md` instructed every session that `OPEN-ITEMS.json` *"is capped at 12 rows
+and `open-items-guard` enforces that … adding a row means clearing one"*.
+
+**The guard sets `MAX_ITEMS = None`.** The cap was removed by operator direction
+on **2026-08-26** — three days before — with the reasoning written into the guard:
+a cap on a register of *known problems* just deletes knowledge.
+
+Stale in the dangerous direction: it tells a session to **evict a valid row**
+to satisfy a rule nothing checks. Not hypothetical — this session was reasoning
+from it (*"cap is 12, we're at 10, so clearing one and adding one keeps us at
+10"*) before reading the guard. **Field beats comment**; `CLAUDE.md` corrected.
+
+### A near-miss worth recording: I clobbered the register's serialisation
+
+The first write of `OPEN-ITEMS.json` used `json.dump(indent=2)`. The file is
+`indent=1`, so a 1-row change produced **152 insertions / 150 deletions** — the
+exact serialisation-clobber that `scripts/ops/backlog_append.py` exists to
+prevent, reproduced by hand on the register that tool does *not* cover.
+
+Reverted, then redone with a **byte-exact round-trip assertion before writing**:
+parse → re-serialise → `assert == original`, and only then apply the edit. Final
+diff **10 insertions / 8 deletions**. The assertion is the part worth copying —
+it makes the clobber impossible rather than noticed afterwards.
+
+### Shipped
+
+- `OI-20260829-ORDERFLOW-CAPTURE-HOME-UNDECIDED` **cleared** via option (c),
+  replaced by `OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED`
+  (`loud`, `kind: monitoring`, `check_every_days: 3` — **chosen, not measured**:
+  two free-space readings a day apart are two points, not a fill-rate trend).
+- R6 verdict doc **§ 8** — the decision, the re-measurement, the canonical path.
+- Architecture doc + `ROADMAP.md` M40 — R6's open question marked answered.
+- `CLAUDE.md` — the cap claim corrected.
+
+### What the decision does NOT settle
+
+Keeping the box **raises** the stakes on both open findings, because the trainer
+is now load-bearing *by decision* rather than by inertia: nothing monitors the
+capture, and it writes into `datasets-out/` — **inside** the 28 G repo tree that
+*is* the 92 % disk. The tree that fills the disk and the stream that dies when it
+fills are the same tree.
