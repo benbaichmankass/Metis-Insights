@@ -1,5 +1,3 @@
-m20 exit-lever sweep corpus — run 32025100663
-Opt-in marker for claude-pr-automerge.yml. NOTE: a push made
-with GITHUB_TOKEN does not start workflows, so this file is
-NOT read on this path — it is written so the branch is ready
-the moment a credential that CAN trigger it exists.
+m20 exit-lever sweep corpus — run 33248507062
+Touching this file is the opt-in signal for claude-pr-automerge.yml;
+its contents are ignored.
