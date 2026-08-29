@@ -25802,6 +25802,33 @@
       "resolution_criteria": "Establish WHY SPLG emits zero: re-run the emit with the candle frame dumped (row count, first/last bar, NaN share) and compare against SPY's over the identical window - that single artifact separates a data problem from a filter problem. THEN either (a) fix the cause and show a non-zero emitted ledger plus a compat verdict for splg_trend_long_1d, or (b) remove it from the alpaca_live candidate roster with the zero-emit measurement recorded as the reason. Explicitly NOT sufficient: re-running the same workflow and getting the same 0, or reasoning about SPLG's liquidity without reading the frame the harness actually received.",
       "evidence": "Run 33255577584 / job 99108556940 (SPLG, 0 emitted, no_compat_json) vs run 33252282572 (SPY, n=8, ROUTE both accounts) - same harness/timeframe/feed/fee/window, both on head 4f8ec829. Candidate roster recovered via `git show 624d8841^:config/accounts.yaml` (16 legs). IAUM control: run 33255583501, n=10, ROUTE.",
       "found_by": "session-59rk7c (closing compat evidence over the alpaca_live candidate roster)"
+    },
+    {
+      "id": "BL-20260829-PROP-RISK-GATE-PROMISED-A-SOAK-ROW-AND-WROTE-NOTHING",
+      "title": "prop_risk_gate's MODE block documented an annotate-mode soak row since 2026-08-25; the module was 318 lines with no file write of any kind, so the Tier-3 `enforce` decision had zero evidence behind it",
+      "severity": "high",
+      "tier": "1 (observability — no order path; the gate's DECISION is untouched)",
+      "status": "resolved",
+      "opened_at": "2026-08-29T16:30:00+00:00",
+      "opened_by": "/system-review 2026-08-29",
+      "resolved_at": "2026-08-29T16:45:00+00:00",
+      "source": "/system-review 2026-08-29 — read the module while assessing the prop cushion flag",
+      "why_it_matters": "breakout_1 sat $55.00 from its $4,700 static-DD floor on the day this was found (down from $64.00 at the 08-25 review that BUILT this module), with distance_to_daily_loss_usd null. `enforce` is Tier-3 and the operator is meant to decide it by reading what the gate WOULD have done. There was nothing to read: no soak file, and no diag allowlist entry. Every sibling *_MODE gate (netting_attribution, protection_reassert, cash_settlement, exit_lever) writes a row AND registers a read surface; the gate guarding the one account that can be PERMANENTLY DISABLED had neither. This is the 4th recurrence of BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE and the 2nd of the exit_loop_health #8778 shape (a writer shipped without its reader). Verified by grep, not inference: 'soak' appeared exactly once in the file, in the docstring that claimed it.",
+      "resolution_criteria": "record_ticket_risk_soak() appends one row per graded ticket to runtime_logs/prop_ticket_risk_soak.jsonl; `off` writes nothing; an unknown cushion is null and never 0.0; `annotated` (the effect) is recorded separately from `global_mode` (the request); prop_ticket_risk_soak is on diag._LOG_FILES in the SAME commit as the writer; the writer cannot raise into render_ticket. All six asserted in tests/test_prop_risk_gate_soak.py.",
+      "next_action": "PR #10414 open. After merge+deploy the row is only half-closed: the SOAK must actually accrue. First exercise = a prop ticket rendered with account_id set while mode != off. Until then the capability is shipped-but-unexercised and belongs in review_coverage.unexercised_fixes."
+    },
+    {
+      "id": "BL-20260829-TRADES-CLOSED-RETURNS-A-CONFIDENT-EMPTY-LIST-FOR-AN-UNPARSEABLE-SINCE",
+      "title": "/api/bot/trades/closed?since=<unparseable> returns [] — indistinguishable from 'no trades in the window', with no filter_state to say the filter was dropped",
+      "severity": "medium",
+      "tier": "1 (read path)",
+      "status": "open",
+      "opened_at": "2026-08-29T16:30:00+00:00",
+      "opened_by": "/system-review 2026-08-29",
+      "source": "/system-review 2026-08-29 — found while probing the window",
+      "why_it_matters": "datetime('garbage') is NULL in SQLite, so `close_time >= datetime(?)` is NULL for every row and the route returns []. A caller cannot tell a dropped filter from an empty window. This is precisely the shape the repo already fixed ONE endpoint over: /api/bot/db/table/{name} carries a never-collapsed `filter_state` (applied / not_requested / ignored_unknown_column / ...) because BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN showed a silently-ignored filter returning a confident total. /trades/closed has no equivalent. Its consumers include analysis sessions that cannot see the query they got — the same argument that route's row makes. ⚠️ Population note, because it is how this was found and it cuts both ways: my FIRST probe reported 'every since= value returns 0 rows', which was wrong — I had passed limit=500 over the documented MAX_LIMIT=200, got an HTTP 422, and my own parser rendered the error body as 0 rows. The real defect is narrower than the first reading and was only isolated by adding a no-since control.",
+      "resolution_criteria": "The route distinguishes an APPLIED since-filter from a DROPPED one — either by returning a never-collapsed state alongside the rows (the db_explorer filter_state shape, registered with collapsed-state-guard) or by rejecting an unparseable since with a 400 rather than serving []. A test asserts an unparseable since is not reported the same way as an empty window.",
+      "next_action": "Decide the shape with the operator: the route returns a bare JSON array today, so adding a state field is a wire-shape change for the dashboard + Android clients, whereas a 400 is not. The 400 is probably right (a malformed timestamp is a caller bug), but it is a contract change either way."
     }
   ]
 }

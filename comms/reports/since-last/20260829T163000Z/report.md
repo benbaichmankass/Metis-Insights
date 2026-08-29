@@ -1,0 +1,55 @@
+# System report — since-last
+
+- Generated: 2026-08-29T16:30:00+00:00
+- Window: 2026-08-25T09:25:00+00:00 → 2026-08-29T16:06:00+00:00
+- Roll-up grade: investigate
+
+Real money moved +$1.46 across 6 closed trades - flat, and the lifetime journal is -$26.42 against a broker-truth -$262.52 for bybit_2 alone. The loudest item is unchanged and now on its THIRD review: the prop account sits $55.00 from the floor that permanently kills it, with its daily-loss distance unmeasured. The genuine win this window is the alert channel: the two floods that were 84.5% of 9 days of ERROR+ both stopped on 08-26 and the channel fell ~60/day to ~9/day.
+
+## P&L by class
+- **real**: window +$1.46 (prior +$7.39, flat)
+- **paper**: window +$813.07 (prior +$259,278.37, unreliable)
+- **prop**: window — (prior —, —)
+
+## Operator priorities
+-. Decide PROP_TICKET_RISK_GATE_MODE - breakout_1 is $55 from a permanent kill — Equity $4,755 on a $5,000 account against a $4,700 static-DD floor; cushion thinned $64 (08-25) -> $55 (today). distance_to_daily_loss_usd is null (day_pnl_state 'realized_unreported'), so the OTHER account-killer is unmeasured. The gate is at the default `annotate`: it prints a caveat and does NOT cap the suggested size. Flipping to `enforce` is yours. PR #10414 makes the evidence exist for the first time.
+-. Trainer disk 91.7% (4.03 GB free) and the GC is not the remedy — Measured 08-20 the GC reclaims 0.09 GB of 115 version dirs (111 pinned by 41 manifests). A full disk stops dataset builds and training cycles while systemd still reads green. Needs a retention decision or a bigger volume, not another GC run.
+-. Trainer cycles are running but training nothing — Last cycle: trained 0, refusals 9, outcome complete_with_refusals, rc=0. Six manifests refusing for 24h. Green service, no output.
+-. The pairs sleeve strands a leg on bybit_1 repeatedly - 35 cleanups in 9 days — bybit_1 is one-way netting, so a market-neutral leg opposite a directional position reduces it instead of opening a book. BYBIT_HEDGE_MODE_SYMBOLS exists and is empty by design; arming it is Tier-3. Its live legs also carry placeholder geometry (SL = 2x entry, TP = entry/2), so 'pairs_stop' is not a risk stop.
+-. Merge PR #10414 so the prop gate's soak starts accruing — Until it merges and deploys, every ticket graded by the gate leaves no record.
+
+## Review coverage
+- Strategy promotion: —
+- ML training health: —
+- Soak `prop ticket risk gate`: DID NOT EXIST — Documented since 08-25, never written. PR #10414 creates it. Accrual starts at merge+deploy.
+- Soak `exit_interval_soak (M20 exit loop)`: accruing and HEALTHY — 997 intervals / 4 processes: mean 29,978 ms, MAX 34,240 ms, 0 over the 60 s requirement (15.8 s margin, improved from 15.0 s at 08-25).
+- Soak `shadow model fleet`: accruing but NOT draining — 29 of 96 registry models at shadow, 3 advisory. No promotion proposed this window.
+- Soak `exposure_soak`: accruing — Read 200 rows. Not the binding item this window.
+- Soak `cash_settlement_soak`: accruing — A concurrent session shipped its Monday timer (#10412) mid-review. Deliberately NOT assessed here to avoid collision.
+- Execution capture: — (dollars reconciled: True)
+  - `ict_scalp_mgc_15m` [—]: round-trip —, giveback —R, hold 47.76/0.25h → anomaly
+  - `qqq_pullback_1h` [—]: round-trip —, giveback —R, hold 193.70/20.00h → anomaly
+  - `tlt_pullback_1d` [—]: round-trip —, giveback —R, hold 721.18/120.00h → degraded
+  - `iwm_trend_long_1d` [—]: round-trip —, giveback —R, hold 553.97/120.00h → degraded
+  - `pairs_sol_eth_a/b` [—]: round-trip —, giveback —R, hold —/—h → anomaly
+  - 🔴 `ict_scalp_mgc_15m|paper`: held 10-100x design horizon (open 4 review(s), BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON) ⚠️ ESCALATE
+  - 🔴 `ict_scalp_5m|paper`: held 10-100x design horizon (open 4 review(s), BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON) ⚠️ ESCALATE
+  - 🔴 `qqq_pullback_1h|paper`: median hold 9.7x its budget (open 2 review(s), BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON) ⚠️ ESCALATE
+  - 🔴 `<fleet>|all`: only 8.3% of closes exit via a declared bracket (open 4 review(s), BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT) ⚠️ ESCALATE
+  - 🔴 `pairs_*|paper`: leg stranded on open, cleaned by a janitor path (open 2 review(s), BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN) ⚠️ ESCALATE
+- 🚩 PROP IS $55.00 FROM THE LINE THAT PERMANENTLY KILLS IT - THIRD CONSECUTIVE REVIEW. breakout_1 equity $4,755.00 against the $4,700.00 static-DD floor on a $5,000 account (1.1% of the account). The cushion has thinned $64.00 (08-25) -> $55.00 (today). distance_to_daily_loss_usd is null (day_pnl_state 'realized_unreported'), so the second account-killer is UNMEASURED. PROP_TICKET_RISK_GATE_MODE is still the default `annotate`: it prints a caveat and does NOT cap the suggested size. Tier-3, operator's call.
+- 🚩 SHIPPED-AND-UNWIRED: the prop_risk_gate annotate-mode soak row. src/prop/prop_risk_gate.py has promised since 2026-08-25 that at `annotate` 'a soak row is written'; it was 318 lines with no file write of any kind ('soak' appeared exactly once, in that docstring). So the Tier-3 `enforce` decision on an account $55 from permanent death had nothing to be decided on. Fixed this session in PR #10414 — writer + diag allowlist entry in the same commit + 6 tests. 4th recurrence of BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE.
+- 🚩 THE TRAINER RAN AND TRAINED NOTHING. last_cycle {trained: 0, refusals_total: 9, outcome 'complete_with_refusals', rc: 0} with 6 manifests in refusing_manifests_24h. rc=0 and a green service, so no existing mechanism alerts on a cycle that produces no model.
+- 🚩 TRAINER DISK 91.7% (4.03 GB free), warning banner live, and the documented GC is NOT the remedy (measured 08-20: 0.09 GB reclaimable of 115 version dirs, 111 pinned by 41 manifests).
+- 🚩 THE PAIRS SLEEVE STRANDS A LEG REPEATEDLY - 35 pairs_half_open cleanups in 9 days (30 SOL/ETH, 5 BNB/BTC). Its live bybit_1 legs carry placeholder geometry, not risk levels (ETHUSDT sell entry 2446.68, SL 4893.36 = 2x entry, TP 1223.34 = entry/2), so 'pairs_stop' is not a risk stop.
+- 🚩 8.3% OF THE WINDOW'S CLOSES CAME FROM A DECLARED BRACKET (10 of 120: tp 3 + sl 7). 34 reconciler, 76 'other' (janitor + sleeve paths). Same structural shape the 08-25 review measured fleet-wide.
+- 🚩 ML OUTPUT IS PRODUCING_BUT_UNUSED. The ML training fleet ran 2 cycles in the window and trained ZERO models (last_cycle trained: 0, refusals_total: 9, rc: 0), while 29 of 96 registry models sit at shadow influencing nothing and none was proposed for promotion. A green trainer service reports none of that.
+- 🚩 TWO FIXES REMAIN UNEXERCISED and are therefore unproven, not working. (a) #10174 IB transmit fix (a stop trail must not drop the target): this window finally produced IB closes (4796, 5007) and trade 5007 DID trail and exit sl_cross at +$3,417 — but OCA cancels the sibling target on a stop fill either way, so a stop exit cannot show the target survived. Settles only on an IB trade that trails and then exits on its TARGET. (b) the prop_risk_gate annotate-mode soak row, written this session in PR #10414, awaiting merge+deploy.
+- 🚩 EXECUTION-CAPTURE ANOMALIES OPEN ACROSS MULTIPLE REVIEWS (anti-normalisation escalation): 'ict_scalp_mgc_15m|paper' 4 reviews (held 47.76 h on a 15-minute leg, 191x); 'ict_scalp_5m|paper' 4 reviews; '<fleet>|all' 4 reviews (only 8.3% of closes exit via a declared bracket); 'qqq_pullback_1h|paper' 2 reviews (193.70 h against a ~20 h budget); 'pairs_*|paper' 2 reviews (35 half-open cleanups in 9 days). All five are Tier-3 exit-lever or sleeve decisions sitting with the operator.
+
+## Monitoring (soaking / awaiting decision)
+- `BL-20260823-IB-TRAILING-A-STOP-SILENTLY-DROPPED-THE-TARGET` [health · awaiting-data] #10174. Two IB closes landed this window (4796, 5007). 5007 trailed its stop and exited sl_cross (+$3,417) - OCA cancels the target on a stop fill either way, so it still does not settle whether the target SURVIVES a trail. The live MES book showing both legs resting is the strongest evidence yet but is not the mechanism. (next: an IB trade that trails and then exits on its TARGET)
+- `BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON` [performance · awaiting-decision] Still true this window: ict_scalp_mgc_15m held 47.8 h (a 15-minute leg), qqq_pullback_1h 193.7 h, tlt_pullback_1d 721.2 h. (next: a time/stall exit lever declared on a live leg (Tier-3))
+- `BL-20260820-TRAINER-DISK-THRESHOLDS-UNCALIBRATED` [health · awaiting-decision] 4.03 GB free, inside the 5.0 GB warning band, above the 2.0 GB alert. Both thresholds are CHOSEN, not calibrated. (next: a retention decision or a larger volume)
+
+_report_id RPT-20260829-163000-since-last_
