@@ -213,12 +213,40 @@ jobs:
                     "account's OWN ruleset at the stated cost — it confirms existing routing where the "
                     "roster already carries the strategy, and is evidence FOR routing where it does not. "
                     "It is not itself a routing decision."]
-          else:
-              L += [f"## ⭐ `alpaca_portfolio`: **{ap.get('verdict')}** (does NOT route) for `{strat}` — FLAG.",
+          elif ap.get("verdict") == "UNGRADED":
+              # UNGRADED is "we could not establish what to measure against", NOT "it failed".
+              # Conflating them is the defect Lane P (#10364) removed from the EVALUATOR, and this
+              # summary used to re-introduce it -- under a Tier-3 de-routing suggestion, which is
+              # what a human actually acts on. Backlog row:
+              # BL-20260829-GLD-COMPAT-SUMMARY-CALLS-UNGRADED-A-REJECTION-AND-ITS-STANDARD-ARM-IS-INERT-ON-A-RUNNER
+              _st = ap.get("size_state") or "unresolved"
+              _why = ap.get("size_reason") or "no reason recorded"
+              L += [f"## ⭐ `alpaca_portfolio`: **UNGRADED** for `{strat}` — this is NOT a rejection.",
                     "",
-                    f"`{strat}` is {roster_note}. If it IS in the roster, this is a paper book trading a "
-                    "strategy its own ruleset rejects — a genuine Tier-3 flag: consider whether to keep "
-                    "the routing."]
+                    f"`{strat}` is {roster_note}. **UNGRADED means the gate could not be COMPUTED — "
+                    "it does NOT mean the account's ruleset rejects the strategy.** Those are different "
+                    "verdicts, and conflating them is exactly the defect Lane P removed from the "
+                    "evaluator.",
+                    "",
+                    f"Missing input: account size is `{_st}` ({_why}).",
+                    "",
+                    "**No routing conclusion follows in either direction.** This is not evidence for "
+                    "keeping the routing and not evidence against it. Fix the input and re-run — do "
+                    "not read it as a pass or a fail.",
+                    "",
+                    "⚠️ On a GitHub runner this is the EXPECTED state unless a balance source is "
+                    "supplied: there is no journal DB here, so `load_balance_snapshots()` returns "
+                    "`None` and every standard account resolves `unreadable`. The fix is to give the "
+                    "runner real balances (available unauthenticated from `/api/bot/accounts/balances`) "
+                    "— NOT to restore the synthetic $10,000 default, which is the fabricated size Lane P "
+                    "removed."]
+          else:
+              L += [f"## ⭐ `alpaca_portfolio`: **{ap.get('verdict')}** (measured — does NOT clear) for `{strat}` — FLAG.",
+                    "",
+                    f"`{strat}` is {roster_note}. This verdict WAS computed against the account's real "
+                    "size and did not clear its ruleset. If the strategy IS in the roster, that is a "
+                    "paper book trading a strategy its own ruleset rejects — a genuine Tier-3 flag: "
+                    "consider whether to keep the routing."]
           L += ["", f"**No config edit is made by this run.** Routing/de-routing `{strat}` on an "
                 "account is a Tier-3 config/accounts.yaml decision the operator owns."]
           print("\n".join(L))
