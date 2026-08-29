@@ -117,6 +117,55 @@ that will trade at the live account's, because position sizing is the thing that
 `BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS` (roster mismatch) with a *sizing*
 mismatch on the legs it does mirror. **Filed as `BL-20260829-ALPACA-MIRROR-DOES-NOT-MIRROR-RISK-PCT`.**
 
+### 3.2 The consequence: the ceiling's only proposed basis does not transfer
+
+This is not a side-observation — it lands directly on STEP 1, and it is derived from the code
+rather than assumed.
+
+`src/units/accounts/risk.py::_size_unbounded`:
+
+```
+risk_usdt = balance_usdt * risk_pct
+raw_qty   = risk_usdt / (risk_distance * cvu)
+```
+
+so `notional = qty × entry × cvu` and
+
+```
+exposure_multiple = notional / equity = risk_pct × entry / risk_distance
+```
+
+**Equity cancels: the multiple is LINEAR in `risk_pct`.** And that is exactly the quantity the
+ceiling governs — `RiskManager.gross_exposure()` returns `(open_notional, equity, exposure_multiple)`,
+with `max_gross_exposure_pct` declared against it.
+
+The go-live row's 2026-08-25 update proposed the mirrors' **1.8422 min / 1.8569 median / 2.0062 max**
+as STEP 1's basis, because the live account's own soak is flat by construction. But that
+distribution was measured on books declaring `risk_pct` **0.02**, while `alpaca_live` declares
+**0.05** — 2.5×. The same signals on the live account therefore *demand*
+
+> **≈ 4.6 – 5.0×** gross exposure, not 1.85 – 2.01×.
+
+**So a ~2.0 ceiling taken from the mirror would clamp essentially every trade on the live book** —
+which [`gross-exposure-governance-DESIGN.md`](../design/gross-exposure-governance-DESIGN.md) § 6
+names as *worse than no ceiling* (a ceiling below normal operation silently throttles correctly-sized
+trades). The mirror's basis and the live account's `risk_pct` cannot both stand.
+
+⚠️ **Three honest bounds on that inference.** (i) It scales *demand*; **whole-share flooring is a
+hard non-linearity at $200** and floors small orders to zero, so the *filled* multiple would be
+lower and lumpier than linear — which is the same finding as
+`BL-20260826-ALPACA-LIVE-AT-200-USD-CANNOT-SIZE-ITS-LARGEST-SYMBOLS`, not a contradiction of it.
+The linear argument is the right one for choosing a ceiling on a *funded* account, where flooring
+stops binding. (ii) The mirror's roster differs by 2 of 16 legs, so aggregate concurrency is not
+identical. (iii) I did **not** re-measure the live book's multiple — it cannot be measured while
+the account is `dry_run` and flat, which is the original chicken-and-egg.
+
+**This collapses into the § 5 plan rather than adding to it:** row 2 (declare the bound) and row 3
+(reconcile `risk_pct`) are one decision, because the only available basis for row 2 is measured at
+the `risk_pct` row 3 is about. Either `alpaca_live` comes down to the mirrors' rate — and the
+1.85–2.01× basis becomes valid as-is — or the ceiling must be derived at 0.05, and the mirrors
+cannot supply it.
+
 ---
 
 ## 4. The concern I am obliged to state once
