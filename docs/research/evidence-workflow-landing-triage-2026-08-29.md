@@ -137,7 +137,9 @@ exactly one bucket, with a reason.
 - **R1 for the 10 (a) workflows** — each needs a *declared store and schema* before any assertion
   is meaningful. That is the operator-decided ordering, unchanged.
 - **(c)** — no run-history evidence gathered; § 2 says what would settle it.
-- **The stale-inventory problem itself** (§ 1). The fix is a script, not a better-typed list.
+- ~~**The stale-inventory problem itself** (§ 1). The fix is a script, not a better-typed list.~~
+  **CLOSED later the same session — see § 5.** Left struck through rather than deleted, so this
+  section still reads as the state at the time the classification was made.
 
 ---
 
