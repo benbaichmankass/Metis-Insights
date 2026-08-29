@@ -473,8 +473,11 @@ _LOG_FILES: dict[str, Path] = {
     #     suggested SIZE is unchanged.
     # Registered in the SAME commit as its writer — a gate on the one account
     # that can be PERMANENTLY DISABLED, whose evidence cannot be inspected, is
-    # the `exit_loop_health` #8778 shape (BL-20260825-ALERT-AND-CADENCE-STATE-
-    # FILES-SHIP-WITHOUT-A-READ-SURFACE), and this is its fourth recurrence.
+    # the `exit_loop_health` #8778 shape, and this is the fourth recurrence of
+    # BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE.
+    # (The id is kept on ONE line deliberately: check_backlog_refs.py reads a
+    # line-wrapped id as a reference resolving to NOTHING, which is what a
+    # 'tracked by BL-X' that tracks nobody looks like to that guard.)
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
