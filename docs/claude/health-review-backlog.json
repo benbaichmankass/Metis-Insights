@@ -27326,6 +27326,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "RE-CONFIRMED AND IT IS THE REASON I CANNOT ANSWER THE QUESTION THAT MATTERS. I have three point readings — 93-94% (08-20), 91% (08-25), 91.7% (08-29) — and no rate, because the figure is recomputed into a file that is overwritten. So 'how long until the disk is full' is structurally unanswerable, and that is the number the orderflow-capture risk depends on. Same durable-soak fix as exit_interval_soak. Live re-measurement 2026-08-29: trainer at 91.7% used / 4.03 GB free of 48.28 GB, warning banner firing. ⚠️ This review RAISED the priority of the trainer-disk cluster after reading BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a full disk stops the ONE data stream that cannot be re-derived."
+        },
+        {
+          "at": "2026-08-29T20:52:00+00:00",
+          "by": "/system-review 2026-08-29 (trainer-vm-diag #10433)",
+          "disposition": "kept_open",
+          "note": "PARTIAL ANSWER, and it does NOT refute this row — read the two carefully, they are different quantities. This row is correct that the DISK-FREE series is discarded (latest-only trainer_status.json, nothing appends), so the NET fill rate remains unknowable and the row stays open on that. But one CONTRIBUTOR's accrual turns out to be recorded durably in a place nobody looked: `ml/experiments-runs/<model_id>/<run_id>/` run dirs carry a YYYYMMDD prefix IN THE DIRECTORY NAME, so the creation series is on disk and survives every restart. MEASURED 2026-08-29 (trainer-vm-diag #10433). POPULATION: the 23 consecutive days 2026-08-07..2026-08-29 inclusive — 1,562 run dirs, 68/day on 21 days and 67 on two (08-27, 08-29); min 67, max 68, i.e. FLAT, not a trend. Tree size 4,848 MiB over 5,554 run dirs = 0.873 MiB/dir, so 67.9 dirs/day = ~59.3 MiB/day. Against 3.8 GiB free that is ~66 days from this contributor ALONE. TWO THINGS THIS IS NOT. (1) It is NOT the net fill rate: the nightly rebuild rewrites market_features IN PLACE, so within-cycle the disk falls and recovers, and the net figure needs the accumulated free series this row is about. (2) The 0.873 MiB/dir mean is TREE-WIDE over all 5,554 dirs, not measured on the 1,562 recent ones, so the daily figure assumes recent dirs are average-sized — an assumption, not a measurement. TRANSFERABLE: `exposure_soak.jsonl` is the remedy this row cites, and the same trick applies here without building anything — where a producer already stamps a timestamp into a PATH, the series exists and only needs reading."
         }
       ]
     },
@@ -28691,6 +28697,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "RE-CONFIRMED AND IT IS THE ACTIONABLE HALF OF THE DISK PROBLEM: 11 G of market_features holding SEVEN pinned versions is not garbage, so no GC can touch it — the decision is which versions to unpin. That is a retention POLICY question for the operator, which is exactly how this review escalated it. Live re-measurement 2026-08-29: trainer at 91.7% used / 4.03 GB free of 48.28 GB, warning banner firing. ⚠️ This review RAISED the priority of the trainer-disk cluster after reading BL-20260829-ORDERFLOW-CAPTURE-IS-IRREPLACEABLE-AND-UNMONITORED: a full disk stops the ONE data stream that cannot be re-derived."
+        },
+        {
+          "at": "2026-08-29T20:52:00+00:00",
+          "by": "/system-review 2026-08-29 (trainer-vm-diag #10433)",
+          "disposition": "kept_open",
+          "note": "CORRECTION — part (a) of this row's own resolution_criteria is understated by 3.2x, and the correction is in the direction that MATTERS (more reclaim, not less). This row says the CUDA waste is \"libcublasLt.so.13 at 630MB and libtriton.so at 473MB ... ~1.1G in two files\". That counted TWO FILES; the measurement is of the PACKAGE TREES. Measured 2026-08-29 via trainer-vm-diag #10433, `du -x -d 1 -m .venv/lib/python3.11/site-packages`: nvidia 2875 MiB + triton 652 MiB = 3527 MiB = 3.44 GiB, with torch a further 435 MiB (a CPU-only torch wheel is materially smaller, so part of that is reducible too). STATE THE POPULATION: one `du` reading of one venv on the trainer, 2026-08-29T20:46Z, ondisk_sha 2ed2f211. WHY IT MATTERS: free space is 3.8 GiB, so this single action would take the box to ~7.2 GiB free — it roughly DOUBLES headroom (1.9x) and is the only item on the disk that is both large and carries no retention-policy question, because the machine is a 1-OCPU aarch64 Ampere VM with no GPU and these libraries cannot execute on it at all. NOT YET DONE and deliberately not done blind: torch/onnxruntime import paths must be shown to still work after the swap, since `transformers` (119 MiB) and `onnx`/`onnxruntime` are installed beside it and something may import torch at CPU inference time. The check is `python3 -c 'import torch; print(torch.__version__, torch.cuda.is_available())'` before and after."
         }
       ]
     },
