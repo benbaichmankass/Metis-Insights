@@ -223,6 +223,7 @@ verify-the-source-before-you-build.
 | Fee/commission headroom | `scripts/research/ws_a_s3b_fee_breakeven.py` |
 | **Per-account** routing compatibility (mandatory before live routing) | `scripts/prop/account_compat_matrix.py` |
 | Would the R4 research→results gate PASS/BLOCK/ABSTAIN a live leg on **measured** (not fabricated) PnL? (observe-only, P0) | `scripts/research/research_results_gate_report.py` (logic: `src/runtime/research_results_gate.py`) |
+| **Was this leg's verdict measured under an exit production does not have?** Compares the harness's bar-count force-close (`timeout_bars`, default 200 trend/pullback, 48 squeeze — **no live unit for those families implements one**) against a relaxed arm at identical geometry, per leg. Grades `clean` (default provably inert ⇒ the base arm IS live-parity), `contaminated`, or `no_power` — never `clean` off silence alone | `scripts/research/timeout_binding_audit.py` (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`) |
 
 ## 10. Sweep orchestrators
 
