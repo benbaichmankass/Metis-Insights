@@ -110,9 +110,55 @@ passed, so a failure is most likely base-branch; verify that before assuming.
 the night. `e35-bracket-sweep.yml`, `workflow_dispatch`, `only=""` (every runnable leg),
 defaults otherwise (`days=1830`, `gate_top=2`, `singles_only=false`, `max_parallel=6`).
 **Done when:** the run completes and its per-leg artifacts are collected.
-**⚠️ Do not overwrite `docs/research/e35-bracket-corpus.jsonl` in place.** Write the new
-rows beside it; N7 needs both to diff. The committed corpus is the ONLY durable copy of
-3,781 measured cells (`BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH`).
+
+⚠️ **CORRECTED 2026-08-29T20:57Z — this row previously said "do not overwrite
+`docs/research/e35-bracket-corpus.jsonl` in place; write the new rows beside it". THAT
+INSTRUCTION IS UNENFORCEABLE and following it would have wasted time at 03:00.** The
+workflow's corpus job **unions into that file IN PLACE** — run #5's own commit message
+reads `corpus …/e35-bracket-corpus.jsonl: 2204 -> 2219 rows (15 added, 15 superseded)`.
+Rows sharing a `measurement_key` are **superseded**, which is exactly the "before" state
+N7 needs.
+
+⚠️ **RE-CORRECTED 2026-08-29T22:05Z, AND THE FIRST CORRECTION WAS WRONG IN THE SAME WAY
+IT WARNS ABOUT.** It said the job "commits+pushes to the ref it ran on", and concluded
+that "the sweep runs on `main`, so its corpus commit lands as a child of `a986ac3` and
+the before/after pair is a plain two-sha diff". **Both halves are false for a `main`
+dispatch, which is the dispatch this plan actually made.**
+
+I read run #5's commit message and generalised from it — but **run #5 was dispatched from
+a BRANCH**, where no retarget happens. That is the wrong case to generalise from, and it
+is the identical error the § 6 lesson below names: checking what the tooling does *in one
+observed case* is not checking what it does *in yours*.
+
+**What the job actually does on a default-branch dispatch:** it cannot push to `main`
+(protection refuses a bare commit, GH006), so it **RETARGETS**. Until PR #10440 that
+target was the constant branch `claude/e35-bracket-corpus`, which has **diverged**
+(3,625 branch-only commits vs 57 default-only; not an ancestor of `main`), so the push is
+a non-fast-forward and is **rejected** — and the retry loop rebases into a conflict in the
+corpus file itself and re-pushes the same rejection. Three attempts, `exit 1`.
+
+**That is exactly what happened.** Run 33274767713 swept all 41 legs, produced 42 green
+artifacts, and **discarded every row at the final step**. Run 32783849276 did the same on
+2026-08-24. ⚠️ `BL-20260826-E35-CORPUS-BRANCH-STRANDED-1629-MEASURED-CELLS-AND-CANNOT-ACCEPT-NEW-PUSHES`
+had already recorded the mitigation — *"dispatch the e35 sweep from a WORKING BRANCH,
+never `main`"* — and I did not read it before dispatching.
+
+**Git still solves the diff, and the baseline still stands** (it was named before the
+sweep could commit, which is why the failure cost no evidence):
+
+> **N7's BEFORE = `git show a986ac3:docs/research/e35-bracket-corpus.jsonl`**
+> Measured at that sha: **8,211 rows · 8,211 unique `measurement_key` (zero duplicates)
+> · 41 legs · 8,199 `measured` + 12 `inert_equals_base`.**
+> Still exactly correct — the failed run changed nothing.
+
+**AFTER** is the corpus on **`claude/e35-resweep-n2`**, the working branch the sweep was
+re-dispatched from at ~22:02Z. On a branch dispatch there is no retarget, so the rows land
+on that branch directly. Also posted on board #6927 at 20:57Z so the baseline survives
+this file.
+
+⚠️ The committed corpus is still the ONLY durable copy of the measured cells
+(`BL-20260823-E35-SWEEP-EVIDENCE-HAS-NO-DURABLE-PATH`) — which is *why* the before-sha
+must be named rather than assumed recoverable.
 
 ### N3 — B10: the `bracket_geometry` staleness detector · Tier 1
 The gap that let the matrix carry 8 cells as `passed_unshipped` while they were live on
@@ -159,7 +205,12 @@ first. `tlt_pullback_1h` and `uso_trend_1h` are CLEAN; `mhg_pullback_1d` is CLEA
 **ungraded on that axis — which is not the same as clean.**
 
 ### N7 — D2 deliverable: the old-vs-new verdict diff · Tier 1
-**Gated on N2.** Produce and commit the per-leg, per-cell verdict diff.
+**Gated on N2.** Produce and commit the per-leg, per-cell verdict diff, **BEFORE =
+`git show a986ac3:docs/research/e35-bracket-corpus.jsonl`** (8,211 rows / 41 legs), AFTER
+= the corpus on **`claude/e35-resweep-n2`** once the re-dispatched sweep's commit lands
+(**not** `main` — see N2's re-correction: a `main` dispatch retargets and, before #10440,
+lost its rows). The file is unioned in place, so the diff is a two-sha comparison, not
+two files.
 **Run the CLEAN-leg control FIRST** (§ 0): 23 legs must reproduce identically. State the
 control's result before any other number.
 **⚠️ Applying any resulting verdict change to `config/strategies.yaml` is Tier-3 and is
@@ -206,6 +257,21 @@ or that live behaviour changed. None of that is autonomous.
 - **A negative needs a denominator.** Never grade `clean` off silence; show the probe can
   find a positive.
 - **Verify a merge by reading `origin/main`**, never off the merge event.
+- **Never push to a branch armed for auto-merge** — a new head SHA strands the arm and
+  invalidates its CI. A follow-up PR is the way (this correction is one).
+- **A plan instruction can be unenforceable.** N2's original "write the rows beside it"
+  described behaviour the workflow does not have. Check what the tooling actually does
+  before writing an instruction that depends on it — reading run #5's commit message cost
+  one minute and would have cost a confused hour at 03:00.
+- ⚠️ **…and then check it for YOUR case.** The fix above was itself wrong: run #5 was a
+  BRANCH dispatch, so generalising its behaviour to a `main` dispatch described a code
+  path that does not run. One observed case is not the contract. Read the branch of the
+  `if` you are actually taking.
+- **A mitigation that lives only in a resolved row's prose is a mitigation nothing
+  enforces.** `BL-20260826-E35-CORPUS-BRANCH-STRANDED-1629-MEASURED-CELLS-AND-CANNOT-ACCEPT-NEW-PUSHES`
+  said "never dispatch from
+  `main`"; I dispatched from `main` and lost a 43-minute sweep. PR #10440 makes the
+  instruction unnecessary instead of louder.
 
 ---
 
